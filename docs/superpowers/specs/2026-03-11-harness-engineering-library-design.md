@@ -71,6 +71,117 @@ Measure success through:
 
 ---
 
+## Core Design Decisions
+
+### Error Handling Strategy
+
+All APIs use a consistent `Result<T, E>` pattern for error handling:
+
+```typescript
+type Result<T, E = Error> =
+  | { ok: true; value: T }
+  | { ok: false; error: E }
+
+// Example usage
+validateAgentsMap(path: string): Result<ValidationSuccess, ValidationError>
+
+// Pattern allows:
+const result = validateAgentsMap('./AGENTS.md')
+if (!result.ok) {
+  console.error(result.error.message)
+  return
+}
+console.log(result.value.coverageReport)
+```
+
+**Error types for each module**:
+- Context Engineering: `ValidationError`, `IntegrityError`, `CoverageError`
+- Architectural Constraints: `DependencyError`, `CircularDependencyError`, `BoundaryError`
+- Agent Feedback: `AgentSpawnError`, `TelemetryError`, `ReviewError`
+- Entropy Management: `DriftError`, `PatternError`, `DeadCodeError`
+
+All errors include:
+- `code`: Machine-readable error code
+- `message`: Human-readable description
+- `details`: Structured data about the error
+- `suggestions`: Actionable fix suggestions (for agents)
+
+### Integration Contracts
+
+#### Telemetry Integration
+
+The core library provides an adapter interface for observability:
+
+```typescript
+interface TelemetryAdapter {
+  getMetrics(service: string, timeRange: TimeRange): Result<Metric[], TelemetryError>
+  getTraces(service: string, traceId?: string): Result<Trace[], TelemetryError>
+  getLogs(service: string, filter: LogFilter): Result<LogEntry[], TelemetryError>
+}
+
+// Built-in adapters
+class OpenTelemetryAdapter implements TelemetryAdapter { ... }
+class NoOpAdapter implements TelemetryAdapter { ... } // For projects without telemetry
+
+// Users can provide custom adapters
+configureTelemetry(adapter: TelemetryAdapter)
+```
+
+#### Agent Execution Interface
+
+Agents are spawned via a plugin-based system:
+
+```typescript
+interface AgentExecutor {
+  spawn(config: AgentConfig): Promise<Result<AgentProcess, AgentSpawnError>>
+  status(processId: string): Promise<Result<AgentStatus, AgentError>>
+  kill(processId: string): Promise<Result<void, AgentError>>
+}
+
+type AgentConfig = {
+  type: 'review' | 'cleanup' | 'enforce' | 'custom'
+  context: ReviewContext | CleanupContext | EnforceContext | object
+  skills?: string[] // Skills to load
+  timeout?: number
+}
+
+// Built-in executors
+class SubprocessExecutor implements AgentExecutor { ... } // Run as subprocess
+class CloudExecutor implements AgentExecutor { ... } // Call agent service API
+```
+
+#### Static Analysis Abstraction
+
+To support multiple languages, AST parsing is abstracted:
+
+```typescript
+interface LanguageParser {
+  parseFile(path: string): Result<AST, ParseError>
+  extractImports(ast: AST): Import[]
+  extractExports(ast: AST): Export[]
+  extractTypes(ast: AST): TypeDefinition[]
+}
+
+// Language-specific parsers
+class TypeScriptParser implements LanguageParser {
+  // Uses @typescript-eslint/parser
+}
+class PythonParser implements LanguageParser {
+  // Uses Python's ast module via subprocess
+}
+class GoParser implements LanguageParser {
+  // Uses go/parser via subprocess
+}
+
+// Register parsers
+registerParser('typescript', new TypeScriptParser())
+registerParser('python', new PythonParser())
+```
+
+This allows the core library (TypeScript) to analyze other languages by delegating to language-specific parsers.
+
+---
+
 ## Design Section 1: Project Structure & Organization
 
 The harness-engineering project is a **unified monorepo** using pnpm workspaces and Turborepo for build orchestration.
@@ -296,23 +407,59 @@ packages/core/
 
 ```typescript
 // Validate AGENTS.md structure
-validateAgentsMap(path: string): ValidationResult
+validateAgentsMap(path: string): Result<ValidationSuccess, ValidationError>
+
+type ValidationSuccess = {
+  valid: true
+  sections: AgentMapSection[]
+  linkCount: number
+}
+
+type ValidationError = {
+  code: 'PARSE_ERROR' | 'SCHEMA_VIOLATION' | 'MISSING_SECTION'
+  message: string
+  details: { line?: number; section?: string }
+  suggestions: string[]
+}
 
 // Check documentation coverage for a domain
-checkDocCoverage(domain: string): CoverageReport
+checkDocCoverage(domain: string): Result<CoverageReport, CoverageError>
+
+type CoverageReport = {
+  domain: string
+  documented: string[] // List of documented files
+  undocumented: string[] // Files missing from docs
+  coveragePercentage: number
+  gaps: DocumentationGap[]
+}
 
 // Ensure knowledge map integrity (no broken links)
-validateKnowledgeMap(): IntegrityReport
+validateKnowledgeMap(): Result<IntegrityReport, IntegrityError>
+
+type IntegrityReport = {
+  totalLinks: number
+  brokenLinks: BrokenLink[]
+  validLinks: number
+  integrity: number // 0-100%
+}
 
 // Generate AGENTS.md from code structure
-generateAgentsMap(config: AgentsMapConfig): string
+generateAgentsMap(config: AgentsMapConfig): Result<string, GenerationError>
+
+type AgentsMapConfig = {
+  rootDir: string
+  includePaths: string[] // Glob patterns
+  excludePaths: string[]
+  template?: string // Custom template path
+}
 ```
 
 **Implementation approach**:
-- Parse AGENTS.md and validate against schema (Zod)
-- Check all links resolve to actual files
-- Analyze code structure and compare against documented knowledge map
+- Parse AGENTS.md and validate against Zod schema
+- Check all links resolve to actual files (fs.existsSync)
+- Analyze code structure via LanguageParser interface
 - Generate coverage reports showing documentation gaps
+- All operations return Result types for consistent error handling
 
 ### Module 2: Architectural Constraints (`constraints/`)
 
@@ -322,23 +469,65 @@ generateAgentsMap(config: AgentsMapConfig): string
 
 ```typescript
 // Define architectural layers
-defineLayer(name: string, dependencies: string[]): Layer
+defineLayer(name: string, dependencies: string[]): Result<Layer, LayerError>
+
+type Layer = {
+  name: string
+  allowedDependencies: string[]
+  modules: string[] // Files in this layer
+}
 
 // Validate dependency graph
-validateDependencies(graph: DependencyGraph): ValidationResult
+validateDependencies(config: LayerConfig): Result<DependencyValidation, DependencyError>
+
+type LayerConfig = {
+  layers: Layer[]
+  rootDir: string
+  parser: LanguageParser // Abstracted for multi-language support
+}
+
+type DependencyValidation = {
+  valid: boolean
+  violations: DependencyViolation[]
+  graph: DependencyGraph
+}
+
+type DependencyViolation = {
+  file: string
+  imports: string
+  reason: 'WRONG_LAYER' | 'CIRCULAR_DEP' | 'FORBIDDEN_IMPORT'
+  suggestion: string
+}
 
 // Boundary parsing with Zod
 createBoundarySchema<T>(schema: ZodSchema<T>): BoundaryParser<T>
 
+type BoundaryParser<T> = {
+  parse: (input: unknown) => Result<T, BoundaryError>
+  validate: (input: unknown) => Result<boolean, BoundaryError>
+}
+
 // Check for circular dependencies
-detectCircularDeps(modules: Module[]): CircularDependency[]
+detectCircularDeps(modules: Module[]): Result<CircularDepReport, CircularDepError>
+
+type CircularDepReport = {
+  found: boolean
+  cycles: CircularDependency[]
+  graph: DependencyGraph
+}
+
+type CircularDependency = {
+  cycle: string[] // Path of the cycle
+  severity: 'error' | 'warning'
+}
 ```
 
 **Implementation approach**:
-- Use AST parsing (`@typescript-eslint/parser`) to analyze import statements
-- Build dependency graph and validate against defined architectural rules
-- Detect circular dependencies using graph algorithms
-- Provide Zod-based boundary validation for runtime type safety
+- Use LanguageParser interface (supports TS via @typescript-eslint/parser, Python/Go via subprocesses)
+- Build dependency graph and validate against Layer definitions
+- Detect circular dependencies using Tarjan's algorithm
+- Zod-based boundary validation ensures type safety at module edges
+- All operations return Result types
 
 ### Module 3: Agent Feedback (`feedback/`)
 
@@ -348,23 +537,79 @@ detectCircularDeps(modules: Module[]): CircularDependency[]
 
 ```typescript
 // Agent self-review workflow
-createSelfReview(changes: CodeChanges): ReviewChecklist
+createSelfReview(changes: CodeChanges): Result<ReviewChecklist, ReviewError>
 
-// Request peer review from specialized agent
-requestPeerReview(agent: AgentType, context: ReviewContext): Promise<Review>
+type ReviewChecklist = {
+  items: ReviewItem[]
+  passCount: number
+  failCount: number
+  warnings: string[]
+}
 
-// Access telemetry for debugging
-getTelemetry(service: string, timeRange: TimeRange): TelemetryData
+type ReviewItem = {
+  check: string
+  passed: boolean
+  details: string
+  suggestion?: string
+}
+
+// Request peer review from specialized agent (uses configured AgentExecutor)
+requestPeerReview(
+  agentType: AgentType,
+  context: ReviewContext
+): Promise<Result<Review, AgentSpawnError>>
+
+type AgentType = 'architecture-enforcer' | 'documentation-maintainer' | 'test-reviewer'
+
+type ReviewContext = {
+  files: string[]
+  diff: string
+  commitMessage: string
+  metadata: Record<string, unknown>
+}
+
+type Review = {
+  approved: boolean
+  comments: ReviewComment[]
+  suggestions: string[]
+  agentId: string
+  duration: number
+}
+
+// Access telemetry (uses configured TelemetryAdapter)
+getTelemetry(
+  service: string,
+  timeRange: TimeRange,
+  filter?: TelemetryFilter
+): Promise<Result<TelemetryData, TelemetryError>>
+
+type TelemetryData = {
+  metrics: Metric[]
+  traces: Trace[]
+  logs: LogEntry[]
+  timestamp: string
+}
 
 // Agent observability - log agent actions
-logAgentAction(action: AgentAction): void
+logAgentAction(action: AgentAction): Result<void, LogError>
+
+type AgentAction = {
+  type: 'review' | 'enforce' | 'cleanup' | 'generate'
+  agentId: string
+  timestamp: string
+  context: object
+  result: 'success' | 'failure' | 'partial'
+  duration: number
+}
 ```
 
 **Implementation approach**:
-- Integrate with OpenTelemetry for telemetry access
-- Provide structured logging for agent actions (audit trail)
-- APIs to spawn review agents (via subprocess or API calls)
-- Checklist generation based on harness engineering principles
+- Uses pluggable TelemetryAdapter (OpenTelemetryAdapter, NoOpAdapter, or custom)
+- Uses pluggable AgentExecutor (SubprocessExecutor, CloudExecutor, or custom)
+- Structured logging via configured logger (console, file, or custom)
+- Checklist generation based on harness engineering validation rules
+- All async operations return Promise<Result<T, E>> for error handling
+- Configuration via `configureAgentFeedback({ telemetry, executor, logger })`
 
 ### Module 4: Entropy Management (`entropy/`)
 
@@ -374,23 +619,88 @@ logAgentAction(action: AgentAction): void
 
 ```typescript
 // Detect doc drift - docs that don't match implementation
-detectDocDrift(): DriftReport
+detectDocDrift(config: DriftConfig): Result<DriftReport, DriftError>
+
+type DriftConfig = {
+  docsDir: string
+  codeDir: string
+  parser: LanguageParser
+}
+
+type DriftReport = {
+  drifts: DocumentationDrift[]
+  severity: 'high' | 'medium' | 'low'
+  suggestions: string[]
+}
+
+type DocumentationDrift = {
+  file: string
+  docPath: string
+  issue: 'OUTDATED' | 'MISSING' | 'INCORRECT'
+  details: string
+}
 
 // Find pattern violations - code that deviates from standards
-findPatternViolations(rules: Pattern[]): Violation[]
+findPatternViolations(
+  rules: Pattern[],
+  config: PatternConfig
+): Result<PatternViolationReport, PatternError>
+
+type Pattern = {
+  name: string
+  matcher: (file: string, ast: AST) => boolean
+  description: string
+  severity: 'error' | 'warning'
+}
+
+type PatternViolationReport = {
+  violations: Violation[]
+  totalChecked: number
+  passRate: number
+}
 
 // Dead code detection
-detectDeadCode(): DeadCodeReport
+detectDeadCode(config: DeadCodeConfig): Result<DeadCodeReport, DeadCodeError>
 
-// Auto-fix common issues
-autoFixEntropy(report: EntropyReport): FixResult
+type DeadCodeConfig = {
+  entryPoints: string[]
+  rootDir: string
+  parser: LanguageParser
+}
+
+type DeadCodeReport = {
+  unusedFiles: string[]
+  unusedExports: Export[]
+  unusedImports: Import[]
+  estimatedImpact: number // Lines of code that can be removed
+}
+
+// Auto-fix common issues (with Zod validation of changes)
+autoFixEntropy(
+  report: EntropyReport,
+  options: FixOptions
+): Result<FixResult, FixError>
+
+type FixOptions = {
+  dryRun: boolean
+  autoCommit: boolean
+  fixTypes: ('unused-imports' | 'format-drift' | 'doc-sync')[]
+}
+
+type FixResult = {
+  filesChanged: string[]
+  linesRemoved: number
+  issuesFixed: number
+  remainingIssues: number
+}
 ```
 
 **Implementation approach**:
-- Combine static analysis (AST parsing) with file system analysis
-- Compare documentation to actual code structure
-- Detect unused exports, imports, functions
-- Auto-fix simple issues (remove unused imports, format drift, etc.)
+- Uses LanguageParser interface for multi-language support
+- AST-based dead code detection (tracks usage from entry points)
+- Compare docs to code structure, detect inconsistencies
+- Auto-fix with Zod validation ensures changes are safe
+- All operations return Result types
 
 ### Module 5: Validation (`validation/`)
 
@@ -400,20 +710,61 @@ autoFixEntropy(report: EntropyReport): FixResult
 
 ```typescript
 // Validate file structure matches conventions
-validateFileStructure(conventions: Convention[]): ValidationResult
+validateFileStructure(
+  conventions: Convention[],
+  rootDir: string
+): Result<StructureValidation, StructureError>
 
-// Type-safe config validation
-validateConfig<T>(config: unknown, schema: ZodSchema<T>): T
+type Convention = {
+  pattern: string // Glob pattern
+  required: boolean
+  description: string
+  examples: string[]
+}
+
+type StructureValidation = {
+  valid: boolean
+  missing: string[] // Required files/dirs that don't exist
+  unexpected: string[] // Files that violate conventions
+  conformance: number // 0-100%
+}
+
+// Type-safe config validation (using Zod)
+validateConfig<T>(
+  config: unknown,
+  schema: ZodSchema<T>
+): Result<T, ConfigError>
+
+type ConfigError = {
+  code: 'INVALID_TYPE' | 'MISSING_FIELD' | 'VALIDATION_FAILED'
+  message: string
+  details: z.ZodError // Zod's error details
+  suggestions: string[]
+}
 
 // Validate commit messages follow standards
-validateCommitMessage(message: string): ValidationResult
+validateCommitMessage(
+  message: string,
+  format?: CommitFormat
+): Result<CommitValidation, CommitError>
+
+type CommitFormat = 'conventional' | 'angular' | 'custom'
+
+type CommitValidation = {
+  valid: boolean
+  type?: string // e.g., 'feat', 'fix', 'docs'
+  scope?: string
+  breaking: boolean
+  issues: string[]
+}
 ```
 
 **Implementation approach**:
-- File system traversal and pattern matching
-- Zod schema validation for configs
-- Regex/parser-based validation for commit messages
-- Extensible validation framework for custom rules
+- File system traversal with glob pattern matching
+- All config validation uses Zod for runtime type safety
+- Commit message parsing supports conventional commits by default
+- Extensible via custom Convention and Pattern definitions
+- All operations return Result types for consistency
 
 ### Design Principles
 
@@ -470,9 +821,48 @@ Built in **Rust** for performance and cross-platform support.
 
 **Features**:
 - Interactive prompts for configuration
-- JSON/YAML config file support
+- JSON/YAML config file support (`harness.config.yml`)
 - Integration with `@harness-engineering/core` for validation
 - Plugin system for extensibility
+
+**Plugin System Architecture**:
+
+```rust
+// Plugin trait (Rust interface)
+trait HarnessPlugin {
+    fn name(&self) -> String;
+    fn version(&self) -> String;
+    fn commands(&self) -> Vec<PluginCommand>;
+    fn execute(&self, cmd: &str, args: &[String]) -> Result<Output, PluginError>;
+}
+
+struct PluginCommand {
+    name: String,
+    description: String,
+    args: Vec<Arg>,
+}
+```
+
+**Plugin loading**:
+- Plugins are `.so` (Linux), `.dylib` (macOS), or `.dll` (Windows) files
+- Discovered in `~/.harness/plugins/` or project `.harness/plugins/`
+- Loaded dynamically at runtime via `libloading` crate
+- Plugin manifest (`plugin.json`) defines capabilities
+
+**Example plugin manifest**:
+```json
+{
+  "name": "harness-plugin-docker",
+  "version": "1.0.0",
+  "commands": [
+    {
+      "name": "docker-validate",
+      "description": "Validate Dockerfile follows harness patterns"
+    }
+  ],
+  "binary": "libharness_docker_plugin.so"
+}
+```
 
 #### Parallel Track B - Linters
 
@@ -480,6 +870,46 @@ Built in **Rust** for performance and cross-platform support.
 - Code-generate custom linters from config files
 - Define architectural rules in YAML/JSON
 - Generate ESLint rules, Rust-based linter rules, etc.
+
+**Linter Config Format** (`harness-linter.yml`):
+
+```yaml
+version: 1
+rules:
+  - name: no-ui-imports-in-service
+    type: import-restriction
+    severity: error
+    config:
+      layers:
+        - name: service
+          pattern: "src/services/**"
+          forbiddenImports:
+            - "src/ui/**"
+            - "react"
+      message: "Service layer cannot import from UI layer"
+
+  - name: enforce-boundary-parsing
+    type: boundary-validation
+    severity: error
+    config:
+      pattern: "src/**/api.ts"
+      requireZodSchemas: true
+      message: "All API boundaries must use Zod validation"
+
+  - name: no-circular-deps
+    type: dependency-graph
+    severity: error
+    config:
+      algorithm: tarjan
+      excludePatterns: ["**/*.test.ts"]
+      message: "Circular dependencies detected"
+```
+
+**Code Generation**:
+- Input: `harness-linter.yml`
+- Output: ESLint plugin rules in `generated/eslint-rules/`
+- Uses AST transformation to create rule implementations
+- Generated rules use the LanguageParser interface
 
 **ESLint Plugin** (`@harness-engineering/eslint-plugin`):
 - Pre-built rules for common harness patterns
@@ -511,6 +941,46 @@ Built in **Rust** for performance and cross-platform support.
 **Setup Skills**:
 - `initialize-harness-project` - Scaffold new harness project
 - `add-harness-component` - Add component following patterns
+
+**Skill Interface Specification**:
+
+Each skill is a directory containing:
+```
+skills/validate-context-engineering/
+├── skill.yml           # Skill metadata
+├── prompt.md           # Skill prompt/instructions
+└── tools.json          # Tool requirements (optional)
+```
+
+**skill.yml format**:
+```yaml
+name: validate-context-engineering
+version: 1.0.0
+description: Validate repository context engineering practices
+triggers:
+  - on_pr
+  - on_commit
+  - manual
+tools:
+  - Bash
+  - Read
+  - Grep
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+```
+
+**Invocation**:
+- **Claude Code**: Via `Skill` tool - skill prompt loaded into context
+- **Gemini CLI**: Via `activate_skill` tool
+- **Cursor**: Via custom skill loader
+- **Generic**: Skills export as standalone executables
+
+**Skill Contract**:
+- Input: Project context (cwd, files, git state)
+- Output: Structured report (JSON or markdown)
+- Exit code: 0 = success, 1 = validation failed, 2 = error
 
 **Success Criteria**:
 - CLI can scaffold a harness-compliant project in <5 minutes
@@ -561,6 +1031,66 @@ Built in **Rust** for performance and cross-platform support.
 - Provides harness tools to any MCP-compatible AI
 - Tools: validate, lint, check-docs, detect-drift
 - Works with Claude Desktop, Continue.dev, other MCP clients
+
+**MCP Tool Manifest** (follows MCP specification):
+
+```json
+{
+  "name": "harness-engineering",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "validate_context",
+      "description": "Validate repository context engineering (AGENTS.md, docs)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to repository root"
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "check_architecture",
+      "description": "Validate architectural constraints and dependencies",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "configPath": {
+            "type": "string",
+            "description": "Path to harness config file"
+          }
+        }
+      }
+    },
+    {
+      "name": "detect_entropy",
+      "description": "Detect documentation drift, dead code, pattern violations",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["doc-drift", "dead-code", "patterns"]
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+**Implementation**:
+- Node.js/TypeScript MCP server (uses `@harness-engineering/core`)
+- Communicates via stdio (MCP protocol)
+- Tool calls invoke core library APIs
+- Results returned as MCP tool response messages
 
 **Agent Deployment Guides**:
 - Running agents in CI/CD (GitHub Actions, GitLab CI)
@@ -758,10 +1288,30 @@ jobs:
   agent-review:
     runs-on: ubuntu-latest
     steps:
-      - Spawn agent-reviewer for automated code review
-      - Run entropy detection
-      - Check for pattern violations
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run agent reviewer
+        uses: harness-engineering/agent-reviewer-action@v1
+        with:
+          agent_type: 'architecture-enforcer'
+          context_files: 'harness.config.yml'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Post review comments
+        if: failure()
+        run: |
+          harness-cli agent review \
+            --pr ${{ github.event.pull_request.number }} \
+            --agent architecture-enforcer \
+            --post-comments
 ```
+
+**Agent Review Implementation**:
+- `harness-engineering/agent-reviewer-action` is a GitHub Action
+- Spawns agent via SubprocessExecutor (runs `harness-cli agent review`)
+- Agent reads PR diff, analyzes changes
+- Posts review comments via GitHub API
+- Fails CI if critical violations found
 
 **Release workflow**:
 - Changesets for version bumps and changelog
@@ -887,21 +1437,37 @@ How we measure success across different phases and audiences.
 ### Ongoing KPIs (Project-Level)
 
 **Agent Autonomy** (Primary KPI):
-- % of PRs merged without human code intervention
+- **Definition**: % of PRs merged without human code intervention
+- **Measurement**: Track PRs where commits are only from:
+  - Agent automation (GitHub Actions, agent-reviewer)
+  - Automated code generation (linter fixes, doc generation)
+  - Exclude: PRs where humans add commits after PR creation
+- **Collection**: GitHub API webhook → `docs/metrics/agent-autonomy.json`
 - **Target**: 60% by Month 6, 80% by Month 12
 
 **Harness Coverage**:
-- % of architectural rules enforced mechanically vs. manual review
+- **Definition**: % of architectural rules enforced mechanically vs. manual code review
+- **Measurement**:
+  - Total rules: Count from `harness-linter.yml` + ESLint rules
+  - Mechanically enforced: Rules that fail CI automatically
+  - Manual review: Rules checked by humans in PR reviews
+  - Formula: `(mechanical_rules / total_rules) * 100`
+- **Collection**: Automated script scans linter configs, CI workflows
 - **Target**: 90% by Month 6, 95% by Month 12
 
 **Context Density**:
-- Ratio of documentation (lines in `/docs`) to code (lines in `/packages`)
-- **Target**: >0.3 (e.g., 3000 lines of docs for 10,000 lines of code)
+- **Definition**: Ratio of documentation (lines in `/docs`) to code (lines in `/packages`)
+- **Measurement**:
+  - Count lines in `/docs/**/*.md` (excluding generated API docs)
+  - Count lines in `/packages/**/*.{ts,rs,py}` (excluding tests, node_modules)
+  - Formula: `docs_lines / code_lines`
+- **Collection**: Weekly automated script via GitHub Action
+- **Target**: >0.3 (e.g., 3,000 lines of docs for 10,000 lines of code)
 
 **Effectiveness Metrics** (for teams using the library):
-- Time to onboard new developers (should decrease)
-- Bug density (should decrease as constraints catch issues early)
-- Documentation drift incidents (should approach zero)
+- **Time to onboard**: Measure via survey or time-to-first-PR metric
+- **Bug density**: Bugs per 1000 lines of code (from issue tracker)
+- **Documentation drift**: Failed `harness validate` checks over time (should trend to zero)
 
 ---
 
