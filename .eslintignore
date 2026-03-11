@@ -4,5 +4,6 @@ build
 coverage
 .turbo
 .next
-*.config.js
-*.config.ts
+vitest.config.ts
+vite.config.ts
+turbo.config.ts
