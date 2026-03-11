@@ -40,7 +40,7 @@ console.log('✓ AGENTS.md is valid!');
 - **[The Standard](https://github.com/harness-engineering/harness-engineering/tree/main/docs/standard)** - Six core principles
 - **[Getting Started](https://github.com/harness-engineering/harness-engineering/tree/main/docs/guides)** - Implementation guides
 - **[API Reference](https://github.com/harness-engineering/harness-engineering/tree/main/docs/reference)** - Complete API docs
-- **[Adoption Levels](https://github.com/harness-engineering/harness-engineering/blob/main/docs/guides/adoption-levels.md)** - Phased rollout plan
+- **[Adoption Levels](https://github.com/harness-engineering/harness-engineering/blob/main/docs/standard/implementation.md)** - Phased rollout plan
 
 ---
 
@@ -137,5 +137,5 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 - Read [The Standard](./docs/standard/index.md) to understand the principles
 - Follow [Getting Started Guide](./docs/guides/index.md) to adopt harness engineering
-- Explore [Adoption Levels](./docs/guides/adoption-levels.md) for phased rollout
+- Explore [Adoption Levels](./docs/standard/implementation.md) for phased rollout
 - Check [API Reference](./docs/reference/index.md) for detailed documentation
