@@ -66,8 +66,8 @@ AI Harness Engineering represents a fundamental shift from manual implementation
 
 | Package                                          | Version | Description                      |
 | ------------------------------------------------ | ------- | -------------------------------- |
-| [`@harness-engineering/core`](./packages/core)   | `0.1.0` | Core runtime library (5 modules) |
-| [`@harness-engineering/types`](./packages/types) | `0.1.0` | Shared TypeScript types          |
+| [`@harness-engineering/core`](./packages/core)   | `0.0.0` | Core runtime library (5 modules) |
+| [`@harness-engineering/types`](./packages/types) | `0.0.0` | Shared TypeScript types          |
 
 **Coming soon:**
 
@@ -88,8 +88,7 @@ harness-engineering/
 │   ├── standard/     # The standard
 │   ├── guides/       # Implementation guides
 │   └── reference/    # API reference
-├── AGENTS.md         # Knowledge map for AI agents
-└── ROADMAP.md        # Project roadmap
+└── AGENTS.md         # Knowledge map for AI agents
 ```
 
 ---
@@ -103,8 +102,6 @@ harness-engineering/
 - ✅ Standard documentation (6 principles)
 - ✅ AGENTS.md knowledge map
 - 🚧 Core library modules (in development)
-
-See [ROADMAP.md](./ROADMAP.md) for the full project plan.
 
 ---
 

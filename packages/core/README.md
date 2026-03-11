@@ -31,6 +31,8 @@ if (!linksResult.ok) {
 
 ## Modules
 
+> **Note:** The APIs listed below represent the planned functionality for Phase 2. Currently, only the Result type and helper functions are available in the `@harness-engineering/types` package.
+
 ### Context Engineering
 
 Validate and enforce repository-as-documentation patterns.
