@@ -35,3 +35,6 @@ pnpm-debug.log*
 # Temporary
 .tmp/
 temp/
+
+.vitepress
+*.tsbuildinfo
