@@ -4,5 +4,6 @@ build
 coverage
 .turbo
 .next
+out
 pnpm-lock.yaml
 *.min.js
