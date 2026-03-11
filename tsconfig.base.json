@@ -11,7 +11,6 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "incremental": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -19,8 +18,7 @@
     "exactOptionalPropertyTypes": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "composite": true
+    "sourceMap": true
   },
   "exclude": ["node_modules", "dist", "build", ".turbo"]
 }
