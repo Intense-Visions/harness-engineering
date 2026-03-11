@@ -17,14 +17,26 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
-  "keywords": ["harness", "engineering", "ai", "agents", "development"],
+  "keywords": [
+    "harness",
+    "engineering",
+    "ai",
+    "agents",
+    "development"
+  ],
   "license": "MIT",
   "dependencies": {
     "@harness-engineering/types": "workspace:*"
   },
   "devDependencies": {
-    "tsup": "^8.0.0"
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
+    "tsup": "^8.0.0",
+    "vitest": "^4.0.18"
   }
 }
