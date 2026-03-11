@@ -82,11 +82,11 @@ import { z } from 'zod';
 const ConfigSchema = z.object({
   database: z.object({
     url: z.string().url(),
-    maxConnections: z.number().positive()
+    maxConnections: z.number().positive(),
   }),
   logging: z.object({
-    level: z.enum(['debug', 'info', 'error'])
-  })
+    level: z.enum(['debug', 'info', 'error']),
+  }),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
@@ -109,7 +109,7 @@ describe('UserService', () => {
 
   beforeEach(() => {
     mockRepository = {
-      findById: jest.fn()
+      findById: jest.fn(),
     };
     service = new UserService(mockRepository);
   });
@@ -175,17 +175,20 @@ export class UserAuditService {
 
 ```typescript
 // WRONG: Magic strings scattered throughout code
-if (user.role === 'admin') { }
-if (user.role === 'Admin') { } // Inconsistent!
+if (user.role === 'admin') {
+}
+if (user.role === 'Admin') {
+} // Inconsistent!
 
 // RIGHT: Enum or constant
 enum Role {
   Admin = 'admin',
   User = 'user',
-  Guest = 'guest'
+  Guest = 'guest',
 }
 
-if (user.role === Role.Admin) { }
+if (user.role === Role.Admin) {
+}
 ```
 
 ## Testing Strategies
@@ -198,10 +201,7 @@ Test individual functions and methods in isolation:
 // Test behavior, not implementation
 describe('calculateTotal', () => {
   it('should sum item prices', () => {
-    const items = [
-      { price: 10 },
-      { price: 20 }
-    ];
+    const items = [{ price: 10 }, { price: 20 }];
     expect(calculateTotal(items)).toBe(30);
   });
 });
@@ -257,25 +257,31 @@ describe('UserService with Repository', () => {
 # Feature: User Authentication
 
 ## Overview
+
 Implements JWT-based authentication with refresh tokens.
 
 ## Architecture
+
 1. User submits credentials
 2. Service validates against database
 3. Returns access + refresh tokens
 4. Client stores tokens locally
 
 ## Configuration
+
 See `/docs/reference/configuration.md` for environment variables.
 
 ## API
+
 - POST /auth/login - Returns tokens
 - POST /auth/refresh - Refreshes access token
 
 ## Status
+
 Complete. In use in production.
 
 ## Related
+
 - [Security Guidelines](/docs/standard/security.md)
 - [API Reference](/docs/reference/cli.md)
 ```
@@ -481,4 +487,4 @@ await service.deleteUsers(userIds);
 
 ---
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

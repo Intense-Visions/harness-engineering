@@ -12,6 +12,7 @@ Before you begin, ensure you have the following installed:
 - **A text editor** - VS Code, WebStorm, or your preferred editor
 
 Verify your installations:
+
 ```bash
 node --version
 pnpm --version
@@ -105,7 +106,7 @@ export interface Message {
 export function createMessage(text: string): Message {
   return {
     text,
-    timestamp: new Date()
+    timestamp: new Date(),
   };
 }
 ```
@@ -135,12 +136,15 @@ Create a design document:
 # Message System Design
 
 ## Overview
+
 Simple message creation system for demonstrations.
 
 ## Implementation
+
 Messages are created via `createMessage()` function.
 
 ## Status
+
 Complete and tested.
 ```
 
@@ -205,13 +209,17 @@ pnpm build
 ## Troubleshooting
 
 ### "pnpm: command not found"
+
 Install pnpm globally:
+
 ```bash
 npm install -g pnpm
 ```
 
 ### "Node version not compatible"
+
 Install Node.js 18 or higher:
+
 ```bash
 # Using nvm (recommended)
 nvm install 18
@@ -219,7 +227,9 @@ nvm use 18
 ```
 
 ### "Port 5173 already in use"
+
 Use a different port:
+
 ```bash
 pnpm docs:dev --port 3000
 ```
@@ -233,4 +243,4 @@ pnpm docs:dev --port 3000
 
 ---
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

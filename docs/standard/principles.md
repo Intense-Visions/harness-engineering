@@ -11,6 +11,7 @@ This document provides a detailed explanation of each principle that defines Har
 **Context Engineering** means treating your repository as a single source of truth for all architectural decisions, designs, and knowledge about your system. Every decision that affects how the code is organized must be documented, version-controlled, and accessible to AI agents.
 
 This is the opposite of traditional approaches where crucial knowledge lives in:
+
 - Slack conversations and threads
 - Jira issues and comments
 - Architecture documents in shared drives
@@ -58,20 +59,25 @@ A top-level file (~100 lines) that acts as a navigation guide for AI agents:
 # Knowledge Map
 
 ## About This Project
+
 Brief description and links to core documents.
 
 ## Core Beliefs
+
 - File: docs/core-beliefs.md
 
 ## Architecture
+
 - Layers and dependencies: docs/architecture/layers.md
 - Design decisions: docs/architecture/decisions/
 
 ## Implementation
+
 - How to build features: docs/guides/
 - Code examples: examples/
 
 ## Agent Resources
+
 - Skills available: agents/skills/
 - How agents work: docs/agent-feedback-loop.md
 ```
@@ -91,6 +97,7 @@ Measure what percentage of your codebase is documented:
 #### Example 1: API Design Decision
 
 Instead of context living in Slack:
+
 ```
 [Slack conversation lost in 500+ messages]
 Engineer A: "Should we return error objects or status codes?"
@@ -99,17 +106,21 @@ Engineer A: "Cool"
 ```
 
 Document in git:
+
 ```markdown
 # ADR-042: Error Response Format
 
 ## Context
+
 Our API needs to communicate errors to clients...
 
 ## Decision
+
 Return error objects with code, message, and details fields.
 Rationale: Easier for clients to parse, extensible for future fields.
 
 ## Implementation
+
 File: src/api/error-response.ts
 Tests: tests/api/error-response.test.ts
 ```
@@ -119,12 +130,14 @@ Now agents can read this decision and follow it consistently.
 #### Example 2: Layer Boundaries
 
 Slack/tribal knowledge:
+
 ```
 "Yeah, services can't import from UI... I think?
 (Everyone has a different understanding)
 ```
 
 Repository documentation:
+
 ```
 # Architecture Layers
 
@@ -179,12 +192,14 @@ Constraints prevent wasted work:
 - **For the codebase**: Patterns remain consistent; one team's refactoring doesn't break another's assumptions
 
 Without constraints:
+
 - Each team interprets architecture differently
 - Violations accumulate (creeping technical debt)
 - Agents waste cycles exploring wrong approaches
 - Reviews become subjective ("I don't think this violates our architecture... but maybe?")
 
 With constraints:
+
 - Architecture is objective and verifiable
 - Violations fail CI immediately (no wasted review time)
 - Agents learn the boundaries quickly and work within them
@@ -209,6 +224,7 @@ Types Layer
 ```
 
 Rules:
+
 - Service can import from Repository, Config, Types
 - Service cannot import from Application or UI
 - Each layer only imports from layers below it
@@ -219,6 +235,7 @@ Rules:
 Three mechanisms:
 
 1. **Linter Rules** (ESLint, custom linters)
+
    ```javascript
    // ESLint rule: no-ui-imports-in-service
    if (fileName.includes('services/') && importPath.includes('ui/')) {
@@ -227,6 +244,7 @@ Three mechanisms:
    ```
 
 2. **Structural Tests**
+
    ```typescript
    // Test: verify no circular dependencies
    const graph = buildDependencyGraph();
@@ -235,6 +253,7 @@ Three mechanisms:
    ```
 
 3. **Runtime Boundary Validation**
+
    ```typescript
    // At module boundary, validate input shape with Zod
    const userSchema = z.object({
@@ -285,11 +304,13 @@ export async function fetchUser(id: string): Promise<z.infer<typeof UserResponse
 #### Example 1: Preventing Circular Dependencies
 
 Problem: Service A imports from Repository B, Repository B imports from Service A
+
 - Makes code impossible to test in isolation
 - Hidden bugs appear only under specific conditions
 - Agents waste time debugging
 
 Solution: Structural test that fails the build
+
 ```typescript
 // tests/architecture/no-circular-deps.test.ts
 it('should have no circular dependencies', () => {
@@ -303,6 +324,7 @@ Agents learn: "If I create a circular dep, the test fails and I'll fix it immedi
 #### Example 2: Enforcing Layer Separation
 
 Problem: UI components importing business logic directly
+
 ```typescript
 // ❌ BAD - violates architecture
 import { calculatePrice } from '../../services/pricing-service.ts';
@@ -310,6 +332,7 @@ export function PriceDisplay() { ... }
 ```
 
 Solution: ESLint rule + structural test
+
 ```typescript
 // eslint-config.ts
 rules: {
@@ -344,6 +367,7 @@ Result: Agents know immediately: "I can't import from services in UI files. I'll
 **The Agent Feedback Loop** is a self-correcting cycle where agents execute work, review their own changes, request peer reviews, and iterate based on feedback. This reduces human review burden while catching issues early.
 
 Typical flow:
+
 1. Agent receives task
 2. Agent writes code, runs tests
 3. Agent creates PR with self-review checklist
@@ -354,12 +378,14 @@ Typical flow:
 ### Why It Matters
 
 Without feedback loops:
+
 - Every agent PR requires extensive human review (expensive)
 - Agents don't learn from mistakes; they repeat patterns
 - Simple issues (missing tests, lint errors) waste reviewer time
 - Agents have no visibility into whether their work failed or succeeded
 
 With feedback loops:
+
 - Agents catch 80% of issues before human review
 - Agents improve over time by learning from past reviews
 - Human review focuses on correctness and design, not lint errors
@@ -373,14 +399,17 @@ Agents open PRs themselves with:
 
 ```markdown
 ## Summary
+
 Implemented feature X with behavior Y.
 
 ## Changes
+
 - Added service layer for X
 - Added tests covering scenarios A, B, C
 - Updated documentation in docs/guides/
 
 ## Self-Review Checklist
+
 - [x] Tests pass locally
 - [x] ESLint passes
 - [x] No architectural violations
@@ -388,6 +417,7 @@ Implemented feature X with behavior Y.
 - [x] Dependency graph validated
 
 ## Remaining Questions
+
 - Should X behavior handle edge case Z? (Flagged for review)
 ```
 
@@ -425,6 +455,7 @@ await requestPeerReview({
 ```
 
 Specialized agents check:
+
 - `architecture-enforcer` - Validates architectural decisions
 - `documentation-maintainer` - Ensures docs are updated
 - `test-reviewer` - Verifies test coverage
@@ -447,6 +478,7 @@ if (telemetry.errors > threshold) {
 ```
 
 Agents with observability access can:
+
 - Diagnose test failures by reading logs
 - Understand performance issues
 - Propose fixes based on actual system behavior
@@ -459,10 +491,12 @@ Agents with observability access can:
 ## PR: Add email notification service
 
 ### Summary
+
 Added new service for sending notifications via email.
 Implements exponential backoff retry logic.
 
 ### Self-Review
+
 - [x] Unit tests: 15 tests, all passing
 - [x] Integration tests: 3 tests with mock email provider
 - [x] ESLint: Clean
@@ -470,10 +504,13 @@ Implements exponential backoff retry logic.
 - [x] Documentation: Updated docs/services/notifications.md
 
 ### Peer Review Requested
+
 Requesting @architecture-enforcer review of dependency choices.
 
 ### Ready for Human Review
+
 Questions for reviewer:
+
 - Should we log PII in error cases? (Currently no)
 - Is exponential backoff config acceptable? (Currently 1s → 60s)
 ```
@@ -529,12 +566,14 @@ In AI-driven codebases, entropy (disorder) accumulates faster because agents gen
 ### Why It Matters
 
 Entropy unchecked:
+
 - Each agent PR adds to the problem
 - Technical debt becomes unmaintainable
 - Agents learn from bad patterns and repeat them
 - Onboarding becomes harder (inconsistent patterns)
 
 Entropy managed:
+
 - Documentation stays accurate (agents trust it)
 - Agents learn correct patterns from examples
 - Codebase remains maintainable
@@ -549,7 +588,7 @@ Run agents on a schedule (daily/weekly) to detect and fix issues:
 ```yaml
 # .github/workflows/cleanup.yml
 schedule:
-  - cron: '0 2 * * 0'  # Every Sunday at 2 AM
+  - cron: '0 2 * * 0' # Every Sunday at 2 AM
 
 jobs:
   entropy-cleanup:
@@ -564,6 +603,7 @@ jobs:
 Cleanup agents detect:
 
 1. **Documentation Drift** - Code changed but docs weren't updated
+
    ```
    Expected: docs/services/user-service.md says "accepts email"
    Actual: src/services/user-service.ts accepts "emailAddress"
@@ -571,6 +611,7 @@ Cleanup agents detect:
    ```
 
 2. **Dead Code** - Code that's no longer used anywhere
+
    ```
    Found: function calculateLegacyPrice() in src/services/pricing.ts
    Not called: anywhere (search_imports returns 0 results)
@@ -725,6 +766,7 @@ Action:
 **Depth-First Implementation** means completing features end-to-end (Design → Implementation → Testing → Deployment) before starting the next feature. The opposite is breadth-first, where you sketch many features shallowly.
 
 Depth-first approach:
+
 - Pick one story
 - Take it to 100% completion (design, code, tests, docs, deploy)
 - Learn from that vertical slice
@@ -922,11 +964,13 @@ Together, they measure progress toward the goal: **AI agents operating reliably 
 **Definition**: % of PRs merged without human code intervention.
 
 **What counts as "without human code intervention"**:
+
 - Commits only from: GitHub Actions, agent automation, linter fixes
 - Exclude: PRs where humans add code after PR creation
 - Include: PRs where humans approve/merge, but don't modify code
 
 **How to measure**:
+
 1. Check each merged PR in GitHub
 2. List commits: are they all from bots/automation?
 3. Count: PRs with 100% bot commits / total PRs
@@ -935,6 +979,7 @@ Together, they measure progress toward the goal: **AI agents operating reliably 
 **Target**: 60% by Month 6, 80% by Month 12
 
 **Example**:
+
 ```
 Month 1: 10 PRs merged
 - 7 PRs: all bot commits (agent + linter fixes)
@@ -949,12 +994,14 @@ Agent Autonomy = 70% ✓
 **Definition**: % of architectural rules enforced mechanically.
 
 **What counts as "mechanically enforced"**:
+
 - ESLint/linter rules that block PR if violated
 - Structural tests that fail CI if violated
 - Runtime validation that throws on violation
 - Exclude: Rules only enforced in code review
 
 **How to measure**:
+
 1. List all architectural rules (from docs/architecture/, linter config, tests)
 2. For each rule: is it enforced mechanically (fails CI)?
 3. Count: mechanical rules / total rules
@@ -963,6 +1010,7 @@ Agent Autonomy = 70% ✓
 **Target**: 90% by Month 6, 95% by Month 12
 
 **Example**:
+
 ```
 Total rules: 15
 - No UI imports in service layer (ESLint rule) ✓
@@ -986,10 +1034,12 @@ Harness Coverage = 93% ✓
 **Formula**: `(lines_of_docs / lines_of_code)`
 
 **What counts**:
+
 - Documentation: .md files in `/docs/` (excluding generated API docs)
 - Code: .ts, .rs, .py files in `/src/` (excluding tests, `node_modules`)
 
 **How to measure**:
+
 ```bash
 # Count docs lines (excluding generated)
 docs_lines=$(find docs -name "*.md" -not -path "*/generated/*" | xargs wc -l | tail -1 | awk '{print $1}')
@@ -1004,6 +1054,7 @@ ratio=$(echo "scale=2; $docs_lines / $code_lines" | bc)
 **Target**: >0.3 (e.g., 3,000 docs lines for 10,000 code lines)
 
 **Example**:
+
 ```
 docs/ lines: 2,500 (design docs, guides, API docs)
 src/ lines: 8,000 (implementation code, excluding tests)
@@ -1017,16 +1068,19 @@ Context Density = 0.31 ✓ (above target of 0.3)
 ### Tracking KPIs
 
 **Monthly**:
+
 - Automated scripts calculate all three metrics
 - Results published to `docs/metrics/` (markdown + charts)
 - Reviewed in team sync
 
 **Quarterly**:
+
 - Compare to OKRs set at quarter start
 - Reflect on progress and blockers
 - Adjust priorities if needed
 
 **Tool Integration**:
+
 - GitHub API: Pull agents' autonomy metrics
 - npm/PyPI: Download counts
 - Analytics: Documentation site traffic
@@ -1046,10 +1100,11 @@ These six principles work together to create a system where:
 6. **KPIs** measure progress toward agent autonomy
 
 Adopt them progressively:
+
 - **Level 1**: Context Engineering + Documentation
 - **Level 2**: Add Mechanical Constraints + Linters
 - **Level 3**: Add Agent Feedback Loop + Entropy Management
 
 [← Back to Overview](./index.md) | [Implementation Guide →](./implementation.md) | [KPIs & Metrics →](./kpis.md)
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

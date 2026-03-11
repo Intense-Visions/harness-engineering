@@ -34,13 +34,13 @@ Basic project information and metadata.
 
 ```yaml
 project:
-  name: string              # Project name (required)
-  version: string           # Project version
-  description: string       # Project description
-  author: string            # Project author
-  license: string           # License type
-  homepage: string          # Project homepage URL
-  repository: string        # Repository URL
+  name: string # Project name (required)
+  version: string # Project version
+  description: string # Project description
+  author: string # Project author
+  license: string # License type
+  homepage: string # Project homepage URL
+  repository: string # Repository URL
 ```
 
 ### Example
@@ -64,15 +64,15 @@ Define architectural constraints and dependency rules.
 
 ```yaml
 architecture:
-  enforce: boolean                    # Enforce constraints
-  strict: boolean                     # Strict mode
-  maxCyclomaticComplexity: number     # Max complexity
-  maxDepth: number                    # Max dependency depth
+  enforce: boolean # Enforce constraints
+  strict: boolean # Strict mode
+  maxCyclomaticComplexity: number # Max complexity
+  maxDepth: number # Max dependency depth
   rules:
-    - pattern: string                 # File pattern
-      layer: string                   # Target layer
-      canDependOn: string[]           # Allowed dependencies
-      forbidden: string[]             # Forbidden dependencies
+    - pattern: string # File pattern
+      layer: string # Target layer
+      canDependOn: string[] # Allowed dependencies
+      forbidden: string[] # Forbidden dependencies
 ```
 
 ### Example
@@ -118,10 +118,10 @@ Define the dependency layers in your project.
 
 ```yaml
 layers:
-  - name: string            # Layer name
-    description: string     # Layer description
-    path: string            # Directory pattern
-    dependencies: string[]  # Allowed dependencies
+  - name: string # Layer name
+    description: string # Layer description
+    path: string # Directory pattern
+    dependencies: string[] # Allowed dependencies
 ```
 
 ### Example
@@ -162,18 +162,18 @@ Configure agent behavior and execution.
 
 ```yaml
 agent:
-  enabled: boolean                    # Enable agents
-  mode: string                        # Execution mode (interactive, batch, watch)
-  maxDepth: number                    # Max recursion depth
-  autoReview: boolean                 # Auto-review changes
-  autoCommit: boolean                 # Auto-commit changes
-  parallelization: number             # Max parallel tasks
-  timeout: number                     # Task timeout in seconds
-  retryAttempts: number              # Number of retry attempts
+  enabled: boolean # Enable agents
+  mode: string # Execution mode (interactive, batch, watch)
+  maxDepth: number # Max recursion depth
+  autoReview: boolean # Auto-review changes
+  autoCommit: boolean # Auto-commit changes
+  parallelization: number # Max parallel tasks
+  timeout: number # Task timeout in seconds
+  retryAttempts: number # Number of retry attempts
   reviewRules:
-    - pattern: string                 # File pattern
-      requiresApproval: boolean       # Requires approval
-      reviewer: string                # Reviewer
+    - pattern: string # File pattern
+      requiresApproval: boolean # Requires approval
+      reviewer: string # Reviewer
 ```
 
 ### Example
@@ -210,16 +210,16 @@ Configure build and test settings.
 
 ```yaml
 build:
-  target: string                      # Build target (es2020, node16, etc)
-  module: string                      # Module format (commonjs, esnext, etc)
-  outDir: string                      # Output directory
-  sourceMap: boolean                  # Generate source maps
-  declaration: boolean                # Generate type declarations
+  target: string # Build target (es2020, node16, etc)
+  module: string # Module format (commonjs, esnext, etc)
+  outDir: string # Output directory
+  sourceMap: boolean # Generate source maps
+  declaration: boolean # Generate type declarations
   test:
-    framework: string                 # Test framework (jest, vitest, etc)
-    coverage: number                  # Coverage threshold (0-100)
-    timeout: number                   # Test timeout in ms
-    parallel: number                  # Parallel test execution
+    framework: string # Test framework (jest, vitest, etc)
+    coverage: number # Coverage threshold (0-100)
+    timeout: number # Test timeout in ms
+    parallel: number # Parallel test execution
 ```
 
 ### Example
@@ -246,16 +246,16 @@ Configure documentation generation and validation.
 
 ```yaml
 documentation:
-  enabled: boolean                    # Enable doc generation
-  outputDir: string                   # Output directory
-  title: string                       # Site title
-  description: string                 # Site description
-  theme: string                       # Theme name
+  enabled: boolean # Enable doc generation
+  outputDir: string # Output directory
+  title: string # Site title
+  description: string # Site description
+  theme: string # Theme name
   validation:
-    checkLinks: boolean               # Check for broken links
-    checkTitles: boolean              # Check missing titles
-    checkImages: boolean              # Check missing images
-    maxLength: number                 # Max page length
+    checkLinks: boolean # Check for broken links
+    checkTitles: boolean # Check missing titles
+    checkImages: boolean # Check missing images
+    maxLength: number # Max page length
 ```
 
 ### Example
@@ -283,13 +283,13 @@ Define environment variables and secrets.
 ```yaml
 environment:
   variables:
-    KEY: string                       # Environment variable
+    KEY: string # Environment variable
   secrets:
-    - name: string                    # Secret name
-      required: boolean               # Is required
-      source: string                  # Source (.env, vault, etc)
+    - name: string # Secret name
+      required: boolean # Is required
+      source: string # Source (.env, vault, etc)
   profiles:
-    - name: string                    # Profile name
+    - name: string # Profile name
       variables:
         KEY: string
 ```
@@ -491,6 +491,7 @@ harness validate --profile=production
 ### Config Not Found
 
 Ensure harness.config.yml exists in project root:
+
 ```bash
 ls -la harness.config.yml
 ```
@@ -498,6 +499,7 @@ ls -la harness.config.yml
 ### Invalid Configuration
 
 Validate configuration file:
+
 ```bash
 harness validate --check-config --verbose
 ```
@@ -505,6 +507,7 @@ harness validate --check-config --verbose
 ### Override Not Working
 
 Check environment variable format:
+
 ```bash
 # Correct format
 export HARNESS_AGENT_ENABLED=true
@@ -522,4 +525,4 @@ export HARNESS_AGENT.ENABLED=true
 
 ---
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

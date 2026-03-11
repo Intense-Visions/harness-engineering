@@ -19,7 +19,13 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "keywords": ["harness", "engineering", "types", "ai", "agents"],
+  "keywords": [
+    "harness",
+    "engineering",
+    "types",
+    "ai",
+    "agents"
+  ],
   "license": "MIT",
   "devDependencies": {
     "tsup": "^8.0.0"

@@ -53,6 +53,7 @@ harness init [options] [directory]
 ```
 
 **Options:**
+
 ```
 --template <template>   Project template (basic, monorepo, full)
 --interactive, -i       Interactive setup wizard
@@ -74,6 +75,7 @@ harness init --skip-install
 ```
 
 **Output:**
+
 ```
 ✓ Created project structure
 ✓ Generated harness.config.yml
@@ -93,6 +95,7 @@ harness validate [options]
 ```
 
 **Options:**
+
 ```
 --strict                Strict validation (fail on warnings)
 --fix                   Attempt to fix validation issues
@@ -118,6 +121,7 @@ harness validate --check-docs
 ```
 
 **Output:**
+
 ```
 Validating project configuration...
 
@@ -143,6 +147,7 @@ harness generate <generator> [options]
 ```
 
 **Available Generators:**
+
 ```
 component        Generate a new component
 service          Generate a service class
@@ -152,6 +157,7 @@ config           Generate configuration module
 ```
 
 **Global Options for all generators:**
+
 ```
 --force, -f             Overwrite existing files
 --dry-run               Show what would be created without creating
@@ -182,6 +188,7 @@ harness generate service <name> [options]
 ```
 
 **Options:**
+
 ```
 --package <name>        Target package (required)
 --interfaces            Generate interface definitions
@@ -199,6 +206,7 @@ harness generate service UserService \
 ```
 
 **Generates:**
+
 ```
 src/
 ├── service/
@@ -222,6 +230,7 @@ harness analyze [options]
 ```
 
 **Options:**
+
 ```
 --metrics               Show project metrics
 --dependencies          Show dependency graph
@@ -244,6 +253,7 @@ harness analyze --format=html
 ```
 
 **Output:**
+
 ```
 Project Analysis for: my-project
 
@@ -276,6 +286,7 @@ harness agent run [options]
 ```
 
 **Options:**
+
 ```
 --mode <mode>           Execution mode (interactive, batch, watch)
 --max-depth <n>         Maximum recursion depth
@@ -308,6 +319,7 @@ harness agent validate [options]
 ```
 
 **Options:**
+
 ```
 --branch <branch>       Branch to validate
 --strict                Strict validation
@@ -333,6 +345,7 @@ harness constraints <action> [options]
 ```
 
 **Actions:**
+
 ```
 list                    List all defined constraints
 validate                Validate constraints
@@ -366,6 +379,7 @@ harness docs <action> [options]
 ```
 
 **Actions:**
+
 ```
 build                   Build documentation site
 serve                   Start documentation server
@@ -374,6 +388,7 @@ generate-toc            Generate table of contents
 ```
 
 **Options:**
+
 ```
 --port <port>           Port for docs server
 --output <dir>          Output directory for build
@@ -406,6 +421,7 @@ harness config <action> [options]
 ```
 
 **Actions:**
+
 ```
 show                    Show current configuration
 set <key> <value>       Set configuration value
@@ -442,6 +458,7 @@ harness version [options]
 ```
 
 **Options:**
+
 ```
 --verbose               Show detailed version info
 --json                  Output as JSON
@@ -528,6 +545,7 @@ harness generate --batch <file>
 ### Command Not Recognized
 
 Ensure CLI is installed and in PATH:
+
 ```bash
 harness --version
 which harness
@@ -536,6 +554,7 @@ which harness
 ### Configuration Not Found
 
 Specify config path explicitly:
+
 ```bash
 harness validate --config=/path/to/harness.config.yml
 ```
@@ -543,6 +562,7 @@ harness validate --config=/path/to/harness.config.yml
 ### Permission Denied
 
 Ensure proper file permissions:
+
 ```bash
 chmod +x node_modules/.bin/harness
 ```
@@ -555,4 +575,4 @@ chmod +x node_modules/.bin/harness
 
 ---
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

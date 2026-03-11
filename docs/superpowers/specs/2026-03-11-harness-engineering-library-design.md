@@ -22,6 +22,7 @@ AI Harness Engineering represents a fundamental shift from manual implementation
 The standard is built on six core principles:
 
 #### 1. Context Engineering (Single Source of Truth)
+
 AI agents are only as effective as the context they can access. All architectural decisions, product specs, and execution plans must be checked into the repository as version-controlled documentation.
 
 - Repository-as-Documentation: Everything in git, nothing in Slack/Jira/human heads
@@ -29,6 +30,7 @@ AI agents are only as effective as the context they can access. All architectura
 - Comprehensive docs: /docs/core-beliefs.md, /docs/design-docs/, /docs/exec-plans/
 
 #### 2. Architectural Rigidity & Mechanical Constraints
+
 Constraints are productivity multipliers that prevent agents from exploring dead ends.
 
 - Layered Dependency Model: Strict one-way flow (Types → Config → Repository → Service → UI)
@@ -36,6 +38,7 @@ Constraints are productivity multipliers that prevent agents from exploring dead
 - Boundary Parsing: Validate data shapes at module boundaries (using Zod, etc.)
 
 #### 3. The Agent Feedback Loop
+
 Agents must operate in a self-correcting cycle of execution and review.
 
 - Agent-Led PRs: Agents describe tasks, run code, open PRs
@@ -43,18 +46,21 @@ Agents must operate in a self-correcting cycle of execution and review.
 - Observability Integration: Agents access telemetry to diagnose and fix their own failures
 
 #### 4. Entropy Management (Garbage Collection)
+
 AI-generated codebases can accumulate technical debt rapidly.
 
 - Periodic Cleanup Agents: Scheduled agents for documentation alignment, pattern enforcement, dead code removal
 - Continuous Validation: Ensure docs match implementation, patterns remain consistent
 
 #### 5. Implementation Strategy (Depth-First)
+
 Avoid breadth-first scaling where many features are built shallowly.
 
 - One story to 100% completion: Design → Implementation → Testing → Deployment
 - Build abstractions from concrete: Use learnings from each vertical slice to inform the next
 
 #### 6. Key Performance Indicators
+
 Measure success through:
 
 - **Agent Autonomy**: % of PRs completed without human code intervention
@@ -95,12 +101,14 @@ console.log(result.value.coverageReport)
 ```
 
 **Error types for each module**:
+
 - Context Engineering: `ValidationError`, `IntegrityError`, `CoverageError`
 - Architectural Constraints: `DependencyError`, `CircularDependencyError`, `BoundaryError`
 - Agent Feedback: `AgentSpawnError`, `TelemetryError`, `ReviewError`
 - Entropy Management: `DriftError`, `PatternError`, `DeadCodeError`
 
 All errors include:
+
 - `code`: Machine-readable error code
 - `message`: Human-readable description
 - `details`: Structured data about the error
@@ -156,41 +164,41 @@ To support multiple languages, AST parsing is abstracted:
 
 ```typescript
 interface LanguageParser {
-  name: string
-  parseFile(path: string, options?: ParseOptions): Promise<Result<AST, ParseError>>
-  extractImports(ast: AST): Result<Import[], ExtractionError>
-  extractExports(ast: AST): Result<Export[], ExtractionError>
-  extractTypes(ast: AST): Result<TypeDefinition[], ExtractionError>
-  health(): Promise<Result<HealthStatus, HealthError>> // Check parser availability
+  name: string;
+  parseFile(path: string, options?: ParseOptions): Promise<Result<AST, ParseError>>;
+  extractImports(ast: AST): Result<Import[], ExtractionError>;
+  extractExports(ast: AST): Result<Export[], ExtractionError>;
+  extractTypes(ast: AST): Result<TypeDefinition[], ExtractionError>;
+  health(): Promise<Result<HealthStatus, HealthError>>; // Check parser availability
 }
 
 type ParseOptions = {
-  timeout?: number // ms, default 5000
-  retries?: number // default 0
-  cache?: boolean // default true
-}
+  timeout?: number; // ms, default 5000
+  retries?: number; // default 0
+  cache?: boolean; // default true
+};
 
 type HealthStatus = {
-  available: boolean
-  version?: string
-  message?: string
-}
+  available: boolean;
+  version?: string;
+  message?: string;
+};
 
 type ParseError = {
-  code: 'TIMEOUT' | 'SUBPROCESS_FAILED' | 'SYNTAX_ERROR' | 'NOT_FOUND'
-  message: string
+  code: 'TIMEOUT' | 'SUBPROCESS_FAILED' | 'SYNTAX_ERROR' | 'NOT_FOUND';
+  message: string;
   details: {
-    exitCode?: number
-    stderr?: string
-    stdout?: string
-    path: string
-  }
-  suggestions: string[]
-}
+    exitCode?: number;
+    stderr?: string;
+    stdout?: string;
+    path: string;
+  };
+  suggestions: string[];
+};
 
 // Language-specific parsers
 class TypeScriptParser implements LanguageParser {
-  name = 'typescript'
+  name = 'typescript';
   // Uses @typescript-eslint/parser (in-process, fast)
   async parseFile(path: string): Promise<Result<AST, ParseError>> {
     // Native TS parsing, no subprocess
@@ -198,11 +206,11 @@ class TypeScriptParser implements LanguageParser {
 }
 
 class PythonParser implements LanguageParser {
-  name = 'python'
+  name = 'python';
   // Uses Python's ast module via subprocess with timeout/retry
   async parseFile(path: string, options?: ParseOptions): Promise<Result<AST, ParseError>> {
-    const timeout = options?.timeout ?? 5000
-    const retries = options?.retries ?? 0
+    const timeout = options?.timeout ?? 5000;
+    const retries = options?.retries ?? 0;
 
     // Spawn python subprocess, handle timeout, stderr, exit codes
     // Retry on failure if retries > 0
@@ -214,10 +222,10 @@ class PythonParser implements LanguageParser {
 }
 
 class GoParser implements LanguageParser {
-  name = 'go'
+  name = 'go';
   // Uses go/parser via subprocess with timeout/retry
   async parseFile(path: string, options?: ParseOptions): Promise<Result<AST, ParseError>> {
-    const timeout = options?.timeout ?? 5000
+    const timeout = options?.timeout ?? 5000;
     // Similar subprocess handling as Python
   }
 
@@ -227,23 +235,23 @@ class GoParser implements LanguageParser {
 }
 
 // Register parsers
-registerParser('typescript', new TypeScriptParser())
-registerParser('python', new PythonParser())
-registerParser('go', new GoParser())
+registerParser('typescript', new TypeScriptParser());
+registerParser('python', new PythonParser());
+registerParser('go', new GoParser());
 
 // Graceful fallback: if parser health check fails, skip that language
 async function getAvailableParsers(): Promise<LanguageParser[]> {
-  const all = [new TypeScriptParser(), new PythonParser(), new GoParser()]
-  const healthy = []
+  const all = [new TypeScriptParser(), new PythonParser(), new GoParser()];
+  const healthy = [];
 
   for (const parser of all) {
-    const health = await parser.health()
+    const health = await parser.health();
     if (health.ok && health.value.available) {
-      healthy.push(parser)
+      healthy.push(parser);
     }
   }
 
-  return healthy
+  return healthy;
 }
 ```
 
@@ -362,6 +370,7 @@ High-level document (`docs/standard/00-index.md`) presenting the 6 core principl
 - **Tone**: Philosophical anchor, establishes "why" before "how"
 
 Each principle gets its own deep-dive document:
+
 - `01-context-engineering.md` - Repository-as-documentation, knowledge maps, AGENTS.md structure
 - `02-architectural-constraints.md` - Layered dependencies, mechanical enforcement, boundary parsing
 - `03-agent-feedback-loop.md` - Agent-led PRs, self-correction, observability integration
@@ -399,9 +408,11 @@ A top-level `AGENTS.md` file (~100 lines) that tells AI agents where to find dom
 # Harness Engineering Knowledge Map
 
 ## About This Project
+
 Harness Engineering Library - comprehensive toolkit for agent-first development.
 
 ## Core Principles
+
 - Standard definition: `docs/standard/00-index.md`
 - Context engineering: `docs/standard/01-context-engineering.md`
 - Architectural constraints: `docs/standard/02-architectural-constraints.md`
@@ -411,17 +422,20 @@ Harness Engineering Library - comprehensive toolkit for agent-first development.
 - KPIs: `docs/standard/06-kpis.md`
 
 ## Implementation
+
 - Core library (TypeScript): `packages/core/README.md`
 - CLI tool: `packages/cli/README.md`
 - Linter generator: `packages/linter-gen/README.md`
 - ESLint plugin: `packages/eslint-plugin/README.md`
 
 ## Agent Resources
+
 - Skills directory: `agents/skills/`
 - Agent personas: `agents/personas/`
 - MCP server: `agents/mcp-servers/harness-mcp/`
 
 ## Examples & Templates
+
 - Simple todo app: `examples/todo-app/`
 - API service: `examples/api-service/`
 - Data pipeline: `examples/data-pipeline/`
@@ -429,10 +443,12 @@ Harness Engineering Library - comprehensive toolkit for agent-first development.
 - Templates: `templates/`
 
 ## Integrations
+
 - Framework guides: `integrations/`
 - CI/CD templates: `integrations/ci-cd/`
 
 ## Project Management
+
 - Roadmap: `ROADMAP.md`
 - ADRs: `docs/architecture/decisions/`
 - Active work: `docs/exec-plans/`
@@ -441,6 +457,7 @@ Harness Engineering Library - comprehensive toolkit for agent-first development.
 ### Documentation Site
 
 Built with **VitePress** or **Docusaurus**:
+
 - Searchable, navigable from markdown files
 - Deployed to GitHub Pages or Vercel
 - Versioned (different versions for each major release)
@@ -524,6 +541,7 @@ type AgentsMapConfig = {
 ```
 
 **Implementation approach**:
+
 - Parse AGENTS.md and validate against Zod schema
 - Check all links resolve to actual files (fs.existsSync)
 - Analyze code structure via LanguageParser interface
@@ -592,6 +610,7 @@ type CircularDependency = {
 ```
 
 **Implementation approach**:
+
 - Use LanguageParser interface (supports TS via @typescript-eslint/parser, Python/Go via subprocesses)
 - Build dependency graph and validate against Layer definitions
 - Detect circular dependencies using Tarjan's algorithm
@@ -673,6 +692,7 @@ type AgentAction = {
 ```
 
 **Implementation approach**:
+
 - Uses pluggable TelemetryAdapter (OpenTelemetryAdapter, NoOpAdapter, or custom)
 - Uses pluggable AgentExecutor (SubprocessExecutor, CloudExecutor, or custom)
 - Structured logging via configured logger (console, file, or custom)
@@ -765,6 +785,7 @@ type FixResult = {
 ```
 
 **Implementation approach**:
+
 - Uses LanguageParser interface for multi-language support
 - AST-based dead code detection (tracks usage from entry points)
 - Compare docs to code structure, detect inconsistencies
@@ -829,6 +850,7 @@ type CommitValidation = {
 ```
 
 **Implementation approach**:
+
 - File system traversal with glob pattern matching
 - All config validation uses Zod for runtime type safety
 - Commit message parsing supports conventional commits by default
@@ -850,6 +872,7 @@ Once `@harness-engineering/core` (TypeScript) is stable, create ports for other 
 #### Python Port (`harness-engineering` on PyPI)
 
 **Package Structure**:
+
 ```
 packages/core-python/
 ├── harness_engineering/
@@ -865,6 +888,7 @@ packages/core-python/
 ```
 
 **API Adaptation**:
+
 ```python
 from harness_engineering import validate_agents_map, Result
 
@@ -893,6 +917,7 @@ def process_data(data: dict) -> ProcessedData:
 - **Rust**: `harness-engineering` (crates.io) - uses Result<T, E> natively
 
 **Port Priority** (Phase 1 focuses on TypeScript only):
+
 1. TypeScript (Phase 1)
 2. Python (Phase 2 or 3)
 3. Go/Rust (Phase 4 or later, based on demand)
@@ -906,6 +931,7 @@ The roadmap follows a phased approach with parallel tracks. Each phase has clear
 ### Phase 1: Foundation (Months 1-3)
 
 **Deliverables**:
+
 - Documentation & Standard (all three tiers)
 - Core runtime library (`@harness-engineering/core`)
 - Basic project structure and tooling (monorepo setup)
@@ -913,6 +939,7 @@ The roadmap follows a phased approach with parallel tracks. Each phase has clear
 - First reference example (todo-app)
 
 **Success Criteria**:
+
 - Documentation validated by 2-3 early adopters
 - Core library covers all 6 principles with >80% test coverage
 - Todo-app demonstrates all principles working end-to-end
@@ -927,12 +954,14 @@ The roadmap follows a phased approach with parallel tracks. Each phase has clear
 Built in **Rust** for performance and cross-platform support.
 
 **Commands**:
+
 - **Scaffolding**: `harness init`, `harness add <component>`
 - **Validation**: `harness validate`, `harness check-deps`, `harness check-docs`
 - **Agent orchestration**: `harness agent run <task>`, `harness agent review`
 - **Cleanup**: `harness cleanup`, `harness fix-drift`
 
 **Features**:
+
 - Interactive prompts for configuration
 - JSON/YAML config file support (`harness.config.yml`)
 - Integration with `@harness-engineering/core` for validation
@@ -957,12 +986,14 @@ struct PluginCommand {
 ```
 
 **Plugin loading**:
+
 - Plugins are `.so` (Linux), `.dylib` (macOS), or `.dll` (Windows) files
 - Discovered in `~/.harness/plugins/` or project `.harness/plugins/`
 - Loaded dynamically at runtime via `libloading` crate
 - Plugin manifest (`plugin.json`) defines capabilities
 
 **Example plugin manifest**:
+
 ```json
 {
   "name": "harness-plugin-docker",
@@ -980,6 +1011,7 @@ struct PluginCommand {
 #### Parallel Track B - Linters
 
 **Linter Generator** (`@harness-engineering/linter-gen`):
+
 - Code-generate custom linters from config files
 - Define architectural rules in YAML/JSON
 - Generate ESLint rules, Rust-based linter rules, etc.
@@ -995,41 +1027,44 @@ rules:
     config:
       layers:
         - name: service
-          pattern: "src/services/**"
+          pattern: 'src/services/**'
           forbiddenImports:
-            - "src/ui/**"
-            - "react"
-      message: "Service layer cannot import from UI layer"
+            - 'src/ui/**'
+            - 'react'
+      message: 'Service layer cannot import from UI layer'
 
   - name: enforce-boundary-parsing
     type: boundary-validation
     severity: error
     config:
-      pattern: "src/**/api.ts"
+      pattern: 'src/**/api.ts'
       requireZodSchemas: true
-      message: "All API boundaries must use Zod validation"
+      message: 'All API boundaries must use Zod validation'
 
   - name: no-circular-deps
     type: dependency-graph
     severity: error
     config:
       algorithm: tarjan
-      excludePatterns: ["**/*.test.ts"]
-      message: "Circular dependencies detected"
+      excludePatterns: ['**/*.test.ts']
+      message: 'Circular dependencies detected'
 ```
 
 **Code Generation**:
+
 - Input: `harness-linter.yml`
 - Output: ESLint plugin rules in `generated/eslint-rules/`
 - Uses AST transformation to create rule implementations
 - Generated rules use the LanguageParser interface
 
 **ESLint Plugin** (`@harness-engineering/eslint-plugin`):
+
 - Pre-built rules for common harness patterns
 - TypeScript/JavaScript integration
 - Rules for: layered deps, circular deps, boundary violations
 
 **Architecture Validation Rules**:
+
 - No imports from higher layers (enforces one-way dependencies)
 - No circular dependencies between modules
 - Boundary validation at module edges
@@ -1037,27 +1072,32 @@ rules:
 #### Parallel Track C - Agent Skills
 
 **Enforcement Skills**:
+
 - `validate-context-engineering` - Check AGENTS.md, doc coverage
 - `enforce-architecture` - Validate dependencies, detect violations
 - `check-mechanical-constraints` - Run all linters and validation
 
 **Workflow Skills**:
+
 - `harness-tdd` - Test-driven development with harness principles
 - `harness-code-review` - Review code against harness standards
 - `harness-refactoring` - Refactor while maintaining constraints
 
 **Entropy Skills**:
+
 - `detect-doc-drift` - Find docs that don't match code
 - `cleanup-dead-code` - Remove unused code
 - `align-documentation` - Update docs to match implementation
 
 **Setup Skills**:
+
 - `initialize-harness-project` - Scaffold new harness project
 - `add-harness-component` - Add component following patterns
 
 **Skill Interface Specification**:
 
 Each skill is a directory containing:
+
 ```
 skills/validate-context-engineering/
 ├── skill.yml           # Skill metadata
@@ -1066,6 +1106,7 @@ skills/validate-context-engineering/
 ```
 
 **skill.yml format**:
+
 ```yaml
 name: validate-context-engineering
 version: 1.0.0
@@ -1085,17 +1126,20 @@ platforms:
 ```
 
 **Invocation**:
+
 - **Claude Code**: Via `Skill` tool - skill prompt loaded into context
 - **Gemini CLI**: Via `activate_skill` tool
 - **Cursor**: Via custom skill loader
 - **Generic**: Skills export as standalone executables
 
 **Skill Contract**:
+
 - Input: Project context (cwd, files, git state)
 - Output: Structured report (JSON or markdown)
 - Exit code: 0 = success, 1 = validation failed, 2 = error
 
 **Success Criteria**:
+
 - CLI can scaffold a harness-compliant project in <5 minutes
 - Linters catch >90% of architectural violations automatically
 - Agent skills work in Claude Code and Gemini CLI
@@ -1108,15 +1152,18 @@ platforms:
 #### Track A - Project Templates
 
 **Adoption Level Templates**:
+
 - `basic/` - Level 1: AGENTS.md, basic docs, simple constraints
 - `intermediate/` - Level 2: Full docs, linters, some agent integration
 - `advanced/` - Level 3: Complete harness with agent loop, entropy management
 
 **Architecture Templates**:
+
 - Single service with full harness
 - Multi-service (microservices) with shared harness config
 
 **Framework-Specific Templates**:
+
 - Next.js with harness engineering
 - NestJS with harness engineering
 - Express with harness engineering
@@ -1125,6 +1172,7 @@ platforms:
 #### Track B - Customized Agents
 
 **Agent Personas** (JSON/YAML configs):
+
 ```json
 {
   "name": "Architecture Enforcer",
@@ -1136,11 +1184,13 @@ platforms:
 ```
 
 **Claude Code Specialized Agents**:
+
 - Architecture Enforcer - Validates dependencies and constraints
 - Documentation Maintainer - Keeps docs in sync with code
 - Entropy Cleaner - Runs cleanup tasks, fixes drift
 
 **MCP Server** (`harness-mcp`):
+
 - Provides harness tools to any MCP-compatible AI
 - Tools: validate, lint, check-docs, detect-drift
 - Works with Claude Desktop, Continue.dev, other MCP clients
@@ -1200,17 +1250,20 @@ platforms:
 ```
 
 **Implementation**:
+
 - Node.js/TypeScript MCP server (uses `@harness-engineering/core`)
 - Communicates via stdio (MCP protocol)
 - Tool calls invoke core library APIs
 - Results returned as MCP tool response messages
 
 **Agent Deployment Guides**:
+
 - Running agents in CI/CD (GitHub Actions, GitLab CI)
 - Local agent workflows
 - Scheduled cleanup agents (cron jobs)
 
 **Success Criteria**:
+
 - Templates can scaffold production-ready projects
 - Customized agents can be deployed and run autonomously
 - MCP server works with multiple MCP clients
@@ -1223,6 +1276,7 @@ platforms:
 #### Track A - Framework Integrations
 
 **Integration Guides**:
+
 - Next.js - App Router, Pages Router
 - NestJS - Modules, providers, controllers
 - Express - Middleware, routing
@@ -1230,11 +1284,13 @@ platforms:
 - Fastify - Plugins, hooks
 
 **Build Tool Integrations**:
+
 - Turborepo - Integration with harness validation
 - Nx - Custom generators for harness patterns
 - pnpm/Yarn workspaces - Monorepo setup
 
 **Testing Integrations**:
+
 - Vitest - Test structure, coverage
 - Jest - Configuration, custom matchers
 - Playwright - E2E testing patterns
@@ -1243,17 +1299,20 @@ platforms:
 #### Track B - Platform Integrations
 
 **CI/CD Templates**:
+
 - GitHub Actions - Workflow files for validation, linting, agent reviews
 - GitLab CI - Pipeline configurations
 - CircleCI - Config examples
 
 **Observability Guides**:
+
 - OpenTelemetry - Instrumentation setup
 - Sentry - Error tracking integration
 - DataDog - Metrics and APM
 - Prometheus - Custom metrics
 
 **Deployment Platforms**:
+
 - Vercel - Deployment configuration
 - Railway - Setup guides
 - Fly.io - Deployment patterns
@@ -1262,21 +1321,25 @@ platforms:
 #### Track C - Reference Implementations
 
 **Complete the Progression Series** (`examples/progression/`):
+
 - Step 1: Basic project, add AGENTS.md and docs
 - Step 2: Add architectural constraints and linters
 - Step 3: Full harness with agent loop and entropy management
 
 **Polish Reference Examples**:
+
 - All examples production-grade, fully documented
 - Video walkthroughs for each example
 - Blog posts explaining patterns
 
 **Community Showcase**:
+
 - Feature projects built with harness engineering
 - Case studies and testimonials
 - Contribution guidelines
 
 **Success Criteria**:
+
 - Integration guides cover top 10 tools/frameworks
 - 3+ production projects using harness engineering
 - 5+ community contributions (PRs, issues, discussions)
@@ -1292,30 +1355,38 @@ The roadmap lives in `ROADMAP.md` as a living document:
 # Harness Engineering Roadmap
 
 ## Vision
+
 [Elevator pitch]
 
 ## Current Status
+
 - Phase: 1 (Foundation)
 - Last Updated: 2026-03-11
 - Next Milestone: Core library v0.1.0
 
 ## Phases
+
 [High-level phase breakdown with dates]
 
 ## Detailed Breakdown
+
 [Task-level breakdown with:
- - Dependencies
- - Assignees
- - Status (Not Started | In Progress | Completed)
- - Target dates]
+
+- Dependencies
+- Assignees
+- Status (Not Started | In Progress | Completed)
+- Target dates]
 
 ## Completed Milestones
+
 [Archive of completed work with dates and metrics]
 
 ## Future Considerations
+
 [Ideas not yet committed to roadmap]
 
 ## Metrics Dashboard
+
 [Link to automated metrics collection]
 ```
 
@@ -1338,31 +1409,37 @@ The harness-engineering project applies its own principles - "eating our own dog
 ### Self-Application of Harness Principles
 
 #### 1. Context Engineering
+
 - Top-level `AGENTS.md` knowledge map (~100 lines)
 - All ADRs in `docs/architecture/decisions/`
 - Every package has comprehensive README
 - Active work tracked in `docs/exec-plans/`
 
 #### 2. Architectural Constraints
+
 - Strict layered dependencies: `types` → `config` → `core` → `cli/linter-gen/etc.`
 - No circular dependencies enforced by build-time checks
 - Boundary parsing using Zod for all config/API surfaces
 
 #### 3. Agent Feedback Loop
+
 - Agent-led development: AI agents draft PRs, run tests, self-review
 - Automated PR reviews: GitHub Action using our own agent personas
 - Observability: OpenTelemetry for monitoring agent actions
 
 #### 4. Entropy Management
+
 - Weekly cleanup job: Automated PR checking for doc drift, dead code
 - Documentation sync checks: CI fails if code/docs are out of sync
 - Pattern enforcement: Monthly review for one-off patterns
 
 #### 5. Implementation Strategy (Depth-First)
+
 - One feature at a time to 100% completion
 - No breadth-first: Don't start Phase 2 until Phase 1 is production-ready
 
 #### 6. KPIs Tracked
+
 - **Agent Autonomy**: % of PRs merged without human code changes
 - **Harness Coverage**: % of architectural rules enforced mechanically
 - **Context Density**: Lines of docs vs. lines of code ratio
@@ -1420,6 +1497,7 @@ jobs:
 ```
 
 **Agent Review Implementation**:
+
 - `harness-engineering/agent-reviewer-action` is a GitHub Action
 - Spawns agent via SubprocessExecutor (runs `harness-cli agent review`)
 - Agent reads PR diff, analyzes changes
@@ -1427,6 +1505,7 @@ jobs:
 - Fails CI if critical violations found
 
 **Release workflow**:
+
 - Changesets for version bumps and changelog
 - Automated releases to npm, crates.io, PyPI
 - Deploy docs site to Vercel on release
@@ -1435,6 +1514,7 @@ jobs:
 ### Development Process
 
 **For contributors**:
+
 1. Read `AGENTS.md` to understand knowledge map
 2. Check `ROADMAP.md` for current priorities
 3. Create feature branch: `feature/phase-X-component-name`
@@ -1445,6 +1525,7 @@ jobs:
 8. Merge to main, automated release
 
 **For maintainers**:
+
 - Monthly roadmap updates
 - Weekly entropy cleanup reviews
 - Quarterly agent autonomy metrics analysis
@@ -1472,17 +1553,20 @@ How we measure success across different phases and audiences.
 ### Phase 1: Foundation (Months 1-3)
 
 **Documentation Quality**:
+
 - ✓ Standard validated by 3+ early adopters
 - ✓ Zero broken links in knowledge map
 - ✓ 100% of code examples tested and working
 
 **Library Quality**:
+
 - ✓ >80% test coverage
 - ✓ All 6 principles have working APIs
 - ✓ Type-safe (zero `any` types in public APIs)
 - ✓ Performance: validation operations <100ms
 
 **Early Validation**:
+
 - ✓ 1-2 teams pilot the library internally
 - ✓ First reference example demonstrates all principles
 - ✓ Positive feedback on API ergonomics
@@ -1492,16 +1576,19 @@ How we measure success across different phases and audiences.
 ### Phase 2: Tooling & Automation (Months 4-6)
 
 **CLI Adoption**:
+
 - 10+ projects scaffolded with `harness init`
 - CLI validation completes in <5 seconds
 - 100% of validation rules automated
 
 **Linter Effectiveness**:
-- >90% of architectural violations caught automatically
+
+- > 90% of architectural violations caught automatically
 - <5% false positive rate
 - Linter setup takes <10 minutes
 
 **Agent Skill Usage**:
+
 - Skills work in Claude Code and Gemini CLI
 - 5+ developers using harness skills regularly
 - Agent-led PRs have 50%+ autonomy rate
@@ -1511,16 +1598,19 @@ How we measure success across different phases and audiences.
 ### Phase 3: Templates & Agents (Months 7-9)
 
 **Template Adoption**:
+
 - 20+ projects started from templates
 - Templates reduce setup time from days to <1 hour
 - Framework templates have >10 users each
 
 **Agent Autonomy**:
+
 - Customized agents complete 70%+ tasks without human intervention
 - MCP server has 10+ active users
 - Agent-led PRs merged with zero code changes: 40%+ rate
 
 **Community Growth**:
+
 - GitHub stars: 500+
 - npm weekly downloads: 100+
 - Discord/community: 50+ members
@@ -1530,16 +1620,19 @@ How we measure success across different phases and audiences.
 ### Phase 4: Ecosystem & References (Months 10-12)
 
 **Ecosystem Integration**:
+
 - Integration guides for top 10 tools/frameworks
 - 50+ projects using harness-engineering in production
 - 3+ blog posts/articles from external authors
 
 **Reference Quality**:
+
 - All reference examples production-grade
 - Video tutorials: 5+ with 1000+ views
 - Community showcase: 10+ projects featured
 
 **Community Maturity**:
+
 - GitHub stars: 2000+
 - npm weekly downloads: 500+
 - Active contributors: 10+
@@ -1550,6 +1643,7 @@ How we measure success across different phases and audiences.
 ### Ongoing KPIs (Project-Level)
 
 **Agent Autonomy** (Primary KPI):
+
 - **Definition**: % of PRs merged without human code intervention
 - **Measurement**: Track PRs where commits are only from:
   - Agent automation (GitHub Actions, agent-reviewer)
@@ -1559,6 +1653,7 @@ How we measure success across different phases and audiences.
 - **Target**: 60% by Month 6, 80% by Month 12
 
 **Harness Coverage**:
+
 - **Definition**: % of architectural rules enforced mechanically vs. manual code review
 - **Measurement**:
   - Total rules: Count from `harness-linter.yml` + ESLint rules
@@ -1569,6 +1664,7 @@ How we measure success across different phases and audiences.
 - **Target**: 90% by Month 6, 95% by Month 12
 
 **Context Density**:
+
 - **Definition**: Ratio of documentation (lines in `/docs`) to code (lines in `/packages`)
 - **Measurement**:
   - Count lines in `/docs/**/*.md` (excluding generated API docs)
@@ -1578,6 +1674,7 @@ How we measure success across different phases and audiences.
 - **Target**: >0.3 (e.g., 3,000 lines of docs for 10,000 lines of code)
 
 **Effectiveness Metrics** (for teams using the library):
+
 - **Time to onboard**: Measure via survey or time-to-first-PR metric
 - **Bug density**: Bugs per 1000 lines of code (from issue tracker)
 - **Documentation drift**: Failed `harness validate` checks over time (should trend to zero)
@@ -1587,12 +1684,14 @@ How we measure success across different phases and audiences.
 ### Success Definition
 
 **Minimum Viable Success (Month 12)**:
+
 - 3+ production teams using harness-engineering
 - Agent autonomy >70% on harness-engineering repo itself
 - All Phase 1-4 components delivered and stable
 - Active community (100+ Discord members, 10+ contributors)
 
 **Aspirational Success (Month 18+)**:
+
 - 50+ production teams using harness-engineering
 - Featured in major AI/engineering conferences
 - Language ports (Python, Go, Rust) at feature parity with TypeScript
@@ -1603,11 +1702,13 @@ How we measure success across different phases and audiences.
 ### Measurement & Reporting
 
 **Monthly KPI Dashboard**:
+
 - Automated metrics collection (GitHub API, npm stats, telemetry)
 - Dashboard in `docs/metrics/` (markdown + charts)
 - Reviewed in monthly maintainer sync
 
 **Quarterly OKRs**:
+
 - Set objectives and key results each quarter
 - Published in `ROADMAP.md`
 - Retrospective on what worked/what didn't

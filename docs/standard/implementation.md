@@ -13,6 +13,7 @@ This guide provides step-by-step instructions for adopting Harness Engineering p
 **Payoff**: 20% improvement in onboarding, agent context
 
 **What you get**:
+
 - Clear knowledge map (AGENTS.md)
 - Organized documentation structure
 - Better agent context understanding
@@ -28,6 +29,7 @@ This guide provides step-by-step instructions for adopting Harness Engineering p
 **Payoff**: 50% reduction in architectural violations, faster reviews
 
 **What you get**:
+
 - Automated enforcement of architectural rules
 - Linter rules for common patterns
 - Structural tests for dependencies
@@ -43,6 +45,7 @@ This guide provides step-by-step instructions for adopting Harness Engineering p
 **Payoff**: 70%+ agent autonomy, near-zero technical debt
 
 **What you get**:
+
 - Autonomous agent workflows
 - Scheduled cleanup tasks
 - Self-correcting development cycle
@@ -99,21 +102,25 @@ Create `docs/core-beliefs.md` with your team's non-negotiables:
 # Core Beliefs
 
 ## Quality First
+
 - All code must be tested
 - Tests are written before or alongside implementation
 - Code review is required for all changes
 
 ## Documentation as Code
+
 - Decisions are documented in git
 - No knowledge in Slack or shared drives
 - README exists for every package/service
 
 ## Architectural Integrity
+
 - Dependencies flow one-way (no cycles)
 - Each layer has clear responsibilities
 - Constraints are enforced mechanically
 
 ## Sustainable Pace
+
 - No hero work required
 - Features are completed end-to-end before starting next
 - Technical debt is paid down weekly
@@ -127,17 +134,18 @@ Create `docs/architecture/layers.md`:
 # Architectural Layers
 
 ## Dependency Model
-
 ```
+
 Application / UI
-    ↓ (imports from)
+↓ (imports from)
 Service Layer (business logic)
-    ↓
+↓
 Repository Layer (data access)
-    ↓
+↓
 Config Layer (environment, constants)
-    ↓
+↓
 Types Layer (shared types, interfaces)
+
 ```
 
 ## Layer Descriptions
@@ -184,7 +192,7 @@ All layers are enforced:
 
 Create `docs/architecture/decisions/README.md`:
 
-```markdown
+````markdown
 # Architecture Decision Records (ADRs)
 
 ADRs document significant architectural decisions made during development.
@@ -200,30 +208,37 @@ Each ADR is a markdown file named `NNN-decision-title.md` where NNN is a sequenc
 # ADR-001: Use TypeScript
 
 ## Context
+
 We're building a microservice that will be maintained by multiple teams.
 We need strong typing and IDE support.
 
 ## Decision
+
 We will use TypeScript as our primary language.
 
 ## Rationale
+
 - Type safety reduces bugs in production
 - IDE support improves developer experience
 - TypeScript compiles to JavaScript for deployment
 
 ## Consequences
+
 - Build step required (TS → JS compilation)
 - Team members need to learn TypeScript
 - Slightly larger bundle size
 
 ## Alternatives Considered
+
 - Python: Less suitable for type safety at scale
 - Go: Would require rewriting supporting libraries
 
 ## Related Decisions
+
 - ADR-002: Use Node.js runtime
 - ADR-003: ESLint for linting
 ```
+````
 
 ## How to Add an ADR
 
@@ -236,7 +251,8 @@ We will use TypeScript as our primary language.
 
 - [ADR-001: Monorepo with pnpm](./001-monorepo.md)
 - [ADR-002: TypeScript for core library](./002-typescript.md)
-```
+
+````
 
 Create your first few ADRs:
 
@@ -281,14 +297,16 @@ Read this first to understand where to find information.
 
 ## Code Structure
 
-```
+````
+
 src/
-├── types/           # Shared types and interfaces
-├── config/          # Configuration
-├── repository/      # Data access layer
-├── services/        # Business logic
-└── app/             # Application / UI
-```
+├── types/ # Shared types and interfaces
+├── config/ # Configuration
+├── repository/ # Data access layer
+├── services/ # Business logic
+└── app/ # Application / UI
+
+````
 
 See [docs/architecture/layers.md](docs/architecture/layers.md) for full details.
 
@@ -309,20 +327,23 @@ See [docs/architecture/layers.md](docs/architecture/layers.md) for full details.
 - [ ] No architectural violations (layers)
 - [ ] Documentation updated if needed
 - [ ] Commit message is clear
-```
+````
 
 ## Common Tasks
 
 ### Adding a New Feature
+
 1. Design doc: [docs/design-docs/](docs/design-docs/)
 2. Implementation guide: [docs/guides/adding-a-new-feature.md](docs/guides/adding-a-new-feature.md)
 3. Example: [examples/](examples/)
 
 ### Setting Up Locally
+
 1. [README.md](README.md) - Clone and install
 2. [docs/guides/local-setup.md](docs/guides/local-setup.md) - Detailed setup
 
 ### Running Tests
+
 ```bash
 npm test              # Run all tests
 npm run test:watch   # Watch mode
@@ -330,6 +351,7 @@ npm run test:coverage # With coverage
 ```
 
 ### Deploying Changes
+
 - See: [docs/guides/deployment.md](docs/guides/deployment.md)
 
 ## Reaching Out
@@ -346,7 +368,8 @@ npm run test:coverage # With coverage
 - **Linting**: ESLint + Prettier
 - **Testing**: Jest
 - **Monorepo tool**: Turborepo
-```
+
+````
 
 ### Step 6: Create Implementation Guides
 
@@ -392,11 +415,12 @@ What could go wrong? How will we prevent it?
 
 ## Alternatives Considered
 What other approaches did we consider?
-```
+````
 
 ## Step 2: Implement Feature
 
 ### Create Directory Structure
+
 ```
 src/services/your-feature/
 ├── index.ts           # Main export
@@ -406,6 +430,7 @@ src/services/your-feature/
 ```
 
 ### Write Tests First (or Alongside)
+
 ```typescript
 // your-feature.test.ts
 describe('YourFeatureService', () => {
@@ -417,6 +442,7 @@ describe('YourFeatureService', () => {
 ```
 
 ### Implement Code
+
 ```typescript
 // your-feature.service.ts
 export const yourFeatureService = {
@@ -432,30 +458,36 @@ export const yourFeatureService = {
 
     // Return result
     return { ok: true, value: result };
-  }
+  },
 };
 ```
 
 ### Document the Module
-```markdown
+
+````markdown
 # Your Feature Service
 
 ## Overview
+
 What does this service do?
 
 ## API
 
 ### `create(input: Input): Result<Output, Error>`
+
 Create a new thing.
 
 **Parameters**:
+
 - `input.name` (string): Name of the thing
 
 **Returns**:
+
 - Success: `{ ok: true, value: Output }`
 - Failure: `{ ok: false, error: Error }`
 
 **Example**:
+
 ```typescript
 const result = yourFeatureService.create({ name: 'My Thing' });
 if (result.ok) {
@@ -464,10 +496,13 @@ if (result.ok) {
   console.error('Failed:', result.error);
 }
 ```
+````
 
 ## Testing
+
 Run tests: `npm test -- your-feature.test.ts`
-```
+
+````
 
 ## Step 3: Update AGENTS.md
 
@@ -478,7 +513,7 @@ Add your new feature to the knowledge map:
 
 - Your feature: [src/services/your-feature/](src/services/your-feature/)
   Design doc: [docs/design-docs/your-feature.md](docs/design-docs/your-feature.md)
-```
+````
 
 ## Step 4: Open PR
 
@@ -486,6 +521,7 @@ Include self-review checklist:
 
 ```markdown
 ## Self-Review
+
 - [ ] Design doc written and approved
 - [ ] Implementation matches design
 - [ ] Tests pass (>80% coverage for this feature)
@@ -493,7 +529,8 @@ Include self-review checklist:
 - [ ] Documentation updated (README.md, design-docs, AGENTS.md)
 - [ ] No linting errors
 ```
-```
+
+````
 
 ### Step 7: Set Up Documentation Navigation
 
@@ -516,7 +553,7 @@ Update root `README.md` to point to documentation:
 - **Looking for decisions made?** Check [ADRs](docs/architecture/decisions/)
 
 [Other sections...]
-```
+````
 
 ### Step 8: Verify Level 1 Complete
 
@@ -551,10 +588,7 @@ Create `.eslintrc.json`:
 ```json
 {
   "parser": "@typescript-eslint/parser",
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
-  ],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   "rules": {
     "@typescript-eslint/no-explicit-any": "error",
     "no-var": "error",
@@ -767,15 +801,18 @@ Create PR template (`.github/pull_request_template.md`):
 
 ```markdown
 ## Description
+
 [What changes are in this PR?]
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Documentation update
 - [ ] Refactoring
 
 ## Self-Review Checklist
+
 - [ ] Tests pass (`npm test`)
 - [ ] Linting clean (`npm run lint`)
 - [ ] No architectural violations (layers)
@@ -786,17 +823,21 @@ Create PR template (`.github/pull_request_template.md`):
 - [ ] Commit messages are clear and follow conventions
 
 ## Peer Review Requested From
+
 - [ ] @architecture-enforcer (for architectural changes)
 - [ ] @documentation-maintainer (if docs changed)
 - [ ] @test-reviewer (for significant logic changes)
 
 ## How to Test
+
 [Instructions for reviewer to verify changes]
 
 ## Screenshots (if applicable)
+
 [Add screenshots for UI changes]
 
 ## Notes for Reviewer
+
 [Any context reviewer should know?]
 ```
 
@@ -832,7 +873,7 @@ name: Weekly Cleanup
 
 on:
   schedule:
-    - cron: '0 2 * * 0'  # Every Sunday at 2 AM
+    - cron: '0 2 * * 0' # Every Sunday at 2 AM
 
 jobs:
   cleanup:
@@ -897,10 +938,7 @@ Create `agents/personas/architecture-enforcer.json`:
   "name": "Architecture Enforcer",
   "role": "Validate architectural constraints on PRs",
   "description": "Reviews PRs for layer violations, circular dependencies, and constraint breaches",
-  "skills": [
-    "enforce-architecture",
-    "check-mechanical-constraints"
-  ],
+  "skills": ["enforce-architecture", "check-mechanical-constraints"],
   "triggers": ["on_pr"],
   "tools": ["linter", "dependency-analyzer", "structural-tests"],
   "reviewTargets": ["services", "repository", "config"],
@@ -915,10 +953,7 @@ Create `agents/personas/documentation-maintainer.json`:
   "name": "Documentation Maintainer",
   "role": "Ensure documentation stays in sync with code",
   "description": "Detects documentation drift and proposes updates",
-  "skills": [
-    "detect-doc-drift",
-    "align-documentation"
-  ],
+  "skills": ["detect-doc-drift", "align-documentation"],
   "triggers": ["on_pr"],
   "tools": ["doc-analyzer", "code-parser"],
   "reviewTargets": ["all"],
@@ -989,6 +1024,7 @@ Checklist:
 Track adoption with these metrics:
 
 ### Context Density
+
 ```bash
 # Lines of documentation / lines of code
 docs_lines=$(find docs -name "*.md" -not -path "*/node_modules/*" | xargs wc -l | tail -1 | awk '{print $1}')
@@ -997,6 +1033,7 @@ echo "Context Density: $(echo "scale=2; $docs_lines / $code_lines" | bc)"
 ```
 
 ### Harness Coverage
+
 ```bash
 # Count enforced rules vs total rules
 echo "Enforced rules: $(grep -r 'error' .eslintrc.json | wc -l)"
@@ -1004,9 +1041,11 @@ echo "Total rules: [manual count from all configs]"
 ```
 
 ### Agent Autonomy
+
 Track via GitHub:
+
 - Count PRs where all commits are from bots (GitHub Actions, linter fixes)
-- Calculate: (bot_commits / total_commits) * 100
+- Calculate: (bot_commits / total_commits) \* 100
 
 ---
 
@@ -1015,6 +1054,7 @@ Track via GitHub:
 ### "Documentation gets out of sync with code"
 
 **Solution**: Set up doc drift detection in cleanup agent
+
 ```bash
 npm run detect-doc-drift
 ```
@@ -1024,6 +1064,7 @@ Proposes PRs when docs don't match code.
 ### "Linter rules are too strict"
 
 **Solution**: Create exceptions via ADR
+
 - Document exception in `docs/architecture/decisions/NNN-exception.md`
 - Add eslint-disable comment with ADR reference
 - Maintain exception count (trend should decrease)
@@ -1031,6 +1072,7 @@ Proposes PRs when docs don't match code.
 ### "Agents waste time exploring wrong patterns"
 
 **Solution**: Ensure patterns are documented + mechanically enforced
+
 - Design doc explains the pattern
 - Examples in `/examples/` show correct usage
 - Linter rule prevents wrong usage
@@ -1050,4 +1092,4 @@ Proposes PRs when docs don't match code.
 
 [← Back to Principles](./principles.md) | [KPIs & Metrics →](./kpis.md)
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

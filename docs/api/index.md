@@ -14,9 +14,7 @@ The Harness Engineering API is designed with agents in mind. All functions retur
 ### Result Type
 
 ```typescript
-type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 ```
 
 This pattern ensures that errors are always explicit and must be handled by the caller.

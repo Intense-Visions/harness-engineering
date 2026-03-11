@@ -12,22 +12,26 @@ Thank you for your interest in contributing! This guide will help you get starte
 ### Getting Started
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/harness-engineering/harness-engineering.git
    cd harness-engineering
    ```
 
 2. **Install dependencies:**
+
    ```bash
    pnpm install
    ```
 
 3. **Build all packages:**
+
    ```bash
    pnpm build
    ```
 
 4. **Run tests:**
+
    ```bash
    pnpm test
    ```
@@ -60,6 +64,7 @@ harness-engineering/
 ### Making Changes
 
 1. **Create a branch:**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -71,6 +76,7 @@ harness-engineering/
    - Maintain >80% code coverage
 
 4. **Run tests locally:**
+
    ```bash
    pnpm test
    pnpm lint
@@ -78,6 +84,7 @@ harness-engineering/
    ```
 
 5. **Commit your changes:**
+
    ```bash
    git add .
    git commit -m "feat: add your feature"
@@ -103,6 +110,7 @@ harness-engineering/
 - **Zod** for runtime validation
 
 Run formatters:
+
 ```bash
 pnpm format      # Format all files
 pnpm lint        # Check linting
@@ -129,11 +137,13 @@ pnpm test:watch          # Watch mode
 Documentation lives in `docs/` and uses VitePress.
 
 **Structure:**
+
 - `docs/standard/` - The 6 principles (manifesto)
 - `docs/guides/` - Implementation guides
 - `docs/reference/` - API reference
 
 **Preview locally:**
+
 ```bash
 pnpm docs:dev
 ```
@@ -179,6 +189,7 @@ pnpm docs:dev
 Use [GitHub Issues](https://github.com/harness-engineering/harness-engineering/issues) to report bugs.
 
 **Include:**
+
 - Clear description
 - Steps to reproduce
 - Expected vs. actual behavior
@@ -192,6 +203,7 @@ Use [GitHub Issues](https://github.com/harness-engineering/harness-engineering/i
 We welcome feature requests! Use [GitHub Discussions](https://github.com/harness-engineering/harness-engineering/discussions) for ideas and questions.
 
 **Include:**
+
 - Use case / problem to solve
 - Proposed solution (if you have one)
 - Alternatives considered
