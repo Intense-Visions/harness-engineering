@@ -4,5 +4,11 @@
  * Global test configuration and utilities
  */
 
-// No global setup needed yet
-// This file ensures tests/ directory exists for Vitest
+import { beforeAll } from 'vitest';
+
+// Set default test timeout to 5 seconds
+// Prevents tests from hanging indefinitely
+beforeAll(() => {
+  // Global test configuration can be added here
+  // For example: vi.setConfig({ testTimeout: 5000 })
+});

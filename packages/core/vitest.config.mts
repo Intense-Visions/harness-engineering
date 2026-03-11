@@ -13,7 +13,7 @@ export default defineConfig({
         'tests/',
         '**/*.test.ts',
         '**/*.spec.ts',
-        '**/index.ts', // Re-exports
+        'src/index.ts', // Re-exports
       ],
       thresholds: {
         lines: 80,
