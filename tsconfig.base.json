@@ -18,7 +18,9 @@
     "exactOptionalPropertyTypes": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "incremental": true,
+    "composite": true
   },
   "exclude": ["node_modules", "dist", "build", ".turbo"]
 }
