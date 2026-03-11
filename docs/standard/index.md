@@ -16,6 +16,7 @@ This represents a fundamental shift in the human-AI partnership:
 ### The Problem
 
 Traditional software development doesn't scale with AI agents:
+
 - Agents lack context about architectural decisions and constraints
 - Without mechanical guardrails, agents drift from intended patterns
 - Knowledge lives in Slack, Jira, and human heads - inaccessible to AI
@@ -41,6 +42,7 @@ Harness Engineering codifies the practices that make agent-driven development vi
 All architectural decisions, product specs, and execution plans must be checked into the repository as version-controlled documentation. No knowledge in Slack, Jira, or human heads.
 
 **Key aspects**:
+
 - Repository-as-Documentation pattern
 - AGENTS.md knowledge map for navigation
 - Comprehensive architecture docs, design docs, and execution plans
@@ -56,6 +58,7 @@ All architectural decisions, product specs, and execution plans must be checked 
 Define strict, one-way dependency flows (Types → Config → Repository → Service → UI) and enforce them mechanically through linters, structural tests, and automated validation.
 
 **Key aspects**:
+
 - Layered dependency model with one-way flows
 - Mechanical enforcement via custom linters
 - Boundary parsing with schema validation (Zod, Pydantic, etc.)
@@ -71,6 +74,7 @@ Define strict, one-way dependency flows (Types → Config → Repository → Ser
 Before human review, agents describe their work, run tests, open PRs, review their own changes, and request peer reviews from specialized agents. This reduces human review burden and catches issues early.
 
 **Key aspects**:
+
 - Agent-led PRs with self-review
 - Peer review from specialized agents
 - Observability integration for telemetry access
@@ -86,6 +90,7 @@ Before human review, agents describe their work, run tests, open PRs, review the
 Schedule periodic cleanup agents to detect and fix documentation drift, enforce patterns, remove dead code, and align implementation with design.
 
 **Key aspects**:
+
 - Periodic cleanup agents running on schedule
 - Documentation alignment checks
 - Pattern enforcement and dead code removal
@@ -101,6 +106,7 @@ Schedule periodic cleanup agents to detect and fix documentation drift, enforce 
 Design → Implementation → Testing → Deployment in a single vertical slice. Use learnings from each complete feature to inform the next iteration.
 
 **Key aspects**:
+
 - One story at a time to completion
 - Build abstractions from concrete implementations
 - Validate before scaling to the next feature
@@ -154,6 +160,7 @@ All architectural decisions, designs, and execution plans live in version-contro
 ### Mechanical Constraints
 
 Rather than relying on code review to catch architectural violations, constraints are enforced automatically through:
+
 - Custom ESLint/linter rules
 - Structural tests in CI/CD
 - Runtime boundary validation
@@ -162,6 +169,7 @@ Rather than relying on code review to catch architectural violations, constraint
 ### Agent Skills
 
 Reusable capabilities that AI agents can use:
+
 - `validate-context-engineering` - Check AGENTS.md and documentation
 - `enforce-architecture` - Validate dependencies and constraints
 - `detect-doc-drift` - Find outdated documentation
@@ -170,6 +178,7 @@ Reusable capabilities that AI agents can use:
 ### The Harness Engineering Library
 
 The open-source toolkit that implements these principles:
+
 - **Core Runtime Library** - APIs for validation, constraint enforcement, and metrics
 - **CLI Tool** - Commands for scaffolding, validation, and agent orchestration
 - **Linter Generator** - Code-generate custom linters from YAML rules
@@ -198,4 +207,4 @@ The open-source toolkit that implements these principles:
 
 ---
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

@@ -7,6 +7,7 @@ Welcome to the Harness Engineering Reference section. These documents provide de
 ### [CLI Reference](./cli.md)
 
 Complete reference for Harness Engineering CLI commands and options:
+
 - Command overview and structure
 - Global options and flags
 - Available commands
@@ -17,6 +18,7 @@ Use this when you need to look up specific CLI command syntax or options.
 ### [Configuration Reference](./configuration.md)
 
 Complete reference for configuring Harness Engineering projects:
+
 - Configuration file formats (harness.config.yml)
 - All available configuration options
 - Environment variables
@@ -65,12 +67,12 @@ See [Configuration Reference](./configuration.md) for all options.
 
 Key environment variables for Harness Engineering:
 
-| Variable | Purpose |
-|----------|---------|
-| `HARNESS_CONFIG` | Path to config file (default: harness.config.yml) |
-| `HARNESS_LOG_LEVEL` | Logging level (debug, info, warn, error) |
-| `HARNESS_AGENT_MODE` | Agent execution mode (interactive, batch, watch) |
-| `NODE_ENV` | Node environment (development, production, test) |
+| Variable             | Purpose                                           |
+| -------------------- | ------------------------------------------------- |
+| `HARNESS_CONFIG`     | Path to config file (default: harness.config.yml) |
+| `HARNESS_LOG_LEVEL`  | Logging level (debug, info, warn, error)          |
+| `HARNESS_AGENT_MODE` | Agent execution mode (interactive, batch, watch)  |
+| `NODE_ENV`           | Node environment (development, production, test)  |
 
 For complete list, see [Configuration Reference](./configuration.md).
 
@@ -117,6 +119,7 @@ See the respective reference pages for detailed examples and options.
 ### Command Not Found
 
 Ensure Harness Engineering CLI is installed:
+
 ```bash
 npm install -g harness-cli
 harness --version
@@ -125,11 +128,13 @@ harness --version
 ### Configuration Error
 
 Validate your configuration file:
+
 ```bash
 harness validate
 ```
 
 For detailed error messages:
+
 ```bash
 harness validate --verbose
 ```
@@ -137,6 +142,7 @@ harness validate --verbose
 ### Check Logs
 
 View detailed logs:
+
 ```bash
 HARNESS_LOG_LEVEL=debug harness <command>
 ```
@@ -150,10 +156,11 @@ harness <command> --help
 ```
 
 For detailed documentation:
+
 - [CLI Reference](./cli.md)
 - [Configuration Reference](./configuration.md)
 - [Best Practices Guide](/guides/best-practices.md)
 
 ---
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

@@ -7,6 +7,7 @@ Welcome to the Harness Engineering Guides section. These guides provide practica
 ### [Getting Started](./getting-started.md)
 
 New to Harness Engineering? Start here. This guide walks you through:
+
 - Prerequisites and system requirements
 - Installation and setup
 - Quick start example
@@ -17,6 +18,7 @@ New to Harness Engineering? Start here. This guide walks you through:
 ### [Best Practices](./best-practices.md)
 
 Learn proven patterns and strategies for successful Harness Engineering adoption:
+
 - Common patterns and anti-patterns to avoid
 - Code organization and project structure
 - Testing strategies and approaches
@@ -40,4 +42,4 @@ Learn proven patterns and strategies for successful Harness Engineering adoption
 
 ---
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

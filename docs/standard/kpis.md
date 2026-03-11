@@ -37,6 +37,7 @@ These three metrics are interdependent:
 **Agent Autonomy**: The percentage of PRs merged without human code intervention.
 
 In other words: Of all merged PRs, how many contain only commits from:
+
 - Automated systems (GitHub Actions, CI/CD)
 - Linter fixes and code generation
 - Bot accounts (not human developers)
@@ -122,12 +123,14 @@ Agent Autonomy = 60% ✓
 To increase autonomy:
 
 1. **Increase context density** - Agents need information to work independently
+
    ```bash
    npm run measure:context-density
    # Target: >0.3 (3000 lines of docs for 10k lines of code)
    ```
 
 2. **Increase harness coverage** - Reduce cases where agents get it wrong
+
    ```bash
    npm run measure:harness-coverage
    # Target: >90% of rules enforced mechanically
@@ -406,11 +409,13 @@ echo "Context Density: $DENSITY ($DOC_LINES docs / $CODE_LINES code)"
 #### Method 2: Manual Count
 
 1. Count lines in `docs/`:
+
    ```bash
    find docs -name "*.md" | xargs wc -l | tail -1
    ```
 
 2. Count lines in `src/`:
+
    ```bash
    find src -name "*.ts" | xargs wc -l | tail -1
    ```
@@ -447,25 +452,30 @@ Target: >0.3, achieved: 0.43 ✓
 Different types of documentation add to context density:
 
 #### Architecture Documentation
+
 - `docs/core-beliefs.md` - Product values and non-negotiables
 - `docs/architecture/layers.md` - Layer model and dependencies
 - `docs/architecture/decisions/` - ADRs explaining why
 
 #### Design Documentation
+
 - `docs/design-docs/feature-name.md` - Before implementing features
 - Problem, solution, implementation plan, testing strategy
 
 #### Implementation Guides
+
 - `docs/guides/adding-a-new-feature.md` - How to build
 - `docs/guides/testing-patterns.md` - Testing approach
 - `docs/guides/deployment.md` - How to deploy
 
 #### API Documentation
+
 - Service/module README.md - What it does, how to use
 - Code comments - Complex logic, non-obvious decisions
 - Type definitions - Interface documentation in JSDoc/docstrings
 
 #### Knowledge Maps
+
 - `AGENTS.md` - Navigation guide for agents and team members
 - `README.md` - Quick start, links to docs
 
@@ -484,6 +494,7 @@ To increase density, add documentation strategically:
 
 ```markdown
 # docs/architecture/layers.md
+
 - Explains dependency model
 - Prevents agents from exploring wrong approaches
 - Enables faster code reviews
@@ -494,6 +505,7 @@ To increase density, add documentation strategically:
 
 ```markdown
 # docs/design-docs/my-feature.md
+
 - Written before code
 - Explains intent and trade-offs
 - Agents can read and understand approach
@@ -504,6 +516,7 @@ To increase density, add documentation strategically:
 
 ```markdown
 # docs/guides/adding-a-new-service.md
+
 - Step-by-step example
 - Shows correct patterns
 - Agents can reference and follow
@@ -514,6 +527,7 @@ To increase density, add documentation strategically:
 
 ```markdown
 # AGENTS.md
+
 - Navigation guide
 - Points to relevant documentation
 - Agents and humans start here
@@ -552,11 +566,11 @@ Create `docs/metrics/dashboard.md`:
 
 ## Current Status (March 2026)
 
-| KPI | Current | Target | Trend |
-|-----|---------|--------|-------|
-| Agent Autonomy | 35% | 60% | ↑ +5% |
-| Harness Coverage | 68% | 90% | ↑ +8% |
-| Context Density | 0.28 | 0.35 | ↑ +0.03 |
+| KPI              | Current | Target | Trend   |
+| ---------------- | ------- | ------ | ------- |
+| Agent Autonomy   | 35%     | 60%    | ↑ +5%   |
+| Harness Coverage | 68%     | 90%    | ↑ +8%   |
+| Context Density  | 0.28    | 0.35   | ↑ +0.03 |
 
 ## Agent Autonomy
 
@@ -580,8 +594,8 @@ Create `docs/metrics/dashboard.md`:
 - **Next**: Add design doc for upcoming feature (+500 docs lines)
 
 ## Trends
-
 ```
+
 Agent Autonomy (Monthly)
 Month 1: 15% ↑
 Month 2: 25% ↑
@@ -596,6 +610,7 @@ Context Density (Monthly)
 Month 1: 0.15 ↑
 Month 2: 0.22 ↑
 Month 3: 0.28 ← current
+
 ```
 
 ## Opportunities
@@ -674,6 +689,7 @@ Month 12+: Mature System
 ```
 
 Your project's timeline may vary based on:
+
 - Team size (larger teams benefit more from constraints)
 - Codebase complexity (complex systems need more documentation)
 - Agent capability (better agents achieve autonomy faster)
@@ -734,4 +750,4 @@ At these levels:
 
 [← Back to Implementation](./implementation.md) | [Principles Overview →](./principles.md)
 
-*Last Updated: 2026-03-11*
+_Last Updated: 2026-03-11_

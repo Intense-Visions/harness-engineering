@@ -294,7 +294,7 @@ When working on this project, agents should prioritize reading:
 ### Code Style
 
 - **TypeScript Strict Mode** - All code compiles with `strict: true`
-- **ESLint** - Configured in `.eslintrc.json` for code quality rules
+- **ESLint** - Configured in `eslint.config.js` for code quality rules
 - **Prettier** - Auto-formatting with rules in `.prettierrc.json`
   - 2-space indentation
   - Single quotes for strings
@@ -507,7 +507,7 @@ This makes error handling explicit and type-safe.
 | `pnpm-workspace.yaml` | Monorepo workspace definition                         |
 | `tsconfig.json`       | Root TypeScript configuration with project references |
 | `turbo.json`          | Turborepo build orchestration                         |
-| `.eslintrc.json`      | Linting rules                                         |
+| `eslint.config.js`    | ESLint configuration (flat config format)             |
 | `.prettierrc.json`    | Code formatting rules                                 |
 
 ### Development Commands Cheat Sheet

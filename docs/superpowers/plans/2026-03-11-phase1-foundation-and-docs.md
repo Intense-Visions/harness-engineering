@@ -7,6 +7,7 @@
 **Architecture:** Unified monorepo using pnpm workspaces for package management and Turborepo for build orchestration. Documentation uses VitePress for the documentation site, organized into three tiers: Standard (manifesto), Guides (implementation), and Reference (technical). AGENTS.md serves as the top-level knowledge map.
 
 **Tech Stack:**
+
 - pnpm 8+, Turborepo, TypeScript 5+
 - VitePress for documentation site
 - Zod for validation, Vitest for testing
@@ -19,6 +20,7 @@
 ### Task 1: Initialize Git and Monorepo Structure
 
 **Files:**
+
 - Create: `package.json` (root)
 - Create: `pnpm-workspace.yaml`
 - Create: `turbo.json`
@@ -187,6 +189,7 @@ git commit -m "chore: initialize monorepo with pnpm and Turborepo"
 ### Task 2: TypeScript and Tooling Configuration
 
 **Files:**
+
 - Create: `tsconfig.json` (root)
 - Create: `tsconfig.base.json`
 - Create: `.eslintrc.js`
@@ -266,13 +269,10 @@ module.exports = {
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
     ],
     '@typescript-eslint/no-explicit-any': 'error',
-    '@typescript-eslint/explicit-function-return-type': [
-      'warn',
-      { allowExpressions: true },
-    ],
+    '@typescript-eslint/explicit-function-return-type': ['warn', { allowExpressions: true }],
   },
   ignorePatterns: ['dist', 'build', 'node_modules', '.turbo'],
-}
+};
 ```
 
 - [ ] **Step 5: Create .prettierrc.js**
@@ -285,7 +285,7 @@ module.exports = {
   printWidth: 100,
   tabWidth: 2,
   useTabs: false,
-}
+};
 ```
 
 - [ ] **Step 6: Create .prettierignore**
@@ -319,6 +319,7 @@ git commit -m "chore: configure TypeScript, ESLint, and Prettier"
 ### Task 3: Create Package Structure
 
 **Files:**
+
 - Create: `packages/core/package.json`
 - Create: `packages/core/tsconfig.json`
 - Create: `packages/core/src/index.ts`
@@ -391,36 +392,34 @@ Expected: Directory structure created
 /**
  * Result type for consistent error handling across all APIs
  */
-export type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E }
+export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 /**
  * Helper to create a successful Result
  */
 export function Ok<T>(value: T): Result<T, never> {
-  return { ok: true, value }
+  return { ok: true, value };
 }
 
 /**
  * Helper to create a failed Result
  */
 export function Err<E>(error: E): Result<never, E> {
-  return { ok: false, error }
+  return { ok: false, error };
 }
 
 /**
  * Type guard to check if Result is Ok
  */
 export function isOk<T, E>(result: Result<T, E>): result is { ok: true; value: T } {
-  return result.ok === true
+  return result.ok === true;
 }
 
 /**
  * Type guard to check if Result is Err
  */
 export function isErr<T, E>(result: Result<T, E>): result is { ok: false; error: E } {
-  return result.ok === false
+  return result.ok === false;
 }
 ```
 
@@ -499,10 +498,10 @@ Expected: tsup added to types package
  * Core runtime library implementing all 6 harness engineering principles
  */
 
-export * from '@harness-engineering/types'
+export * from '@harness-engineering/types';
 
 // Module exports will be added as we implement them
-export const version = '0.1.0'
+export const version = '0.1.0';
 ```
 
 - [ ] **Step 9: Install dependencies for all packages**
@@ -531,6 +530,7 @@ git commit -m "chore: create core package structure"
 ### Task 4: VitePress Documentation Site Setup
 
 **Files:**
+
 - Create: `docs/package.json`
 - Create: `docs/tsconfig.json`
 - Create: `docs/.vitepress/config.ts`
@@ -585,7 +585,7 @@ Expected: docs directory created
 - [ ] **Step 4: Create docs/.vitepress/config.ts**
 
 ```typescript
-import { defineConfig } from 'vitepress'
+import { defineConfig } from 'vitepress';
 
 export default defineConfig({
   title: 'Harness Engineering',
@@ -648,7 +648,7 @@ export default defineConfig({
       dark: 'github-dark',
     },
   },
-})
+});
 ```
 
 - [ ] **Step 5: Create docs/index.md**
@@ -725,6 +725,7 @@ git commit -m "feat: set up VitePress documentation site"
 ### Task 5: Create Standard Documentation Structure
 
 **Files:**
+
 - Create: `docs/standard/index.md`
 - Create: `docs/standard/context-engineering.md`
 - Create: `docs/standard/architectural-constraints.md`
@@ -760,6 +761,7 @@ The standard is built on six core principles that work together to enable reliab
 AI agents are only as effective as the context they can access. Everything must be in the repository.
 
 **Key practices:**
+
 - Repository-as-Documentation
 - AGENTS.md knowledge map
 - Version-controlled decisions and specs
@@ -769,6 +771,7 @@ AI agents are only as effective as the context they can access. Everything must 
 Constraints are productivity multipliers that prevent agents from exploring dead ends.
 
 **Key practices:**
+
 - Layered dependency model
 - Mechanical enforcement
 - Boundary parsing
@@ -778,6 +781,7 @@ Constraints are productivity multipliers that prevent agents from exploring dead
 Agents operate in a self-correcting cycle of execution and review.
 
 **Key practices:**
+
 - Agent-led PRs
 - Self-correction before human review
 - Observability integration
@@ -787,6 +791,7 @@ Agents operate in a self-correcting cycle of execution and review.
 AI-generated codebases can accumulate technical debt rapidly.
 
 **Key practices:**
+
 - Periodic cleanup agents
 - Documentation alignment
 - Pattern enforcement
@@ -796,6 +801,7 @@ AI-generated codebases can accumulate technical debt rapidly.
 Avoid breadth-first scaling. Build depth-first.
 
 **Key practices:**
+
 - One story to 100% completion
 - Build abstractions from concrete work
 - Validate before scaling
@@ -805,6 +811,7 @@ Avoid breadth-first scaling. Build depth-first.
 Measure what matters.
 
 **Metrics:**
+
 - Agent Autonomy
 - Harness Coverage
 - Context Density
@@ -832,12 +839,14 @@ AI agents are only as effective as the context they can access. Information stor
 ## The Problem
 
 Traditional software development scatters critical information:
+
 - Architectural decisions in Slack threads
 - Product specs in Confluence or Jira
 - Execution plans in human heads
 - Context in email chains
 
 AI agents can't access this information, leading to:
+
 - Repeated questions
 - Wrong assumptions
 - Inconsistent implementations
@@ -850,6 +859,7 @@ AI agents can't access this information, leading to:
 All architectural decisions, product specs, and execution plans must be checked into the repository as version-controlled Markdown files.
 
 **What goes in the repository:**
+
 - Core beliefs and principles (`docs/core-beliefs.md`)
 - Design documents (`docs/design-docs/`)
 - Architecture decision records (`docs/architecture/decisions/`)
@@ -863,35 +873,43 @@ The `AGENTS.md` file provides a top-level map (~100 lines) that tells agents whe
 **Example AGENTS.md:**
 
 \`\`\`markdown
+
 # Project Knowledge Map
 
 ## About This Project
+
 [Brief description]
 
 ## Core Principles
+
 - Standard definition: `docs/standard/index.md`
 - Architecture: `docs/architecture/overview.md`
 
 ## Implementation
+
 - Core library: `packages/core/README.md`
 - CLI tool: `packages/cli/README.md`
 
 ## Active Work
+
 - Current sprint: `docs/exec-plans/2026-03-sprint.md`
 
 ## Getting Started
+
 - Setup: `docs/guides/setup.md`
 - Contributing: `CONTRIBUTING.md`
-\`\`\`
+  \`\`\`
 
 ## Benefits
 
 **For Agents:**
+
 - Self-service context access
 - Consistent information across sessions
 - Clear navigation to relevant knowledge
 
 **For Teams:**
+
 - Onboarding new developers is faster
 - Knowledge doesn't disappear when people leave
 - Decisions are documented and searchable
@@ -929,12 +947,14 @@ Constraints are not blockers—they are productivity multipliers that prevent ag
 ## The Problem
 
 Manual code review for architectural compliance:
+
 - Is inconsistent
 - Catches violations too late
 - Depends on reviewer availability and expertise
 - Doesn't scale with codebase size
 
 AI agents exploring the solution space:
+
 - Can violate constraints unknowingly
 - Waste time on architecturally invalid approaches
 - Introduce technical debt
@@ -944,9 +964,10 @@ AI agents exploring the solution space:
 ### Layered Dependency Model
 
 Define a strict one-way flow of dependencies:
-
 ```
+
 Types → Config → Repository → Service → UI
+
 ```
 
 **Rules:**
@@ -1005,26 +1026,28 @@ layers:
 \`\`\`typescript
 // Generated from config
 rule: {
-  name: 'no-ui-imports-in-service',
-  check: (file, imports) => {
-    if (file.matches('src/services/**')) {
-      const uiImports = imports.filter(i => i.matches('src/ui/**'))
-      if (uiImports.length > 0) {
-        return error(`Service layer cannot import from UI layer`)
-      }
-    }
-  }
+name: 'no-ui-imports-in-service',
+check: (file, imports) => {
+if (file.matches('src/services/**')) {
+const uiImports = imports.filter(i => i.matches('src/ui/**'))
+if (uiImports.length > 0) {
+return error(`Service layer cannot import from UI layer`)
+}
+}
+}
 }
 \`\`\`
 
 ## Benefits
 
 **For Agents:**
+
 - Clear constraints guide exploration
 - Fast feedback on violations
 - No waiting for human review
 
 **For Teams:**
+
 - Architectural rules are documented
 - Violations caught in CI
 - Consistent enforcement across all code
@@ -1046,14 +1069,15 @@ rule: {
 ---
 
 **Next:** [Agent Feedback Loop →](/standard/agent-feedback-loop)
-```
+
+````
 
 - [ ] **Step 5: Commit standard documentation (part 1)**
 
 ```bash
 git add docs/standard/index.md docs/standard/context-engineering.md docs/standard/architectural-constraints.md
 git commit -m "docs: add standard documentation (context, constraints)"
-```
+````
 
 - [ ] **Step 6: Create docs/standard/agent-feedback-loop.md**
 
@@ -1069,6 +1093,7 @@ Agents must operate in a self-correcting cycle of execution and review.
 ## The Problem
 
 Without structured feedback:
+
 - Agents make mistakes that could be caught early
 - Humans spend time on issues agents could fix themselves
 - No systematic improvement in agent behavior
@@ -1107,16 +1132,19 @@ const checklist = createSelfReview(changes)
 Specialized agents review specific aspects:
 
 **Architecture Enforcer:**
+
 - Validates dependencies
 - Checks layering violations
 - Ensures boundary parsing
 
 **Documentation Maintainer:**
+
 - Checks docs match code
 - Validates examples work
 - Ensures AGENTS.md is current
 
 **Test Reviewer:**
+
 - Evaluates test quality
 - Checks edge cases
 - Validates coverage
@@ -1131,7 +1159,7 @@ const telemetry = await getTelemetry('my-service', lastHour)
 
 // Diagnose failures
 if (telemetry.errors.length > 0) {
-  // Agent analyzes errors and proposes fixes
+// Agent analyzes errors and proposes fixes
 }
 \`\`\`
 
@@ -1139,45 +1167,47 @@ if (telemetry.errors.length > 0) {
 
 \`\`\`
 ┌─────────────┐
-│ Agent       │
-│ implements  │
+│ Agent │
+│ implements │
 └──────┬──────┘
-       │
-       ▼
+│
+▼
 ┌─────────────┐
 │ Self-review │ ◄── Checklist validation
 └──────┬──────┘
-       │
-       ▼
+│
+▼
 ┌─────────────┐
 │ Peer review │ ◄── Architecture Enforcer
-│             │ ◄── Documentation Maintainer
-│             │ ◄── Test Reviewer
+│ │ ◄── Documentation Maintainer
+│ │ ◄── Test Reviewer
 └──────┬──────┘
-       │
-       ├─── Issues? ──► Agent fixes ──┐
-       │                               │
-       │                               │
-       ▼                               │
-┌─────────────┐                       │
-│ Human       │                       │
-│ review      │                       │
-└─────────────┘                       │
-       │                               │
-       ▼                               │
-   ✅ Merge                           │
-       │                               │
-       └───────────────────────────────┘
+│
+├─── Issues? ──► Agent fixes ──┐
+│ │
+│ │
+▼ │
+┌─────────────┐ │
+│ Human │ │
+│ review │ │
+└─────────────┘ │
+│ │
+▼ │
+✅ Merge │
+│ │
+└───────────────────────────────┘
 \`\`\`
 
 ## Benefits
 
 **For Agents:**
+
 - Faster feedback
 - Learn from specialized reviewers
 - Build institutional knowledge
 
 **For Humans:**
+
 - Review higher-quality work
 - Focus on design, not mechanics
 - Trust in systematic quality
@@ -1215,12 +1245,14 @@ AI-generated codebases can accumulate technical debt rapidly. Continuous cleanup
 ## The Problem
 
 Over time, codebases accumulate entropy:
+
 - **Documentation drift**: Docs no longer match implementation
 - **Dead code**: Unused functions, exports, imports
 - **Pattern violations**: One-off solutions that deviate from standards
 - **Bit rot**: Dependencies become outdated
 
 AI agents accelerate this:
+
 - Generate more code faster
 - May not notice existing patterns
 - Can create inconsistencies across the codebase
@@ -1232,16 +1264,19 @@ AI agents accelerate this:
 Schedule agents to run regularly (weekly/monthly):
 
 **Documentation Alignment Agent:**
+
 - Compares docs to implementation
 - Detects outdated examples
 - Flags missing documentation
 
 **Pattern Enforcement Agent:**
+
 - Identifies deviations from established patterns
 - Suggests refactoring to align with standards
 - Creates issues for manual review
 
 **Dead Code Removal Agent:**
+
 - Analyzes usage from entry points
 - Identifies unused exports, imports, files
 - Creates PRs to remove dead code
@@ -1251,11 +1286,13 @@ Schedule agents to run regularly (weekly/monthly):
 Run validation checks in CI:
 
 \`\`\`yaml
+
 # CI workflow
+
 - check-doc-drift
 - detect-dead-code
 - validate-patterns
-\`\`\`
+  \`\`\`
 
 Fail CI if entropy exceeds thresholds.
 
@@ -1264,12 +1301,14 @@ Fail CI if entropy exceeds thresholds.
 Some entropy can be fixed automatically:
 
 **Safe auto-fixes:**
+
 - Remove unused imports
 - Format code consistently
 - Update generated API docs
 - Sync package versions
 
 **Require review:**
+
 - Remove unused functions (might be called externally)
 - Refactor pattern violations (might have valid reasons)
 - Update documentation (might be intentionally different)
@@ -1278,16 +1317,16 @@ Some entropy can be fixed automatically:
 
 \`\`\`typescript
 const driftReport = detectDocDrift({
-  docsDir: 'docs/',
-  codeDir: 'packages/',
+docsDir: 'docs/',
+codeDir: 'packages/',
 })
 
 if (!driftReport.ok) {
-  console.error('Documentation drift detected:')
-  driftReport.error.drifts.forEach(drift => {
-    console.log(`${drift.file}: ${drift.issue}`)
-    console.log(`Suggestion: ${drift.details}`)
-  })
+console.error('Documentation drift detected:')
+driftReport.error.drifts.forEach(drift => {
+console.log(`${drift.file}: ${drift.issue}`)
+console.log(`Suggestion: ${drift.details}`)
+})
 }
 
 // Example output:
@@ -1298,11 +1337,13 @@ if (!driftReport.ok) {
 ## Benefits
 
 **For Agents:**
+
 - Clean codebase easier to reason about
 - Consistent patterns reduce confusion
 - Up-to-date docs improve context
 
 **For Teams:**
+
 - Automated maintenance
 - Prevents accumulation of tech debt
 - Codebase stays healthy
@@ -1340,12 +1381,14 @@ Avoid breadth-first scaling where many features are built shallowly.
 ## The Problem
 
 **Breadth-first development:**
+
 - Many features at 50% completion
 - Nothing is production-ready
 - Hard to validate assumptions
 - Accumulates incomplete work
 
 **Result:**
+
 - Can't ship anything
 - Unclear what "done" means
 - Technical debt accumulates
@@ -1378,6 +1421,7 @@ Don't design abstractions upfront. Build them from concrete work:
 ### Validate Before Scaling
 
 After completing a vertical slice:
+
 - Get user feedback
 - Measure success metrics
 - Validate assumptions
@@ -1404,11 +1448,13 @@ Week 4: Three production-ready modules
 ## Benefits
 
 **For Agents:**
+
 - Clear "done" criteria
 - Immediate validation
 - Learn from completed work
 
 **For Teams:**
+
 - Ship value continuously
 - Validate assumptions early
 - Reduce work in progress
@@ -1434,7 +1480,7 @@ Week 4: Three production-ready modules
 
 - [ ] **Step 9: Create docs/standard/kpis.md**
 
-```markdown
+````markdown
 # Key Performance Indicators
 
 Measure success through quantifiable metrics that reflect the effectiveness of harness engineering.
@@ -1446,11 +1492,13 @@ Measure success through quantifiable metrics that reflect the effectiveness of h
 **Definition:** Percentage of PRs merged without human code intervention.
 
 **Why it matters:**
+
 - Core measure of agent effectiveness
 - Indicates trust in automated processes
 - Shows progress toward agent-first development
 
 **How to measure:**
+
 ```typescript
 // Track PRs where commits are ONLY from:
 // - Agent automation (GitHub Actions, agent-reviewer)
@@ -1458,15 +1506,18 @@ Measure success through quantifiable metrics that reflect the effectiveness of h
 //
 // Exclude PRs where humans add commits after PR creation
 
-const autonomy = (agentOnlyPRs / totalPRs) * 100
+const autonomy = (agentOnlyPRs / totalPRs) * 100;
 ```
+````
 
 **Targets:**
+
 - Month 1-3: 30-40% (baseline)
 - Month 4-6: 60%
 - Month 7-12: 80%
 
 **Collection:**
+
 - GitHub API webhook → `docs/metrics/agent-autonomy.json`
 - Weekly automated reports
 - Dashboard in docs site
@@ -1478,11 +1529,13 @@ const autonomy = (agentOnlyPRs / totalPRs) * 100
 **Definition:** Percentage of architectural rules enforced mechanically vs. manual code review.
 
 **Why it matters:**
+
 - Shows adoption of mechanical constraints
 - Reduces manual review burden
 - Enables scaling
 
 **How to measure:**
+
 ```typescript
 // Count rules from:
 // - harness-linter.yml
@@ -1493,15 +1546,17 @@ const autonomy = (agentOnlyPRs / totalPRs) * 100
 // - Mechanical: Fails CI automatically
 // - Manual: Checked by humans in reviews
 
-const coverage = (mechanicalRules / totalRules) * 100
+const coverage = (mechanicalRules / totalRules) * 100;
 ```
 
 **Targets:**
+
 - Month 1-3: 60-70% (foundation)
 - Month 4-6: 90%
 - Month 7-12: 95%
 
 **Collection:**
+
 - Automated script scans configs
 - CI workflow analysis
 - Monthly reports
@@ -1513,20 +1568,23 @@ const coverage = (mechanicalRules / totalRules) * 100
 **Definition:** Ratio of documentation (lines in `/docs`) to code (lines in `/packages`).
 
 **Why it matters:**
+
 - Measures knowledge accessibility
 - Indicates agent context quality
 - Shows commitment to documentation
 
 **How to measure:**
+
 ```typescript
 // Count lines:
 // - Docs: /docs/**/*.md (exclude generated API docs)
 // - Code: /packages/**/*.{ts,rs,py} (exclude tests, node_modules)
 
-const density = docsLines / codeLines
+const density = docsLines / codeLines;
 ```
 
 **Targets:**
+
 - Month 1-3: >0.2
 - Month 4-6: >0.3
 - Month 7-12: >0.3 (maintain)
@@ -1534,6 +1592,7 @@ const density = docsLines / codeLines
 **Example:** 3,000 lines of docs for 10,000 lines of code = 0.30
 
 **Collection:**
+
 - Weekly automated script via GitHub Action
 - Results in `docs/metrics/context-density.json`
 
@@ -1544,29 +1603,36 @@ const density = docsLines / codeLines
 ### Effectiveness Metrics (for teams using the library)
 
 **Time to Onboard:**
+
 - Measure: Survey or time-to-first-PR
 - Target: Decrease over time
 
 **Bug Density:**
+
 - Measure: Bugs per 1,000 lines of code
 - Target: Decrease as constraints catch issues early
 
 **Documentation Drift:**
+
 - Measure: Failed `harness validate` checks
 - Target: Trend toward zero
 
 ### Project Health Metrics
 
 **Test Coverage:**
+
 - Target: >80% for all packages
 
 **Build Time:**
+
 - Target: <5 minutes for full build
 
 **CI Pipeline:**
+
 - Target: <10 minutes for full pipeline
 
 **Dependency Freshness:**
+
 - Target: <30 days behind latest versions
 
 ---
@@ -1579,15 +1645,16 @@ Automated metrics collection creates dashboard:
 
 \`\`\`
 docs/metrics/
-├── agent-autonomy.json       # Weekly updates
-├── harness-coverage.json     # Monthly updates
-├── context-density.json      # Weekly updates
-└── dashboard.md              # Generated report
+├── agent-autonomy.json # Weekly updates
+├── harness-coverage.json # Monthly updates
+├── context-density.json # Weekly updates
+└── dashboard.md # Generated report
 \`\`\`
 
 ### Visualization
 
 Dashboard includes:
+
 - Trend charts (last 12 months)
 - Current vs. target comparison
 - Breakdown by component/package
@@ -1604,28 +1671,32 @@ Dashboard includes:
 ## Success Definition
 
 **Minimum Viable Success (Month 12):**
+
 - Agent Autonomy: >70%
 - Harness Coverage: >90%
 - Context Density: >0.3
 
 **Aspirational Success (Month 18):**
+
 - Agent Autonomy: >85%
 - Harness Coverage: >95%
 - Context Density: >0.4
-```
+
+````
 
 - [ ] **Step 10: Commit standard documentation (part 2)**
 
 ```bash
 git add docs/standard/
 git commit -m "docs: complete standard documentation (feedback loop, entropy, strategy, KPIs)"
-```
+````
 
 ---
 
 ### Task 6: Create Guides and Reference Structure
 
 **Files:**
+
 - Create: `docs/guides/index.md`
 - Create: `docs/guides/adoption-levels.md`
 - Create: `docs/reference/index.md`
@@ -1639,7 +1710,7 @@ Expected: Directories created
 
 - [ ] **Step 2: Create docs/guides/index.md**
 
-```markdown
+````markdown
 # Getting Started with Harness Engineering
 
 Welcome! This guide will help you start adopting harness engineering practices in your projects.
@@ -1651,6 +1722,7 @@ Welcome! This guide will help you start adopting harness engineering practices i
 Read [The Standard](/standard/) to understand the six core principles of harness engineering.
 
 **Start here:**
+
 - [Context Engineering](/standard/context-engineering) - Everything in the repository
 - [Architectural Constraints](/standard/architectural-constraints) - Mechanical enforcement
 - [Agent Feedback Loop](/standard/agent-feedback-loop) - Self-correcting agents
@@ -1660,6 +1732,7 @@ Read [The Standard](/standard/) to understand the six core principles of harness
 Harness engineering can be adopted incrementally. See [Adoption Levels](/guides/adoption-levels) for a phased approach.
 
 **Three levels:**
+
 - **Level 1 (Basic)**: AGENTS.md + documentation structure
 - **Level 2 (Intermediate)**: Add linters + constraints
 - **Level 3 (Advanced)**: Full agent loop + entropy management
@@ -1671,42 +1744,48 @@ npm install @harness-engineering/core
 # or
 pnpm add @harness-engineering/core
 ```
+````
 
 ### 4. Set Up Context Engineering
 
 Create your AGENTS.md:
 
 \`\`\`markdown
+
 # [Your Project] Knowledge Map
 
 ## About This Project
+
 [Brief description]
 
 ## Core Architecture
+
 - Overview: `docs/architecture/overview.md`
 - Decisions: `docs/architecture/decisions/`
 
 ## Implementation
+
 - Getting started: `docs/guides/setup.md`
 - API documentation: `docs/api/`
 
 ## Active Work
+
 - Current sprint: `docs/exec-plans/current.md`
-\`\`\`
+  \`\`\`
 
 ### 5. Add Validation
 
 ```typescript
-import { validateAgentsMap } from '@harness-engineering/core'
+import { validateAgentsMap } from '@harness-engineering/core';
 
-const result = validateAgentsMap('./AGENTS.md')
+const result = validateAgentsMap('./AGENTS.md');
 
 if (!result.ok) {
-  console.error('AGENTS.md validation failed:', result.error.message)
-  process.exit(1)
+  console.error('AGENTS.md validation failed:', result.error.message);
+  process.exit(1);
 }
 
-console.log('✓ AGENTS.md is valid')
+console.log('✓ AGENTS.md is valid');
 ```
 
 ### 6. Run Validation in CI
@@ -1745,7 +1824,8 @@ jobs:
 - **GitHub Discussions**: Ask questions, share experiences
 - **GitHub Issues**: Report bugs, request features
 - **Examples**: See `examples/` directory for reference implementations
-```
+
+````
 
 - [ ] **Step 3: Create docs/guides/adoption-levels.md**
 
@@ -1819,7 +1899,7 @@ const linksResult = await validateKnowledgeMap()
 if (!linksResult.ok) {
   console.error(`${linksResult.error.brokenLinks.length} broken links found`)
 }
-```
+````
 
 ### Success Metrics
 
@@ -1847,42 +1927,44 @@ if (!linksResult.ok) {
 version: 1
 
 layers:
-  - name: types
-    pattern: "src/types/**"
-    dependencies: []
 
-  - name: repository
-    pattern: "src/repository/**"
-    dependencies: [types]
+- name: types
+  pattern: "src/types/\*\*"
+  dependencies: []
 
-  - name: service
-    pattern: "src/services/**"
-    dependencies: [types, repository]
+- name: repository
+  pattern: "src/repository/\*\*"
+  dependencies: [types]
 
-  - name: ui
-    pattern: "src/ui/**"
-    dependencies: [types, service]
+- name: service
+  pattern: "src/services/\*\*"
+  dependencies: [types, repository]
+
+- name: ui
+  pattern: "src/ui/\*\*"
+  dependencies: [types, service]
 
 constraints:
-  - no-circular-dependencies
-  - enforce-boundary-parsing
-  - validate-layered-architecture
-\`\`\`
+
+- no-circular-dependencies
+- enforce-boundary-parsing
+- validate-layered-architecture
+  \`\`\`
 
 ### Validation
 
 ```typescript
-import { validateDependencies, createBoundarySchema } from '@harness-engineering/core'
-import { z } from 'zod'
+import { validateDependencies, createBoundarySchema } from '@harness-engineering/core';
+import { z } from 'zod';
 
 // Validate dependency graph
-const config = loadConfig('./harness.config.yml')
-const depsResult = await validateDependencies(config)
+const config = loadConfig('./harness.config.yml');
+const depsResult = await validateDependencies(config);
 
 if (!depsResult.ok) {
-  depsResult.error.violations.forEach(v => {
-    console.error(`${v.file}: ${v.reason}`)
-  })
+  depsResult.error.violations.forEach((v) => {
+    console.error(`${v.file}: ${v.reason}`);
+  });
 }
 
 // Boundary validation example
@@ -1890,18 +1972,18 @@ const UserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
   name: z.string(),
-})
+});
 
-const parser = createBoundarySchema(UserSchema)
+const parser = createBoundarySchema(UserSchema);
 
 // At module boundary
 function processUser(data: unknown) {
-  const result = parser.parse(data)
+  const result = parser.parse(data);
   if (!result.ok) {
-    throw new Error(`Invalid user data: ${result.error.message}`)
+    throw new Error(`Invalid user data: ${result.error.message}`);
   }
   // result.value is typed as User
-  return result.value
+  return result.value;
 }
 ```
 
@@ -1930,21 +2012,22 @@ function processUser(data: unknown) {
 
 \`\`\`typescript
 import {
-  configureAgentFeedback,
-  SubprocessExecutor,
-  OpenTelemetryAdapter
+configureAgentFeedback,
+SubprocessExecutor,
+OpenTelemetryAdapter
 } from '@harness-engineering/core'
 
 configureAgentFeedback({
-  executor: new SubprocessExecutor({
-    agentsDir: './agents',
-    timeout: 300000, // 5 minutes
-  }),
-  telemetry: new OpenTelemetryAdapter({
-    endpoint: process.env.OTEL_ENDPOINT,
-  }),
-  logger: console,
+executor: new SubprocessExecutor({
+agentsDir: './agents',
+timeout: 300000, // 5 minutes
+}),
+telemetry: new OpenTelemetryAdapter({
+endpoint: process.env.OTEL_ENDPOINT,
+}),
+logger: console,
 })
+
 ```
 
 ### CI/CD Integration
@@ -2067,6 +2150,7 @@ Complete reference documentation for `@harness-engineering/core` and related pac
 Core runtime library implementing all 6 harness engineering principles.
 
 **Modules:**
+
 - [Context Engineering](#context-engineering) - Validation, knowledge maps
 - [Architectural Constraints](#architectural-constraints) - Dependencies, boundaries
 - [Agent Feedback](#agent-feedback) - Reviews, telemetry
@@ -2090,14 +2174,16 @@ Validates the structure and content of AGENTS.md.
 **Signature:**
 \`\`\`typescript
 function validateAgentsMap(
-  path: string
+path: string
 ): Result<ValidationSuccess, ValidationError>
 \`\`\`
 
 **Parameters:**
+
 - `path` - Path to AGENTS.md file
 
 **Returns:**
+
 - `Result<ValidationSuccess, ValidationError>`
 
 **Example:**
@@ -2107,10 +2193,10 @@ import { validateAgentsMap } from '@harness-engineering/core'
 const result = validateAgentsMap('./AGENTS.md')
 
 if (result.ok) {
-  console.log(`Valid! Found ${result.value.sections.length} sections`)
+console.log(`Valid! Found ${result.value.sections.length} sections`)
 } else {
-  console.error(`Error: ${result.error.message}`)
-  console.error(`Suggestions: ${result.error.suggestions.join(', ')}`)
+console.error(`Error: ${result.error.message}`)
+console.error(`Suggestions: ${result.error.suggestions.join(', ')}`)
 }
 \`\`\`
 
@@ -2126,6 +2212,7 @@ function validateKnowledgeMap(): Result<IntegrityReport, IntegrityError>
 \`\`\`
 
 **Returns:**
+
 - `Result<IntegrityReport, IntegrityError>`
 
 **Example:**
@@ -2135,10 +2222,10 @@ import { validateKnowledgeMap } from '@harness-engineering/core'
 const result = await validateKnowledgeMap()
 
 if (result.ok) {
-  console.log(`Integrity: ${result.value.integrity}%`)
-  if (result.value.brokenLinks.length > 0) {
-    console.warn('Broken links:', result.value.brokenLinks)
-  }
+console.log(`Integrity: ${result.value.integrity}%`)
+if (result.value.brokenLinks.length > 0) {
+console.warn('Broken links:', result.value.brokenLinks)
+}
 }
 \`\`\`
 
@@ -2155,14 +2242,16 @@ Validates dependency graph against defined architectural layers.
 **Signature:**
 \`\`\`typescript
 function validateDependencies(
-  config: LayerConfig
+config: LayerConfig
 ): Promise<Result<DependencyValidation, DependencyError>>
 \`\`\`
 
 **Parameters:**
+
 - `config` - Layer configuration with dependency rules
 
 **Returns:**
+
 - `Promise<Result<DependencyValidation, DependencyError>>`
 
 **Example:**
@@ -2170,20 +2259,20 @@ function validateDependencies(
 import { validateDependencies } from '@harness-engineering/core'
 
 const config = {
-  layers: [
-    { name: 'types', allowedDependencies: [], modules: ['src/types/**'] },
-    { name: 'service', allowedDependencies: ['types'], modules: ['src/services/**'] },
-  ],
-  rootDir: process.cwd(),
-  parser: new TypeScriptParser(),
+layers: [
+{ name: 'types', allowedDependencies: [], modules: ['src/types/**'] },
+{ name: 'service', allowedDependencies: ['types'], modules: ['src/services/**'] },
+],
+rootDir: process.cwd(),
+parser: new TypeScriptParser(),
 }
 
 const result = await validateDependencies(config)
 
 if (!result.ok) {
-  result.error.violations.forEach(v => {
-    console.error(`${v.file} → ${v.imports}: ${v.reason}`)
-  })
+result.error.violations.forEach(v => {
+console.error(`${v.file} → ${v.imports}: ${v.reason}`)
+})
 }
 \`\`\`
 
@@ -2198,8 +2287,8 @@ Type-safe error handling used across all APIs.
 **Definition:**
 \`\`\`typescript
 type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E }
+| { ok: true; value: T }
+| { ok: false; error: E }
 \`\`\`
 
 **Helpers:**
@@ -2215,15 +2304,15 @@ function isErr<T, E>(result: Result<T, E>): result is { ok: false; error: E }
 import { Result, Ok, Err, isOk } from '@harness-engineering/types'
 
 function divide(a: number, b: number): Result<number, string> {
-  if (b === 0) {
-    return Err('Division by zero')
-  }
-  return Ok(a / b)
+if (b === 0) {
+return Err('Division by zero')
+}
+return Ok(a / b)
 }
 
 const result = divide(10, 2)
 if (isOk(result)) {
-  console.log(result.value) // 5
+console.log(result.value) // 5
 }
 \`\`\`
 
@@ -2248,6 +2337,7 @@ Architecture decisions and design choices for the harness-engineering library.
 ADRs document important architectural decisions made during development.
 
 **Coming soon:**
+
 - ADR-001: Why pnpm + Turborepo for monorepo
 - ADR-002: Result type for error handling
 - ADR-003: VitePress for documentation
@@ -2289,13 +2379,14 @@ All APIs return structured, JSON-serializable data that agents can parse.
 
 \`\`\`
 @harness-engineering/types (foundation)
-         ↓
+↓
 @harness-engineering/core (runtime library)
-         ↓
+↓
 harness-cli (Rust CLI tool)
 \`\`\`
 
 **Dependency rules:**
+
 - Types package has zero dependencies
 - Core depends only on types + external libraries (Zod)
 - CLI depends on core (calls via Node.js subprocess)
@@ -2305,14 +2396,15 @@ harness-cli (Rust CLI tool)
 Each module in core has clear boundaries:
 
 \`\`\`
-context/        → Validates documentation
-constraints/    → Enforces architecture
-feedback/       → Agent review loops
-entropy/        → Detects drift
-validation/     → Cross-cutting utilities
+context/ → Validates documentation
+constraints/ → Enforces architecture
+feedback/ → Agent review loops
+entropy/ → Detects drift
+validation/ → Cross-cutting utilities
 \`\`\`
 
 **Rules:**
+
 - Modules communicate via well-defined types
 - No circular dependencies between modules
 - Each module independently testable
@@ -2324,11 +2416,13 @@ validation/     → Cross-cutting utilities
 ### Monorepo: pnpm + Turborepo
 
 **Why pnpm:**
+
 - Fast, efficient package management
 - Strict mode prevents phantom dependencies
 - Great monorepo support
 
 **Why Turborepo:**
+
 - Incremental build caching
 - Parallel task execution
 - Simple configuration
@@ -2336,11 +2430,13 @@ validation/     → Cross-cutting utilities
 ### TypeScript
 
 **Why TypeScript:**
+
 - Static typing catches errors early
 - Better IDE support
 - Standard for modern JS libraries
 
 **Configuration:**
+
 - Strict mode enabled
 - No `any` types in public APIs
 - Incremental compilation
@@ -2348,6 +2444,7 @@ validation/     → Cross-cutting utilities
 ### VitePress
 
 **Why VitePress:**
+
 - Fast, Vue-based SSG
 - Better performance than Docusaurus
 - Simpler configuration
@@ -2356,6 +2453,7 @@ validation/     → Cross-cutting utilities
 ### Zod
 
 **Why Zod:**
+
 - Runtime validation + TypeScript types
 - Composable schemas
 - Great error messages
@@ -2370,6 +2468,7 @@ validation/     → Cross-cutting utilities
 **Decision:** Use Rust for CLI tool (Phase 2)
 
 **Rationale:**
+
 - Zero runtime dependencies
 - Excellent performance
 - Cross-platform compilation
@@ -2378,6 +2477,7 @@ validation/     → Cross-cutting utilities
 ### Language Ports
 
 **Priority:**
+
 1. TypeScript (Phase 1)
 2. Python (Phase 2-3)
 3. Go/Rust (Phase 4+, based on demand)
@@ -2405,6 +2505,7 @@ git commit -m "docs: add implementation guides and API reference structure"
 ### Task 7: Create Top-Level AGENTS.md
 
 **Files:**
+
 - Create: `AGENTS.md`
 
 - [ ] **Step 1: Create AGENTS.md**
@@ -2439,15 +2540,15 @@ The library implements 6 core principles:
 
 \`\`\`
 harness-engineering/
-├── packages/          # Runtime libraries
-│   ├── types/        # Shared types
-│   └── core/         # Core library (5 modules)
-├── docs/             # Documentation site (VitePress)
-│   ├── standard/     # The standard (manifesto)
-│   ├── guides/       # Implementation guides
-│   └── reference/    # API reference
-├── AGENTS.md         # This file
-└── ROADMAP.md        # Project roadmap
+├── packages/ # Runtime libraries
+│ ├── types/ # Shared types
+│ └── core/ # Core library (5 modules)
+├── docs/ # Documentation site (VitePress)
+│ ├── standard/ # The standard (manifesto)
+│ ├── guides/ # Implementation guides
+│ └── reference/ # API reference
+├── AGENTS.md # This file
+└── ROADMAP.md # Project roadmap
 \`\`\`
 
 ---
@@ -2457,11 +2558,13 @@ harness-engineering/
 ### Core Library
 
 **Package:** `@harness-engineering/core`
+
 - README: `packages/core/README.md`
 - Source: `packages/core/src/`
 - Tests: `packages/core/tests/`
 
 **Modules** (to be implemented):
+
 - Context Engineering: `packages/core/src/context/`
 - Architectural Constraints: `packages/core/src/constraints/`
 - Agent Feedback: `packages/core/src/feedback/`
@@ -2471,6 +2574,7 @@ harness-engineering/
 ### Types Package
 
 **Package:** `@harness-engineering/types`
+
 - README: `packages/types/README.md`
 - Source: `packages/types/src/index.ts`
 - Exports: Result type, helpers
@@ -2482,24 +2586,28 @@ harness-engineering/
 ### Standard (Manifesto)
 
 **Location:** `docs/standard/`
+
 - Overview: `docs/standard/index.md`
 - 6 core principles (one file each)
 
 ### Implementation Guides
 
 **Location:** `docs/guides/`
+
 - Getting Started: `docs/guides/index.md`
 - Adoption Levels: `docs/guides/adoption-levels.md` (Level 1, 2, 3)
 
 ### API Reference
 
 **Location:** `docs/reference/`
+
 - API docs: `docs/reference/index.md`
 - Architecture: `docs/reference/architecture/index.md`
 
 ### Documentation Site
 
 **Tech:** VitePress
+
 - Config: `docs/.vitepress/config.ts`
 - Dev: `pnpm docs:dev`
 - Build: `pnpm docs:build`
@@ -2511,6 +2619,7 @@ harness-engineering/
 ### Current Implementation Plans
 
 **Phase 1:** Foundation & Documentation Infrastructure
+
 - Plan: `docs/superpowers/plans/2026-03-11-phase1-foundation-and-docs.md`
 - Status: In Progress (Chunk 3)
 
@@ -2551,6 +2660,7 @@ Full project roadmap: `ROADMAP.md` (to be created in next milestone)
 ### For Agents
 
 This file (AGENTS.md) is your entry point. Use it to navigate the codebase:
+
 - Need to understand principles? → `docs/standard/`
 - Need API details? → `docs/reference/`
 - Need to find implementation? → `packages/*/src/`
@@ -2581,6 +2691,7 @@ git commit -m "docs: create AGENTS.md knowledge map"
 ### Task 8: Add Testing Infrastructure
 
 **Files:**
+
 - Create: `packages/core/vitest.config.ts`
 - Create: `packages/core/tests/setup.ts`
 - Modify: `packages/core/package.json`
@@ -2594,7 +2705,7 @@ Expected: Vitest added to core package
 - [ ] **Step 2: Create packages/core/vitest.config.ts**
 
 ```typescript
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
@@ -2619,7 +2730,7 @@ export default defineConfig({
       },
     },
   },
-})
+});
 ```
 
 - [ ] **Step 3: Create packages/core/tests/setup.ts**
@@ -2640,76 +2751,76 @@ export default defineConfig({
 Create: `packages/core/tests/types.test.ts`
 
 ```typescript
-import { describe, it, expect } from 'vitest'
-import { Result, Ok, Err, isOk, isErr } from '../src/index'
+import { describe, it, expect } from 'vitest';
+import { Result, Ok, Err, isOk, isErr } from '../src/index';
 
 describe('Result type', () => {
   describe('Ok', () => {
     it('should create a successful Result', () => {
-      const result: Result<number, never> = Ok(42)
+      const result: Result<number, never> = Ok(42);
 
-      expect(result.ok).toBe(true)
+      expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toBe(42)
+        expect(result.value).toBe(42);
       }
-    })
-  })
+    });
+  });
 
   describe('Err', () => {
     it('should create a failed Result', () => {
-      const result: Result<never, string> = Err('Something went wrong')
+      const result: Result<never, string> = Err('Something went wrong');
 
-      expect(result.ok).toBe(false)
+      expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toBe('Something went wrong')
+        expect(result.error).toBe('Something went wrong');
       }
-    })
-  })
+    });
+  });
 
   describe('isOk', () => {
     it('should return true for Ok results', () => {
-      const result = Ok(42)
-      expect(isOk(result)).toBe(true)
-    })
+      const result = Ok(42);
+      expect(isOk(result)).toBe(true);
+    });
 
     it('should return false for Err results', () => {
-      const result = Err('error')
-      expect(isOk(result)).toBe(false)
-    })
+      const result = Err('error');
+      expect(isOk(result)).toBe(false);
+    });
 
     it('should narrow type correctly', () => {
-      const result: Result<number, string> = Ok(42)
+      const result: Result<number, string> = Ok(42);
 
       if (isOk(result)) {
         // Type should be narrowed to { ok: true; value: number }
-        const value: number = result.value
-        expect(value).toBe(42)
+        const value: number = result.value;
+        expect(value).toBe(42);
       }
-    })
-  })
+    });
+  });
 
   describe('isErr', () => {
     it('should return true for Err results', () => {
-      const result = Err('error')
-      expect(isErr(result)).toBe(true)
-    })
+      const result = Err('error');
+      expect(isErr(result)).toBe(true);
+    });
 
     it('should return false for Ok results', () => {
-      const result = Ok(42)
-      expect(isErr(result)).toBe(false)
-    })
+      const result = Ok(42);
+      expect(isErr(result)).toBe(false);
+    });
 
     it('should narrow type correctly', () => {
-      const result: Result<number, string> = Err('error')
+      const result: Result<number, string> = Err('error');
 
       if (isErr(result)) {
         // Type should be narrowed to { ok: false; error: string }
-        const error: string = result.error
-        expect(error).toBe('error')
+        const error: string = result.error;
+        expect(error).toBe('error');
       }
-    })
-  })
-})
+    });
+  });
+});
 ```
 
 - [ ] **Step 5: Run tests to verify setup**
@@ -2743,6 +2854,7 @@ git commit -m "test: add Vitest testing infrastructure with sample tests"
 ### Task 9: Add README files and Project Documentation
 
 **Files:**
+
 - Create: `README.md`
 - Create: `packages/types/README.md`
 - Create: `packages/core/README.md`
@@ -2751,7 +2863,7 @@ git commit -m "test: add Vitest testing infrastructure with sample tests"
 
 - [ ] **Step 1: Create root README.md**
 
-```markdown
+````markdown
 # Harness Engineering Library
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -2771,18 +2883,19 @@ npm install @harness-engineering/core
 # or
 pnpm add @harness-engineering/core
 ```
+````
 
 ```typescript
-import { validateAgentsMap } from '@harness-engineering/core'
+import { validateAgentsMap } from '@harness-engineering/core';
 
-const result = validateAgentsMap('./AGENTS.md')
+const result = validateAgentsMap('./AGENTS.md');
 
 if (!result.ok) {
-  console.error('Validation failed:', result.error.message)
-  process.exit(1)
+  console.error('Validation failed:', result.error.message);
+  process.exit(1);
 }
 
-console.log('✓ AGENTS.md is valid!')
+console.log('✓ AGENTS.md is valid!');
 ```
 
 ---
@@ -2818,12 +2931,13 @@ AI Harness Engineering represents a fundamental shift from manual implementation
 
 ## 📦 Packages
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| [`@harness-engineering/core`](./packages/core) | `0.1.0` | Core runtime library (5 modules) |
-| [`@harness-engineering/types`](./packages/types) | `0.1.0` | Shared TypeScript types |
+| Package                                          | Version | Description                      |
+| ------------------------------------------------ | ------- | -------------------------------- |
+| [`@harness-engineering/core`](./packages/core)   | `0.1.0` | Core runtime library (5 modules) |
+| [`@harness-engineering/types`](./packages/types) | `0.1.0` | Shared TypeScript types          |
 
 **Coming soon:**
+
 - `harness-cli` - CLI tool for scaffolding and validation
 - `@harness-engineering/eslint-plugin` - ESLint rules
 - `@harness-engineering/linter-gen` - Custom linter generator
@@ -2850,6 +2964,7 @@ harness-engineering/
 ## 🚧 Current Status
 
 **Phase 1: Foundation** (In Progress)
+
 - ✅ Monorepo setup (pnpm + Turborepo)
 - ✅ Documentation infrastructure (VitePress)
 - ✅ Standard documentation (6 principles)
@@ -2865,6 +2980,7 @@ See [ROADMAP.md](./ROADMAP.md) for the full project plan.
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 **Ways to contribute:**
+
 - Report bugs or request features via [GitHub Issues](https://github.com/harness-engineering/harness-engineering/issues)
 - Submit pull requests
 - Improve documentation
@@ -2893,7 +3009,8 @@ MIT License - see [LICENSE](./LICENSE) for details.
 - Follow [Getting Started Guide](./docs/guides/index.md) to adopt harness engineering
 - Explore [Adoption Levels](./docs/guides/adoption-levels.md) for phased rollout
 - Check [API Reference](./docs/reference/index.md) for detailed documentation
-```
+
+````
 
 - [ ] **Step 2: Create packages/types/README.md**
 
@@ -2908,32 +3025,32 @@ Shared TypeScript types for harness-engineering packages.
 npm install @harness-engineering/types
 # or
 pnpm add @harness-engineering/types
-```
+````
 
 ## Usage
 
 ```typescript
-import { Result, Ok, Err, isOk, isErr } from '@harness-engineering/types'
+import { Result, Ok, Err, isOk, isErr } from '@harness-engineering/types';
 
 // Create successful result
-const success: Result<number, never> = Ok(42)
+const success: Result<number, never> = Ok(42);
 
 // Create error result
-const failure: Result<never, string> = Err('Something went wrong')
+const failure: Result<never, string> = Err('Something went wrong');
 
 // Type-safe error handling
 function divide(a: number, b: number): Result<number, string> {
   if (b === 0) {
-    return Err('Division by zero')
+    return Err('Division by zero');
   }
-  return Ok(a / b)
+  return Ok(a / b);
 }
 
-const result = divide(10, 2)
+const result = divide(10, 2);
 if (isOk(result)) {
-  console.log(result.value) // 5
+  console.log(result.value); // 5
 } else {
-  console.error(result.error)
+  console.error(result.error);
 }
 ```
 
@@ -2944,9 +3061,7 @@ if (isOk(result)) {
 Type-safe error handling used across all harness-engineering APIs.
 
 ```typescript
-type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E }
+type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 ```
 
 ### `Ok<T>(value: T)`
@@ -2968,7 +3083,8 @@ Type guard to check if Result is Err.
 ## License
 
 MIT
-```
+
+````
 
 - [ ] **Step 3: Create packages/core/README.md**
 
@@ -2983,24 +3099,24 @@ Core runtime library for harness engineering, implementing all 6 principles.
 npm install @harness-engineering/core
 # or
 pnpm add @harness-engineering/core
-```
+````
 
 ## Usage
 
 ```typescript
-import { validateAgentsMap, validateKnowledgeMap } from '@harness-engineering/core'
+import { validateAgentsMap, validateKnowledgeMap } from '@harness-engineering/core';
 
 // Validate AGENTS.md structure
-const agentsResult = validateAgentsMap('./AGENTS.md')
+const agentsResult = validateAgentsMap('./AGENTS.md');
 if (!agentsResult.ok) {
-  console.error(agentsResult.error.message)
-  process.exit(1)
+  console.error(agentsResult.error.message);
+  process.exit(1);
 }
 
 // Validate all links resolve
-const linksResult = await validateKnowledgeMap()
+const linksResult = await validateKnowledgeMap();
 if (!linksResult.ok) {
-  console.error(`Found ${linksResult.error.brokenLinks.length} broken links`)
+  console.error(`Found ${linksResult.error.brokenLinks.length} broken links`);
 }
 ```
 
@@ -3011,6 +3127,7 @@ if (!linksResult.ok) {
 Validate and enforce repository-as-documentation patterns.
 
 **APIs:**
+
 - `validateAgentsMap()` - Validate AGENTS.md structure
 - `validateKnowledgeMap()` - Check link integrity
 - `checkDocCoverage()` - Measure documentation coverage
@@ -3021,6 +3138,7 @@ Validate and enforce repository-as-documentation patterns.
 Runtime enforcement of layered dependencies and boundaries.
 
 **APIs:**
+
 - `defineLayer()` - Define architectural layers
 - `validateDependencies()` - Validate dependency graph
 - `detectCircularDeps()` - Find circular dependencies
@@ -3031,6 +3149,7 @@ Runtime enforcement of layered dependencies and boundaries.
 APIs for self-review, peer reviews, and telemetry access.
 
 **APIs:**
+
 - `createSelfReview()` - Generate review checklist
 - `requestPeerReview()` - Request specialized agent review
 - `getTelemetry()` - Access observability data
@@ -3041,6 +3160,7 @@ APIs for self-review, peer reviews, and telemetry access.
 Detect drift, dead code, and pattern violations.
 
 **APIs:**
+
 - `detectDocDrift()` - Find outdated documentation
 - `findPatternViolations()` - Check pattern compliance
 - `detectDeadCode()` - Find unused code
@@ -3051,6 +3171,7 @@ Detect drift, dead code, and pattern violations.
 Cross-cutting validation utilities.
 
 **APIs:**
+
 - `validateFileStructure()` - Check file conventions
 - `validateConfig()` - Type-safe config validation
 - `validateCommitMessage()` - Validate commit format
@@ -3077,7 +3198,8 @@ pnpm test:watch
 ## License
 
 MIT
-```
+
+````
 
 - [ ] **Step 4: Create CONTRIBUTING.md**
 
@@ -3293,7 +3415,7 @@ We welcome feature requests! Use [GitHub Discussions](https://github.com/harness
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
-```
+````
 
 - [ ] **Step 5: Create LICENSE (MIT)**
 
@@ -3333,6 +3455,7 @@ git commit -m "docs: add README files, CONTRIBUTING, and LICENSE"
 ### Task 10: Final Verification and Build
 
 **Files:**
+
 - None (verification only)
 
 - [ ] **Step 1: Clean and rebuild everything**
@@ -3406,6 +3529,7 @@ Ready for Phase 1 next milestone: Core library implementation."
 **Phase 1 Foundation & Documentation Infrastructure - COMPLETE**
 
 **What was built:**
+
 1. ✅ Monorepo with pnpm + Turborepo
 2. ✅ TypeScript, ESLint, Prettier setup
 3. ✅ Package structure (`@harness-engineering/types`, `@harness-engineering/core`)
@@ -3417,6 +3541,7 @@ Ready for Phase 1 next milestone: Core library implementation."
 9. ✅ Project documentation
 
 **Next steps:**
+
 - Create separate implementation plans for core library modules
 - Implement Context Engineering module
 - Implement other modules (Constraints, Feedback, Entropy, Validation)
