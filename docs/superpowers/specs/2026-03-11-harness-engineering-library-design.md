@@ -156,26 +156,95 @@ To support multiple languages, AST parsing is abstracted:
 
 ```typescript
 interface LanguageParser {
-  parseFile(path: string): Result<AST, ParseError>
-  extractImports(ast: AST): Import[]
-  extractExports(ast: AST): Export[]
-  extractTypes(ast: AST): TypeDefinition[]
+  name: string
+  parseFile(path: string, options?: ParseOptions): Promise<Result<AST, ParseError>>
+  extractImports(ast: AST): Result<Import[], ExtractionError>
+  extractExports(ast: AST): Result<Export[], ExtractionError>
+  extractTypes(ast: AST): Result<TypeDefinition[], ExtractionError>
+  health(): Promise<Result<HealthStatus, HealthError>> // Check parser availability
+}
+
+type ParseOptions = {
+  timeout?: number // ms, default 5000
+  retries?: number // default 0
+  cache?: boolean // default true
+}
+
+type HealthStatus = {
+  available: boolean
+  version?: string
+  message?: string
+}
+
+type ParseError = {
+  code: 'TIMEOUT' | 'SUBPROCESS_FAILED' | 'SYNTAX_ERROR' | 'NOT_FOUND'
+  message: string
+  details: {
+    exitCode?: number
+    stderr?: string
+    stdout?: string
+    path: string
+  }
+  suggestions: string[]
 }
 
 // Language-specific parsers
 class TypeScriptParser implements LanguageParser {
-  // Uses @typescript-eslint/parser
+  name = 'typescript'
+  // Uses @typescript-eslint/parser (in-process, fast)
+  async parseFile(path: string): Promise<Result<AST, ParseError>> {
+    // Native TS parsing, no subprocess
+  }
 }
+
 class PythonParser implements LanguageParser {
-  // Uses Python's ast module via subprocess
+  name = 'python'
+  // Uses Python's ast module via subprocess with timeout/retry
+  async parseFile(path: string, options?: ParseOptions): Promise<Result<AST, ParseError>> {
+    const timeout = options?.timeout ?? 5000
+    const retries = options?.retries ?? 0
+
+    // Spawn python subprocess, handle timeout, stderr, exit codes
+    // Retry on failure if retries > 0
+  }
+
+  async health(): Promise<Result<HealthStatus, HealthError>> {
+    // Check python3 availability: spawn('python3', ['--version'])
+  }
 }
+
 class GoParser implements LanguageParser {
-  // Uses go/parser via subprocess
+  name = 'go'
+  // Uses go/parser via subprocess with timeout/retry
+  async parseFile(path: string, options?: ParseOptions): Promise<Result<AST, ParseError>> {
+    const timeout = options?.timeout ?? 5000
+    // Similar subprocess handling as Python
+  }
+
+  async health(): Promise<Result<HealthStatus, HealthError>> {
+    // Check go availability: spawn('go', ['version'])
+  }
 }
 
 // Register parsers
 registerParser('typescript', new TypeScriptParser())
 registerParser('python', new PythonParser())
+registerParser('go', new GoParser())
+
+// Graceful fallback: if parser health check fails, skip that language
+async function getAvailableParsers(): Promise<LanguageParser[]> {
+  const all = [new TypeScriptParser(), new PythonParser(), new GoParser()]
+  const healthy = []
+
+  for (const parser of all) {
+    const health = await parser.health()
+    if (health.ok && health.value.available) {
+      healthy.push(parser)
+    }
+  }
+
+  return healthy
+}
 ```
 
 This allows the core library (TypeScript) to analyze other languages by delegating to language-specific parsers.
@@ -272,8 +341,8 @@ harness-engineering/
 
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Primary language**: TypeScript (packages/core)
-- **CLI/Linters**: Rust or Go (cross-platform, performant)
-- **Documentation**: VitePress or Docusaurus
+- **CLI/Linters**: **Rust** (chosen for: performance, cross-platform support, zero runtime dependencies, excellent error handling)
+- **Documentation**: **VitePress** (chosen for: Vue ecosystem, better performance than Docusaurus, simpler config)
 - **Package naming**: `@harness-engineering/*` for npm packages
 
 ---
@@ -776,13 +845,57 @@ type CommitValidation = {
 
 ### Language Ports
 
-Once `@harness-engineering/core` (TypeScript) is stable, create ports for other languages:
+Once `@harness-engineering/core` (TypeScript) is stable, create ports for other languages.
 
-- **Python**: `harness-engineering` (PyPI)
-- **Go**: `github.com/harness-engineering/core`
-- **Rust**: `harness-engineering` (crates.io)
+#### Python Port (`harness-engineering` on PyPI)
 
-Same API surface, idioms adapted to each language (e.g., Python uses decorators, Go uses interfaces).
+**Package Structure**:
+```
+packages/core-python/
+├── harness_engineering/
+│   ├── context/          # Context Engineering
+│   ├── constraints/      # Architectural Constraints
+│   ├── feedback/         # Agent Feedback
+│   ├── entropy/          # Entropy Management
+│   ├── validation/       # Validation
+│   └── result.py         # Result type implementation
+├── tests/
+├── pyproject.toml
+└── README.md
+```
+
+**API Adaptation**:
+```python
+from harness_engineering import validate_agents_map, Result
+
+# Python idioms: snake_case, Result monad
+result: Result[ValidationSuccess, ValidationError] = validate_agents_map("./AGENTS.md")
+
+if result.is_ok():
+    print(result.value.sections)
+else:
+    print(result.error.message)
+
+# Python-specific: decorators for boundary validation
+from harness_engineering.constraints import boundary
+
+@boundary(schema=MySchema)
+def process_data(data: dict) -> ProcessedData:
+    # Automatic Pydantic validation at boundary
+    ...
+```
+
+**Technology**: Python 3.9+, Pydantic for validation (equivalent to Zod)
+
+#### Other Language Ports
+
+- **Go**: `github.com/harness-engineering/core` - uses Go idioms (interfaces, error tuples)
+- **Rust**: `harness-engineering` (crates.io) - uses Result<T, E> natively
+
+**Port Priority** (Phase 1 focuses on TypeScript only):
+1. TypeScript (Phase 1)
+2. Python (Phase 2 or 3)
+3. Go/Rust (Phase 4 or later, based on demand)
 
 ---
 
@@ -1512,13 +1625,26 @@ This specification defines the complete vision for harness-engineering. Implemen
 
 ---
 
-## Open Questions & Future Considerations
+## Decisions & Future Considerations
 
-1. **Licensing**: Open-source (MIT/Apache 2.0) or dual-license (open core + enterprise)?
-2. **Commercial model**: Free for all, or paid enterprise features?
-3. **Governance**: BDFL, committee, foundation?
-4. **Community platform**: Discord, Discourse, GitHub Discussions?
-5. **Language priority for ports**: Python first, or Go/Rust?
+### Decided (Does Not Block Phase 1)
+
+1. **Licensing**: Start with **MIT License** for maximum adoption. Can re-evaluate dual-licensing in Phase 4 if enterprise features emerge.
+2. **Language priority**: **TypeScript-only for Phase 1**. Python port in Phase 2/3, Go/Rust in Phase 4+ based on demand.
+3. **Documentation tool**: **VitePress** for documentation site.
+4. **CLI language**: **Rust** for performance and cross-platform support.
+
+### Deferred (To Be Decided Before Phase 4)
+
+These decisions don't impact Phase 1-3 implementation and can be revisited later:
+
+1. **Commercial model**: Start fully open-source. Re-evaluate in Month 9-12 based on adoption and feature requests. If enterprise needs emerge (e.g., dedicated support, hosted agents, SLA guarantees), consider dual-license or open-core model.
+2. **Governance**: Start with BDFL (maintainer-led). Transition to committee or foundation if project grows to 20+ active contributors or 10+ production adopters.
+3. **Community platform**: Start with **GitHub Discussions** (low overhead). Migrate to Discord if community grows to 100+ members and needs real-time chat.
+
+### For Phase 1 Implementation
+
+No open questions remain that would block starting Phase 1 implementation planning.
 
 ---
 
