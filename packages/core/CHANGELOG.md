@@ -1,0 +1,37 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-03-12
+
+### Added
+- Core validation framework with extensible validator architecture
+- Schema-based validation with Zod integration
+- Composite validation with sequential and parallel execution
+- Rule-based validation system
+- File pattern matching with glob support
+- Configuration validation
+- Type definitions for all exports
+- Comprehensive unit test coverage (>80%)
+- ESM and CommonJS build outputs
+- TypeScript type declarations
+
+### Changed
+- N/A (Initial release)
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
+[0.1.0]: https://github.com/harness-engineering/harness-engineering/releases/tag/@harness-engineering/core@0.1.0

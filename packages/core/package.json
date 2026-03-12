@@ -1,10 +1,13 @@
 {
   "name": "@harness-engineering/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Core library for Harness Engineering toolkit",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
