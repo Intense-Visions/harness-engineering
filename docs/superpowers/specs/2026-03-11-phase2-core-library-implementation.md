@@ -537,15 +537,35 @@ export interface DependencyViolation {
   suggestion: string;
 }
 
+export interface DependencyGraph {
+  nodes: string[];          // Module paths
+  edges: DependencyEdge[];  // Import relationships
+}
+
+export interface DependencyEdge {
+  from: string;             // Importer file path
+  to: string;               // Imported file path
+  type: 'import' | 'require' | 'dynamic'; // Import mechanism
+}
+
+export interface DependencyValidation {
+  valid: boolean;
+  violations: DependencyViolation[];
+  graph: DependencyGraph;
+  skipped?: boolean;        // If parser unavailable and fallback: 'skip'
+  reason?: string;          // Why skipped
+}
+
 export interface LayerConfig {
   layers: Layer[];
   rootDir: string;
   parser: LanguageParser;  // Abstraction for multi-language support
+  fallbackBehavior?: 'skip' | 'error' | 'warn'; // Default: 'error'
 }
 
 export async function validateDependencies(
   config: LayerConfig
-): Promise<Result<{ valid: boolean; violations: DependencyViolation[] }, ConstraintError>>
+): Promise<Result<DependencyValidation, ConstraintError>>
 
 // src/constraints/circular-deps.ts
 export interface CircularDependency {
@@ -573,19 +593,123 @@ export function createBoundarySchema<T>(
 
 ```typescript
 // src/shared/parsers/base.ts
+
+// Generic AST wrapper - language-agnostic structure
+export interface AST {
+  type: string;           // AST node type
+  body: unknown;          // AST body (language-specific structure)
+  raw?: unknown;          // Original language-specific AST
+  language: string;       // Source language ('typescript', 'python', etc.)
+}
+
+export interface Location {
+  file: string;
+  line: number;
+  column: number;
+}
+
+export interface Import {
+  source: string;         // Import path (e.g., './module', '@pkg/lib')
+  specifiers: string[];   // Named imports (e.g., ['foo', 'bar'])
+  default?: string;       // Default import name (e.g., 'React')
+  namespace?: string;     // Namespace import (e.g., 'fs' in import * as fs)
+  location: Location;     // Where in file
+}
+
+export interface Export {
+  name: string;           // Export name
+  type: 'named' | 'default' | 'namespace';
+  location: Location;
+  isReExport?: boolean;   // Re-exported from another module
+  source?: string;        // Source module if re-export
+}
+
+export interface ParseError extends BaseError {
+  code: 'TIMEOUT' | 'SUBPROCESS_FAILED' | 'SYNTAX_ERROR' | 'NOT_FOUND';
+  details: {
+    exitCode?: number;
+    stderr?: string;
+    stdout?: string;
+    path: string;
+  };
+}
+
 export interface LanguageParser {
   name: string;
   parseFile(path: string): Promise<Result<AST, ParseError>>;
   extractImports(ast: AST): Result<Import[], ParseError>;
   extractExports(ast: AST): Result<Export[], ParseError>;
+  health(): Promise<Result<{ available: boolean; version?: string; message?: string }, ParseError>>;
 }
 
 // src/shared/parsers/typescript.ts
 export class TypeScriptParser implements LanguageParser {
   name = 'typescript';
   // Uses @typescript-eslint/parser (in-process, fast)
+
+  async health(): Promise<Result<{ available: true; version: string }, ParseError>> {
+    // TypeScript parser is always available (in-process)
+    return Ok({ available: true, version: '7.0.0' });
+  }
 }
 ```
+
+### Health Check and Fallback Behavior
+
+Language parsers may not be available in all environments (e.g., Python/Go parsers require runtime binaries). The health check pattern handles this gracefully:
+
+```typescript
+// Pattern: Check parser health before operations
+export interface LayerConfig {
+  layers: Layer[];
+  rootDir: string;
+  parser: LanguageParser;
+  fallbackBehavior?: 'skip' | 'error' | 'warn'; // Default: 'error'
+}
+
+export async function validateDependencies(
+  config: LayerConfig
+): Promise<Result<DependencyValidation, ConstraintError>> {
+  // Check parser availability first
+  const health = await config.parser.health();
+
+  if (!health.ok || !health.value.available) {
+    const fallback = config.fallbackBehavior ?? 'error';
+
+    if (fallback === 'skip') {
+      // Skip validation, return success with note
+      return Ok({
+        valid: true,
+        violations: [],
+        skipped: true,
+        reason: health.value?.message || 'Parser unavailable',
+      });
+    }
+
+    if (fallback === 'warn') {
+      // Log warning, return success
+      console.warn(`Parser ${config.parser.name} unavailable, skipping validation`);
+      return Ok({ valid: true, violations: [], skipped: true });
+    }
+
+    // Default: error
+    return Err(createError(
+      'PARSER_UNAVAILABLE',
+      `Parser ${config.parser.name} is not available`,
+      { parser: config.parser.name, reason: health.value?.message },
+      ['Install required runtime', 'Use different parser', 'Set fallbackBehavior: "skip"']
+    ));
+  }
+
+  // Parser available, proceed with validation
+  // ... rest of implementation
+}
+```
+
+**When to use each fallback behavior:**
+- `error` (default): Fail fast if parser unavailable - ensures nothing is missed
+- `skip`: CI environments where language runtime may not be installed
+- `warn`: Development environments where partial validation is acceptable
 
 ---
 
@@ -713,10 +837,27 @@ export async function createSelfReview(
 ): Promise<Result<ReviewChecklist, FeedbackError>>
 
 // src/feedback/peer-review.ts
-export interface AgentExecutor {
-  spawn(config: AgentConfig): Promise<Result<AgentProcess, FeedbackError>>;
-  status(processId: string): Promise<Result<AgentStatus, FeedbackError>>;
-  kill(processId: string): Promise<Result<void, FeedbackError>>;
+export interface AgentConfig {
+  type: 'architecture-enforcer' | 'documentation-maintainer' | 'test-reviewer';
+  context: ReviewContext;
+  skills?: string[];        // Skills to load
+  timeout?: number;         // Milliseconds, default 300000 (5 min)
+  workingDir?: string;      // Working directory, default cwd
+}
+
+export interface AgentProcess {
+  id: string;               // Unique process ID
+  pid?: number;             // OS process ID if subprocess
+  startTime: string;        // ISO 8601 timestamp
+  config: AgentConfig;
+}
+
+export interface AgentStatus {
+  id: string;
+  state: 'running' | 'completed' | 'failed' | 'killed';
+  progress?: number;        // 0-100
+  currentTask?: string;     // Description of current task
+  error?: string;           // Error message if failed
 }
 
 export interface ReviewContext {
@@ -726,6 +867,28 @@ export interface ReviewContext {
   metadata: Record<string, unknown>;
 }
 
+export interface Review {
+  approved: boolean;
+  comments: ReviewComment[];
+  suggestions: string[];
+  agentId: string;
+  duration: number;         // Milliseconds
+}
+
+export interface ReviewComment {
+  file: string;
+  line?: number;
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  suggestion?: string;
+}
+
+export interface AgentExecutor {
+  spawn(config: AgentConfig): Promise<Result<AgentProcess, FeedbackError>>;
+  status(processId: string): Promise<Result<AgentStatus, FeedbackError>>;
+  kill(processId: string): Promise<Result<void, FeedbackError>>;
+}
+
 export async function requestPeerReview(
   agentType: 'architecture-enforcer' | 'documentation-maintainer' | 'test-reviewer',
   context: ReviewContext,
@@ -733,13 +896,64 @@ export async function requestPeerReview(
 ): Promise<Result<Review, FeedbackError>>
 
 // src/feedback/telemetry.ts
+export interface TimeRange {
+  start: Date | string;     // ISO 8601 string or Date object
+  end: Date | string;
+}
+
+export interface TelemetryFilter {
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  labels?: Record<string, string>;
+  query?: string;           // Query string (format depends on adapter)
+}
+
+export interface Metric {
+  name: string;
+  value: number;
+  timestamp: string;        // ISO 8601
+  labels: Record<string, string>;
+  unit?: string;            // e.g., 'ms', 'bytes', 'count'
+}
+
+export interface Trace {
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+  service: string;
+  operation: string;
+  duration: number;         // Milliseconds
+  timestamp: string;        // ISO 8601
+  tags: Record<string, string>;
+  status?: 'ok' | 'error';
+}
+
+export interface LogEntry {
+  timestamp: string;        // ISO 8601
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  service: string;
+  metadata: Record<string, unknown>;
+}
+
 export interface TelemetryAdapter {
   getMetrics(service: string, timeRange: TimeRange): Promise<Result<Metric[], FeedbackError>>;
   getTraces(service: string, traceId?: string): Promise<Result<Trace[], FeedbackError>>;
-  getLogs(service: string, filter: LogFilter): Promise<Result<LogEntry[], FeedbackError>>;
+  getLogs(service: string, filter: TelemetryFilter): Promise<Result<LogEntry[], FeedbackError>>;
 }
 
-export function configureTelemetry(adapter: TelemetryAdapter): void
+// Configuration pattern
+let globalTelemetryAdapter: TelemetryAdapter | null = null;
+
+export function configureTelemetry(adapter: TelemetryAdapter): void {
+  globalTelemetryAdapter = adapter;
+}
+
+export function getTelemetryAdapter(): TelemetryAdapter {
+  if (!globalTelemetryAdapter) {
+    throw new Error('Telemetry not configured. Call configureTelemetry() first or use NoOpAdapter');
+  }
+  return globalTelemetryAdapter;
+}
 
 // src/feedback/logging.ts
 export interface AgentAction {
@@ -865,7 +1079,16 @@ describe('validateFileStructure', () => {
   "dependencies": {
     "@harness-engineering/types": "workspace:*",
     "zod": "^3.22.0",
-    "glob": "^10.3.0"
+    "glob": "^10.3.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/typescript-estree": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
+    "tsup": "^8.0.0",
+    "vitest": "^4.0.18"
   }
 }
 ```
@@ -873,11 +1096,17 @@ describe('validateFileStructure', () => {
 ### Module-Specific Dependencies
 
 **Context Module:**
-- Consider `remark-parse` and `unified` for robust markdown parsing (optional - can start with regex)
+- No additional dependencies required for MVP (uses regex-based parsing)
+- **Future consideration**: `remark-parse` and `unified` for robust markdown parsing if regex proves insufficient
 
 **Constraints Module:**
-- `@typescript-eslint/parser`: "^7.0.0"
-- `@typescript-eslint/typescript-estree`: "^7.0.0"
+- Uses `@typescript-eslint/parser` and `@typescript-eslint/typescript-estree` (listed in core dependencies)
+
+**Entropy Module:**
+- No additional dependencies (uses AST parsers from Constraints module)
+
+**Feedback Module:**
+- No additional dependencies (pluggable adapters have their own dependencies)
 
 **All modules use shared dependencies** from `packages/types` and built-in Node.js APIs.
 
