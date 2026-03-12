@@ -551,7 +551,7 @@ export interface DependencyEdge {
 export interface DependencyValidation {
   valid: boolean;
   violations: DependencyViolation[];
-  graph: DependencyGraph;
+  graph?: DependencyGraph;  // Optional: empty if parser unavailable and skipped
   skipped?: boolean;        // If parser unavailable and fallback: 'skip'
   reason?: string;          // Why skipped
 }
@@ -625,12 +625,13 @@ export interface Export {
 }
 
 export interface ParseError extends BaseError {
-  code: 'TIMEOUT' | 'SUBPROCESS_FAILED' | 'SYNTAX_ERROR' | 'NOT_FOUND';
+  code: 'TIMEOUT' | 'SUBPROCESS_FAILED' | 'SYNTAX_ERROR' | 'NOT_FOUND' | 'PARSER_UNAVAILABLE';
   details: {
     exitCode?: number;
     stderr?: string;
     stdout?: string;
-    path: string;
+    path?: string;        // Optional when error is about parser availability
+    parser?: string;      // Parser name when unavailable
   };
 }
 
@@ -780,6 +781,18 @@ export async function detectDeadCode(
   estimatedImpact: number;  // Lines of code
 }, EntropyError>>
 
+// src/entropy/types.ts
+export interface EntropyReport {
+  drift?: DriftReport;                        // Documentation drift findings
+  patterns?: PatternViolationReport;          // Pattern violations
+  deadCode?: DeadCodeReport;                  // Dead code findings
+  overall: {
+    severity: 'high' | 'medium' | 'low';
+    issueCount: number;
+    autoFixable: number;                      // How many issues can be auto-fixed
+  };
+}
+
 // src/entropy/auto-fix.ts
 export interface FixOptions {
   dryRun: boolean;
@@ -787,13 +800,16 @@ export interface FixOptions {
   fixTypes: ('unused-imports' | 'format-drift' | 'doc-sync')[];
 }
 
+export interface FixResult {
+  filesChanged: string[];
+  issuesFixed: number;
+  remainingIssues: number;
+}
+
 export async function autoFixEntropy(
   report: EntropyReport,
   options: FixOptions
-): Promise<Result<{
-  filesChanged: string[];
-  issuesFixed: number;
-}, EntropyError>>
+): Promise<Result<FixResult, EntropyError>>
 ```
 
 **Implementation notes:**
