@@ -1,3 +1,5 @@
+import type { EntropyError } from '../entropy/types';
+
 export type ErrorCode = string;
 
 export interface BaseError {
@@ -20,9 +22,8 @@ export interface ConstraintError extends BaseError {
   code: 'WRONG_LAYER' | 'CIRCULAR_DEP' | 'FORBIDDEN_IMPORT' | 'BOUNDARY_ERROR' | 'PARSER_UNAVAILABLE';
 }
 
-export interface EntropyError extends BaseError {
-  code: 'DOC_DRIFT' | 'PATTERN_VIOLATION' | 'DEAD_CODE_FOUND';
-}
+// EntropyError is imported from '../entropy/types' for detailed typing
+export type { EntropyError };
 
 export interface FeedbackError extends BaseError {
   code: 'AGENT_SPAWN_ERROR' | 'TELEMETRY_ERROR' | 'REVIEW_ERROR';
@@ -35,4 +36,13 @@ export function createError<T extends BaseError>(
   suggestions: string[] = []
 ): T {
   return { code, message, details, suggestions } as T;
+}
+
+export function createEntropyError(
+  code: EntropyError['code'],
+  message: string,
+  details: EntropyError['details'] = {},
+  suggestions: string[] = []
+): EntropyError {
+  return { code, message, details, suggestions };
 }
