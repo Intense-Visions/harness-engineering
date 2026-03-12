@@ -79,3 +79,90 @@ export function findPossibleMatches(
     .slice(0, 3)
     .map(m => m.name);
 }
+
+const DEFAULT_DRIFT_CONFIG: DriftConfig = {
+  docPaths: [],
+  checkApiSignatures: true,
+  checkExamples: true,
+  checkStructure: true,
+  ignorePatterns: [],
+};
+
+/**
+ * Check API signature drift - docs reference symbols that don't exist
+ */
+function checkApiSignatureDrift(
+  snapshot: CodebaseSnapshot,
+  config: DriftConfig
+): DocumentationDrift[] {
+  const drifts: DocumentationDrift[] = [];
+  const exportNames = Array.from(snapshot.exportMap.byName.keys());
+
+  for (const ref of snapshot.codeReferences) {
+    if (config.ignorePatterns.some(p => ref.reference.match(new RegExp(p)))) {
+      continue;
+    }
+
+    // Check if reference exists in exports
+    if (!snapshot.exportMap.byName.has(ref.reference)) {
+      const possibleMatches = findPossibleMatches(ref.reference, exportNames);
+      const confidence = possibleMatches.length > 0 ? 'high' : 'medium';
+
+      drifts.push({
+        type: 'api-signature',
+        docFile: ref.docFile,
+        line: ref.line,
+        reference: ref.reference,
+        context: ref.context,
+        issue: possibleMatches.length > 0 ? 'RENAMED' : 'NOT_FOUND',
+        details: possibleMatches.length > 0
+          ? `Symbol "${ref.reference}" not found. Similar: ${possibleMatches.join(', ')}`
+          : `Symbol "${ref.reference}" not found in codebase`,
+        suggestion: possibleMatches.length > 0
+          ? `Did you mean "${possibleMatches[0]}"?`
+          : 'Remove reference or add the missing export',
+        possibleMatches: possibleMatches.length > 0 ? possibleMatches : undefined,
+        confidence,
+      });
+    }
+  }
+
+  return drifts;
+}
+
+/**
+ * Detect documentation drift in a codebase
+ */
+export function detectDocDrift(
+  snapshot: CodebaseSnapshot,
+  config?: Partial<DriftConfig>
+): Result<DriftReport, EntropyError> {
+  const fullConfig = { ...DEFAULT_DRIFT_CONFIG, ...config };
+  const drifts: DocumentationDrift[] = [];
+
+  // Check API signature drift
+  if (fullConfig.checkApiSignatures) {
+    drifts.push(...checkApiSignatureDrift(snapshot, fullConfig));
+  }
+
+  // Calculate stats
+  const apiDrifts = drifts.filter(d => d.type === 'api-signature').length;
+  const exampleDrifts = drifts.filter(d => d.type === 'example-code').length;
+  const structureDrifts = drifts.filter(d => d.type === 'structure').length;
+
+  const severity = drifts.length === 0 ? 'none'
+    : drifts.length <= 3 ? 'low'
+    : drifts.length <= 10 ? 'medium'
+    : 'high';
+
+  return Ok({
+    drifts,
+    stats: {
+      docsScanned: snapshot.docs.length,
+      referencesChecked: snapshot.codeReferences.length,
+      driftsFound: drifts.length,
+      byType: { api: apiDrifts, example: exampleDrifts, structure: structureDrifts },
+    },
+    severity,
+  });
+}
