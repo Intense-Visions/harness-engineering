@@ -20,5 +20,13 @@ export * from './validation';
 // Context module
 export * from './context';
 
+// Constraints module
+export * from './constraints';
+
+// Parsers
+export { TypeScriptParser } from './shared/parsers';
+export type { LanguageParser, AST, Import, Export, ParseError, HealthCheckResult } from './shared/parsers';
+export { createParseError } from './shared/parsers';
+
 // Package version
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
