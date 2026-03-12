@@ -26,7 +26,20 @@ export interface ConstraintError extends BaseError {
 export type { EntropyError };
 
 export interface FeedbackError extends BaseError {
-  code: 'AGENT_SPAWN_ERROR' | 'TELEMETRY_ERROR' | 'REVIEW_ERROR';
+  code:
+    | 'AGENT_SPAWN_ERROR'
+    | 'AGENT_TIMEOUT'
+    | 'TELEMETRY_ERROR'
+    | 'TELEMETRY_UNAVAILABLE'
+    | 'REVIEW_ERROR'
+    | 'DIFF_PARSE_ERROR'
+    | 'SINK_ERROR';
+  details: {
+    agentId?: string;
+    service?: string;
+    reason?: string;
+    originalError?: Error;
+  };
 }
 
 export function createError<T extends BaseError>(
