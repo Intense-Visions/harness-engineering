@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-12
+
+### Added
+
+- **Architectural Constraints Module** - Tools for enforcing layered architecture
+  - `defineLayer()` - Create layer definitions with dependency rules
+  - `validateDependencies()` - Validate imports respect layer boundaries
+  - `detectCircularDeps()` - Detect cycles using Tarjan's SCC algorithm
+  - `detectCircularDepsInFiles()` - Standalone cycle detection from files
+  - `createBoundaryValidator()` - Create Zod-based boundary validators
+  - `validateBoundaries()` - Validate multiple boundaries at once
+- **Parser Abstraction Layer** - Reusable AST parsing infrastructure
+  - `TypeScriptParser` - Full AST parsing for TypeScript files
+  - `LanguageParser` interface for multi-language support
+  - Import/export extraction with type-only import detection
+- Parser health checks with configurable fallback behavior
+
+### Changed
+
+- Updated VERSION to 0.3.0
+
 ## [0.2.0] - 2026-03-12
 
 ### Added

@@ -172,6 +172,78 @@ if (result.ok) {
 }
 ```
 
+### Architectural Constraints Module
+
+Tools for enforcing layered architecture and detecting dependency issues.
+
+#### Layer Validation
+
+Define and validate architectural layers:
+
+```typescript
+import { validateDependencies, defineLayer, TypeScriptParser } from '@harness-engineering/core';
+
+const result = await validateDependencies({
+  layers: [
+    defineLayer('domain', ['src/domain/**'], []),
+    defineLayer('services', ['src/services/**'], ['domain']),
+    defineLayer('api', ['src/api/**'], ['services', 'domain']),
+  ],
+  rootDir: './src',
+  parser: new TypeScriptParser(),
+});
+
+if (result.ok && !result.value.valid) {
+  for (const violation of result.value.violations) {
+    console.log(`${violation.file}:${violation.line} - ${violation.reason}`);
+    console.log(`  ${violation.fromLayer} cannot import from ${violation.toLayer}`);
+  }
+}
+```
+
+#### Circular Dependency Detection
+
+Find cycles in your dependency graph:
+
+```typescript
+import { detectCircularDepsInFiles, TypeScriptParser } from '@harness-engineering/core';
+
+const result = await detectCircularDepsInFiles(
+  ['src/a.ts', 'src/b.ts', 'src/c.ts'],
+  new TypeScriptParser()
+);
+
+if (result.ok && result.value.hasCycles) {
+  for (const cycle of result.value.cycles) {
+    console.log('Cycle found:', cycle.cycle.join(' -> '));
+  }
+}
+```
+
+#### Boundary Validation
+
+Validate data at module boundaries:
+
+```typescript
+import { z } from 'zod';
+import { createBoundaryValidator } from '@harness-engineering/core';
+
+const UserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+});
+
+const validator = createBoundaryValidator(UserSchema, 'UserService.createUser');
+
+const result = validator.parse(requestBody);
+if (result.ok) {
+  // result.value is typed as { email: string; name: string }
+  createUser(result.value);
+} else {
+  console.error(result.error.suggestions);
+}
+```
+
 ## Error Handling
 
 All APIs use the `Result<T, E>` pattern for type-safe error handling:
