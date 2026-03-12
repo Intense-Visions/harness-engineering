@@ -1,15 +1,11 @@
 # Broken Links Project
 
-This project has broken links for testing.
+## Documentation
 
-## Project Overview
+- [exists](./docs/exists.md) - This file exists
+- [missing](./docs/missing.md) - This file does not exist
+- [also-missing](./nonexistent/file.md) - Invalid path
 
-This is a test fixture with broken links.
+## Code
 
-## Repository Structure
-
-- [Missing File](./missing-file.md) - This file does not exist
-
-## Development Workflow
-
-No workflow defined.
+- [src](./src/) - Missing directory

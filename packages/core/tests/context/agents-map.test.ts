@@ -148,7 +148,8 @@ describe('validateAgentsMap', () => {
     if (result.ok) {
       expect(result.value.valid).toBe(false);
       expect(result.value.brokenLinks.length).toBeGreaterThan(0);
-      expect(result.value.brokenLinks[0].path).toBe('./missing-file.md');
+      // First broken link is ./docs/missing.md (exists.md exists, missing.md doesn't)
+      expect(result.value.brokenLinks[0].path).toBe('./docs/missing.md');
     }
   });
 });
