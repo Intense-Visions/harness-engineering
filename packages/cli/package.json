@@ -27,6 +27,7 @@
     "chalk": "^5.3.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.0.18",
     "tsup": "^8.0.0",
     "vitest": "^4.0.18"
