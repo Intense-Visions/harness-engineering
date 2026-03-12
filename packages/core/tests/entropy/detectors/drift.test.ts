@@ -51,7 +51,7 @@ describe('detectDocDrift', () => {
     expect(snapshotResult.ok).toBe(true);
     if (!snapshotResult.ok) return;
 
-    const result = detectDocDrift(snapshotResult.value, {
+    const result = await detectDocDrift(snapshotResult.value, {
       checkApiSignatures: true,
       checkExamples: false,
       checkStructure: false,
@@ -66,6 +66,33 @@ describe('detectDocDrift', () => {
       const apiDrifts = result.value.drifts.filter(d => d.type === 'api-signature');
       expect(apiDrifts.some(d => d.reference === 'getUserById')).toBe(true);
       expect(apiDrifts.some(d => d.possibleMatches?.includes('findUserById'))).toBe(true);
+    }
+  });
+
+  it('should detect structure drift (broken file links)', async () => {
+    const snapshotResult = await buildSnapshot({
+      rootDir: driftFixtures,
+      parser,
+      analyze: { drift: true },
+      include: ['src/**/*.ts'],
+      docPaths: ['docs/**/*.md'],
+    });
+
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return;
+
+    const result = await detectDocDrift(snapshotResult.value, {
+      checkApiSignatures: false,
+      checkExamples: false,
+      checkStructure: true,
+      docPaths: [],
+      ignorePatterns: [],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const structureDrifts = result.value.drifts.filter(d => d.type === 'structure');
+      expect(structureDrifts.some(d => d.reference.includes('missing-file.ts'))).toBe(true);
     }
   });
 });
