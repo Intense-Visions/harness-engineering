@@ -31,7 +31,8 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@harness-engineering/types": "workspace:*"
+    "@harness-engineering/types": "workspace:*",
+    "glob": "^10.3.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
