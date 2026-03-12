@@ -1,5 +1,5 @@
 import type { Result } from '../../shared/result';
-import { Ok, Err } from '../../shared/result';
+import { Ok } from '../../shared/result';
 import type {
   EntropyError,
   CodebaseSnapshot,
@@ -7,9 +7,8 @@ import type {
   DriftReport,
   DocumentationDrift
 } from '../types';
-import { createEntropyError } from '../../shared/errors';
 import { fileExists } from '../../shared/fs-utils';
-import { dirname, join, resolve } from 'path';
+import { dirname, resolve } from 'path';
 
 /**
  * Calculate Levenshtein distance between two strings
@@ -21,24 +20,32 @@ export function levenshteinDistance(a: string, b: string): number {
     matrix[i] = [i];
   }
   for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
+    const row = matrix[0];
+    if (row) {
+      row[j] = j;
+    }
   }
 
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
+      const row = matrix[i];
+      const prevRow = matrix[i - 1];
+      if (!row || !prevRow) continue;
+
       if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
+        row[j] = prevRow[j - 1] ?? 0;
       } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
+        row[j] = Math.min(
+          (prevRow[j - 1] ?? 0) + 1,
+          (row[j - 1] ?? 0) + 1,
+          (prevRow[j] ?? 0) + 1
         );
       }
     }
   }
 
-  return matrix[b.length][a.length];
+  const lastRow = matrix[b.length];
+  return lastRow?.[a.length] ?? 0;
 }
 
 /**
@@ -108,7 +115,7 @@ function checkApiSignatureDrift(
       const possibleMatches = findPossibleMatches(ref.reference, exportNames);
       const confidence = possibleMatches.length > 0 ? 'high' : 'medium';
 
-      drifts.push({
+      const drift: DocumentationDrift = {
         type: 'api-signature',
         docFile: ref.docFile,
         line: ref.line,
@@ -121,9 +128,12 @@ function checkApiSignatureDrift(
         suggestion: possibleMatches.length > 0
           ? `Did you mean "${possibleMatches[0]}"?`
           : 'Remove reference or add the missing export',
-        possibleMatches: possibleMatches.length > 0 ? possibleMatches : undefined,
         confidence,
-      });
+      };
+      if (possibleMatches.length > 0) {
+        drift.possibleMatches = possibleMatches;
+      }
+      drifts.push(drift);
     }
   }
 
@@ -133,12 +143,13 @@ function checkApiSignatureDrift(
 /**
  * Extract file/directory links from markdown content
  */
-function extractFileLinks(content: string, docPath: string): { link: string; line: number }[] {
+function extractFileLinks(content: string): { link: string; line: number }[] {
   const links: { link: string; line: number }[] = [];
   const lines = content.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!line) continue;
 
     // Markdown links: [text](path)
     const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
@@ -146,7 +157,7 @@ function extractFileLinks(content: string, docPath: string): { link: string; lin
     while ((match = linkRegex.exec(line)) !== null) {
       const linkPath = match[2];
       // Only check relative paths to files (not URLs)
-      if (!linkPath.startsWith('http') && !linkPath.startsWith('#') &&
+      if (linkPath && !linkPath.startsWith('http') && !linkPath.startsWith('#') &&
           (linkPath.includes('.') || linkPath.startsWith('..'))) {
         links.push({ link: linkPath, line: i + 1 });
       }
@@ -161,12 +172,12 @@ function extractFileLinks(content: string, docPath: string): { link: string; lin
  */
 async function checkStructureDrift(
   snapshot: CodebaseSnapshot,
-  config: DriftConfig
+  _config: DriftConfig
 ): Promise<DocumentationDrift[]> {
   const drifts: DocumentationDrift[] = [];
 
   for (const doc of snapshot.docs) {
-    const fileLinks = extractFileLinks(doc.content, doc.path);
+    const fileLinks = extractFileLinks(doc.content);
 
     for (const { link, line } of fileLinks) {
       const resolvedPath = resolve(dirname(doc.path), link);
