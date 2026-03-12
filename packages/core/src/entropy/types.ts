@@ -11,11 +11,13 @@ export interface EntropyError extends BaseError {
     | 'PARSE_ERROR'
     | 'ENTRY_POINT_NOT_FOUND'
     | 'INVALID_CONFIG'
+    | 'CONFIG_VALIDATION_ERROR'
     | 'FIX_FAILED'
     | 'BACKUP_FAILED';
   details: {
     file?: string;
     reason?: string;
+    issues?: unknown[];
     originalError?: Error;
   };
 }
