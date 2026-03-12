@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "test-project",
+  "layers": [
+    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
+    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] }
+  ],
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs"
+}
