@@ -11,6 +11,7 @@ import type {
   PatternReport,
   PatternConfig,
   SuggestionReport,
+  AnalysisError,
 } from './types';
 import { buildSnapshot } from './snapshot';
 import { detectDocDrift } from './detectors/drift';
@@ -51,6 +52,7 @@ export class EntropyAnalyzer {
     let driftReport: DriftReport | undefined;
     let deadCodeReport: DeadCodeReport | undefined;
     let patternReport: PatternReport | undefined;
+    const analysisErrors: AnalysisError[] = [];
 
     // Drift detection
     if (this.config.analyze.drift) {
@@ -60,6 +62,8 @@ export class EntropyAnalyzer {
       const result = await detectDocDrift(this.snapshot, driftConfig);
       if (result.ok) {
         driftReport = result.value;
+      } else {
+        analysisErrors.push({ analyzer: 'drift', error: result.error });
       }
     }
 
@@ -68,6 +72,8 @@ export class EntropyAnalyzer {
       const result = await detectDeadCode(this.snapshot);
       if (result.ok) {
         deadCodeReport = result.value;
+      } else {
+        analysisErrors.push({ analyzer: 'deadCode', error: result.error });
       }
     }
 
@@ -79,6 +85,8 @@ export class EntropyAnalyzer {
       const result = await detectPatternViolations(this.snapshot, patternConfig);
       if (result.ok) {
         patternReport = result.value;
+      } else {
+        analysisErrors.push({ analyzer: 'patterns', error: result.error });
       }
     }
 
@@ -108,6 +116,7 @@ export class EntropyAnalyzer {
 
     const report: EntropyReport = {
       snapshot: this.snapshot,
+      analysisErrors,
       summary: {
         totalIssues,
         errors: patternErrors,
@@ -176,41 +185,45 @@ export class EntropyAnalyzer {
   }
 
   /**
+   * Ensure snapshot is built, returning the snapshot or an error
+   */
+  private async ensureSnapshot(): Promise<Result<CodebaseSnapshot, EntropyError>> {
+    if (this.snapshot) {
+      return Ok(this.snapshot);
+    }
+    return this.buildSnapshot();
+  }
+
+  /**
    * Run drift detection only (snapshot must be built first)
    */
   async detectDrift(config?: Partial<DriftConfig>): Promise<Result<DriftReport, EntropyError>> {
-    if (!this.snapshot) {
-      const snapshotResult = await this.buildSnapshot();
-      if (!snapshotResult.ok) {
-        return Err(snapshotResult.error);
-      }
+    const snapshotResult = await this.ensureSnapshot();
+    if (!snapshotResult.ok) {
+      return Err(snapshotResult.error);
     }
-    return detectDocDrift(this.snapshot!, config || {});
+    return detectDocDrift(snapshotResult.value, config || {});
   }
 
   /**
    * Run dead code detection only (snapshot must be built first)
    */
   async detectDeadCode(): Promise<Result<DeadCodeReport, EntropyError>> {
-    if (!this.snapshot) {
-      const snapshotResult = await this.buildSnapshot();
-      if (!snapshotResult.ok) {
-        return Err(snapshotResult.error);
-      }
+    const snapshotResult = await this.ensureSnapshot();
+    if (!snapshotResult.ok) {
+      return Err(snapshotResult.error);
     }
-    return detectDeadCode(this.snapshot!);
+    return detectDeadCode(snapshotResult.value);
   }
 
   /**
    * Run pattern detection only (snapshot must be built first)
    */
   async detectPatterns(config: PatternConfig): Promise<Result<PatternReport, EntropyError>> {
-    if (!this.snapshot) {
-      const snapshotResult = await this.buildSnapshot();
-      if (!snapshotResult.ok) {
-        return Err(snapshotResult.error);
-      }
+    const snapshotResult = await this.ensureSnapshot();
+    if (!snapshotResult.ok) {
+      return Err(snapshotResult.error);
     }
-    return detectPatternViolations(this.snapshot!, config);
+    return detectPatternViolations(snapshotResult.value, config);
   }
 }

@@ -1,6 +1,16 @@
-import { describe, it, expect } from 'vitest';
-import { createFixes, previewFix } from '../../../src/entropy/fixers/safe-fixes';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createFixes, previewFix, applyFixes } from '../../../src/entropy/fixers/safe-fixes';
 import type { DeadCodeReport, Fix } from '../../../src/entropy/types';
+import * as fs from 'fs';
+import { promisify } from 'util';
+import * as path from 'path';
+import * as os from 'os';
+
+const writeFile = promisify(fs.writeFile);
+const readFile = promisify(fs.readFile);
+const mkdir = promisify(fs.mkdir);
+const rm = promisify(fs.rm);
+const exists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
 
 describe('createFixes', () => {
   it('should create fix for dead files', () => {
@@ -119,5 +129,168 @@ describe('previewFix', () => {
 
     expect(preview).toContain('line 5');
     expect(preview).toContain('file.ts');
+  });
+});
+
+describe('applyFixes', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = path.join(os.tmpdir(), `safe-fixes-test-${Date.now()}`);
+    await mkdir(tempDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('should not modify files in dry-run mode', async () => {
+    const testFile = path.join(tempDir, 'test.ts');
+    await writeFile(testFile, 'const x = 1;');
+
+    const fixes: Fix[] = [{
+      type: 'dead-files',
+      file: testFile,
+      description: 'Delete file',
+      action: 'delete-file',
+      safe: true,
+      reversible: true,
+    }];
+
+    const result = await applyFixes(fixes, { dryRun: true, fixTypes: ['dead-files'], createBackup: false });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied.length).toBe(1);
+      // File should still exist in dry-run mode
+      expect(await exists(testFile)).toBe(true);
+    }
+  });
+
+  it('should delete file when applying delete-file fix', async () => {
+    const testFile = path.join(tempDir, 'to-delete.ts');
+    await writeFile(testFile, 'const unused = 1;');
+
+    const fixes: Fix[] = [{
+      type: 'dead-files',
+      file: testFile,
+      description: 'Delete dead file',
+      action: 'delete-file',
+      safe: true,
+      reversible: true,
+    }];
+
+    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['dead-files'], createBackup: false });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied.length).toBe(1);
+      expect(result.value.stats.filesDeleted).toBe(1);
+      expect(await exists(testFile)).toBe(false);
+    }
+  });
+
+  it('should delete line when applying delete-lines fix', async () => {
+    const testFile = path.join(tempDir, 'with-unused-import.ts');
+    await writeFile(testFile, 'import { unused } from "./helper";\nconst x = 1;\nexport { x };');
+
+    const fixes: Fix[] = [{
+      type: 'unused-imports',
+      file: testFile,
+      description: 'Remove unused import',
+      action: 'delete-lines',
+      line: 1,
+      safe: true,
+      reversible: true,
+    }];
+
+    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['unused-imports'], createBackup: false });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied.length).toBe(1);
+      expect(result.value.stats.linesRemoved).toBe(1);
+      const content = await readFile(testFile, 'utf-8');
+      expect(content).not.toContain('import');
+      expect(content).toContain('const x = 1');
+    }
+  });
+
+  it('should skip fixes not in fixTypes', async () => {
+    const testFile = path.join(tempDir, 'keep-me.ts');
+    await writeFile(testFile, 'const x = 1;');
+
+    const fixes: Fix[] = [{
+      type: 'dead-files',
+      file: testFile,
+      description: 'Delete file',
+      action: 'delete-file',
+      safe: true,
+      reversible: true,
+    }];
+
+    // Request only unused-imports, not dead-files
+    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['unused-imports'], createBackup: false });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.skipped.length).toBe(1);
+      expect(result.value.applied.length).toBe(0);
+      expect(await exists(testFile)).toBe(true);
+    }
+  });
+
+  it('should track errors when file operation fails', async () => {
+    const nonExistentFile = path.join(tempDir, 'does-not-exist.ts');
+
+    const fixes: Fix[] = [{
+      type: 'dead-files',
+      file: nonExistentFile,
+      description: 'Delete non-existent file',
+      action: 'delete-file',
+      safe: true,
+      reversible: true,
+    }];
+
+    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['dead-files'], createBackup: false });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.errors.length).toBe(1);
+      expect(result.value.errors[0].fix.file).toBe(nonExistentFile);
+    }
+  });
+
+  it('should create backup when configured', async () => {
+    const testFile = path.join(tempDir, 'backup-me.ts');
+    const backupDir = path.join(tempDir, 'backups');
+    await writeFile(testFile, 'const original = 1;');
+
+    const fixes: Fix[] = [{
+      type: 'dead-files',
+      file: testFile,
+      description: 'Delete file with backup',
+      action: 'delete-file',
+      safe: true,
+      reversible: true,
+    }];
+
+    const result = await applyFixes(fixes, {
+      dryRun: false,
+      fixTypes: ['dead-files'],
+      createBackup: true,
+      backupDir,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied.length).toBe(1);
+      // Original file should be deleted
+      expect(await exists(testFile)).toBe(false);
+      // Backup directory should have a file
+      const backupFiles = fs.readdirSync(backupDir);
+      expect(backupFiles.length).toBe(1);
+      expect(backupFiles[0]).toContain('backup-me.ts');
+    }
   });
 });

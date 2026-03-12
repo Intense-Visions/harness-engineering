@@ -341,11 +341,17 @@ export interface SuggestionReport {
 
 // ============ Report Types ============
 
+export interface AnalysisError {
+  analyzer: 'drift' | 'deadCode' | 'patterns';
+  error: EntropyError;
+}
+
 export interface EntropyReport {
   snapshot: CodebaseSnapshot;
   drift?: DriftReport;
   deadCode?: DeadCodeReport;
   patterns?: PatternReport;
+  analysisErrors: AnalysisError[];
   summary: {
     totalIssues: number;
     errors: number;
