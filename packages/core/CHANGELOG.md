@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-12
+
+### Added
+
+- **Context Engineering Module** - Tools for AGENTS.md validation and generation
+  - `validateAgentsMap()` - Parse and validate AGENTS.md structure
+  - `checkDocCoverage()` - Analyze documentation coverage for code files
+  - `validateKnowledgeMap()` - Check integrity of all documentation links
+  - `generateAgentsMap()` - Auto-generate AGENTS.md from project structure
+  - `extractMarkdownLinks()` - Extract markdown links from content
+  - `extractSections()` - Extract sections from markdown content
+- Required sections validation for harness-engineering projects
+- Documentation gap identification with importance levels
+- Broken link detection with fix suggestions
+
+### Changed
+
+- Updated VERSION to 0.2.0
+
 ## [0.1.0] - 2026-03-12
 
 ### Added
@@ -34,4 +53,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - N/A
 
+[0.2.0]: https://github.com/harness-engineering/harness-engineering/releases/tag/@harness-engineering/core@0.2.0
 [0.1.0]: https://github.com/harness-engineering/harness-engineering/releases/tag/@harness-engineering/core@0.1.0

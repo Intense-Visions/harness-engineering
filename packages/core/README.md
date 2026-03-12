@@ -94,6 +94,84 @@ if (result.ok) {
 }
 ```
 
+### Context Engineering Module
+
+Tools for validating and generating AGENTS.md knowledge maps.
+
+#### AGENTS.md Validation
+
+Validate the structure and links in an AGENTS.md file:
+
+```typescript
+import { validateAgentsMap } from '@harness-engineering/core';
+
+const result = await validateAgentsMap('./AGENTS.md');
+
+if (result.ok) {
+  console.log('Valid:', result.value.valid);
+  console.log('Sections:', result.value.sections.length);
+  console.log('Broken links:', result.value.brokenLinks.length);
+  console.log('Missing sections:', result.value.missingSections);
+}
+```
+
+#### Documentation Coverage
+
+Check how well your code is documented:
+
+```typescript
+import { checkDocCoverage } from '@harness-engineering/core';
+
+const result = await checkDocCoverage('src', {
+  docsDir: './docs',
+  sourceDir: './src',
+  excludePatterns: ['**/*.test.ts'],
+});
+
+if (result.ok) {
+  console.log('Coverage:', result.value.coveragePercentage + '%');
+  console.log('Gaps:', result.value.gaps);
+}
+```
+
+#### Knowledge Map Integrity
+
+Verify all links in your AGENTS.md point to existing files:
+
+```typescript
+import { validateKnowledgeMap } from '@harness-engineering/core';
+
+const result = await validateKnowledgeMap('./');
+
+if (result.ok) {
+  console.log('Integrity:', result.value.integrity + '%');
+  for (const broken of result.value.brokenLinks) {
+    console.log(`Broken: ${broken.path} - ${broken.suggestion}`);
+  }
+}
+```
+
+#### AGENTS.md Generation
+
+Auto-generate an AGENTS.md from your project structure:
+
+```typescript
+import { generateAgentsMap } from '@harness-engineering/core';
+
+const result = await generateAgentsMap({
+  rootDir: './',
+  includePaths: ['**/*.md', 'src/**/*.ts'],
+  excludePaths: ['node_modules/**'],
+  sections: [
+    { name: 'API Docs', pattern: 'docs/api/**/*.md', description: 'API documentation' },
+  ],
+});
+
+if (result.ok) {
+  console.log(result.value); // Generated markdown content
+}
+```
+
 ## Error Handling
 
 All APIs use the `Result<T, E>` pattern for type-safe error handling:
