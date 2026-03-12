@@ -131,18 +131,84 @@ function checkApiSignatureDrift(
 }
 
 /**
+ * Extract file/directory links from markdown content
+ */
+function extractFileLinks(content: string, docPath: string): { link: string; line: number }[] {
+  const links: { link: string; line: number }[] = [];
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Markdown links: [text](path)
+    const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
+    let match;
+    while ((match = linkRegex.exec(line)) !== null) {
+      const linkPath = match[2];
+      // Only check relative paths to files (not URLs)
+      if (!linkPath.startsWith('http') && !linkPath.startsWith('#') &&
+          (linkPath.includes('.') || linkPath.startsWith('..'))) {
+        links.push({ link: linkPath, line: i + 1 });
+      }
+    }
+  }
+
+  return links;
+}
+
+/**
+ * Check structure drift - docs reference files/directories that don't exist
+ */
+async function checkStructureDrift(
+  snapshot: CodebaseSnapshot,
+  config: DriftConfig
+): Promise<DocumentationDrift[]> {
+  const drifts: DocumentationDrift[] = [];
+
+  for (const doc of snapshot.docs) {
+    const fileLinks = extractFileLinks(doc.content, doc.path);
+
+    for (const { link, line } of fileLinks) {
+      const resolvedPath = resolve(dirname(doc.path), link);
+      const exists = await fileExists(resolvedPath);
+
+      if (!exists) {
+        drifts.push({
+          type: 'structure',
+          docFile: doc.path,
+          line,
+          reference: link,
+          context: 'link',
+          issue: 'NOT_FOUND',
+          details: `File "${link}" referenced in documentation does not exist`,
+          suggestion: 'Update the link or remove the reference',
+          confidence: 'high',
+        });
+      }
+    }
+  }
+
+  return drifts;
+}
+
+/**
  * Detect documentation drift in a codebase
  */
-export function detectDocDrift(
+export async function detectDocDrift(
   snapshot: CodebaseSnapshot,
   config?: Partial<DriftConfig>
-): Result<DriftReport, EntropyError> {
+): Promise<Result<DriftReport, EntropyError>> {
   const fullConfig = { ...DEFAULT_DRIFT_CONFIG, ...config };
   const drifts: DocumentationDrift[] = [];
 
   // Check API signature drift
   if (fullConfig.checkApiSignatures) {
     drifts.push(...checkApiSignatureDrift(snapshot, fullConfig));
+  }
+
+  // Check structure drift
+  if (fullConfig.checkStructure) {
+    drifts.push(...await checkStructureDrift(snapshot, fullConfig));
   }
 
   // Calculate stats
