@@ -29,16 +29,18 @@ export function extractMarkdownLinks(content: string): ExtractedLink[] {
   const linkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i] ?? '';
     let match;
     linkPattern.lastIndex = 0; // Reset regex state for each line
 
     while ((match = linkPattern.exec(line)) !== null) {
-      links.push({
-        text: match[1],
-        path: match[2],
-        line: i + 1, // 1-indexed
-      });
+      if (match[1] && match[2]) {
+        links.push({
+          text: match[1],
+          path: match[2],
+          line: i + 1, // 1-indexed
+        });
+      }
     }
   }
 
@@ -66,10 +68,10 @@ export function extractSections(content: string): AgentMapSection[] {
 
   // First pass: find all headings
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i] ?? '';
     const match = line.match(headingPattern);
 
-    if (match) {
+    if (match && match[1] && match[2]) {
       sections.push({
         title: match[2].trim(),
         level: match[1].length,
@@ -81,13 +83,17 @@ export function extractSections(content: string): AgentMapSection[] {
 
   // Second pass: set end indices
   for (let i = 0; i < sections.length; i++) {
+    const currentSection = sections[i];
     const nextSection = sections[i + 1];
-    sections[i].endIndex = nextSection ? nextSection.startIndex : lines.length;
+    if (currentSection) {
+      currentSection.endIndex = nextSection ? nextSection.startIndex : lines.length;
+    }
   }
 
   // Third pass: extract links and description for each section
   return sections.map((section) => {
-    const sectionLines = lines.slice(section.startIndex + 1, section.endIndex);
+    const endIndex = section.endIndex ?? lines.length;
+    const sectionLines = lines.slice(section.startIndex + 1, endIndex);
     const sectionContent = sectionLines.join('\n');
 
     const links = extractMarkdownLinks(sectionContent).map((link) => ({
@@ -110,13 +116,16 @@ export function extractSections(content: string): AgentMapSection[] {
       descriptionLines.push(trimmed);
     }
 
-    return {
+    const result: AgentMapSection = {
       title: section.title,
       level: section.level,
       line: section.line,
       links,
-      description: descriptionLines.length > 0 ? descriptionLines.join(' ') : undefined,
     };
+    if (descriptionLines.length > 0) {
+      result.description = descriptionLines.join(' ');
+    }
+    return result;
   });
 }
 

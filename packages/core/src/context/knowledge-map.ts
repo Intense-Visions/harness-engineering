@@ -1,7 +1,6 @@
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import type { ContextError } from '../shared/errors';
-import { createError } from '../shared/errors';
 import type { BrokenLink, IntegrityReport } from './types';
 import { validateAgentsMap } from './agents-map';
 import { findFiles } from '../shared/fs-utils';
