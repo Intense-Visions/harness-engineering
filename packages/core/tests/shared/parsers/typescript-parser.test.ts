@@ -111,4 +111,59 @@ describe('TypeScriptParser', () => {
       expect(firstImport.location.column).toBeGreaterThanOrEqual(0);
     });
   });
+
+  describe('extractExports', () => {
+    it('should extract named exports', async () => {
+      const path = join(fixturesDir, 'exports.ts');
+      const parseResult = await parser.parseFile(path);
+      expect(parseResult.ok).toBe(true);
+      if (!parseResult.ok) return;
+
+      const result = parser.extractExports(parseResult.value);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const namedExports = result.value.filter(e => e.type === 'named');
+      expect(namedExports.some(e => e.name === 'VERSION')).toBe(true);
+      expect(namedExports.some(e => e.name === 'helper')).toBe(true);
+      expect(namedExports.some(e => e.name === 'Service')).toBe(true);
+    });
+
+    it('should extract default export', async () => {
+      const path = join(fixturesDir, 'exports.ts');
+      const parseResult = await parser.parseFile(path);
+      if (!parseResult.ok) return;
+
+      const result = parser.extractExports(parseResult.value);
+      if (!result.ok) return;
+
+      const defaultExport = result.value.find(e => e.type === 'default');
+      expect(defaultExport).toBeDefined();
+    });
+
+    it('should identify re-exports', async () => {
+      const path = join(fixturesDir, 'exports.ts');
+      const parseResult = await parser.parseFile(path);
+      if (!parseResult.ok) return;
+
+      const result = parser.extractExports(parseResult.value);
+      if (!result.ok) return;
+
+      const reExports = result.value.filter(e => e.isReExport);
+      expect(reExports.length).toBeGreaterThan(0);
+      expect(reExports.some(e => e.source === 'path')).toBe(true);
+    });
+
+    it('should extract namespace re-exports', async () => {
+      const path = join(fixturesDir, 'exports.ts');
+      const parseResult = await parser.parseFile(path);
+      if (!parseResult.ok) return;
+
+      const result = parser.extractExports(parseResult.value);
+      if (!result.ok) return;
+
+      const namespaceExports = result.value.filter(e => e.type === 'namespace');
+      expect(namespaceExports.length).toBeGreaterThan(0);
+    });
+  });
 });

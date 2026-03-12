@@ -126,9 +126,127 @@ export class TypeScriptParser implements LanguageParser {
     return Ok(imports);
   }
 
-  extractExports(_ast: AST): Result<Export[], ParseError> {
-    // Placeholder - will implement in next task
-    return Ok([]);
+  extractExports(ast: AST): Result<Export[], ParseError> {
+    const exports: Export[] = [];
+    const program = ast.body as TSESTree.Program;
+
+    walk(program, (node) => {
+      // Named export declarations: export const x = ...
+      if (node.type === 'ExportNamedDeclaration') {
+        const exportDecl = node as TSESTree.ExportNamedDeclaration;
+
+        // Re-export: export { a, b } from 'source'
+        if (exportDecl.source) {
+          for (const spec of exportDecl.specifiers) {
+            if (spec.type === 'ExportSpecifier') {
+              const exported = spec.exported;
+              const name = exported.type === 'Identifier'
+                ? exported.name
+                : String((exported as unknown as TSESTree.Literal).value);
+              exports.push({
+                name,
+                type: 'named',
+                location: {
+                  file: '',
+                  line: exportDecl.loc?.start.line ?? 0,
+                  column: exportDecl.loc?.start.column ?? 0,
+                },
+                isReExport: true,
+                source: exportDecl.source.value as string,
+              });
+            }
+          }
+          return;
+        }
+
+        // Direct declaration: export const x = ...
+        if (exportDecl.declaration) {
+          const decl = exportDecl.declaration;
+          if (decl.type === 'VariableDeclaration') {
+            for (const declarator of decl.declarations) {
+              if (declarator.id.type === 'Identifier') {
+                exports.push({
+                  name: declarator.id.name,
+                  type: 'named',
+                  location: {
+                    file: '',
+                    line: decl.loc?.start.line ?? 0,
+                    column: decl.loc?.start.column ?? 0,
+                  },
+                  isReExport: false,
+                });
+              }
+            }
+          } else if (decl.type === 'FunctionDeclaration' || decl.type === 'ClassDeclaration') {
+            if (decl.id) {
+              exports.push({
+                name: decl.id.name,
+                type: 'named',
+                location: {
+                  file: '',
+                  line: decl.loc?.start.line ?? 0,
+                  column: decl.loc?.start.column ?? 0,
+                },
+                isReExport: false,
+              });
+            }
+          }
+        }
+
+        // Export list: export { a, b }
+        for (const spec of exportDecl.specifiers) {
+          if (spec.type === 'ExportSpecifier') {
+            const exported = spec.exported;
+            const name = exported.type === 'Identifier'
+              ? exported.name
+              : String((exported as unknown as TSESTree.Literal).value);
+            exports.push({
+              name,
+              type: 'named',
+              location: {
+                file: '',
+                line: exportDecl.loc?.start.line ?? 0,
+                column: exportDecl.loc?.start.column ?? 0,
+              },
+              isReExport: false,
+            });
+          }
+        }
+      }
+
+      // Default export: export default ...
+      if (node.type === 'ExportDefaultDeclaration') {
+        const exportDecl = node as TSESTree.ExportDefaultDeclaration;
+        exports.push({
+          name: 'default',
+          type: 'default',
+          location: {
+            file: '',
+            line: exportDecl.loc?.start.line ?? 0,
+            column: exportDecl.loc?.start.column ?? 0,
+          },
+          isReExport: false,
+        });
+      }
+
+      // Namespace re-export: export * from 'source' or export * as name from 'source'
+      if (node.type === 'ExportAllDeclaration') {
+        const exportDecl = node as TSESTree.ExportAllDeclaration;
+        exports.push({
+          name: exportDecl.exported?.name ?? '*',
+          type: 'namespace',
+          location: {
+            file: '',
+            line: exportDecl.loc?.start.line ?? 0,
+            column: exportDecl.loc?.start.column ?? 0,
+          },
+          isReExport: true,
+          source: exportDecl.source.value as string,
+        });
+      }
+    });
+
+    return Ok(exports);
   }
 
   async health(): Promise<Result<HealthCheckResult, ParseError>> {
