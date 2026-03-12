@@ -119,3 +119,98 @@ export function extractSections(content: string): AgentMapSection[] {
     };
   });
 }
+
+/**
+ * Check if a link path is external (URL or fragment)
+ */
+function isExternalLink(path: string): boolean {
+  return path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('#') ||
+    path.startsWith('mailto:');
+}
+
+/**
+ * Resolve a link path relative to a base directory
+ */
+function resolveLinkPath(linkPath: string, baseDir: string): string {
+  return linkPath.startsWith('.') ? join(baseDir, linkPath) : linkPath;
+}
+
+/**
+ * Validate an AGENTS.md file
+ * - Parses sections and links
+ * - Checks for required sections
+ * - Verifies all links point to existing files
+ */
+export async function validateAgentsMap(
+  path: string = './AGENTS.md'
+): Promise<Result<AgentMapValidation, ContextError>> {
+  // Read the file
+  const contentResult = await readFileContent(path);
+  if (!contentResult.ok) {
+    return Err(
+      createError<ContextError>(
+        'PARSE_ERROR',
+        `Failed to read AGENTS.md: ${contentResult.error.message}`,
+        { path },
+        ['Ensure the file exists', 'Check file permissions']
+      )
+    );
+  }
+
+  const content = contentResult.value;
+  const sections = extractSections(content);
+  const baseDir = dirname(path);
+
+  // Check for required sections
+  const sectionTitles = sections.map((s) => s.title);
+  const missingSections = REQUIRED_SECTIONS.filter(
+    (required) => !sectionTitles.some((title) =>
+      title.toLowerCase().includes(required.toLowerCase())
+    )
+  );
+
+  // Validate all links
+  const allLinks: AgentMapLink[] = [];
+  const brokenLinks: AgentMapLink[] = [];
+
+  for (const section of sections) {
+    for (const link of section.links) {
+      // Skip external links (URLs, fragments, mailto)
+      if (isExternalLink(link.path)) {
+        const externalLink: AgentMapLink = { ...link, exists: true };
+        allLinks.push(externalLink);
+        continue;
+      }
+
+      // Resolve and check local paths
+      const absolutePath = resolveLinkPath(link.path, baseDir);
+      const exists = await fileExists(absolutePath);
+      const fullLink: AgentMapLink = { ...link, exists };
+
+      allLinks.push(fullLink);
+      if (!exists) {
+        brokenLinks.push(fullLink);
+      }
+    }
+
+    // Update section links with exists status
+    section.links = section.links.map((link) =>
+      allLinks.find((l) => l.path === link.path && l.line === link.line) || {
+        ...link,
+        exists: false,
+      }
+    );
+  }
+
+  const valid = missingSections.length === 0 && brokenLinks.length === 0;
+
+  return Ok({
+    valid,
+    sections,
+    totalLinks: allLinks.length,
+    brokenLinks,
+    missingSections: [...missingSections],
+  });
+}

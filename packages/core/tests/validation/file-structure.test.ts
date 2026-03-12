@@ -41,10 +41,10 @@ describe('validateFileStructure', () => {
         examples: ['README.md'],
       },
       {
-        pattern: 'AGENTS.md',
+        pattern: 'LICENSE',
         required: true,
-        description: 'Agents documentation',
-        examples: ['AGENTS.md'],
+        description: 'License file',
+        examples: ['LICENSE'],
       },
     ];
 
@@ -54,7 +54,7 @@ describe('validateFileStructure', () => {
     if (result.ok) {
       expect(result.value.valid).toBe(false);
       expect(result.value.missing).toHaveLength(1);
-      expect(result.value.missing[0]).toBe('AGENTS.md');
+      expect(result.value.missing[0]).toBe('LICENSE');
       expect(result.value.conformance).toBe(50);
     }
   });
@@ -143,10 +143,10 @@ describe('validateFileStructure', () => {
         examples: ['README.md'],
       },
       {
-        pattern: 'AGENTS.md',
+        pattern: 'LICENSE',
         required: true,
-        description: 'Agents documentation',
-        examples: ['AGENTS.md'],
+        description: 'License file',
+        examples: ['LICENSE'],
       },
       {
         pattern: 'CONTRIBUTING.md',
