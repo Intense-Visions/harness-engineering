@@ -97,4 +97,25 @@ describe('validateBoundaries', () => {
       expect(result.value.violations.length).toBeGreaterThan(0);
     }
   });
+
+  it('should skip validation for missing data', () => {
+    const boundaries = [
+      { name: 'User.create', layer: 'api', schema: UserSchema, direction: 'input' as const },
+      { name: 'Order.create', layer: 'api', schema: UserSchema, direction: 'input' as const },
+    ];
+
+    // Only provide data for one boundary, not the other
+    const data = new Map([
+      ['User.create', { email: 'test@example.com', name: 'John' }],
+      // Order.create is not provided - should be skipped
+    ]);
+
+    const result = validateBoundaries(boundaries, data);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.valid).toBe(true);
+      expect(result.value.violations).toHaveLength(0);
+    }
+  });
 });
