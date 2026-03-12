@@ -23,10 +23,10 @@ export class FileSink implements ActionSink {
     this.options = {
       mode: options.mode ?? 'append',
       bufferSize: options.bufferSize ?? 1,
-      flushInterval: options.flushInterval,
     };
 
-    if (this.options.flushInterval) {
+    if (options.flushInterval !== undefined) {
+      this.options.flushInterval = options.flushInterval;
       this.flushTimer = setInterval(() => {
         this.flush();
       }, this.options.flushInterval);

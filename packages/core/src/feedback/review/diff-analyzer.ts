@@ -26,7 +26,7 @@ export function parseDiff(diff: string): Result<CodeChanges, FeedbackError> {
       if (!part.trim()) continue;
 
       const headerMatch = /diff --git a\/(.+?) b\/(.+?)(?:\n|$)/.exec(part);
-      if (!headerMatch) continue;
+      if (!headerMatch || !headerMatch[2]) continue;
 
       const filePath = headerMatch[2];
 

@@ -87,17 +87,24 @@ export class ChecklistBuilder {
     for (const rule of this.customRules) {
       try {
         const result = await rule.check(changes, this.rootDir);
-        items.push({
+        const item: ReviewItem = {
           id: rule.id,
           category: 'custom',
           check: rule.name,
           passed: result.passed,
           severity: rule.severity,
           details: result.details,
-          suggestion: result.suggestion,
-          file: result.file,
-          line: result.line,
-        });
+        };
+        if (result.suggestion !== undefined) {
+          item.suggestion = result.suggestion;
+        }
+        if (result.file !== undefined) {
+          item.file = result.file;
+        }
+        if (result.line !== undefined) {
+          item.line = result.line;
+        }
+        items.push(item);
       } catch (error) {
         items.push({
           id: rule.id,

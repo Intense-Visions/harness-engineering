@@ -34,13 +34,24 @@ export async function requestPeerReview(
 
   try {
     // Spawn the agent
-    const spawnResult = await executor.spawn({
+    const spawnConfig: Parameters<typeof executor.spawn>[0] = {
       type: agentType,
-      customType: options?.customAgentType,
       context,
-      skills: options?.skills,
-      timeout: options?.timeout ?? config.defaultTimeout,
-    });
+    };
+
+    if (options?.customAgentType) {
+      spawnConfig.customType = options.customAgentType;
+    }
+    if (options?.skills) {
+      spawnConfig.skills = options.skills;
+    }
+    if (options?.timeout !== undefined) {
+      spawnConfig.timeout = options.timeout;
+    } else if (config.defaultTimeout !== undefined) {
+      spawnConfig.timeout = config.defaultTimeout;
+    }
+
+    const spawnResult = await executor.spawn(spawnConfig);
 
     if (!spawnResult.ok) {
       await tracker.fail({ code: spawnResult.error.code, message: spawnResult.error.message });

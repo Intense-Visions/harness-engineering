@@ -35,4 +35,4 @@ export type { LanguageParser, AST, Import, Export, ParseError, HealthCheckResult
 export { createParseError } from './shared/parsers';
 
 // Package version
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';

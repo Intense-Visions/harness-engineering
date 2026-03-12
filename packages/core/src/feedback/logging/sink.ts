@@ -1,6 +1,6 @@
 import { Ok } from '../../shared/result';
 import type { Result } from '../../shared/result';
-import type { ActionSink, AgentAction, FeedbackError } from '../types';
+import type { ActionSink, FeedbackError } from '../types';
 
 export class NoOpSink implements ActionSink {
   readonly name = 'noop';

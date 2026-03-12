@@ -1,5 +1,6 @@
 import { Ok } from '../../shared/result';
 import type { Result } from '../../shared/result';
+import { generateId } from '../../shared/uuid';
 import type {
   ActionType,
   AgentAction,
@@ -83,7 +84,7 @@ export async function logAgentAction(
 ): Promise<Result<AgentAction, FeedbackError>> {
   const fullAction: AgentAction = {
     ...action,
-    id: crypto.randomUUID(),
+    id: generateId(),
     timestamp: new Date().toISOString(),
   };
 
@@ -121,7 +122,7 @@ export function trackAction(
 ): ActionTracker {
   const startTime = Date.now();
   const action: AgentAction = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     type,
     timestamp: new Date().toISOString(),
     status: 'started',

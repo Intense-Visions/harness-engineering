@@ -1,6 +1,7 @@
 import { Ok, Err } from '../../shared/result';
 import type { AgentExecutor, ExecutorHealth, AgentConfig, AgentProcess, PeerReview, FeedbackError } from '../types';
 import type { Result } from '../../shared/result';
+import { generateId } from '../../shared/uuid';
 
 export class NoOpExecutor implements AgentExecutor {
   readonly name = 'noop';
@@ -11,7 +12,7 @@ export class NoOpExecutor implements AgentExecutor {
   }
 
   async spawn(config: AgentConfig): Promise<Result<AgentProcess, FeedbackError>> {
-    const id = crypto.randomUUID();
+    const id = generateId();
     const process: AgentProcess = {
       id,
       status: 'completed',
