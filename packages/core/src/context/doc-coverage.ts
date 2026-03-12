@@ -4,7 +4,7 @@ import type { ContextError } from '../shared/errors';
 import { createError } from '../shared/errors';
 import type { CoverageReport, CoverageOptions, DocumentationGap } from './types';
 import { findFiles, readFileContent } from '../shared/fs-utils';
-import { join, basename, relative } from 'path';
+import { basename, relative } from 'path';
 import { extractMarkdownLinks } from './agents-map';
 
 /**

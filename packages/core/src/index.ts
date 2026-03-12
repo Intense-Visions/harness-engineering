@@ -17,5 +17,8 @@ export { createError } from './shared/errors';
 // Validation module
 export * from './validation';
 
+// Context module
+export * from './context';
+
 // Package version
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
