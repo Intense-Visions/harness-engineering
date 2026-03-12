@@ -36,8 +36,10 @@ export function validateConfig<T>(
 
     // Determine error code based on issue type
     if (firstError.code === 'invalid_type') {
-      const received = (firstError as any).received;
-      const expected = (firstError as any).expected;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      const received = (firstError as any).received as string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      const expected = (firstError as any).expected as string;
 
       // Check if this is a missing field (undefined received)
       if (received === 'undefined') {
