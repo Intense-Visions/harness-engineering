@@ -37,6 +37,7 @@
     "@harness-engineering/types": "workspace:*",
     "@typescript-eslint/typescript-estree": "^7.0.0",
     "glob": "^10.3.0",
+    "minimatch": "^10.2.4",
     "zod": "^3.22.0"
   },
   "devDependencies": {
