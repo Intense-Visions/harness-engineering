@@ -1,6 +1,6 @@
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
-import type { EntropyError } from './types';
+import type { EntropyError, CodeBlock, InlineReference, DocumentationFile } from './types';
 import { createEntropyError } from '../shared/errors';
 import { readFileContent, fileExists } from '../shared/fs-utils';
 import { join, resolve } from 'path';
@@ -90,4 +90,96 @@ export async function resolveEntryPoints(
       ['Add "exports" or "main" to package.json', 'Create src/index.ts', 'Specify entryPoints in config']
     )
   );
+}
+
+/**
+ * Extract code blocks from markdown content
+ */
+function extractCodeBlocks(content: string): CodeBlock[] {
+  const blocks: CodeBlock[] = [];
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('```')) {
+      const langMatch = line.match(/```(\w*)/);
+      const language = langMatch?.[1] || 'text';
+
+      // Find closing ```
+      let codeContent = '';
+      let j = i + 1;
+      while (j < lines.length && !lines[j].startsWith('```')) {
+        codeContent += lines[j] + '\n';
+        j++;
+      }
+
+      blocks.push({
+        language,
+        content: codeContent.trim(),
+        line: i + 1,
+      });
+
+      i = j; // Skip to end of code block
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * Extract inline backtick references from markdown
+ */
+function extractInlineRefs(content: string): InlineReference[] {
+  const refs: InlineReference[] = [];
+  const lines = content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const regex = /`([^`]+)`/g;
+    let match;
+
+    while ((match = regex.exec(line)) !== null) {
+      const reference = match[1];
+      // Filter out code snippets, keep likely symbol references
+      if (reference.match(/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*(\(.*\))?$/)) {
+        refs.push({
+          reference: reference.replace(/\(.*\)$/, ''), // Remove function parens
+          line: i + 1,
+          column: match.index,
+        });
+      }
+    }
+  }
+
+  return refs;
+}
+
+/**
+ * Parse a documentation file
+ */
+export async function parseDocumentationFile(
+  path: string
+): Promise<Result<DocumentationFile, EntropyError>> {
+  const contentResult = await readFileContent(path);
+  if (!contentResult.ok) {
+    return Err(
+      createEntropyError(
+        'PARSE_ERROR',
+        `Failed to read documentation file: ${path}`,
+        { file: path },
+        ['Check that the file exists']
+      )
+    );
+  }
+
+  const content = contentResult.value;
+  const type = path.endsWith('.md') ? 'markdown' : 'text';
+
+  return Ok({
+    path,
+    type,
+    content,
+    codeBlocks: extractCodeBlocks(content),
+    inlineRefs: extractInlineRefs(content),
+  });
 }
