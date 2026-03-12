@@ -244,6 +244,76 @@ if (result.ok) {
 }
 ```
 
+### Entropy Management Module
+
+Detect and fix codebase entropy: documentation drift, dead code, and pattern violations.
+
+#### Quick Analysis
+
+```typescript
+import { EntropyAnalyzer } from '@harness-engineering/core';
+
+const analyzer = new EntropyAnalyzer({
+  rootDir: './src',
+  analyze: {
+    drift: true,
+    deadCode: true,
+    patterns: {
+      patterns: [
+        {
+          name: 'max-exports',
+          description: 'Limit exports per file',
+          severity: 'warning',
+          files: ['**/*.ts'],
+          rule: { type: 'max-exports', count: 10 },
+        },
+      ],
+    },
+  },
+  include: ['**/*.ts'],
+  docPaths: ['docs/**/*.md'],
+});
+
+const result = await analyzer.analyze();
+
+if (result.ok) {
+  console.log(`Found ${result.value.summary.totalIssues} issues`);
+  console.log(`${result.value.summary.fixableCount} can be auto-fixed`);
+}
+```
+
+#### Full Analyzer Workflow
+
+```typescript
+import { EntropyAnalyzer, createFixes, applyFixes } from '@harness-engineering/core';
+
+const analyzer = new EntropyAnalyzer({
+  rootDir: './src',
+  analyze: { drift: true, deadCode: true },
+});
+
+// Run analysis
+const report = await analyzer.analyze();
+if (!report.ok) throw new Error(report.error.message);
+
+// Get suggestions for manual fixes
+const suggestions = analyzer.getSuggestions();
+console.log(`${suggestions.suggestions.length} suggestions generated`);
+
+// Auto-fix safe issues
+if (report.value.deadCode) {
+  const fixes = createFixes(report.value.deadCode, {
+    fixTypes: ['unused-imports', 'dead-files'],
+    dryRun: true, // Preview first
+  });
+
+  console.log('Preview:', fixes.map(f => f.description));
+
+  // Apply for real
+  await applyFixes(fixes, { dryRun: false, createBackup: true });
+}
+```
+
 ## Error Handling
 
 All APIs use the `Result<T, E>` pattern for type-safe error handling:
