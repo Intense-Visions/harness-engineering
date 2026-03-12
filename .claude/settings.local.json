@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(pnpm --version:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm list:*)",
+      "Bash(pnpm turbo:*)",
+      "Bash(test:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm build:*)",
+      "Bash(tree:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm --filter docs build:*)",
+      "Bash(pnpm docs:build:*)",
+      "Bash(git log:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(cat:*)",
+      "Bash(pnpm format:check:*)",
+      "Bash(pnpm format:*)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test:coverage:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:coverage:*)",
+      "Bash(pnpm clean:*)",
+      "Bash(timeout 15 pnpm docs:preview:*)",
+      "Bash(lsof:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm tsx:*)",
+      "Bash(eslint:*)",
+      "Bash(pnpm exec tsup:*)"
+    ]
+  }
+}

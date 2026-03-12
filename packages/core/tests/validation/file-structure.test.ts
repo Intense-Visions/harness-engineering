@@ -112,4 +112,57 @@ describe('validateFileStructure', () => {
       expect(result.value.conformance).toBe(100);
     }
   });
+
+  it('should calculate conformance correctly with no required files', async () => {
+    const projectPath = join(__dirname, '../fixtures/valid-project');
+    const conventions = [
+      {
+        pattern: 'optional.txt',
+        required: false,
+        description: 'Optional file',
+        examples: ['optional.txt'],
+      },
+    ];
+
+    const result = await validateFileStructure(projectPath, conventions);
+
+    expect(isOk(result)).toBe(true);
+    if (result.ok) {
+      expect(result.value.valid).toBe(true);
+      expect(result.value.conformance).toBe(100);
+    }
+  });
+
+  it('should handle multiple missing required files', async () => {
+    const projectPath = join(__dirname, '../fixtures/invalid-project');
+    const conventions = [
+      {
+        pattern: 'README.md',
+        required: true,
+        description: 'Project README',
+        examples: ['README.md'],
+      },
+      {
+        pattern: 'AGENTS.md',
+        required: true,
+        description: 'Agents documentation',
+        examples: ['AGENTS.md'],
+      },
+      {
+        pattern: 'CONTRIBUTING.md',
+        required: true,
+        description: 'Contributing guide',
+        examples: ['CONTRIBUTING.md'],
+      },
+    ];
+
+    const result = await validateFileStructure(projectPath, conventions);
+
+    expect(isOk(result)).toBe(true);
+    if (result.ok) {
+      expect(result.value.valid).toBe(false);
+      expect(result.value.missing.length).toBeGreaterThan(1);
+      expect(result.value.conformance).toBeLessThan(100);
+    }
+  });
 });

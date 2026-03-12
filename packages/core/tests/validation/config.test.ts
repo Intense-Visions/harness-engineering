@@ -104,4 +104,68 @@ describe('validateConfig', () => {
       expect(result.value.server.port).toBe(3000);
     }
   });
+
+  it('should handle validation error without firstError path', () => {
+    const schema = z.object({
+      name: z.string().min(5),
+    });
+
+    const invalidConfig = {
+      name: 'x',
+    };
+
+    const result = validateConfig(invalidConfig, schema);
+
+    expect(isErr(result)).toBe(true);
+    if (!result.ok) {
+      expect(result.error.code).toBe('VALIDATION_FAILED');
+      expect(result.error.message).toContain('at least 5 character');
+    }
+  });
+
+  it('should detect nested missing field', () => {
+    const schema = z.object({
+      app: z.object({
+        name: z.string(),
+        port: z.number(),
+      }),
+    });
+
+    const incompleteConfig = {
+      app: {
+        name: 'my-app',
+        // Missing port
+      },
+    };
+
+    const result = validateConfig(incompleteConfig, schema);
+
+    expect(isErr(result)).toBe(true);
+    if (!result.ok) {
+      expect(result.error.code).toBe('MISSING_FIELD');
+      expect(result.error.message).toContain('at "app.port"');
+    }
+  });
+
+  it('should handle validation errors without any errors array', () => {
+    const schema = z.string().email();
+
+    const result = validateConfig('not-an-email', schema);
+
+    expect(isErr(result)).toBe(true);
+    if (!result.ok) {
+      expect(result.error.code).toBe('VALIDATION_FAILED');
+    }
+  });
+
+  it('should handle string validation error', () => {
+    const schema = z.string().min(10);
+
+    const result = validateConfig('short', schema);
+
+    expect(isErr(result)).toBe(true);
+    if (!result.ok) {
+      expect(result.error.code).toBe('VALIDATION_FAILED');
+    }
+  });
 });
