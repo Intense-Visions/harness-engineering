@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildReachabilityMap } from '../../../src/entropy/detectors/dead-code';
+import { buildReachabilityMap, detectDeadCode } from '../../../src/entropy/detectors/dead-code';
 import { buildSnapshot } from '../../../src/entropy/snapshot';
 import { TypeScriptParser } from '../../../src/shared/parsers';
 import { join } from 'path';
@@ -66,5 +66,77 @@ describe('buildReachabilityMap', () => {
     const unusedFile = snapshotResult.value.files.find(f => f.path.includes('unused.ts'));
     expect(unusedFile).toBeDefined();
     expect(reachability.get(unusedFile!.path)).toBe(false);
+  });
+});
+
+describe('detectDeadCode', () => {
+  const parser = new TypeScriptParser();
+  const fixturesDir = join(__dirname, '../../fixtures/entropy/dead-code-samples');
+
+  it('should detect dead exports', async () => {
+    const snapshotResult = await buildSnapshot({
+      rootDir: fixturesDir,
+      parser,
+      analyze: { deadCode: true },
+      include: ['src/**/*.ts'],
+    });
+
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return;
+
+    const result = await detectDeadCode(snapshotResult.value);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // unusedHelper in helper.ts is exported but never imported
+      expect(result.value.deadExports.some(e => e.name === 'unusedHelper')).toBe(true);
+
+      // Functions in unused.ts are dead
+      expect(result.value.deadExports.some(e => e.name === 'unusedFunction')).toBe(true);
+    }
+  });
+
+  it('should detect dead files', async () => {
+    const snapshotResult = await buildSnapshot({
+      rootDir: fixturesDir,
+      parser,
+      analyze: { deadCode: true },
+      include: ['src/**/*.ts'],
+    });
+
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return;
+
+    const result = await detectDeadCode(snapshotResult.value);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // unused.ts is a dead file
+      expect(result.value.deadFiles.some(f => f.path.includes('unused.ts'))).toBe(true);
+    }
+  });
+
+  it('should detect unused imports', async () => {
+    const snapshotResult = await buildSnapshot({
+      rootDir: fixturesDir,
+      parser,
+      analyze: { deadCode: true },
+      include: ['src/**/*.ts'],
+    });
+
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return;
+
+    const result = await detectDeadCode(snapshotResult.value);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // with-unused-import.ts imports anotherHelper but doesn't use it
+      const unusedImport = result.value.unusedImports.find(
+        i => i.file.includes('with-unused-import.ts')
+      );
+      expect(unusedImport).toBeDefined();
+      expect(unusedImport?.specifiers).toContain('anotherHelper');
+    }
   });
 });

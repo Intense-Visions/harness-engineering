@@ -1,5 +1,5 @@
-import { helper, unusedHelper } from './helper';
-// unusedHelper is imported but never used
+import { helper, anotherHelper } from './helper';
+// anotherHelper is imported but never used
 
 export function wrapper() {
   return helper();
