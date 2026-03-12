@@ -6,5 +6,16 @@
 
 export * from '@harness-engineering/types';
 
-// Placeholder for future exports
-export const VERSION = '0.0.0';
+// Result type and helpers
+export type { Result } from './shared/result';
+export { Ok, Err, isOk, isErr } from './shared/result';
+
+// Error types and helpers
+export type { BaseError, ValidationError, ContextError, ConstraintError, EntropyError, FeedbackError } from './shared/errors';
+export { createError } from './shared/errors';
+
+// Validation module
+export * from './validation';
+
+// Package version
+export const VERSION = '0.1.0';

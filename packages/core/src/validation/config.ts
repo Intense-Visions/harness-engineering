@@ -49,11 +49,6 @@ export function validateConfig<T>(
         message = `Invalid type${pathDisplay}: ${firstError.message}`;
         suggestions.push(`Expected ${expected} but got ${received}`);
       }
-    } else if (firstError.code === 'missing_keys') {
-      code = 'MISSING_FIELD';
-      message = `Missing required field(s)${pathDisplay}: ${firstError.message}`;
-      const missingKeys = (firstError as any).keys as string[];
-      suggestions.push(`Required field(s) missing: ${missingKeys.join(', ')}`);
     } else {
       code = 'VALIDATION_FAILED';
       message = `${firstError.message}${pathDisplay}`;
