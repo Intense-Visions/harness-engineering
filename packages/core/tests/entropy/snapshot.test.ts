@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolveEntryPoints, parseDocumentationFile } from '../../src/entropy/snapshot';
+import { resolveEntryPoints, parseDocumentationFile, buildSnapshot } from '../../src/entropy/snapshot';
+import { TypeScriptParser } from '../../src/shared/parsers';
 import { join } from 'path';
 
 describe('resolveEntryPoints', () => {
@@ -56,6 +57,44 @@ describe('parseDocumentationFile', () => {
     if (result.ok) {
       expect(result.value.inlineRefs.length).toBeGreaterThan(0);
       expect(result.value.inlineRefs.some(r => r.reference === 'createUser')).toBe(true);
+    }
+  });
+});
+
+describe('buildSnapshot', () => {
+  const fixturesDir = join(__dirname, '../fixtures/entropy/valid-project');
+  const parser = new TypeScriptParser();
+
+  it('should build complete snapshot', async () => {
+    const result = await buildSnapshot({
+      rootDir: fixturesDir,
+      parser,
+      analyze: { drift: true, deadCode: true },
+      include: ['src/**/*.ts'],
+      docPaths: ['docs/**/*.md', 'README.md'],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.files.length).toBeGreaterThan(0);
+      expect(result.value.docs.length).toBeGreaterThan(0);
+      expect(result.value.entryPoints.length).toBeGreaterThan(0);
+      expect(result.value.exportMap.byName.size).toBeGreaterThan(0);
+    }
+  });
+
+  it('should build export map indexed by name', async () => {
+    const result = await buildSnapshot({
+      rootDir: fixturesDir,
+      parser,
+      analyze: { deadCode: true },
+      include: ['src/**/*.ts'],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.exportMap.byName.has('createUser')).toBe(true);
+      expect(result.value.exportMap.byName.has('validateEmail')).toBe(true);
     }
   });
 });
