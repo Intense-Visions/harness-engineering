@@ -1,91 +1,114 @@
 # @harness-engineering/core
 
-Core runtime library for harness engineering, implementing all 6 principles.
+Core library for Harness Engineering toolkit - provides runtime APIs for context engineering, architectural constraints, agent feedback, and entropy management.
 
 ## Installation
 
 ```bash
-npm install @harness-engineering/core
-# or
 pnpm add @harness-engineering/core
-```
-
-## Usage
-
-```typescript
-import { validateAgentsMap, validateKnowledgeMap } from '@harness-engineering/core';
-
-// Validate AGENTS.md structure
-const agentsResult = validateAgentsMap('./AGENTS.md');
-if (!agentsResult.ok) {
-  console.error(agentsResult.error.message);
-  process.exit(1);
-}
-
-// Validate all links resolve
-const linksResult = await validateKnowledgeMap();
-if (!linksResult.ok) {
-  console.error(`Found ${linksResult.error.brokenLinks.length} broken links`);
-}
 ```
 
 ## Modules
 
-> **Note:** The APIs listed below represent the planned functionality for Phase 2. Currently, only the Result type and helper functions are available in the `@harness-engineering/types` package.
+### Validation Module
 
-### Context Engineering
+Cross-cutting validation utilities used by all other modules.
 
-Validate and enforce repository-as-documentation patterns.
+#### File Structure Validation
 
-**APIs:**
+Verify project follows file structure conventions:
 
-- `validateAgentsMap()` - Validate AGENTS.md structure
-- `validateKnowledgeMap()` - Check link integrity
-- `checkDocCoverage()` - Measure documentation coverage
-- `generateAgentsMap()` - Generate AGENTS.md from code
+```typescript
+import { validateFileStructure, type Convention } from '@harness-engineering/core';
 
-### Architectural Constraints
+const conventions: Convention[] = [
+  {
+    pattern: 'README.md',
+    required: true,
+    description: 'Project README',
+    examples: ['README.md'],
+  },
+  {
+    pattern: 'AGENTS.md',
+    required: true,
+    description: 'Knowledge map',
+    examples: ['AGENTS.md'],
+  },
+];
 
-Runtime enforcement of layered dependencies and boundaries.
+const result = await validateFileStructure(conventions, './my-project');
 
-**APIs:**
+if (result.ok) {
+  console.log('Valid:', result.value.valid);
+  console.log('Conformance:', result.value.conformance + '%');
+  console.log('Missing:', result.value.missing);
+} else {
+  console.error('Error:', result.error.message);
+}
+```
 
-- `defineLayer()` - Define architectural layers
-- `validateDependencies()` - Validate dependency graph
-- `detectCircularDeps()` - Find circular dependencies
-- `createBoundarySchema()` - Zod-based boundary validation
+#### Config Validation
 
-### Agent Feedback
+Type-safe configuration validation with Zod:
 
-APIs for self-review, peer reviews, and telemetry access.
+```typescript
+import { validateConfig } from '@harness-engineering/core';
+import { z } from 'zod';
 
-**APIs:**
+const ConfigSchema = z.object({
+  version: z.number(),
+  layers: z.array(z.object({
+    name: z.string(),
+    allowedDependencies: z.array(z.string()),
+  })),
+});
 
-- `createSelfReview()` - Generate review checklist
-- `requestPeerReview()` - Request specialized agent review
-- `getTelemetry()` - Access observability data
-- `logAgentAction()` - Log agent actions
+const result = validateConfig(userConfig, ConfigSchema);
 
-### Entropy Management
+if (result.ok) {
+  // TypeScript knows result.value matches ConfigSchema
+  console.log('Config version:', result.value.version);
+} else {
+  console.error('Validation failed:', result.error.message);
+  console.error('Suggestions:', result.error.suggestions);
+}
+```
 
-Detect drift, dead code, and pattern violations.
+#### Commit Message Validation
 
-**APIs:**
+Validate commit messages follow conventional format:
 
-- `detectDocDrift()` - Find outdated documentation
-- `findPatternViolations()` - Check pattern compliance
-- `detectDeadCode()` - Find unused code
-- `autoFixEntropy()` - Auto-fix safe issues
+```typescript
+import { validateCommitMessage } from '@harness-engineering/core';
 
-### Validation
+const result = validateCommitMessage('feat(core): add validation module', 'conventional');
 
-Cross-cutting validation utilities.
+if (result.ok) {
+  if (result.value.valid) {
+    console.log('Type:', result.value.type);      // 'feat'
+    console.log('Scope:', result.value.scope);    // 'core'
+    console.log('Breaking:', result.value.breaking); // false
+  } else {
+    console.log('Issues:', result.value.issues);
+  }
+}
+```
 
-**APIs:**
+## Error Handling
 
-- `validateFileStructure()` - Check file conventions
-- `validateConfig()` - Type-safe config validation
-- `validateCommitMessage()` - Validate commit format
+All APIs use the `Result<T, E>` pattern for type-safe error handling:
+
+```typescript
+import { type Result, Ok, Err } from '@harness-engineering/core';
+
+const result: Result<string, Error> = Ok('success');
+
+if (result.ok) {
+  console.log(result.value); // TypeScript knows this is string
+} else {
+  console.error(result.error); // TypeScript knows this is Error
+}
+```
 
 ## Development
 
@@ -93,17 +116,20 @@ Cross-cutting validation utilities.
 # Install dependencies
 pnpm install
 
+# Run tests
+pnpm test
+
+# Run tests with coverage
+pnpm test:coverage
+
+# Type checking
+pnpm typecheck
+
 # Build
 pnpm build
 
-# Test
-pnpm test
-
-# Test with coverage
-pnpm test:coverage
-
-# Watch mode
-pnpm test:watch
+# Lint
+pnpm lint
 ```
 
 ## License
