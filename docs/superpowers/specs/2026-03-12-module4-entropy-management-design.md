@@ -1,7 +1,7 @@
 # Module 4: Entropy Management - Design Specification
 
 **Date**: 2026-03-12
-**Status**: Draft
+**Status**: Approved Design
 **Author**: AI Harness Engineering Team
 **Module**: Phase 2, Module 4 - Entropy Management
 **Estimated Complexity**: High (3-4 weeks)
@@ -20,6 +20,31 @@ Module 4 provides entropy management capabilities for TypeScript codebases. It d
 
 **Architecture decision:**
 Unified Analysis Engine with shared `CodebaseSnapshot`. Parse once, analyze many. All detectors consume a pre-built snapshot containing ASTs, dependency graph, and documentation index.
+
+**Snapshot caching:** The `EntropyAnalyzer` class builds the snapshot once on first analysis. Subsequent calls to `detectDrift()`, `detectDeadCode()`, or `detectPatterns()` reuse the cached snapshot. Call `buildSnapshot()` explicitly to force a rebuild.
+
+---
+
+## Error Types
+
+```typescript
+// types.ts - Extends BaseError from shared/errors.ts
+
+export interface EntropyError extends BaseError {
+  code:
+    | 'SNAPSHOT_BUILD_FAILED'
+    | 'PARSE_ERROR'
+    | 'ENTRY_POINT_NOT_FOUND'
+    | 'INVALID_CONFIG'
+    | 'FIX_FAILED'
+    | 'BACKUP_FAILED';
+  details: {
+    file?: string;
+    reason?: string;
+    originalError?: Error;
+  };
+}
+```
 
 ---
 
@@ -99,8 +124,16 @@ export interface SourceFile {
   ast: AST;
   imports: Import[];
   exports: Export[];
-  internalSymbols: Symbol[];
+  internalSymbols: InternalSymbol[];
   jsDocComments: JSDocComment[];
+}
+
+export interface InternalSymbol {
+  name: string;
+  type: 'function' | 'class' | 'variable' | 'type';
+  line: number;
+  references: number;           // Call count within file
+  calledBy: string[];           // Names of other symbols that call this
 }
 
 export interface DocumentationFile {
