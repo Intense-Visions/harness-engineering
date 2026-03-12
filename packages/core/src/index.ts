@@ -26,6 +26,9 @@ export * from './constraints';
 // Entropy module
 export * from './entropy';
 
+// Feedback module
+export * from './feedback';
+
 // Parsers
 export { TypeScriptParser } from './shared/parsers';
 export type { LanguageParser, AST, Import, Export, ParseError, HealthCheckResult } from './shared/parsers';

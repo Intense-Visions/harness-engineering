@@ -1,5 +1,5 @@
 import { describe, it, expect, assertType } from 'vitest';
-import { Result, Ok, Err, isOk, isErr } from '../src/index';
+import { Result, Ok, Err, isOk, isErr, configureFeedback, createSelfReview, requestPeerReview } from '../src/index';
 
 describe('Result type', () => {
   describe('Ok', () => {
@@ -264,5 +264,13 @@ describe('Result type', () => {
         expect(_error).toBe(404);
       }
     });
+  });
+});
+
+describe('Core Package Exports', () => {
+  it('should export feedback module', () => {
+    expect(configureFeedback).toBeDefined();
+    expect(createSelfReview).toBeDefined();
+    expect(requestPeerReview).toBeDefined();
   });
 });
