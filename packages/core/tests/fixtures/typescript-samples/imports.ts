@@ -10,6 +10,9 @@ import * as os from 'os';
 // Type-only import
 import type { Stats } from 'fs';
 
+// Inline type specifier import
+import { type PathLike, existsSync } from 'fs';
+
 // Mixed import (default + named)
 import React, { useState, useEffect } from 'react';
 

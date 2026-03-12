@@ -28,6 +28,17 @@ describe('TypeScriptParser', () => {
         expect(result.error.code).toBe('NOT_FOUND');
       }
     });
+
+    it('should return error for file with syntax errors', async () => {
+      const path = join(fixturesDir, 'syntax-error.ts');
+      const result = await parser.parseFile(path);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('SYNTAX_ERROR');
+        expect(result.error.message).toContain('Failed to parse');
+      }
+    });
   });
 
   describe('health', () => {
@@ -96,6 +107,21 @@ describe('TypeScriptParser', () => {
       const typeImports = result.value.filter(i => i.kind === 'type');
       expect(typeImports.length).toBeGreaterThan(0);
       expect(typeImports.some(i => i.specifiers.includes('Stats'))).toBe(true);
+    });
+
+    it('should identify inline type specifier imports', async () => {
+      const path = join(fixturesDir, 'imports.ts');
+      const parseResult = await parser.parseFile(path);
+      if (!parseResult.ok) return;
+
+      const result = parser.extractImports(parseResult.value);
+      if (!result.ok) return;
+
+      // Find the import that has PathLike (inline type) and existsSync (value)
+      const fsImport = result.value.find(i => i.specifiers.includes('PathLike'));
+      expect(fsImport).toBeDefined();
+      // The kind should be 'type' because PathLike is imported with inline type specifier
+      expect(fsImport?.kind).toBe('type');
     });
 
     it('should include location information', async () => {

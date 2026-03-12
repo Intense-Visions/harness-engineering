@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildDependencyGraph, validateDependencies } from '../../src/constraints/dependencies';
 import { defineLayer } from '../../src/constraints/layers';
 import { TypeScriptParser } from '../../src/shared/parsers';
@@ -109,6 +109,57 @@ describe('validateDependencies', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.skipped).toBe(true);
+    }
+  });
+
+  it('should warn and skip validation when parser unavailable and fallbackBehavior is warn', async () => {
+    const mockParser = {
+      name: 'mock',
+      extensions: ['.ts'],
+      parseFile: async () => Ok({ type: 'Program', body: {}, language: 'mock' }),
+      extractImports: () => Ok([]),
+      extractExports: () => Ok([]),
+      health: async () => Ok({ available: false, message: 'Not installed' }),
+    } as unknown as LanguageParser;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await validateDependencies({
+      layers: [],
+      rootDir: '.',
+      parser: mockParser,
+      fallbackBehavior: 'warn',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.skipped).toBe(true);
+      expect(result.value.reason).toBe('Parser unavailable');
+    }
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('should error when parser unavailable and fallbackBehavior is error', async () => {
+    const mockParser = {
+      name: 'mock',
+      extensions: ['.ts'],
+      parseFile: async () => Ok({ type: 'Program', body: {}, language: 'mock' }),
+      extractImports: () => Ok([]),
+      extractExports: () => Ok([]),
+      health: async () => Ok({ available: false, message: 'Not installed' }),
+    } as unknown as LanguageParser;
+
+    const result = await validateDependencies({
+      layers: [],
+      rootDir: '.',
+      parser: mockParser,
+      fallbackBehavior: 'error',
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('PARSER_UNAVAILABLE');
     }
   });
 });
