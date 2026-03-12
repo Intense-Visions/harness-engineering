@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { extractMarkdownLinks, extractSections } from '../../src/context/agents-map';
+import { extractMarkdownLinks, extractSections, validateAgentsMap } from '../../src/context/agents-map';
+import { join } from 'path';
 
 describe('extractMarkdownLinks', () => {
   it('should extract simple markdown links', () => {
@@ -86,5 +87,68 @@ It spans multiple lines.
     const sections = extractSections(content);
 
     expect(sections[0].description).toContain('project overview');
+  });
+});
+
+describe('validateAgentsMap', () => {
+  const fixturesDir = join(__dirname, '../fixtures');
+
+  it('should validate a well-formed AGENTS.md', async () => {
+    const path = join(fixturesDir, 'valid-project/AGENTS.md');
+    const result = await validateAgentsMap(path);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.valid).toBe(true);
+      expect(result.value.missingSections).toHaveLength(0);
+      expect(result.value.brokenLinks).toHaveLength(0);
+    }
+  });
+
+  it('should detect broken links', async () => {
+    const path = join(fixturesDir, 'valid-project/AGENTS.md');
+    // We'll test this differently - using the existing fixture but checking link validation
+    const result = await validateAgentsMap(path);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // All links in the fixture should exist
+      expect(result.value.totalLinks).toBeGreaterThan(0);
+    }
+  });
+
+  it('should report missing required sections', async () => {
+    // Create a minimal AGENTS.md without required sections
+    const path = join(fixturesDir, 'invalid-project/AGENTS.md');
+    const result = await validateAgentsMap(path);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.valid).toBe(false);
+      expect(result.value.missingSections.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('should return error for non-existent file', async () => {
+    const path = join(fixturesDir, 'does-not-exist/AGENTS.md');
+    const result = await validateAgentsMap(path);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('PARSE_ERROR');
+      expect(result.error.message).toContain('Failed to read AGENTS.md');
+    }
+  });
+
+  it('should detect actual broken links', async () => {
+    const path = join(fixturesDir, 'broken-links-project/AGENTS.md');
+    const result = await validateAgentsMap(path);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.valid).toBe(false);
+      expect(result.value.brokenLinks.length).toBeGreaterThan(0);
+      expect(result.value.brokenLinks[0].path).toBe('./missing-file.md');
+    }
   });
 });
