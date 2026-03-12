@@ -93,7 +93,7 @@ function validateConventionalCommit(message: string): Result<CommitValidation, V
     return Err(error);
   }
 
-  const type = match[1];
+  const type = match[1]!;
   const scope = match[3];
   const breaking = match[4] === '!';
   const description = match[5];
@@ -139,11 +139,12 @@ function validateConventionalCommit(message: string): Result<CommitValidation, V
     return Err(error);
   }
 
-  return Ok({
+  const result: CommitValidation = {
     valid: true,
     type,
-    scope,
+    ...(scope && { scope }),
     breaking: hasBreakingChange,
     issues: [],
-  });
+  };
+  return Ok(result);
 }
