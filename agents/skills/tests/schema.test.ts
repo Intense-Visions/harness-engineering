@@ -30,6 +30,11 @@ describe('SkillMetadataSchema', () => {
     };
     const result = SkillMetadataSchema.safeParse(invalid);
     expect(result.success).toBe(false);
+    if (!result.success) {
+      const nameError = result.error.issues.find(issue => issue.path.includes('name'));
+      expect(nameError).toBeDefined();
+      expect(nameError?.message).toContain('lowercase');
+    }
   });
 
   it('rejects invalid platform', () => {
@@ -58,6 +63,10 @@ describe('SkillMetadataSchema', () => {
     };
     const result = SkillMetadataSchema.safeParse(minimal);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.depends_on).toEqual([]);
+      expect(result.data.includes).toEqual([]);
+    }
   });
 
   it('validates depends_on as array of strings', () => {
