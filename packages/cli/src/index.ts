@@ -4,6 +4,7 @@ import { createValidateCommand } from './commands/validate';
 import { createCheckDepsCommand } from './commands/check-deps';
 import { createCheckDocsCommand } from './commands/check-docs';
 import { createInitCommand } from './commands/init';
+import { createCleanupCommand } from './commands/cleanup';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -22,6 +23,7 @@ export function createProgram(): Command {
   program.addCommand(createCheckDepsCommand());
   program.addCommand(createCheckDocsCommand());
   program.addCommand(createInitCommand());
+  program.addCommand(createCleanupCommand());
 
   return program;
 }
