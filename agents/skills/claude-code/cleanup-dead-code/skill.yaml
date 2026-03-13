@@ -1,0 +1,17 @@
+name: cleanup-dead-code
+version: 1.0.0
+description: Detect unused exports and dead code
+platform: claude-code
+triggers:
+  - manual
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli_command: harness cleanup --type dead-code --json
+category: entropy
+depends_on: []
+includes:
+  - shared/cli-invocation.md
+  - shared/json-parsing.md
