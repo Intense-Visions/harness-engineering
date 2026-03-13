@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { VERSION } from '@harness-engineering/core';
+import { createValidateCommand } from './commands/validate';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -12,6 +13,9 @@ export function createProgram(): Command {
     .option('--json', 'Output as JSON')
     .option('--verbose', 'Verbose output')
     .option('--quiet', 'Minimal output');
+
+  // Register commands
+  program.addCommand(createValidateCommand());
 
   return program;
 }
