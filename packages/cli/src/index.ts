@@ -6,6 +6,7 @@ import { createCheckDocsCommand } from './commands/check-docs';
 import { createInitCommand } from './commands/init';
 import { createCleanupCommand } from './commands/cleanup';
 import { createFixDriftCommand } from './commands/fix-drift';
+import { createAgentCommand } from './commands/agent';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -26,6 +27,7 @@ export function createProgram(): Command {
   program.addCommand(createInitCommand());
   program.addCommand(createCleanupCommand());
   program.addCommand(createFixDriftCommand());
+  program.addCommand(createAgentCommand());
 
   return program;
 }
