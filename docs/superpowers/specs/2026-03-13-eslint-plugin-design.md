@@ -3,7 +3,7 @@
 **Date**: 2026-03-13
 **Status**: Draft
 **Package**: `@harness-engineering/eslint-plugin`
-**Prerequisites**: `@harness-engineering/core` v0.5.0
+**Prerequisites**: None (standalone package, duplicates config schema from CLI)
 
 ## Summary
 
@@ -47,17 +47,19 @@ packages/eslint-plugin/
 ```json
 {
   "dependencies": {
-    "@harness-engineering/core": "workspace:*"
-  },
-  "devDependencies": {
-    "@typescript-eslint/rule-tester": "^8.0.0",
     "@typescript-eslint/utils": "^8.0.0"
   },
+  "devDependencies": {
+    "@typescript-eslint/rule-tester": "^8.0.0"
+  },
   "peerDependencies": {
-    "eslint": "^8.0.0 || ^9.0.0"
+    "eslint": "^8.0.0 || ^9.0.0",
+    "typescript": "^5.0.0"
   }
 }
 ```
+
+**Note**: `@typescript-eslint/utils` is a runtime dependency (provides `ESLintUtils.RuleCreator`). The `@harness-engineering/core` dependency is removed since the plugin duplicates the config schema locally to avoid circular dependencies.
 
 ## Config Integration
 
@@ -92,40 +94,74 @@ const HarnessConfigSchema = z.object({
 });
 ```
 
-**Note**: The CLI schema is the source of truth. The core package's `Layer` interface uses `patterns: string[]` (plural) internally, but config files use `pattern: string` (singular). The config loader handles this.
+**Note**: The CLI schema (`packages/cli/src/config/schema.ts`) is the source of truth for config file format. The ESLint plugin duplicates this schema to avoid a runtime dependency on the CLI package.
 
 ### Config Loading
 
-The plugin's `utils/config-loader.ts` wraps the CLI's existing loader:
+The plugin implements its own config loader in `utils/config-loader.ts`, reusing the schema from CLI but not depending on CLI internals:
 
 ```typescript
-import { findConfigFile, loadConfig } from '@harness-engineering/cli/config/loader';
+import * as fs from 'fs';
+import * as path from 'path';
+import { HarnessConfigSchema, type HarnessConfig } from './schema';
+
+const CONFIG_FILENAME = 'harness.config.json';
 
 let cachedConfig: HarnessConfig | null = null;
 let cachedConfigPath: string | null = null;
 
+/**
+ * Find harness.config.json by walking up from the given directory
+ */
+function findConfigFile(startDir: string): string | null {
+  let currentDir = path.resolve(startDir);
+  const root = path.parse(currentDir).root;
+
+  while (currentDir !== root) {
+    const configPath = path.join(currentDir, CONFIG_FILENAME);
+    if (fs.existsSync(configPath)) {
+      return configPath;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+  return null;
+}
+
+/**
+ * Load and validate config, with caching
+ */
 export function getConfig(filePath: string): HarnessConfig | null {
-  // Find config relative to the file being linted
-  const configResult = findConfigFile(path.dirname(filePath));
-  if (!configResult.ok) {
-    return null; // No config found, rules become no-ops
-  }
-
-  // Cache config per path to avoid repeated file reads
-  if (cachedConfigPath === configResult.value && cachedConfig) {
-    return cachedConfig;
-  }
-
-  const loadResult = loadConfig(configResult.value);
-  if (!loadResult.ok) {
+  const configPath = findConfigFile(path.dirname(filePath));
+  if (!configPath) {
     return null;
   }
 
-  cachedConfig = loadResult.value;
-  cachedConfigPath = configResult.value;
-  return cachedConfig;
+  // Return cached config if same path
+  if (cachedConfigPath === configPath && cachedConfig) {
+    return cachedConfig;
+  }
+
+  try {
+    const content = fs.readFileSync(configPath, 'utf-8');
+    const parsed = HarnessConfigSchema.safeParse(JSON.parse(content));
+    if (!parsed.success) {
+      return null; // Invalid config, treat as no config
+    }
+    cachedConfig = parsed.data;
+    cachedConfigPath = configPath;
+    return cachedConfig;
+  } catch {
+    return null; // Read/parse error, treat as no config
+  }
 }
 ```
+
+**Note**: The plugin duplicates the config schema from CLI rather than importing it. This avoids:
+- Circular dependency (CLI depends on core, plugin depends on core)
+- Runtime dependency on CLI package
+- Need for CLI to export internal modules
+
+The schema is simple and stable; duplication is acceptable.
 
 **Behavior when no config found**:
 - Rules that require config (`no-layer-violation`, `no-forbidden-imports`, `require-boundary-schema`) become no-ops
@@ -175,8 +211,10 @@ src/types/user.ts:3:1 - '@harness-engineering/no-layer-violation'
 - Cache persists for the duration of the ESLint process (one lint run)
 - Each new `eslint` invocation starts with a fresh cache (Node process restart)
 - For watch mode / `--cache`: ESLint's file-level caching is orthogonal - we track edges as files are visited
-- Leverages core's `detectCircularDeps()` algorithm (Tarjan's SCC) when full graph is needed
-- For per-file reporting: simplified DFS cycle check on each new edge
+
+**Cycle detection strategy**:
+- **Per-import check (DFS)**: When a new import edge is added, run a simple DFS from the target back to see if it can reach the source. This catches cycles immediately as they form. O(V+E) per edge but typically fast for small graphs.
+- **No Tarjan needed**: Unlike the CLI which analyzes full projects and reports all cycles at once, the ESLint rule reports per-file as it encounters cycles. The simpler DFS approach is sufficient and more appropriate for incremental linting.
 
 **Cache lifecycle**:
 ```
@@ -407,7 +445,7 @@ This is planned as a Phase 3 or 4 enhancement after the initial plugin is stable
 
 - [ ] All 5 rules implemented and tested
 - [ ] Both configs (`recommended`, `strict`) available
-- [ ] Plugin loads `harness.config.json` via core
+- [ ] Plugin loads `harness.config.json` with built-in loader
 - [ ] >90% test coverage
-- [ ] Works with ESLint 8.x and 9.x
+- [ ] Works with ESLint 8.x and 9.x (integration tests)
 - [ ] README with usage examples
