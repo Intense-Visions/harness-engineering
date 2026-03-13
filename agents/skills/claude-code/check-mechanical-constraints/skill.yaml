@@ -1,0 +1,19 @@
+name: check-mechanical-constraints
+version: 1.0.0
+description: Run all mechanical constraint checks (context validation + architecture)
+platform: claude-code
+triggers:
+  - manual
+  - on_pr
+tools:
+  - Bash
+  - Read
+  - Glob
+cli_command: harness validate --json && harness check-deps --json
+category: enforcement
+depends_on:
+  - validate-context-engineering
+  - enforce-architecture
+includes:
+  - shared/cli-invocation.md
+  - shared/json-parsing.md
