@@ -1,0 +1,17 @@
+name: harness-code-review
+version: 1.0.0
+description: Structured code review with automated harness checks
+platform: claude-code
+triggers:
+  - manual
+  - on_pr
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli_command: harness agent review
+category: workflow
+depends_on: []
+includes:
+  - shared/cli-invocation.md
