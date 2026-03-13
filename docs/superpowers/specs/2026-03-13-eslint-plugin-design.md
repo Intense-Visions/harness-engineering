@@ -59,6 +59,79 @@ packages/eslint-plugin/
 }
 ```
 
+## Config Integration
+
+### Config Schema
+
+The ESLint plugin uses the same `harness.config.json` schema as the CLI, defined in `packages/cli/src/config/schema.ts`. Relevant fields:
+
+```typescript
+// From packages/cli/src/config/schema.ts
+const LayerSchema = z.object({
+  name: z.string(),
+  pattern: z.string(),           // singular glob pattern
+  allowedDependencies: z.array(z.string()),
+});
+
+const ForbiddenImportSchema = z.object({
+  from: z.string(),
+  disallow: z.array(z.string()),
+  message: z.string().optional(),
+});
+
+const BoundaryConfigSchema = z.object({
+  requireSchema: z.array(z.string()),
+});
+
+const HarnessConfigSchema = z.object({
+  version: z.literal(1),
+  layers: z.array(LayerSchema).optional(),
+  forbiddenImports: z.array(ForbiddenImportSchema).optional(),
+  boundaries: BoundaryConfigSchema.optional(),
+  // ... other fields
+});
+```
+
+**Note**: The CLI schema is the source of truth. The core package's `Layer` interface uses `patterns: string[]` (plural) internally, but config files use `pattern: string` (singular). The config loader handles this.
+
+### Config Loading
+
+The plugin's `utils/config-loader.ts` wraps the CLI's existing loader:
+
+```typescript
+import { findConfigFile, loadConfig } from '@harness-engineering/cli/config/loader';
+
+let cachedConfig: HarnessConfig | null = null;
+let cachedConfigPath: string | null = null;
+
+export function getConfig(filePath: string): HarnessConfig | null {
+  // Find config relative to the file being linted
+  const configResult = findConfigFile(path.dirname(filePath));
+  if (!configResult.ok) {
+    return null; // No config found, rules become no-ops
+  }
+
+  // Cache config per path to avoid repeated file reads
+  if (cachedConfigPath === configResult.value && cachedConfig) {
+    return cachedConfig;
+  }
+
+  const loadResult = loadConfig(configResult.value);
+  if (!loadResult.ok) {
+    return null;
+  }
+
+  cachedConfig = loadResult.value;
+  cachedConfigPath = configResult.value;
+  return cachedConfig;
+}
+```
+
+**Behavior when no config found**:
+- Rules that require config (`no-layer-violation`, `no-forbidden-imports`, `require-boundary-schema`) become no-ops
+- Rules that don't require config (`enforce-doc-exports`, `no-circular-deps`) still run
+- No error is thrown — this allows the plugin to be installed globally without breaking projects that don't use harness
+
 ## Rules
 
 ### Rule 1: `no-layer-violation`
@@ -97,7 +170,20 @@ src/types/user.ts:3:1 - '@harness-engineering/no-layer-violation'
 2. On each import, check if adding this edge creates a cycle
 3. Report the cycle path if detected
 
-**Implementation note**: This rule tracks state across files using a module-level cache that resets per lint run.
+**Implementation approach**:
+- Uses a module-level `Map<string, Set<string>>` to track import edges
+- Cache persists for the duration of the ESLint process (one lint run)
+- Each new `eslint` invocation starts with a fresh cache (Node process restart)
+- For watch mode / `--cache`: ESLint's file-level caching is orthogonal - we track edges as files are visited
+- Leverages core's `detectCircularDeps()` algorithm (Tarjan's SCC) when full graph is needed
+- For per-file reporting: simplified DFS cycle check on each new edge
+
+**Cache lifecycle**:
+```
+eslint src/         → fresh cache, builds graph as files lint
+eslint src/ --cache → fresh cache (new process), ESLint skips unchanged files
+eslint --fix        → fresh cache (new process)
+```
 
 **Error example**:
 ```
@@ -129,8 +215,19 @@ src/services/auth.ts:2:1 - '@harness-engineering/no-circular-deps'
 
 **How it works**:
 1. Match files against `boundaries.requireSchema` patterns
-2. For each exported function, check if parameters use Zod schemas
-3. Look for `z.` usage or `.parse()` / `.safeParse()` calls
+2. For each exported function, check if it validates input with Zod
+3. Report if no validation is found
+
+**Detection criteria** (must satisfy at least one):
+- Function body contains `schema.parse(...)` or `schema.safeParse(...)` call
+- Function body contains `z.object({...}).parse(...)` inline
+- Function parameter has explicit Zod type annotation (e.g., `z.infer<typeof Schema>`)
+- Function wraps a validated inner function (one level deep)
+
+**What does NOT satisfy the rule**:
+- Having a Zod import but not using it on the function's input
+- Re-exporting from another module (the source module must validate)
+- Type-only validation (must be runtime `.parse()` or `.safeParse()`)
 
 **Config usage**:
 ```json
@@ -140,6 +237,8 @@ src/services/auth.ts:2:1 - '@harness-engineering/no-circular-deps'
   }
 }
 ```
+
+**Note**: This uses static AST analysis only, not TypeScript type information. It detects common Zod patterns but may have false negatives for highly abstracted validation.
 
 ### Rule 5: `enforce-doc-exports`
 
@@ -153,8 +252,8 @@ src/services/auth.ts:2:1 - '@harness-engineering/no-circular-deps'
 **Options** (rule-level, not harness.config.json):
 ```js
 '@harness-engineering/enforce-doc-exports': ['error', {
-  ignoreTypes: false,  // Also require docs on type exports
-  ignoreInternal: true // Skip exports marked @internal
+  ignoreTypes: false,  // default: false - require docs on type exports too
+  ignoreInternal: true // default: true - skip exports marked @internal
 }]
 ```
 
@@ -196,6 +295,7 @@ export default {
 
 ### Usage
 
+**ESLint 9.x (flat config)**:
 ```js
 // eslint.config.js
 import harness from '@harness-engineering/eslint-plugin';
@@ -205,6 +305,17 @@ export default [
   // or harness.configs.strict
 ];
 ```
+
+**ESLint 8.x (legacy config)**:
+```js
+// .eslintrc.js
+module.exports = {
+  plugins: ['@harness-engineering'],
+  extends: ['plugin:@harness-engineering/recommended'],
+};
+```
+
+The plugin exports both flat config objects and legacy-compatible configs.
 
 ## Testing Strategy
 
