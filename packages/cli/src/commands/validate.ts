@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
-import { Ok, Err } from '@harness-engineering/core';
+import { Ok } from '@harness-engineering/core';
 import { validateAgentsMap, validateKnowledgeMap } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
@@ -65,7 +65,7 @@ export async function runValidate(
       check: 'agentsMap',
       file: config.agentsMapPath,
       message: agentsResult.error.message,
-      suggestion: agentsResult.error.suggestions?.[0],
+      suggestion: agentsResult.error.suggestions?.[0] ?? undefined,
     });
   }
 
@@ -101,7 +101,7 @@ export async function runValidate(
 export function createValidateCommand(): Command {
   const command = new Command('validate')
     .description('Run all validation checks')
-    .action(async (opts, cmd) => {
+    .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json
         ? OutputMode.JSON
