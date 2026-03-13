@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
-import { Ok } from '@harness-engineering/core';
+import { Ok, Err } from '@harness-engineering/core';
 import { checkDocCoverage, validateKnowledgeMap } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
@@ -46,21 +46,31 @@ export async function runCheckDocs(options: CheckDocsOptions): Promise<Result<Ch
     excludePatterns: ['**/*.test.ts', '**/*.spec.ts', '**/node_modules/**'],
   });
 
+  if (!coverageResult.ok) {
+    return Err(new CLIError(
+      `Documentation coverage check failed: ${coverageResult.error.message}`,
+      ExitCode.ERROR
+    ));
+  }
+
   // Check knowledge map for broken links
   const knowledgeResult = await validateKnowledgeMap(cwd);
-  const brokenLinks = knowledgeResult.ok
-    ? knowledgeResult.value.brokenLinks.map((b) => b.path)
-    : [];
+  let brokenLinks: string[] = [];
 
-  const coveragePercent = coverageResult.ok
-    ? coverageResult.value.coveragePercentage
-    : 0;
+  if (knowledgeResult.ok) {
+    brokenLinks = knowledgeResult.value.brokenLinks.map((b) => b.path);
+  } else {
+    // Log warning for secondary check failure but continue
+    logger.warn(`Knowledge map validation failed: ${knowledgeResult.error.message}`);
+  }
+
+  const coveragePercent = coverageResult.value.coveragePercentage;
 
   const result: CheckDocsResult = {
     valid: coveragePercent >= minCoverage && brokenLinks.length === 0,
     coveragePercent,
-    documented: coverageResult.ok ? coverageResult.value.documented : [],
-    undocumented: coverageResult.ok ? coverageResult.value.undocumented : [],
+    documented: coverageResult.value.documented,
+    undocumented: coverageResult.value.undocumented,
     brokenLinks,
   };
 
