@@ -1,0 +1,17 @@
+name: harness-refactoring
+version: 1.0.0
+description: Safe refactoring with validation before and after changes
+platform: claude-code
+triggers:
+  - manual
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+category: workflow
+depends_on: []
+includes:
+  - shared/cli-invocation.md
