@@ -1,0 +1,17 @@
+{
+  "name": "@harness-engineering/skills",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agent skills for harness engineering",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "glob": "^10.3.0",
+    "vitest": "^4.0.18",
+    "yaml": "^2.3.0",
+    "zod": "^3.22.0"
+  }
+}
