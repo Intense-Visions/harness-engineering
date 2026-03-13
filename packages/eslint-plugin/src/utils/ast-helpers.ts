@@ -46,6 +46,9 @@ export function hasJSDocComment(
 export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
   let found = false;
 
+  // Keys to skip to avoid circular references
+  const skipKeys = new Set(['parent', 'loc', 'range', 'tokens', 'comments']);
+
   function visit(node: TSESTree.Node): void {
     if (found) return;
 
@@ -65,6 +68,8 @@ export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
 
     // Recursively visit children
     for (const key of Object.keys(node)) {
+      if (skipKeys.has(key)) continue;
+
       const value = (node as unknown as Record<string, unknown>)[key];
       if (value && typeof value === 'object') {
         if (Array.isArray(value)) {
