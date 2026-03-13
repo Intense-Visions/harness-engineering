@@ -1,0 +1,17 @@
+name: harness-code-review
+version: 1.0.0
+description: Structured code review with automated harness checks
+platform: gemini-cli
+triggers:
+  - manual
+  - on_pr
+tools:
+  - shell
+  - read_file
+  - find_files
+  - search_files
+cli_command: harness agent review
+category: workflow
+depends_on: []
+includes:
+  - shared/cli-invocation.md

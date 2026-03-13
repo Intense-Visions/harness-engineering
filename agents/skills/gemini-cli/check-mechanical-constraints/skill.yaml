@@ -1,0 +1,19 @@
+name: check-mechanical-constraints
+version: 1.0.0
+description: Run all mechanical constraint checks (context validation + architecture)
+platform: gemini-cli
+triggers:
+  - manual
+  - on_pr
+tools:
+  - shell
+  - read_file
+  - find_files
+cli_command: harness validate --json && harness check-deps --json
+category: enforcement
+depends_on:
+  - validate-context-engineering
+  - enforce-architecture
+includes:
+  - shared/cli-invocation.md
+  - shared/json-parsing.md

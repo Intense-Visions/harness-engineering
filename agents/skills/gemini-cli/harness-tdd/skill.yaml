@@ -1,0 +1,16 @@
+name: harness-tdd
+version: 1.0.0
+description: Guide test-driven development workflow with harness validation
+platform: gemini-cli
+triggers:
+  - manual
+tools:
+  - shell
+  - read_file
+  - write_file
+  - edit_file
+  - find_files
+  - search_files
+category: workflow
+depends_on: []
+includes: []

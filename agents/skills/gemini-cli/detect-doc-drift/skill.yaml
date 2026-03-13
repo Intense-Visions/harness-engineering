@@ -1,0 +1,18 @@
+name: detect-doc-drift
+version: 1.0.0
+description: Detect documentation that has drifted from code
+platform: gemini-cli
+triggers:
+  - manual
+  - on_pr
+tools:
+  - shell
+  - read_file
+  - find_files
+cli_command: harness cleanup --type drift --json
+category: entropy
+depends_on: []
+includes:
+  - shared/cli-invocation.md
+  - shared/json-parsing.md
+  - shared/success-criteria/documentation.md
