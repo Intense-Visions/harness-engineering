@@ -17,7 +17,7 @@ export function hasJSDocComment(
   // Look backwards for /** ... */
   let foundJSDoc = false;
   for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i].trim();
+    const line = lines[i]?.trim() ?? '';
 
     // Empty line or whitespace - keep looking
     if (line === '') continue;
@@ -65,7 +65,7 @@ export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
 
     // Recursively visit children
     for (const key of Object.keys(node)) {
-      const value = (node as Record<string, unknown>)[key];
+      const value = (node as unknown as Record<string, unknown>)[key];
       if (value && typeof value === 'object') {
         if (Array.isArray(value)) {
           for (const item of value) {
