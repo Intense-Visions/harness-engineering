@@ -1,0 +1,16 @@
+name: harness-tdd
+version: 1.0.0
+description: Guide test-driven development workflow with harness validation
+platform: claude-code
+triggers:
+  - manual
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+category: workflow
+depends_on: []
+includes: []
