@@ -1,0 +1,16 @@
+name: initialize-harness-project
+version: 1.0.0
+description: Scaffold a new harness-compliant project
+platform: claude-code
+triggers:
+  - manual
+tools:
+  - Bash
+  - Read
+  - Write
+  - Glob
+cli_command: harness init
+category: setup
+depends_on: []
+includes:
+  - shared/cli-invocation.md
