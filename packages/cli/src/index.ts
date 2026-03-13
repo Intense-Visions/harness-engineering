@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { VERSION } from '@harness-engineering/core';
 import { createValidateCommand } from './commands/validate';
+import { createCheckDepsCommand } from './commands/check-deps';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -16,6 +17,7 @@ export function createProgram(): Command {
 
   // Register commands
   program.addCommand(createValidateCommand());
+  program.addCommand(createCheckDepsCommand());
 
   return program;
 }
