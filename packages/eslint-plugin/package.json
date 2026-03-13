@@ -4,7 +4,9 @@
   "description": "ESLint plugin for harness engineering architectural constraints",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -18,8 +20,9 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
-    "@typescript-eslint/rule-tester": "^8.0.0",
     "@types/node": "^20.0.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "@typescript-eslint/rule-tester": "^8.0.0",
     "eslint": "^10.0.0",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
@@ -28,6 +31,12 @@
     "eslint": "^8.0.0 || ^9.0.0 || ^10.0.0",
     "typescript": "^5.0.0"
   },
-  "keywords": ["eslint", "eslint-plugin", "harness", "architecture", "layers"],
+  "keywords": [
+    "eslint",
+    "eslint-plugin",
+    "harness",
+    "architecture",
+    "layers"
+  ],
   "license": "MIT"
 }
