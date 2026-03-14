@@ -1,6 +1,58 @@
 // packages/core/src/state/types.ts
 import { z } from 'zod';
 
+export const FailureEntrySchema = z.object({
+  date: z.string(),
+  skill: z.string(),
+  type: z.string(),
+  description: z.string(),
+});
+
+export type FailureEntry = z.infer<typeof FailureEntrySchema>;
+
+export const HandoffSchema = z.object({
+  timestamp: z.string(),
+  fromSkill: z.string(),
+  phase: z.string(),
+  summary: z.string(),
+  completed: z.array(z.string()).default([]),
+  pending: z.array(z.string()).default([]),
+  concerns: z.array(z.string()).default([]),
+  decisions: z.array(z.object({
+    what: z.string(),
+    why: z.string(),
+  })).default([]),
+  blockers: z.array(z.string()).default([]),
+  contextKeywords: z.array(z.string()).default([]),
+});
+
+export type Handoff = z.infer<typeof HandoffSchema>;
+
+export const GateCheckSchema = z.object({
+  name: z.string(),
+  passed: z.boolean(),
+  command: z.string(),
+  output: z.string().optional(),
+  duration: z.number().optional(),
+});
+
+export const GateResultSchema = z.object({
+  passed: z.boolean(),
+  checks: z.array(GateCheckSchema),
+});
+
+export type GateResult = z.infer<typeof GateResultSchema>;
+
+export const GateConfigSchema = z.object({
+  checks: z.array(z.object({
+    name: z.string(),
+    command: z.string(),
+  })).optional(),
+  trace: z.boolean().optional(),
+});
+
+export type GateConfig = z.infer<typeof GateConfigSchema>;
+
 export const HarnessStateSchema = z.object({
   schemaVersion: z.literal(1),
   position: z.object({
@@ -21,6 +73,8 @@ export const HarnessStateSchema = z.object({
   lastSession: z.object({
     date: z.string(),
     summary: z.string(),
+    lastSkill: z.string().optional(),
+    pendingTasks: z.array(z.string()).optional(),
   }).optional(),
 });
 
