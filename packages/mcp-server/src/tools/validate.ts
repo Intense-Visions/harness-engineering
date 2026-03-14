@@ -20,7 +20,8 @@ export async function handleValidateProject(input: { path: string }) {
   if (!configResult.ok) {
     return resultToMcpResponse(configResult);
   }
-  // Return the config as validation result
+  // TODO: Delegate to full core validation (validateFileStructure, validateConfig with HarnessConfigSchema)
+  // Currently only checks config file existence — should match `harness validate` behavior
   return {
     content: [{ type: 'text' as const, text: JSON.stringify({ valid: true, config: configResult.value }) }],
   };

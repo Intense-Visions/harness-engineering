@@ -1,3 +1,5 @@
+// TODO: Add test coverage for timeout behavior (short timeout + slow executor)
+// TODO: Replace string-matching timeout detection ('Command timed out') with typed error
 import type { Result } from '@harness-engineering/core';
 import type { Persona } from './schema';
 

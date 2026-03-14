@@ -12,6 +12,9 @@ import { listPersonasDefinition, handleListPersonas, generatePersonaArtifactsDef
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
 
+// TODO: Add add_component tool (maps to `harness add`)
+// TODO: Add run_agent_task tool (maps to `harness agent run`)
+
 const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateToolDefinition,
   checkDependenciesDefinition,

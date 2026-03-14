@@ -2,6 +2,7 @@ import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import type { Persona } from '../schema';
 
+// TODO: Extract to shared utility — duplicated in runtime.ts, ci-workflow.ts, generate.ts
 function toKebabCase(name: string): string {
   return name.toLowerCase().replace(/\s+/g, '-');
 }

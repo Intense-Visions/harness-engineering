@@ -560,3 +560,17 @@ Slices 1 and 2 can run in parallel. Slice 3 follows Slice 2. Slice 4 is future w
 - MCP server starts via `npx @harness-engineering/mcp-server` and exposes all tools
 - `run_persona` meta-tool executes a persona's tools and returns aggregated results
 - All three built-in personas generate correct CI workflows
+
+---
+
+## Known Follow-Up Items
+
+Items deferred from v1 implementation, tracked via inline TODOs in source:
+
+1. **`validate_project` MCP tool is a stub** — Only checks config existence. Should delegate to full core validation (`validateFileStructure`, `validateConfig` with `HarnessConfigSchema`). See `packages/mcp-server/src/tools/validate.ts`.
+2. **Missing `add_component` and `run_agent_task` MCP tools** — Spec lists 13+ tools, v1 ships 12. These two map to `harness add` and `harness agent run`. See `packages/mcp-server/src/server.ts`.
+3. **Persona runner timeout test coverage** — Timeout logic exists but no test exercises it. String-matching on `'Command timed out'` is brittle; should use typed error. See `packages/cli/src/persona/runner.ts`.
+4. **`toKebabCase` duplication** — Defined in `runtime.ts`, `ci-workflow.ts`, and `generate.ts`. Extract to shared utility. See `packages/cli/src/persona/generators/runtime.ts`.
+5. **`mergeStrategy.files: 'error'` not enforced** — Schema accepts `'error'` option but engine always uses overlay-wins. Implement or remove from schema.
+6. **Template render error messages** — Spec requires file path and line number in Handlebars errors. Current implementation wraps errors generically.
+7. **MCP server path resolution for published packages** — `resolvePersonasDir`/`resolveTemplatesDir` in MCP tools use `import.meta.url` walk-up which won't work from `node_modules`. For npm-published use, paths should be configurable via tool inputs or environment.
