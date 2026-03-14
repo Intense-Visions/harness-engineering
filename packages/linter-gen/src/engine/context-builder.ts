@@ -1,4 +1,4 @@
-import type { RuleConfig } from '../schema/linter-config';
+import type { RuleConfig } from '../schema/linter-config.js';
 
 // Package version - update when releasing
 const GENERATOR_VERSION = '0.1.0';

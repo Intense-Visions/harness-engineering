@@ -8,6 +8,7 @@ import { createCleanupCommand } from './commands/cleanup';
 import { createFixDriftCommand } from './commands/fix-drift';
 import { createAgentCommand } from './commands/agent';
 import { createAddCommand } from './commands/add';
+import { createLinterCommand } from './commands/linter';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -30,6 +31,7 @@ export function createProgram(): Command {
   program.addCommand(createFixDriftCommand());
   program.addCommand(createAgentCommand());
   program.addCommand(createAddCommand());
+  program.addCommand(createLinterCommand());
 
   return program;
 }

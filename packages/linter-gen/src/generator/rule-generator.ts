@@ -1,8 +1,8 @@
 import * as path from 'path';
-import type { RuleConfig } from '../schema/linter-config';
-import type { TemplateSource } from '../engine/template-loader';
-import { buildRuleContext } from '../engine/context-builder';
-import { renderTemplate, TemplateError } from '../engine/template-renderer';
+import type { RuleConfig } from '../schema/linter-config.js';
+import type { TemplateSource } from '../engine/template-loader.js';
+import { buildRuleContext } from '../engine/context-builder.js';
+import { renderTemplate, TemplateError } from '../engine/template-renderer.js';
 
 export interface GeneratedRule {
   name: string;

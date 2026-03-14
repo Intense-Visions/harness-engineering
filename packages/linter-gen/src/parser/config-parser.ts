@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as yaml from 'yaml';
-import { LinterConfigSchema, type LinterConfig } from '../schema/linter-config';
+import { LinterConfigSchema, type LinterConfig } from '../schema/linter-config.js';
 
 export type ParseErrorCode =
   | 'FILE_NOT_FOUND'

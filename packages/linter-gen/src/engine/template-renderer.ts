@@ -1,5 +1,5 @@
 import Handlebars from 'handlebars';
-import type { RuleContext } from './context-builder';
+import type { RuleContext } from './context-builder.js';
 
 export class TemplateError extends Error {
   constructor(

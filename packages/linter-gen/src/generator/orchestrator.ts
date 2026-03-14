@@ -1,11 +1,11 @@
 // src/generator/orchestrator.ts
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { parseConfig, type ParseError } from '../parser/config-parser';
-import { loadTemplate, type TemplateLoadError } from '../engine/template-loader';
-import { generateRule } from './rule-generator';
-import { generateIndex } from './index-generator';
-import type { TemplateError } from '../engine/template-renderer';
+import { parseConfig, type ParseError } from '../parser/config-parser.js';
+import { loadTemplate, type TemplateLoadError } from '../engine/template-loader.js';
+import { generateRule } from './rule-generator.js';
+import { generateIndex } from './index-generator.js';
+import type { TemplateError } from '../engine/template-renderer.js';
 
 export interface GenerateOptions {
   /** Path to harness-linter.yml */
