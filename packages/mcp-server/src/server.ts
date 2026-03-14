@@ -8,12 +8,10 @@ import { detectEntropyDefinition, handleDetectEntropy, applyFixesDefinition, han
 import { generateLinterDefinition, handleGenerateLinter, validateLinterConfigDefinition, handleValidateLinterConfig } from './tools/linter.js';
 import { initProjectDefinition, handleInitProject } from './tools/init.js';
 import { listPersonasDefinition, handleListPersonas, generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, runPersonaDefinition, handleRunPersona } from './tools/persona.js';
+import { addComponentDefinition, handleAddComponent, runAgentTaskDefinition, handleRunAgentTask } from './tools/agent.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
-
-// TODO: Add add_component tool (maps to `harness add`)
-// TODO: Add run_agent_task tool (maps to `harness agent run`)
 
 const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateToolDefinition,
@@ -28,6 +26,8 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   listPersonasDefinition,
   generatePersonaArtifactsDefinition,
   runPersonaDefinition,
+  addComponentDefinition,
+  runAgentTaskDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -42,6 +42,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   list_personas: handleListPersonas as ToolHandler,
   generate_persona_artifacts: handleGeneratePersonaArtifacts as ToolHandler,
   run_persona: handleRunPersona as ToolHandler,
+  add_component: handleAddComponent as ToolHandler,
+  run_agent_task: handleRunAgentTask as ToolHandler,
 };
 
 export function getToolDefinitions(): ToolDefinition[] {
