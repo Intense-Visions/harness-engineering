@@ -1,0 +1,7 @@
+{
+  "name": "advanced",
+  "description": "Level 3 adoption: Complete harness with agent loop, entropy management",
+  "level": "advanced",
+  "extends": "base",
+  "version": 1
+}

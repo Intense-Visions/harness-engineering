@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "name": "{{projectName}}",
+  "layers": [
+    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
+    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
+    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
+    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
+  ],
+  "forbiddenImports": [
+    { "from": "src/types/**", "disallow": ["src/services/**", "src/api/**"], "message": "Types layer cannot import from services or API" }
+  ],
+  "boundaries": {
+    "requireSchema": ["src/api/**"]
+  },
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "agent": {
+    "executor": "subprocess",
+    "timeout": 300000
+  },
+  "entropy": {
+    "excludePatterns": ["**/node_modules/**", "**/*.test.ts"],
+    "autoFix": false
+  },
+  "template": {
+    "level": "advanced",
+    "version": 1
+  }
+}

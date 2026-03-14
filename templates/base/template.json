@@ -1,0 +1,5 @@
+{
+  "name": "base",
+  "description": "Shared base files for all harness engineering templates",
+  "version": 1
+}
