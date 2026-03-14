@@ -18,12 +18,15 @@ Five enhancements adopted from analysis of GitHub Spec Kit, BMAD Method, and pat
 
 ## Decisions
 
-- Scale-adaptive: hybrid auto-detect with manual override (`--complexity light|full|auto`)
+- Scale-adaptive: hybrid auto-detect with manual override (`--complexity light|full|auto`). Base for auto-detect: `git merge-base HEAD main`.
 - Auto-detection signals: file count, change type, directory creation, dependency changes
 - Principles live in `docs/principles.md`, referenced from AGENTS.md, loaded by skills
-- Cross-artifact validation is heuristic (warns, doesn't block). Checks spec→plan, plan→implementation, staleness.
-- Workflow re-entry is state-aware with confirmation: loads prior state if available, asks before proceeding without it
+- Cross-artifact validation is heuristic (warns, doesn't block). Checks spec→plan, plan→implementation, staleness. Spec/plan paths configurable in `harness.config.json`, default to `docs/superpowers/specs/` and `docs/superpowers/plans/`.
+- Workflow re-entry is state-aware with confirmation: loads prior state if available, asks before proceeding without it. State discovery uses `skill.yaml`'s `state.files` array.
 - Party mode selects perspectives based on design topic context, not fixed roles
+- Schema changes apply to BOTH `agents/skills/tests/schema.ts` AND `packages/cli/src/skill/schema.ts` (duplicate schemas — consolidation deferred to future cleanup)
+- Prerequisite: `harness-debugging/skill.yaml` phases must be updated to match SKILL.md headings (investigate, analyze, hypothesize, fix) before workflow re-entry examples work
+- All CLI enhancements (#1, #2, #3) that modify `harness skill run` share a common preamble injection system in `packages/cli/src/commands/skill/run.ts`
 
 ---
 
@@ -76,12 +79,13 @@ full (any of):
   - First implementation in a new domain
 ```
 
-Auto-detection runs `git diff --stat` and `git diff --name-only` against the current branch's base to determine change scope. If no git context is available, defaults to `full`.
+Auto-detection runs `git diff --stat` and `git diff --name-only` against the branch base. Base is determined by `git merge-base HEAD main` (or the default branch). If no git context is available (not a git repo, no commits), defaults to `full`.
 
 ### CLI integration
 
 ```
-harness skill run harness-tdd                        # auto-detect complexity
+harness skill run harness-tdd                        # auto-detect (same as --complexity auto)
+harness skill run harness-tdd --complexity auto       # explicit auto-detect
 harness skill run harness-tdd --complexity light      # override to light
 harness skill run harness-tdd --complexity full       # override to full
 ```
@@ -146,11 +150,12 @@ Output preamble injected into SKILL.md:
 ### Validation
 
 `harness validate` checks:
-- If AGENTS.md references a principles file, that file must exist
-- `docs/principles.md` starts with `# ` heading
-- File is not empty
+- Scan AGENTS.md for any line containing a path matching `*principles*` (e.g., `docs/principles.md`). If found, that file must exist on disk.
+- If `docs/principles.md` exists, verify it starts with `# ` heading and is not empty.
 
-No schema validation on content — principles are human-authored free text.
+Detection is a simple regex: `/(?:^|\s)`([^`\s]*principles[^`\s]*)`/gm` against AGENTS.md content. This catches both inline references and markdown links.
+
+No schema validation on principles content — principles are human-authored free text.
 
 ### Skill integration
 
@@ -183,11 +188,26 @@ harness validate --cross-check
 
 Extends the existing `validate` command with a new flag.
 
+### Configurable paths
+
+Spec and plan directories are configurable in `harness.config.json`:
+
+```json
+{
+  "crossCheck": {
+    "specsDir": "docs/superpowers/specs",
+    "plansDir": "docs/superpowers/plans"
+  }
+}
+```
+
+Defaults to `docs/superpowers/specs/` and `docs/superpowers/plans/` if not configured.
+
 ### Four checks
 
 **1. Spec → Plan coverage**
-- Scans `docs/superpowers/specs/` for spec files
-- Scans `docs/superpowers/plans/` for plan files
+- Scans configured specs directory for spec files
+- Scans configured plans directory for plan files
 - Matches plans to specs via `**Spec:**` link in plan header
 - Parses spec `## Success Criteria` for requirement items
 - Warns about spec requirements with no corresponding plan task
@@ -235,24 +255,53 @@ New module: `packages/cli/src/commands/validate-cross-check.ts`. Invoked by the 
 
 ## Section 4: Workflow Re-Entry
 
+### Prerequisite
+
+`harness-debugging/skill.yaml` phases must be updated to match SKILL.md headings:
+
+```yaml
+phases:
+  - name: investigate
+    description: Entropy analysis + root cause search
+    required: true
+  - name: analyze
+    description: Pattern matching against codebase
+    required: true
+  - name: hypothesize
+    description: Test one variable at a time
+    required: false
+  - name: fix
+    description: TDD-style regression test + fix
+    required: true
+```
+
 ### CLI integration
 
 ```
 harness skill run harness-debugging --phase hypothesize
 ```
 
+### State discovery
+
+The re-entry feature uses `skill.yaml`'s `state.files` array to locate state:
+
+1. Read `state.files` from the skill's `skill.yaml` (e.g., `[".harness/debug/"]`)
+2. For directory paths (ending in `/`): list files in the directory, select the most recently modified
+3. For file paths: load directly
+4. If multiple state files exist (e.g., multiple debug sessions), load the most recently modified one
+
 ### Behavior
 
 1. Validate `--phase` value matches a declared phase name in `skill.yaml`. Error if not.
 2. Check if skill has `state.persistent: true`:
-   - **If yes:** look for relevant state files
-     - **State exists:** load and inject into preamble
-     - **No state:** prompt `"No prior phase data found. Phases INVESTIGATE and ANALYZE have not been completed. Proceed without prior context? (y/n)"`
+   - **If yes:** discover state files using `state.files` array
+     - **State exists:** load most recent and inject into preamble
+     - **No state:** prompt `"No prior phase data found. Phases investigate and analyze have not been completed. Proceed without prior context? (y/n)"`
    - **If no (stateless skill):** start at requested phase with note: `"Starting at Phase: REFACTOR. Note: Phases RED and GREEN were not executed."`
 3. Output SKILL.md starting from the requested phase section, with preamble:
 
 ```markdown
-## Resuming at Phase: HYPOTHESIZE
+## Resuming at Phase: hypothesize
 ## Prior state loaded from .harness/debug/active/issue-name.md
 [state content]
 ---
@@ -332,7 +381,7 @@ SKILL.md content enhancement only. The `harness-brainstorming/SKILL.md` `## Proc
 
 > **If `--party` mode is active**, after proposing approaches, evaluate each approach from the selected perspectives before presenting the design. State each perspective's assessment explicitly. Synthesize into a recommendation that addresses all concerns raised.
 
-The `--party` flag is passed through the CLI/MCP preamble injection. No schema change, no new API — purely behavioral.
+The `--party` flag is passed through CLI/MCP preamble injection. The `run_skill` MCP tool gains an optional `party: boolean` input parameter alongside the existing `complexity` and `phase` inputs.
 
 ---
 
