@@ -1,0 +1,32 @@
+name: harness-parallel-agents
+version: "1.0.0"
+description: Coordinate multiple agents working in parallel on a harness project
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-parallel-agents
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-parallel-agents
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
+depends_on: []

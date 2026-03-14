@@ -38,3 +38,12 @@ export function resolvePersonasDir(): string {
   }
   return path.join(__dirname, '..', '..', 'agents', 'personas');
 }
+
+export function resolveSkillsDir(): string {
+  // Find agents/ dir containing skills/ subdirectory, then navigate to skills/claude-code/
+  const agentsDir = findUpDir('agents', 'skills');
+  if (agentsDir) {
+    return path.join(agentsDir, 'skills', 'claude-code');
+  }
+  return path.join(__dirname, '..', '..', 'agents', 'skills', 'claude-code');
+}

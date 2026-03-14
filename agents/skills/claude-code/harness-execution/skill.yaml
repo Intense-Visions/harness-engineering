@@ -1,0 +1,45 @@
+name: harness-execution
+version: "1.0.0"
+description: Execute a planned set of tasks with harness validation and state tracking
+triggers:
+  - manual
+  - on_new_feature
+  - on_bug_fix
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-execution
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-execution
+    path: string
+type: rigid
+phases:
+  - name: prepare
+    description: Load state and verify prerequisites
+  - name: execute
+    description: Implement planned tasks
+  - name: verify
+    description: Validate each completed task
+  - name: persist
+    description: Save progress to state files
+state:
+  persistent: true
+  files:
+    - .harness/state.json
+    - .harness/learnings.md
+depends_on:
+  - harness-verification

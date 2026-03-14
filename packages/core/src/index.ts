@@ -34,5 +34,8 @@ export { TypeScriptParser } from './shared/parsers';
 export type { LanguageParser, AST, Import, Export, ParseError, HealthCheckResult } from './shared/parsers';
 export { createParseError } from './shared/parsers';
 
+// State module
+export * from './state';
+
 // Package version
 export const VERSION = '0.5.0';

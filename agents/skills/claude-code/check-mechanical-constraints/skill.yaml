@@ -1,19 +1,31 @@
 name: check-mechanical-constraints
-version: 1.0.0
+version: "1.0.0"
 description: Run all mechanical constraint checks (context validation + architecture)
-platform: claude-code
 triggers:
   - manual
   - on_pr
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Glob
-cli_command: harness validate --json && harness check-deps --json
-category: enforcement
+cli:
+  command: harness skill run check-mechanical-constraints
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: check-mechanical-constraints
+    path: string
+type: rigid
+state:
+  persistent: false
+  files: []
 depends_on:
   - validate-context-engineering
   - enforce-architecture
-includes:
-  - shared/cli-invocation.md
-  - shared/json-parsing.md

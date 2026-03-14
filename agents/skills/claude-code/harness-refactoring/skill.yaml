@@ -1,9 +1,12 @@
 name: harness-refactoring
-version: 1.0.0
+version: "1.0.0"
 description: Safe refactoring with validation before and after changes
-platform: claude-code
 triggers:
   - manual
+  - on_refactor
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
@@ -11,7 +14,19 @@ tools:
   - Edit
   - Glob
   - Grep
-category: workflow
+cli:
+  command: harness skill run harness-refactoring
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-refactoring
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
 depends_on: []
-includes:
-  - shared/cli-invocation.md

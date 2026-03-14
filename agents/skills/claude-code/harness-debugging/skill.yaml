@@ -1,0 +1,42 @@
+name: harness-debugging
+version: "1.0.0"
+description: Systematic debugging with harness validation and state tracking
+triggers:
+  - manual
+  - on_bug_fix
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-debugging
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-debugging
+    path: string
+type: rigid
+phases:
+  - name: reproduce
+    description: Reliably reproduce the issue
+  - name: isolate
+    description: Narrow down the root cause
+  - name: fix
+    description: Implement and verify the fix
+  - name: validate
+    description: Run harness checks to confirm resolution
+state:
+  persistent: true
+  files:
+    - .harness/debug/
+depends_on: []

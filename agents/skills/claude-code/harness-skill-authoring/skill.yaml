@@ -1,0 +1,31 @@
+name: harness-skill-authoring
+version: "1.0.0"
+description: Create and maintain harness skills following the rich skill format
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-skill-authoring
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-skill-authoring
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
+depends_on: []

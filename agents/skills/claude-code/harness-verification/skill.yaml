@@ -1,0 +1,37 @@
+name: harness-verification
+version: "1.0.0"
+description: Comprehensive harness verification of project health and compliance
+triggers:
+  - manual
+  - on_pr
+  - on_commit
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+cli:
+  command: harness skill run harness-verification
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-verification
+    path: string
+type: rigid
+phases:
+  - name: check
+    description: Run all harness validation commands
+  - name: report
+    description: Summarize findings and violations
+  - name: remediate
+    description: Fix any critical violations
+state:
+  persistent: false
+  files: []
+depends_on: []

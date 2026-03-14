@@ -1,17 +1,29 @@
 name: cleanup-dead-code
-version: 1.0.0
+version: "1.0.0"
 description: Detect unused exports and dead code
-platform: claude-code
 triggers:
   - manual
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Glob
   - Grep
-cli_command: harness cleanup --type dead-code --json
-category: entropy
+cli:
+  command: harness skill run cleanup-dead-code
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: cleanup-dead-code
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
 depends_on: []
-includes:
-  - shared/cli-invocation.md
-  - shared/json-parsing.md

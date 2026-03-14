@@ -1,18 +1,30 @@
 name: align-documentation
-version: 1.0.0
+version: "1.0.0"
 description: Auto-fix documentation drift issues
-platform: claude-code
 triggers:
   - manual
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Write
   - Edit
-cli_command: harness fix-drift --json
-category: entropy
+cli:
+  command: harness skill run align-documentation
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: align-documentation
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
 depends_on:
   - detect-doc-drift
-includes:
-  - shared/cli-invocation.md
-  - shared/json-parsing.md

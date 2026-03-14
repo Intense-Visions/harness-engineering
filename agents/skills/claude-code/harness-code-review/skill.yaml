@@ -1,17 +1,31 @@
 name: harness-code-review
-version: 1.0.0
+version: "1.0.0"
 description: Structured code review with automated harness checks
-platform: claude-code
 triggers:
   - manual
   - on_pr
+  - on_review
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Glob
   - Grep
-cli_command: harness agent review
-category: workflow
+cli:
+  command: harness skill run harness-code-review
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-code-review
+    path: string
+type: rigid
+state:
+  persistent: false
+  files: []
 depends_on: []
-includes:
-  - shared/cli-invocation.md

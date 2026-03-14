@@ -10,6 +10,8 @@ import { createAgentCommand } from './commands/agent';
 import { createAddCommand } from './commands/add';
 import { createLinterCommand } from './commands/linter';
 import { createPersonaCommand } from './commands/persona';
+import { createSkillCommand } from './commands/skill';
+import { createStateCommand } from './commands/state';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -34,6 +36,8 @@ export function createProgram(): Command {
   program.addCommand(createAddCommand());
   program.addCommand(createLinterCommand());
   program.addCommand(createPersonaCommand());
+  program.addCommand(createSkillCommand());
+  program.addCommand(createStateCommand());
 
   return program;
 }
