@@ -9,6 +9,7 @@ import { generateLinterDefinition, handleGenerateLinter, validateLinterConfigDef
 import { initProjectDefinition, handleInitProject } from './tools/init.js';
 import { listPersonasDefinition, handleListPersonas, generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, runPersonaDefinition, handleRunPersona } from './tools/persona.js';
 import { addComponentDefinition, handleAddComponent, runAgentTaskDefinition, handleRunAgentTask } from './tools/agent.js';
+import { runSkillDefinition, handleRunSkill } from './tools/skill.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
@@ -28,6 +29,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   runPersonaDefinition,
   addComponentDefinition,
   runAgentTaskDefinition,
+  runSkillDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -44,6 +46,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   run_persona: handleRunPersona as ToolHandler,
   add_component: handleAddComponent as ToolHandler,
   run_agent_task: handleRunAgentTask as ToolHandler,
+  run_skill: handleRunSkill as ToolHandler,
 };
 
 export function getToolDefinitions(): ToolDefinition[] {
