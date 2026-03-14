@@ -36,5 +36,8 @@ pnpm-debug.log*
 .tmp/
 temp/
 
+# Worktrees
+.worktrees/
+
 .vitepress
 *.tsbuildinfo
