@@ -84,6 +84,37 @@ harness init [--level basic|intermediate|advanced] [--framework nextjs] [--name 
 
 Default: `--level basic` (backwards compatible with current behavior). The existing `templates/basic.ts` inline templates get replaced by the file-based template system.
 
+### Template Metadata Schema (`template.json`)
+
+Each template directory contains a `template.json` validated with Zod:
+
+```typescript
+const TemplateMetadataSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  level: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+  framework: z.string().optional(),
+  extends: z.string().optional(),           // e.g., "base"
+  mergeStrategy: z.object({
+    json: z.enum(['deep-merge', 'overlay-wins']).default('deep-merge'),
+    files: z.enum(['overlay-wins', 'error']).default('overlay-wins'),
+  }).default({}),
+  version: z.literal(1),
+});
+```
+
+### File Merge Strategy
+
+When composing templates (e.g., `base/` -> `intermediate/` -> `nextjs/`):
+
+- **JSON files (`.json`, `.json.hbs`):** Deep merge. Later layers' keys override earlier layers. Arrays are concatenated for `dependencies`/`devDependencies` in `package.json`; replaced for all other fields. This matches npm/pnpm merge semantics.
+- **Non-JSON files:** Overlay wins. If a file exists in both `intermediate/` and `nextjs/`, the `nextjs/` version is used.
+- **Directories:** Merged additively. Files from all layers coexist; conflicts resolved by overlay-wins.
+
+### Template Rendering
+
+Handlebars templates use strict mode — missing variables and syntax errors produce `Result` errors with actionable messages (variable name, template file path, line number). This follows the core `Result<T, E>` pattern consistently. Note: the existing linter-gen uses a different `{ success, error }` pattern; new template code uses `Result<T, E>` exclusively, and linter-gen alignment is deferred to a future cleanup.
+
 ### Template Engine
 
 New module in `packages/cli/src/templates/engine.ts`:
@@ -97,6 +128,21 @@ interface TemplateEngine {
 }
 ```
 
+### Config Schema Extension
+
+After scaffolding, the generated `harness.config.json` records which template was used:
+
+```typescript
+// Addition to HarnessConfigSchema
+template: z.object({
+  level: z.enum(['basic', 'intermediate', 'advanced']),
+  framework: z.string().optional(),
+  version: z.number(),         // Template version at time of scaffolding
+}).optional(),
+```
+
+This enables `harness validate` to enforce level-appropriate checks and supports future upgrade paths (e.g., basic -> intermediate migration).
+
 ---
 
 ## Section 2: Agent Personas
@@ -107,6 +153,7 @@ Personas live in `agents/personas/` as YAML configs:
 
 ```yaml
 # agents/personas/architecture-enforcer.yaml
+version: 1
 name: Architecture Enforcer
 description: Validates architectural constraints and dependency rules
 role: Enforce layer boundaries, detect circular dependencies, block forbidden imports
@@ -115,7 +162,7 @@ skills:
   - enforce-architecture
   - check-mechanical-constraints
 
-tools:
+commands:                  # CLI commands this persona executes (not AI agent tools)
   - check-deps
   - validate
 
@@ -140,6 +187,10 @@ outputs:
   runtime-config: true   # Generate harness agent runtime config
 ```
 
+**Note on `commands` vs `tools`:** Persona configs use `commands` to list CLI commands (e.g., `check-deps`, `validate`). This avoids collision with the `tools` field in skill YAML (`skill.yaml`), which lists AI agent tools (e.g., `Bash`, `Read`, `Glob`). These are fundamentally different concepts.
+
+**Note on `triggers`:** Persona triggers use a richer model than skill triggers (which are a flat enum: `['manual', 'on_pr', 'on_commit']`). Persona triggers add `conditions` (path filters, branch filters) and `scheduled` with cron expressions. This is a superset — persona triggers define *when CI runs the persona*, while skill triggers define *when an AI agent activates a skill*. These serve different purposes and intentionally diverge.
+
 ### Three Generated Artifacts
 
 From a single persona YAML, the system generates:
@@ -150,7 +201,7 @@ From a single persona YAML, the system generates:
 {
   "name": "architecture-enforcer",
   "skills": ["enforce-architecture", "check-mechanical-constraints"],
-  "tools": ["check-deps", "validate"],
+  "commands": ["check-deps", "validate"],
   "timeout": 300000,
   "severity": "error"
 }
@@ -201,6 +252,45 @@ harness persona generate <name> --only agents-md  # Generate only AGENTS.md frag
 harness persona generate <name> --only runtime    # Generate only runtime config
 ```
 
+### Persona YAML Schema (Zod)
+
+```typescript
+const PersonaTriggerSchema = z.discriminatedUnion('event', [
+  z.object({
+    event: z.literal('on_pr'),
+    conditions: z.object({ paths: z.array(z.string()).optional() }).optional(),
+  }),
+  z.object({
+    event: z.literal('on_commit'),
+    conditions: z.object({ branches: z.array(z.string()).optional() }).optional(),
+  }),
+  z.object({
+    event: z.literal('scheduled'),
+    cron: z.string(),
+  }),
+]);
+
+const PersonaSchema = z.object({
+  version: z.literal(1),
+  name: z.string(),
+  description: z.string(),
+  role: z.string(),
+  skills: z.array(z.string()),
+  commands: z.array(z.string()),
+  triggers: z.array(PersonaTriggerSchema),
+  config: z.object({
+    severity: z.enum(['error', 'warning']).default('error'),
+    autoFix: z.boolean().default(false),
+    timeout: z.number().default(300000),
+  }).default({}),
+  outputs: z.object({
+    'agents-md': z.boolean().default(true),
+    'ci-workflow': z.boolean().default(true),
+    'runtime-config': z.boolean().default(true),
+  }).default({}),
+});
+```
+
 ### Persona Generator
 
 New module in `packages/cli/src/persona/generator.ts`:
@@ -215,6 +305,22 @@ interface PersonaGenerator {
   generateAll(persona: Persona, outputDir: string): Result<GeneratedFiles, Error>
 }
 ```
+
+### Integration with `harness agent run`
+
+The existing `harness agent run <task>` command uses a hardcoded `agentTypeMap` and routes through `requestPeerReview`. The `--persona` flag introduces a new code path:
+
+- `harness agent run <task>` — Existing behavior, unchanged. Routes through `requestPeerReview`.
+- `harness agent run --persona <name>` — New path. Loads the persona config, executes each listed command in sequence, returns the aggregated `PersonaRunReport`. Does **not** use `requestPeerReview`.
+
+The old task-based path is not deprecated — personas are a higher-level abstraction that compose commands, while tasks are direct agent invocations. Both coexist.
+
+### CLI Output Format
+
+`harness persona list` respects existing CLI output conventions:
+- Default: formatted table (name, description, triggers summary)
+- `--json`: JSON array of persona metadata
+- `--quiet`: names only, one per line
 
 ### Three Built-in Personas
 
@@ -282,10 +388,33 @@ Key integration point between Track A and Track B:
 // Input: { persona: string, path?: string, dryRun?: boolean }
 //
 // 1. Load persona config
-// 2. Resolve which CLI commands map to the persona's tools
-// 3. Execute each tool in sequence
+// 2. Resolve which CLI commands map to the persona's commands
+// 3. Execute each command in sequence
 // 4. Aggregate results into a single report
 // 5. Return pass/fail with details
+```
+
+**Execution semantics:**
+
+- **Fail-fast by default:** If a command fails, execution stops and returns the partial report. The report includes which commands succeeded, which failed, and which were skipped.
+- **`dryRun: true`:** Prevents all write operations (no file modifications, no auto-fixes). Read-only checks still execute.
+- **Timeout:** Applies to the entire persona run, not per-command. If the total timeout is reached, remaining commands are skipped and the partial report is returned.
+
+**Aggregated report structure:**
+
+```typescript
+interface PersonaRunReport {
+  persona: string
+  status: 'pass' | 'fail' | 'partial'  // partial = some commands skipped
+  commands: Array<{
+    name: string
+    status: 'pass' | 'fail' | 'skipped'
+    result?: unknown               // Command-specific output
+    error?: string
+    durationMs: number
+  }>
+  totalDurationMs: number
+}
 ```
 
 Example MCP call:
@@ -306,9 +435,15 @@ Returns aggregated results from `check_dependencies` + `validate_project` in a s
 
 - Uses `@modelcontextprotocol/sdk` for the MCP server framework.
 - All tools are thin wrappers that call `@harness-engineering/core` APIs directly (not shelling out to the CLI).
-- `result-adapter.ts` converts the `Result<T, E>` pattern to MCP's `{ content: [...], isError?: boolean }` format.
 - Communicates via stdio (standard MCP transport).
 - Config resolution: looks for `harness.config.json` from the `path` param or cwd.
+
+### Result Adapter (`result-adapter.ts`)
+
+Converts `Result<T, E>` to MCP tool responses:
+
+- **Success (`ok: true`):** `{ content: [{ type: "text", text: JSON.stringify(value) }] }`. Structured data is always JSON-serialized so MCP clients can parse it programmatically.
+- **Error (`ok: false`):** `{ content: [{ type: "text", text: error.message }], isError: true }`. Error details (code, suggestions) are included in the message text.
 
 ### Client Configuration
 
@@ -392,6 +527,28 @@ Slices 1 and 2 can run in parallel. Slice 3 follows Slice 2. Slice 4 is future w
 - Architecture templates (microservices) — future, only single-service for now
 - GitLab CI generation — GitHub Actions only in v1
 - Cloud agent executor — subprocess only in v1
+
+---
+
+## Testing Strategy
+
+### Template System (Slice 1)
+- **Unit tests:** Template engine — resolve, render, write for each level + framework overlay
+- **Unit tests:** Merge strategy — JSON deep merge, file overlay-wins, directory merging
+- **Integration tests:** `harness init --level X --framework Y` produces a valid, installable project
+- **Snapshot tests:** Rendered template output for each level matches expected structure
+
+### Persona System (Slice 2)
+- **Unit tests:** Persona YAML schema validation (valid and invalid configs)
+- **Unit tests:** Each generator (runtime, AGENTS.md, CI workflow) produces correct output
+- **Integration tests:** `harness persona generate <name>` writes valid files
+- **Validation tests:** Generated GitHub Actions workflows pass `actionlint` (if available)
+
+### MCP Server (Slice 3)
+- **Unit tests:** Each tool handler receives input, calls core API, returns correct MCP response
+- **Unit tests:** Result adapter converts success and error cases correctly
+- **Integration tests:** MCP server starts, registers all tools, handles tool calls via stdio
+- **Integration tests:** `run_persona` meta-tool executes commands and returns aggregated report
 
 ---
 
