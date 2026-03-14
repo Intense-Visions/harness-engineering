@@ -1,0 +1,35 @@
+{
+  "name": "@harness-engineering/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Harness Engineering toolkit",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "harness-mcp": "./dist/bin/harness-mcp.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@harness-engineering/core": "workspace:*",
+    "@harness-engineering/cli": "workspace:*",
+    "@harness-engineering/linter-gen": "workspace:*",
+    "@harness-engineering/types": "workspace:*",
+    "zod": "^3.22.0",
+    "yaml": "^2.3.0",
+    "handlebars": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "license": "MIT"
+}
