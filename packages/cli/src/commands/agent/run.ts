@@ -91,9 +91,16 @@ export function createRunCommand(): Command {
         }
         const persona = personaResult.value;
 
+        const ALLOWED_COMMANDS = new Set([
+          'validate', 'check-deps', 'check-docs', 'cleanup', 'fix-drift', 'add',
+        ]);
+
         const executor: CommandExecutor = async (command: string) => {
+          if (!ALLOWED_COMMANDS.has(command)) {
+            return Err(new Error(`Unknown harness command: ${command}`));
+          }
           try {
-            childProcess.execSync(`npx harness ${command}`, { stdio: 'inherit' });
+            childProcess.execFileSync('npx', ['harness', command], { stdio: 'inherit' });
             return Ok(null);
           } catch (error) {
             return Err(new Error(error instanceof Error ? error.message : String(error)));

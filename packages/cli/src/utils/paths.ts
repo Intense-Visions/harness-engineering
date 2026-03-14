@@ -31,7 +31,8 @@ export function resolveTemplatesDir(): string {
 }
 
 export function resolvePersonasDir(): string {
-  const agentsDir = findUpDir('agents');
+  // Look for agents/ dir containing personas/ subdirectory
+  const agentsDir = findUpDir('agents', 'personas');
   if (agentsDir) {
     return path.join(agentsDir, 'personas');
   }

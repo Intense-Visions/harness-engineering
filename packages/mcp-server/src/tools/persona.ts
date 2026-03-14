@@ -80,11 +80,19 @@ export async function handleRunPersona(input: { persona: string; path?: string; 
 
   const projectPath = input.path ? path.resolve(input.path) : process.cwd();
 
+  const ALLOWED_COMMANDS = new Set([
+    'validate', 'check-deps', 'check-docs', 'cleanup', 'fix-drift', 'add',
+  ]);
+
   const executor = async (command: string) => {
+    if (!ALLOWED_COMMANDS.has(command)) {
+      return Err(new Error(`Unknown harness command: ${command}`));
+    }
     try {
-      const { execSync } = await import('node:child_process');
-      const dryFlag = input.dryRun ? ' --dry-run' : '';
-      const output = execSync(`npx harness ${command}${dryFlag}`, {
+      const { execFileSync } = await import('node:child_process');
+      const args = ['harness', command];
+      if (input.dryRun) args.push('--dry-run');
+      const output = execFileSync('npx', args, {
         cwd: projectPath,
         stdio: 'pipe',
         timeout: personaResult.value.config.timeout,
