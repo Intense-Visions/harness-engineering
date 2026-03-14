@@ -17,8 +17,11 @@ This spec defines the rich skill format, infrastructure (CLI, MCP, state managem
 - All 11 existing skills upgraded to the rich format. 10 new skills added.
 - Skills are accessible via three surfaces: AI platform skills, CLI commands, MCP tools.
 - Persistent state management (`.harness/`) for skills that need cross-session continuity.
-- Approach: Big bang rewrite — all 21 skills at once for consistency.
-- Format spec + infrastructure implemented first; individual skill content specced and built in batches.
+- Approach: All 21 skills created at once for consistency. Infrastructure + skill.yaml + SKILL.md stubs first, then full SKILL.md content in separate batches.
+- Existing `shared/` prompt fragments are inlined into SKILL.md during migration (fragments eliminated as a concept).
+- Skills live once in `claude-code/`; Gemini CLI gets symlinks or generated copies with platform-specific adaptations (not a full mirror directory).
+- `rigid` vs `flexible` is a linting/documentation concern, not runtime enforcement. The AI agent follows the SKILL.md instructions; `type` determines which sections are required.
+- `harness agent run` (existing) runs agent tasks/personas. `harness skill run` (new) loads skill prompts for AI consumption. Different purposes, both coexist.
 
 ## Sources
 
@@ -31,11 +34,81 @@ This design synthesizes patterns from three systems:
 
 ## Section 1: Rich Skill Format
 
-### `skill.yaml` Schema
+### Schema Migration (existing -> new)
+
+| Field | Existing | New | Change |
+|---|---|---|---|
+| `version` | `string` (semver `"1.0.0"`) | `string` (semver `"1.0.0"`) | No change |
+| `platform` | `string` (single) | `platforms: string[]` (array) | Renamed, scalar to array |
+| `category` | `enum` (enforcement/workflow/entropy/setup) | Removed | Replaced by `type: rigid\|flexible` |
+| `cli_command` | `string` (optional) | `cli: { command, args[] }` | Restructured |
+| `includes` | `string[]` (shared fragment refs) | Removed | Fragments inlined into SKILL.md |
+| `triggers` | `enum` (manual/on_pr/on_commit) | `string[]` (expanded set) | New values added |
+| New fields | — | `type`, `phases`, `state`, `depends_on`, `mcp` | Added |
+
+### Allowed Values
+
+**Triggers:** `manual`, `on_pr`, `on_commit`, `on_new_feature`, `on_bug_fix`, `on_refactor`, `on_project_init`, `on_review`
+
+**Platforms:** `claude-code`, `gemini-cli`
+
+**Type:** `rigid`, `flexible`
+
+### Zod Schema
+
+```typescript
+const SkillPhaseSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+});
+
+const SkillCliSchema = z.object({
+  command: z.string(),
+  args: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    required: z.boolean().default(false),
+  })).default([]),
+});
+
+const SkillMcpSchema = z.object({
+  tool: z.string(),
+  input: z.record(z.string()),
+});
+
+const SkillStateSchema = z.object({
+  persistent: z.boolean().default(false),
+  files: z.array(z.string()).default([]),
+});
+
+const ALLOWED_TRIGGERS = [
+  'manual', 'on_pr', 'on_commit', 'on_new_feature',
+  'on_bug_fix', 'on_refactor', 'on_project_init', 'on_review',
+] as const;
+
+const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
+
+export const SkillMetadataSchema = z.object({
+  name: z.string(),
+  version: z.string().regex(/^\d+\.\d+\.\d+$/),
+  description: z.string(),
+  triggers: z.array(z.enum(ALLOWED_TRIGGERS)),
+  platforms: z.array(z.enum(ALLOWED_PLATFORMS)),
+  tools: z.array(z.string()),
+  cli: SkillCliSchema.optional(),
+  mcp: SkillMcpSchema.optional(),
+  type: z.enum(['rigid', 'flexible']),
+  phases: z.array(SkillPhaseSchema).optional(),
+  state: SkillStateSchema.default({}),
+  depends_on: z.array(z.string()).default([]),
+});
+```
+
+### `skill.yaml` Example
 
 ```yaml
 name: harness-tdd
-version: 1
+version: "1.0.0"
 description: Test-driven development integrated with harness validation
 
 # Discovery & activation
@@ -196,6 +269,7 @@ State API added to `@harness-engineering/core`:
 
 ```typescript
 interface HarnessState {
+  schemaVersion: 1;        // For future migration
   position: { phase?: string; task?: string };
   decisions: Array<{ date: string; decision: string; context: string }>;
   blockers: Array<{ id: string; description: string; status: 'open' | 'resolved' }>;
@@ -203,10 +277,16 @@ interface HarnessState {
   lastSession: { date: string; summary: string };
 }
 
-function loadState(projectPath: string): Result<HarnessState, Error>
-function saveState(projectPath: string, state: HarnessState): Result<void, Error>
-function appendLearning(projectPath: string, learning: string): Result<void, Error>
+async function loadState(projectPath: string): Promise<Result<HarnessState, Error>>
+async function saveState(projectPath: string, state: HarnessState): Promise<Result<void, Error>>
+async function appendLearning(projectPath: string, learning: string): Promise<Result<void, Error>>
 ```
+
+**Error handling:**
+- Missing `.harness/state.json`: `loadState` returns a default empty state (not an error). State is created on first `saveState`.
+- Corrupted/unparseable JSON: Returns `Err` with message including file path.
+- Schema version mismatch: Returns `Err` with migration guidance message. Future versions may auto-migrate.
+- Skills with `state.persistent: true` may also read/write custom files listed in `state.files`. These are managed by the skill itself, not the core API.
 
 CLI commands:
 
@@ -218,10 +298,11 @@ harness state learn <message>         # Append a learning
 
 ### Directory Structure
 
+Skills live once in `claude-code/`. Each skill's `skill.yaml` declares `platforms: [claude-code, gemini-cli]`. The Gemini CLI directory contains symlinks or generated platform-specific adaptations (not a full copy of every skill).
+
 ```
 agents/skills/
-├── shared/                    # Shared prompt fragments
-├── claude-code/               # Platform-specific skill directories
+├── claude-code/               # Primary skill directory (all 21 skills)
 │   ├── harness-tdd/
 │   │   ├── skill.yaml
 │   │   └── SKILL.md
@@ -229,15 +310,50 @@ agents/skills/
 │   │   ├── skill.yaml
 │   │   └── SKILL.md
 │   └── ... (21 skills)
-├── gemini-cli/                # Mirrors claude-code (platform adaptations)
+├── gemini-cli/                # Platform adaptations only (symlinks + overrides)
 ├── tests/
-│   ├── schema.test.ts         # skill.yaml validation
-│   ├── structure.test.ts      # SKILL.md required sections
-│   └── references.test.ts     # depends_on, cli, mcp consistency
+│   ├── schema.test.ts         # skill.yaml validation (replaces existing schema.ts)
+│   ├── structure.test.ts      # SKILL.md required sections (replaces prompt-lint.test.ts)
+│   └── references.test.ts     # depends_on, cli, mcp consistency (replaces includes.test.ts)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.mts
 ```
+
+**Note:** The existing `shared/` directory is removed. Shared prompt fragments are inlined into each SKILL.md during migration. The `includes` field and `includes.test.ts` are eliminated.
+
+### SKILL.md Stubs
+
+During migration (implementation step 5), SKILL.md stubs are created with all required sections present but minimal content. A stub looks like:
+
+```markdown
+# Harness TDD
+
+> Test-driven development integrated with harness validation.
+
+## When to Use
+- TODO: Full content in skill content batch
+
+## Process
+- TODO: Full content in skill content batch
+
+## Harness Integration
+- `harness check-deps`, `harness validate`
+
+## Success Criteria
+- TODO: Full content in skill content batch
+
+## Examples
+- TODO: Full content in skill content batch
+
+## Gates
+- TODO: Full content in skill content batch
+
+## Escalation
+- TODO: Full content in skill content batch
+```
+
+Stubs pass structural validation (all sections present) but contain TODO markers. Full content is written in step 6 (separate specs per batch).
 
 ---
 
