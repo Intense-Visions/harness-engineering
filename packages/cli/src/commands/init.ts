@@ -6,6 +6,7 @@ import { Ok, Err } from '@harness-engineering/core';
 import { TemplateEngine } from '../templates/engine';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
+import { resolveTemplatesDir } from '../utils/paths';
 
 interface InitOptions {
   cwd?: string;
@@ -17,17 +18,6 @@ interface InitOptions {
 
 interface InitResult {
   filesCreated: string[];
-}
-
-function resolveTemplatesDir(): string {
-  // Check for templates in repo root first (development)
-  const repoRoot = path.resolve(__dirname, '..', '..', '..', '..');
-  const repoTemplates = path.join(repoRoot, 'templates');
-  if (fs.existsSync(repoTemplates)) {
-    return repoTemplates;
-  }
-  // Fallback: bundled templates
-  return path.join(__dirname, '..', 'templates');
 }
 
 export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {

@@ -7,11 +7,7 @@ import { generateAgentsMd } from '../../persona/generators/agents-md';
 import { generateCIWorkflow } from '../../persona/generators/ci-workflow';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
-
-function resolvePersonasDir(): string {
-  const repoRoot = path.resolve(__dirname, '..', '..', '..', '..', '..');
-  return path.join(repoRoot, 'agents', 'personas');
-}
+import { resolvePersonasDir } from '../../utils/paths';
 
 function toKebabCase(name: string): string {
   return name.toLowerCase().replace(/\s+/g, '-');

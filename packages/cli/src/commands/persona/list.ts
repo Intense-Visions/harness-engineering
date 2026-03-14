@@ -1,13 +1,8 @@
 import { Command } from 'commander';
-import * as path from 'path';
 import { listPersonas } from '../../persona/loader';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
-
-function resolvePersonasDir(): string {
-  const repoRoot = path.resolve(__dirname, '..', '..', '..', '..', '..');
-  return path.join(repoRoot, 'agents', 'personas');
-}
+import { resolvePersonasDir } from '../../utils/paths';
 
 export function createListCommand(): Command {
   return new Command('list')

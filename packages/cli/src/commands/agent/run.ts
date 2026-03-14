@@ -9,6 +9,7 @@ import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 import { loadPersona } from '../../persona/loader';
 import { runPersona, type CommandExecutor } from '../../persona/runner';
+import { resolvePersonasDir } from '../../utils/paths';
 
 interface RunOptions {
   configPath?: string;
@@ -81,8 +82,7 @@ export function createRunCommand(): Command {
       const globalOpts = cmd.optsWithGlobals();
 
       if (opts.persona) {
-        const repoRoot = path.resolve(__dirname, '..', '..', '..', '..', '..');
-        const personasDir = path.join(repoRoot, 'agents', 'personas');
+        const personasDir = resolvePersonasDir();
         const filePath = path.join(personasDir, `${opts.persona}.yaml`);
         const personaResult = loadPersona(filePath);
         if (!personaResult.ok) {
