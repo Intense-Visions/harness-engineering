@@ -715,8 +715,8 @@ if (globalOpts.crossCheck || opts.crossCheck) {
   const { runCrossCheck } = await import('./validate-cross-check');
   const cwd = process.cwd();
   const config = configResult.value;
-  const specsDir = path.join(cwd, config.crossCheck?.specsDir ?? 'docs/superpowers/specs');
-  const plansDir = path.join(cwd, config.crossCheck?.plansDir ?? 'docs/superpowers/plans');
+  const specsDir = path.join(cwd, config.crossCheck?.specsDir ?? 'docs/specs');
+  const plansDir = path.join(cwd, config.crossCheck?.plansDir ?? 'docs/plans');
 
   const crossResult = await runCrossCheck({ specsDir, plansDir, projectPath: cwd });
   if (crossResult.ok && crossResult.value.warnings > 0) {

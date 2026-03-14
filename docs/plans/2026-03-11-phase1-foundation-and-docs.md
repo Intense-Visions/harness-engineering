@@ -2620,7 +2620,7 @@ harness-engineering/
 
 **Phase 1:** Foundation & Documentation Infrastructure
 
-- Plan: `docs/superpowers/plans/2026-03-11-phase1-foundation-and-docs.md`
+- Plan: `docs/plans/2026-03-11-phase1-foundation-and-docs.md`
 - Status: In Progress (Chunk 3)
 
 **Next:** Core library modules (separate plans per module)
@@ -2664,7 +2664,7 @@ This file (AGENTS.md) is your entry point. Use it to navigate the codebase:
 - Need to understand principles? → `docs/standard/`
 - Need API details? → `docs/reference/`
 - Need to find implementation? → `packages/*/src/`
-- Need to understand active work? → `docs/superpowers/plans/`
+- Need to understand active work? → `docs/plans/`
 
 ---
 

@@ -7,8 +7,8 @@ import { runCrossCheck } from '../../src/commands/validate-cross-check';
 describe('runCrossCheck', () => {
   it('returns clean result for empty directories', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cross-check-'));
-    const specsDir = path.join(tmpDir, 'docs', 'superpowers', 'specs');
-    const plansDir = path.join(tmpDir, 'docs', 'superpowers', 'plans');
+    const specsDir = path.join(tmpDir, 'docs', 'specs');
+    const plansDir = path.join(tmpDir, 'docs', 'plans');
     fs.mkdirSync(specsDir, { recursive: true });
     fs.mkdirSync(plansDir, { recursive: true });
 
@@ -22,7 +22,7 @@ describe('runCrossCheck', () => {
 
   it('detects planned-but-not-built files', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cross-check-'));
-    const plansDir = path.join(tmpDir, 'docs', 'superpowers', 'plans');
+    const plansDir = path.join(tmpDir, 'docs', 'plans');
     fs.mkdirSync(plansDir, { recursive: true });
     fs.writeFileSync(
       path.join(plansDir, 'test-plan.md'),
@@ -32,7 +32,7 @@ describe('runCrossCheck', () => {
     );
 
     const result = await runCrossCheck({
-      specsDir: path.join(tmpDir, 'docs', 'superpowers', 'specs'),
+      specsDir: path.join(tmpDir, 'docs', 'specs'),
       plansDir,
       projectPath: tmpDir,
     });
@@ -46,7 +46,7 @@ describe('runCrossCheck', () => {
 
   it('returns no warnings when planned files exist', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cross-check-'));
-    const plansDir = path.join(tmpDir, 'docs', 'superpowers', 'plans');
+    const plansDir = path.join(tmpDir, 'docs', 'plans');
     const srcDir = path.join(tmpDir, 'src');
     fs.mkdirSync(plansDir, { recursive: true });
     fs.mkdirSync(srcDir, { recursive: true });
@@ -57,7 +57,7 @@ describe('runCrossCheck', () => {
     );
 
     const result = await runCrossCheck({
-      specsDir: path.join(tmpDir, 'docs', 'superpowers', 'specs'),
+      specsDir: path.join(tmpDir, 'docs', 'specs'),
       plansDir,
       projectPath: tmpDir,
     });

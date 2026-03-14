@@ -34,9 +34,9 @@ harness-engineering/
 │   ├── guides/              # How-to guides and tutorials
 │   ├── reference/           # Configuration and API reference
 │   ├── api/                 # Generated API documentation
-│   └── superpowers/         # Specifications and implementation plans
-│       ├── specs/           # Detailed technical specifications
-│       └── plans/           # Implementation and execution plans
+│   ├── specs/              # Detailed technical specifications
+│   ├── plans/              # Implementation and execution plans
+│   └── changes/            # In-progress change proposals
 ├── package.json             # Root package metadata and scripts
 ├── tsconfig.json            # Root TypeScript configuration
 ├── pnpm-workspace.yaml      # pnpm workspace definition
@@ -244,8 +244,8 @@ All architectural decisions must be documented:
 
 1. **Design Documents** - Explain the "why" before implementing
 2. **Architecture Decisions** - Record key choices in `/docs/standard/`
-3. **Implementation Plans** - Track execution in `/docs/superpowers/plans/`
-4. **Specifications** - Detailed technical specs in `/docs/superpowers/specs/`
+3. **Implementation Plans** - Track execution in `/docs/plans/`
+4. **Specifications** - Detailed technical specs in `/docs/specs/`
 5. **Guides** - How-to documentation for common tasks
 
 This creates a permanent record that AI agents can access and understand.
@@ -275,9 +275,9 @@ This creates a permanent record that AI agents can access and understand.
   - TypeScript type definitions
   - Function signatures and examples
 
-- **[docs/superpowers/](./docs/superpowers/)** - Project planning and design
-  - `specs/` - Detailed technical specifications for features
-  - `plans/` - Implementation and execution plans
+- **[docs/specs/](./docs/specs/)** - Detailed technical specifications for features
+- **[docs/plans/](./docs/plans/)** - Implementation and execution plans
+- **[docs/changes/](./docs/changes/)** - In-progress change proposals
 
 ### Key Documentation
 
@@ -496,8 +496,8 @@ This makes error handling explicit and type-safe.
 | Update standard      | `docs/standard/`                                 |
 | Create a guide       | `docs/guides/`                                   |
 | API reference        | `docs/api/`                                      |
-| Technical specs      | `docs/superpowers/specs/`                        |
-| Implementation plans | `docs/superpowers/plans/`                        |
+| Technical specs      | `docs/specs/`                                    |
+| Implementation plans | `docs/plans/`                                    |
 
 ### Important Configuration Files
 
@@ -540,7 +540,7 @@ pnpm clean            # Remove all build artifacts
 - **Project Repository**: https://github.com/harness-engineering/harness-engineering
 - **Main Documentation**: See `/docs/` directory
 - **Standard Specification**: `/docs/standard/`
-- **Implementation Plans**: `/docs/superpowers/plans/`
+- **Implementation Plans**: `/docs/plans/`
 
 ## Updating This Document
 

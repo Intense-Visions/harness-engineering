@@ -134,8 +134,8 @@ export function createValidateCommand(): Command {
       if (opts.crossCheck) {
         const { runCrossCheck } = await import('./validate-cross-check');
         const cwd = process.cwd();
-        const specsDir = path.join(cwd, 'docs', 'superpowers', 'specs');
-        const plansDir = path.join(cwd, 'docs', 'superpowers', 'plans');
+        const specsDir = path.join(cwd, 'docs', 'specs');
+        const plansDir = path.join(cwd, 'docs', 'plans');
 
         const crossResult = await runCrossCheck({ specsDir, plansDir, projectPath: cwd });
         if (crossResult.ok && crossResult.value.warnings > 0) {
