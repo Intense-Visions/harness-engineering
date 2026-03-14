@@ -27,10 +27,13 @@ type: rigid
 phases:
   - name: check
     description: Run all harness validation commands
+    required: true
   - name: report
     description: Summarize findings and violations
+    required: true
   - name: remediate
     description: Fix any critical violations
+    required: true
 state:
   persistent: false
   files: []

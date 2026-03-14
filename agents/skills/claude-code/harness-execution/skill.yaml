@@ -30,12 +30,16 @@ type: rigid
 phases:
   - name: prepare
     description: Load state and verify prerequisites
+    required: true
   - name: execute
     description: Implement planned tasks
+    required: true
   - name: verify
     description: Validate each completed task
+    required: true
   - name: persist
     description: Save progress to state files
+    required: true
 state:
   persistent: true
   files:

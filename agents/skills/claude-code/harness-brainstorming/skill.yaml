@@ -29,12 +29,16 @@ type: rigid
 phases:
   - name: explore
     description: Generate ideas and possibilities
+    required: true
   - name: evaluate
     description: Assess ideas against constraints
+    required: true
   - name: prioritize
     description: Select and sequence top ideas
+    required: true
   - name: validate
     description: Run harness checks on selected approach
+    required: true
 state:
   persistent: false
   files: []

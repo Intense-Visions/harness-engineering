@@ -29,12 +29,16 @@ type: rigid
 phases:
   - name: scope
     description: Define goals and constraints
+    required: true
   - name: decompose
     description: Break work into tasks
+    required: true
   - name: sequence
     description: Order tasks and identify dependencies
+    required: true
   - name: validate
     description: Run harness checks on the plan
+    required: true
 state:
   persistent: false
   files: []
