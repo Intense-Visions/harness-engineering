@@ -1,0 +1,25 @@
+version: 1
+name: Documentation Maintainer
+description: Keeps documentation in sync with source code
+role: Detect documentation drift, validate doc coverage, align docs with code changes
+skills:
+  - detect-doc-drift
+  - align-documentation
+commands:
+  - check-docs
+  - validate
+triggers:
+  - event: on_pr
+    conditions:
+      paths: ["src/**", "docs/**"]
+  - event: on_commit
+    conditions:
+      branches: ["main"]
+config:
+  severity: warning
+  autoFix: false
+  timeout: 300000
+outputs:
+  agents-md: true
+  ci-workflow: true
+  runtime-config: true
