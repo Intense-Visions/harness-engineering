@@ -42,6 +42,9 @@ export function createProgram(): Command {
   return program;
 }
 
+// Preamble builder export
+export { buildPreamble } from './commands/skill/preamble';
+
 // Re-export utilities
 export { CLIError, ExitCode, handleError } from './utils/errors';
 export { OutputFormatter, OutputMode } from './output/formatter';
