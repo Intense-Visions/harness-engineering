@@ -138,6 +138,22 @@ depends_on:
 
 3. **Test by running the skill:** `harness skill run <name>`. Verify it loads correctly and the process instructions make sense in context.
 
+### Skill Quality Checklist
+
+Evaluate every skill along two dimensions:
+
+| | **Clear activation** | **Ambiguous activation** | **Missing activation** |
+|---|---|---|---|
+| **Specific implementation** | Good skill | Wasted — good instructions nobody finds | Broken |
+| **Vague implementation** | Trap — agents activate but flounder | Bad skill | Empty shell |
+| **Missing implementation** | Stub | Stub | Does not exist |
+
+- **Good skill** = clear activation + specific implementation. The agent knows when to use it and exactly what to do.
+- **Clear activation + vague implementation** = trap. The skill fires correctly but the agent has no concrete instructions, leading to inconsistent results.
+- **Ambiguous activation + specific implementation** = wasted. Great instructions that never get used because the agent does not know when to activate the skill.
+
+Use this checklist as a final quality gate before declaring a skill complete.
+
 ## Harness Integration
 
 - **`harness skill validate`** — Validate a skill's `skill.yaml` and `SKILL.md` against the schema and structure requirements.

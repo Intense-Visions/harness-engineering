@@ -45,6 +45,16 @@ If you find yourself writing production code, tests, or scaffolding before the h
 
 5. **Continue until you have enough clarity** to propose concrete approaches. Typically 3-7 questions are sufficient. If you need more than 10, the scope is too large — decompose.
 
+### Context Keywords
+
+During Phase 2, extract 5-10 domain keywords that capture the problem space. Include them in the spec frontmatter:
+
+```
+**Keywords:** auth, middleware, session-tokens, refresh-flow, OAuth2
+```
+
+These keywords flow into the `handoff.json` `contextKeywords` field when the spec is handed off to planning. Select keywords that would help a fresh agent — one that has never seen this conversation — understand the domain area quickly.
+
 ---
 
 ### Phase 3: PRIORITIZE — Propose Approaches
@@ -74,6 +84,8 @@ If you find yourself writing production code, tests, or scaffolding before the h
    - Implementation order (high-level phases, not detailed tasks — that is harness-planning's job)
 
 2. **After all sections are reviewed, write the spec to `docs/`.** Use the project's existing spec naming convention. If none exists, use `docs/specs/YYYY-MM-DD-<feature-name>.md`.
+
+   When the project has `docs/specs/`, write proposals to `docs/changes/<feature>/proposal.md` instead. This keeps change proposals separate from established specs. Fall back to the existing behavior (`docs/specs/`) when no `docs/specs/` directory exists yet.
 
 3. **Run `harness validate`** to verify the spec file is properly placed and the project remains healthy.
 

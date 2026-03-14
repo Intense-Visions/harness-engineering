@@ -204,7 +204,7 @@ State: Mid-execution on a 6-task notification feature plan
 **SUMMARIZE:**
 ```
 Produce orientation with all sections. Getting Started for this context:
-1. Read the plan at docs/superpowers/plans/2026-03-14-notifications-plan.md
+1. Read the plan at docs/plans/2026-03-14-notifications-plan.md
 2. Resume execution at Task 4 (state shows Tasks 1-3 complete)
 3. Note the UTC normalization gotcha from learnings before working with dates
 ```
@@ -228,3 +228,16 @@ Getting Started:
 3. Consider migrating to intermediate level to add layer boundaries
    (use initialize-harness-project to upgrade)
 ```
+
+## Adoption Maturity
+
+A mental model for where a team sits on the harness adoption curve. Not prescriptive — just orientation.
+
+| Level | Name | Description |
+|---|---|---|
+| 1 | **Manual** | Write `CLAUDE.md` by hand, run commands manually. Harness is a reference, not a tool. |
+| 2 | **Repeatable** | Skills installed, agent follows conventions consistently. Workflows are codified but enforcement is human-driven. |
+| 3 | **Automated** | Mechanical gates in CI. `harness validate` runs on PRs. Failures auto-log to `.harness/failures.md`. The system catches mistakes before humans do. |
+| 4 | **Self-improving** | Learnings accumulate in `.harness/learnings.md`. Agents reference past failures before planning. Institutional knowledge compounds across sessions and team members. |
+
+Most teams start at Level 1 and move up as they see the value. There is no pressure to reach Level 4 — each level delivers real benefits on its own.
