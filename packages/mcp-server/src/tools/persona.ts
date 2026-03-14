@@ -1,14 +1,7 @@
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { Ok, Err } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-function resolvePersonasDir(): string {
-  return path.resolve(__dirname, '..', '..', '..', '..', 'agents', 'personas');
-}
+import { resolvePersonasDir } from '../utils/paths.js';
 
 export const listPersonasDefinition = {
   name: 'list_personas',
