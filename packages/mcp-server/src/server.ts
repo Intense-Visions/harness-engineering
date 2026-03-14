@@ -10,7 +10,7 @@ import { initProjectDefinition, handleInitProject } from './tools/init.js';
 import { listPersonasDefinition, handleListPersonas, generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, runPersonaDefinition, handleRunPersona } from './tools/persona.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
-type ToolHandler = (input: Record<string, unknown>) => Promise<unknown>;
+type ToolHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
 
 const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateToolDefinition,
@@ -61,7 +61,7 @@ export function createHarnessServer(): Server {
     if (!handler) {
       return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
     }
-    return handler(args ?? {});
+    return handler(args ?? {}) as Promise<never>;
   });
 
   return server;

@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 
 export const detectEntropyDefinition = {
@@ -49,12 +50,17 @@ export async function handleApplyFixes(input: { path: string; dryRun?: boolean }
     });
     const analysisResult = await analyzer.analyze();
     if (!analysisResult.ok) return resultToMcpResponse(analysisResult);
-    const fixes = createFixes(analysisResult.value, {});
-    if (!fixes.ok) return resultToMcpResponse(fixes);
-    if (input.dryRun) {
-      return { content: [{ type: 'text' as const, text: JSON.stringify(fixes.value) }] };
+
+    const deadCode = analysisResult.value.deadCode;
+    if (!deadCode) {
+      return resultToMcpResponse(Ok({ fixes: [], applied: 0 }));
     }
-    const applied = await applyFixes(fixes.value, {});
+
+    const fixes = createFixes(deadCode, {});
+    if (input.dryRun) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify(fixes) }] };
+    }
+    const applied = await applyFixes(fixes, {});
     return resultToMcpResponse(applied);
   } catch (error) {
     return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };

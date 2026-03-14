@@ -92,7 +92,9 @@ export class TemplateEngine {
     }
 
     files = files.filter((f) => f.relativePath !== 'template.json');
-    return Ok({ metadata, files, overlayMetadata });
+    const resolved: ResolvedTemplate = { metadata, files };
+    if (overlayMetadata !== undefined) resolved.overlayMetadata = overlayMetadata;
+    return Ok(resolved);
   }
 
   render(template: ResolvedTemplate, context: TemplateContext): Result<RenderedFiles, Error> {
