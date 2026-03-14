@@ -5,6 +5,8 @@ import { validateToolDefinition, handleValidateProject } from './tools/validate.
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs, validateKnowledgeMapDefinition, handleValidateKnowledgeMap } from './tools/docs.js';
 import { detectEntropyDefinition, handleDetectEntropy, applyFixesDefinition, handleApplyFixes } from './tools/entropy.js';
+import { generateLinterDefinition, handleGenerateLinter, validateLinterConfigDefinition, handleValidateLinterConfig } from './tools/linter.js';
+import { initProjectDefinition, handleInitProject } from './tools/init.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (input: Record<string, unknown>) => Promise<unknown>;
@@ -16,6 +18,9 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateKnowledgeMapDefinition,
   detectEntropyDefinition,
   applyFixesDefinition,
+  generateLinterDefinition,
+  validateLinterConfigDefinition,
+  initProjectDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -24,6 +29,9 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_knowledge_map: handleValidateKnowledgeMap as ToolHandler,
   detect_entropy: handleDetectEntropy as ToolHandler,
   apply_fixes: handleApplyFixes as ToolHandler,
+  generate_linter: handleGenerateLinter as ToolHandler,
+  validate_linter_config: handleValidateLinterConfig as ToolHandler,
+  init_project: handleInitProject as ToolHandler,
 };
 
 export function getToolDefinitions(): ToolDefinition[] {
