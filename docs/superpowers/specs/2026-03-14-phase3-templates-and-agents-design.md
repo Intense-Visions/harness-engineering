@@ -571,4 +571,4 @@ Slices 1 and 2 can run in parallel. Slice 3 follows Slice 2. Slice 4 is future w
 4. ~~`toKebabCase` duplication~~ — **RESOLVED.** Extracted to `packages/cli/src/utils/string.ts`.
 5. ~~`mergeStrategy.files: 'error'` not enforced~~ — **RESOLVED.** Simplified schema to only accept `'overlay-wins'` (YAGNI).
 6. ~~Template render error messages~~ — **RESOLVED.** Per-file error catching with source template + file path in messages.
-7. **MCP server path resolution for published packages** — `resolvePersonasDir`/`resolveTemplatesDir` in MCP tools use `import.meta.url` walk-up which won't work from `node_modules`. Deferred until npm publishing. For now, paths should be configurable via tool inputs or environment.
+7. ~~MCP server path resolution for published packages~~ — **RESOLVED.** Centralized in `packages/mcp-server/src/utils/paths.ts` using `findUpDir` pattern with marker-based directory detection. Falls back to hardcoded relative paths.
