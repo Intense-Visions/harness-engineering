@@ -1,0 +1,7 @@
+version: 1
+output: ./out
+rules:
+  - name: test
+    type: foo
+    config:
+      bad: [unclosed bracket
