@@ -3,13 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
-import { CONFIG_TEMPLATE, AGENTS_MD_TEMPLATE, DOCS_INDEX_TEMPLATE } from '../templates/basic';
+import { TemplateEngine } from '../templates/engine';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
+import { resolveTemplatesDir } from '../utils/paths';
 
 interface InitOptions {
   cwd?: string;
   name?: string;
+  level?: string;
+  framework?: string;
   force?: boolean;
 }
 
@@ -20,13 +23,11 @@ interface InitResult {
 export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
   const cwd = options.cwd ?? process.cwd();
   const name = options.name ?? path.basename(cwd);
+  const level = options.level ?? 'basic';
   const force = options.force ?? false;
 
   const configPath = path.join(cwd, 'harness.config.json');
-  const agentsPath = path.join(cwd, 'AGENTS.md');
-  const docsDir = path.join(cwd, 'docs');
 
-  // Check if already initialized
   if (!force && fs.existsSync(configPath)) {
     return Err(new CLIError(
       'Project already initialized. Use --force to overwrite.',
@@ -34,46 +35,45 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     ));
   }
 
-  const filesCreated: string[] = [];
+  const templatesDir = resolveTemplatesDir();
+  const engine = new TemplateEngine(templatesDir);
 
-  try {
-    // Create config
-    const config = CONFIG_TEMPLATE(name);
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    filesCreated.push('harness.config.json');
-
-    // Create AGENTS.md
-    if (!fs.existsSync(agentsPath) || force) {
-      fs.writeFileSync(agentsPath, AGENTS_MD_TEMPLATE(name));
-      filesCreated.push('AGENTS.md');
-    }
-
-    // Create docs directory
-    if (!fs.existsSync(docsDir)) {
-      fs.mkdirSync(docsDir, { recursive: true });
-      fs.writeFileSync(path.join(docsDir, 'index.md'), DOCS_INDEX_TEMPLATE(name));
-      filesCreated.push('docs/index.md');
-    }
-
-    return Ok({ filesCreated });
-  } catch (error) {
-    return Err(new CLIError(
-      `Failed to initialize: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ExitCode.ERROR
-    ));
+  const resolveResult = engine.resolveTemplate(level, options.framework);
+  if (!resolveResult.ok) {
+    return Err(new CLIError(resolveResult.error.message, ExitCode.ERROR));
   }
+
+  const renderResult = engine.render(resolveResult.value, {
+    projectName: name,
+    level,
+    framework: options.framework,
+  });
+  if (!renderResult.ok) {
+    return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));
+  }
+
+  const writeResult = engine.write(renderResult.value, cwd, { overwrite: force });
+  if (!writeResult.ok) {
+    return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
+  }
+
+  return Ok({ filesCreated: writeResult.value });
 }
 
 export function createInitCommand(): Command {
   const command = new Command('init')
     .description('Initialize a new harness-engineering project')
     .option('-n, --name <name>', 'Project name')
+    .option('-l, --level <level>', 'Adoption level (basic, intermediate, advanced)', 'basic')
+    .option('--framework <framework>', 'Framework overlay (nextjs)')
     .option('-f, --force', 'Overwrite existing files')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
 
       const result = await runInit({
         name: opts.name,
+        level: opts.level,
+        framework: opts.framework,
         force: opts.force,
       });
 

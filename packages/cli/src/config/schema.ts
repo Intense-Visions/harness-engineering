@@ -38,6 +38,11 @@ export const HarnessConfigSchema = z.object({
   docsDir: z.string().default('./docs'),
   agent: AgentConfigSchema.optional(),
   entropy: EntropyConfigSchema.optional(),
+  template: z.object({
+    level: z.enum(['basic', 'intermediate', 'advanced']),
+    framework: z.string().optional(),
+    version: z.number(),
+  }).optional(),
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;

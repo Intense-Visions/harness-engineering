@@ -9,6 +9,7 @@ import { createFixDriftCommand } from './commands/fix-drift';
 import { createAgentCommand } from './commands/agent';
 import { createAddCommand } from './commands/add';
 import { createLinterCommand } from './commands/linter';
+import { createPersonaCommand } from './commands/persona';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -32,6 +33,7 @@ export function createProgram(): Command {
   program.addCommand(createAgentCommand());
   program.addCommand(createAddCommand());
   program.addCommand(createLinterCommand());
+  program.addCommand(createPersonaCommand());
 
   return program;
 }
@@ -42,3 +44,17 @@ export { OutputFormatter, OutputMode } from './output/formatter';
 export { logger } from './output/logger';
 export { loadConfig, findConfigFile, resolveConfig } from './config/loader';
 export type { HarnessConfig } from './config/schema';
+
+// Template engine exports
+export { TemplateEngine } from './templates/engine';
+export type { TemplateContext, RenderedFiles } from './templates/engine';
+
+// Persona exports
+export { loadPersona, listPersonas } from './persona/loader';
+export type { PersonaMetadata } from './persona/loader';
+export { generateRuntime } from './persona/generators/runtime';
+export { generateAgentsMd } from './persona/generators/agents-md';
+export { generateCIWorkflow } from './persona/generators/ci-workflow';
+export { runPersona } from './persona/runner';
+export type { CommandExecutor, PersonaRunReport } from './persona/runner';
+export type { Persona } from './persona/schema';

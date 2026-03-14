@@ -1,0 +1,391 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`template snapshots > advanced template output matches snapshot 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test — A project using Harness Engineering practices (advanced adoption level).
+
+## Documentation
+
+- Main docs: \`docs/\`
+- Architecture decisions: \`docs/architecture.md\`
+
+## Source Code
+
+- Entry point: \`src/index.ts\`
+
+## Architecture
+
+See \`docs/architecture.md\` for architectural decisions.
+",
+  "agents/personas/.gitkeep": "",
+  "docs/index.md": "# snapshot-test Documentation
+
+Welcome to the snapshot-test documentation.
+
+## Getting Started
+
+1. Install dependencies: \`npm install\`
+2. Run checks: \`npx harness validate\`
+3. Start development
+
+## Architecture
+
+See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "layers": [
+    {
+      "name": "types",
+      "pattern": "src/types/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "domain",
+      "pattern": "src/domain/**",
+      "allowedDependencies": [
+        "types"
+      ]
+    },
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": [
+        "types",
+        "domain"
+      ]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": [
+        "types",
+        "domain",
+        "services"
+      ]
+    }
+  ],
+  "forbiddenImports": [
+    {
+      "from": "src/types/**",
+      "disallow": [
+        "src/services/**",
+        "src/api/**"
+      ],
+      "message": "Types layer cannot import from services or API"
+    }
+  ],
+  "boundaries": {
+    "requireSchema": [
+      "src/api/**"
+    ]
+  },
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "agent": {
+    "executor": "subprocess",
+    "timeout": 300000
+  },
+  "entropy": {
+    "excludePatterns": [
+      "**/node_modules/**",
+      "**/*.test.ts"
+    ],
+    "autoFix": false
+  },
+  "template": {
+    "level": "advanced",
+    "version": 1
+  }
+}",
+  "package.json": "{
+  "name": "snapshot-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src",
+    "harness:validate": "harness validate",
+    "harness:check-deps": "harness check-deps",
+    "harness:check-docs": "harness check-docs",
+    "harness:cleanup": "harness cleanup",
+    "harness:fix-drift": "harness fix-drift"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/eslint-plugin": "^0.1.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0"
+  }
+}",
+}
+`;
+
+exports[`template snapshots > basic template output matches snapshot 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test — A project using Harness Engineering practices (basic adoption level).
+
+## Documentation
+
+- Main docs: \`docs/\`
+- Architecture decisions: \`docs/architecture.md\`
+
+## Source Code
+
+- Entry point: \`src/index.ts\`
+
+## Architecture
+
+See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/index.md": "# snapshot-test Documentation
+
+Welcome to the snapshot-test documentation.
+
+## Getting Started
+
+1. Install dependencies: \`npm install\`
+2. Run checks: \`npx harness validate\`
+3. Start development
+
+## Architecture
+
+See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "layers": [
+    {
+      "name": "types",
+      "pattern": "src/types/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "domain",
+      "pattern": "src/domain/**",
+      "allowedDependencies": [
+        "types"
+      ]
+    },
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": [
+        "types",
+        "domain"
+      ]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": [
+        "types",
+        "domain",
+        "services"
+      ]
+    }
+  ],
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "level": "basic",
+    "version": 1
+  }
+}",
+  "package.json": "{
+  "name": "snapshot-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "harness:validate": "harness validate",
+    "harness:check-deps": "harness check-deps"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@harness-engineering/cli": "^0.1.0",
+    "typescript": "^5.0.0"
+  }
+}",
+  "src/index.ts": "export {};
+",
+  "tsconfig.json": "{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": true
+  },
+  "include": ["src"]
+}
+",
+}
+`;
+
+exports[`template snapshots > intermediate template output matches snapshot 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test — A project using Harness Engineering practices (intermediate adoption level).
+
+## Documentation
+
+- Main docs: \`docs/\`
+- Architecture decisions: \`docs/architecture.md\`
+
+## Source Code
+
+- Entry point: \`src/index.ts\`
+
+## Architecture
+
+See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/index.md": "# snapshot-test Documentation
+
+Welcome to the snapshot-test documentation.
+
+## Getting Started
+
+1. Install dependencies: \`npm install\`
+2. Run checks: \`npx harness validate\`
+3. Start development
+
+## Architecture
+
+See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "eslint.config.mjs": "import harnessPlugin from '@harness-engineering/eslint-plugin';
+
+export default [
+  harnessPlugin.configs.recommended,
+  {
+    rules: {
+      '@harness-engineering/no-circular-deps': 'error',
+      '@harness-engineering/no-forbidden-imports': 'error',
+      '@harness-engineering/no-layer-violation': 'error',
+    },
+  },
+];
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "layers": [
+    {
+      "name": "types",
+      "pattern": "src/types/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "domain",
+      "pattern": "src/domain/**",
+      "allowedDependencies": [
+        "types"
+      ]
+    },
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": [
+        "types",
+        "domain"
+      ]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": [
+        "types",
+        "domain",
+        "services"
+      ]
+    }
+  ],
+  "forbiddenImports": [
+    {
+      "from": "src/types/**",
+      "disallow": [
+        "src/services/**",
+        "src/api/**"
+      ],
+      "message": "Types layer cannot import from services or API"
+    }
+  ],
+  "boundaries": {
+    "requireSchema": [
+      "src/api/**"
+    ]
+  },
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "level": "intermediate",
+    "version": 1
+  }
+}",
+  "package.json": "{
+  "name": "snapshot-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src",
+    "harness:validate": "harness validate",
+    "harness:check-deps": "harness check-deps",
+    "harness:check-docs": "harness check-docs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/eslint-plugin": "^0.1.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0"
+  }
+}",
+  "src/domain/.gitkeep": "",
+  "src/services/.gitkeep": "",
+  "src/types/.gitkeep": "",
+}
+`;

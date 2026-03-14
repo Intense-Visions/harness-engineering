@@ -1,10 +1,15 @@
 import { Command } from 'commander';
+import * as path from 'path';
+import * as childProcess from 'child_process';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { requestPeerReview, type AgentType } from '@harness-engineering/core';
 import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
+import { loadPersona } from '../../persona/loader';
+import { runPersona, type CommandExecutor } from '../../persona/runner';
+import { resolvePersonasDir } from '../../utils/paths';
 
 interface RunOptions {
   configPath?: string;
@@ -70,10 +75,55 @@ export async function runAgentTask(
 export function createRunCommand(): Command {
   return new Command('run')
     .description('Run an agent task')
-    .argument('<task>', 'Task to run (review, doc-review, test-review)')
+    .argument('[task]', 'Task to run (review, doc-review, test-review)')
     .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
+    .option('--persona <name>', 'Run a persona by name')
     .action(async (task, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
+
+      if (opts.persona) {
+        const personasDir = resolvePersonasDir();
+        const filePath = path.join(personasDir, `${opts.persona}.yaml`);
+        const personaResult = loadPersona(filePath);
+        if (!personaResult.ok) {
+          logger.error(personaResult.error.message);
+          process.exit(ExitCode.ERROR);
+        }
+        const persona = personaResult.value;
+
+        const ALLOWED_COMMANDS = new Set([
+          'validate', 'check-deps', 'check-docs', 'cleanup', 'fix-drift', 'add',
+        ]);
+
+        const executor: CommandExecutor = async (command: string) => {
+          if (!ALLOWED_COMMANDS.has(command)) {
+            return Err(new Error(`Unknown harness command: ${command}`));
+          }
+          try {
+            childProcess.execFileSync('npx', ['harness', command], { stdio: 'inherit' });
+            return Ok(null);
+          } catch (error) {
+            return Err(new Error(error instanceof Error ? error.message : String(error)));
+          }
+        };
+
+        const report = await runPersona(persona, executor);
+
+        if (!globalOpts.quiet) {
+          logger.info(`Persona '${report.persona}' status: ${report.status}`);
+          for (const c of report.commands) {
+            const icon = c.status === 'pass' ? 'v' : c.status === 'fail' ? 'x' : '-';
+            console.log(`  [${icon}] ${c.name} (${c.durationMs}ms)`);
+          }
+        }
+
+        process.exit(report.status === 'fail' ? ExitCode.ERROR : ExitCode.SUCCESS);
+      }
+
+      if (!task) {
+        logger.error('Either a task argument or --persona flag is required.');
+        process.exit(ExitCode.ERROR);
+      }
 
       const result = await runAgentTask(task, {
         configPath: globalOpts.config,

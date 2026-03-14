@@ -1,0 +1,6 @@
+{
+  "name": "nextjs",
+  "description": "Next.js framework overlay",
+  "framework": "nextjs",
+  "version": 1
+}

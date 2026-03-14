@@ -1,0 +1,21 @@
+version: 1
+name: Entropy Cleaner
+description: Detects and fixes codebase entropy (drift, dead code, pattern violations)
+role: Run scheduled cleanup, detect documentation drift, fix pattern violations
+skills:
+  - cleanup-dead-code
+  - detect-doc-drift
+commands:
+  - cleanup
+  - fix-drift
+triggers:
+  - event: scheduled
+    cron: "0 6 * * 1"
+config:
+  severity: warning
+  autoFix: false
+  timeout: 600000
+outputs:
+  agents-md: true
+  ci-workflow: true
+  runtime-config: true
