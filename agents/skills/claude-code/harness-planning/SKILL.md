@@ -93,9 +93,25 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
 
 4. **Run `harness validate`** to verify project health before writing the plan.
 
-5. **Write the plan to `docs/superpowers/plans/`.** Use naming convention: `YYYY-MM-DD-<feature-name>-plan.md`. If the directory does not exist, create it.
+5. **Check failures log.** Read `.harness/failures.md` before finalizing. If planned approaches match known failures, flag them with warnings.
 
-6. **Present the plan to the human for review.** Walk through the task list, the estimated timeline, and any checkpoints that require human input.
+6. **Write the plan to `docs/plans/`.** Use naming convention: `YYYY-MM-DD-<feature-name>-plan.md`. If the directory does not exist, create it.
+
+7. **Write handoff.** Save `.harness/handoff.json` with the following structure:
+   ```json
+   {
+     "fromSkill": "harness-planning",
+     "phase": "VALIDATE",
+     "summary": "<one-sentence description of what was planned>",
+     "completed": [],
+     "pending": ["<task 1>", "<task 2>", "..."],
+     "concerns": ["<any concerns or risks identified>"],
+     "decisions": ["<key decisions made during planning>"],
+     "contextKeywords": ["<domain-relevant keywords>"]
+   }
+   ```
+
+8. **Present the plan to the human for review.** Walk through the task list, the estimated timeline, and any checkpoints that require human input.
 
 ---
 
@@ -150,13 +166,35 @@ One sentence.
 
 - **`harness validate`** — Run during Phase 4 (before writing the plan) and included as a step in every task.
 - **`harness check-deps`** — Referenced in tasks that add imports or create new modules. Ensures dependency boundaries are respected.
-- **Plan location** — Plans go to `docs/superpowers/plans/`. Follow the naming convention: `YYYY-MM-DD-<feature-name>-plan.md`.
+- **Plan location** — Plans go to `docs/plans/`. Follow the naming convention: `YYYY-MM-DD-<feature-name>-plan.md`.
 - **Handoff to harness-execution** — Once the plan is approved, invoke harness-execution to begin task-by-task implementation.
 - **Task commands** — Every task includes exact harness CLI commands to run (e.g., `harness validate`, `harness check-deps`).
 
+## Change Specifications
+
+When planning changes to existing functionality (not greenfield), express requirements as deltas from the current documented behavior. Use these markers:
+
+- **[ADDED]** — New behavior that does not exist today
+- **[MODIFIED]** — Existing behavior that changes
+- **[REMOVED]** — Existing behavior that goes away
+
+**Example:**
+```markdown
+## Changes to User Authentication
+
+- [ADDED] Support OAuth2 refresh tokens with 7-day expiry
+- [MODIFIED] Login endpoint returns `refreshToken` field alongside existing `accessToken`
+- [MODIFIED] Token validation middleware accepts both JWT and OAuth2 tokens
+- [REMOVED] Legacy API key authentication (deprecated in v2.1)
+```
+
+This is not mandatory for greenfield features. Only apply when modifying existing documented behavior.
+
+When `docs/specs/` exists in the project, produce `docs/changes/<feature>/delta.md` alongside the task plan. This keeps the change intent separate from the full spec and makes review easier.
+
 ## Success Criteria
 
-- A plan document exists in `docs/superpowers/plans/` with all required sections
+- A plan document exists in `docs/plans/` with all required sections
 - Every task is completable in 2-5 minutes (one context window)
 - Every task includes exact file paths, exact code, and exact commands
 - Every code-producing task follows TDD: test first, fail, implement, pass

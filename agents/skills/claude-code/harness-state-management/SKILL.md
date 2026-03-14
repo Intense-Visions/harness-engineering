@@ -31,7 +31,13 @@
    - Gotchas and warnings — these prevent repeating mistakes
    - Decisions with rationale — these explain why things are the way they are
 
-4. **If no state exists,** this is a fresh start. Create `.harness/state.json` with initial structure:
+4. **Read `.harness/failures.md` if exists.** Scan for active anti-patterns and dead ends.
+
+5. **Read `.harness/handoff.json` if exists.** Structured context from last skill.
+
+6. **Check `.harness/archive/` for historical failure logs.**
+
+7. **If no state exists,** this is a fresh start. Create `.harness/state.json` with initial structure:
    ```json
    {
      "schemaVersion": 1,
@@ -43,7 +49,7 @@
    }
    ```
 
-5. **Announce the loaded context.** Briefly summarize: "Resuming from [position]. [N] tasks complete. [N] blockers. Key learnings: [summary]." This confirms the state was loaded and gives the human visibility.
+8. **Announce the loaded context.** Briefly summarize: "Resuming from [position]. [N] tasks complete. [N] blockers. Key learnings: [summary]." This confirms the state was loaded and gives the human visibility.
 
 ### Phase 2: TRACK — Maintain State During the Session
 
@@ -156,6 +162,13 @@ The `.harness/learnings.md` file grows over the lifetime of the project. It beco
 
 Treat learnings as a first-class project artifact. They are as valuable as tests and documentation.
 
+### Archival Workflow
+
+- **Archive failures:** Move `failures.md` to `.harness/archive/` at milestone boundaries.
+- **Do NOT archive learnings** — permanent. Learnings accumulate for the lifetime of the project.
+- **Do NOT archive state** — git handles history. The current `state.json` is always the source of truth.
+- **Handoff is ephemeral** — overwritten by each skill. No archival needed.
+
 ## Harness Integration
 
 - **`harness state show`** — Display current state in a formatted, readable view. Use at session start to quickly orient.
@@ -163,6 +176,10 @@ Treat learnings as a first-class project artifact. They are as valuable as tests
 - **`harness state learn "<message>"`** — Append a learning to `.harness/learnings.md` with automatic timestamp formatting.
 - **`.harness/state.json`** — Primary state file. Read at session start, updated throughout, saved at session end.
 - **`.harness/learnings.md`** — Append-only knowledge base. Read at session start for context, appended to when discoveries are made.
+- **`.harness/failures.md`** — Active anti-patterns. Read at session start to avoid known dead ends.
+- **`.harness/handoff.json`** — Structured context from last skill. Read at session start for immediate context.
+- **`.harness/trace.md`** — Optional reasoning trace. Useful for debugging agent behavior across sessions.
+- **`.harness/archive/`** — Archived failure logs. Check for historical context when encountering recurring issues.
 
 ## Success Criteria
 
@@ -261,3 +278,6 @@ Commit: git add .harness/ && git commit -m "chore: update harness state after Ta
 | "WebSocket requires sticky sessions in load balancer" | `.harness/learnings.md` | Non-obvious operational concern future sessions need |
 | "Task 4 complete" | `.harness/state.json` progress | Tracks execution position |
 | "The WebSocket library auto-reconnects by default" | `.harness/learnings.md` | Gotcha that saves future debugging time |
+| "Tried approach X, failed because Y" | `.harness/failures.md` | Active anti-pattern to avoid repeating |
+| "Completed Tasks 1-3, Task 4 pending" | `.harness/handoff.json` | Structured context for next skill |
+| "[PREPARE 10:30] Loaded 3 failures" | `.harness/trace.md` | Reasoning trace for debugging agent behavior |

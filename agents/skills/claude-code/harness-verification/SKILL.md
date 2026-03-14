@@ -11,6 +11,17 @@
 - NOT as a replacement for tests (verification checks that tests exist and pass, not that logic is correct)
 - NOT for in-progress work (verify at completion boundaries, not mid-stream)
 
+### Verification Tiers
+
+Harness uses a two-tier verification model:
+
+| Tier | Skill | When | What |
+|------|-------|------|------|
+| **Quick gate** | harness-execution (built-in) | After every task | test + lint + typecheck + build + harness validate |
+| **Deep audit** | harness-verification (this skill) | Milestones, PRs, on-demand | EXISTS → SUBSTANTIVE → WIRED |
+
+Use this skill (deep audit) for milestone boundaries, before creating PRs, or when the quick gate passes but something feels wrong. Do NOT invoke this skill after every individual task — that is what the quick gate handles.
+
 ## Process
 
 ### Iron Law
@@ -182,6 +193,17 @@ All commands must be run fresh in the current session. Do not rely on results fr
 - All gaps are explicitly identified with specific remediation steps
 - Regression tests (for bug fixes) pass the 5-step revert check
 
+## Non-Determinism Tolerance
+
+For mechanical checks (tests pass, lint clean, types check), results are binary — pass or fail. No tolerance.
+
+For behavioral verification (did the agent follow a convention, did the output match a style guide), accept threshold-based results:
+- Run the check multiple times if needed
+- "Agent followed the constraint in 4/5 runs" = pass
+- "Agent followed the constraint in 2/5 runs" = fail — the convention is poorly written, not the agent
+
+If a behavioral convention fails more than 40% of the time, the convention needs rewriting. Blame the instruction, not the executor.
+
 ## Examples
 
 ### Example: Verifying a New Service Module
@@ -232,3 +254,6 @@ Task: "Create UserService with create, read, update, delete operations."
 - **When tests pass but you suspect they are not testing real behavior:** Read the test assertions carefully. If tests only check "does not throw" or assert on mock return values without verifying real behavior, flag them as SUBSTANTIVE failures.
 - **When verification reveals the spec itself is incomplete:** Do not fill in the gaps yourself. Escalate to the human: "Verification found that the spec does not define behavior for [scenario]. How should this be handled?"
 - **When you cannot run harness checks:** If `harness validate` or `harness check-deps` cannot be run (missing configuration, broken tooling), this is a blocking issue. Do not skip verification — fix the tooling or escalate.
+
+After verification completes, append a tagged learning:
+- **YYYY-MM-DD [skill:harness-verification] [outcome:pass/fail]:** Verified [feature]. [Brief note on what was found or confirmed.]

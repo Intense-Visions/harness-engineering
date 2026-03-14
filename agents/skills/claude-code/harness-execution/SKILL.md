@@ -23,18 +23,22 @@ Deviating from the plan mid-execution introduces untested assumptions, breaks ta
 
 ### Phase 1: PREPARE — Load State and Verify Prerequisites
 
-1. **Load the plan.** Read the plan document from `docs/superpowers/plans/`. Identify the total task count and any checkpoints.
+1. **Load the plan.** Read the plan document from `docs/plans/`. Identify the total task count and any checkpoints.
 
 2. **Load state.** Read `.harness/state.json` to determine current position. If the file does not exist, this is a fresh start — position is Task 1.
 
 3. **Load learnings.** Read `.harness/learnings.md` for context from previous sessions. These are hard-won insights — do not ignore them.
 
-4. **Verify prerequisites.** For the current task:
+4. **Load failures.** Read `.harness/failures.md` for known dead ends. If any entries match approaches in the current plan, surface warnings before proceeding.
+
+5. **Load handoff.** Read `.harness/handoff.json` if it exists. Contains structured context from the previous skill (e.g., harness-planning passing context to harness-execution). Use this to prime session state.
+
+6. **Verify prerequisites.** For the current task:
    - Are dependency tasks marked complete in state?
    - Do the files referenced in the task exist as expected?
    - Does the test suite pass? Run `harness validate` to confirm a clean baseline.
 
-5. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
+7. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
 ---
 
@@ -55,7 +59,12 @@ For each task, starting from the current position:
 
 4. **Commit atomically.** Each task produces exactly one commit. Use the commit message specified in the plan. If no message is specified, write a descriptive message in the project's convention.
 
-5. **Update state after each task.** Write to `.harness/state.json`:
+5. **Run mechanical gate.** After each task commit, run the full gate check: test suite, linter, type checker, build, and `harness validate`. This is binary pass/fail.
+   - **All pass →** proceed to the next task.
+   - **Any fail →** retry with error context (max 2 attempts).
+   - **Still failing after retries →** record the failure in `.harness/failures.md`, escalate, and stop.
+
+6. **Update state after each task.** Write to `.harness/state.json`:
    ```json
    {
      "schemaVersion": 1,
@@ -65,7 +74,7 @@ For each task, starting from the current position:
    }
    ```
 
-6. **Handle checkpoints** according to the checkpoint protocol (see below).
+7. **Handle checkpoints** according to the checkpoint protocol (see below).
 
 ---
 
@@ -94,14 +103,16 @@ Plans contain three types of checkpoints. Each requires pausing execution.
 
 ---
 
-### Phase 3: VERIFY — Validate Each Completed Task
+### Phase 3: VERIFY — Two-Tier Validation
 
-After each task completes:
+**Quick gate (default):** The mechanical gate in Phase 2 Step 5 IS the standard verification. Every task commit must pass it before proceeding. No additional verification step is needed for normal execution.
 
-1. **Run `harness validate`** to verify project health has not degraded.
-2. **Run the full test suite** (not just the current task's tests) to catch regressions.
-3. **If validation fails,** stop. Do not proceed to the next task. Fix the issue within the current task scope, then re-validate.
-4. **If the fix requires changes outside the current task scope,** this is a blocker. Record it and stop.
+**Deep audit (on-demand):** When `--deep` is passed or at milestone boundaries (e.g., end of a phase, final task), invoke the full `harness-verification` skill for 3-level audit:
+1. **EXISTS** — Do the artifacts the task claims to produce actually exist?
+2. **SUBSTANTIVE** — Do those artifacts contain meaningful, correct content (not stubs or placeholders)?
+3. **WIRED** — Are those artifacts integrated into the system (imported, routed, tested, reachable)?
+
+If the deep audit fails at any level, treat it as a blocker. Record it and stop.
 
 ---
 
@@ -109,17 +120,39 @@ After each task completes:
 
 Between tasks (especially between sessions):
 
-1. **Update `.harness/state.json`** with current position and progress.
-
-2. **Append to `.harness/learnings.md`** anything discovered during execution that future sessions need to know. Format:
-   ```markdown
-   ## YYYY-MM-DD — Task N: <task name>
-   - [learning]: What was discovered
-   - [gotcha]: What was surprising or non-obvious
-   - [decision]: What was decided and why
+1. **Update `.harness/state.json`** with current position, progress, and `lastSession` context:
+   ```json
+   {
+     "lastSession": {
+       "lastSkill": "harness-execution",
+       "pendingTasks": ["Task 4", "Task 5"]
+     }
+   }
    ```
 
-3. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
+2. **Append tagged learnings to `.harness/learnings.md`.** Tag every entry with skill and outcome:
+   ```markdown
+   ## YYYY-MM-DD — Task N: <task name>
+   - [skill:harness-execution] [outcome:success] What was accomplished
+   - [skill:harness-execution] [outcome:gotcha] What was surprising or non-obvious
+   - [skill:harness-execution] [outcome:decision] What was decided and why
+   ```
+
+3. **Record failures in `.harness/failures.md`** if any task was escalated after retry exhaustion (from Phase 2 Step 5). Include the approach attempted and why it failed, so future sessions avoid the same dead end.
+
+4. **Write `.harness/handoff.json`** with structured context for the next skill or session:
+   ```json
+   {
+     "fromSkill": "harness-execution",
+     "timestamp": "YYYY-MM-DDTHH:MM:SSZ",
+     "summary": "Completed Tasks 1-3. Task 4 blocked on missing API endpoint.",
+     "pendingTasks": ["Task 4", "Task 5"],
+     "blockers": ["Task 4: /api/notifications endpoint not implemented"],
+     "learnings": ["Date comparison needs UTC normalization"]
+   }
+   ```
+
+5. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
 
 ---
 
@@ -162,7 +195,7 @@ These are non-negotiable. When any condition is met, stop immediately.
 
 **Session Start (fresh):**
 ```
-Read plan: docs/superpowers/plans/2026-03-14-notifications-plan.md (5 tasks)
+Read plan: docs/plans/2026-03-14-notifications-plan.md (5 tasks)
 Read state: .harness/state.json — file not found (fresh start, position: Task 1)
 Read learnings: .harness/learnings.md — file not found (no prior context)
 Run: harness validate — passes. Clean baseline confirmed.
@@ -206,7 +239,7 @@ Human: "Continue."
 
 **Context reset mid-plan (resume at Task 4):**
 ```
-Read plan: docs/superpowers/plans/2026-03-14-notifications-plan.md
+Read plan: docs/plans/2026-03-14-notifications-plan.md
 Read state: .harness/state.json — position: Task 4, Tasks 1-3 complete
 Read learnings: .harness/learnings.md — "Date comparison needed UTC normalization"
 Run: harness validate — passes. Resume from Task 4.
@@ -231,3 +264,19 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When tests pass but behavior seems wrong:** Do not ignore your instinct, but also do not act on it unilaterally. Report: "Task N passes all tests, but I notice [observation]. Should I investigate before proceeding?"
 - **When state is corrupted or inconsistent:** If `.harness/state.json` says Task 5 is complete but the code for Task 5 does not exist, the state is wrong. Report the inconsistency. Do not trust corrupted state — re-verify from Task 1 if needed.
 - **When the human wants to skip ahead:** Explain the risk: "Skipping Task N means Tasks [X, Y] that depend on it may fail. If you want to skip, we should update the plan to remove the dependency." Get explicit approval before skipping.
+
+## Trace Output (Optional)
+
+When `.harness/gate.json` has `"trace": true` or `--verbose` is passed, append one-sentence reasoning at each phase boundary to `.harness/trace.md`.
+
+**Format:** `**[PHASE HH:MM:SS]** summary`
+
+Example:
+```markdown
+**[PREPARE 14:32:07]** Loaded plan with 5 tasks, resuming from Task 3 per state.json.
+**[EXECUTE 14:32:15]** Task 3 committed; mechanical gate passed on first attempt.
+**[VERIFY 14:35:42]** Deep audit requested at milestone; all 3 levels passed.
+**[PERSIST 14:35:50]** State updated, handoff.json written with 2 pending tasks.
+```
+
+This is for human debugging only. Not required for normal execution.
