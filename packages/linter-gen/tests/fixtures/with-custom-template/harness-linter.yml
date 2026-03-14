@@ -1,0 +1,13 @@
+version: 1
+output: ./generated
+
+templates:
+  explicit-custom: ./my-templates/explicit.ts.hbs
+
+rules:
+  - name: use-convention-template
+    type: convention-type
+    config: {}
+  - name: use-explicit-template
+    type: explicit-custom
+    config: {}
