@@ -8,10 +8,7 @@ import { generateCIWorkflow } from '../../persona/generators/ci-workflow';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 import { resolvePersonasDir } from '../../utils/paths';
-
-function toKebabCase(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, '-');
-}
+import { toKebabCase } from '../../utils/string';
 
 export function createGenerateCommand(): Command {
   return new Command('generate')
