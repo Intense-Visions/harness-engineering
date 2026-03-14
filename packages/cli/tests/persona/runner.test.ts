@@ -44,4 +44,14 @@ describe('runPersona', () => {
     }
     expect(report.totalDurationMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('marks commands as skipped on timeout', async () => {
+    const slowExecutor: CommandExecutor = vi.fn().mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, value: {} }), 5000))
+    );
+    const persona = { ...mockPersona, config: { ...mockPersona.config, timeout: 50 } };
+    const report = await runPersona(persona, slowExecutor);
+    expect(report.status).toBe('partial');
+    expect(report.commands.some(c => c.status === 'skipped')).toBe(true);
+  });
 });
