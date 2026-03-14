@@ -44,6 +44,20 @@ Welcome to the snapshot-test documentation.
 
 See [architecture.md](./architecture.md) for architectural decisions.
 ",
+  "docs/principles.md": "# snapshot-test Principles
+
+## Code Quality
+- TODO: Define your code quality principles
+
+## Architecture
+- TODO: Define your architectural principles
+
+## Testing
+- TODO: Define your testing approach
+
+## Design
+- TODO: Define your design principles
+",
   "harness.config.json": "{
   "version": 1,
   "name": "snapshot-test",
@@ -295,6 +309,20 @@ Welcome to the snapshot-test documentation.
 ## Architecture
 
 See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "docs/principles.md": "# snapshot-test Principles
+
+## Code Quality
+- TODO: Define your code quality principles
+
+## Architecture
+- TODO: Define your architectural principles
+
+## Testing
+- TODO: Define your testing approach
+
+## Design
+- TODO: Define your design principles
 ",
   "eslint.config.mjs": "import harnessPlugin from '@harness-engineering/eslint-plugin';
 

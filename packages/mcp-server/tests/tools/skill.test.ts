@@ -6,4 +6,17 @@ describe('run_skill tool', () => {
     expect(runSkillDefinition.name).toBe('run_skill');
     expect(runSkillDefinition.inputSchema.required).toContain('skill');
   });
+
+  it('accepts complexity, phase, and party inputs', () => {
+    expect(runSkillDefinition.inputSchema.properties.complexity).toBeDefined();
+    expect(runSkillDefinition.inputSchema.properties.phase).toBeDefined();
+    expect(runSkillDefinition.inputSchema.properties.party).toBeDefined();
+  });
+
+  it('complexity has correct enum values', () => {
+    const complexity = runSkillDefinition.inputSchema.properties.complexity as { type: string; enum: string[] };
+    expect(complexity.enum).toContain('auto');
+    expect(complexity.enum).toContain('light');
+    expect(complexity.enum).toContain('full');
+  });
 });

@@ -101,7 +101,8 @@ export async function runValidate(
 export function createValidateCommand(): Command {
   const command = new Command('validate')
     .description('Run all validation checks')
-    .action(async (_opts, cmd) => {
+    .option('--cross-check', 'Run cross-artifact consistency validation')
+    .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json
         ? OutputMode.JSON
@@ -127,6 +128,22 @@ export function createValidateCommand(): Command {
           logger.error(result.error.message);
         }
         process.exit(result.error.exitCode);
+      }
+
+      // Cross-artifact validation
+      if (opts.crossCheck) {
+        const { runCrossCheck } = await import('./validate-cross-check');
+        const cwd = process.cwd();
+        const specsDir = path.join(cwd, 'docs', 'superpowers', 'specs');
+        const plansDir = path.join(cwd, 'docs', 'superpowers', 'plans');
+
+        const crossResult = await runCrossCheck({ specsDir, plansDir, projectPath: cwd });
+        if (crossResult.ok && crossResult.value.warnings > 0) {
+          console.log('\nCross-artifact validation:');
+          for (const w of crossResult.value.planToImpl) console.log(`  ! ${w}`);
+          for (const w of crossResult.value.staleness) console.log(`  ! ${w}`);
+          console.log(`\n  ${crossResult.value.warnings} warnings`);
+        }
       }
 
       const output = formatter.formatValidation({

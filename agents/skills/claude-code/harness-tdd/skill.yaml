@@ -30,12 +30,16 @@ type: rigid
 phases:
   - name: red
     description: Write failing test
+    required: true
   - name: green
     description: Implement minimal code to pass
+    required: true
   - name: refactor
     description: Clean up while keeping tests green
+    required: false
   - name: validate
     description: Run harness checks
+    required: true
 state:
   persistent: false
   files: []

@@ -89,6 +89,45 @@ At any point during brainstorming, if the design reveals that the project is lar
 2. **Propose sub-projects.** Each sub-project should be brainstormable and plannable on its own.
 3. **Get approval for the decomposition** before continuing to brainstorm any individual sub-project.
 
+## Party Mode
+
+When activated with `--party`, add a multi-perspective evaluation step after proposing approaches.
+
+### Perspective Selection
+
+Select 2-3 perspectives based on design topic:
+
+| Topic | Perspectives |
+|---|---|
+| API / backend | Backend Developer, API Consumer, Operations |
+| UI / frontend | Developer, Designer, End User |
+| Infrastructure | Architect, SRE, Developer |
+| Data model | Backend Developer, Data Consumer, Migration |
+| Library / SDK | Library Author, Library Consumer, Maintainer |
+| Cross-cutting | Architect, Security, Developer |
+| Default | Architect, Developer, User/Consumer |
+
+### Evaluation Process
+
+For each proposed approach, evaluate from each perspective:
+
+```
+### Approach N: [name]
+
+**[Perspective 1] perspective:**
+[Assessment]. Concern: [specific concern or "None"].
+
+**[Perspective 2] perspective:**
+[Assessment]. Concern: [specific concern or "None"].
+
+**[Perspective 3] perspective:**
+[Assessment]. Concern: [specific concern or "None"].
+
+**Synthesis:** [Consensus summary. Address raised concerns. Recommend proceed/revise.]
+```
+
+Converge on a recommendation that addresses all concerns before presenting the design.
+
 ## Harness Integration
 
 - **`harness validate`** — Run after writing the spec to `docs/`. Verifies project health and that the new spec file is properly placed.

@@ -67,4 +67,29 @@ describe('SkillMetadataSchema', () => {
     const result = SkillMetadataSchema.safeParse({ ...validSkill, version: '1' });
     expect(result.success).toBe(false);
   });
+
+  it('validates phase with required field', () => {
+    const withPhases = {
+      ...validSkill,
+      phases: [
+        { name: 'red', description: 'Write failing test', required: true },
+        { name: 'refactor', description: 'Clean up', required: false },
+      ],
+    };
+    const result = SkillMetadataSchema.safeParse(withPhases);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.phases![0].required).toBe(true);
+      expect(result.data.phases![1].required).toBe(false);
+    }
+  });
+
+  it('defaults required to true for phases', () => {
+    const withPhases = {
+      ...validSkill,
+      phases: [{ name: 'red', description: 'Write failing test' }],
+    };
+    const result = SkillMetadataSchema.parse(withPhases);
+    expect(result.phases![0].required).toBe(true);
+  });
 });

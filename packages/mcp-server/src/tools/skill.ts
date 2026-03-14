@@ -19,12 +19,21 @@ export const runSkillDefinition = {
     properties: {
       skill: { type: 'string', description: 'Skill name (e.g., harness-tdd)' },
       path: { type: 'string', description: 'Path to project root for state context injection' },
+      complexity: { type: 'string', enum: ['auto', 'light', 'full'], description: 'Complexity level for scale-adaptive rigor' },
+      phase: { type: 'string', description: 'Start at a specific phase (re-entry)' },
+      party: { type: 'boolean', description: 'Enable multi-perspective evaluation' },
     },
     required: ['skill'],
   },
 };
 
-export async function handleRunSkill(input: { skill: string; path?: string }) {
+export async function handleRunSkill(input: {
+  skill: string;
+  path?: string;
+  complexity?: 'auto' | 'light' | 'full';
+  phase?: string;
+  party?: boolean;
+}) {
   const skillsDir = resolveSkillsDir();
   const skillDir = path.join(skillsDir, input.skill);
 
