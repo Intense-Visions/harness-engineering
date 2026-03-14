@@ -1,9 +1,6 @@
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { resolveTemplatesDir } from '../utils/paths.js';
 
 export const initProjectDefinition = {
   name: 'init_project',
@@ -24,7 +21,7 @@ export async function handleInitProject(input: { path: string; name?: string; le
   try {
     // Import TemplateEngine - ensure CLI exports it
     const { TemplateEngine } = await import('@harness-engineering/cli');
-    const templatesDir = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+    const templatesDir = resolveTemplatesDir();
     const engine = new TemplateEngine(templatesDir);
     const level = input.level ?? 'basic';
 

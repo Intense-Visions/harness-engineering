@@ -1,15 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { Ok, Err } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-function resolveSkillsDir(): string {
-  return path.resolve(__dirname, '..', '..', '..', '..', 'agents', 'skills', 'claude-code');
-}
+import { resolveSkillsDir } from '../utils/paths.js';
 
 export const runSkillDefinition = {
   name: 'run_skill',
