@@ -1948,6 +1948,9 @@ git commit -m "feat(persona): add PersonaSchema Zod definition"
 - Test: `packages/cli/tests/persona/loader.test.ts`
 - Create: test fixtures
 
+**Pre-requisite:** Install `yaml` dependency:
+Run: `cd packages/cli && pnpm add yaml`
+
 - [ ] **Step 1: Create test fixtures**
 
 ```yaml
@@ -2248,7 +2251,7 @@ describe('generateAgentsMd', () => {
     if (!result.ok) return;
     expect(result.value).toContain('src/**');
     expect(result.value).toContain('main');
-    expect(result.value).toContain('weekly');
+    expect(result.value).toContain('cron:');
   });
 
   it('includes remediation guidance', () => {
@@ -2284,7 +2287,7 @@ function formatTrigger(trigger: PersonaTrigger): string {
       return `On commit (${branches})`;
     }
     case 'scheduled':
-      return `Scheduled weekly (${trigger.cron})`;
+      return `Scheduled (cron: ${trigger.cron})`;
   }
 }
 
@@ -2473,7 +2476,8 @@ export function generateCIWorkflow(
     const steps: Record<string, unknown>[] = [
       { uses: 'actions/checkout@v4' },
       { uses: 'actions/setup-node@v4', with: { 'node-version': '20' } },
-      { run: 'npm ci' },
+      { uses: 'pnpm/action-setup@v4' },
+      { run: 'pnpm install --frozen-lockfile' },
     ];
 
     for (const cmd of persona.commands) {
@@ -2804,8 +2808,8 @@ export async function runPersona(
       const remaining = timeout - (Date.now() - startTime);
       const result = await Promise.race([
         executor(command),
-        new Promise<Result<never, Error>>((_, reject) =>
-          setTimeout(() => reject(new Error('Command timed out')), remaining)
+        new Promise<Result<never, Error>>((resolve) =>
+          setTimeout(() => resolve({ ok: false, error: new Error('Command timed out') } as Result<never, Error>), remaining)
         ),
       ]);
 
@@ -2818,6 +2822,19 @@ export async function runPersona(
           result: result.value,
           durationMs,
         });
+      } else if (result.error.message === 'Command timed out') {
+        // Timeout: mark as skipped, set partial status
+        report.commands.push({
+          name: command,
+          status: 'skipped',
+          error: 'timed out',
+          durationMs,
+        });
+        report.status = 'partial';
+        for (const rem of persona.commands.slice(persona.commands.indexOf(command) + 1)) {
+          report.commands.push({ name: rem, status: 'skipped', durationMs: 0 });
+        }
+        break;
       } else {
         report.commands.push({
           name: command,
@@ -2827,8 +2844,8 @@ export async function runPersona(
         });
         report.status = 'fail';
         // Fail-fast: skip remaining commands
-        for (const remaining of persona.commands.slice(persona.commands.indexOf(command) + 1)) {
-          report.commands.push({ name: remaining, status: 'skipped', durationMs: 0 });
+        for (const rem of persona.commands.slice(persona.commands.indexOf(command) + 1)) {
+          report.commands.push({ name: rem, status: 'skipped', durationMs: 0 });
         }
         break;
       }
@@ -3047,15 +3064,33 @@ Add to `createProgram()`:
 program.addCommand(createPersonaCommand());
 ```
 
-- [ ] **Step 5: Run all CLI tests**
+- [ ] **Step 5: Write persona CLI command test**
+
+```typescript
+// packages/cli/tests/commands/persona.test.ts
+import { describe, it, expect } from 'vitest';
+import { createPersonaCommand } from '../../src/commands/persona/index';
+
+describe('persona command', () => {
+  it('creates persona command with list and generate subcommands', () => {
+    const cmd = createPersonaCommand();
+    expect(cmd.name()).toBe('persona');
+    const subcommands = cmd.commands.map((c) => c.name());
+    expect(subcommands).toContain('list');
+    expect(subcommands).toContain('generate');
+  });
+});
+```
+
+- [ ] **Step 6: Run all CLI tests**
 
 Run: `cd packages/cli && npx vitest run`
 Expected: All tests pass
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add packages/cli/src/commands/persona/ packages/cli/src/index.ts
+git add packages/cli/src/commands/persona/ packages/cli/src/index.ts packages/cli/tests/commands/persona.test.ts
 git commit -m "feat(cli): add harness persona list and generate commands"
 ```
 
@@ -3070,16 +3105,21 @@ git commit -m "feat(cli): add harness persona list and generate commands"
 
 ```typescript
 // packages/cli/tests/commands/agent-run-persona.test.ts
-import { describe, it, expect, vi } from 'vitest';
-import * as path from 'path';
+import { describe, it, expect } from 'vitest';
+import { createRunCommand } from '../../src/commands/agent/run';
 
-// Test that --persona flag loads and runs a persona
-// We test the runAgentTask function with the persona option
 describe('harness agent run --persona', () => {
-  it('placeholder: persona flag is accepted', () => {
-    // This tests the integration at the command level
-    // The actual persona execution is tested in runner.test.ts
-    expect(true).toBe(true);
+  it('accepts --persona flag', () => {
+    const cmd = createRunCommand();
+    const personaOpt = cmd.options.find((o) => o.long === '--persona');
+    expect(personaOpt).toBeDefined();
+  });
+
+  it('task argument is optional (for persona mode)', () => {
+    const cmd = createRunCommand();
+    // Commander makes optional args with [brackets]
+    const taskArg = cmd.registeredArguments[0];
+    expect(taskArg.required).toBe(false);
   });
 });
 ```
@@ -3094,13 +3134,14 @@ import { loadPersona } from '../../persona/loader';
 import { runPersona, type CommandExecutor } from '../../persona/runner';
 ```
 
-In the `createRunCommand` function, add the `--persona` option and modify the action:
+In the `createRunCommand` function, change the `<task>` argument to optional and add `--persona`:
 
 ```typescript
+.argument('[task]', 'Task to run (review, doc-review, test-review)')
 .option('--persona <name>', 'Run a persona by name')
 ```
 
-In the action handler, add before the existing task logic:
+In the action handler, add before the existing task logic (and guard the task path with `if (task)`):
 
 ```typescript
 if (opts.persona) {
