@@ -104,7 +104,11 @@ describe('TemplateEngine', () => {
       const pkg = renderResult.value.files.find((f) => f.relativePath === 'package.json');
       expect(pkg).toBeDefined();
       const parsed = JSON.parse(pkg!.content);
+      // Overlay deps present
       expect(parsed.dependencies.next).toBe('^14.0.0');
+      // Base fields preserved (from basic template)
+      expect(parsed.name).toBe('my-app');
+      expect(parsed.version).toBe('1.0.0');
     });
   });
 
