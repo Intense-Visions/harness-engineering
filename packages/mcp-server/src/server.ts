@@ -7,6 +7,7 @@ import { checkDocsDefinition, handleCheckDocs, validateKnowledgeMapDefinition, h
 import { detectEntropyDefinition, handleDetectEntropy, applyFixesDefinition, handleApplyFixes } from './tools/entropy.js';
 import { generateLinterDefinition, handleGenerateLinter, validateLinterConfigDefinition, handleValidateLinterConfig } from './tools/linter.js';
 import { initProjectDefinition, handleInitProject } from './tools/init.js';
+import { listPersonasDefinition, handleListPersonas, generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, runPersonaDefinition, handleRunPersona } from './tools/persona.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (input: Record<string, unknown>) => Promise<unknown>;
@@ -21,6 +22,9 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   generateLinterDefinition,
   validateLinterConfigDefinition,
   initProjectDefinition,
+  listPersonasDefinition,
+  generatePersonaArtifactsDefinition,
+  runPersonaDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -32,6 +36,9 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   generate_linter: handleGenerateLinter as ToolHandler,
   validate_linter_config: handleValidateLinterConfig as ToolHandler,
   init_project: handleInitProject as ToolHandler,
+  list_personas: handleListPersonas as ToolHandler,
+  generate_persona_artifacts: handleGeneratePersonaArtifacts as ToolHandler,
+  run_persona: handleRunPersona as ToolHandler,
 };
 
 export function getToolDefinitions(): ToolDefinition[] {
