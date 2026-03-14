@@ -4,6 +4,7 @@ import { z } from 'zod';
 const SkillPhaseSchema = z.object({
   name: z.string(),
   description: z.string(),
+  required: z.boolean().default(true),
 });
 
 const SkillCliSchema = z.object({
