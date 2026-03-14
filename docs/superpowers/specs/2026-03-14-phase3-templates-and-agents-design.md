@@ -565,12 +565,10 @@ Slices 1 and 2 can run in parallel. Slice 3 follows Slice 2. Slice 4 is future w
 
 ## Known Follow-Up Items
 
-Items deferred from v1 implementation, tracked via inline TODOs in source:
-
-1. **`validate_project` MCP tool is a stub** — Only checks config existence. Should delegate to full core validation (`validateFileStructure`, `validateConfig` with `HarnessConfigSchema`). See `packages/mcp-server/src/tools/validate.ts`.
-2. **Missing `add_component` and `run_agent_task` MCP tools** — Spec lists 13+ tools, v1 ships 12. These two map to `harness add` and `harness agent run`. See `packages/mcp-server/src/server.ts`.
-3. **Persona runner timeout test coverage** — Timeout logic exists but no test exercises it. String-matching on `'Command timed out'` is brittle; should use typed error. See `packages/cli/src/persona/runner.ts`.
-4. **`toKebabCase` duplication** — Defined in `runtime.ts`, `ci-workflow.ts`, and `generate.ts`. Extract to shared utility. See `packages/cli/src/persona/generators/runtime.ts`.
-5. **`mergeStrategy.files: 'error'` not enforced** — Schema accepts `'error'` option but engine always uses overlay-wins. Implement or remove from schema.
-6. **Template render error messages** — Spec requires file path and line number in Handlebars errors. Current implementation wraps errors generically.
-7. **MCP server path resolution for published packages** — `resolvePersonasDir`/`resolveTemplatesDir` in MCP tools use `import.meta.url` walk-up which won't work from `node_modules`. For npm-published use, paths should be configurable via tool inputs or environment.
+1. ~~`validate_project` MCP tool is a stub~~ — **RESOLVED.** Now runs `validateFileStructure` and `validateAgentsMap`.
+2. ~~Missing `add_component` and `run_agent_task` MCP tools~~ — **RESOLVED.** Both implemented in `packages/mcp-server/src/tools/agent.ts`. Server now has 14 tools.
+3. ~~Persona runner timeout test coverage~~ — **RESOLVED.** Timeout test added, string-matching replaced with `TIMEOUT_ERROR_MESSAGE` sentinel.
+4. ~~`toKebabCase` duplication~~ — **RESOLVED.** Extracted to `packages/cli/src/utils/string.ts`.
+5. ~~`mergeStrategy.files: 'error'` not enforced~~ — **RESOLVED.** Simplified schema to only accept `'overlay-wins'` (YAGNI).
+6. ~~Template render error messages~~ — **RESOLVED.** Per-file error catching with source template + file path in messages.
+7. **MCP server path resolution for published packages** — `resolvePersonasDir`/`resolveTemplatesDir` in MCP tools use `import.meta.url` walk-up which won't work from `node_modules`. Deferred until npm publishing. For now, paths should be configurable via tool inputs or environment.
