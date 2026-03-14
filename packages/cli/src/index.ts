@@ -9,6 +9,7 @@ import { createFixDriftCommand } from './commands/fix-drift';
 import { createAgentCommand } from './commands/agent';
 import { createAddCommand } from './commands/add';
 import { createLinterCommand } from './commands/linter';
+import { createPersonaCommand } from './commands/persona';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -32,6 +33,7 @@ export function createProgram(): Command {
   program.addCommand(createAgentCommand());
   program.addCommand(createAddCommand());
   program.addCommand(createLinterCommand());
+  program.addCommand(createPersonaCommand());
 
   return program;
 }
