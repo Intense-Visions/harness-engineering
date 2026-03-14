@@ -1,0 +1,30 @@
+name: harness-git-workflow
+version: "1.0.0"
+description: Git workflow best practices integrated with harness validation
+triggers:
+  - manual
+  - on_pr
+  - on_commit
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+cli:
+  command: harness skill run harness-git-workflow
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-git-workflow
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
+depends_on: []

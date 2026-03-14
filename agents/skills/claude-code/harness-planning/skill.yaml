@@ -1,0 +1,42 @@
+name: harness-planning
+version: "1.0.0"
+description: Structured project planning with harness constraints and validation
+triggers:
+  - manual
+  - on_new_feature
+  - on_project_init
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+cli:
+  command: harness skill run harness-planning
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-planning
+    path: string
+type: rigid
+phases:
+  - name: scope
+    description: Define goals and constraints
+  - name: decompose
+    description: Break work into tasks
+  - name: sequence
+    description: Order tasks and identify dependencies
+  - name: validate
+    description: Run harness checks on the plan
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-verification
