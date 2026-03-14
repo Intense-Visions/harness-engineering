@@ -80,6 +80,9 @@ importers:
       glob:
         specifier: ^10.3.0
         version: 10.5.0
+      handlebars:
+        specifier: ^4.7.0
+        version: 4.7.8
       zod:
         specifier: ^3.22.0
         version: 3.25.76
@@ -1799,7 +1802,7 @@ packages:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.18(@vitest/ui@4.0.18)(tsx@4.21.0)
+      vitest: 4.0.18(@types/node@22.19.15)
     dev: true
 
   /@vitest/expect@2.1.9:
@@ -1853,7 +1856,7 @@ packages:
       '@vitest/spy': 4.0.18
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.1(yaml@2.8.2)
+      vite: 7.3.1(@types/node@22.19.15)
     dev: true
 
   /@vitest/pretty-format@2.1.9:

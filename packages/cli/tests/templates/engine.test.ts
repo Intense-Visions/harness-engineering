@@ -1,0 +1,134 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { TemplateEngine } from '../../src/templates/engine';
+
+const FIXTURES = path.join(__dirname, 'fixtures', 'mock-templates');
+
+describe('TemplateEngine', () => {
+  let engine: TemplateEngine;
+
+  beforeEach(() => {
+    engine = new TemplateEngine(FIXTURES);
+  });
+
+  describe('listTemplates', () => {
+    it('lists all templates with metadata', () => {
+      const result = engine.listTemplates();
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((t) => t.name);
+      expect(names).toContain('base');
+      expect(names).toContain('basic');
+      expect(names).toContain('nextjs');
+    });
+  });
+
+  describe('resolveTemplate', () => {
+    it('resolves a level template with base extension', () => {
+      const result = engine.resolveTemplate('basic');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const paths = result.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('README.md.hbs');
+      expect(paths).toContain('shared.txt');
+      expect(paths).toContain('package.json.hbs');
+      expect(paths).toContain('src/index.ts');
+    });
+
+    it('resolves with framework overlay', () => {
+      const result = engine.resolveTemplate('basic', 'nextjs');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const paths = result.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('src/app/page.tsx');
+      expect(paths).toContain('src/index.ts');
+    });
+
+    it('returns error for unknown level', () => {
+      const result = engine.resolveTemplate('nonexistent');
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  describe('render', () => {
+    it('renders handlebars templates with context', () => {
+      const resolveResult = engine.resolveTemplate('basic');
+      expect(resolveResult.ok).toBe(true);
+      if (!resolveResult.ok) return;
+
+      const renderResult = engine.render(resolveResult.value, {
+        projectName: 'my-app',
+        level: 'basic',
+      });
+      expect(renderResult.ok).toBe(true);
+      if (!renderResult.ok) return;
+
+      const readme = renderResult.value.files.find((f) => f.relativePath === 'README.md');
+      expect(readme).toBeDefined();
+      expect(readme!.content).toContain('# my-app');
+
+      const pkg = renderResult.value.files.find((f) => f.relativePath === 'package.json');
+      expect(pkg).toBeDefined();
+      const parsed = JSON.parse(pkg!.content);
+      expect(parsed.name).toBe('my-app');
+    });
+
+    it('copies non-hbs files as-is', () => {
+      const resolveResult = engine.resolveTemplate('basic');
+      if (!resolveResult.ok) return;
+
+      const renderResult = engine.render(resolveResult.value, {
+        projectName: 'my-app',
+        level: 'basic',
+      });
+      if (!renderResult.ok) return;
+
+      const shared = renderResult.value.files.find((f) => f.relativePath === 'shared.txt');
+      expect(shared).toBeDefined();
+      expect(shared!.content).toBe('shared content');
+    });
+
+    it('merges package.json from overlay using mergePackageJson', () => {
+      const resolveResult = engine.resolveTemplate('basic', 'nextjs');
+      if (!resolveResult.ok) return;
+
+      const renderResult = engine.render(resolveResult.value, {
+        projectName: 'my-app',
+        level: 'basic',
+        framework: 'nextjs',
+      });
+      if (!renderResult.ok) return;
+
+      const pkg = renderResult.value.files.find((f) => f.relativePath === 'package.json');
+      expect(pkg).toBeDefined();
+      const parsed = JSON.parse(pkg!.content);
+      expect(parsed.dependencies.next).toBe('^14.0.0');
+    });
+  });
+
+  describe('write', () => {
+    it('writes rendered files to target directory', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-test-'));
+
+      const resolveResult = engine.resolveTemplate('basic');
+      if (!resolveResult.ok) return;
+      const renderResult = engine.render(resolveResult.value, {
+        projectName: 'test-project',
+        level: 'basic',
+      });
+      if (!renderResult.ok) return;
+
+      const writeResult = engine.write(renderResult.value, tmpDir, { overwrite: false });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      expect(fs.existsSync(path.join(tmpDir, 'README.md'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'package.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'src', 'index.ts'))).toBe(true);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+  });
+});
