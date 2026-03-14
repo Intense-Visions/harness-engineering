@@ -1,18 +1,263 @@
 # Harness State Management
 
-> Manage persistent session state across harness agent sessions.
+> Manage persistent state across agent sessions so that context, decisions, progress, and learnings survive context resets. Load state at session start, track position and decisions throughout, and save state for the next session.
 
 ## When to Use
-- TODO: Full content in skill content batch
+- At the start of every session that continues previous work (load state)
+- When completing a task, phase, or milestone (update progress)
+- When making a decision that future sessions need to know about (record decision)
+- When discovering something non-obvious that would be lost on context reset (capture learning)
+- When hitting a blocker that cannot be resolved in the current session (log blocker)
+- At the end of every session (save state)
+- NOT for storing code — code belongs in git commits, not state files
+- NOT for storing large outputs or logs — state should be concise and navigable
+- NOT as a replacement for a plan document — plans live in `docs/`, state tracks progress through plans
 
 ## Process
-- TODO: Full content in skill content batch
+
+### Phase 1: LOAD — Restore Context from Previous Sessions
+
+1. **Read `.harness/state.json`.** This is the primary state file. It contains:
+   - Current position (phase, task, step)
+   - Progress map (which tasks are complete, in progress, or blocked)
+   - Decisions made in previous sessions (date, what, why)
+   - Blockers encountered and their status
+   - Last session summary
+
+2. **Run `harness state show`** to get a formatted view of current state. This is equivalent to reading the JSON but formatted for readability.
+
+3. **Read `.harness/learnings.md`.** This is the append-only knowledge base. Scan for:
+   - Recent learnings (last 2-3 sessions) — these are most likely still relevant
+   - Gotchas and warnings — these prevent repeating mistakes
+   - Decisions with rationale — these explain why things are the way they are
+
+4. **If no state exists,** this is a fresh start. Create `.harness/state.json` with initial structure:
+   ```json
+   {
+     "schemaVersion": 1,
+     "position": { "phase": "start", "task": null },
+     "progress": {},
+     "decisions": [],
+     "blockers": [],
+     "lastSession": { "date": null, "summary": null }
+   }
+   ```
+
+5. **Announce the loaded context.** Briefly summarize: "Resuming from [position]. [N] tasks complete. [N] blockers. Key learnings: [summary]." This confirms the state was loaded and gives the human visibility.
+
+### Phase 2: TRACK — Maintain State During the Session
+
+1. **Update position when moving between phases or tasks.** Every time work shifts to a new task or phase, update `position` in state:
+   ```json
+   "position": { "phase": "execute", "task": "Task 3", "step": "writing tests" }
+   ```
+
+2. **Record decisions when they are made.** Decisions are choices that affect future work. Record them immediately — do not wait until the end of the session:
+   ```json
+   "decisions": [
+     {
+       "date": "2026-03-14",
+       "what": "Use WebSocket instead of SSE for real-time notifications",
+       "why": "SSE does not support bidirectional communication, which Task 5 requires"
+     }
+   ]
+   ```
+
+3. **Log blockers when encountered.** A blocker is anything that prevents the current task from completing:
+   ```json
+   "blockers": [
+     {
+       "date": "2026-03-14",
+       "task": "Task 4",
+       "description": "Payment gateway API returns 403 — API key may be expired",
+       "status": "open"
+     }
+   ]
+   ```
+
+4. **Update progress after each completed task:**
+   ```json
+   "progress": {
+     "Task 1": "complete",
+     "Task 2": "complete",
+     "Task 3": "in_progress",
+     "Task 4": "blocked"
+   }
+   ```
+
+5. **Keep state concise.** State is not a log. Each field should contain the current status, not a history of all changes. History belongs in `.harness/learnings.md` and git commits.
+
+### Phase 3: LEARN — Capture Knowledge for Future Sessions
+
+1. **Identify learnings as they happen.** A learning is anything that:
+   - Was surprising or non-obvious
+   - Took significant effort to figure out
+   - Would cause repeated wasted time if forgotten
+   - Represents a decision that needs rationale preserved
+
+2. **Capture learnings with `harness state learn`:**
+   ```bash
+   harness state learn "Date comparison needs UTC normalization — use Date.now() not new Date()"
+   ```
+   This appends to `.harness/learnings.md` with a timestamp.
+
+3. **Or append directly to `.harness/learnings.md`** with structured format:
+   ```markdown
+   ## 2026-03-14 — Task 3: Notification Expiry
+
+   - [learning]: PostgreSQL's `now()` returns timestamp with timezone, but our
+     application uses UTC epoch milliseconds. Always convert before comparing.
+   - [gotcha]: The notifications table has a unique constraint on (userId, type).
+     Use upsert (ON CONFLICT DO UPDATE) instead of plain INSERT.
+   - [decision]: Chose to store expiry as epoch milliseconds rather than
+     ISO timestamp for consistency with the rest of the codebase.
+   ```
+
+4. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record. Even if a learning turns out to be wrong, append a correction rather than modifying the original.
+
+5. **What belongs in learnings vs. git commits:**
+   - **Learnings:** Context, rationale, gotchas, decisions, warnings — things that explain *why* and *what to watch out for*
+   - **Git commits:** Code changes, what was done — things that explain *what* changed
+   - Example: The commit says "feat: add UTC normalization to date comparison." The learning says "Date comparison needs UTC normalization because PostgreSQL returns timezone-aware timestamps but our app uses epoch milliseconds."
+
+### Phase 4: SAVE — Persist State for Next Session
+
+1. **Update `.harness/state.json`** with final position, progress, and session summary:
+   ```json
+   {
+     "schemaVersion": 1,
+     "position": { "phase": "execute", "task": "Task 4" },
+     "progress": {
+       "Task 1": "complete",
+       "Task 2": "complete",
+       "Task 3": "complete"
+     },
+     "decisions": [ ... ],
+     "blockers": [ ... ],
+     "lastSession": {
+       "date": "2026-03-14",
+       "summary": "Completed Tasks 2-3. Task 3 required UTC date normalization (see learnings). Starting Task 4 next session."
+     }
+   }
+   ```
+
+2. **Verify learnings were captured.** Review `.harness/learnings.md` — were all non-obvious discoveries recorded? If something was tricky during the session, it should be in learnings.
+
+3. **Decide whether to commit state files.** State files (`.harness/state.json`, `.harness/learnings.md`) should be committed to git so other team members and agents can access them. Commit state updates separately from code changes so they do not clutter code diffs.
+
+### Building Institutional Knowledge Over Time
+
+The `.harness/learnings.md` file grows over the lifetime of the project. It becomes a valuable resource:
+
+- **Week 1:** A few gotchas about the development environment and initial setup decisions.
+- **Month 1:** Patterns emerge — recurring issues, architectural decisions with rationale, team conventions that were established through experience.
+- **Month 6:** New team members read learnings and avoid months of rediscovery. The file captures knowledge that no single person holds.
+- **Year 1:** Learnings are the project's institutional memory. They explain why the architecture looks the way it does, why certain patterns were adopted, and what was tried and abandoned.
+
+Treat learnings as a first-class project artifact. They are as valuable as tests and documentation.
 
 ## Harness Integration
-- `harness state show`, `harness state reset`, `harness state learn`
+
+- **`harness state show`** — Display current state in a formatted, readable view. Use at session start to quickly orient.
+- **`harness state reset`** — Reset state to initial values. Use when starting a completely new effort and old state is no longer relevant. Use with caution — this discards progress tracking.
+- **`harness state learn "<message>"`** — Append a learning to `.harness/learnings.md` with automatic timestamp formatting.
+- **`.harness/state.json`** — Primary state file. Read at session start, updated throughout, saved at session end.
+- **`.harness/learnings.md`** — Append-only knowledge base. Read at session start for context, appended to when discoveries are made.
 
 ## Success Criteria
-- TODO: Full content in skill content batch
+
+- State is loaded at the start of every session that continues previous work
+- Position is updated whenever the current phase or task changes
+- Decisions are recorded with date, what, and why — immediately when made, not deferred
+- Blockers are logged with task reference, description, and status
+- Progress is updated after each completed task
+- Learnings are captured for every non-obvious discovery during the session
+- `.harness/learnings.md` entries follow the structured format (date, task, tagged items)
+- Learnings are append-only — no edits or deletions of previous entries
+- State is saved before session end with an accurate session summary
+- State files are committed to git separately from code changes
 
 ## Examples
-- TODO: Full content in skill content batch
+
+### Example: Starting a New Session (Resuming Work)
+
+**LOAD:**
+```
+Run: harness state show
+Output:
+  Position: execute / Task 3 (writing tests)
+  Progress: Task 1 complete, Task 2 complete
+  Blockers: none
+  Last session: 2026-03-13 — "Completed Tasks 1-2. Task 2 required
+    adding a new index on notifications.userId for query performance."
+
+Read: .harness/learnings.md
+  Most recent:
+  - [gotcha]: notifications table needs index on userId — queries
+    were timing out without it
+  - [decision]: used partial index (WHERE deleted_at IS NULL) to
+    avoid indexing soft-deleted rows
+
+Summary: "Resuming from Task 3 (writing tests). Tasks 1-2 complete.
+  Note: notifications table has a partial index on userId — see learnings."
+```
+
+### Example: Recording a Decision Mid-Session
+
+```
+Context: Implementing Task 4, need to choose between polling and WebSocket.
+
+Record decision:
+  date: "2026-03-14"
+  what: "Use WebSocket for real-time notification delivery"
+  why: "Polling would require 1-second intervals for acceptable latency,
+    which creates too much load. WebSocket gives instant delivery with
+    one persistent connection per client."
+
+Capture learning:
+  harness state learn "WebSocket chosen over polling for notifications.
+    Polling at 1s intervals = ~86k requests/day per client. WebSocket =
+    1 persistent connection. See Task 4 decision in state."
+```
+
+### Example: Ending a Session
+
+**SAVE:**
+```
+Update .harness/state.json:
+{
+  "schemaVersion": 1,
+  "position": { "phase": "execute", "task": "Task 5" },
+  "progress": {
+    "Task 1": "complete",
+    "Task 2": "complete",
+    "Task 3": "complete",
+    "Task 4": "complete"
+  },
+  "decisions": [
+    {
+      "date": "2026-03-14",
+      "what": "Use WebSocket for real-time notification delivery",
+      "why": "Polling creates too much load at acceptable latency intervals"
+    }
+  ],
+  "blockers": [],
+  "lastSession": {
+    "date": "2026-03-14",
+    "summary": "Completed Tasks 3-4. Task 3 added expiry logic with UTC normalization. Task 4 implemented WebSocket delivery (chose over polling — see decisions). Starting Task 5 (UI integration) next session."
+  }
+}
+
+Verify: .harness/learnings.md has entries for UTC normalization and WebSocket decision.
+Commit: git add .harness/ && git commit -m "chore: update harness state after Tasks 3-4"
+```
+
+### Example: What Belongs Where
+
+| Information | Where It Goes | Why |
+|---|---|---|
+| "Added WebSocket handler in src/ws/" | Git commit message | Describes what changed in code |
+| "Chose WebSocket over polling because..." | `.harness/state.json` decisions | Records the choice and rationale for future sessions |
+| "WebSocket requires sticky sessions in load balancer" | `.harness/learnings.md` | Non-obvious operational concern future sessions need |
+| "Task 4 complete" | `.harness/state.json` progress | Tracks execution position |
+| "The WebSocket library auto-reconnects by default" | `.harness/learnings.md` | Gotcha that saves future debugging time |

@@ -1,18 +1,169 @@
 # Align Documentation
 
-> Auto-fix documentation drift issues.
+> Sync documentation with code after implementation changes. Keep AGENTS.md, API docs, and architecture docs accurate by mapping code changes to their documentation impact.
 
 ## When to Use
-- TODO: Full content in skill content batch
+- After completing a feature implementation (post-merge or post-commit)
+- After fixing a bug that changes observable behavior
+- After a refactoring that renames, moves, or restructures code
+- When detect-doc-drift reports findings that need fixing
+- When `on_post_feature` or `on_post_merge` triggers fire
+- NOT during active development — wait until the code is stable
+- NOT for creating documentation for a brand-new project (use validate-context-engineering for initial setup)
+- NOT for fixing code — this skill only changes documentation
 
 ## Process
-- TODO: Full content in skill content batch
+
+### Phase 1: Detect — Identify What Changed
+
+1. **Run `git diff` against the appropriate baseline.** Choose the baseline based on context:
+   - After a feature: diff against the branch point (`git diff main...HEAD`)
+   - After a bug fix: diff against the commit before the fix
+   - After a refactoring: diff against the commit before refactoring started
+   - Periodic sync: diff against the last documentation sync commit
+
+2. **Extract the list of changed files.** For each changed file, note:
+   - File path (current and previous if renamed/moved)
+   - Nature of change (added, modified, deleted, renamed)
+   - Changed exports (new, removed, renamed, signature changed)
+   - Changed behavior (different return values, new error types, new side effects)
+
+3. **Run `harness check-docs`** to identify any documentation that already has broken references due to the changes.
+
+### Phase 2: Map — Connect Code Changes to Documentation
+
+For each changed file, identify all documentation that references it:
+
+**AGENTS.md sections:**
+- Knowledge map entries that reference the file path
+- Architecture descriptions that mention the module
+- Constraint documentation that references the file's layer or patterns
+- Onboarding guides that walk through the file
+
+**API documentation:**
+- JSDoc/TSDoc comments in the changed files themselves
+- Generated API doc pages that pull from the changed files
+- README examples that demonstrate the changed functions
+- Tutorial or guide pages that use the changed code
+
+**Architecture documentation:**
+- Diagrams that include the changed module
+- Data flow descriptions that reference the changed functions
+- Layer descriptions that list the changed file
+- Dependency documentation that references the changed imports
+
+**Inline code comments:**
+- Comments in OTHER files that reference the changed file or function
+- TODO comments that reference the changed behavior
+- Workaround comments that may no longer apply after the change
+
+### Phase 3: Generate — Draft Documentation Updates
+
+For each affected documentation location:
+
+1. **Draft the specific text change.** Show the old text and the new text. Keep the existing style and tone — documentation updates should be invisible in terms of voice.
+
+2. **Preserve context.** When updating a section, do not just change the specific reference — read the surrounding paragraph and ensure it still makes sense. A renamed function may require updating the explanatory text around it, not just the function name.
+
+3. **Handle deletions carefully.** When code is deleted, do not just delete the documentation reference. Consider whether the section should be removed entirely, replaced with information about the replacement, or noted as deprecated.
+
+4. **Add new sections when needed.** If a new module was added, draft a complete documentation section following the existing AGENTS.md structure and style.
+
+### Phase 4: Validate — Verify Documentation Accuracy
+
+1. **Run `harness check-docs`** to verify all links and references resolve correctly after the updates.
+
+2. **Cross-check each update against the actual code.** Read the updated documentation and verify every claim by looking at the code. Documentation that is wrong is worse than documentation that is missing.
+
+3. **Verify no orphaned references remain.** Search documentation files for any remaining references to old names, old paths, or deleted features.
+
+4. **Run `harness fix-drift`** to catch any remaining simple drift issues that manual review missed.
+
+5. **Commit the documentation update.** Use a commit message that references the original change: "docs: update AGENTS.md for notification service refactoring" or "docs: sync API docs after auth module rename."
+
+## What to Update
+
+### AGENTS.md Knowledge Map
+- File paths and module names (renamed or moved files)
+- Module purpose descriptions (changed responsibilities)
+- Constraint descriptions (new or changed rules)
+- Relationship descriptions (new or changed dependencies)
+- Gotcha sections (resolved gotchas, new gotchas)
+
+### Inline Code Comments
+- Function/class doc comments in the changed files (JSDoc, TSDoc)
+- Comments in other files that reference the changed code
+- TODO comments that reference completed or changed work
+- Workaround comments for issues that may now be resolved
+
+### Documentation Pages (docs/)
+- API reference pages that describe changed functions
+- Architecture pages that diagram changed modules
+- Tutorial and guide pages that demonstrate changed code
+- Getting-started guides if entry points changed
+- Changelog entries for user-facing changes
 
 ## Harness Integration
-- `harness fix-drift --json`
+
+- **`harness check-docs`** — Run before and after updates. Identifies broken references and validates that all documentation links resolve.
+- **`harness fix-drift`** — Auto-fix simple drift issues (broken file paths, renamed references) after manual review confirms correctness.
+- **`harness fix-drift --json`** — Machine-readable output for tracking what was auto-fixed.
+- **`harness validate`** — Run after documentation changes to verify overall project health is maintained.
 
 ## Success Criteria
-- TODO: Full content in skill content batch
+
+- `harness check-docs` passes with zero errors after documentation updates
+- Every code change from the diff has been mapped to its documentation impact
+- All file paths in documentation match current file locations
+- All function/class names in documentation match current code
+- All behavioral descriptions in documentation match current implementation
+- Documentation updates are committed with clear references to the triggering code change
+- No orphaned references to old names, paths, or deleted features remain
 
 ## Examples
-- TODO: Full content in skill content batch
+
+### Example: Syncing docs after a module rename
+
+**Code change:** `src/services/mailer.ts` renamed to `src/services/email-service.ts`. Functions `sendMail()` and `formatMailBody()` renamed to `sendEmail()` and `formatEmailBody()`.
+
+**Documentation impact map:**
+```
+AGENTS.md:34      — "mailer.ts handles email delivery" → update path and description
+AGENTS.md:78      — "Use sendMail() for all outbound email" → update function name
+docs/api.md:156   — sendMail() API reference → update name and import path
+docs/arch.md:45   — architecture diagram lists "mailer" → update to "email-service"
+src/controllers/user-controller.ts:12 — comment "// delegates to mailer" → update
+```
+
+**Updates applied:**
+- AGENTS.md: updated two sections with new file path and function names
+- docs/api.md: updated function reference and import example
+- docs/arch.md: updated module name in architecture description
+- src/controllers/user-controller.ts: updated inline comment
+
+**Validation:** `harness check-docs` passes. All references resolve. Commit: "docs: sync documentation after mailer rename to email-service"
+
+### Example: Syncing docs after adding error handling
+
+**Code change:** `createUser()` in `src/services/user-service.ts` now throws `ValidationError` instead of returning `null` on invalid input.
+
+**Documentation impact map:**
+```
+docs/api.md:89    — "Returns null if validation fails" → update to describe thrown error
+AGENTS.md:52      — No mention of error handling → add note about ValidationError
+src/services/user-service.ts:15 — JSDoc @returns tag → update, add @throws tag
+```
+
+**Updates applied:**
+- docs/api.md: replaced "returns null" with "throws ValidationError" and added example
+- AGENTS.md: added note about error handling pattern in user-service section
+- JSDoc: updated @returns, added @throws ValidationError
+
+**Validation:** `harness check-docs` passes. Commit: "docs: update documentation for createUser error handling change"
+
+## Escalation
+
+- **When you cannot determine what documentation is affected:** Run `harness check-docs` for automated detection. For manual analysis, search all `.md` files and code comments for the old name/path. If the change is large, use detect-doc-drift first to get a complete inventory.
+- **When documentation is in an external system (wiki, Confluence):** Document the needed change and flag it for manual update. Include the specific text that needs changing and the correct replacement.
+- **When the code change is so large that documentation needs a rewrite:** Break the documentation update into sections. Update one section at a time, validating after each. Do not attempt a full rewrite in one pass.
+- **When you disagree with the existing documentation style:** Follow the existing style. Documentation alignment is about accuracy, not style improvement. Style changes should be a separate, deliberate effort.
