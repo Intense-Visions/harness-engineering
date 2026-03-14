@@ -1,9 +1,13 @@
 name: harness-tdd
-version: 1.0.0
-description: Guide test-driven development workflow with harness validation
-platform: claude-code
+version: "1.0.0"
+description: Test-driven development integrated with harness validation
 triggers:
   - manual
+  - on_new_feature
+  - on_bug_fix
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
@@ -11,6 +15,29 @@ tools:
   - Edit
   - Glob
   - Grep
-category: workflow
-depends_on: []
-includes: []
+cli:
+  command: harness skill run harness-tdd
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-tdd
+    path: string
+type: rigid
+phases:
+  - name: red
+    description: Write failing test
+  - name: green
+    description: Implement minimal code to pass
+  - name: refactor
+    description: Clean up while keeping tests green
+  - name: validate
+    description: Run harness checks
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-verification

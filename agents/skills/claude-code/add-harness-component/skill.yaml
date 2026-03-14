@@ -1,18 +1,31 @@
 name: add-harness-component
-version: 1.0.0
+version: "1.0.0"
 description: Add a component to an existing harness project
-platform: claude-code
 triggers:
   - manual
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Write
   - Edit
   - Glob
-cli_command: harness add
-category: setup
+cli:
+  command: harness skill run add-harness-component
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: add-harness-component
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
 depends_on:
   - initialize-harness-project
-includes:
-  - shared/cli-invocation.md

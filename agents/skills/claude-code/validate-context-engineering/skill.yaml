@@ -1,19 +1,30 @@
 name: validate-context-engineering
-version: 1.0.0
+version: "1.0.0"
 description: Validate repository context engineering practices (AGENTS.md, doc coverage, knowledge map)
-platform: claude-code
 triggers:
   - manual
   - on_pr
   - on_commit
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Glob
-cli_command: harness validate --json
-category: enforcement
+cli:
+  command: harness skill run validate-context-engineering
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: validate-context-engineering
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
 depends_on: []
-includes:
-  - shared/cli-invocation.md
-  - shared/json-parsing.md
-  - shared/success-criteria/validation.md

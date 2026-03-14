@@ -1,18 +1,29 @@
 name: detect-doc-drift
-version: 1.0.0
+version: "1.0.0"
 description: Detect documentation that has drifted from code
-platform: claude-code
 triggers:
   - manual
   - on_pr
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Glob
-cli_command: harness cleanup --type drift --json
-category: entropy
+cli:
+  command: harness skill run detect-doc-drift
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: detect-doc-drift
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
 depends_on: []
-includes:
-  - shared/cli-invocation.md
-  - shared/json-parsing.md
-  - shared/success-criteria/documentation.md

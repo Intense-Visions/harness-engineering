@@ -1,16 +1,30 @@
 name: initialize-harness-project
-version: 1.0.0
+version: "1.0.0"
 description: Scaffold a new harness-compliant project
-platform: claude-code
 triggers:
   - manual
+  - on_project_init
+platforms:
+  - claude-code
+  - gemini-cli
 tools:
   - Bash
   - Read
   - Write
   - Glob
-cli_command: harness init
-category: setup
+cli:
+  command: harness skill run initialize-harness-project
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: initialize-harness-project
+    path: string
+type: flexible
+state:
+  persistent: false
+  files: []
 depends_on: []
-includes:
-  - shared/cli-invocation.md
