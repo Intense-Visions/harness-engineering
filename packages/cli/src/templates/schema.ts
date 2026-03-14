@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const MergeStrategySchema = z.object({
   json: z.enum(['deep-merge', 'overlay-wins']).default('deep-merge'),
-  files: z.enum(['overlay-wins', 'error']).default('overlay-wins'),
+  files: z.literal('overlay-wins').default('overlay-wins'),
 });
 
 export const TemplateMetadataSchema = z.object({

@@ -1,7 +1,7 @@
-// TODO: Add test coverage for timeout behavior (short timeout + slow executor)
-// TODO: Replace string-matching timeout detection ('Command timed out') with typed error
 import type { Result } from '@harness-engineering/core';
 import type { Persona } from './schema';
+
+const TIMEOUT_ERROR_MESSAGE = '__PERSONA_RUNNER_TIMEOUT__';
 
 export interface PersonaRunReport {
   persona: string;
@@ -54,7 +54,7 @@ export async function runPersona(
     const result = await Promise.race([
       executor(command),
       new Promise<Result<never, Error>>((resolve) =>
-        setTimeout(() => resolve({ ok: false, error: new Error('Command timed out') } as Result<never, Error>), remainingTime)
+        setTimeout(() => resolve({ ok: false, error: new Error(TIMEOUT_ERROR_MESSAGE) } as Result<never, Error>), remainingTime)
       ),
     ]);
 
@@ -62,7 +62,7 @@ export async function runPersona(
 
     if (result.ok) {
       report.commands.push({ name: command, status: 'pass', result: result.value, durationMs });
-    } else if (result.error.message === 'Command timed out') {
+    } else if (result.error.message === TIMEOUT_ERROR_MESSAGE) {
       report.commands.push({ name: command, status: 'skipped', error: 'timed out', durationMs });
       report.status = 'partial';
       for (let j = i + 1; j < persona.commands.length; j++) {

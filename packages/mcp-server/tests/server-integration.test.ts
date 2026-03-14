@@ -22,7 +22,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('list_personas');
     expect(names).toContain('generate_persona_artifacts');
     expect(names).toContain('run_persona');
-    expect(tools).toHaveLength(12);
+    expect(names).toContain('add_component');
+    expect(names).toContain('run_agent_task');
+    expect(tools).toHaveLength(14);
   });
 
   it('all tool definitions have inputSchema', () => {

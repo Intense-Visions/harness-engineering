@@ -90,6 +90,20 @@ describe('TemplateEngine', () => {
       expect(shared!.content).toBe('shared content');
     });
 
+    it('includes file path in render error for missing variables', () => {
+      const resolveResult = engine.resolveTemplate('basic');
+      expect(resolveResult.ok).toBe(true);
+      if (!resolveResult.ok) return;
+
+      // Omit projectName so Handlebars strict mode throws on {{projectName}}
+      const renderResult = engine.render(resolveResult.value, {} as any);
+
+      expect(renderResult.ok).toBe(false);
+      if (renderResult.ok) return;
+      // Error message should include the source template and file path
+      expect(renderResult.error.message).toContain('README.md.hbs');
+    });
+
     it('merges package.json from overlay using mergePackageJson', () => {
       const resolveResult = engine.resolveTemplate('basic', 'nextjs');
       if (!resolveResult.ok) return;
