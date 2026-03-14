@@ -98,13 +98,13 @@ export class TemplateEngine {
   }
 
   render(template: ResolvedTemplate, context: TemplateContext): Result<RenderedFiles, Error> {
-    try {
-      const rendered: RenderedFile[] = [];
-      const jsonBuffers = new Map<string, Record<string, unknown>[]>();
+    const rendered: RenderedFile[] = [];
+    const jsonBuffers = new Map<string, Record<string, unknown>[]>();
 
-      for (const file of template.files) {
-        const outputPath = file.relativePath.replace(/\.hbs$/, '');
-        if (file.isHandlebars) {
+    for (const file of template.files) {
+      const outputPath = file.relativePath.replace(/\.hbs$/, '');
+      if (file.isHandlebars) {
+        try {
           const raw = fs.readFileSync(file.absolutePath, 'utf-8');
           const compiled = Handlebars.compile(raw, { strict: true });
           const content = compiled(context);
@@ -114,12 +114,22 @@ export class TemplateEngine {
           } else {
             rendered.push({ relativePath: outputPath, content });
           }
-        } else {
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          return Err(new Error(`Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`));
+        }
+      } else {
+        try {
           const content = fs.readFileSync(file.absolutePath, 'utf-8');
           rendered.push({ relativePath: file.relativePath, content });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          return Err(new Error(`Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`));
         }
       }
+    }
 
+    try {
       for (const [outputPath, jsons] of jsonBuffers) {
         let merged: Record<string, unknown> = {};
         for (const json of jsons) {
@@ -127,12 +137,12 @@ export class TemplateEngine {
         }
         rendered.push({ relativePath: outputPath, content: JSON.stringify(merged, null, 2) });
       }
-
-      return Ok({ files: rendered });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      return Err(new Error(`Template render failed: ${msg}. Check template variables and syntax.`));
+      return Err(new Error(`JSON merge failed: ${msg}`));
     }
+
+    return Ok({ files: rendered });
   }
 
   write(files: RenderedFiles, targetDir: string, options: WriteOptions): Result<string[], Error> {
