@@ -1,0 +1,22 @@
+{
+  "name": "harness-multi-tenant-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant API demonstrating harness engineering at advanced level",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@harness-engineering/eslint-plugin": "workspace:*",
+    "@types/express": "^5.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}
