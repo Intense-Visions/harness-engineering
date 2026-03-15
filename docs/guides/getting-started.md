@@ -1,216 +1,132 @@
 # Getting Started with Harness Engineering
 
-This guide will help you get up and running with Harness Engineering in about 15-30 minutes.
+The fastest way to learn harness engineering is to explore the examples. Each one builds on the previous, progressing from basic configuration to full constraint enforcement.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-
-- **Node.js 18+** - Download from [nodejs.org](https://nodejs.org/)
-- **pnpm 8+** - Install with: `npm install -g pnpm`
-- **Git** - Required for version control
-- **A text editor** - VS Code, WebStorm, or your preferred editor
-
-Verify your installations:
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
+- **pnpm 8+** — `npm install -g pnpm`
+- **Git**
 
 ```bash
-node --version
-pnpm --version
-git --version
+node --version   # 18+
+pnpm --version   # 8+
 ```
 
-## Installation
+## Quick Start: Try an Example
 
-### Step 1: Clone or Create Your Project
+### 1. Hello World (Basic) — 5 minutes
 
 ```bash
-# Option A: Clone an existing Harness Engineering project
-git clone <repository-url>
-cd <project-name>
-
-# Option B: Initialize a new project
-mkdir my-harness-project
-cd my-harness-project
-git init
+cd examples/hello-world
+npm install
+harness validate
 ```
 
-### Step 2: Install Dependencies
+See what a harness-managed project looks like at the simplest level: configuration, validation, and an agent knowledge map.
+
+[Read the full tutorial](../../examples/hello-world/README.md)
+
+### 2. Task API (Intermediate) — 15 minutes
 
 ```bash
-pnpm install
+cd examples/task-api
+npm install
+npm test && npm run lint
 ```
 
-This installs the Harness Engineering library and all required dependencies.
+A REST API with 3-layer architecture enforced by `@harness-engineering/eslint-plugin`. Try breaking a constraint — see [VIOLATIONS.md](../../examples/task-api/VIOLATIONS.md) for exercises.
 
-### Step 3: Set Up Documentation Structure
+[Read the full tutorial](../../examples/task-api/README.md)
 
-Create the initial documentation directory structure:
+### 3. Multi-Tenant API (Advanced) — 30 minutes
 
 ```bash
-mkdir -p docs/{standard,guides,reference}
+cd examples/multi-tenant-api
+npm install
+npm test && npm run lint && harness validate --cross-check
 ```
 
-### Step 4: Create AGENTS.md
+Custom linter rules, Zod boundary validation, cross-artifact checking, all 3 personas, and a full state management lifecycle.
 
-Create a knowledge map at the root of your repository:
+[Read the full tutorial](../../examples/multi-tenant-api/README.md)
+
+## Starting Your Own Project
+
+Once you've explored the examples, initialize your own project:
 
 ```bash
-cat > AGENTS.md << 'EOF'
-# Agent Knowledge Map
-
-This file helps AI agents navigate your codebase and understand key decisions.
-
-## Core Resources
-
-- **Documentation**: [/docs](/docs) - All architectural decisions and guides
-- **Standard**: [/docs/standard](/docs/standard) - Harness Engineering principles
-- **Guides**: [/docs/guides](/docs/guides) - Getting started and best practices
-- **Reference**: [/docs/reference](/docs/reference) - CLI and configuration
-
-## Project Structure
-
-- **/packages** - Core application packages
-- **/docs** - Documentation and guides
-- **package.json** - Project metadata and scripts
-- **tsconfig.json** - TypeScript configuration
-
-## Key Decisions
-
-All architectural decisions are documented in `/docs/standard/`. Agents should review:
-1. Architectural constraints
-2. Dependency flows
-3. Testing requirements
-4. Documentation standards
-
-## Getting Help
-
-- Review [Implementation Guide](/docs/standard/implementation.md)
-- Check [Best Practices](/docs/guides/best-practices.md)
-- Consult [Configuration Reference](/docs/reference/configuration.md)
-EOF
+harness init --name my-project --level intermediate
 ```
 
-## Quick Start Example
+This scaffolds a project using the intermediate template with layer definitions, ESLint rules, and an AGENTS.md.
 
-### 1. Create Your First Feature
+### Adoption Levels
 
-Create a simple module following Harness Engineering principles:
+| Level | What you get | When to use |
+|-------|-------------|-------------|
+| **Basic** | Config + validation + AGENTS.md | Learning harness, simple projects |
+| **Intermediate** | + Layer enforcement, ESLint rules, personas | Most production projects |
+| **Advanced** | + Custom linter rules, boundary schemas, cross-artifact validation | Complex architectures, multi-team |
 
-```typescript
-// packages/core/src/example.ts
-export interface Message {
-  text: string;
-  timestamp: Date;
-}
+See [Implementation Guide](../standard/implementation.md) for the full adoption roadmap.
 
-export function createMessage(text: string): Message {
-  return {
-    text,
-    timestamp: new Date(),
-  };
-}
+## Key Concepts
+
+### Layers
+
+Architectural layers with one-way dependencies, enforced by ESLint:
+
+```
+types/     → (no imports from upper layers)
+services/  → can import from types
+api/       → can import from types, services
 ```
 
-### 2. Add Tests
+Defined in `harness.config.json`, enforced by `@harness-engineering/no-layer-violation`.
 
-Create tests for your feature:
+### Skills
 
-```typescript
-// packages/core/src/__tests__/example.test.ts
-import { createMessage } from '../example';
+21 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
 
-describe('createMessage', () => {
-  it('should create a message with text and timestamp', () => {
-    const msg = createMessage('Hello');
-    expect(msg.text).toBe('Hello');
-    expect(msg.timestamp).toBeInstanceOf(Date);
-  });
-});
-```
+### Personas
 
-### 3. Document Your Decision
+Three agent personas that run on your project:
+- **Architecture Enforcer** — validates constraints on PRs and commits
+- **Documentation Maintainer** — detects doc drift and missing coverage
+- **Entropy Cleaner** — finds dead code, stale patterns, unused deps
 
-Create a design document:
+### State Management
 
-```markdown
-# Message System Design
+Persistent state across agent sessions via `.harness/`:
+- `state.json` — position, progress, decisions, blockers
+- `learnings.md` — tagged institutional knowledge
+- `failures.md` — dead ends and anti-patterns
+- `handoff.json` — structured context between skills
 
-## Overview
-
-Simple message creation system for demonstrations.
-
-## Implementation
-
-Messages are created via `createMessage()` function.
-
-## Status
-
-Complete and tested.
-```
-
-### 4. Validate Your Setup
-
-Run tests to ensure everything works:
+## Common Commands
 
 ```bash
-pnpm test
-```
-
-## Next Steps
-
-Congratulations! You have a basic Harness Engineering setup. Here's what to do next:
-
-1. **Review the Principles**
-   - Read [Context Engineering](/docs/standard/principles.md#1-context-engineering)
-   - Understand [Architectural Constraints](/docs/standard/principles.md#2-architectural-rigidity--mechanical-constraints)
-
-2. **Read Best Practices**
-   - Check [Code Organization](/docs/guides/best-practices.md#code-organization)
-   - Learn [Testing Strategies](/docs/guides/best-practices.md#testing-strategies)
-
-3. **Set Up Configuration**
-   - Create your [harness.config.yml](/docs/reference/configuration.md)
-   - Define architectural constraints for your project
-
-4. **Implement Agent Skills**
-   - Set up initial validation
-   - Create custom linter rules
-   - Enable agent feedback loops
-
-## Common Tasks
-
-### Starting the Documentation Server
-
-```bash
-pnpm docs:dev
-```
-
-Visit `http://localhost:5173` to view documentation.
-
-### Running Tests
-
-```bash
-# Run all tests
-pnpm test
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Run tests for a specific package
-pnpm test --filter=@harness/core
-```
-
-### Building for Production
-
-```bash
-pnpm build
+harness validate              # Check project configuration
+harness check-deps            # Verify dependency boundaries
+harness skill list            # List available skills
+harness skill run <name>      # Run a skill
+harness state show            # View current state
+harness state learn "..."     # Capture a learning
+harness linter generate       # Generate ESLint rules from YAML
 ```
 
 ## Troubleshooting
 
-### "pnpm: command not found"
+### "harness: command not found"
 
-Install pnpm globally:
+Install the CLI globally or use npx:
+
+```bash
+npx @harness-engineering/cli validate
+```
+
+### "pnpm: command not found"
 
 ```bash
 npm install -g pnpm
@@ -218,29 +134,13 @@ npm install -g pnpm
 
 ### "Node version not compatible"
 
-Install Node.js 18 or higher:
-
 ```bash
-# Using nvm (recommended)
 nvm install 18
 nvm use 18
 ```
 
-### "Port 5173 already in use"
+## Next Steps
 
-Use a different port:
-
-```bash
-pnpm docs:dev --port 3000
-```
-
-## Getting Help
-
-- Check the [Best Practices Guide](./best-practices.md)
-- Review [Implementation Guide](/docs/standard/implementation.md)
-- See [Configuration Reference](/docs/reference/configuration.md)
-- Visit the main [Documentation](/docs)
-
----
-
-_Last Updated: 2026-03-11_
+- Read [The Standard](../standard/index.md) for the six principles
+- Explore [Adoption Levels](../standard/implementation.md) for phased rollout
+- Check [Configuration Reference](../reference/) for harness.config.json options

@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Phase 1: Foundation and Documentation** - We are building the core library, documentation, and tooling that establishes the foundation for agent-first development.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server), 21 skills, 3 personas, 4 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -27,16 +27,25 @@ harness-engineering/
 ├── packages/                  # Core application packages
 │   ├── types/                # Shared TypeScript types and interfaces
 │   ├── core/                 # Core runtime library and utilities
-│   └── [future packages]     # Additional packages (CLI, agents, etc.)
+│   ├── cli/                  # CLI tool (harness validate, check-deps, skill, state, etc.)
+│   ├── eslint-plugin/        # ESLint rules for constraint enforcement
+│   ├── linter-gen/           # YAML-to-ESLint rule generator
+│   └── mcp-server/           # MCP server for AI agent integration
+├── agents/                    # Agent configuration
+│   ├── skills/claude-code/   # 21 skills (skill.yaml + SKILL.md each)
+│   └── personas/             # 3 personas (architecture-enforcer, documentation-maintainer, entropy-cleaner)
+├── templates/                 # Project scaffolding templates (basic, intermediate, advanced, nextjs)
+├── examples/                  # Progressive tutorial examples
+│   ├── hello-world/          # Basic adoption level
+│   ├── task-api/             # Intermediate adoption level
+│   └── multi-tenant-api/     # Advanced adoption level
 ├── docs/                     # Complete documentation suite
-│   ├── index.md             # Documentation homepage
 │   ├── standard/            # Harness Engineering principles and standard
 │   ├── guides/              # How-to guides and tutorials
 │   ├── reference/           # Configuration and API reference
-│   ├── api/                 # Generated API documentation
-│   ├── specs/              # Detailed technical specifications
-│   ├── plans/              # Implementation and execution plans
-│   └── changes/            # In-progress change proposals
+│   ├── specs/               # Detailed technical specifications
+│   ├── plans/               # Implementation and execution plans
+│   └── research/            # Framework research and analysis
 ├── package.json             # Root package metadata and scripts
 ├── tsconfig.json            # Root TypeScript configuration
 ├── pnpm-workspace.yaml      # pnpm workspace definition

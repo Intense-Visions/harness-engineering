@@ -1,141 +1,115 @@
-# Harness Engineering Library
+# Harness Engineering
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 
-**Comprehensive toolkit for agent-first development.**
+**Self-contained toolkit for agent-first development.**
 
-Harness Engineering is a systematic approach where human engineers design constraints and feedback loops that enable AI agents to work reliably and autonomously.
+Human engineers design constraints and feedback loops. AI agents execute, maintain, and improve code within those constraints. Harness Engineering provides the mechanical enforcement, behavioral guidance, and state management that makes this work.
 
----
+## Quick Start
 
-## 🚀 Quick Start
+The fastest way to understand harness engineering is to explore the examples:
 
 ```bash
-# Install the core library
-npm install @harness-engineering/core
-# or
-pnpm add @harness-engineering/core
+# Clone the repo
+git clone https://github.com/harness-engineering/harness-engineering.git
+cd harness-engineering
+
+# Try the simplest example
+cd examples/hello-world
+npm install
+harness validate
 ```
 
-```typescript
-import { validateAgentsMap } from '@harness-engineering/core';
+See the [examples](#examples) section for the full progression.
 
-const result = validateAgentsMap('./AGENTS.md');
+## What's in the Box
 
-if (!result.ok) {
-  console.error('Validation failed:', result.error.message);
-  process.exit(1);
-}
+| Component | Count | What it does |
+|-----------|-------|-------------|
+| [Packages](./packages/) | 6 | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types |
+| [Skills](./agents/skills/claude-code/) | 21 | Rigid and flexible workflows for TDD, execution, debugging, verification, planning, and more |
+| [Personas](./agents/personas/) | 3 | Architecture enforcer, documentation maintainer, entropy cleaner |
+| [Templates](./templates/) | 4 | Basic, intermediate, advanced, Next.js — progressive adoption scaffolds |
+| [Examples](./examples/) | 3 | Hello world, task API, multi-tenant API — progressive tutorials |
 
-console.log('✓ AGENTS.md is valid!');
-```
+## Packages
 
----
+| Package | Description |
+|---------|-------------|
+| [`@harness-engineering/types`](./packages/types) | Shared TypeScript types and interfaces |
+| [`@harness-engineering/core`](./packages/core) | Core runtime: validation, constraints, entropy detection, state management |
+| [`@harness-engineering/cli`](./packages/cli) | CLI: `harness validate`, `check-deps`, `skill run`, `state show`, and more |
+| [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 ESLint rules: no-layer-violation, no-circular-deps, no-forbidden-imports, require-boundary-schema, enforce-doc-exports |
+| [`@harness-engineering/linter-gen`](./packages/linter-gen) | Generate custom ESLint rules from YAML configuration |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server) | MCP server with 15 tools for AI agent integration |
 
-## 📚 Documentation
+## Examples
 
-**Full documentation:** https://harness-engineering.dev (coming soon)
+Three progressive examples, each building on the previous:
 
-- **[The Standard](https://github.com/harness-engineering/harness-engineering/tree/main/docs/standard)** - Six core principles
-- **[Getting Started](https://github.com/harness-engineering/harness-engineering/tree/main/docs/guides)** - Implementation guides
-- **[API Reference](https://github.com/harness-engineering/harness-engineering/tree/main/docs/reference)** - Complete API docs
-- **[Adoption Levels](https://github.com/harness-engineering/harness-engineering/blob/main/docs/standard/implementation.md)** - Phased rollout plan
+### 1. [Hello World](./examples/hello-world/) (Basic) — 5 minutes
 
----
+Minimal project: config, validation, AGENTS.md. See what a harness-managed project looks like.
 
-## 🎯 What is Harness Engineering?
+### 2. [Task API](./examples/task-api/) (Intermediate) — 15 minutes
 
-AI Harness Engineering represents a fundamental shift from manual implementation to systemic leverage:
+Express API with 3-layer architecture enforced by ESLint. Try breaking a constraint and watch harness catch it.
 
-- **Human Role**: Architect, intent-specifier, and validator
-- **AI Role**: Executor, implementer, and primary maintainer
+### 3. [Multi-Tenant API](./examples/multi-tenant-api/) (Advanced) — 30 minutes
 
-### The Six Principles
+Custom linter rules, Zod boundary validation, cross-artifact checking, all 3 personas, and full state lifecycle.
 
-1. **Context Engineering** - Repository-as-documentation, everything in git
-2. **Architectural Constraints** - Mechanical enforcement of dependencies and boundaries
-3. **Agent Feedback Loop** - Self-correcting agents with peer review
-4. **Entropy Management** - Automated cleanup and drift detection
-5. **Implementation Strategy** - Depth-first, one feature to 100% completion
-6. **Key Performance Indicators** - Agent autonomy, harness coverage, context density
+## The Six Principles
 
----
+1. **Context Engineering** — Repository-as-documentation, everything in git
+2. **Architectural Constraints** — Mechanical enforcement of dependencies and boundaries
+3. **Agent Feedback Loop** — Self-correcting agents with peer review
+4. **Entropy Management** — Automated cleanup and drift detection
+5. **Implementation Strategy** — Depth-first, one feature to 100% completion
+6. **Key Performance Indicators** — Agent autonomy, harness coverage, context density
 
-## 📦 Packages
+Read the full standard: [docs/standard/](./docs/standard/)
 
-| Package                                          | Version | Description                      |
-| ------------------------------------------------ | ------- | -------------------------------- |
-| [`@harness-engineering/core`](./packages/core)   | `0.0.0` | Core runtime library (5 modules) |
-| [`@harness-engineering/types`](./packages/types) | `0.0.0` | Shared TypeScript types          |
-
-**Coming soon:**
-
-- `harness-cli` - CLI tool for scaffolding and validation
-- `@harness-engineering/eslint-plugin` - ESLint rules
-- `@harness-engineering/linter-gen` - Custom linter generator
-
----
-
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 harness-engineering/
-├── packages/          # Runtime libraries
-│   ├── types/        # Shared types
-│   └── core/         # Core library
-├── docs/             # Documentation (VitePress)
-│   ├── standard/     # The standard
-│   ├── guides/       # Implementation guides
-│   └── reference/    # API reference
-└── AGENTS.md         # Knowledge map for AI agents
+├── packages/                  # Runtime libraries and tools
+│   ├── types/                # Shared TypeScript types
+│   ├── core/                 # Core runtime library
+│   ├── cli/                  # CLI tool
+│   ├── eslint-plugin/        # ESLint rules for constraint enforcement
+│   ├── linter-gen/           # YAML-to-ESLint rule generator
+│   └── mcp-server/           # MCP server for AI agent integration
+├── agents/                    # Agent configuration
+│   ├── skills/               # 21 skills (skill.yaml + SKILL.md each)
+│   └── personas/             # 3 personas (YAML configs)
+├── templates/                 # Project scaffolding templates
+│   ├── basic/                # Minimal harness setup
+│   ├── intermediate/         # Layers + ESLint + personas
+│   ├── advanced/             # Full feature set
+│   └── nextjs/               # Next.js overlay
+├── examples/                  # Progressive tutorial examples
+│   ├── hello-world/          # Basic adoption level
+│   ├── task-api/             # Intermediate adoption level
+│   └── multi-tenant-api/     # Advanced adoption level
+├── docs/                      # Documentation
+│   ├── standard/             # The six principles
+│   ├── guides/               # Getting started, best practices
+│   ├── specs/                # Technical specifications
+│   └── plans/                # Implementation plans
+└── AGENTS.md                  # AI agent knowledge map
 ```
 
----
+## Documentation
 
-## 🚧 Current Status
+- [The Standard](./docs/standard/index.md) — Six core principles
+- [Getting Started](./docs/guides/getting-started.md) — Quick start via examples
+- [Implementation Guide](./docs/standard/implementation.md) — Adoption levels and rollout
+- [API Reference](./docs/reference/) — Configuration and CLI docs
 
-**Phase 1: Foundation** (In Progress)
+## License
 
-- ✅ Monorepo setup (pnpm + Turborepo)
-- ✅ Documentation infrastructure (VitePress)
-- ✅ Standard documentation (6 principles)
-- ✅ AGENTS.md knowledge map
-- 🚧 Core library modules (in development)
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
-
-**Ways to contribute:**
-
-- Report bugs or request features via [GitHub Issues](https://github.com/harness-engineering/harness-engineering/issues)
-- Submit pull requests
-- Improve documentation
-- Share your experience using harness engineering
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](./LICENSE) for details.
-
----
-
-## 🔗 Links
-
-- **Documentation**: https://harness-engineering.dev (coming soon)
-- **GitHub**: https://github.com/harness-engineering/harness-engineering
-- **npm**: https://www.npmjs.com/org/harness-engineering
-- **Discussions**: https://github.com/harness-engineering/harness-engineering/discussions
-
----
-
-## 🎓 Learn More
-
-- Read [The Standard](./docs/standard/index.md) to understand the principles
-- Follow [Getting Started Guide](./docs/guides/index.md) to adopt harness engineering
-- Explore [Adoption Levels](./docs/standard/implementation.md) for phased rollout
-- Check [API Reference](./docs/reference/index.md) for detailed documentation
+MIT License — see [LICENSE](./LICENSE) for details.
