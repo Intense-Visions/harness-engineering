@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "harness-task-api",
+  "layers": [
+    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
+    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types"] },
+    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "services"] }
+  ],
+  "forbiddenImports": [
+    { "from": "src/types/**", "disallow": ["src/services/**", "src/api/**"], "message": "Types layer cannot import from services or API" },
+    { "from": "src/services/**", "disallow": ["src/api/**"], "message": "Services layer cannot import from API" }
+  ],
+  "boundaries": {
+    "requireSchema": ["src/api/**"]
+  },
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "level": "intermediate",
+    "version": 1
+  }
+}
