@@ -1,0 +1,15 @@
+{
+  "name": "harness-hello-world",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal harness engineering example — basic adoption level",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "echo 'no linter configured at basic level'",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}
