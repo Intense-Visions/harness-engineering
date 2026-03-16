@@ -72,6 +72,23 @@ Use commit history to answer:
 - **Who has been working here?** If multiple authors touched the file recently, there may be conflicting assumptions. Look for consistency.
 - **What was the last change?** The most recent commit gives context on the file's trajectory. A bugfix followed by another change to the same area is a yellow flag.
 
+### Review Learnings Calibration
+
+Before starting the review, check for a project-specific calibration file:
+
+```bash
+# Check if review learnings file exists
+cat .harness/review-learnings.md 2>/dev/null
+```
+
+If `.harness/review-learnings.md` exists:
+
+1. **Read the Useful Findings section.** Prioritize these categories during review — they have historically caught real issues in this project.
+2. **Read the Noise / False Positives section.** De-prioritize or skip these categories — flagging them wastes the author's time and erodes trust in the review process.
+3. **Read the Calibration Notes section.** Apply these project-specific overrides to your review judgment. These represent deliberate team decisions, not oversights.
+
+If the file does not exist, proceed with default review focus areas. After completing the review, consider suggesting that the team create `.harness/review-learnings.md` if you notice patterns that would benefit from calibration.
+
 ## Process
 
 This skill covers three distinct roles. Follow the section that matches your current role.
