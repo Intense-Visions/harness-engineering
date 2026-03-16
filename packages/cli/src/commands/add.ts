@@ -8,7 +8,7 @@ import { resolveConfig } from '../config/loader';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 
-type ComponentType = 'layer' | 'module' | 'doc';
+type ComponentType = 'layer' | 'module' | 'doc' | 'skill' | 'persona';
 
 interface AddOptions {
   cwd?: string;
@@ -112,10 +112,39 @@ export async function runAdd(
         break;
       }
 
+      case 'skill': {
+        const { generateSkillFiles } = await import('./create-skill');
+        generateSkillFiles({
+          name,
+          description: `${name} skill`,
+          outputDir: path.join(cwd, 'agents', 'skills', 'claude-code'),
+        });
+        created.push(`agents/skills/claude-code/${name}/skill.yaml`);
+        created.push(`agents/skills/claude-code/${name}/SKILL.md`);
+        break;
+      }
+
+      case 'persona': {
+        const personasDir = path.join(cwd, 'agents', 'personas');
+        if (!fs.existsSync(personasDir)) {
+          fs.mkdirSync(personasDir, { recursive: true });
+        }
+        const personaPath = path.join(personasDir, `${name}.yaml`);
+        if (fs.existsSync(personaPath)) {
+          return Err(new CLIError(`Persona ${name} already exists`, ExitCode.ERROR));
+        }
+        fs.writeFileSync(
+          personaPath,
+          `name: ${name}\ndescription: ${name} persona\ntriggers:\n  - manual\nfocus_areas: []\n`
+        );
+        created.push(`agents/personas/${name}.yaml`);
+        break;
+      }
+
       default:
         return Err(
           new CLIError(
-            `Unknown component type: ${componentType}. Use: layer, module, doc`,
+            `Unknown component type: ${componentType}. Use: layer, module, doc, skill, persona`,
             ExitCode.ERROR
           )
         );
@@ -135,7 +164,7 @@ export async function runAdd(
 export function createAddCommand(): Command {
   const command = new Command('add')
     .description('Add a component to the project')
-    .argument('<type>', 'Component type (layer, module, doc)')
+    .argument('<type>', 'Component type (layer, module, doc, skill, persona)')
     .argument('<name>', 'Component name')
     .action(async (type, name, _opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
