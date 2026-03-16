@@ -40,5 +40,8 @@ export * from './state';
 // Workflow module
 export * from './workflow';
 
+// Pipeline module
+export * from './pipeline';
+
 // Package version
 export const VERSION = '0.5.0';
