@@ -25,7 +25,6 @@ export async function readFileContent(path: string): Promise<Result<string, Erro
   }
 }
 
-// eslint-disable-next-line no-undef
 export async function findFiles(pattern: string, cwd: string = process.cwd()): Promise<string[]> {
   return glob(pattern, { cwd, absolute: true });
 }

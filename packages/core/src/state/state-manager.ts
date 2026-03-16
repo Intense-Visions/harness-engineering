@@ -367,7 +367,8 @@ export async function runMechanicalGate(projectPath: string): Promise<Result<Gat
       } catch (error) {
         const output =
           error instanceof Error
-            ? (error as any).stderr?.toString() || error.message
+            ? (error as Error & { stderr?: { toString(): string } }).stderr?.toString() ||
+              error.message
             : String(error);
         results.push({
           name: check.name,

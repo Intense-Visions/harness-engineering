@@ -176,7 +176,6 @@ export function checkConfigPattern(
 /**
  * Detect pattern violations across a codebase
  */
-// eslint-disable-next-line @typescript-eslint/require-await
 export async function detectPatternViolations(
   snapshot: CodebaseSnapshot,
   config?: PatternConfig

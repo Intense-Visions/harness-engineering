@@ -33,9 +33,9 @@ export function validateConfig<T>(data: unknown, schema: z.ZodSchema<T>): Result
 
     // Determine error code based on issue type
     if (firstError.code === 'invalid_type') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const received = (firstError as any).received as string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const expected = (firstError as any).expected as string;
 
       // Check if this is a missing field (undefined received)

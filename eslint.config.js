@@ -77,6 +77,7 @@ export default [
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
       'no-undef': 'off',
+      '@typescript-eslint/no-unsafe-enum-comparison': 'off',
     },
   },
   prettierConfig,
