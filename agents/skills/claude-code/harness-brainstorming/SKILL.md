@@ -147,6 +147,15 @@ Converge on a recommendation that addresses all concerns before presenting the d
 - **Spec location** — Specs go to `docs/` (or `docs/specs/` if the project uses that convention). Follow existing naming patterns.
 - **Handoff to harness-planning** — Once the spec is approved, invoke harness-planning to create the implementation plan from the spec.
 
+#### Requirement Phrasing
+
+When brainstorming produces requirements or acceptance criteria that will feed into planning, prefer EARS sentence patterns for behavioral requirements. See the EARS Requirement Patterns section in harness-planning for the full template reference. Key patterns:
+
+- **Event-driven:** "When [trigger], the system shall [response]."
+- **Unwanted:** "If [condition], then the system shall not [behavior]."
+
+These patterns make requirements testable and unambiguous. Apply them when the output of brainstorming includes specific behavioral expectations.
+
 ## Success Criteria
 
 - A spec document exists in `docs/` with all required sections (overview, decisions, technical design, success criteria, implementation order)
