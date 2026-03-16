@@ -85,3 +85,37 @@ export interface SkillMetadata {
   description: string;
   cognitive_mode?: CognitiveMode;
 }
+
+// --- Pipeline Types ---
+
+export interface SkillContext {
+  skillName: string;
+  phase: string;
+  files: string[];
+  /** Optional token budget — uses a plain record to avoid cross-package deps. */
+  tokenBudget?: Record<string, number>;
+  metadata: Record<string, unknown>;
+}
+
+export interface TurnContext extends SkillContext {
+  turnNumber: number;
+  previousResults: unknown[];
+}
+
+export type SkillError = {
+  code: string;
+  message: string;
+  phase: string;
+};
+
+export type SkillResult = {
+  success: boolean;
+  artifacts: string[];
+  summary: string;
+};
+
+export interface SkillLifecycleHooks {
+  preExecution?: (context: SkillContext) => SkillContext | null;
+  perTurn?: (context: TurnContext) => TurnContext | null;
+  postExecution?: (context: SkillContext, result: SkillResult) => void;
+}
