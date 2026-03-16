@@ -14,6 +14,10 @@ export { validateKnowledgeMap } from './knowledge-map';
 // AGENTS.md Generation
 export { generateAgentsMap } from './generate';
 
+// Token Budget
+export { contextBudget } from './budget';
+export type { TokenBudget, TokenBudgetOverrides } from './budget.types';
+
 // Types
 export type {
   AgentMapLink,
