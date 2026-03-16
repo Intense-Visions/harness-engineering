@@ -169,7 +169,7 @@ export function createAddCommand(): Command {
     .argument('<type>', 'Component type (layer, module, doc, skill, persona)')
     .argument('<name>', 'Component name')
     .action(async (type: string, name: string, _opts: unknown, cmd: Command) => {
-      const globalOpts = cmd.optsWithGlobals() as { config?: string; quiet?: boolean };
+      const globalOpts = cmd.optsWithGlobals();
 
       const result = await runAdd(type as ComponentType, name, {
         ...(globalOpts.config !== undefined && { configPath: globalOpts.config }),
@@ -181,7 +181,7 @@ export function createAddCommand(): Command {
       }
 
       if (!globalOpts.quiet) {
-        logger.success(`Added ${type as string}: ${name}`);
+        logger.success(`Added ${type}: ${name}`);
         for (const file of result.value.created) {
           console.log(`  + ${file}`);
         }
