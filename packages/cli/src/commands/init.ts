@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
@@ -66,6 +67,7 @@ export function createInitCommand(): Command {
     .option('-l, --level <level>', 'Adoption level (basic, intermediate, advanced)', 'basic')
     .option('--framework <framework>', 'Framework overlay (nextjs)')
     .option('-f, --force', 'Overwrite existing files')
+    .option('-y, --yes', 'Use defaults without prompting')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
 
@@ -82,15 +84,19 @@ export function createInitCommand(): Command {
       }
 
       if (!globalOpts.quiet) {
+        console.log('');
         logger.success('Project initialized!');
+        console.log('');
         logger.info('Created files:');
         for (const file of result.value.filesCreated) {
-          console.log(`  - ${file}`);
+          console.log(`  ${chalk.green('+')} ${file}`);
         }
-        console.log('\nNext steps:');
-        console.log('  1. Review harness.config.json');
-        console.log('  2. Update AGENTS.md with your project structure');
-        console.log('  3. Run "harness validate" to check your setup');
+        console.log('');
+        console.log(chalk.bold('Next steps:'));
+        console.log(`  1. Review ${chalk.cyan('harness.config.json')}`);
+        console.log(`  2. Update ${chalk.cyan('AGENTS.md')} with your project context`);
+        console.log(`  3. Run ${chalk.cyan('harness validate')} to check your setup`);
+        console.log('');
       }
 
       process.exit(ExitCode.SUCCESS);
