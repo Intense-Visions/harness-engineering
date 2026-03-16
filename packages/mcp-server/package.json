@@ -5,11 +5,18 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
     "harness-mcp": "./dist/bin/harness-mcp.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -33,5 +40,17 @@
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/harness-engineering/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/mcp-server#readme"
 }

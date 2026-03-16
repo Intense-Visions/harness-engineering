@@ -7,11 +7,17 @@
     "harness": "./dist/bin/harness.js"
   },
   "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup src/index.ts src/bin/harness.ts --format esm --dts --outDir dist",
@@ -37,5 +43,17 @@
     "tsup": "^8.0.0",
     "vitest": "^4.0.18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/harness-engineering/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/cli#readme"
 }

@@ -6,7 +6,8 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "exports": {
     ".": {
@@ -33,6 +34,18 @@
     "development"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/harness-engineering/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/core#readme",
   "dependencies": {
     "@harness-engineering/types": "workspace:*",
     "@typescript-eslint/typescript-estree": "^7.0.0",

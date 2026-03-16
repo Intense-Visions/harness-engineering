@@ -5,8 +5,15 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc && cp -r src/templates dist/templates",
@@ -27,5 +34,17 @@
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/linter-gen"
+  },
+  "bugs": {
+    "url": "https://github.com/harness-engineering/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/linter-gen#readme"
 }

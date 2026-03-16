@@ -26,7 +26,23 @@
     "ai",
     "agents"
   ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/types"
+  },
+  "bugs": {
+    "url": "https://github.com/harness-engineering/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/types#readme",
   "devDependencies": {
     "tsup": "^8.0.0"
   }
