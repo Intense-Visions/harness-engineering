@@ -65,7 +65,7 @@ export default [
     },
   },
   {
-    files: ['packages/cli/src/**/*.ts'],
+    files: ['packages/*/src/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
@@ -75,6 +75,8 @@ export default [
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      'no-undef': 'off',
     },
   },
   prettierConfig,
