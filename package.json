@@ -19,7 +19,10 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "docs:dev": "pnpm --filter docs dev",
     "docs:build": "pnpm --filter docs build",
-    "docs:preview": "pnpm --filter docs preview"
+    "docs:preview": "pnpm --filter docs preview",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
