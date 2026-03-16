@@ -74,6 +74,7 @@ export default [
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/require-await': 'off',
     },
   },
   prettierConfig,
