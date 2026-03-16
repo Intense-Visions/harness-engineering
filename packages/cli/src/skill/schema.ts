@@ -32,10 +32,22 @@ const ALLOWED_TRIGGERS = [
 
 const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
 
+export const ALLOWED_COGNITIVE_MODES = [
+  'adversarial-reviewer',
+  'constructive-architect',
+  'meticulous-implementer',
+  'diagnostic-investigator',
+  'advisory-guide',
+  'meticulous-verifier',
+] as const;
+
 export const SkillMetadataSchema = z.object({
   name: z.string().regex(/^[a-z][a-z0-9-]*$/, 'Name must be lowercase with hyphens'),
   version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be semver format'),
   description: z.string(),
+  cognitive_mode: z.string()
+    .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, 'Cognitive mode must be kebab-case')
+    .optional(),
   triggers: z.array(z.enum(ALLOWED_TRIGGERS)),
   platforms: z.array(z.enum(ALLOWED_PLATFORMS)),
   tools: z.array(z.string()),
