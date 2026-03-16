@@ -32,8 +32,9 @@ Harness Engineering codifies the practices that make agent-driven development vi
 4. **Entropy management** - Systematic cleanup prevents technical debt accumulation
 5. **Depth-first implementation** - Build complete features rather than breadth-first scaffolding
 6. **Measurable success** - Track agent autonomy, harness coverage, and context density
+7. **Deterministic-vs-LLM split** - If it can be expressed as if-else logic, enforce it mechanically, not via LLM judgment
 
-## The Six Core Principles
+## The Seven Core Principles
 
 ### 1. Context Engineering
 
@@ -127,11 +128,27 @@ Design → Implementation → Testing → Deployment in a single vertical slice.
 
 ---
 
+### 7. Deterministic-vs-LLM Responsibility Split
+
+**Clear Boundaries**: If an operation can be expressed as if-else logic, it must be enforced mechanically — not delegated to LLM judgment.
+
+LLMs handle intent understanding, architectural reasoning, code generation, and ambiguous trade-offs. Mechanical tooling handles formatting, import ordering, naming conventions, file structure validation, test execution, and type checking.
+
+**Key aspects**:
+
+- Decision heuristic: can you write it as if-else? → mechanical
+- Deterministic-first execution sequence in all skills
+- Extends Principle 2 from "what to enforce" to "how to decide what to enforce"
+
+[Read more about the Deterministic-vs-LLM Split →](./principles.md#7-deterministic-vs-llm-responsibility-split)
+
+---
+
 ## How to Get Started
 
 ### Understanding the Standard
 
-1. **Start here**: Read the [Six Principles](./principles.md) for detailed explanations
+1. **Start here**: Read the [Seven Principles](./principles.md) for detailed explanations
 2. **Learn implementation**: Read the [Implementation Guide](./implementation.md) for practical setup
 3. **Measure success**: Review [KPIs & Metrics](./kpis.md) to understand success criteria
 
@@ -199,7 +216,7 @@ The open-source toolkit that implements these principles:
 
 ## Resources
 
-- **[Principles](./principles.md)** - Deep dive into all 6 principles
+- **[Principles](./principles.md)** - Deep dive into all 7 principles
 - **[Implementation Guide](./implementation.md)** - Step-by-step adoption guide
 - **[KPIs & Metrics](./kpis.md)** - How to measure success
 - **[Harness Engineering Library](../../../README.md)** - Main project documentation
@@ -207,4 +224,4 @@ The open-source toolkit that implements these principles:
 
 ---
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-16_
