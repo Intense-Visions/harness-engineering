@@ -1,0 +1,33 @@
+name: harness-pre-commit-review
+version: "1.0.0"
+description: Lightweight pre-commit quality gate combining mechanical checks and AI review
+triggers: [manual, on_commit]
+platforms: [claude-code, gemini-cli]
+tools: [Bash, Read, Glob, Grep]
+cli:
+  command: harness skill run harness-pre-commit-review
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-pre-commit-review
+    path: string
+type: rigid
+phases:
+  - name: mechanical-checks
+    description: Run deterministic checks (lint, typecheck, tests)
+    required: true
+  - name: classify-changes
+    description: Determine if AI review is needed based on change type
+    required: true
+  - name: ai-review
+    description: Lightweight AI review of staged changes (skipped for docs/config-only)
+    required: false
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-code-review
