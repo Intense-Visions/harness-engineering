@@ -27,6 +27,19 @@ export const EntropyConfigSchema = z.object({
   autoFix: z.boolean().default(false),
 });
 
+export const PhaseGateMappingSchema = z.object({
+  implPattern: z.string(),
+  specPattern: z.string(),
+});
+
+export const PhaseGatesConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  severity: z.enum(['error', 'warning']).default('error'),
+  mappings: z.array(PhaseGateMappingSchema).default([
+    { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' },
+  ]),
+});
+
 export const HarnessConfigSchema = z.object({
   version: z.literal(1),
   name: z.string().optional(),
@@ -43,6 +56,7 @@ export const HarnessConfigSchema = z.object({
     framework: z.string().optional(),
     version: z.number(),
   }).optional(),
+  phaseGates: PhaseGatesConfigSchema.optional(),
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;

@@ -12,6 +12,7 @@ import { createLinterCommand } from './commands/linter';
 import { createPersonaCommand } from './commands/persona';
 import { createSkillCommand } from './commands/skill';
 import { createStateCommand } from './commands/state';
+import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -38,6 +39,7 @@ export function createProgram(): Command {
   program.addCommand(createPersonaCommand());
   program.addCommand(createSkillCommand());
   program.addCommand(createStateCommand());
+  program.addCommand(createCheckPhaseGateCommand());
 
   return program;
 }
