@@ -51,6 +51,12 @@ export function createProgram(): Command {
 // Preamble builder export
 export { buildPreamble } from './commands/skill/preamble';
 
+// Command function exports (used by MCP server)
+export { runCheckPhaseGate } from './commands/check-phase-gate';
+export { runCrossCheck } from './commands/validate-cross-check';
+export { generateSkillFiles } from './commands/create-skill';
+export type { CreateSkillOptions } from './commands/create-skill';
+
 // Re-export utilities
 export { CLIError, ExitCode, handleError } from './utils/errors';
 export { OutputFormatter, OutputMode } from './output/formatter';
