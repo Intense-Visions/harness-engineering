@@ -1,5 +1,11 @@
 # @harness-engineering/cli
 
+## 1.1.0
+
+### Minor Changes
+
+- Add setup-mcp command and auto-configure MCP server during init for Claude Code and Gemini CLI
+
 ## 1.0.2
 
 ### Patch Changes
