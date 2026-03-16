@@ -13,6 +13,7 @@ import { createPersonaCommand } from './commands/persona';
 import { createSkillCommand } from './commands/skill';
 import { createStateCommand } from './commands/state';
 import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
+import { createCreateSkillCommand } from './commands/create-skill';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -40,6 +41,7 @@ export function createProgram(): Command {
   program.addCommand(createSkillCommand());
   program.addCommand(createStateCommand());
   program.addCommand(createCheckPhaseGateCommand());
+  program.addCommand(createCreateSkillCommand());
 
   return program;
 }
