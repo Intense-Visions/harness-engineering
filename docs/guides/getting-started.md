@@ -110,6 +110,60 @@ Persistent state across agent sessions via `.harness/`:
 - `failures.md` — dead ends and anti-patterns
 - `handoff.json` — structured context between skills
 
+## Connect to AI Agents
+
+Harness includes an MCP server that gives AI coding agents real-time access to validation, skills, and project context.
+
+### Automatic Setup
+
+```bash
+# Configure for all supported clients (Claude Code + Gemini CLI)
+harness setup-mcp
+
+# Or configure a specific client
+harness setup-mcp --client claude
+harness setup-mcp --client gemini
+```
+
+This creates the MCP config in your project directory. The `harness init` command also sets this up automatically.
+
+### Manual Setup
+
+Add to your AI client's MCP settings:
+
+**Claude Code** (`.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["harness-mcp"]
+    }
+  }
+}
+```
+
+**Gemini CLI** (`.gemini/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["harness-mcp"]
+    }
+  }
+}
+```
+
+### What the MCP Server Provides
+
+- **15 tools** — project validation, dependency checking, entropy detection, skill execution, persona management, linter generation
+- **4 resources** — `harness://project` (AGENTS.md context), `harness://skills` (skill catalog), `harness://rules` (active linter rules), `harness://learnings` (review log)
+
+Once connected, your AI agent can validate constraints, run skills, and access project context without leaving the conversation.
+
 ## Common Commands
 
 ```bash
@@ -120,6 +174,7 @@ harness skill run <name>      # Run a skill
 harness state show            # View current state
 harness state learn "..."     # Capture a learning
 harness linter generate       # Generate ESLint rules from YAML
+harness setup-mcp             # Configure MCP server for AI clients
 ```
 
 ## Troubleshooting

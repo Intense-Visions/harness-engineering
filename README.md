@@ -79,6 +79,35 @@ graph TD
 
 Violations are caught at lint time via `@harness-engineering/eslint-plugin` — not at code review.
 
+## AI Agent Integration
+
+Connect your AI coding agent to harness for real-time constraint validation:
+
+```bash
+# Configure MCP server for Claude Code and Gemini CLI
+harness setup-mcp
+```
+
+This adds the harness MCP server to your AI client, giving it access to 15 tools (validation, entropy detection, skill execution) and 4 resources (project context, skills catalog, rules, learnings).
+
+**Manual setup** — add to your client's MCP config:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["harness-mcp"]
+    }
+  }
+}
+```
+
+| Client      | Config Location         |
+| ----------- | ----------------------- |
+| Claude Code | `.claude/settings.json` |
+| Gemini CLI  | `.gemini/settings.json` |
+
 ## What's Included
 
 | Component                              | Count | Description                                                                     |

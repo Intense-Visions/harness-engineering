@@ -14,6 +14,7 @@ import { createSkillCommand } from './commands/skill';
 import { createStateCommand } from './commands/state';
 import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
 import { createCreateSkillCommand } from './commands/create-skill';
+import { createSetupMcpCommand } from './commands/setup-mcp';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -42,6 +43,7 @@ export function createProgram(): Command {
   program.addCommand(createStateCommand());
   program.addCommand(createCheckPhaseGateCommand());
   program.addCommand(createCreateSkillCommand());
+  program.addCommand(createSetupMcpCommand());
 
   return program;
 }

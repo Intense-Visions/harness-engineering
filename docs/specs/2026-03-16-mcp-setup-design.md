@@ -12,6 +12,7 @@ The MCP server (`@harness-engineering/mcp-server`) exists but there's no documen
 ### 1. `harness setup-mcp` command
 
 New CLI command that:
+
 - Writes MCP server config for Claude Code (`.claude/settings.json`) and Gemini CLI (`.gemini/settings.json`)
 - If configs already exist, merges the harness MCP entry without overwriting other settings
 - Prints a summary of what was configured

@@ -8,6 +8,7 @@ import { TemplateEngine } from '../templates/engine';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
+import { setupMcp } from './setup-mcp';
 
 interface InitOptions {
   cwd?: string;
@@ -83,6 +84,10 @@ export function createInitCommand(): Command {
         process.exit(result.error.exitCode);
       }
 
+      // Set up MCP server config for AI clients
+      const cwd = opts.cwd ?? process.cwd();
+      const mcpResult = setupMcp(cwd, 'all');
+
       if (!globalOpts.quiet) {
         console.log('');
         logger.success('Project initialized!');
@@ -90,6 +95,13 @@ export function createInitCommand(): Command {
         logger.info('Created files:');
         for (const file of result.value.filesCreated) {
           console.log(`  ${chalk.green('+')} ${file}`);
+        }
+        if (mcpResult.configured.length > 0) {
+          console.log('');
+          logger.info('MCP server configured for:');
+          for (const name of mcpResult.configured) {
+            console.log(`  ${chalk.green('+')} ${name}`);
+          }
         }
         console.log('');
         console.log(chalk.bold('Next steps:'));
