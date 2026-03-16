@@ -475,11 +475,11 @@ Add `files` (currently missing) and publishing metadata after `"license"`:
   "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
-    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
     "directory": "packages/types"
   },
-  "bugs": { "url": "https://github.com/harness-engineering/harness-engineering/issues" },
-  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/types#readme"
+  "bugs": { "url": "https://github.com/Intense-Visions/harness-engineering/issues" },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/types#readme"
 }
 ```
 
@@ -506,11 +506,11 @@ The CLI builds with `tsup --format esm` which produces `.js` files (not `.mjs`).
   "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
-    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
     "directory": "packages/cli"
   },
-  "bugs": { "url": "https://github.com/harness-engineering/harness-engineering/issues" },
-  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/cli#readme"
+  "bugs": { "url": "https://github.com/Intense-Visions/harness-engineering/issues" },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/cli#readme"
 }
 ```
 
@@ -532,11 +532,11 @@ Add `exports`, `publishConfig`, `repository`, `bugs`, `homepage`:
   "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
-    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
     "directory": "packages/eslint-plugin"
   },
-  "bugs": { "url": "https://github.com/harness-engineering/harness-engineering/issues" },
-  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/eslint-plugin#readme"
+  "bugs": { "url": "https://github.com/Intense-Visions/harness-engineering/issues" },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/eslint-plugin#readme"
 }
 ```
 

@@ -6,7 +6,7 @@
   "description": "Comprehensive toolkit for agent-first development",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/harness-engineering/harness-engineering.git"
+    "url": "git+https://github.com/Intense-Visions/harness-engineering.git"
   },
   "license": "MIT",
   "scripts": {

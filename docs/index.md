@@ -11,7 +11,7 @@ hero:
       link: /guides/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/harness-engineering/harness-engineering
+      link: https://github.com/Intense-Visions/harness-engineering
 
 features:
   - title: Context Engineering

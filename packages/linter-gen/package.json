@@ -40,11 +40,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
     "directory": "packages/linter-gen"
   },
   "bugs": {
-    "url": "https://github.com/harness-engineering/harness-engineering/issues"
+    "url": "https://github.com/Intense-Visions/harness-engineering/issues"
   },
-  "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/linter-gen#readme"
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/linter-gen#readme"
 }

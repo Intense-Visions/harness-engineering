@@ -117,7 +117,7 @@ git --version     # Any recent version
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/harness-engineering/harness-engineering.git
+git clone https://github.com/Intense-Visions/harness-engineering.git
 cd harness-engineering
 
 # 2. Install all dependencies
@@ -546,7 +546,7 @@ pnpm clean            # Remove all build artifacts
 
 ## Additional Resources
 
-- **Project Repository**: https://github.com/harness-engineering/harness-engineering
+- **Project Repository**: https://github.com/Intense-Visions/harness-engineering
 - **Main Documentation**: See `/docs/` directory
 - **Standard Specification**: `/docs/standard/`
 - **Implementation Plans**: `/docs/plans/`

@@ -45,7 +45,7 @@ Expected: Already initialized
   "description": "Comprehensive toolkit for agent-first development",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/harness-engineering/harness-engineering.git"
+    "url": "git+https://github.com/Intense-Visions/harness-engineering.git"
   },
   "license": "MIT",
   "scripts": {
@@ -635,7 +635,7 @@ export default defineConfig({
       ],
     },
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/harness-engineering/harness-engineering' },
+      { icon: 'github', link: 'https://github.com/Intense-Visions/harness-engineering' },
     ],
     footer: {
       message: 'Released under the MIT License.',
@@ -2321,8 +2321,8 @@ console.log(result.value) // 5
 ## More Documentation
 
 - [Architecture Decisions](/reference/architecture/) - ADRs and design choices
-- [Examples](https://github.com/harness-engineering/harness-engineering/tree/main/examples) - Reference implementations
-- [GitHub](https://github.com/harness-engineering/harness-engineering) - Source code and issues
+- [Examples](https://github.com/Intense-Visions/harness-engineering/tree/main/examples) - Reference implementations
+- [GitHub](https://github.com/Intense-Visions/harness-engineering) - Source code and issues
 ```
 
 - [ ] **Step 5: Create docs/reference/architecture/index.md**
@@ -2488,7 +2488,7 @@ validation/ → Cross-cutting utilities
 
 ## Contributing
 
-See [CONTRIBUTING.md](https://github.com/harness-engineering/harness-engineering/blob/main/CONTRIBUTING.md) for development guidelines.
+See [CONTRIBUTING.md](https://github.com/Intense-Visions/harness-engineering/blob/main/CONTRIBUTING.md) for development guidelines.
 ```
 
 - [ ] **Step 6: Commit guides and reference documentation**
@@ -2637,7 +2637,7 @@ Full project roadmap: `ROADMAP.md` (to be created in next milestone)
 
 1. **Clone and install:**
    \`\`\`bash
-   git clone https://github.com/harness-engineering/harness-engineering.git
+   git clone https://github.com/Intense-Visions/harness-engineering.git
    cd harness-engineering
    pnpm install
    \`\`\`
@@ -2904,10 +2904,10 @@ console.log('✓ AGENTS.md is valid!');
 
 **Full documentation:** https://harness-engineering.dev (coming soon)
 
-- **[The Standard](https://github.com/harness-engineering/harness-engineering/tree/main/docs/standard)** - Six core principles
-- **[Getting Started](https://github.com/harness-engineering/harness-engineering/tree/main/docs/guides)** - Implementation guides
-- **[API Reference](https://github.com/harness-engineering/harness-engineering/tree/main/docs/reference)** - Complete API docs
-- **[Adoption Levels](https://github.com/harness-engineering/harness-engineering/blob/main/docs/guides/adoption-levels.md)** - Phased rollout plan
+- **[The Standard](https://github.com/Intense-Visions/harness-engineering/tree/main/docs/standard)** - Six core principles
+- **[Getting Started](https://github.com/Intense-Visions/harness-engineering/tree/main/docs/guides)** - Implementation guides
+- **[API Reference](https://github.com/Intense-Visions/harness-engineering/tree/main/docs/reference)** - Complete API docs
+- **[Adoption Levels](https://github.com/Intense-Visions/harness-engineering/blob/main/docs/guides/adoption-levels.md)** - Phased rollout plan
 
 ---
 
@@ -2981,7 +2981,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for gu
 
 **Ways to contribute:**
 
-- Report bugs or request features via [GitHub Issues](https://github.com/harness-engineering/harness-engineering/issues)
+- Report bugs or request features via [GitHub Issues](https://github.com/Intense-Visions/harness-engineering/issues)
 - Submit pull requests
 - Improve documentation
 - Share your experience using harness engineering
@@ -2997,9 +2997,9 @@ MIT License - see [LICENSE](./LICENSE) for details.
 ## 🔗 Links
 
 - **Documentation**: https://harness-engineering.dev (coming soon)
-- **GitHub**: https://github.com/harness-engineering/harness-engineering
+- **GitHub**: https://github.com/Intense-Visions/harness-engineering
 - **npm**: https://www.npmjs.com/org/harness-engineering
-- **Discussions**: https://github.com/harness-engineering/harness-engineering/discussions
+- **Discussions**: https://github.com/Intense-Visions/harness-engineering/discussions
 
 ---
 
@@ -3219,7 +3219,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 1. **Clone the repository:**
    \`\`\`bash
-   git clone https://github.com/harness-engineering/harness-engineering.git
+   git clone https://github.com/Intense-Visions/harness-engineering.git
    cd harness-engineering
    \`\`\`
 
@@ -3382,7 +3382,7 @@ pnpm docs:dev
 
 ## Reporting Bugs
 
-Use [GitHub Issues](https://github.com/harness-engineering/harness-engineering/issues) to report bugs.
+Use [GitHub Issues](https://github.com/Intense-Visions/harness-engineering/issues) to report bugs.
 
 **Include:**
 - Clear description
@@ -3395,7 +3395,7 @@ Use [GitHub Issues](https://github.com/harness-engineering/harness-engineering/i
 
 ## Feature Requests
 
-We welcome feature requests! Use [GitHub Discussions](https://github.com/harness-engineering/harness-engineering/discussions) for ideas and questions.
+We welcome feature requests! Use [GitHub Discussions](https://github.com/Intense-Visions/harness-engineering/discussions) for ideas and questions.
 
 **Include:**
 - Use case / problem to solve

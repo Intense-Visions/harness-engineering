@@ -14,7 +14,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/harness-engineering/harness-engineering.git
+   git clone https://github.com/Intense-Visions/harness-engineering.git
    cd harness-engineering
    ```
 
@@ -186,7 +186,7 @@ pnpm docs:dev
 
 ## Reporting Bugs
 
-Use [GitHub Issues](https://github.com/harness-engineering/harness-engineering/issues) to report bugs.
+Use [GitHub Issues](https://github.com/Intense-Visions/harness-engineering/issues) to report bugs.
 
 **Include:**
 
@@ -200,7 +200,7 @@ Use [GitHub Issues](https://github.com/harness-engineering/harness-engineering/i
 
 ## Feature Requests
 
-We welcome feature requests! Use [GitHub Discussions](https://github.com/harness-engineering/harness-engineering/discussions) for ideas and questions.
+We welcome feature requests! Use [GitHub Discussions](https://github.com/Intense-Visions/harness-engineering/discussions) for ideas and questions.
 
 **Include:**
 

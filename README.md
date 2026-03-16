@@ -1,6 +1,6 @@
 # Harness Engineering
 
-[![CI](https://github.com/harness-engineering/harness-engineering/actions/workflows/ci.yml/badge.svg)](https://github.com/harness-engineering/harness-engineering/actions/workflows/ci.yml)
+[![CI](https://github.com/Intense-Visions/harness-engineering/actions/workflows/ci.yml/badge.svg)](https://github.com/Intense-Visions/harness-engineering/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 
@@ -43,7 +43,7 @@ harness validate
 Or explore an example directly:
 
 ```bash
-git clone https://github.com/harness-engineering/harness-engineering.git
+git clone https://github.com/Intense-Visions/harness-engineering.git
 cd harness-engineering/examples/hello-world
 npm install && harness validate
 ```
