@@ -1128,6 +1128,50 @@ These conventions are referenced by skills and workflows. They are not mechanica
 - General best practices (those go in `docs/guides/best-practices.md`)
 - Opinions or preferences (those go in ADRs)
 
+### Review Learnings
+
+**Convention:** Maintain a calibration file at `.harness/review-learnings.md` that records what review findings are valuable versus noisy for a specific project.
+
+**Purpose:** Code review produces findings. Some findings catch real bugs; others are noise (project-specific patterns flagged as issues). Without calibration, the review skill wastes attention on known false positives and misses project-specific priorities.
+
+**Schema:**
+
+````markdown
+# Review Learnings
+
+## Useful Findings
+- [category]: [example] — [why this was valuable]
+
+## Noise / False Positives
+- [category]: [example] — [why this wasn't helpful]
+
+## Calibration Notes
+- [specific guidance for this project]
+````
+
+**Example:**
+
+````markdown
+# Review Learnings
+
+## Useful Findings
+- error-handling: Missing catch in async pipeline — caused silent failures in production
+- type-safety: Implicit any in service boundaries — led to runtime type mismatches
+- test-coverage: Untested error paths in payment flow — caught a real bug
+
+## Noise / False Positives
+- naming: Flagging single-letter variables in test helpers — these are conventional (e.g., `t`, `e`)
+- error-handling: Missing error handling in CLI scripts — these exit on error by design
+- docs: Missing JSDoc on internal utility functions — we document at module level, not function level
+
+## Calibration Notes
+- This project uses Result types everywhere — do not flag missing try/catch in functions that return Result<T, E>
+- Test helpers intentionally use loose types for ergonomics — do not flag missing type annotations in test/
+- The CLI package uses process.exit() intentionally — do not flag as an anti-pattern
+````
+
+**Maintenance:** Append new entries after each review cycle. Periodically prune entries that are no longer relevant (e.g., after a major refactor changes the codebase patterns).
+
 ---
 
 ## Measuring Success
