@@ -1,7 +1,7 @@
 ---
 name: Feature Request
 about: Suggest a feature for harness-engineering
-title: "[Feature] "
+title: '[Feature] '
 labels: enhancement
 assignees: ''
 ---

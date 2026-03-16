@@ -152,7 +152,9 @@ export async function generateAgentsMap(
     // Development Workflow section
     lines.push('## Development Workflow');
     lines.push('');
-    lines.push('> Document your development workflow: branching strategy, testing commands, deployment process.');
+    lines.push(
+      '> Document your development workflow: branching strategy, testing commands, deployment process.'
+    );
     lines.push('');
 
     return Ok(lines.join('\n'));

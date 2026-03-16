@@ -50,14 +50,14 @@ npm install && harness validate
 
 ## Packages
 
-| Package | Description |
-| --- | --- |
-| [`@harness-engineering/types`](./packages/types) | Shared TypeScript types and interfaces |
-| [`@harness-engineering/core`](./packages/core) | Validation, constraints, entropy detection, state management |
-| [`@harness-engineering/cli`](./packages/cli) | CLI: `validate`, `check-deps`, `skill run`, `state show` |
+| Package                                                          | Description                                                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [`@harness-engineering/types`](./packages/types)                 | Shared TypeScript types and interfaces                                                     |
+| [`@harness-engineering/core`](./packages/core)                   | Validation, constraints, entropy detection, state management                               |
+| [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                   |
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports |
-| [`@harness-engineering/linter-gen`](./packages/linter-gen) | Generate custom ESLint rules from YAML configuration |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server) | MCP server with 15 tools for AI agent integration |
+| [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                       |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 15 tools for AI agent integration                                          |
 
 ## Architecture
 
@@ -81,37 +81,40 @@ Violations are caught at lint time via `@harness-engineering/eslint-plugin` — 
 
 ## What's Included
 
-| Component | Count | Description |
-| --- | --- | --- |
-| [Packages](./packages/) | 6 | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types |
-| [Skills](./agents/skills/claude-code/) | 26 | Agent workflows for TDD, execution, debugging, verification, planning, and more |
-| [Personas](./agents/personas/) | 3 | Architecture enforcer, documentation maintainer, entropy cleaner |
-| [Templates](./templates/) | 5 | Base, basic, intermediate, advanced, and Next.js scaffolds |
-| [Examples](./examples/) | 3 | Progressive tutorials from 5 minutes to 30 minutes |
+| Component                              | Count | Description                                                                     |
+| -------------------------------------- | ----- | ------------------------------------------------------------------------------- |
+| [Packages](./packages/)                | 6     | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types    |
+| [Skills](./agents/skills/claude-code/) | 26    | Agent workflows for TDD, execution, debugging, verification, planning, and more |
+| [Personas](./agents/personas/)         | 3     | Architecture enforcer, documentation maintainer, entropy cleaner                |
+| [Templates](./templates/)              | 5     | Base, basic, intermediate, advanced, and Next.js scaffolds                      |
+| [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                              |
 
 ## Examples
 
 Learn by doing. Each example builds on the previous:
 
-| Example | Level | Time | What You Learn |
-| --- | --- | --- | --- |
-| [Hello World](./examples/hello-world/) | Basic | 5 min | Config, validation, AGENTS.md — see what a harness project looks like |
-| [Task API](./examples/task-api/) | Intermediate | 15 min | Express API with 3-layer architecture enforced by ESLint |
-| [Multi-Tenant API](./examples/multi-tenant-api/) | Advanced | 30 min | Custom linter rules, Zod boundary validation, personas, full state lifecycle |
+| Example                                          | Level        | Time   | What You Learn                                                               |
+| ------------------------------------------------ | ------------ | ------ | ---------------------------------------------------------------------------- |
+| [Hello World](./examples/hello-world/)           | Basic        | 5 min  | Config, validation, AGENTS.md — see what a harness project looks like        |
+| [Task API](./examples/task-api/)                 | Intermediate | 15 min | Express API with 3-layer architecture enforced by ESLint                     |
+| [Multi-Tenant API](./examples/multi-tenant-api/) | Advanced     | 30 min | Custom linter rules, Zod boundary validation, personas, full state lifecycle |
 
 ## Documentation
 
 **Getting Started**
+
 - [Getting Started Guide](./docs/guides/getting-started.md) — From zero to validated project
 - [Best Practices](./docs/guides/best-practices.md) — Patterns for effective harness usage
 - [Agent Worktree Patterns](./docs/guides/agent-worktree-patterns.md) — Running multiple agents in parallel
 
 **Core Concepts**
+
 - [The Six Principles](./docs/standard/principles.md) — Foundational concepts behind harness engineering
 - [Implementation Guide](./docs/standard/implementation.md) — Adoption levels and rollout strategy
 - [KPIs](./docs/standard/kpis.md) — Measuring agent effectiveness
 
 **API Reference**
+
 - [CLI Reference](./docs/reference/cli.md) — All commands and flags
 - [Configuration Reference](./docs/reference/configuration.md) — `harness.config.yaml` schema
 

@@ -11,5 +11,5 @@ We will acknowledge receipt within 48 hours and provide a timeline for a fix.
 ## Supported Versions
 
 | Version | Supported |
-|---------|-----------|
+| ------- | --------- |
 | Latest  | Yes       |

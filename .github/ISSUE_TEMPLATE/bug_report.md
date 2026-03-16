@@ -1,7 +1,7 @@
 ---
 name: Bug Report
 about: Report a bug in harness-engineering
-title: "[Bug] "
+title: '[Bug] '
 labels: bug
 assignees: ''
 ---
