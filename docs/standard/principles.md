@@ -168,6 +168,26 @@ Agents know exactly what's allowed and can be held to the same standards.
 - [ ] Ensure all package READMEs are comprehensive
 - [ ] Run `harness validate` to check documentation coverage
 
+### Token Budget Allocation
+
+When assembling context for a skill or workflow, allocate the available context window using these recommended proportions:
+
+| Category | Budget | Purpose |
+|----------|--------|---------|
+| System prompt / skill instructions | 15% | Behavioral guidance, skill process, and constraints |
+| Project manifest (AGENTS.md, config) | 5% | Project structure, conventions, layer definitions |
+| Task specification | 20% | What to do — the spec, plan, or user request |
+| Active code (under review/edit) | 40% | The primary work material — source files, diffs, tests |
+| Interfaces and type definitions | 10% | Structural context — types, schemas, API contracts |
+| Reserve (agent reasoning) | 10% | Working memory for the agent's chain-of-thought |
+
+**How to use these budgets:**
+
+- **These are guidelines, not hard limits.** Adjust based on task complexity. A review task needs more active code; a planning task needs more spec.
+- **When context overflows, summarize lower-priority categories first.** The priority order is: Active code > Task spec > Interfaces > Project manifest > System prompt (already compressed by design).
+- **Skills should declare which categories they consume.** A review skill consumes mainly Active code + Interfaces. A planning skill consumes mainly Task spec + Project manifest.
+- **Measure, don't guess.** If a skill consistently runs out of context, audit which categories are consuming more than their budget.
+
 ---
 
 ## 2. Architectural Rigidity & Mechanical Constraints
