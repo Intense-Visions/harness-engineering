@@ -17,6 +17,7 @@
 ## File Structure
 
 ### D1: Token Budget Guidance
+
 ```
 docs/standard/principles.md                          # MODIFY: add Token Budget Allocation subsection
 packages/core/src/context/budget.ts                  # NEW: contextBudget utility
@@ -25,6 +26,7 @@ packages/core/tests/context/budget.test.ts           # NEW
 ```
 
 ### D2: Staged Context Pipeline
+
 ```
 packages/types/src/index.ts                          # MODIFY: export pipeline types
 packages/types/src/pipeline.ts                       # NEW: SkillContext, TurnContext, SkillLifecycleHooks
@@ -34,6 +36,7 @@ packages/core/tests/pipeline/skill-pipeline.test.ts  # NEW
 ```
 
 ### D3: Context-as-MCP-Service
+
 ```
 packages/mcp-server/src/server.ts                    # MODIFY: register resource handlers
 packages/mcp-server/src/resources/skills.ts          # NEW: harness://skills resource
@@ -47,6 +50,7 @@ packages/mcp-server/tests/resources/learnings.test.ts # NEW
 ```
 
 ### D4: JIT Context Filtering
+
 ```
 packages/core/src/context/filter.ts                  # NEW: contextFilter utility
 packages/core/src/context/filter.types.ts            # NEW: WorkflowPhase, ContextFilterResult
@@ -60,6 +64,7 @@ packages/core/tests/context/filter.test.ts           # NEW
 ### Task 1: Add Token Budget Allocation subsection to principles.md
 
 **Files:**
+
 - Modify: `docs/standard/principles.md`
 
 - [ ] **Step 1: Add "Token Budget Allocation" subsection before the Implementation Checklist of Principle 1**
@@ -77,19 +82,18 @@ In `docs/standard/principles.md`, locate this text:
 Immediately after that block, insert:
 
 ```markdown
-
 #### Token Budget Allocation
 
 When assembling context for an AI agent, budget your available context window deliberately. Not all context is equal — overspending on one category starves the others. The following allocation is a recommended heuristic, not a hard rule. Skills should reference these proportions during context assembly.
 
-| Category | Budget | Purpose |
-|----------|--------|---------|
-| System prompt / skill instructions | 15% | Behavioral guidance — the skill's SKILL.md, cognitive mode, and constraints |
-| Project manifest (AGENTS.md, config) | 5% | Project context — navigation map, conventions, and settings |
-| Task specification | 20% | What to do — the spec, requirements, or issue being addressed |
-| Active code (under review/edit) | 40% | Primary work material — the files being created, modified, or reviewed |
-| Interfaces and type definitions | 10% | Structural context — types, schemas, and API contracts referenced by active code |
-| Reserve (agent reasoning) | 10% | Working memory — space for the agent's chain-of-thought and tool calls |
+| Category                             | Budget | Purpose                                                                          |
+| ------------------------------------ | ------ | -------------------------------------------------------------------------------- |
+| System prompt / skill instructions   | 15%    | Behavioral guidance — the skill's SKILL.md, cognitive mode, and constraints      |
+| Project manifest (AGENTS.md, config) | 5%     | Project context — navigation map, conventions, and settings                      |
+| Task specification                   | 20%    | What to do — the spec, requirements, or issue being addressed                    |
+| Active code (under review/edit)      | 40%    | Primary work material — the files being created, modified, or reviewed           |
+| Interfaces and type definitions      | 10%    | Structural context — types, schemas, and API contracts referenced by active code |
+| Reserve (agent reasoning)            | 10%    | Working memory — space for the agent's chain-of-thought and tool calls           |
 
 **Usage guidance:**
 
@@ -119,6 +123,7 @@ git commit -m "docs(principles): add token budget allocation guidance to Context
 ### Task 2: Create TokenBudget type
 
 **Files:**
+
 - Create: `packages/core/src/context/budget.types.ts`
 
 - [ ] **Step 1: Create budget types file**
@@ -176,6 +181,7 @@ git commit -m "feat(core): add TokenBudget types for context budget allocation"
 ### Task 3: Write failing tests for contextBudget utility
 
 **Files:**
+
 - Create: `packages/core/tests/context/budget.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -200,8 +206,8 @@ describe('contextBudget', () => {
 
   it('applies custom overrides', () => {
     const budget = contextBudget(100_000, {
-      systemPrompt: 0.10,
-      activeCode: 0.50,
+      systemPrompt: 0.1,
+      activeCode: 0.5,
       reserve: 0.05,
     });
 
@@ -249,11 +255,12 @@ Run: `cd packages/core && npx vitest run tests/context/budget.test.ts`
 ### Task 4: Implement contextBudget utility
 
 **Files:**
+
 - Create: `packages/core/src/context/budget.ts`
 
 - [ ] **Step 1: Write implementation**
 
-```typescript
+````typescript
 // packages/core/src/context/budget.ts
 import type { TokenBudget, BudgetOverrides } from './budget.types';
 
@@ -263,10 +270,10 @@ import type { TokenBudget, BudgetOverrides } from './budget.types';
 const DEFAULT_PROPORTIONS = {
   systemPrompt: 0.15,
   projectManifest: 0.05,
-  taskSpec: 0.20,
-  activeCode: 0.40,
-  interfaces: 0.10,
-  reserve: 0.10,
+  taskSpec: 0.2,
+  activeCode: 0.4,
+  interfaces: 0.1,
+  reserve: 0.1,
 } as const;
 
 /**
@@ -300,7 +307,7 @@ export function contextBudget(totalTokens: number, overrides?: BudgetOverrides):
     },
   };
 }
-```
+````
 
 - [ ] **Step 2: Run tests to verify they pass**
 
@@ -320,6 +327,7 @@ git commit -m "feat(core): add contextBudget utility for token budget allocation
 ### Task 5: Create pipeline types in packages/types
 
 **Files:**
+
 - Create: `packages/types/src/pipeline.ts`
 - Modify: `packages/types/src/index.ts`
 
@@ -333,7 +341,12 @@ import type { Result } from './index';
  * Error type for skill pipeline operations.
  */
 export interface SkillError {
-  code: 'PRECONDITION_FAILED' | 'BUDGET_EXCEEDED' | 'HOOK_FAILED' | 'EXECUTION_FAILED' | 'CONTEXT_ASSEMBLY_FAILED';
+  code:
+    | 'PRECONDITION_FAILED'
+    | 'BUDGET_EXCEEDED'
+    | 'HOOK_FAILED'
+    | 'EXECUTION_FAILED'
+    | 'CONTEXT_ASSEMBLY_FAILED';
   message: string;
   phase: string;
   details: Record<string, unknown>;
@@ -442,13 +455,19 @@ git commit -m "feat(types): add SkillContext, TurnContext, and SkillLifecycleHoo
 ### Task 6: Create pipeline module types
 
 **Files:**
+
 - Create: `packages/core/src/pipeline/types.ts`
 
 - [ ] **Step 1: Create pipeline result types**
 
 ```typescript
 // packages/core/src/pipeline/types.ts
-import type { SkillContext, SkillResult, SkillLifecycleHooks, SkillError } from '@harness-engineering/types';
+import type {
+  SkillContext,
+  SkillResult,
+  SkillLifecycleHooks,
+  SkillError,
+} from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 
 /**
@@ -492,6 +511,7 @@ git commit -m "feat(core): add PipelineOptions and PipelineResult types"
 ### Task 7: Write failing tests for SkillPipeline
 
 **Files:**
+
 - Create: `packages/core/tests/pipeline/skill-pipeline.test.ts`
 
 - [ ] **Step 1: Write the failing tests**
@@ -500,7 +520,12 @@ git commit -m "feat(core): add PipelineOptions and PipelineResult types"
 // packages/core/tests/pipeline/skill-pipeline.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { runPipeline } from '../../src/pipeline/skill-pipeline';
-import type { SkillContext, SkillResult, SkillLifecycleHooks, SkillError } from '@harness-engineering/types';
+import type {
+  SkillContext,
+  SkillResult,
+  SkillLifecycleHooks,
+  SkillError,
+} from '@harness-engineering/types';
 import { Ok, Err } from '../../src/shared/result';
 
 function makeContext(overrides?: Partial<SkillContext>): SkillContext {
@@ -604,8 +629,7 @@ describe('runPipeline', () => {
   });
 
   it('passes modified context from preExecution to execute', async () => {
-    const preExecution = (ctx: SkillContext) =>
-      Ok({ ...ctx, metadata: { enriched: true } });
+    const preExecution = (ctx: SkillContext) => Ok({ ...ctx, metadata: { enriched: true } });
     const execute = vi.fn(async (ctx: SkillContext) => {
       expect(ctx.metadata.enriched).toBe(true);
       return Ok(makeSkillResult());
@@ -645,9 +669,7 @@ describe('runPipeline', () => {
   });
 
   it('respects maxTurns limit', async () => {
-    const execute = vi.fn(async () =>
-      Ok(makeSkillResult({ success: false, summary: 'Not done' }))
-    );
+    const execute = vi.fn(async () => Ok(makeSkillResult({ success: false, summary: 'Not done' })));
 
     const result = await runPipeline({
       context: makeContext(),
@@ -683,13 +705,19 @@ Run: `cd packages/core && npx vitest run tests/pipeline/skill-pipeline.test.ts`
 ### Task 8: Implement SkillPipeline
 
 **Files:**
+
 - Create: `packages/core/src/pipeline/skill-pipeline.ts`
 
 - [ ] **Step 1: Write implementation**
 
 ```typescript
 // packages/core/src/pipeline/skill-pipeline.ts
-import type { SkillContext, SkillResult, SkillError, TurnContext } from '@harness-engineering/types';
+import type {
+  SkillContext,
+  SkillResult,
+  SkillError,
+  TurnContext,
+} from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import type { PipelineOptions, PipelineResult } from './types';
@@ -811,6 +839,7 @@ git commit -m "feat(core): add SkillPipeline orchestrator for staged context pip
 ### Task 9: Create harness://skills resource
 
 **Files:**
+
 - Create: `packages/mcp-server/src/resources/skills.ts`
 - Create: `packages/mcp-server/tests/resources/skills.test.ts`
 
@@ -953,6 +982,7 @@ git commit -m "feat(mcp-server): add harness://skills resource endpoint"
 ### Task 10: Create harness://rules resource
 
 **Files:**
+
 - Create: `packages/mcp-server/src/resources/rules.ts`
 - Create: `packages/mcp-server/tests/resources/rules.test.ts`
 
@@ -1006,7 +1036,9 @@ export interface RuleResourceEntry {
  * Load active linter rules from a project's configuration.
  * Checks .harness/config, eslint config, and tsconfig.
  */
-export async function loadRulesResource(projectPath: string): Promise<Result<RuleResourceEntry[], Error>> {
+export async function loadRulesResource(
+  projectPath: string
+): Promise<Result<RuleResourceEntry[], Error>> {
   try {
     const rules: RuleResourceEntry[] = [];
 
@@ -1017,7 +1049,11 @@ export async function loadRulesResource(projectPath: string): Promise<Result<Rul
         const config = JSON.parse(fs.readFileSync(harnessConfigPath, 'utf-8'));
         if (config.rules) {
           for (const [name, severity] of Object.entries(config.rules)) {
-            rules.push({ name, severity: severity as RuleResourceEntry['severity'], source: '.harness/config' });
+            rules.push({
+              name,
+              severity: severity as RuleResourceEntry['severity'],
+              source: '.harness/config',
+            });
           }
         }
       } catch {
@@ -1071,6 +1107,7 @@ git commit -m "feat(mcp-server): add harness://rules resource endpoint"
 ### Task 11: Create harness://project resource
 
 **Files:**
+
 - Create: `packages/mcp-server/src/resources/project.ts`
 - Create: `packages/mcp-server/tests/resources/project.test.ts`
 
@@ -1123,7 +1160,9 @@ export interface ProjectResourceData {
 /**
  * Load project structure and conventions from AGENTS.md and .harness/config.
  */
-export async function loadProjectResource(projectPath: string): Promise<Result<ProjectResourceData, Error>> {
+export async function loadProjectResource(
+  projectPath: string
+): Promise<Result<ProjectResourceData, Error>> {
   try {
     const projectName = path.basename(projectPath);
     const agentsMapPath = path.join(projectPath, 'AGENTS.md');
@@ -1173,6 +1212,7 @@ git commit -m "feat(mcp-server): add harness://project resource endpoint"
 ### Task 12: Create harness://learnings resource
 
 **Files:**
+
 - Create: `packages/mcp-server/src/resources/learnings.ts`
 - Create: `packages/mcp-server/tests/resources/learnings.test.ts`
 
@@ -1203,8 +1243,7 @@ describe('loadLearningsResource', () => {
     if (result.ok) {
       // Either null or a string — both are valid
       expect(
-        result.value.reviewLearnings === null ||
-        typeof result.value.reviewLearnings === 'string'
+        result.value.reviewLearnings === null || typeof result.value.reviewLearnings === 'string'
       ).toBe(true);
     }
   });
@@ -1230,14 +1269,14 @@ export interface LearningsResourceData {
 /**
  * Load review learnings and anti-pattern log from .harness/ directory.
  */
-export async function loadLearningsResource(projectPath: string): Promise<Result<LearningsResourceData, Error>> {
+export async function loadLearningsResource(
+  projectPath: string
+): Promise<Result<LearningsResourceData, Error>> {
   try {
     const reviewPath = path.join(projectPath, '.harness', 'review-learnings.md');
     const antiPatternsPath = path.join(projectPath, '.harness', 'anti-patterns.md');
 
-    const reviewLearnings = fs.existsSync(reviewPath)
-      ? fs.readFileSync(reviewPath, 'utf-8')
-      : null;
+    const reviewLearnings = fs.existsSync(reviewPath) ? fs.readFileSync(reviewPath, 'utf-8') : null;
 
     const antiPatterns = fs.existsSync(antiPatternsPath)
       ? fs.readFileSync(antiPatternsPath, 'utf-8')
@@ -1264,6 +1303,7 @@ git commit -m "feat(mcp-server): add harness://learnings resource endpoint"
 ### Task 13: Register resource handlers in MCP server
 
 **Files:**
+
 - Modify: `packages/mcp-server/src/server.ts`
 
 - [ ] **Step 1: Add resource imports and capability**
@@ -1272,7 +1312,12 @@ In `packages/mcp-server/src/server.ts`, add imports for resource modules and the
 
 ```typescript
 // Add to imports at top of server.ts
-import { CallToolRequestSchema, ListToolsRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { loadSkillsResource } from './resources/skills.js';
 import { loadRulesResource } from './resources/rules.js';
 import { loadProjectResource } from './resources/project.js';
@@ -1292,34 +1337,34 @@ In `createHarnessServer()`, change the capabilities:
 After the `ListToolsRequestSchema` handler, add:
 
 ```typescript
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: [
-      {
-        uri: 'harness://skills',
-        name: 'Harness Skills',
-        description: 'Available skills with metadata (name, description, cognitive mode)',
-        mimeType: 'application/json',
-      },
-      {
-        uri: 'harness://rules',
-        name: 'Harness Rules',
-        description: 'Active linter rules and constraints',
-        mimeType: 'application/json',
-      },
-      {
-        uri: 'harness://project',
-        name: 'Project Context',
-        description: 'Project structure from AGENTS.md and .harness/config',
-        mimeType: 'application/json',
-      },
-      {
-        uri: 'harness://learnings',
-        name: 'Learnings',
-        description: 'Review learnings and anti-pattern log',
-        mimeType: 'application/json',
-      },
-    ],
-  }));
+server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  resources: [
+    {
+      uri: 'harness://skills',
+      name: 'Harness Skills',
+      description: 'Available skills with metadata (name, description, cognitive mode)',
+      mimeType: 'application/json',
+    },
+    {
+      uri: 'harness://rules',
+      name: 'Harness Rules',
+      description: 'Active linter rules and constraints',
+      mimeType: 'application/json',
+    },
+    {
+      uri: 'harness://project',
+      name: 'Project Context',
+      description: 'Project structure from AGENTS.md and .harness/config',
+      mimeType: 'application/json',
+    },
+    {
+      uri: 'harness://learnings',
+      name: 'Learnings',
+      description: 'Review learnings and anti-pattern log',
+      mimeType: 'application/json',
+    },
+  ],
+}));
 ```
 
 - [ ] **Step 4: Add resource read handler**
@@ -1327,61 +1372,79 @@ After the `ListToolsRequestSchema` handler, add:
 After the resource list handler, add:
 
 ```typescript
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const { uri } = request.params;
-    const projectPath = process.cwd();
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+  const projectPath = process.cwd();
 
-    switch (uri) {
-      case 'harness://skills': {
-        const result = await loadSkillsResource();
-        return {
-          contents: [{
+  switch (uri) {
+    case 'harness://skills': {
+      const result = await loadSkillsResource();
+      return {
+        contents: [
+          {
             uri,
             mimeType: 'application/json',
-            text: result.ok ? JSON.stringify(result.value, null, 2) : JSON.stringify({ error: result.error.message }),
-          }],
-        };
-      }
-      case 'harness://rules': {
-        const result = await loadRulesResource(projectPath);
-        return {
-          contents: [{
+            text: result.ok
+              ? JSON.stringify(result.value, null, 2)
+              : JSON.stringify({ error: result.error.message }),
+          },
+        ],
+      };
+    }
+    case 'harness://rules': {
+      const result = await loadRulesResource(projectPath);
+      return {
+        contents: [
+          {
             uri,
             mimeType: 'application/json',
-            text: result.ok ? JSON.stringify(result.value, null, 2) : JSON.stringify({ error: result.error.message }),
-          }],
-        };
-      }
-      case 'harness://project': {
-        const result = await loadProjectResource(projectPath);
-        return {
-          contents: [{
+            text: result.ok
+              ? JSON.stringify(result.value, null, 2)
+              : JSON.stringify({ error: result.error.message }),
+          },
+        ],
+      };
+    }
+    case 'harness://project': {
+      const result = await loadProjectResource(projectPath);
+      return {
+        contents: [
+          {
             uri,
             mimeType: 'application/json',
-            text: result.ok ? JSON.stringify(result.value, null, 2) : JSON.stringify({ error: result.error.message }),
-          }],
-        };
-      }
-      case 'harness://learnings': {
-        const result = await loadLearningsResource(projectPath);
-        return {
-          contents: [{
+            text: result.ok
+              ? JSON.stringify(result.value, null, 2)
+              : JSON.stringify({ error: result.error.message }),
+          },
+        ],
+      };
+    }
+    case 'harness://learnings': {
+      const result = await loadLearningsResource(projectPath);
+      return {
+        contents: [
+          {
             uri,
             mimeType: 'application/json',
-            text: result.ok ? JSON.stringify(result.value, null, 2) : JSON.stringify({ error: result.error.message }),
-          }],
-        };
-      }
-      default:
-        return {
-          contents: [{
+            text: result.ok
+              ? JSON.stringify(result.value, null, 2)
+              : JSON.stringify({ error: result.error.message }),
+          },
+        ],
+      };
+    }
+    default:
+      return {
+        contents: [
+          {
             uri,
             mimeType: 'text/plain',
             text: `Unknown resource: ${uri}`,
-          }],
-        };
-    }
-  });
+          },
+        ],
+      };
+  }
+});
 ```
 
 - [ ] **Step 5: Verify compilation**
@@ -1402,6 +1465,7 @@ git commit -m "feat(mcp-server): register harness:// resource endpoints for cont
 ### Task 14: Create filter types
 
 **Files:**
+
 - Create: `packages/core/src/context/filter.types.ts`
 
 - [ ] **Step 1: Create filter types file**
@@ -1478,6 +1542,7 @@ git commit -m "feat(core): add JIT context filtering types"
 ### Task 15: Write failing tests for contextFilter
 
 **Files:**
+
 - Create: `packages/core/tests/context/filter.test.ts`
 
 - [ ] **Step 1: Write the failing tests**
@@ -1616,6 +1681,7 @@ Run: `cd packages/core && npx vitest run tests/context/filter.test.ts`
 ### Task 16: Implement contextFilter
 
 **Files:**
+
 - Create: `packages/core/src/context/filter.ts`
 
 - [ ] **Step 1: Write implementation**
@@ -1696,7 +1762,7 @@ export function getDefaultPriorities(phase: WorkflowPhase): ContextPriorityRule[
 export function contextFilter(
   phase: WorkflowPhase,
   budget: TokenBudget,
-  items: ContextItem[],
+  items: ContextItem[]
 ): ContextFilterResult {
   // Sort by priority descending
   const sorted = [...items].sort((a, b) => b.priority - a.priority);
@@ -1755,6 +1821,7 @@ git commit -m "feat(core): add JIT context filtering with phase-aware budget all
 ### Task 17: Export new modules from package entry points
 
 **Files:**
+
 - Modify: `packages/core/src/context/` (ensure budget and filter are exported)
 
 - [ ] **Step 1: Check if packages/core has a barrel export and add new exports**
@@ -1768,7 +1835,13 @@ export type { TokenBudget, TokenBudgetCategories, BudgetOverrides } from './cont
 
 // Context engineering - filter
 export { contextFilter, getDefaultPriorities } from './context/filter';
-export type { WorkflowPhase, ContextItem, ContextFilterResult, ContextPriorityRule, PhasePriorityConfig } from './context/filter.types';
+export type {
+  WorkflowPhase,
+  ContextItem,
+  ContextFilterResult,
+  ContextPriorityRule,
+  PhasePriorityConfig,
+} from './context/filter.types';
 
 // Pipeline
 export { runPipeline } from './pipeline/skill-pipeline';
@@ -1794,17 +1867,17 @@ git commit -m "feat(core): export context budget, filter, and pipeline modules"
 
 ## Summary
 
-| Chunk | Item | Deliverable | Files |
-|-------|------|-------------|-------|
-| 1 | D1a | Token budget docs in principles.md | `docs/standard/principles.md` |
-| 2 | D1b | `contextBudget()` utility + types + tests | `packages/core/src/context/budget.ts`, `budget.types.ts`, `tests/context/budget.test.ts` |
-| 3 | D2a | Pipeline types in packages/types | `packages/types/src/pipeline.ts`, `packages/types/src/index.ts` |
-| 4 | D2b | `runPipeline()` orchestrator + tests | `packages/core/src/pipeline/skill-pipeline.ts`, `types.ts`, `tests/pipeline/skill-pipeline.test.ts` |
-| 5 | D3a | `harness://skills` resource + tests | `packages/mcp-server/src/resources/skills.ts`, `tests/resources/skills.test.ts` |
-| 6 | D3b | `harness://rules`, `harness://project`, `harness://learnings` resources + tests | `packages/mcp-server/src/resources/{rules,project,learnings}.ts` |
-| 7 | D3c | Register resources in MCP server | `packages/mcp-server/src/server.ts` |
-| 8 | D4 | `contextFilter()` + types + tests | `packages/core/src/context/filter.ts`, `filter.types.ts`, `tests/context/filter.test.ts` |
-| 9 | Integration | Export all new modules from entry points | `packages/core/src/index.ts` |
+| Chunk | Item        | Deliverable                                                                     | Files                                                                                               |
+| ----- | ----------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 1     | D1a         | Token budget docs in principles.md                                              | `docs/standard/principles.md`                                                                       |
+| 2     | D1b         | `contextBudget()` utility + types + tests                                       | `packages/core/src/context/budget.ts`, `budget.types.ts`, `tests/context/budget.test.ts`            |
+| 3     | D2a         | Pipeline types in packages/types                                                | `packages/types/src/pipeline.ts`, `packages/types/src/index.ts`                                     |
+| 4     | D2b         | `runPipeline()` orchestrator + tests                                            | `packages/core/src/pipeline/skill-pipeline.ts`, `types.ts`, `tests/pipeline/skill-pipeline.test.ts` |
+| 5     | D3a         | `harness://skills` resource + tests                                             | `packages/mcp-server/src/resources/skills.ts`, `tests/resources/skills.test.ts`                     |
+| 6     | D3b         | `harness://rules`, `harness://project`, `harness://learnings` resources + tests | `packages/mcp-server/src/resources/{rules,project,learnings}.ts`                                    |
+| 7     | D3c         | Register resources in MCP server                                                | `packages/mcp-server/src/server.ts`                                                                 |
+| 8     | D4          | `contextFilter()` + types + tests                                               | `packages/core/src/context/filter.ts`, `filter.types.ts`, `tests/context/filter.test.ts`            |
+| 9     | Integration | Export all new modules from entry points                                        | `packages/core/src/index.ts`                                                                        |
 
 **Total estimated steps:** ~40 checkboxes across 9 chunks
 **Estimated time:** 2-3 hours

@@ -25,6 +25,10 @@ export function generateAgentsMd(persona: Persona): Result<string, Error> {
     const fragment = `## ${persona.name} Agent\n\n**Role:** ${persona.role}\n\n**Triggers:** ${triggers}\n\n**Skills:** ${skills}\n\n**When this agent flags an issue:** Fix violations before merging. Run ${commands} locally to validate.\n`;
     return Ok(fragment);
   } catch (error) {
-    return Err(new Error(`Failed to generate AGENTS.md fragment: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to generate AGENTS.md fragment: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }

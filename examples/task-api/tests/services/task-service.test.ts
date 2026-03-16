@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTask, listTasks, getTaskById, completeTask, _resetTasks } from '../../src/services/task-service';
+import {
+  createTask,
+  listTasks,
+  getTaskById,
+  completeTask,
+  _resetTasks,
+} from '../../src/services/task-service';
 
 describe('TaskService', () => {
   beforeEach(() => {

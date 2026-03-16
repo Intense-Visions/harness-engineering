@@ -15,6 +15,7 @@
 This plan creates/modifies these files:
 
 **Core Implementation:**
+
 - `packages/core/src/shared/result.ts` - Result<T, E> type and utilities
 - `packages/core/src/shared/errors.ts` - Base error types and factory
 - `packages/core/src/shared/fs-utils.ts` - File system helpers
@@ -26,6 +27,7 @@ This plan creates/modifies these files:
 - `packages/core/src/index.ts` - Main entry point (update)
 
 **Tests:**
+
 - `packages/core/tests/shared/result.test.ts` - Result type tests
 - `packages/core/tests/shared/errors.test.ts` - Error factory tests
 - `packages/core/tests/shared/fs-utils.test.ts` - File system utils tests
@@ -34,10 +36,12 @@ This plan creates/modifies these files:
 - `packages/core/tests/validation/commit-message.test.ts` - Commit message tests
 
 **Test Fixtures:**
+
 - `packages/core/tests/fixtures/valid-project/` - Sample valid project
 - `packages/core/tests/fixtures/invalid-project/` - Sample invalid project
 
 **Configuration:**
+
 - `packages/core/vitest.config.ts` - Test configuration
 - `packages/core/package.json` - Update dependencies
 
@@ -48,6 +52,7 @@ This plan creates/modifies these files:
 ### Task 1: Set Up Testing Infrastructure
 
 **Files:**
+
 - Create: `packages/core/vitest.config.ts`
 - Modify: `packages/core/package.json` (add test scripts)
 
@@ -64,12 +69,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'dist/',
-        '**/*.test.ts',
-        '**/*.config.ts',
-      ],
+      exclude: ['node_modules/', 'dist/', '**/*.test.ts', '**/*.config.ts'],
       thresholds: {
         lines: 80,
         functions: 80,
@@ -84,6 +84,7 @@ export default defineConfig({
 - [ ] **Step 2: Add test scripts to package.json**
 
 Add to `packages/core/package.json` scripts section:
+
 ```json
 "scripts": {
   "test": "vitest",
@@ -114,6 +115,7 @@ git commit -m "test(core): add vitest configuration and test scripts"
 ### Task 2: Result<T, E> Type
 
 **Files:**
+
 - Create: `packages/core/src/shared/result.ts`
 - Create: `packages/core/tests/shared/result.test.ts`
 
@@ -148,9 +150,7 @@ Expected: FAIL - "Cannot find module '../../src/shared/result'"
 
 ```typescript
 // packages/core/src/shared/result.ts
-export type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 export const Ok = <T>(value: T): Result<T, never> => ({
   ok: true,
@@ -256,6 +256,7 @@ git commit -m "feat(core): add Result<T, E> type with Ok/Err constructors"
 ### Task 3: Error Types and Factory
 
 **Files:**
+
 - Create: `packages/core/src/shared/errors.ts`
 - Create: `packages/core/tests/shared/errors.test.ts`
 
@@ -311,7 +312,12 @@ export interface ContextError extends BaseError {
 }
 
 export interface ConstraintError extends BaseError {
-  code: 'WRONG_LAYER' | 'CIRCULAR_DEP' | 'FORBIDDEN_IMPORT' | 'BOUNDARY_ERROR' | 'PARSER_UNAVAILABLE';
+  code:
+    | 'WRONG_LAYER'
+    | 'CIRCULAR_DEP'
+    | 'FORBIDDEN_IMPORT'
+    | 'BOUNDARY_ERROR'
+    | 'PARSER_UNAVAILABLE';
 }
 
 export interface EntropyError extends BaseError {
@@ -350,10 +356,7 @@ describe('createError', () => {
   });
 
   it('should create error with default empty fields', () => {
-    const error = createError<ValidationError>(
-      'VALIDATION_FAILED',
-      'Validation failed'
-    );
+    const error = createError<ValidationError>('VALIDATION_FAILED', 'Validation failed');
 
     expect(error.code).toBe('VALIDATION_FAILED');
     expect(error.message).toBe('Validation failed');
@@ -399,6 +402,7 @@ git commit -m "feat(core): add error types and createError factory"
 ### Task 4: File System Utilities
 
 **Files:**
+
 - Create: `packages/core/src/shared/fs-utils.ts`
 - Create: `packages/core/tests/shared/fs-utils.test.ts`
 - Create: `packages/core/tests/fixtures/sample.txt`
@@ -589,6 +593,7 @@ git commit -m "feat(core): add file system utilities (fileExists, readFileConten
 ### Task 5: Validation Types
 
 **Files:**
+
 - Create: `packages/core/src/validation/types.ts`
 
 - [ ] **Step 1: Create validation types file**
@@ -599,25 +604,25 @@ import type { ValidationError } from '../shared/errors';
 
 // File Structure Validation
 export interface Convention {
-  pattern: string;        // Glob pattern, e.g., "docs/**/*.md"
-  required: boolean;      // Must files exist matching this pattern?
-  description: string;    // Human-readable description
-  examples: string[];     // Example valid paths
+  pattern: string; // Glob pattern, e.g., "docs/**/*.md"
+  required: boolean; // Must files exist matching this pattern?
+  description: string; // Human-readable description
+  examples: string[]; // Example valid paths
 }
 
 export interface StructureValidation {
   valid: boolean;
-  missing: string[];      // Required files/patterns that don't exist
-  unexpected: string[];   // Files that violate conventions
-  conformance: number;    // 0-100%
+  missing: string[]; // Required files/patterns that don't exist
+  unexpected: string[]; // Files that violate conventions
+  conformance: number; // 0-100%
 }
 
 // Config Validation
 export interface ConfigError extends ValidationError {
   code: 'INVALID_TYPE' | 'MISSING_FIELD' | 'VALIDATION_FAILED';
   details: {
-    zodError?: unknown;     // Zod's detailed error (avoid importing zod types here)
-    path?: string[];        // Path to invalid field
+    zodError?: unknown; // Zod's detailed error (avoid importing zod types here)
+    path?: string[]; // Path to invalid field
   };
 }
 
@@ -626,10 +631,10 @@ export type CommitFormat = 'conventional' | 'angular' | 'custom';
 
 export interface CommitValidation {
   valid: boolean;
-  type?: string;          // e.g., 'feat', 'fix', 'docs'
-  scope?: string;         // e.g., 'core', 'validation'
-  breaking: boolean;      // Does commit contain breaking changes?
-  issues: string[];       // What's wrong (if invalid)
+  type?: string; // e.g., 'feat', 'fix', 'docs'
+  scope?: string; // e.g., 'core', 'validation'
+  breaking: boolean; // Does commit contain breaking changes?
+  issues: string[]; // What's wrong (if invalid)
 }
 ```
 
@@ -650,6 +655,7 @@ git commit -m "feat(core): add validation module types"
 ### Task 6: File Structure Validation
 
 **Files:**
+
 - Create: `packages/core/src/validation/file-structure.ts`
 - Create: `packages/core/tests/validation/file-structure.test.ts`
 - Create: `packages/core/tests/fixtures/valid-project/README.md`
@@ -880,6 +886,7 @@ git commit -m "feat(core): implement file structure validation with glob pattern
 ### Task 7: Config Validation with Zod
 
 **Files:**
+
 - Create: `packages/core/src/validation/config.ts`
 - Create: `packages/core/tests/validation/config.test.ts`
 
@@ -935,10 +942,7 @@ import { Ok, Err } from '../shared/result';
 import type { ConfigError } from './types';
 import { createError } from '../shared/errors';
 
-export function validateConfig<T>(
-  config: unknown,
-  schema: z.ZodSchema<T>
-): Result<T, ConfigError> {
+export function validateConfig<T>(config: unknown, schema: z.ZodSchema<T>): Result<T, ConfigError> {
   const result = schema.safeParse(config);
 
   if (result.success) {
@@ -1074,6 +1078,7 @@ git commit -m "feat(core): implement config validation with Zod"
 ### Task 8: Commit Message Validation
 
 **Files:**
+
 - Create: `packages/core/src/validation/commit-message.ts`
 - Create: `packages/core/tests/validation/commit-message.test.ts`
 
@@ -1264,9 +1269,7 @@ it('should reject invalid type', () => {
   expect(result.ok).toBe(true);
   if (result.ok) {
     expect(result.value.valid).toBe(false);
-    expect(result.value.issues).toContain(
-      expect.stringContaining('Invalid commit type')
-    );
+    expect(result.value.issues).toContain(expect.stringContaining('Invalid commit type'));
   }
 });
 ```
@@ -1290,6 +1293,7 @@ git commit -m "feat(core): implement commit message validation (conventional for
 ### Task 9: Validation Module Exports
 
 **Files:**
+
 - Create: `packages/core/src/validation/index.ts`
 - Modify: `packages/core/src/index.ts`
 
@@ -1387,6 +1391,7 @@ git commit -m "feat(core): export validation module APIs"
 ### Task 10: Coverage and Final Testing
 
 **Files:**
+
 - None (running existing tests)
 
 - [ ] **Step 1: Run all tests**
@@ -1404,6 +1409,7 @@ Expected: Coverage >80% for all metrics
 Check: Coverage report in `packages/core/coverage/index.html`
 
 If any file shows <80% coverage:
+
 1. Open coverage report in browser
 2. Click on file name to see uncovered lines (highlighted in red)
 3. For each uncovered line/branch:
@@ -1413,6 +1419,7 @@ If any file shows <80% coverage:
 5. Repeat until all files show ≥80%
 
 Common gaps to check:
+
 - Error handling branches (try/catch blocks)
 - Edge cases (empty inputs, null values)
 - Type guard else branches
@@ -1445,6 +1452,7 @@ git commit -m "test(core): ensure >80% coverage for validation module"
 ### Task 11: Update README and Documentation
 
 **Files:**
+
 - Modify: `packages/core/README.md`
 
 - [ ] **Step 1: Write README with usage examples**
@@ -1474,28 +1482,28 @@ Verify project follows file structure conventions:
 import { validateFileStructure, type Convention } from '@harness-engineering/core';
 
 const conventions: Convention[] = [
-  {
-    pattern: 'README.md',
-    required: true,
-    description: 'Project README',
-    examples: ['README.md'],
-  },
-  {
-    pattern: 'AGENTS.md',
-    required: true,
-    description: 'Knowledge map',
-    examples: ['AGENTS.md'],
-  },
+{
+pattern: 'README.md',
+required: true,
+description: 'Project README',
+examples: ['README.md'],
+},
+{
+pattern: 'AGENTS.md',
+required: true,
+description: 'Knowledge map',
+examples: ['AGENTS.md'],
+},
 ];
 
 const result = await validateFileStructure(conventions, './my-project');
 
 if (result.ok) {
-  console.log('Valid:', result.value.valid);
-  console.log('Conformance:', result.value.conformance + '%');
-  console.log('Missing:', result.value.missing);
+console.log('Valid:', result.value.valid);
+console.log('Conformance:', result.value.conformance + '%');
+console.log('Missing:', result.value.missing);
 } else {
-  console.error('Error:', result.error.message);
+console.error('Error:', result.error.message);
 }
 \`\`\`
 
@@ -1508,21 +1516,21 @@ import { validateConfig } from '@harness-engineering/core';
 import { z } from 'zod';
 
 const ConfigSchema = z.object({
-  version: z.number(),
-  layers: z.array(z.object({
-    name: z.string(),
-    allowedDependencies: z.array(z.string()),
-  })),
+version: z.number(),
+layers: z.array(z.object({
+name: z.string(),
+allowedDependencies: z.array(z.string()),
+})),
 });
 
 const result = validateConfig(userConfig, ConfigSchema);
 
 if (result.ok) {
-  // TypeScript knows result.value matches ConfigSchema
-  console.log('Config version:', result.value.version);
+// TypeScript knows result.value matches ConfigSchema
+console.log('Config version:', result.value.version);
 } else {
-  console.error('Validation failed:', result.error.message);
-  console.error('Suggestions:', result.error.suggestions);
+console.error('Validation failed:', result.error.message);
+console.error('Suggestions:', result.error.suggestions);
 }
 \`\`\`
 
@@ -1536,13 +1544,13 @@ import { validateCommitMessage } from '@harness-engineering/core';
 const result = validateCommitMessage('feat(core): add validation module', 'conventional');
 
 if (result.ok) {
-  if (result.value.valid) {
-    console.log('Type:', result.value.type);      // 'feat'
-    console.log('Scope:', result.value.scope);    // 'core'
-    console.log('Breaking:', result.value.breaking); // false
-  } else {
-    console.log('Issues:', result.value.issues);
-  }
+if (result.value.valid) {
+console.log('Type:', result.value.type); // 'feat'
+console.log('Scope:', result.value.scope); // 'core'
+console.log('Breaking:', result.value.breaking); // false
+} else {
+console.log('Issues:', result.value.issues);
+}
 }
 \`\`\`
 
@@ -1556,31 +1564,38 @@ import { type Result, Ok, Err } from '@harness-engineering/core';
 const result: Result<string, Error> = Ok('success');
 
 if (result.ok) {
-  console.log(result.value); // TypeScript knows this is string
+console.log(result.value); // TypeScript knows this is string
 } else {
-  console.error(result.error); // TypeScript knows this is Error
+console.error(result.error); // TypeScript knows this is Error
 }
 \`\`\`
 
 ## Development
 
 \`\`\`bash
+
 # Install dependencies
+
 pnpm install
 
 # Run tests
+
 pnpm test
 
 # Run tests with coverage
+
 pnpm test:coverage
 
 # Type checking
+
 pnpm typecheck
 
 # Build
+
 pnpm build
 
 # Lint
+
 pnpm lint
 \`\`\`
 
@@ -1601,6 +1616,7 @@ git commit -m "docs(core): add README with validation module usage examples"
 ### Task 12: Version and Release Preparation
 
 **Files:**
+
 - Modify: `packages/core/package.json`
 - Create: `packages/core/CHANGELOG.md`
 
@@ -1615,11 +1631,7 @@ Ensure `packages/core/package.json` has correct fields:
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist/",
-    "README.md",
-    "CHANGELOG.md"
-  ],
+  "files": ["dist/", "README.md", "CHANGELOG.md"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -1638,6 +1650,7 @@ Expected: Shows list of files that would be published, verify dist/ folder inclu
 - [ ] **Step 3: Update version to 0.1.0**
 
 Update `packages/core/package.json`:
+
 ```json
 {
   "version": "0.1.0"

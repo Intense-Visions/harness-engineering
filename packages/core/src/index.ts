@@ -11,7 +11,14 @@ export type { Result } from './shared/result';
 export { Ok, Err, isOk, isErr } from './shared/result';
 
 // Error types and helpers
-export type { BaseError, ValidationError, ContextError, ConstraintError, EntropyError, FeedbackError } from './shared/errors';
+export type {
+  BaseError,
+  ValidationError,
+  ContextError,
+  ConstraintError,
+  EntropyError,
+  FeedbackError,
+} from './shared/errors';
 export { createError } from './shared/errors';
 
 // Validation module
@@ -31,7 +38,14 @@ export * from './feedback';
 
 // Parsers
 export { TypeScriptParser } from './shared/parsers';
-export type { LanguageParser, AST, Import, Export, ParseError, HealthCheckResult } from './shared/parsers';
+export type {
+  LanguageParser,
+  AST,
+  Import,
+  Export,
+  ParseError,
+  HealthCheckResult,
+} from './shared/parsers';
 export { createParseError } from './shared/parsers';
 
 // State module

@@ -22,6 +22,7 @@ Create three progressive example projects (hello-world, task-api, multi-tenant-a
 **Demonstrates:** `harness init` output, `harness validate`, `harness check-deps`, what config and AGENTS.md look like.
 
 **Files:**
+
 ```
 examples/hello-world/
 ├── README.md              — Tutorial: init → validate → explore
@@ -42,6 +43,7 @@ examples/hello-world/
 **Code:** ~20 lines. `greet(name)` returns `"Hello, {name}!"`, one test, one utility.
 
 **README flow:**
+
 1. What is this? (2-sentence intro)
 2. Try it (`npm install && harness validate`)
 3. What just happened? (explains what validate checked)
@@ -55,6 +57,7 @@ examples/hello-world/
 **Demonstrates:** Layered architecture with enforcement, ESLint plugin rules, `harness check-deps`, skills, one persona (architecture-enforcer), state management, principles file.
 
 **Files:**
+
 ```
 examples/task-api/
 ├── README.md                — Tutorial: layers → constraints → skills → personas
@@ -85,6 +88,7 @@ examples/task-api/
 ```
 
 **Layer enforcement:**
+
 - `types/` → bottom layer, no imports from services or api
 - `services/` → can import from types only
 - `api/` → can import from services and types
@@ -94,6 +98,7 @@ examples/task-api/
 **VIOLATIONS.md:** Shows 3 violations users can trigger (layer violation, missing test, dependency direction).
 
 **README flow:**
+
 1. What is this?
 2. Quick start
 3. Architecture (3-layer diagram)
@@ -110,6 +115,7 @@ examples/task-api/
 **Demonstrates:** Custom linter rules via `harness linter generate`, boundary schemas, cross-artifact validation, all 3 personas, specs/changes convention, scale-adaptive rigor, full state lifecycle with handoffs and failure log.
 
 **Files:**
+
 ```
 examples/multi-tenant-api/
 ├── README.md                    — Tutorial: custom rules → boundaries → personas → full workflow
@@ -162,6 +168,7 @@ examples/multi-tenant-api/
 ## Documentation Refinement
 
 **README.md (project root):**
+
 - Rewrite to reflect current state (all packages exist, not "coming soon")
 - Update project structure to include examples/, agents/, templates/
 - Update status from "Phase 1" to "Complete — in adoption/refinement"
@@ -169,15 +176,18 @@ examples/multi-tenant-api/
 - Feature list: 6 packages, 21 skills, 3 personas, 4 templates (basic, intermediate, advanced, nextjs)
 
 **AGENTS.md:**
+
 - Update "Current Phase" from Phase 1 to current reality
 - Add `examples/` to repository structure
 - Add examples to "Where to Find Things" section
 
 **docs/guides/getting-started.md:**
+
 - Rewrite to reference three examples as primary learning path
 - hello-world → task-api → multi-tenant-api progression
 
 **docs/standard/index.md:**
+
 - Update any stale phase references
 
 ## CI Testing

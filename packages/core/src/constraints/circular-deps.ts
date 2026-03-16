@@ -2,11 +2,7 @@ import type { Result } from '../shared/result';
 import { Ok } from '../shared/result';
 import type { ConstraintError } from '../shared/errors';
 import type { LanguageParser } from '../shared/parsers';
-import type {
-  DependencyGraph,
-  CircularDependency,
-  CircularDepsResult,
-} from './types';
+import type { DependencyGraph, CircularDependency, CircularDepsResult } from './types';
 import { buildDependencyGraph } from './dependencies';
 
 interface TarjanNode {
@@ -106,7 +102,7 @@ export function detectCircularDeps(
 ): Result<CircularDepsResult, ConstraintError> {
   const sccs = tarjanSCC(graph);
 
-  const cycles: CircularDependency[] = sccs.map(scc => {
+  const cycles: CircularDependency[] = sccs.map((scc) => {
     // Add first node at end to show cycle completion
     const reversed = scc.reverse();
     const firstNode = reversed[reversed.length - 1]!;

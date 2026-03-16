@@ -1,9 +1,5 @@
 // AGENTS.md Validation
-export {
-  validateAgentsMap,
-  extractMarkdownLinks,
-  extractSections,
-} from './agents-map';
+export { validateAgentsMap, extractMarkdownLinks, extractSections } from './agents-map';
 
 // Documentation Coverage
 export { checkDocCoverage } from './doc-coverage';

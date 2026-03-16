@@ -26,6 +26,7 @@ This spec defines the rich skill format, infrastructure (CLI, MCP, state managem
 ## Sources
 
 This design synthesizes patterns from three systems:
+
 - **Superpowers** — Rigid behavioral workflows (TDD, debugging, code review), subagent dispatch, verification discipline
 - **GSD (Get Shit Done)** — Goal-backward verification (3-level: exists/substantive/wired), persistent state across sessions, codebase mapping, phase lifecycle, debug session persistence
 - **Ralph Loop** — Fresh context per iteration, append-only learnings, AGENTS.md as evolving knowledge base, task sizing ("fit in one context window")
@@ -36,15 +37,15 @@ This design synthesizes patterns from three systems:
 
 ### Schema Migration (existing -> new)
 
-| Field | Existing | New | Change |
-|---|---|---|---|
-| `version` | `string` (semver `"1.0.0"`) | `string` (semver `"1.0.0"`) | No change |
-| `platform` | `string` (single) | `platforms: string[]` (array) | Renamed, scalar to array |
-| `category` | `enum` (enforcement/workflow/entropy/setup) | Removed | Replaced by `type: rigid\|flexible` |
-| `cli_command` | `string` (optional) | `cli: { command, args[] }` | Restructured |
-| `includes` | `string[]` (shared fragment refs) | Removed | Fragments inlined into SKILL.md |
-| `triggers` | `enum` (manual/on_pr/on_commit) | `string[]` (expanded set) | New values added |
-| New fields | — | `type`, `phases`, `state`, `depends_on`, `mcp` | Added |
+| Field         | Existing                                    | New                                            | Change                              |
+| ------------- | ------------------------------------------- | ---------------------------------------------- | ----------------------------------- |
+| `version`     | `string` (semver `"1.0.0"`)                 | `string` (semver `"1.0.0"`)                    | No change                           |
+| `platform`    | `string` (single)                           | `platforms: string[]` (array)                  | Renamed, scalar to array            |
+| `category`    | `enum` (enforcement/workflow/entropy/setup) | Removed                                        | Replaced by `type: rigid\|flexible` |
+| `cli_command` | `string` (optional)                         | `cli: { command, args[] }`                     | Restructured                        |
+| `includes`    | `string[]` (shared fragment refs)           | Removed                                        | Fragments inlined into SKILL.md     |
+| `triggers`    | `enum` (manual/on_pr/on_commit)             | `string[]` (expanded set)                      | New values added                    |
+| New fields    | —                                           | `type`, `phases`, `state`, `depends_on`, `mcp` | Added                               |
 
 ### Allowed Values
 
@@ -64,11 +65,15 @@ const SkillPhaseSchema = z.object({
 
 const SkillCliSchema = z.object({
   command: z.string(),
-  args: z.array(z.object({
-    name: z.string(),
-    description: z.string(),
-    required: z.boolean().default(false),
-  })).default([]),
+  args: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        required: z.boolean().default(false),
+      })
+    )
+    .default([]),
 });
 
 const SkillMcpSchema = z.object({
@@ -82,8 +87,14 @@ const SkillStateSchema = z.object({
 });
 
 const ALLOWED_TRIGGERS = [
-  'manual', 'on_pr', 'on_commit', 'on_new_feature',
-  'on_bug_fix', 'on_refactor', 'on_project_init', 'on_review',
+  'manual',
+  'on_pr',
+  'on_commit',
+  'on_new_feature',
+  'on_bug_fix',
+  'on_refactor',
+  'on_project_init',
+  'on_review',
 ] as const;
 
 const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
@@ -108,7 +119,7 @@ export const SkillMetadataSchema = z.object({
 
 ```yaml
 name: harness-tdd
-version: "1.0.0"
+version: '1.0.0'
 description: Test-driven development integrated with harness validation
 
 # Discovery & activation
@@ -145,8 +156,8 @@ mcp:
     path: string
 
 # Behavioral metadata
-type: rigid              # rigid | flexible
-phases:                  # Optional: multi-phase skills declare phases
+type: rigid # rigid | flexible
+phases: # Optional: multi-phase skills declare phases
   - name: red
     description: Write failing test
   - name: green
@@ -154,9 +165,9 @@ phases:                  # Optional: multi-phase skills declare phases
   - name: refactor
     description: Clean up while keeping tests green
 state:
-  persistent: false      # Whether skill uses harness-state-management
-  files: []              # State files this skill reads/writes
-depends_on: []           # Other skills this skill may invoke
+  persistent: false # Whether skill uses harness-state-management
+  files: [] # State files this skill reads/writes
+depends_on: [] # Other skills this skill may invoke
 ```
 
 ### `SKILL.md` Structure
@@ -169,26 +180,32 @@ Every `SKILL.md` follows required sections enforced by linting:
 > One-line description of what this skill does and when to use it.
 
 ## When to Use
+
 - Trigger conditions
 - NOT conditions (when to use something else)
 
 ## Process
+
 - Step-by-step behavioral instructions
 - For rigid skills: exact phases with gates
 - For flexible skills: guidelines with adaptation points
 
 ## Harness Integration
+
 - Which harness CLI commands this skill uses
 - How results feed back into the process
 
 ## Success Criteria
+
 - Observable outcomes that indicate the skill was applied correctly
 
 ## Examples
+
 - At least one concrete example showing the skill in action
 ```
 
 Additional required sections for rigid skills:
+
 - `## Gates` — Hard stops that prevent proceeding
 - `## Escalation` — When to stop and ask for help
 
@@ -269,7 +286,7 @@ State API added to `@harness-engineering/core`:
 
 ```typescript
 interface HarnessState {
-  schemaVersion: 1;        // For future migration
+  schemaVersion: 1; // For future migration
   position: { phase?: string; task?: string };
   decisions: Array<{ date: string; decision: string; context: string }>;
   blockers: Array<{ id: string; description: string; status: 'open' | 'resolved' }>;
@@ -277,12 +294,13 @@ interface HarnessState {
   lastSession: { date: string; summary: string };
 }
 
-async function loadState(projectPath: string): Promise<Result<HarnessState, Error>>
-async function saveState(projectPath: string, state: HarnessState): Promise<Result<void, Error>>
-async function appendLearning(projectPath: string, learning: string): Promise<Result<void, Error>>
+async function loadState(projectPath: string): Promise<Result<HarnessState, Error>>;
+async function saveState(projectPath: string, state: HarnessState): Promise<Result<void, Error>>;
+async function appendLearning(projectPath: string, learning: string): Promise<Result<void, Error>>;
 ```
 
 **Error handling:**
+
 - Missing `.harness/state.json`: `loadState` returns a default empty state (not an error). State is created on first `saveState`.
 - Corrupted/unparseable JSON: Returns `Err` with message including file path.
 - Schema version mismatch: Returns `Err` with migration guidance message. Future versions may auto-migrate.
@@ -332,24 +350,31 @@ During migration (implementation step 5), SKILL.md stubs are created with all re
 > Test-driven development integrated with harness validation.
 
 ## When to Use
+
 - TODO: Full content in skill content batch
 
 ## Process
+
 - TODO: Full content in skill content batch
 
 ## Harness Integration
+
 - `harness check-deps`, `harness validate`
 
 ## Success Criteria
+
 - TODO: Full content in skill content batch
 
 ## Examples
+
 - TODO: Full content in skill content batch
 
 ## Gates
+
 - TODO: Full content in skill content batch
 
 ## Escalation
+
 - TODO: Full content in skill content batch
 ```
 
@@ -362,70 +387,91 @@ Stubs pass structural validation (all sections present) but contain TODO markers
 ### Harness-Specific Skills (upgrade existing 11)
 
 #### #1 `validate-context-engineering` — Type: flexible
+
 Validates AGENTS.md structure AND evolves it as codebase changes. Process: Validate -> Detect gaps -> Suggest updates -> Apply with approval. Harness integration: `harness validate`, `harness check-docs`. Inspired by Ralph's dynamic AGENTS.md knowledge base.
 
 #### #2 `enforce-architecture` — Type: rigid
+
 Full architecture enforcement methodology. Process: Load constraints -> Analyze violations -> Explain impact -> Guide resolution. Gates: Cannot approve code with layer violations. Harness integration: `harness check-deps`, eslint-plugin rules.
 
 #### #3 `check-mechanical-constraints` — Type: rigid
+
 Verify and enforce linter rules, boundary schemas, forbidden imports. Process: Run checks -> Categorize violations -> Auto-fix where safe -> Report remaining. Harness integration: `harness validate`, `harness linter validate`.
 
 #### #4 `harness-tdd` — Type: rigid
+
 Red-green-refactor cycle integrated with harness validation. Phases: RED (write failing test) -> GREEN (minimal implementation) -> REFACTOR (clean up) -> VALIDATE (run harness checks). Gates: No production code without failing test. Must watch test fail. Must watch test pass. Harness integration: `harness check-deps` runs during VALIDATE phase.
 
 #### #5 `harness-code-review` — Type: rigid
+
 Full review lifecycle: request -> perform -> respond. Process: Gather context (SHAs, plan) -> Review (harness checks + code quality + spec compliance) -> Report -> Respond to feedback with technical rigor. Harness integration: `harness validate`, `harness check-deps`, `harness check-docs`. Subsumes superpowers' requesting-code-review, code-reviewer, and receiving-code-review.
 
 #### #6 `harness-refactoring` — Type: flexible
+
 Safe refactoring with constraint verification at each step. Process: Identify target -> Verify tests pass -> Refactor incrementally -> Run harness checks after each step -> Commit atomically. Harness integration: `harness validate`, `harness check-deps`.
 
 #### #7 `detect-doc-drift` — Type: flexible
+
 Detect and remediate documentation drift. Process: Run coverage analysis -> Identify stale docs -> Prioritize by impact -> Generate update suggestions. Harness integration: `harness check-docs`, `harness cleanup`.
 
 #### #8 `cleanup-dead-code` — Type: flexible
+
 Entropy analysis + safe cleanup methodology. Process: Analyze entropy -> Categorize (dead code, drift, pattern violations) -> Generate safe fixes -> Apply with verification. Harness integration: `harness cleanup`, `harness fix-drift`.
 
 #### #9 `align-documentation` — Type: flexible
+
 Sync docs with code changes after implementation. Process: Detect changes since last sync -> Map to affected docs -> Generate updates -> Validate links. Harness integration: `harness check-docs`, `harness validate`.
 
 #### #10 `initialize-harness-project` — Type: flexible
+
 Project setup using templates + persona scaffolding + migration guidance. Process: Assess current state -> Recommend adoption level -> Scaffold via templates -> Configure personas -> Generate initial AGENTS.md. Includes migration from existing projects (basic -> intermediate -> advanced). Harness integration: `harness init --level --framework`, `harness persona generate`.
 
 #### #11 `add-harness-component` — Type: flexible
+
 Add layers, docs, components with proper integration. Process: Determine component type -> Validate against constraints -> Scaffold -> Wire into existing architecture -> Update AGENTS.md. Harness integration: `harness add`.
 
 ### New Dev-Process Skills (12-18)
 
 #### #12 `harness-brainstorming` — Type: rigid
+
 Design exploration -> spec -> plan, adapted for harness projects. Process: Explore context -> Ask questions one at a time -> Propose 2-3 approaches -> Present design -> Write spec -> Validate spec -> Get approval. Gates: No implementation before design approval (hard gate). Harness integration: Specs go to `docs/`, validated by `harness validate`.
 
 #### #13 `harness-debugging` — Type: rigid
+
 4-phase systematic debugging with entropy analysis and persistent sessions. Phases: INVESTIGATE (entropy analysis feeds into root cause search) -> ANALYZE (pattern matching against codebase) -> HYPOTHESIZE (test one variable at a time) -> FIX (TDD-style with regression test). State: Persistent debug sessions in `.harness/debug/` (survive context resets). Gates: Phase 1 before any fix attempt. After 3 failed fixes, question architecture. Harness integration: `harness cleanup` (entropy analysis in Phase 1).
 
 #### #14 `harness-planning` — Type: rigid
+
 Implementation planning with task sizing, goal-backward must-haves, phase lifecycle. Process: Map file structure -> Decompose into atomic tasks (fit in one context window) -> Derive must-haves from goals -> Write plan -> Validate -> Review. Task sizing rule: Each task fits in one context window (from Ralph). Must-haves derivation: Goal -> Observable truths -> Required artifacts -> Key links (from GSD). Harness integration: Plans reference `harness` commands, validated structure.
 
 #### #15 `harness-verification` — Type: rigid
+
 3-level evidence-based verification. Levels: EXISTS (artifact present) -> SUBSTANTIVE (not a stub, has real implementation) -> WIRED (connected to other artifacts, being used). Anti-pattern scanning: TODO, FIXME, placeholder implementations, unused imports. Gap identification: Structured output for automated gap-closure. Gates: No completion claims without fresh verification evidence. Harness integration: `harness validate`, custom verification commands per project.
 
 #### #16 `harness-parallel-agents` — Type: flexible
+
 Parallel investigation/execution coordination. Process: Identify independent domains -> Create focused agent tasks -> Dispatch in parallel -> Integrate results -> Verify no conflicts -> Run full suite. Constraint: Only for truly independent problems (no shared state).
 
 #### #17 `harness-execution` — Type: rigid
+
 Plan execution with checkpoints and knowledge capture. Process: Load plan -> Execute tasks atomically -> Per-task commits -> Checkpoint protocol for human decisions -> Append learnings between iterations. Checkpoints: human-verify (pause + show), decision (pause + ask), human-action (pause + instruct). State: Updates `.harness/state.json` with position, captures learnings to `.harness/learnings.md`. Harness integration: `harness state`, per-task `harness validate`.
 
 #### #18 `harness-git-workflow` — Type: flexible
+
 Worktree setup + branch finishing. Process: Create worktree -> Install deps -> Verify baseline -> Execute work -> Finish (merge/PR/keep/discard). Worktree directory selection: `.worktrees/` (preferred) -> CLAUDE.md preference -> ask user. Safety: Verify gitignored before creating project-local worktree.
 
 ### New Support Skills (19-21)
 
 #### #19 `harness-skill-authoring` — Type: flexible
+
 How to create and extend harness skills. Process: Define purpose -> Choose type (rigid/flexible) -> Write skill.yaml -> Write SKILL.md -> Validate -> Test. Harness integration: `harness skill validate`.
 
 #### #20 `harness-onboarding` — Type: flexible
+
 Navigate existing harness projects + structured codebase mapping. Process: Read AGENTS.md -> Map codebase (stack, architecture, conventions, concerns) -> Understand constraints -> Identify adoption level -> Generate orientation summary. Codebase mapping outputs structured docs (from GSD's mapper). Harness integration: `harness validate` (understand current state), `harness check-docs`.
 
 #### #21 `harness-state-management` — Type: flexible
+
 Persistent project state across sessions. Process: Load state -> Track position/decisions/blockers/progress -> Save state -> Capture learnings. State files: `.harness/state.json`, `.harness/learnings.md`, `.harness/debug/`. Harness integration: `harness state show`, `harness state learn`.
 
 ---
@@ -451,11 +497,13 @@ Added to project `.gitignore` templates. State is local by default. Learnings ca
 ### Scope boundary
 
 This spec covers:
+
 - Rich skill format (schema + SKILL.md structure)
 - Infrastructure (CLI commands, MCP tool, state management, validation)
 - Skill inventory (21 skills with behavioral summaries)
 
 This spec does NOT cover:
+
 - Full SKILL.md content for each of the 21 skills (separate specs per batch)
 - GSD-style roadmap/phase management
 - Ralph-style autonomous loop orchestration

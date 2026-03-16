@@ -116,10 +116,7 @@ export async function logAgentAction(
   return Ok(fullAction);
 }
 
-export function trackAction(
-  type: ActionType,
-  context: ActionContext
-): ActionTracker {
+export function trackAction(type: ActionType, context: ActionContext): ActionTracker {
   const startTime = Date.now();
   const action: AgentAction = {
     id: generateId(),
@@ -152,7 +149,10 @@ export function trackAction(
       return logAgentAction(action);
     },
 
-    async fail(error: { code: string; message: string }): Promise<Result<AgentAction, FeedbackError>> {
+    async fail(error: {
+      code: string;
+      message: string;
+    }): Promise<Result<AgentAction, FeedbackError>> {
       action.status = 'failed';
       action.duration = Date.now() - startTime;
       action.error = error;

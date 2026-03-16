@@ -19,7 +19,12 @@ export interface ContextError extends BaseError {
 }
 
 export interface ConstraintError extends BaseError {
-  code: 'WRONG_LAYER' | 'CIRCULAR_DEP' | 'FORBIDDEN_IMPORT' | 'BOUNDARY_ERROR' | 'PARSER_UNAVAILABLE';
+  code:
+    | 'WRONG_LAYER'
+    | 'CIRCULAR_DEP'
+    | 'FORBIDDEN_IMPORT'
+    | 'BOUNDARY_ERROR'
+    | 'PARSER_UNAVAILABLE';
 }
 
 // EntropyError is imported from '../entropy/types' for detailed typing

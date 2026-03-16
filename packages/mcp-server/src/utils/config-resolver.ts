@@ -20,6 +20,8 @@ export function resolveProjectConfig(projectPath: string): Result<ProjectConfig,
     const config = JSON.parse(raw) as ProjectConfig;
     return Ok(config);
   } catch (error) {
-    return Err(new Error(`Failed to parse config: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to parse config: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }

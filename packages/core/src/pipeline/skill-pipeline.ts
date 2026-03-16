@@ -25,7 +25,7 @@ export type TurnExecutor = (context: TurnContext) => Promise<{ result: unknown; 
 export async function runPipeline(
   initialContext: SkillContext,
   executor: SkillExecutor,
-  options?: PipelineOptions,
+  options?: PipelineOptions
 ): Promise<PipelineResult> {
   const startTime = Date.now();
   const hooks = options?.hooks;
@@ -81,7 +81,7 @@ export async function runPipeline(
 export async function runMultiTurnPipeline(
   initialContext: SkillContext,
   turnExecutor: TurnExecutor,
-  options?: PipelineOptions,
+  options?: PipelineOptions
 ): Promise<PipelineResult> {
   const startTime = Date.now();
   const hooks = options?.hooks;
@@ -158,7 +158,7 @@ export async function runMultiTurnPipeline(
     success: !lastError,
     context,
     result: skillResult,
-    error: lastError,
+    ...(lastError !== undefined && { error: lastError }),
     turnsExecuted,
     durationMs: Date.now() - startTime,
   };

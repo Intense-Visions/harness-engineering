@@ -36,7 +36,7 @@ describe('buildDependencyGraph', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      const edge = result.value.edges.find(e => e.to.includes('domain/user'));
+      const edge = result.value.edges.find((e) => e.to.includes('domain/user'));
       expect(edge).toBeDefined();
       expect(edge?.importType).toBe('static');
     }

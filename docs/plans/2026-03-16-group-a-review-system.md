@@ -17,13 +17,14 @@
 ### Task 1: Add Context Assembly section to SKILL.md
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 
 - [ ] **Step 1: Insert the Context Assembly section before the Process section**
 
 In `agents/skills/claude-code/harness-code-review/SKILL.md`, insert the following section between `## When to Use` (ends around line 13) and `## Process` (line 14). The new section goes immediately before `## Process`:
 
-```markdown
+````markdown
 ## Context Assembly
 
 Before beginning any review phase, assemble context proportional to the change size.
@@ -65,7 +66,9 @@ grep -rl "<component-name>" docs/specs/ docs/design-docs/ docs/plans/
 # 5. Find type definitions
 grep -rn "interface\|type\|schema" <changed-file> | head -20
 ```
-```
+````
+
+````
 
 - [ ] **Step 2: Verify the section is correctly placed**
 
@@ -76,7 +79,7 @@ Read the file and confirm `## Context Assembly` appears after `## When to Use` a
 ```bash
 git add agents/skills/claude-code/harness-code-review/SKILL.md
 git commit -m "feat(review): add Context Assembly section with 1:1 context ratio rule (A1)"
-```
+````
 
 ---
 
@@ -85,13 +88,14 @@ git commit -m "feat(review): add Context Assembly section with 1:1 context ratio
 ### Task 2: Add commit history gathering to Context Assembly
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 
 - [ ] **Step 1: Add commit history subsection to Context Assembly**
 
 In `agents/skills/claude-code/harness-code-review/SKILL.md`, append the following immediately after the `### Context Assembly Commands` code block (end of the Context Assembly section), before `## Process`:
 
-```markdown
+````markdown
 ### Commit History Context
 
 As part of context assembly (priority item #5), retrieve recent commit history for every affected file:
@@ -103,6 +107,7 @@ git log --oneline -5 -- <affected-file>
 # For all affected files at once
 git log --oneline -5 -- <file1> <file2> <file3>
 ```
+````
 
 Use commit history to answer:
 
@@ -110,7 +115,8 @@ Use commit history to answer:
 - **Was this recently refactored?** If recent commits include "refactor" or "restructure," check whether the current change aligns with or contradicts the refactoring direction.
 - **Who has been working here?** If multiple authors touched the file recently, there may be conflicting assumptions. Look for consistency.
 - **What was the last change?** The most recent commit gives context on the file's trajectory. A bugfix followed by another change to the same area is a yellow flag.
-```
+
+````
 
 - [ ] **Step 2: Verify the addition**
 
@@ -121,7 +127,7 @@ Read the Context Assembly section and confirm the Commit History Context subsect
 ```bash
 git add agents/skills/claude-code/harness-code-review/SKILL.md
 git commit -m "feat(review): add commit history context gathering to Context Assembly (A2)"
-```
+````
 
 ---
 
@@ -130,13 +136,14 @@ git commit -m "feat(review): add commit history context gathering to Context Ass
 ### Task 3a: Add review learnings convention to implementation.md
 
 **Files:**
+
 - Modify: `docs/standard/implementation.md`
 
 - [ ] **Step 1: Add the review learnings convention to implementation.md**
 
 In `docs/standard/implementation.md`, add the following section before the `## Next Steps` section (around line 1082). Insert it after the `## Common Challenges & Solutions` section:
 
-```markdown
+````markdown
 ## Project Conventions: Harness Files
 
 The following files live in the `.harness/` directory at the project root. They are optional but recommended — skills that support them will read and use them automatically.
@@ -151,14 +158,18 @@ A calibration file for code review. Records what review findings are valuable ve
 # Review Learnings
 
 ## Useful Findings
+
 - [category]: [example] — [why this was valuable]
 
 ## Noise / False Positives
+
 - [category]: [example] — [why this wasn't helpful]
 
 ## Calibration Notes
+
 - [specific guidance for this project]
 ```
+````
 
 **Example:**
 
@@ -166,41 +177,46 @@ A calibration file for code review. Records what review findings are valuable ve
 # Review Learnings
 
 ## Useful Findings
+
 - error-handling: Missing catch in async pipeline — caused silent failures in production
 - type-safety: Implicit any in service boundaries — led to runtime type mismatches
 - test-coverage: Untested error paths in payment flow — caught a real bug
 
 ## Noise / False Positives
+
 - naming: Flagging single-letter variables in test helpers — these are conventional (e.g., `t`, `e`)
 - error-handling: Missing error handling in CLI scripts — these exit on error by design
 - docs: Missing JSDoc on internal utility functions — we document at module level, not function level
 
 ## Calibration Notes
+
 - This project uses Result types everywhere — do not flag missing try/catch in functions that return Result<T, E>
 - Test helpers intentionally use loose types for ergonomics — do not flag missing type annotations in test/
 - The CLI package uses process.exit() intentionally — do not flag as an anti-pattern
 ```
 
 **Maintenance:** Append new entries after each review cycle. Periodically prune entries that are no longer relevant (e.g., after a major refactor changes the codebase patterns).
-```
+
+````
 
 - [ ] **Step 2: Commit implementation.md changes**
 
 ```bash
 git add docs/standard/implementation.md
 git commit -m "docs(standard): add .harness/review-learnings.md convention to implementation guide (A3)"
-```
+````
 
 ### Task 3b: Add review learnings integration to SKILL.md
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 
 - [ ] **Step 3: Add review learnings integration to Context Assembly**
 
 In `agents/skills/claude-code/harness-code-review/SKILL.md`, append the following at the end of the Context Assembly section (after the Commit History Context subsection), before `## Process`:
 
-```markdown
+````markdown
 ### Review Learnings Calibration
 
 Before starting the review, check for a project-specific calibration file:
@@ -209,6 +225,7 @@ Before starting the review, check for a project-specific calibration file:
 # Check if review learnings file exists
 cat .harness/review-learnings.md 2>/dev/null
 ```
+````
 
 If `.harness/review-learnings.md` exists:
 
@@ -217,7 +234,8 @@ If `.harness/review-learnings.md` exists:
 3. **Read the Calibration Notes section.** Apply these project-specific overrides to your review judgment. These represent deliberate team decisions, not oversights.
 
 If the file does not exist, proceed with default review focus areas. After completing the review, consider suggesting that the team create `.harness/review-learnings.md` if you notice patterns that would benefit from calibration.
-```
+
+````
 
 - [ ] **Step 4: Verify both files are updated**
 
@@ -228,7 +246,7 @@ Read the relevant sections in both `docs/standard/implementation.md` and `agents
 ```bash
 git add agents/skills/claude-code/harness-code-review/SKILL.md
 git commit -m "feat(review): integrate .harness/review-learnings.md into Context Assembly (A3)"
-```
+````
 
 ---
 
@@ -237,13 +255,14 @@ git commit -m "feat(review): integrate .harness/review-learnings.md into Context
 ### Task 4: Add change-type detection and per-type checklists
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 
 - [ ] **Step 1: Add Change-Type Detection section after Context Assembly**
 
 In `agents/skills/claude-code/harness-code-review/SKILL.md`, insert the following section after `## Context Assembly` (and all its subsections) and before `## Process`:
 
-```markdown
+````markdown
 ## Change-Type Detection
 
 After assembling context, determine the change type. This shapes which checklist to apply during review.
@@ -273,6 +292,7 @@ git diff --name-status HEAD~1 | grep "^A"
 # Check if only docs changed
 git diff --name-only HEAD~1 | grep -v "\.md$" | wc -l  # 0 means docs-only
 ```
+````
 
 ### Per-Type Review Checklists
 
@@ -306,7 +326,8 @@ Apply the checklist matching the detected change type. These replace the generic
 - [ ] **Completeness:** Are all public interfaces documented? Are there undocumented parameters, return values, or error conditions?
 - [ ] **Consistency:** Does the new documentation follow the same style, terminology, and structure as existing docs?
 - [ ] **Links valid:** Do all internal links resolve? Are external links still live?
-```
+
+````
 
 - [ ] **Step 2: Verify the section placement and content**
 
@@ -317,7 +338,7 @@ Read the file and confirm the Change-Type Detection section appears after Contex
 ```bash
 git add agents/skills/claude-code/harness-code-review/SKILL.md
 git commit -m "feat(review): add change-type detection with per-type review checklists (A4)"
-```
+````
 
 ---
 
@@ -326,6 +347,7 @@ git commit -m "feat(review): add change-type detection with per-type review chec
 ### Task 5a: Create skill.yaml
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-pre-commit-review/skill.yaml`
 
 - [ ] **Step 1: Create the skill directory and skill.yaml**
@@ -334,7 +356,7 @@ Create `agents/skills/claude-code/harness-pre-commit-review/skill.yaml`:
 
 ```yaml
 name: harness-pre-commit-review
-version: "1.0.0"
+version: '1.0.0'
 description: Lightweight pre-commit quality gate combining mechanical checks and AI review
 triggers: [manual, on_commit]
 platforms: [claude-code, gemini-cli]
@@ -378,18 +400,20 @@ git commit -m "feat(skills): create harness-pre-commit-review skill.yaml (A5)"
 ### Task 5b: Create SKILL.md
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-pre-commit-review/SKILL.md`
 
 - [ ] **Step 3: Create the SKILL.md**
 
 Create `agents/skills/claude-code/harness-pre-commit-review/SKILL.md`:
 
-```markdown
+````markdown
 # Harness Pre-Commit Review
 
 > Lightweight pre-commit quality gate — mechanical checks first, AI review second. Fast feedback before code leaves your machine.
 
 ## When to Use
+
 - Before committing code (manual invocation or git pre-commit hook)
 - As a quick sanity check before pushing to a branch
 - When you want fast feedback without a full code review cycle
@@ -413,6 +437,7 @@ Run all deterministic checks against staged changes. These are binary pass/fail 
 cat package.json 2>/dev/null | grep -E '"(lint|typecheck|test)"'
 cat Makefile 2>/dev/null | grep -E '^(lint|typecheck|test):'
 ```
+````
 
 #### 2. Run Checks in Order
 
@@ -508,6 +533,7 @@ Review the staged diff for these high-signal issues only:
 - **Type mismatches:** function called with wrong argument types (if visible in diff)
 
 Do NOT review for:
+
 - Style (that is the linter's job)
 - Architecture (that is the full review's job)
 - Test completeness (that is the full review's job)
@@ -567,7 +593,8 @@ fi
 - **Mechanical checks fail:** Fix the issues. Do not bypass the hook.
 - **AI review finds a potential issue you disagree with:** Commit anyway — AI review observations are advisory, not blocking. If the observation is consistently wrong, add it to `.harness/review-learnings.md` under Noise / False Positives.
 - **Hook is too slow:** If the full test suite is slow, configure the project to run only affected tests in pre-commit. The full suite runs in CI.
-```
+
+````
 
 - [ ] **Step 4: Verify both files exist and are well-formed**
 
@@ -578,7 +605,7 @@ Read both `skill.yaml` and `SKILL.md` in the new directory.
 ```bash
 git add agents/skills/claude-code/harness-pre-commit-review/SKILL.md
 git commit -m "feat(skills): create harness-pre-commit-review SKILL.md with full process (A5)"
-```
+````
 
 ---
 
@@ -587,6 +614,7 @@ git commit -m "feat(skills): create harness-pre-commit-review SKILL.md with full
 ### Task 6a: Create skill.yaml
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-integrity/skill.yaml`
 
 - [ ] **Step 1: Create the skill directory and skill.yaml**
@@ -595,8 +623,8 @@ Create `agents/skills/claude-code/harness-integrity/skill.yaml`:
 
 ```yaml
 name: harness-integrity
-version: "0.1.0"
-description: "Unified integrity gate — chains test, lint, typecheck, and AI review into a single pass/fail report (STUB: awaiting harness-verify from Group E)"
+version: '0.1.0'
+description: 'Unified integrity gate — chains test, lint, typecheck, and AI review into a single pass/fail report (STUB: awaiting harness-verify from Group E)'
 triggers: [manual]
 platforms: [claude-code, gemini-cli]
 tools: [Bash, Read, Glob, Grep]
@@ -640,6 +668,7 @@ git commit -m "feat(skills): create harness-integrity skill.yaml stub (A6)"
 ### Task 6b: Create SKILL.md stub
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-integrity/SKILL.md`
 
 - [ ] **Step 3: Create the SKILL.md skeleton**
@@ -654,6 +683,7 @@ Create `agents/skills/claude-code/harness-integrity/SKILL.md`:
 **Status:** STUB — Full implementation requires `harness-verify` skill from Group E (E1). This skeleton defines the intended interface and report format. The full process will be implemented after Group E delivers E1.
 
 ## When to Use
+
 - As a final check before merging a PR
 - As a CI gate that combines all quality signals
 - When you want a single pass/fail answer for "is this code ready?"
@@ -670,15 +700,17 @@ When fully implemented, this skill will chain the following in order:
 5. **Unified report** — aggregate all results into a single report
 
 ## Intended Report Format
-
 ```
+
 Integrity Check: [PASS/FAIL]
+
 - Tests: [PASS/FAIL] ([count] passed, [count] failed)
 - Lint: [PASS/FAIL] ([count] warnings, [count] errors)
 - Types: [PASS/FAIL]
 - Review: [count] suggestions ([count] blocking)
 
 Overall: [PASS if all pass and 0 blocking review items, FAIL otherwise]
+
 ```
 
 ## Dependencies
@@ -750,6 +782,7 @@ git log --oneline -7
 ```
 
 Confirm 7 commits from this plan, in order:
+
 1. A1 — Context Assembly with 1:1 ratio
 2. A2 — Commit history context
 3. A3 — Review learnings convention in implementation.md

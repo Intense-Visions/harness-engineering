@@ -17,6 +17,7 @@
 ### Task 1: Create hello-world project scaffold
 
 **Files:**
+
 - Create: `examples/hello-world/package.json`
 - Create: `examples/hello-world/tsconfig.json`
 - Create: `examples/hello-world/harness.config.json`
@@ -75,8 +76,16 @@ Create `examples/hello-world/harness.config.json`:
   "layers": [
     { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
     { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": ["types", "domain"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "domain", "services"]
+    }
   ],
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
@@ -99,6 +108,7 @@ git commit -m "feat(examples): scaffold hello-world project with basic harness c
 ### Task 2: Create hello-world source code and tests
 
 **Files:**
+
 - Create: `examples/hello-world/src/utils.ts`
 - Create: `examples/hello-world/src/index.ts`
 - Create: `examples/hello-world/tests/index.test.ts`
@@ -174,6 +184,7 @@ git commit -m "feat(examples): add hello-world source code and tests"
 ### Task 3: Create hello-world AGENTS.md, sample state, and README
 
 **Files:**
+
 - Create: `examples/hello-world/AGENTS.md`
 - Create: `examples/hello-world/.harness.example/state.json`
 - Create: `examples/hello-world/.harness.example/learnings.md`
@@ -193,17 +204,18 @@ A minimal project demonstrating harness engineering at the **basic** adoption le
 This is a greeting library with two functions (`greet` and `formatName`). It exists to demonstrate what a harness-managed project looks like at the simplest level.
 
 ## Repository Structure
-
 ```
+
 hello-world/
 ├── src/
-│   ├── index.ts      # greet() — entry point
-│   └── utils.ts      # formatName() — helper
+│ ├── index.ts # greet() — entry point
+│ └── utils.ts # formatName() — helper
 ├── tests/
-│   └── index.test.ts # Unit tests
+│ └── index.test.ts # Unit tests
 ├── harness.config.json
-└── AGENTS.md          # This file
-```
+└── AGENTS.md # This file
+
+````
 
 ## Conventions
 
@@ -218,8 +230,9 @@ npm test              # Run tests
 npm run typecheck     # Check types
 harness validate      # Validate harness configuration
 harness check-deps    # Check dependency boundaries
-```
-```
+````
+
+````
 
 - [ ] **Step 2: Create sample state**
 
@@ -248,7 +261,7 @@ Create `examples/hello-world/.harness.example/state.json`:
     "pendingTasks": []
   }
 }
-```
+````
 
 Create `examples/hello-world/.harness.example/learnings.md`:
 
@@ -262,7 +275,7 @@ Create `examples/hello-world/.harness.example/learnings.md`:
 
 Create `examples/hello-world/README.md`:
 
-```markdown
+````markdown
 # Hello World — Harness Engineering (Basic)
 
 A minimal project showing what harness engineering looks like at the **basic** adoption level.
@@ -278,8 +291,10 @@ cd examples/hello-world
 npm install
 harness validate
 ```
+````
 
 You should see validation pass. This confirms:
+
 - `harness.config.json` is valid
 - `AGENTS.md` exists and is readable
 - Layer definitions are syntactically correct
@@ -287,6 +302,7 @@ You should see validation pass. This confirms:
 ## What just happened?
 
 `harness validate` checked your project's configuration and structure. At the basic level, this means:
+
 - The config file parses correctly and has required fields
 - The AGENTS.md knowledge map exists where the config says it should
 - Layer definitions (if any) are well-formed
@@ -315,6 +331,7 @@ Open `harness.config.json`:
 ## What does sample state look like?
 
 Check `.harness.example/` to see what a project's state directory looks like after a few sessions:
+
 - `state.json` — Current position, progress, decisions
 - `learnings.md` — Institutional knowledge captured over time
 
@@ -323,14 +340,15 @@ In a real project, this would be `.harness/` (not `.harness.example/`).
 ## Next
 
 Ready for layer enforcement, ESLint rules, and personas? Try the [task-api example](../task-api/).
-```
+
+````
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add examples/hello-world/AGENTS.md examples/hello-world/.harness.example/ examples/hello-world/README.md
 git commit -m "feat(examples): add hello-world AGENTS.md, sample state, and tutorial README"
-```
+````
 
 ---
 
@@ -339,6 +357,7 @@ git commit -m "feat(examples): add hello-world AGENTS.md, sample state, and tuto
 ### Task 4: Create task-api project scaffold
 
 **Files:**
+
 - Create: `examples/task-api/package.json`
 - Create: `examples/task-api/tsconfig.json`
 - Create: `examples/task-api/harness.config.json`
@@ -409,8 +428,16 @@ Create `examples/task-api/harness.config.json`:
     { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "services"] }
   ],
   "forbiddenImports": [
-    { "from": "src/types/**", "disallow": ["src/services/**", "src/api/**"], "message": "Types layer cannot import from services or API" },
-    { "from": "src/services/**", "disallow": ["src/api/**"], "message": "Services layer cannot import from API" }
+    {
+      "from": "src/types/**",
+      "disallow": ["src/services/**", "src/api/**"],
+      "message": "Types layer cannot import from services or API"
+    },
+    {
+      "from": "src/services/**",
+      "disallow": ["src/api/**"],
+      "message": "Services layer cannot import from API"
+    }
   ],
   "boundaries": {
     "requireSchema": ["src/api/**"]
@@ -468,6 +495,7 @@ git commit -m "feat(examples): scaffold task-api project with intermediate harne
 ### Task 5: Create task-api source code
 
 **Files:**
+
 - Create: `examples/task-api/src/types/task.ts`
 - Create: `examples/task-api/src/services/task-service.ts`
 - Create: `examples/task-api/src/api/routes.ts`
@@ -520,11 +548,11 @@ export function listTasks(): Task[] {
 }
 
 export function getTaskById(id: string): Task | undefined {
-  return tasks.find(t => t.id === id);
+  return tasks.find((t) => t.id === id);
 }
 
 export function completeTask(id: string): Task | undefined {
-  const task = tasks.find(t => t.id === id);
+  const task = tasks.find((t) => t.id === id);
   if (task) {
     task.status = 'complete';
   }
@@ -593,6 +621,7 @@ git commit -m "feat(examples): add task-api source code — types, service, rout
 ### Task 6: Create task-api tests
 
 **Files:**
+
 - Create: `examples/task-api/tests/services/task-service.test.ts`
 - Create: `examples/task-api/tests/api/routes.test.ts`
 
@@ -602,7 +631,13 @@ Create `examples/task-api/tests/services/task-service.test.ts`:
 
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTask, listTasks, getTaskById, completeTask, _resetTasks } from '../../src/services/task-service';
+import {
+  createTask,
+  listTasks,
+  getTaskById,
+  completeTask,
+  _resetTasks,
+} from '../../src/services/task-service';
 
 describe('TaskService', () => {
   beforeEach(() => {
@@ -689,6 +724,7 @@ git commit -m "feat(examples): add task-api tests for service and route logic"
 ### Task 7: Create task-api AGENTS.md, sample state, VIOLATIONS.md, and README
 
 **Files:**
+
 - Create: `examples/task-api/AGENTS.md`
 - Create: `examples/task-api/.harness.example/state.json`
 - Create: `examples/task-api/.harness.example/learnings.md`
@@ -712,11 +748,12 @@ RESTful API for managing tasks (create, list, get, complete). Built to demonstra
 ## Architecture
 
 Three layers with strict one-way dependencies:
-
 ```
-types/     →  (no imports from other layers)
-services/  →  can import from types
-api/       →  can import from types, services
+
+types/ → (no imports from other layers)
+services/ → can import from types
+api/ → can import from types, services
+
 ```
 
 Violations are caught by `@harness-engineering/eslint-plugin`.
@@ -724,19 +761,21 @@ Violations are caught by `@harness-engineering/eslint-plugin`.
 ## Repository Structure
 
 ```
+
 task-api/
 ├── src/
-│   ├── types/task.ts          # Task, CreateTaskInput, TaskStatus
-│   ├── services/task-service.ts  # Business logic (in-memory store)
-│   └── api/routes.ts          # Express routes
+│ ├── types/task.ts # Task, CreateTaskInput, TaskStatus
+│ ├── services/task-service.ts # Business logic (in-memory store)
+│ └── api/routes.ts # Express routes
 ├── tests/
-│   ├── services/task-service.test.ts
-│   └── api/routes.test.ts
+│ ├── services/task-service.test.ts
+│ └── api/routes.test.ts
 ├── docs/principles.md
 ├── harness.config.json
 ├── eslint.config.mjs
 └── AGENTS.md
-```
+
+````
 
 ## Conventions
 
@@ -753,12 +792,13 @@ npm run lint      # Check architectural constraints
 npm run typecheck # Check types
 harness validate  # Full project validation
 harness check-deps # Check dependency boundaries
-```
+````
 
 ## Active Persona
 
 **Architecture Enforcer** — Runs on PRs and commits to validate layer boundaries, detect circular dependencies, and block forbidden imports.
-```
+
+````
 
 - [ ] **Step 2: Create sample state files**
 
@@ -795,7 +835,7 @@ Create `examples/task-api/.harness.example/state.json`:
     "pendingTasks": ["Task 4", "Task 5"]
   }
 }
-```
+````
 
 Create `examples/task-api/.harness.example/learnings.md`:
 
@@ -804,7 +844,7 @@ Create `examples/task-api/.harness.example/learnings.md`:
 
 - **2026-03-15 [skill:harness-tdd] [outcome:success]:** Express route handlers need explicit return types to avoid TypeScript errors with res.json().
 
-- **2026-03-15 [skill:harness-execution] [outcome:gotcha]:** The _resetTasks() function must be exported for test isolation. Without it, tests leak state between runs.
+- **2026-03-15 [skill:harness-execution] [outcome:gotcha]:** The \_resetTasks() function must be exported for test isolation. Without it, tests leak state between runs.
 
 - **2026-03-15 [skill:harness-verification] [outcome:success]:** Layer violation detection works — tried importing routes from types and ESLint caught it immediately.
 ```
@@ -821,7 +861,7 @@ Create `examples/task-api/.harness.example/failures.md`:
 
 Create `examples/task-api/VIOLATIONS.md`:
 
-```markdown
+````markdown
 # Try Breaking These Constraints
 
 These exercises demonstrate how harness catches architectural violations in real time.
@@ -833,6 +873,7 @@ In `src/types/task.ts`, add this import at the top:
 ```typescript
 import { createTask } from '../services/task-service';
 ```
+````
 
 Then run:
 
@@ -879,7 +920,8 @@ npm run lint
 **Expected:** `@harness-engineering/no-forbidden-imports` error. This matches the forbiddenImports rule in harness.config.json.
 
 Remove the import when done.
-```
+
+````
 
 - [ ] **Step 4: Create README.md**
 
@@ -902,7 +944,7 @@ npm install
 npm test          # Run tests (should pass)
 npm run lint      # Check architectural constraints (should pass)
 harness validate  # Validate project configuration
-```
+````
 
 ## Architecture
 
@@ -938,6 +980,7 @@ When building features on this project, harness skills guide the workflow:
 ## Personas
 
 The **Architecture Enforcer** persona is configured for this project. It runs:
+
 - `harness check-deps` to verify dependency boundaries
 - `harness validate` to check overall project health
 - ESLint with harness rules to catch constraint violations
@@ -947,6 +990,7 @@ See `agents/personas/architecture-enforcer.yaml` in the main harness repo for th
 ## State Management
 
 Check `.harness.example/` to see what mid-project state looks like:
+
 - `state.json` — Position (Task 5), progress (3 complete, 2 pending), decisions with rationale
 - `learnings.md` — Tagged entries from different skills (tdd, execution, verification)
 - `failures.md` — A dead-end that was tried and abandoned (supertest approach)
@@ -956,14 +1000,15 @@ In a real project, this would be `.harness/` (not `.harness.example/`).
 ## Next
 
 Ready for custom linter rules, boundary schemas, and the full persona suite? Try the [multi-tenant-api example](../multi-tenant-api/).
-```
+
+````
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add examples/task-api/AGENTS.md examples/task-api/.harness.example/ examples/task-api/VIOLATIONS.md examples/task-api/README.md
 git commit -m "feat(examples): add task-api AGENTS.md, sample state, violations guide, and tutorial README"
-```
+````
 
 ---
 
@@ -972,6 +1017,7 @@ git commit -m "feat(examples): add task-api AGENTS.md, sample state, violations 
 ### Task 8: Create multi-tenant-api project scaffold
 
 **Files:**
+
 - Create: `examples/multi-tenant-api/package.json`
 - Create: `examples/multi-tenant-api/tsconfig.json`
 - Create: `examples/multi-tenant-api/harness.config.json`
@@ -1023,13 +1069,33 @@ Create `examples/multi-tenant-api/harness.config.json`:
   "layers": [
     { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
     { "name": "middleware", "pattern": "src/middleware/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "middleware"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "middleware", "services"] }
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": ["types", "middleware"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "middleware", "services"]
+    }
   ],
   "forbiddenImports": [
-    { "from": "src/types/**", "disallow": ["src/middleware/**", "src/services/**", "src/api/**"], "message": "Types layer cannot import from upper layers" },
-    { "from": "src/middleware/**", "disallow": ["src/services/**", "src/api/**"], "message": "Middleware cannot import from services or API" },
-    { "from": "src/services/**", "disallow": ["src/api/**"], "message": "Services layer cannot import from API" }
+    {
+      "from": "src/types/**",
+      "disallow": ["src/middleware/**", "src/services/**", "src/api/**"],
+      "message": "Types layer cannot import from upper layers"
+    },
+    {
+      "from": "src/middleware/**",
+      "disallow": ["src/services/**", "src/api/**"],
+      "message": "Middleware cannot import from services or API"
+    },
+    {
+      "from": "src/services/**",
+      "disallow": ["src/api/**"],
+      "message": "Services layer cannot import from API"
+    }
   ],
   "boundaries": {
     "requireSchema": ["src/api/**", "src/services/**"]
@@ -1148,6 +1214,7 @@ git commit -m "feat(examples): scaffold multi-tenant-api project with advanced h
 ### Task 9: Create multi-tenant-api source code
 
 **Files:**
+
 - Create: `examples/multi-tenant-api/src/types/tenant.ts`
 - Create: `examples/multi-tenant-api/src/types/user.ts`
 - Create: `examples/multi-tenant-api/src/middleware/tenant-context.ts`
@@ -1269,7 +1336,7 @@ export function listUsers(tenantId: string): User[] {
 export function getUserById(tenantId: string, userId: string): User | undefined {
   if (!tenantId) throw new Error('tenantId is required');
   const tenantUsers = store.get(tenantId) ?? [];
-  return tenantUsers.find(u => u.id === userId);
+  return tenantUsers.find((u) => u.id === userId);
 }
 
 /** Reset store — for testing only */
@@ -1328,6 +1395,7 @@ git commit -m "feat(examples): add multi-tenant-api source — types, middleware
 ### Task 10: Create multi-tenant-api tests
 
 **Files:**
+
 - Create: `examples/multi-tenant-api/tests/middleware/tenant-context.test.ts`
 - Create: `examples/multi-tenant-api/tests/services/user-service.test.ts`
 - Create: `examples/multi-tenant-api/tests/integration/tenant-isolation.test.ts`
@@ -1346,8 +1414,14 @@ function mockReq(headers: Record<string, string> = {}) {
 
 function mockRes() {
   const res: any = { statusCode: 200, body: null };
-  res.status = (code: number) => { res.statusCode = code; return res; };
-  res.json = (data: any) => { res.body = data; return res; };
+  res.status = (code: number) => {
+    res.statusCode = code;
+    return res;
+  };
+  res.json = (data: any) => {
+    res.body = data;
+    return res;
+  };
   return res;
 }
 
@@ -1355,7 +1429,9 @@ describe('tenantContextMiddleware', () => {
   it('rejects requests without X-Tenant-ID', () => {
     const res = mockRes();
     let nextCalled = false;
-    tenantContextMiddleware(mockReq(), res, () => { nextCalled = true; });
+    tenantContextMiddleware(mockReq(), res, () => {
+      nextCalled = true;
+    });
     expect(res.statusCode).toBe(401);
     expect(nextCalled).toBe(false);
   });
@@ -1363,7 +1439,9 @@ describe('tenantContextMiddleware', () => {
   it('rejects empty X-Tenant-ID', () => {
     const res = mockRes();
     let nextCalled = false;
-    tenantContextMiddleware(mockReq({ 'x-tenant-id': '  ' }), res, () => { nextCalled = true; });
+    tenantContextMiddleware(mockReq({ 'x-tenant-id': '  ' }), res, () => {
+      nextCalled = true;
+    });
     expect(res.statusCode).toBe(401);
     expect(nextCalled).toBe(false);
   });
@@ -1372,7 +1450,9 @@ describe('tenantContextMiddleware', () => {
     const req = mockReq({ 'x-tenant-id': 'tenant-1' });
     const res = mockRes();
     let nextCalled = false;
-    tenantContextMiddleware(req, res, () => { nextCalled = true; });
+    tenantContextMiddleware(req, res, () => {
+      nextCalled = true;
+    });
     expect(nextCalled).toBe(true);
     expect(req.tenant?.tenantId).toBe('tenant-1');
   });
@@ -1408,13 +1488,13 @@ describe('UserService', () => {
   });
 
   it('rejects invalid email with Zod validation', () => {
-    expect(() => createUser('tenant-1', { name: 'Alice', email: 'not-an-email' }))
-      .toThrow();
+    expect(() => createUser('tenant-1', { name: 'Alice', email: 'not-an-email' })).toThrow();
   });
 
   it('throws if tenantId is empty', () => {
-    expect(() => createUser('', { name: 'Alice', email: 'alice@example.com' }))
-      .toThrow('tenantId is required');
+    expect(() => createUser('', { name: 'Alice', email: 'alice@example.com' })).toThrow(
+      'tenantId is required'
+    );
   });
 });
 ```
@@ -1473,6 +1553,7 @@ git commit -m "feat(examples): add multi-tenant-api tests — middleware, servic
 ### Task 11: Create multi-tenant-api AGENTS.md, sample state, VIOLATIONS.md, and README
 
 **Files:**
+
 - Create: `examples/multi-tenant-api/AGENTS.md`
 - Create: `examples/multi-tenant-api/.harness.example/` (5 files + archive/)
 - Create: `examples/multi-tenant-api/VIOLATIONS.md`
@@ -1494,12 +1575,13 @@ RESTful API where all data is scoped to tenants via `X-Tenant-ID` header. Demons
 ## Architecture
 
 Four layers with strict one-way dependencies:
-
 ```
-types/       →  (no imports)
-middleware/  →  can import from types
-services/    →  can import from types, middleware
-api/         →  can import from types, middleware, services
+
+types/ → (no imports)
+middleware/ → can import from types
+services/ → can import from types, middleware
+api/ → can import from types, middleware, services
+
 ```
 
 ### Tenant Isolation
@@ -1514,25 +1596,27 @@ See `docs/specs/tenant-isolation.md` for the full specification.
 ## Repository Structure
 
 ```
+
 multi-tenant-api/
 ├── src/
-│   ├── types/            # Tenant, User interfaces
-│   ├── middleware/        # Tenant context extraction
-│   ├── services/          # Business logic with Zod validation
-│   └── api/              # Express routes
+│ ├── types/ # Tenant, User interfaces
+│ ├── middleware/ # Tenant context extraction
+│ ├── services/ # Business logic with Zod validation
+│ └── api/ # Express routes
 ├── tests/
-│   ├── middleware/        # Auth/tenant tests
-│   ├── services/          # Unit tests
-│   └── integration/      # Tenant isolation tests
+│ ├── middleware/ # Auth/tenant tests
+│ ├── services/ # Unit tests
+│ └── integration/ # Tenant isolation tests
 ├── docs/
-│   ├── principles.md
-│   ├── specs/            # Source-of-truth specifications
-│   └── changes/          # In-progress proposals
+│ ├── principles.md
+│ ├── specs/ # Source-of-truth specifications
+│ └── changes/ # In-progress proposals
 ├── harness.config.json
-├── harness-linter.yml     # Custom linter rules
+├── harness-linter.yml # Custom linter rules
 ├── eslint.config.mjs
 └── AGENTS.md
-```
+
+````
 
 ## Conventions
 
@@ -1552,14 +1636,15 @@ harness validate               # Full validation
 harness validate --cross-check # Cross-artifact validation
 harness check-deps             # Dependency boundaries
 harness linter generate        # Generate custom ESLint rules from harness-linter.yml
-```
+````
 
 ## Active Personas
 
 - **Architecture Enforcer** — Layer violations, circular deps, forbidden imports
 - **Documentation Maintainer** — Doc drift, missing JSDoc on exports
 - **Entropy Cleaner** — Dead code, stale patterns, unused dependencies
-```
+
+````
 
 - [ ] **Step 2: Create sample state files**
 
@@ -1599,7 +1684,7 @@ Create `examples/multi-tenant-api/.harness.example/state.json`:
     "pendingTasks": ["Task 8"]
   }
 }
-```
+````
 
 Create `examples/multi-tenant-api/.harness.example/learnings.md`:
 
@@ -1638,7 +1723,12 @@ Create `examples/multi-tenant-api/.harness.example/handoff.json`:
   "completed": [],
   "pending": ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5", "Task 6", "Task 7", "Task 8"],
   "concerns": ["Tenant isolation must be verified at both service and integration test levels"],
-  "decisions": [{ "what": "4-layer architecture", "why": "Middleware layer isolates tenant extraction from business logic" }],
+  "decisions": [
+    {
+      "what": "4-layer architecture",
+      "why": "Middleware layer isolates tenant extraction from business logic"
+    }
+  ],
   "blockers": [],
   "contextKeywords": ["multi-tenant", "isolation", "middleware", "zod", "boundary-validation"]
 }
@@ -1656,7 +1746,7 @@ Create `examples/multi-tenant-api/.harness.example/archive/failures-2026-03-01.m
 
 Create `examples/multi-tenant-api/VIOLATIONS.md`:
 
-```markdown
+````markdown
 # Try Breaking These Constraints
 
 Advanced constraint exercises demonstrating the full range of harness enforcement.
@@ -1666,11 +1756,14 @@ Advanced constraint exercises demonstrating the full range of harness enforcemen
 In `src/services/user-service.ts`, remove the Zod validation from `createUser`:
 
 Replace:
+
 ```typescript
 const validated = CreateUserSchema.parse(input);
 ```
+````
 
 With:
+
 ```typescript
 const validated = input; // skip validation
 ```
@@ -1738,7 +1831,8 @@ npm run lint
 **Expected:** `@harness-engineering/enforce-doc-exports` warning. Exported functions must have JSDoc.
 
 Restore the JSDoc when done.
-```
+
+````
 
 - [ ] **Step 4: Create README.md**
 
@@ -1763,7 +1857,7 @@ npm install
 npm test          # Run tests (should pass)
 npm run lint      # Check all constraints (should pass)
 harness validate  # Validate configuration
-```
+````
 
 ## Architecture
 
@@ -1824,15 +1918,16 @@ Checks that specs in `docs/specs/` align with the implementation. If the spec sa
 
 ## All Three Personas
 
-| Persona | What it checks |
-|---------|---------------|
-| **Architecture Enforcer** | Layer violations, circular deps, forbidden imports |
-| **Documentation Maintainer** | Doc drift, missing JSDoc on exports |
-| **Entropy Cleaner** | Dead code, stale patterns, unused deps |
+| Persona                      | What it checks                                     |
+| ---------------------------- | -------------------------------------------------- |
+| **Architecture Enforcer**    | Layer violations, circular deps, forbidden imports |
+| **Documentation Maintainer** | Doc drift, missing JSDoc on exports                |
+| **Entropy Cleaner**          | Dead code, stale patterns, unused deps             |
 
 ## Specs and Changes
 
 This project uses the `docs/specs/` + `docs/changes/` convention:
+
 - `docs/specs/` — Source of truth for what the system does today
 - `docs/changes/` — Proposals for new features (empty now, ready for use)
 
@@ -1842,25 +1937,26 @@ When planning a new feature, create `docs/changes/<feature>/proposal.md` with yo
 
 Check `.harness.example/` to see the full state lifecycle:
 
-| File | What it shows |
-|------|--------------|
-| `state.json` | Position, progress (7/8 tasks), decisions with rationale, enriched lastSession |
-| `learnings.md` | 5 tagged entries across 4 different skills |
-| `failures.md` | 2 dead-ends (AsyncLocalStorage, shared DB pool) |
-| `handoff.json` | Planning → execution context transfer |
-| `archive/failures-2026-03-01.md` | Archived failures from a previous milestone |
+| File                             | What it shows                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| `state.json`                     | Position, progress (7/8 tasks), decisions with rationale, enriched lastSession |
+| `learnings.md`                   | 5 tagged entries across 4 different skills                                     |
+| `failures.md`                    | 2 dead-ends (AsyncLocalStorage, shared DB pool)                                |
+| `handoff.json`                   | Planning → execution context transfer                                          |
+| `archive/failures-2026-03-01.md` | Archived failures from a previous milestone                                    |
 
 ## Try Breaking Constraints
 
 See [VIOLATIONS.md](./VIOLATIONS.md) for 4 exercises covering boundary schemas, layer violations, cross-artifact staleness, and missing documentation.
-```
+
+````
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add examples/multi-tenant-api/AGENTS.md examples/multi-tenant-api/.harness.example/ examples/multi-tenant-api/VIOLATIONS.md examples/multi-tenant-api/README.md
 git commit -m "feat(examples): add multi-tenant-api AGENTS.md, sample state, violations guide, and tutorial README"
-```
+````
 
 ---
 
@@ -1869,6 +1965,7 @@ git commit -m "feat(examples): add multi-tenant-api AGENTS.md, sample state, vio
 ### Task 12: Update README.md, AGENTS.md, and getting-started guide
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `AGENTS.md`
 - Modify: `docs/guides/getting-started.md`
@@ -1876,6 +1973,7 @@ git commit -m "feat(examples): add multi-tenant-api AGENTS.md, sample state, vio
 - [ ] **Step 1: Rewrite README.md**
 
 Rewrite `README.md` at project root. Keep the MIT badge and overall structure but update all content to reflect current state. Key changes:
+
 - Remove "Coming soon" packages — all 6 exist now
 - Update package table with all 6 packages (types, core, cli, eslint-plugin, linter-gen, mcp-server)
 - Update project structure to include packages/, agents/, templates/, examples/
@@ -1889,16 +1987,19 @@ Rewrite `README.md` at project root. Keep the MIT badge and overall structure bu
 Update the "Current Phase" section (line 17-19):
 
 Replace:
+
 ```
 **Phase 1: Foundation and Documentation** - We are building the core library, documentation, and tooling that establishes the foundation for agent-first development.
 ```
 
 With:
+
 ```
 **Complete** — All core packages, skills, personas, templates, and tooling are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 ```
 
 Update the repository structure (lines 25-44) to include all current directories:
+
 - Add `packages/cli/`, `packages/eslint-plugin/`, `packages/linter-gen/`, `packages/mcp-server/`
 - Add `agents/` with skills/ and personas/ subdirectories
 - Add `templates/` directory
@@ -1909,38 +2010,46 @@ Update the repository structure (lines 25-44) to include all current directories
 
 Rewrite the installation section to reference examples as the primary learning path:
 
-```markdown
+````markdown
 ## Quick Start: Try an Example
 
 The fastest way to understand harness engineering is to explore the examples:
 
 ### 1. Hello World (Basic) — 5 minutes
+
 ```bash
 cd examples/hello-world
 npm install
 harness validate
 ```
+````
+
 See what a harness-managed project looks like at the simplest level.
 [Read the full tutorial →](../../examples/hello-world/README.md)
 
 ### 2. Task API (Intermediate) — 15 minutes
+
 ```bash
 cd examples/task-api
 npm install
 npm test && npm run lint
 ```
+
 Layer enforcement, ESLint rules, and personas in action.
 [Read the full tutorial →](../../examples/task-api/README.md)
 
 ### 3. Multi-Tenant API (Advanced) — 30 minutes
+
 ```bash
 cd examples/multi-tenant-api
 npm install
 npm test && npm run lint && harness validate --cross-check
 ```
+
 Custom linter rules, boundary schemas, cross-artifact validation, and all three personas.
 [Read the full tutorial →](../../examples/multi-tenant-api/README.md)
-```
+
+````
 
 Keep the rest of the guide (prerequisites, troubleshooting, etc.) but update any stale references.
 
@@ -1949,7 +2058,7 @@ Keep the rest of the guide (prerequisites, troubleshooting, etc.) but update any
 ```bash
 git add README.md AGENTS.md docs/guides/getting-started.md
 git commit -m "docs: update README, AGENTS.md, and getting-started guide to reflect current project state"
-```
+````
 
 ---
 

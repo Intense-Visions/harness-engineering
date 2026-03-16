@@ -73,8 +73,14 @@ rules:
         expect(result.outputDir).toBe(outputDir);
 
         // Verify files were created
-        const ruleExists = await fs.access(path.join(outputDir, 'test-rule.ts')).then(() => true).catch(() => false);
-        const indexExists = await fs.access(path.join(outputDir, 'index.ts')).then(() => true).catch(() => false);
+        const ruleExists = await fs
+          .access(path.join(outputDir, 'test-rule.ts'))
+          .then(() => true)
+          .catch(() => false);
+        const indexExists = await fs
+          .access(path.join(outputDir, 'index.ts'))
+          .then(() => true)
+          .catch(() => false);
         expect(ruleExists).toBe(true);
         expect(indexExists).toBe(true);
       }
@@ -130,7 +136,10 @@ rules:
       if (result.success) {
         expect(result.rulesGenerated).toContain('test-rule');
         // Directory should not exist
-        const dirExists = await fs.access(outputDir).then(() => true).catch(() => false);
+        const dirExists = await fs
+          .access(outputDir)
+          .then(() => true)
+          .catch(() => false);
         expect(dirExists).toBe(false);
       }
     });

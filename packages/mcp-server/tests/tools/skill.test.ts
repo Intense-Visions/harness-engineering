@@ -14,7 +14,10 @@ describe('run_skill tool', () => {
   });
 
   it('complexity has correct enum values', () => {
-    const complexity = runSkillDefinition.inputSchema.properties.complexity as { type: string; enum: string[] };
+    const complexity = runSkillDefinition.inputSchema.properties.complexity as {
+      type: string;
+      enum: string[];
+    };
     expect(complexity.enum).toContain('auto');
     expect(complexity.enum).toContain('light');
     expect(complexity.enum).toContain('full');

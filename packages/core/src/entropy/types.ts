@@ -222,7 +222,11 @@ export interface ConfigPattern {
     | { type: 'no-export'; names: string[] }
     | { type: 'must-import'; from: string; names?: string[] }
     | { type: 'no-import'; from: string }
-    | { type: 'naming'; match: string; convention: 'camelCase' | 'PascalCase' | 'UPPER_SNAKE' | 'kebab-case' }
+    | {
+        type: 'naming';
+        match: string;
+        convention: 'camelCase' | 'PascalCase' | 'UPPER_SNAKE' | 'kebab-case';
+      }
     | { type: 'max-exports'; count: number }
     | { type: 'max-lines'; count: number }
     | { type: 'require-jsdoc'; for: ('function' | 'class' | 'export')[] };
@@ -314,7 +318,15 @@ export interface FixResult {
 // ============ Suggestion Types ============
 
 export interface Suggestion {
-  type: 'rename' | 'move' | 'merge' | 'split' | 'delete' | 'update-docs' | 'add-export' | 'refactor';
+  type:
+    | 'rename'
+    | 'move'
+    | 'merge'
+    | 'split'
+    | 'delete'
+    | 'update-docs'
+    | 'add-export'
+    | 'refactor';
   priority: 'high' | 'medium' | 'low';
   source: 'drift' | 'dead-code' | 'pattern';
   relatedIssues: string[];

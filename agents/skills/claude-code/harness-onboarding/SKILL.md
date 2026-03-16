@@ -3,6 +3,7 @@
 > Navigate an existing harness-managed project and generate a structured orientation for new team members. Map the codebase, understand constraints, identify the adoption level, and produce a summary that gets someone productive fast.
 
 ## When to Use
+
 - A new developer (human or agent) is joining a harness-managed project for the first time
 - Resuming work on a project after extended time away and needing to re-orient
 - When `on_project_init` triggers fire in an existing project (agent starting a new session)
@@ -91,9 +92,11 @@
 # Project Orientation: <project-name>
 
 ## Overview
+
 <1-2 sentence project description from AGENTS.md>
 
 ## Stack
+
 - Language: <language> <version>
 - Framework: <framework>
 - Tests: <test framework> (`<test command>`)
@@ -101,34 +104,42 @@
 - Package manager: <pm>
 
 ## Architecture
+
 <Brief description of top-level organization>
 
 ### Layers
-| Layer | Directories | Can Import From |
-|-------|------------|-----------------|
-| <layer> | <dirs> | <allowed imports> |
+
+| Layer   | Directories | Can Import From   |
+| ------- | ----------- | ----------------- |
+| <layer> | <dirs>      | <allowed imports> |
 
 ### Key Components
+
 - <component>: <purpose> (<location>)
 
 ## Constraints
+
 - <constraint 1>
 - <constraint 2>
 
 ## Conventions
+
 - <convention 1>
 - <convention 2>
 
 ## Harness Status
+
 - Adoption level: <level>
 - Validation: <pass/fail with summary>
 - Available skills: <list>
 - State: <current phase/task if applicable>
 
 ## Recent Learnings
+
 - <most relevant learnings from .harness/learnings.md>
 
 ## Getting Started
+
 1. <first thing to do>
 2. <second thing to do>
 3. <third thing to do>
@@ -165,6 +176,7 @@
 ### Example: Onboarding to an Intermediate TypeScript Project
 
 **READ:**
+
 ```
 Read AGENTS.md:
   - Project: Widget API — REST service for widget lifecycle management
@@ -186,6 +198,7 @@ Read .harness/state.json:
 ```
 
 **MAP:**
+
 ```
 Stack: TypeScript 5.3, Express 4, Vitest 1.2, pg (node-postgres)
 Architecture: Single package, 3 layers, entry point src/index.ts
@@ -195,6 +208,7 @@ Concerns: harness validate passes, 47 tests all passing
 ```
 
 **ORIENT:**
+
 ```
 Adoption level: intermediate (confirmed — layers defined, constraints enforced)
 Skills: harness-tdd, harness-execution, harness-code-review
@@ -202,6 +216,7 @@ State: Mid-execution on a 6-task notification feature plan
 ```
 
 **SUMMARIZE:**
+
 ```
 Produce orientation with all sections. Getting Started for this context:
 1. Read the plan at docs/plans/2026-03-14-notifications-plan.md
@@ -212,6 +227,7 @@ Produce orientation with all sections. Getting Started for this context:
 ### Example: Onboarding to a Basic Project
 
 **READ:**
+
 ```
 Read AGENTS.md — exists, minimal content
 Read harness.yaml — level: basic, no layers defined
@@ -220,6 +236,7 @@ No .harness/state.json
 ```
 
 **MAP and SUMMARIZE:**
+
 ```
 Adoption level: basic (confirmed — no layers or constraints)
 Getting Started:
@@ -233,11 +250,11 @@ Getting Started:
 
 A mental model for where a team sits on the harness adoption curve. Not prescriptive — just orientation.
 
-| Level | Name | Description |
-|---|---|---|
-| 1 | **Manual** | Write `CLAUDE.md` by hand, run commands manually. Harness is a reference, not a tool. |
-| 2 | **Repeatable** | Skills installed, agent follows conventions consistently. Workflows are codified but enforcement is human-driven. |
-| 3 | **Automated** | Mechanical gates in CI. `harness validate` runs on PRs. Failures auto-log to `.harness/failures.md`. The system catches mistakes before humans do. |
-| 4 | **Self-improving** | Learnings accumulate in `.harness/learnings.md`. Agents reference past failures before planning. Institutional knowledge compounds across sessions and team members. |
+| Level | Name               | Description                                                                                                                                                          |
+| ----- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | **Manual**         | Write `CLAUDE.md` by hand, run commands manually. Harness is a reference, not a tool.                                                                                |
+| 2     | **Repeatable**     | Skills installed, agent follows conventions consistently. Workflows are codified but enforcement is human-driven.                                                    |
+| 3     | **Automated**      | Mechanical gates in CI. `harness validate` runs on PRs. Failures auto-log to `.harness/failures.md`. The system catches mistakes before humans do.                   |
+| 4     | **Self-improving** | Learnings accumulate in `.harness/learnings.md`. Agents reference past failures before planning. Institutional knowledge compounds across sessions and team members. |
 
 Most teams start at Level 1 and move up as they see the value. There is no pressure to reach Level 4 — each level delivers real benefits on its own.

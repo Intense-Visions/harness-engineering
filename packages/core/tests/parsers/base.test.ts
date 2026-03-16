@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import type { AST, Location, Import, Export, ParseError, LanguageParser } from '../../src/shared/parsers/base';
+import type {
+  AST,
+  Location,
+  Import,
+  Export,
+  ParseError,
+  LanguageParser,
+} from '../../src/shared/parsers/base';
 
 describe('Parser Base Types', () => {
   it('should define AST type correctly', () => {

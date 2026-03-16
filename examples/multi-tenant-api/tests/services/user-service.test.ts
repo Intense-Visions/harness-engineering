@@ -22,12 +22,12 @@ describe('UserService', () => {
   });
 
   it('rejects invalid email with Zod validation', () => {
-    expect(() => createUser('tenant-1', { name: 'Alice', email: 'not-an-email' }))
-      .toThrow();
+    expect(() => createUser('tenant-1', { name: 'Alice', email: 'not-an-email' })).toThrow();
   });
 
   it('throws if tenantId is empty', () => {
-    expect(() => createUser('', { name: 'Alice', email: 'alice@example.com' }))
-      .toThrow('tenantId is required');
+    expect(() => createUser('', { name: 'Alice', email: 'alice@example.com' })).toThrow(
+      'tenantId is required'
+    );
   });
 });

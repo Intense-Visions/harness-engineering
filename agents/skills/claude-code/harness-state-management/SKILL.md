@@ -3,6 +3,7 @@
 > Manage persistent state across agent sessions so that context, decisions, progress, and learnings survive context resets. Load state at session start, track position and decisions throughout, and save state for the next session.
 
 ## When to Use
+
 - At the start of every session that continues previous work (load state)
 - When completing a task, phase, or milestone (update progress)
 - When making a decision that future sessions need to know about (record decision)
@@ -38,6 +39,7 @@
 6. **Check `.harness/archive/` for historical failure logs.**
 
 7. **If no state exists,** this is a fresh start. Create `.harness/state.json` with initial structure:
+
    ```json
    {
      "schemaVersion": 1,
@@ -54,11 +56,13 @@
 ### Phase 2: TRACK — Maintain State During the Session
 
 1. **Update position when moving between phases or tasks.** Every time work shifts to a new task or phase, update `position` in state:
+
    ```json
    "position": { "phase": "execute", "task": "Task 3", "step": "writing tests" }
    ```
 
 2. **Record decisions when they are made.** Decisions are choices that affect future work. Record them immediately — do not wait until the end of the session:
+
    ```json
    "decisions": [
      {
@@ -70,6 +74,7 @@
    ```
 
 3. **Log blockers when encountered.** A blocker is anything that prevents the current task from completing:
+
    ```json
    "blockers": [
      {
@@ -82,6 +87,7 @@
    ```
 
 4. **Update progress after each completed task:**
+
    ```json
    "progress": {
      "Task 1": "complete",
@@ -102,12 +108,15 @@
    - Represents a decision that needs rationale preserved
 
 2. **Capture learnings with `harness state learn`:**
+
    ```bash
    harness state learn "Date comparison needs UTC normalization — use Date.now() not new Date()"
    ```
+
    This appends to `.harness/learnings.md` with a timestamp.
 
 3. **Or append directly to `.harness/learnings.md`** with structured format:
+
    ```markdown
    ## 2026-03-14 — Task 3: Notification Expiry
 
@@ -122,13 +131,14 @@
 4. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record. Even if a learning turns out to be wrong, append a correction rather than modifying the original.
 
 5. **What belongs in learnings vs. git commits:**
-   - **Learnings:** Context, rationale, gotchas, decisions, warnings — things that explain *why* and *what to watch out for*
-   - **Git commits:** Code changes, what was done — things that explain *what* changed
+   - **Learnings:** Context, rationale, gotchas, decisions, warnings — things that explain _why_ and _what to watch out for_
+   - **Git commits:** Code changes, what was done — things that explain _what_ changed
    - Example: The commit says "feat: add UTC normalization to date comparison." The learning says "Date comparison needs UTC normalization because PostgreSQL returns timezone-aware timestamps but our app uses epoch milliseconds."
 
 ### Phase 4: SAVE — Persist State for Next Session
 
 1. **Update `.harness/state.json`** with final position, progress, and session summary:
+
    ```json
    {
      "schemaVersion": 1,
@@ -199,6 +209,7 @@ Treat learnings as a first-class project artifact. They are as valuable as tests
 ### Example: Starting a New Session (Resuming Work)
 
 **LOAD:**
+
 ```
 Run: harness state show
 Output:
@@ -240,6 +251,7 @@ Capture learning:
 ### Example: Ending a Session
 
 **SAVE:**
+
 ```
 Update .harness/state.json:
 {
@@ -271,13 +283,13 @@ Commit: git add .harness/ && git commit -m "chore: update harness state after Ta
 
 ### Example: What Belongs Where
 
-| Information | Where It Goes | Why |
-|---|---|---|
-| "Added WebSocket handler in src/ws/" | Git commit message | Describes what changed in code |
-| "Chose WebSocket over polling because..." | `.harness/state.json` decisions | Records the choice and rationale for future sessions |
-| "WebSocket requires sticky sessions in load balancer" | `.harness/learnings.md` | Non-obvious operational concern future sessions need |
-| "Task 4 complete" | `.harness/state.json` progress | Tracks execution position |
-| "The WebSocket library auto-reconnects by default" | `.harness/learnings.md` | Gotcha that saves future debugging time |
-| "Tried approach X, failed because Y" | `.harness/failures.md` | Active anti-pattern to avoid repeating |
-| "Completed Tasks 1-3, Task 4 pending" | `.harness/handoff.json` | Structured context for next skill |
-| "[PREPARE 10:30] Loaded 3 failures" | `.harness/trace.md` | Reasoning trace for debugging agent behavior |
+| Information                                           | Where It Goes                   | Why                                                  |
+| ----------------------------------------------------- | ------------------------------- | ---------------------------------------------------- |
+| "Added WebSocket handler in src/ws/"                  | Git commit message              | Describes what changed in code                       |
+| "Chose WebSocket over polling because..."             | `.harness/state.json` decisions | Records the choice and rationale for future sessions |
+| "WebSocket requires sticky sessions in load balancer" | `.harness/learnings.md`         | Non-obvious operational concern future sessions need |
+| "Task 4 complete"                                     | `.harness/state.json` progress  | Tracks execution position                            |
+| "The WebSocket library auto-reconnects by default"    | `.harness/learnings.md`         | Gotcha that saves future debugging time              |
+| "Tried approach X, failed because Y"                  | `.harness/failures.md`          | Active anti-pattern to avoid repeating               |
+| "Completed Tasks 1-3, Task 4 pending"                 | `.harness/handoff.json`         | Structured context for next skill                    |
+| "[PREPARE 10:30] Loaded 3 failures"                   | `.harness/trace.md`             | Reasoning trace for debugging agent behavior         |

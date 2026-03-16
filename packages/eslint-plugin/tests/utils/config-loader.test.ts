@@ -52,10 +52,7 @@ describe('config-loader', () => {
   });
 
   it('returns null for invalid schema', () => {
-    fs.writeFileSync(
-      path.join(tempDir, 'harness.config.json'),
-      JSON.stringify({ version: 99 })
-    );
+    fs.writeFileSync(path.join(tempDir, 'harness.config.json'), JSON.stringify({ version: 99 }));
     const config = getConfig(path.join(tempDir, 'file.ts'));
     expect(config).toBeNull();
   });

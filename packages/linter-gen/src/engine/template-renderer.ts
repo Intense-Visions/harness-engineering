@@ -33,9 +33,7 @@ function toPascalCase(str: string): string {
 // Register Handlebars helpers
 Handlebars.registerHelper('json', (obj: unknown) => JSON.stringify(obj));
 
-Handlebars.registerHelper('jsonPretty', (obj: unknown) =>
-  JSON.stringify(obj, null, 2)
-);
+Handlebars.registerHelper('jsonPretty', (obj: unknown) => JSON.stringify(obj, null, 2));
 
 Handlebars.registerHelper('camelCase', (str: string) => toCamelCase(str));
 
@@ -44,10 +42,7 @@ Handlebars.registerHelper('pascalCase', (str: string) => toPascalCase(str));
 /**
  * Render a Handlebars template with the given context
  */
-export function renderTemplate(
-  templateSource: string,
-  context: RuleContext
-): RenderResult {
+export function renderTemplate(templateSource: string, context: RuleContext): RenderResult {
   try {
     const compiled = Handlebars.compile(templateSource, { strict: true });
     const output = compiled(context);
@@ -55,10 +50,7 @@ export function renderTemplate(
   } catch (err) {
     return {
       success: false,
-      error: new TemplateError(
-        `Template rendering failed: ${(err as Error).message}`,
-        err
-      ),
+      error: new TemplateError(`Template rendering failed: ${(err as Error).message}`, err),
     };
   }
 }

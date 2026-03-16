@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript 5+, Vitest 4+, glob 10+ (already installed)
 
 **Spec Deviations (Intentional Improvements):**
+
 - `AgentMapValidation.brokenLinks` returns `AgentMapLink[]` (not just count) for better debugging
 - `REQUIRED_SECTIONS` uses practical section names matching existing AGENTS.md conventions
 - Added `missingSections` field to validation result for actionable feedback
@@ -20,6 +21,7 @@
 This plan creates/modifies these files:
 
 **Core Implementation:**
+
 - `packages/core/src/context/types.ts` - Context module types
 - `packages/core/src/context/agents-map.ts` - AGENTS.md validation
 - `packages/core/src/context/doc-coverage.ts` - Documentation coverage
@@ -29,12 +31,14 @@ This plan creates/modifies these files:
 - `packages/core/src/index.ts` - Update main entry point
 
 **Tests:**
+
 - `packages/core/tests/context/agents-map.test.ts`
 - `packages/core/tests/context/doc-coverage.test.ts`
 - `packages/core/tests/context/knowledge-map.test.ts`
 - `packages/core/tests/context/generate.test.ts`
 
 **Test Fixtures:**
+
 - `packages/core/tests/fixtures/valid-project/AGENTS.md` - Update with full structure
 - `packages/core/tests/fixtures/valid-project/docs/` - Add documentation files
 - `packages/core/tests/fixtures/broken-links-project/` - Project with broken links
@@ -47,6 +51,7 @@ This plan creates/modifies these files:
 ### Task 1: Context Module Types
 
 **Files:**
+
 - Create: `packages/core/src/context/types.ts`
 
 - [ ] **Step 1: Create context types file**
@@ -57,18 +62,18 @@ import type { ContextError } from '../shared/errors';
 
 // AGENTS.md Validation Types
 export interface AgentMapLink {
-  text: string;           // Link text
-  path: string;           // File path (relative or absolute)
-  exists: boolean;        // Does the file exist?
-  line: number;           // Line number in AGENTS.md
+  text: string; // Link text
+  path: string; // File path (relative or absolute)
+  exists: boolean; // Does the file exist?
+  line: number; // Line number in AGENTS.md
 }
 
 export interface AgentMapSection {
-  title: string;           // Section heading
-  level: number;           // Heading level (1-6)
-  links: AgentMapLink[];   // Links in this section
-  description?: string;    // Optional description text
-  line: number;            // Line number where section starts
+  title: string; // Section heading
+  level: number; // Heading level (1-6)
+  links: AgentMapLink[]; // Links in this section
+  description?: string; // Optional description text
+  line: number; // Line number where section starts
 }
 
 export interface AgentMapValidation {
@@ -76,27 +81,27 @@ export interface AgentMapValidation {
   sections: AgentMapSection[];
   totalLinks: number;
   brokenLinks: AgentMapLink[];
-  missingSections: string[];  // Required sections that are missing
+  missingSections: string[]; // Required sections that are missing
 }
 
 // Documentation Coverage Types
 export interface DocumentationGap {
-  file: string;           // Undocumented file path
+  file: string; // Undocumented file path
   suggestedSection: string; // Where it should be documented
   importance: 'high' | 'medium' | 'low'; // Based on file type/location
 }
 
 export interface CoverageReport {
-  domain: string;         // e.g., 'services', 'core', 'ui'
-  documented: string[];   // Files mentioned in docs
+  domain: string; // e.g., 'services', 'core', 'ui'
+  documented: string[]; // Files mentioned in docs
   undocumented: string[]; // Files not mentioned
   coveragePercentage: number;
   gaps: DocumentationGap[];
 }
 
 export interface CoverageOptions {
-  docsDir?: string;       // Default: './docs'
-  sourceDir?: string;     // Default: './src'
+  docsDir?: string; // Default: './docs'
+  sourceDir?: string; // Default: './src'
   excludePatterns?: string[]; // Files to ignore
 }
 
@@ -114,21 +119,21 @@ export interface IntegrityReport {
   totalLinks: number;
   brokenLinks: BrokenLink[];
   validLinks: number;
-  integrity: number;    // 0-100%
+  integrity: number; // 0-100%
 }
 
 // AGENTS.md Generation Types
 export interface GenerationSection {
   name: string;
-  pattern: string;         // Glob pattern for files to include
+  pattern: string; // Glob pattern for files to include
   description: string;
 }
 
 export interface AgentsMapConfig {
   rootDir: string;
-  includePaths: string[];    // Glob patterns to include
-  excludePaths: string[];    // Glob patterns to exclude
-  template?: string;         // Custom template path
+  includePaths: string[]; // Glob patterns to include
+  excludePaths: string[]; // Glob patterns to exclude
+  template?: string; // Custom template path
   sections?: GenerationSection[];
 }
 
@@ -139,7 +144,7 @@ export const REQUIRED_SECTIONS = [
   'Development Workflow',
 ] as const;
 
-export type RequiredSection = typeof REQUIRED_SECTIONS[number];
+export type RequiredSection = (typeof REQUIRED_SECTIONS)[number];
 ```
 
 - [ ] **Step 2: Verify TypeScript compiles**
@@ -159,6 +164,7 @@ git commit -m "feat(core): add context module types"
 ### Task 2: AGENTS.md Link Parser
 
 **Files:**
+
 - Create: `packages/core/src/context/agents-map.ts`
 - Create: `packages/core/tests/context/agents-map.test.ts`
 
@@ -219,11 +225,7 @@ import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import type { ContextError } from '../shared/errors';
 import { createError } from '../shared/errors';
-import type {
-  AgentMapLink,
-  AgentMapSection,
-  AgentMapValidation,
-} from './types';
+import type { AgentMapLink, AgentMapSection, AgentMapValidation } from './types';
 import { REQUIRED_SECTIONS } from './types';
 import { fileExists, readFileContent } from '../shared/fs-utils';
 import { join, dirname } from 'path';
@@ -279,6 +281,7 @@ git commit -m "feat(core): implement markdown link extraction"
 ### Task 3: AGENTS.md Section Parser
 
 **Files:**
+
 - Modify: `packages/core/src/context/agents-map.ts`
 - Modify: `packages/core/tests/context/agents-map.test.ts`
 
@@ -348,7 +351,7 @@ Expected: FAIL - "extractSections is not exported"
 
 - [ ] **Step 3: Implement extractSections**
 
-```typescript
+````typescript
 // Add to packages/core/src/context/agents-map.ts
 
 interface SectionData {
@@ -425,7 +428,7 @@ export function extractSections(content: string): AgentMapSection[] {
     };
   });
 }
-```
+````
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -444,6 +447,7 @@ git commit -m "feat(core): implement markdown section extraction"
 ### Task 4: Full AGENTS.md Validation
 
 **Files:**
+
 - Modify: `packages/core/src/context/agents-map.ts`
 - Modify: `packages/core/tests/context/agents-map.test.ts`
 - Modify: `packages/core/tests/fixtures/valid-project/AGENTS.md`
@@ -452,6 +456,7 @@ git commit -m "feat(core): implement markdown section extraction"
 
 ```markdown
 <!-- packages/core/tests/fixtures/valid-project/AGENTS.md -->
+
 # Valid Project Agents Map
 
 This is the knowledge map for the valid project.
@@ -584,9 +589,8 @@ export async function validateAgentsMap(
   // Check for required sections
   const sectionTitles = sections.map((s) => s.title);
   const missingSections = REQUIRED_SECTIONS.filter(
-    (required) => !sectionTitles.some((title) =>
-      title.toLowerCase().includes(required.toLowerCase())
-    )
+    (required) =>
+      !sectionTitles.some((title) => title.toLowerCase().includes(required.toLowerCase()))
   );
 
   // Validate all links
@@ -596,9 +600,7 @@ export async function validateAgentsMap(
   for (const section of sections) {
     for (const link of section.links) {
       // Resolve relative paths
-      const absolutePath = link.path.startsWith('.')
-        ? join(baseDir, link.path)
-        : link.path;
+      const absolutePath = link.path.startsWith('.') ? join(baseDir, link.path) : link.path;
 
       const exists = await fileExists(absolutePath);
       const fullLink: AgentMapLink = {
@@ -614,13 +616,13 @@ export async function validateAgentsMap(
 
     // Update section links with exists status
     section.links = section.links.map((link) => {
-      const absolutePath = link.path.startsWith('.')
-        ? join(baseDir, link.path)
-        : link.path;
-      return allLinks.find((l) => l.path === link.path && l.line === link.line) || {
-        ...link,
-        exists: false,
-      };
+      const absolutePath = link.path.startsWith('.') ? join(baseDir, link.path) : link.path;
+      return (
+        allLinks.find((l) => l.path === link.path && l.line === link.line) || {
+          ...link,
+          exists: false,
+        }
+      );
     });
   }
 
@@ -655,6 +657,7 @@ git commit -m "feat(core): implement AGENTS.md validation"
 ### Task 5: Documentation Coverage Analysis
 
 **Files:**
+
 - Create: `packages/core/src/context/doc-coverage.ts`
 - Create: `packages/core/tests/context/doc-coverage.test.ts`
 
@@ -734,9 +737,7 @@ describe('checkDocCoverage', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // The excluded file should not appear in undocumented
-      expect(result.value.undocumented).not.toContain(
-        expect.stringContaining('also-undocumented')
-      );
+      expect(result.value.undocumented).not.toContain(expect.stringContaining('also-undocumented'));
     }
   });
 });
@@ -804,11 +805,7 @@ export async function checkDocCoverage(
   domain: string,
   options: CoverageOptions = {}
 ): Promise<Result<CoverageReport, ContextError>> {
-  const {
-    docsDir = './docs',
-    sourceDir = './src',
-    excludePatterns = [],
-  } = options;
+  const { docsDir = './docs', sourceDir = './src', excludePatterns = [] } = options;
 
   try {
     // Find all source files in the domain
@@ -838,9 +835,7 @@ export async function checkDocCoverage(
         const links = extractMarkdownLinks(contentResult.value);
         for (const link of links) {
           // Normalize the path
-          const normalizedPath = link.path
-            .replace(/^\.\.\//, '')
-            .replace(/^\.\//, '');
+          const normalizedPath = link.path.replace(/^\.\.\//, '').replace(/^\.\//, '');
           documentedPaths.add(normalizedPath);
 
           // Also add just the filename for matching
@@ -860,9 +855,10 @@ export async function checkDocCoverage(
       const fileName = basename(sourceFile);
 
       // Check if documented (by full path or filename)
-      const isDocumented = documentedPaths.has(relativePath) ||
-                          documentedPaths.has(fileName) ||
-                          documentedPaths.has(`src/${relativePath}`);
+      const isDocumented =
+        documentedPaths.has(relativePath) ||
+        documentedPaths.has(fileName) ||
+        documentedPaths.has(`src/${relativePath}`);
 
       if (isDocumented) {
         documented.push(relativePath);
@@ -878,9 +874,7 @@ export async function checkDocCoverage(
 
     // Calculate coverage percentage
     const total = documented.length + undocumented.length;
-    const coveragePercentage = total > 0
-      ? Math.round((documented.length / total) * 100)
-      : 100;
+    const coveragePercentage = total > 0 ? Math.round((documented.length / total) * 100) : 100;
 
     return Ok({
       domain,
@@ -921,6 +915,7 @@ git commit -m "feat(core): implement documentation coverage analysis"
 ### Task 6: Knowledge Map Integrity Checking
 
 **Files:**
+
 - Create: `packages/core/src/context/knowledge-map.ts`
 - Create: `packages/core/tests/context/knowledge-map.test.ts`
 - Create: `packages/core/tests/fixtures/broken-links-project/`
@@ -1053,13 +1048,15 @@ export async function validateKnowledgeMap(
     return Err(agentsResult.error);
   }
 
-  const { sections, brokenLinks: agentsBrokenLinks, totalLinks: agentsTotalLinks } = agentsResult.value;
+  const {
+    sections,
+    brokenLinks: agentsBrokenLinks,
+    totalLinks: agentsTotalLinks,
+  } = agentsResult.value;
 
   // Get all existing files in the project for suggestions
   const existingFiles = await findFiles('**/*', rootDir);
-  const relativeExistingFiles = existingFiles.map((f) =>
-    f.replace(rootDir + '/', '')
-  );
+  const relativeExistingFiles = existingFiles.map((f) => f.replace(rootDir + '/', ''));
 
   // Convert to BrokenLink format with suggestions
   const brokenLinks: BrokenLink[] = agentsBrokenLinks.map((link) => {
@@ -1079,9 +1076,7 @@ export async function validateKnowledgeMap(
   });
 
   const validLinks = agentsTotalLinks - brokenLinks.length;
-  const integrity = agentsTotalLinks > 0
-    ? Math.round((validLinks / agentsTotalLinks) * 100)
-    : 100;
+  const integrity = agentsTotalLinks > 0 ? Math.round((validLinks / agentsTotalLinks) * 100) : 100;
 
   return Ok({
     totalLinks: agentsTotalLinks,
@@ -1111,6 +1106,7 @@ git commit -m "feat(core): implement knowledge map integrity checking"
 ### Task 7: AGENTS.md Generation
 
 **Files:**
+
 - Create: `packages/core/src/context/generate.ts`
 - Create: `packages/core/tests/context/generate.test.ts`
 
@@ -1252,12 +1248,7 @@ function formatFileLink(filePath: string): string {
 export async function generateAgentsMap(
   config: AgentsMapConfig
 ): Promise<Result<string, ContextError>> {
-  const {
-    rootDir,
-    includePaths,
-    excludePaths,
-    sections = DEFAULT_SECTIONS,
-  } = config;
+  const { rootDir, includePaths, excludePaths, sections = DEFAULT_SECTIONS } = config;
 
   try {
     // Collect all files matching include patterns
@@ -1302,7 +1293,8 @@ export async function generateAgentsMap(
         lines.push(`### ${dir}/`);
         lines.push('');
       }
-      for (const file of files.slice(0, 10)) { // Limit to 10 files per directory
+      for (const file of files.slice(0, 10)) {
+        // Limit to 10 files per directory
         lines.push(formatFileLink(file));
       }
       if (files.length > 10) {
@@ -1379,6 +1371,7 @@ git commit -m "feat(core): implement AGENTS.md generation"
 ### Task 8: Context Module Exports
 
 **Files:**
+
 - Create: `packages/core/src/context/index.ts`
 - Modify: `packages/core/src/index.ts`
 
@@ -1387,11 +1380,7 @@ git commit -m "feat(core): implement AGENTS.md generation"
 ```typescript
 // packages/core/src/context/index.ts
 // AGENTS.md Validation
-export {
-  validateAgentsMap,
-  extractMarkdownLinks,
-  extractSections,
-} from './agents-map';
+export { validateAgentsMap, extractMarkdownLinks, extractSections } from './agents-map';
 
 // Documentation Coverage
 export { checkDocCoverage } from './doc-coverage';
@@ -1436,7 +1425,14 @@ export type { Result } from './shared/result';
 export { Ok, Err, isOk, isErr } from './shared/result';
 
 // Error types and helpers
-export type { BaseError, ValidationError, ContextError, ConstraintError, EntropyError, FeedbackError } from './shared/errors';
+export type {
+  BaseError,
+  ValidationError,
+  ContextError,
+  ConstraintError,
+  EntropyError,
+  FeedbackError,
+} from './shared/errors';
 export { createError } from './shared/errors';
 
 // Validation module
@@ -1454,6 +1450,7 @@ export const VERSION = '0.2.0';
 ```bash
 cd packages/core && pnpm typecheck
 ```
+
 Expected: No errors
 
 - [ ] **Step 4: Commit**
@@ -1468,6 +1465,7 @@ git commit -m "feat(core): export context module APIs"
 ### Task 9: Coverage and Final Testing
 
 **Files:**
+
 - None (running existing tests)
 
 - [ ] **Step 1: Run all tests**
@@ -1485,6 +1483,7 @@ Expected: Coverage >80% for all metrics
 Check: Coverage report in `packages/core/coverage/index.html`
 
 If any file shows <80% coverage:
+
 1. Open coverage report in browser
 2. Click on file name to see uncovered lines
 3. Write additional test cases for uncovered paths
@@ -1492,6 +1491,7 @@ If any file shows <80% coverage:
 5. Repeat until all files show ≥80%
 
 Common gaps to check:
+
 - Error handling branches
 - Edge cases (empty files, no sections)
 - Exclude pattern matching
@@ -1519,6 +1519,7 @@ git commit -m "test(core): ensure >80% coverage for context module"
 ### Task 10: Update Documentation
 
 **Files:**
+
 - Modify: `packages/core/README.md`
 - Modify: `packages/core/CHANGELOG.md`
 
@@ -1541,10 +1542,10 @@ import { validateAgentsMap } from '@harness-engineering/core';
 const result = await validateAgentsMap('./AGENTS.md');
 
 if (result.ok) {
-  console.log('Valid:', result.value.valid);
-  console.log('Sections:', result.value.sections.length);
-  console.log('Broken links:', result.value.brokenLinks.length);
-  console.log('Missing sections:', result.value.missingSections);
+console.log('Valid:', result.value.valid);
+console.log('Sections:', result.value.sections.length);
+console.log('Broken links:', result.value.brokenLinks.length);
+console.log('Missing sections:', result.value.missingSections);
 }
 \`\`\`
 
@@ -1556,14 +1557,14 @@ Check how well your code is documented:
 import { checkDocCoverage } from '@harness-engineering/core';
 
 const result = await checkDocCoverage('src', {
-  docsDir: './docs',
-  sourceDir: './src',
-  excludePatterns: ['**/*.test.ts'],
+docsDir: './docs',
+sourceDir: './src',
+excludePatterns: ['**/*.test.ts'],
 });
 
 if (result.ok) {
-  console.log('Coverage:', result.value.coveragePercentage + '%');
-  console.log('Gaps:', result.value.gaps);
+console.log('Coverage:', result.value.coveragePercentage + '%');
+console.log('Gaps:', result.value.gaps);
 }
 \`\`\`
 
@@ -1577,10 +1578,10 @@ import { validateKnowledgeMap } from '@harness-engineering/core';
 const result = await validateKnowledgeMap('./');
 
 if (result.ok) {
-  console.log('Integrity:', result.value.integrity + '%');
-  for (const broken of result.value.brokenLinks) {
-    console.log(`Broken: ${broken.path} - ${broken.suggestion}`);
-  }
+console.log('Integrity:', result.value.integrity + '%');
+for (const broken of result.value.brokenLinks) {
+console.log(`Broken: ${broken.path} - ${broken.suggestion}`);
+}
 }
 \`\`\`
 
@@ -1592,16 +1593,16 @@ Auto-generate an AGENTS.md from your project structure:
 import { generateAgentsMap } from '@harness-engineering/core';
 
 const result = await generateAgentsMap({
-  rootDir: './',
-  includePaths: ['**/*.md', 'src/**/*.ts'],
-  excludePaths: ['node_modules/**'],
-  sections: [
-    { name: 'API Docs', pattern: 'docs/api/**/*.md', description: 'API documentation' },
-  ],
+rootDir: './',
+includePaths: ['**/*.md', 'src/**/*.ts'],
+excludePaths: ['node_modules/**'],
+sections: [
+{ name: 'API Docs', pattern: 'docs/api/**/*.md', description: 'API documentation' },
+],
 });
 
 if (result.ok) {
-  console.log(result.value); // Generated markdown content
+console.log(result.value); // Generated markdown content
 }
 \`\`\`
 ```
@@ -1645,11 +1646,13 @@ git commit -m "docs(core): add context module usage examples"
 ### Task 11: Version and Release Preparation
 
 **Files:**
+
 - Modify: `packages/core/package.json`
 
 - [ ] **Step 1: Update version to 0.2.0**
 
 Update `packages/core/package.json`:
+
 ```json
 {
   "version": "0.2.0"

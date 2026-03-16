@@ -3,6 +3,7 @@
 > Implementation planning with atomic tasks, goal-backward must-haves, and complete executable instructions. Every task fits in one context window.
 
 ## When to Use
+
 - After a design spec is approved (output of harness-brainstorming) and implementation needs to be planned
 - When starting a new feature or project that needs structured task decomposition
 - When `on_new_feature` or `on_project_init` triggers fire and the work is non-trivial
@@ -41,13 +42,13 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
 
 When writing observable truths and acceptance criteria, use EARS (Easy Approach to Requirements Syntax) sentence patterns. These patterns eliminate ambiguity by forcing a consistent grammatical structure.
 
-| Pattern | Template | Use When |
-|---------|----------|----------|
-| **Ubiquitous** | The system shall [behavior]. | Behavior that always applies, unconditionally |
-| **Event-driven** | When [trigger], the system shall [response]. | Behavior triggered by a specific event |
-| **State-driven** | While [state], the system shall [behavior]. | Behavior that applies only during a certain state |
-| **Optional** | Where [feature is enabled], the system shall [behavior]. | Behavior gated by a configuration or feature flag |
-| **Unwanted** | If [condition], then the system shall not [behavior]. | Explicitly preventing undesirable behavior |
+| Pattern          | Template                                                 | Use When                                          |
+| ---------------- | -------------------------------------------------------- | ------------------------------------------------- |
+| **Ubiquitous**   | The system shall [behavior].                             | Behavior that always applies, unconditionally     |
+| **Event-driven** | When [trigger], the system shall [response].             | Behavior triggered by a specific event            |
+| **State-driven** | While [state], the system shall [behavior].              | Behavior that applies only during a certain state |
+| **Optional**     | Where [feature is enabled], the system shall [behavior]. | Behavior gated by a configuration or feature flag |
+| **Unwanted**     | If [condition], then the system shall not [behavior].    | Explicitly preventing undesirable behavior        |
 
 **Worked Examples:**
 
@@ -64,6 +65,7 @@ When writing observable truths and acceptance criteria, use EARS (Easy Approach 
 ### Phase 2: DECOMPOSE — Map File Structure and Create Tasks
 
 1. **Map the file structure first.** Before writing any tasks, list every file that will be created or modified. This is where decomposition decisions are locked. Example:
+
    ```
    CREATE src/services/notification-service.ts
    CREATE src/services/notification-service.test.ts
@@ -120,6 +122,7 @@ When writing observable truths and acceptance criteria, use EARS (Easy Approach 
 6. **Write the plan to `docs/plans/`.** Use naming convention: `YYYY-MM-DD-<feature-name>-plan.md`. If the directory does not exist, create it.
 
 7. **Write handoff.** Save `.harness/handoff.json` with the following structure:
+
    ```json
    {
      "fromSkill": "harness-planning",
@@ -139,7 +142,7 @@ When writing observable truths and acceptance criteria, use EARS (Easy Approach 
 
 ### Plan Document Structure
 
-```markdown
+````markdown
 # Plan: <Feature Name>
 
 **Date:** YYYY-MM-DD
@@ -148,19 +151,23 @@ When writing observable truths and acceptance criteria, use EARS (Easy Approach 
 **Estimated time:** N minutes
 
 ## Goal
+
 One sentence.
 
 ## Observable Truths (Acceptance Criteria)
+
 1. [observable truth]
 2. [observable truth]
 
 ## File Map
+
 - CREATE path/to/file.ts
 - MODIFY path/to/other-file.ts
 
 ## Tasks
 
 ### Task 1: <descriptive name>
+
 **Depends on:** none
 **Files:** path/to/file.ts, path/to/file.test.ts
 
@@ -168,6 +175,8 @@ One sentence.
    ```typescript
    // exact test code
    ```
+````
+
 2. Run test: `npx vitest run path/to/file.test.ts`
 3. Observe failure: [expected failure message]
 4. Create implementation `path/to/file.ts`:
@@ -180,9 +189,11 @@ One sentence.
 8. Commit: `feat(scope): descriptive message`
 
 ### Task 2: <descriptive name>
+
 [checkpoint:human-verify]
 ...
-```
+
+````
 
 ## Harness Integration
 
@@ -208,7 +219,7 @@ When planning changes to existing functionality (not greenfield), express requir
 - [MODIFIED] Login endpoint returns `refreshToken` field alongside existing `accessToken`
 - [MODIFIED] Token validation middleware accepts both JWT and OAuth2 tokens
 - [REMOVED] Legacy API key authentication (deprecated in v2.1)
-```
+````
 
 This is not mandatory for greenfield features. Only apply when modifying existing documented behavior.
 
@@ -234,6 +245,7 @@ When `docs/specs/` exists in the project, produce `docs/changes/<feature>/delta.
 **Goal:** Users receive email and in-app notifications when their account is modified.
 
 **Observable Truths:**
+
 1. `POST /api/users/:id` with changed fields triggers a notification record in the database
 2. `GET /api/notifications?userId=:id` returns the notification with type, message, and timestamp
 3. Notification email is sent via the existing email utility (verified by mock in test)
@@ -241,6 +253,7 @@ When `docs/specs/` exists in the project, produce `docs/changes/<feature>/delta.
 5. `harness validate` passes
 
 **File Map:**
+
 ```
 CREATE src/types/notification.ts
 CREATE src/services/notification-service.ts
@@ -251,6 +264,7 @@ MODIFY src/api/routes/users.test.ts
 ```
 
 **Task 1: Define notification types**
+
 ```
 Files: src/types/notification.ts
 1. Create src/types/notification.ts:
@@ -268,6 +282,7 @@ Files: src/types/notification.ts
 ```
 
 **Task 2: Create notification service with create method (TDD)**
+
 ```
 Files: src/services/notification-service.ts, src/services/notification-service.test.ts
 1. Write test: create notification returns Notification object with correct fields
@@ -279,6 +294,7 @@ Files: src/services/notification-service.ts, src/services/notification-service.t
 ```
 
 **Task 3: Add list and expiry methods (TDD)**
+
 ```
 [checkpoint:human-verify] — verify Task 2 output before continuing
 Files: src/services/notification-service.ts, src/services/notification-service.test.ts

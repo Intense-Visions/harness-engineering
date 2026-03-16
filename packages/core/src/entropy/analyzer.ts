@@ -56,9 +56,8 @@ export class EntropyAnalyzer {
 
     // Drift detection
     if (this.config.analyze.drift) {
-      const driftConfig = typeof this.config.analyze.drift === 'object'
-        ? this.config.analyze.drift
-        : {};
+      const driftConfig =
+        typeof this.config.analyze.drift === 'object' ? this.config.analyze.drift : {};
       const result = await detectDocDrift(this.snapshot, driftConfig);
       if (result.ok) {
         driftReport = result.value;
@@ -79,9 +78,10 @@ export class EntropyAnalyzer {
 
     // Pattern detection
     if (this.config.analyze.patterns) {
-      const patternConfig: PatternConfig = typeof this.config.analyze.patterns === 'object'
-        ? this.config.analyze.patterns
-        : { patterns: [] };
+      const patternConfig: PatternConfig =
+        typeof this.config.analyze.patterns === 'object'
+          ? this.config.analyze.patterns
+          : { patterns: [] };
       const result = await detectPatternViolations(this.snapshot, patternConfig);
       if (result.ok) {
         patternReport = result.value;
@@ -92,9 +92,10 @@ export class EntropyAnalyzer {
 
     // Calculate summary
     const driftIssues = driftReport?.drifts.length || 0;
-    const deadCodeIssues = (deadCodeReport?.deadExports.length || 0) +
-                          (deadCodeReport?.deadFiles.length || 0) +
-                          (deadCodeReport?.unusedImports.length || 0);
+    const deadCodeIssues =
+      (deadCodeReport?.deadExports.length || 0) +
+      (deadCodeReport?.deadFiles.length || 0) +
+      (deadCodeReport?.unusedImports.length || 0);
     const patternIssues = patternReport?.violations.length || 0;
     const patternErrors = patternReport?.stats.errorCount || 0;
     const patternWarnings = patternReport?.stats.warningCount || 0;
@@ -102,15 +103,11 @@ export class EntropyAnalyzer {
     const totalIssues = driftIssues + deadCodeIssues + patternIssues;
 
     // Calculate fixable count
-    const fixableCount = (deadCodeReport?.deadFiles.length || 0) +
-                        (deadCodeReport?.unusedImports.length || 0);
+    const fixableCount =
+      (deadCodeReport?.deadFiles.length || 0) + (deadCodeReport?.unusedImports.length || 0);
 
     // Generate suggestions count
-    const suggestions = generateSuggestions(
-      deadCodeReport,
-      driftReport,
-      patternReport
-    );
+    const suggestions = generateSuggestions(deadCodeReport, driftReport, patternReport);
 
     const duration = Date.now() - startTime;
 
@@ -163,14 +160,14 @@ export class EntropyAnalyzer {
    */
   getSuggestions(): SuggestionReport {
     if (!this.report) {
-      return { suggestions: [], byPriority: { high: [], medium: [], low: [] }, estimatedEffort: 'trivial' };
+      return {
+        suggestions: [],
+        byPriority: { high: [], medium: [], low: [] },
+        estimatedEffort: 'trivial',
+      };
     }
 
-    return generateSuggestions(
-      this.report.deadCode,
-      this.report.drift,
-      this.report.patterns
-    );
+    return generateSuggestions(this.report.deadCode, this.report.drift, this.report.patterns);
   }
 
   /**

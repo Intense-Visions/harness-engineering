@@ -38,7 +38,7 @@ describe('workflow runner', () => {
 
       expect(result.pass).toBe(true);
       expect(result.stepResults).toHaveLength(3);
-      expect(result.stepResults.every(r => r.outcome === 'pass')).toBe(true);
+      expect(result.stepResults.every((r) => r.outcome === 'pass')).toBe(true);
       expect(result.workflow).toBe(workflow);
       expect(result.totalDurationMs).toBeGreaterThanOrEqual(0);
     });

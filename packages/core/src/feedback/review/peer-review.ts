@@ -131,11 +131,11 @@ export async function requestMultiplePeerReviews(
   );
 
   // Check if any failed
-  const firstError = results.find(r => !r.ok);
+  const firstError = results.find((r) => !r.ok);
   if (firstError && !firstError.ok) {
     return Err(firstError.error);
   }
 
   // All succeeded
-  return Ok(results.map(r => (r as { ok: true; value: PeerReview }).value));
+  return Ok(results.map((r) => (r as { ok: true; value: PeerReview }).value));
 }

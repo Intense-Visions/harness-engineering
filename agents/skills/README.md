@@ -15,21 +15,25 @@ agents/skills/
 ## Available Skills
 
 ### Enforcement
+
 - `validate-context-engineering` - Validate AGENTS.md, doc coverage, knowledge map
 - `enforce-architecture` - Check layer boundaries and circular deps
 - `check-mechanical-constraints` - Run all mechanical checks
 
 ### Workflow
+
 - `harness-tdd` - Test-driven development guidance
 - `harness-code-review` - Structured code review
 - `harness-refactoring` - Safe refactoring process
 
 ### Entropy
+
 - `detect-doc-drift` - Find stale documentation
 - `cleanup-dead-code` - Find unused code
 - `align-documentation` - Auto-fix doc drift
 
 ### Setup
+
 - `initialize-harness-project` - Scaffold new project
 - `add-harness-component` - Add components
 

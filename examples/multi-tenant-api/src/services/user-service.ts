@@ -49,7 +49,7 @@ export function listUsers(tenantId: string): User[] {
 export function getUserById(tenantId: string, userId: string): User | undefined {
   if (!tenantId) throw new Error('tenantId is required');
   const tenantUsers = store.get(tenantId) ?? [];
-  return tenantUsers.find(u => u.id === userId);
+  return tenantUsers.find((u) => u.id === userId);
 }
 
 /** Reset store — for testing only */

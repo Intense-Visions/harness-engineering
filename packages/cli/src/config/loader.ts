@@ -24,10 +24,9 @@ export function findConfigFile(startDir: string = process.cwd()): Result<string,
     currentDir = path.dirname(currentDir);
   }
 
-  return Err(new CLIError(
-    'No harness.config.json found. Run "harness init" to create one.',
-    ExitCode.ERROR
-  ));
+  return Err(
+    new CLIError('No harness.config.json found. Run "harness init" to create one.', ExitCode.ERROR)
+  );
 }
 
 /**
@@ -36,10 +35,7 @@ export function findConfigFile(startDir: string = process.cwd()): Result<string,
 export function loadConfig(configPath: string): Result<HarnessConfig, CLIError> {
   // Check file exists
   if (!fs.existsSync(configPath)) {
-    return Err(new CLIError(
-      `Config file not found: ${configPath}`,
-      ExitCode.ERROR
-    ));
+    return Err(new CLIError(`Config file not found: ${configPath}`, ExitCode.ERROR));
   }
 
   // Read and parse JSON
@@ -48,20 +44,21 @@ export function loadConfig(configPath: string): Result<HarnessConfig, CLIError> 
     const content = fs.readFileSync(configPath, 'utf-8');
     rawConfig = JSON.parse(content);
   } catch (error) {
-    return Err(new CLIError(
-      `Failed to parse config: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(
+        `Failed to parse config: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ExitCode.ERROR
+      )
+    );
   }
 
   // Validate against schema
   const parsed = HarnessConfigSchema.safeParse(rawConfig);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
-    return Err(new CLIError(
-      `Invalid config:\n${issues}`,
-      ExitCode.ERROR
-    ));
+    const issues = parsed.error.issues
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    return Err(new CLIError(`Invalid config:\n${issues}`, ExitCode.ERROR));
   }
 
   return Ok(parsed.data);

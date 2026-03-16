@@ -12,12 +12,14 @@
 Module 3 provides architectural constraint enforcement for TypeScript codebases. It validates layered architecture rules, detects circular dependencies, and provides runtime boundary validation using Zod schemas.
 
 **Key capabilities:**
+
 - Layer validation - Define allowed dependencies between architectural layers
 - Dependency graph analysis - Build and analyze import relationships
 - Circular dependency detection - Find cycles using Tarjan's SCC algorithm
 - Boundary parsing - Runtime data validation at module boundaries
 
 **Design decisions:**
+
 - Full AST parsing using `@typescript-eslint/typescript-estree` for accurate import extraction
 - Parser abstraction layer ready for future multi-language support
 - Parser lives in `shared/parsers/` for reuse by Entropy module
@@ -68,12 +70,12 @@ export interface Location {
 }
 
 export interface Import {
-  source: string;           // './module' or '@pkg/lib'
-  specifiers: string[];     // Named imports
-  default?: string;         // Default import name
-  namespace?: string;       // import * as X
+  source: string; // './module' or '@pkg/lib'
+  specifiers: string[]; // Named imports
+  default?: string; // Default import name
+  namespace?: string; // import * as X
   location: Location;
-  kind: 'value' | 'type';   // Distinguish type-only imports
+  kind: 'value' | 'type'; // Distinguish type-only imports
 }
 
 export interface Export {
@@ -81,7 +83,7 @@ export interface Export {
   type: 'named' | 'default' | 'namespace';
   location: Location;
   isReExport: boolean;
-  source?: string;          // Re-export source
+  source?: string; // Re-export source
 }
 
 export interface ParseError extends BaseError {
@@ -96,7 +98,7 @@ export interface ParseError extends BaseError {
 
 export interface LanguageParser {
   name: string;
-  extensions: string[];     // ['.ts', '.tsx']
+  extensions: string[]; // ['.ts', '.tsx']
   parseFile(path: string): Promise<Result<AST, ParseError>>;
   extractImports(ast: AST): Result<Import[], ParseError>;
   extractExports(ast: AST): Result<Export[], ParseError>;
@@ -157,13 +159,14 @@ function walk(node: unknown, visitor: (node: TSESTree.Node) => void): void {
   if (!node || typeof node !== 'object') return;
   if ('type' in node) visitor(node as TSESTree.Node);
   for (const value of Object.values(node)) {
-    if (Array.isArray(value)) value.forEach(v => walk(v, visitor));
+    if (Array.isArray(value)) value.forEach((v) => walk(v, visitor));
     else walk(value, visitor);
   }
 }
 ```
 
 **Import types handled:**
+
 - `import x from 'y'` - default import
 - `import { a, b } from 'y'` - named imports
 - `import * as x from 'y'` - namespace import
@@ -179,7 +182,7 @@ function walk(node: unknown, visitor: (node: TSESTree.Node) => void): void {
 ```typescript
 export interface Layer {
   name: string;
-  patterns: string[];           // Glob patterns: ['src/services/**']
+  patterns: string[]; // Glob patterns: ['src/services/**']
   allowedDependencies: string[]; // Layer names this layer can import from
 }
 
@@ -187,19 +190,19 @@ export interface LayerConfig {
   layers: Layer[];
   rootDir: string;
   parser: LanguageParser;
-  fallbackBehavior?: 'skip' | 'error' | 'warn';  // Default: 'error'
+  fallbackBehavior?: 'skip' | 'error' | 'warn'; // Default: 'error'
 }
 
 export interface DependencyEdge {
-  from: string;                 // Importer file path
-  to: string;                   // Imported file/module
+  from: string; // Importer file path
+  to: string; // Imported file/module
   importType: 'static' | 'dynamic' | 'type-only';
   line: number;
 }
 
 export interface DependencyGraph {
-  nodes: string[];              // All file paths
-  edges: DependencyEdge[];      // Import relationships
+  nodes: string[]; // All file paths
+  edges: DependencyEdge[]; // Import relationships
 }
 
 export interface DependencyViolation {
@@ -229,21 +232,17 @@ export interface DependencyValidation {
  */
 export async function validateDependencies(
   config: LayerConfig
-): Promise<Result<DependencyValidation, ConstraintError>>
+): Promise<Result<DependencyValidation, ConstraintError>>;
 
 /**
  * Define a layer (convenience function)
  */
-export function defineLayer(
-  name: string,
-  patterns: string[],
-  allowedDependencies: string[]
-): Layer
+export function defineLayer(name: string, patterns: string[], allowedDependencies: string[]): Layer;
 
 // Internal helpers:
-function resolveFileToLayer(file: string, layers: Layer[]): Layer | undefined
-function buildDependencyGraph(files: string[], parser: LanguageParser): Promise<DependencyGraph>
-function checkLayerViolations(graph: DependencyGraph, layers: Layer[]): DependencyViolation[]
+function resolveFileToLayer(file: string, layers: Layer[]): Layer | undefined;
+function buildDependencyGraph(files: string[], parser: LanguageParser): Promise<DependencyGraph>;
+function checkLayerViolations(graph: DependencyGraph, layers: Layer[]): DependencyViolation[];
 ```
 
 ### Usage Example
@@ -282,15 +281,15 @@ Uses Tarjan's Strongly Connected Components (SCC) algorithm - O(V+E) complexity.
 
 ```typescript
 export interface CircularDependency {
-  cycle: string[];              // File paths forming the cycle
+  cycle: string[]; // File paths forming the cycle
   severity: 'error' | 'warning';
-  size: number;                 // Number of files in cycle
+  size: number; // Number of files in cycle
 }
 
 export interface CircularDepsResult {
   hasCycles: boolean;
   cycles: CircularDependency[];
-  largestCycle: number;         // Size of biggest cycle (0 if none)
+  largestCycle: number; // Size of biggest cycle (0 if none)
 }
 ```
 
@@ -303,7 +302,7 @@ export interface CircularDepsResult {
  */
 export function detectCircularDeps(
   graph: DependencyGraph
-): Result<CircularDepsResult, ConstraintError>
+): Result<CircularDepsResult, ConstraintError>;
 
 /**
  * Standalone detection from file list
@@ -311,12 +310,13 @@ export function detectCircularDeps(
 export async function detectCircularDepsInFiles(
   files: string[],
   parser: LanguageParser
-): Promise<Result<CircularDepsResult, ConstraintError>>
+): Promise<Result<CircularDepsResult, ConstraintError>>;
 ```
 
 ### Integration
 
 The main `validateDependencies` function will:
+
 1. Build the dependency graph
 2. Check layer violations
 3. Run circular dependency detection
@@ -350,10 +350,10 @@ Validate data at module boundaries using Zod schemas. Ensures data crossing laye
 
 ```typescript
 export interface BoundaryDefinition {
-  name: string;                    // e.g., 'UserService.createUser'
-  layer: string;                   // Which layer this boundary belongs to
-  schema: z.ZodSchema<unknown>;    // Zod schema for validation
-  direction: 'input' | 'output';   // Validate inputs or outputs
+  name: string; // e.g., 'UserService.createUser'
+  layer: string; // Which layer this boundary belongs to
+  schema: z.ZodSchema<unknown>; // Zod schema for validation
+  direction: 'input' | 'output'; // Validate inputs or outputs
 }
 
 export interface BoundaryViolation {
@@ -385,7 +385,7 @@ export interface BoundaryValidator<T> {
 export function createBoundaryValidator<T>(
   schema: z.ZodSchema<T>,
   name: string
-): BoundaryValidator<T>
+): BoundaryValidator<T>;
 
 /**
  * Validate multiple boundaries at once
@@ -393,7 +393,7 @@ export function createBoundaryValidator<T>(
 export function validateBoundaries(
   boundaries: BoundaryDefinition[],
   data: Map<string, unknown>
-): Result<BoundaryValidation, ConstraintError>
+): Result<BoundaryValidation, ConstraintError>;
 ```
 
 ### Usage Example
@@ -473,12 +473,12 @@ export const VERSION = '0.3.0';
 
 ## Testing Strategy
 
-| Component | Test Approach |
-|-----------|---------------|
-| TypeScript Parser | Parse fixture files, verify import/export extraction |
-| Layer Validation | Mock parser, test violation detection logic |
-| Circular Deps | Graph fixtures with known cycles, verify detection |
-| Boundary Validation | Zod schema tests, valid/invalid data |
+| Component           | Test Approach                                        |
+| ------------------- | ---------------------------------------------------- |
+| TypeScript Parser   | Parse fixture files, verify import/export extraction |
+| Layer Validation    | Mock parser, test violation detection logic          |
+| Circular Deps       | Graph fixtures with known cycles, verify detection   |
+| Boundary Validation | Zod schema tests, valid/invalid data                 |
 
 ### Test Fixtures
 
@@ -501,9 +501,11 @@ tests/fixtures/
 ## Dependencies
 
 **New dependencies:**
+
 - `@typescript-eslint/typescript-estree` ^7.0.0 - TypeScript AST parsing
 
 **Existing dependencies used:**
+
 - `zod` ^3.22.0 - Boundary schema validation
 - `glob` ^10.3.0 - File pattern matching
 

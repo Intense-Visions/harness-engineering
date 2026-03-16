@@ -72,13 +72,12 @@ describe('ChecklistBuilder', () => {
   });
 
   it('should include diff analysis', async () => {
-    const builder = new ChecklistBuilder(rootDir)
-      .withDiffAnalysis({
-        enabled: true,
-        forbiddenPatterns: [
-          { pattern: 'console.log', message: 'No console.log', severity: 'warning' },
-        ],
-      });
+    const builder = new ChecklistBuilder(rootDir).withDiffAnalysis({
+      enabled: true,
+      forbiddenPatterns: [
+        { pattern: 'console.log', message: 'No console.log', severity: 'warning' },
+      ],
+    });
 
     const result = await builder.run(changes);
 

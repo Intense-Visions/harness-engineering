@@ -7,13 +7,7 @@ export {
   GateResultSchema,
   GateConfigSchema,
 } from './types';
-export type {
-  HarnessState,
-  FailureEntry,
-  Handoff,
-  GateResult,
-  GateConfig,
-} from './types';
+export type { HarnessState, FailureEntry, Handoff, GateResult, GateConfig } from './types';
 export {
   loadState,
   saveState,

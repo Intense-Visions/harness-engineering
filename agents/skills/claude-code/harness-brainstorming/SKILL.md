@@ -3,6 +3,7 @@
 > Design exploration to spec to plan. No implementation before design approval. Think first, build second.
 
 ## When to Use
+
 - Starting a new feature or project that requires design decisions
 - When the problem space is ambiguous and needs exploration before planning
 - When multiple implementation approaches exist and tradeoffs must be weighed
@@ -109,15 +110,15 @@ When activated with `--party`, add a multi-perspective evaluation step after pro
 
 Select 2-3 perspectives based on design topic:
 
-| Topic | Perspectives |
-|---|---|
-| API / backend | Backend Developer, API Consumer, Operations |
-| UI / frontend | Developer, Designer, End User |
-| Infrastructure | Architect, SRE, Developer |
-| Data model | Backend Developer, Data Consumer, Migration |
-| Library / SDK | Library Author, Library Consumer, Maintainer |
-| Cross-cutting | Architect, Security, Developer |
-| Default | Architect, Developer, User/Consumer |
+| Topic          | Perspectives                                 |
+| -------------- | -------------------------------------------- |
+| API / backend  | Backend Developer, API Consumer, Operations  |
+| UI / frontend  | Developer, Designer, End User                |
+| Infrastructure | Architect, SRE, Developer                    |
+| Data model     | Backend Developer, Data Consumer, Migration  |
+| Library / SDK  | Library Author, Library Consumer, Maintainer |
+| Cross-cutting  | Architect, Security, Developer               |
+| Default        | Architect, Developer, User/Consumer          |
 
 ### Evaluation Process
 
@@ -171,6 +172,7 @@ These patterns make requirements testable and unambiguous. Apply them when the o
 ### Example: Designing a Notification System
 
 **EXPLORE:**
+
 ```
 Read AGENTS.md — project is a TypeScript monorepo with React frontend and Express backend.
 Read existing docs/ — no prior notification specs. Found docs/specs/2026-01-15-user-auth.md as naming example.
@@ -179,6 +181,7 @@ Scope assessment: single subsystem (notifications), estimated 1 week. Proceed.
 ```
 
 **EVALUATE:**
+
 ```
 Q1: "For notifications, should we support:
   (A) Email only (simplest, covers 90% of use cases)
@@ -196,6 +199,7 @@ Human: "Expire after 30 days."
 ```
 
 **PRIORITIZE:**
+
 ```
 Approach 1: Event-driven with queue
 - Services emit events, notification worker consumes and dispatches
@@ -215,6 +219,7 @@ Human: "Agreed, approach 2."
 ```
 
 **VALIDATE:**
+
 ```
 Wrote docs/specs/2026-03-14-notification-system.md
 Sections: Overview, Decisions, Technical Design, Success Criteria, Implementation Order

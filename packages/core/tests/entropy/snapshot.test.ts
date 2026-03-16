@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { resolveEntryPoints, parseDocumentationFile, buildSnapshot } from '../../src/entropy/snapshot';
+import {
+  resolveEntryPoints,
+  parseDocumentationFile,
+  buildSnapshot,
+} from '../../src/entropy/snapshot';
 import { TypeScriptParser } from '../../src/shared/parsers';
 import { join } from 'path';
 
@@ -12,7 +16,7 @@ describe('resolveEntryPoints', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBeGreaterThan(0);
-      expect(result.value.some(e => e.includes('index.ts'))).toBe(true);
+      expect(result.value.some((e) => e.includes('index.ts'))).toBe(true);
     }
   });
 
@@ -31,7 +35,7 @@ describe('resolveEntryPoints', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.some(e => e.includes('index.ts'))).toBe(true);
+      expect(result.value.some((e) => e.includes('index.ts'))).toBe(true);
     }
   });
 });
@@ -56,7 +60,7 @@ describe('parseDocumentationFile', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.inlineRefs.length).toBeGreaterThan(0);
-      expect(result.value.inlineRefs.some(r => r.reference === 'createUser')).toBe(true);
+      expect(result.value.inlineRefs.some((r) => r.reference === 'createUser')).toBe(true);
     }
   });
 });

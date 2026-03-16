@@ -35,20 +35,12 @@ export async function parseConfig(configPath: string): Promise<ParseResult> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return {
         success: false,
-        error: new ParseError(
-          `Config file not found: ${configPath}`,
-          'FILE_NOT_FOUND',
-          err
-        ),
+        error: new ParseError(`Config file not found: ${configPath}`, 'FILE_NOT_FOUND', err),
       };
     }
     return {
       success: false,
-      error: new ParseError(
-        `Failed to read config file: ${configPath}`,
-        'FILE_READ_ERROR',
-        err
-      ),
+      error: new ParseError(`Failed to read config file: ${configPath}`, 'FILE_READ_ERROR', err),
     };
   }
 
@@ -70,16 +62,10 @@ export async function parseConfig(configPath: string): Promise<ParseResult> {
   // Validate with Zod
   const result = LinterConfigSchema.safeParse(parsed);
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
+    const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     return {
       success: false,
-      error: new ParseError(
-        `Invalid config: ${issues}`,
-        'VALIDATION_ERROR',
-        result.error
-      ),
+      error: new ParseError(`Invalid config: ${issues}`, 'VALIDATION_ERROR', result.error),
     };
   }
 

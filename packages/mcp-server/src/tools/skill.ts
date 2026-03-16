@@ -6,13 +6,18 @@ import { resolveSkillsDir } from '../utils/paths.js';
 
 export const runSkillDefinition = {
   name: 'run_skill',
-  description: 'Load and return the content of a skill (SKILL.md), optionally with project state context',
+  description:
+    'Load and return the content of a skill (SKILL.md), optionally with project state context',
   inputSchema: {
     type: 'object' as const,
     properties: {
       skill: { type: 'string', description: 'Skill name (e.g., harness-tdd)' },
       path: { type: 'string', description: 'Path to project root for state context injection' },
-      complexity: { type: 'string', enum: ['auto', 'light', 'full'], description: 'Complexity level for scale-adaptive rigor' },
+      complexity: {
+        type: 'string',
+        enum: ['auto', 'light', 'full'],
+        description: 'Complexity level for scale-adaptive rigor',
+      },
       phase: { type: 'string', description: 'Start at a specific phase (re-entry)' },
       party: { type: 'boolean', description: 'Enable multi-perspective evaluation' },
     },

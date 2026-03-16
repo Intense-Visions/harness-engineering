@@ -65,7 +65,7 @@ describe('Feedback Module Integration', () => {
       expect(reviewResult.value.items.length).toBeGreaterThanOrEqual(1);
       expect(reviewResult.value.summary).toBeDefined();
       // Verify our custom rule ran
-      expect(reviewResult.value.items.some(i => i.id === 'has-commit-message')).toBe(true);
+      expect(reviewResult.value.items.some((i) => i.id === 'has-commit-message')).toBe(true);
     }
 
     unsubscribe();
@@ -109,7 +109,7 @@ describe('Feedback Module Integration', () => {
 
     // Then peer review
     const peerReview = await requestPeerReview('test-reviewer', {
-      files: changes.files.map(f => f.path),
+      files: changes.files.map((f) => f.path),
       diff: changes.diff,
       commitMessage: changes.commitMessage,
     });

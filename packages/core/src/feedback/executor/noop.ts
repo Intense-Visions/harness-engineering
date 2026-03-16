@@ -1,5 +1,12 @@
 import { Ok, Err } from '../../shared/result';
-import type { AgentExecutor, ExecutorHealth, AgentConfig, AgentProcess, PeerReview, FeedbackError } from '../types';
+import type {
+  AgentExecutor,
+  ExecutorHealth,
+  AgentConfig,
+  AgentProcess,
+  PeerReview,
+  FeedbackError,
+} from '../types';
 import type { Result } from '../../shared/result';
 import { generateId } from '../../shared/uuid';
 

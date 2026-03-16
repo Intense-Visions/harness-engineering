@@ -10,7 +10,11 @@ const writeFile = promisify(fs.writeFile);
 const readFile = promisify(fs.readFile);
 const mkdir = promisify(fs.mkdir);
 const rm = promisify(fs.rm);
-const exists = (p: string) => fs.promises.access(p).then(() => true).catch(() => false);
+const exists = (p: string) =>
+  fs.promises
+    .access(p)
+    .then(() => true)
+    .catch(() => false);
 
 describe('createFixes', () => {
   it('should create fix for dead files', () => {
@@ -32,7 +36,11 @@ describe('createFixes', () => {
       },
     };
 
-    const fixes = createFixes(deadCodeReport, { fixTypes: ['dead-files'], dryRun: false, createBackup: true });
+    const fixes = createFixes(deadCodeReport, {
+      fixTypes: ['dead-files'],
+      dryRun: false,
+      createBackup: true,
+    });
 
     expect(fixes.length).toBe(1);
     expect(fixes[0].type).toBe('dead-files');
@@ -48,7 +56,13 @@ describe('createFixes', () => {
       deadFiles: [],
       deadInternals: [],
       unusedImports: [
-        { file: '/project/src/used.ts', line: 1, source: './helper', specifiers: ['unused'], isFullyUnused: false },
+        {
+          file: '/project/src/used.ts',
+          line: 1,
+          source: './helper',
+          specifiers: ['unused'],
+          isFullyUnused: false,
+        },
       ],
       stats: {
         filesAnalyzed: 10,
@@ -61,7 +75,11 @@ describe('createFixes', () => {
       },
     };
 
-    const fixes = createFixes(deadCodeReport, { fixTypes: ['unused-imports'], dryRun: false, createBackup: false });
+    const fixes = createFixes(deadCodeReport, {
+      fixTypes: ['unused-imports'],
+      dryRun: false,
+      createBackup: false,
+    });
 
     expect(fixes.length).toBe(1);
     expect(fixes[0].type).toBe('unused-imports');
@@ -76,7 +94,13 @@ describe('createFixes', () => {
       ],
       deadInternals: [],
       unusedImports: [
-        { file: '/project/src/used.ts', line: 1, source: './helper', specifiers: ['unused'], isFullyUnused: false },
+        {
+          file: '/project/src/used.ts',
+          line: 1,
+          source: './helper',
+          specifiers: ['unused'],
+          isFullyUnused: false,
+        },
       ],
       stats: {
         filesAnalyzed: 10,
@@ -90,10 +114,14 @@ describe('createFixes', () => {
     };
 
     // Only request unused-imports fixes, not dead-files
-    const fixes = createFixes(deadCodeReport, { fixTypes: ['unused-imports'], dryRun: false, createBackup: false });
+    const fixes = createFixes(deadCodeReport, {
+      fixTypes: ['unused-imports'],
+      dryRun: false,
+      createBackup: false,
+    });
 
-    expect(fixes.every(f => f.type === 'unused-imports')).toBe(true);
-    expect(fixes.some(f => f.type === 'dead-files')).toBe(false);
+    expect(fixes.every((f) => f.type === 'unused-imports')).toBe(true);
+    expect(fixes.some((f) => f.type === 'dead-files')).toBe(false);
   });
 });
 
@@ -148,16 +176,22 @@ describe('applyFixes', () => {
     const testFile = path.join(tempDir, 'test.ts');
     await writeFile(testFile, 'const x = 1;');
 
-    const fixes: Fix[] = [{
-      type: 'dead-files',
-      file: testFile,
-      description: 'Delete file',
-      action: 'delete-file',
-      safe: true,
-      reversible: true,
-    }];
+    const fixes: Fix[] = [
+      {
+        type: 'dead-files',
+        file: testFile,
+        description: 'Delete file',
+        action: 'delete-file',
+        safe: true,
+        reversible: true,
+      },
+    ];
 
-    const result = await applyFixes(fixes, { dryRun: true, fixTypes: ['dead-files'], createBackup: false });
+    const result = await applyFixes(fixes, {
+      dryRun: true,
+      fixTypes: ['dead-files'],
+      createBackup: false,
+    });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -171,16 +205,22 @@ describe('applyFixes', () => {
     const testFile = path.join(tempDir, 'to-delete.ts');
     await writeFile(testFile, 'const unused = 1;');
 
-    const fixes: Fix[] = [{
-      type: 'dead-files',
-      file: testFile,
-      description: 'Delete dead file',
-      action: 'delete-file',
-      safe: true,
-      reversible: true,
-    }];
+    const fixes: Fix[] = [
+      {
+        type: 'dead-files',
+        file: testFile,
+        description: 'Delete dead file',
+        action: 'delete-file',
+        safe: true,
+        reversible: true,
+      },
+    ];
 
-    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['dead-files'], createBackup: false });
+    const result = await applyFixes(fixes, {
+      dryRun: false,
+      fixTypes: ['dead-files'],
+      createBackup: false,
+    });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -194,17 +234,23 @@ describe('applyFixes', () => {
     const testFile = path.join(tempDir, 'with-unused-import.ts');
     await writeFile(testFile, 'import { unused } from "./helper";\nconst x = 1;\nexport { x };');
 
-    const fixes: Fix[] = [{
-      type: 'unused-imports',
-      file: testFile,
-      description: 'Remove unused import',
-      action: 'delete-lines',
-      line: 1,
-      safe: true,
-      reversible: true,
-    }];
+    const fixes: Fix[] = [
+      {
+        type: 'unused-imports',
+        file: testFile,
+        description: 'Remove unused import',
+        action: 'delete-lines',
+        line: 1,
+        safe: true,
+        reversible: true,
+      },
+    ];
 
-    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['unused-imports'], createBackup: false });
+    const result = await applyFixes(fixes, {
+      dryRun: false,
+      fixTypes: ['unused-imports'],
+      createBackup: false,
+    });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -220,17 +266,23 @@ describe('applyFixes', () => {
     const testFile = path.join(tempDir, 'keep-me.ts');
     await writeFile(testFile, 'const x = 1;');
 
-    const fixes: Fix[] = [{
-      type: 'dead-files',
-      file: testFile,
-      description: 'Delete file',
-      action: 'delete-file',
-      safe: true,
-      reversible: true,
-    }];
+    const fixes: Fix[] = [
+      {
+        type: 'dead-files',
+        file: testFile,
+        description: 'Delete file',
+        action: 'delete-file',
+        safe: true,
+        reversible: true,
+      },
+    ];
 
     // Request only unused-imports, not dead-files
-    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['unused-imports'], createBackup: false });
+    const result = await applyFixes(fixes, {
+      dryRun: false,
+      fixTypes: ['unused-imports'],
+      createBackup: false,
+    });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -243,16 +295,22 @@ describe('applyFixes', () => {
   it('should track errors when file operation fails', async () => {
     const nonExistentFile = path.join(tempDir, 'does-not-exist.ts');
 
-    const fixes: Fix[] = [{
-      type: 'dead-files',
-      file: nonExistentFile,
-      description: 'Delete non-existent file',
-      action: 'delete-file',
-      safe: true,
-      reversible: true,
-    }];
+    const fixes: Fix[] = [
+      {
+        type: 'dead-files',
+        file: nonExistentFile,
+        description: 'Delete non-existent file',
+        action: 'delete-file',
+        safe: true,
+        reversible: true,
+      },
+    ];
 
-    const result = await applyFixes(fixes, { dryRun: false, fixTypes: ['dead-files'], createBackup: false });
+    const result = await applyFixes(fixes, {
+      dryRun: false,
+      fixTypes: ['dead-files'],
+      createBackup: false,
+    });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -266,14 +324,16 @@ describe('applyFixes', () => {
     const backupDir = path.join(tempDir, 'backups');
     await writeFile(testFile, 'const original = 1;');
 
-    const fixes: Fix[] = [{
-      type: 'dead-files',
-      file: testFile,
-      description: 'Delete file with backup',
-      action: 'delete-file',
-      safe: true,
-      reversible: true,
-    }];
+    const fixes: Fix[] = [
+      {
+        type: 'dead-files',
+        file: testFile,
+        description: 'Delete file with backup',
+        action: 'delete-file',
+        safe: true,
+        reversible: true,
+      },
+    ];
 
     const result = await applyFixes(fixes, {
       dryRun: false,

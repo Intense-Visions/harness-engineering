@@ -1,5 +1,14 @@
 import { describe, it, expect, assertType } from 'vitest';
-import { Result, Ok, Err, isOk, isErr, configureFeedback, createSelfReview, requestPeerReview } from '../src/index';
+import {
+  Result,
+  Ok,
+  Err,
+  isOk,
+  isErr,
+  configureFeedback,
+  createSelfReview,
+  requestPeerReview,
+} from '../src/index';
 
 describe('Result type', () => {
   describe('Ok', () => {

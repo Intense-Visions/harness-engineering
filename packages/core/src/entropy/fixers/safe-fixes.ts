@@ -1,13 +1,6 @@
 import type { Result } from '../../shared/result';
 import { Ok, Err } from '../../shared/result';
-import type {
-  EntropyError,
-  DeadCodeReport,
-  Fix,
-  FixConfig,
-  FixResult,
-  FixType,
-} from '../types';
+import type { EntropyError, DeadCodeReport, Fix, FixConfig, FixResult, FixType } from '../types';
 import { createEntropyError } from '../../shared/errors';
 import * as fs from 'fs';
 import { promisify } from 'util';
@@ -30,7 +23,7 @@ const DEFAULT_FIX_CONFIG: FixConfig = {
  * Create fixes for dead files
  */
 function createDeadFileFixes(deadCodeReport: DeadCodeReport): Fix[] {
-  return deadCodeReport.deadFiles.map(file => ({
+  return deadCodeReport.deadFiles.map((file) => ({
     type: 'dead-files' as FixType,
     file: file.path,
     description: `Delete dead file (${file.reason}): ${basename(file.path)}`,
@@ -44,7 +37,7 @@ function createDeadFileFixes(deadCodeReport: DeadCodeReport): Fix[] {
  * Create fixes for unused imports
  */
 function createUnusedImportFixes(deadCodeReport: DeadCodeReport): Fix[] {
-  return deadCodeReport.unusedImports.map(imp => ({
+  return deadCodeReport.unusedImports.map((imp) => ({
     type: 'unused-imports' as FixType,
     file: imp.file,
     description: `Remove unused import: ${imp.specifiers.join(', ')} from ${imp.source}`,
@@ -58,10 +51,7 @@ function createUnusedImportFixes(deadCodeReport: DeadCodeReport): Fix[] {
 /**
  * Create fixes from dead code report
  */
-export function createFixes(
-  deadCodeReport: DeadCodeReport,
-  config?: Partial<FixConfig>
-): Fix[] {
+export function createFixes(deadCodeReport: DeadCodeReport, config?: Partial<FixConfig>): Fix[] {
   const fullConfig = { ...DEFAULT_FIX_CONFIG, ...config };
   const fixes: Fix[] = [];
 

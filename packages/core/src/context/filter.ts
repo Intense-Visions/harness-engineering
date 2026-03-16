@@ -3,7 +3,11 @@ import type { WorkflowPhase, FileCategory, ContextFilterResult } from './filter.
 const PHASE_PRIORITIES: Record<WorkflowPhase, FileCategory[]> = {
   implement: [
     { category: 'source', patterns: ['src/**/*.ts', 'src/**/*.tsx'], priority: 1 },
-    { category: 'types', patterns: ['src/**/types.ts', 'src/**/interfaces.ts', '**/*.d.ts'], priority: 2 },
+    {
+      category: 'types',
+      patterns: ['src/**/types.ts', 'src/**/interfaces.ts', '**/*.d.ts'],
+      priority: 2,
+    },
     { category: 'tests', patterns: ['tests/**/*.test.ts', '**/*.spec.ts'], priority: 3 },
     { category: 'specs', patterns: ['docs/specs/**/*.md'], priority: 4 },
     { category: 'config', patterns: ['package.json', 'tsconfig.json'], priority: 5 },
@@ -31,10 +35,7 @@ const PHASE_PRIORITIES: Record<WorkflowPhase, FileCategory[]> = {
   ],
 };
 
-export function contextFilter(
-  phase: WorkflowPhase,
-  maxCategories?: number,
-): ContextFilterResult {
+export function contextFilter(phase: WorkflowPhase, maxCategories?: number): ContextFilterResult {
   const categories = PHASE_PRIORITIES[phase];
   const limit = maxCategories ?? categories.length;
 

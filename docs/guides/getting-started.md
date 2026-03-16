@@ -63,11 +63,11 @@ This scaffolds a project using the intermediate template with layer definitions,
 
 ### Adoption Levels
 
-| Level | What you get | When to use |
-|-------|-------------|-------------|
-| **Basic** | Config + validation + AGENTS.md | Learning harness, simple projects |
-| **Intermediate** | + Layer enforcement, ESLint rules, personas | Most production projects |
-| **Advanced** | + Custom linter rules, boundary schemas, cross-artifact validation | Complex architectures, multi-team |
+| Level            | What you get                                                       | When to use                       |
+| ---------------- | ------------------------------------------------------------------ | --------------------------------- |
+| **Basic**        | Config + validation + AGENTS.md                                    | Learning harness, simple projects |
+| **Intermediate** | + Layer enforcement, ESLint rules, personas                        | Most production projects          |
+| **Advanced**     | + Custom linter rules, boundary schemas, cross-artifact validation | Complex architectures, multi-team |
 
 See [Implementation Guide](../standard/implementation.md) for the full adoption roadmap.
 
@@ -92,6 +92,7 @@ Defined in `harness.config.json`, enforced by `@harness-engineering/no-layer-vio
 ### Personas
 
 Three agent personas that run on your project:
+
 - **Architecture Enforcer** — validates constraints on PRs and commits
 - **Documentation Maintainer** — detects doc drift and missing coverage
 - **Entropy Cleaner** — finds dead code, stale patterns, unused deps
@@ -99,6 +100,7 @@ Three agent personas that run on your project:
 ### State Management
 
 Persistent state across agent sessions via `.harness/`:
+
 - `state.json` — position, progress, decisions, blockers
 - `learnings.md` — tagged institutional knowledge
 - `failures.md` — dead ends and anti-patterns

@@ -30,16 +30,16 @@ function resolveImportToFile(
   // Try with .ts extension
   if (!resolved.endsWith('.ts') && !resolved.endsWith('.tsx')) {
     const withTs = resolved + '.ts';
-    if (snapshot.files.some(f => f.path === withTs)) {
+    if (snapshot.files.some((f) => f.path === withTs)) {
       return withTs;
     }
     const withIndex = resolve(resolved, 'index.ts');
-    if (snapshot.files.some(f => f.path === withIndex)) {
+    if (snapshot.files.some((f) => f.path === withIndex)) {
       return withIndex;
     }
   }
 
-  if (snapshot.files.some(f => f.path === resolved)) {
+  if (snapshot.files.some((f) => f.path === resolved)) {
     return resolved;
   }
 
@@ -49,9 +49,7 @@ function resolveImportToFile(
 /**
  * Build a map of file reachability from entry points
  */
-export function buildReachabilityMap(
-  snapshot: CodebaseSnapshot
-): Map<string, boolean> {
+export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, boolean> {
   const reachability = new Map<string, boolean>();
 
   // Initialize all files as unreachable
@@ -73,7 +71,7 @@ export function buildReachabilityMap(
     reachability.set(current, true);
 
     // Find the source file
-    const sourceFile = snapshot.files.find(f => f.path === current);
+    const sourceFile = snapshot.files.find((f) => f.path === current);
     if (!sourceFile) continue;
 
     // Add all imports to queue
@@ -122,13 +120,13 @@ function buildExportUsageMap(
       if (!resolvedFile) continue;
 
       // Find the source file to match imports with exports
-      const sourceFile = snapshot.files.find(f => f.path === resolvedFile);
+      const sourceFile = snapshot.files.find((f) => f.path === resolvedFile);
       if (!sourceFile) continue;
 
       for (const specifier of imp.specifiers) {
         // Match import specifier to export
         const matchingExport = sourceFile.exports.find(
-          e => e.name === specifier || (specifier === 'default' && e.type === 'default')
+          (e) => e.name === specifier || (specifier === 'default' && e.type === 'default')
         );
 
         if (matchingExport) {
@@ -178,9 +176,7 @@ function findDeadExports(
         });
       } else {
         // Check if all importers are themselves dead/unreachable
-        const allImportersDead = usage.importers.every(
-          importer => !reachability.get(importer)
-        );
+        const allImportersDead = usage.importers.every((importer) => !reachability.get(importer));
 
         if (allImportersDead) {
           deadExports.push({
@@ -240,10 +236,7 @@ function countLinesFromAST(ast: AST): number {
 /**
  * Find files that are completely dead (unreachable from entry points).
  */
-function findDeadFiles(
-  snapshot: CodebaseSnapshot,
-  reachability: Map<string, boolean>
-): DeadFile[] {
+function findDeadFiles(snapshot: CodebaseSnapshot, reachability: Map<string, boolean>): DeadFile[] {
   const deadFiles: DeadFile[] = [];
 
   for (const file of snapshot.files) {
@@ -253,7 +246,7 @@ function findDeadFiles(
       deadFiles.push({
         path: file.path,
         reason: 'NO_IMPORTERS',
-        exportCount: file.exports.filter(e => !e.isReExport).length,
+        exportCount: file.exports.filter((e) => !e.isReExport).length,
         lineCount: countLinesFromAST(file.ast),
       });
     }
@@ -266,7 +259,11 @@ function findDeadFiles(
  * Check if an identifier is used in the AST.
  * Uses a simple heuristic: stringify the AST and search for the identifier.
  */
-function isIdentifierUsedInAST(ast: AST, identifier: string, skipImportDeclaration: boolean = true): boolean {
+function isIdentifierUsedInAST(
+  ast: AST,
+  identifier: string,
+  skipImportDeclaration: boolean = true
+): boolean {
   // Simple heuristic: convert AST to string and search for identifier usage
   const astString = JSON.stringify(ast);
 
@@ -379,7 +376,7 @@ export async function detectDeadCode(
 
   // Calculate total exports
   const totalExports = snapshot.files.reduce(
-    (acc, file) => acc + file.exports.filter(e => !e.isReExport).length,
+    (acc, file) => acc + file.exports.filter((e) => !e.isReExport).length,
     0
   );
 

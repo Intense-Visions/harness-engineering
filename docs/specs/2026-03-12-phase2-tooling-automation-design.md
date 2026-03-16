@@ -11,16 +11,16 @@ Phase 2 delivers the tooling and automation layer for harness engineering: a CLI
 
 ## Key Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| CLI language | TypeScript | Direct integration with core library, single language |
-| CLI framework | Commander.js | Mature, well-documented, widely used |
-| Distribution | npm global install | Standard Node ecosystem approach |
-| Config format | JSON | Strict, unambiguous, universal tooling support |
-| Linter approach | Code generation | YAML config generates actual ESLint rule files |
-| Skill platforms | Claude Code + Gemini CLI | Primary agent platforms, similar interfaces |
-| Implementation order | Depth-first by component | Follows harness engineering principles |
-| Testing | Unit + integration | Solid coverage without over-engineering |
+| Decision             | Choice                   | Rationale                                             |
+| -------------------- | ------------------------ | ----------------------------------------------------- |
+| CLI language         | TypeScript               | Direct integration with core library, single language |
+| CLI framework        | Commander.js             | Mature, well-documented, widely used                  |
+| Distribution         | npm global install       | Standard Node ecosystem approach                      |
+| Config format        | JSON                     | Strict, unambiguous, universal tooling support        |
+| Linter approach      | Code generation          | YAML config generates actual ESLint rule files        |
+| Skill platforms      | Claude Code + Gemini CLI | Primary agent platforms, similar interfaces           |
+| Implementation order | Depth-first by component | Follows harness engineering principles                |
+| Testing              | Unit + integration       | Solid coverage without over-engineering               |
 
 ## Implementation Order
 
@@ -104,17 +104,17 @@ packages/cli/
 
 ### Commands
 
-| Command | Description | Core API Used |
-|---------|-------------|---------------|
-| `harness validate` | Run all validation checks | `validateFileStructure`, `validateAgentsMap` |
-| `harness check-deps` | Validate dependency layers | `validateDependencies`, `detectCircularDeps` |
-| `harness check-docs` | Check doc coverage | `checkDocCoverage`, `validateKnowledgeMap` |
-| `harness init` | Scaffold new project | Templates + file generation |
-| `harness add <component>` | Add component | Templates |
-| `harness agent run <task>` | Run agent task | `requestPeerReview`, executor APIs |
-| `harness agent review` | Agent code review | `createSelfReview` |
-| `harness cleanup` | Detect entropy issues | `detectDocDrift`, `detectDeadCode` |
-| `harness fix-drift` | Auto-fix issues | `autoFixEntropy` |
+| Command                    | Description                | Core API Used                                |
+| -------------------------- | -------------------------- | -------------------------------------------- |
+| `harness validate`         | Run all validation checks  | `validateFileStructure`, `validateAgentsMap` |
+| `harness check-deps`       | Validate dependency layers | `validateDependencies`, `detectCircularDeps` |
+| `harness check-docs`       | Check doc coverage         | `checkDocCoverage`, `validateKnowledgeMap`   |
+| `harness init`             | Scaffold new project       | Templates + file generation                  |
+| `harness add <component>`  | Add component              | Templates                                    |
+| `harness agent run <task>` | Run agent task             | `requestPeerReview`, executor APIs           |
+| `harness agent review`     | Agent code review          | `createSelfReview`                           |
+| `harness cleanup`          | Detect entropy issues      | `detectDocDrift`, `detectDeadCode`           |
+| `harness fix-drift`        | Auto-fix issues            | `autoFixEntropy`                             |
 
 ### Global Flags
 
@@ -171,13 +171,13 @@ packages/eslint-plugin/
 
 ### Rules
 
-| Rule | Category | Description |
-|------|----------|-------------|
-| `no-layer-violation` | Architecture | Imports must respect layer hierarchy |
-| `no-circular-deps` | Architecture | No circular import chains |
-| `no-forbidden-imports` | Architecture | Block imports matching patterns |
-| `require-boundary-schema` | Boundary | API exports must have Zod schema |
-| `enforce-doc-exports` | Documentation | Public exports need JSDoc |
+| Rule                      | Category      | Description                          |
+| ------------------------- | ------------- | ------------------------------------ |
+| `no-layer-violation`      | Architecture  | Imports must respect layer hierarchy |
+| `no-circular-deps`        | Architecture  | No circular import chains            |
+| `no-forbidden-imports`    | Architecture  | Block imports matching patterns      |
+| `require-boundary-schema` | Boundary      | API exports must have Zod schema     |
+| `enforce-doc-exports`     | Documentation | Public exports need JSDoc            |
 
 ### Configuration Usage
 
@@ -190,8 +190,8 @@ export default [
   {
     rules: {
       '@harness-engineering/no-layer-violation': 'error',
-    }
-  }
+    },
+  },
 ];
 ```
 
@@ -202,12 +202,18 @@ export default [
   "layers": [
     { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
     { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": ["types", "domain"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "domain", "services"]
+    }
   ],
-  "forbiddenImports": [
-    { "from": "src/services/**", "disallow": ["react", "src/ui/**"] }
-  ],
+  "forbiddenImports": [{ "from": "src/services/**", "disallow": ["react", "src/ui/**"] }],
   "boundaries": {
     "requireSchema": ["src/api/**/*.ts"]
   }
@@ -370,19 +376,19 @@ cli_command: harness validate --json
 
 ### Skills and CLI Mapping
 
-| Category | Skill | CLI Command |
-|----------|-------|-------------|
-| **Enforcement** | `validate-context-engineering` | `harness validate` |
-| | `enforce-architecture` | `harness check-deps` |
-| | `check-mechanical-constraints` | `harness validate && harness check-deps` |
-| **Workflow** | `harness-tdd` | Uses core APIs directly |
-| | `harness-code-review` | `harness agent review` |
-| | `harness-refactoring` | Uses core APIs + validation |
-| **Entropy** | `detect-doc-drift` | `harness cleanup --type drift` |
-| | `cleanup-dead-code` | `harness cleanup --type dead-code` |
-| | `align-documentation` | `harness fix-drift` |
-| **Setup** | `initialize-harness-project` | `harness init` |
-| | `add-harness-component` | `harness add` |
+| Category        | Skill                          | CLI Command                              |
+| --------------- | ------------------------------ | ---------------------------------------- |
+| **Enforcement** | `validate-context-engineering` | `harness validate`                       |
+|                 | `enforce-architecture`         | `harness check-deps`                     |
+|                 | `check-mechanical-constraints` | `harness validate && harness check-deps` |
+| **Workflow**    | `harness-tdd`                  | Uses core APIs directly                  |
+|                 | `harness-code-review`          | `harness agent review`                   |
+|                 | `harness-refactoring`          | Uses core APIs + validation              |
+| **Entropy**     | `detect-doc-drift`             | `harness cleanup --type drift`           |
+|                 | `cleanup-dead-code`            | `harness cleanup --type dead-code`       |
+|                 | `align-documentation`          | `harness fix-drift`                      |
+| **Setup**       | `initialize-harness-project`   | `harness init`                           |
+|                 | `add-harness-component`        | `harness add`                            |
 
 ### Prompt Structure (`prompt.md`)
 
@@ -426,23 +432,23 @@ import { z } from 'zod';
 
 export const LayerSchema = z.object({
   name: z.string(),
-  pattern: z.string(),  // glob pattern
+  pattern: z.string(), // glob pattern
   allowedDependencies: z.array(z.string()),
 });
 
 export const ForbiddenImportSchema = z.object({
-  from: z.string(),     // glob pattern for source files
-  disallow: z.array(z.string()),  // patterns to block
+  from: z.string(), // glob pattern for source files
+  disallow: z.array(z.string()), // patterns to block
   message: z.string().optional(),
 });
 
 export const BoundaryConfigSchema = z.object({
-  requireSchema: z.array(z.string()),  // glob patterns requiring Zod
+  requireSchema: z.array(z.string()), // glob patterns requiring Zod
 });
 
 export const AgentConfigSchema = z.object({
   executor: z.enum(['subprocess', 'cloud', 'noop']).default('subprocess'),
-  timeout: z.number().default(300000),  // 5 min default
+  timeout: z.number().default(300000), // 5 min default
   skills: z.array(z.string()).optional(),
 });
 
@@ -466,10 +472,12 @@ export const HarnessConfigSchema = z.object({
   agent: AgentConfigSchema.optional(),
 
   // Entropy management
-  entropy: z.object({
-    excludePatterns: z.array(z.string()).default(['**/node_modules/**', '**/*.test.ts']),
-    autoFix: z.boolean().default(false),
-  }).optional(),
+  entropy: z
+    .object({
+      excludePatterns: z.array(z.string()).default(['**/node_modules/**', '**/*.test.ts']),
+      autoFix: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
@@ -484,12 +492,18 @@ export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
   "layers": [
     { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
     { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": ["types", "domain"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "domain", "services"]
+    }
   ],
-  "forbiddenImports": [
-    { "from": "src/services/**", "disallow": ["react", "src/ui/**"] }
-  ],
+  "forbiddenImports": [{ "from": "src/services/**", "disallow": ["react", "src/ui/**"] }],
   "boundaries": {
     "requireSchema": ["src/api/**/*.ts"]
   },
@@ -556,12 +570,12 @@ packages/linter-gen/
 
 ### Testing Approach by Component
 
-| Component | Unit Tests | Integration Tests |
-|-----------|------------|-------------------|
-| **CLI** | Command handlers, config loading, output formatting | Spawn CLI process, verify exit codes and output |
-| **ESLint Plugin** | Rule logic using `RuleTester` | Run ESLint on fixture projects |
-| **Linter-Gen** | YAML parsing, template rendering | Generate rules, verify output matches expected |
-| **Skills** | N/A (declarative) | Validate skill.yaml schema, lint prompt.md |
+| Component         | Unit Tests                                          | Integration Tests                               |
+| ----------------- | --------------------------------------------------- | ----------------------------------------------- |
+| **CLI**           | Command handlers, config loading, output formatting | Spawn CLI process, verify exit codes and output |
+| **ESLint Plugin** | Rule logic using `RuleTester`                       | Run ESLint on fixture projects                  |
+| **Linter-Gen**    | YAML parsing, template rendering                    | Generate rules, verify output matches expected  |
+| **Skills**        | N/A (declarative)                                   | Validate skill.yaml schema, lint prompt.md      |
 
 ### ESLint Rule Testing Pattern
 
@@ -572,14 +586,12 @@ import rule from '../src/rules/no-layer-violation';
 const ruleTester = new RuleTester();
 
 ruleTester.run('no-layer-violation', rule, {
-  valid: [
-    { code: `import { User } from '../types/user'`, filename: 'src/domain/user.ts' },
-  ],
+  valid: [{ code: `import { User } from '../types/user'`, filename: 'src/domain/user.ts' }],
   invalid: [
     {
       code: `import { handler } from '../api/handler'`,
       filename: 'src/types/user.ts',
-      errors: [{ messageId: 'layerViolation' }]
+      errors: [{ messageId: 'layerViolation' }],
     },
   ],
 });
@@ -593,14 +605,14 @@ import { execSync } from 'child_process';
 describe('harness validate', () => {
   it('returns 0 for valid project', () => {
     const result = execSync('harness validate', {
-      cwd: './fixtures/valid-project'
+      cwd: './fixtures/valid-project',
     });
     expect(result.status).toBe(0);
   });
 
   it('returns 1 for invalid project with JSON output', () => {
     const result = execSync('harness validate --json', {
-      cwd: './fixtures/invalid-project'
+      cwd: './fixtures/invalid-project',
     });
     const output = JSON.parse(result.stdout);
     expect(output.valid).toBe(false);

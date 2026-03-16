@@ -26,24 +26,24 @@ See the [examples](#examples) section for the full progression.
 
 ## What's in the Box
 
-| Component | Count | What it does |
-|-----------|-------|-------------|
-| [Packages](./packages/) | 6 | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types |
-| [Skills](./agents/skills/claude-code/) | 21 | Rigid and flexible workflows for TDD, execution, debugging, verification, planning, and more |
-| [Personas](./agents/personas/) | 3 | Architecture enforcer, documentation maintainer, entropy cleaner |
-| [Templates](./templates/) | 4 | Basic, intermediate, advanced, Next.js — progressive adoption scaffolds |
-| [Examples](./examples/) | 3 | Hello world, task API, multi-tenant API — progressive tutorials |
+| Component                              | Count | What it does                                                                                 |
+| -------------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
+| [Packages](./packages/)                | 6     | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types                 |
+| [Skills](./agents/skills/claude-code/) | 21    | Rigid and flexible workflows for TDD, execution, debugging, verification, planning, and more |
+| [Personas](./agents/personas/)         | 3     | Architecture enforcer, documentation maintainer, entropy cleaner                             |
+| [Templates](./templates/)              | 4     | Basic, intermediate, advanced, Next.js — progressive adoption scaffolds                      |
+| [Examples](./examples/)                | 3     | Hello world, task API, multi-tenant API — progressive tutorials                              |
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| [`@harness-engineering/types`](./packages/types) | Shared TypeScript types and interfaces |
-| [`@harness-engineering/core`](./packages/core) | Core runtime: validation, constraints, entropy detection, state management |
-| [`@harness-engineering/cli`](./packages/cli) | CLI: `harness validate`, `check-deps`, `skill run`, `state show`, and more |
+| Package                                                          | Description                                                                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [`@harness-engineering/types`](./packages/types)                 | Shared TypeScript types and interfaces                                                                                   |
+| [`@harness-engineering/core`](./packages/core)                   | Core runtime: validation, constraints, entropy detection, state management                                               |
+| [`@harness-engineering/cli`](./packages/cli)                     | CLI: `harness validate`, `check-deps`, `skill run`, `state show`, and more                                               |
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 ESLint rules: no-layer-violation, no-circular-deps, no-forbidden-imports, require-boundary-schema, enforce-doc-exports |
-| [`@harness-engineering/linter-gen`](./packages/linter-gen) | Generate custom ESLint rules from YAML configuration |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server) | MCP server with 15 tools for AI agent integration |
+| [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                     |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 15 tools for AI agent integration                                                                        |
 
 ## Examples
 

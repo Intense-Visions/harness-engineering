@@ -19,10 +19,7 @@ export function defineLayer(
 /**
  * Resolve a file path to its layer
  */
-export function resolveFileToLayer(
-  file: string,
-  layers: Layer[]
-): Layer | undefined {
+export function resolveFileToLayer(file: string, layers: Layer[]): Layer | undefined {
   for (const layer of layers) {
     for (const pattern of layer.patterns) {
       if (minimatch(file, pattern)) {

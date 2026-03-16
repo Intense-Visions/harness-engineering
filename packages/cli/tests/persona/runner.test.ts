@@ -16,7 +16,9 @@ const mockPersona: Persona = {
 
 describe('runPersona', () => {
   it('executes all commands and returns pass report', async () => {
-    const executor: CommandExecutor = vi.fn().mockResolvedValue({ ok: true, value: { valid: true } });
+    const executor: CommandExecutor = vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: { valid: true } });
     const report = await runPersona(mockPersona, executor);
     expect(report.status).toBe('pass');
     expect(report.commands).toHaveLength(2);
@@ -26,7 +28,8 @@ describe('runPersona', () => {
   });
 
   it('fails fast when a command fails', async () => {
-    const executor: CommandExecutor = vi.fn()
+    const executor: CommandExecutor = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true, value: {} })
       .mockResolvedValueOnce({ ok: false, error: new Error('check-deps failed') });
     const report = await runPersona(mockPersona, executor);
@@ -46,12 +49,14 @@ describe('runPersona', () => {
   });
 
   it('marks commands as skipped on timeout', async () => {
-    const slowExecutor: CommandExecutor = vi.fn().mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, value: {} }), 5000))
-    );
+    const slowExecutor: CommandExecutor = vi
+      .fn()
+      .mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, value: {} }), 5000))
+      );
     const persona = { ...mockPersona, config: { ...mockPersona.config, timeout: 50 } };
     const report = await runPersona(persona, slowExecutor);
     expect(report.status).toBe('partial');
-    expect(report.commands.some(c => c.status === 'skipped')).toBe(true);
+    expect(report.commands.some((c) => c.status === 'skipped')).toBe(true);
   });
 });

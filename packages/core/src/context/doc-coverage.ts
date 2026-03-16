@@ -51,11 +51,7 @@ export async function checkDocCoverage(
   domain: string,
   options: CoverageOptions = {}
 ): Promise<Result<CoverageReport, ContextError>> {
-  const {
-    docsDir = './docs',
-    sourceDir = './src',
-    excludePatterns = [],
-  } = options;
+  const { docsDir = './docs', sourceDir = './src', excludePatterns = [] } = options;
 
   try {
     // Find all source files in the domain
@@ -68,8 +64,8 @@ export async function checkDocCoverage(
         // Escape regex special chars, then convert glob patterns
         const escaped = pattern
           .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape regex special chars
-          .replace(/\*\*/g, '.*')                 // ** matches anything
-          .replace(/\*/g, '[^/]*');               // * matches non-slash chars
+          .replace(/\*\*/g, '.*') // ** matches anything
+          .replace(/\*/g, '[^/]*'); // * matches non-slash chars
         const regex = new RegExp('^' + escaped + '$');
         return regex.test(relativePath) || regex.test(file);
       });
@@ -87,9 +83,7 @@ export async function checkDocCoverage(
         const links = extractMarkdownLinks(contentResult.value);
         for (const link of links) {
           // Normalize the path
-          const normalizedPath = link.path
-            .replace(/^\.\.\//, '')
-            .replace(/^\.\//, '');
+          const normalizedPath = link.path.replace(/^\.\.\//, '').replace(/^\.\//, '');
           documentedPaths.add(normalizedPath);
 
           // Also add just the filename for matching
@@ -109,9 +103,10 @@ export async function checkDocCoverage(
       const fileName = basename(sourceFile);
 
       // Check if documented (by full path or filename)
-      const isDocumented = documentedPaths.has(relativePath) ||
-                          documentedPaths.has(fileName) ||
-                          documentedPaths.has(`src/${relativePath}`);
+      const isDocumented =
+        documentedPaths.has(relativePath) ||
+        documentedPaths.has(fileName) ||
+        documentedPaths.has(`src/${relativePath}`);
 
       if (isDocumented) {
         documented.push(relativePath);
@@ -127,9 +122,7 @@ export async function checkDocCoverage(
 
     // Calculate coverage percentage
     const total = documented.length + undocumented.length;
-    const coveragePercentage = total > 0
-      ? Math.round((documented.length / total) * 100)
-      : 100;
+    const coveragePercentage = total > 0 ? Math.round((documented.length / total) * 100) : 100;
 
     return Ok({
       domain,

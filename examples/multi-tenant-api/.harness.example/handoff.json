@@ -6,7 +6,12 @@
   "completed": [],
   "pending": ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5", "Task 6", "Task 7", "Task 8"],
   "concerns": ["Tenant isolation must be verified at both service and integration test levels"],
-  "decisions": [{ "what": "4-layer architecture", "why": "Middleware layer isolates tenant extraction from business logic" }],
+  "decisions": [
+    {
+      "what": "4-layer architecture",
+      "why": "Middleware layer isolates tenant extraction from business logic"
+    }
+  ],
   "blockers": [],
   "contextKeywords": ["multi-tenant", "isolation", "middleware", "zod", "boundary-validation"]
 }

@@ -14,6 +14,10 @@ export function generateRuntime(persona: Persona): Result<string, Error> {
     };
     return Ok(JSON.stringify(config, null, 2));
   } catch (error) {
-    return Err(new Error(`Failed to generate runtime config: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to generate runtime config: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }

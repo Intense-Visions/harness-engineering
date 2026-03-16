@@ -20,7 +20,9 @@ function findUpDir(targetName: string, marker: string, maxLevels = 8): string | 
 }
 
 export function resolveTemplatesDir(): string {
-  return findUpDir('templates', 'base') ?? path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+  return (
+    findUpDir('templates', 'base') ?? path.resolve(__dirname, '..', '..', '..', '..', 'templates')
+  );
 }
 
 export function resolvePersonasDir(): string {

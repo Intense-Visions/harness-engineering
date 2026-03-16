@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { findPossibleMatches, levenshteinDistance, detectDocDrift } from '../../../src/entropy/detectors/drift';
+import {
+  findPossibleMatches,
+  levenshteinDistance,
+  detectDocDrift,
+} from '../../../src/entropy/detectors/drift';
 import { buildSnapshot } from '../../../src/entropy/snapshot';
 import { TypeScriptParser } from '../../../src/shared/parsers';
 import { join } from 'path';
@@ -63,9 +67,9 @@ describe('detectDocDrift', () => {
     if (result.ok) {
       expect(result.value.drifts.length).toBeGreaterThan(0);
 
-      const apiDrifts = result.value.drifts.filter(d => d.type === 'api-signature');
-      expect(apiDrifts.some(d => d.reference === 'getUserById')).toBe(true);
-      expect(apiDrifts.some(d => d.possibleMatches?.includes('findUserById'))).toBe(true);
+      const apiDrifts = result.value.drifts.filter((d) => d.type === 'api-signature');
+      expect(apiDrifts.some((d) => d.reference === 'getUserById')).toBe(true);
+      expect(apiDrifts.some((d) => d.possibleMatches?.includes('findUserById'))).toBe(true);
     }
   });
 
@@ -91,8 +95,8 @@ describe('detectDocDrift', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      const structureDrifts = result.value.drifts.filter(d => d.type === 'structure');
-      expect(structureDrifts.some(d => d.reference.includes('missing-file.ts'))).toBe(true);
+      const structureDrifts = result.value.drifts.filter((d) => d.type === 'structure');
+      expect(structureDrifts.some((d) => d.reference.includes('missing-file.ts'))).toBe(true);
     }
   });
 });

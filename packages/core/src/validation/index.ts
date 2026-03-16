@@ -13,4 +13,10 @@ export { validateConfig } from './config';
 export { validateCommitMessage } from './commit-message';
 
 // Types
-export type { Convention, StructureValidation, ConfigError, CommitFormat, CommitValidation } from './types';
+export type {
+  Convention,
+  StructureValidation,
+  ConfigError,
+  CommitFormat,
+  CommitValidation,
+} from './types';

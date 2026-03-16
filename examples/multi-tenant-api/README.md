@@ -77,15 +77,16 @@ Checks that specs in `docs/specs/` align with the implementation. If the spec sa
 
 ## All Three Personas
 
-| Persona | What it checks |
-|---------|---------------|
-| **Architecture Enforcer** | Layer violations, circular deps, forbidden imports |
-| **Documentation Maintainer** | Doc drift, missing JSDoc on exports |
-| **Entropy Cleaner** | Dead code, stale patterns, unused deps |
+| Persona                      | What it checks                                     |
+| ---------------------------- | -------------------------------------------------- |
+| **Architecture Enforcer**    | Layer violations, circular deps, forbidden imports |
+| **Documentation Maintainer** | Doc drift, missing JSDoc on exports                |
+| **Entropy Cleaner**          | Dead code, stale patterns, unused deps             |
 
 ## Specs and Changes
 
 This project uses the `docs/specs/` + `docs/changes/` convention:
+
 - `docs/specs/` — Source of truth for what the system does today
 - `docs/changes/` — Proposals for new features (empty now, ready for use)
 
@@ -95,13 +96,13 @@ When planning a new feature, create `docs/changes/<feature>/proposal.md` with yo
 
 Check `.harness.example/` to see the full state lifecycle:
 
-| File | What it shows |
-|------|--------------|
-| `state.json` | Position, progress (7/8 tasks), decisions with rationale, enriched lastSession |
-| `learnings.md` | 5 tagged entries across 4 different skills |
-| `failures.md` | 2 dead-ends (AsyncLocalStorage, shared DB pool) |
-| `handoff.json` | Planning → execution context transfer |
-| `archive/failures-2026-03-01.md` | Archived failures from a previous milestone |
+| File                             | What it shows                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| `state.json`                     | Position, progress (7/8 tasks), decisions with rationale, enriched lastSession |
+| `learnings.md`                   | 5 tagged entries across 4 different skills                                     |
+| `failures.md`                    | 2 dead-ends (AsyncLocalStorage, shared DB pool)                                |
+| `handoff.json`                   | Planning → execution context transfer                                          |
+| `archive/failures-2026-03-01.md` | Archived failures from a previous milestone                                    |
 
 ## Try Breaking Constraints
 

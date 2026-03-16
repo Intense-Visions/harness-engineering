@@ -42,7 +42,9 @@ export async function runValidate(
   const config = configResult.value;
 
   // Derive cwd from config file location if not explicitly provided
-  const cwd = options.cwd ?? (options.configPath ? path.dirname(path.resolve(options.configPath)) : process.cwd());
+  const cwd =
+    options.cwd ??
+    (options.configPath ? path.dirname(path.resolve(options.configPath)) : process.cwd());
 
   const result: ValidateResult = {
     valid: true,
@@ -65,7 +67,9 @@ export async function runValidate(
       check: 'agentsMap',
       file: config.agentsMapPath,
       message: agentsResult.error.message,
-      suggestion: agentsResult.error.suggestions?.[0] ?? undefined,
+      ...(agentsResult.error.suggestions?.[0] !== undefined && {
+        suggestion: agentsResult.error.suggestions[0],
+      }),
     });
   }
 

@@ -23,9 +23,7 @@ describe('OutputFormatter', () => {
       const formatter = new OutputFormatter(OutputMode.TEXT);
       const data = {
         valid: false,
-        issues: [
-          { file: 'src/index.ts', message: 'Missing export' },
-        ],
+        issues: [{ file: 'src/index.ts', message: 'Missing export' }],
       };
       const result = formatter.formatValidation(data);
       expect(result).toContain('src/index.ts');

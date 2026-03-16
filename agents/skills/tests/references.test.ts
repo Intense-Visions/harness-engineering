@@ -35,7 +35,10 @@ describe('skill.yaml schema validation', () => {
       const content = readFileSync(resolve(SKILLS_DIR, file), 'utf-8');
       const parsed = parse(content);
       const result = SkillMetadataSchema.safeParse(parsed);
-      expect(result.success, `Schema validation failed for ${file}: ${JSON.stringify(result)}`).toBe(true);
+      expect(
+        result.success,
+        `Schema validation failed for ${file}: ${JSON.stringify(result)}`
+      ).toBe(true);
     });
   }
 });

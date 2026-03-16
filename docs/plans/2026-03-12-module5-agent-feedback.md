@@ -63,6 +63,7 @@ packages/core/tests/feedback/
 ### Task 1: Create feedback types.ts
 
 **Files:**
+
 - Create: `packages/core/src/feedback/types.ts`
 - Test: `packages/core/tests/feedback/types.test.ts`
 
@@ -436,11 +437,7 @@ export interface ActionResult {
   data?: unknown;
 }
 
-export type ActionEventType =
-  | 'action:started'
-  | 'action:completed'
-  | 'action:failed'
-  | 'action:*';
+export type ActionEventType = 'action:started' | 'action:completed' | 'action:failed' | 'action:*';
 
 export interface ActionEvent {
   type: ActionEventType;
@@ -475,9 +472,16 @@ export interface TelemetryAdapter {
 export interface AgentExecutor {
   readonly name: string;
   health(): Promise<import('../shared/result').Result<ExecutorHealth, FeedbackError>>;
-  spawn(config: AgentConfig): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
-  status(processId: string): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
-  wait(processId: string, timeout?: number): Promise<import('../shared/result').Result<PeerReview, FeedbackError>>;
+  spawn(
+    config: AgentConfig
+  ): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
+  status(
+    processId: string
+  ): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
+  wait(
+    processId: string,
+    timeout?: number
+  ): Promise<import('../shared/result').Result<PeerReview, FeedbackError>>;
   kill(processId: string): Promise<import('../shared/result').Result<void, FeedbackError>>;
 }
 
@@ -490,8 +494,13 @@ export interface ActionSink {
 
 export interface ActionTracker {
   readonly action: AgentAction;
-  complete(result: ActionResult): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
-  fail(error: { code: string; message: string }): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
+  complete(
+    result: ActionResult
+  ): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
+  fail(error: {
+    code: string;
+    message: string;
+  }): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
 }
 ```
 
@@ -521,6 +530,7 @@ git commit -m "feat(feedback): add type definitions for agent feedback module"
 ### Task 2: Create feedback config.ts
 
 **Files:**
+
 - Create: `packages/core/src/feedback/config.ts`
 - Test: `packages/core/tests/feedback/config.test.ts`
 
@@ -583,11 +593,7 @@ Expected: FAIL - Cannot find module
 
 ```typescript
 // packages/core/src/feedback/config.ts
-import type {
-  TelemetryAdapter,
-  AgentExecutor,
-  ActionSink,
-} from './types';
+import type { TelemetryAdapter, AgentExecutor, ActionSink } from './types';
 // Direct imports - these are small NoOp classes, no circular dependency issue
 import { NoOpTelemetryAdapter } from './telemetry/noop';
 import { NoOpExecutor } from './executor/noop';
@@ -642,7 +648,16 @@ Create minimal stubs so config.ts can load:
 ```typescript
 // packages/core/src/feedback/telemetry/noop.ts
 import { Ok } from '../../shared/result';
-import type { TelemetryAdapter, TelemetryHealth, Metric, Trace, LogEntry, FeedbackError, TimeRange, LogFilter } from '../types';
+import type {
+  TelemetryAdapter,
+  TelemetryHealth,
+  Metric,
+  Trace,
+  LogEntry,
+  FeedbackError,
+  TimeRange,
+  LogFilter,
+} from '../types';
 import type { Result } from '../../shared/result';
 
 export class NoOpTelemetryAdapter implements TelemetryAdapter {
@@ -669,7 +684,14 @@ export class NoOpTelemetryAdapter implements TelemetryAdapter {
 ```typescript
 // packages/core/src/feedback/executor/noop.ts
 import { Ok, Err } from '../../shared/result';
-import type { AgentExecutor, ExecutorHealth, AgentConfig, AgentProcess, PeerReview, FeedbackError } from '../types';
+import type {
+  AgentExecutor,
+  ExecutorHealth,
+  AgentConfig,
+  AgentProcess,
+  PeerReview,
+  FeedbackError,
+} from '../types';
 import type { Result } from '../../shared/result';
 
 export class NoOpExecutor implements AgentExecutor {
@@ -758,9 +780,8 @@ export class ConsoleSink implements ActionSink {
   }
 
   async write(action: AgentAction): Promise<Result<void, FeedbackError>> {
-    const output = this.options.format === 'json'
-      ? JSON.stringify(action)
-      : this.formatPretty(action);
+    const output =
+      this.options.format === 'json' ? JSON.stringify(action) : this.formatPretty(action);
 
     console.log(output);
     return Ok(undefined);
@@ -794,6 +815,7 @@ git commit -m "feat(feedback): add module configuration and NoOp stubs"
 ### Task 3: Update shared/errors.ts with new FeedbackError codes
 
 **Files:**
+
 - Modify: `packages/core/src/shared/errors.ts`
 - Test: `packages/core/tests/shared/errors.test.ts`
 
@@ -828,12 +850,7 @@ describe('FeedbackError', () => {
   });
 
   it('should create SINK_ERROR', () => {
-    const error = createError<FeedbackError>(
-      'SINK_ERROR',
-      'Failed to write to sink',
-      {},
-      []
-    );
+    const error = createError<FeedbackError>('SINK_ERROR', 'Failed to write to sink', {}, []);
     expect(error.code).toBe('SINK_ERROR');
   });
 });
@@ -891,6 +908,7 @@ git commit -m "feat(feedback): add FeedbackError codes to shared errors"
 ### Task 4: Implement NoOpTelemetryAdapter with full tests
 
 **Files:**
+
 - Modify: `packages/core/src/feedback/telemetry/noop.ts`
 - Create: `packages/core/tests/feedback/telemetry/noop.test.ts`
 
@@ -989,6 +1007,7 @@ git commit -m "test(feedback): add NoOpTelemetryAdapter tests"
 ### Task 5: Implement NoOpExecutor with full tests
 
 **Files:**
+
 - Modify: `packages/core/src/feedback/executor/noop.ts`
 - Create: `packages/core/tests/feedback/executor/noop.test.ts`
 
@@ -1126,6 +1145,7 @@ git commit -m "test(feedback): add NoOpExecutor tests"
 ### Task 6: Implement AgentActionEmitter
 
 **Files:**
+
 - Create: `packages/core/src/feedback/logging/emitter.ts`
 - Create: `packages/core/tests/feedback/logging/emitter.test.ts`
 
@@ -1463,10 +1483,7 @@ export async function logAgentAction(
   return Ok(fullAction);
 }
 
-export function trackAction(
-  type: ActionType,
-  context: ActionContext
-): ActionTracker {
+export function trackAction(type: ActionType, context: ActionContext): ActionTracker {
   const startTime = Date.now();
   const action: AgentAction = {
     id: crypto.randomUUID(),
@@ -1499,7 +1516,10 @@ export function trackAction(
       return logAgentAction(action);
     },
 
-    async fail(error: { code: string; message: string }): Promise<Result<AgentAction, FeedbackError>> {
+    async fail(error: {
+      code: string;
+      message: string;
+    }): Promise<Result<AgentAction, FeedbackError>> {
       action.status = 'failed';
       action.duration = Date.now() - startTime;
       action.error = error;
@@ -1547,6 +1567,7 @@ git commit -m "feat(feedback): implement AgentActionEmitter and action tracking"
 ### Task 7: Implement ConsoleSink with tests
 
 **Files:**
+
 - Modify: `packages/core/src/feedback/logging/console-sink.ts`
 - Create: `packages/core/tests/feedback/logging/console-sink.test.ts`
 
@@ -1653,6 +1674,7 @@ git commit -m "test(feedback): add ConsoleSink tests"
 ### Task 8: Implement FileSink
 
 **Files:**
+
 - Create: `packages/core/src/feedback/logging/file-sink.ts`
 - Create: `packages/core/tests/feedback/logging/file-sink.test.ts`
 
@@ -1870,6 +1892,7 @@ git commit -m "feat(feedback): implement FileSink for action logging"
 ### Task 9: Implement diff-analyzer
 
 **Files:**
+
 - Create: `packages/core/src/feedback/review/diff-analyzer.ts`
 - Create: `packages/core/tests/feedback/review/diff-analyzer.test.ts`
 
@@ -1970,7 +1993,7 @@ describe('analyzeDiff()', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBeGreaterThan(0);
-      expect(result.value.some(item => item.check.includes('console.log'))).toBe(true);
+      expect(result.value.some((item) => item.check.includes('console.log'))).toBe(true);
     }
   });
 
@@ -1992,7 +2015,7 @@ describe('analyzeDiff()', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.some(item => item.check.includes('files'))).toBe(true);
+      expect(result.value.some((item) => item.check.includes('files'))).toBe(true);
     }
   });
 
@@ -2103,9 +2126,10 @@ export async function analyzeDiff(
   // Check forbidden patterns
   if (options.forbiddenPatterns) {
     for (const forbidden of options.forbiddenPatterns) {
-      const pattern = typeof forbidden.pattern === 'string'
-        ? new RegExp(forbidden.pattern, 'g')
-        : forbidden.pattern;
+      const pattern =
+        typeof forbidden.pattern === 'string'
+          ? new RegExp(forbidden.pattern, 'g')
+          : forbidden.pattern;
 
       if (pattern.test(changes.diff)) {
         items.push({
@@ -2155,17 +2179,17 @@ export async function analyzeDiff(
 
   // Check for test coverage (new .ts files without corresponding .test.ts)
   if (options.checkTestCoverage) {
-    const addedSourceFiles = changes.files
-      .filter(f => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.'));
+    const addedSourceFiles = changes.files.filter(
+      (f) => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.')
+    );
 
-    const testFiles = changes.files
-      .filter(f => f.path.includes('.test.'));
+    const testFiles = changes.files.filter((f) => f.path.includes('.test.'));
 
     for (const sourceFile of addedSourceFiles) {
       const expectedTestPath = sourceFile.path.replace('.ts', '.test.ts');
-      const hasTest = testFiles.some(t =>
-        t.path.includes(expectedTestPath) ||
-        t.path.includes(sourceFile.path.replace('.ts', ''))
+      const hasTest = testFiles.some(
+        (t) =>
+          t.path.includes(expectedTestPath) || t.path.includes(sourceFile.path.replace('.ts', ''))
       );
 
       if (!hasTest) {
@@ -2207,6 +2231,7 @@ git commit -m "feat(feedback): implement diff parsing and analysis"
 ### Task 10: Implement ChecklistBuilder
 
 **Files:**
+
 - Create: `packages/core/src/feedback/review/checklist.ts`
 - Create: `packages/core/tests/feedback/review/checklist.test.ts`
 
@@ -2288,13 +2313,12 @@ describe('ChecklistBuilder', () => {
   });
 
   it('should include diff analysis', async () => {
-    const builder = new ChecklistBuilder(rootDir)
-      .withDiffAnalysis({
-        enabled: true,
-        forbiddenPatterns: [
-          { pattern: 'console.log', message: 'No console.log', severity: 'warning' },
-        ],
-      });
+    const builder = new ChecklistBuilder(rootDir).withDiffAnalysis({
+      enabled: true,
+      forbiddenPatterns: [
+        { pattern: 'console.log', message: 'No console.log', severity: 'warning' },
+      ],
+    });
 
     const result = await builder.run(changes);
 
@@ -2440,8 +2464,10 @@ export class ChecklistBuilder {
           check: 'Architectural Constraints (dependencies, boundaries)',
           passed: true,
           severity: 'info',
-          details: 'Harness constraints validation not yet integrated. See Module 3 (constraints/).',
-          suggestion: 'Integrate with validateDependencies(), detectCircularDeps() from constraints module',
+          details:
+            'Harness constraints validation not yet integrated. See Module 3 (constraints/).',
+          suggestion:
+            'Integrate with validateDependencies(), detectCircularDeps() from constraints module',
         });
       }
       if (this.harnessOptions.entropy) {
@@ -2493,10 +2519,10 @@ export class ChecklistBuilder {
     }
 
     // Calculate summary
-    const passed = items.filter(i => i.passed).length;
-    const failed = items.filter(i => !i.passed).length;
-    const errors = items.filter(i => !i.passed && i.severity === 'error').length;
-    const warnings = items.filter(i => !i.passed && i.severity === 'warning').length;
+    const passed = items.filter((i) => i.passed).length;
+    const failed = items.filter((i) => !i.passed).length;
+    const errors = items.filter((i) => !i.passed && i.severity === 'error').length;
+    const warnings = items.filter((i) => !i.passed && i.severity === 'warning').length;
 
     const checklist: ReviewChecklist = {
       items,
@@ -2536,6 +2562,7 @@ git commit -m "feat(feedback): implement ChecklistBuilder for custom review rule
 ### Task 11: Implement createSelfReview
 
 **Files:**
+
 - Create: `packages/core/src/feedback/review/self-review.ts`
 - Create: `packages/core/tests/feedback/review/self-review.test.ts`
 
@@ -2604,7 +2631,7 @@ describe('createSelfReview()', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.items.some(i => i.id === 'custom-1')).toBe(true);
+      expect(result.value.items.some((i) => i.id === 'custom-1')).toBe(true);
     }
   });
 
@@ -2663,12 +2690,7 @@ Expected: FAIL - Cannot find module
 ```typescript
 // packages/core/src/feedback/review/self-review.ts
 import type { Result } from '../../shared/result';
-import type {
-  CodeChanges,
-  ReviewChecklist,
-  SelfReviewConfig,
-  FeedbackError,
-} from '../types';
+import type { CodeChanges, ReviewChecklist, SelfReviewConfig, FeedbackError } from '../types';
 import { ChecklistBuilder } from './checklist';
 
 export async function createSelfReview(
@@ -2719,6 +2741,7 @@ git commit -m "feat(feedback): implement createSelfReview function"
 ### Task 12: Implement requestPeerReview
 
 **Files:**
+
 - Create: `packages/core/src/feedback/review/peer-review.ts`
 - Create: `packages/core/tests/feedback/review/peer-review.test.ts`
 
@@ -2727,7 +2750,10 @@ git commit -m "feat(feedback): implement createSelfReview function"
 ```typescript
 // packages/core/tests/feedback/review/peer-review.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { requestPeerReview, requestMultiplePeerReviews } from '../../../src/feedback/review/peer-review';
+import {
+  requestPeerReview,
+  requestMultiplePeerReviews,
+} from '../../../src/feedback/review/peer-review';
 import { configureFeedback, resetFeedbackConfig } from '../../../src/feedback/config';
 import { NoOpExecutor } from '../../../src/feedback/executor/noop';
 import { NoOpSink } from '../../../src/feedback/logging/sink';
@@ -2943,13 +2969,13 @@ export async function requestMultiplePeerReviews(
   );
 
   // Check if any failed
-  const firstError = results.find(r => !r.ok);
+  const firstError = results.find((r) => !r.ok);
   if (firstError && !firstError.ok) {
     return Err(firstError.error);
   }
 
   // All succeeded
-  return Ok(results.map(r => (r as { ok: true; value: PeerReview }).value));
+  return Ok(results.map((r) => (r as { ok: true; value: PeerReview }).value));
 }
 ```
 
@@ -2975,6 +3001,7 @@ git commit -m "feat(feedback): implement peer review orchestration"
 ### Task 13: Create feedback/index.ts exports
 
 **Files:**
+
 - Create: `packages/core/src/feedback/index.ts`
 
 - [ ] **Step 1: Write test for exports**
@@ -3136,6 +3163,7 @@ git commit -m "feat(feedback): add module index with all public exports"
 ### Task 14: Update main package index.ts
 
 **Files:**
+
 - Modify: `packages/core/src/index.ts`
 
 - [ ] **Step 1: Write test for main exports**
@@ -3182,6 +3210,7 @@ git commit -m "feat(core): export feedback module from main package"
 ### Task 15: Create integration test
 
 **Files:**
+
 - Create: `packages/core/tests/feedback/integration/full-workflow.test.ts`
 
 - [ ] **Step 1: Write integration test**
@@ -3255,7 +3284,7 @@ describe('Feedback Module Integration', () => {
       expect(reviewResult.value.items.length).toBeGreaterThanOrEqual(1);
       expect(reviewResult.value.summary).toBeDefined();
       // Verify our custom rule ran
-      expect(reviewResult.value.items.some(i => i.id === 'has-commit-message')).toBe(true);
+      expect(reviewResult.value.items.some((i) => i.id === 'has-commit-message')).toBe(true);
     }
 
     unsubscribe();
@@ -3299,7 +3328,7 @@ describe('Feedback Module Integration', () => {
 
     // Then peer review
     const peerReview = await requestPeerReview('test-reviewer', {
-      files: changes.files.map(f => f.path),
+      files: changes.files.map((f) => f.path),
       diff: changes.diff,
       commitMessage: changes.commitMessage,
     });
@@ -3337,12 +3366,14 @@ git commit -m "test(feedback): add integration tests for complete workflow"
 ### Task 16: Update package version
 
 **Files:**
+
 - Modify: `packages/core/package.json`
 - Modify: `packages/core/src/index.ts`
 
 - [ ] **Step 1: Bump version to 0.5.0**
 
 Update `packages/core/package.json`:
+
 ```json
 {
   "version": "0.5.0"
@@ -3350,6 +3381,7 @@ Update `packages/core/package.json`:
 ```
 
 Update `packages/core/src/index.ts`:
+
 ```typescript
 export const VERSION = '0.5.0';
 ```
@@ -3382,6 +3414,7 @@ This plan implements Module 5: Agent Feedback in 16 tasks across 5 chunks:
 5. **Chunk 5: Integration** - Module exports, main package integration, integration tests
 
 Each task follows TDD with:
+
 - Write failing test
 - Implement minimal code
 - Verify test passes

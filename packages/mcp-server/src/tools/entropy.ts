@@ -24,7 +24,15 @@ export async function handleDetectEntropy(input: { path: string }) {
     const result = await analyzer.analyze();
     return resultToMcpResponse(result);
   } catch (error) {
-    return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
   }
 }
 
@@ -63,6 +71,14 @@ export async function handleApplyFixes(input: { path: string; dryRun?: boolean }
     const applied = await applyFixes(fixes, {});
     return resultToMcpResponse(applied);
   } catch (error) {
-    return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
   }
 }

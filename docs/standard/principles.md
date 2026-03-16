@@ -172,14 +172,14 @@ Agents know exactly what's allowed and can be held to the same standards.
 
 When assembling context for a skill or workflow, allocate the available context window using these recommended proportions:
 
-| Category | Budget | Purpose |
-|----------|--------|---------|
-| System prompt / skill instructions | 15% | Behavioral guidance, skill process, and constraints |
-| Project manifest (AGENTS.md, config) | 5% | Project structure, conventions, layer definitions |
-| Task specification | 20% | What to do — the spec, plan, or user request |
-| Active code (under review/edit) | 40% | The primary work material — source files, diffs, tests |
-| Interfaces and type definitions | 10% | Structural context — types, schemas, API contracts |
-| Reserve (agent reasoning) | 10% | Working memory for the agent's chain-of-thought |
+| Category                             | Budget | Purpose                                                |
+| ------------------------------------ | ------ | ------------------------------------------------------ |
+| System prompt / skill instructions   | 15%    | Behavioral guidance, skill process, and constraints    |
+| Project manifest (AGENTS.md, config) | 5%     | Project structure, conventions, layer definitions      |
+| Task specification                   | 20%    | What to do — the spec, plan, or user request           |
+| Active code (under review/edit)      | 40%    | The primary work material — source files, diffs, tests |
+| Interfaces and type definitions      | 10%    | Structural context — types, schemas, API contracts     |
+| Reserve (agent reasoning)            | 10%    | Working memory for the agent's chain-of-thought        |
 
 **How to use these budgets:**
 
@@ -1116,7 +1116,7 @@ Context Density = 0.31 ✓ (above target of 0.3)
 
 > **If an operation can be expressed as if-else logic, it MUST be enforced mechanically — not delegated to LLM judgment.**
 
-This principle extends [Principle 2 (Architectural Rigidity)](#2-architectural-rigidity--mechanical-constraints) from *what to enforce* to *how to decide what to enforce*. Principle 2 says "use mechanical constraints." This principle says "here is the line between what the machine handles and what the LLM handles."
+This principle extends [Principle 2 (Architectural Rigidity)](#2-architectural-rigidity--mechanical-constraints) from _what to enforce_ to _how to decide what to enforce_. Principle 2 says "use mechanical constraints." This principle says "here is the line between what the machine handles and what the LLM handles."
 
 ### Why It Matters
 
@@ -1140,20 +1140,20 @@ With a clear split:
 
 #### The Responsibility Matrix
 
-| Responsibility | Owner | Examples |
-|---------------|-------|----------|
-| Intent understanding | LLM | "What does the user want to build?" |
-| Architectural reasoning | LLM | "Should this be a service or a utility?" |
-| Code generation | LLM | Writing implementation code |
-| Debugging decisions | LLM | "What's causing this failure?" |
-| Ambiguous trade-offs | LLM | "Should we optimize for speed or readability?" |
-| Formatting | Mechanical | Prettier, Black, gofmt |
-| Import ordering | Mechanical | ESLint import-order rules |
-| Naming conventions | Mechanical | Linter rules for file/variable naming |
-| File structure validation | Mechanical | Structural tests, directory layout checks |
-| Test execution | Mechanical | Test runners, CI pipelines |
-| Type checking | Mechanical | TypeScript compiler, mypy, rustc |
-| Dependency direction | Mechanical | Custom linter rules (see Principle 2) |
+| Responsibility            | Owner      | Examples                                       |
+| ------------------------- | ---------- | ---------------------------------------------- |
+| Intent understanding      | LLM        | "What does the user want to build?"            |
+| Architectural reasoning   | LLM        | "Should this be a service or a utility?"       |
+| Code generation           | LLM        | Writing implementation code                    |
+| Debugging decisions       | LLM        | "What's causing this failure?"                 |
+| Ambiguous trade-offs      | LLM        | "Should we optimize for speed or readability?" |
+| Formatting                | Mechanical | Prettier, Black, gofmt                         |
+| Import ordering           | Mechanical | ESLint import-order rules                      |
+| Naming conventions        | Mechanical | Linter rules for file/variable naming          |
+| File structure validation | Mechanical | Structural tests, directory layout checks      |
+| Test execution            | Mechanical | Test runners, CI pipelines                     |
+| Type checking             | Mechanical | TypeScript compiler, mypy, rustc               |
+| Dependency direction      | Mechanical | Custom linter rules (see Principle 2)          |
 
 #### The Decision Heuristic
 
@@ -1197,10 +1197,12 @@ Every skill that produces or modifies code should include a `## Deterministic Ch
 ## Deterministic Checks
 
 ### Pre-Execution
+
 - [ ] Target files exist and are readable
 - [ ] Required tools are available (e.g., `tsc`, `eslint`)
 
 ### Post-Execution
+
 - [ ] Linter passes on all modified files
 - [ ] Type checker passes
 - [ ] Tests pass (existing + new)
@@ -1249,6 +1251,7 @@ Decision: **LLM judgment** (documented as review guidance)
 ## Review Guidance: Abstraction Quality
 
 When reviewing service code, consider:
+
 - Does each service have a single domain concept?
 - Are there signs of a god object (>5 public methods)?
 - Could any method be extracted to a shared utility?

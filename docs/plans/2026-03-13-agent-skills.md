@@ -62,6 +62,7 @@ agents/
 ### Task 1: Initialize Skills Package
 
 **Files:**
+
 - Create: `agents/skills/package.json`
 - Create: `agents/skills/tsconfig.json`
 - Create: `agents/skills/vitest.config.mts`
@@ -70,6 +71,7 @@ agents/
 - [ ] **Step 1: Create directory structure**
 
 Run:
+
 ```bash
 mkdir -p agents/skills/tests agents/skills/shared/success-criteria agents/skills/claude-code agents/skills/gemini-cli
 ```
@@ -155,6 +157,7 @@ git commit -m "chore(skills): initialize skills package with test infrastructure
 ### Task 2: Create Schema and Schema Tests
 
 **Files:**
+
 - Create: `agents/skills/tests/schema.ts`
 - Create: `agents/skills/tests/schema.test.ts`
 
@@ -284,6 +287,7 @@ git commit -m "feat(skills): add skill metadata schema with validation"
 ### Task 3: Create Prompt Lint Tests
 
 **Files:**
+
 - Create: `agents/skills/tests/prompt-lint.test.ts`
 
 - [ ] **Step 1: Write prompt lint test**
@@ -361,6 +365,7 @@ git commit -m "feat(skills): add prompt.md lint tests"
 ### Task 4: Create Includes Validation Tests
 
 **Files:**
+
 - Create: `agents/skills/tests/includes.test.ts`
 
 - [ ] **Step 1: Write includes validation test**
@@ -443,6 +448,7 @@ git commit -m "feat(skills): add includes validation tests"
 ### Task 5: Create Shared Fragments
 
 **Files:**
+
 - Create: `agents/skills/shared/cli-invocation.md`
 - Create: `agents/skills/shared/json-parsing.md`
 - Create: `agents/skills/shared/success-criteria/validation.md`
@@ -451,8 +457,9 @@ git commit -m "feat(skills): add includes validation tests"
 
 - [ ] **Step 1: Create cli-invocation.md**
 
-```markdown
+````markdown
 <!-- agents/skills/shared/cli-invocation.md -->
+
 # CLI Invocation Pattern
 
 ## Running Harness Commands
@@ -462,20 +469,22 @@ All harness CLI commands support `--json` flag for structured output:
 ```bash
 harness <command> --json
 ```
+````
 
 ## Exit Codes
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| 0 | Success | Report success, proceed |
-| 1 | Validation failed | Parse issues from JSON, report each |
-| 2 | Error | Report error message, suggest fix |
+| Code | Meaning           | Action                              |
+| ---- | ----------------- | ----------------------------------- |
+| 0    | Success           | Report success, proceed             |
+| 1    | Validation failed | Parse issues from JSON, report each |
+| 2    | Error             | Report error message, suggest fix   |
 
 ## Tool Usage
 
 **Claude Code:** Use the `Bash` tool
 **Gemini CLI:** Use the `shell` tool
-```
+
+````
 
 - [ ] **Step 2: Create json-parsing.md**
 
@@ -503,7 +512,7 @@ harness <command> --json
     "warnings": 3
   }
 }
-```
+````
 
 ## Handling Results
 
@@ -511,7 +520,8 @@ harness <command> --json
 2. If `false`, iterate through `issues` array
 3. Report each issue with file location
 4. Provide actionable fix suggestions
-```
+
+````
 
 - [ ] **Step 3: Create success-criteria/validation.md**
 
@@ -525,12 +535,13 @@ harness <command> --json
 - [ ] Documentation coverage meets threshold (default: 80%)
 - [ ] Knowledge map has no broken references
 - [ ] harness.config.json exists and is valid
-```
+````
 
 - [ ] **Step 4: Create success-criteria/architecture.md**
 
 ```markdown
 <!-- agents/skills/shared/success-criteria/architecture.md -->
+
 # Architecture Success Criteria
 
 - [ ] No layer boundary violations detected
@@ -544,6 +555,7 @@ harness <command> --json
 
 ```markdown
 <!-- agents/skills/shared/success-criteria/documentation.md -->
+
 # Documentation Success Criteria
 
 - [ ] All public exports have documentation
@@ -566,6 +578,7 @@ git commit -m "feat(skills): add shared prompt fragments"
 ### Task 6: Create validate-context-engineering Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/validate-context-engineering/skill.yaml`
 - Create: `agents/skills/claude-code/validate-context-engineering/prompt.md`
 - Create: `agents/skills/claude-code/validate-context-engineering/README.md`
@@ -597,7 +610,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Validate Context Engineering
 
 Validate this repository's context engineering practices: AGENTS.md structure, documentation coverage, and knowledge map integrity.
@@ -616,9 +629,11 @@ Use this skill to verify that a project follows harness engineering context prac
 1. **Run validation command** — Execute the harness validate command with JSON output:
 
    Use the Bash tool:
+
    ```bash
    harness validate --json
    ```
+````
 
 2. **Check exit code**
    - Exit 0: Validation passed
@@ -626,6 +641,7 @@ Use this skill to verify that a project follows harness engineering context prac
    - Exit 2: Error (config missing, CLI error)
 
 3. **Parse JSON output** — Extract the validation result:
+
    ```json
    {
      "valid": true|false,
@@ -658,11 +674,11 @@ Use this skill to verify that a project follows harness engineering context prac
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Config not found | Missing harness.config.json | Run `harness init` to create config |
-| AGENTS.md not found | Missing context file | Create AGENTS.md or run `harness init` |
-| CLI not installed | harness command not available | Install with `npm install -g @harness-engineering/cli` |
+| Error               | Cause                         | Resolution                                             |
+| ------------------- | ----------------------------- | ------------------------------------------------------ |
+| Config not found    | Missing harness.config.json   | Run `harness init` to create config                    |
+| AGENTS.md not found | Missing context file          | Create AGENTS.md or run `harness init`                 |
+| CLI not installed   | harness command not available | Install with `npm install -g @harness-engineering/cli` |
 
 ## Examples
 
@@ -701,7 +717,8 @@ $ harness validate --json
 ```
 
 Report: "Validation failed. Found 1 issue in AGENTS.md:15 - broken link to ./docs/api.md. Fix by updating the link or creating the missing file."
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -725,13 +742,14 @@ Invoke this skill when you want to verify that a project follows harness enginee
 
 ```bash
 harness validate --json
-```
+````
 
 ## Related Skills
 
 - `enforce-architecture` - Validates layer boundaries
 - `check-mechanical-constraints` - Runs both validation and architecture checks
-```
+
+````
 
 - [ ] **Step 4: Run tests to verify skill validates**
 
@@ -743,13 +761,14 @@ Expected: PASS (skill.yaml validates, prompt.md has required sections)
 ```bash
 git add agents/skills/claude-code/validate-context-engineering/
 git commit -m "feat(skills): add validate-context-engineering skill for Claude Code"
-```
+````
 
 ---
 
 ### Task 7: Create enforce-architecture Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/enforce-architecture/skill.yaml`
 - Create: `agents/skills/claude-code/enforce-architecture/prompt.md`
 - Create: `agents/skills/claude-code/enforce-architecture/README.md`
@@ -781,7 +800,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Enforce Architecture
 
 Validate architectural layer boundaries and detect circular dependencies in the codebase.
@@ -800,9 +819,11 @@ Use this skill to verify that imports respect the configured layer hierarchy and
 1. **Run dependency check** — Execute the harness check-deps command:
 
    Use the Bash tool:
+
    ```bash
    harness check-deps --json
    ```
+````
 
 2. **Check exit code**
    - Exit 0: No violations
@@ -810,6 +831,7 @@ Use this skill to verify that imports respect the configured layer hierarchy and
    - Exit 2: Error
 
 3. **Parse JSON output** — Extract violations:
+
    ```json
    {
      "valid": false,
@@ -844,10 +866,10 @@ Use this skill to verify that imports respect the configured layer hierarchy and
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
+| Error                | Cause                              | Resolution                   |
+| -------------------- | ---------------------------------- | ---------------------------- |
 | No layers configured | harness.config.json missing layers | Add `layers` array to config |
-| Parse error | TypeScript syntax error | Fix syntax error first |
+| Parse error          | TypeScript syntax error            | Fix syntax error first       |
 
 ## Examples
 
@@ -869,7 +891,8 @@ Circular dependency detected:
 
 Suggestion: Extract shared code from src/a.ts into a new module that both can import.
 ```
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -892,7 +915,7 @@ Run this skill to ensure code changes don't violate architectural constraints.
 
 ```bash
 harness check-deps --json
-```
+````
 
 ## Configuration
 
@@ -912,7 +935,8 @@ Layers are configured in `harness.config.json`:
 
 - `validate-context-engineering` - Validates context practices
 - `check-mechanical-constraints` - Runs both checks together
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -924,13 +948,14 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/enforce-architecture/
 git commit -m "feat(skills): add enforce-architecture skill for Claude Code"
-```
+````
 
 ---
 
 ### Task 8: Create check-mechanical-constraints Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/check-mechanical-constraints/skill.yaml`
 - Create: `agents/skills/claude-code/check-mechanical-constraints/prompt.md`
 - Create: `agents/skills/claude-code/check-mechanical-constraints/README.md`
@@ -962,7 +987,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Check Mechanical Constraints
 
 Run all mechanical constraint checks: context engineering validation and architectural enforcement.
@@ -981,13 +1006,16 @@ This is the comprehensive check that combines `validate-context-engineering` and
 1. **Run context validation** — Execute validation first:
 
    Use the Bash tool:
+
    ```bash
    harness validate --json
    ```
+````
 
 2. **Run architecture check** — Then check dependencies:
 
    Use the Bash tool:
+
    ```bash
    harness check-deps --json
    ```
@@ -1014,10 +1042,10 @@ This is the comprehensive check that combines `validate-context-engineering` and
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| First check fails | Config or CLI issue | Fix config before proceeding |
-| Mixed results | Some checks pass, others fail | Address failures individually |
+| Error             | Cause                         | Resolution                    |
+| ----------------- | ----------------------------- | ----------------------------- |
+| First check fails | Config or CLI issue           | Fix config before proceeding  |
+| Mixed results     | Some checks pass, others fail | Address failures individually |
 
 ## Examples
 
@@ -1048,7 +1076,8 @@ Architecture: FAIL
 
 See individual issues above for fix guidance.
 ```
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -1070,13 +1099,14 @@ Use this skill for comprehensive validation before merging or deploying.
 
 ```bash
 harness validate --json && harness check-deps --json
-```
+````
 
 ## Related Skills
 
 - `validate-context-engineering` - Context checks only
 - `enforce-architecture` - Architecture checks only
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -1088,7 +1118,7 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/check-mechanical-constraints/
 git commit -m "feat(skills): add check-mechanical-constraints skill for Claude Code"
-```
+````
 
 ---
 
@@ -1097,6 +1127,7 @@ git commit -m "feat(skills): add check-mechanical-constraints skill for Claude C
 ### Task 9: Create harness-tdd Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-tdd/skill.yaml`
 - Create: `agents/skills/claude-code/harness-tdd/prompt.md`
 - Create: `agents/skills/claude-code/harness-tdd/README.md`
@@ -1125,7 +1156,7 @@ includes: []
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Harness TDD Workflow
 
 Guide test-driven development with harness engineering validation integrated at each step.
@@ -1159,10 +1190,12 @@ Use this skill when implementing new features or fixing bugs. TDD ensures code i
      });
    });
    ```
+````
 
 3. **Run test to confirm it fails**
 
    Use the Bash tool:
+
    ```bash
    pnpm test -- path/to/test.ts
    ```
@@ -1179,6 +1212,7 @@ Use this skill when implementing new features or fixing bugs. TDD ensures code i
 5. **Run test to confirm it passes**
 
    Use the Bash tool:
+
    ```bash
    pnpm test -- path/to/test.ts
    ```
@@ -1188,6 +1222,7 @@ Use this skill when implementing new features or fixing bugs. TDD ensures code i
 6. **Run harness validation**
 
    Use the Bash tool:
+
    ```bash
    harness validate --json && harness check-deps --json
    ```
@@ -1203,6 +1238,7 @@ Use this skill when implementing new features or fixing bugs. TDD ensures code i
 8. **Commit**
 
    Use the Bash tool:
+
    ```bash
    git add <files>
    git commit -m "feat: add feature description"
@@ -1218,11 +1254,11 @@ Use this skill when implementing new features or fixing bugs. TDD ensures code i
 
 ## Error Handling
 
-| Situation | Resolution |
-|-----------|------------|
+| Situation               | Resolution                                    |
+| ----------------------- | --------------------------------------------- |
 | Test passes immediately | Test isn't capturing new behavior - revise it |
-| Can't make test pass | Break down into smaller steps |
-| Validation fails | Fix validation issues before committing |
+| Can't make test pass    | Break down into smaller steps                 |
+| Validation fails        | Fix validation issues before committing       |
 
 ## Tips
 
@@ -1230,7 +1266,8 @@ Use this skill when implementing new features or fixing bugs. TDD ensures code i
 - **Fast feedback:** Run tests frequently
 - **Green before commit:** Never commit failing tests
 - **Refactor in green:** Only refactor when tests pass
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -1259,7 +1296,7 @@ Invoke this skill when starting to implement a feature or fix. Follow the steps 
 - **Minimal code:** Write just enough to pass the test
 - **Validate often:** Run harness checks before committing
 - **Small commits:** One logical change per commit
-```
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -1278,6 +1315,7 @@ git commit -m "feat(skills): add harness-tdd workflow skill for Claude Code"
 ### Task 10: Create harness-code-review Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-code-review/skill.yaml`
 - Create: `agents/skills/claude-code/harness-code-review/prompt.md`
 - Create: `agents/skills/claude-code/harness-code-review/README.md`
@@ -1307,7 +1345,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Harness Code Review
 
 Perform structured code review combining automated harness checks with manual review checklist.
@@ -1326,18 +1364,22 @@ Use this skill when reviewing code changes (PRs, commits, or local changes). Com
 1. **Identify changes to review**
 
    Use the Bash tool to see what changed:
+
    ```bash
    git diff --name-only HEAD~1
    ```
+````
 
-   Or for staged changes:
-   ```bash
-   git diff --cached --name-only
-   ```
+Or for staged changes:
+
+```bash
+git diff --cached --name-only
+```
 
 2. **Run automated checks**
 
    Use the Bash tool:
+
    ```bash
    harness validate --json && harness check-deps --json
    ```
@@ -1349,12 +1391,12 @@ Use this skill when reviewing code changes (PRs, commits, or local changes). Com
    For each changed file, read the diff and check:
 
    Use the Bash tool:
+
    ```bash
    git diff HEAD~1 -- <file>
    ```
 
 4. **Apply review checklist**
-
    - [ ] **Intent match:** Do changes match the stated purpose?
    - [ ] **Architecture:** No layer violations or new circular deps?
    - [ ] **Tests:** Are new/changed behaviors tested?
@@ -1367,6 +1409,7 @@ Use this skill when reviewing code changes (PRs, commits, or local changes). Com
 5. **Generate structured feedback**
 
    Use the Bash tool:
+
    ```bash
    harness agent review
    ```
@@ -1387,34 +1430,39 @@ Use this skill when reviewing code changes (PRs, commits, or local changes). Com
 
 ## Error Handling
 
-| Situation | Resolution |
-|-----------|------------|
-| Automated checks fail | Fix automated issues first |
-| Large diff | Break review into logical chunks |
-| Unclear intent | Ask for clarification before reviewing |
+| Situation             | Resolution                             |
+| --------------------- | -------------------------------------- |
+| Automated checks fail | Fix automated issues first             |
+| Large diff            | Break review into logical chunks       |
+| Unclear intent        | Ask for clarification before reviewing |
 
 ## Review Checklist Reference
 
 ### Architecture
+
 - Imports follow layer hierarchy
 - No circular dependencies introduced
 - Module boundaries respected
 
 ### Testing
+
 - New code has tests
 - Edge cases covered
 - Tests are readable and maintainable
 
 ### Documentation
+
 - Public APIs documented
 - Complex logic has comments
 - README updated if needed
 
 ### Security
+
 - No hardcoded secrets
 - Input validation present
 - Proper error messages (no sensitive data leaked)
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -1439,13 +1487,14 @@ Invoke this skill when reviewing PRs or code changes.
 
 ```bash
 harness agent review
-```
+````
 
 ## Related Skills
 
 - `check-mechanical-constraints` - Automated checks only
 - `harness-refactoring` - For making improvements found in review
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -1457,13 +1506,14 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/harness-code-review/
 git commit -m "feat(skills): add harness-code-review workflow skill for Claude Code"
-```
+````
 
 ---
 
 ### Task 11: Create harness-refactoring Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-refactoring/skill.yaml`
 - Create: `agents/skills/claude-code/harness-refactoring/prompt.md`
 - Create: `agents/skills/claude-code/harness-refactoring/README.md`
@@ -1493,7 +1543,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Harness Refactoring
 
 Perform safe refactoring with validation checkpoints before and after changes.
@@ -1515,15 +1565,17 @@ Use this skill when refactoring code (restructuring without changing behavior). 
    Run tests and validation before any changes:
 
    Use the Bash tool:
+
    ```bash
    pnpm test
    ```
+````
 
-   ```bash
-   harness validate --json && harness check-deps --json
-   ```
+```bash
+harness validate --json && harness check-deps --json
+```
 
-   **Important:** Both must pass before proceeding. If not, fix issues first.
+**Important:** Both must pass before proceeding. If not, fix issues first.
 
 2. **Identify refactoring scope**
    - What files/functions will change?
@@ -1536,14 +1588,17 @@ Use this skill when refactoring code (restructuring without changing behavior). 
 
    a. Make a small, focused change
    b. Run tests immediately:
-      ```bash
-      pnpm test
-      ```
+
+   ```bash
+   pnpm test
+   ```
+
    c. If tests fail, revert and try smaller step
 
 4. **Validate after refactoring**
 
    Use the Bash tool:
+
    ```bash
    harness validate --json && harness check-deps --json
    ```
@@ -1553,6 +1608,7 @@ Use this skill when refactoring code (restructuring without changing behavior). 
 5. **Run full test suite**
 
    Use the Bash tool:
+
    ```bash
    pnpm test
    ```
@@ -1562,6 +1618,7 @@ Use this skill when refactoring code (restructuring without changing behavior). 
 6. **Review changes**
 
    Use the Bash tool:
+
    ```bash
    git diff
    ```
@@ -1571,6 +1628,7 @@ Use this skill when refactoring code (restructuring without changing behavior). 
 7. **Commit**
 
    Use the Bash tool:
+
    ```bash
    git add <files>
    git commit -m "refactor: description of refactoring"
@@ -1587,27 +1645,30 @@ Use this skill when refactoring code (restructuring without changing behavior). 
 
 ## Error Handling
 
-| Situation | Resolution |
-|-----------|------------|
-| Baseline tests fail | Fix tests before refactoring |
+| Situation                  | Resolution                           |
+| -------------------------- | ------------------------------------ |
+| Baseline tests fail        | Fix tests before refactoring         |
 | Tests fail during refactor | Revert last change, try smaller step |
-| Validation fails after | Review changes for violations, fix |
-| Behavior changed | Revert and reconsider approach |
+| Validation fails after     | Review changes for violations, fix   |
+| Behavior changed           | Revert and reconsider approach       |
 
 ## Safe Refactoring Patterns
 
 ### Extract Function
+
 1. Identify code block to extract
 2. Write function with extracted code
 3. Replace original code with function call
 4. Run tests
 
 ### Rename
+
 1. Rename symbol
 2. Update all references
 3. Run tests
 
 ### Move
+
 1. Create new location
 2. Move code
 3. Update imports
@@ -1619,7 +1680,8 @@ Use this skill when refactoring code (restructuring without changing behavior). 
 - **Big bang refactor:** Don't change everything at once
 - **Refactor + feature:** Don't add features while refactoring
 - **No tests:** Don't refactor untested code without adding tests first
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -1647,7 +1709,7 @@ Invoke this skill when restructuring code without changing behavior.
 - **Small steps:** One change at a time
 - **Validate often:** Check after each step
 - **No behavior change:** Refactoring is structure-only
-```
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -1668,6 +1730,7 @@ git commit -m "feat(skills): add harness-refactoring workflow skill for Claude C
 ### Task 12: Create detect-doc-drift Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/detect-doc-drift/skill.yaml`
 - Create: `agents/skills/claude-code/detect-doc-drift/prompt.md`
 - Create: `agents/skills/claude-code/detect-doc-drift/README.md`
@@ -1698,7 +1761,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Detect Documentation Drift
 
 Detect documentation that has drifted from the current code state.
@@ -1717,11 +1780,14 @@ Documentation drift occurs when code changes but docs aren't updated. Use this s
 1. **Scan for drift** — Run the drift detection command:
 
    Use the Bash tool:
+
    ```bash
    harness cleanup --type drift --json
    ```
+````
 
 2. **Parse results** — Extract drift findings:
+
    ```json
    {
      "issues": [
@@ -1764,10 +1830,10 @@ Documentation drift occurs when code changes but docs aren't updated. Use this s
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
+| Error             | Cause                  | Resolution                         |
+| ----------------- | ---------------------- | ---------------------------------- |
 | No docs directory | docsDir not configured | Set docsDir in harness.config.json |
-| Parse error | Malformed source file | Fix syntax errors first |
+| Parse error       | Malformed source file  | Fix syntax errors first            |
 
 ## Examples
 
@@ -1789,7 +1855,8 @@ Medium Severity (1):
     Missing: timeout option added to config
     Fix: Document the new timeout option
 ```
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -1813,13 +1880,14 @@ Run periodically or before releases to find stale documentation.
 
 ```bash
 harness cleanup --type drift --json
-```
+````
 
 ## Related Skills
 
 - `align-documentation` - Auto-fix drift issues
 - `cleanup-dead-code` - Find unused code
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -1831,13 +1899,14 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/detect-doc-drift/
 git commit -m "feat(skills): add detect-doc-drift entropy skill for Claude Code"
-```
+````
 
 ---
 
 ### Task 13: Create cleanup-dead-code Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/cleanup-dead-code/skill.yaml`
 - Create: `agents/skills/claude-code/cleanup-dead-code/prompt.md`
 - Create: `agents/skills/claude-code/cleanup-dead-code/README.md`
@@ -1867,7 +1936,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Cleanup Dead Code
 
 Detect unused exports, unreferenced files, and dead code in the codebase.
@@ -1886,11 +1955,14 @@ Dead code increases maintenance burden and cognitive load. Use this skill to ide
 1. **Scan for dead code** — Run detection command:
 
    Use the Bash tool:
+
    ```bash
    harness cleanup --type dead-code --json
    ```
+````
 
 2. **Parse results** — Extract findings:
+
    ```json
    {
      "issues": [
@@ -1938,10 +2010,10 @@ Dead code increases maintenance burden and cognitive load. Use this skill to ide
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| False positive | Dynamic imports | Mark as intentional in config |
-| Entry points flagged | Public API exports | Exclude public API patterns |
+| Error                | Cause              | Resolution                    |
+| -------------------- | ------------------ | ----------------------------- |
+| False positive       | Dynamic imports    | Mark as intentional in config |
+| Entry points flagged | Public API exports | Exclude public API patterns   |
 
 ## Examples
 
@@ -1961,7 +2033,8 @@ Unreferenced Files (1):
   src/old-feature.ts [HIGH confidence]
     No imports found, appears to be legacy code
 ```
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -1984,15 +2057,17 @@ Run periodically to identify cleanup opportunities.
 
 ```bash
 harness cleanup --type dead-code --json
-```
+````
 
 ## Caution
 
 Always verify before removing:
+
 - Dynamic imports may not be detected
 - Public API entry points are intentionally unused internally
 - Test utilities may only be used in test files
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -2004,13 +2079,14 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/cleanup-dead-code/
 git commit -m "feat(skills): add cleanup-dead-code entropy skill for Claude Code"
-```
+````
 
 ---
 
 ### Task 14: Create align-documentation Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/align-documentation/skill.yaml`
 - Create: `agents/skills/claude-code/align-documentation/prompt.md`
 - Create: `agents/skills/claude-code/align-documentation/README.md`
@@ -2041,7 +2117,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Align Documentation
 
 Automatically fix documentation drift issues detected by detect-doc-drift.
@@ -2060,20 +2136,20 @@ After detecting drift, use this skill to automatically update documentation to m
 1. **Run auto-fix** — Execute fix-drift command:
 
    Use the Bash tool:
+
    ```bash
    harness fix-drift --json
    ```
+````
 
 2. **Parse results** — See what was fixed:
+
    ```json
    {
      "fixed": [
        {
          "file": "docs/api.md",
-         "changes": [
-           "Updated createUser signature",
-           "Added email parameter documentation"
-         ]
+         "changes": ["Updated createUser signature", "Added email parameter documentation"]
        }
      ],
      "manual": [
@@ -2088,6 +2164,7 @@ After detecting drift, use this skill to automatically update documentation to m
 3. **Review auto-fixes**
 
    Use the Bash tool to see changes:
+
    ```bash
    git diff docs/
    ```
@@ -2095,6 +2172,7 @@ After detecting drift, use this skill to automatically update documentation to m
 4. **Verify fixes** — Re-run drift detection:
 
    Use the Bash tool:
+
    ```bash
    harness cleanup --type drift --json
    ```
@@ -2111,6 +2189,7 @@ After detecting drift, use this skill to automatically update documentation to m
 6. **Commit changes**
 
    Use the Bash tool:
+
    ```bash
    git add docs/
    git commit -m "docs: align documentation with code changes"
@@ -2126,10 +2205,10 @@ After detecting drift, use this skill to automatically update documentation to m
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| No fixes applied | All issues need manual work | Follow manual fix guidance |
-| Incorrect fix | Auto-fix made wrong assumption | Revert and fix manually |
+| Error            | Cause                          | Resolution                 |
+| ---------------- | ------------------------------ | -------------------------- |
+| No fixes applied | All issues need manual work    | Follow manual fix guidance |
+| Incorrect fix    | Auto-fix made wrong assumption | Revert and fix manually    |
 
 ## Examples
 
@@ -2151,7 +2230,8 @@ Manual attention needed (1 file):
     - Tutorial needs rewrite for new workflow
     - See src/workflow.ts for new approach
 ```
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -2175,12 +2255,13 @@ Run after `detect-doc-drift` to automatically fix issues.
 
 ```bash
 harness fix-drift --json
-```
+````
 
 ## Related Skills
 
 - `detect-doc-drift` - Find drift first
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -2192,7 +2273,7 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/align-documentation/
 git commit -m "feat(skills): add align-documentation entropy skill for Claude Code"
-```
+````
 
 ---
 
@@ -2201,6 +2282,7 @@ git commit -m "feat(skills): add align-documentation entropy skill for Claude Co
 ### Task 15: Create initialize-harness-project Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/initialize-harness-project/skill.yaml`
 - Create: `agents/skills/claude-code/initialize-harness-project/prompt.md`
 - Create: `agents/skills/claude-code/initialize-harness-project/README.md`
@@ -2229,7 +2311,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Initialize Harness Project
 
 Scaffold a new project that follows harness engineering practices.
@@ -2249,15 +2331,18 @@ Use this skill when starting a new project or converting an existing project to 
 1. **Check prerequisites**
 
    Use the Bash tool:
+
    ```bash
    node --version && (pnpm --version || npm --version)
    ```
+````
 
-   Ensure Node.js 18+ is installed.
+Ensure Node.js 18+ is installed.
 
 2. **Navigate to project directory**
 
    Confirm the target directory:
+
    ```bash
    pwd && ls -la
    ```
@@ -2265,6 +2350,7 @@ Use this skill when starting a new project or converting an existing project to 
 3. **Run initialization**
 
    Use the Bash tool:
+
    ```bash
    harness init
    ```
@@ -2277,6 +2363,7 @@ Use this skill when starting a new project or converting an existing project to 
 4. **Verify created files**
 
    Use the Bash tool:
+
    ```bash
    ls -la && cat harness.config.json
    ```
@@ -2291,6 +2378,7 @@ Use this skill when starting a new project or converting an existing project to 
 6. **Run initial validation**
 
    Use the Bash tool:
+
    ```bash
    harness validate --json
    ```
@@ -2300,6 +2388,7 @@ Use this skill when starting a new project or converting an existing project to 
 7. **Commit initial setup**
 
    Use the Bash tool:
+
    ```bash
    git add harness.config.json AGENTS.md docs/
    git commit -m "chore: initialize harness engineering"
@@ -2315,11 +2404,11 @@ Use this skill when starting a new project or converting an existing project to 
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| CLI not found | harness not installed | `npm install -g @harness-engineering/cli` |
-| Permission denied | Directory not writable | Check permissions |
-| Files exist | Project already initialized | Use `harness init --force` to overwrite |
+| Error             | Cause                       | Resolution                                |
+| ----------------- | --------------------------- | ----------------------------------------- |
+| CLI not found     | harness not installed       | `npm install -g @harness-engineering/cli` |
+| Permission denied | Directory not writable      | Check permissions                         |
+| Files exist       | Project already initialized | Use `harness init --force` to overwrite   |
 
 ## Examples
 
@@ -2355,7 +2444,8 @@ Created:
 
 Note: Review generated AGENTS.md and update with your existing structure.
 ```
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -2378,14 +2468,15 @@ Run in a new or existing project directory to add harness engineering support.
 
 ```bash
 harness init
-```
+````
 
 ## Next Steps After Init
 
 1. Configure layers in harness.config.json
 2. Document your project structure in AGENTS.md
 3. Run `harness validate` to verify
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -2397,13 +2488,14 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/initialize-harness-project/
 git commit -m "feat(skills): add initialize-harness-project setup skill for Claude Code"
-```
+````
 
 ---
 
 ### Task 16: Create add-harness-component Skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/add-harness-component/skill.yaml`
 - Create: `agents/skills/claude-code/add-harness-component/prompt.md`
 - Create: `agents/skills/claude-code/add-harness-component/README.md`
@@ -2434,7 +2526,7 @@ includes:
 
 - [ ] **Step 2: Create prompt.md**
 
-```markdown
+````markdown
 # Add Harness Component
 
 Add a new component (module, service, API, test) to an existing harness project.
@@ -2453,11 +2545,13 @@ Use this skill when adding new functionality to a harness-compliant project. Ens
 1. **Verify project setup**
 
    Use the Bash tool:
+
    ```bash
    cat harness.config.json
    ```
+````
 
-   Confirm layers are configured.
+Confirm layers are configured.
 
 2. **Determine component type**
 
@@ -2470,11 +2564,13 @@ Use this skill when adding new functionality to a harness-compliant project. Ens
 3. **Run add command**
 
    Use the Bash tool:
+
    ```bash
    harness add <type> --name <component-name>
    ```
 
    Examples:
+
    ```bash
    harness add module --name user
    harness add service --name auth
@@ -2484,6 +2580,7 @@ Use this skill when adding new functionality to a harness-compliant project. Ens
 4. **Verify created files**
 
    Use the Bash tool:
+
    ```bash
    ls -la src/<layer>/<component-name>/
    ```
@@ -2493,6 +2590,7 @@ Use this skill when adding new functionality to a harness-compliant project. Ens
    Add the new component to the knowledge map in AGENTS.md:
 
    Use the Edit tool to add under the appropriate section:
+
    ```markdown
    - `src/<layer>/<component>/` - Description of component
    ```
@@ -2500,6 +2598,7 @@ Use this skill when adding new functionality to a harness-compliant project. Ens
 6. **Run validation**
 
    Use the Bash tool:
+
    ```bash
    harness validate --json && harness check-deps --json
    ```
@@ -2509,6 +2608,7 @@ Use this skill when adding new functionality to a harness-compliant project. Ens
 7. **Commit new component**
 
    Use the Bash tool:
+
    ```bash
    git add src/<layer>/<component>/ AGENTS.md
    git commit -m "feat: add <component-name> <type>"
@@ -2524,15 +2624,16 @@ Use this skill when adding new functionality to a harness-compliant project. Ens
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
+| Error                | Cause                     | Resolution                       |
+| -------------------- | ------------------------- | -------------------------------- |
 | Layer not configured | Type doesn't match config | Add layer to harness.config.json |
-| Name conflict | Component exists | Choose different name |
-| Validation fails | Layer violation | Check component placement |
+| Name conflict        | Component exists          | Choose different name            |
+| Validation fails     | Layer violation           | Check component placement        |
 
 ## Component Templates
 
 ### Module Template
+
 ```
 src/domain/<name>/
 ├── index.ts      # Public exports
@@ -2541,6 +2642,7 @@ src/domain/<name>/
 ```
 
 ### Service Template
+
 ```
 src/services/<name>/
 ├── index.ts      # Public exports
@@ -2548,6 +2650,7 @@ src/services/<name>/
 ```
 
 ### API Template
+
 ```
 src/api/<name>/
 ├── index.ts      # Route exports
@@ -2573,7 +2676,8 @@ Don't forget to:
   1. Update AGENTS.md with the new module
   2. Run `harness validate` to verify
 ```
-```
+
+````
 
 - [ ] **Step 3: Create README.md**
 
@@ -2593,7 +2697,7 @@ Adds components to an existing harness project.
 
 ```bash
 harness add <type> --name <name>
-```
+````
 
 ## CLI Equivalent
 
@@ -2608,7 +2712,8 @@ harness add api --name users
 1. Update AGENTS.md with new component
 2. Run validation to verify placement
 3. Commit changes
-```
+
+````
 
 - [ ] **Step 4: Run tests**
 
@@ -2620,7 +2725,7 @@ Expected: PASS
 ```bash
 git add agents/skills/claude-code/add-harness-component/
 git commit -m "feat(skills): add add-harness-component setup skill for Claude Code"
-```
+````
 
 ---
 
@@ -2629,6 +2734,7 @@ git commit -m "feat(skills): add add-harness-component setup skill for Claude Co
 ### Task 17: Create Gemini CLI Skill Variants
 
 **Files:**
+
 - Create: `agents/skills/gemini-cli/` (mirror of claude-code with tool name changes)
 
 For each of the 11 Claude Code skills, create a Gemini CLI variant with these changes:
@@ -2645,6 +2751,7 @@ For each of the 11 Claude Code skills, create a Gemini CLI variant with these ch
 - [ ] **Step 1: Create directory structure**
 
 Use the Bash tool:
+
 ```bash
 mkdir -p agents/skills/gemini-cli/{validate-context-engineering,enforce-architecture,check-mechanical-constraints,harness-tdd,harness-code-review,harness-refactoring,detect-doc-drift,cleanup-dead-code,align-documentation,initialize-harness-project,add-harness-component}
 ```
@@ -2652,6 +2759,7 @@ mkdir -p agents/skills/gemini-cli/{validate-context-engineering,enforce-architec
 - [ ] **Step 2: Copy and adapt validate-context-engineering**
 
 Create `agents/skills/gemini-cli/validate-context-engineering/skill.yaml`:
+
 ```yaml
 name: validate-context-engineering
 version: 1.0.0
@@ -2697,11 +2805,13 @@ git commit -m "feat(skills): add Gemini CLI skill variants"
 ### Task 18: Final Validation and Documentation
 
 **Files:**
+
 - Create: `agents/skills/README.md`
 
 - [ ] **Step 1: Run full test suite**
 
 Use the Bash tool:
+
 ```bash
 cd agents/skills && pnpm test
 ```
@@ -2716,13 +2826,14 @@ Expected: All tests pass
 Agent skills for Claude Code and Gemini CLI that implement harness engineering practices.
 
 ## Structure
-
 ```
+
 agents/skills/
-├── shared/           # Shared prompt fragments
-├── claude-code/      # Claude Code skills
-├── gemini-cli/       # Gemini CLI skills
-└── tests/            # Validation tests
+├── shared/ # Shared prompt fragments
+├── claude-code/ # Claude Code skills
+├── gemini-cli/ # Gemini CLI skills
+└── tests/ # Validation tests
+
 ```
 
 ## Available Skills
@@ -2751,40 +2862,46 @@ agents/skills/
 ### Claude Code
 
 ```
+
 /validate-context-engineering
+
 ```
 
 ### Gemini CLI
 
 ```
+
 @validate-context-engineering
-```
+
+````
 
 ## Testing
 
 ```bash
 pnpm test
-```
+````
 
 ## Adding New Skills
 
 1. Create directory under `claude-code/` and `gemini-cli/`
 2. Add `skill.yaml`, `prompt.md`, `README.md`
 3. Run tests to validate
-```
+
+````
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add agents/skills/README.md
 git commit -m "docs(skills): add skills package README"
-```
+````
 
 - [ ] **Step 4: Update workspace**
 
 Add skills to pnpm-workspace.yaml if needed:
 
 Use the Bash tool:
+
 ```bash
 cat pnpm-workspace.yaml
 ```
@@ -2804,13 +2921,13 @@ git commit -m "chore: add skills package to workspace"
 
 This plan implements all 11 agent skills for both Claude Code and Gemini CLI:
 
-| Chunk | Tasks | Skills |
-|-------|-------|--------|
-| 1 | 1-5 | Test infrastructure, shared fragments |
-| 2 | 6-8 | Enforcement skills (3) |
-| 3 | 9-11 | Workflow skills (3) |
-| 4 | 12-14 | Entropy skills (3) |
-| 5 | 15-16 | Setup skills (2) |
-| 6 | 17-18 | Gemini variants, docs |
+| Chunk | Tasks | Skills                                |
+| ----- | ----- | ------------------------------------- |
+| 1     | 1-5   | Test infrastructure, shared fragments |
+| 2     | 6-8   | Enforcement skills (3)                |
+| 3     | 9-11  | Workflow skills (3)                   |
+| 4     | 12-14 | Entropy skills (3)                    |
+| 5     | 15-16 | Setup skills (2)                      |
+| 6     | 17-18 | Gemini variants, docs                 |
 
 Total: 18 tasks, ~90 steps

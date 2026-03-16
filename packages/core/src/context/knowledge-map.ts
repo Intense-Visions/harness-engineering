@@ -40,7 +40,11 @@ export async function validateKnowledgeMap(
     return Err(agentsResult.error);
   }
 
-  const { sections, brokenLinks: agentsBrokenLinks, totalLinks: agentsTotalLinks } = agentsResult.value;
+  const {
+    sections,
+    brokenLinks: agentsBrokenLinks,
+    totalLinks: agentsTotalLinks,
+  } = agentsResult.value;
 
   // Get all existing files in the project for suggestions
   const existingFiles = await findFiles('**/*', rootDir);
@@ -64,9 +68,7 @@ export async function validateKnowledgeMap(
   });
 
   const validLinks = agentsTotalLinks - brokenLinks.length;
-  const integrity = agentsTotalLinks > 0
-    ? Math.round((validLinks / agentsTotalLinks) * 100)
-    : 100;
+  const integrity = agentsTotalLinks > 0 ? Math.round((validLinks / agentsTotalLinks) * 100) : 100;
 
   return Ok({
     totalLinks: agentsTotalLinks,

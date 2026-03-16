@@ -103,12 +103,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
     }
 
     // Generate rule
-    const ruleResult = generateRule(
-      rule,
-      templateResult.source,
-      outputDir,
-      options.configPath
-    );
+    const ruleResult = generateRule(rule, templateResult.source, outputDir, options.configPath);
     if (!ruleResult.success) {
       errors.push({
         type: 'render',

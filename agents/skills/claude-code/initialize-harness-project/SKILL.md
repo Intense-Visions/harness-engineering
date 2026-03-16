@@ -3,6 +3,7 @@
 > Scaffold a new harness-compliant project or migrate an existing project to the next adoption level. Assess current state, configure personas, generate AGENTS.md, and validate the result.
 
 ## When to Use
+
 - Starting a brand new project that should be harness-managed from day one
 - Migrating an existing project to harness for the first time
 - Upgrading an existing harness project from one adoption level to the next (basic to intermediate, intermediate to advanced)
@@ -97,6 +98,7 @@
 ### Example: New TypeScript Project (Basic Level)
 
 **ASSESS:**
+
 ```
 Human: "I'm starting a new TypeScript API project using Express and Vitest."
 Check for .harness/ — not found. This is a new project.
@@ -105,12 +107,14 @@ Human confirms: "Basic is fine for now."
 ```
 
 **SCAFFOLD:**
+
 ```bash
 harness init --level basic --framework express
 # Creates: harness.yaml, .harness/, AGENTS.md (template)
 ```
 
 **CONFIGURE:**
+
 ```
 Edit AGENTS.md:
   - Add project description: "REST API for widget management"
@@ -120,6 +124,7 @@ Edit AGENTS.md:
 ```
 
 **VALIDATE:**
+
 ```bash
 harness validate  # Pass — basic level checks satisfied
 git add harness.yaml .harness/ AGENTS.md
@@ -129,6 +134,7 @@ git commit -m "feat: initialize harness project at basic level"
 ### Example: Migrating Existing Project from Basic to Intermediate
 
 **ASSESS:**
+
 ```
 Read harness.yaml — level: basic
 Read AGENTS.md — exists, has project-specific content
@@ -138,6 +144,7 @@ Human confirms: "Yes, we're ready for layers."
 ```
 
 **SCAFFOLD:**
+
 ```bash
 harness init --level intermediate --migrate
 # Preserves existing harness.yaml and AGENTS.md
@@ -145,6 +152,7 @@ harness init --level intermediate --migrate
 ```
 
 **CONFIGURE:**
+
 ```
 Define layers in harness.yaml:
   - presentation: src/routes/, src/middleware/
@@ -161,6 +169,7 @@ Update AGENTS.md with layer documentation.
 ```
 
 **VALIDATE:**
+
 ```bash
 harness validate      # Pass — intermediate level checks satisfied
 harness check-deps    # Pass — no constraint violations in existing code
@@ -171,16 +180,19 @@ git commit -m "feat: migrate harness project to intermediate level with layers"
 ### Example: Adoption Level Progression
 
 **Basic (start here):**
+
 - `AGENTS.md` with project context
 - `harness.yaml` with metadata
 - `harness validate` runs in development
 
 **Intermediate (add structure):**
+
 - Layer definitions and boundaries
 - Dependency constraints enforced by `harness check-deps`
 - At least one custom skill for team workflows
 
 **Advanced (full integration):**
+
 - Persona configuration for consistent agent behavior
 - State management across sessions
 - `.harness/learnings.md` capturing institutional knowledge

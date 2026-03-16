@@ -28,7 +28,8 @@ export function createValidateCommand(): Command {
         return;
       }
 
-      const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+      const entries = fs
+        .readdirSync(skillsDir, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name);
 

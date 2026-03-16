@@ -1,5 +1,12 @@
 import { Ok } from '../../shared/result';
-import type { TelemetryAdapter, TelemetryHealth, Metric, Trace, LogEntry, FeedbackError } from '../types';
+import type {
+  TelemetryAdapter,
+  TelemetryHealth,
+  Metric,
+  Trace,
+  LogEntry,
+  FeedbackError,
+} from '../types';
 import type { Result } from '../../shared/result';
 
 export class NoOpTelemetryAdapter implements TelemetryAdapter {

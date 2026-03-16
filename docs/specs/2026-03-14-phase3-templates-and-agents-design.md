@@ -94,11 +94,13 @@ const TemplateMetadataSchema = z.object({
   description: z.string(),
   level: z.enum(['basic', 'intermediate', 'advanced']).optional(),
   framework: z.string().optional(),
-  extends: z.string().optional(),           // e.g., "base"
-  mergeStrategy: z.object({
-    json: z.enum(['deep-merge', 'overlay-wins']).default('deep-merge'),
-    files: z.enum(['overlay-wins', 'error']).default('overlay-wins'),
-  }).default({}),
+  extends: z.string().optional(), // e.g., "base"
+  mergeStrategy: z
+    .object({
+      json: z.enum(['deep-merge', 'overlay-wins']).default('deep-merge'),
+      files: z.enum(['overlay-wins', 'error']).default('overlay-wins'),
+    })
+    .default({}),
   version: z.literal(1),
 });
 ```
@@ -121,10 +123,10 @@ New module in `packages/cli/src/templates/engine.ts`:
 
 ```typescript
 interface TemplateEngine {
-  listTemplates(): Result<TemplateMetadata[], Error>
-  resolveTemplate(level: string, framework?: string): Result<ResolvedTemplate, Error>
-  render(template: ResolvedTemplate, context: TemplateContext): Result<RenderedFiles, Error>
-  write(files: RenderedFiles, targetDir: string, options: WriteOptions): Result<string[], Error>
+  listTemplates(): Result<TemplateMetadata[], Error>;
+  resolveTemplate(level: string, framework?: string): Result<ResolvedTemplate, Error>;
+  render(template: ResolvedTemplate, context: TemplateContext): Result<RenderedFiles, Error>;
+  write(files: RenderedFiles, targetDir: string, options: WriteOptions): Result<string[], Error>;
 }
 ```
 
@@ -162,34 +164,34 @@ skills:
   - enforce-architecture
   - check-mechanical-constraints
 
-commands:                  # CLI commands this persona executes (not AI agent tools)
+commands: # CLI commands this persona executes (not AI agent tools)
   - check-deps
   - validate
 
 triggers:
   - event: on_pr
     conditions:
-      paths: ["src/**"]
+      paths: ['src/**']
   - event: on_commit
     conditions:
-      branches: ["main", "develop"]
+      branches: ['main', 'develop']
   - event: scheduled
-    cron: "0 6 * * 1"  # Weekly Monday 6am
+    cron: '0 6 * * 1' # Weekly Monday 6am
 
 config:
-  severity: error        # error | warning
+  severity: error # error | warning
   autoFix: false
   timeout: 300000
 
 outputs:
-  agents-md: true        # Generate AGENTS.md fragment
-  ci-workflow: true      # Generate GitHub Actions workflow
-  runtime-config: true   # Generate harness agent runtime config
+  agents-md: true # Generate AGENTS.md fragment
+  ci-workflow: true # Generate GitHub Actions workflow
+  runtime-config: true # Generate harness agent runtime config
 ```
 
 **Note on `commands` vs `tools`:** Persona configs use `commands` to list CLI commands (e.g., `check-deps`, `validate`). This avoids collision with the `tools` field in skill YAML (`skill.yaml`), which lists AI agent tools (e.g., `Bash`, `Read`, `Glob`). These are fundamentally different concepts.
 
-**Note on `triggers`:** Persona triggers use a richer model than skill triggers (which are a flat enum: `['manual', 'on_pr', 'on_commit']`). Persona triggers add `conditions` (path filters, branch filters) and `scheduled` with cron expressions. This is a superset — persona triggers define *when CI runs the persona*, while skill triggers define *when an AI agent activates a skill*. These serve different purposes and intentionally diverge.
+**Note on `triggers`:** Persona triggers use a richer model than skill triggers (which are a flat enum: `['manual', 'on_pr', 'on_commit']`). Persona triggers add `conditions` (path filters, branch filters) and `scheduled` with cron expressions. This is a superset — persona triggers define _when CI runs the persona_, while skill triggers define _when an AI agent activates a skill_. These serve different purposes and intentionally diverge.
 
 ### Three Generated Artifacts
 
@@ -214,7 +216,7 @@ From a single persona YAML, the system generates:
 
 **Role:** Enforce layer boundaries, detect circular dependencies, block forbidden imports
 
-**Triggers:** On PR (src/**), on commit (main, develop), weekly Monday 6am
+**Triggers:** On PR (src/\*\*), on commit (main, develop), weekly Monday 6am
 
 **Skills:** enforce-architecture, check-mechanical-constraints
 
@@ -278,16 +280,20 @@ const PersonaSchema = z.object({
   skills: z.array(z.string()),
   commands: z.array(z.string()),
   triggers: z.array(PersonaTriggerSchema),
-  config: z.object({
-    severity: z.enum(['error', 'warning']).default('error'),
-    autoFix: z.boolean().default(false),
-    timeout: z.number().default(300000),
-  }).default({}),
-  outputs: z.object({
-    'agents-md': z.boolean().default(true),
-    'ci-workflow': z.boolean().default(true),
-    'runtime-config': z.boolean().default(true),
-  }).default({}),
+  config: z
+    .object({
+      severity: z.enum(['error', 'warning']).default('error'),
+      autoFix: z.boolean().default(false),
+      timeout: z.number().default(300000),
+    })
+    .default({}),
+  outputs: z
+    .object({
+      'agents-md': z.boolean().default(true),
+      'ci-workflow': z.boolean().default(true),
+      'runtime-config': z.boolean().default(true),
+    })
+    .default({}),
 });
 ```
 
@@ -297,12 +303,12 @@ New module in `packages/cli/src/persona/generator.ts`:
 
 ```typescript
 interface PersonaGenerator {
-  loadPersona(name: string): Result<Persona, Error>
-  listPersonas(): Result<PersonaMetadata[], Error>
-  generateRuntime(persona: Persona): Result<RuntimeConfig, Error>
-  generateAgentsMd(persona: Persona): Result<string, Error>
-  generateCIWorkflow(persona: Persona, platform: 'github' | 'gitlab'): Result<string, Error>
-  generateAll(persona: Persona, outputDir: string): Result<GeneratedFiles, Error>
+  loadPersona(name: string): Result<Persona, Error>;
+  listPersonas(): Result<PersonaMetadata[], Error>;
+  generateRuntime(persona: Persona): Result<RuntimeConfig, Error>;
+  generateAgentsMd(persona: Persona): Result<string, Error>;
+  generateCIWorkflow(persona: Persona, platform: 'github' | 'gitlab'): Result<string, Error>;
+  generateAll(persona: Persona, outputDir: string): Result<GeneratedFiles, Error>;
 }
 ```
 
@@ -318,6 +324,7 @@ The old task-based path is not deprecated — personas are a higher-level abstra
 ### CLI Output Format
 
 `harness persona list` respects existing CLI output conventions:
+
 - Default: formatted table (name, description, triggers summary)
 - `--json`: JSON array of persona metadata
 - `--quiet`: names only, one per line
@@ -363,21 +370,21 @@ packages/mcp-server/
 
 Every CLI command gets an MCP tool equivalent:
 
-| CLI Command | MCP Tool | Description |
-|---|---|---|
-| `harness validate` | `validate_project` | Run all validation checks |
-| `harness check-deps` | `check_dependencies` | Validate layer boundaries + circular deps |
-| `harness check-docs` | `check_docs` | Documentation coverage analysis |
-| `harness cleanup` | `detect_entropy` | Detect drift, dead code, pattern violations |
-| `harness fix-drift` | `apply_fixes` | Auto-fix detected entropy issues |
-| `harness init` | `init_project` | Scaffold project from template |
-| `harness add` | `add_component` | Add layer, doc, or component |
-| `harness agent run` | `run_agent_task` | Run an agent task |
-| `harness linter generate` | `generate_linter` | Generate ESLint rule from YAML |
-| `harness linter validate` | `validate_linter_config` | Validate linter YAML config |
-| `harness persona list` | `list_personas` | List available personas |
-| `harness persona generate` | `generate_persona_artifacts` | Generate CI/AGENTS.md/runtime from persona |
-| *(new)* | `run_persona` | Execute a full persona (meta-tool) |
+| CLI Command                | MCP Tool                     | Description                                 |
+| -------------------------- | ---------------------------- | ------------------------------------------- |
+| `harness validate`         | `validate_project`           | Run all validation checks                   |
+| `harness check-deps`       | `check_dependencies`         | Validate layer boundaries + circular deps   |
+| `harness check-docs`       | `check_docs`                 | Documentation coverage analysis             |
+| `harness cleanup`          | `detect_entropy`             | Detect drift, dead code, pattern violations |
+| `harness fix-drift`        | `apply_fixes`                | Auto-fix detected entropy issues            |
+| `harness init`             | `init_project`               | Scaffold project from template              |
+| `harness add`              | `add_component`              | Add layer, doc, or component                |
+| `harness agent run`        | `run_agent_task`             | Run an agent task                           |
+| `harness linter generate`  | `generate_linter`            | Generate ESLint rule from YAML              |
+| `harness linter validate`  | `validate_linter_config`     | Validate linter YAML config                 |
+| `harness persona list`     | `list_personas`              | List available personas                     |
+| `harness persona generate` | `generate_persona_artifacts` | Generate CI/AGENTS.md/runtime from persona  |
+| _(new)_                    | `run_persona`                | Execute a full persona (meta-tool)          |
 
 ### The `run_persona` Meta-Tool
 
@@ -404,16 +411,16 @@ Key integration point between Track A and Track B:
 
 ```typescript
 interface PersonaRunReport {
-  persona: string
-  status: 'pass' | 'fail' | 'partial'  // partial = some commands skipped
+  persona: string;
+  status: 'pass' | 'fail' | 'partial'; // partial = some commands skipped
   commands: Array<{
-    name: string
-    status: 'pass' | 'fail' | 'skipped'
-    result?: unknown               // Command-specific output
-    error?: string
-    durationMs: number
-  }>
-  totalDurationMs: number
+    name: string;
+    status: 'pass' | 'fail' | 'skipped';
+    result?: unknown; // Command-specific output
+    error?: string;
+    durationMs: number;
+  }>;
+  totalDurationMs: number;
 }
 ```
 
@@ -533,18 +540,21 @@ Slices 1 and 2 can run in parallel. Slice 3 follows Slice 2. Slice 4 is future w
 ## Testing Strategy
 
 ### Template System (Slice 1)
+
 - **Unit tests:** Template engine — resolve, render, write for each level + framework overlay
 - **Unit tests:** Merge strategy — JSON deep merge, file overlay-wins, directory merging
 - **Integration tests:** `harness init --level X --framework Y` produces a valid, installable project
 - **Snapshot tests:** Rendered template output for each level matches expected structure
 
 ### Persona System (Slice 2)
+
 - **Unit tests:** Persona YAML schema validation (valid and invalid configs)
 - **Unit tests:** Each generator (runtime, AGENTS.md, CI workflow) produces correct output
 - **Integration tests:** `harness persona generate <name>` writes valid files
 - **Validation tests:** Generated GitHub Actions workflows pass `actionlint` (if available)
 
 ### MCP Server (Slice 3)
+
 - **Unit tests:** Each tool handler receives input, calls core API, returns correct MCP response
 - **Unit tests:** Result adapter converts success and error cases correctly
 - **Integration tests:** MCP server starts, registers all tools, handles tool calls via stdio

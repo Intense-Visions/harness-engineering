@@ -35,9 +35,9 @@ export const PhaseGateMappingSchema = z.object({
 export const PhaseGatesConfigSchema = z.object({
   enabled: z.boolean().default(false),
   severity: z.enum(['error', 'warning']).default('error'),
-  mappings: z.array(PhaseGateMappingSchema).default([
-    { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' },
-  ]),
+  mappings: z
+    .array(PhaseGateMappingSchema)
+    .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }]),
 });
 
 export const HarnessConfigSchema = z.object({
@@ -51,11 +51,13 @@ export const HarnessConfigSchema = z.object({
   docsDir: z.string().default('./docs'),
   agent: AgentConfigSchema.optional(),
   entropy: EntropyConfigSchema.optional(),
-  template: z.object({
-    level: z.enum(['basic', 'intermediate', 'advanced']),
-    framework: z.string().optional(),
-    version: z.number(),
-  }).optional(),
+  template: z
+    .object({
+      level: z.enum(['basic', 'intermediate', 'advanced']),
+      framework: z.string().optional(),
+      version: z.number(),
+    })
+    .optional(),
   phaseGates: PhaseGatesConfigSchema.optional(),
 });
 

@@ -3,6 +3,7 @@
 > Validate architectural layer boundaries and detect dependency violations. No code may violate layer constraints — this is a hard gate, not a suggestion.
 
 ## When to Use
+
 - Before approving any pull request or merge
 - After writing new imports or module references
 - When adding a new module or package to the project
@@ -66,15 +67,19 @@ For each violation, provide a specific fix:
 ## Common Violation Patterns
 
 ### Pattern: "I just need one thing from that layer"
+
 A UI component imports a repository function directly because "it is just one query." Fix: add the query to the Service layer. The extra indirection is the architecture working correctly.
 
 ### Pattern: "Shared types across layers"
+
 Two layers both need the same type definition. Fix: place shared types in the lowest layer that both depend on, or create a dedicated `types` or `shared` module at the bottom of the layer stack.
 
 ### Pattern: "Test utilities importing production code from wrong layer"
+
 Test helpers import across layer boundaries for convenience. Fix: each layer's tests should only import from that layer and below. Test utilities should follow the same constraints as production code.
 
 ### Pattern: "Circular dependency through re-exports"
+
 Module A re-exports from Module B, and Module B imports from Module A. The circular dependency is hidden by the re-export. Fix: identify the true dependency direction and remove the reverse path.
 
 ## Harness Integration
@@ -97,6 +102,7 @@ Module A re-exports from Module B, and Module B imports from Module A. The circu
 ### Example: Service layer importing from UI layer
 
 **Violation from `harness check-deps`:**
+
 ```
 VIOLATION: Upward dependency
   File: src/services/user-service.ts:12
@@ -109,6 +115,7 @@ VIOLATION: Upward dependency
 **Impact:** The UserService now depends on a React component. It cannot be used in a CLI tool, a background job, or tested without a DOM. The service layer should be framework-agnostic.
 
 **Resolution:**
+
 ```typescript
 // BEFORE (violating)
 import { UserForm } from '../components/UserForm';
@@ -122,6 +129,7 @@ const DEFAULT_USER_DATA: UserInput = { name: '', email: '' };
 ### Example: Circular dependency between modules
 
 **Violation from `harness check-deps`:**
+
 ```
 VIOLATION: Circular dependency detected
   Cycle: src/services/order-service.ts -> src/services/inventory-service.ts -> src/services/order-service.ts
@@ -130,12 +138,14 @@ VIOLATION: Circular dependency detected
 ```
 
 **Resolution:** Extract the shared concern into a new module:
+
 ```typescript
 // src/services/stock-calculator.ts (new, shared module)
 export function calculateRequiredStock(quantity: number, reserved: number): number {
   return quantity - reserved;
 }
 ```
+
 Both services import from `stock-calculator` instead of from each other. The cycle is broken.
 
 ## Gates

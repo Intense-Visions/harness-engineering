@@ -59,7 +59,7 @@ describe('createSelfReview()', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.items.some(i => i.id === 'custom-1')).toBe(true);
+      expect(result.value.items.some((i) => i.id === 'custom-1')).toBe(true);
     }
   });
 

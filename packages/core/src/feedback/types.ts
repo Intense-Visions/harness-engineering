@@ -275,11 +275,7 @@ export interface ActionResult {
   data?: unknown;
 }
 
-export type ActionEventType =
-  | 'action:started'
-  | 'action:completed'
-  | 'action:failed'
-  | 'action:*';
+export type ActionEventType = 'action:started' | 'action:completed' | 'action:failed' | 'action:*';
 
 export interface ActionEvent {
   type: ActionEventType;
@@ -314,9 +310,16 @@ export interface TelemetryAdapter {
 export interface AgentExecutor {
   readonly name: string;
   health(): Promise<import('../shared/result').Result<ExecutorHealth, FeedbackError>>;
-  spawn(config: AgentConfig): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
-  status(processId: string): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
-  wait(processId: string, timeout?: number): Promise<import('../shared/result').Result<PeerReview, FeedbackError>>;
+  spawn(
+    config: AgentConfig
+  ): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
+  status(
+    processId: string
+  ): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
+  wait(
+    processId: string,
+    timeout?: number
+  ): Promise<import('../shared/result').Result<PeerReview, FeedbackError>>;
   kill(processId: string): Promise<import('../shared/result').Result<void, FeedbackError>>;
 }
 
@@ -329,6 +332,11 @@ export interface ActionSink {
 
 export interface ActionTracker {
   readonly action: AgentAction;
-  complete(result: ActionResult): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
-  fail(error: { code: string; message: string }): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
+  complete(
+    result: ActionResult
+  ): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
+  fail(error: {
+    code: string;
+    message: string;
+  }): Promise<import('../shared/result').Result<AgentAction, FeedbackError>>;
 }

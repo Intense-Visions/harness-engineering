@@ -12,10 +12,7 @@ import type { ConfigError } from './types';
  * @param schema - Zod schema to validate against
  * @returns Result<T, ConfigError> - Success with validated data or error
  */
-export function validateConfig<T>(
-  data: unknown,
-  schema: z.ZodSchema<T>,
-): Result<T, ConfigError> {
+export function validateConfig<T>(data: unknown, schema: z.ZodSchema<T>): Result<T, ConfigError> {
   const result = schema.safeParse(data);
 
   if (result.success) {
@@ -64,7 +61,7 @@ export function validateConfig<T>(
       zodError: zodErrors,
       path: firstError?.path,
     },
-    suggestions,
+    suggestions
   );
 
   return Err(error);

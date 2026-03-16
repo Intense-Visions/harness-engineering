@@ -5,9 +5,7 @@ import { z } from 'zod';
  */
 export const RuleConfigSchema = z.object({
   /** Rule name in kebab-case (e.g., 'no-ui-in-services') */
-  name: z
-    .string()
-    .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, 'Rule name must be kebab-case'),
+  name: z.string().regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, 'Rule name must be kebab-case'),
   /** Rule type - determines which template to use */
   type: z.string().min(1),
   /** ESLint severity level */

@@ -4,7 +4,15 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
-import { HarnessStateSchema, DEFAULT_STATE, type HarnessState, HandoffSchema, type Handoff, GateConfigSchema, type GateResult } from './types';
+import {
+  HarnessStateSchema,
+  DEFAULT_STATE,
+  type HarnessState,
+  HandoffSchema,
+  type Handoff,
+  GateConfigSchema,
+  type GateResult,
+} from './types';
 
 const HARNESS_DIR = '.harness';
 const STATE_FILE = 'state.json';
@@ -33,11 +41,18 @@ export async function loadState(projectPath: string): Promise<Result<HarnessStat
 
     return Ok(result.data);
   } catch (error) {
-    return Err(new Error(`Failed to load state from ${statePath}: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to load state from ${statePath}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 
-export async function saveState(projectPath: string, state: HarnessState): Promise<Result<void, Error>> {
+export async function saveState(
+  projectPath: string,
+  state: HarnessState
+): Promise<Result<void, Error>> {
   const harnessDir = path.join(projectPath, HARNESS_DIR);
   const statePath = path.join(harnessDir, STATE_FILE);
 
@@ -46,7 +61,9 @@ export async function saveState(projectPath: string, state: HarnessState): Promi
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
     return Ok(undefined);
   } catch (error) {
-    return Err(new Error(`Failed to save state: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to save state: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 
@@ -82,7 +99,11 @@ export async function appendLearning(
 
     return Ok(undefined);
   } catch (error) {
-    return Err(new Error(`Failed to append learning: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to append learning: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 
@@ -126,16 +147,21 @@ export async function loadRelevantLearnings(
       return Ok(entries);
     }
 
-    const filtered = entries.filter(entry => entry.includes(`[skill:${skillName}]`));
+    const filtered = entries.filter((entry) => entry.includes(`[skill:${skillName}]`));
     return Ok(filtered);
   } catch (error) {
-    return Err(new Error(`Failed to load learnings: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to load learnings: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 
 // ── Failures ─────────────────────────────────────────────────────────
 
-const FAILURE_LINE_REGEX = /^- \*\*(\d{4}-\d{2}-\d{2}) \[skill:([^\]]+)\] \[type:([^\]]+)\]:\*\* (.+)$/;
+const FAILURE_LINE_REGEX =
+  /^- \*\*(\d{4}-\d{2}-\d{2}) \[skill:([^\]]+)\] \[type:([^\]]+)\]:\*\* (.+)$/;
 
 export async function appendFailure(
   projectPath: string,
@@ -159,13 +185,19 @@ export async function appendFailure(
 
     return Ok(undefined);
   } catch (error) {
-    return Err(new Error(`Failed to append failure: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to append failure: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 
 export async function loadFailures(
   projectPath: string
-): Promise<Result<Array<{ date: string; skill: string; type: string; description: string }>, Error>> {
+): Promise<
+  Result<Array<{ date: string; skill: string; type: string; description: string }>, Error>
+> {
   const failuresPath = path.join(projectPath, HARNESS_DIR, FAILURES_FILE);
 
   if (!fs.existsSync(failuresPath)) {
@@ -180,17 +212,21 @@ export async function loadFailures(
       const match = line.match(FAILURE_LINE_REGEX);
       if (match) {
         entries.push({
-          date: match[1],
-          skill: match[2],
-          type: match[3],
-          description: match[4],
+          date: match[1] ?? '',
+          skill: match[2] ?? '',
+          type: match[3] ?? '',
+          description: match[4] ?? '',
         });
       }
     }
 
     return Ok(entries);
   } catch (error) {
-    return Err(new Error(`Failed to load failures: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to load failures: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 
@@ -218,7 +254,11 @@ export async function archiveFailures(projectPath: string): Promise<Result<void,
     fs.renameSync(failuresPath, path.join(archiveDir, archiveName));
     return Ok(undefined);
   } catch (error) {
-    return Err(new Error(`Failed to archive failures: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to archive failures: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 
@@ -236,13 +276,13 @@ export async function saveHandoff(
     fs.writeFileSync(handoffPath, JSON.stringify(handoff, null, 2));
     return Ok(undefined);
   } catch (error) {
-    return Err(new Error(`Failed to save handoff: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to save handoff: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 
-export async function loadHandoff(
-  projectPath: string
-): Promise<Result<Handoff | null, Error>> {
+export async function loadHandoff(projectPath: string): Promise<Result<Handoff | null, Error>> {
   const handoffPath = path.join(projectPath, HARNESS_DIR, HANDOFF_FILE);
 
   if (!fs.existsSync(handoffPath)) {
@@ -260,15 +300,15 @@ export async function loadHandoff(
 
     return Ok(result.data);
   } catch (error) {
-    return Err(new Error(`Failed to load handoff: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to load handoff: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 
 // ── Mechanical Gate ──────────────────────────────────────────────────
 
-export async function runMechanicalGate(
-  projectPath: string
-): Promise<Result<GateResult, Error>> {
+export async function runMechanicalGate(projectPath: string): Promise<Result<GateResult, Error>> {
   const harnessDir = path.join(projectPath, HARNESS_DIR);
   const gateConfigPath = path.join(harnessDir, GATE_CONFIG_FILE);
 
@@ -300,8 +340,10 @@ export async function runMechanicalGate(
         checks.push({ name: 'build', command: 'go build ./...' });
       }
 
-      if (fs.existsSync(path.join(projectPath, 'pyproject.toml')) ||
-          fs.existsSync(path.join(projectPath, 'setup.py'))) {
+      if (
+        fs.existsSync(path.join(projectPath, 'pyproject.toml')) ||
+        fs.existsSync(path.join(projectPath, 'setup.py'))
+      ) {
         checks.push({ name: 'test', command: 'python -m pytest' });
       }
     }
@@ -323,7 +365,10 @@ export async function runMechanicalGate(
           duration: Date.now() - start,
         });
       } catch (error) {
-        const output = error instanceof Error ? ((error as any).stderr?.toString() || error.message) : String(error);
+        const output =
+          error instanceof Error
+            ? (error as any).stderr?.toString() || error.message
+            : String(error);
         results.push({
           name: check.name,
           passed: false,
@@ -335,10 +380,14 @@ export async function runMechanicalGate(
     }
 
     return Ok({
-      passed: results.length === 0 || results.every(r => r.passed),
+      passed: results.length === 0 || results.every((r) => r.passed),
       checks: results,
     });
   } catch (error) {
-    return Err(new Error(`Failed to run mechanical gate: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to run mechanical gate: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }

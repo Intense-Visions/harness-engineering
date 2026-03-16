@@ -1,5 +1,11 @@
 {
   "extends": "./tsconfig.base.json",
   "files": [],
-  "references": [{ "path": "./packages/types" }, { "path": "./packages/core" }, { "path": "./packages/cli" }, { "path": "./packages/eslint-plugin" }, { "path": "./packages/linter-gen" }]
+  "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/core" },
+    { "path": "./packages/cli" },
+    { "path": "./packages/eslint-plugin" },
+    { "path": "./packages/linter-gen" }
+  ]
 }

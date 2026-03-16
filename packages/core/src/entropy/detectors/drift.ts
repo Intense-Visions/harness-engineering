@@ -5,7 +5,7 @@ import type {
   CodebaseSnapshot,
   DriftConfig,
   DriftReport,
-  DocumentationDrift
+  DocumentationDrift,
 } from '../types';
 import { fileExists } from '../../shared/fs-utils';
 import { dirname, resolve } from 'path';
@@ -35,11 +35,7 @@ export function levenshteinDistance(a: string, b: string): number {
       if (b.charAt(i - 1) === a.charAt(j - 1)) {
         row[j] = prevRow[j - 1] ?? 0;
       } else {
-        row[j] = Math.min(
-          (prevRow[j - 1] ?? 0) + 1,
-          (row[j - 1] ?? 0) + 1,
-          (prevRow[j] ?? 0) + 1
-        );
+        row[j] = Math.min((prevRow[j - 1] ?? 0) + 1, (row[j - 1] ?? 0) + 1, (prevRow[j] ?? 0) + 1);
       }
     }
   }
@@ -84,7 +80,7 @@ export function findPossibleMatches(
   return matches
     .sort((a, b) => a.score - b.score)
     .slice(0, 3)
-    .map(m => m.name);
+    .map((m) => m.name);
 }
 
 const DEFAULT_DRIFT_CONFIG: DriftConfig = {
@@ -106,7 +102,7 @@ function checkApiSignatureDrift(
   const exportNames = Array.from(snapshot.exportMap.byName.keys());
 
   for (const ref of snapshot.codeReferences) {
-    if (config.ignorePatterns.some(p => ref.reference.match(new RegExp(p)))) {
+    if (config.ignorePatterns.some((p) => ref.reference.match(new RegExp(p)))) {
       continue;
     }
 
@@ -122,12 +118,14 @@ function checkApiSignatureDrift(
         reference: ref.reference,
         context: ref.context,
         issue: possibleMatches.length > 0 ? 'RENAMED' : 'NOT_FOUND',
-        details: possibleMatches.length > 0
-          ? `Symbol "${ref.reference}" not found. Similar: ${possibleMatches.join(', ')}`
-          : `Symbol "${ref.reference}" not found in codebase`,
-        suggestion: possibleMatches.length > 0
-          ? `Did you mean "${possibleMatches[0]}"?`
-          : 'Remove reference or add the missing export',
+        details:
+          possibleMatches.length > 0
+            ? `Symbol "${ref.reference}" not found. Similar: ${possibleMatches.join(', ')}`
+            : `Symbol "${ref.reference}" not found in codebase`,
+        suggestion:
+          possibleMatches.length > 0
+            ? `Did you mean "${possibleMatches[0]}"?`
+            : 'Remove reference or add the missing export',
         confidence,
       };
       if (possibleMatches.length > 0) {
@@ -157,8 +155,12 @@ function extractFileLinks(content: string): { link: string; line: number }[] {
     while ((match = linkRegex.exec(line)) !== null) {
       const linkPath = match[2];
       // Only check relative paths to files (not URLs)
-      if (linkPath && !linkPath.startsWith('http') && !linkPath.startsWith('#') &&
-          (linkPath.includes('.') || linkPath.startsWith('..'))) {
+      if (
+        linkPath &&
+        !linkPath.startsWith('http') &&
+        !linkPath.startsWith('#') &&
+        (linkPath.includes('.') || linkPath.startsWith('..'))
+      ) {
         links.push({ link: linkPath, line: i + 1 });
       }
     }
@@ -219,18 +221,22 @@ export async function detectDocDrift(
 
   // Check structure drift
   if (fullConfig.checkStructure) {
-    drifts.push(...await checkStructureDrift(snapshot, fullConfig));
+    drifts.push(...(await checkStructureDrift(snapshot, fullConfig)));
   }
 
   // Calculate stats
-  const apiDrifts = drifts.filter(d => d.type === 'api-signature').length;
-  const exampleDrifts = drifts.filter(d => d.type === 'example-code').length;
-  const structureDrifts = drifts.filter(d => d.type === 'structure').length;
+  const apiDrifts = drifts.filter((d) => d.type === 'api-signature').length;
+  const exampleDrifts = drifts.filter((d) => d.type === 'example-code').length;
+  const structureDrifts = drifts.filter((d) => d.type === 'structure').length;
 
-  const severity = drifts.length === 0 ? 'none'
-    : drifts.length <= 3 ? 'low'
-    : drifts.length <= 10 ? 'medium'
-    : 'high';
+  const severity =
+    drifts.length === 0
+      ? 'none'
+      : drifts.length <= 3
+        ? 'low'
+        : drifts.length <= 10
+          ? 'medium'
+          : 'high';
 
   return Ok({
     drifts,

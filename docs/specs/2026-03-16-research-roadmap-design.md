@@ -24,29 +24,29 @@ Group B (Principles & Conventions)
 
 ### Item-to-Group Mapping
 
-| Item | Description | Source | Group |
-|------|-------------|--------|-------|
-| #1 | Deterministic-vs-LLM split principle | GSD v2 | B |
-| #2 | Mechanical "done" criteria (verify skill) | Cursor | E |
-| #3 | 1:1 context ratio in review | CodeRabbit | A |
-| #4 | Cognitive-mode field in skill metadata | gstack | C |
-| #5 | Commit history in review context | Augment | A |
-| #6 | Review feedback learnings file | CodeRabbit | A |
-| #7 | Change-type-aware review workflows | Qodo | A |
-| #8 | Checkpoint-based context handoff | Turbo Flow | B |
-| #9 | Phase gates (linter rule) | Turbo Flow | E |
-| #10 | EARS requirement syntax | Kiro | E |
-| #11 | Error taxonomy skill | GSD v2 | C |
-| #12 | Token budget guidance | GSD v2 | D |
-| #13 | Pre-commit review hook | CodeRabbit | A |
-| #14 | Anti-pattern log convention | Turbo Flow | B |
-| #15 | Staged context pipeline | GSD v2 | D |
-| #16 | Unified integrity gate | Qodo | A |
-| #17 | Workflow orchestration | gstack | E |
-| #18 | Context-as-MCP-service | Augment, Goose | D |
-| #19 | Interactive advisor skills | PM Skills | C |
-| #20 | JIT context filtering | Composio | D |
-| #24* | Branchless worktree guidance | GSD v2 | B |
+| Item  | Description                               | Source         | Group |
+| ----- | ----------------------------------------- | -------------- | ----- |
+| #1    | Deterministic-vs-LLM split principle      | GSD v2         | B     |
+| #2    | Mechanical "done" criteria (verify skill) | Cursor         | E     |
+| #3    | 1:1 context ratio in review               | CodeRabbit     | A     |
+| #4    | Cognitive-mode field in skill metadata    | gstack         | C     |
+| #5    | Commit history in review context          | Augment        | A     |
+| #6    | Review feedback learnings file            | CodeRabbit     | A     |
+| #7    | Change-type-aware review workflows        | Qodo           | A     |
+| #8    | Checkpoint-based context handoff          | Turbo Flow     | B     |
+| #9    | Phase gates (linter rule)                 | Turbo Flow     | E     |
+| #10   | EARS requirement syntax                   | Kiro           | E     |
+| #11   | Error taxonomy skill                      | GSD v2         | C     |
+| #12   | Token budget guidance                     | GSD v2         | D     |
+| #13   | Pre-commit review hook                    | CodeRabbit     | A     |
+| #14   | Anti-pattern log convention               | Turbo Flow     | B     |
+| #15   | Staged context pipeline                   | GSD v2         | D     |
+| #16   | Unified integrity gate                    | Qodo           | A     |
+| #17   | Workflow orchestration                    | gstack         | E     |
+| #18   | Context-as-MCP-service                    | Augment, Goose | D     |
+| #19   | Interactive advisor skills                | PM Skills      | C     |
+| #20   | JIT context filtering                     | Composio       | D     |
+| #24\* | Branchless worktree guidance              | GSD v2         | B     |
 
 \* Bonus item from Consolidated Adoptable Patterns list, not in the top-20 roadmap.
 
@@ -61,10 +61,12 @@ Group B (Principles & Conventions)
 ### B1: Formalize Deterministic-vs-LLM Split (Item #1)
 
 **Files:**
+
 - Modify: `docs/standard/principles.md`
 - Modify: `docs/standard/index.md`
 
 **Design:**
+
 - Add Principle 7: "Deterministic-vs-LLM Responsibility Split"
 - Core rule: if an operation can be expressed as if-else logic, it MUST be enforced mechanically (linter rules, type checks, scripts), not delegated to LLM judgment
 - The LLM handles: intent understanding, architectural reasoning, code generation, debugging decisions, ambiguous trade-offs
@@ -76,38 +78,50 @@ Group B (Principles & Conventions)
 ### B2: Checkpoint-Based Context Handoff Schema (Item #8)
 
 **Files:**
+
 - Modify: `docs/standard/implementation.md`
 
 **Design:**
+
 - Define `.harness/handoff.md` schema:
+
   ```markdown
   # Handoff: [phase/skill name]
 
   ## Completed
+
   - [what was done, with file paths]
 
   ## Discovered
+
   - [unexpected findings, edge cases, dependencies found]
 
   ## Blocked
+
   - [what couldn't be completed and why]
 
   ## Test Results
+
   - [pass/fail summary with command output]
 
   ## Next Steps
+
   - [what the next skill/phase should do]
   ```
+
 - Skills write this at phase boundaries; subsequent skills read it as input context
 - Convention — not enforced mechanically (yet — Group E's phase gates could enforce later)
 
 ### B3: Anti-Pattern Log Convention (Item #14)
 
 **Files:**
+
 - Modify: `docs/standard/implementation.md`
 
 **Design:**
+
 - Define `.harness/anti-patterns.md` convention:
+
   ```markdown
   ## [YYYY-MM-DD] [skill name]: [brief description]
 
@@ -115,15 +129,18 @@ Group B (Principles & Conventions)
   **Failed because:** [why it didn't work]
   **What worked instead:** [the successful approach]
   ```
+
 - Append-only log — skills that do exploration (debugging, refactoring) read at start, append at end
 - Prevents the same dead-end from being explored repeatedly across sessions
 
 ### B4: Branchless Worktree Guidance (Item #24)
 
 **Files:**
+
 - Create: `docs/guides/agent-worktree-patterns.md`
 
 **Design:**
+
 - Document the operational pattern learned from GSD v2's ADR-001
 - Recommendation: for agent-driven work, use worktree-per-milestone with sequential commits on a single branch, squash-merge to main
 - Anti-pattern: branch-per-task creates merge/conflict complexity that grows super-linearly
@@ -142,9 +159,11 @@ Group B (Principles & Conventions)
 ### A1: 1:1 Context Ratio in Review (Item #3)
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 
 **Design:**
+
 - Add a `## Context Assembly` section to the review skill
 - Rule: for every N lines of diff, gather N lines of surrounding context
 - Priority order for context gathering:
@@ -158,9 +177,11 @@ Group B (Principles & Conventions)
 ### A2: Commit History in Review Context (Item #5)
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 
 **Design:**
+
 - Add to the context assembly step: include `git log --oneline -5 -- <affected-files>`
 - Gives temporal awareness: was this a hotspot? Recently refactored? Who's been working here?
 - Lightweight — adds ~5 lines of context per file
@@ -168,30 +189,39 @@ Group B (Principles & Conventions)
 ### A3: Review Feedback Learnings File (Item #6)
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 - Modify: `docs/standard/implementation.md`
 
 **Design:**
+
 - Define `.harness/review-learnings.md` convention:
+
   ```markdown
   ## Useful Findings
+
   - [category]: [example] — [why this was valuable]
 
   ## Noise / False Positives
+
   - [category]: [example] — [why this wasn't helpful]
 
   ## Calibration Notes
+
   - [specific guidance for this project, e.g., "don't flag missing error handling in test helpers"]
   ```
+
 - Review skill reads this file if present and adjusts focus
 - Related to anti-pattern log (B3) but specific to review quality calibration
 
 ### A4: Change-Type-Aware Review (Item #7)
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-code-review/SKILL.md`
 
 **Design:**
+
 - Skill detects or accepts change type: `feature`, `bugfix`, `refactor`, `docs`
 - Detection heuristic: parse commit message prefix (`feat:`, `fix:`, `refactor:`, `docs:`) or examine diff patterns
 - Each type gets a different checklist:
@@ -204,10 +234,12 @@ Group B (Principles & Conventions)
 ### A5: Pre-Commit Review Hook (Item #13)
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-pre-commit-review/skill.yaml`
 - Create: `agents/skills/claude-code/harness-pre-commit-review/SKILL.md`
 
 **Design:**
+
 - Lightweight skill for pre-commit quality gate
 - Sequence: mechanical checks first (lint, typecheck), then AI review if mechanical checks pass
 - Follows the deterministic-first principle from Group B
@@ -217,10 +249,12 @@ Group B (Principles & Conventions)
 ### A6: Unified Integrity Gate (Item #16)
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-integrity/skill.yaml`
 - Create: `agents/skills/claude-code/harness-integrity/SKILL.md`
 
 **Design:**
+
 - Meta-skill that chains: test execution → lint → type-check → AI review → unified report
 - Single invocation runs the full pipeline
 - Report format:
@@ -248,12 +282,14 @@ Group B (Principles & Conventions)
 ### E1: Mechanical "Done" Criteria — Verify Skill (Item #2)
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-verify/skill.yaml`
 - Create: `agents/skills/claude-code/harness-verify/SKILL.md`
 
-> **Relationship to existing `harness-verification`:** The existing skill is a *deep audit* (EXISTS → SUBSTANTIVE → WIRED, 3-level evidence-based verification for milestones and PRs). This new `harness-verify` is a *quick gate* — lightweight binary pass/fail for after every task. They are complementary tiers, not duplicates. The existing `harness-verification` SKILL.md already documents this two-tier model (quick gate vs. deep audit). This skill formalizes the quick gate as a standalone, invocable skill rather than an inline step within `harness-execution`.
+> **Relationship to existing `harness-verification`:** The existing skill is a _deep audit_ (EXISTS → SUBSTANTIVE → WIRED, 3-level evidence-based verification for milestones and PRs). This new `harness-verify` is a _quick gate_ — lightweight binary pass/fail for after every task. They are complementary tiers, not duplicates. The existing `harness-verification` SKILL.md already documents this two-tier model (quick gate vs. deep audit). This skill formalizes the quick gate as a standalone, invocable skill rather than an inline step within `harness-execution`.
 
 **Design:**
+
 - Binary pass/fail gate that runs project test/lint/typecheck commands
 - Auto-detects commands from `package.json` scripts, `Makefile`, or common conventions:
   - Test: `pnpm test`, `npm test`, `make test`, `pytest`, `go test`
@@ -272,10 +308,12 @@ Group B (Principles & Conventions)
 ### E2: EARS Requirement Syntax (Item #10)
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-planning/SKILL.md`
 - Modify: `agents/skills/claude-code/harness-brainstorming/SKILL.md` (if exists)
 
 **Design:**
+
 - Add EARS template section to planning/spec skills
 - EARS patterns:
   - **Ubiquitous:** "The system shall [behavior]"
@@ -289,11 +327,13 @@ Group B (Principles & Conventions)
 ### E3: Phase Gates (Item #9)
 
 **Files:**
+
 - Modify: `packages/cli/` (new `check-phase-gate` command)
 
-> **Architectural note:** Standard ESLint rules operate on AST nodes within a single file — checking for the existence of a *separate* spec file is not a natural fit for ESLint. This is better implemented as a CLI command (`harness check-phase-gate`) that can be wired into pre-commit hooks or CI, rather than an ESLint rule.
+> **Architectural note:** Standard ESLint rules operate on AST nodes within a single file — checking for the existence of a _separate_ spec file is not a natural fit for ESLint. This is better implemented as a CLI command (`harness check-phase-gate`) that can be wired into pre-commit hooks or CI, rather than an ESLint rule.
 
 **Design:**
+
 - CLI command: `harness check-phase-gate` — validates that implementation files have corresponding specs
 - Rule logic: when a file in `src/` or equivalent is created/modified, check that a spec file exists in `docs/specs/` matching the feature name
 - Configurable mapping: projects define spec-to-implementation path mapping in `.harness/config`
@@ -304,11 +344,14 @@ Group B (Principles & Conventions)
 ### E4: Workflow Orchestration — Typed Skill Pipelines (Item #17)
 
 **Files:**
+
 - Modify: `packages/types/` (workflow type definitions)
 - Modify: `packages/core/` (workflow runner)
 
 **Design:**
+
 - New types in `@harness-engineering/types`:
+
   ```typescript
   interface WorkflowStep {
     skill: string;
@@ -322,6 +365,7 @@ Group B (Principles & Conventions)
     steps: WorkflowStep[];
   }
   ```
+
 - Workflow runner in `@harness-engineering/core`:
   - Executes steps in sequence
   - Passes artifacts between steps via handoff schema (from B2)
@@ -341,16 +385,18 @@ Group B (Principles & Conventions)
 
 **Items:** #4, #11, #13, #19
 
-> **Note:** The types package currently only exports `Result<T,E>` and helpers. Skill schema types referenced in C1 and elsewhere are *new types to create*, not modifications to existing types.
-**Depends on:** Group B (principles), Group E (#2 verify skill used by new skills)
+> **Note:** The types package currently only exports `Result<T,E>` and helpers. Skill schema types referenced in C1 and elsewhere are _new types to create_, not modifications to existing types.
+> **Depends on:** Group B (principles), Group E (#2 verify skill used by new skills)
 
 ### C1: Cognitive-Mode Field in Skill Metadata (Item #4)
 
 **Files:**
+
 - Modify: `packages/types/` (skill schema types)
 - Modify: `packages/cli/` (validate command)
 
 **Design:**
+
 - Add optional `cognitive_mode` field to skill schema:
   ```yaml
   cognitive_mode: adversarial-reviewer
@@ -375,9 +421,11 @@ Group B (Principles & Conventions)
 ### C2: Skill Scaffolding CLI Command (Item #13)
 
 **Files:**
+
 - Modify: `packages/cli/` (new `create-skill` command)
 
 **Design:**
+
 - `harness create-skill` — interactive questionnaire:
   1. Skill name (kebab-case)
   2. One-line description
@@ -394,10 +442,12 @@ Group B (Principles & Conventions)
 ### C3: Error Taxonomy Skill (Item #11)
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-diagnostics/skill.yaml`
 - Create: `agents/skills/claude-code/harness-diagnostics/SKILL.md`
 
 **Design:**
+
 - Cognitive mode: `diagnostic-investigator`
 - Step 1 — Classify error:
   - **Syntax/Type:** compilation or type-check failure
@@ -421,10 +471,12 @@ Group B (Principles & Conventions)
 ### C4: Interactive Advisor Skills (Item #19)
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-architecture-advisor/skill.yaml`
 - Create: `agents/skills/claude-code/harness-architecture-advisor/SKILL.md`
 
 **Design:**
+
 - Cognitive mode: `advisory-guide`
 - Different pattern from executor skills — asks questions, doesn't execute
 - Covers: technology choices, component decomposition, API design, data modeling
@@ -451,10 +503,12 @@ Group B (Principles & Conventions)
 ### D1: Token Budget Guidance (Item #12)
 
 **Files:**
+
 - Modify: `docs/standard/principles.md`
 - Optionally modify: `packages/core/`
 
 **Design:**
+
 - Add "Token Budget Allocation" subsection to Context Engineering principle
 - Recommended allocation (adapted from GSD v2):
   | Category | Budget | Purpose |
@@ -471,10 +525,12 @@ Group B (Principles & Conventions)
 ### D2: Staged Context Pipeline (Item #15)
 
 **Files:**
+
 - Modify: `packages/types/` (lifecycle hook types)
 - Modify: `packages/core/` (SkillPipeline)
 
 **Design:**
+
 - Typed lifecycle hooks for skill execution:
   ```typescript
   interface SkillLifecycleHooks {
@@ -493,9 +549,11 @@ Group B (Principles & Conventions)
 ### D3: Context-as-MCP-Service (Item #18)
 
 **Files:**
+
 - Modify: `packages/mcp-server/`
 
 **Design:**
+
 - Extend MCP server with resource endpoints:
   - `harness://skills` — list available skills with metadata (name, description, cognitive_mode)
   - `harness://rules` — active linter rules and constraints from eslint-plugin
@@ -508,9 +566,11 @@ Group B (Principles & Conventions)
 ### D4: JIT Context Filtering (Item #20)
 
 **Files:**
+
 - Modify: `packages/core/` (context filtering utility)
 
 **Design:**
+
 - `contextFilter(phase: WorkflowPhase, budget: TokenBudget)` utility in core
 - Phase-aware filtering:
   - **Implement:** source files, type definitions, test examples, spec

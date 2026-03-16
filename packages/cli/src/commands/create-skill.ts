@@ -138,10 +138,7 @@ export function generateSkillFiles(opts: CreateSkillOptions): GeneratedFiles {
 
   // Check if skill directory already exists
   if (fs.existsSync(skillDir)) {
-    throw new CLIError(
-      `Skill directory already exists: ${skillDir}`,
-      ExitCode.VALIDATION_FAILED
-    );
+    throw new CLIError(`Skill directory already exists: ${skillDir}`, ExitCode.VALIDATION_FAILED);
   }
 
   // Create the directory

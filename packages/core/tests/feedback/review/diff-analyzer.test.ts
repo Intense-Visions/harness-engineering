@@ -91,7 +91,7 @@ describe('analyzeDiff()', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBeGreaterThan(0);
-      expect(result.value.some(item => item.check.includes('console.log'))).toBe(true);
+      expect(result.value.some((item) => item.check.includes('console.log'))).toBe(true);
     }
   });
 
@@ -113,7 +113,7 @@ describe('analyzeDiff()', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.some(item => item.check.includes('files'))).toBe(true);
+      expect(result.value.some((item) => item.check.includes('files'))).toBe(true);
     }
   });
 

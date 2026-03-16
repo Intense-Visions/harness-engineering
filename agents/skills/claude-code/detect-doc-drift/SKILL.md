@@ -3,6 +3,7 @@
 > Detect documentation that has drifted from code. Find stale docs before they mislead developers and AI agents.
 
 ## When to Use
+
 - After completing a feature, bug fix, or refactoring
 - During code review — check if the changed files have associated docs that need updating
 - As a periodic hygiene check (weekly or per-sprint)
@@ -27,22 +28,27 @@ Categorize each finding into one of these drift types:
 
 **Renamed but not updated:**
 A function, class, variable, or file was renamed in code, but documentation still references the old name. This is the most common type of drift.
+
 - Example: `calculateShipping()` was renamed to `computeShippingCost()`, but AGENTS.md and three inline comments still say `calculateShipping`.
 
 **New code with no docs:**
 A new module, function, or API was added but no documentation entry exists. This is not "drift" in the strict sense but a gap that grows into drift over time.
+
 - Example: `src/services/notification-service.ts` was added two sprints ago. It has 5 public exports. No AGENTS.md section, no doc page, no inline doc comments beyond basic JSDoc.
 
 **Deleted code still referenced:**
 A file, function, or feature was removed, but documentation still describes it as if it exists. This actively misleads readers.
+
 - Example: `src/utils/legacy-parser.ts` was deleted. The architecture doc still includes it in the data flow diagram. AGENTS.md still warns about its quirks.
 
 **Changed behavior not reflected:**
 A function's signature, return type, error handling, or side effects changed, but the documentation describes the old behavior.
+
 - Example: `createUser()` now throws `ValidationError` instead of returning `null` on invalid input. The API docs still say "returns null if validation fails."
 
 **Moved code with stale paths:**
 A file or module was moved to a different directory, but documentation references the old path.
+
 - Example: `src/helpers/format.ts` was moved to `src/utils/format.ts`. Three doc files and AGENTS.md reference the old path.
 
 ### Phase 3: Prioritize — Rank by Impact
@@ -50,21 +56,25 @@ A file or module was moved to a different directory, but documentation reference
 Not all drift is equally harmful. Prioritize fixes:
 
 **Critical (fix immediately):**
+
 - Public API documentation that describes wrong behavior — external consumers will write broken code
 - AGENTS.md sections that reference deleted files — AI agents will hallucinate about non-existent code
 - README getting-started guides with wrong commands — new developers cannot onboard
 
 **High (fix before next release):**
+
 - Internal API docs with wrong signatures — developers waste time debugging
 - Architecture docs with stale diagrams — wrong mental models lead to wrong decisions
 - Frequently accessed docs with broken links — high-traffic pages with dead ends
 
 **Medium (fix in next sprint):**
+
 - Internal docs for stable code — low change rate means low confusion rate
 - Comments in rarely modified files — few people read them
 - Edge case documentation — affects few users
 
 **Low (fix when convenient):**
+
 - Stylistic inconsistencies in docs (capitalization, formatting)
 - Redundant documentation that says the same thing in multiple places
 - Historical notes that are outdated but clearly marked as historical
@@ -102,6 +112,7 @@ Group findings by documentation file so that fixes can be applied file-by-file.
 ### Example: Renamed function detected
 
 **Drift finding:**
+
 ```
 DRIFT: Renamed reference detected
   Doc: AGENTS.md:47
@@ -115,6 +126,7 @@ DRIFT: Renamed reference detected
 ### Example: Deleted file still documented
 
 **Drift finding:**
+
 ```
 DRIFT: Reference to deleted file
   Doc: docs/architecture.md:112
@@ -127,6 +139,7 @@ DRIFT: Reference to deleted file
 ### Example: New module with no documentation
 
 **Drift finding:**
+
 ```
 GAP: Undocumented module
   File: src/services/notification-service.ts

@@ -10,16 +10,16 @@ The linter generator transforms YAML configuration into standalone ESLint rule T
 
 ## Key Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Generated rule style | Standalone files | Each YAML rule becomes independent .ts file |
-| Template engine | Handlebars | Mature, well-documented, supports helpers |
-| Extensibility | Custom templates | Users add rule types via .hbs files |
-| Template discovery | Convention + explicit | Check `templates/` dir, allow YAML overrides |
-| Output control | Template-defined | Template authors decide wrapper vs self-contained |
-| Built-in templates | All three types | Ship import-restriction, boundary-validation, dependency-graph |
-| CLI integration | Subcommand | `harness linter generate/validate` |
-| Watch mode | Later iteration | Design for it, implement after core works |
+| Decision             | Choice                | Rationale                                                      |
+| -------------------- | --------------------- | -------------------------------------------------------------- |
+| Generated rule style | Standalone files      | Each YAML rule becomes independent .ts file                    |
+| Template engine      | Handlebars            | Mature, well-documented, supports helpers                      |
+| Extensibility        | Custom templates      | Users add rule types via .hbs files                            |
+| Template discovery   | Convention + explicit | Check `templates/` dir, allow YAML overrides                   |
+| Output control       | Template-defined      | Template authors decide wrapper vs self-contained              |
+| Built-in templates   | All three types       | Ship import-restriction, boundary-validation, dependency-graph |
+| CLI integration      | Subcommand            | `harness linter generate/validate`                             |
+| Watch mode           | Later iteration       | Design for it, implement after core works                      |
 
 ## Package Structure
 
@@ -116,10 +116,10 @@ rules:
 
 ```typescript
 const RuleConfigSchema = z.object({
-  name: z.string().regex(/^[a-z][a-z0-9-]*$/),  // kebab-case
+  name: z.string().regex(/^[a-z][a-z0-9-]*$/), // kebab-case
   type: z.string(),
   severity: z.enum(['error', 'warn', 'off']).default('error'),
-  config: z.record(z.unknown()),  // Template-specific
+  config: z.record(z.unknown()), // Template-specific
 });
 
 const LinterConfigSchema = z.object({
@@ -153,7 +153,7 @@ async function loadTemplate(
   ruleType: string,
   config: LinterConfig,
   configDir: string
-): Promise<TemplateSource>
+): Promise<TemplateSource>;
 ```
 
 ### Template Renderer
@@ -166,7 +166,7 @@ Handlebars.registerHelper('json', (obj) => JSON.stringify(obj, null, 2));
 Handlebars.registerHelper('camelCase', (str) => toCamelCase(str));
 Handlebars.registerHelper('pascalCase', (str) => toPascalCase(str));
 
-function renderTemplate(template: string, context: RuleContext): string
+function renderTemplate(template: string, context: RuleContext): string;
 ```
 
 ### Context Builder
@@ -175,11 +175,11 @@ Transforms YAML rule config into template context:
 
 ```typescript
 interface RuleContext {
-  name: string;           // 'no-ui-in-services'
-  nameCamel: string;      // 'noUiInServices'
-  namePascal: string;     // 'NoUiInServices'
-  severity: string;       // 'error'
-  config: unknown;        // Template-specific config object
+  name: string; // 'no-ui-in-services'
+  nameCamel: string; // 'noUiInServices'
+  namePascal: string; // 'NoUiInServices'
+  severity: string; // 'error'
+  config: unknown; // Template-specific config object
   meta: {
     generatedAt: string;
     generatorVersion: string;
@@ -205,7 +205,7 @@ async function generateRule(
   rule: RuleConfig,
   templateSource: TemplateSource,
   outputDir: string
-): Promise<GeneratedRule>
+): Promise<GeneratedRule>;
 ```
 
 ### Index Generator
@@ -234,9 +234,9 @@ Coordinates the full generation run:
 ```typescript
 interface GenerateOptions {
   configPath: string;
-  outputDir?: string;  // Override config's output
-  clean?: boolean;     // Remove existing files first
-  dryRun?: boolean;    // Preview without writing
+  outputDir?: string; // Override config's output
+  clean?: boolean; // Remove existing files first
+  dryRun?: boolean; // Preview without writing
 }
 
 interface GenerateResult {
@@ -246,7 +246,7 @@ interface GenerateResult {
   errors: GeneratorError[];
 }
 
-async function generate(options: GenerateOptions): Promise<GenerateResult>
+async function generate(options: GenerateOptions): Promise<GenerateResult>;
 ```
 
 ### Generation Flow
@@ -328,6 +328,7 @@ Generated 3 rules to ./generated/eslint-rules
 Blocks imports matching patterns from source files matching a pattern.
 
 **Config schema:**
+
 ```typescript
 {
   source: string;           // Glob for files this rule applies to
@@ -337,6 +338,7 @@ Blocks imports matching patterns from source files matching a pattern.
 ```
 
 **Logic:**
+
 - Check if current file matches `source` pattern
 - On `ImportDeclaration`, check if import matches any `forbiddenImports`
 - Report with custom message
@@ -346,15 +348,17 @@ Blocks imports matching patterns from source files matching a pattern.
 Ensures files matching a pattern export Zod schemas for validation.
 
 **Config schema:**
+
 ```typescript
 {
-  pattern: string;          // Glob for files requiring validation
+  pattern: string; // Glob for files requiring validation
   requireZodSchema: boolean; // Must export z.object or similar
-  message: string;          // Error message
+  message: string; // Error message
 }
 ```
 
 **Logic:**
+
 - Check if current file matches `pattern`
 - Scan exports for Zod schema usage
 - Report if no schema found and `requireZodSchema` is true
@@ -364,6 +368,7 @@ Ensures files matching a pattern export Zod schemas for validation.
 Detects circular import chains.
 
 **Config schema:**
+
 ```typescript
 {
   entryPoints: string[];    // Starting points for graph traversal
@@ -373,6 +378,7 @@ Detects circular import chains.
 ```
 
 **Logic:**
+
 - Build import graph starting from entry points
 - Detect cycles using DFS with visited tracking
 - Report cycle with full chain path
@@ -399,14 +405,14 @@ const validation = await validate({
 
 ### Unit Tests
 
-| Module | Tests |
-|--------|-------|
-| `parser/config-parser.ts` | Valid YAML parsing, schema validation errors, missing required fields |
-| `engine/template-loader.ts` | Explicit path resolution, convention discovery, builtin fallback, missing template errors |
-| `engine/template-renderer.ts` | Handlebars rendering, helper functions, invalid template syntax |
-| `engine/context-builder.ts` | Name transformations (kebab→camel→pascal), meta fields |
-| `generator/rule-generator.ts` | Single rule generation, output path construction |
-| `generator/index-generator.ts` | Export statement generation, naming |
+| Module                         | Tests                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `parser/config-parser.ts`      | Valid YAML parsing, schema validation errors, missing required fields                     |
+| `engine/template-loader.ts`    | Explicit path resolution, convention discovery, builtin fallback, missing template errors |
+| `engine/template-renderer.ts`  | Handlebars rendering, helper functions, invalid template syntax                           |
+| `engine/context-builder.ts`    | Name transformations (kebab→camel→pascal), meta fields                                    |
+| `generator/rule-generator.ts`  | Single rule generation, output path construction                                          |
+| `generator/index-generator.ts` | Export statement generation, naming                                                       |
 
 ### Integration Tests
 
@@ -423,7 +429,7 @@ const validation = await validate({
 
 ### Coverage Target
 
->80% line coverage
+> 80% line coverage
 
 ## Future Iterations
 

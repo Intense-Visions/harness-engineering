@@ -3,14 +3,7 @@ import type { TSESTree } from '@typescript-eslint/typescript-estree';
 import type { Result } from '../result';
 import { Ok, Err } from '../result';
 import { readFileContent } from '../fs-utils';
-import type {
-  AST,
-  Import,
-  Export,
-  ParseError,
-  LanguageParser,
-  HealthCheckResult,
-} from './base';
+import type { AST, Import, Export, ParseError, LanguageParser, HealthCheckResult } from './base';
 import { createParseError } from './base';
 
 function walk(node: unknown, visitor: (node: TSESTree.Node) => void): void {
@@ -20,7 +13,7 @@ function walk(node: unknown, visitor: (node: TSESTree.Node) => void): void {
   }
   for (const value of Object.values(node)) {
     if (Array.isArray(value)) {
-      value.forEach(v => walk(v, visitor));
+      value.forEach((v) => walk(v, visitor));
     } else {
       walk(value, visitor);
     }
@@ -35,12 +28,10 @@ export class TypeScriptParser implements LanguageParser {
     const contentResult = await readFileContent(path);
     if (!contentResult.ok) {
       return Err(
-        createParseError(
-          'NOT_FOUND',
-          `File not found: ${path}`,
-          { path },
-          ['Check that the file exists', 'Verify the path is correct']
-        )
+        createParseError('NOT_FOUND', `File not found: ${path}`, { path }, [
+          'Check that the file exists',
+          'Verify the path is correct',
+        ])
       );
     }
 
@@ -60,12 +51,10 @@ export class TypeScriptParser implements LanguageParser {
     } catch (e) {
       const error = e as Error;
       return Err(
-        createParseError(
-          'SYNTAX_ERROR',
-          `Failed to parse ${path}: ${error.message}`,
-          { path },
-          ['Check for syntax errors in the file', 'Ensure valid TypeScript syntax']
-        )
+        createParseError('SYNTAX_ERROR', `Failed to parse ${path}: ${error.message}`, { path }, [
+          'Check for syntax errors in the file',
+          'Ensure valid TypeScript syntax',
+        ])
       );
     }
   }
@@ -140,9 +129,10 @@ export class TypeScriptParser implements LanguageParser {
           for (const spec of exportDecl.specifiers) {
             if (spec.type === 'ExportSpecifier') {
               const exported = spec.exported;
-              const name = exported.type === 'Identifier'
-                ? exported.name
-                : String((exported as unknown as TSESTree.Literal).value);
+              const name =
+                exported.type === 'Identifier'
+                  ? exported.name
+                  : String((exported as unknown as TSESTree.Literal).value);
               exports.push({
                 name,
                 type: 'named',
@@ -197,9 +187,10 @@ export class TypeScriptParser implements LanguageParser {
         for (const spec of exportDecl.specifiers) {
           if (spec.type === 'ExportSpecifier') {
             const exported = spec.exported;
-            const name = exported.type === 'Identifier'
-              ? exported.name
-              : String((exported as unknown as TSESTree.Literal).value);
+            const name =
+              exported.type === 'Identifier'
+                ? exported.name
+                : String((exported as unknown as TSESTree.Literal).value);
             exports.push({
               name,
               type: 'named',

@@ -2,11 +2,7 @@ import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import type { ContextError } from '../shared/errors';
 import { createError } from '../shared/errors';
-import type {
-  AgentMapLink,
-  AgentMapSection,
-  AgentMapValidation,
-} from './types';
+import type { AgentMapLink, AgentMapSection, AgentMapValidation } from './types';
 import { REQUIRED_SECTIONS } from './types';
 import { fileExists, readFileContent } from '../shared/fs-utils';
 import { join, dirname } from 'path';
@@ -133,10 +129,12 @@ export function extractSections(content: string): AgentMapSection[] {
  * Check if a link path is external (URL or fragment)
  */
 function isExternalLink(path: string): boolean {
-  return path.startsWith('http://') ||
+  return (
+    path.startsWith('http://') ||
     path.startsWith('https://') ||
     path.startsWith('#') ||
-    path.startsWith('mailto:');
+    path.startsWith('mailto:')
+  );
 }
 
 /**
@@ -175,9 +173,8 @@ export async function validateAgentsMap(
   // Check for required sections
   const sectionTitles = sections.map((s) => s.title);
   const missingSections = REQUIRED_SECTIONS.filter(
-    (required) => !sectionTitles.some((title) =>
-      title.toLowerCase().includes(required.toLowerCase())
-    )
+    (required) =>
+      !sectionTitles.some((title) => title.toLowerCase().includes(required.toLowerCase()))
   );
 
   // Validate all links
@@ -205,11 +202,12 @@ export async function validateAgentsMap(
     }
 
     // Update section links with exists status
-    section.links = section.links.map((link) =>
-      allLinks.find((l) => l.path === link.path && l.line === link.line) || {
-        ...link,
-        exists: false,
-      }
+    section.links = section.links.map(
+      (link) =>
+        allLinks.find((l) => l.path === link.path && l.line === link.line) || {
+          ...link,
+          exists: false,
+        }
     );
   }
 

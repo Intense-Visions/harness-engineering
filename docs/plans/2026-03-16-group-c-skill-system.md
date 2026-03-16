@@ -19,6 +19,7 @@
 ### Task 1: Add CognitiveMode type and SkillMetadata to packages/types
 
 **Files:**
+
 - Modify: `packages/types/src/index.ts`
 
 - [ ] **Step 1: Write failing test for CognitiveMode type exports**
@@ -27,11 +28,7 @@ Create `packages/types/src/skill.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import {
-  STANDARD_COGNITIVE_MODES,
-  type CognitiveMode,
-  type SkillMetadata,
-} from './index';
+import { STANDARD_COGNITIVE_MODES, type CognitiveMode, type SkillMetadata } from './index';
 
 describe('CognitiveMode', () => {
   it('exports standard cognitive modes', () => {
@@ -126,6 +123,7 @@ Commit: `feat(types): add CognitiveMode type and SkillMetadata interface`
 ### Task 2: Update CLI skill schema to accept cognitive_mode
 
 **Files:**
+
 - Modify: `packages/cli/src/skill/schema.ts`
 
 - [ ] **Step 4: Write failing test for cognitive_mode in schema**
@@ -239,35 +237,36 @@ Commit: `feat(cli): add cognitive_mode field to skill schema validation`
 ### Task 3: Backfill existing skills with cognitive_mode
 
 **Files:**
+
 - Modify: 21 `skill.yaml` files under `agents/skills/claude-code/`
 
 - [ ] **Step 6: Add cognitive_mode to all existing skill.yaml files**
 
 Add the `cognitive_mode` field after `description` in each skill.yaml. The mapping:
 
-| Skill | cognitive_mode |
-|-------|---------------|
-| `harness-code-review` | `adversarial-reviewer` |
-| `harness-debugging` | `diagnostic-investigator` |
-| `harness-planning` | `constructive-architect` |
-| `harness-execution` | `meticulous-implementer` |
-| `harness-verification` | `meticulous-verifier` |
-| `harness-brainstorming` | `constructive-architect` |
-| `harness-tdd` | `meticulous-implementer` |
-| `harness-refactoring` | `meticulous-implementer` |
-| `harness-git-workflow` | `meticulous-verifier` |
-| `harness-onboarding` | `advisory-guide` |
-| `harness-parallel-agents` | `constructive-architect` |
-| `harness-skill-authoring` | `constructive-architect` |
-| `harness-state-management` | `meticulous-implementer` |
-| `initialize-harness-project` | `constructive-architect` |
-| `add-harness-component` | `constructive-architect` |
-| `align-documentation` | `meticulous-verifier` |
-| `check-mechanical-constraints` | `meticulous-verifier` |
-| `cleanup-dead-code` | `diagnostic-investigator` |
-| `detect-doc-drift` | `diagnostic-investigator` |
-| `enforce-architecture` | `meticulous-verifier` |
-| `validate-context-engineering` | `meticulous-verifier` |
+| Skill                          | cognitive_mode            |
+| ------------------------------ | ------------------------- |
+| `harness-code-review`          | `adversarial-reviewer`    |
+| `harness-debugging`            | `diagnostic-investigator` |
+| `harness-planning`             | `constructive-architect`  |
+| `harness-execution`            | `meticulous-implementer`  |
+| `harness-verification`         | `meticulous-verifier`     |
+| `harness-brainstorming`        | `constructive-architect`  |
+| `harness-tdd`                  | `meticulous-implementer`  |
+| `harness-refactoring`          | `meticulous-implementer`  |
+| `harness-git-workflow`         | `meticulous-verifier`     |
+| `harness-onboarding`           | `advisory-guide`          |
+| `harness-parallel-agents`      | `constructive-architect`  |
+| `harness-skill-authoring`      | `constructive-architect`  |
+| `harness-state-management`     | `meticulous-implementer`  |
+| `initialize-harness-project`   | `constructive-architect`  |
+| `add-harness-component`        | `constructive-architect`  |
+| `align-documentation`          | `meticulous-verifier`     |
+| `check-mechanical-constraints` | `meticulous-verifier`     |
+| `cleanup-dead-code`            | `diagnostic-investigator` |
+| `detect-doc-drift`             | `diagnostic-investigator` |
+| `enforce-architecture`         | `meticulous-verifier`     |
+| `validate-context-engineering` | `meticulous-verifier`     |
 
 For each file, insert `cognitive_mode: <value>` on the line immediately after the `description:` line.
 
@@ -275,7 +274,7 @@ Example — `agents/skills/claude-code/harness-code-review/skill.yaml` becomes:
 
 ```yaml
 name: harness-code-review
-version: "1.0.0"
+version: '1.0.0'
 description: Structured code review with automated harness checks
 cognitive_mode: adversarial-reviewer
 triggers:
@@ -298,6 +297,7 @@ Commit: `feat(skills): backfill cognitive_mode across all 21 existing skills`
 ### Task 4: Create the create-skill command
 
 **Files:**
+
 - Create: `packages/cli/src/commands/create-skill.ts`
 - Modify: `packages/cli/src/index.ts`
 
@@ -454,9 +454,7 @@ export function generateSkillFiles(opts: CreateSkillOptions): void {
     tools: ['Bash', 'Read', 'Glob', 'Grep'],
     cli: {
       command: `harness skill run ${opts.name}`,
-      args: [
-        { name: 'path', description: 'Project root path', required: false },
-      ],
+      args: [{ name: 'path', description: 'Project root path', required: false }],
     },
     mcp: {
       tool: 'run_skill',
@@ -472,9 +470,10 @@ export function generateSkillFiles(opts: CreateSkillOptions): void {
 
   // Generate SKILL.md
   const checksSection = buildChecksSection(opts.checks);
-  const readsSection = opts.reads.length > 0
-    ? opts.reads.map((r) => `- \`${r}\``).join('\n')
-    : '- *(define glob patterns for files this skill reads)*';
+  const readsSection =
+    opts.reads.length > 0
+      ? opts.reads.map((r) => `- \`${r}\``).join('\n')
+      : '- *(define glob patterns for files this skill reads)*';
 
   const skillMd = `# ${opts.name}
 
@@ -603,7 +602,7 @@ import { createCreateSkillCommand } from './commands/create-skill';
 In `createProgram()`, after `program.addCommand(createStateCommand());`, add:
 
 ```typescript
-  program.addCommand(createCreateSkillCommand());
+program.addCommand(createCreateSkillCommand());
 ```
 
 Run: `cd packages/cli && npx vitest run tests/commands/create-skill.test.ts` — expect pass.
@@ -621,6 +620,7 @@ Commit: `feat(cli): add harness create-skill scaffolding command`
 ### Task 5: Create harness-diagnostics skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-diagnostics/skill.yaml`
 - Create: `agents/skills/claude-code/harness-diagnostics/SKILL.md`
 
@@ -630,7 +630,7 @@ Create `agents/skills/claude-code/harness-diagnostics/skill.yaml`:
 
 ```yaml
 name: harness-diagnostics
-version: "1.0.0"
+version: '1.0.0'
 description: Classify errors into taxonomy categories and route to resolution strategies
 cognitive_mode: diagnostic-investigator
 triggers:
@@ -702,36 +702,44 @@ Classify errors into taxonomy categories and route to the appropriate resolution
 ## Error Taxonomy
 
 ### Category 1: Syntax/Type
+
 **Signals:** Compilation failure, TypeScript error, parse error, type mismatch
 **Resolution:** Read error output line/column, locate file, apply mechanical fix. Run typecheck to confirm.
 
 ### Category 2: Logic
+
 **Signals:** Wrong output, incorrect behavior, test assertion failure, off-by-one, wrong condition
 **Resolution:** Write a failing test that captures the expected behavior FIRST. Then investigate the logic path, fix, and confirm test passes.
 
 ### Category 3: Design
+
 **Signals:** Architectural issue, wrong abstraction, coupling, violation of separation of concerns
 **Resolution:** Escalate to human architect (advisory mode). Do NOT attempt to refactor without approval. Document the design concern and proposed alternatives.
 
 ### Category 4: Performance
+
 **Signals:** Slow response, high memory usage, timeout, O(n^2) patterns
 **Resolution:** Profile FIRST (measure, do not guess). Identify the hot path. Optimize only the measured bottleneck. Verify with before/after benchmarks.
 
 ### Category 5: Security
+
 **Signals:** Vulnerability report, unsafe input handling, credential exposure, injection risk
 **Resolution:** Check against OWASP top 10. Apply the minimal fix. Verify the fix does not introduce regressions. Flag for security review.
 
 ### Category 6: Environment
+
 **Signals:** Dependency version mismatch, missing config, platform-specific failure, permission denied, CI-only failure
 **Resolution:** Check versions (`node -v`, `pnpm -v`, dependency lockfile). Compare local vs. CI environment. Fix config/dependency, not code (unless code has a hard dependency on a specific version).
 
 ### Category 7: Flaky
+
 **Signals:** Intermittent failure, passes locally but fails in CI, timing-dependent, race condition
 **Resolution:** Isolate the timing dependency. Look for shared mutable state, uncontrolled async, or missing awaits. Add deterministic synchronization or retry with backoff. Never suppress with `.skip`.
 
 ## Context Assembly
 
 **Files read:**
+
 - Error output / stack trace (provided by user or captured from terminal)
 - `src/**/*.ts` — source files referenced in stack trace
 - `tests/**/*.test.ts` — test files related to failing code
@@ -743,10 +751,12 @@ Classify errors into taxonomy categories and route to the appropriate resolution
 ## Deterministic Checks
 
 **Pre-execution:**
+
 - `pnpm typecheck` — capture current type errors
 - `pnpm test` — capture current test failures
 
 **Post-execution:**
+
 - `pnpm typecheck` — confirm no new type errors introduced
 - `pnpm test` — confirm fix resolves the issue and introduces no regressions
 
@@ -794,6 +804,7 @@ Classify errors into taxonomy categories and route to the appropriate resolution
 **Classification:** Category 1 — Syntax/Type
 
 **Resolution:**
+
 1. Read the error: file `src/utils/calc.ts`, line 42
 2. Inspect the function signature — expects `number`, caller passes `string`
 3. Fix: add `parseInt()` or fix the caller's type
@@ -807,6 +818,7 @@ Classify errors into taxonomy categories and route to the appropriate resolution
 **Classification:** Category 7 — Flaky
 
 **Resolution:**
+
 1. Isolate: look for missing `await`, shared state, or `setTimeout` without control
 2. Found: test uses `setTimeout(100)` for debounce — timing varies in CI
 3. Fix: replace with `vi.useFakeTimers()` and `vi.advanceTimersByTime(100)`
@@ -827,6 +839,7 @@ Commit: `feat(skills): add harness-diagnostics error taxonomy skill (C3)`
 ### Task 6: Create harness-architecture-advisor skill
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-architecture-advisor/skill.yaml`
 - Create: `agents/skills/claude-code/harness-architecture-advisor/SKILL.md`
 
@@ -836,7 +849,7 @@ Create `agents/skills/claude-code/harness-architecture-advisor/skill.yaml`:
 
 ```yaml
 name: harness-architecture-advisor
-version: "1.0.0"
+version: '1.0.0'
 description: Interactive architecture advisor that surfaces trade-offs and helps humans choose
 cognitive_mode: advisory-guide
 triggers:
@@ -857,7 +870,7 @@ cli:
       description: Project root path
       required: false
     - name: topic
-      description: "Architecture topic (e.g., api-design, data-modeling, decomposition)"
+      description: 'Architecture topic (e.g., api-design, data-modeling, decomposition)'
       required: false
 mcp:
   tool: run_skill
@@ -908,6 +921,7 @@ Interactive architecture advisor that helps humans make informed design decision
 ## Context Assembly
 
 **Files read:**
+
 - `docs/specs/**/*.md` — existing specs and design documents
 - `docs/standard/**/*.md` — project principles and conventions
 - `AGENTS.md` — project structure and architecture overview
@@ -920,9 +934,11 @@ Interactive architecture advisor that helps humans make informed design decision
 ## Deterministic Checks
 
 **Pre-execution:**
-- *(none — this is a pure advisory skill, no code changes)*
+
+- _(none — this is a pure advisory skill, no code changes)_
 
 **Post-execution:**
+
 - Validate ADR follows the template structure
 - Confirm the ADR references specific files/components (not vague generalities)
 
@@ -955,26 +971,31 @@ Do NOT proceed to Phase 2 until the human has answered or explicitly deferred th
 ### Phase 3: Propose
 
 Present 2-3 architectural options. For each option:
-
 ```
+
 ### Option [N]: [Name]
 
 **Approach:** [1-2 sentence summary]
 
 **How it works:**
+
 - [key implementation details]
 
 **Pros:**
+
 - [concrete benefit with evidence from codebase analysis]
 
 **Cons:**
+
 - [concrete drawback with specific impact]
 
 **Fits when:**
+
 - [conditions where this option is best]
 
 **Effort:** [rough estimate: small/medium/large]
-```
+
+````
 
 After presenting options, explicitly ask: "Which option do you prefer, or would you like to explore a different direction?"
 
@@ -1017,7 +1038,7 @@ Write an Architecture Decision Record:
 ## Action Items
 
 - [ ] [specific next steps to implement the decision]
-```
+````
 
 Save the ADR to `.harness/architecture/[YYYY-MM-DD]-[topic].md`.
 
@@ -1055,12 +1076,14 @@ Save the ADR to `.harness/architecture/[YYYY-MM-DD]-[topic].md`.
 **Topic:** "Should our new notification service use REST or event-driven architecture?"
 
 **Phase 1 — Discovery:**
+
 - Building a notification system for 3 internal services
 - Consumers: user-service, billing-service, admin-dashboard
 - Constraints: must handle 1000 notifications/min, team knows Express well
 - Existing patterns: all current services use REST
 
 **Phase 3 — Options:**
+
 1. REST endpoints (familiar, simple, synchronous)
 2. Event bus with Redis pub/sub (decoupled, async, moderate learning curve)
 3. Hybrid: REST for admin, events for service-to-service (best of both, more complexity)
@@ -1074,10 +1097,12 @@ Save the ADR to `.harness/architecture/[YYYY-MM-DD]-[topic].md`.
 **Phase 2 — Analysis:** Found 4 distinct concerns: authentication, profile management, permissions, and preferences. Current coupling is through a shared UserService class.
 
 **Phase 3 — Options:**
+
 1. Split into 4 modules with shared types (clean, most work)
 2. Extract auth + permissions into a separate module, keep profile + preferences together (moderate effort, addresses the main pain point)
 3. Keep single module but split into sub-files with a barrel export (least disruption, doesn't fix coupling)
-```
+
+````
 
 - [ ] **Step 17: Validate the new skill**
 
@@ -1113,7 +1138,7 @@ pnpm --filter @harness-engineering/cli exec harness create-skill \
   --name smoke-test-skill \
   --description "Smoke test for scaffolding" \
   --cognitive-mode constructive-architect
-```
+````
 
 Verify `skill.yaml` and `SKILL.md` are generated with correct content. Clean up the temp directory.
 

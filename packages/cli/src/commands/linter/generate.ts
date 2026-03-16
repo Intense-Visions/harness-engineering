@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { generate } from '@harness-engineering/linter-gen';
 import { logger } from '../../output/logger';
-import { OutputFormatter, OutputMode } from '../../output/formatter';
 import { CLIError, ExitCode } from '../../utils/errors';
 
 export function createGenerateCommand(): Command {
@@ -14,10 +13,6 @@ export function createGenerateCommand(): Command {
     .option('--json', 'Output as JSON')
     .option('--verbose', 'Show detailed output')
     .action(async (options) => {
-      const formatter = new OutputFormatter(
-        options.json ? OutputMode.JSON : OutputMode.TEXT
-      );
-
       try {
         if (options.verbose) {
           logger.info(`Parsing config: ${options.config}`);
@@ -53,12 +48,18 @@ export function createGenerateCommand(): Command {
         }
 
         if (options.json) {
-          console.log(JSON.stringify({
-            success: true,
-            outputDir: result.outputDir,
-            rulesGenerated: result.rulesGenerated,
-            dryRun: result.dryRun,
-          }, null, 2));
+          console.log(
+            JSON.stringify(
+              {
+                success: true,
+                outputDir: result.outputDir,
+                rulesGenerated: result.rulesGenerated,
+                dryRun: result.dryRun,
+              },
+              null,
+              2
+            )
+          );
         } else {
           if (result.dryRun) {
             logger.info('Dry run - no files written');

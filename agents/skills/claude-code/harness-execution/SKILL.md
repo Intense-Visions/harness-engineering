@@ -3,6 +3,7 @@
 > Execute a plan task by task with atomic commits, checkpoint protocol, and persistent knowledge capture. Stop on blockers. Do not guess.
 
 ## When to Use
+
 - When an approved plan exists (output of harness-planning) and implementation should begin
 - When resuming execution of a previously started plan after a context reset
 - When `on_new_feature` or `on_bug_fix` triggers fire and a plan is already in place
@@ -65,6 +66,7 @@ For each task, starting from the current position:
    - **Still failing after retries →** record the failure in `.harness/failures.md`, escalate, and stop.
 
 6. **Update state after each task.** Write to `.harness/state.json`:
+
    ```json
    {
      "schemaVersion": 1,
@@ -83,12 +85,14 @@ For each task, starting from the current position:
 Plans contain three types of checkpoints. Each requires pausing execution.
 
 **`[checkpoint:human-verify]` — Show and Confirm**
+
 1. Stop execution.
 2. Show the human what was just completed (test output, file diff, running application).
 3. State: "Task N complete. Output: [summary]. Continue to Task N+1?"
 4. Wait for the human to confirm before proceeding.
 
 **`[checkpoint:decision]` — Present Options and Wait**
+
 1. Stop execution.
 2. Present the decision with options exactly as described in the plan.
 3. State: "Task N requires a decision: [options]. Which do you prefer?"
@@ -96,6 +100,7 @@ Plans contain three types of checkpoints. Each requires pausing execution.
 5. Record the decision in `.harness/state.json` under `decisions`.
 
 **`[checkpoint:human-action]` — Instruct and Wait**
+
 1. Stop execution.
 2. Tell the human exactly what they need to do (e.g., "Create an API key at [URL] and paste it here").
 3. State: "Task N requires your action: [instructions]. Let me know when done."
@@ -108,6 +113,7 @@ Plans contain three types of checkpoints. Each requires pausing execution.
 **Quick gate (default):** The mechanical gate in Phase 2 Step 5 IS the standard verification. Every task commit must pass it before proceeding. No additional verification step is needed for normal execution.
 
 **Deep audit (on-demand):** When `--deep` is passed or at milestone boundaries (e.g., end of a phase, final task), invoke the full `harness-verification` skill for 3-level audit:
+
 1. **EXISTS** — Do the artifacts the task claims to produce actually exist?
 2. **SUBSTANTIVE** — Do those artifacts contain meaningful, correct content (not stubs or placeholders)?
 3. **WIRED** — Are those artifacts integrated into the system (imported, routed, tested, reachable)?
@@ -121,6 +127,7 @@ If the deep audit fails at any level, treat it as a blocker. Record it and stop.
 Between tasks (especially between sessions):
 
 1. **Update `.harness/state.json`** with current position, progress, and `lastSession` context:
+
    ```json
    {
      "lastSession": {
@@ -131,8 +138,10 @@ Between tasks (especially between sessions):
    ```
 
 2. **Append tagged learnings to `.harness/learnings.md`.** Tag every entry with skill and outcome:
+
    ```markdown
    ## YYYY-MM-DD — Task N: <task name>
+
    - [skill:harness-execution] [outcome:success] What was accomplished
    - [skill:harness-execution] [outcome:gotcha] What was surprising or non-obvious
    - [skill:harness-execution] [outcome:decision] What was decided and why
@@ -141,6 +150,7 @@ Between tasks (especially between sessions):
 3. **Record failures in `.harness/failures.md`** if any task was escalated after retry exhaustion (from Phase 2 Step 5). Include the approach attempted and why it failed, so future sessions avoid the same dead end.
 
 4. **Write `.harness/handoff.json`** with structured context for the next skill or session:
+
    ```json
    {
      "fromSkill": "harness-execution",
@@ -194,6 +204,7 @@ These are non-negotiable. When any condition is met, stop immediately.
 ### Example: Executing a 5-Task Notification Plan
 
 **Session Start (fresh):**
+
 ```
 Read plan: docs/plans/2026-03-14-notifications-plan.md (5 tasks)
 Read state: .harness/state.json — file not found (fresh start, position: Task 1)
@@ -202,6 +213,7 @@ Run: harness validate — passes. Clean baseline confirmed.
 ```
 
 **Task 1: Define notification types**
+
 ```
 1. Create src/types/notification.ts with Notification interface
 2. Run: harness validate — passes
@@ -210,6 +222,7 @@ Run: harness validate — passes. Clean baseline confirmed.
 ```
 
 **Task 2: Create notification service (TDD)**
+
 ```
 1. Write test: src/services/notification-service.test.ts
 2. Run test: FAIL — NotificationService is not defined (correct failure)
@@ -221,6 +234,7 @@ Run: harness validate — passes. Clean baseline confirmed.
 ```
 
 **Task 3: Add list and expiry (TDD) — has checkpoint**
+
 ```
 [checkpoint:human-verify] — "Tasks 1-2 complete. NotificationService can create
 notifications. Tests pass. Continue to Task 3 (list and expiry methods)?"
@@ -238,6 +252,7 @@ Human: "Continue."
 ```
 
 **Context reset mid-plan (resume at Task 4):**
+
 ```
 Read plan: docs/plans/2026-03-14-notifications-plan.md
 Read state: .harness/state.json — position: Task 4, Tasks 1-3 complete
@@ -272,6 +287,7 @@ When `.harness/gate.json` has `"trace": true` or `--verbose` is passed, append o
 **Format:** `**[PHASE HH:MM:SS]** summary`
 
 Example:
+
 ```markdown
 **[PREPARE 14:32:07]** Loaded plan with 5 tasks, resuming from Task 3 per state.json.
 **[EXECUTE 14:32:15]** Task 3 committed; mechanical gate passed on first attempt.

@@ -57,10 +57,12 @@ import { z } from 'zod';
 
 const ConfigSchema = z.object({
   version: z.number(),
-  layers: z.array(z.object({
-    name: z.string(),
-    allowedDependencies: z.array(z.string()),
-  })),
+  layers: z.array(
+    z.object({
+      name: z.string(),
+      allowedDependencies: z.array(z.string()),
+    })
+  ),
 });
 
 const result = validateConfig(userConfig, ConfigSchema);
@@ -85,8 +87,8 @@ const result = validateCommitMessage('feat(core): add validation module', 'conve
 
 if (result.ok) {
   if (result.value.valid) {
-    console.log('Type:', result.value.type);      // 'feat'
-    console.log('Scope:', result.value.scope);    // 'core'
+    console.log('Type:', result.value.type); // 'feat'
+    console.log('Scope:', result.value.scope); // 'core'
     console.log('Breaking:', result.value.breaking); // false
   } else {
     console.log('Issues:', result.value.issues);
@@ -162,9 +164,7 @@ const result = await generateAgentsMap({
   rootDir: './',
   includePaths: ['**/*.md', 'src/**/*.ts'],
   excludePaths: ['node_modules/**'],
-  sections: [
-    { name: 'API Docs', pattern: 'docs/api/**/*.md', description: 'API documentation' },
-  ],
+  sections: [{ name: 'API Docs', pattern: 'docs/api/**/*.md', description: 'API documentation' }],
 });
 
 if (result.ok) {
@@ -307,7 +307,10 @@ if (report.value.deadCode) {
     dryRun: true, // Preview first
   });
 
-  console.log('Preview:', fixes.map(f => f.description));
+  console.log(
+    'Preview:',
+    fixes.map((f) => f.description)
+  );
 
   // Apply for real
   await applyFixes(fixes, { dryRun: false, createBackup: true });

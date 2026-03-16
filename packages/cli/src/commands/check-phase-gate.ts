@@ -42,7 +42,7 @@ function resolveSpecPath(
   const relImpl = path.relative(cwd, implFile);
 
   // Determine the base directory of the impl pattern (everything before the first glob)
-  const implBase = implPattern.split('*')[0].replace(/\/+$/, '');
+  const implBase = (implPattern.split('*')[0] ?? '').replace(/\/+$/, '');
 
   // Extract the portion after the base
   const afterBase = relImpl.startsWith(implBase + '/')
@@ -51,7 +51,9 @@ function resolveSpecPath(
 
   // The "feature" is the first directory segment after the base
   const segments = afterBase.split('/');
-  const feature = segments.length > 1 ? segments[0] : path.basename(segments[0], path.extname(segments[0]));
+  const firstSegment = segments[0] ?? '';
+  const feature =
+    segments.length > 1 ? firstSegment : path.basename(firstSegment, path.extname(firstSegment));
 
   // Replace {feature} placeholder in specPattern
   const specRelative = specPattern.replace('{feature}', feature);
@@ -69,7 +71,9 @@ export async function runCheckPhaseGate(
   }
   const config = configResult.value;
 
-  const cwd = options.cwd ?? (options.configPath ? path.dirname(path.resolve(options.configPath)) : process.cwd());
+  const cwd =
+    options.cwd ??
+    (options.configPath ? path.dirname(path.resolve(options.configPath)) : process.cwd());
 
   // If phase gates not enabled, skip
   if (!config.phaseGates?.enabled) {

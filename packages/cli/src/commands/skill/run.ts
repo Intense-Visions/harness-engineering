@@ -17,8 +17,7 @@ export function createRunCommand(): Command {
     .option('--complexity <level>', 'Complexity: auto, light, full', 'auto')
     .option('--phase <name>', 'Start at a specific phase (for re-entry)')
     .option('--party', 'Enable multi-perspective evaluation')
-    .action(async (name, opts, cmd) => {
-      const _globalOpts = cmd.optsWithGlobals();
+    .action(async (name, opts, _cmd) => {
       const skillsDir = resolveSkillsDir();
       const skillDir = path.join(skillsDir, name);
 
@@ -37,7 +36,9 @@ export function createRunCommand(): Command {
           const parsed = parse(raw);
           const result = SkillMetadataSchema.safeParse(parsed);
           if (result.success) metadata = result.data;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       // Resolve complexity
@@ -66,7 +67,7 @@ export function createRunCommand(): Command {
       if (opts.phase) {
         // Validate phase name
         if (metadata?.phases) {
-          const validPhases = metadata.phases.map(p => p.name);
+          const validPhases = metadata.phases.map((p) => p.name);
           if (!validPhases.includes(opts.phase)) {
             logger.error(`Unknown phase: ${opts.phase}. Valid phases: ${validPhases.join(', ')}`);
             process.exit(ExitCode.ERROR);
@@ -82,11 +83,12 @@ export function createRunCommand(): Command {
               const stat = fs.statSync(fullPath);
               if (stat.isDirectory()) {
                 // Find most recent file in directory
-                const files = fs.readdirSync(fullPath)
-                  .map(f => ({ name: f, mtime: fs.statSync(path.join(fullPath, f)).mtimeMs }))
+                const files = fs
+                  .readdirSync(fullPath)
+                  .map((f) => ({ name: f, mtime: fs.statSync(path.join(fullPath, f)).mtimeMs }))
                   .sort((a, b) => b.mtime - a.mtime);
                 if (files.length > 0) {
-                  priorState = fs.readFileSync(path.join(fullPath, files[0].name), 'utf-8');
+                  priorState = fs.readFileSync(path.join(fullPath, files[0]!.name), 'utf-8');
                 }
               } else {
                 priorState = fs.readFileSync(fullPath, 'utf-8');
@@ -95,19 +97,20 @@ export function createRunCommand(): Command {
             }
           }
           if (!priorState) {
-            stateWarning = 'No prior phase data found. Earlier phases have not been completed. Proceed with caution.';
+            stateWarning =
+              'No prior phase data found. Earlier phases have not been completed. Proceed with caution.';
           }
         }
       }
 
       // Build preamble
       const preamble = buildPreamble({
-        complexity,
+        ...(complexity !== undefined && { complexity }),
         phases: metadata?.phases as Array<{ name: string; description: string; required: boolean }>,
-        principles,
+        ...(principles !== undefined && { principles }),
         phase: opts.phase,
-        priorState,
-        stateWarning,
+        ...(priorState !== undefined && { priorState }),
+        ...(stateWarning !== undefined && { stateWarning }),
         party: opts.party,
       });
 

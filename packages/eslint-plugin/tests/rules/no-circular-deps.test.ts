@@ -1,11 +1,7 @@
 // tests/rules/no-circular-deps.test.ts
 import { RuleTester } from '@typescript-eslint/rule-tester';
 import { describe, it, afterAll, beforeEach, expect } from 'vitest';
-import rule, {
-  clearImportGraph,
-  addEdge,
-  detectCycle,
-} from '../../src/rules/no-circular-deps';
+import rule, { clearImportGraph, addEdge, detectCycle } from '../../src/rules/no-circular-deps';
 
 RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;

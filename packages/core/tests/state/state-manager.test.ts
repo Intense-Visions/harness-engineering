@@ -21,13 +21,16 @@ describe('loadState', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
     const harnessDir = path.join(tmpDir, '.harness');
     fs.mkdirSync(harnessDir, { recursive: true });
-    fs.writeFileSync(path.join(harnessDir, 'state.json'), JSON.stringify({
-      schemaVersion: 1,
-      position: { phase: 'test' },
-      decisions: [],
-      blockers: [],
-      progress: { 'task-1': 'complete' },
-    }));
+    fs.writeFileSync(
+      path.join(harnessDir, 'state.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        position: { phase: 'test' },
+        decisions: [],
+        blockers: [],
+        progress: { 'task-1': 'complete' },
+      })
+    );
     const result = await loadState(tmpDir);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.progress['task-1']).toBe('complete');

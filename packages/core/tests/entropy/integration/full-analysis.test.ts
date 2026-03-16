@@ -106,7 +106,9 @@ describe('Entropy Module Integration', () => {
       if (result.ok && result.value.deadCode) {
         expect(result.value.deadCode.stats.filesAnalyzed).toBeGreaterThan(0);
         // Fixture should have dead code
-        expect(result.value.deadCode.deadFiles.length + result.value.deadCode.deadExports.length).toBeGreaterThan(0);
+        expect(
+          result.value.deadCode.deadFiles.length + result.value.deadCode.deadExports.length
+        ).toBeGreaterThan(0);
       }
     });
   });

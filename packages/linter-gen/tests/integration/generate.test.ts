@@ -42,10 +42,7 @@ rules:
     if (!result.success) return;
 
     // Verify generated rule file
-    const ruleContent = await fs.readFile(
-      path.join(outputDir, 'no-react-in-services.ts'),
-      'utf-8'
-    );
+    const ruleContent = await fs.readFile(path.join(outputDir, 'no-react-in-services.ts'), 'utf-8');
 
     expect(ruleContent).toContain("name: 'no-react-in-services'");
     expect(ruleContent).toContain('Service files cannot import React');
@@ -53,10 +50,7 @@ rules:
     expect(ruleContent).toContain('"react-dom"');
 
     // Verify index file
-    const indexContent = await fs.readFile(
-      path.join(outputDir, 'index.ts'),
-      'utf-8'
-    );
+    const indexContent = await fs.readFile(path.join(outputDir, 'index.ts'), 'utf-8');
 
     expect(indexContent).toContain("import noReactInServices from './no-react-in-services'");
     expect(indexContent).toContain("'no-react-in-services': noReactInServices");
@@ -92,10 +86,7 @@ rules:
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    const ruleContent = await fs.readFile(
-      path.join(outputDir, 'my-custom-rule.ts'),
-      'utf-8'
-    );
+    const ruleContent = await fs.readFile(path.join(outputDir, 'my-custom-rule.ts'), 'utf-8');
 
     expect(ruleContent).toContain('// Custom template');
     expect(ruleContent).toContain("ruleName = 'my-custom-rule'");
@@ -136,10 +127,7 @@ rules:
     expect(result.rulesGenerated).toContain('rule-two');
 
     // Verify index exports both
-    const indexContent = await fs.readFile(
-      path.join(outputDir, 'index.ts'),
-      'utf-8'
-    );
+    const indexContent = await fs.readFile(path.join(outputDir, 'index.ts'), 'utf-8');
     expect(indexContent).toContain('ruleOne');
     expect(indexContent).toContain('ruleTwo');
   });

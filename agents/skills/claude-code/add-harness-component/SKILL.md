@@ -3,6 +3,7 @@
 > Add layers, documentation, components, or skills to an existing harness project with proper integration. Validate against existing constraints, wire into architecture, and verify the result.
 
 ## When to Use
+
 - Adding a new layer to the project's architecture
 - Adding a new documentation file that harness should track
 - Adding a new component (module, service, package) that must be wired into existing layer boundaries

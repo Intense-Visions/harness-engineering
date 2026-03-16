@@ -1031,34 +1031,39 @@ These conventions are referenced by skills and workflows. They are not mechanica
 
 **Schema:**
 
-````markdown
+```markdown
 # Handoff: [phase/skill name]
 
 ## Completed
+
 - [what was done, with file paths]
 - Example: Created `src/services/auth.ts` with JWT validation logic
 - Example: Updated `docs/guides/authentication.md` with new flow diagram
 
 ## Discovered
+
 - [unexpected findings, edge cases, dependencies found]
 - Example: The existing UserService has a circular dependency with AuthService
 - Example: Rate limiting is not implemented on the /login endpoint
 
 ## Blocked
+
 - [what couldn't be completed and why]
 - Example: Cannot add Redis caching — redis client package not in dependencies
 - Example: Integration test requires database seed data that doesn't exist yet
 
 ## Test Results
+
 - [pass/fail summary with command output]
 - Example: 14/14 unit tests passing
 - Example: 2/3 integration tests passing — `test-login-rate-limit` skipped (see Blocked)
 
 ## Next Steps
+
 - [what the next skill/phase should do]
 - Example: Run `harness-code-review` on the auth service changes
 - Example: Address the circular dependency before adding caching
-````
+```
 
 **When to write a handoff:**
 
@@ -1082,17 +1087,17 @@ These conventions are referenced by skills and workflows. They are not mechanica
 
 **Schema:**
 
-````markdown
+```markdown
 ## [YYYY-MM-DD] [skill name]: [brief description]
 
 **Tried:** [what was attempted]
 **Failed because:** [why it didn't work]
 **What worked instead:** [the successful approach]
-````
+```
 
 **Example entries:**
 
-````markdown
+```markdown
 ## 2026-03-15 harness-debugging: Fix circular dependency in auth module
 
 **Tried:** Moved shared types into a `common/` directory and re-exported from both services.
@@ -1104,7 +1109,7 @@ These conventions are referenced by skills and workflows. They are not mechanica
 **Tried:** Used `ioredis` with default connection pooling.
 **Failed because:** The test environment doesn't have Redis running, and the `ioredis` mock library doesn't support the `pipeline()` method we needed.
 **What worked instead:** Created a `CachePort` interface in the Repository layer and a `RedisCacheAdapter` that implements it. Tests use an `InMemoryCacheAdapter`. The adapter pattern lets us swap implementations without changing service code.
-````
+```
 
 **Rules:**
 
@@ -1136,39 +1141,45 @@ These conventions are referenced by skills and workflows. They are not mechanica
 
 **Schema:**
 
-````markdown
+```markdown
 # Review Learnings
 
 ## Useful Findings
+
 - [category]: [example] — [why this was valuable]
 
 ## Noise / False Positives
+
 - [category]: [example] — [why this wasn't helpful]
 
 ## Calibration Notes
+
 - [specific guidance for this project]
-````
+```
 
 **Example:**
 
-````markdown
+```markdown
 # Review Learnings
 
 ## Useful Findings
+
 - error-handling: Missing catch in async pipeline — caused silent failures in production
 - type-safety: Implicit any in service boundaries — led to runtime type mismatches
 - test-coverage: Untested error paths in payment flow — caught a real bug
 
 ## Noise / False Positives
+
 - naming: Flagging single-letter variables in test helpers — these are conventional (e.g., `t`, `e`)
 - error-handling: Missing error handling in CLI scripts — these exit on error by design
 - docs: Missing JSDoc on internal utility functions — we document at module level, not function level
 
 ## Calibration Notes
+
 - This project uses Result types everywhere — do not flag missing try/catch in functions that return Result<T, E>
 - Test helpers intentionally use loose types for ergonomics — do not flag missing type annotations in test/
 - The CLI package uses process.exit() intentionally — do not flag as an anti-pattern
-````
+```
 
 **Maintenance:** Append new entries after each review cycle. Periodically prune entries that are no longer relevant (e.g., after a major refactor changes the codebase patterns).
 

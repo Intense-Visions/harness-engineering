@@ -3,6 +3,7 @@
 > Sync documentation with code after implementation changes. Keep AGENTS.md, API docs, and architecture docs accurate by mapping code changes to their documentation impact.
 
 ## When to Use
+
 - After completing a feature implementation (post-merge or post-commit)
 - After fixing a bug that changes observable behavior
 - After a refactoring that renames, moves, or restructures code
@@ -35,24 +36,28 @@
 For each changed file, identify all documentation that references it:
 
 **AGENTS.md sections:**
+
 - Knowledge map entries that reference the file path
 - Architecture descriptions that mention the module
 - Constraint documentation that references the file's layer or patterns
 - Onboarding guides that walk through the file
 
 **API documentation:**
+
 - JSDoc/TSDoc comments in the changed files themselves
 - Generated API doc pages that pull from the changed files
 - README examples that demonstrate the changed functions
 - Tutorial or guide pages that use the changed code
 
 **Architecture documentation:**
+
 - Diagrams that include the changed module
 - Data flow descriptions that reference the changed functions
 - Layer descriptions that list the changed file
 - Dependency documentation that references the changed imports
 
 **Inline code comments:**
+
 - Comments in OTHER files that reference the changed file or function
 - TODO comments that reference the changed behavior
 - Workaround comments that may no longer apply after the change
@@ -84,6 +89,7 @@ For each affected documentation location:
 ## What to Update
 
 ### AGENTS.md Knowledge Map
+
 - File paths and module names (renamed or moved files)
 - Module purpose descriptions (changed responsibilities)
 - Constraint descriptions (new or changed rules)
@@ -91,12 +97,14 @@ For each affected documentation location:
 - Gotcha sections (resolved gotchas, new gotchas)
 
 ### Inline Code Comments
+
 - Function/class doc comments in the changed files (JSDoc, TSDoc)
 - Comments in other files that reference the changed code
 - TODO comments that reference completed or changed work
 - Workaround comments for issues that may now be resolved
 
 ### Documentation Pages (docs/)
+
 - API reference pages that describe changed functions
 - Architecture pages that diagram changed modules
 - Tutorial and guide pages that demonstrate changed code
@@ -127,6 +135,7 @@ For each affected documentation location:
 **Code change:** `src/services/mailer.ts` renamed to `src/services/email-service.ts`. Functions `sendMail()` and `formatMailBody()` renamed to `sendEmail()` and `formatEmailBody()`.
 
 **Documentation impact map:**
+
 ```
 AGENTS.md:34      — "mailer.ts handles email delivery" → update path and description
 AGENTS.md:78      — "Use sendMail() for all outbound email" → update function name
@@ -136,6 +145,7 @@ src/controllers/user-controller.ts:12 — comment "// delegates to mailer" → u
 ```
 
 **Updates applied:**
+
 - AGENTS.md: updated two sections with new file path and function names
 - docs/api.md: updated function reference and import example
 - docs/arch.md: updated module name in architecture description
@@ -148,6 +158,7 @@ src/controllers/user-controller.ts:12 — comment "// delegates to mailer" → u
 **Code change:** `createUser()` in `src/services/user-service.ts` now throws `ValidationError` instead of returning `null` on invalid input.
 
 **Documentation impact map:**
+
 ```
 docs/api.md:89    — "Returns null if validation fails" → update to describe thrown error
 AGENTS.md:52      — No mention of error handling → add note about ValidationError
@@ -155,6 +166,7 @@ src/services/user-service.ts:15 — JSDoc @returns tag → update, add @throws t
 ```
 
 **Updates applied:**
+
 - docs/api.md: replaced "returns null" with "throws ValidationError" and added example
 - AGENTS.md: added note about error handling pattern in user-service section
 - JSDoc: updated @returns, added @throws ValidationError

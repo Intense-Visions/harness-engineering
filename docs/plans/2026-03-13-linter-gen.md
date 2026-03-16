@@ -66,6 +66,7 @@ packages/linter-gen/
 ```
 
 **CLI integration** (in existing `packages/cli/`):
+
 ```
 packages/cli/src/commands/linter/
 ├── index.ts       # Parent command: harness linter
@@ -80,6 +81,7 @@ packages/cli/src/commands/linter/
 ### Task 1: Initialize linter-gen package
 
 **Files:**
+
 - Create: `packages/linter-gen/package.json`
 - Create: `packages/linter-gen/tsconfig.json`
 - Create: `packages/linter-gen/vitest.config.mts`
@@ -171,6 +173,7 @@ git commit -m "feat(linter-gen): initialize package structure"
 ### Task 2: Define Zod schema for linter config
 
 **Files:**
+
 - Create: `packages/linter-gen/src/schema/linter-config.ts`
 - Create: `packages/linter-gen/tests/schema/linter-config.test.ts`
 
@@ -241,9 +244,7 @@ import { z } from 'zod';
  */
 export const RuleConfigSchema = z.object({
   /** Rule name in kebab-case (e.g., 'no-ui-in-services') */
-  name: z
-    .string()
-    .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, 'Rule name must be kebab-case'),
+  name: z.string().regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, 'Rule name must be kebab-case'),
   /** Rule type - determines which template to use */
   type: z.string().min(1),
   /** ESLint severity level */
@@ -372,6 +373,7 @@ git commit -m "feat(linter-gen): add Zod schema for linter config"
 ### Task 3: Implement config parser
 
 **Files:**
+
 - Create: `packages/linter-gen/src/parser/config-parser.ts`
 - Create: `packages/linter-gen/tests/parser/config-parser.test.ts`
 - Create: `packages/linter-gen/tests/fixtures/valid-config.yml`
@@ -527,20 +529,12 @@ export async function parseConfig(configPath: string): Promise<ParseResult> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return {
         success: false,
-        error: new ParseError(
-          `Config file not found: ${configPath}`,
-          'FILE_NOT_FOUND',
-          err
-        ),
+        error: new ParseError(`Config file not found: ${configPath}`, 'FILE_NOT_FOUND', err),
       };
     }
     return {
       success: false,
-      error: new ParseError(
-        `Failed to read config file: ${configPath}`,
-        'FILE_READ_ERROR',
-        err
-      ),
+      error: new ParseError(`Failed to read config file: ${configPath}`, 'FILE_READ_ERROR', err),
     };
   }
 
@@ -562,16 +556,10 @@ export async function parseConfig(configPath: string): Promise<ParseResult> {
   // Validate with Zod
   const result = LinterConfigSchema.safeParse(parsed);
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
+    const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     return {
       success: false,
-      error: new ParseError(
-        `Invalid config: ${issues}`,
-        'VALIDATION_ERROR',
-        result.error
-      ),
+      error: new ParseError(`Invalid config: ${issues}`, 'VALIDATION_ERROR', result.error),
     };
   }
 
@@ -602,6 +590,7 @@ git commit -m "feat(linter-gen): add config parser with YAML and Zod validation"
 ### Task 4: Implement context builder
 
 **Files:**
+
 - Create: `packages/linter-gen/src/engine/context-builder.ts`
 - Create: `packages/linter-gen/tests/engine/context-builder.test.ts`
 
@@ -744,6 +733,7 @@ git commit -m "feat(linter-gen): add context builder for template rendering"
 ### Task 5: Implement template renderer
 
 **Files:**
+
 - Create: `packages/linter-gen/src/engine/template-renderer.ts`
 - Create: `packages/linter-gen/tests/engine/template-renderer.test.ts`
 
@@ -880,9 +870,7 @@ function toPascalCase(str: string): string {
 // Register Handlebars helpers
 Handlebars.registerHelper('json', (obj: unknown) => JSON.stringify(obj));
 
-Handlebars.registerHelper('jsonPretty', (obj: unknown) =>
-  JSON.stringify(obj, null, 2)
-);
+Handlebars.registerHelper('jsonPretty', (obj: unknown) => JSON.stringify(obj, null, 2));
 
 Handlebars.registerHelper('camelCase', (str: string) => toCamelCase(str));
 
@@ -891,10 +879,7 @@ Handlebars.registerHelper('pascalCase', (str: string) => toPascalCase(str));
 /**
  * Render a Handlebars template with the given context
  */
-export function renderTemplate(
-  templateSource: string,
-  context: RuleContext
-): RenderResult {
+export function renderTemplate(templateSource: string, context: RuleContext): RenderResult {
   try {
     const compiled = Handlebars.compile(templateSource, { strict: true });
     const output = compiled(context);
@@ -902,10 +887,7 @@ export function renderTemplate(
   } catch (err) {
     return {
       success: false,
-      error: new TemplateError(
-        `Template rendering failed: ${(err as Error).message}`,
-        err
-      ),
+      error: new TemplateError(`Template rendering failed: ${(err as Error).message}`, err),
     };
   }
 }
@@ -928,6 +910,7 @@ git commit -m "feat(linter-gen): add Handlebars template renderer with helpers"
 ### Task 6: Implement template loader
 
 **Files:**
+
 - Create: `packages/linter-gen/src/engine/template-loader.ts`
 - Create: `packages/linter-gen/tests/engine/template-loader.test.ts`
 - Create: `packages/linter-gen/tests/fixtures/with-custom-template/harness-linter.yml`
@@ -954,14 +937,12 @@ rules:
 
 ```handlebars
 {{! tests/fixtures/with-custom-template/templates/convention-type.ts.hbs }}
-// Convention-discovered template
-export const ruleName = '{{name}}';
+// Convention-discovered template export const ruleName = '{{name}}';
 ```
 
 ```handlebars
 {{! tests/fixtures/with-custom-template/my-templates/explicit.ts.hbs }}
-// Explicit path template
-export const ruleName = '{{name}}';
+// Explicit path template export const ruleName = '{{name}}';
 ```
 
 - [ ] **Step 2: Write failing tests for template loader**
@@ -1080,9 +1061,7 @@ export interface TemplateSource {
   content: string;
 }
 
-export type TemplateLoadErrorCode =
-  | 'TEMPLATE_NOT_FOUND'
-  | 'TEMPLATE_READ_ERROR';
+export type TemplateLoadErrorCode = 'TEMPLATE_NOT_FOUND' | 'TEMPLATE_READ_ERROR';
 
 export class TemplateLoadError extends Error {
   constructor(
@@ -1209,6 +1188,7 @@ git commit -m "feat(linter-gen): add template loader with priority resolution"
 ### Task 7: Implement rule generator
 
 **Files:**
+
 - Create: `packages/linter-gen/src/generator/rule-generator.ts`
 - Create: `packages/linter-gen/tests/generator/rule-generator.test.ts`
 
@@ -1355,6 +1335,7 @@ git commit -m "feat(linter-gen): add rule generator"
 ### Task 8: Implement index generator
 
 **Files:**
+
 - Create: `packages/linter-gen/src/generator/index-generator.ts`
 - Create: `packages/linter-gen/tests/generator/index-generator.test.ts`
 
@@ -1469,6 +1450,7 @@ git commit -m "feat(linter-gen): add index file generator"
 ### Task 9: Implement orchestrator
 
 **Files:**
+
 - Create: `packages/linter-gen/src/generator/orchestrator.ts`
 - Create: `packages/linter-gen/tests/generator/orchestrator.test.ts`
 
@@ -1550,8 +1532,14 @@ rules:
         expect(result.outputDir).toBe(outputDir);
 
         // Verify files were created
-        const ruleExists = await fs.access(path.join(outputDir, 'test-rule.ts')).then(() => true).catch(() => false);
-        const indexExists = await fs.access(path.join(outputDir, 'index.ts')).then(() => true).catch(() => false);
+        const ruleExists = await fs
+          .access(path.join(outputDir, 'test-rule.ts'))
+          .then(() => true)
+          .catch(() => false);
+        const indexExists = await fs
+          .access(path.join(outputDir, 'index.ts'))
+          .then(() => true)
+          .catch(() => false);
         expect(ruleExists).toBe(true);
         expect(indexExists).toBe(true);
       }
@@ -1607,7 +1595,10 @@ rules:
       if (result.success) {
         expect(result.rulesGenerated).toContain('test-rule');
         // Directory should not exist
-        const dirExists = await fs.access(outputDir).then(() => true).catch(() => false);
+        const dirExists = await fs
+          .access(outputDir)
+          .then(() => true)
+          .catch(() => false);
         expect(dirExists).toBe(false);
       }
     });
@@ -1728,12 +1719,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
     }
 
     // Generate rule
-    const ruleResult = generateRule(
-      rule,
-      templateResult.source,
-      outputDir,
-      options.configPath
-    );
+    const ruleResult = generateRule(rule, templateResult.source, outputDir, options.configPath);
     if (!ruleResult.success) {
       errors.push({
         type: 'render',
@@ -1803,6 +1789,7 @@ git commit -m "feat(linter-gen): add generation orchestrator"
 ### Task 10: Create import-restriction template
 
 **Files:**
+
 - Create: `packages/linter-gen/src/templates/import-restriction.ts.hbs`
 
 - [ ] **Step 1: Write import-restriction template**
@@ -1894,6 +1881,7 @@ git commit -m "feat(linter-gen): add import-restriction template"
 ### Task 11: Create boundary-validation template
 
 **Files:**
+
 - Create: `packages/linter-gen/src/templates/boundary-validation.ts.hbs`
 
 - [ ] **Step 1: Write boundary-validation template**
@@ -2019,6 +2007,7 @@ git commit -m "feat(linter-gen): add boundary-validation template"
 ### Task 12: Create dependency-graph template
 
 **Files:**
+
 - Create: `packages/linter-gen/src/templates/dependency-graph.ts.hbs`
 
 - [ ] **Step 1: Write dependency-graph template**
@@ -2161,6 +2150,7 @@ git commit -m "feat(linter-gen): add dependency-graph template"
 ### Task 13: Create public API entry point
 
 **Files:**
+
 - Create: `packages/linter-gen/src/index.ts`
 
 - [ ] **Step 1: Write public API exports**
@@ -2206,6 +2196,7 @@ Expected: Build succeeds, dist/ directory created with dist/templates/ containin
 
 Run: `ls packages/linter-gen/dist/templates/`
 Expected:
+
 ```
 import-restriction.ts.hbs
 boundary-validation.ts.hbs
@@ -2226,6 +2217,7 @@ git commit -m "feat(linter-gen): add public API entry point"
 ### Task 14: Add linter commands to CLI
 
 **Files:**
+
 - Create: `packages/cli/src/commands/linter/index.ts`
 - Create: `packages/cli/src/commands/linter/generate.ts`
 - Create: `packages/cli/src/commands/linter/validate.ts`
@@ -2235,6 +2227,7 @@ git commit -m "feat(linter-gen): add public API entry point"
 - [ ] **Step 1: Add linter-gen dependency to CLI package**
 
 Add to `packages/cli/package.json` dependencies:
+
 ```json
 "@harness-engineering/linter-gen": "workspace:*"
 ```
@@ -2259,9 +2252,7 @@ export function createGenerateCommand(): Command {
     .option('--json', 'Output as JSON')
     .option('--verbose', 'Show detailed output')
     .action(async (options) => {
-      const formatter = new OutputFormatter(
-        options.json ? OutputMode.JSON : OutputMode.TEXT
-      );
+      const formatter = new OutputFormatter(options.json ? OutputMode.JSON : OutputMode.TEXT);
 
       try {
         if (options.verbose) {
@@ -2298,12 +2289,18 @@ export function createGenerateCommand(): Command {
         }
 
         if (options.json) {
-          console.log(JSON.stringify({
-            success: true,
-            outputDir: result.outputDir,
-            rulesGenerated: result.rulesGenerated,
-            dryRun: result.dryRun,
-          }, null, 2));
+          console.log(
+            JSON.stringify(
+              {
+                success: true,
+                outputDir: result.outputDir,
+                rulesGenerated: result.rulesGenerated,
+                dryRun: result.dryRun,
+              },
+              null,
+              2
+            )
+          );
         } else {
           if (result.dryRun) {
             logger.info('Dry run - no files written');
@@ -2363,8 +2360,9 @@ import { createGenerateCommand } from './generate';
 import { createValidateCommand } from './validate';
 
 export function createLinterCommand(): Command {
-  const linter = new Command('linter')
-    .description('Generate and validate ESLint rules from YAML config');
+  const linter = new Command('linter').description(
+    'Generate and validate ESLint rules from YAML config'
+  );
 
   linter.addCommand(createGenerateCommand());
   linter.addCommand(createValidateCommand());
@@ -2378,16 +2376,19 @@ export function createLinterCommand(): Command {
 Modify `packages/cli/src/index.ts`:
 
 1. Add import at top with other command imports:
+
 ```typescript
 import { createLinterCommand } from './commands/linter';
 ```
 
 2. Add command registration after existing `program.addCommand(createAddCommand());` line:
+
 ```typescript
 program.addCommand(createLinterCommand());
 ```
 
 The full import section should look like:
+
 ```typescript
 import { createValidateCommand } from './commands/validate';
 import { createCheckDepsCommand } from './commands/check-deps';
@@ -2417,6 +2418,7 @@ git commit -m "feat(cli): add harness linter generate/validate commands"
 ### Task 15: Add integration tests
 
 **Files:**
+
 - Create: `packages/linter-gen/tests/integration/generate.test.ts`
 
 - [ ] **Step 1: Write integration tests**
@@ -2467,10 +2469,7 @@ rules:
     if (!result.success) return;
 
     // Verify generated rule file
-    const ruleContent = await fs.readFile(
-      path.join(outputDir, 'no-react-in-services.ts'),
-      'utf-8'
-    );
+    const ruleContent = await fs.readFile(path.join(outputDir, 'no-react-in-services.ts'), 'utf-8');
 
     expect(ruleContent).toContain("name: 'no-react-in-services'");
     expect(ruleContent).toContain('Service files cannot import React');
@@ -2478,10 +2477,7 @@ rules:
     expect(ruleContent).toContain('"react-dom"');
 
     // Verify index file
-    const indexContent = await fs.readFile(
-      path.join(outputDir, 'index.ts'),
-      'utf-8'
-    );
+    const indexContent = await fs.readFile(path.join(outputDir, 'index.ts'), 'utf-8');
 
     expect(indexContent).toContain("import noReactInServices from './no-react-in-services'");
     expect(indexContent).toContain("'no-react-in-services': noReactInServices");
@@ -2517,10 +2513,7 @@ rules:
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    const ruleContent = await fs.readFile(
-      path.join(outputDir, 'my-custom-rule.ts'),
-      'utf-8'
-    );
+    const ruleContent = await fs.readFile(path.join(outputDir, 'my-custom-rule.ts'), 'utf-8');
 
     expect(ruleContent).toContain('// Custom template');
     expect(ruleContent).toContain("ruleName = 'my-custom-rule'");
@@ -2561,10 +2554,7 @@ rules:
     expect(result.rulesGenerated).toContain('rule-two');
 
     // Verify index exports both
-    const indexContent = await fs.readFile(
-      path.join(outputDir, 'index.ts'),
-      'utf-8'
-    );
+    const indexContent = await fs.readFile(path.join(outputDir, 'index.ts'), 'utf-8');
     expect(indexContent).toContain('ruleOne');
     expect(indexContent).toContain('ruleTwo');
   });
@@ -2588,11 +2578,12 @@ git commit -m "test(linter-gen): add integration tests"
 ### Task 16: Add README documentation
 
 **Files:**
+
 - Create: `packages/linter-gen/README.md`
 
 - [ ] **Step 1: Write README**
 
-```markdown
+````markdown
 # @harness-engineering/linter-gen
 
 Generate ESLint rules from YAML configuration using extensible Handlebars templates.
@@ -2602,6 +2593,7 @@ Generate ESLint rules from YAML configuration using extensible Handlebars templa
 ```bash
 pnpm add @harness-engineering/linter-gen
 ```
+````
 
 ## Usage
 
@@ -2754,14 +2746,15 @@ Templates receive:
 ## License
 
 MIT
-```
+
+````
 
 - [ ] **Step 2: Commit README**
 
 ```bash
 git add packages/linter-gen/README.md
 git commit -m "docs(linter-gen): add README with usage examples"
-```
+````
 
 ---
 

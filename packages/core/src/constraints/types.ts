@@ -81,7 +81,11 @@ export interface BoundaryValidation {
 
 export interface BoundaryValidator<T> {
   name: string;
-  parse(input: unknown): import('../shared/result').Result<T, import('../shared/errors').ConstraintError>;
-  validate(input: unknown): import('../shared/result').Result<boolean, import('../shared/errors').ConstraintError>;
+  parse(
+    input: unknown
+  ): import('../shared/result').Result<T, import('../shared/errors').ConstraintError>;
+  validate(
+    input: unknown
+  ): import('../shared/result').Result<boolean, import('../shared/errors').ConstraintError>;
   schema: z.ZodSchema<T>;
 }

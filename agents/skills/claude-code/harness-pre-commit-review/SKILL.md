@@ -3,6 +3,7 @@
 > Lightweight pre-commit quality gate — mechanical checks first, AI review second. Fast feedback before code leaves your machine.
 
 ## When to Use
+
 - Before committing code (manual invocation or git pre-commit hook)
 - As a quick sanity check before pushing to a branch
 - When you want fast feedback without a full code review cycle
@@ -121,6 +122,7 @@ Review the staged diff for these high-signal issues only:
 - **Type mismatches:** function called with wrong argument types (if visible in diff)
 
 Do NOT review for:
+
 - Style (that is the linter's job)
 - Architecture (that is the full review's job)
 - Test completeness (that is the full review's job)

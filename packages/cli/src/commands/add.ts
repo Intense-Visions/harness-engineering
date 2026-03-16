@@ -55,10 +55,12 @@ export async function runAdd(
   // Validate name to prevent path traversal and invalid characters
   const NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
   if (!name || !NAME_PATTERN.test(name)) {
-    return Err(new CLIError(
-      'Invalid name. Must start with a letter and contain only alphanumeric characters, hyphens, and underscores.',
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(
+        'Invalid name. Must start with a letter and contain only alphanumeric characters, hyphens, and underscores.',
+        ExitCode.ERROR
+      )
+    );
   }
 
   const configResult = resolveConfig(options.configPath);
@@ -109,18 +111,22 @@ export async function runAdd(
       }
 
       default:
-        return Err(new CLIError(
-          `Unknown component type: ${componentType}. Use: layer, module, doc`,
-          ExitCode.ERROR
-        ));
+        return Err(
+          new CLIError(
+            `Unknown component type: ${componentType}. Use: layer, module, doc`,
+            ExitCode.ERROR
+          )
+        );
     }
 
     return Ok({ created });
   } catch (error) {
-    return Err(new CLIError(
-      `Failed to add ${componentType}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(
+        `Failed to add ${componentType}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ExitCode.ERROR
+      )
+    );
   }
 }
 

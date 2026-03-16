@@ -22,31 +22,38 @@ Adopt 14 patterns from 7 researched frameworks (Claude Flow, Gas Town, Turbo Flo
 ### New functions in `packages/core/src/state/state-manager.ts`
 
 **`appendFailure(projectPath, failure, skillName, type)`**
+
 - Appends to `.harness/failures.md` with date, skill, type tag
 - Format: `- **YYYY-MM-DD [skill:name] [type:dead-end]:** description`
 - Creates file with `# Failures` header if missing
 
 **`loadFailures(projectPath)`**
+
 - Reads `.harness/failures.md`, returns array of parsed failure entries
 - Used by skills at phase start
 
 **`archiveFailures(projectPath)`**
+
 - Moves `.harness/failures.md` to `.harness/archive/failures-YYYY-MM-DD.md`
 - Creates fresh empty failures file
 
 **`loadRelevantLearnings(projectPath, skillName?)`**
+
 - Reads `.harness/learnings.md`, parses tags, filters by skill name
 - Returns matching entries; falls back to all entries if no filter
 
 **`saveHandoff(projectPath, handoff)`**
+
 - Writes `.harness/handoff.json` with structured context
 
 **`loadHandoff(projectPath)`**
+
 - Reads `.harness/handoff.json`, returns parsed handoff or null
 
 ### Modified function
 
 **`appendLearning(projectPath, learning, skillName?, outcome?)`**
+
 - New format (when tags provided): `- **YYYY-MM-DD [skill:name] [outcome:status]:** text`
 - Without tags: `- **YYYY-MM-DD:** text` (existing format, unchanged)
 - `skillName` and `outcome` are optional parameters — existing callers work without modification
@@ -55,10 +62,12 @@ Adopt 14 patterns from 7 researched frameworks (Claude Flow, Gas Town, Turbo Flo
 ### Schema change in `types.ts`
 
 `lastSession` gains optional fields:
+
 - `lastSkill?: string`
 - `pendingTasks?: string[]`
 
 New Zod schemas:
+
 - `FailureEntry` — date, skill, type, description
 - `Handoff` — timestamp, fromSkill, phase, summary, completed, pending, concerns, decisions, blockers, contextKeywords
 - `GateResult` — `{ passed: boolean, checks: Array<{ name: string, passed: boolean, command: string, output?: string, duration?: number }> }`
@@ -66,18 +75,19 @@ New Zod schemas:
 
 ### New `.harness/` file conventions
 
-| File | Purpose | Written by | Read by |
-|------|---------|-----------|---------|
-| `failures.md` | Dead ends, anti-patterns | Any skill on failure | All skills at start |
-| `handoff.json` | Structured context between phases | Execution/planning at phase end | Next skill/session |
-| `trace.md` | Optional reasoning monologue | Execution (when verbose) | Humans only |
-| `archive/` | Archived failure logs | `archiveFailures()` | Historical reference |
+| File           | Purpose                           | Written by                      | Read by              |
+| -------------- | --------------------------------- | ------------------------------- | -------------------- |
+| `failures.md`  | Dead ends, anti-patterns          | Any skill on failure            | All skills at start  |
+| `handoff.json` | Structured context between phases | Execution/planning at phase end | Next skill/session   |
+| `trace.md`     | Optional reasoning monologue      | Execution (when verbose)        | Humans only          |
+| `archive/`     | Archived failure logs             | `archiveFailures()`             | Historical reference |
 
 ## Phase 2: Mechanical Done Gate
 
 ### New function: `runMechanicalGate(projectPath, checks?)`
 
 Runs configurable binary pass/fail checklist. Returns `GateResult`.
+
 - Auto-detects project type (package.json → npm, go.mod → go, etc.)
 - Default checks: test, lint, typecheck, build, harness validate
 - Skips checks that don't apply
@@ -87,10 +97,10 @@ Runs configurable binary pass/fail checklist. Returns `GateResult`.
 
 ### Two-tier verification
 
-| Tier | When | What | Speed |
-|------|------|------|-------|
+| Tier       | When             | What                                               | Speed   |
+| ---------- | ---------------- | -------------------------------------------------- | ------- |
 | Quick gate | After every task | test + lint + typecheck + build + harness validate | ~10-30s |
-| Deep audit | Milestones, PRs | EXISTS → SUBSTANTIVE → WIRED (3-level) | ~2-5min |
+| Deep audit | Milestones, PRs  | EXISTS → SUBSTANTIVE → WIRED (3-level)             | ~2-5min |
 
 ### Execution integration
 
@@ -126,21 +136,27 @@ Runs configurable binary pass/fail checklist. Returns `GateResult`.
 ## Phase 4: Skill Updates (Behavioral)
 
 ### harness-execution — Trace Output (Optional)
+
 When `--verbose` or `.harness/gate.json` has `"trace": true`, append one-sentence reasoning at each phase boundary to `.harness/trace.md`. Format: `**[PHASE HH:MM:SS]** summary`.
 
 ### harness-brainstorming — Context Keywords
+
 Extract 5-10 domain keywords during EVALUATE phase. Include in spec frontmatter. Flow into handoff.json contextKeywords field.
 
 ### harness-planning — Change Specifications
+
 When modifying existing functionality, express requirements as deltas: `[ADDED]`, `[MODIFIED]`, `[REMOVED]`. Not mandatory for greenfield.
 
 ### harness-skill-authoring — Skill Quality Checklist
+
 Evaluate skills on two dimensions: activation clarity (when to use) and implementation specificity (how to do it). Score: clear/ambiguous/missing.
 
 ### harness-verification — Non-Determinism Tolerance
+
 For behavioral verification (not code), accept threshold-based results. If a convention fails >40% of the time, the convention is poorly written.
 
 ### harness-onboarding — Adoption Maturity
+
 Frame progression: Manual → Repeatable → Automated → Self-improving. Orientation, not prescription.
 
 ## Phase 5: Specs/Changes Convention
@@ -158,12 +174,14 @@ docs/
 ```
 
 ### Lifecycle
+
 1. Brainstorming → `docs/changes/<feature>/proposal.md`
 2. Planning → `delta.md` + `tasks.md`
 3. Execution → implements from tasks.md
 4. Completion → merge deltas into `docs/specs/`, archive change dir
 
 ### Skill integration
+
 - harness-brainstorming: write proposals to `docs/changes/` when `docs/specs/` exists
 - harness-planning: produce delta.md alongside tasks.md
 - harness-execution: prompt to merge deltas on completion
@@ -179,19 +197,19 @@ Not mechanically enforced. Convention that skills follow when directory structur
 
 ## Pattern-to-Source Traceability
 
-| Pattern | Source Framework | Implementation |
-|---------|-----------------|----------------|
-| Mechanical done criteria | Cursor P/W/J | `runMechanicalGate()` |
-| Checkpoint handoff | Turbo Flow, Gas Town | `saveHandoff()` / `loadHandoff()` |
-| Phase gates | Turbo Flow, Cursor | Already exist in harness |
-| Anti-pattern/failure log | Turbo Flow | `appendFailure()` / `loadFailures()` |
-| Tagged learnings | Claude Flow | Modified `appendLearning()` + `loadRelevantLearnings()` |
-| Structured handoff docs | Cursor, Gas Town | Handoff schema in `types.ts` |
-| Session continuity | Claude Flow, Gas Town | `lastSkill` + `pendingTasks` on `lastSession` |
-| Specs vs changes | OpenSpec | Directory convention |
-| Delta-spec format | OpenSpec | Behavioral in harness-planning |
-| Internal monologue | Devika | Behavioral in harness-execution |
-| Context keywords | Devika | Behavioral in harness-brainstorming |
-| Skill scoring | Tessl | Behavioral in harness-skill-authoring |
-| Error budgets | Tessl | Behavioral in harness-verification |
-| CDLC maturity | Tessl | Behavioral in harness-onboarding |
+| Pattern                  | Source Framework      | Implementation                                          |
+| ------------------------ | --------------------- | ------------------------------------------------------- |
+| Mechanical done criteria | Cursor P/W/J          | `runMechanicalGate()`                                   |
+| Checkpoint handoff       | Turbo Flow, Gas Town  | `saveHandoff()` / `loadHandoff()`                       |
+| Phase gates              | Turbo Flow, Cursor    | Already exist in harness                                |
+| Anti-pattern/failure log | Turbo Flow            | `appendFailure()` / `loadFailures()`                    |
+| Tagged learnings         | Claude Flow           | Modified `appendLearning()` + `loadRelevantLearnings()` |
+| Structured handoff docs  | Cursor, Gas Town      | Handoff schema in `types.ts`                            |
+| Session continuity       | Claude Flow, Gas Town | `lastSkill` + `pendingTasks` on `lastSession`           |
+| Specs vs changes         | OpenSpec              | Directory convention                                    |
+| Delta-spec format        | OpenSpec              | Behavioral in harness-planning                          |
+| Internal monologue       | Devika                | Behavioral in harness-execution                         |
+| Context keywords         | Devika                | Behavioral in harness-brainstorming                     |
+| Skill scoring            | Tessl                 | Behavioral in harness-skill-authoring                   |
+| Error budgets            | Tessl                 | Behavioral in harness-verification                      |
+| CDLC maturity            | Tessl                 | Behavioral in harness-onboarding                        |

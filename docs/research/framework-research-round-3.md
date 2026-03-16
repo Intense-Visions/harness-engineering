@@ -13,13 +13,13 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 
 ### Top 5 Patterns Worth Adopting
 
-| Pattern | Source | Effort | Impact |
-|---------|--------|--------|--------|
-| Deterministic-vs-LLM responsibility split | GSD v2 | Low | High |
-| 1:1 code-to-context ratio for reviews | CodeRabbit | Low | High |
-| Change-type-aware review workflows | Qodo | Medium | High |
-| Cognitive-mode separation in skills | gstack | Low | Medium |
-| Just-in-Time context filtering per phase | Composio | Medium | High |
+| Pattern                                   | Source     | Effort | Impact |
+| ----------------------------------------- | ---------- | ------ | ------ |
+| Deterministic-vs-LLM responsibility split | GSD v2     | Low    | High   |
+| 1:1 code-to-context ratio for reviews     | CodeRabbit | Low    | High   |
+| Change-type-aware review workflows        | Qodo       | Medium | High   |
+| Cognitive-mode separation in skills       | gstack     | Low    | Medium |
+| Just-in-Time context filtering per phase  | Composio   | Medium | High   |
 
 ---
 
@@ -28,6 +28,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** gstack is an open-source collection of 8 Claude Code slash-command skills created by Garry Tan (Y Combinator President/CEO) that reframe the AI coding assistant as a team of specialized roles — CEO, engineering manager, staff engineer, release engineer, QA lead, and retrospective facilitator. It targets experienced Claude Code users who want consistent, high-rigor workflows rather than generic responses. Released March 2026, it includes a compiled Playwright browser binary as its most technically novel component.
 
 **Key Innovations:**
+
 - Explicit cognitive-mode switching via role-based skills — each slash command activates a distinct "brain" (e.g., `/plan-ceo-review` for founder-level product thinking, `/review` for paranoid staff-engineer auditing), enforcing the principle that "planning is not review, review is not shipping"
 - Persistent headless browser daemon — compiled Playwright binary (~58MB) runs a long-lived Chromium process over localhost HTTP, preserving cookies, localStorage, and login state across commands with 100-200ms execution after ~3s cold start
 - Full shipping automation — `/ship` orchestrates git sync, test suite execution, push, and PR creation as a single atomic workflow
@@ -57,6 +58,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** GSD v2 is a complete rewrite of the original GSD prompt framework, transforming it from a set of meta-prompts for Claude Code into a standalone TypeScript CLI built on the Pi SDK that directly controls agent sessions programmatically. Where v1 was a prompt-injection layer relying on the host agent's context window, v2 is a full agent runtime with its own model registry, event system, extension architecture, native Rust performance modules, and multi-provider support (20+ LLM providers). It targets developers who want autonomous milestone-scale coding with walk-away reliability.
 
 **Key Innovations (New in v2):**
+
 - Standalone agent runtime (Pi SDK foundation) — GSD owns the agent loop, tool executor, session manager, and compaction engine, giving it programmatic control over context clearing, session branching, model switching, and crash recovery
 - Deterministic orchestrator / LLM reasoning split — TypeScript state machines handle workflow transitions, context assembly, file operations, and task scheduling deterministically; the LLM handles only understanding, reasoning, and code generation
 - Context pipeline with hook system — formal 6-stage pipeline (input → skill expansion → before_agent_start → turn loop with context event → tool execution → agent_end) where extensions can intercept, transform, filter, or inject messages at each stage
@@ -96,6 +98,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** Kiro is an agentic IDE from AWS built on Code OSS (VS Code's open-source base) that implements spec-driven development through a structured three-phase workflow: requirements (using EARS syntax), technical design, and task decomposition. Free during public preview; pricing will range from $0-$39/month at GA.
 
 **Key Innovations:**
+
 - EARS (Easy Approach to Requirements Syntax) for structured requirement capture that constrains ambiguity before code generation
 - Three-phase spec workflow enforced by the IDE: stories with acceptance criteria → design doc → implementation tasks, each phase gates the next
 - Automated hooks that trigger on file changes (auto-update specs when code changes, auto-run tests on implementation)
@@ -122,6 +125,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** Open-sourced in February 2026, this is a TypeScript-based framework (40K lines, 3,288 tests) for orchestrating parallel coding agents. Each agent gets its own git worktree, branch, and PR. The orchestrator decomposes tasks, monitors progress, and handles CI failures autonomously. Notably self-built by agents.
 
 **Key Innovations:**
+
 - Planner/Executor separation preventing "greedy" single-loop decision-making
 - Just-in-Time context management — only feeds relevant tool definitions for the current task
 - Git worktree isolation per parallel agent
@@ -148,6 +152,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** Open-source (Apache 2.0) AI agent from Block (Square/Cash App) written in Rust, designed as an extensible agent framework where all capabilities are delivered through MCP extensions. Runs locally with any LLM supporting tool calling. Both CLI and desktop interfaces.
 
 **Key Innovations:**
+
 - Extension-first architecture — all capabilities (file editing, terminal, web scraping, memory) are MCP servers, making the agent a thin orchestration layer
 - Dual-interface pattern — Desktop GUI and CLI share identical core configuration
 - Built-in memory extension persisting context across sessions
@@ -174,6 +179,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** AI code review platform processing 13M+ pull requests across 2M+ repositories. Uses multi-agent architecture where specialized agents examine code from different perspectives. SOC2 Type II certified. Free for open-source.
 
 **Key Innovations:**
+
 - 1:1 code-to-context ratio — for every line of code reviewed, equal weight of surrounding context (tickets, dependencies, past PRs, learnings)
 - Learning from team feedback — tracks thumbs-up/thumbs-down and adapts future reviews
 - Multi-perspective agent review — separate agents for security, logic, style, architecture
@@ -200,6 +206,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** Multi-agent code integrity platform (formerly CodiumAI) focused on testing, review, and quality across the SDLC. Achieved highest F1 score (60.1%) on real-world AI code review benchmarks. Offers 15+ agentic review workflows. Cross-language, cross-framework testing generation.
 
 **Key Innovations:**
+
 - Code integrity as a unified concept — testing, review, and quality gates as one interconnected system
 - 15+ agentic review workflows selected based on change type (new feature, bug fix, refactor)
 - Context engine reasoning about impact across services, not just single files
@@ -226,6 +233,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** Commercial semantic codebase indexer maintaining live understanding of entire codestacks across repos, services, and git history. Available as an MCP server for Claude Code, Cursor, and Zed. Claims 30-80% quality improvements when added to existing agents. Indexes up to 500K files.
 
 **Key Innovations:**
+
 - Semantic indexing understanding meaning and relationships, not just text matching
 - Context Lineage — indexes recent commits including message, author, timestamp, and changed files
 - MCP-based delivery making it agent-agnostic
@@ -252,6 +260,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** Open-source toolkit for generating production-ready SKILL.md files, slash commands, and hooks at scale. Includes 5 interactive guide agents, 8 slash commands, reference implementations, and factory prompt templates. Targets developers creating their own skills.
 
 **Key Innovations:**
+
 - Meta-skill pattern — skills that generate other skills
 - Interactive Q&A-based generation asking 5-7 questions, producing a complete SKILL.md
 - Hook Factory generating pre/post-tool execution hooks with installation and validation
@@ -276,6 +285,7 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 **Summary:** Open-source collection of 46 product management skills for AI agents by Dean Peters, built on established PM methodologies (Teresa Torres' Opportunity Solution Trees, Geoffrey Moore's positioning, Amazon's Working Backwards). Works with Claude Code, Codex, ChatGPT, and any agent that reads structured markdown.
 
 **Key Innovations:**
+
 - Domain-specific skill library extending AI agents into non-coding workflows using SKILL.md format
 - Interactive advisors — skills that ask questions and guide decisions rather than executing tasks
 - Battle-tested methodology encoding translating well-known PM frameworks into structured agent skills
@@ -299,29 +309,29 @@ The landscape scan found 21 candidates, of which 8 were analyzed (HIGH or MEDIUM
 
 ## Landscape Scan: Full Triage List
 
-| # | Name | Relevance | Status |
-|---|------|-----------|--------|
-| 1 | Kiro (AWS) | HIGH | Analyzed above |
-| 2 | Composio Agent Orchestrator | HIGH | Analyzed above |
-| 3 | Goose (Block) | HIGH | Analyzed above |
-| 4 | CodeRabbit | HIGH | Analyzed above |
-| 5 | Qodo | HIGH | Analyzed above |
-| 6 | Augment Code Context Engine | MEDIUM | Analyzed above |
-| 7 | Claude Code Skill Factory | MEDIUM | Analyzed above |
-| 8 | Product Manager Skills | MEDIUM | Analyzed above |
-| 9 | Greptile | MEDIUM | Partial overlap with CodeRabbit; AI code review with codebase graph indexing |
-| 10 | Roo Code | LOW | IDE extension, no novel framework patterns |
-| 11 | Aider | LOW | Mature tool, no new patterns for harness |
-| 12 | Zencoder / Zenflow | LOW | Closed-source enterprise product |
-| 13 | Emergent | LOW | Targets no-code users, opposite philosophy |
-| 14 | SkillsMP | LOW | Directory/marketplace, not a framework |
-| 15 | levnikolaevich/claude-code-skills | LOW | Skill collection, not a framework |
-| 16 | Agenta | LOW | LLMOps SaaS, not agent-first dev |
-| 17 | LangGraph | LOW | General agent framework, not coding-specific |
-| 18 | CrewAI | LOW | General agent framework, not coding-specific |
-| 19 | Microsoft Agent Framework | LOW | Enterprise platform, not coding-workflow specific |
-| 20 | AGENTS.md (open standard) | LOW | Standard/spec, harness already uses AGENTS.md |
-| 21 | Cursor Rules (.mdc) | LOW | IDE-specific config, covered via Cursor P/W/J in Round 2 |
+| #   | Name                              | Relevance | Status                                                                       |
+| --- | --------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| 1   | Kiro (AWS)                        | HIGH      | Analyzed above                                                               |
+| 2   | Composio Agent Orchestrator       | HIGH      | Analyzed above                                                               |
+| 3   | Goose (Block)                     | HIGH      | Analyzed above                                                               |
+| 4   | CodeRabbit                        | HIGH      | Analyzed above                                                               |
+| 5   | Qodo                              | HIGH      | Analyzed above                                                               |
+| 6   | Augment Code Context Engine       | MEDIUM    | Analyzed above                                                               |
+| 7   | Claude Code Skill Factory         | MEDIUM    | Analyzed above                                                               |
+| 8   | Product Manager Skills            | MEDIUM    | Analyzed above                                                               |
+| 9   | Greptile                          | MEDIUM    | Partial overlap with CodeRabbit; AI code review with codebase graph indexing |
+| 10  | Roo Code                          | LOW       | IDE extension, no novel framework patterns                                   |
+| 11  | Aider                             | LOW       | Mature tool, no new patterns for harness                                     |
+| 12  | Zencoder / Zenflow                | LOW       | Closed-source enterprise product                                             |
+| 13  | Emergent                          | LOW       | Targets no-code users, opposite philosophy                                   |
+| 14  | SkillsMP                          | LOW       | Directory/marketplace, not a framework                                       |
+| 15  | levnikolaevich/claude-code-skills | LOW       | Skill collection, not a framework                                            |
+| 16  | Agenta                            | LOW       | LLMOps SaaS, not agent-first dev                                             |
+| 17  | LangGraph                         | LOW       | General agent framework, not coding-specific                                 |
+| 18  | CrewAI                            | LOW       | General agent framework, not coding-specific                                 |
+| 19  | Microsoft Agent Framework         | LOW       | Enterprise platform, not coding-workflow specific                            |
+| 20  | AGENTS.md (open standard)         | LOW       | Standard/spec, harness already uses AGENTS.md                                |
+| 21  | Cursor Rules (.mdc)               | LOW       | IDE-specific config, covered via Cursor P/W/J in Round 2                     |
 
 ---
 
@@ -364,42 +374,42 @@ Deduplicated against Rounds 1 and 2. Only NEW patterns not previously identified
 
 **High priority (low effort, high impact):**
 
-| # | Pattern | Source | Notes |
-|---|---------|--------|-------|
-| 1 | Deterministic-vs-LLM responsibility split | GSD v2 | Formalize as a design principle: if it's if-else, enforce mechanically |
-| 2 | 1:1 code-to-context ratio for reviews | CodeRabbit | Quantifiable heuristic for review skill context assembly |
-| 3 | Cognitive-mode separation in skills | gstack | Add persona/cognitive-mode field to skill metadata |
-| 4 | Commit history as context layer | Augment | Include recent commits for affected files in review/implement skills |
-| 5 | Feedback-loop learnings file | CodeRabbit | Review-learnings file calibrating review focus areas |
+| #   | Pattern                                   | Source     | Notes                                                                  |
+| --- | ----------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| 1   | Deterministic-vs-LLM responsibility split | GSD v2     | Formalize as a design principle: if it's if-else, enforce mechanically |
+| 2   | 1:1 code-to-context ratio for reviews     | CodeRabbit | Quantifiable heuristic for review skill context assembly               |
+| 3   | Cognitive-mode separation in skills       | gstack     | Add persona/cognitive-mode field to skill metadata                     |
+| 4   | Commit history as context layer           | Augment    | Include recent commits for affected files in review/implement skills   |
+| 5   | Feedback-loop learnings file              | CodeRabbit | Review-learnings file calibrating review focus areas                   |
 
 **Medium priority (medium effort, medium-high impact):**
 
-| # | Pattern | Source | Notes |
-|---|---------|--------|-------|
-| 6 | Change-type-aware review workflows | Qodo | Different review checklists per change type |
-| 7 | Just-in-Time context filtering | Composio | Narrow context window per phase |
-| 8 | EARS requirement syntax | Kiro | Structured acceptance criteria in spec skills |
-| 9 | Planner/Executor separation in skills | Composio | Split planning from execution with validation gate |
-| 10 | Token budget allocation by category | GSD v2 | Explicit % allocation per context type |
-| 11 | Error taxonomy with routing | GSD v2 | Classify errors, route to appropriate handler |
-| 12 | Skill scaffolding CLI | Skill Factory | `harness create-skill` with questionnaire |
-| 13 | Pre-commit review hook | CodeRabbit | Lint + AI review gate before commit |
+| #   | Pattern                               | Source        | Notes                                              |
+| --- | ------------------------------------- | ------------- | -------------------------------------------------- |
+| 6   | Change-type-aware review workflows    | Qodo          | Different review checklists per change type        |
+| 7   | Just-in-Time context filtering        | Composio      | Narrow context window per phase                    |
+| 8   | EARS requirement syntax               | Kiro          | Structured acceptance criteria in spec skills      |
+| 9   | Planner/Executor separation in skills | Composio      | Split planning from execution with validation gate |
+| 10  | Token budget allocation by category   | GSD v2        | Explicit % allocation per context type             |
+| 11  | Error taxonomy with routing           | GSD v2        | Classify errors, route to appropriate handler      |
+| 12  | Skill scaffolding CLI                 | Skill Factory | `harness create-skill` with questionnaire          |
+| 13  | Pre-commit review hook                | CodeRabbit    | Lint + AI review gate before commit                |
 
 **Lower priority (conceptual or higher effort):**
 
-| # | Pattern | Source | Notes |
-|---|---------|--------|-------|
-| 14 | Phase-aware prompt assembly | GSD v2 | Swap prompt layers based on current phase |
-| 15 | Unified integrity gate | Qodo | Test + lint + review as one check |
-| 16 | Phased workflow orchestration | gstack | Typed pipeline of skills with handoff artifacts |
-| 17 | Context-as-MCP-service | Augment, Goose | Expose harness context via MCP resources |
-| 18 | Interactive advisor pattern | PM Skills | Decision-guiding skills for architects |
-| 19 | Methodology-as-skill encoding | PM Skills | Encode TDD/debugging protocols as structured skills |
-| 20 | Cascading summarization | GSD v2 | Dedicated summarization at phase transitions |
-| 21 | File-change hooks for spec-code sync | Kiro | Validate spec-code alignment on change |
-| 22 | Diff-aware skill targeting | gstack | Scope skill work to changed files only |
-| 23 | Accumulated artifacts directory | gstack | `.harness/artifacts/` with typed schemas |
-| 24 | Branchless worktree guidance | GSD v2 | Document as operational pattern for agent-driven work |
+| #   | Pattern                              | Source         | Notes                                                 |
+| --- | ------------------------------------ | -------------- | ----------------------------------------------------- |
+| 14  | Phase-aware prompt assembly          | GSD v2         | Swap prompt layers based on current phase             |
+| 15  | Unified integrity gate               | Qodo           | Test + lint + review as one check                     |
+| 16  | Phased workflow orchestration        | gstack         | Typed pipeline of skills with handoff artifacts       |
+| 17  | Context-as-MCP-service               | Augment, Goose | Expose harness context via MCP resources              |
+| 18  | Interactive advisor pattern          | PM Skills      | Decision-guiding skills for architects                |
+| 19  | Methodology-as-skill encoding        | PM Skills      | Encode TDD/debugging protocols as structured skills   |
+| 20  | Cascading summarization              | GSD v2         | Dedicated summarization at phase transitions          |
+| 21  | File-change hooks for spec-code sync | Kiro           | Validate spec-code alignment on change                |
+| 22  | Diff-aware skill targeting           | gstack         | Scope skill work to changed files only                |
+| 23  | Accumulated artifacts directory      | gstack         | `.harness/artifacts/` with typed schemas              |
+| 24  | Branchless worktree guidance         | GSD v2         | Document as operational pattern for agent-driven work |
 
 ---
 
@@ -411,42 +421,42 @@ This section merges the highest-priority adoptable patterns from ALL three resea
 
 These are low-effort, high-impact changes that can be implemented quickly:
 
-| # | Recommendation | Source Round(s) | What to Build |
-|---|----------------|-----------------|---------------|
-| 1 | **Formalize deterministic-vs-LLM split** | R3 (GSD v2) | Add to `docs/standard/principles.md` as a 7th principle. Update skill templates to include a `## Deterministic Checks` section listing what the skill enforces mechanically before/after LLM invocation. No code change needed — this is a documentation and convention change. |
-| 2 | **Mechanical "done" criteria** | R2 (Cursor) | Add a `verify` skill that runs `pnpm test && pnpm lint && pnpm typecheck` as a binary pass/fail gate. Skills that produce code should invoke this as a final step. Implement as a simple shell script wrapper. |
-| 3 | **1:1 context ratio in review skill** | R3 (CodeRabbit) | Update the code-review skill/persona to explicitly gather context equal to the diff size before reviewing. Add guidance: "For every N lines of diff, read N lines of surrounding context (related files, specs, recent commits)." |
-| 4 | **Cognitive-mode field in skill metadata** | R3 (gstack) | Add an optional `cognitive_mode` field to skill.yaml schema (e.g., "adversarial-reviewer", "constructive-architect", "meticulous-implementer"). Update `@harness-engineering/types` with the new field. |
-| 5 | **Commit history in review context** | R3 (Augment) | Update the code-review skill to include `git log --oneline -5 -- <affected-files>` output as part of its context assembly. |
-| 6 | **Review feedback learnings file** | R3 (CodeRabbit) | Document a `.harness/review-learnings.md` convention where teams record which review findings are useful vs. noise. Review skill reads this file if present. |
+| #   | Recommendation                             | Source Round(s) | What to Build                                                                                                                                                                                                                                                                   |
+| --- | ------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Formalize deterministic-vs-LLM split**   | R3 (GSD v2)     | Add to `docs/standard/principles.md` as a 7th principle. Update skill templates to include a `## Deterministic Checks` section listing what the skill enforces mechanically before/after LLM invocation. No code change needed — this is a documentation and convention change. |
+| 2   | **Mechanical "done" criteria**             | R2 (Cursor)     | Add a `verify` skill that runs `pnpm test && pnpm lint && pnpm typecheck` as a binary pass/fail gate. Skills that produce code should invoke this as a final step. Implement as a simple shell script wrapper.                                                                  |
+| 3   | **1:1 context ratio in review skill**      | R3 (CodeRabbit) | Update the code-review skill/persona to explicitly gather context equal to the diff size before reviewing. Add guidance: "For every N lines of diff, read N lines of surrounding context (related files, specs, recent commits)."                                               |
+| 4   | **Cognitive-mode field in skill metadata** | R3 (gstack)     | Add an optional `cognitive_mode` field to skill.yaml schema (e.g., "adversarial-reviewer", "constructive-architect", "meticulous-implementer"). Update `@harness-engineering/types` with the new field.                                                                         |
+| 5   | **Commit history in review context**       | R3 (Augment)    | Update the code-review skill to include `git log --oneline -5 -- <affected-files>` output as part of its context assembly.                                                                                                                                                      |
+| 6   | **Review feedback learnings file**         | R3 (CodeRabbit) | Document a `.harness/review-learnings.md` convention where teams record which review findings are useful vs. noise. Review skill reads this file if present.                                                                                                                    |
 
 ### Medium-Term
 
 These require more design work but have significant impact:
 
-| # | Recommendation | Source Round(s) | What to Build |
-|---|----------------|-----------------|---------------|
-| 7 | **Change-type-aware review** | R3 (Qodo) | Extend the code-review skill to accept a `--type` flag (feature/bugfix/refactor) and apply different checklists. Create 3 review templates. |
-| 8 | **Checkpoint-based context handoff** | R2 (Turbo Flow, Gas Town) | Define a `.harness/handoff.md` schema that skills write at phase boundaries: what was done, what was discovered, what's blocked, test results. |
-| 9 | **Phase gates** | R2 (Turbo Flow, Cursor) | Add a linter rule (via linter-gen) that validates: "implementation tasks cannot start until a spec file exists and passes schema check." |
-| 10 | **EARS requirement syntax** | R3 (Kiro) | Add an EARS template section to the spec/planning skills. Provide examples in getting-started guide. |
-| 11 | **Error taxonomy skill** | R3 (GSD v2) | Create a diagnostic skill that classifies errors (syntax, logic, design, performance, security, environment, flaky) and routes to the appropriate resolution approach. |
-| 12 | **Token budget guidance** | R3 (GSD v2) | Document recommended token budget allocations in the context engineering principle. Optionally, implement as a utility function in core that assembles context within budget. |
-| 13 | **Skill scaffolding CLI command** | R3 (Skill Factory) | Add `harness create-skill` to the CLI package — interactive questionnaire producing a complete skill.yaml + SKILL.md. |
-| 14 | **Anti-pattern log** | R2 (Turbo Flow) | Define a `.harness/anti-patterns.md` convention. Skills append when they hit dead ends. Subsequent skill invocations read before starting. |
+| #   | Recommendation                       | Source Round(s)           | What to Build                                                                                                                                                                 |
+| --- | ------------------------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7   | **Change-type-aware review**         | R3 (Qodo)                 | Extend the code-review skill to accept a `--type` flag (feature/bugfix/refactor) and apply different checklists. Create 3 review templates.                                   |
+| 8   | **Checkpoint-based context handoff** | R2 (Turbo Flow, Gas Town) | Define a `.harness/handoff.md` schema that skills write at phase boundaries: what was done, what was discovered, what's blocked, test results.                                |
+| 9   | **Phase gates**                      | R2 (Turbo Flow, Cursor)   | Add a linter rule (via linter-gen) that validates: "implementation tasks cannot start until a spec file exists and passes schema check."                                      |
+| 10  | **EARS requirement syntax**          | R3 (Kiro)                 | Add an EARS template section to the spec/planning skills. Provide examples in getting-started guide.                                                                          |
+| 11  | **Error taxonomy skill**             | R3 (GSD v2)               | Create a diagnostic skill that classifies errors (syntax, logic, design, performance, security, environment, flaky) and routes to the appropriate resolution approach.        |
+| 12  | **Token budget guidance**            | R3 (GSD v2)               | Document recommended token budget allocations in the context engineering principle. Optionally, implement as a utility function in core that assembles context within budget. |
+| 13  | **Skill scaffolding CLI command**    | R3 (Skill Factory)        | Add `harness create-skill` to the CLI package — interactive questionnaire producing a complete skill.yaml + SKILL.md.                                                         |
+| 14  | **Anti-pattern log**                 | R2 (Turbo Flow)           | Define a `.harness/anti-patterns.md` convention. Skills append when they hit dead ends. Subsequent skill invocations read before starting.                                    |
 
 ### Longer-Term
 
 These are larger architectural changes or conceptual shifts:
 
-| # | Recommendation | Source Round(s) | What to Build |
-|---|----------------|-----------------|---------------|
-| 15 | **Staged context pipeline** | R3 (GSD v2) | Design a formal skill lifecycle with typed injection points (pre-execution, per-turn, post-execution). Would require changes to how skills are invoked. |
-| 16 | **Unified integrity gate** | R3 (Qodo) | Meta-skill chaining test generation + lint + type-check + AI review into a single "integrity check" with unified report. |
-| 17 | **Workflow orchestration** | R3 (gstack) | Typed pipeline construct allowing users to define skill chains with handoff artifacts. Uses Result<T,E> for inter-skill communication. |
-| 18 | **Context-as-MCP-service** | R3 (Augment, Goose) | Extend the MCP server to expose harness context (skills, rules, project structure) as MCP resources consumable by any agent. |
-| 19 | **Interactive advisor skills** | R3 (PM Skills) | Create advisor-pattern skills for architectural decisions — question-driven skills that help humans make informed choices before specifying agent work. |
-| 20 | **JIT context filtering** | R3 (Composio) | Context-shaping utility in core that narrows available tools/files based on current workflow phase. |
+| #   | Recommendation                 | Source Round(s)     | What to Build                                                                                                                                           |
+| --- | ------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 15  | **Staged context pipeline**    | R3 (GSD v2)         | Design a formal skill lifecycle with typed injection points (pre-execution, per-turn, post-execution). Would require changes to how skills are invoked. |
+| 16  | **Unified integrity gate**     | R3 (Qodo)           | Meta-skill chaining test generation + lint + type-check + AI review into a single "integrity check" with unified report.                                |
+| 17  | **Workflow orchestration**     | R3 (gstack)         | Typed pipeline construct allowing users to define skill chains with handoff artifacts. Uses Result<T,E> for inter-skill communication.                  |
+| 18  | **Context-as-MCP-service**     | R3 (Augment, Goose) | Extend the MCP server to expose harness context (skills, rules, project structure) as MCP resources consumable by any agent.                            |
+| 19  | **Interactive advisor skills** | R3 (PM Skills)      | Create advisor-pattern skills for architectural decisions — question-driven skills that help humans make informed choices before specifying agent work. |
+| 20  | **JIT context filtering**      | R3 (Composio)       | Context-shaping utility in core that narrows available tools/files based on current workflow phase.                                                     |
 
 ### Implementation Dependencies
 

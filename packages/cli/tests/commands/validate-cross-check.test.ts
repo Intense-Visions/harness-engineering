@@ -26,9 +26,7 @@ describe('runCrossCheck', () => {
     fs.mkdirSync(plansDir, { recursive: true });
     fs.writeFileSync(
       path.join(plansDir, 'test-plan.md'),
-      ['# Test Plan', '### Task 1: Test', '**Files:**', '- Create: `src/nonexistent.ts`'].join(
-        '\n'
-      )
+      ['# Test Plan', '### Task 1: Test', '**Files:**', '- Create: `src/nonexistent.ts`'].join('\n')
     );
 
     const result = await runCrossCheck({
@@ -39,7 +37,7 @@ describe('runCrossCheck', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.warnings).toBeGreaterThan(0);
-      expect(result.value.planToImpl.some(w => w.includes('nonexistent.ts'))).toBe(true);
+      expect(result.value.planToImpl.some((w) => w.includes('nonexistent.ts'))).toBe(true);
     }
     fs.rmSync(tmpDir, { recursive: true });
   });

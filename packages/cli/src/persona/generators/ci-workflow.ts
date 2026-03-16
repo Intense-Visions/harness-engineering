@@ -27,7 +27,10 @@ function buildGitHubTriggers(triggers: PersonaTrigger[]): Record<string, unknown
   return on;
 }
 
-export function generateCIWorkflow(persona: Persona, platform: 'github' | 'gitlab'): Result<string, Error> {
+export function generateCIWorkflow(
+  persona: Persona,
+  platform: 'github' | 'gitlab'
+): Result<string, Error> {
   try {
     if (platform === 'gitlab') return Err(new Error('GitLab CI generation is not yet supported'));
 
@@ -56,6 +59,10 @@ export function generateCIWorkflow(persona: Persona, platform: 'github' | 'gitla
 
     return Ok(YAML.stringify(workflow, { lineWidth: 0 }));
   } catch (error) {
-    return Err(new Error(`Failed to generate CI workflow: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to generate CI workflow: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }

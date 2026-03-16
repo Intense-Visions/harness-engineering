@@ -10,10 +10,50 @@ describe('detectComplexity', () => {
   });
 
   it('returns light|full based on signal detection', () => {
-    expect(evaluateSignals({ fileCount: 1, testOnly: false, docsOnly: false, newDir: false, newDep: false })).toBe('light');
-    expect(evaluateSignals({ fileCount: 5, testOnly: false, docsOnly: false, newDir: false, newDep: false })).toBe('full');
-    expect(evaluateSignals({ fileCount: 1, testOnly: true, docsOnly: false, newDir: false, newDep: false })).toBe('light');
-    expect(evaluateSignals({ fileCount: 1, testOnly: false, docsOnly: false, newDir: true, newDep: false })).toBe('full');
-    expect(evaluateSignals({ fileCount: 1, testOnly: false, docsOnly: false, newDir: false, newDep: true })).toBe('full');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: false,
+        docsOnly: false,
+        newDir: false,
+        newDep: false,
+      })
+    ).toBe('light');
+    expect(
+      evaluateSignals({
+        fileCount: 5,
+        testOnly: false,
+        docsOnly: false,
+        newDir: false,
+        newDep: false,
+      })
+    ).toBe('full');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: true,
+        docsOnly: false,
+        newDir: false,
+        newDep: false,
+      })
+    ).toBe('light');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: false,
+        docsOnly: false,
+        newDir: true,
+        newDep: false,
+      })
+    ).toBe('full');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: false,
+        docsOnly: false,
+        newDir: false,
+        newDep: true,
+      })
+    ).toBe('full');
   });
 });

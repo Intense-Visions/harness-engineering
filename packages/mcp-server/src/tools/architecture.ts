@@ -33,6 +33,14 @@ export async function handleCheckDependencies(input: { path: string }) {
     const result = await validateDependencies({ layers, rootDir: projectPath, parser });
     return resultToMcpResponse(result);
   } catch (error) {
-    return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
   }
 }

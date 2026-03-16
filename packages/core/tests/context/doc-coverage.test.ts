@@ -49,9 +49,7 @@ describe('checkDocCoverage', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // The excluded file should not appear in undocumented
-      expect(result.value.undocumented).not.toContain(
-        expect.stringContaining('also-undocumented')
-      );
+      expect(result.value.undocumented).not.toContain(expect.stringContaining('also-undocumented'));
     }
   });
 

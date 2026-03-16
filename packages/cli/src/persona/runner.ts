@@ -54,7 +54,11 @@ export async function runPersona(
     const result = await Promise.race([
       executor(command),
       new Promise<Result<never, Error>>((resolve) =>
-        setTimeout(() => resolve({ ok: false, error: new Error(TIMEOUT_ERROR_MESSAGE) } as Result<never, Error>), remainingTime)
+        setTimeout(
+          () =>
+            resolve({ ok: false, error: new Error(TIMEOUT_ERROR_MESSAGE) } as Result<never, Error>),
+          remainingTime
+        )
       ),
     ]);
 
@@ -73,7 +77,12 @@ export async function runPersona(
       }
       break;
     } else {
-      report.commands.push({ name: command, status: 'fail', error: result.error.message, durationMs });
+      report.commands.push({
+        name: command,
+        status: 'fail',
+        error: result.error.message,
+        durationMs,
+      });
       report.status = 'fail';
       for (let j = i + 1; j < persona.commands.length; j++) {
         const skipped = persona.commands[j];

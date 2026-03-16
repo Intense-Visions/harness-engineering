@@ -75,9 +75,10 @@ export async function analyzeDiff(
   // Check forbidden patterns
   if (options.forbiddenPatterns) {
     for (const forbidden of options.forbiddenPatterns) {
-      const pattern = typeof forbidden.pattern === 'string'
-        ? new RegExp(forbidden.pattern, 'g')
-        : forbidden.pattern;
+      const pattern =
+        typeof forbidden.pattern === 'string'
+          ? new RegExp(forbidden.pattern, 'g')
+          : forbidden.pattern;
 
       if (pattern.test(changes.diff)) {
         items.push({
@@ -127,17 +128,17 @@ export async function analyzeDiff(
 
   // Check for test coverage (new .ts files without corresponding .test.ts)
   if (options.checkTestCoverage) {
-    const addedSourceFiles = changes.files
-      .filter(f => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.'));
+    const addedSourceFiles = changes.files.filter(
+      (f) => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.')
+    );
 
-    const testFiles = changes.files
-      .filter(f => f.path.includes('.test.'));
+    const testFiles = changes.files.filter((f) => f.path.includes('.test.'));
 
     for (const sourceFile of addedSourceFiles) {
       const expectedTestPath = sourceFile.path.replace('.ts', '.test.ts');
-      const hasTest = testFiles.some(t =>
-        t.path.includes(expectedTestPath) ||
-        t.path.includes(sourceFile.path.replace('.ts', ''))
+      const hasTest = testFiles.some(
+        (t) =>
+          t.path.includes(expectedTestPath) || t.path.includes(sourceFile.path.replace('.ts', ''))
       );
 
       if (!hasTest) {

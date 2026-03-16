@@ -3,6 +3,7 @@
 > 4-phase systematic debugging with entropy analysis and persistent sessions. Phase 1 before ANY fix. "It's probably X" is not a diagnosis.
 
 ## When to Use
+
 - When a test fails and the cause is not immediately obvious
 - When a feature works in one context but fails in another
 - When an error message does not clearly indicate the root cause
@@ -23,19 +24,24 @@ Before beginning, create a persistent debug session. This survives context reset
 ```
 
 Session file format:
+
 ```markdown
 # Debug Session: <brief-description>
+
 Status: gathering
 Started: <timestamp>
 Error: <the error message or symptom>
 
 ## Investigation Log
+
 (append entries as you go)
 
 ## Hypotheses
+
 (track what you have tried)
 
 ## Resolution
+
 (filled in when resolved)
 ```
 
@@ -54,6 +60,7 @@ harness cleanup
 ```
 
 Review the output. Entropy analysis reveals:
+
 - Dead code and unused imports near the failure
 - Pattern violations that may be contributing
 - Documentation drift that may have caused incorrect usage
@@ -66,6 +73,7 @@ Record relevant findings in the session log.
 Read the COMPLETE error message. Not just the first line — the entire stack trace, every warning, every note. Errors often contain the answer.
 
 Ask yourself:
+
 - What exactly failed? (Not "it broke" — what specific operation?)
 - Where did it fail? (File, line, function)
 - What was the input that caused the failure?
@@ -76,6 +84,7 @@ Record the answers in the session log.
 #### Step 3: Reproduce Consistently
 
 Run the failing scenario multiple times. Confirm it fails every time with the same error. If it is intermittent, record:
+
 - How often it fails (1 in 3? 1 in 10?)
 - Whether the failure mode changes
 - Environmental factors (timing, ordering, state)
@@ -94,6 +103,7 @@ What changed recently? Many bugs are caused by the most recent change. Compare t
 #### Step 5: Trace Data Flow Backward
 
 Start at the error location and trace backward:
+
 1. What function threw the error?
 2. What called that function? With what arguments?
 3. Where did those arguments come from?
@@ -122,6 +132,7 @@ Look for:
 #### Step 2: Read Reference Implementations Completely
 
 When you find a working example, read it in its entirety. Do not cherry-pick lines. Understand:
+
 - How it sets up the context
 - What arguments it passes
 - How it handles errors
@@ -173,6 +184,7 @@ Run the failing scenario. Did the behavior change?
 #### Step 4: Create Minimal Reproduction
 
 If the bug is in a complex system, extract a minimal reproduction:
+
 - Smallest possible code that exhibits the bug
 - Fewest dependencies
 - Simplest configuration
@@ -188,6 +200,7 @@ Update the session status to `fixing`.
 #### Step 1: Write the Regression Test
 
 Before writing the fix, write a test that:
+
 - Reproduces the exact failure scenario
 - Asserts the correct behavior
 - Currently FAILS (proving it catches the bug)
@@ -199,12 +212,14 @@ This follows harness-tdd discipline. The fix is driven by a failing test.
 Write a SINGLE fix that addresses the ROOT CAUSE identified in Phase 3. Not a workaround. Not a symptom suppression. The root cause.
 
 Characteristics of a good fix:
+
 - Changes as little code as possible
 - Addresses why the bug happened, not just what the bug did
 - Does not introduce new complexity
 - Would be obvious to someone reading the code later
 
 Characteristics of a bad fix (revert immediately):
+
 - Adds a special case or `if` branch for the specific failing input
 - Wraps the failure in a try-catch that swallows the error
 - Adds a retry loop or delay to "work around" a timing issue
@@ -221,6 +236,7 @@ Characteristics of a bad fix (revert immediately):
 #### Step 4: Verify the Test Catches the Bug
 
 Apply the regression test verification protocol:
+
 1. Temporarily revert the fix
 2. Run the regression test — must FAIL
 3. Restore the fix
@@ -231,11 +247,13 @@ If the test passes without the fix, the test does not catch the bug. Rewrite the
 #### Step 5: Close the Session
 
 Update the debug session:
+
 ```markdown
 Status: resolved
 Resolved: <timestamp>
 
 ## Resolution
+
 Root cause: <what actually caused the bug>
 Fix: <what was changed and why>
 Regression test: <path to test file>
@@ -243,6 +261,7 @@ Learnings: <what to remember for next time>
 ```
 
 Move the session file:
+
 ```bash
 mv .harness/debug/active/<session-id>.md .harness/debug/resolved/
 ```
@@ -274,6 +293,7 @@ Update the session status to `resolved`.
 ### Example: API Endpoint Returns 500 Instead of 400
 
 **Phase 1 — INVESTIGATE:**
+
 ```
 harness cleanup: No entropy issues near api/routes/users.ts
 Error: "Cannot read properties of undefined (reading 'email')"
@@ -284,6 +304,7 @@ Data flow: request.body -> validate() -> createUser(body.email)
 ```
 
 **Phase 2 — ANALYZE:**
+
 ```
 Working example: POST /orders handles empty body correctly
 Difference: /orders validates BEFORE destructuring; /users destructures BEFORE validating
@@ -291,6 +312,7 @@ The validation middleware runs but its result is not checked
 ```
 
 **Phase 3 — HYPOTHESIZE:**
+
 ```
 Hypothesis: The validation middleware sets req.validationErrors but the route
 handler does not check it before accessing req.body.email.
@@ -299,6 +321,7 @@ Result: Confirmed — validationErrors contains "email is required" but handler 
 ```
 
 **Phase 4 — FIX:**
+
 ```typescript
 // Regression test
 it('returns 400 when request body is empty', async () => {

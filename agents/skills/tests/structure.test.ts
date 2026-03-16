@@ -10,7 +10,13 @@ import { SkillMetadataSchema } from './schema';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILLS_DIR = resolve(__dirname, '..');
 
-const REQUIRED_SECTIONS = ['## When to Use', '## Process', '## Harness Integration', '## Success Criteria', '## Examples'];
+const REQUIRED_SECTIONS = [
+  '## When to Use',
+  '## Process',
+  '## Harness Integration',
+  '## Success Criteria',
+  '## Examples',
+];
 const RIGID_SECTIONS = ['## Gates', '## Escalation'];
 
 describe('SKILL.md structure', () => {

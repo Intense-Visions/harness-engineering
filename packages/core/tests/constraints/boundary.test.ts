@@ -67,9 +67,7 @@ describe('validateBoundaries', () => {
       { name: 'User.create', layer: 'api', schema: UserSchema, direction: 'input' as const },
     ];
 
-    const data = new Map([
-      ['User.create', { email: 'test@example.com', name: 'John' }],
-    ]);
+    const data = new Map([['User.create', { email: 'test@example.com', name: 'John' }]]);
 
     const result = validateBoundaries(boundaries, data);
 
@@ -85,9 +83,7 @@ describe('validateBoundaries', () => {
       { name: 'User.create', layer: 'api', schema: UserSchema, direction: 'input' as const },
     ];
 
-    const data = new Map([
-      ['User.create', { email: 'invalid', name: '' }],
-    ]);
+    const data = new Map([['User.create', { email: 'invalid', name: '' }]]);
 
     const result = validateBoundaries(boundaries, data);
 

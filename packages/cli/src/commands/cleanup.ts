@@ -26,7 +26,9 @@ interface CleanupResult {
   totalIssues: number;
 }
 
-export async function runCleanup(options: CleanupOptions): Promise<Result<CleanupResult, CLIError>> {
+export async function runCleanup(
+  options: CleanupOptions
+): Promise<Result<CleanupResult, CLIError>> {
   const cwd = options.cwd ?? process.cwd();
   const type = options.type ?? 'all';
 
@@ -65,10 +67,9 @@ export async function runCleanup(options: CleanupOptions): Promise<Result<Cleanu
   const analysisResult = await analyzer.analyze();
 
   if (!analysisResult.ok) {
-    return Err(new CLIError(
-      `Entropy analysis failed: ${analysisResult.error.message}`,
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(`Entropy analysis failed: ${analysisResult.error.message}`, ExitCode.ERROR)
+    );
   }
 
   const report = analysisResult.value;
@@ -98,7 +99,8 @@ export async function runCleanup(options: CleanupOptions): Promise<Result<Cleanu
     }));
   }
 
-  result.totalIssues = result.driftIssues.length + result.deadCode.length + result.patternViolations.length;
+  result.totalIssues =
+    result.driftIssues.length + result.deadCode.length + result.patternViolations.length;
 
   return Ok(result);
 }
@@ -139,11 +141,13 @@ export function createCleanupCommand(): Command {
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(result.value, null, 2));
       } else if (mode !== OutputMode.QUIET || result.value.totalIssues > 0) {
-        console.log(formatter.formatSummary(
-          'Entropy issues',
-          result.value.totalIssues.toString(),
-          result.value.totalIssues === 0
-        ));
+        console.log(
+          formatter.formatSummary(
+            'Entropy issues',
+            result.value.totalIssues.toString(),
+            result.value.totalIssues === 0
+          )
+        );
 
         if (result.value.driftIssues.length > 0) {
           console.log('\nDocumentation drift:');

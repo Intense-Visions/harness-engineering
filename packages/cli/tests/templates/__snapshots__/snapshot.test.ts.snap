@@ -30,6 +30,7 @@ snapshot-test — A project using Harness Engineering practices (advanced adopti
 See \`docs/architecture.md\` for architectural decisions.
 ",
   "agents/personas/.gitkeep": "",
+  "docs/changes/.gitkeep": "",
   "docs/index.md": "# snapshot-test Documentation
 
 Welcome to the snapshot-test documentation.
@@ -58,6 +59,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
 ## Design
 - TODO: Define your design principles
 ",
+  "docs/specs/.gitkeep": "",
   "harness.config.json": "{
   "version": 1,
   "name": "snapshot-test",
@@ -296,6 +298,7 @@ snapshot-test — A project using Harness Engineering practices (intermediate ad
 
 See \`docs/architecture.md\` for architectural decisions.
 ",
+  "docs/changes/.gitkeep": "",
   "docs/index.md": "# snapshot-test Documentation
 
 Welcome to the snapshot-test documentation.
@@ -324,6 +327,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
 ## Design
 - TODO: Define your design principles
 ",
+  "docs/specs/.gitkeep": "",
   "eslint.config.mjs": "import harnessPlugin from '@harness-engineering/eslint-plugin';
 
 export default [

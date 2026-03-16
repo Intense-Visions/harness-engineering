@@ -13,6 +13,7 @@
 Module 4 provides entropy management capabilities for TypeScript codebases. It detects documentation drift, dead code, and pattern violations, then offers safe automated fixes plus actionable suggestions for risky changes.
 
 **Key capabilities:**
+
 - Documentation drift detection - Docs that don't match implementation
 - Dead code detection - Unused files, exports, imports via tree-shaking analysis
 - Pattern violation detection - Code that deviates from standards (config + code patterns)
@@ -132,8 +133,8 @@ export interface InternalSymbol {
   name: string;
   type: 'function' | 'class' | 'variable' | 'type';
   line: number;
-  references: number;           // Call count within file
-  calledBy: string[];           // Names of other symbols that call this
+  references: number; // Call count within file
+  calledBy: string[]; // Names of other symbols that call this
 }
 
 export interface DocumentationFile {
@@ -161,10 +162,11 @@ export interface ExportMap {
 export async function buildSnapshot(
   config: EntropyConfig,
   parser: LanguageParser
-): Promise<Result<CodebaseSnapshot, EntropyError>>
+): Promise<Result<CodebaseSnapshot, EntropyError>>;
 ```
 
 **Key decisions:**
+
 - Reuses `DependencyGraph` from constraints module
 - `CodeReference` tracks where docs mention code, enabling drift detection
 - `ExportMap` indexed both ways for fast lookups
@@ -214,23 +216,25 @@ export interface DriftReport {
 export function detectDocDrift(
   snapshot: CodebaseSnapshot,
   config?: Partial<DriftConfig>
-): Result<DriftReport, EntropyError>
+): Result<DriftReport, EntropyError>;
 ```
 
 **Detection strategies:**
 
-| Drift Type | How It Works |
-|------------|--------------|
+| Drift Type    | How It Works                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------- |
 | API Signature | Extract backtick refs and code block symbols, look up in ExportMap, fuzzy match if not found |
-| Example Code | Parse code blocks with TypeScript parser, check imports resolve, report syntax/import errors |
-| Structure | Extract file paths and links, verify via fs.existsSync |
+| Example Code  | Parse code blocks with TypeScript parser, check imports resolve, report syntax/import errors |
+| Structure     | Extract file paths and links, verify via fs.existsSync                                       |
 
 **Fuzzy matching for renames:**
+
 - Levenshtein distance for typos
 - Prefix/suffix matching
 - Case-insensitive matching
 
 **Documentation sources scanned:**
+
 - Markdown files (`.md`)
 - JSDoc comments in source files
 - TypeDoc output
@@ -312,27 +316,30 @@ export interface ReachabilityNode {
 export async function detectDeadCode(
   snapshot: CodebaseSnapshot,
   config?: Partial<DeadCodeConfig>
-): Promise<Result<DeadCodeReport, EntropyError>>
+): Promise<Result<DeadCodeReport, EntropyError>>;
 
 export async function resolveEntryPoints(
   rootDir: string,
   explicitEntries?: string[]
-): Promise<Result<string[], EntropyError>>
+): Promise<Result<string[], EntropyError>>;
 ```
 
 **Entry point resolution order:**
+
 1. Explicit config (`config.entryPoints`)
 2. `package.json` fields: `exports`, `main`, `bin`
 3. Convention patterns: `src/index.ts`, `src/main.ts`, `index.ts`
 4. Error if none found
 
 **Reachability algorithm:**
+
 1. Start with entry points as "reachable"
 2. BFS/DFS through import graph, marking reachable files
 3. Within reachable files, trace internal call graph
 4. Anything not marked = dead
 
 **Edge cases handled:**
+
 - Re-exports (`export * from './x'`) - follow chain
 - Dynamic imports - configurable (default: assume used)
 - Side-effect imports (`import './polyfill'`) - mark file as reachable
@@ -358,7 +365,11 @@ export interface ConfigPattern {
     | { type: 'no-export'; names: string[] }
     | { type: 'must-import'; from: string; names?: string[] }
     | { type: 'no-import'; from: string }
-    | { type: 'naming'; match: string; convention: 'camelCase' | 'PascalCase' | 'UPPER_SNAKE' | 'kebab-case' }
+    | {
+        type: 'naming';
+        match: string;
+        convention: 'camelCase' | 'PascalCase' | 'UPPER_SNAKE' | 'kebab-case';
+      }
     | { type: 'max-exports'; count: number }
     | { type: 'max-lines'; count: number }
     | { type: 'require-jsdoc'; for: ('function' | 'class' | 'export')[] };
@@ -410,7 +421,7 @@ export interface PatternReport {
 export function detectPatternViolations(
   snapshot: CodebaseSnapshot,
   config: PatternConfig
-): Result<PatternReport, EntropyError>
+): Result<PatternReport, EntropyError>;
 ```
 
 **Built-in patterns:**
@@ -424,22 +435,22 @@ export const builtInPatterns: ConfigPattern[] = [
     description: 'Service files must export a default object',
     severity: 'error',
     files: ['**/services/**/*.ts'],
-    rule: { type: 'must-export-default', kind: 'object' }
+    rule: { type: 'must-export-default', kind: 'object' },
   },
   {
     name: 'no-barrel-reexport-all',
     description: 'Index files should not use export * (prefer named)',
     severity: 'warning',
     files: ['**/index.ts'],
-    rule: { type: 'no-export', names: ['*'] }
+    rule: { type: 'no-export', names: ['*'] },
   },
   {
     name: 'test-file-naming',
     description: 'Test files must follow naming convention',
     severity: 'warning',
     files: ['**/tests/**/*.ts', '**/__tests__/**/*.ts'],
-    rule: { type: 'naming', match: '**/*.ts', convention: 'kebab-case' }
-  }
+    rule: { type: 'naming', match: '**/*.ts', convention: 'kebab-case' },
+  },
 ];
 ```
 
@@ -493,19 +504,24 @@ export interface FixResult {
 export async function applyFixes(
   report: EntropyReport,
   config?: Partial<FixConfig>
-): Promise<Result<FixResult, EntropyError>>
+): Promise<Result<FixResult, EntropyError>>;
 
-export function planFixes(
-  report: EntropyReport,
-  fixTypes?: FixType[]
-): Fix[]
+export function planFixes(report: EntropyReport, fixTypes?: FixType[]): Fix[];
 ```
 
 ```typescript
 // fixers/suggestions.ts
 
 export interface Suggestion {
-  type: 'rename' | 'move' | 'merge' | 'split' | 'delete' | 'update-docs' | 'add-export' | 'refactor';
+  type:
+    | 'rename'
+    | 'move'
+    | 'merge'
+    | 'split'
+    | 'delete'
+    | 'update-docs'
+    | 'add-export'
+    | 'refactor';
   priority: 'high' | 'medium' | 'low';
   source: 'drift' | 'dead-code' | 'pattern';
   relatedIssues: string[];
@@ -530,29 +546,27 @@ export interface SuggestionReport {
   estimatedEffort: 'trivial' | 'small' | 'medium' | 'large';
 }
 
-export function generateSuggestions(
-  report: EntropyReport
-): Result<SuggestionReport, EntropyError>
+export function generateSuggestions(report: EntropyReport): Result<SuggestionReport, EntropyError>;
 ```
 
 **Safe fix criteria:**
 
-| Fix Type | Why Safe |
-|----------|----------|
-| `unused-imports` | Removing unused code can't break runtime behavior |
-| `dead-files` | File has zero importers, deletion can't break anything |
-| `trailing-whitespace` | Cosmetic, no behavior change |
-| `broken-links` | Fixing links in docs doesn't affect code |
-| `sort-imports` | Order doesn't affect behavior |
+| Fix Type              | Why Safe                                               |
+| --------------------- | ------------------------------------------------------ |
+| `unused-imports`      | Removing unused code can't break runtime behavior      |
+| `dead-files`          | File has zero importers, deletion can't break anything |
+| `trailing-whitespace` | Cosmetic, no behavior change                           |
+| `broken-links`        | Fixing links in docs doesn't affect code               |
+| `sort-imports`        | Order doesn't affect behavior                          |
 
 **Risky (suggestion only):**
 
-| Scenario | Why Risky |
-|----------|-----------|
-| Rename symbol to match docs | External consumers may depend on old name |
-| Delete "dead" export | May be used dynamically or by external packages |
-| Update example code in docs | Requires understanding intent |
-| Merge similar files | Architectural decision |
+| Scenario                    | Why Risky                                       |
+| --------------------------- | ----------------------------------------------- |
+| Rename symbol to match docs | External consumers may depend on old name       |
+| Delete "dead" export        | May be used dynamically or by external packages |
+| Update example code in docs | Requires understanding intent                   |
+| Merge similar files         | Architectural decision                          |
 
 ---
 
@@ -596,7 +610,9 @@ export class EntropyAnalyzer {
   async buildSnapshot(): Promise<Result<CodebaseSnapshot, EntropyError>>;
   async analyze(): Promise<Result<EntropyReport, EntropyError>>;
   async detectDrift(config?: Partial<DriftConfig>): Promise<Result<DriftReport, EntropyError>>;
-  async detectDeadCode(config?: Partial<DeadCodeConfig>): Promise<Result<DeadCodeReport, EntropyError>>;
+  async detectDeadCode(
+    config?: Partial<DeadCodeConfig>
+  ): Promise<Result<DeadCodeReport, EntropyError>>;
   async detectPatterns(config: PatternConfig): Promise<Result<PatternReport, EntropyError>>;
   async applyFixes(config?: Partial<FixConfig>): Promise<Result<FixResult, EntropyError>>;
   generateSuggestions(): Result<SuggestionReport, EntropyError>;
@@ -604,7 +620,7 @@ export class EntropyAnalyzer {
 
 export async function analyzeEntropy(
   config: EntropyConfig
-): Promise<Result<EntropyReport, EntropyError>>
+): Promise<Result<EntropyReport, EntropyError>>;
 ```
 
 **Module exports:**
@@ -666,27 +682,25 @@ export function validateLinks(
   content: string,
   filePath: string,
   rootDir: string
-): LinkValidationResult[]
+): LinkValidationResult[];
 
 export function validateStructureReferences(
   snapshot: CodebaseSnapshot
-): StructureValidationResult[]
+): StructureValidationResult[];
 
-export function extractCodeReferences(
-  content: string,
-  filePath: string
-): CodeReference[]
+export function extractCodeReferences(content: string, filePath: string): CodeReference[];
 ```
 
 **Integration points:**
 
-| Context Module Function | How It Uses Entropy |
-|------------------------|---------------------|
+| Context Module Function  | How It Uses Entropy                                       |
+| ------------------------ | --------------------------------------------------------- |
 | `validateKnowledgeMap()` | Calls `validateLinks()` + `validateStructureReferences()` |
-| `checkDocCoverage()` | Uses `CodeReference` extraction |
-| `generateAgentsMap()` | Could use `ExportMap` to list public API |
+| `checkDocCoverage()`     | Uses `CodeReference` extraction                           |
+| `generateAgentsMap()`    | Could use `ExportMap` to list public API                  |
 
 **Backwards compatibility:**
+
 - Context module's existing public API unchanged
 - Internal implementation delegates to Entropy
 - Users can use either module independently
@@ -695,14 +709,14 @@ export function extractCodeReferences(
 
 ## Testing Strategy
 
-| Component | Strategy | Key Test Cases |
-|-----------|----------|----------------|
-| Snapshot | Build from fixtures, verify structure | All import types parsed, docs indexed, entry points resolved |
-| Drift | Fixture projects with known drift | API rename detected, broken example found, missing file caught |
-| Dead Code | Fixture with known dead code | Unused export found, orphan file found, transitive death detected |
-| Patterns | Config + code patterns | Config rules trigger, custom patterns run, violations reported |
-| Safe Fixes | Apply to temp copy, verify result | Unused import removed, dead file deleted, backup created |
-| Suggestions | Generate from reports | Correct priority, actionable steps, preview diff accurate |
+| Component   | Strategy                              | Key Test Cases                                                    |
+| ----------- | ------------------------------------- | ----------------------------------------------------------------- |
+| Snapshot    | Build from fixtures, verify structure | All import types parsed, docs indexed, entry points resolved      |
+| Drift       | Fixture projects with known drift     | API rename detected, broken example found, missing file caught    |
+| Dead Code   | Fixture with known dead code          | Unused export found, orphan file found, transitive death detected |
+| Patterns    | Config + code patterns                | Config rules trigger, custom patterns run, violations reported    |
+| Safe Fixes  | Apply to temp copy, verify result     | Unused import removed, dead file deleted, backup created          |
+| Suggestions | Generate from reports                 | Correct priority, actionable steps, preview diff accurate         |
 
 **Test fixtures:**
 
@@ -716,6 +730,7 @@ fixtures/drift-samples/outdated-readme/
 ```
 
 **Coverage requirements:**
+
 - Unit tests: >80% line coverage per file
 - Branch coverage: >70% for complex logic
 - Integration tests: Full analysis flow on fixture projects
@@ -725,6 +740,7 @@ fixtures/drift-samples/outdated-readme/
 ## Dependencies
 
 **Existing dependencies used:**
+
 - `@typescript-eslint/typescript-estree` - AST parsing (from constraints module)
 - `zod` - Config validation
 - `glob` - File pattern matching
@@ -765,8 +781,8 @@ const analyzer = new EntropyAnalyzer({
   analyze: {
     drift: true,
     deadCode: { includeInternals: true },
-    patterns: { patterns: builtInPatterns }
-  }
+    patterns: { patterns: builtInPatterns },
+  },
 });
 
 const result = await analyzer.analyze();

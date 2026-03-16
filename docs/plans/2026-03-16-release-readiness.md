@@ -17,6 +17,7 @@
 ### Task 1: Verify Build Pipeline
 
 **Files:**
+
 - Verify: `turbo.json`
 - Verify: all `packages/*/package.json` build scripts
 
@@ -109,6 +110,7 @@ git commit -m "fix: resolve build/lint/test issues for release readiness"
 ### Task 2: Resolve TODO/FIXME Items
 
 **Files:**
+
 - Modify: `packages/cli/src/commands/add.ts:28-46`
 - Modify: `packages/cli/src/commands/create-skill.ts:63-113`
 - Modify: `packages/core/src/context/generate.ts:111,159`
@@ -183,6 +185,7 @@ git commit -m "fix: replace TODO placeholders with useful defaults in scaffoldin
 ### Task 3: Repo Hygiene Files
 
 **Files:**
+
 - Create: `.github/ISSUE_TEMPLATE/bug_report.md`
 - Create: `.github/ISSUE_TEMPLATE/feature_request.md`
 - Create: `.github/PULL_REQUEST_TEMPLATE.md`
@@ -204,7 +207,7 @@ Create `.github/ISSUE_TEMPLATE/bug_report.md`:
 ---
 name: Bug Report
 about: Report a bug in harness-engineering
-title: "[Bug] "
+title: '[Bug] '
 labels: bug
 assignees: ''
 ---
@@ -242,7 +245,7 @@ Create `.github/ISSUE_TEMPLATE/feature_request.md`:
 ---
 name: Feature Request
 about: Suggest a feature for harness-engineering
-title: "[Feature] "
+title: '[Feature] '
 labels: enhancement
 assignees: ''
 ---
@@ -304,7 +307,7 @@ We will acknowledge receipt within 48 hours and provide a timeline for a fix.
 ## Supported Versions
 
 | Version | Supported |
-|---------|-----------|
+| ------- | --------- |
 | Latest  | Yes       |
 ```
 
@@ -328,6 +331,7 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 ## [Unreleased]
 
 ### Added
+
 - Initial public release of harness-engineering toolkit
 - 6 packages: types, core, cli, eslint-plugin, linter-gen, mcp-server
 - 26 agent skills for Claude Code
@@ -351,6 +355,7 @@ git commit -m "chore: add repo hygiene files — issue templates, PR template, s
 ### Task 4: Rewrite README
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Read the current README to understand what exists**
@@ -360,6 +365,7 @@ Current README is 116 lines with badges, quick start, packages table, examples, 
 - [ ] **Step 2: Rewrite README.md**
 
 Rewrite following the spec's 10-section structure. Key changes from current:
+
 - Add stronger "why this exists" section (problem → solution framing)
 - Update component counts (21 → 26 skills, 4 → 5 templates)
 - Add mermaid architecture diagram showing the layered dependency model
@@ -391,11 +397,13 @@ git commit -m "docs: rewrite README for release — compelling intro, architectu
 ### Task 5: Polish Getting Started Guide
 
 **Files:**
+
 - Modify: `docs/guides/getting-started.md`
 
 - [ ] **Step 1: Read current getting-started.md**
 
 The guide is 147 lines and already well-structured. Main refinements needed:
+
 - Ensure the quick start matches README's promise
 - Update skill count (21 → 26)
 - Add a note about `npx` usage for those who haven't installed globally
@@ -403,6 +411,7 @@ The guide is 147 lines and already well-structured. Main refinements needed:
 - [ ] **Step 2: Update getting-started.md**
 
 Key edits:
+
 - Update "21 workflow skills" → "26 workflow skills" in Key Concepts section
 - Add `npx @harness-engineering/cli` alternative wherever `harness` CLI is referenced
 - Ensure example commands match what the templates actually produce
@@ -419,6 +428,7 @@ git commit -m "docs: polish getting-started guide — update counts, add npx alt
 ### Task 6: Clean Up Documentation TODOs
 
 **Files:**
+
 - Verify: all files in `docs/` for remaining TODO placeholders
 
 - [ ] **Step 1: Search for TODOs in docs**
@@ -447,6 +457,7 @@ git commit -m "docs: resolve remaining TODO placeholders in user-facing document
 ### Task 7: Add Publishing Fields to All Package.json Files
 
 **Files:**
+
 - Modify: `packages/types/package.json`
 - Modify: `packages/core/package.json`
 - Modify: `packages/cli/package.json`
@@ -457,11 +468,16 @@ git commit -m "docs: resolve remaining TODO placeholders in user-facing document
 - [ ] **Step 1: Add fields to packages/types/package.json**
 
 Add `files` (currently missing) and publishing metadata after `"license"`:
+
 ```json
 {
   "files": ["dist", "README.md"],
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "https://github.com/harness-engineering/harness-engineering.git", "directory": "packages/types" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/types"
+  },
   "bugs": { "url": "https://github.com/harness-engineering/harness-engineering/issues" },
   "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/types#readme"
 }
@@ -488,7 +504,11 @@ The CLI builds with `tsup --format esm` which produces `.js` files (not `.mjs`).
   },
   "files": ["dist", "README.md"],
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "https://github.com/harness-engineering/harness-engineering.git", "directory": "packages/cli" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/cli"
+  },
   "bugs": { "url": "https://github.com/harness-engineering/harness-engineering/issues" },
   "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/cli#readme"
 }
@@ -499,6 +519,7 @@ The CLI builds with `tsup --format esm` which produces `.js` files (not `.mjs`).
 eslint-plugin has `"type": "module"` and builds with `tsc`. The `tsconfig.base.json` sets `"module": "ESNext"`, so tsc outputs ESM `.js` files. Do NOT add `"require"` — Node will refuse to `require()` ESM `.js` in a `"type": "module"` package. Do NOT add a `"module"` field — it's redundant when `"type": "module"` is set.
 
 Add `exports`, `publishConfig`, `repository`, `bugs`, `homepage`:
+
 ```json
 {
   "exports": {
@@ -509,7 +530,11 @@ Add `exports`, `publishConfig`, `repository`, `bugs`, `homepage`:
   },
   "files": ["dist", "README.md"],
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "https://github.com/harness-engineering/harness-engineering.git", "directory": "packages/eslint-plugin" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harness-engineering/harness-engineering.git",
+    "directory": "packages/eslint-plugin"
+  },
   "bugs": { "url": "https://github.com/harness-engineering/harness-engineering/issues" },
   "homepage": "https://github.com/harness-engineering/harness-engineering/tree/main/packages/eslint-plugin#readme"
 }
@@ -555,6 +580,7 @@ git commit -m "chore: add publishConfig, repository, exports to all packages for
 ### Task 8: Initialize Changesets
 
 **Files:**
+
 - Create: `.changeset/config.json`
 - Modify: `package.json` (root)
 
@@ -589,6 +615,7 @@ Key: set `"access": "public"` for the `@harness-engineering` scoped packages.
 - [ ] **Step 3: Add changeset scripts to root package.json**
 
 Add to `"scripts"`:
+
 ```json
 {
   "changeset": "changeset",
@@ -609,6 +636,7 @@ git commit -m "chore: initialize changesets for monorepo version management"
 ### Task 9: Create CI Workflow
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 
 - [ ] **Step 1: Create CI workflow**
@@ -672,6 +700,7 @@ git commit -m "ci: add CI workflow — build, typecheck, lint, format, test on N
 ### Task 10: Create Release Workflow
 
 **Files:**
+
 - Create: `.github/workflows/release.yml`
 
 - [ ] **Step 1: Create release workflow**
@@ -737,6 +766,7 @@ git commit -m "ci: add release workflow — changesets-based npm publishing"
 ### Task 11: Add `--yes` Flag and Polish Init Output
 
 **Files:**
+
 - Modify: `packages/cli/src/commands/init.ts`
 
 - [ ] **Step 1: Add `--yes` flag to init command**
@@ -760,21 +790,21 @@ import chalk from 'chalk';
 Replace the console.log block:
 
 ```typescript
-      if (!globalOpts.quiet) {
-        console.log('');
-        logger.success('Project initialized!');
-        console.log('');
-        logger.info('Created files:');
-        for (const file of result.value.filesCreated) {
-          console.log(`  ${chalk.green('+')} ${file}`);
-        }
-        console.log('');
-        console.log(chalk.bold('Next steps:'));
-        console.log(`  1. Review ${chalk.cyan('harness.config.json')}`);
-        console.log(`  2. Update ${chalk.cyan('AGENTS.md')} with your project context`);
-        console.log(`  3. Run ${chalk.cyan('harness validate')} to check your setup`);
-        console.log('');
-      }
+if (!globalOpts.quiet) {
+  console.log('');
+  logger.success('Project initialized!');
+  console.log('');
+  logger.info('Created files:');
+  for (const file of result.value.filesCreated) {
+    console.log(`  ${chalk.green('+')} ${file}`);
+  }
+  console.log('');
+  console.log(chalk.bold('Next steps:'));
+  console.log(`  1. Review ${chalk.cyan('harness.config.json')}`);
+  console.log(`  2. Update ${chalk.cyan('AGENTS.md')} with your project context`);
+  console.log(`  3. Run ${chalk.cyan('harness validate')} to check your setup`);
+  console.log('');
+}
 ```
 
 - [ ] **Step 3: Run tests**
@@ -795,6 +825,7 @@ git commit -m "feat(cli): add --yes flag and polish init output with chalk forma
 ### Task 12: Expand `add` Command to Support Skills and Personas
 
 **Files:**
+
 - Modify: `packages/cli/src/commands/add.ts`
 
 - [ ] **Step 1: Add 'skill' and 'persona' component types**
@@ -802,6 +833,7 @@ git commit -m "feat(cli): add --yes flag and polish init output with chalk forma
 In `packages/cli/src/commands/add.ts`, expand the `ComponentType` and add new cases.
 
 Update the type at line 11:
+
 ```typescript
 type ComponentType = 'layer' | 'module' | 'doc' | 'skill' | 'persona';
 ```
@@ -851,11 +883,14 @@ Add new cases in the switch statement (after the `'doc'` case):
 ```
 
 Update the error message in the default case:
+
 ```typescript
-        return Err(new CLIError(
-          `Unknown component type: ${componentType}. Use: layer, module, doc, skill, persona`,
-          ExitCode.ERROR
-        ));
+return Err(
+  new CLIError(
+    `Unknown component type: ${componentType}. Use: layer, module, doc, skill, persona`,
+    ExitCode.ERROR
+  )
+);
 ```
 
 - [ ] **Step 2: Update command description**

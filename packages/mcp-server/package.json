@@ -8,7 +8,9 @@
   "bin": {
     "harness-mcp": "./dist/bin/harness-mcp.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",

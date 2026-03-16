@@ -23,12 +23,12 @@ export interface Location {
  * Import declaration extracted from source
  */
 export interface Import {
-  source: string;           // './module' or '@pkg/lib'
-  specifiers: string[];     // Named imports
-  default?: string;         // Default import name
-  namespace?: string;       // import * as X
+  source: string; // './module' or '@pkg/lib'
+  specifiers: string[]; // Named imports
+  default?: string; // Default import name
+  namespace?: string; // import * as X
   location: Location;
-  kind: 'value' | 'type';   // Distinguish type-only imports
+  kind: 'value' | 'type'; // Distinguish type-only imports
 }
 
 /**
@@ -39,7 +39,7 @@ export interface Export {
   type: 'named' | 'default' | 'namespace';
   location: Location;
   isReExport: boolean;
-  source?: string;          // Re-export source
+  source?: string; // Re-export source
 }
 
 /**
@@ -70,7 +70,7 @@ export interface HealthCheckResult {
  */
 export interface LanguageParser {
   name: string;
-  extensions: string[];     // ['.ts', '.tsx']
+  extensions: string[]; // ['.ts', '.tsx']
   parseFile(path: string): Promise<Result<AST, ParseError>>;
   extractImports(ast: AST): Result<Import[], ParseError>;
   extractExports(ast: AST): Result<Export[], ParseError>;

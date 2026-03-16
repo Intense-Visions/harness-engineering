@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { checkConfigPattern, detectPatternViolations } from '../../../src/entropy/detectors/patterns';
+import {
+  checkConfigPattern,
+  detectPatternViolations,
+} from '../../../src/entropy/detectors/patterns';
 import { buildSnapshot } from '../../../src/entropy/snapshot';
 import { TypeScriptParser } from '../../../src/shared/parsers';
 import { join } from 'path';
@@ -45,7 +48,12 @@ describe('checkConfigPattern', () => {
     const mockFile: Partial<SourceFile> = {
       path: '/project/src/services/bad-service.ts',
       exports: [
-        { name: 'BadService', type: 'named', location: { file: '', line: 1, column: 0 }, isReExport: false },
+        {
+          name: 'BadService',
+          type: 'named',
+          location: { file: '', line: 1, column: 0 },
+          isReExport: false,
+        },
       ],
     };
 
@@ -88,7 +96,12 @@ describe('checkConfigPattern', () => {
       path: '/project/src/utils.ts',
       exports: [],
       imports: [
-        { source: 'lodash', specifiers: ['map'], location: { file: '', line: 5, column: 0 }, kind: 'value' },
+        {
+          source: 'lodash',
+          specifiers: ['map'],
+          location: { file: '', line: 5, column: 0 },
+          kind: 'value',
+        },
       ],
     };
 
@@ -141,7 +154,7 @@ describe('detectPatternViolations', () => {
     if (!result.ok) return;
 
     // too-many-exports.ts has 7 exports, should be flagged
-    const tooManyViolation = result.value.violations.find(v =>
+    const tooManyViolation = result.value.violations.find((v) =>
       v.file.includes('too-many-exports.ts')
     );
     expect(tooManyViolation).toBeDefined();
@@ -175,13 +188,13 @@ describe('detectPatternViolations', () => {
     if (!result.ok) return;
 
     // bad-service.ts doesn't have default export
-    const badServiceViolation = result.value.violations.find(v =>
+    const badServiceViolation = result.value.violations.find((v) =>
       v.file.includes('bad-service.ts')
     );
     expect(badServiceViolation).toBeDefined();
 
     // user-service.ts has default export, should not be flagged
-    const userServiceViolation = result.value.violations.find(v =>
+    const userServiceViolation = result.value.violations.find((v) =>
       v.file.includes('user-service.ts')
     );
     expect(userServiceViolation).toBeUndefined();

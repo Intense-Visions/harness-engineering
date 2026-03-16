@@ -20,11 +20,11 @@ export function listTasks(): Task[] {
 }
 
 export function getTaskById(id: string): Task | undefined {
-  return tasks.find(t => t.id === id);
+  return tasks.find((t) => t.id === id);
 }
 
 export function completeTask(id: string): Task | undefined {
-  const task = tasks.find(t => t.id === id);
+  const task = tasks.find((t) => t.id === id);
   if (task) {
     task.status = 'complete';
   }

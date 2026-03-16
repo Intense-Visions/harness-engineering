@@ -11,14 +11,14 @@ Agent Skills provide structured guidance for AI coding assistants (Claude Code, 
 
 ## Key Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
+| Decision            | Choice                                  | Rationale                                                |
+| ------------------- | --------------------------------------- | -------------------------------------------------------- |
 | Directory structure | Platform-specific with shared fragments | Clean separation, platform optimizations, easy to extend |
-| Metadata format | YAML | Human-readable, standard for skill definitions |
-| CLI invocation | Subprocess with `--json` | CLI already built, consistent output parsing |
-| Workflow skills | Direct guidance (no CLI) | Process guidance doesn't map to single commands |
-| Platforms | Claude Code + Gemini CLI | Primary agent platforms, similar capabilities |
-| Testing | Schema validation + prompt linting | Declarative content needs structural verification |
+| Metadata format     | YAML                                    | Human-readable, standard for skill definitions           |
+| CLI invocation      | Subprocess with `--json`                | CLI already built, consistent output parsing             |
+| Workflow skills     | Direct guidance (no CLI)                | Process guidance doesn't map to single commands          |
+| Platforms           | Claude Code + Gemini CLI                | Primary agent platforms, similar capabilities            |
+| Testing             | Schema validation + prompt linting      | Declarative content needs structural verification        |
 
 ---
 
@@ -72,6 +72,7 @@ agents/
 ```
 
 Each skill directory contains:
+
 - `skill.yaml` — Metadata (name, version, triggers, tools)
 - `prompt.md` — Skill instructions for the agent
 - `README.md` — Human documentation
@@ -88,26 +89,26 @@ version: 1.0.0
 description: Validate repository context engineering practices
 
 # Platform this skill is for
-platform: claude-code  # claude-code | gemini-cli
+platform: claude-code # claude-code | gemini-cli
 
 # When this skill can be triggered
 triggers:
-  - manual           # User invokes explicitly
-  - on_pr            # Run on pull request
-  - on_commit        # Run on commit
+  - manual # User invokes explicitly
+  - on_pr # Run on pull request
+  - on_commit # Run on commit
 
 # Tools the skill needs access to
 tools:
-  - Bash             # For CLI invocation
-  - Read             # For file reading
-  - Grep             # For searching
-  - Glob             # For file finding
+  - Bash # For CLI invocation
+  - Read # For file reading
+  - Grep # For searching
+  - Glob # For file finding
 
 # CLI command this skill wraps (if applicable)
 cli_command: harness validate --json
 
 # Category for organization
-category: enforcement  # enforcement | workflow | entropy | setup
+category: enforcement # enforcement | workflow | entropy | setup
 
 # Dependencies on other skills (optional)
 depends_on: []
@@ -193,8 +194,8 @@ Checklist of conditions that indicate the skill completed successfully:
 
 Common errors and how to address them:
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
+| Error            | Cause                       | Resolution                 |
+| ---------------- | --------------------------- | -------------------------- |
 | Config not found | Missing harness.config.json | Run \`harness init\` first |
 
 ## Examples
@@ -209,10 +210,12 @@ Common errors and how to address them:
 ```
 
 Required sections:
+
 - `## Steps` — Always required
 - `## Success Criteria` — Always required
 
 Optional sections:
+
 - `## CLI Invocation` — For CLI wrapper skills
 - `## Error Handling` — Recommended for all skills
 - `## Examples` — Recommended for complex skills
@@ -223,13 +226,14 @@ Optional sections:
 
 ### 4.1 Enforcement Skills (CLI Wrappers)
 
-| Skill | CLI Command | Purpose |
-|-------|-------------|---------|
-| `validate-context-engineering` | `harness validate --json` | Check AGENTS.md, doc coverage, knowledge map |
-| `enforce-architecture` | `harness check-deps --json` | Validate layer boundaries, detect circular deps |
-| `check-mechanical-constraints` | Both commands | Combined validation |
+| Skill                          | CLI Command                 | Purpose                                         |
+| ------------------------------ | --------------------------- | ----------------------------------------------- |
+| `validate-context-engineering` | `harness validate --json`   | Check AGENTS.md, doc coverage, knowledge map    |
+| `enforce-architecture`         | `harness check-deps --json` | Validate layer boundaries, detect circular deps |
+| `check-mechanical-constraints` | Both commands               | Combined validation                             |
 
 **Flow:**
+
 1. Run CLI command with `--json`
 2. Parse JSON output
 3. Report findings with file locations
@@ -249,6 +253,7 @@ category: enforcement
 ```
 
 **Success Criteria:**
+
 - AGENTS.md exists and parses correctly
 - All links in AGENTS.md resolve to existing files
 - Documentation coverage meets threshold (default 80%)
@@ -268,6 +273,7 @@ category: enforcement
 ```
 
 **Success Criteria:**
+
 - No layer boundary violations
 - No circular dependency chains
 - All imports respect configured layer hierarchy
@@ -287,6 +293,7 @@ depends_on: [validate-context-engineering, enforce-architecture]
 ```
 
 **Success Criteria:**
+
 - All validation checks pass
 - All architecture checks pass
 
@@ -294,11 +301,11 @@ depends_on: [validate-context-engineering, enforce-architecture]
 
 ### 4.2 Workflow Skills (Direct Guidance)
 
-| Skill | Purpose | Approach |
-|-------|---------|----------|
-| `harness-tdd` | Guide TDD workflow | Step-by-step process with validation |
-| `harness-code-review` | Structured code review | Checklist + `harness agent review` |
-| `harness-refactoring` | Safe refactoring | Validation before/after changes |
+| Skill                 | Purpose                | Approach                             |
+| --------------------- | ---------------------- | ------------------------------------ |
+| `harness-tdd`         | Guide TDD workflow     | Step-by-step process with validation |
+| `harness-code-review` | Structured code review | Checklist + `harness agent review`   |
+| `harness-refactoring` | Safe refactoring       | Validation before/after changes      |
 
 #### harness-tdd
 
@@ -313,6 +320,7 @@ category: workflow
 ```
 
 **Steps:**
+
 1. Understand the requirement
 2. Write failing test first
 3. Run test to confirm it fails
@@ -323,6 +331,7 @@ category: workflow
 8. Commit with descriptive message
 
 **Success Criteria:**
+
 - Test written before implementation
 - Test fails initially
 - Implementation passes test
@@ -343,6 +352,7 @@ category: workflow
 ```
 
 **Steps:**
+
 1. Identify changes (files, functions)
 2. Run automated checks (`harness validate && harness check-deps`)
 3. Complete review checklist
@@ -350,6 +360,7 @@ category: workflow
 5. Summarize findings by severity
 
 **Review Checklist:**
+
 - [ ] Changes match stated intent
 - [ ] No architectural violations
 - [ ] Tests cover new/changed code
@@ -369,6 +380,7 @@ category: workflow
 ```
 
 **Steps:**
+
 1. Run baseline validation (`harness validate --json`)
 2. Identify refactoring scope
 3. Run tests to establish baseline
@@ -378,6 +390,7 @@ category: workflow
 7. Commit changes
 
 **Success Criteria:**
+
 - Baseline validation passes
 - Tests pass before refactoring
 - Tests pass after refactoring
@@ -388,11 +401,11 @@ category: workflow
 
 ### 4.3 Entropy Skills (CLI Wrappers)
 
-| Skill | CLI Command | Purpose |
-|-------|-------------|---------|
-| `detect-doc-drift` | `harness cleanup --type drift --json` | Find docs that don't match code |
-| `cleanup-dead-code` | `harness cleanup --type dead-code --json` | Find unused exports/files |
-| `align-documentation` | `harness fix-drift --json` | Auto-fix doc drift issues |
+| Skill                 | CLI Command                               | Purpose                         |
+| --------------------- | ----------------------------------------- | ------------------------------- |
+| `detect-doc-drift`    | `harness cleanup --type drift --json`     | Find docs that don't match code |
+| `cleanup-dead-code`   | `harness cleanup --type dead-code --json` | Find unused exports/files       |
+| `align-documentation` | `harness fix-drift --json`                | Auto-fix doc drift issues       |
 
 #### detect-doc-drift
 
@@ -408,6 +421,7 @@ category: entropy
 ```
 
 **Success Criteria:**
+
 - All source files scanned
 - Drift findings categorized by severity (high/medium/low)
 - Each finding has actionable resolution guidance
@@ -426,6 +440,7 @@ category: entropy
 ```
 
 **Success Criteria:**
+
 - Unused exports identified
 - Dead files detected
 - Safe removal candidates flagged
@@ -445,6 +460,7 @@ depends_on: [detect-doc-drift]
 ```
 
 **Success Criteria:**
+
 - Auto-fixable drift issues resolved
 - Changes verified by re-running detection
 - Manual fixes clearly identified if any remain
@@ -453,10 +469,10 @@ depends_on: [detect-doc-drift]
 
 ### 4.4 Setup Skills (CLI Wrappers)
 
-| Skill | CLI Command | Purpose |
-|-------|-------------|---------|
-| `initialize-harness-project` | `harness init` | Scaffold new harness-compliant project |
-| `add-harness-component` | `harness add <component>` | Add component to existing project |
+| Skill                        | CLI Command               | Purpose                                |
+| ---------------------------- | ------------------------- | -------------------------------------- |
+| `initialize-harness-project` | `harness init`            | Scaffold new harness-compliant project |
+| `add-harness-component`      | `harness add <component>` | Add component to existing project      |
 
 #### initialize-harness-project
 
@@ -472,6 +488,7 @@ category: setup
 ```
 
 **Steps:**
+
 1. Check prerequisites (empty directory, Node.js installed)
 2. Gather project info (name, description)
 3. Run `harness init`
@@ -480,6 +497,7 @@ category: setup
 6. Report success with next steps
 
 **Success Criteria:**
+
 - Project directory created with correct structure
 - harness.config.json valid
 - AGENTS.md generated
@@ -500,12 +518,14 @@ depends_on: [initialize-harness-project]
 ```
 
 **Component Types:**
+
 - `module` — Domain module
 - `service` — Service layer component
 - `api` — API endpoint
 - `test` — Test suite
 
 **Success Criteria:**
+
 - Component files created in correct layer
 - AGENTS.md updated with new component
 - Validation still passes after addition
@@ -516,23 +536,25 @@ depends_on: [initialize-harness-project]
 
 ### Tool Mapping
 
-| Action | Claude Code | Gemini CLI |
-|--------|-------------|------------|
-| Run shell command | `Bash` | `shell` |
-| Read file | `Read` | `read_file` |
-| Write file | `Write` | `write_file` |
-| Edit file | `Edit` | `edit_file` |
-| Search files | `Glob` | `find_files` |
-| Search content | `Grep` | `search_files` |
+| Action            | Claude Code | Gemini CLI     |
+| ----------------- | ----------- | -------------- |
+| Run shell command | `Bash`      | `shell`        |
+| Read file         | `Read`      | `read_file`    |
+| Write file        | `Write`     | `write_file`   |
+| Edit file         | `Edit`      | `edit_file`    |
+| Search files      | `Glob`      | `find_files`   |
+| Search content    | `Grep`      | `search_files` |
 
 ### Skill Invocation
 
 **Claude Code:**
+
 ```
 Use the Skill tool or /skill-name shorthand
 ```
 
 **Gemini CLI:**
+
 ```
 Use activate_skill tool
 ```
@@ -549,12 +571,12 @@ Differences between platforms are minimal (mostly tool names), so maintaining bo
 
 ### Test Types
 
-| Test Type | What It Checks |
-|-----------|----------------|
-| Schema validation | skill.yaml conforms to SkillMetadataSchema |
-| Prompt linting | prompt.md has required sections |
-| Link validation | File references in prompts resolve |
-| Include validation | Shared fragments in `includes` exist |
+| Test Type          | What It Checks                             |
+| ------------------ | ------------------------------------------ |
+| Schema validation  | skill.yaml conforms to SkillMetadataSchema |
+| Prompt linting     | prompt.md has required sections            |
+| Link validation    | File references in prompts resolve         |
+| Include validation | Shared fragments in `includes` exist       |
 
 ### Test Structure
 
@@ -580,7 +602,7 @@ import { SkillMetadataSchema } from './schema';
 describe('skill.yaml validation', () => {
   const skillFiles = glob.sync('**/skill.yaml', {
     cwd: 'agents/skills',
-    ignore: ['**/node_modules/**', '**/tests/**']
+    ignore: ['**/node_modules/**', '**/tests/**'],
   });
 
   it.each(skillFiles)('%s conforms to schema', (file) => {
@@ -604,7 +626,7 @@ const REQUIRED_SECTIONS = ['## Steps', '## Success Criteria'];
 describe('prompt.md structure', () => {
   const promptFiles = glob.sync('**/prompt.md', {
     cwd: 'agents/skills',
-    ignore: ['**/shared/**', '**/tests/**']
+    ignore: ['**/shared/**', '**/tests/**'],
   });
 
   it.each(promptFiles)('%s has required sections', (file) => {

@@ -9,8 +9,7 @@ import {
 } from '../utils/path-utils';
 
 const createRule = ESLintUtils.RuleCreator(
-  (name) =>
-    `https://github.com/harness-engineering/eslint-plugin/blob/main/docs/rules/${name}.md`
+  (name) => `https://github.com/harness-engineering/eslint-plugin/blob/main/docs/rules/${name}.md`
 );
 
 type MessageIds = 'layerViolation';
@@ -23,8 +22,7 @@ export default createRule<[], MessageIds>({
       description: 'Enforce layer boundary imports',
     },
     messages: {
-      layerViolation:
-        'Layer "{{fromLayer}}" cannot import from layer "{{toLayer}}"',
+      layerViolation: 'Layer "{{fromLayer}}" cannot import from layer "{{toLayer}}"',
     },
     schema: [],
   },

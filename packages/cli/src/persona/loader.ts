@@ -24,7 +24,9 @@ export function loadPersona(filePath: string): Result<Persona, Error> {
     }
     return Ok(result.data);
   } catch (error) {
-    return Err(new Error(`Failed to load persona: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to load persona: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 
@@ -42,6 +44,10 @@ export function listPersonas(dir: string): Result<PersonaMetadata[], Error> {
     }
     return Ok(personas);
   } catch (error) {
-    return Err(new Error(`Failed to list personas: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to list personas: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }

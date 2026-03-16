@@ -40,8 +40,8 @@ describe('buildReachabilityMap', () => {
     const reachability = buildReachabilityMap(snapshotResult.value);
 
     // Files imported from entry point should be reachable
-    const usedFile = snapshotResult.value.files.find(f => f.path.includes('used.ts'));
-    const helperFile = snapshotResult.value.files.find(f => f.path.includes('helper.ts'));
+    const usedFile = snapshotResult.value.files.find((f) => f.path.includes('used.ts'));
+    const helperFile = snapshotResult.value.files.find((f) => f.path.includes('helper.ts'));
 
     expect(usedFile).toBeDefined();
     expect(helperFile).toBeDefined();
@@ -63,7 +63,7 @@ describe('buildReachabilityMap', () => {
     const reachability = buildReachabilityMap(snapshotResult.value);
 
     // unused.ts is not imported by anything
-    const unusedFile = snapshotResult.value.files.find(f => f.path.includes('unused.ts'));
+    const unusedFile = snapshotResult.value.files.find((f) => f.path.includes('unused.ts'));
     expect(unusedFile).toBeDefined();
     expect(reachability.get(unusedFile!.path)).toBe(false);
   });
@@ -89,10 +89,10 @@ describe('detectDeadCode', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // unusedHelper in helper.ts is exported but never imported
-      expect(result.value.deadExports.some(e => e.name === 'unusedHelper')).toBe(true);
+      expect(result.value.deadExports.some((e) => e.name === 'unusedHelper')).toBe(true);
 
       // Functions in unused.ts are dead
-      expect(result.value.deadExports.some(e => e.name === 'unusedFunction')).toBe(true);
+      expect(result.value.deadExports.some((e) => e.name === 'unusedFunction')).toBe(true);
     }
   });
 
@@ -112,7 +112,7 @@ describe('detectDeadCode', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // unused.ts is a dead file
-      expect(result.value.deadFiles.some(f => f.path.includes('unused.ts'))).toBe(true);
+      expect(result.value.deadFiles.some((f) => f.path.includes('unused.ts'))).toBe(true);
     }
   });
 
@@ -132,8 +132,8 @@ describe('detectDeadCode', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // with-unused-import.ts imports anotherHelper but doesn't use it
-      const unusedImport = result.value.unusedImports.find(
-        i => i.file.includes('with-unused-import.ts')
+      const unusedImport = result.value.unusedImports.find((i) =>
+        i.file.includes('with-unused-import.ts')
       );
       expect(unusedImport).toBeDefined();
       expect(unusedImport?.specifiers).toContain('anotherHelper');

@@ -1,15 +1,17 @@
 // tests/utils/path-utils.test.ts
 import { describe, it, expect } from 'vitest';
-import { resolveImportPath, matchesPattern, getLayerForFile, normalizePath } from '../../src/utils/path-utils';
+import {
+  resolveImportPath,
+  matchesPattern,
+  getLayerForFile,
+  normalizePath,
+} from '../../src/utils/path-utils';
 import type { Layer } from '../../src/utils/schema';
 
 describe('path-utils', () => {
   describe('resolveImportPath', () => {
     it('resolves relative imports', () => {
-      const result = resolveImportPath(
-        '../types/user',
-        '/project/src/domain/service.ts'
-      );
+      const result = resolveImportPath('../types/user', '/project/src/domain/service.ts');
       expect(result).toBe('src/types/user');
     });
 
@@ -19,10 +21,7 @@ describe('path-utils', () => {
     });
 
     it('resolves ./ imports', () => {
-      const result = resolveImportPath(
-        './helper',
-        '/project/src/domain/service.ts'
-      );
+      const result = resolveImportPath('./helper', '/project/src/domain/service.ts');
       expect(result).toBe('src/domain/helper');
     });
   });
@@ -73,7 +72,9 @@ describe('path-utils', () => {
     });
 
     it('handles deeply nested paths', () => {
-      expect(normalizePath('/Users/dev/projects/myapp/src/api/v1/handler.ts')).toBe('src/api/v1/handler.ts');
+      expect(normalizePath('/Users/dev/projects/myapp/src/api/v1/handler.ts')).toBe(
+        'src/api/v1/handler.ts'
+      );
     });
 
     it('returns path unchanged if no /src/ found', () => {

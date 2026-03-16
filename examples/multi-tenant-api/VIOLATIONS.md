@@ -7,11 +7,13 @@ Advanced constraint exercises demonstrating the full range of harness enforcemen
 In `src/services/user-service.ts`, remove the Zod validation from `createUser`:
 
 Replace:
+
 ```typescript
 const validated = CreateUserSchema.parse(input);
 ```
 
 With:
+
 ```typescript
 const validated = input; // skip validation
 ```

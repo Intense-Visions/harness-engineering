@@ -1,8 +1,4 @@
-import type {
-  TelemetryAdapter,
-  AgentExecutor,
-  ActionSink,
-} from './types';
+import type { TelemetryAdapter, AgentExecutor, ActionSink } from './types';
 // Direct imports - these are small NoOp classes, no circular dependency issue
 import { NoOpTelemetryAdapter } from './telemetry/noop';
 import { NoOpExecutor } from './executor/noop';

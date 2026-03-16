@@ -3,17 +3,14 @@ import type { TokenBudget, TokenBudgetOverrides } from './budget.types';
 const DEFAULT_RATIOS = {
   systemPrompt: 0.15,
   projectManifest: 0.05,
-  taskSpec: 0.20,
-  activeCode: 0.40,
-  interfaces: 0.10,
-  reserve: 0.10,
+  taskSpec: 0.2,
+  activeCode: 0.4,
+  interfaces: 0.1,
+  reserve: 0.1,
 } as const;
 
-export function contextBudget(
-  totalTokens: number,
-  overrides?: TokenBudgetOverrides
-): TokenBudget {
-  const ratios = { ...DEFAULT_RATIOS };
+export function contextBudget(totalTokens: number, overrides?: TokenBudgetOverrides): TokenBudget {
+  const ratios: Record<keyof typeof DEFAULT_RATIOS, number> = { ...DEFAULT_RATIOS };
 
   if (overrides) {
     let overrideSum = 0;
@@ -32,7 +29,7 @@ export function contextBudget(
     if (overrideKeys.length > 0 && overrideKeys.length < 6) {
       const remaining = 1 - overrideSum;
       const nonOverridden = Object.keys(DEFAULT_RATIOS).filter(
-        k => !overrideKeys.includes(k as keyof typeof DEFAULT_RATIOS)
+        (k) => !overrideKeys.includes(k as keyof typeof DEFAULT_RATIOS)
       ) as (keyof typeof DEFAULT_RATIOS)[];
 
       const originalSum = nonOverridden.reduce((sum, k) => sum + DEFAULT_RATIOS[k], 0);

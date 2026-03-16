@@ -32,7 +32,7 @@ export function checkConfigPattern(
   const matches: PatternMatch[] = [];
 
   // Check if file matches any of the pattern's file globs
-  const fileMatches = pattern.files.some(glob => fileMatchesPattern(file.path, glob, rootDir));
+  const fileMatches = pattern.files.some((glob) => fileMatchesPattern(file.path, glob, rootDir));
   if (!fileMatches) {
     return matches; // Pattern doesn't apply to this file
   }
@@ -42,7 +42,7 @@ export function checkConfigPattern(
   switch (rule.type) {
     case 'must-export': {
       for (const name of rule.names) {
-        const hasExport = file.exports.some(e => e.name === name);
+        const hasExport = file.exports.some((e) => e.name === name);
         if (!hasExport) {
           matches.push({
             line: 1,
@@ -55,7 +55,7 @@ export function checkConfigPattern(
     }
 
     case 'must-export-default': {
-      const hasDefault = file.exports.some(e => e.type === 'default');
+      const hasDefault = file.exports.some((e) => e.type === 'default');
       if (!hasDefault) {
         matches.push({
           line: 1,
@@ -68,7 +68,7 @@ export function checkConfigPattern(
 
     case 'no-export': {
       for (const name of rule.names) {
-        const exp = file.exports.find(e => e.name === name);
+        const exp = file.exports.find((e) => e.name === name);
         if (exp) {
           matches.push({
             line: exp.location.line,
@@ -81,7 +81,9 @@ export function checkConfigPattern(
     }
 
     case 'must-import': {
-      const hasImport = file.imports.some(i => i.source === rule.from || i.source.endsWith(rule.from));
+      const hasImport = file.imports.some(
+        (i) => i.source === rule.from || i.source.endsWith(rule.from)
+      );
       if (!hasImport) {
         matches.push({
           line: 1,
@@ -93,7 +95,9 @@ export function checkConfigPattern(
     }
 
     case 'no-import': {
-      const forbiddenImport = file.imports.find(i => i.source === rule.from || i.source.endsWith(rule.from));
+      const forbiddenImport = file.imports.find(
+        (i) => i.source === rule.from || i.source.endsWith(rule.from)
+      );
       if (forbiddenImport) {
         matches.push({
           line: forbiddenImport.location.line,
@@ -125,7 +129,8 @@ export function checkConfigPattern(
           }
           matches.push({
             line: exp.location.line,
-            message: pattern.message || `"${exp.name}" does not follow ${rule.convention} convention`,
+            message:
+              pattern.message || `"${exp.name}" does not follow ${rule.convention} convention`,
             suggestion: `Rename to follow ${expected}`,
           });
         }
@@ -137,7 +142,8 @@ export function checkConfigPattern(
       if (file.exports.length > rule.count) {
         matches.push({
           line: 1,
-          message: pattern.message || `File has ${file.exports.length} exports, max is ${rule.count}`,
+          message:
+            pattern.message || `File has ${file.exports.length} exports, max is ${rule.count}`,
           suggestion: `Split into multiple files or reduce exports to ${rule.count}`,
         });
       }
@@ -196,8 +202,8 @@ export async function detectPatternViolations(
   }
 
   // Group by severity
-  const errorCount = violations.filter(v => v.severity === 'error').length;
-  const warningCount = violations.filter(v => v.severity === 'warning').length;
+  const errorCount = violations.filter((v) => v.severity === 'error').length;
+  const warningCount = violations.filter((v) => v.severity === 'warning').length;
 
   // Calculate pass rate
   const totalChecks = snapshot.files.length * patterns.length;

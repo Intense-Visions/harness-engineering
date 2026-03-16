@@ -34,10 +34,7 @@ describe('createError', () => {
   });
 
   it('should create error with default empty fields', () => {
-    const error = createError<ValidationError>(
-      'VALIDATION_FAILED',
-      'Validation failed'
-    );
+    const error = createError<ValidationError>('VALIDATION_FAILED', 'Validation failed');
 
     expect(error.code).toBe('VALIDATION_FAILED');
     expect(error.message).toBe('Validation failed');
@@ -69,12 +66,7 @@ describe('FeedbackError', () => {
   });
 
   it('should create SINK_ERROR', () => {
-    const error = createError<FeedbackError>(
-      'SINK_ERROR',
-      'Failed to write to sink',
-      {},
-      []
-    );
+    const error = createError<FeedbackError>('SINK_ERROR', 'Failed to write to sink', {}, []);
     expect(error.code).toBe('SINK_ERROR');
   });
 });

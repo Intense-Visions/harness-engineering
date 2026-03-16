@@ -22,14 +22,19 @@ export const generatePersonaArtifactsDefinition = {
     type: 'object' as const,
     properties: {
       name: { type: 'string', description: 'Persona name (e.g., architecture-enforcer)' },
-      only: { type: 'string', enum: ['runtime', 'agents-md', 'ci'], description: 'Generate only a specific artifact type' },
+      only: {
+        type: 'string',
+        enum: ['runtime', 'agents-md', 'ci'],
+        description: 'Generate only a specific artifact type',
+      },
     },
     required: ['name'],
   },
 };
 
 export async function handleGeneratePersonaArtifacts(input: { name: string; only?: string }) {
-  const { loadPersona, generateRuntime, generateAgentsMd, generateCIWorkflow } = await import('@harness-engineering/cli');
+  const { loadPersona, generateRuntime, generateAgentsMd, generateCIWorkflow } =
+    await import('@harness-engineering/cli');
   const filePath = path.join(resolvePersonasDir(), `${input.name}.yaml`);
   const personaResult = loadPersona(filePath);
   if (!personaResult.ok) return resultToMcpResponse(personaResult);
@@ -65,7 +70,11 @@ export const runPersonaDefinition = {
   },
 };
 
-export async function handleRunPersona(input: { persona: string; path?: string; dryRun?: boolean }) {
+export async function handleRunPersona(input: {
+  persona: string;
+  path?: string;
+  dryRun?: boolean;
+}) {
   const { loadPersona, runPersona } = await import('@harness-engineering/cli');
   const filePath = path.join(resolvePersonasDir(), `${input.persona}.yaml`);
   const personaResult = loadPersona(filePath);
@@ -74,7 +83,12 @@ export async function handleRunPersona(input: { persona: string; path?: string; 
   const projectPath = input.path ? path.resolve(input.path) : process.cwd();
 
   const ALLOWED_COMMANDS = new Set([
-    'validate', 'check-deps', 'check-docs', 'cleanup', 'fix-drift', 'add',
+    'validate',
+    'check-deps',
+    'check-docs',
+    'cleanup',
+    'fix-drift',
+    'add',
   ]);
 
   const executor = async (command: string) => {
@@ -92,7 +106,9 @@ export async function handleRunPersona(input: { persona: string; path?: string; 
       });
       return Ok(output.toString());
     } catch (error) {
-      return Err(new Error(`${command} failed: ${error instanceof Error ? error.message : String(error)}`));
+      return Err(
+        new Error(`${command} failed: ${error instanceof Error ? error.message : String(error)}`)
+      );
     }
   };
 

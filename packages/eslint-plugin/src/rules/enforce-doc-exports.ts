@@ -40,11 +40,7 @@ export default createRule<Options, MessageIds>({
   create(context, [options]) {
     const sourceCode = context.sourceCode.getText();
 
-    function checkExport(
-      node: Parameters<typeof hasJSDocComment>[0],
-      kind: string,
-      name: string
-    ) {
+    function checkExport(node: Parameters<typeof hasJSDocComment>[0], kind: string, name: string) {
       // Skip if marked @internal and ignoreInternal is true
       if (options.ignoreInternal && isMarkedInternal(node, sourceCode)) {
         return;

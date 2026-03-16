@@ -37,7 +37,9 @@ interface CheckDepsResult {
   }>;
 }
 
-export async function runCheckDeps(options: CheckDepsOptions): Promise<Result<CheckDepsResult, CLIError>> {
+export async function runCheckDeps(
+  options: CheckDepsOptions
+): Promise<Result<CheckDepsResult, CLIError>> {
   const cwd = options.cwd ?? process.cwd();
 
   // Load config
@@ -62,9 +64,7 @@ export async function runCheckDeps(options: CheckDepsOptions): Promise<Result<Ch
   const parser = new TypeScriptParser();
 
   // Define layers from config (convert pattern string to patterns array)
-  const layers = config.layers.map((l) =>
-    defineLayer(l.name, [l.pattern], l.allowedDependencies)
-  );
+  const layers = config.layers.map((l) => defineLayer(l.name, [l.pattern], l.allowedDependencies));
 
   // Build layer config
   const layerConfig: LayerConfig = {

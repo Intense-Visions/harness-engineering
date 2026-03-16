@@ -74,11 +74,13 @@ packages/cli/tests/templates/
 ```
 
 **Modified files:**
+
 - `packages/cli/src/commands/init.ts` — Add `--level` and `--framework` flags, use template engine
 - `packages/cli/src/config/schema.ts` — Add `template` field to `HarnessConfigSchema`
 - `packages/cli/src/index.ts` — No changes needed (init command already registered)
 
 **Deleted files:**
+
 - `packages/cli/src/templates/basic.ts` — Replaced by file-based templates
 
 ### Slice 2: Persona System
@@ -117,6 +119,7 @@ packages/cli/tests/persona/
 ```
 
 **Modified files:**
+
 - `packages/cli/src/commands/agent/run.ts` — Add `--persona` flag
 - `packages/cli/src/index.ts` — Register persona command
 
@@ -154,6 +157,7 @@ packages/mcp-server/
 ```
 
 **Modified files:**
+
 - `pnpm-workspace.yaml` — Already includes `packages/*`, no change needed
 
 ---
@@ -163,6 +167,7 @@ packages/mcp-server/
 ### Task 1: Template Metadata Schema
 
 **Files:**
+
 - Create: `packages/cli/src/templates/schema.ts`
 - Test: `packages/cli/tests/templates/schema.test.ts`
 
@@ -275,6 +280,7 @@ git commit -m "feat(templates): add TemplateMetadata Zod schema"
 ### Task 2: JSON Deep Merge Utility
 
 **Files:**
+
 - Create: `packages/cli/src/templates/merger.ts`
 - Test: `packages/cli/tests/templates/merger.test.ts`
 
@@ -417,6 +423,7 @@ git commit -m "feat(templates): add JSON deep merge and package.json merge utili
 ### Task 3: Template Engine — Resolve and Render
 
 **Files:**
+
 - Create: `packages/cli/src/templates/engine.ts`
 - Test: `packages/cli/tests/templates/engine.test.ts`
 - Create: test fixtures in `packages/cli/tests/templates/fixtures/mock-templates/`
@@ -536,10 +543,10 @@ describe('TemplateEngine', () => {
       if (!result.ok) return;
       // Should include files from both base and basic
       const paths = result.value.files.map((f) => f.relativePath);
-      expect(paths).toContain('README.md.hbs');    // from base
-      expect(paths).toContain('shared.txt');         // from base
-      expect(paths).toContain('package.json.hbs');   // from basic
-      expect(paths).toContain('src/index.ts');       // from basic
+      expect(paths).toContain('README.md.hbs'); // from base
+      expect(paths).toContain('shared.txt'); // from base
+      expect(paths).toContain('package.json.hbs'); // from basic
+      expect(paths).toContain('src/index.ts'); // from basic
     });
 
     it('resolves with framework overlay', () => {
@@ -547,8 +554,8 @@ describe('TemplateEngine', () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       const paths = result.value.files.map((f) => f.relativePath);
-      expect(paths).toContain('src/app/page.tsx');   // from overlay
-      expect(paths).toContain('src/index.ts');       // from basic
+      expect(paths).toContain('src/app/page.tsx'); // from overlay
+      expect(paths).toContain('src/index.ts'); // from basic
     });
 
     it('returns error for unknown level', () => {
@@ -664,10 +671,10 @@ export interface TemplateContext {
 }
 
 interface TemplateFile {
-  relativePath: string;   // Path relative to template root
-  absolutePath: string;    // Absolute path on disk
-  isHandlebars: boolean;   // Ends in .hbs
-  sourceTemplate: string;  // Which template it came from (e.g., "base", "basic")
+  relativePath: string; // Path relative to template root
+  absolutePath: string; // Absolute path on disk
+  isHandlebars: boolean; // Ends in .hbs
+  sourceTemplate: string; // Which template it came from (e.g., "base", "basic")
 }
 
 export interface ResolvedTemplate {
@@ -677,7 +684,7 @@ export interface ResolvedTemplate {
 }
 
 interface RenderedFile {
-  relativePath: string;    // .hbs extension stripped
+  relativePath: string; // .hbs extension stripped
   content: string;
 }
 
@@ -711,7 +718,11 @@ export class TemplateEngine {
 
       return Ok(templates);
     } catch (error) {
-      return Err(new Error(`Failed to list templates: ${error instanceof Error ? error.message : String(error)}`));
+      return Err(
+        new Error(
+          `Failed to list templates: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
     }
   }
 
@@ -842,7 +853,11 @@ export class TemplateEngine {
 
       return Ok(written);
     } catch (error) {
-      return Err(new Error(`Failed to write files: ${error instanceof Error ? error.message : String(error)}`));
+      return Err(
+        new Error(
+          `Failed to write files: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
     }
   }
 
@@ -857,8 +872,10 @@ export class TemplateEngine {
       const parsed = TemplateMetadataSchema.safeParse(raw);
       if (!parsed.success) continue;
 
-      if (type === 'level' && parsed.data.level === name) return path.join(this.templatesDir, entry.name);
-      if (type === 'framework' && parsed.data.framework === name) return path.join(this.templatesDir, entry.name);
+      if (type === 'level' && parsed.data.level === name)
+        return path.join(this.templatesDir, entry.name);
+      if (type === 'framework' && parsed.data.framework === name)
+        return path.join(this.templatesDir, entry.name);
       if (parsed.data.name === name) return path.join(this.templatesDir, entry.name);
     }
     return null;
@@ -934,6 +951,7 @@ git commit -m "feat(templates): add template engine with resolve, render, write"
 ### Task 4: Config Schema Extension
 
 **Files:**
+
 - Modify: `packages/cli/src/config/schema.ts`
 - Test: `packages/cli/tests/templates/schema.test.ts` (append)
 
@@ -1018,6 +1036,7 @@ git commit -m "feat(config): add template metadata field to HarnessConfigSchema"
 ### Task 5: Create Template Content Files
 
 **Files:**
+
 - Create: `templates/base/` directory and all files
 - Create: `templates/basic/` directory and all files
 - Create: `templates/intermediate/` directory and all files
@@ -1047,42 +1066,27 @@ coverage/
 ```
 
 ```handlebars
-{{!-- templates/base/AGENTS.md.hbs --}}
-# {{projectName}} Knowledge Map
+{{! templates/base/AGENTS.md.hbs }}
+#
+{{projectName}}
+Knowledge Map ## About This Project
 
-## About This Project
-
-{{projectName}} — A project using Harness Engineering practices ({{level}} adoption level).
-
-## Documentation
-
-- Main docs: `docs/`
-- Architecture decisions: `docs/architecture.md`
-
-## Source Code
-
-- Entry point: `src/index.ts`
-
-## Architecture
-
-See `docs/architecture.md` for architectural decisions.
+{{projectName}}
+— A project using Harness Engineering practices ({{level}}
+adoption level). ## Documentation - Main docs: `docs/` - Architecture decisions:
+`docs/architecture.md` ## Source Code - Entry point: `src/index.ts` ## Architecture See
+`docs/architecture.md` for architectural decisions.
 ```
 
 ```handlebars
-{{!-- templates/base/docs/index.md.hbs --}}
-# {{projectName}} Documentation
-
-Welcome to the {{projectName}} documentation.
-
-## Getting Started
-
-1. Install dependencies: `npm install`
-2. Run checks: `npx harness validate`
-3. Start development
-
-## Architecture
-
-See [architecture.md](./architecture.md) for architectural decisions.
+{{! templates/base/docs/index.md.hbs }}
+#
+{{projectName}}
+Documentation Welcome to the
+{{projectName}}
+documentation. ## Getting Started 1. Install dependencies: `npm install` 2. Run checks: `npx harness
+validate` 3. Start development ## Architecture See [architecture.md](./architecture.md) for
+architectural decisions.
 ```
 
 - [ ] **Step 2: Create `templates/basic/`**
@@ -1099,42 +1103,21 @@ See [architecture.md](./architecture.md) for architectural decisions.
 ```
 
 ```handlebars
-{{!-- templates/basic/harness.config.json.hbs --}}
-{
-  "version": 1,
-  "name": "{{projectName}}",
-  "layers": [
-    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
-    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
-  ],
-  "agentsMapPath": "./AGENTS.md",
-  "docsDir": "./docs",
-  "template": {
-    "level": "basic",
-    "version": 1
-  }
-}
+{{! templates/basic/harness.config.json.hbs }}
+{ "version": 1, "name": "{{projectName}}", "layers": [ { "name": "types", "pattern": "src/types/**",
+"allowedDependencies": [] }, { "name": "domain", "pattern": "src/domain/**", "allowedDependencies":
+["types"] }, { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types",
+"domain"] }, { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain",
+"services"] } ], "agentsMapPath": "./AGENTS.md", "docsDir": "./docs", "template": { "level":
+"basic", "version": 1 } }
 ```
 
 ```handlebars
-{{!-- templates/basic/package.json.hbs --}}
-{
-  "name": "{{projectName}}",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "harness:validate": "harness validate",
-    "harness:check-deps": "harness check-deps"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
-    "typescript": "^5.0.0"
-  }
-}
+{{! templates/basic/package.json.hbs }}
+{ "name": "{{projectName}}", "version": "1.0.0", "type": "module", "scripts": { "build": "tsc",
+"harness:validate": "harness validate", "harness:check-deps": "harness check-deps" },
+"dependencies": {}, "devDependencies": { "@harness-engineering/cli": "^0.1.0", "typescript":
+"^5.0.0" } }
 ```
 
 ```json
@@ -1173,71 +1156,36 @@ export {};
 ```
 
 ```handlebars
-{{!-- templates/intermediate/harness.config.json.hbs --}}
-{
-  "version": 1,
-  "name": "{{projectName}}",
-  "layers": [
-    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
-    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
-  ],
-  "forbiddenImports": [
-    { "from": "src/types/**", "disallow": ["src/services/**", "src/api/**"], "message": "Types layer cannot import from services or API" }
-  ],
-  "boundaries": {
-    "requireSchema": ["src/api/**"]
-  },
-  "agentsMapPath": "./AGENTS.md",
-  "docsDir": "./docs",
-  "template": {
-    "level": "intermediate",
-    "version": 1
-  }
-}
+{{! templates/intermediate/harness.config.json.hbs }}
+{ "version": 1, "name": "{{projectName}}", "layers": [ { "name": "types", "pattern": "src/types/**",
+"allowedDependencies": [] }, { "name": "domain", "pattern": "src/domain/**", "allowedDependencies":
+["types"] }, { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types",
+"domain"] }, { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain",
+"services"] } ], "forbiddenImports": [ { "from": "src/types/**", "disallow": ["src/services/**",
+"src/api/**"], "message": "Types layer cannot import from services or API" } ], "boundaries": {
+"requireSchema": ["src/api/**"] }, "agentsMapPath": "./AGENTS.md", "docsDir": "./docs", "template":
+{ "level": "intermediate", "version": 1 } }
 ```
 
 ```handlebars
-{{!-- templates/intermediate/eslint.config.mjs.hbs --}}
-import harnessPlugin from '@harness-engineering/eslint-plugin';
-
-export default [
-  harnessPlugin.configs.recommended,
-  {
-    rules: {
-      '@harness-engineering/no-circular-deps': 'error',
-      '@harness-engineering/no-forbidden-imports': 'error',
-      '@harness-engineering/no-layer-violation': 'error',
-    },
-  },
-];
+{{! templates/intermediate/eslint.config.mjs.hbs }}
+import harnessPlugin from '@harness-engineering/eslint-plugin'; export default [
+harnessPlugin.configs.recommended, { rules: { '@harness-engineering/no-circular-deps': 'error',
+'@harness-engineering/no-forbidden-imports': 'error', '@harness-engineering/no-layer-violation':
+'error', }, }, ];
 ```
 
 ```handlebars
-{{!-- templates/intermediate/package.json.hbs --}}
-{
-  "name": "{{projectName}}",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "lint": "eslint src",
-    "harness:validate": "harness validate",
-    "harness:check-deps": "harness check-deps",
-    "harness:check-docs": "harness check-docs"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
-    "@harness-engineering/eslint-plugin": "^0.1.0",
-    "eslint": "^9.0.0",
-    "typescript": "^5.0.0"
-  }
-}
+{{! templates/intermediate/package.json.hbs }}
+{ "name": "{{projectName}}", "version": "1.0.0", "type": "module", "scripts": { "build": "tsc",
+"lint": "eslint src", "harness:validate": "harness validate", "harness:check-deps": "harness
+check-deps", "harness:check-docs": "harness check-docs" }, "dependencies": {}, "devDependencies": {
+"@harness-engineering/cli": "^0.1.0", "@harness-engineering/eslint-plugin": "^0.1.0", "eslint":
+"^9.0.0", "typescript": "^5.0.0" } }
 ```
 
 Create empty directories with `.gitkeep`:
+
 - `templates/intermediate/src/types/.gitkeep`
 - `templates/intermediate/src/domain/.gitkeep`
 - `templates/intermediate/src/services/.gitkeep`
@@ -1256,62 +1204,27 @@ Create empty directories with `.gitkeep`:
 ```
 
 ```handlebars
-{{!-- templates/advanced/harness.config.json.hbs --}}
-{
-  "version": 1,
-  "name": "{{projectName}}",
-  "layers": [
-    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
-    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
-  ],
-  "forbiddenImports": [
-    { "from": "src/types/**", "disallow": ["src/services/**", "src/api/**"], "message": "Types layer cannot import from services or API" }
-  ],
-  "boundaries": {
-    "requireSchema": ["src/api/**"]
-  },
-  "agentsMapPath": "./AGENTS.md",
-  "docsDir": "./docs",
-  "agent": {
-    "executor": "subprocess",
-    "timeout": 300000
-  },
-  "entropy": {
-    "excludePatterns": ["**/node_modules/**", "**/*.test.ts"],
-    "autoFix": false
-  },
-  "template": {
-    "level": "advanced",
-    "version": 1
-  }
-}
+{{! templates/advanced/harness.config.json.hbs }}
+{ "version": 1, "name": "{{projectName}}", "layers": [ { "name": "types", "pattern": "src/types/**",
+"allowedDependencies": [] }, { "name": "domain", "pattern": "src/domain/**", "allowedDependencies":
+["types"] }, { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types",
+"domain"] }, { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain",
+"services"] } ], "forbiddenImports": [ { "from": "src/types/**", "disallow": ["src/services/**",
+"src/api/**"], "message": "Types layer cannot import from services or API" } ], "boundaries": {
+"requireSchema": ["src/api/**"] }, "agentsMapPath": "./AGENTS.md", "docsDir": "./docs", "agent": {
+"executor": "subprocess", "timeout": 300000 }, "entropy": { "excludePatterns":
+["**/node_modules/**", "**/*.test.ts"], "autoFix": false }, "template": { "level": "advanced",
+"version": 1 } }
 ```
 
 ```handlebars
-{{!-- templates/advanced/package.json.hbs --}}
-{
-  "name": "{{projectName}}",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "lint": "eslint src",
-    "harness:validate": "harness validate",
-    "harness:check-deps": "harness check-deps",
-    "harness:check-docs": "harness check-docs",
-    "harness:cleanup": "harness cleanup",
-    "harness:fix-drift": "harness fix-drift"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
-    "@harness-engineering/eslint-plugin": "^0.1.0",
-    "eslint": "^9.0.0",
-    "typescript": "^5.0.0"
-  }
-}
+{{! templates/advanced/package.json.hbs }}
+{ "name": "{{projectName}}", "version": "1.0.0", "type": "module", "scripts": { "build": "tsc",
+"lint": "eslint src", "harness:validate": "harness validate", "harness:check-deps": "harness
+check-deps", "harness:check-docs": "harness check-docs", "harness:cleanup": "harness cleanup",
+"harness:fix-drift": "harness fix-drift" }, "dependencies": {}, "devDependencies": {
+"@harness-engineering/cli": "^0.1.0", "@harness-engineering/eslint-plugin": "^0.1.0", "eslint":
+"^9.0.0", "typescript": "^5.0.0" } }
 ```
 
 Create: `templates/advanced/agents/personas/.gitkeep`
@@ -1336,24 +1249,10 @@ export default nextConfig;
 ```
 
 ```handlebars
-{{!-- templates/nextjs/package.json.hbs --}}
-{
-  "name": "{{projectName}}",
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "next": "^14.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
-  },
-  "devDependencies": {
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0"
-  }
-}
+{{! templates/nextjs/package.json.hbs }}
+{ "name": "{{projectName}}", "scripts": { "dev": "next dev", "build": "next build", "start": "next
+start" }, "dependencies": { "next": "^14.0.0", "react": "^18.0.0", "react-dom": "^18.0.0" },
+"devDependencies": { "@types/react": "^18.0.0", "@types/react-dom": "^18.0.0" } }
 ```
 
 ```tsx
@@ -1398,9 +1297,9 @@ import { TemplateMetadataSchema } from '../../src/templates/schema';
 const TEMPLATES_DIR = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
 
 describe('template content files', () => {
-  const templateDirs = fs.readdirSync(TEMPLATES_DIR).filter((d) =>
-    fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory()
-  );
+  const templateDirs = fs
+    .readdirSync(TEMPLATES_DIR)
+    .filter((d) => fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory());
 
   for (const dir of templateDirs) {
     it(`${dir}/template.json is valid`, () => {
@@ -1434,6 +1333,7 @@ git commit -m "feat(templates): add base, basic, intermediate, advanced, and nex
 ### Task 6: Update `harness init` Command
 
 **Files:**
+
 - Modify: `packages/cli/src/commands/init.ts`
 - Delete: `packages/cli/src/templates/basic.ts`
 
@@ -1480,7 +1380,12 @@ describe('runInit', () => {
   it('scaffolds with nextjs overlay', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
 
-    const result = await runInit({ cwd: tmpDir, name: 'test-project', level: 'basic', framework: 'nextjs' });
+    const result = await runInit({
+      cwd: tmpDir,
+      name: 'test-project',
+      level: 'basic',
+      framework: 'nextjs',
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -1556,10 +1461,9 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const configPath = path.join(cwd, 'harness.config.json');
 
   if (!force && fs.existsSync(configPath)) {
-    return Err(new CLIError(
-      'Project already initialized. Use --force to overwrite.',
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError('Project already initialized. Use --force to overwrite.', ExitCode.ERROR)
+    );
   }
 
   const templatesDir = resolveTemplatesDir();
@@ -1658,6 +1562,7 @@ file-based TemplateEngine. Backwards compatible: defaults to basic level."
 ### Task 7: Integration Test — End-to-End Template Scaffolding
 
 **Files:**
+
 - Create: `packages/cli/tests/integration/init.test.ts`
 
 - [ ] **Step 1: Write the integration test**
@@ -1790,6 +1695,7 @@ End of Chunk 1.
 ### Task 8: Persona YAML Schema
 
 **Files:**
+
 - Create: `packages/cli/src/persona/schema.ts`
 - Test: `packages/cli/tests/persona/schema.test.ts`
 
@@ -1944,6 +1850,7 @@ git commit -m "feat(persona): add PersonaSchema Zod definition"
 ### Task 9: Persona Loader
 
 **Files:**
+
 - Create: `packages/cli/src/persona/loader.ts`
 - Test: `packages/cli/tests/persona/loader.test.ts`
 - Create: test fixtures
@@ -2054,7 +1961,9 @@ export function loadPersona(filePath: string): Result<Persona, Error> {
 
     return Ok(result.data);
   } catch (error) {
-    return Err(new Error(`Failed to load persona: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to load persona: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 
@@ -2081,7 +1990,11 @@ export function listPersonas(dir: string): Result<PersonaMetadata[], Error> {
 
     return Ok(personas);
   } catch (error) {
-    return Err(new Error(`Failed to list personas: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to list personas: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 ```
@@ -2106,6 +2019,7 @@ git commit -m "feat(persona): add persona YAML loader with validation"
 ### Task 10: Runtime Config Generator
 
 **Files:**
+
 - Create: `packages/cli/src/persona/generators/runtime.ts`
 - Test: `packages/cli/tests/persona/generators/runtime.test.ts`
 
@@ -2182,7 +2096,11 @@ export function generateRuntime(persona: Persona): Result<string, Error> {
 
     return Ok(JSON.stringify(config, null, 2));
   } catch (error) {
-    return Err(new Error(`Failed to generate runtime config: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to generate runtime config: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 ```
@@ -2204,6 +2122,7 @@ git commit -m "feat(persona): add runtime config generator"
 ### Task 11: AGENTS.md Fragment Generator
 
 **Files:**
+
 - Create: `packages/cli/src/persona/generators/agents-md.ts`
 - Test: `packages/cli/tests/persona/generators/agents-md.test.ts`
 
@@ -2310,7 +2229,11 @@ export function generateAgentsMd(persona: Persona): Result<string, Error> {
 
     return Ok(fragment);
   } catch (error) {
-    return Err(new Error(`Failed to generate AGENTS.md fragment: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to generate AGENTS.md fragment: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 ```
@@ -2332,6 +2255,7 @@ git commit -m "feat(persona): add AGENTS.md fragment generator"
 ### Task 12: GitHub Actions CI Workflow Generator
 
 **Files:**
+
 - Create: `packages/cli/src/persona/generators/ci-workflow.ts`
 - Test: `packages/cli/tests/persona/generators/ci-workflow.test.ts`
 
@@ -2498,7 +2422,11 @@ export function generateCIWorkflow(
 
     return Ok(YAML.stringify(workflow, { lineWidth: 0 }));
   } catch (error) {
-    return Err(new Error(`Failed to generate CI workflow: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to generate CI workflow: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 ```
@@ -2520,6 +2448,7 @@ git commit -m "feat(persona): add GitHub Actions CI workflow generator"
 ### Task 13: Create Built-in Persona YAML Files
 
 **Files:**
+
 - Create: `agents/personas/architecture-enforcer.yaml`
 - Create: `agents/personas/documentation-maintainer.yaml`
 - Create: `agents/personas/entropy-cleaner.yaml`
@@ -2544,12 +2473,12 @@ commands:
 triggers:
   - event: on_pr
     conditions:
-      paths: ["src/**"]
+      paths: ['src/**']
   - event: on_commit
     conditions:
-      branches: ["main", "develop"]
+      branches: ['main', 'develop']
   - event: scheduled
-    cron: "0 6 * * 1"
+    cron: '0 6 * * 1'
 
 config:
   severity: error
@@ -2582,10 +2511,10 @@ commands:
 triggers:
   - event: on_pr
     conditions:
-      paths: ["src/**", "docs/**"]
+      paths: ['src/**', 'docs/**']
   - event: on_commit
     conditions:
-      branches: ["main"]
+      branches: ['main']
 
 config:
   severity: warning
@@ -2617,7 +2546,7 @@ commands:
 
 triggers:
   - event: scheduled
-    cron: "0 6 * * 1"
+    cron: '0 6 * * 1'
 
 config:
   severity: warning
@@ -2682,6 +2611,7 @@ architecture-enforcer, documentation-maintainer, entropy-cleaner"
 ### Task 14: Persona Runner (Execute Commands)
 
 **Files:**
+
 - Create: `packages/cli/src/persona/runner.ts`
 - Test: `packages/cli/tests/persona/runner.test.ts`
 
@@ -2707,7 +2637,9 @@ const mockPersona: Persona = {
 
 describe('runPersona', () => {
   it('executes all commands and returns pass report', async () => {
-    const executor: CommandExecutor = vi.fn().mockResolvedValue({ ok: true, value: { valid: true } });
+    const executor: CommandExecutor = vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: { valid: true } });
 
     const report = await runPersona(mockPersona, executor);
     expect(report.status).toBe('pass');
@@ -2718,7 +2650,8 @@ describe('runPersona', () => {
   });
 
   it('fails fast when a command fails', async () => {
-    const executor: CommandExecutor = vi.fn()
+    const executor: CommandExecutor = vi
+      .fn()
       .mockResolvedValueOnce({ ok: true, value: {} })
       .mockResolvedValueOnce({ ok: false, error: new Error('check-deps failed') });
 
@@ -2730,9 +2663,11 @@ describe('runPersona', () => {
   });
 
   it('respects timeout', async () => {
-    const slowExecutor: CommandExecutor = vi.fn().mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, value: {} }), 5000))
-    );
+    const slowExecutor: CommandExecutor = vi
+      .fn()
+      .mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, value: {} }), 5000))
+      );
 
     const persona = { ...mockPersona, config: { ...mockPersona.config, timeout: 50 } };
     const report = await runPersona(persona, slowExecutor);
@@ -2809,7 +2744,11 @@ export async function runPersona(
       const result = await Promise.race([
         executor(command),
         new Promise<Result<never, Error>>((resolve) =>
-          setTimeout(() => resolve({ ok: false, error: new Error('Command timed out') } as Result<never, Error>), remaining)
+          setTimeout(
+            () =>
+              resolve({ ok: false, error: new Error('Command timed out') } as Result<never, Error>),
+            remaining
+          )
         ),
       ]);
 
@@ -2887,6 +2826,7 @@ git commit -m "feat(persona): add persona runner with fail-fast and timeout"
 ### Task 15: Persona CLI Commands
 
 **Files:**
+
 - Create: `packages/cli/src/commands/persona/index.ts`
 - Create: `packages/cli/src/commands/persona/list.ts`
 - Create: `packages/cli/src/commands/persona/generate.ts`
@@ -3060,6 +3000,7 @@ import { createPersonaCommand } from './commands/persona';
 ```
 
 Add to `createProgram()`:
+
 ```typescript
 program.addCommand(createPersonaCommand());
 ```
@@ -3099,6 +3040,7 @@ git commit -m "feat(cli): add harness persona list and generate commands"
 ### Task 16: Wire `--persona` Flag to `harness agent run`
 
 **Files:**
+
 - Modify: `packages/cli/src/commands/agent/run.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -3129,6 +3071,7 @@ describe('harness agent run --persona', () => {
 In `packages/cli/src/commands/agent/run.ts`, add the persona flag and a new code path:
 
 Add imports at top:
+
 ```typescript
 import { loadPersona } from '../../persona/loader';
 import { runPersona, type CommandExecutor } from '../../persona/runner';
@@ -3161,10 +3104,17 @@ if (opts.persona) {
     try {
       // For now, use subprocess to call harness CLI
       const { execSync } = await import('child_process');
-      execSync(`npx harness ${command}`, { stdio: 'pipe', timeout: personaResult.value.config.timeout });
+      execSync(`npx harness ${command}`, {
+        stdio: 'pipe',
+        timeout: personaResult.value.config.timeout,
+      });
       return Ok({});
     } catch (error) {
-      return Err(new Error(`Command '${command}' failed: ${error instanceof Error ? error.message : String(error)}`));
+      return Err(
+        new Error(
+          `Command '${command}' failed: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
     }
   };
 
@@ -3214,6 +3164,7 @@ End of Chunk 2.
 ### Task 17: Scaffold MCP Server Package
 
 **Files:**
+
 - Create: `packages/mcp-server/package.json`
 - Create: `packages/mcp-server/tsconfig.json`
 - Create: `packages/mcp-server/vitest.config.mts`
@@ -3268,10 +3219,7 @@ End of Chunk 2.
     "rootDir": "src"
   },
   "include": ["src"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../types" }
-  ]
+  "references": [{ "path": "../core" }, { "path": "../types" }]
 }
 ```
 
@@ -3303,6 +3251,7 @@ git commit -m "chore(mcp-server): scaffold package with dependencies"
 ### Task 18: Result Adapter
 
 **Files:**
+
 - Create: `packages/mcp-server/src/utils/result-adapter.ts`
 - Test: `packages/mcp-server/tests/result-adapter.test.ts`
 
@@ -3388,6 +3337,7 @@ git commit -m "feat(mcp-server): add Result-to-MCP response adapter"
 ### Task 19: Config Resolver
 
 **Files:**
+
 - Create: `packages/mcp-server/src/utils/config-resolver.ts`
 - Test: `packages/mcp-server/tests/config-resolver.test.ts`
 
@@ -3459,7 +3409,9 @@ export function resolveProjectConfig(projectPath: string): Result<ProjectConfig,
     const config = JSON.parse(raw) as ProjectConfig;
     return Ok(config);
   } catch (error) {
-    return Err(new Error(`Failed to parse config: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to parse config: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 ```
@@ -3481,6 +3433,7 @@ git commit -m "feat(mcp-server): add project config resolver"
 ### Task 20: MCP Server Core + Validate Tool
 
 **Files:**
+
 - Create: `packages/mcp-server/src/server.ts`
 - Create: `packages/mcp-server/src/tools/validate.ts`
 - Test: `packages/mcp-server/tests/server.test.ts`
@@ -3517,7 +3470,11 @@ Expected: FAIL — cannot resolve module
 ```typescript
 // packages/mcp-server/src/tools/validate.ts
 import * as path from 'path';
-import { validateConfig, validateFileStructure, HarnessConfigSchema } from '@harness-engineering/core';
+import {
+  validateConfig,
+  validateFileStructure,
+  HarnessConfigSchema,
+} from '@harness-engineering/core';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 
@@ -3600,10 +3557,7 @@ Expected: FAIL — cannot resolve module
 import { fileURLToPath } from 'url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 
@@ -3672,6 +3626,7 @@ git commit -m "feat(mcp-server): add MCP server core with validate_project tool"
 ### Task 21: Architecture, Docs, and Entropy Tools
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/architecture.ts`
 - Create: `packages/mcp-server/src/tools/docs.ts`
 - Create: `packages/mcp-server/src/tools/entropy.ts`
@@ -3679,6 +3634,7 @@ git commit -m "feat(mcp-server): add MCP server core with validate_project tool"
 - Test: `packages/mcp-server/tests/tools/docs.test.ts`
 
 **Important:** All core API calls must use correct signatures:
+
 - `validateDependencies(config: LayerConfig)` — requires `{ layers, rootDir, parser }` where `parser` is a `LanguageParser` (use `TypeScriptParser`)
 - `checkDocCoverage(domain: string, options?: CoverageOptions)` — `domain` is a module name like `'services'`, `options.sourceDir` controls where to look
 - `EntropyAnalyzer({ rootDir, analyze: { drift: true, deadCode: true, patterns: true } })` — requires `analyze` config object
@@ -3688,7 +3644,10 @@ git commit -m "feat(mcp-server): add MCP server core with validate_project tool"
 ```typescript
 // packages/mcp-server/tests/tools/architecture.test.ts
 import { describe, it, expect } from 'vitest';
-import { checkDependenciesDefinition, handleCheckDependencies } from '../../src/tools/architecture.js';
+import {
+  checkDependenciesDefinition,
+  handleCheckDependencies,
+} from '../../src/tools/architecture.js';
 
 describe('check_dependencies tool', () => {
   it('has correct definition', () => {
@@ -3736,9 +3695,12 @@ export async function handleCheckDependencies(input: { path: string }) {
   if (!configResult.ok) return resultToMcpResponse(configResult);
 
   const config = configResult.value;
-  const rawLayers = (config as Record<string, unknown>).layers as Array<{
-    name: string; pattern: string; allowedDependencies: string[];
-  }> ?? [];
+  const rawLayers =
+    ((config as Record<string, unknown>).layers as Array<{
+      name: string;
+      pattern: string;
+      allowedDependencies: string[];
+    }>) ?? [];
 
   // Map config layers to LayerConfig format (pattern -> patterns array)
   const layers: Layer[] = rawLayers.map((l) => ({
@@ -3908,6 +3870,7 @@ export async function handleApplyFixes(input: { path: string; dryRun?: boolean }
 - [ ] **Step 7: Register all tools in server.ts**
 
 Update `packages/mcp-server/src/server.ts`:
+
 - Import all new definitions and handlers
 - Add to `TOOL_DEFINITIONS` array and `TOOL_HANDLERS` map
 
@@ -3928,6 +3891,7 @@ git commit -m "feat(mcp-server): add architecture, docs, and entropy tools"
 ### Task 22: Linter and Init Tools
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/linter.ts`
 - Create: `packages/mcp-server/src/tools/init.ts`
 - Test: `packages/mcp-server/tests/tools/linter.test.ts`
@@ -3950,7 +3914,10 @@ export type { TemplateContext, RenderedFiles } from './templates/engine';
 ```typescript
 // packages/mcp-server/tests/tools/linter.test.ts
 import { describe, it, expect } from 'vitest';
-import { generateLinterDefinition, validateLinterConfigDefinition } from '../../src/tools/linter.js';
+import {
+  generateLinterDefinition,
+  validateLinterConfigDefinition,
+} from '../../src/tools/linter.js';
 
 describe('linter tools', () => {
   it('generate_linter has correct definition', () => {
@@ -4071,11 +4038,18 @@ export async function handleInitProject(input: {
     });
     if (!renderResult.ok) return resultToMcpResponse(renderResult);
 
-    const writeResult = engine.write(renderResult.value, path.resolve(input.path), { overwrite: false });
+    const writeResult = engine.write(renderResult.value, path.resolve(input.path), {
+      overwrite: false,
+    });
     return resultToMcpResponse(writeResult);
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Init failed: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Init failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -4104,6 +4078,7 @@ instead of cross-package internal imports. ESM-compatible with import.meta.url."
 ### Task 23: Persona Tools + `run_persona` Meta-Tool
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/persona.ts`
 - Test: `packages/mcp-server/tests/tools/persona.test.ts`
 
@@ -4245,7 +4220,11 @@ export const runPersonaDefinition = {
   },
 };
 
-export async function handleRunPersona(input: { persona: string; path?: string; dryRun?: boolean }) {
+export async function handleRunPersona(input: {
+  persona: string;
+  path?: string;
+  dryRun?: boolean;
+}) {
   const filePath = path.join(resolvePersonasDir(), `${input.persona}.yaml`);
   const personaResult = loadPersona(filePath);
   if (!personaResult.ok) return resultToMcpResponse(personaResult);
@@ -4263,7 +4242,9 @@ export async function handleRunPersona(input: { persona: string; path?: string; 
       });
       return Ok(output.toString());
     } catch (error) {
-      return Err(new Error(`${command} failed: ${error instanceof Error ? error.message : String(error)}`));
+      return Err(
+        new Error(`${command} failed: ${error instanceof Error ? error.message : String(error)}`)
+      );
     }
   };
 
@@ -4293,6 +4274,7 @@ git commit -m "feat(mcp-server): add persona tools and run_persona meta-tool"
 ### Task 24: Stdio Entry Point and Index
 
 **Files:**
+
 - Create: `packages/mcp-server/src/index.ts`
 - Create: `packages/mcp-server/bin/harness-mcp.ts`
 
@@ -4337,6 +4319,7 @@ git commit -m "feat(mcp-server): add stdio entry point and public API exports"
 ### Task 25: Full Server Integration Test
 
 **Files:**
+
 - Create: `packages/mcp-server/tests/server-integration.test.ts`
 
 - [ ] **Step 1: Write the integration test**

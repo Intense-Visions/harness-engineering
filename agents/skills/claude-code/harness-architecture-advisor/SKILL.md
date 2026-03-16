@@ -3,6 +3,7 @@
 > Cognitive mode: **advisory-guide**. Ask questions, surface trade-offs, present options. Do NOT execute. The human decides; you inform the decision.
 
 ## When to Use
+
 - When designing a new feature, module, or system boundary
 - When choosing between architectural approaches (REST vs GraphQL, monolith vs microservice, etc.)
 - When refactoring raises questions about target architecture
@@ -53,6 +54,7 @@ Read the codebase to understand the current state. Do not propose solutions yet 
 #### Step 1: Map Existing Patterns
 
 Search for how the codebase currently handles similar concerns:
+
 - What architectural patterns are already in use? (MVC, hexagonal, event-driven, etc.)
 - How are similar features structured?
 - What conventions exist for the relevant layer (API, data, UI, infrastructure)?
@@ -60,6 +62,7 @@ Search for how the codebase currently handles similar concerns:
 #### Step 2: Identify Integration Points
 
 Find where the new feature will touch existing code:
+
 - Which modules will it interact with?
 - What are the current API boundaries?
 - Are there shared data models or services?
@@ -67,6 +70,7 @@ Find where the new feature will touch existing code:
 #### Step 3: Assess Technical Debt
 
 Look for existing issues that may affect the decision:
+
 - Are there known pain points in the relevant area?
 - Is there existing tech debt that one option would worsen and another would improve?
 - Are there pending migrations or deprecations?
@@ -77,18 +81,22 @@ Look for existing issues that may affect the decision:
 ## Codebase Analysis: <topic>
 
 ### Current Patterns
+
 - <pattern 1>: used in <locations>
 - <pattern 2>: used in <locations>
 
 ### Integration Points
+
 - <module A>: <how it connects>
 - <module B>: <how it connects>
 
 ### Technical Debt
+
 - <issue 1>: <impact on this decision>
 - <issue 2>: <impact on this decision>
 
 ### Relevant Files
+
 - <path>: <why it matters>
 ```
 
@@ -112,15 +120,18 @@ Present 2-3 architectural options. Never present only one option — a single op
 **Summary:** One paragraph describing the approach.
 
 **How it works:**
+
 1. <Step 1>
 2. <Step 2>
 3. <Step 3>
 
 **Pros:**
+
 - <Advantage 1> — <why it matters given the constraints>
 - <Advantage 2> — <why it matters given the constraints>
 
 **Cons:**
+
 - <Disadvantage 1> — <severity: low/medium/high> — <mitigation if any>
 - <Disadvantage 2> — <severity: low/medium/high> — <mitigation if any>
 
@@ -136,15 +147,15 @@ Present 2-3 architectural options. Never present only one option — a single op
 After presenting all options, provide a direct comparison:
 
 ```markdown
-| Criterion         | Option A | Option B | Option C |
-|-------------------|----------|----------|----------|
-| Complexity        |          |          |          |
-| Performance       |          |          |          |
-| Maintainability   |          |          |          |
-| Effort to build   |          |          |          |
-| Effort to change  |          |          |          |
-| Risk              |          |          |          |
-| Fits constraints  |          |          |          |
+| Criterion        | Option A | Option B | Option C |
+| ---------------- | -------- | -------- | -------- |
+| Complexity       |          |          |          |
+| Performance      |          |          |          |
+| Maintainability  |          |          |          |
+| Effort to build  |          |          |          |
+| Effort to change |          |          |          |
+| Risk             |          |          |          |
+| Fits constraints |          |          |          |
 ```
 
 #### Recommendation
@@ -192,22 +203,27 @@ discussion.>
 ## Alternatives Considered
 
 ### <Alternative 1 name>
+
 <Brief description and why it was not chosen.>
 
 ### <Alternative 2 name>
+
 <Brief description and why it was not chosen.>
 
 ## Consequences
 
 ### Positive
+
 - <Benefit 1>
 - <Benefit 2>
 
 ### Negative
+
 - <Trade-off 1> — <mitigation plan>
 - <Trade-off 2> — <mitigation plan>
 
 ### Neutral
+
 - <Side effect that is neither positive nor negative>
 
 ## Action Items
@@ -218,6 +234,7 @@ discussion.>
 ```
 
 Save the ADR:
+
 ```
 .harness/architecture/<topic>/ADR-<number>.md
 ```
@@ -259,6 +276,7 @@ Also link from the project's ADR index if one exists.
 ### Example 1: API Design for a New Resource
 
 **Phase 1 — DISCOVER:**
+
 ```
 1. Problem: We need to expose order history to mobile clients and third-party integrations.
 2. Hard constraints: Must work with existing PostgreSQL database. REST API already
@@ -272,6 +290,7 @@ Also link from the project's ADR index if one exists.
 ```
 
 **Phase 2 — ANALYZE:**
+
 ```
 Current patterns: REST with Express, controller-service-repository layers.
   15 existing resources follow this pattern.
@@ -284,16 +303,19 @@ Tech debt: No pagination on existing endpoints — they return all records.
 **Phase 3 — PROPOSE:**
 
 Option A: REST endpoints following existing patterns. Add pagination.
+
 - Pros: Consistent with codebase, team knows how to build it, fast to ship.
 - Cons: Mobile may over-fetch (gets all fields even when it needs few), no subscription support.
 - Effort: Small (2-3 weeks).
 
 Option B: GraphQL for orders only, REST for everything else.
+
 - Pros: Mobile gets exactly the fields it needs, natural pagination with cursors, foundation for future migration.
 - Cons: Two API paradigms to maintain, team learning curve, more infrastructure (Apollo/Yoga server).
 - Effort: Medium (4-5 weeks).
 
 Option C: REST with sparse fieldsets (JSON:API style `?fields=id,total,date`).
+
 - Pros: Stays REST, solves over-fetching for mobile, no new infrastructure.
 - Cons: Custom implementation of field filtering, not a standard the team has used before, still no subscriptions.
 - Effort: Small-Medium (3-4 weeks).
@@ -306,6 +328,7 @@ ADR written after human selects Option A. Action items: implement pagination mid
 ### Example 2: Component Decomposition for a Dashboard
 
 **Phase 1 — DISCOVER:**
+
 ```
 1. Problem: The dashboard page component is 1200 lines and growing. It handles
    data fetching, state management, filtering, sorting, and rendering for
@@ -322,6 +345,7 @@ ADR written after human selects Option A. Action items: implement pagination mid
 ```
 
 **Phase 2 — ANALYZE:**
+
 ```
 Current patterns: Dashboard uses a single useEffect for all data fetching.
   State is a large object with fields for each widget type. Rendering uses
@@ -335,6 +359,7 @@ Tech debt: Two widget types share copy-pasted filtering logic. The sort
 **Phase 3 — PROPOSE:**
 
 Option A: Widget plugin architecture with a registry.
+
 - Each widget is a self-contained module (component + hook + types).
 - A registry maps widget type strings to widget modules.
 - Dashboard iterates the registry, renders each widget, passes shared context.
@@ -343,6 +368,7 @@ Option A: Widget plugin architecture with a registry.
 - Effort: Medium (2-3 weeks to extract, then new widgets are fast).
 
 Option B: Compound component pattern with slots.
+
 - Dashboard defines layout slots. Each widget fills a slot.
 - Shared state via React context. Each widget manages its own data fetching.
 - Pros: Simpler than a registry. Familiar React patterns. Widgets own their data.
@@ -350,6 +376,7 @@ Option B: Compound component pattern with slots.
 - Effort: Small-Medium (1-2 weeks).
 
 Option C: Micro-frontend approach with module federation.
+
 - Each widget is a separate build artifact loaded at runtime.
 - Pros: Maximum independence. Widgets can use different libraries. Independent deployment.
 - Cons: Massive overkill for 5-7 widgets in one app. Complex build setup. Runtime overhead. Team of 3 does not need this level of isolation.

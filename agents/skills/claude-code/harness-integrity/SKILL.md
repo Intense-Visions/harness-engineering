@@ -12,12 +12,12 @@
 
 ## Relationship to Other Skills
 
-| Skill | What It Does | Scope | Time |
-|---|---|---|---|
-| **harness-verify** | Mechanical only: typecheck, lint, test | Exit codes | ~30s |
-| **harness-code-review** | AI only: change-type-aware review | LLM analysis | ~2min |
-| **harness-integrity** (this) | Both: verify + code-review unified | Full pipeline | ~3min |
-| **harness-verification** | Deep audit: architecture, patterns, edge cases | Thorough investigation | ~5min |
+| Skill                        | What It Does                                   | Scope                  | Time  |
+| ---------------------------- | ---------------------------------------------- | ---------------------- | ----- |
+| **harness-verify**           | Mechanical only: typecheck, lint, test         | Exit codes             | ~30s  |
+| **harness-code-review**      | AI only: change-type-aware review              | LLM analysis           | ~2min |
+| **harness-integrity** (this) | Both: verify + code-review unified             | Full pipeline          | ~3min |
+| **harness-verification**     | Deep audit: architecture, patterns, edge cases | Thorough investigation | ~5min |
 
 `harness-integrity` is the standard pre-PR gate. It runs the fast mechanical checks first, then layers on AI review, and produces a single consolidated report.
 
@@ -56,6 +56,7 @@ Overall: [PASS/FAIL]
 ```
 
 Rules:
+
 - Overall `PASS` requires: all non-skipped mechanical checks pass AND zero blocking review findings.
 - Any mechanical failure OR any blocking review finding means `FAIL`.
 - On FAIL, include a summary section listing each failure reason.

@@ -38,7 +38,7 @@ describe('runPipeline', () => {
     expect(executor).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: { enriched: true },
-      }),
+      })
     );
   });
 
@@ -64,7 +64,7 @@ describe('runPipeline', () => {
 
     expect(postHook).toHaveBeenCalledWith(
       expect.objectContaining({ skillName: 'test-skill' }),
-      successResult,
+      successResult
     );
   });
 
@@ -108,8 +108,6 @@ describe('runMultiTurnPipeline', () => {
 
     await runMultiTurnPipeline(makeContext(), turnExecutor, { hooks });
 
-    expect(perTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ turnNumber: 1 }),
-    );
+    expect(perTurn).toHaveBeenCalledWith(expect.objectContaining({ turnNumber: 1 }));
   });
 });

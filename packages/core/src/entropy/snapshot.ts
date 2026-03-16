@@ -36,7 +36,7 @@ export async function resolveEntryPoints(
 ): Promise<Result<string[], EntropyError>> {
   // 1. Use explicit entries if provided
   if (explicitEntries && explicitEntries.length > 0) {
-    const resolved = explicitEntries.map(e => resolve(rootDir, e));
+    const resolved = explicitEntries.map((e) => resolve(rootDir, e));
     return Ok(resolved);
   }
 
@@ -103,7 +103,11 @@ export async function resolveEntryPoints(
       'ENTRY_POINT_NOT_FOUND',
       'Could not resolve entry points',
       { reason: 'No package.json exports/main and no conventional entry files found' },
-      ['Add "exports" or "main" to package.json', 'Create src/index.ts', 'Specify entryPoints in config']
+      [
+        'Add "exports" or "main" to package.json',
+        'Create src/index.ts',
+        'Specify entryPoints in config',
+      ]
     )
   );
 }
@@ -335,7 +339,7 @@ function extractAllCodeReferences(docs: DocumentationFile[]): CodeReference[] {
         while ((match = importRegex.exec(block.content)) !== null) {
           const matchedGroup = match[1];
           if (matchedGroup === undefined) continue;
-          const names = matchedGroup.split(',').map(n => n.trim());
+          const names = matchedGroup.split(',').map((n) => n.trim());
           for (const name of names) {
             refs.push({
               docFile: doc.path,
@@ -385,9 +389,9 @@ export async function buildSnapshot(
   }
 
   // Filter out excluded
-  sourceFilePaths = sourceFilePaths.filter(f => {
+  sourceFilePaths = sourceFilePaths.filter((f) => {
     const rel = relative(rootDir, f);
-    return !excludePatterns.some(p => minimatch(rel, p));
+    return !excludePatterns.some((p) => minimatch(rel, p));
   });
 
   // Parse source files

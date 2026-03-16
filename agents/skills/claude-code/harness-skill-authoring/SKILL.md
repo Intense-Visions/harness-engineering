@@ -3,6 +3,7 @@
 > Create and extend harness skills following the rich skill format. Define purpose, choose type, write skill.yaml and SKILL.md with all required sections, validate, and test.
 
 ## When to Use
+
 - Creating a new skill for a team's recurring workflow
 - Extending an existing skill with new phases, gates, or examples
 - Converting an informal process ("how we do code reviews") into a formal harness skill
@@ -57,16 +58,16 @@
 2. **Write `skill.yaml`** with all required fields:
 
 ```yaml
-name: <skill-name>               # Kebab-case, matches directory name
-version: "1.0.0"                  # Semver
-description: <one-line summary>   # What this skill does
+name: <skill-name> # Kebab-case, matches directory name
+version: '1.0.0' # Semver
+description: <one-line summary> # What this skill does
 triggers:
   - <trigger-1>
   - <trigger-2>
 platforms:
-  - claude-code                   # Which agent platforms support this skill
+  - claude-code # Which agent platforms support this skill
 tools:
-  - <tool-1>                      # Tools the skill requires
+  - <tool-1> # Tools the skill requires
   - <tool-2>
 cli:
   command: harness skill run <skill-name>
@@ -80,11 +81,11 @@ mcp:
     skill: <skill-name>
 type: <rigid|flexible>
 state:
-  persistent: <true|false>        # Does this skill maintain state across sessions?
+  persistent: <true|false> # Does this skill maintain state across sessions?
   files:
-    - <state-file-path>           # List state files if persistent
+    - <state-file-path> # List state files if persistent
 depends_on:
-  - <prerequisite-skill>          # Skills that must be available (not necessarily run first)
+  - <prerequisite-skill> # Skills that must be available (not necessarily run first)
 ```
 
 3. **Validate the YAML.** Ensure proper indentation, correct field names, and valid values. The `name` field must match the directory name exactly.
@@ -92,6 +93,7 @@ depends_on:
 ### Phase 4: WRITE SKILL.MD — Author the Skill Content
 
 1. **Start with the heading and summary:**
+
 ```markdown
 # <Skill Name>
 
@@ -101,7 +103,6 @@ depends_on:
 2. **Write `## When to Use`.** Include both positive (when TO use) and negative (when NOT to use) conditions. Be specific. Negative conditions prevent misapplication and point to the correct alternative skill.
 
 3. **Write `## Process`.** This is the core of the skill. Guidelines for writing good process sections:
-
    - **Use phases to organize.** Group related steps into named phases (e.g., ASSESS, IMPLEMENT, VERIFY). Each phase should have a clear purpose and completion criteria.
    - **Number every step.** Steps within a phase are numbered. This makes them referenceable ("go back to Phase 2, step 3").
    - **Be prescriptive about actions.** Say "Run `harness validate`" not "consider validating." Say "Read the file" not "you might want to read the file."
@@ -142,11 +143,11 @@ depends_on:
 
 Evaluate every skill along two dimensions:
 
-| | **Clear activation** | **Ambiguous activation** | **Missing activation** |
-|---|---|---|---|
-| **Specific implementation** | Good skill | Wasted — good instructions nobody finds | Broken |
-| **Vague implementation** | Trap — agents activate but flounder | Bad skill | Empty shell |
-| **Missing implementation** | Stub | Stub | Does not exist |
+|                             | **Clear activation**                | **Ambiguous activation**                | **Missing activation** |
+| --------------------------- | ----------------------------------- | --------------------------------------- | ---------------------- |
+| **Specific implementation** | Good skill                          | Wasted — good instructions nobody finds | Broken                 |
+| **Vague implementation**    | Trap — agents activate but flounder | Bad skill                               | Empty shell            |
+| **Missing implementation**  | Stub                                | Stub                                    | Does not exist         |
 
 - **Good skill** = clear activation + specific implementation. The agent knows when to use it and exactly what to do.
 - **Clear activation + vague implementation** = trap. The skill fires correctly but the agent has no concrete instructions, leading to inconsistent results.
@@ -178,6 +179,7 @@ Use this checklist as a final quality gate before declaring a skill complete.
 ### Example: Creating a Flexible Skill for Database Migration Review
 
 **DEFINE:**
+
 ```
 Process: The team reviews database migrations before applying them.
 Scope: Review only — not creating or applying migrations.
@@ -188,9 +190,10 @@ Tools: Read, Glob, Grep, Bash.
 **CHOOSE TYPE:** Flexible — the review steps can vary based on migration complexity. Some migrations need data impact analysis, others do not.
 
 **WRITE skill.yaml:**
+
 ```yaml
 name: review-db-migration
-version: "1.0.0"
+version: '1.0.0'
 description: Review database migration files for safety and correctness
 triggers:
   - manual
@@ -219,6 +222,7 @@ depends_on: []
 ```
 
 **WRITE SKILL.md:**
+
 ```markdown
 # Review Database Migration
 
@@ -226,22 +230,27 @@ depends_on: []
 > reversibility before they are applied to any environment.
 
 ## When to Use
+
 - When a new migration file has been created and needs review
 - When a migration PR is opened
 - NOT when writing migrations (write first, then review)
 - NOT when applying migrations to environments (that is a deployment concern)
 
 ## Process
+
 ### Phase 1: ANALYZE — Understand the Migration
+
 1. Read the migration file completely...
-[... full process content ...]
+   [... full process content ...]
 
 ## Harness Integration
+
 - `harness validate` — Verify project health after migration review
-[... etc ...]
+  [... etc ...]
 ```
 
 **VALIDATE:**
+
 ```bash
 harness skill validate review-db-migration  # Pass
 harness skill run review-db-migration       # Loads correctly
@@ -250,6 +259,7 @@ harness skill run review-db-migration       # Loads correctly
 ### Example: Creating a Rigid Skill for Release Deployment
 
 **DEFINE:**
+
 ```
 Process: Deploy a release to production. Strict ordering — cannot skip steps.
 Triggers: manual.
@@ -262,6 +272,7 @@ Tools: Bash, Read, Glob.
 
 ```markdown
 ## Gates
+
 - **Tests must pass before build.** If the test suite fails, do not
   proceed to build. Fix the tests first.
 - **Staging must be verified before production.** If staging smoke tests
@@ -270,6 +281,7 @@ Tools: Bash, Read, Glob.
   before promoting from staging to production. No auto-promotion.
 
 ## Escalation
+
 - **When staging smoke tests fail on a test that passed locally:**
   Report: "Smoke test [name] fails in staging but passes locally.
   Likely cause: environment-specific configuration or data difference.

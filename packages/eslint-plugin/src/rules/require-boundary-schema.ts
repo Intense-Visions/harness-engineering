@@ -5,8 +5,7 @@ import { matchesPattern, normalizePath } from '../utils/path-utils';
 import { hasZodValidation } from '../utils/ast-helpers';
 
 const createRule = ESLintUtils.RuleCreator(
-  (name) =>
-    `https://github.com/harness-engineering/eslint-plugin/blob/main/docs/rules/${name}.md`
+  (name) => `https://github.com/harness-engineering/eslint-plugin/blob/main/docs/rules/${name}.md`
 );
 
 type MessageIds = 'missingSchema';

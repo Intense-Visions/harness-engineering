@@ -2,25 +2,39 @@ import * as path from 'path';
 
 export const addComponentDefinition = {
   name: 'add_component',
-  description: 'Add a component (layer, doc, or component type) to the project using the harness CLI',
+  description:
+    'Add a component (layer, doc, or component type) to the project using the harness CLI',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root directory' },
-      type: { type: 'string', enum: ['layer', 'doc', 'component'], description: 'Type of component to add' },
+      type: {
+        type: 'string',
+        enum: ['layer', 'doc', 'component'],
+        description: 'Type of component to add',
+      },
       name: { type: 'string', description: 'Name of the component to add' },
     },
     required: ['path', 'type', 'name'],
   },
 };
 
-export async function handleAddComponent(input: { path: string; type: 'layer' | 'doc' | 'component'; name: string }) {
+export async function handleAddComponent(input: {
+  path: string;
+  type: 'layer' | 'doc' | 'component';
+  name: string;
+}) {
   const projectPath = path.resolve(input.path);
 
   const ALLOWED_TYPES = new Set(['layer', 'doc', 'component']);
   if (!ALLOWED_TYPES.has(input.type)) {
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ error: `Invalid component type: ${input.type}` }) }],
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ error: `Invalid component type: ${input.type}` }),
+        },
+      ],
       isError: true,
     };
   }
@@ -36,7 +50,14 @@ export async function handleAddComponent(input: { path: string; type: 'layer' | 
     };
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ error: `add_component failed: ${error instanceof Error ? error.message : String(error)}` }) }],
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: `add_component failed: ${error instanceof Error ? error.message : String(error)}`,
+          }),
+        },
+      ],
       isError: true,
     };
   }
@@ -71,7 +92,14 @@ export async function handleRunAgentTask(input: { task: string; path?: string; t
     };
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ error: `run_agent_task failed: ${error instanceof Error ? error.message : String(error)}` }) }],
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: `run_agent_task failed: ${error instanceof Error ? error.message : String(error)}`,
+          }),
+        },
+      ],
       isError: true,
     };
   }

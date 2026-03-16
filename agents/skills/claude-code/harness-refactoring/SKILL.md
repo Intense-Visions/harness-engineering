@@ -3,6 +3,7 @@
 > Safe refactoring with constraint verification at every step. Change structure without changing behavior, with harness checks as your safety net.
 
 ## When to Use
+
 - When improving code structure, readability, or maintainability without changing behavior
 - When reducing duplication (DRY refactoring)
 - When moving code to the correct architectural layer
@@ -68,26 +69,31 @@ For EACH step in the plan:
 ## Common Refactoring Patterns
 
 ### Extract Function
+
 **When:** A function is doing too many things, or a block of code is reused in multiple places.
 **How:** Identify the block. Ensure all variables it uses are either parameters or local. Cut the block into a new function with a descriptive name. Replace the original block with a call to the new function.
 **Harness guidance:** If the extracted function belongs in a different layer, move it there AND update the import. Run `harness check-deps` to verify the new import respects layer boundaries.
 
 ### Move to Layer
+
 **When:** Code is in the wrong architectural layer (e.g., business logic in a UI component, database queries in a service).
 **How:** Create the function in the correct layer. Update all callers to import from the new location. Delete the old function. Run `harness check-deps` after each step.
 **Harness guidance:** This is where `harness check-deps` is most valuable. Moving code between layers changes the dependency graph. The tool will tell you immediately if the move created a violation.
 
 ### Split File
+
 **When:** A file has grown too large or contains unrelated responsibilities.
 **How:** Identify the cohesive groups within the file. Create new files, one per group. Move functions/classes to their new files. Update the original file to re-export from the new files (for backward compatibility) or update all callers.
 **Harness guidance:** Run `harness validate` after splitting to ensure the new files follow naming conventions and are properly structured. Run `harness check-deps` to verify no new boundary violations.
 
 ### Inline Abstraction
+
 **When:** An abstraction (class, interface, wrapper function) adds complexity without value. It has only one implementation, is never extended, and obscures what the code actually does.
 **How:** Replace uses of the abstraction with the concrete implementation. Delete the abstraction. Run tests.
 **Harness guidance:** Removing an abstraction may expose a layer violation that the abstraction was hiding. Run `harness check-deps` to check.
 
 ### Rename for Clarity
+
 **When:** A name is misleading, ambiguous, or no longer reflects what the code does.
 **How:** Use your editor's rename/refactor tool to change the name everywhere it appears. If the name is part of a public API, check for external consumers first.
 **Harness guidance:** Run `harness check-docs` after renaming to detect documentation that still uses the old name. AGENTS.md, inline comments, and doc pages may all need updating.
@@ -116,16 +122,19 @@ For EACH step in the plan:
 **Target:** `src/components/OrderSummary.tsx` contains a `calculateDiscount()` function with complex business rules. This logic belongs in the service layer.
 
 **Step 1:** Create `src/services/discount-service.ts` with the `calculateDiscount` function copied from the component.
+
 - Run tests: pass
 - Run `harness check-deps`: pass (new file, no violations)
 - Commit: "extract calculateDiscount to discount-service"
 
 **Step 2:** Update `OrderSummary.tsx` to import `calculateDiscount` from `discount-service` instead of using the local function.
+
 - Run tests: pass
 - Run `harness check-deps`: pass (UI importing from service is allowed)
 - Commit: "update OrderSummary to use discount-service"
 
 **Step 3:** Delete the original `calculateDiscount` function from `OrderSummary.tsx`.
+
 - Run tests: pass
 - Run `harness check-deps`: pass
 - Run `harness cleanup`: no dead code detected

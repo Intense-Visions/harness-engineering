@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { requestPeerReview, requestMultiplePeerReviews } from '../../../src/feedback/review/peer-review';
+import {
+  requestPeerReview,
+  requestMultiplePeerReviews,
+} from '../../../src/feedback/review/peer-review';
 import { configureFeedback, resetFeedbackConfig } from '../../../src/feedback/config';
 import { NoOpExecutor } from '../../../src/feedback/executor/noop';
 import { NoOpSink } from '../../../src/feedback/logging/sink';

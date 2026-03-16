@@ -75,12 +75,7 @@ function matchesExcludePattern(relativePath: string, excludePatterns: string[]):
 export async function generateAgentsMap(
   config: AgentsMapConfig
 ): Promise<Result<string, ContextError>> {
-  const {
-    rootDir,
-    includePaths,
-    excludePaths,
-    sections = DEFAULT_SECTIONS,
-  } = config;
+  const { rootDir, includePaths, excludePaths, sections = DEFAULT_SECTIONS } = config;
 
   try {
     // Collect all files matching include patterns
@@ -120,7 +115,8 @@ export async function generateAgentsMap(
         lines.push(`### ${dir}/`);
         lines.push('');
       }
-      for (const file of files.slice(0, 10)) { // Limit to 10 files per directory
+      for (const file of files.slice(0, 10)) {
+        // Limit to 10 files per directory
         lines.push(formatFileLink(file));
       }
       if (files.length > 10) {

@@ -1,10 +1,5 @@
 import type { Result } from '../../shared/result';
-import type {
-  CodeChanges,
-  ReviewChecklist,
-  SelfReviewConfig,
-  FeedbackError,
-} from '../types';
+import type { CodeChanges, ReviewChecklist, SelfReviewConfig, FeedbackError } from '../types';
 import { ChecklistBuilder } from './checklist';
 
 export async function createSelfReview(

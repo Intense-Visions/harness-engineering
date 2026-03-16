@@ -12,11 +12,13 @@
 This specification defines the implementation approach for Phase 2 of the Harness Engineering Library: building the five core runtime modules in the `@harness-engineering/core` TypeScript package.
 
 **Implementation Strategy**: Vertical Slices (Depth-First)
+
 - Build each module to 100% completion before starting the next
 - Each module includes: types, implementation, tests (>80% coverage), documentation
 - Release incrementally: v0.1.0 per module
 
 **Module Implementation Order**:
+
 1. **Validation** - Foundation (no dependencies)
 2. **Context Engineering** - AGENTS.md validation, doc coverage
 3. **Architectural Constraints** - Layer enforcement, circular dependency detection
@@ -125,9 +127,7 @@ All operations return a discriminated union for type-safe error handling:
 
 ```typescript
 // src/shared/result.ts
-export type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 // Helper constructors
 export const Ok = <T>(value: T): Result<T, never> => ({
@@ -151,6 +151,7 @@ export function isErr<T, E>(result: Result<T, E>): result is { ok: false; error:
 ```
 
 **Usage example:**
+
 ```typescript
 const result = validateAgentsMap('./AGENTS.md');
 if (result.ok) {
@@ -240,6 +241,7 @@ export async function findFiles(pattern: string, cwd: string = process.cwd()): P
 ### Module Boundaries
 
 Each module will:
+
 1. **Export only through `index.ts`** - Internal files are implementation details
 2. **Accept only plain objects** - No complex class instances across boundaries
 3. **Return Result types** - Never throw errors from public APIs
@@ -267,26 +269,27 @@ Each module will:
 import { z } from 'zod';
 
 export interface Convention {
-  pattern: string;        // Glob pattern, e.g., "docs/**/*.md"
-  required: boolean;      // Must files exist matching this pattern?
-  description: string;    // Human-readable description
-  examples: string[];     // Example valid paths
+  pattern: string; // Glob pattern, e.g., "docs/**/*.md"
+  required: boolean; // Must files exist matching this pattern?
+  description: string; // Human-readable description
+  examples: string[]; // Example valid paths
 }
 
 export interface StructureValidation {
   valid: boolean;
-  missing: string[];      // Required files/patterns that don't exist
-  unexpected: string[];   // Files that violate conventions
-  conformance: number;    // 0-100%
+  missing: string[]; // Required files/patterns that don't exist
+  unexpected: string[]; // Files that violate conventions
+  conformance: number; // 0-100%
 }
 
 export async function validateFileStructure(
   conventions: Convention[],
   rootDir: string = process.cwd()
-): Promise<Result<StructureValidation, ValidationError>>
+): Promise<Result<StructureValidation, ValidationError>>;
 ```
 
 **Implementation approach:**
+
 - Use `glob` to check if files exist matching patterns
 - For required conventions, verify at least one file matches
 - Calculate conformance as `(matched / total) * 100`
@@ -300,30 +303,31 @@ import { z } from 'zod';
 export interface ConfigError extends ValidationError {
   code: 'INVALID_TYPE' | 'MISSING_FIELD' | 'VALIDATION_FAILED';
   details: {
-    zodError?: z.ZodError;  // Include Zod's detailed error
-    path?: string[];         // Path to invalid field
+    zodError?: z.ZodError; // Include Zod's detailed error
+    path?: string[]; // Path to invalid field
   };
 }
 
-export function validateConfig<T>(
-  config: unknown,
-  schema: z.ZodSchema<T>
-): Result<T, ConfigError>
+export function validateConfig<T>(config: unknown, schema: z.ZodSchema<T>): Result<T, ConfigError>;
 ```
 
 **Implementation approach:**
+
 - Thin wrapper around Zod's `safeParse()`
 - Convert Zod errors to our ConfigError format
 - Extract helpful suggestions from Zod error details
 
 **Example usage:**
+
 ```typescript
 const HarnessConfigSchema = z.object({
   version: z.number(),
-  layers: z.array(z.object({
-    name: z.string(),
-    allowedDependencies: z.array(z.string()),
-  })),
+  layers: z.array(
+    z.object({
+      name: z.string(),
+      allowedDependencies: z.array(z.string()),
+    })
+  ),
 });
 
 const result = validateConfig(userConfig, HarnessConfigSchema);
@@ -341,19 +345,20 @@ export type CommitFormat = 'conventional' | 'angular' | 'custom';
 
 export interface CommitValidation {
   valid: boolean;
-  type?: string;          // e.g., 'feat', 'fix', 'docs'
-  scope?: string;         // e.g., 'core', 'validation'
-  breaking: boolean;      // Does commit contain breaking changes?
-  issues: string[];       // What's wrong (if invalid)
+  type?: string; // e.g., 'feat', 'fix', 'docs'
+  scope?: string; // e.g., 'core', 'validation'
+  breaking: boolean; // Does commit contain breaking changes?
+  issues: string[]; // What's wrong (if invalid)
 }
 
 export function validateCommitMessage(
   message: string,
   format: CommitFormat = 'conventional'
-): Result<CommitValidation, ValidationError>
+): Result<CommitValidation, ValidationError>;
 ```
 
 **Implementation approach:**
+
 - Regex-based parsing for conventional commits: `^(feat|fix|docs|...)(\(.+\))?!?: .+`
 - Check for `BREAKING CHANGE:` in body
 - Return structured validation with helpful issues array
@@ -361,6 +366,7 @@ export function validateCommitMessage(
 ### Testing Strategy
 
 Each function gets:
+
 - **Happy path tests** - Valid inputs return expected results
 - **Edge case tests** - Empty strings, missing files, malformed configs
 - **Error path tests** - Invalid inputs return appropriate errors
@@ -388,16 +394,16 @@ Each function gets:
 import { z } from 'zod';
 
 export interface AgentMapSection {
-  title: string;           // Section heading
-  links: AgentMapLink[];   // Links in this section
-  description?: string;    // Optional description text
+  title: string; // Section heading
+  links: AgentMapLink[]; // Links in this section
+  description?: string; // Optional description text
 }
 
 export interface AgentMapLink {
-  text: string;           // Link text
-  path: string;           // File path (relative or absolute)
-  exists: boolean;        // Does the file exist?
-  line?: number;          // Line number in AGENTS.md
+  text: string; // Link text
+  path: string; // File path (relative or absolute)
+  exists: boolean; // Does the file exist?
+  line?: number; // Line number in AGENTS.md
 }
 
 export interface ValidationSuccess {
@@ -409,10 +415,11 @@ export interface ValidationSuccess {
 
 export async function validateAgentsMap(
   path: string = './AGENTS.md'
-): Promise<Result<ValidationSuccess, ContextError>>
+): Promise<Result<ValidationSuccess, ContextError>>;
 ```
 
 **Implementation approach:**
+
 - Read AGENTS.md as plain text
 - Parse markdown (simple regex for links: `[text](path)`)
 - Group links by section (identified by `##` headers)
@@ -420,6 +427,7 @@ export async function validateAgentsMap(
 - Return structured validation with broken links highlighted
 
 **Required sections for harness-engineering projects:**
+
 - 'About This Project'
 - 'Core Documentation'
 - 'Code Structure'
@@ -430,14 +438,14 @@ export async function validateAgentsMap(
 // src/context/doc-coverage.ts
 
 export interface DocumentationGap {
-  file: string;           // Undocumented file path
+  file: string; // Undocumented file path
   suggestedSection: string; // Where it should be documented
   importance: 'high' | 'medium' | 'low'; // Based on file type/location
 }
 
 export interface CoverageReport {
-  domain: string;         // e.g., 'services', 'core', 'ui'
-  documented: string[];   // Files mentioned in docs
+  domain: string; // e.g., 'services', 'core', 'ui'
+  documented: string[]; // Files mentioned in docs
   undocumented: string[]; // Files not mentioned
   coveragePercentage: number;
   gaps: DocumentationGap[];
@@ -446,11 +454,11 @@ export interface CoverageReport {
 export async function checkDocCoverage(
   domain: string,
   options?: {
-    docsDir?: string;     // Default: './docs'
-    sourceDir?: string;   // Default: './src'
+    docsDir?: string; // Default: './docs'
+    sourceDir?: string; // Default: './src'
     excludePatterns?: string[]; // Files to ignore
   }
-): Promise<Result<CoverageReport, ContextError>>
+): Promise<Result<CoverageReport, ContextError>>;
 ```
 
 #### Knowledge Map Integrity
@@ -471,12 +479,12 @@ export interface IntegrityReport {
   totalLinks: number;
   brokenLinks: BrokenLink[];
   validLinks: number;
-  integrity: number;    // 0-100%
+  integrity: number; // 0-100%
 }
 
 export async function validateKnowledgeMap(
   rootDir: string = process.cwd()
-): Promise<Result<IntegrityReport, ContextError>>
+): Promise<Result<IntegrityReport, ContextError>>;
 ```
 
 #### AGENTS.md Generation
@@ -486,19 +494,19 @@ export async function validateKnowledgeMap(
 
 export interface AgentsMapConfig {
   rootDir: string;
-  includePaths: string[];    // Glob patterns to include
-  excludePaths: string[];    // Glob patterns to exclude
-  template?: string;         // Custom template path
+  includePaths: string[]; // Glob patterns to include
+  excludePaths: string[]; // Glob patterns to exclude
+  template?: string; // Custom template path
   sections?: {
     name: string;
-    pattern: string;         // What files to include
+    pattern: string; // What files to include
     description: string;
   }[];
 }
 
 export async function generateAgentsMap(
   config: AgentsMapConfig
-): Promise<Result<string, ContextError>>
+): Promise<Result<string, ContextError>>;
 ```
 
 ---
@@ -520,14 +528,14 @@ export async function generateAgentsMap(
 // src/constraints/layers.ts
 export interface Layer {
   name: string;
-  allowedDependencies: string[];  // Other layer names
-  modules: string[];              // File paths in this layer
+  allowedDependencies: string[]; // Other layer names
+  modules: string[]; // File paths in this layer
 }
 
 export async function defineLayer(
   name: string,
   dependencies: string[]
-): Promise<Result<Layer, ConstraintError>>
+): Promise<Result<Layer, ConstraintError>>;
 
 // src/constraints/dependencies.ts
 export interface DependencyViolation {
@@ -538,45 +546,45 @@ export interface DependencyViolation {
 }
 
 export interface DependencyGraph {
-  nodes: string[];          // Module paths
-  edges: DependencyEdge[];  // Import relationships
+  nodes: string[]; // Module paths
+  edges: DependencyEdge[]; // Import relationships
 }
 
 export interface DependencyEdge {
-  from: string;             // Importer file path
-  to: string;               // Imported file path
+  from: string; // Importer file path
+  to: string; // Imported file path
   type: 'import' | 'require' | 'dynamic'; // Import mechanism
 }
 
 export interface DependencyValidation {
   valid: boolean;
   violations: DependencyViolation[];
-  graph?: DependencyGraph;  // Optional: empty if parser unavailable and skipped
-  skipped?: boolean;        // If parser unavailable and fallback: 'skip'
-  reason?: string;          // Why skipped
+  graph?: DependencyGraph; // Optional: empty if parser unavailable and skipped
+  skipped?: boolean; // If parser unavailable and fallback: 'skip'
+  reason?: string; // Why skipped
 }
 
 export interface LayerConfig {
   layers: Layer[];
   rootDir: string;
-  parser: LanguageParser;  // Abstraction for multi-language support
+  parser: LanguageParser; // Abstraction for multi-language support
   fallbackBehavior?: 'skip' | 'error' | 'warn'; // Default: 'error'
 }
 
 export async function validateDependencies(
   config: LayerConfig
-): Promise<Result<DependencyValidation, ConstraintError>>
+): Promise<Result<DependencyValidation, ConstraintError>>;
 
 // src/constraints/circular-deps.ts
 export interface CircularDependency {
-  cycle: string[];  // Path of the cycle
+  cycle: string[]; // Path of the cycle
   severity: 'error' | 'warning';
 }
 
 export async function detectCircularDeps(
   modules: string[],
   parser: LanguageParser
-): Promise<Result<CircularDependency[], ConstraintError>>
+): Promise<Result<CircularDependency[], ConstraintError>>;
 
 // src/constraints/boundary.ts
 export interface BoundaryParser<T> {
@@ -584,9 +592,7 @@ export interface BoundaryParser<T> {
   validate: (input: unknown) => Result<boolean, ConstraintError>;
 }
 
-export function createBoundarySchema<T>(
-  schema: z.ZodSchema<T>
-): BoundaryParser<T>
+export function createBoundarySchema<T>(schema: z.ZodSchema<T>): BoundaryParser<T>;
 ```
 
 ### Language Parser Abstraction
@@ -596,10 +602,10 @@ export function createBoundarySchema<T>(
 
 // Generic AST wrapper - language-agnostic structure
 export interface AST {
-  type: string;           // AST node type
-  body: unknown;          // AST body (language-specific structure)
-  raw?: unknown;          // Original language-specific AST
-  language: string;       // Source language ('typescript', 'python', etc.)
+  type: string; // AST node type
+  body: unknown; // AST body (language-specific structure)
+  raw?: unknown; // Original language-specific AST
+  language: string; // Source language ('typescript', 'python', etc.)
 }
 
 export interface Location {
@@ -609,19 +615,19 @@ export interface Location {
 }
 
 export interface Import {
-  source: string;         // Import path (e.g., './module', '@pkg/lib')
-  specifiers: string[];   // Named imports (e.g., ['foo', 'bar'])
-  default?: string;       // Default import name (e.g., 'React')
-  namespace?: string;     // Namespace import (e.g., 'fs' in import * as fs)
-  location: Location;     // Where in file
+  source: string; // Import path (e.g., './module', '@pkg/lib')
+  specifiers: string[]; // Named imports (e.g., ['foo', 'bar'])
+  default?: string; // Default import name (e.g., 'React')
+  namespace?: string; // Namespace import (e.g., 'fs' in import * as fs)
+  location: Location; // Where in file
 }
 
 export interface Export {
-  name: string;           // Export name
+  name: string; // Export name
   type: 'named' | 'default' | 'namespace';
   location: Location;
-  isReExport?: boolean;   // Re-exported from another module
-  source?: string;        // Source module if re-export
+  isReExport?: boolean; // Re-exported from another module
+  source?: string; // Source module if re-export
 }
 
 export interface ParseError extends BaseError {
@@ -630,8 +636,8 @@ export interface ParseError extends BaseError {
     exitCode?: number;
     stderr?: string;
     stdout?: string;
-    path?: string;        // Optional when error is about parser availability
-    parser?: string;      // Parser name when unavailable
+    path?: string; // Optional when error is about parser availability
+    parser?: string; // Parser name when unavailable
   };
 }
 
@@ -694,12 +700,14 @@ export async function validateDependencies(
     }
 
     // Default: error
-    return Err(createError(
-      'PARSER_UNAVAILABLE',
-      `Parser ${config.parser.name} is not available`,
-      { parser: config.parser.name, reason: health.value?.message },
-      ['Install required runtime', 'Use different parser', 'Set fallbackBehavior: "skip"']
-    ));
+    return Err(
+      createError(
+        'PARSER_UNAVAILABLE',
+        `Parser ${config.parser.name} is not available`,
+        { parser: config.parser.name, reason: health.value?.message },
+        ['Install required runtime', 'Use different parser', 'Set fallbackBehavior: "skip"']
+      )
+    );
   }
 
   // Parser available, proceed with validation
@@ -708,6 +716,7 @@ export async function validateDependencies(
 ```
 
 **When to use each fallback behavior:**
+
 - `error` (default): Fail fast if parser unavailable - ensures nothing is missed
 - `skip`: CI environments where language runtime may not be installed
 - `warn`: Development environments where partial validation is acceptable
@@ -744,7 +753,9 @@ export interface DriftConfig {
 
 export async function detectDocDrift(
   config: DriftConfig
-): Promise<Result<{ drifts: DocumentationDrift[]; severity: 'high' | 'medium' | 'low' }, EntropyError>>
+): Promise<
+  Result<{ drifts: DocumentationDrift[]; severity: 'high' | 'medium' | 'low' }, EntropyError>
+>;
 
 // src/entropy/patterns.ts
 export interface Pattern {
@@ -764,32 +775,35 @@ export interface PatternViolation {
 export async function findPatternViolations(
   rules: Pattern[],
   files: string[]
-): Promise<Result<{ violations: PatternViolation[]; passRate: number }, EntropyError>>
+): Promise<Result<{ violations: PatternViolation[]; passRate: number }, EntropyError>>;
 
 // src/entropy/dead-code.ts
 export interface DeadCodeConfig {
-  entryPoints: string[];  // Starting points for analysis
+  entryPoints: string[]; // Starting points for analysis
   rootDir: string;
   parser: LanguageParser;
 }
 
-export async function detectDeadCode(
-  config: DeadCodeConfig
-): Promise<Result<{
-  unusedFiles: string[];
-  unusedExports: Export[];
-  estimatedImpact: number;  // Lines of code
-}, EntropyError>>
+export async function detectDeadCode(config: DeadCodeConfig): Promise<
+  Result<
+    {
+      unusedFiles: string[];
+      unusedExports: Export[];
+      estimatedImpact: number; // Lines of code
+    },
+    EntropyError
+  >
+>;
 
 // src/entropy/types.ts
 export interface EntropyReport {
-  drift?: DriftReport;                        // Documentation drift findings
-  patterns?: PatternViolationReport;          // Pattern violations
-  deadCode?: DeadCodeReport;                  // Dead code findings
+  drift?: DriftReport; // Documentation drift findings
+  patterns?: PatternViolationReport; // Pattern violations
+  deadCode?: DeadCodeReport; // Dead code findings
   overall: {
     severity: 'high' | 'medium' | 'low';
     issueCount: number;
-    autoFixable: number;                      // How many issues can be auto-fixed
+    autoFixable: number; // How many issues can be auto-fixed
   };
 }
 
@@ -809,10 +823,11 @@ export interface FixResult {
 export async function autoFixEntropy(
   report: EntropyReport,
   options: FixOptions
-): Promise<Result<FixResult, EntropyError>>
+): Promise<Result<FixResult, EntropyError>>;
 ```
 
 **Implementation notes:**
+
 - Doc drift: Compare AST exports to documented APIs
 - Dead code: Build dependency graph from entry points, mark unreachable
 - Auto-fix: Use AST transformations (simple fixes only)
@@ -848,32 +863,33 @@ export interface ReviewChecklist {
   warnings: string[];
 }
 
-export async function createSelfReview(
-  changes: { files: string[]; diff: string }
-): Promise<Result<ReviewChecklist, FeedbackError>>
+export async function createSelfReview(changes: {
+  files: string[];
+  diff: string;
+}): Promise<Result<ReviewChecklist, FeedbackError>>;
 
 // src/feedback/peer-review.ts
 export interface AgentConfig {
   type: 'architecture-enforcer' | 'documentation-maintainer' | 'test-reviewer';
   context: ReviewContext;
-  skills?: string[];        // Skills to load
-  timeout?: number;         // Milliseconds, default 300000 (5 min)
-  workingDir?: string;      // Working directory, default cwd
+  skills?: string[]; // Skills to load
+  timeout?: number; // Milliseconds, default 300000 (5 min)
+  workingDir?: string; // Working directory, default cwd
 }
 
 export interface AgentProcess {
-  id: string;               // Unique process ID
-  pid?: number;             // OS process ID if subprocess
-  startTime: string;        // ISO 8601 timestamp
+  id: string; // Unique process ID
+  pid?: number; // OS process ID if subprocess
+  startTime: string; // ISO 8601 timestamp
   config: AgentConfig;
 }
 
 export interface AgentStatus {
   id: string;
   state: 'running' | 'completed' | 'failed' | 'killed';
-  progress?: number;        // 0-100
-  currentTask?: string;     // Description of current task
-  error?: string;           // Error message if failed
+  progress?: number; // 0-100
+  currentTask?: string; // Description of current task
+  error?: string; // Error message if failed
 }
 
 export interface ReviewContext {
@@ -888,7 +904,7 @@ export interface Review {
   comments: ReviewComment[];
   suggestions: string[];
   agentId: string;
-  duration: number;         // Milliseconds
+  duration: number; // Milliseconds
 }
 
 export interface ReviewComment {
@@ -909,26 +925,26 @@ export async function requestPeerReview(
   agentType: 'architecture-enforcer' | 'documentation-maintainer' | 'test-reviewer',
   context: ReviewContext,
   executor: AgentExecutor
-): Promise<Result<Review, FeedbackError>>
+): Promise<Result<Review, FeedbackError>>;
 
 // src/feedback/telemetry.ts
 export interface TimeRange {
-  start: Date | string;     // ISO 8601 string or Date object
+  start: Date | string; // ISO 8601 string or Date object
   end: Date | string;
 }
 
 export interface TelemetryFilter {
   level?: 'debug' | 'info' | 'warn' | 'error';
   labels?: Record<string, string>;
-  query?: string;           // Query string (format depends on adapter)
+  query?: string; // Query string (format depends on adapter)
 }
 
 export interface Metric {
   name: string;
   value: number;
-  timestamp: string;        // ISO 8601
+  timestamp: string; // ISO 8601
   labels: Record<string, string>;
-  unit?: string;            // e.g., 'ms', 'bytes', 'count'
+  unit?: string; // e.g., 'ms', 'bytes', 'count'
 }
 
 export interface Trace {
@@ -937,14 +953,14 @@ export interface Trace {
   parentSpanId?: string;
   service: string;
   operation: string;
-  duration: number;         // Milliseconds
-  timestamp: string;        // ISO 8601
+  duration: number; // Milliseconds
+  timestamp: string; // ISO 8601
   tags: Record<string, string>;
   status?: 'ok' | 'error';
 }
 
 export interface LogEntry {
-  timestamp: string;        // ISO 8601
+  timestamp: string; // ISO 8601
   level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
   service: string;
@@ -981,7 +997,7 @@ export interface AgentAction {
   duration: number;
 }
 
-export function logAgentAction(action: AgentAction): Result<void, FeedbackError>
+export function logAgentAction(action: AgentAction): Result<void, FeedbackError>;
 ```
 
 ### Plugin Architecture
@@ -1023,6 +1039,7 @@ export type { BaseError } from './shared/errors';
 - **v1.0.0** - Production-ready (after battle-testing v0.5.0)
 
 Each release includes:
+
 - ✅ All tests passing (>80% coverage)
 - ✅ Updated README with new APIs
 - ✅ Examples in `/examples`
@@ -1112,16 +1129,20 @@ describe('validateFileStructure', () => {
 ### Module-Specific Dependencies
 
 **Context Module:**
+
 - No additional dependencies required for MVP (uses regex-based parsing)
 - **Future consideration**: `remark-parse` and `unified` for robust markdown parsing if regex proves insufficient
 
 **Constraints Module:**
+
 - Uses `@typescript-eslint/parser` and `@typescript-eslint/typescript-estree` (listed in core dependencies)
 
 **Entropy Module:**
+
 - No additional dependencies (uses AST parsers from Constraints module)
 
 **Feedback Module:**
+
 - No additional dependencies (pluggable adapters have their own dependencies)
 
 **All modules use shared dependencies** from `packages/types` and built-in Node.js APIs.
@@ -1133,6 +1154,7 @@ describe('validateFileStructure', () => {
 ### Per-Module Completion Criteria
 
 Each module is complete when:
+
 1. ✅ All APIs implemented and exported
 2. ✅ Test coverage >80% line coverage
 3. ✅ All tests passing in CI
@@ -1144,6 +1166,7 @@ Each module is complete when:
 ### Phase 2 Completion Criteria
 
 Phase 2 is complete when:
+
 1. ✅ All 5 modules meet individual completion criteria
 2. ✅ Integration tests pass (modules work together)
 3. ✅ Documentation site updated
@@ -1156,14 +1179,14 @@ Phase 2 is complete when:
 
 **Module-by-module breakdown** (assuming 1 developer, full-time):
 
-| Module | Complexity | Estimated Time |
-|--------|-----------|----------------|
-| Validation | Low | 1-2 weeks |
-| Context | Medium | 2-3 weeks |
-| Constraints | High | 3-4 weeks |
-| Entropy | High | 3-4 weeks |
-| Feedback | Medium | 2-3 weeks |
-| **Total** | | **11-16 weeks** |
+| Module      | Complexity | Estimated Time  |
+| ----------- | ---------- | --------------- |
+| Validation  | Low        | 1-2 weeks       |
+| Context     | Medium     | 2-3 weeks       |
+| Constraints | High       | 3-4 weeks       |
+| Entropy     | High       | 3-4 weeks       |
+| Feedback    | Medium     | 2-3 weeks       |
+| **Total**   |            | **11-16 weeks** |
 
 **Optimistic scenario:** 8-10 weeks (if implementations go smoothly)
 **Realistic scenario:** 12-14 weeks (accounting for unexpected issues)

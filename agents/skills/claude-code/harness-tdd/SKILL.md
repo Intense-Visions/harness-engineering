@@ -3,6 +3,7 @@
 > Red-green-refactor cycle integrated with harness validation. No production code exists without a failing test first.
 
 ## When to Use
+
 - Implementing any new feature, function, module, or component
 - Fixing any bug (write a test that reproduces the bug first)
 - Adding behavior to existing code
@@ -79,6 +80,7 @@ If you find yourself writing production code first, STOP. Delete it. Write the t
 Repeat the 4 phases for each new behavior. A typical feature requires 3-10 cycles. Each cycle should take 2-15 minutes. If a cycle takes longer than 15 minutes, the step is too large — break it down.
 
 **Ordering within a feature:**
+
 1. Start with the happy path (simplest success case)
 2. Add edge cases one at a time
 3. Add error handling cases
@@ -107,6 +109,7 @@ Repeat the 4 phases for each new behavior. A typical feature requires 3-10 cycle
 ### Example: Adding a `calculateTotal` function
 
 **RED:**
+
 ```typescript
 // cart.test.ts
 it('calculates total for items with quantity and price', () => {
@@ -117,20 +120,24 @@ it('calculates total for items with quantity and price', () => {
   expect(calculateTotal(items)).toBe(45);
 });
 ```
+
 Run tests. Observe: `ReferenceError: calculateTotal is not defined`. Correct failure — function does not exist yet.
 
 **GREEN:**
+
 ```typescript
 // cart.ts
 export function calculateTotal(items: Array<{ price: number; quantity: number }>): number {
   return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
 ```
+
 Run tests. Observe: all tests pass.
 
 **REFACTOR:** No refactoring needed for this simple function. Skip.
 
 **VALIDATE:**
+
 ```bash
 harness check-deps   # Pass
 harness validate     # Pass

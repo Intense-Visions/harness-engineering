@@ -16,7 +16,12 @@ describe('appendLearning with tags', () => {
   });
 
   it('should write tagged entry when skillName and outcome provided', async () => {
-    const result = await appendLearning(tmpDir, 'UTC normalization needed', 'harness-tdd', 'gotcha');
+    const result = await appendLearning(
+      tmpDir,
+      'UTC normalization needed',
+      'harness-tdd',
+      'gotcha'
+    );
     expect(result.ok).toBe(true);
 
     const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
@@ -75,7 +80,7 @@ describe('loadRelevantLearnings', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBe(2);
-      expect(result.value.every(e => e.includes('harness-tdd'))).toBe(true);
+      expect(result.value.every((e) => e.includes('harness-tdd'))).toBe(true);
     }
   });
 

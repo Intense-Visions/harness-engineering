@@ -4,10 +4,7 @@ import type { TSESTree } from '@typescript-eslint/utils';
 /**
  * Check if a node has a preceding JSDoc comment
  */
-export function hasJSDocComment(
-  node: TSESTree.Node,
-  sourceCode: string
-): boolean {
+export function hasJSDocComment(node: TSESTree.Node, sourceCode: string): boolean {
   if (!node.range) return false;
 
   // Get text before the node
@@ -52,15 +49,9 @@ export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
   function visit(node: TSESTree.Node): void {
     if (found) return;
 
-    if (
-      node.type === 'CallExpression' &&
-      node.callee.type === 'MemberExpression'
-    ) {
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression') {
       const prop = node.callee.property;
-      if (
-        prop.type === 'Identifier' &&
-        (prop.name === 'parse' || prop.name === 'safeParse')
-      ) {
+      if (prop.type === 'Identifier' && (prop.name === 'parse' || prop.name === 'safeParse')) {
         found = true;
         return;
       }
@@ -92,10 +83,7 @@ export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
 /**
  * Check if a node is marked with @internal
  */
-export function isMarkedInternal(
-  node: TSESTree.Node,
-  sourceCode: string
-): boolean {
+export function isMarkedInternal(node: TSESTree.Node, sourceCode: string): boolean {
   if (!node.range) return false;
 
   const textBefore = sourceCode.slice(0, node.range[0]);

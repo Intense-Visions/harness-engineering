@@ -3,6 +3,7 @@
 > Dispatch independent tasks to concurrent agents, integrate results, and verify no conflicts. Only for truly independent problems.
 
 ## When to Use
+
 - When 3 or more tasks are truly independent (no shared state, no shared files, different subsystems)
 - When tasks involve investigation or implementation in separate parts of the codebase
 - When parallel execution would meaningfully reduce wall-clock time
@@ -106,6 +107,7 @@ For each independent task, write a focused agent brief:
 **Context:** Plan has Tasks 4, 5, and 6 which implement UserService, ProductService, and NotificationService. Each service is in its own directory, has its own types, and has no cross-service dependencies.
 
 **Step 1: Verify independence**
+
 ```
 Task 4 (UserService):      writes src/services/user/*, reads src/types/user.ts
 Task 5 (ProductService):   writes src/services/product/*, reads src/types/product.ts
@@ -118,6 +120,7 @@ Verdict: INDEPENDENT — safe to parallelize
 ```
 
 **Step 2: Create agent briefs**
+
 ```
 Agent A — UserService:
   Scope: src/services/user/, src/services/user.test.ts
@@ -139,6 +142,7 @@ Agent C — NotificationService:
 ```
 
 **Step 3-4: Dispatch, integrate**
+
 ```
 All 3 agents complete. No merge conflicts.
 Run full test suite: 34 tests, all pass.

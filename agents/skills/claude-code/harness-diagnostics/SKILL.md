@@ -3,6 +3,7 @@
 > Cognitive mode: **diagnostic-investigator**. Classify errors into taxonomy categories and route to deterministic resolution strategies. Evidence first, classification second, action third.
 
 ## When to Use
+
 - When an error occurs and the root cause category is unclear
 - When a bug fix attempt failed and you need a structured re-approach
 - When `on_bug_fix` triggers fire and the error does not match a known pattern
@@ -97,6 +98,7 @@ Record exact counts: how many type errors, how many test failures, which tests f
 #### Step 2: Read the Complete Error
 
 Read the ENTIRE error output. Not the first line. Not the summary. The complete message including:
+
 - Error type/code
 - Stack trace (every frame)
 - Warnings that preceded the error
@@ -105,6 +107,7 @@ Read the ENTIRE error output. Not the first line. Not the summary. The complete 
 #### Step 3: Match Signals to Category
 
 Compare the error signals against the 7 categories above. Ask:
+
 - Is this a compile-time or runtime error? (Compile-time -> likely Syntax/Type)
 - Is the code syntactically valid but producing wrong results? (-> Logic)
 - Does the error involve multiple components or layers? (-> Design)
@@ -155,6 +158,7 @@ npm test 2>&1 | tail -100
 ```
 
 Compare results to the baseline:
+
 - Type errors: must be equal or fewer than baseline
 - Test failures: the target failure must be resolved, no new failures introduced
 - If new failures appeared, the fix is wrong. Revert and re-examine.
@@ -162,6 +166,7 @@ Compare results to the baseline:
 #### Step 3: Confirm Resolution
 
 The error is resolved when:
+
 1. The original error no longer occurs
 2. No new errors were introduced
 3. The type checker count is equal or better than baseline
@@ -177,6 +182,7 @@ This phase triggers only when the initial classification was wrong or the first 
 
 ```markdown
 # Diagnostic Record: <brief description>
+
 Date: <timestamp>
 Initial Classification: <what you thought it was>
 Actual Classification: <what it turned out to be>
@@ -231,6 +237,7 @@ This log accumulates over time and helps improve future classifications.
 ### Example 1: Type Error in API Handler
 
 **Phase 1 — CLASSIFY:**
+
 ```
 Error: src/handlers/users.ts(42,15): error TS2345:
   Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
@@ -249,6 +256,7 @@ Following Syntax/Type strategy: read the error, fix mechanically.
 The function `getUserById(id: string)` is called with `req.params.id` which is `string | undefined`. Add a guard or use non-null assertion after validation.
 
 **Phase 3 — RESOLVE:**
+
 ```typescript
 // Fix: add guard before call
 const id = req.params.id;
@@ -263,6 +271,7 @@ Verification: 0 type errors (was 1), 0 test failures (unchanged). Fix confirmed.
 ### Example 2: Flaky Integration Test
 
 **Phase 1 — CLASSIFY:**
+
 ```
 Error: test/integration/queue.test.ts
   "should process message within timeout"
@@ -288,16 +297,16 @@ Examine the handler: processing involves a database write that sometimes takes >
 Root cause: the timeout is too tight for the actual processing time, and there is no mechanism to signal completion — the test polls on a timer.
 
 **Phase 3 — RESOLVE:**
+
 ```typescript
 // Before: polling with fixed timeout
-await new Promise(resolve => setTimeout(resolve, 2000));
+await new Promise((resolve) => setTimeout(resolve, 2000));
 const result = await db.query('SELECT * FROM processed WHERE id = ?', [msgId]);
 expect(result.rows).toHaveLength(1);
 
 // After: event-driven wait with generous timeout
 const result = await waitForCondition(
-  () => db.query('SELECT * FROM processed WHERE id = ?', [msgId])
-    .then(r => r.rows.length > 0),
+  () => db.query('SELECT * FROM processed WHERE id = ?', [msgId]).then((r) => r.rows.length > 0),
   { timeout: 10000, interval: 100 }
 );
 expect(result).toBe(true);

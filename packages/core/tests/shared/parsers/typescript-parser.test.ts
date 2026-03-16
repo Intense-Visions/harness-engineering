@@ -63,7 +63,7 @@ describe('TypeScriptParser', () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
-      const fsImport = result.value.find(i => i.source === 'fs');
+      const fsImport = result.value.find((i) => i.source === 'fs');
       expect(fsImport).toBeDefined();
       expect(fsImport?.default).toBe('fs');
       expect(fsImport?.kind).toBe('value');
@@ -77,7 +77,7 @@ describe('TypeScriptParser', () => {
       const result = parser.extractImports(parseResult.value);
       if (!result.ok) return;
 
-      const pathImport = result.value.find(i => i.source === 'path');
+      const pathImport = result.value.find((i) => i.source === 'path');
       expect(pathImport).toBeDefined();
       expect(pathImport?.specifiers).toContain('join');
       expect(pathImport?.specifiers).toContain('resolve');
@@ -91,7 +91,7 @@ describe('TypeScriptParser', () => {
       const result = parser.extractImports(parseResult.value);
       if (!result.ok) return;
 
-      const osImport = result.value.find(i => i.source === 'os');
+      const osImport = result.value.find((i) => i.source === 'os');
       expect(osImport).toBeDefined();
       expect(osImport?.namespace).toBe('os');
     });
@@ -104,9 +104,9 @@ describe('TypeScriptParser', () => {
       const result = parser.extractImports(parseResult.value);
       if (!result.ok) return;
 
-      const typeImports = result.value.filter(i => i.kind === 'type');
+      const typeImports = result.value.filter((i) => i.kind === 'type');
       expect(typeImports.length).toBeGreaterThan(0);
-      expect(typeImports.some(i => i.specifiers.includes('Stats'))).toBe(true);
+      expect(typeImports.some((i) => i.specifiers.includes('Stats'))).toBe(true);
     });
 
     it('should identify inline type specifier imports', async () => {
@@ -118,7 +118,7 @@ describe('TypeScriptParser', () => {
       if (!result.ok) return;
 
       // Find the import that has PathLike (inline type) and existsSync (value)
-      const fsImport = result.value.find(i => i.specifiers.includes('PathLike'));
+      const fsImport = result.value.find((i) => i.specifiers.includes('PathLike'));
       expect(fsImport).toBeDefined();
       // The kind should be 'type' because PathLike is imported with inline type specifier
       expect(fsImport?.kind).toBe('type');
@@ -149,10 +149,10 @@ describe('TypeScriptParser', () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
-      const namedExports = result.value.filter(e => e.type === 'named');
-      expect(namedExports.some(e => e.name === 'VERSION')).toBe(true);
-      expect(namedExports.some(e => e.name === 'helper')).toBe(true);
-      expect(namedExports.some(e => e.name === 'Service')).toBe(true);
+      const namedExports = result.value.filter((e) => e.type === 'named');
+      expect(namedExports.some((e) => e.name === 'VERSION')).toBe(true);
+      expect(namedExports.some((e) => e.name === 'helper')).toBe(true);
+      expect(namedExports.some((e) => e.name === 'Service')).toBe(true);
     });
 
     it('should extract default export', async () => {
@@ -163,7 +163,7 @@ describe('TypeScriptParser', () => {
       const result = parser.extractExports(parseResult.value);
       if (!result.ok) return;
 
-      const defaultExport = result.value.find(e => e.type === 'default');
+      const defaultExport = result.value.find((e) => e.type === 'default');
       expect(defaultExport).toBeDefined();
     });
 
@@ -175,9 +175,9 @@ describe('TypeScriptParser', () => {
       const result = parser.extractExports(parseResult.value);
       if (!result.ok) return;
 
-      const reExports = result.value.filter(e => e.isReExport);
+      const reExports = result.value.filter((e) => e.isReExport);
       expect(reExports.length).toBeGreaterThan(0);
-      expect(reExports.some(e => e.source === 'path')).toBe(true);
+      expect(reExports.some((e) => e.source === 'path')).toBe(true);
     });
 
     it('should extract namespace re-exports', async () => {
@@ -188,7 +188,7 @@ describe('TypeScriptParser', () => {
       const result = parser.extractExports(parseResult.value);
       if (!result.ok) return;
 
-      const namespaceExports = result.value.filter(e => e.type === 'namespace');
+      const namespaceExports = result.value.filter((e) => e.type === 'namespace');
       expect(namespaceExports.length).toBeGreaterThan(0);
     });
   });

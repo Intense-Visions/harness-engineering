@@ -59,6 +59,7 @@ packages/eslint-plugin/
 ### Task 1: Initialize Package
 
 **Files:**
+
 - Create: `packages/eslint-plugin/package.json`
 - Create: `packages/eslint-plugin/tsconfig.json`
 - Create: `packages/eslint-plugin/vitest.config.mts`
@@ -153,6 +154,7 @@ git commit -m "chore(eslint-plugin): initialize package with dependencies"
 ### Task 2: Config Schema
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/utils/schema.ts`
 - Create: `packages/eslint-plugin/tests/utils/schema.test.ts`
 
@@ -184,9 +186,7 @@ describe('HarnessConfigSchema', () => {
   it('validates config with forbiddenImports', () => {
     const config = {
       version: 1,
-      forbiddenImports: [
-        { from: 'src/services/**', disallow: ['react'] },
-      ],
+      forbiddenImports: [{ from: 'src/services/**', disallow: ['react'] }],
     };
     const result = HarnessConfigSchema.safeParse(config);
     expect(result.success).toBe(true);
@@ -286,6 +286,7 @@ git commit -m "feat(eslint-plugin): add config schema with Zod validation"
 ### Task 3: Config Loader
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/utils/config-loader.ts`
 - Create: `packages/eslint-plugin/tests/utils/config-loader.test.ts`
 - Create: `packages/eslint-plugin/tests/fixtures/harness.config.json`
@@ -299,11 +300,23 @@ git commit -m "feat(eslint-plugin): add config schema with Zod validation"
   "layers": [
     { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
     { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": ["types", "domain"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "domain", "services"]
+    }
   ],
   "forbiddenImports": [
-    { "from": "src/services/**", "disallow": ["react", "src/ui/**"], "message": "Services cannot import UI code" }
+    {
+      "from": "src/services/**",
+      "disallow": ["react", "src/ui/**"],
+      "message": "Services cannot import UI code"
+    }
   ],
   "boundaries": {
     "requireSchema": ["src/api/**/*.ts"]
@@ -368,10 +381,7 @@ describe('config-loader', () => {
   });
 
   it('returns null for invalid schema', () => {
-    fs.writeFileSync(
-      path.join(tempDir, 'harness.config.json'),
-      JSON.stringify({ version: 99 })
-    );
+    fs.writeFileSync(path.join(tempDir, 'harness.config.json'), JSON.stringify({ version: 99 }));
     const config = getConfig(path.join(tempDir, 'file.ts'));
     expect(config).toBeNull();
   });
@@ -478,6 +488,7 @@ git commit -m "feat(eslint-plugin): add config loader with caching"
 ### Task 4: Path Utilities
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/utils/path-utils.ts`
 - Create: `packages/eslint-plugin/tests/utils/path-utils.test.ts`
 
@@ -486,16 +497,18 @@ git commit -m "feat(eslint-plugin): add config loader with caching"
 ```typescript
 // tests/utils/path-utils.test.ts
 import { describe, it, expect } from 'vitest';
-import { resolveImportPath, matchesPattern, getLayerForFile, normalizePath } from '../../src/utils/path-utils';
+import {
+  resolveImportPath,
+  matchesPattern,
+  getLayerForFile,
+  normalizePath,
+} from '../../src/utils/path-utils';
 import type { Layer } from '../../src/utils/schema';
 
 describe('path-utils', () => {
   describe('resolveImportPath', () => {
     it('resolves relative imports', () => {
-      const result = resolveImportPath(
-        '../types/user',
-        '/project/src/domain/service.ts'
-      );
+      const result = resolveImportPath('../types/user', '/project/src/domain/service.ts');
       expect(result).toBe('src/types/user');
     });
 
@@ -505,10 +518,7 @@ describe('path-utils', () => {
     });
 
     it('resolves ./ imports', () => {
-      const result = resolveImportPath(
-        './helper',
-        '/project/src/domain/service.ts'
-      );
+      const result = resolveImportPath('./helper', '/project/src/domain/service.ts');
       expect(result).toBe('src/domain/helper');
     });
   });
@@ -559,7 +569,9 @@ describe('path-utils', () => {
     });
 
     it('handles deeply nested paths', () => {
-      expect(normalizePath('/Users/dev/projects/myapp/src/api/v1/handler.ts')).toBe('src/api/v1/handler.ts');
+      expect(normalizePath('/Users/dev/projects/myapp/src/api/v1/handler.ts')).toBe(
+        'src/api/v1/handler.ts'
+      );
     });
 
     it('returns path unchanged if no /src/ found', () => {
@@ -586,10 +598,7 @@ import type { Layer } from './schema';
  * Resolve an import path relative to the importing file
  * Returns path relative to project root (assumes /project/ prefix)
  */
-export function resolveImportPath(
-  importPath: string,
-  importingFile: string
-): string {
+export function resolveImportPath(importPath: string, importingFile: string): string {
   // External/absolute imports stay as-is
   if (!importPath.startsWith('.')) {
     return importPath;
@@ -624,10 +633,7 @@ export function matchesPattern(filePath: string, pattern: string): boolean {
 /**
  * Find which layer a file belongs to
  */
-export function getLayerForFile(
-  filePath: string,
-  layers: Layer[]
-): string | null {
+export function getLayerForFile(filePath: string, layers: Layer[]): string | null {
   for (const layer of layers) {
     if (matchesPattern(filePath, layer.pattern)) {
       return layer.name;
@@ -639,10 +645,7 @@ export function getLayerForFile(
 /**
  * Get layer definition by name
  */
-export function getLayerByName(
-  name: string,
-  layers: Layer[]
-): Layer | undefined {
+export function getLayerByName(name: string, layers: Layer[]): Layer | undefined {
   return layers.find((l) => l.name === name);
 }
 
@@ -676,6 +679,7 @@ git commit -m "feat(eslint-plugin): add path utilities for import resolution"
 ### Task 5: AST Helpers
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/utils/ast-helpers.ts`
 - Create: `packages/eslint-plugin/tests/utils/ast-helpers.test.ts`
 
@@ -796,10 +800,7 @@ import type { TSESTree } from '@typescript-eslint/utils';
 /**
  * Check if a node has a preceding JSDoc comment
  */
-export function hasJSDocComment(
-  node: TSESTree.Node,
-  sourceCode: string
-): boolean {
+export function hasJSDocComment(node: TSESTree.Node, sourceCode: string): boolean {
   if (!node.range) return false;
 
   // Get text before the node
@@ -841,15 +842,9 @@ export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
   function visit(node: TSESTree.Node): void {
     if (found) return;
 
-    if (
-      node.type === 'CallExpression' &&
-      node.callee.type === 'MemberExpression'
-    ) {
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression') {
       const prop = node.callee.property;
-      if (
-        prop.type === 'Identifier' &&
-        (prop.name === 'parse' || prop.name === 'safeParse')
-      ) {
+      if (prop.type === 'Identifier' && (prop.name === 'parse' || prop.name === 'safeParse')) {
         found = true;
         return;
       }
@@ -879,10 +874,7 @@ export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
 /**
  * Check if a node is marked with @internal
  */
-export function isMarkedInternal(
-  node: TSESTree.Node,
-  sourceCode: string
-): boolean {
+export function isMarkedInternal(node: TSESTree.Node, sourceCode: string): boolean {
   if (!node.range) return false;
 
   const textBefore = sourceCode.slice(0, node.range[0]);
@@ -914,6 +906,7 @@ git commit -m "feat(eslint-plugin): add AST helpers for JSDoc and Zod detection"
 ### Task 6: Utils Index
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/utils/index.ts`
 
 - [ ] **Step 1: Create utils index**
@@ -945,6 +938,7 @@ git commit -m "feat(eslint-plugin): add utils index re-exports"
 ### Task 7: enforce-doc-exports Rule
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/rules/enforce-doc-exports.ts`
 - Create: `packages/eslint-plugin/tests/rules/enforce-doc-exports.test.ts`
 
@@ -1075,11 +1069,7 @@ export default createRule<Options, MessageIds>({
   create(context, [options]) {
     const sourceCode = context.sourceCode.getText();
 
-    function checkExport(
-      node: Parameters<typeof hasJSDocComment>[0],
-      kind: string,
-      name: string
-    ) {
+    function checkExport(node: Parameters<typeof hasJSDocComment>[0], kind: string, name: string) {
       // Skip if marked @internal and ignoreInternal is true
       if (options.ignoreInternal && isMarkedInternal(node, sourceCode)) {
         return;
@@ -1137,6 +1127,7 @@ git commit -m "feat(eslint-plugin): add enforce-doc-exports rule"
 ### Task 8: no-circular-deps Rule
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/rules/no-circular-deps.ts`
 - Create: `packages/eslint-plugin/tests/rules/no-circular-deps.test.ts`
 
@@ -1374,6 +1365,7 @@ git commit -m "feat(eslint-plugin): add no-circular-deps rule"
 ### Task 9: no-forbidden-imports Rule
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/rules/no-forbidden-imports.ts`
 - Create: `packages/eslint-plugin/tests/rules/no-forbidden-imports.test.ts`
 
@@ -1544,6 +1536,7 @@ git commit -m "feat(eslint-plugin): add no-forbidden-imports rule"
 ### Task 10: no-layer-violation Rule
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/rules/no-layer-violation.ts`
 - Create: `packages/eslint-plugin/tests/rules/no-layer-violation.test.ts`
 
@@ -1641,11 +1634,7 @@ Expected: FAIL with "Cannot find module"
 // src/rules/no-layer-violation.ts
 import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
 import { getConfig } from '../utils/config-loader';
-import {
-  resolveImportPath,
-  getLayerForFile,
-  getLayerByName,
-} from '../utils/path-utils';
+import { resolveImportPath, getLayerForFile, getLayerByName } from '../utils/path-utils';
 
 const createRule = ESLintUtils.RuleCreator(
   (name) => `https://github.com/harness-engineering/eslint-plugin/blob/main/docs/rules/${name}.md`
@@ -1661,8 +1650,7 @@ export default createRule<[], MessageIds>({
       description: 'Enforce layer boundary imports',
     },
     messages: {
-      layerViolation:
-        'Layer "{{fromLayer}}" cannot import from layer "{{toLayer}}"',
+      layerViolation: 'Layer "{{fromLayer}}" cannot import from layer "{{toLayer}}"',
     },
     schema: [],
   },
@@ -1747,6 +1735,7 @@ git commit -m "feat(eslint-plugin): add no-layer-violation rule"
 ### Task 11: require-boundary-schema Rule
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/rules/require-boundary-schema.ts`
 - Create: `packages/eslint-plugin/tests/rules/require-boundary-schema.test.ts`
 
@@ -1940,6 +1929,7 @@ git commit -m "feat(eslint-plugin): add require-boundary-schema rule"
 ### Task 12: Rules Index
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/rules/index.ts`
 
 - [ ] **Step 1: Create rules index**
@@ -1978,6 +1968,7 @@ git commit -m "feat(eslint-plugin): add rules index"
 ### Task 13: Configs
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/configs/recommended.ts`
 - Create: `packages/eslint-plugin/src/configs/strict.ts`
 - Create: `packages/eslint-plugin/src/configs/index.ts`
@@ -2057,6 +2048,7 @@ git commit -m "feat(eslint-plugin): add recommended and strict configs"
 ### Task 14: Plugin Entry Point
 
 **Files:**
+
 - Create: `packages/eslint-plugin/src/index.ts`
 
 - [ ] **Step 1: Create plugin entry**
@@ -2134,11 +2126,12 @@ git commit -m "feat(eslint-plugin): add plugin entry point with exports"
 ### Task 15: README
 
 **Files:**
+
 - Create: `packages/eslint-plugin/README.md`
 
 - [ ] **Step 1: Create README**
 
-```markdown
+````markdown
 # @harness-engineering/eslint-plugin
 
 ESLint plugin for enforcing harness engineering architectural constraints.
@@ -2148,6 +2141,7 @@ ESLint plugin for enforcing harness engineering architectural constraints.
 ```bash
 npm install -D @harness-engineering/eslint-plugin
 ```
+````
 
 ## Usage
 
@@ -2157,9 +2151,7 @@ npm install -D @harness-engineering/eslint-plugin
 // eslint.config.js
 import harness from '@harness-engineering/eslint-plugin';
 
-export default [
-  harness.configs.recommended,
-];
+export default [harness.configs.recommended];
 ```
 
 ### ESLint 8.x (Legacy Config)
@@ -2182,8 +2174,16 @@ Create `harness.config.json` in your project root:
   "layers": [
     { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
     { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
-    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": ["types", "domain"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "domain", "services"]
+    }
   ],
   "forbiddenImports": [
     { "from": "src/services/**", "disallow": ["react"], "message": "Services cannot import React" }
@@ -2198,23 +2198,23 @@ Create `harness.config.json` in your project root:
 
 ### Architecture Rules
 
-| Rule | Description | Default |
-|------|-------------|---------|
-| `no-layer-violation` | Enforce layer boundary imports | error |
-| `no-circular-deps` | Detect circular dependencies | error |
-| `no-forbidden-imports` | Block forbidden import patterns | error |
+| Rule                   | Description                     | Default |
+| ---------------------- | ------------------------------- | ------- |
+| `no-layer-violation`   | Enforce layer boundary imports  | error   |
+| `no-circular-deps`     | Detect circular dependencies    | error   |
+| `no-forbidden-imports` | Block forbidden import patterns | error   |
 
 ### Boundary Rules
 
-| Rule | Description | Default |
-|------|-------------|---------|
-| `require-boundary-schema` | Require Zod validation at API boundaries | warn |
+| Rule                      | Description                              | Default |
+| ------------------------- | ---------------------------------------- | ------- |
+| `require-boundary-schema` | Require Zod validation at API boundaries | warn    |
 
 ### Documentation Rules
 
-| Rule | Description | Default |
-|------|-------------|---------|
-| `enforce-doc-exports` | Require JSDoc on exports | warn |
+| Rule                  | Description              | Default |
+| --------------------- | ------------------------ | ------- |
+| `enforce-doc-exports` | Require JSDoc on exports | warn    |
 
 ## Configs
 
@@ -2224,20 +2224,22 @@ Create `harness.config.json` in your project root:
 ## License
 
 MIT
-```
+
+````
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add packages/eslint-plugin/README.md
 git commit -m "docs(eslint-plugin): add README with usage examples"
-```
+````
 
 ---
 
 ### Task 16: Final Integration Test
 
 **Files:**
+
 - Create: `packages/eslint-plugin/tests/integration/plugin.test.ts`
 
 - [ ] **Step 1: Create integration test**
@@ -2297,12 +2299,15 @@ Expected: All packages pass
 - [ ] **Step 6: Verify plugin loads in ESLint**
 
 Create temporary test file and run:
+
 ```bash
 cd packages/eslint-plugin
 echo 'import plugin from "./dist/index.js"; console.log("Rules:", Object.keys(plugin.rules)); console.log("Configs:", Object.keys(plugin.configs));' > /tmp/test-plugin.mjs
 node /tmp/test-plugin.mjs
 ```
+
 Expected output:
+
 ```
 Rules: [ 'enforce-doc-exports', 'no-circular-deps', 'no-forbidden-imports', 'no-layer-violation', 'require-boundary-schema' ]
 Configs: [ 'recommended', 'strict' ]
@@ -2325,11 +2330,11 @@ git commit -m "feat(eslint-plugin): complete ESLint plugin implementation
 
 ## Summary
 
-| Chunk | Tasks | Description |
-|-------|-------|-------------|
-| 1 | 1-6 | Package setup + utilities (schema, loader, paths, AST) |
-| 2 | 7-9 | Rules part 1 (enforce-doc-exports, no-circular-deps, no-forbidden-imports) |
-| 3 | 10-13 | Rules part 2 + configs (no-layer-violation, require-boundary-schema, configs) |
-| 4 | 14-16 | Plugin entry + README + integration |
+| Chunk | Tasks | Description                                                                   |
+| ----- | ----- | ----------------------------------------------------------------------------- |
+| 1     | 1-6   | Package setup + utilities (schema, loader, paths, AST)                        |
+| 2     | 7-9   | Rules part 1 (enforce-doc-exports, no-circular-deps, no-forbidden-imports)    |
+| 3     | 10-13 | Rules part 2 + configs (no-layer-violation, require-boundary-schema, configs) |
+| 4     | 14-16 | Plugin entry + README + integration                                           |
 
 **Total:** 16 tasks, ~80 steps, estimated 2-3 hours for implementation.

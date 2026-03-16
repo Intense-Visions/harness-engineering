@@ -16,16 +16,19 @@
 ### Landscape Scan Criteria (Wide Net)
 
 Categories to scan:
+
 - Agent-first dev toolkits and context engineering frameworks
 - AI code review and constraint enforcement tools
 - Prompt management and skill/rule platforms
 - Agentic IDE extensions and autonomous coding agents
 
 Inclusion criteria:
+
 - Gained meaningful traction since mid-March 2026, or was missed in prior rounds
 - Relevant to harness engineering's problem space
 
 Exclusion criteria:
+
 - Frameworks already covered in Round 1 (Spec Kit, BMAD, GSD v1, Superpowers, Ralph Loop)
 - Frameworks already covered in Round 2 (Claude Flow/Ruflo, Gas Town, Turbo Flow, Devika, Tessl, Cursor P/W/J, OpenSpec)
 
@@ -74,6 +77,7 @@ Three research agents run concurrently:
 ### Synthesis
 
 After all agents return:
+
 - Merge findings into single document
 - Deduplicate patterns against Rounds 1 and 2
 - Build cross-framework analysis
@@ -83,7 +87,7 @@ After all agents return:
 
 - Each framework gets an honest verdict — no inflating importance
 - Adoptable patterns must be concrete enough to implement (not just conceptual observations)
-- Skip lists are explicit about *why* something doesn't fit harness philosophy
+- Skip lists are explicit about _why_ something doesn't fit harness philosophy
 - Roadmap addendum only includes patterns that survived deduplication against all 12 prior research entries (5 from Round 1, 7 from Round 2)
 
 ---
@@ -91,12 +95,16 @@ After all agents return:
 ## Prior Research Context
 
 ### Round 1 (Deep Dives)
+
 Spec Kit, BMAD Method, GSD, Superpowers, Ralph Loop
 
 ### Round 2 (Surface Analysis, 2026-03-14)
+
 Claude Flow/Ruflo, Gas Town, Turbo Flow, Devika, Tessl, Cursor P/W/J, OpenSpec
+
 - 14 adoptable patterns identified
 - Top 4: mechanical "done" criteria, checkpoint handoffs, phase gates, anti-pattern logs
 
 ### Round 3 (This Research)
+
 gstack, gsd-2, + landscape scan (estimated 4-8 additional frameworks)

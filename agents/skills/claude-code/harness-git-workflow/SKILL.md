@@ -3,6 +3,7 @@
 > Worktree setup, dependency installation, baseline verification, and branch finishing. Clean isolation for every workstream.
 
 ## When to Use
+
 - When starting work that should be isolated from the main branch (new feature, experiment, multi-task plan)
 - When finishing a branch and deciding how to land it (merge, PR, keep, discard)
 - When `on_pr` or `on_commit` triggers fire and worktree management is needed
@@ -35,11 +36,13 @@
 #### Step 3: Create Branch and Worktree
 
 1. **Create the branch** from the current HEAD (or from the specified base):
+
    ```
    git branch <branch-name> <base>
    ```
 
 2. **Create the worktree:**
+
    ```
    git worktree add <path> <branch-name>
    ```
@@ -50,15 +53,15 @@
 
 Inspect the worktree for project files and run the appropriate setup:
 
-| File Found | Action |
-|---|---|
-| `package.json` | `npm install` (or `yarn install` / `pnpm install` if lockfile indicates) |
-| `Cargo.toml` | `cargo build` |
-| `go.mod` | `go mod download` |
-| `requirements.txt` | `pip install -r requirements.txt` |
-| `pyproject.toml` | `pip install -e .` or `poetry install` |
-| `Gemfile` | `bundle install` |
-| `Makefile` (with `install` target) | `make install` |
+| File Found                         | Action                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| `package.json`                     | `npm install` (or `yarn install` / `pnpm install` if lockfile indicates) |
+| `Cargo.toml`                       | `cargo build`                                                            |
+| `go.mod`                           | `go mod download`                                                        |
+| `requirements.txt`                 | `pip install -r requirements.txt`                                        |
+| `pyproject.toml`                   | `pip install -e .` or `poetry install`                                   |
+| `Gemfile`                          | `bundle install`                                                         |
+| `Makefile` (with `install` target) | `make install`                                                           |
 
 If multiple project files exist (monorepo), install at the root level. Do not guess which subpackages to install — follow the project's documented setup or ask.
 
@@ -121,6 +124,7 @@ Present 4 options to the user:
 #### Step 3: Execute Chosen Strategy
 
 **If merge locally:**
+
 ```bash
 cd <main-repo-path>
 git merge <branch-name>
@@ -131,6 +135,7 @@ git branch -d <branch-name>
 ```
 
 **If push and create PR:**
+
 ```bash
 cd <worktree-path>
 git push -u origin <branch-name>
@@ -140,11 +145,13 @@ gh pr create --title "<title>" --body "<description>"
 ```
 
 **If keep as-is:**
+
 ```
 No action needed. Report the worktree path and branch name for future reference.
 ```
 
 **If discard:**
+
 ```bash
 # Confirm with user first — list commits that will be lost
 git worktree remove <worktree-path>
@@ -154,11 +161,13 @@ git branch -D <branch-name>
 #### Step 4: Clean Up
 
 1. **Remove the worktree** (unless keeping as-is or waiting for PR merge):
+
    ```
    git worktree remove <worktree-path>
    ```
 
 2. **Prune stale worktree references:**
+
    ```
    git worktree prune
    ```

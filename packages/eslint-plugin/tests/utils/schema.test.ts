@@ -22,9 +22,7 @@ describe('HarnessConfigSchema', () => {
   it('validates config with forbiddenImports', () => {
     const config = {
       version: 1,
-      forbiddenImports: [
-        { from: 'src/services/**', disallow: ['react'] },
-      ],
+      forbiddenImports: [{ from: 'src/services/**', disallow: ['react'] }],
     };
     const result = HarnessConfigSchema.safeParse(config);
     expect(result.success).toBe(true);

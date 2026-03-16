@@ -3,6 +3,7 @@
 > Run all mechanical constraint checks: linter rules, boundary schemas, and forbidden imports. These are automated, enforceable rules — if it can be checked by a machine, it must be.
 
 ## When to Use
+
 - Before every commit (ideally via pre-commit hook)
 - Before submitting a pull request for review
 - After any code generation or automated refactoring
@@ -28,18 +29,21 @@
 Organize violations into three tiers:
 
 **Tier 1 — Errors (must fix before commit):**
+
 - Forbidden imports (importing banned modules)
 - Layer boundary violations (importing across architectural boundaries)
 - Schema violations (config files that do not match required schema)
 - Missing required files (every package must have index.ts, etc.)
 
 **Tier 2 — Warnings (must fix before merge):**
+
 - Naming convention violations (wrong casing, wrong prefix)
 - Import ordering issues
 - Unused exports detected by linter
 - Documentation file references that do not resolve
 
 **Tier 3 — Info (fix when convenient):**
+
 - Style suggestions (formatting that does not affect behavior)
 - Complexity warnings (functions exceeding thresholds)
 - Minor inconsistencies with project conventions
@@ -54,6 +58,7 @@ Some violations can be fixed automatically without risk:
 - **Missing trailing commas, semicolons** — mechanical formatting fixes.
 
 **Rules for auto-fix:**
+
 - ONLY auto-fix violations that cannot change runtime behavior
 - Run the test suite after auto-fixing to confirm nothing broke
 - Present the auto-fix diff to the user for awareness (do not silently change code)
@@ -72,21 +77,27 @@ For each violation that was not auto-fixed, report:
 ## What Each Constraint Type Protects Against
 
 ### Forbidden Imports
+
 **Protects against:** Implementation detail leakage and unwanted coupling. When a library is forbidden in a layer, it is because using it there would create a dependency that makes the layer harder to test, replace, or maintain. Example: forbidding `fs` in the UI layer ensures UI code never directly accesses the filesystem.
 
 ### Layer Boundaries
+
 **Protects against:** Architectural erosion. Without enforced boundaries, codebases gradually become a tangle where everything depends on everything. Layer boundaries ensure changes in one area do not ripple unpredictably through the whole system.
 
 ### Boundary Schemas
+
 **Protects against:** Configuration drift and invalid state. When config files must match a schema, you catch invalid configurations at lint time rather than at runtime. This prevents deployment failures and hard-to-debug runtime errors.
 
 ### Naming Conventions
+
 **Protects against:** Cognitive overhead and inconsistency. Consistent naming means developers (human and AI) can predict file locations, function names, and module structure without searching. It also ensures automated tools that rely on naming patterns continue to work.
 
 ### Required File Rules
+
 **Protects against:** Incomplete modules. When every package must have an `index.ts` or every component must have a test file, you ensure that the project structure remains complete and navigable.
 
 ### Import Ordering
+
 **Protects against:** Merge conflicts and readability issues. Consistent import ordering reduces git conflicts when multiple developers add imports to the same file. It also makes imports scannable at a glance.
 
 ## Harness Integration
@@ -110,6 +121,7 @@ For each violation that was not auto-fixed, report:
 ### Example: Forbidden import detected
 
 **Violation:**
+
 ```
 ERROR [forbidden-import] src/components/Dashboard.tsx:3
   Import 'pg' is forbidden in layer 'ui'
@@ -123,6 +135,7 @@ ERROR [forbidden-import] src/components/Dashboard.tsx:3
 ### Example: Auto-fixable import ordering
 
 **Violation:**
+
 ```
 WARNING [import-order] src/services/auth-service.ts:1-8
   Imports are not in the configured order
@@ -131,6 +144,7 @@ WARNING [import-order] src/services/auth-service.ts:1-8
 ```
 
 **Auto-fix applied:**
+
 ```typescript
 // BEFORE
 import { hashPassword } from './utils';
@@ -148,6 +162,7 @@ Tests re-run: all passing. No behavioral change.
 ### Example: Schema violation in config
 
 **Violation:**
+
 ```
 ERROR [schema-violation] harness.config.json:24
   Property 'layers[2].allowedImports' must be an array of strings

@@ -62,6 +62,7 @@ git worktree add ../your-project-milestone-1 feature/milestone-1
 ```
 
 Now you have:
+
 ```
 /path/to/your-project                  ← main checkout (your normal work)
 /path/to/your-project-milestone-1      ← worktree (agent works here)
@@ -102,12 +103,12 @@ git branch -d feature/milestone-1
 
 ## When to Use Worktrees
 
-| Situation | Recommendation |
-|-----------|----------------|
-| Agent implementing a milestone (3-10 tasks) | Worktree on a feature branch |
-| Agent doing a single small task | Direct commit on feature branch (no worktree needed) |
-| Multiple agents working in parallel | One worktree per agent, each on its own branch, coordinate via handoff docs |
-| Hotfix while milestone in progress | Worktree on main or hotfix branch |
+| Situation                                   | Recommendation                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| Agent implementing a milestone (3-10 tasks) | Worktree on a feature branch                                                |
+| Agent doing a single small task             | Direct commit on feature branch (no worktree needed)                        |
+| Multiple agents working in parallel         | One worktree per agent, each on its own branch, coordinate via handoff docs |
+| Hotfix while milestone in progress          | Worktree on main or hotfix branch                                           |
 
 ---
 
@@ -125,6 +126,7 @@ main
 ```
 
 Problems:
+
 - Task 2 (rate limiting) needs the auth service from Task 1, but it's on a different branch
 - Merging Task 1 before starting Task 2 creates a sequential bottleneck with branch management overhead
 - If Task 3 tests discover a bug in Task 1, fixing it means cherry-picking or rebasing across branches

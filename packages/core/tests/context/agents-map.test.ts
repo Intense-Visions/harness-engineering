@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { extractMarkdownLinks, extractSections, validateAgentsMap } from '../../src/context/agents-map';
+import {
+  extractMarkdownLinks,
+  extractSections,
+  validateAgentsMap,
+} from '../../src/context/agents-map';
 import { join } from 'path';
 
 describe('extractMarkdownLinks', () => {

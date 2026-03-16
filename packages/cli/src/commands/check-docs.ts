@@ -25,7 +25,9 @@ interface CheckDocsResult {
   brokenLinks: string[];
 }
 
-export async function runCheckDocs(options: CheckDocsOptions): Promise<Result<CheckDocsResult, CLIError>> {
+export async function runCheckDocs(
+  options: CheckDocsOptions
+): Promise<Result<CheckDocsResult, CLIError>> {
   const cwd = options.cwd ?? process.cwd();
   const minCoverage = options.minCoverage ?? 80;
 
@@ -47,10 +49,12 @@ export async function runCheckDocs(options: CheckDocsOptions): Promise<Result<Ch
   });
 
   if (!coverageResult.ok) {
-    return Err(new CLIError(
-      `Documentation coverage check failed: ${coverageResult.error.message}`,
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(
+        `Documentation coverage check failed: ${coverageResult.error.message}`,
+        ExitCode.ERROR
+      )
+    );
   }
 
   // Check knowledge map for broken links
@@ -114,11 +118,13 @@ export function createCheckDocsCommand(): Command {
         console.log(JSON.stringify(result.value, null, 2));
       } else if (mode !== OutputMode.QUIET) {
         const { value } = result;
-        console.log(formatter.formatSummary(
-          'Documentation coverage',
-          `${value.coveragePercent.toFixed(1)}%`,
-          value.valid
-        ));
+        console.log(
+          formatter.formatSummary(
+            'Documentation coverage',
+            `${value.coveragePercent.toFixed(1)}%`,
+            value.valid
+          )
+        );
 
         if (value.undocumented.length > 0 && (mode === OutputMode.VERBOSE || !value.valid)) {
           console.log('\nUndocumented files:');

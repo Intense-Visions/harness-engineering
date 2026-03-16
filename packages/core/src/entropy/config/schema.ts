@@ -118,15 +118,11 @@ export const EntropyConfigSchema = z.object({
 /**
  * Validate pattern config
  */
-export function validatePatternConfig(
-  config: unknown
-): Result<PatternConfig, EntropyError> {
+export function validatePatternConfig(config: unknown): Result<PatternConfig, EntropyError> {
   const result = PatternConfigSchema.safeParse(config);
 
   if (!result.success) {
-    const issues = result.error.issues
-      .map(i => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
+    const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
 
     return Err(
       createEntropyError(

@@ -3,6 +3,7 @@
 > 3-level evidence-based verification. No completion claims without fresh evidence. "Should work" is not evidence.
 
 ## When to Use
+
 - After completing any implementation task (before claiming "done")
 - After executing a plan or spec (verify all deliverables)
 - When validating work done by another agent or in a previous session
@@ -15,10 +16,10 @@
 
 Harness uses a two-tier verification model:
 
-| Tier | Skill | When | What |
-|------|-------|------|------|
-| **Quick gate** | harness-execution (built-in) | After every task | test + lint + typecheck + build + harness validate |
-| **Deep audit** | harness-verification (this skill) | Milestones, PRs, on-demand | EXISTS → SUBSTANTIVE → WIRED |
+| Tier           | Skill                             | When                       | What                                               |
+| -------------- | --------------------------------- | -------------------------- | -------------------------------------------------- |
+| **Quick gate** | harness-execution (built-in)      | After every task           | test + lint + typecheck + build + harness validate |
+| **Deep audit** | harness-verification (this skill) | Milestones, PRs, on-demand | EXISTS → SUBSTANTIVE → WIRED                       |
 
 Use this skill (deep audit) for milestone boundaries, before creating PRs, or when the quick gate passes but something feels wrong. Do NOT invoke this skill after every individual task — that is what the quick gate handles.
 
@@ -198,6 +199,7 @@ All commands must be run fresh in the current session. Do not rely on results fr
 For mechanical checks (tests pass, lint clean, types check), results are binary — pass or fail. No tolerance.
 
 For behavioral verification (did the agent follow a convention, did the output match a style guide), accept threshold-based results:
+
 - Run the check multiple times if needed
 - "Agent followed the constraint in 4/5 runs" = pass
 - "Agent followed the constraint in 2/5 runs" = fail — the convention is poorly written, not the agent
@@ -256,4 +258,5 @@ Task: "Create UserService with create, read, update, delete operations."
 - **When you cannot run harness checks:** If `harness validate` or `harness check-deps` cannot be run (missing configuration, broken tooling), this is a blocking issue. Do not skip verification — fix the tooling or escalate.
 
 After verification completes, append a tagged learning:
+
 - **YYYY-MM-DD [skill:harness-verification] [outcome:pass/fail]:** Verified [feature]. [Brief note on what was found or confirmed.]

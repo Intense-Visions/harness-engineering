@@ -40,13 +40,13 @@ Add `required: boolean` to the `phases` array items in `skill.yaml`:
 phases:
   - name: red
     description: Write failing test
-    required: true          # Always runs
+    required: true # Always runs
   - name: green
     description: Implement minimal code
     required: true
   - name: refactor
     description: Clean up
-    required: false         # Skipped in light mode
+    required: false # Skipped in light mode
   - name: validate
     description: Run harness checks
     required: true
@@ -94,6 +94,7 @@ Output preamble injected into SKILL.md:
 
 ```markdown
 ## Active Phases (complexity: light, auto-detected)
+
 - RED (required)
 - GREEN (required)
 - VALIDATE (required)
@@ -124,18 +125,22 @@ Output preamble injected into SKILL.md:
 # Project Principles
 
 ## Code Quality
+
 - Explicit over implicit
 - No magic — every behavior traceable through code
 
 ## Architecture
+
 - Boundaries enforced by linters, not reviews
 - Data flows one direction through layers
 
 ## Testing
+
 - Test at boundaries, not internals
 - Integration tests over mocks
 
 ## Design
+
 - YAGNI ruthlessly
 - Depth-first: complete one feature before starting another
 ```
@@ -144,22 +149,25 @@ Output preamble injected into SKILL.md:
 
 ```markdown
 ## Documentation
+
 - Principles: `docs/principles.md`
 ```
 
 ### Validation
 
 `harness validate` checks:
+
 - Scan AGENTS.md for any line containing a path matching `*principles*` (e.g., `docs/principles.md`). If found, that file must exist on disk.
 - If `docs/principles.md` exists, verify it starts with `# ` heading and is not empty.
 
-Detection is a simple regex: `/(?:^|\s)`([^`\s]*principles[^`\s]*)`/gm` against AGENTS.md content. This catches both inline references and markdown links.
+Detection is a simple regex: `/(?:^|\s)`([^`\s]_principles[^`\s]_)`/gm` against AGENTS.md content. This catches both inline references and markdown links.
 
 No schema validation on principles content — principles are human-authored free text.
 
 ### Skill integration
 
 Skills that load principles when the file exists:
+
 - `harness-brainstorming` — design evaluation
 - `harness-planning` — decomposition decisions
 - `harness-code-review` — review against stated principles
@@ -169,6 +177,7 @@ Skills that load principles when the file exists:
 
 ```markdown
 ## Project Principles (from docs/principles.md)
+
 [principles content here]
 ```
 
@@ -206,6 +215,7 @@ Defaults to `docs/specs/` and `docs/plans/` if not configured.
 ### Four checks
 
 **1. Spec → Plan coverage**
+
 - Scans configured specs directory for spec files
 - Scans configured plans directory for plan files
 - Matches plans to specs via `**Spec:**` link in plan header
@@ -213,15 +223,18 @@ Defaults to `docs/specs/` and `docs/plans/` if not configured.
 - Warns about spec requirements with no corresponding plan task
 
 **2. Plan → Implementation coverage**
+
 - Parses plan task `**Files:** Create:` / `Modify:` lines
 - Checks that listed files exist on disk
 - Warns about planned-but-not-built files
 
 **3. Implementation → Plan alignment**
+
 - Detects files modified since the plan was last committed (via `git log`) that aren't listed in any plan
 - Warns about unplanned implementation (drift from plan)
 
 **4. Staleness detection**
+
 - Compares git commit timestamps: spec vs. plan vs. implementation files
 - Flags specs where implementation files were modified more recently than the spec
 - Flags plans where listed files were modified after the plan's last commit
@@ -302,9 +315,11 @@ The re-entry feature uses `skill.yaml`'s `state.files` array to locate state:
 
 ```markdown
 ## Resuming at Phase: hypothesize
+
 ## Prior state loaded from .harness/debug/active/issue-name.md
-[state content]
----
+
+## [state content]
+
 [SKILL.md content from Phase 3 onward]
 ```
 
@@ -324,7 +339,12 @@ Same state-aware logic. For MCP (non-interactive), if no state exists and confir
 
 ```json
 {
-  "content": [{ "type": "text", "text": "Warning: No prior phase data found. Proceeding without context from earlier phases." }]
+  "content": [
+    {
+      "type": "text",
+      "text": "Warning: No prior phase data found. Proceeding without context from earlier phases."
+    }
+  ]
 }
 ```
 
@@ -340,15 +360,15 @@ harness skill run harness-brainstorming --party
 
 ### Context-driven perspective selection
 
-| Design Topic | Perspectives |
-|---|---|
-| API / backend service | Backend Developer, API Consumer, Operations |
-| UI / frontend feature | Developer, Designer, End User |
-| Infrastructure / DevOps | Architect, SRE, Developer |
-| Data model / schema | Backend Developer, Data Consumer, Migration |
-| Library / SDK | Library Author, Library Consumer, Maintainer |
-| Cross-cutting (auth, logging) | Architect, Security, Developer |
-| Default (unclear topic) | Architect, Developer, User/Consumer |
+| Design Topic                  | Perspectives                                 |
+| ----------------------------- | -------------------------------------------- |
+| API / backend service         | Backend Developer, API Consumer, Operations  |
+| UI / frontend feature         | Developer, Designer, End User                |
+| Infrastructure / DevOps       | Architect, SRE, Developer                    |
+| Data model / schema           | Backend Developer, Data Consumer, Migration  |
+| Library / SDK                 | Library Author, Library Consumer, Maintainer |
+| Cross-cutting (auth, logging) | Architect, Security, Developer               |
+| Default (unclear topic)       | Architect, Developer, User/Consumer          |
 
 The skill determines the topic from the brainstorming context and selects perspectives automatically.
 
@@ -387,13 +407,13 @@ The `--party` flag is passed through CLI/MCP preamble injection. The `run_skill`
 
 ## Implementation Summary
 
-| Enhancement | Touches | Scope |
-|---|---|---|
-| Scale-adaptive rigor | `SkillPhaseSchema` (add `required`), `harness skill run` (add `--complexity`, auto-detect), `run_skill` MCP input, skill.yaml files (add `required` to phases) | Schema + CLI + MCP + skill configs |
-| Constitution/principles | `harness validate` (principles check), `harness skill run` (inject principles), `harness init` templates, SKILL.md content for 4 skills | CLI + templates + skill content |
-| Cross-artifact validation | New `validate-cross-check.ts` module, `harness validate --cross-check` flag | CLI only |
-| Workflow re-entry | `harness skill run` (add `--phase`, state loading, confirmation), `run_skill` MCP input | CLI + MCP |
-| Party mode | `harness-brainstorming/SKILL.md` content update | Skill content only |
+| Enhancement               | Touches                                                                                                                                                        | Scope                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Scale-adaptive rigor      | `SkillPhaseSchema` (add `required`), `harness skill run` (add `--complexity`, auto-detect), `run_skill` MCP input, skill.yaml files (add `required` to phases) | Schema + CLI + MCP + skill configs |
+| Constitution/principles   | `harness validate` (principles check), `harness skill run` (inject principles), `harness init` templates, SKILL.md content for 4 skills                        | CLI + templates + skill content    |
+| Cross-artifact validation | New `validate-cross-check.ts` module, `harness validate --cross-check` flag                                                                                    | CLI only                           |
+| Workflow re-entry         | `harness skill run` (add `--phase`, state loading, confirmation), `run_skill` MCP input                                                                        | CLI + MCP                          |
+| Party mode                | `harness-brainstorming/SKILL.md` content update                                                                                                                | Skill content only                 |
 
 ### Implementation order
 

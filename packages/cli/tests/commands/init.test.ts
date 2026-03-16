@@ -29,7 +29,12 @@ describe('runInit', () => {
 
   it('scaffolds with nextjs overlay', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
-    const result = await runInit({ cwd: tmpDir, name: 'test-project', level: 'basic', framework: 'nextjs' });
+    const result = await runInit({
+      cwd: tmpDir,
+      name: 'test-project',
+      level: 'basic',
+      framework: 'nextjs',
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(fs.existsSync(path.join(tmpDir, 'next.config.mjs'))).toBe(true);

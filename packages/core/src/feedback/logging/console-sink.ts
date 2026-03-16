@@ -21,9 +21,8 @@ export class ConsoleSink implements ActionSink {
   }
 
   async write(action: AgentAction): Promise<Result<void, FeedbackError>> {
-    const output = this.options.format === 'json'
-      ? JSON.stringify(action)
-      : this.formatPretty(action);
+    const output =
+      this.options.format === 'json' ? JSON.stringify(action) : this.formatPretty(action);
 
     console.log(output);
     return Ok(undefined);

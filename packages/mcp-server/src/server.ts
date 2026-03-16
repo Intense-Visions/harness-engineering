@@ -8,12 +8,39 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
-import { checkDocsDefinition, handleCheckDocs, validateKnowledgeMapDefinition, handleValidateKnowledgeMap } from './tools/docs.js';
-import { detectEntropyDefinition, handleDetectEntropy, applyFixesDefinition, handleApplyFixes } from './tools/entropy.js';
-import { generateLinterDefinition, handleGenerateLinter, validateLinterConfigDefinition, handleValidateLinterConfig } from './tools/linter.js';
+import {
+  checkDocsDefinition,
+  handleCheckDocs,
+  validateKnowledgeMapDefinition,
+  handleValidateKnowledgeMap,
+} from './tools/docs.js';
+import {
+  detectEntropyDefinition,
+  handleDetectEntropy,
+  applyFixesDefinition,
+  handleApplyFixes,
+} from './tools/entropy.js';
+import {
+  generateLinterDefinition,
+  handleGenerateLinter,
+  validateLinterConfigDefinition,
+  handleValidateLinterConfig,
+} from './tools/linter.js';
 import { initProjectDefinition, handleInitProject } from './tools/init.js';
-import { listPersonasDefinition, handleListPersonas, generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, runPersonaDefinition, handleRunPersona } from './tools/persona.js';
-import { addComponentDefinition, handleAddComponent, runAgentTaskDefinition, handleRunAgentTask } from './tools/agent.js';
+import {
+  listPersonasDefinition,
+  handleListPersonas,
+  generatePersonaArtifactsDefinition,
+  handleGeneratePersonaArtifacts,
+  runPersonaDefinition,
+  handleRunPersona,
+} from './tools/persona.js';
+import {
+  addComponentDefinition,
+  handleAddComponent,
+  runAgentTaskDefinition,
+  handleRunAgentTask,
+} from './tools/agent.js';
 import { runSkillDefinition, handleRunSkill } from './tools/skill.js';
 import { getSkillsResource } from './resources/skills.js';
 import { getRulesResource } from './resources/rules.js';
@@ -21,7 +48,9 @@ import { getProjectResource } from './resources/project.js';
 import { getLearningsResource } from './resources/learnings.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
-type ToolHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
+type ToolHandler = (
+  input: Record<string, unknown>
+) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
 
 const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateToolDefinition,
@@ -62,7 +91,8 @@ const RESOURCE_DEFINITIONS = [
   {
     uri: 'harness://skills',
     name: 'Harness Skills',
-    description: 'Available skills with metadata (name, description, cognitive_mode, type, triggers)',
+    description:
+      'Available skills with metadata (name, description, cognitive_mode, type, triggers)',
     mimeType: 'application/json',
   },
   {

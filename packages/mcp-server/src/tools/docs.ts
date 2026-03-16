@@ -24,7 +24,15 @@ export async function handleCheckDocs(input: { path: string; domain?: string }) 
     });
     return resultToMcpResponse(result);
   } catch (error) {
-    return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
   }
 }
 
@@ -46,6 +54,14 @@ export async function handleValidateKnowledgeMap(input: { path: string }) {
     const result = await validateKnowledgeMap(path.resolve(input.path));
     return resultToMcpResponse(result);
   } catch (error) {
-    return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
   }
 }

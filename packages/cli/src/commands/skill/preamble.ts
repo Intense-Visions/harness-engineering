@@ -10,9 +10,9 @@ interface PreambleOptions {
   complexity?: 'light' | 'full';
   phases?: Phase[];
   principles?: string;
-  phase?: string;           // re-entry phase name
-  priorState?: string;      // loaded state content
-  stateWarning?: string;    // warning if no state
+  phase?: string; // re-entry phase name
+  priorState?: string; // loaded state content
+  stateWarning?: string; // warning if no state
   party?: boolean;
 }
 
@@ -51,7 +51,9 @@ export function buildPreamble(options: PreambleOptions): string {
 
   // Party mode
   if (options.party) {
-    sections.push('## Party Mode: Active\nEvaluate each approach from multiple contextually relevant perspectives before converging on a recommendation.');
+    sections.push(
+      '## Party Mode: Active\nEvaluate each approach from multiple contextually relevant perspectives before converging on a recommendation.'
+    );
   }
 
   return sections.length > 0 ? sections.join('\n\n---\n\n') + '\n\n---\n\n' : '';

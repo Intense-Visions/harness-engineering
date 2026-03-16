@@ -17,6 +17,7 @@
 ### Task 1: Add Principle 7 to principles.md
 
 **Files:**
+
 - Modify: `docs/standard/principles.md`
 
 - [ ] **Step 1: Insert Principle 7 before the Summary section**
@@ -32,7 +33,7 @@ In `docs/standard/principles.md`, insert the following content between the `---`
 
 > **If an operation can be expressed as if-else logic, it MUST be enforced mechanically — not delegated to LLM judgment.**
 
-This principle extends [Principle 2 (Architectural Rigidity)](#2-architectural-rigidity--mechanical-constraints) from *what to enforce* to *how to decide what to enforce*. Principle 2 says "use mechanical constraints." This principle says "here is the line between what the machine handles and what the LLM handles."
+This principle extends [Principle 2 (Architectural Rigidity)](#2-architectural-rigidity--mechanical-constraints) from _what to enforce_ to _how to decide what to enforce_. Principle 2 says "use mechanical constraints." This principle says "here is the line between what the machine handles and what the LLM handles."
 
 ### Why It Matters
 
@@ -56,20 +57,20 @@ With a clear split:
 
 #### The Responsibility Matrix
 
-| Responsibility | Owner | Examples |
-|---------------|-------|----------|
-| Intent understanding | LLM | "What does the user want to build?" |
-| Architectural reasoning | LLM | "Should this be a service or a utility?" |
-| Code generation | LLM | Writing implementation code |
-| Debugging decisions | LLM | "What's causing this failure?" |
-| Ambiguous trade-offs | LLM | "Should we optimize for speed or readability?" |
-| Formatting | Mechanical | Prettier, Black, gofmt |
-| Import ordering | Mechanical | ESLint import-order rules |
-| Naming conventions | Mechanical | Linter rules for file/variable naming |
-| File structure validation | Mechanical | Structural tests, directory layout checks |
-| Test execution | Mechanical | Test runners, CI pipelines |
-| Type checking | Mechanical | TypeScript compiler, mypy, rustc |
-| Dependency direction | Mechanical | Custom linter rules (see Principle 2) |
+| Responsibility            | Owner      | Examples                                       |
+| ------------------------- | ---------- | ---------------------------------------------- |
+| Intent understanding      | LLM        | "What does the user want to build?"            |
+| Architectural reasoning   | LLM        | "Should this be a service or a utility?"       |
+| Code generation           | LLM        | Writing implementation code                    |
+| Debugging decisions       | LLM        | "What's causing this failure?"                 |
+| Ambiguous trade-offs      | LLM        | "Should we optimize for speed or readability?" |
+| Formatting                | Mechanical | Prettier, Black, gofmt                         |
+| Import ordering           | Mechanical | ESLint import-order rules                      |
+| Naming conventions        | Mechanical | Linter rules for file/variable naming          |
+| File structure validation | Mechanical | Structural tests, directory layout checks      |
+| Test execution            | Mechanical | Test runners, CI pipelines                     |
+| Type checking             | Mechanical | TypeScript compiler, mypy, rustc               |
+| Dependency direction      | Mechanical | Custom linter rules (see Principle 2)          |
 
 #### The Decision Heuristic
 
@@ -90,8 +91,8 @@ Examples of applying the heuristic:
 #### Deterministic-First Execution
 
 When a skill or workflow produces code, it should follow this sequence:
-
 ```
+
 1. LLM generates code (creative phase)
 2. Mechanical checks run (deterministic phase)
    - Format (prettier, black)
@@ -101,7 +102,8 @@ When a skill or workflow produces code, it should follow this sequence:
 3. If mechanical checks fail → LLM fixes (targeted creative phase)
 4. Repeat until mechanical checks pass
 5. LLM self-review (creative phase — only after deterministic checks pass)
-```
+
+````
 
 This sequence ensures LLM effort is never spent on issues that mechanical tools catch faster and more reliably.
 
@@ -122,7 +124,7 @@ Every skill that produces or modifies code should include a `## Deterministic Ch
 - [ ] Tests pass (existing + new)
 - [ ] File naming conventions followed
 - [ ] No unresolved merge conflicts
-```
+````
 
 Skills that only read or analyze (e.g., review, planning) may have lighter deterministic checks (e.g., "target files exist"). Skills that write code must include the full post-execution checks.
 
@@ -165,6 +167,7 @@ Decision: **LLM judgment** (documented as review guidance)
 ## Review Guidance: Abstraction Quality
 
 When reviewing service code, consider:
+
 - Does each service have a single domain concept?
 - Are there signs of a god object (>5 public methods)?
 - Could any method be extracted to a shared utility?
@@ -196,7 +199,8 @@ The LLM reviewer never comments on formatting or import order — those are alre
 - [ ] Add `## Deterministic Checks` section to all code-producing skills
 - [ ] Ensure skill execution follows deterministic-first sequence
 - [ ] Measure: track the ratio of mechanical rules to total rules (Harness Coverage KPI)
-```
+
+````
 
 - [ ] **Step 2: Update the Summary section to include Principle 7**
 
@@ -222,7 +226,7 @@ Adopt them progressively:
 - **Level 3**: Add Agent Feedback Loop + Entropy Management
 
 [← Back to Overview](./index.md) | [Implementation Guide →](./implementation.md) | [KPIs & Metrics →](./kpis.md)
-```
+````
 
 - [ ] **Step 3: Update the document title**
 
@@ -262,6 +266,7 @@ git commit -m "docs(principles): add Principle 7 — Deterministic-vs-LLM Respon
 ### Task 2: Update index.md to reference Principle 7
 
 **Files:**
+
 - Modify: `docs/standard/index.md`
 
 - [ ] **Step 6: Add Principle 7 summary to index.md**
@@ -319,13 +324,14 @@ git commit -m "docs(standard): update index.md to reference 7th principle"
 ### Task 3: Add handoff schema convention to implementation.md
 
 **Files:**
+
 - Modify: `docs/standard/implementation.md`
 
 - [ ] **Step 11: Insert Conventions & Standards section before Measuring Success**
 
 In `docs/standard/implementation.md`, insert the following content immediately before the `## Measuring Success` heading (which is at line 1022):
 
-```markdown
+````markdown
 ## Conventions & Standards
 
 These conventions are referenced by skills and workflows. They are not mechanically enforced yet — they are documented standards that agents follow by convention. Future workflow gates (see the research roadmap) may add mechanical enforcement.
@@ -342,30 +348,36 @@ These conventions are referenced by skills and workflows. They are not mechanica
 # Handoff: [phase/skill name]
 
 ## Completed
+
 - [what was done, with file paths]
 - Example: Created `src/services/auth.ts` with JWT validation logic
 - Example: Updated `docs/guides/authentication.md` with new flow diagram
 
 ## Discovered
+
 - [unexpected findings, edge cases, dependencies found]
 - Example: The existing UserService has a circular dependency with AuthService
 - Example: Rate limiting is not implemented on the /login endpoint
 
 ## Blocked
+
 - [what couldn't be completed and why]
 - Example: Cannot add Redis caching — redis client package not in dependencies
 - Example: Integration test requires database seed data that doesn't exist yet
 
 ## Test Results
+
 - [pass/fail summary with command output]
 - Example: 14/14 unit tests passing
 - Example: 2/3 integration tests passing — `test-login-rate-limit` skipped (see Blocked)
 
 ## Next Steps
+
 - [what the next skill/phase should do]
 - Example: Run `harness-code-review` on the auth service changes
 - Example: Address the circular dependency before adding caching
 ```
+````
 
 **When to write a handoff:**
 
@@ -381,14 +393,14 @@ These conventions are referenced by skills and workflows. They are not mechanica
 - Each handoff overwrites the previous one — it captures the current state, not history
 - For historical context, the anti-pattern log (below) and git history serve as the record
 
-```
+````
 
 - [ ] **Step 12: Commit handoff schema addition**
 
 ```bash
 git add docs/standard/implementation.md
 git commit -m "docs(implementation): add checkpoint-based context handoff schema convention"
-```
+````
 
 ---
 
@@ -397,13 +409,14 @@ git commit -m "docs(implementation): add checkpoint-based context handoff schema
 ### Task 4: Add anti-pattern log convention to implementation.md
 
 **Files:**
+
 - Modify: `docs/standard/implementation.md`
 
 - [ ] **Step 13: Insert anti-pattern log convention after the handoff schema section**
 
 In `docs/standard/implementation.md`, immediately after the handoff schema section added in Step 11 (and still before `## Measuring Success`), insert:
 
-```markdown
+````markdown
 ### Anti-Pattern Log
 
 **Convention:** Maintain an append-only log at `.harness/anti-patterns.md` that records failed approaches, dead ends, and lessons learned during agent work.
@@ -419,6 +432,7 @@ In `docs/standard/implementation.md`, immediately after the handoff schema secti
 **Failed because:** [why it didn't work]
 **What worked instead:** [the successful approach]
 ```
+````
 
 **Example entries:**
 
@@ -458,7 +472,7 @@ In `docs/standard/implementation.md`, immediately after the handoff schema secti
 - General best practices (those go in `docs/guides/best-practices.md`)
 - Opinions or preferences (those go in ADRs)
 
-```
+````
 
 - [ ] **Step 14: Update last-updated date in implementation.md**
 
@@ -469,7 +483,7 @@ Change `_Last Updated: 2026-03-11_` to `_Last Updated: 2026-03-16_`.
 ```bash
 git add docs/standard/implementation.md
 git commit -m "docs(implementation): add anti-pattern log convention"
-```
+````
 
 ---
 
@@ -478,6 +492,7 @@ git commit -m "docs(implementation): add anti-pattern log convention"
 ### Task 5: Create agent-worktree-patterns.md
 
 **Files:**
+
 - Create: `docs/guides/agent-worktree-patterns.md`
 
 - [ ] **Step 16: Create the worktree patterns guide**
@@ -513,15 +528,16 @@ Traditional human workflows often use one branch per task or feature. This works
 2. **Create a git worktree** for that branch — a separate checkout directory
 3. **Commit sequentially** on that branch as tasks complete
 4. **Squash-merge to main** when the milestone is done
+```
 
-```
 main ─────────────────────────────●── (squash merge)
-                                  │
+│
 feature/milestone-1 ──●──●──●──●─┘
-                      │  │  │  │
-                    task task task task
-                     1    2   3   4
-```
+│ │ │ │
+task task task task
+1 2 3 4
+
+````
 
 Each task gets its own commit (or commits), but they all land on the same branch in sequence. No concurrent branches means no merge conflicts between tasks.
 
@@ -546,9 +562,10 @@ git branch feature/milestone-1
 
 # Create a worktree for that branch in a sibling directory
 git worktree add ../your-project-milestone-1 feature/milestone-1
-```
+````
 
 Now you have:
+
 ```
 /path/to/your-project                  ← main checkout (your normal work)
 /path/to/your-project-milestone-1      ← worktree (agent works here)
@@ -589,12 +606,12 @@ git branch -d feature/milestone-1
 
 ## When to Use Worktrees
 
-| Situation | Recommendation |
-|-----------|----------------|
-| Agent implementing a milestone (3-10 tasks) | Worktree on a feature branch |
-| Agent doing a single small task | Direct commit on feature branch (no worktree needed) |
-| Multiple agents working in parallel | One worktree per agent, each on its own branch, coordinate via handoff docs |
-| Hotfix while milestone in progress | Worktree on main or hotfix branch |
+| Situation                                   | Recommendation                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| Agent implementing a milestone (3-10 tasks) | Worktree on a feature branch                                                |
+| Agent doing a single small task             | Direct commit on feature branch (no worktree needed)                        |
+| Multiple agents working in parallel         | One worktree per agent, each on its own branch, coordinate via handoff docs |
+| Hotfix while milestone in progress          | Worktree on main or hotfix branch                                           |
 
 ---
 
@@ -612,6 +629,7 @@ main
 ```
 
 Problems:
+
 - Task 2 (rate limiting) needs the auth service from Task 1, but it's on a different branch
 - Merging Task 1 before starting Task 2 creates a sequential bottleneck with branch management overhead
 - If Task 3 tests discover a bug in Task 1, fixing it means cherry-picking or rebasing across branches
@@ -653,18 +671,20 @@ This keeps the merge surface small: instead of N tasks creating N(N-1)/2 potenti
 ---
 
 _Last Updated: 2026-03-16_
-```
+
+````
 
 - [ ] **Step 17: Commit worktree guide**
 
 ```bash
 git add docs/guides/agent-worktree-patterns.md
 git commit -m "docs(guides): add branchless worktree guidance for agent workflows"
-```
+````
 
 ### Task 6: Update guides index
 
 **Files:**
+
 - Modify: `docs/guides/index.md`
 
 - [ ] **Step 18: Add worktree guide to the guides index**
@@ -704,6 +724,7 @@ git commit -m "docs(guides): add agent-worktree-patterns to guides index"
 - [ ] **Step 21: Verify all file paths are correct**
 
 Confirm these files exist and have been modified:
+
 - `docs/standard/principles.md` — now has 7 principles
 - `docs/standard/index.md` — references 7 principles
 - `docs/standard/implementation.md` — has Conventions & Standards section with handoff schema and anti-pattern log
@@ -713,6 +734,7 @@ Confirm these files exist and have been modified:
 - [ ] **Step 22: Verify internal links resolve**
 
 Check that these cross-references in the new content point to existing anchors:
+
 - `principles.md#2-architectural-rigidity--mechanical-constraints` (referenced in Principle 7)
 - `./principles.md#7-deterministic-vs-llm-responsibility-split` (referenced in index.md)
 - `docs/guides/best-practices.md` (referenced in anti-pattern log section)

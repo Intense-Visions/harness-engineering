@@ -3,6 +3,7 @@
 > Validate AGENTS.md quality and evolve it as the codebase changes. Good context engineering means AI agents always have accurate, current knowledge about the project.
 
 ## When to Use
+
 - After adding new files, modules, or packages to the project
 - After renaming, moving, or deleting significant files
 - After changing public APIs, architectural patterns, or conventions
@@ -84,6 +85,7 @@ Good context engineering treats AGENTS.md as a **dynamic knowledge base**, not a
 ### Example: New module added but not documented
 
 **Audit output from `harness check-docs`:**
+
 ```
 WARNING: Undocumented file detected: src/services/notification-service.ts
   - File contains 3 public exports: NotificationService, NotificationType, sendNotification
@@ -92,6 +94,7 @@ WARNING: Undocumented file detected: src/services/notification-service.ts
 ```
 
 **Suggested update:**
+
 ```markdown
 ### Notification Service (`src/services/notification-service.ts`)
 
@@ -110,6 +113,7 @@ Slack SDK) outside this module is forbidden.
 ### Example: Renamed function still referenced by old name
 
 **Audit output:**
+
 ```
 ERROR: Broken reference in AGENTS.md line 47: `calculateShipping()`
   - Function was renamed to `computeShippingCost()` in commit abc123

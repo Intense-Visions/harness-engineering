@@ -39,7 +39,9 @@ interface FixDriftResult {
   }>;
 }
 
-export async function runFixDrift(options: FixDriftOptions): Promise<Result<FixDriftResult, CLIError>> {
+export async function runFixDrift(
+  options: FixDriftOptions
+): Promise<Result<FixDriftResult, CLIError>> {
   const cwd = options.cwd ?? process.cwd();
   // Default to dry-run mode
   const dryRun = options.dryRun !== false;
@@ -70,30 +72,27 @@ export async function runFixDrift(options: FixDriftOptions): Promise<Result<FixD
   // 1. Build codebase snapshot
   const snapshotResult = await buildSnapshot(entropyConfig);
   if (!snapshotResult.ok) {
-    return Err(new CLIError(
-      `Failed to build snapshot: ${snapshotResult.error.message}`,
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(`Failed to build snapshot: ${snapshotResult.error.message}`, ExitCode.ERROR)
+    );
   }
   const snapshot = snapshotResult.value;
 
   // 2. Detect drift
   const driftResult = await detectDocDrift(snapshot);
   if (!driftResult.ok) {
-    return Err(new CLIError(
-      `Failed to detect drift: ${driftResult.error.message}`,
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(`Failed to detect drift: ${driftResult.error.message}`, ExitCode.ERROR)
+    );
   }
   const driftReport = driftResult.value;
 
   // 3. Detect dead code
   const deadCodeResult = await detectDeadCode(snapshot);
   if (!deadCodeResult.ok) {
-    return Err(new CLIError(
-      `Failed to detect dead code: ${deadCodeResult.error.message}`,
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError(`Failed to detect dead code: ${deadCodeResult.error.message}`, ExitCode.ERROR)
+    );
   }
   const deadCodeReport = deadCodeResult.value;
 
@@ -106,10 +105,9 @@ export async function runFixDrift(options: FixDriftOptions): Promise<Result<FixD
   if (!dryRun && fixes.length > 0) {
     const applyResult = await applyFixes(fixes, { dryRun: false });
     if (!applyResult.ok) {
-      return Err(new CLIError(
-        `Failed to apply fixes: ${applyResult.error.message}`,
-        ExitCode.ERROR
-      ));
+      return Err(
+        new CLIError(`Failed to apply fixes: ${applyResult.error.message}`, ExitCode.ERROR)
+      );
     }
 
     for (const fix of applyResult.value.applied) {
@@ -203,15 +201,21 @@ export function createFixDriftCommand(): Command {
 
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(result.value, null, 2));
-      } else if (mode !== OutputMode.QUIET || result.value.fixes.length > 0 || result.value.suggestions.length > 0) {
+      } else if (
+        mode !== OutputMode.QUIET ||
+        result.value.fixes.length > 0 ||
+        result.value.suggestions.length > 0
+      ) {
         const { value } = result;
 
         const statusMessage = value.dryRun ? '(dry-run)' : '';
-        console.log(formatter.formatSummary(
-          `Fix drift ${statusMessage}`,
-          `${value.fixes.length} fixes, ${value.suggestions.length} suggestions`,
-          value.fixes.length === 0 && value.suggestions.length === 0
-        ));
+        console.log(
+          formatter.formatSummary(
+            `Fix drift ${statusMessage}`,
+            `${value.fixes.length} fixes, ${value.suggestions.length} suggestions`,
+            value.fixes.length === 0 && value.suggestions.length === 0
+          )
+        );
 
         if (value.fixes.length > 0) {
           console.log('\nFixes:');
@@ -224,7 +228,10 @@ export function createFixDriftCommand(): Command {
           }
         }
 
-        if (value.suggestions.length > 0 && (mode === OutputMode.VERBOSE || value.fixes.length === 0)) {
+        if (
+          value.suggestions.length > 0 &&
+          (mode === OutputMode.VERBOSE || value.fixes.length === 0)
+        ) {
           console.log('\nSuggestions:');
           for (const suggestion of value.suggestions.slice(0, 10)) {
             console.log(`  - ${suggestion.file}: ${suggestion.suggestion}`);

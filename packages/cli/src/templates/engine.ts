@@ -55,7 +55,11 @@ export class TemplateEngine {
       }
       return Ok(templates);
     } catch (error) {
-      return Err(new Error(`Failed to list templates: ${error instanceof Error ? error.message : String(error)}`));
+      return Err(
+        new Error(
+          `Failed to list templates: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
     }
   }
 
@@ -66,7 +70,8 @@ export class TemplateEngine {
     const metaPath = path.join(levelDir, 'template.json');
     const metaRaw = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
     const metaResult = TemplateMetadataSchema.safeParse(metaRaw);
-    if (!metaResult.success) return Err(new Error(`Invalid template.json in ${level}: ${metaResult.error.message}`));
+    if (!metaResult.success)
+      return Err(new Error(`Invalid template.json in ${level}: ${metaResult.error.message}`));
 
     const metadata = metaResult.data;
     let files: TemplateFile[] = [];
@@ -116,7 +121,11 @@ export class TemplateEngine {
           }
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          return Err(new Error(`Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`));
+          return Err(
+            new Error(
+              `Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`
+            )
+          );
         }
       } else {
         try {
@@ -124,7 +133,11 @@ export class TemplateEngine {
           rendered.push({ relativePath: file.relativePath, content });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          return Err(new Error(`Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`));
+          return Err(
+            new Error(
+              `Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`
+            )
+          );
         }
       }
     }
@@ -133,7 +146,10 @@ export class TemplateEngine {
       for (const [outputPath, jsons] of jsonBuffers) {
         let merged: Record<string, unknown> = {};
         for (const json of jsons) {
-          merged = outputPath === 'package.json' ? mergePackageJson(merged, json) : deepMergeJson(merged, json);
+          merged =
+            outputPath === 'package.json'
+              ? mergePackageJson(merged, json)
+              : deepMergeJson(merged, json);
         }
         rendered.push({ relativePath: outputPath, content: JSON.stringify(merged, null, 2) });
       }
@@ -158,7 +174,11 @@ export class TemplateEngine {
       }
       return Ok(written);
     } catch (error) {
-      return Err(new Error(`Failed to write files: ${error instanceof Error ? error.message : String(error)}`));
+      return Err(
+        new Error(
+          `Failed to write files: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
     }
   }
 
@@ -171,8 +191,10 @@ export class TemplateEngine {
       const raw = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
       const parsed = TemplateMetadataSchema.safeParse(raw);
       if (!parsed.success) continue;
-      if (type === 'level' && parsed.data.level === name) return path.join(this.templatesDir, entry.name);
-      if (type === 'framework' && parsed.data.framework === name) return path.join(this.templatesDir, entry.name);
+      if (type === 'level' && parsed.data.level === name)
+        return path.join(this.templatesDir, entry.name);
+      if (type === 'framework' && parsed.data.framework === name)
+        return path.join(this.templatesDir, entry.name);
       if (parsed.data.name === name) return path.join(this.templatesDir, entry.name);
     }
     return null;

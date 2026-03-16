@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/commands/check-phase-gate';
+import {
+  createCheckPhaseGateCommand,
+  runCheckPhaseGate,
+} from '../../src/commands/check-phase-gate';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -72,9 +75,7 @@ describe('check-phase-gate command', () => {
         phaseGates: {
           enabled: true,
           severity: 'error',
-          mappings: [
-            { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' },
-          ],
+          mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }],
         },
       });
 
@@ -98,9 +99,7 @@ describe('check-phase-gate command', () => {
         phaseGates: {
           enabled: true,
           severity: 'error',
-          mappings: [
-            { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' },
-          ],
+          mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }],
         },
       });
 
@@ -125,9 +124,7 @@ describe('check-phase-gate command', () => {
         phaseGates: {
           enabled: true,
           severity: 'warning',
-          mappings: [
-            { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' },
-          ],
+          mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }],
         },
       });
 

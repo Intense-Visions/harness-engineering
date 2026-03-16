@@ -66,8 +66,10 @@ export class ChecklistBuilder {
           check: 'Architectural Constraints (dependencies, boundaries)',
           passed: true,
           severity: 'info',
-          details: 'Harness constraints validation not yet integrated. See Module 3 (constraints/).',
-          suggestion: 'Integrate with validateDependencies(), detectCircularDeps() from constraints module',
+          details:
+            'Harness constraints validation not yet integrated. See Module 3 (constraints/).',
+          suggestion:
+            'Integrate with validateDependencies(), detectCircularDeps() from constraints module',
         });
       }
       if (this.harnessOptions.entropy) {
@@ -126,10 +128,10 @@ export class ChecklistBuilder {
     }
 
     // Calculate summary
-    const passed = items.filter(i => i.passed).length;
-    const failed = items.filter(i => !i.passed).length;
-    const errors = items.filter(i => !i.passed && i.severity === 'error').length;
-    const warnings = items.filter(i => !i.passed && i.severity === 'warning').length;
+    const passed = items.filter((i) => i.passed).length;
+    const failed = items.filter((i) => !i.passed).length;
+    const errors = items.filter((i) => !i.passed && i.severity === 'error').length;
+    const warnings = items.filter((i) => !i.passed && i.severity === 'warning').length;
 
     const checklist: ReviewChecklist = {
       items,

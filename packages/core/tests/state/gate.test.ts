@@ -36,7 +36,9 @@ describe('runMechanicalGate', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.checks.length).toBeGreaterThan(0);
-      expect(result.value.checks.every(c => c.name && c.command && typeof c.passed === 'boolean')).toBe(true);
+      expect(
+        result.value.checks.every((c) => c.name && c.command && typeof c.passed === 'boolean')
+      ).toBe(true);
     }
   });
 
@@ -76,8 +78,8 @@ describe('runMechanicalGate', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.passed).toBe(false);
-      expect(result.value.checks.find(c => c.name === 'pass')?.passed).toBe(true);
-      expect(result.value.checks.find(c => c.name === 'fail')?.passed).toBe(false);
+      expect(result.value.checks.find((c) => c.name === 'pass')?.passed).toBe(true);
+      expect(result.value.checks.find((c) => c.name === 'fail')?.passed).toBe(false);
     }
   });
 });

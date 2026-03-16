@@ -16,22 +16,31 @@ describe('contextBudget', () => {
 
   it('all categories sum to approximately total', () => {
     const budget = contextBudget(100000);
-    const sum = budget.systemPrompt + budget.projectManifest + budget.taskSpec +
-                budget.activeCode + budget.interfaces + budget.reserve;
+    const sum =
+      budget.systemPrompt +
+      budget.projectManifest +
+      budget.taskSpec +
+      budget.activeCode +
+      budget.interfaces +
+      budget.reserve;
     // Floor rounding may lose a few tokens
     expect(sum).toBeLessThanOrEqual(budget.total);
     expect(sum).toBeGreaterThan(budget.total - 10);
   });
 
   it('accepts overrides and redistributes remaining budget', () => {
-    const budget = contextBudget(100000, { activeCode: 0.60 });
+    const budget = contextBudget(100000, { activeCode: 0.6 });
 
     expect(budget.activeCode).toBe(60000);
     // Other categories should be proportionally reduced
     expect(budget.total).toBe(100000);
     // Remaining 40% distributed among 5 categories
-    const nonActive = budget.systemPrompt + budget.projectManifest +
-                      budget.taskSpec + budget.interfaces + budget.reserve;
+    const nonActive =
+      budget.systemPrompt +
+      budget.projectManifest +
+      budget.taskSpec +
+      budget.interfaces +
+      budget.reserve;
     expect(nonActive).toBeLessThanOrEqual(40000);
     expect(nonActive).toBeGreaterThan(39990);
   });

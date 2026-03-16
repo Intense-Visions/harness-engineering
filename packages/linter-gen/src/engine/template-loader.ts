@@ -9,9 +9,7 @@ export interface TemplateSource {
   content: string;
 }
 
-export type TemplateLoadErrorCode =
-  | 'TEMPLATE_NOT_FOUND'
-  | 'TEMPLATE_READ_ERROR';
+export type TemplateLoadErrorCode = 'TEMPLATE_NOT_FOUND' | 'TEMPLATE_READ_ERROR';
 
 export class TemplateLoadError extends Error {
   constructor(

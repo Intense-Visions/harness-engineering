@@ -20,7 +20,15 @@ export async function handleGenerateLinter(input: { configPath: string; outputDi
     }
     return { content: [{ type: 'text' as const, text: JSON.stringify(result) }], isError: true };
   } catch (error) {
-    return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
   }
 }
 
@@ -45,6 +53,14 @@ export async function handleValidateLinterConfig(input: { configPath: string }) 
     }
     return { content: [{ type: 'text' as const, text: JSON.stringify(result) }], isError: true };
   } catch (error) {
-    return { content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
   }
 }

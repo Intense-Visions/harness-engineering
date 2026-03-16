@@ -1,10 +1,14 @@
 // Named exports
 export const VERSION = '1.0.0';
-export function helper() { return true; }
+export function helper() {
+  return true;
+}
 export class Service {}
 
 // Default export
-export default function main() { return 'main'; }
+export default function main() {
+  return 'main';
+}
 
 // Re-exports
 export { join, resolve } from 'path';

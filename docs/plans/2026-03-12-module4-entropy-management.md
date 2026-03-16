@@ -13,6 +13,7 @@
 ## File Structure Overview
 
 **Entropy Module:**
+
 - `packages/core/src/entropy/types.ts` - All entropy-specific types
 - `packages/core/src/entropy/snapshot.ts` - CodebaseSnapshot builder
 - `packages/core/src/entropy/analyzer.ts` - EntropyAnalyzer orchestrator
@@ -29,6 +30,7 @@
 - `packages/core/src/entropy/index.ts` - Public exports
 
 **Tests:**
+
 - `packages/core/tests/entropy/snapshot.test.ts`
 - `packages/core/tests/entropy/detectors/drift.test.ts`
 - `packages/core/tests/entropy/detectors/dead-code.test.ts`
@@ -39,6 +41,7 @@
 - `packages/core/tests/entropy/integration/full-analysis.test.ts`
 
 **Test Fixtures:**
+
 - `packages/core/tests/fixtures/entropy/drift-samples/` - Docs with outdated refs
 - `packages/core/tests/fixtures/entropy/dead-code-samples/` - Unused exports/files
 - `packages/core/tests/fixtures/entropy/pattern-samples/` - Pattern violations
@@ -51,6 +54,7 @@
 ### Task 1: Entropy Module Types
 
 **Files:**
+
 - Create: `packages/core/src/entropy/types.ts`
 
 - [ ] **Step 1: Create entropy types file**
@@ -279,7 +283,11 @@ export interface ConfigPattern {
     | { type: 'no-export'; names: string[] }
     | { type: 'must-import'; from: string; names?: string[] }
     | { type: 'no-import'; from: string }
-    | { type: 'naming'; match: string; convention: 'camelCase' | 'PascalCase' | 'UPPER_SNAKE' | 'kebab-case' }
+    | {
+        type: 'naming';
+        match: string;
+        convention: 'camelCase' | 'PascalCase' | 'UPPER_SNAKE' | 'kebab-case';
+      }
     | { type: 'max-exports'; count: number }
     | { type: 'max-lines'; count: number }
     | { type: 'require-jsdoc'; for: ('function' | 'class' | 'export')[] };
@@ -371,7 +379,15 @@ export interface FixResult {
 // ============ Suggestion Types ============
 
 export interface Suggestion {
-  type: 'rename' | 'move' | 'merge' | 'split' | 'delete' | 'update-docs' | 'add-export' | 'refactor';
+  type:
+    | 'rename'
+    | 'move'
+    | 'merge'
+    | 'split'
+    | 'delete'
+    | 'update-docs'
+    | 'add-export'
+    | 'refactor';
   priority: 'high' | 'medium' | 'low';
   source: 'drift' | 'dead-code' | 'pattern';
   relatedIssues: string[];
@@ -432,6 +448,7 @@ git commit -m "feat(core): add entropy module types"
 ### Task 2: Entropy Error Helper
 
 **Files:**
+
 - Modify: `packages/core/src/shared/errors.ts`
 
 - [ ] **Step 1: Add createEntropyError helper**
@@ -468,6 +485,7 @@ git commit -m "feat(core): add entropy error helper"
 ### Task 3: Test Fixtures Setup
 
 **Files:**
+
 - Create: `packages/core/tests/fixtures/entropy/valid-project/`
 
 - [ ] **Step 1: Create valid-project fixture directories**
@@ -535,8 +553,9 @@ export function validateEmail(email: string): boolean {
 
 - [ ] **Step 4: Create fixture documentation**
 
-```markdown
+````markdown
 // packages/core/tests/fixtures/entropy/valid-project/docs/api.md
+
 # API Reference
 
 ## User Management
@@ -550,6 +569,7 @@ import { createUser } from './src';
 
 const user = createUser('test@example.com', 'John');
 ```
+````
 
 ### `findUserById(id)`
 
@@ -566,7 +586,8 @@ const user = findUserById('123');
 ### `validateEmail(email)`
 
 Validates an email address format.
-```
+
+````
 
 ```markdown
 // packages/core/tests/fixtures/entropy/valid-project/README.md
@@ -582,21 +603,23 @@ import { createUser, validateEmail } from './src';
 if (validateEmail('test@example.com')) {
   const user = createUser('test@example.com', 'John');
 }
-```
-```
+````
+
+````
 
 - [ ] **Step 5: Commit fixtures**
 
 ```bash
 git add packages/core/tests/fixtures/entropy/
 git commit -m "test(core): add entropy module test fixtures"
-```
+````
 
 ---
 
 ### Task 4: Snapshot Builder - Entry Point Resolution
 
 **Files:**
+
 - Create: `packages/core/src/entropy/snapshot.ts`
 - Create: `packages/core/tests/entropy/snapshot.test.ts`
 
@@ -617,7 +640,7 @@ describe('resolveEntryPoints', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBeGreaterThan(0);
-      expect(result.value.some(e => e.includes('index.ts'))).toBe(true);
+      expect(result.value.some((e) => e.includes('index.ts'))).toBe(true);
     }
   });
 
@@ -636,7 +659,7 @@ describe('resolveEntryPoints', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.some(e => e.includes('index.ts'))).toBe(true);
+      expect(result.value.some((e) => e.includes('index.ts'))).toBe(true);
     }
   });
 });
@@ -653,7 +676,15 @@ Expected: FAIL - "Cannot find module"
 // packages/core/src/entropy/snapshot.ts
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
-import type { EntropyError, CodebaseSnapshot, EntropyConfig, SourceFile, DocumentationFile, CodeReference, ExportMap } from './types';
+import type {
+  EntropyError,
+  CodebaseSnapshot,
+  EntropyConfig,
+  SourceFile,
+  DocumentationFile,
+  CodeReference,
+  ExportMap,
+} from './types';
 import { createEntropyError } from '../shared/errors';
 import type { LanguageParser } from '../shared/parsers';
 import { TypeScriptParser } from '../shared/parsers';
@@ -670,7 +701,7 @@ export async function resolveEntryPoints(
 ): Promise<Result<string[], EntropyError>> {
   // 1. Use explicit entries if provided
   if (explicitEntries && explicitEntries.length > 0) {
-    const resolved = explicitEntries.map(e => resolve(rootDir, e));
+    const resolved = explicitEntries.map((e) => resolve(rootDir, e));
     return Ok(resolved);
   }
 
@@ -737,7 +768,11 @@ export async function resolveEntryPoints(
       'ENTRY_POINT_NOT_FOUND',
       'Could not resolve entry points',
       { reason: 'No package.json exports/main and no conventional entry files found' },
-      ['Add "exports" or "main" to package.json', 'Create src/index.ts', 'Specify entryPoints in config']
+      [
+        'Add "exports" or "main" to package.json',
+        'Create src/index.ts',
+        'Specify entryPoints in config',
+      ]
     )
   );
 }
@@ -760,6 +795,7 @@ git commit -m "feat(core): implement entry point resolution"
 ### Task 5: Snapshot Builder - Documentation Parsing
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/snapshot.ts`
 - Modify: `packages/core/tests/entropy/snapshot.test.ts`
 
@@ -788,7 +824,7 @@ describe('parseDocumentationFile', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.inlineRefs.length).toBeGreaterThan(0);
-      expect(result.value.inlineRefs.some(r => r.reference === 'createUser')).toBe(true);
+      expect(result.value.inlineRefs.some((r) => r.reference === 'createUser')).toBe(true);
     }
   });
 });
@@ -801,7 +837,7 @@ Expected: FAIL - parseDocumentationFile not exported
 
 - [ ] **Step 3: Implement parseDocumentationFile**
 
-```typescript
+````typescript
 // Add to packages/core/src/entropy/snapshot.ts
 
 /**
@@ -898,7 +934,7 @@ export async function parseDocumentationFile(
     inlineRefs: extractInlineRefs(content),
   });
 }
-```
+````
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -917,6 +953,7 @@ git commit -m "feat(core): implement documentation file parsing"
 ### Task 6: Snapshot Builder - Full Snapshot
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/snapshot.ts`
 - Modify: `packages/core/tests/entropy/snapshot.test.ts`
 
@@ -1090,12 +1127,17 @@ function extractAllCodeReferences(docs: DocumentationFile[]): CodeReference[] {
 
     // From code blocks (extract identifiers)
     for (const block of doc.codeBlocks) {
-      if (block.language === 'typescript' || block.language === 'ts' || block.language === 'javascript' || block.language === 'js') {
+      if (
+        block.language === 'typescript' ||
+        block.language === 'ts' ||
+        block.language === 'javascript' ||
+        block.language === 'js'
+      ) {
         // Extract import statements
         const importRegex = /import\s+\{([^}]+)\}\s+from/g;
         let match;
         while ((match = importRegex.exec(block.content)) !== null) {
-          const names = match[1].split(',').map(n => n.trim());
+          const names = match[1].split(',').map((n) => n.trim());
           for (const name of names) {
             refs.push({
               docFile: doc.path,
@@ -1131,7 +1173,12 @@ export async function buildSnapshot(
 
   // Find source files
   const includePatterns = config.include || ['**/*.ts', '**/*.tsx'];
-  const excludePatterns = config.exclude || ['node_modules/**', 'dist/**', '**/*.test.ts', '**/*.spec.ts'];
+  const excludePatterns = config.exclude || [
+    'node_modules/**',
+    'dist/**',
+    '**/*.test.ts',
+    '**/*.spec.ts',
+  ];
 
   let sourceFilePaths: string[] = [];
   for (const pattern of includePatterns) {
@@ -1140,9 +1187,9 @@ export async function buildSnapshot(
   }
 
   // Filter out excluded
-  sourceFilePaths = sourceFilePaths.filter(f => {
+  sourceFilePaths = sourceFilePaths.filter((f) => {
     const rel = relative(rootDir, f);
-    return !excludePatterns.some(p => minimatch(rel, p));
+    return !excludePatterns.some((p) => minimatch(rel, p));
   });
 
   // Parse source files
@@ -1232,6 +1279,7 @@ git commit -m "feat(core): implement CodebaseSnapshot builder"
 ### Task 7: Drift Detector - Fuzzy Matching Utilities
 
 **Files:**
+
 - Create: `packages/core/src/entropy/detectors/drift.ts`
 - Create: `packages/core/tests/entropy/detectors/drift.test.ts`
 
@@ -1244,12 +1292,17 @@ mkdir -p packages/core/tests/fixtures/entropy/drift-samples/docs
 
 ```typescript
 // packages/core/tests/fixtures/entropy/drift-samples/src/user.ts
-export function findUserById(id: string) { return null; }
-export function createNewUser(name: string) { return { id: '1', name }; }
+export function findUserById(id: string) {
+  return null;
+}
+export function createNewUser(name: string) {
+  return { id: '1', name };
+}
 ```
 
 ```markdown
 // packages/core/tests/fixtures/entropy/drift-samples/docs/api.md
+
 # API
 
 ## `getUserById(id)`
@@ -1318,7 +1371,7 @@ import type {
   CodebaseSnapshot,
   DriftConfig,
   DriftReport,
-  DocumentationDrift
+  DocumentationDrift,
 } from '../types';
 import { createEntropyError } from '../../shared/errors';
 import { fileExists } from '../../shared/fs-utils';
@@ -1390,7 +1443,7 @@ export function findPossibleMatches(
   return matches
     .sort((a, b) => a.score - b.score)
     .slice(0, 3)
-    .map(m => m.name);
+    .map((m) => m.name);
 }
 ```
 
@@ -1411,6 +1464,7 @@ git commit -m "feat(core): implement fuzzy matching for drift detection"
 ### Task 8: Drift Detector - API Signature Detection
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/detectors/drift.ts`
 - Modify: `packages/core/tests/entropy/detectors/drift.test.ts`
 
@@ -1451,9 +1505,9 @@ describe('detectDocDrift', () => {
     if (result.ok) {
       expect(result.value.drifts.length).toBeGreaterThan(0);
 
-      const apiDrifts = result.value.drifts.filter(d => d.type === 'api-signature');
-      expect(apiDrifts.some(d => d.reference === 'getUserById')).toBe(true);
-      expect(apiDrifts.some(d => d.possibleMatches?.includes('findUserById'))).toBe(true);
+      const apiDrifts = result.value.drifts.filter((d) => d.type === 'api-signature');
+      expect(apiDrifts.some((d) => d.reference === 'getUserById')).toBe(true);
+      expect(apiDrifts.some((d) => d.possibleMatches?.includes('findUserById'))).toBe(true);
     }
   });
 });
@@ -1488,7 +1542,7 @@ function checkApiSignatureDrift(
   const exportNames = Array.from(snapshot.exportMap.byName.keys());
 
   for (const ref of snapshot.codeReferences) {
-    if (config.ignorePatterns.some(p => ref.reference.match(new RegExp(p)))) {
+    if (config.ignorePatterns.some((p) => ref.reference.match(new RegExp(p)))) {
       continue;
     }
 
@@ -1504,12 +1558,14 @@ function checkApiSignatureDrift(
         reference: ref.reference,
         context: ref.context,
         issue: possibleMatches.length > 0 ? 'RENAMED' : 'NOT_FOUND',
-        details: possibleMatches.length > 0
-          ? `Symbol "${ref.reference}" not found. Similar: ${possibleMatches.join(', ')}`
-          : `Symbol "${ref.reference}" not found in codebase`,
-        suggestion: possibleMatches.length > 0
-          ? `Did you mean "${possibleMatches[0]}"?`
-          : 'Remove reference or add the missing export',
+        details:
+          possibleMatches.length > 0
+            ? `Symbol "${ref.reference}" not found. Similar: ${possibleMatches.join(', ')}`
+            : `Symbol "${ref.reference}" not found in codebase`,
+        suggestion:
+          possibleMatches.length > 0
+            ? `Did you mean "${possibleMatches[0]}"?`
+            : 'Remove reference or add the missing export',
         possibleMatches: possibleMatches.length > 0 ? possibleMatches : undefined,
         confidence,
       });
@@ -1535,14 +1591,18 @@ export function detectDocDrift(
   }
 
   // Calculate stats
-  const apiDrifts = drifts.filter(d => d.type === 'api-signature').length;
-  const exampleDrifts = drifts.filter(d => d.type === 'example-code').length;
-  const structureDrifts = drifts.filter(d => d.type === 'structure').length;
+  const apiDrifts = drifts.filter((d) => d.type === 'api-signature').length;
+  const exampleDrifts = drifts.filter((d) => d.type === 'example-code').length;
+  const structureDrifts = drifts.filter((d) => d.type === 'structure').length;
 
-  const severity = drifts.length === 0 ? 'none'
-    : drifts.length <= 3 ? 'low'
-    : drifts.length <= 10 ? 'medium'
-    : 'high';
+  const severity =
+    drifts.length === 0
+      ? 'none'
+      : drifts.length <= 3
+        ? 'low'
+        : drifts.length <= 10
+          ? 'medium'
+          : 'high';
 
   return Ok({
     drifts,
@@ -1574,6 +1634,7 @@ git commit -m "feat(core): implement API signature drift detection"
 ### Task 9: Drift Detector - Structure Drift
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/detectors/drift.ts`
 - Modify: `packages/core/tests/entropy/detectors/drift.test.ts`
 
@@ -1604,8 +1665,8 @@ it('should detect structure drift (broken file links)', async () => {
 
   expect(result.ok).toBe(true);
   if (result.ok) {
-    const structureDrifts = result.value.drifts.filter(d => d.type === 'structure');
-    expect(structureDrifts.some(d => d.reference.includes('missing-file.ts'))).toBe(true);
+    const structureDrifts = result.value.drifts.filter((d) => d.type === 'structure');
+    expect(structureDrifts.some((d) => d.reference.includes('missing-file.ts'))).toBe(true);
   }
 });
 ```
@@ -1636,8 +1697,11 @@ function extractFileLinks(content: string, docPath: string): { link: string; lin
     while ((match = linkRegex.exec(line)) !== null) {
       const linkPath = match[2];
       // Only check relative paths to files (not URLs)
-      if (!linkPath.startsWith('http') && !linkPath.startsWith('#') &&
-          (linkPath.includes('.') || linkPath.startsWith('..'))) {
+      if (
+        !linkPath.startsWith('http') &&
+        !linkPath.startsWith('#') &&
+        (linkPath.includes('.') || linkPath.startsWith('..'))
+      ) {
         links.push({ link: linkPath, line: i + 1 });
       }
     }
@@ -1696,18 +1760,22 @@ export async function detectDocDrift(
 
   // Check structure drift
   if (fullConfig.checkStructure) {
-    drifts.push(...await checkStructureDrift(snapshot, fullConfig));
+    drifts.push(...(await checkStructureDrift(snapshot, fullConfig)));
   }
 
   // Calculate stats
-  const apiDrifts = drifts.filter(d => d.type === 'api-signature').length;
-  const exampleDrifts = drifts.filter(d => d.type === 'example-code').length;
-  const structureDrifts = drifts.filter(d => d.type === 'structure').length;
+  const apiDrifts = drifts.filter((d) => d.type === 'api-signature').length;
+  const exampleDrifts = drifts.filter((d) => d.type === 'example-code').length;
+  const structureDrifts = drifts.filter((d) => d.type === 'structure').length;
 
-  const severity = drifts.length === 0 ? 'none'
-    : drifts.length <= 3 ? 'low'
-    : drifts.length <= 10 ? 'medium'
-    : 'high';
+  const severity =
+    drifts.length === 0
+      ? 'none'
+      : drifts.length <= 3
+        ? 'low'
+        : drifts.length <= 10
+          ? 'medium'
+          : 'high';
 
   return Ok({
     drifts,
@@ -1739,6 +1807,7 @@ git commit -m "feat(core): implement structure drift detection"
 ### Task 10: Detector Index Exports
 
 **Files:**
+
 - Create: `packages/core/src/entropy/detectors/index.ts`
 
 - [ ] **Step 1: Create detectors index**
@@ -1767,6 +1836,7 @@ git commit -m "feat(core): add detector exports"
 ### Task 11: Dead Code Test Fixtures
 
 **Files:**
+
 - Create: `packages/core/tests/fixtures/entropy/dead-code-samples/`
 
 - [ ] **Step 1: Create dead-code-samples fixture**
@@ -1845,6 +1915,7 @@ git commit -m "test(core): add dead code detection fixtures"
 ### Task 12: Dead Code Detector - Reachability Analysis
 
 **Files:**
+
 - Create: `packages/core/src/entropy/detectors/dead-code.ts`
 - Create: `packages/core/tests/entropy/detectors/dead-code.test.ts`
 
@@ -1894,8 +1965,8 @@ describe('buildReachabilityMap', () => {
     const reachability = buildReachabilityMap(snapshotResult.value);
 
     // Files imported from entry point should be reachable
-    const usedFile = snapshotResult.value.files.find(f => f.path.includes('used.ts'));
-    const helperFile = snapshotResult.value.files.find(f => f.path.includes('helper.ts'));
+    const usedFile = snapshotResult.value.files.find((f) => f.path.includes('used.ts'));
+    const helperFile = snapshotResult.value.files.find((f) => f.path.includes('helper.ts'));
 
     expect(usedFile).toBeDefined();
     expect(helperFile).toBeDefined();
@@ -1917,7 +1988,7 @@ describe('buildReachabilityMap', () => {
     const reachability = buildReachabilityMap(snapshotResult.value);
 
     // unused.ts is not imported by anything
-    const unusedFile = snapshotResult.value.files.find(f => f.path.includes('unused.ts'));
+    const unusedFile = snapshotResult.value.files.find((f) => f.path.includes('unused.ts'));
     expect(unusedFile).toBeDefined();
     expect(reachability.get(unusedFile!.path)).toBe(false);
   });
@@ -1973,16 +2044,16 @@ function resolveImportToFile(
   // Try with .ts extension
   if (!resolved.endsWith('.ts') && !resolved.endsWith('.tsx')) {
     const withTs = resolved + '.ts';
-    if (snapshot.files.some(f => f.path === withTs)) {
+    if (snapshot.files.some((f) => f.path === withTs)) {
       return withTs;
     }
     const withIndex = resolve(resolved, 'index.ts');
-    if (snapshot.files.some(f => f.path === withIndex)) {
+    if (snapshot.files.some((f) => f.path === withIndex)) {
       return withIndex;
     }
   }
 
-  if (snapshot.files.some(f => f.path === resolved)) {
+  if (snapshot.files.some((f) => f.path === resolved)) {
     return resolved;
   }
 
@@ -1992,9 +2063,7 @@ function resolveImportToFile(
 /**
  * Build a map of file reachability from entry points
  */
-export function buildReachabilityMap(
-  snapshot: CodebaseSnapshot
-): Map<string, boolean> {
+export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, boolean> {
   const reachability = new Map<string, boolean>();
 
   // Initialize all files as unreachable
@@ -2016,7 +2085,7 @@ export function buildReachabilityMap(
     reachability.set(current, true);
 
     // Find the source file
-    const sourceFile = snapshot.files.find(f => f.path === current);
+    const sourceFile = snapshot.files.find((f) => f.path === current);
     if (!sourceFile) continue;
 
     // Add all imports to queue
@@ -2049,6 +2118,7 @@ git commit -m "feat(core): implement file reachability analysis"
 ### Task 13: Dead Code Detector - Dead Export Detection
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/detectors/dead-code.ts`
 - Modify: `packages/core/tests/entropy/detectors/dead-code.test.ts`
 
@@ -2077,10 +2147,10 @@ describe('detectDeadCode', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // unusedHelper in helper.ts is exported but never imported
-      expect(result.value.deadExports.some(e => e.name === 'unusedHelper')).toBe(true);
+      expect(result.value.deadExports.some((e) => e.name === 'unusedHelper')).toBe(true);
 
       // Functions in unused.ts are dead
-      expect(result.value.deadExports.some(e => e.name === 'unusedFunction')).toBe(true);
+      expect(result.value.deadExports.some((e) => e.name === 'unusedFunction')).toBe(true);
     }
   });
 
@@ -2100,7 +2170,7 @@ describe('detectDeadCode', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // unused.ts is a dead file
-      expect(result.value.deadFiles.some(f => f.path.includes('unused.ts'))).toBe(true);
+      expect(result.value.deadFiles.some((f) => f.path.includes('unused.ts'))).toBe(true);
     }
   });
 
@@ -2120,8 +2190,8 @@ describe('detectDeadCode', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       // with-unused-import.ts imports unusedHelper but doesn't use it
-      const unusedImport = result.value.unusedImports.find(
-        i => i.file.includes('with-unused-import.ts')
+      const unusedImport = result.value.unusedImports.find((i) =>
+        i.file.includes('with-unused-import.ts')
       );
       expect(unusedImport).toBeDefined();
       expect(unusedImport?.specifiers).toContain('unusedHelper');
@@ -2143,9 +2213,7 @@ Expected: FAIL - detectDeadCode not fully implemented
 /**
  * Build a map of which exports are imported by which files
  */
-function buildExportUsageMap(
-  snapshot: CodebaseSnapshot
-): Map<string, Set<string>> {
+function buildExportUsageMap(snapshot: CodebaseSnapshot): Map<string, Set<string>> {
   // Map: "file:exportName" -> Set of files that import it
   const usageMap = new Map<string, Set<string>>();
 
@@ -2244,10 +2312,7 @@ function countLinesFromAST(ast: AST): number {
 /**
  * Find dead files (unreachable from entry points)
  */
-function findDeadFiles(
-  snapshot: CodebaseSnapshot,
-  reachability: Map<string, boolean>
-): DeadFile[] {
+function findDeadFiles(snapshot: CodebaseSnapshot, reachability: Map<string, boolean>): DeadFile[] {
   const deadFiles: DeadFile[] = [];
 
   for (const file of snapshot.files) {
@@ -2282,9 +2347,7 @@ function isIdentifierUsedInAST(name: string, ast: AST): boolean {
 /**
  * Find unused imports in files
  */
-function findUnusedImports(
-  snapshot: CodebaseSnapshot
-): UnusedImport[] {
+function findUnusedImports(snapshot: CodebaseSnapshot): UnusedImport[] {
   const unusedImports: UnusedImport[] = [];
 
   for (const file of snapshot.files) {
@@ -2293,7 +2356,7 @@ function findUnusedImports(
 
       for (const spec of imp.specifiers) {
         // Check if specifier is re-exported
-        const isReExported = file.exports.some(e => e.name === spec);
+        const isReExported = file.exports.some((e) => e.name === spec);
         if (isReExported) continue;
 
         // Check if specifier is used in the file's AST
@@ -2414,6 +2477,7 @@ git commit -m "feat(core): implement dead code detection"
 ### Task 14: Update Detector Exports
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/detectors/index.ts`
 
 - [ ] **Step 1: Add dead-code exports**
@@ -2447,6 +2511,7 @@ _End of Chunk 3_
 ### Task 15: Pattern Test Fixtures
 
 **Files:**
+
 - Create: `packages/core/tests/fixtures/entropy/pattern-samples/`
 
 - [ ] **Step 1: Create pattern-samples fixture**
@@ -2466,7 +2531,9 @@ export { helper } from './utils/helper';
 // packages/core/tests/fixtures/entropy/pattern-samples/src/services/user-service.ts
 // Follows pattern: services must export default class
 export default class UserService {
-  getUser(id: string) { return null; }
+  getUser(id: string) {
+    return null;
+  }
 }
 export { UserService };
 ```
@@ -2528,6 +2595,7 @@ git commit -m "test(core): add pattern violation test fixtures"
 ### Task 16: Pattern Config Schema
 
 **Files:**
+
 - Create: `packages/core/src/entropy/config/schema.ts`
 - Create: `packages/core/tests/entropy/config/schema.test.ts`
 
@@ -2743,9 +2811,7 @@ export const EntropyConfigSchema = z.object({
 /**
  * Validate pattern config
  */
-export function validatePatternConfig(
-  config: unknown
-): Result<PatternConfig, EntropyError> {
+export function validatePatternConfig(config: unknown): Result<PatternConfig, EntropyError> {
   const result = PatternConfigSchema.safeParse(config);
 
   if (!result.success) {
@@ -2787,6 +2853,7 @@ git commit -m "feat(core): implement pattern config schema validation"
 ### Task 17: Pattern Detector - Config-based Patterns
 
 **Files:**
+
 - Create: `packages/core/src/entropy/detectors/patterns.ts`
 - Create: `packages/core/tests/entropy/detectors/patterns.test.ts`
 
@@ -2795,7 +2862,10 @@ git commit -m "feat(core): implement pattern config schema validation"
 ```typescript
 // packages/core/tests/entropy/detectors/patterns.test.ts
 import { describe, it, expect } from 'vitest';
-import { detectPatternViolations, checkConfigPattern } from '../../../src/entropy/detectors/patterns';
+import {
+  detectPatternViolations,
+  checkConfigPattern,
+} from '../../../src/entropy/detectors/patterns';
 import { buildSnapshot } from '../../../src/entropy/snapshot';
 import { TypeScriptParser } from '../../../src/shared/parsers';
 import { join } from 'path';
@@ -2841,7 +2911,12 @@ describe('checkConfigPattern', () => {
     const mockFile: Partial<SourceFile> = {
       path: '/project/src/services/bad-service.ts',
       exports: [
-        { name: 'BadService', type: 'named', location: { file: '', line: 1, column: 0 }, isReExport: false },
+        {
+          name: 'BadService',
+          type: 'named',
+          location: { file: '', line: 1, column: 0 },
+          isReExport: false,
+        },
       ],
     };
 
@@ -2917,7 +2992,7 @@ export function checkConfigPattern(
   const matches: PatternMatch[] = [];
 
   // Check if file matches any of the pattern's file globs
-  const fileMatches = pattern.files.some(glob => fileMatchesPattern(file.path, glob, rootDir));
+  const fileMatches = pattern.files.some((glob) => fileMatchesPattern(file.path, glob, rootDir));
   if (!fileMatches) {
     return matches; // Pattern doesn't apply to this file
   }
@@ -2927,7 +3002,7 @@ export function checkConfigPattern(
   switch (rule.type) {
     case 'must-export': {
       for (const name of rule.names) {
-        const hasExport = file.exports.some(e => e.name === name);
+        const hasExport = file.exports.some((e) => e.name === name);
         if (!hasExport) {
           matches.push({
             line: 1,
@@ -2940,7 +3015,7 @@ export function checkConfigPattern(
     }
 
     case 'must-export-default': {
-      const hasDefault = file.exports.some(e => e.type === 'default');
+      const hasDefault = file.exports.some((e) => e.type === 'default');
       if (!hasDefault) {
         matches.push({
           line: 1,
@@ -2953,9 +3028,9 @@ export function checkConfigPattern(
 
     case 'no-export': {
       for (const name of rule.names) {
-        const hasExport = file.exports.some(e => e.name === name);
+        const hasExport = file.exports.some((e) => e.name === name);
         if (hasExport) {
-          const exp = file.exports.find(e => e.name === name)!;
+          const exp = file.exports.find((e) => e.name === name)!;
           matches.push({
             line: exp.location.line,
             message: pattern.message || `Forbidden export: "${name}"`,
@@ -2967,7 +3042,9 @@ export function checkConfigPattern(
     }
 
     case 'must-import': {
-      const hasImport = file.imports.some(i => i.source === rule.from || i.source.endsWith(rule.from));
+      const hasImport = file.imports.some(
+        (i) => i.source === rule.from || i.source.endsWith(rule.from)
+      );
       if (!hasImport) {
         matches.push({
           line: 1,
@@ -2979,7 +3056,9 @@ export function checkConfigPattern(
     }
 
     case 'no-import': {
-      const forbiddenImport = file.imports.find(i => i.source === rule.from || i.source.endsWith(rule.from));
+      const forbiddenImport = file.imports.find(
+        (i) => i.source === rule.from || i.source.endsWith(rule.from)
+      );
       if (forbiddenImport) {
         matches.push({
           line: forbiddenImport.location.line,
@@ -2996,14 +3075,23 @@ export function checkConfigPattern(
         if (!regex.test(exp.name)) {
           let expected = '';
           switch (rule.convention) {
-            case 'camelCase': expected = 'camelCase (e.g., myFunction)'; break;
-            case 'PascalCase': expected = 'PascalCase (e.g., MyClass)'; break;
-            case 'UPPER_SNAKE': expected = 'UPPER_SNAKE_CASE (e.g., MY_CONSTANT)'; break;
-            case 'kebab-case': expected = 'kebab-case (e.g., my-component)'; break;
+            case 'camelCase':
+              expected = 'camelCase (e.g., myFunction)';
+              break;
+            case 'PascalCase':
+              expected = 'PascalCase (e.g., MyClass)';
+              break;
+            case 'UPPER_SNAKE':
+              expected = 'UPPER_SNAKE_CASE (e.g., MY_CONSTANT)';
+              break;
+            case 'kebab-case':
+              expected = 'kebab-case (e.g., my-component)';
+              break;
           }
           matches.push({
             line: exp.location.line,
-            message: pattern.message || `"${exp.name}" does not follow ${rule.convention} convention`,
+            message:
+              pattern.message || `"${exp.name}" does not follow ${rule.convention} convention`,
             suggestion: `Rename to follow ${expected}`,
           });
         }
@@ -3015,7 +3103,8 @@ export function checkConfigPattern(
       if (file.exports.length > rule.count) {
         matches.push({
           line: 1,
-          message: pattern.message || `File has ${file.exports.length} exports, max is ${rule.count}`,
+          message:
+            pattern.message || `File has ${file.exports.length} exports, max is ${rule.count}`,
           suggestion: `Split into multiple files or reduce exports to ${rule.count}`,
         });
       }
@@ -3063,6 +3152,7 @@ git commit -m "feat(core): implement config pattern checking"
 ### Task 18: Pattern Detector - Full Detection
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/detectors/patterns.ts`
 - Modify: `packages/core/tests/entropy/detectors/patterns.test.ts`
 
@@ -3113,7 +3203,9 @@ describe('detectPatternViolations', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.violations.length).toBeGreaterThan(0);
-      expect(result.value.violations.some(v => v.file.includes('too-many-exports.ts'))).toBe(true);
+      expect(result.value.violations.some((v) => v.file.includes('too-many-exports.ts'))).toBe(
+        true
+      );
     }
   });
 
@@ -3207,7 +3299,7 @@ export function detectPatternViolations(
   for (const file of snapshot.files) {
     // Check if file should be ignored
     const relativePath = relative(snapshot.rootDir, file.path);
-    const isIgnored = ignorePatterns.some(p => minimatch(relativePath, p));
+    const isIgnored = ignorePatterns.some((p) => minimatch(relativePath, p));
     if (isIgnored) continue;
 
     // Check config patterns
@@ -3233,11 +3325,12 @@ export function detectPatternViolations(
   }
 
   // Calculate stats
-  const errorCount = violations.filter(v => v.severity === 'error').length;
-  const warningCount = violations.filter(v => v.severity === 'warning').length;
-  const passRate = snapshot.files.length > 0
-    ? (snapshot.files.length - violations.length) / snapshot.files.length
-    : 1;
+  const errorCount = violations.filter((v) => v.severity === 'error').length;
+  const warningCount = violations.filter((v) => v.severity === 'warning').length;
+  const passRate =
+    snapshot.files.length > 0
+      ? (snapshot.files.length - violations.length) / snapshot.files.length
+      : 1;
 
   return Ok({
     violations,
@@ -3270,6 +3363,7 @@ git commit -m "feat(core): implement pattern violation detection"
 ### Task 19: Update Detector Exports
 
 **Files:**
+
 - Modify: `packages/core/src/entropy/detectors/index.ts`
 
 - [ ] **Step 1: Add pattern detector exports**
@@ -3304,6 +3398,7 @@ _End of Chunk 4_
 ### Task 20: Safe Fixes - Unused Import Removal
 
 **Files:**
+
 - Create: `packages/core/src/entropy/fixers/safe-fixes.ts`
 - Create: `packages/core/tests/entropy/fixers/safe-fixes.test.ts`
 
@@ -3337,7 +3432,11 @@ describe('createFixes', () => {
       },
     };
 
-    const fixes = createFixes(deadCodeReport, { fixTypes: ['dead-files'], dryRun: false, createBackup: true });
+    const fixes = createFixes(deadCodeReport, {
+      fixTypes: ['dead-files'],
+      dryRun: false,
+      createBackup: true,
+    });
 
     expect(fixes.length).toBe(1);
     expect(fixes[0].type).toBe('dead-files');
@@ -3355,7 +3454,13 @@ describe('createFixes', () => {
       ],
       deadInternals: [],
       unusedImports: [
-        { file: '/project/src/used.ts', line: 1, source: './helper', specifiers: ['unused'], isFullyUnused: false },
+        {
+          file: '/project/src/used.ts',
+          line: 1,
+          source: './helper',
+          specifiers: ['unused'],
+          isFullyUnused: false,
+        },
       ],
       stats: {
         filesAnalyzed: 10,
@@ -3369,10 +3474,14 @@ describe('createFixes', () => {
     };
 
     // Only request unused-imports fixes, not dead-files
-    const fixes = createFixes(deadCodeReport, { fixTypes: ['unused-imports'], dryRun: false, createBackup: false });
+    const fixes = createFixes(deadCodeReport, {
+      fixTypes: ['unused-imports'],
+      dryRun: false,
+      createBackup: false,
+    });
 
-    expect(fixes.every(f => f.type === 'unused-imports')).toBe(true);
-    expect(fixes.some(f => f.type === 'dead-files')).toBe(false);
+    expect(fixes.every((f) => f.type === 'unused-imports')).toBe(true);
+    expect(fixes.some((f) => f.type === 'dead-files')).toBe(false);
   });
 });
 
@@ -3430,7 +3539,7 @@ const DEFAULT_FIX_CONFIG: FixConfig = {
  * Create fixes for dead files
  */
 function createDeadFileFixes(deadCodeReport: DeadCodeReport): Fix[] {
-  return deadCodeReport.deadFiles.map(file => ({
+  return deadCodeReport.deadFiles.map((file) => ({
     type: 'dead-files' as FixType,
     file: file.path,
     description: `Delete dead file (${file.reason}): ${basename(file.path)}`,
@@ -3444,7 +3553,7 @@ function createDeadFileFixes(deadCodeReport: DeadCodeReport): Fix[] {
  * Create fixes for unused imports
  */
 function createUnusedImportFixes(deadCodeReport: DeadCodeReport): Fix[] {
-  return deadCodeReport.unusedImports.map(imp => ({
+  return deadCodeReport.unusedImports.map((imp) => ({
     type: 'unused-imports' as FixType,
     file: imp.file,
     description: `Remove unused import: ${imp.specifiers.join(', ')} from ${imp.source}`,
@@ -3458,10 +3567,7 @@ function createUnusedImportFixes(deadCodeReport: DeadCodeReport): Fix[] {
 /**
  * Create fixes from dead code report
  */
-export function createFixes(
-  deadCodeReport: DeadCodeReport,
-  config?: Partial<FixConfig>
-): Fix[] {
+export function createFixes(deadCodeReport: DeadCodeReport, config?: Partial<FixConfig>): Fix[] {
   const fullConfig = { ...DEFAULT_FIX_CONFIG, ...config };
   const fixes: Fix[] = [];
 
@@ -3649,6 +3755,7 @@ git commit -m "feat(core): implement safe fixes for dead code"
 ### Task 21: Suggestion Generator
 
 **Files:**
+
 - Create: `packages/core/src/entropy/fixers/suggestions.ts`
 - Create: `packages/core/tests/entropy/fixers/suggestions.test.ts`
 
@@ -3830,7 +3937,8 @@ function suggestionsFromDrift(drift: DriftReport): Suggestion[] {
   const suggestions: Suggestion[] = [];
 
   for (const d of drift.drifts) {
-    const priority = d.confidence === 'high' ? 'high' : d.confidence === 'medium' ? 'medium' : 'low';
+    const priority =
+      d.confidence === 'high' ? 'high' : d.confidence === 'medium' ? 'medium' : 'low';
 
     if (d.issue === 'RENAMED' && d.possibleMatches?.length) {
       suggestions.push({
@@ -3892,13 +4000,13 @@ function suggestionsFromDeadCode(deadCode: DeadCodeReport): Suggestion[] {
         type: 'refactor',
         priority: 'medium',
         source: 'dead-code',
-        relatedIssues: exports.map(e => `${file}:${e.line}`),
+        relatedIssues: exports.map((e) => `${file}:${e.line}`),
         title: `Review file with ${exports.length} unused exports`,
         description: `${basename(file)} has ${exports.length} exports that are never imported`,
         files: [file],
         steps: [
           `Open ${basename(file)}`,
-          `Review exports: ${exports.map(e => e.name).join(', ')}`,
+          `Review exports: ${exports.map((e) => e.name).join(', ')}`,
           'Remove unused exports or document why they should be kept',
         ],
         whyManual: 'Requires judgment about whether exports are intentionally public API',
@@ -3914,10 +4022,7 @@ function suggestionsFromDeadCode(deadCode: DeadCodeReport): Suggestion[] {
           title: `Remove unused export: ${exp.name}`,
           description: `Export "${exp.name}" in ${basename(file)} is never imported`,
           files: [file],
-          steps: [
-            `Open ${basename(file)}`,
-            `Remove or unexport "${exp.name}" at line ${exp.line}`,
-          ],
+          steps: [`Open ${basename(file)}`, `Remove or unexport "${exp.name}" at line ${exp.line}`],
           whyManual: 'Verify export is not part of public API before removing',
         });
       }
@@ -3980,7 +4085,7 @@ function suggestionsFromPatterns(patterns: PatternReport): Suggestion[] {
  */
 function estimateEffort(suggestions: Suggestion[]): 'trivial' | 'small' | 'medium' | 'large' {
   const count = suggestions.length;
-  const highPriority = suggestions.filter(s => s.priority === 'high').length;
+  const highPriority = suggestions.filter((s) => s.priority === 'high').length;
 
   if (count === 0) return 'trivial';
   if (count <= 3 && highPriority === 0) return 'trivial';
@@ -4009,9 +4114,9 @@ export function generateSuggestions(input: SuggestionInput): SuggestionReport {
 
   // Group by priority
   const byPriority = {
-    high: suggestions.filter(s => s.priority === 'high'),
-    medium: suggestions.filter(s => s.priority === 'medium'),
-    low: suggestions.filter(s => s.priority === 'low'),
+    high: suggestions.filter((s) => s.priority === 'high'),
+    medium: suggestions.filter((s) => s.priority === 'medium'),
+    low: suggestions.filter((s) => s.priority === 'low'),
   };
 
   return {
@@ -4039,6 +4144,7 @@ git commit -m "feat(core): implement suggestion generator"
 ### Task 22: Fixer Exports
 
 **Files:**
+
 - Create: `packages/core/src/entropy/fixers/index.ts`
 
 - [ ] **Step 1: Create fixer exports**
@@ -4072,6 +4178,7 @@ _End of Chunk 5_
 ### Task 23: EntropyAnalyzer Orchestrator
 
 **Files:**
+
 - Create: `packages/core/src/entropy/analyzer.ts`
 - Create: `packages/core/tests/entropy/analyzer.test.ts`
 
@@ -4249,9 +4356,8 @@ export class EntropyAnalyzer {
 
     // Drift detection
     if (this.config.analyze.drift) {
-      const driftConfig = typeof this.config.analyze.drift === 'object'
-        ? this.config.analyze.drift
-        : {};
+      const driftConfig =
+        typeof this.config.analyze.drift === 'object' ? this.config.analyze.drift : {};
       const result = await detectDocDrift(this.snapshot, driftConfig);
       if (result.ok) {
         driftReport = result.value;
@@ -4260,9 +4366,8 @@ export class EntropyAnalyzer {
 
     // Dead code detection
     if (this.config.analyze.deadCode) {
-      const deadCodeConfig = typeof this.config.analyze.deadCode === 'object'
-        ? this.config.analyze.deadCode
-        : {};
+      const deadCodeConfig =
+        typeof this.config.analyze.deadCode === 'object' ? this.config.analyze.deadCode : {};
       const result = await detectDeadCode(this.snapshot, deadCodeConfig);
       if (result.ok) {
         deadCodeReport = result.value;
@@ -4271,9 +4376,10 @@ export class EntropyAnalyzer {
 
     // Pattern detection
     if (this.config.analyze.patterns) {
-      const patternConfig: PatternConfig = typeof this.config.analyze.patterns === 'object'
-        ? this.config.analyze.patterns
-        : { patterns: [] };
+      const patternConfig: PatternConfig =
+        typeof this.config.analyze.patterns === 'object'
+          ? this.config.analyze.patterns
+          : { patterns: [] };
       const result = detectPatternViolations(this.snapshot, patternConfig);
       if (result.ok) {
         patternReport = result.value;
@@ -4282,9 +4388,10 @@ export class EntropyAnalyzer {
 
     // Calculate summary
     const driftIssues = driftReport?.drifts.length || 0;
-    const deadCodeIssues = (deadCodeReport?.deadExports.length || 0) +
-                          (deadCodeReport?.deadFiles.length || 0) +
-                          (deadCodeReport?.unusedImports.length || 0);
+    const deadCodeIssues =
+      (deadCodeReport?.deadExports.length || 0) +
+      (deadCodeReport?.deadFiles.length || 0) +
+      (deadCodeReport?.unusedImports.length || 0);
     const patternIssues = patternReport?.violations.length || 0;
     const patternErrors = patternReport?.stats.errorCount || 0;
     const patternWarnings = patternReport?.stats.warningCount || 0;
@@ -4292,8 +4399,8 @@ export class EntropyAnalyzer {
     const totalIssues = driftIssues + deadCodeIssues + patternIssues;
 
     // Calculate fixable count
-    const fixableCount = (deadCodeReport?.deadFiles.length || 0) +
-                        (deadCodeReport?.unusedImports.length || 0);
+    const fixableCount =
+      (deadCodeReport?.deadFiles.length || 0) + (deadCodeReport?.unusedImports.length || 0);
 
     // Generate suggestions count
     const suggestions = generateSuggestions({
@@ -4342,7 +4449,11 @@ export class EntropyAnalyzer {
    */
   getSuggestions(): SuggestionReport {
     if (!this.report) {
-      return { suggestions: [], byPriority: { high: [], medium: [], low: [] }, estimatedEffort: 'trivial' };
+      return {
+        suggestions: [],
+        byPriority: { high: [], medium: [], low: [] },
+        estimatedEffort: 'trivial',
+      };
     }
 
     return generateSuggestions({
@@ -4368,7 +4479,13 @@ export class EntropyAnalyzer {
    */
   async detectDrift(config?: Partial<DriftConfig>): Promise<Result<DriftReport, EntropyError>> {
     if (!this.snapshot) {
-      return Err(createEntropyError('SNAPSHOT_BUILD_FAILED', 'Snapshot not built. Call buildSnapshot() first.', {}));
+      return Err(
+        createEntropyError(
+          'SNAPSHOT_BUILD_FAILED',
+          'Snapshot not built. Call buildSnapshot() first.',
+          {}
+        )
+      );
     }
     return detectDocDrift(this.snapshot, config);
   }
@@ -4376,9 +4493,17 @@ export class EntropyAnalyzer {
   /**
    * Run dead code detection only (snapshot must be built first)
    */
-  async detectDeadCode(config?: Partial<DeadCodeConfig>): Promise<Result<DeadCodeReport, EntropyError>> {
+  async detectDeadCode(
+    config?: Partial<DeadCodeConfig>
+  ): Promise<Result<DeadCodeReport, EntropyError>> {
     if (!this.snapshot) {
-      return Err(createEntropyError('SNAPSHOT_BUILD_FAILED', 'Snapshot not built. Call buildSnapshot() first.', {}));
+      return Err(
+        createEntropyError(
+          'SNAPSHOT_BUILD_FAILED',
+          'Snapshot not built. Call buildSnapshot() first.',
+          {}
+        )
+      );
     }
     return detectDeadCode(this.snapshot, config);
   }
@@ -4388,7 +4513,13 @@ export class EntropyAnalyzer {
    */
   detectPatterns(config: PatternConfig): Result<PatternReport, EntropyError> {
     if (!this.snapshot) {
-      return Err(createEntropyError('SNAPSHOT_BUILD_FAILED', 'Snapshot not built. Call buildSnapshot() first.', {}));
+      return Err(
+        createEntropyError(
+          'SNAPSHOT_BUILD_FAILED',
+          'Snapshot not built. Call buildSnapshot() first.',
+          {}
+        )
+      );
     }
     return detectPatternViolations(this.snapshot, config);
   }
@@ -4422,6 +4553,7 @@ git commit -m "feat(core): implement EntropyAnalyzer orchestrator"
 ### Task 24: Module Public Exports
 
 **Files:**
+
 - Create: `packages/core/src/entropy/index.ts`
 - Modify: `packages/core/src/index.ts`
 
@@ -4530,6 +4662,7 @@ git commit -m "feat(core): export entropy module public API"
 ### Task 25: Integration Test
 
 **Files:**
+
 - Create: `packages/core/tests/entropy/integration/full-analysis.test.ts`
 
 - [ ] **Step 1: Write integration test**
@@ -4661,7 +4794,9 @@ describe('Entropy Module Integration', () => {
       if (result.ok && result.value.deadCode) {
         expect(result.value.deadCode.stats.filesAnalyzed).toBeGreaterThan(0);
         // Fixture should have dead code
-        expect(result.value.deadCode.deadFiles.length + result.value.deadCode.deadExports.length).toBeGreaterThan(0);
+        expect(
+          result.value.deadCode.deadFiles.length + result.value.deadCode.deadExports.length
+        ).toBeGreaterThan(0);
       }
     });
   });
@@ -4717,6 +4852,7 @@ git commit -m "test(core): add entropy module integration tests"
 ### Task 26: Documentation and Version Bump
 
 **Files:**
+
 - Modify: `packages/core/README.md`
 - Modify: `packages/core/package.json`
 - Modify: `packages/core/CHANGELOG.md`
@@ -4725,7 +4861,7 @@ git commit -m "test(core): add entropy module integration tests"
 
 Add to `packages/core/README.md` under a new "Entropy Management" section:
 
-```markdown
+````markdown
 ## Entropy Management
 
 Detect and fix codebase entropy: documentation drift, dead code, and pattern violations.
@@ -4761,6 +4897,7 @@ if (result.ok) {
   console.log(`${result.value.summary.fixableCount} can be auto-fixed`);
 }
 ```
+````
 
 ### Full Analyzer Workflow
 
@@ -4787,13 +4924,17 @@ if (report.value.deadCode) {
     dryRun: true, // Preview first
   });
 
-  console.log('Preview:', fixes.map(f => f.description));
+  console.log(
+    'Preview:',
+    fixes.map((f) => f.description)
+  );
 
   // Apply for real
   await applyFixes(fixes, { dryRun: false, createBackup: true });
 }
 ```
-```
+
+````
 
 - [ ] **Step 2: Update CHANGELOG**
 
@@ -4811,7 +4952,7 @@ Add to `packages/core/CHANGELOG.md`:
 - Suggestion generator for manual fixes
 - EntropyAnalyzer orchestrator for full analysis
 - CodebaseSnapshot builder for efficient multi-pass analysis
-```
+````
 
 - [ ] **Step 3: Bump version in package.json**
 

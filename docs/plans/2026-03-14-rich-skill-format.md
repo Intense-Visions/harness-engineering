@@ -89,11 +89,13 @@ agents/skills/claude-code/
 ```
 
 **Modified files:**
+
 - `packages/cli/src/index.ts` — Register skill + state commands
 - `packages/core/src/index.ts` — Export state module
 - `packages/mcp-server/src/server.ts` — Register run_skill tool
 
 **Deleted files:**
+
 - `agents/skills/tests/prompt-lint.test.ts`
 - `agents/skills/tests/includes.test.ts`
 - `agents/skills/shared/` directory (fragments inlined into SKILL.md)
@@ -106,6 +108,7 @@ agents/skills/claude-code/
 ### Task 1: New SkillMetadataSchema
 
 **Files:**
+
 - Rewrite: `agents/skills/tests/schema.ts`
 - Rewrite: `agents/skills/tests/schema.test.ts`
 
@@ -202,11 +205,15 @@ const SkillPhaseSchema = z.object({
 
 const SkillCliSchema = z.object({
   command: z.string(),
-  args: z.array(z.object({
-    name: z.string(),
-    description: z.string(),
-    required: z.boolean().default(false),
-  })).default([]),
+  args: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        required: z.boolean().default(false),
+      })
+    )
+    .default([]),
 });
 
 const SkillMcpSchema = z.object({
@@ -220,8 +227,14 @@ const SkillStateSchema = z.object({
 });
 
 const ALLOWED_TRIGGERS = [
-  'manual', 'on_pr', 'on_commit', 'on_new_feature',
-  'on_bug_fix', 'on_refactor', 'on_project_init', 'on_review',
+  'manual',
+  'on_pr',
+  'on_commit',
+  'on_new_feature',
+  'on_bug_fix',
+  'on_refactor',
+  'on_project_init',
+  'on_review',
 ] as const;
 
 const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
@@ -266,6 +279,7 @@ git commit -m "feat(skills): rewrite SkillMetadataSchema for rich skill format"
 ### Task 2: SKILL.md Structure Linter
 
 **Files:**
+
 - Create: `agents/skills/tests/structure.test.ts`
 - Delete: `agents/skills/tests/prompt-lint.test.ts`
 
@@ -284,7 +298,13 @@ import { SkillMetadataSchema } from './schema';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILLS_DIR = resolve(__dirname, '..');
 
-const REQUIRED_SECTIONS = ['## When to Use', '## Process', '## Harness Integration', '## Success Criteria', '## Examples'];
+const REQUIRED_SECTIONS = [
+  '## When to Use',
+  '## Process',
+  '## Harness Integration',
+  '## Success Criteria',
+  '## Examples',
+];
 const RIGID_SECTIONS = ['## Gates', '## Escalation'];
 
 describe('SKILL.md structure', () => {
@@ -372,6 +392,7 @@ git commit -m "feat(skills): add SKILL.md structure linter, remove prompt-lint"
 ### Task 3: References Validation Test
 
 **Files:**
+
 - Create: `agents/skills/tests/references.test.ts`
 - Delete: `agents/skills/tests/includes.test.ts`
 
@@ -415,7 +436,10 @@ describe('skill.yaml schema validation', () => {
       const content = readFileSync(resolve(SKILLS_DIR, file), 'utf-8');
       const parsed = parse(content);
       const result = SkillMetadataSchema.safeParse(parsed);
-      expect(result.success, `Schema validation failed for ${file}: ${JSON.stringify(result)}`).toBe(true);
+      expect(
+        result.success,
+        `Schema validation failed for ${file}: ${JSON.stringify(result)}`
+      ).toBe(true);
     });
   }
 });
@@ -486,6 +510,7 @@ git commit -m "feat(skills): add depends_on reference validation, remove include
 ### Task 4: HarnessState Types
 
 **Files:**
+
 - Create: `packages/core/src/state/types.ts`
 - Test: `packages/core/tests/state/types.test.ts`
 
@@ -536,25 +561,37 @@ import { z } from 'zod';
 
 export const HarnessStateSchema = z.object({
   schemaVersion: z.literal(1),
-  position: z.object({
-    phase: z.string().optional(),
-    task: z.string().optional(),
-  }).default({}),
-  decisions: z.array(z.object({
-    date: z.string(),
-    decision: z.string(),
-    context: z.string(),
-  })).default([]),
-  blockers: z.array(z.object({
-    id: z.string(),
-    description: z.string(),
-    status: z.enum(['open', 'resolved']),
-  })).default([]),
+  position: z
+    .object({
+      phase: z.string().optional(),
+      task: z.string().optional(),
+    })
+    .default({}),
+  decisions: z
+    .array(
+      z.object({
+        date: z.string(),
+        decision: z.string(),
+        context: z.string(),
+      })
+    )
+    .default([]),
+  blockers: z
+    .array(
+      z.object({
+        id: z.string(),
+        description: z.string(),
+        status: z.enum(['open', 'resolved']),
+      })
+    )
+    .default([]),
   progress: z.record(z.enum(['pending', 'in_progress', 'complete'])).default({}),
-  lastSession: z.object({
-    date: z.string(),
-    summary: z.string(),
-  }).optional(),
+  lastSession: z
+    .object({
+      date: z.string(),
+      summary: z.string(),
+    })
+    .optional(),
 });
 
 export type HarnessState = z.infer<typeof HarnessStateSchema>;
@@ -582,6 +619,7 @@ git commit -m "feat(state): add HarnessState schema and types"
 ### Task 5: State Manager (loadState, saveState, appendLearning)
 
 **Files:**
+
 - Create: `packages/core/src/state/state-manager.ts`
 - Create: `packages/core/src/state/index.ts`
 - Modify: `packages/core/src/index.ts`
@@ -613,13 +651,16 @@ describe('loadState', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
     const harnessDir = path.join(tmpDir, '.harness');
     fs.mkdirSync(harnessDir, { recursive: true });
-    fs.writeFileSync(path.join(harnessDir, 'state.json'), JSON.stringify({
-      schemaVersion: 1,
-      position: { phase: 'test' },
-      decisions: [],
-      blockers: [],
-      progress: { 'task-1': 'complete' },
-    }));
+    fs.writeFileSync(
+      path.join(harnessDir, 'state.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        position: { phase: 'test' },
+        decisions: [],
+        blockers: [],
+        progress: { 'task-1': 'complete' },
+      })
+    );
     const result = await loadState(tmpDir);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.progress['task-1']).toBe('complete');
@@ -701,11 +742,18 @@ export async function loadState(projectPath: string): Promise<Result<HarnessStat
 
     return Ok(result.data);
   } catch (error) {
-    return Err(new Error(`Failed to load state from ${statePath}: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to load state from ${statePath}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 
-export async function saveState(projectPath: string, state: HarnessState): Promise<Result<void, Error>> {
+export async function saveState(
+  projectPath: string,
+  state: HarnessState
+): Promise<Result<void, Error>> {
   const harnessDir = path.join(projectPath, HARNESS_DIR);
   const statePath = path.join(harnessDir, STATE_FILE);
 
@@ -714,11 +762,16 @@ export async function saveState(projectPath: string, state: HarnessState): Promi
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
     return Ok(undefined);
   } catch (error) {
-    return Err(new Error(`Failed to save state: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(`Failed to save state: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 }
 
-export async function appendLearning(projectPath: string, learning: string): Promise<Result<void, Error>> {
+export async function appendLearning(
+  projectPath: string,
+  learning: string
+): Promise<Result<void, Error>> {
   const harnessDir = path.join(projectPath, HARNESS_DIR);
   const learningsPath = path.join(harnessDir, LEARNINGS_FILE);
 
@@ -735,7 +788,11 @@ export async function appendLearning(projectPath: string, learning: string): Pro
 
     return Ok(undefined);
   } catch (error) {
-    return Err(new Error(`Failed to append learning: ${error instanceof Error ? error.message : String(error)}`));
+    return Err(
+      new Error(
+        `Failed to append learning: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
   }
 }
 ```
@@ -750,6 +807,7 @@ export { loadState, saveState, appendLearning } from './state-manager';
 - [ ] **Step 4: Export from core index.ts**
 
 Add to `packages/core/src/index.ts`:
+
 ```typescript
 // State module
 export * from './state';
@@ -771,6 +829,7 @@ git commit -m "feat(state): add HarnessState manager (load, save, appendLearning
 ### Task 6: `harness skill` Commands
 
 **Files:**
+
 - Create: `packages/cli/src/commands/skill/index.ts`
 - Create: `packages/cli/src/commands/skill/list.ts`
 - Create: `packages/cli/src/commands/skill/run.ts`
@@ -789,6 +848,7 @@ This task creates 4 CLI subcommands. The implementer should:
 6. Register all in `packages/cli/src/index.ts`
 
 **First**, add `resolveSkillsDir()` to `packages/cli/src/utils/paths.ts`:
+
 ```typescript
 export function resolveSkillsDir(): string {
   // Find agents/ dir containing skills/ subdirectory, then navigate to skills/claude-code/
@@ -829,6 +889,7 @@ Follow existing patterns from persona commands. Key difference: `run` reads SKIL
 - [ ] **Step 3: Register in CLI index**
 
 Add to `packages/cli/src/index.ts`:
+
 ```typescript
 import { createSkillCommand } from './commands/skill';
 // In createProgram():
@@ -851,6 +912,7 @@ git commit -m "feat(cli): add harness skill list/run/validate/info commands"
 ### Task 7: `harness state` Commands
 
 **Files:**
+
 - Create: `packages/cli/src/commands/state/index.ts`
 - Create: `packages/cli/src/commands/state/show.ts`
 - Create: `packages/cli/src/commands/state/reset.ts`
@@ -900,6 +962,7 @@ git commit -m "feat(cli): add harness state show/reset/learn commands"
 ### Task 8: MCP `run_skill` Tool
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/skill.ts`
 - Modify: `packages/mcp-server/src/server.ts`
 - Test: `packages/mcp-server/tests/tools/skill.test.ts`
@@ -937,6 +1000,7 @@ git commit -m "feat(mcp-server): add run_skill tool"
 ### Task 9: Migrate Existing 11 Skills
 
 **Files:**
+
 - Modify: All 11 `agents/skills/claude-code/*/skill.yaml` files
 - Create: All 11 `agents/skills/claude-code/*/SKILL.md` files (stubs)
 - Delete: All 11 `agents/skills/claude-code/*/prompt.md` files
@@ -944,11 +1008,13 @@ git commit -m "feat(mcp-server): add run_skill tool"
 - Delete: `agents/skills/shared/` directory
 
 For each of the 11 existing skills:
+
 1. Rewrite `skill.yaml` to new schema (add `platforms`, `type`, remove `platform`, `category`, `includes`)
 2. Create `SKILL.md` stub with all required sections (see stub format in spec)
 3. Delete `prompt.md` and `README.md`
 
 The 11 skills to migrate:
+
 1. `validate-context-engineering` — type: flexible
 2. `enforce-architecture` — type: rigid
 3. `check-mechanical-constraints` — type: rigid
@@ -962,9 +1028,10 @@ The 11 skills to migrate:
 11. `add-harness-component` — type: flexible
 
 Example migrated skill.yaml for `harness-tdd`:
+
 ```yaml
 name: harness-tdd
-version: "1.0.0"
+version: '1.0.0'
 description: Test-driven development integrated with harness validation
 triggers:
   - manual
@@ -1029,6 +1096,7 @@ Run: `find agents/skills/claude-code -name "prompt.md" -delete && find agents/sk
 - [ ] **Step 5: Mirror to gemini-cli** (symlinks)
 
 For each skill in claude-code, create a symlink in gemini-cli:
+
 ```bash
 mkdir -p agents/skills/gemini-cli
 cd agents/skills/gemini-cli
@@ -1059,9 +1127,11 @@ delete prompt.md/README.md/shared/, symlink gemini-cli."
 ### Task 10: Create 10 New Skill Directories
 
 **Files:**
+
 - Create: 10 new directories in `agents/skills/claude-code/` with `skill.yaml` + `SKILL.md` stubs
 
 New skills:
+
 1. `harness-brainstorming` — type: rigid, depends_on: [harness-planning]
 2. `harness-debugging` — type: rigid, state.persistent: true, state.files: ['.harness/debug/']
 3. `harness-planning` — type: rigid, depends_on: [harness-verification]

@@ -15,34 +15,40 @@
 ## File Structure
 
 ### Schema changes
+
 ```
 packages/cli/src/skill/schema.ts           # Add required field to SkillPhaseSchema
 agents/skills/tests/schema.ts              # Same change (duplicate schema)
 ```
 
 ### Preamble injection system (shared by enhancements 1, 2, 4)
+
 ```
 packages/cli/src/commands/skill/preamble.ts  # NEW: builds preamble from context
 packages/cli/src/commands/skill/run.ts       # MODIFY: use preamble builder, add --complexity/--phase/--party flags
 ```
 
 ### Auto-detection
+
 ```
 packages/cli/src/skill/complexity.ts         # NEW: auto-detect complexity from git
 ```
 
 ### Cross-artifact validation
+
 ```
 packages/cli/src/commands/validate-cross-check.ts  # NEW: spec→plan→impl consistency
 packages/cli/src/commands/validate.ts               # MODIFY: add --cross-check flag
 ```
 
 ### MCP changes
+
 ```
 packages/mcp-server/src/tools/skill.ts       # MODIFY: add complexity/phase/party inputs
 ```
 
 ### Skill content changes
+
 ```
 agents/skills/claude-code/harness-debugging/skill.yaml     # MODIFY: fix phase names
 agents/skills/claude-code/harness-brainstorming/SKILL.md   # MODIFY: add party mode process
@@ -50,12 +56,14 @@ agents/skills/claude-code/*/skill.yaml                     # MODIFY: add require
 ```
 
 ### Template changes
+
 ```
 templates/intermediate/docs/principles.md.hbs  # NEW: starter principles file
 templates/advanced/docs/principles.md.hbs      # NEW: starter principles file
 ```
 
 ### Tests
+
 ```
 packages/cli/tests/skill/complexity.test.ts           # NEW
 packages/cli/tests/skill/preamble.test.ts             # NEW
@@ -69,6 +77,7 @@ packages/cli/tests/commands/validate-cross-check.test.ts  # NEW
 ### Task 1: Add `required` field to SkillPhaseSchema
 
 **Files:**
+
 - Modify: `packages/cli/src/skill/schema.ts`
 - Modify: `agents/skills/tests/schema.ts`
 - Modify: `agents/skills/tests/schema.test.ts`
@@ -145,6 +154,7 @@ git commit -m "feat(skills): add required field to SkillPhaseSchema for scale-ad
 ### Task 2: Complexity Auto-Detection
 
 **Files:**
+
 - Create: `packages/cli/src/skill/complexity.ts`
 - Test: `packages/cli/tests/skill/complexity.test.ts`
 
@@ -166,11 +176,51 @@ describe('detectComplexity', () => {
     // Since we can't easily mock git, test the signal evaluation logic directly
     const { evaluateSignals } = require('../../src/skill/complexity');
 
-    expect(evaluateSignals({ fileCount: 1, testOnly: false, docsOnly: false, newDir: false, newDep: false })).toBe('light');
-    expect(evaluateSignals({ fileCount: 5, testOnly: false, docsOnly: false, newDir: false, newDep: false })).toBe('full');
-    expect(evaluateSignals({ fileCount: 1, testOnly: true, docsOnly: false, newDir: false, newDep: false })).toBe('light');
-    expect(evaluateSignals({ fileCount: 1, testOnly: false, docsOnly: false, newDir: true, newDep: false })).toBe('full');
-    expect(evaluateSignals({ fileCount: 1, testOnly: false, docsOnly: false, newDir: false, newDep: true })).toBe('full');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: false,
+        docsOnly: false,
+        newDir: false,
+        newDep: false,
+      })
+    ).toBe('light');
+    expect(
+      evaluateSignals({
+        fileCount: 5,
+        testOnly: false,
+        docsOnly: false,
+        newDir: false,
+        newDep: false,
+      })
+    ).toBe('full');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: true,
+        docsOnly: false,
+        newDir: false,
+        newDep: false,
+      })
+    ).toBe('light');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: false,
+        docsOnly: false,
+        newDir: true,
+        newDep: false,
+      })
+    ).toBe('full');
+    expect(
+      evaluateSignals({
+        fileCount: 1,
+        testOnly: false,
+        docsOnly: false,
+        newDir: false,
+        newDep: true,
+      })
+    ).toBe('full');
   });
 });
 ```
@@ -211,26 +261,39 @@ export function detectComplexity(projectPath: string): 'light' | 'full' {
   try {
     // Find base commit
     const base = execSync('git merge-base HEAD main', {
-      cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
 
     const diffFiles = execSync(`git diff --name-only ${base}`, {
-      cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim().split('\n').filter(Boolean);
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+      .trim()
+      .split('\n')
+      .filter(Boolean);
 
     const diffStat = execSync(`git diff --stat ${base}`, {
-      cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
 
     const signals: Signals = {
       fileCount: diffFiles.length,
-      testOnly: diffFiles.every(f => f.match(/\.(test|spec)\./)),
-      docsOnly: diffFiles.every(f => f.startsWith('docs/') || f.endsWith('.md')),
-      newDir: diffStat.includes('create mode') || diffFiles.some(f => {
-        const parts = f.split('/');
-        return parts.length > 1; // Rough heuristic
-      }),
-      newDep: diffFiles.some(f => ['package.json', 'Cargo.toml', 'go.mod', 'requirements.txt'].includes(f)),
+      testOnly: diffFiles.every((f) => f.match(/\.(test|spec)\./)),
+      docsOnly: diffFiles.every((f) => f.startsWith('docs/') || f.endsWith('.md')),
+      newDir:
+        diffStat.includes('create mode') ||
+        diffFiles.some((f) => {
+          const parts = f.split('/');
+          return parts.length > 1; // Rough heuristic
+        }),
+      newDep: diffFiles.some((f) =>
+        ['package.json', 'Cargo.toml', 'go.mod', 'requirements.txt'].includes(f)
+      ),
     };
 
     return evaluateSignals(signals);
@@ -255,6 +318,7 @@ git commit -m "feat(skills): add complexity auto-detection from git diff signals
 ### Task 3: Preamble Builder + Upgraded `skill run`
 
 **Files:**
+
 - Create: `packages/cli/src/commands/skill/preamble.ts`
 - Modify: `packages/cli/src/commands/skill/run.ts`
 - Test: `packages/cli/tests/skill/preamble.test.ts`
@@ -338,9 +402,9 @@ interface PreambleOptions {
   complexity?: 'light' | 'full';
   phases?: Phase[];
   principles?: string;
-  phase?: string;           // re-entry phase name
-  priorState?: string;      // loaded state content
-  stateWarning?: string;    // warning if no state
+  phase?: string; // re-entry phase name
+  priorState?: string; // loaded state content
+  stateWarning?: string; // warning if no state
   party?: boolean;
 }
 
@@ -379,7 +443,9 @@ export function buildPreamble(options: PreambleOptions): string {
 
   // Party mode
   if (options.party) {
-    sections.push('## Party Mode: Active\nEvaluate each approach from multiple contextually relevant perspectives before converging on a recommendation.');
+    sections.push(
+      '## Party Mode: Active\nEvaluate each approach from multiple contextually relevant perspectives before converging on a recommendation.'
+    );
   }
 
   return sections.length > 0 ? sections.join('\n\n---\n\n') + '\n\n---\n\n' : '';
@@ -429,7 +495,9 @@ export function createRunCommand(): Command {
           const parsed = parse(raw);
           const result = SkillMetadataSchema.safeParse(parsed);
           if (result.success) metadata = result.data;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       // Resolve complexity
@@ -458,7 +526,7 @@ export function createRunCommand(): Command {
       if (opts.phase) {
         // Validate phase name
         if (metadata?.phases) {
-          const validPhases = metadata.phases.map(p => p.name);
+          const validPhases = metadata.phases.map((p) => p.name);
           if (!validPhases.includes(opts.phase)) {
             logger.error(`Unknown phase: ${opts.phase}. Valid phases: ${validPhases.join(', ')}`);
             process.exit(ExitCode.ERROR);
@@ -474,8 +542,9 @@ export function createRunCommand(): Command {
               const stat = fs.statSync(fullPath);
               if (stat.isDirectory()) {
                 // Find most recent file in directory
-                const files = fs.readdirSync(fullPath)
-                  .map(f => ({ name: f, mtime: fs.statSync(path.join(fullPath, f)).mtimeMs }))
+                const files = fs
+                  .readdirSync(fullPath)
+                  .map((f) => ({ name: f, mtime: fs.statSync(path.join(fullPath, f)).mtimeMs }))
                   .sort((a, b) => b.mtime - a.mtime);
                 if (files.length > 0) {
                   priorState = fs.readFileSync(path.join(fullPath, files[0].name), 'utf-8');
@@ -487,7 +556,8 @@ export function createRunCommand(): Command {
             }
           }
           if (!priorState) {
-            stateWarning = 'No prior phase data found. Earlier phases have not been completed. Proceed with caution.';
+            stateWarning =
+              'No prior phase data found. Earlier phases have not been completed. Proceed with caution.';
           }
         }
       }
@@ -547,6 +617,7 @@ git commit -m "feat(cli): add preamble injection system with complexity, princip
 ### Task 4: Cross-Check Validator Module
 
 **Files:**
+
 - Create: `packages/cli/src/commands/validate-cross-check.ts`
 - Modify: `packages/cli/src/commands/validate.ts`
 - Test: `packages/cli/tests/commands/validate-cross-check.test.ts`
@@ -581,12 +652,10 @@ describe('runCrossCheck', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cross-check-'));
     const plansDir = path.join(tmpDir, 'docs', 'superpowers', 'plans');
     fs.mkdirSync(plansDir, { recursive: true });
-    fs.writeFileSync(path.join(plansDir, 'test-plan.md'), [
-      '# Test Plan',
-      '### Task 1: Test',
-      '**Files:**',
-      '- Create: `src/nonexistent.ts`',
-    ].join('\n'));
+    fs.writeFileSync(
+      path.join(plansDir, 'test-plan.md'),
+      ['# Test Plan', '### Task 1: Test', '**Files:**', '- Create: `src/nonexistent.ts`'].join('\n')
+    );
 
     const result = await runCrossCheck({
       specsDir: path.join(tmpDir, 'docs', 'superpowers', 'specs'),
@@ -596,7 +665,7 @@ describe('runCrossCheck', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.warnings).toBeGreaterThan(0);
-      expect(result.value.planToImpl.some(w => w.includes('nonexistent.ts'))).toBe(true);
+      expect(result.value.planToImpl.some((w) => w.includes('nonexistent.ts'))).toBe(true);
     }
     fs.rmSync(tmpDir, { recursive: true });
   });
@@ -631,7 +700,10 @@ interface CrossCheckOptions {
 
 function findFiles(dir: string, ext: string): string[] {
   if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter(f => f.endsWith(ext)).map(f => path.join(dir, f));
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(ext))
+    .map((f) => path.join(dir, f));
 }
 
 function extractPlannedFiles(planContent: string): string[] {
@@ -647,7 +719,9 @@ function extractPlannedFiles(planContent: string): string[] {
 function getFileModTime(filePath: string, projectPath: string): Date | null {
   try {
     const output = execSync(`git log -1 --format=%aI -- "${filePath}"`, {
-      cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
     return output ? new Date(output) : null;
   } catch {
@@ -655,7 +729,9 @@ function getFileModTime(filePath: string, projectPath: string): Date | null {
   }
 }
 
-export async function runCrossCheck(options: CrossCheckOptions): Promise<Result<CrossCheckResult, CLIError>> {
+export async function runCrossCheck(
+  options: CrossCheckOptions
+): Promise<Result<CrossCheckResult, CLIError>> {
   const result: CrossCheckResult = {
     specToPlan: [],
     planToImpl: [],
@@ -746,26 +822,19 @@ git commit -m "feat(cli): add cross-artifact validation (--cross-check)"
 ### Task 5: Principles Template Files
 
 **Files:**
+
 - Create: `templates/intermediate/docs/principles.md.hbs`
 - Create: `templates/advanced/docs/principles.md.hbs`
 
 - [ ] **Step 1: Create the template**
 
 ```handlebars
-{{!-- templates/intermediate/docs/principles.md.hbs --}}
-# {{projectName}} Principles
-
-## Code Quality
-- TODO: Define your code quality principles
-
-## Architecture
-- TODO: Define your architectural principles
-
-## Testing
-- TODO: Define your testing approach
-
-## Design
-- TODO: Define your design principles
+{{! templates/intermediate/docs/principles.md.hbs }}
+#
+{{projectName}}
+Principles ## Code Quality - TODO: Define your code quality principles ## Architecture - TODO:
+Define your architectural principles ## Testing - TODO: Define your testing approach ## Design -
+TODO: Define your design principles
 ```
 
 Use the same content for both intermediate and advanced.
@@ -782,6 +851,7 @@ git commit -m "feat(templates): add docs/principles.md to intermediate and advan
 ### Task 6: Fix Debugging Skill Phase Names
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-debugging/skill.yaml`
 
 - [ ] **Step 1: Update phase names to match SKILL.md**
@@ -807,6 +877,7 @@ phases:
 - [ ] **Step 2: Add `required` to all other skills with phases**
 
 Check all `skill.yaml` files that have `phases` declared. Add `required: true` or `required: false` to each phase based on spec guidance. The key skills with phases:
+
 - `harness-tdd`: red (required), green (required), refactor (false), validate (required)
 - `harness-brainstorming`: all required
 - `harness-planning`: all required
@@ -830,6 +901,7 @@ git commit -m "fix(skills): update phase names and add required field to all ski
 ### Task 7: Party Mode in Brainstorming SKILL.md
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-brainstorming/SKILL.md`
 
 - [ ] **Step 1: Add party mode section to SKILL.md**
@@ -845,21 +917,21 @@ When activated with `--party`, add a multi-perspective evaluation step after pro
 
 Select 2-3 perspectives based on design topic:
 
-| Topic | Perspectives |
-|---|---|
-| API / backend | Backend Developer, API Consumer, Operations |
-| UI / frontend | Developer, Designer, End User |
-| Infrastructure | Architect, SRE, Developer |
-| Data model | Backend Developer, Data Consumer, Migration |
-| Library / SDK | Library Author, Library Consumer, Maintainer |
-| Cross-cutting | Architect, Security, Developer |
-| Default | Architect, Developer, User/Consumer |
+| Topic          | Perspectives                                 |
+| -------------- | -------------------------------------------- |
+| API / backend  | Backend Developer, API Consumer, Operations  |
+| UI / frontend  | Developer, Designer, End User                |
+| Infrastructure | Architect, SRE, Developer                    |
+| Data model     | Backend Developer, Data Consumer, Migration  |
+| Library / SDK  | Library Author, Library Consumer, Maintainer |
+| Cross-cutting  | Architect, Security, Developer               |
+| Default        | Architect, Developer, User/Consumer          |
 
 ### Evaluation Process
 
 For each proposed approach, evaluate from each perspective:
-
 ```
+
 ### Approach N: [name]
 
 **[Perspective 1] perspective:**
@@ -872,6 +944,7 @@ For each proposed approach, evaluate from each perspective:
 [Assessment]. Concern: [specific concern or "None"].
 
 **Synthesis:** [Consensus summary. Address raised concerns. Recommend proceed/revise.]
+
 ```
 
 Converge on a recommendation that addresses all concerns before presenting the design.
@@ -889,6 +962,7 @@ git commit -m "feat(skills): add party mode multi-perspective evaluation to brai
 ### Task 8: MCP run_skill Enhancements
 
 **Files:**
+
 - Modify: `packages/mcp-server/src/tools/skill.ts`
 - Modify: `packages/mcp-server/tests/tools/skill.test.ts`
 
@@ -899,13 +973,18 @@ Add `complexity`, `phase`, and `party` to the input schema:
 ```typescript
 export const runSkillDefinition = {
   name: 'run_skill',
-  description: 'Load and return the content of a skill (SKILL.md), optionally with project state context',
+  description:
+    'Load and return the content of a skill (SKILL.md), optionally with project state context',
   inputSchema: {
     type: 'object' as const,
     properties: {
       skill: { type: 'string', description: 'Skill name (e.g., harness-tdd)' },
       path: { type: 'string', description: 'Path to project root for state context injection' },
-      complexity: { type: 'string', enum: ['auto', 'light', 'full'], description: 'Complexity level' },
+      complexity: {
+        type: 'string',
+        enum: ['auto', 'light', 'full'],
+        description: 'Complexity level',
+      },
       phase: { type: 'string', description: 'Start at a specific phase (re-entry)' },
       party: { type: 'boolean', description: 'Enable multi-perspective evaluation' },
     },
@@ -921,6 +1000,7 @@ The MCP handler should mirror the CLI `run.ts` logic: load metadata, detect comp
 Simplest approach: the preamble builder is pure logic with no side effects — export it from CLI and import in MCP.
 
 Add to `packages/cli/src/index.ts`:
+
 ```typescript
 export { buildPreamble } from './commands/skill/preamble';
 ```

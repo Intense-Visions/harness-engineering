@@ -45,7 +45,7 @@ describe('archiveFailures', () => {
     const archiveDir = path.join(tmpDir, '.harness', 'archive');
     const archiveFiles = fs.readdirSync(archiveDir).sort();
     expect(archiveFiles.length).toBe(2);
-    const hasCollisionSuffix = archiveFiles.some(f => /-2\.md$/.test(f));
+    const hasCollisionSuffix = archiveFiles.some((f) => /-2\.md$/.test(f));
     expect(hasCollisionSuffix).toBe(true);
   });
 

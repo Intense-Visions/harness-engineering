@@ -15,11 +15,13 @@
 This plan creates/modifies these files:
 
 **Parser Abstraction (shared/parsers/):**
+
 - `packages/core/src/shared/parsers/base.ts` - LanguageParser interface and types
 - `packages/core/src/shared/parsers/typescript.ts` - TypeScript parser implementation
 - `packages/core/src/shared/parsers/index.ts` - Parser exports
 
 **Constraints Module:**
+
 - `packages/core/src/constraints/types.ts` - Constraint-specific types
 - `packages/core/src/constraints/layers.ts` - Layer definitions
 - `packages/core/src/constraints/dependencies.ts` - Dependency graph + validation
@@ -28,6 +30,7 @@ This plan creates/modifies these files:
 - `packages/core/src/constraints/index.ts` - Public exports
 
 **Tests:**
+
 - `packages/core/tests/shared/parsers/typescript-parser.test.ts` (deviation from spec: tests mirror source structure)
 - `packages/core/tests/constraints/layers.test.ts`
 - `packages/core/tests/constraints/dependencies.test.ts`
@@ -35,6 +38,7 @@ This plan creates/modifies these files:
 - `packages/core/tests/constraints/boundary.test.ts`
 
 **Test Fixtures:**
+
 - `packages/core/tests/fixtures/typescript-samples/` - Various import/export patterns
 - `packages/core/tests/fixtures/layer-violations/` - Cross-layer import violations
 - `packages/core/tests/fixtures/circular-deps/` - A→B→C→A cycle
@@ -47,6 +51,7 @@ This plan creates/modifies these files:
 ### Task 1: Parser Base Types
 
 **Files:**
+
 - Create: `packages/core/src/shared/parsers/base.ts`
 
 - [ ] **Step 1: Create parser types file**
@@ -72,12 +77,12 @@ export interface Location {
 }
 
 export interface Import {
-  source: string;           // './module' or '@pkg/lib'
-  specifiers: string[];     // Named imports
-  default?: string;         // Default import name
-  namespace?: string;       // import * as X
+  source: string; // './module' or '@pkg/lib'
+  specifiers: string[]; // Named imports
+  default?: string; // Default import name
+  namespace?: string; // import * as X
   location: Location;
-  kind: 'value' | 'type';   // Distinguish type-only imports
+  kind: 'value' | 'type'; // Distinguish type-only imports
 }
 
 export interface Export {
@@ -85,7 +90,7 @@ export interface Export {
   type: 'named' | 'default' | 'namespace';
   location: Location;
   isReExport: boolean;
-  source?: string;          // Re-export source
+  source?: string; // Re-export source
 }
 
 export interface ParseError extends BaseError {
@@ -143,6 +148,7 @@ git commit -m "feat(core): add parser abstraction types"
 ### Task 2: TypeScript Parser - File Parsing
 
 **Files:**
+
 - Create: `packages/core/src/shared/parsers/typescript.ts`
 - Create: `packages/core/tests/shared/parsers/typescript-parser.test.ts`
 - Create: `packages/core/tests/fixtures/typescript-samples/simple.ts`
@@ -165,8 +171,12 @@ import { join, resolve } from 'path';
 import type { Stats } from 'fs';
 
 export const VERSION = '1.0.0';
-export function helper() { return true; }
-export default function main() { return 'main'; }
+export function helper() {
+  return true;
+}
+export default function main() {
+  return 'main';
+}
 ```
 
 - [ ] **Step 3: Write failing test for parseFile**
@@ -231,14 +241,7 @@ import { parse } from '@typescript-eslint/typescript-estree';
 import type { Result } from '../result';
 import { Ok, Err } from '../result';
 import { readFileContent } from '../fs-utils';
-import type {
-  AST,
-  Import,
-  Export,
-  ParseError,
-  LanguageParser,
-  HealthCheckResult,
-} from './base';
+import type { AST, Import, Export, ParseError, LanguageParser, HealthCheckResult } from './base';
 import { createParseError } from './base';
 
 export class TypeScriptParser implements LanguageParser {
@@ -249,12 +252,10 @@ export class TypeScriptParser implements LanguageParser {
     const contentResult = await readFileContent(path);
     if (!contentResult.ok) {
       return Err(
-        createParseError(
-          'NOT_FOUND',
-          `File not found: ${path}`,
-          { path },
-          ['Check that the file exists', 'Verify the path is correct']
-        )
+        createParseError('NOT_FOUND', `File not found: ${path}`, { path }, [
+          'Check that the file exists',
+          'Verify the path is correct',
+        ])
       );
     }
 
@@ -274,12 +275,10 @@ export class TypeScriptParser implements LanguageParser {
     } catch (e) {
       const error = e as Error;
       return Err(
-        createParseError(
-          'SYNTAX_ERROR',
-          `Failed to parse ${path}: ${error.message}`,
-          { path },
-          ['Check for syntax errors in the file', 'Ensure valid TypeScript syntax']
-        )
+        createParseError('SYNTAX_ERROR', `Failed to parse ${path}: ${error.message}`, { path }, [
+          'Check for syntax errors in the file',
+          'Ensure valid TypeScript syntax',
+        ])
       );
     }
   }
@@ -317,6 +316,7 @@ git commit -m "feat(core): implement TypeScript parser file parsing"
 ### Task 3: TypeScript Parser - Import Extraction
 
 **Files:**
+
 - Modify: `packages/core/src/shared/parsers/typescript.ts`
 - Modify: `packages/core/tests/shared/parsers/typescript-parser.test.ts`
 - Create: `packages/core/tests/fixtures/typescript-samples/imports.ts`
@@ -368,7 +368,7 @@ describe('extractImports', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const fsImport = result.value.find(i => i.source === 'fs');
+    const fsImport = result.value.find((i) => i.source === 'fs');
     expect(fsImport).toBeDefined();
     expect(fsImport?.default).toBe('fs');
     expect(fsImport?.kind).toBe('value');
@@ -382,7 +382,7 @@ describe('extractImports', () => {
     const result = parser.extractImports(parseResult.value);
     if (!result.ok) return;
 
-    const pathImport = result.value.find(i => i.source === 'path');
+    const pathImport = result.value.find((i) => i.source === 'path');
     expect(pathImport).toBeDefined();
     expect(pathImport?.specifiers).toContain('join');
     expect(pathImport?.specifiers).toContain('resolve');
@@ -396,7 +396,7 @@ describe('extractImports', () => {
     const result = parser.extractImports(parseResult.value);
     if (!result.ok) return;
 
-    const osImport = result.value.find(i => i.source === 'os');
+    const osImport = result.value.find((i) => i.source === 'os');
     expect(osImport).toBeDefined();
     expect(osImport?.namespace).toBe('os');
   });
@@ -409,9 +409,9 @@ describe('extractImports', () => {
     const result = parser.extractImports(parseResult.value);
     if (!result.ok) return;
 
-    const typeImports = result.value.filter(i => i.kind === 'type');
+    const typeImports = result.value.filter((i) => i.kind === 'type');
     expect(typeImports.length).toBeGreaterThan(0);
-    expect(typeImports.some(i => i.specifiers.includes('Stats'))).toBe(true);
+    expect(typeImports.some((i) => i.specifiers.includes('Stats'))).toBe(true);
   });
 
   it('should include location information', async () => {
@@ -531,6 +531,7 @@ git commit -m "feat(core): implement TypeScript import extraction"
 ### Task 4: TypeScript Parser - Export Extraction
 
 **Files:**
+
 - Modify: `packages/core/src/shared/parsers/typescript.ts`
 - Modify: `packages/core/tests/shared/parsers/typescript-parser.test.ts`
 - Create: `packages/core/tests/fixtures/typescript-samples/exports.ts`
@@ -541,11 +542,15 @@ git commit -m "feat(core): implement TypeScript import extraction"
 // packages/core/tests/fixtures/typescript-samples/exports.ts
 // Named exports
 export const VERSION = '1.0.0';
-export function helper() { return true; }
+export function helper() {
+  return true;
+}
 export class Service {}
 
 // Default export
-export default function main() { return 'main'; }
+export default function main() {
+  return 'main';
+}
 
 // Re-exports
 export { join, resolve } from 'path';
@@ -574,10 +579,10 @@ describe('extractExports', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const namedExports = result.value.filter(e => e.type === 'named');
-    expect(namedExports.some(e => e.name === 'VERSION')).toBe(true);
-    expect(namedExports.some(e => e.name === 'helper')).toBe(true);
-    expect(namedExports.some(e => e.name === 'Service')).toBe(true);
+    const namedExports = result.value.filter((e) => e.type === 'named');
+    expect(namedExports.some((e) => e.name === 'VERSION')).toBe(true);
+    expect(namedExports.some((e) => e.name === 'helper')).toBe(true);
+    expect(namedExports.some((e) => e.name === 'Service')).toBe(true);
   });
 
   it('should extract default export', async () => {
@@ -588,7 +593,7 @@ describe('extractExports', () => {
     const result = parser.extractExports(parseResult.value);
     if (!result.ok) return;
 
-    const defaultExport = result.value.find(e => e.type === 'default');
+    const defaultExport = result.value.find((e) => e.type === 'default');
     expect(defaultExport).toBeDefined();
   });
 
@@ -600,9 +605,9 @@ describe('extractExports', () => {
     const result = parser.extractExports(parseResult.value);
     if (!result.ok) return;
 
-    const reExports = result.value.filter(e => e.isReExport);
+    const reExports = result.value.filter((e) => e.isReExport);
     expect(reExports.length).toBeGreaterThan(0);
-    expect(reExports.some(e => e.source === 'path')).toBe(true);
+    expect(reExports.some((e) => e.source === 'path')).toBe(true);
   });
 
   it('should extract namespace re-exports', async () => {
@@ -613,7 +618,7 @@ describe('extractExports', () => {
     const result = parser.extractExports(parseResult.value);
     if (!result.ok) return;
 
-    const namespaceExports = result.value.filter(e => e.type === 'namespace');
+    const namespaceExports = result.value.filter((e) => e.type === 'namespace');
     expect(namespaceExports.length).toBeGreaterThan(0);
   });
 });
@@ -762,6 +767,7 @@ git commit -m "feat(core): implement TypeScript export extraction"
 ### Task 5: Parser Module Exports
 
 **Files:**
+
 - Create: `packages/core/src/shared/parsers/index.ts`
 
 - [ ] **Step 1: Create parser index file**
@@ -800,6 +806,7 @@ git commit -m "feat(core): add parser module exports"
 ### Task 6: Constraints Module Types
 
 **Files:**
+
 - Create: `packages/core/src/constraints/types.ts`
 
 - [ ] **Step 1: Create constraints types file**
@@ -889,8 +896,12 @@ export interface BoundaryValidation {
 
 export interface BoundaryValidator<T> {
   name: string;
-  parse(input: unknown): import('../shared/result').Result<T, import('../shared/errors').ConstraintError>;
-  validate(input: unknown): import('../shared/result').Result<boolean, import('../shared/errors').ConstraintError>;
+  parse(
+    input: unknown
+  ): import('../shared/result').Result<T, import('../shared/errors').ConstraintError>;
+  validate(
+    input: unknown
+  ): import('../shared/result').Result<boolean, import('../shared/errors').ConstraintError>;
   schema: z.ZodSchema<T>;
 }
 ```
@@ -912,6 +923,7 @@ git commit -m "feat(core): add constraints module types"
 ### Task 7: Layer Definitions
 
 **Files:**
+
 - Create: `packages/core/src/constraints/layers.ts`
 - Create: `packages/core/tests/constraints/layers.test.ts`
 
@@ -993,10 +1005,7 @@ export function defineLayer(
 /**
  * Resolve a file path to its layer
  */
-export function resolveFileToLayer(
-  file: string,
-  layers: Layer[]
-): Layer | undefined {
+export function resolveFileToLayer(file: string, layers: Layer[]): Layer | undefined {
   for (const layer of layers) {
     for (const pattern of layer.patterns) {
       if (minimatch(file, pattern)) {
@@ -1027,6 +1036,7 @@ git commit -m "feat(core): implement layer definitions"
 ### Task 8: Dependency Graph Building
 
 **Files:**
+
 - Create: `packages/core/src/constraints/dependencies.ts`
 - Create: `packages/core/tests/constraints/dependencies.test.ts`
 - Create: `packages/core/tests/fixtures/valid-layers/`
@@ -1110,7 +1120,7 @@ describe('buildDependencyGraph', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      const edge = result.value.edges.find(e => e.to.includes('domain/user'));
+      const edge = result.value.edges.find((e) => e.to.includes('domain/user'));
       expect(edge).toBeDefined();
       expect(edge?.importType).toBe('static');
     }
@@ -1149,11 +1159,7 @@ export { defineLayer } from './layers';
 /**
  * Resolve an import source to an absolute file path
  */
-function resolveImportPath(
-  importSource: string,
-  fromFile: string,
-  rootDir: string
-): string | null {
+function resolveImportPath(importSource: string, fromFile: string, rootDir: string): string | null {
   // Skip external packages
   if (!importSource.startsWith('.') && !importSource.startsWith('/')) {
     return null;
@@ -1342,6 +1348,7 @@ git commit -m "feat(core): implement dependency graph building"
 ### Task 9: Layer Violation Detection
 
 **Files:**
+
 - Modify: `packages/core/tests/constraints/dependencies.test.ts`
 - Create: `packages/core/tests/fixtures/layer-violations/`
 
@@ -1484,6 +1491,7 @@ git commit -m "feat(core): implement layer violation detection"
 ### Task 10: Tarjan's SCC Algorithm
 
 **Files:**
+
 - Create: `packages/core/src/constraints/circular-deps.ts`
 - Create: `packages/core/tests/constraints/circular-deps.test.ts`
 - Create: `packages/core/tests/fixtures/circular-deps/`
@@ -1565,9 +1573,7 @@ describe('detectCircularDeps', () => {
   it('should detect self-referential cycle', () => {
     const graph: DependencyGraph = {
       nodes: ['a.ts'],
-      edges: [
-        { from: 'a.ts', to: 'a.ts', importType: 'static', line: 1 },
-      ],
+      edges: [{ from: 'a.ts', to: 'a.ts', importType: 'static', line: 1 }],
     };
 
     const result = detectCircularDeps(graph);
@@ -1601,11 +1607,7 @@ describe('detectCircularDepsInFiles', () => {
   const fixturesDir = join(__dirname, '../fixtures/circular-deps');
 
   it('should detect cycles from actual files', async () => {
-    const files = [
-      join(fixturesDir, 'a.ts'),
-      join(fixturesDir, 'b.ts'),
-      join(fixturesDir, 'c.ts'),
-    ];
+    const files = [join(fixturesDir, 'a.ts'), join(fixturesDir, 'b.ts'), join(fixturesDir, 'c.ts')];
 
     const result = await detectCircularDepsInFiles(files, parser);
 
@@ -1631,11 +1633,7 @@ import type { Result } from '../shared/result';
 import { Ok } from '../shared/result';
 import type { ConstraintError } from '../shared/errors';
 import type { LanguageParser } from '../shared/parsers';
-import type {
-  DependencyGraph,
-  CircularDependency,
-  CircularDepsResult,
-} from './types';
+import type { DependencyGraph, CircularDependency, CircularDepsResult } from './types';
 import { buildDependencyGraph } from './dependencies';
 
 interface TarjanNode {
@@ -1735,7 +1733,7 @@ export function detectCircularDeps(
 ): Result<CircularDepsResult, ConstraintError> {
   const sccs = tarjanSCC(graph);
 
-  const cycles: CircularDependency[] = sccs.map(scc => {
+  const cycles: CircularDependency[] = sccs.map((scc) => {
     // Add first node at end to show cycle completion
     const cycle = [...scc.reverse(), scc[scc.length - 1]];
     return {
@@ -1789,6 +1787,7 @@ git commit -m "feat(core): implement circular dependency detection"
 ### Task 11: Boundary Validator
 
 **Files:**
+
 - Create: `packages/core/src/constraints/boundary.ts`
 - Create: `packages/core/tests/constraints/boundary.test.ts`
 
@@ -1865,9 +1864,7 @@ describe('validateBoundaries', () => {
       { name: 'User.create', layer: 'api', schema: UserSchema, direction: 'input' as const },
     ];
 
-    const data = new Map([
-      ['User.create', { email: 'test@example.com', name: 'John' }],
-    ]);
+    const data = new Map([['User.create', { email: 'test@example.com', name: 'John' }]]);
 
     const result = validateBoundaries(boundaries, data);
 
@@ -1883,9 +1880,7 @@ describe('validateBoundaries', () => {
       { name: 'User.create', layer: 'api', schema: UserSchema, direction: 'input' as const },
     ];
 
-    const data = new Map([
-      ['User.create', { email: 'invalid', name: '' }],
-    ]);
+    const data = new Map([['User.create', { email: 'invalid', name: '' }]]);
 
     const result = validateBoundaries(boundaries, data);
 
@@ -1937,7 +1932,7 @@ export function createBoundaryValidator<T>(
         return Ok(result.data);
       }
 
-      const suggestions = result.error.issues.map(issue => {
+      const suggestions = result.error.issues.map((issue) => {
         const path = issue.path.join('.');
         return path ? `${path}: ${issue.message}` : issue.message;
       });
@@ -2015,6 +2010,7 @@ git commit -m "feat(core): implement boundary validation"
 ### Task 12: Constraints Module Exports
 
 **Files:**
+
 - Create: `packages/core/src/constraints/index.ts`
 - Modify: `packages/core/src/index.ts`
 
@@ -2067,7 +2063,14 @@ export type { Result } from './shared/result';
 export { Ok, Err, isOk, isErr } from './shared/result';
 
 // Error types and helpers
-export type { BaseError, ValidationError, ContextError, ConstraintError, EntropyError, FeedbackError } from './shared/errors';
+export type {
+  BaseError,
+  ValidationError,
+  ContextError,
+  ConstraintError,
+  EntropyError,
+  FeedbackError,
+} from './shared/errors';
 export { createError } from './shared/errors';
 
 // Validation module
@@ -2081,7 +2084,14 @@ export * from './constraints';
 
 // Parsers
 export { TypeScriptParser } from './shared/parsers';
-export type { LanguageParser, AST, Import, Export, ParseError, HealthCheckResult } from './shared/parsers';
+export type {
+  LanguageParser,
+  AST,
+  Import,
+  Export,
+  ParseError,
+  HealthCheckResult,
+} from './shared/parsers';
 export { createParseError } from './shared/parsers';
 
 // Package version
@@ -2117,6 +2127,7 @@ Expected: Coverage >80% for all files
 - [ ] **Step 3: If coverage is below 80%, identify and add missing tests**
 
 Common gaps to check:
+
 - Error handling branches in parser
 - Edge cases in Tarjan's algorithm (empty graph, disconnected nodes)
 - Boundary validation with missing data
@@ -2143,6 +2154,7 @@ git commit -m "test(core): ensure >80% coverage for constraints module"
 ### Task 14: Update Documentation
 
 **Files:**
+
 - Modify: `packages/core/README.md`
 - Modify: `packages/core/CHANGELOG.md`
 
@@ -2163,20 +2175,20 @@ Define and validate architectural layers:
 import { validateDependencies, defineLayer, TypeScriptParser } from '@harness-engineering/core';
 
 const result = await validateDependencies({
-  layers: [
-    defineLayer('domain', ['src/domain/**'], []),
-    defineLayer('services', ['src/services/**'], ['domain']),
-    defineLayer('api', ['src/api/**'], ['services', 'domain']),
-  ],
-  rootDir: './src',
-  parser: new TypeScriptParser(),
+layers: [
+defineLayer('domain', ['src/domain/**'], []),
+defineLayer('services', ['src/services/**'], ['domain']),
+defineLayer('api', ['src/api/**'], ['services', 'domain']),
+],
+rootDir: './src',
+parser: new TypeScriptParser(),
 });
 
 if (result.ok && !result.value.valid) {
-  for (const violation of result.value.violations) {
-    console.log(\`\${violation.file}:\${violation.line} - \${violation.reason}\`);
-    console.log(\`  \${violation.fromLayer} cannot import from \${violation.toLayer}\`);
-  }
+for (const violation of result.value.violations) {
+console.log(\`\${violation.file}:\${violation.line} - \${violation.reason}\`);
+console.log(\` \${violation.fromLayer} cannot import from \${violation.toLayer}\`);
+}
 }
 \`\`\`
 
@@ -2188,14 +2200,14 @@ Find cycles in your dependency graph:
 import { detectCircularDepsInFiles, TypeScriptParser } from '@harness-engineering/core';
 
 const result = await detectCircularDepsInFiles(
-  ['src/a.ts', 'src/b.ts', 'src/c.ts'],
-  new TypeScriptParser()
+['src/a.ts', 'src/b.ts', 'src/c.ts'],
+new TypeScriptParser()
 );
 
 if (result.ok && result.value.hasCycles) {
-  for (const cycle of result.value.cycles) {
-    console.log('Cycle found:', cycle.cycle.join(' -> '));
-  }
+for (const cycle of result.value.cycles) {
+console.log('Cycle found:', cycle.cycle.join(' -> '));
+}
 }
 \`\`\`
 
@@ -2208,18 +2220,18 @@ import { z } from 'zod';
 import { createBoundaryValidator } from '@harness-engineering/core';
 
 const UserSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1),
+email: z.string().email(),
+name: z.string().min(1),
 });
 
 const validator = createBoundaryValidator(UserSchema, 'UserService.createUser');
 
 const result = validator.parse(requestBody);
 if (result.ok) {
-  // result.value is typed as { email: string; name: string }
-  createUser(result.value);
+// result.value is typed as { email: string; name: string }
+createUser(result.value);
 } else {
-  console.error(result.error.suggestions);
+console.error(result.error.suggestions);
 }
 \`\`\`
 ```
@@ -2265,6 +2277,7 @@ git commit -m "docs(core): add constraints module usage examples"
 - [ ] **Step 1: Update version to 0.3.0**
 
 Update `packages/core/package.json`:
+
 ```json
 {
   "version": "0.3.0"

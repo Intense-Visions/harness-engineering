@@ -22,10 +22,7 @@ function generateDeadCodeSuggestions(report: DeadCodeReport): Suggestion[] {
       title: `Remove dead file: ${file.path.split('/').pop()}`,
       description: `This file is not imported by any other file and can be safely removed.`,
       files: [file.path],
-      steps: [
-        `Delete ${file.path}`,
-        'Run tests to verify no regressions',
-      ],
+      steps: [`Delete ${file.path}`, 'Run tests to verify no regressions'],
       whyManual: 'File deletion requires verification that no dynamic imports exist',
     });
   }
@@ -40,10 +37,7 @@ function generateDeadCodeSuggestions(report: DeadCodeReport): Suggestion[] {
       title: `Remove unused export: ${exp.name}`,
       description: `The export "${exp.name}" is not used anywhere. Consider removing it.`,
       files: [exp.file],
-      steps: [
-        `Remove export "${exp.name}" from ${exp.file}`,
-        'Run tests to verify no regressions',
-      ],
+      steps: [`Remove export "${exp.name}" from ${exp.file}`, 'Run tests to verify no regressions'],
       whyManual: 'Export removal may affect external consumers not in scope',
     });
   }
@@ -147,9 +141,9 @@ export function generateSuggestions(
 
   // Group by priority
   const byPriority = {
-    high: suggestions.filter(s => s.priority === 'high'),
-    medium: suggestions.filter(s => s.priority === 'medium'),
-    low: suggestions.filter(s => s.priority === 'low'),
+    high: suggestions.filter((s) => s.priority === 'high'),
+    medium: suggestions.filter((s) => s.priority === 'medium'),
+    low: suggestions.filter((s) => s.priority === 'low'),
   };
 
   // Estimate effort

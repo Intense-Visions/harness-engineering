@@ -3,6 +3,7 @@
 > Entropy analysis and safe cleanup. Find unused exports, dead files, and pattern violations — then remove them without breaking anything.
 
 ## When to Use
+
 - After a major refactoring or feature removal
 - When the codebase feels "heavy" — too many files, unclear what is used
 - As a periodic hygiene task (monthly or per-quarter)
@@ -30,12 +31,14 @@
 ### Phase 2: Categorize — Safe vs. Needs Review
 
 **Safe to auto-fix (remove without further analysis):**
+
 - Exports that are not imported anywhere AND not referenced in any config file
 - Files that are not imported anywhere AND have no side effects (no top-level execution)
 - Commented-out code blocks (dead by definition)
 - Unused local variables and imports within a file (linter can catch these)
 
 **Needs human review before removal:**
+
 - Exports that APPEAR unused but might be consumed dynamically (see "What NOT to Delete" below)
 - Files that appear unused but are entry points (CLI scripts, test fixtures, config files)
 - Code that is only used in specific build configurations or environments
@@ -72,47 +75,59 @@ For items that need human review, report:
 These patterns make code APPEAR dead when it is actually in use:
 
 ### Dynamically imported modules
+
 ```typescript
 // This import won't show up in static analysis
 const module = await import(`./plugins/${pluginName}`);
 ```
+
 Files in a `plugins/` directory may appear unused but are loaded dynamically at runtime. Check for `import()` calls, `require()` with variables, and glob-based loading patterns.
 
 ### Test utilities and fixtures
+
 ```typescript
 // test-helpers.ts — only imported by test files
 export function createMockUser() { ... }
 ```
+
 Test utility files may appear unused if the analysis excludes test files. Verify that `harness cleanup` includes test files in its import graph.
 
 ### Type-only exports
+
 ```typescript
 // Only used as a type, never as a value
 export interface UserConfig { ... }
 ```
+
 Some analysis tools miss type-only imports (`import type { UserConfig }`). Verify before deleting any exported interface or type alias.
 
 ### Package entry points
+
 ```typescript
 // index.ts — re-exports for external consumers
 export { createClient } from './client';
 ```
+
 The entry point of a package re-exports things for external consumers. These exports may have zero internal imports but are the public API.
 
 ### Side-effect files
+
 ```typescript
 // polyfills.ts — imported for side effects, not for exports
 import './polyfills';
 ```
+
 Some files are imported for their side effects (polyfills, global registrations, CSS). They have no exports but are not dead.
 
 ### Environment-specific code
+
 ```typescript
 // Only used when FEATURE_FLAG_X is enabled
 if (process.env.FEATURE_FLAG_X) {
   const handler = require('./experimental-handler');
 }
 ```
+
 Code behind feature flags or environment checks may appear dead in the default configuration.
 
 ## Harness Integration
@@ -138,6 +153,7 @@ Code behind feature flags or environment checks may appear dead in the default c
 ### Example: Removing unused utility functions
 
 **Entropy report:**
+
 ```
 DEAD EXPORT: src/utils/string-helpers.ts
   - capitalizeFirst() — 0 imports found
@@ -150,6 +166,7 @@ DEAD EXPORT: src/utils/string-helpers.ts
 ### Example: Detecting a false positive
 
 **Entropy report:**
+
 ```
 UNUSED FILE: src/plugins/markdown-renderer.ts
   - 0 static imports found
@@ -157,6 +174,7 @@ UNUSED FILE: src/plugins/markdown-renderer.ts
 ```
 
 **Investigation:** Check for dynamic imports:
+
 ```typescript
 // src/plugins/index.ts
 const renderer = await import(`./${format}-renderer`);
@@ -167,6 +185,7 @@ const renderer = await import(`./${format}-renderer`);
 ### Example: Orphaned npm dependency
 
 **Entropy report:**
+
 ```
 ORPHANED DEPENDENCY: moment (package.json)
   - 0 imports of 'moment' found in src/

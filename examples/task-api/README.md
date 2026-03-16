@@ -50,6 +50,7 @@ When building features on this project, harness skills guide the workflow:
 ## Personas
 
 The **Architecture Enforcer** persona is configured for this project. It runs:
+
 - `harness check-deps` to verify dependency boundaries
 - `harness validate` to check overall project health
 - ESLint with harness rules to catch constraint violations
@@ -59,6 +60,7 @@ See `agents/personas/architecture-enforcer.yaml` in the main harness repo for th
 ## State Management
 
 Check `.harness.example/` to see what mid-project state looks like:
+
 - `state.json` — Position (Task 5), progress (3 complete, 2 pending), decisions with rationale
 - `learnings.md` — Tagged entries from different skills (tdd, execution, verification)
 - `failures.md` — A dead-end that was tried and abandoned (supertest approach)

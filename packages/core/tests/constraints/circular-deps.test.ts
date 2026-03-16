@@ -50,9 +50,7 @@ describe('detectCircularDeps', () => {
   it('should detect self-referential cycle', () => {
     const graph: DependencyGraph = {
       nodes: ['a.ts'],
-      edges: [
-        { from: 'a.ts', to: 'a.ts', importType: 'static', line: 1 },
-      ],
+      edges: [{ from: 'a.ts', to: 'a.ts', importType: 'static', line: 1 }],
     };
 
     const result = detectCircularDeps(graph);
@@ -86,11 +84,7 @@ describe('detectCircularDepsInFiles', () => {
   const fixturesDir = join(__dirname, '../fixtures/circular-deps');
 
   it('should detect cycles from actual files', async () => {
-    const files = [
-      join(fixturesDir, 'a.ts'),
-      join(fixturesDir, 'b.ts'),
-      join(fixturesDir, 'c.ts'),
-    ];
+    const files = [join(fixturesDir, 'a.ts'), join(fixturesDir, 'b.ts'), join(fixturesDir, 'c.ts')];
 
     const result = await detectCircularDepsInFiles(files, parser);
 

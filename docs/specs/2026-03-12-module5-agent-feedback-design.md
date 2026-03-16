@@ -9,6 +9,7 @@
 The Agent Feedback module provides APIs for agent self-review, peer review orchestration, telemetry integration, and agent action logging. It enables AI agents to operate in a self-correcting cycle of execution and review before human intervention.
 
 **Primary consumers** (in priority order):
+
 1. AI agents - structured, parseable APIs for autonomous operation
 2. CI/CD pipelines - automation hooks for GitHub Actions, etc.
 3. Human developers - CLI/library access to trigger reviews and view telemetry
@@ -363,7 +364,12 @@ export class NoOpExecutor implements AgentExecutor {
   async status(processId: string): Promise<Result<AgentProcess, FeedbackError>> {
     const process = this.processes.get(processId);
     if (!process) {
-      return Err({ code: 'AGENT_SPAWN_ERROR', message: 'Process not found', details: {}, suggestions: [] });
+      return Err({
+        code: 'AGENT_SPAWN_ERROR',
+        message: 'Process not found',
+        details: {},
+        suggestions: [],
+      });
     }
     return Ok(process);
   }
@@ -371,7 +377,12 @@ export class NoOpExecutor implements AgentExecutor {
   async wait(processId: string): Promise<Result<PeerReview, FeedbackError>> {
     const process = this.processes.get(processId);
     if (!process) {
-      return Err({ code: 'AGENT_SPAWN_ERROR', message: 'Process not found', details: {}, suggestions: [] });
+      return Err({
+        code: 'AGENT_SPAWN_ERROR',
+        message: 'Process not found',
+        details: {},
+        suggestions: [],
+      });
     }
     return Ok({
       agentId: processId,
@@ -479,6 +490,7 @@ export async function analyzeDiff(
 ```
 
 Internal checks performed by `analyzeDiff`:
+
 - Large PR detection (too many files/lines changed)
 - Missing tests for new code
 - Undocumented public exports
@@ -559,11 +571,7 @@ export interface ActionResult {
 ### Event Emitter
 
 ```typescript
-export type ActionEventType =
-  | 'action:started'
-  | 'action:completed'
-  | 'action:failed'
-  | 'action:*';
+export type ActionEventType = 'action:started' | 'action:completed' | 'action:failed' | 'action:*';
 
 export interface ActionEvent {
   type: ActionEventType;
@@ -639,10 +647,7 @@ export async function logAgentAction(
   action: Omit<AgentAction, 'id' | 'timestamp'>
 ): Promise<Result<AgentAction, FeedbackError>>;
 
-export function trackAction(
-  type: ActionType,
-  context: ActionContext
-): ActionTracker;
+export function trackAction(type: ActionType, context: ActionContext): ActionTracker;
 
 export interface ActionTracker {
   readonly action: AgentAction;
@@ -672,6 +677,7 @@ export function getActionEmitter(): AgentActionEmitter;
 ```
 
 Default configuration:
+
 - `telemetry`: `NoOpTelemetryAdapter`
 - `executor`: `NoOpExecutor`
 - `sinks`: `[ConsoleSink]`
@@ -729,10 +735,7 @@ import {
 
 // 1. Configure at startup
 configureFeedback({
-  sinks: [
-    new ConsoleSink({ format: 'pretty' }),
-    new FileSink('./agent-actions.jsonl'),
-  ],
+  sinks: [new ConsoleSink({ format: 'pretty' }), new FileSink('./agent-actions.jsonl')],
 });
 
 // 2. Subscribe to events
@@ -756,7 +759,10 @@ const review = await createSelfReview(changes, {
 });
 
 if (review.ok && !review.value.passed) {
-  console.log('Self-review failed:', review.value.items.filter(i => !i.passed));
+  console.log(
+    'Self-review failed:',
+    review.value.items.filter((i) => !i.passed)
+  );
 }
 
 // 4. Request peer review
@@ -832,5 +838,5 @@ export * from './feedback';
 - NoOp implementations allow usage without external dependencies
 - ChecklistBuilder provides ergonomic custom rule definition
 - Event emitter handles async handlers gracefully
-- >80% test coverage
+- > 80% test coverage
 - Documentation with examples for all public APIs

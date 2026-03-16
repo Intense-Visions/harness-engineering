@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-03-12
 
 ### Added
+
 - Core validation framework with extensible validator architecture
 - Schema-based validation with Zod integration
 - Composite validation with sequential and parallel execution
@@ -82,18 +83,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TypeScript type declarations
 
 ### Changed
+
 - N/A (Initial release)
 
 ### Deprecated
+
 - N/A
 
 ### Removed
+
 - N/A
 
 ### Fixed
+
 - N/A
 
 ### Security
+
 - N/A
 
 [0.4.0]: https://github.com/harness-engineering/harness-engineering/releases/tag/@harness-engineering/core@0.4.0

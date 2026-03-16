@@ -7,10 +7,7 @@ import type { Layer } from './schema';
  * Resolve an import path relative to the importing file
  * Returns path relative to project root (assumes /project/ prefix)
  */
-export function resolveImportPath(
-  importPath: string,
-  importingFile: string
-): string {
+export function resolveImportPath(importPath: string, importingFile: string): string {
   // External/absolute imports stay as-is
   if (!importPath.startsWith('.')) {
     return importPath;
@@ -45,10 +42,7 @@ export function matchesPattern(filePath: string, pattern: string): boolean {
 /**
  * Find which layer a file belongs to
  */
-export function getLayerForFile(
-  filePath: string,
-  layers: Layer[]
-): string | null {
+export function getLayerForFile(filePath: string, layers: Layer[]): string | null {
   for (const layer of layers) {
     if (matchesPattern(filePath, layer.pattern)) {
       return layer.name;
@@ -60,10 +54,7 @@ export function getLayerForFile(
 /**
  * Get layer definition by name
  */
-export function getLayerByName(
-  name: string,
-  layers: Layer[]
-): Layer | undefined {
+export function getLayerByName(name: string, layers: Layer[]): Layer | undefined {
   return layers.find((l) => l.name === name);
 }
 

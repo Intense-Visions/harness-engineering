@@ -20,7 +20,10 @@ interface CrossCheckOptions {
 
 function findFiles(dir: string, ext: string): string[] {
   if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter(f => f.endsWith(ext)).map(f => path.join(dir, f));
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(ext))
+    .map((f) => path.join(dir, f));
 }
 
 function extractPlannedFiles(planContent: string): string[] {
@@ -28,7 +31,7 @@ function extractPlannedFiles(planContent: string): string[] {
   const regex = /- (?:Create|Modify):\s*`([^`]+)`/g;
   let match;
   while ((match = regex.exec(planContent)) !== null) {
-    files.push(match[1]);
+    if (match[1]) files.push(match[1]);
   }
   return files;
 }

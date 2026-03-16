@@ -12,10 +12,10 @@
 
 ## Relationship to Other Skills
 
-| Skill | What It Does | Time |
-|---|---|---|
-| **harness-verify** (this) | Mechanical quick gate: typecheck, lint, test | ~30s |
-| **harness-verification** | Deep audit: architecture, patterns, edge cases | ~5min |
+| Skill                     | What It Does                                   | Time  |
+| ------------------------- | ---------------------------------------------- | ----- |
+| **harness-verify** (this) | Mechanical quick gate: typecheck, lint, test   | ~30s  |
+| **harness-verification**  | Deep audit: architecture, patterns, edge cases | ~5min |
 
 `harness-verify` is the fast, deterministic gate. `harness-verification` is the slow, thorough audit. They serve different purposes and should not be confused.
 
@@ -40,6 +40,7 @@ For each of the three checks (typecheck, lint, test), record either the detected
 Run all detected commands in this order: **typecheck -> lint -> test**.
 
 Rules:
+
 - Run ALL commands regardless of earlier failures. Do not short-circuit.
 - Capture exit code, stdout, and stderr for each command.
 - Exit code 0 = PASS. Any non-zero exit code = FAIL.
@@ -59,6 +60,7 @@ Verification: [PASS/FAIL]
 ```
 
 Rules:
+
 - Overall `Verification: PASS` only if all non-skipped checks passed.
 - If all checks are SKIPPED, overall result is `PASS` (nothing to fail).
 - On FAIL, include a brief summary of what failed (e.g., "3 type errors", "2 lint errors", "5 tests failed") below the structured block.

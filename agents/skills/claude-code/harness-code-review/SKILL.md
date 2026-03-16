@@ -3,6 +3,7 @@
 > Full code review lifecycle — request, perform, respond — with automated harness checks and technical rigor over social performance.
 
 ## When to Use
+
 - When requesting a review of your completed work (before merge)
 - When performing a review of someone else's code (human or agent)
 - When responding to review feedback on your own code
@@ -211,22 +212,26 @@ If any check fails, this is a **Critical** issue. The code cannot merge with fai
 Review each changed file against these criteria:
 
 **Separation of Concerns:**
+
 - Does each function/module do one thing?
 - Are responsibilities clearly divided between files?
 - Is business logic separated from infrastructure?
 
 **Error Handling:**
+
 - Are errors handled at the appropriate level?
 - Are error messages helpful for debugging?
 - Are edge cases handled (null, empty, boundary values)?
 - Do errors propagate correctly (not swallowed silently)?
 
 **DRY (Don't Repeat Yourself):**
+
 - Is there duplicated logic that should be extracted?
 - Are there copy-pasted blocks with minor variations?
 - BUT: do not flag intentional duplication (sometimes two similar things should remain separate because they will diverge).
 
 **Naming and Clarity:**
+
 - Do names communicate intent?
 - Are abbreviations explained or avoided?
 - Can you understand the code without reading the implementation of every called function?
@@ -234,31 +239,37 @@ Review each changed file against these criteria:
 #### 4. Evaluate Architecture
 
 **SOLID Principles:**
+
 - Single Responsibility: Does each module have one reason to change?
 - Open/Closed: Can behavior be extended without modifying existing code?
 - Dependency Inversion: Do modules depend on abstractions, not concretions?
 
 **Layer Compliance:**
+
 - Does the code respect the project's architectural layers?
 - Are imports flowing in the correct direction?
 - Does `harness check-deps` confirm no boundary violations?
 
 **Pattern Consistency:**
+
 - Does the code follow established patterns in the codebase?
 - If introducing a new pattern, is it justified and documented?
 
 #### 5. Evaluate Testing
 
 **Real Tests:**
+
 - Do tests exercise real behavior, not mock implementations?
 - Do tests make meaningful assertions (not just "does not throw")?
 - Are tests deterministic (no flaky timing, network, or randomness)?
 
 **Edge Cases:**
+
 - Are boundary conditions tested (empty input, max values, null)?
 - Are error paths tested (invalid input, network failures, permission errors)?
 
 **Coverage:**
+
 - Is every new public function/method tested?
 - Are critical paths covered (not just happy paths)?
 
@@ -269,17 +280,20 @@ Structure your review output as follows:
 **Strengths:** What is done well. Be specific. "Clean separation between X and Y" is useful. "Looks good" is not.
 
 **Issues:** Categorize each issue:
+
 - **Critical** — Must fix before merge. Bugs, security issues, failing harness checks, broken tests, architectural violations.
 - **Important** — Should fix before merge. Missing error handling, missing tests for critical paths, unclear naming that will cause confusion.
 - **Suggestion** — Consider for improvement. Style preferences, minor optimizations, alternative approaches. These do not block merge.
 
 For each issue, provide:
+
 1. The specific location (file and line or function name)
 2. What the problem is
 3. Why it matters
 4. A suggested fix (if you have one)
 
 **Assessment:** One of:
+
 - **Approve** — No critical or important issues. Ready to merge.
 - **Request Changes** — Critical or important issues must be addressed. Re-review needed after fixes.
 - **Comment** — Observations only, no blocking issues, but author should consider feedback.
@@ -313,6 +327,7 @@ For each piece of feedback:
 #### 4. Implement Fixes
 
 For each accepted piece of feedback:
+
 1. Make the change
 2. Run the full test suite
 3. Run `harness validate` and `harness check-deps`
@@ -321,6 +336,7 @@ For each accepted piece of feedback:
 #### 5. Re-request Review
 
 After addressing all feedback, re-request review with:
+
 - Summary of what changed
 - Which feedback was addressed and which was pushed back on (with reasons)
 - Fresh harness check results
@@ -348,6 +364,7 @@ After addressing all feedback, re-request review with:
 ### Example: Reviewing a New API Endpoint
 
 **Strengths:**
+
 - Clean separation between route handler and service logic
 - Input validation using Zod schemas with clear error messages
 - Comprehensive test coverage including error paths
@@ -355,13 +372,16 @@ After addressing all feedback, re-request review with:
 **Issues:**
 
 **Critical:**
+
 - `harness check-deps` fails: `api/routes/users.ts` imports directly from `db/queries.ts`, bypassing the service layer. Must route through `services/user-service.ts`.
 
 **Important:**
+
 - `services/user-service.ts:45` — `createUser` does not handle duplicate email. The database will throw a constraint violation that surfaces as a 500 error. Should catch and return a 409.
 - Missing test for concurrent creation with same email.
 
 **Suggestion:**
+
 - Consider extracting the pagination logic in `api/routes/users.ts:30-55` into a shared utility — the same pattern exists in `api/routes/orders.ts`.
 
 **Assessment:** Request Changes — one critical layer violation and one important missing error handler.

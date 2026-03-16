@@ -29,26 +29,39 @@ export function detectComplexity(projectPath: string): 'light' | 'full' {
   try {
     // Find base commit
     const base = execSync('git merge-base HEAD main', {
-      cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
 
     const diffFiles = execSync(`git diff --name-only ${base}`, {
-      cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim().split('\n').filter(Boolean);
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+      .trim()
+      .split('\n')
+      .filter(Boolean);
 
     const diffStat = execSync(`git diff --stat ${base}`, {
-      cwd: projectPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
 
     const signals: Signals = {
       fileCount: diffFiles.length,
-      testOnly: diffFiles.every(f => f.match(/\.(test|spec)\./)),
-      docsOnly: diffFiles.every(f => f.startsWith('docs/') || f.endsWith('.md')),
-      newDir: diffStat.includes('create mode') || diffFiles.some(f => {
-        const parts = f.split('/');
-        return parts.length > 1; // Rough heuristic
-      }),
-      newDep: diffFiles.some(f => ['package.json', 'Cargo.toml', 'go.mod', 'requirements.txt'].includes(f)),
+      testOnly: diffFiles.every((f) => f.match(/\.(test|spec)\./)),
+      docsOnly: diffFiles.every((f) => f.startsWith('docs/') || f.endsWith('.md')),
+      newDir:
+        diffStat.includes('create mode') ||
+        diffFiles.some((f) => {
+          const parts = f.split('/');
+          return parts.length > 1; // Rough heuristic
+        }),
+      newDep: diffFiles.some((f) =>
+        ['package.json', 'Cargo.toml', 'go.mod', 'requirements.txt'].includes(f)
+      ),
     };
 
     return evaluateSignals(signals);

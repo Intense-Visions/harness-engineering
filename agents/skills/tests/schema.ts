@@ -9,11 +9,15 @@ const SkillPhaseSchema = z.object({
 
 const SkillCliSchema = z.object({
   command: z.string(),
-  args: z.array(z.object({
-    name: z.string(),
-    description: z.string(),
-    required: z.boolean().default(false),
-  })).default([]),
+  args: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        required: z.boolean().default(false),
+      })
+    )
+    .default([]),
 });
 
 const SkillMcpSchema = z.object({
@@ -27,8 +31,14 @@ const SkillStateSchema = z.object({
 });
 
 const ALLOWED_TRIGGERS = [
-  'manual', 'on_pr', 'on_commit', 'on_new_feature',
-  'on_bug_fix', 'on_refactor', 'on_project_init', 'on_review',
+  'manual',
+  'on_pr',
+  'on_commit',
+  'on_new_feature',
+  'on_bug_fix',
+  'on_refactor',
+  'on_project_init',
+  'on_review',
 ] as const;
 
 const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;

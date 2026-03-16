@@ -6,9 +6,9 @@ import { TemplateMetadataSchema } from '../../src/templates/schema';
 const TEMPLATES_DIR = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
 
 describe('template content files', () => {
-  const templateDirs = fs.readdirSync(TEMPLATES_DIR).filter((d) =>
-    fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory()
-  );
+  const templateDirs = fs
+    .readdirSync(TEMPLATES_DIR)
+    .filter((d) => fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory());
 
   for (const dir of templateDirs) {
     it(`${dir}/template.json is valid`, () => {

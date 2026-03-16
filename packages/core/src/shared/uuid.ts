@@ -4,7 +4,11 @@
  */
 export function generateId(): string {
   // Use crypto.randomUUID if available (Node.js 15.7+)
-  if (typeof globalThis !== 'undefined' && 'crypto' in globalThis && typeof globalThis.crypto.randomUUID === 'function') {
+  if (
+    typeof globalThis !== 'undefined' &&
+    'crypto' in globalThis &&
+    typeof globalThis.crypto.randomUUID === 'function'
+  ) {
     return globalThis.crypto.randomUUID();
   }
 

@@ -36,14 +36,14 @@ const CONVENTIONAL_PATTERN = /^(\w+)(\(([^)]+)\))?(!)?: (.+)$/;
  */
 export function validateCommitMessage(
   message: string,
-  format: CommitFormat = 'conventional',
+  format: CommitFormat = 'conventional'
 ): Result<CommitValidation, ValidationError> {
   if (!message || typeof message !== 'string') {
     const error = createError<ValidationError>(
       'VALIDATION_FAILED',
       'Commit message must be a non-empty string',
       { message },
-      ['Provide a valid commit message'],
+      ['Provide a valid commit message']
     );
     return Err(error);
   }
@@ -72,7 +72,7 @@ function validateConventionalCommit(message: string): Result<CommitValidation, V
       'VALIDATION_FAILED',
       'Commit message header cannot be empty',
       { message },
-      ['Provide a commit message with at least a header line'],
+      ['Provide a commit message with at least a header line']
     );
     return Err(error);
   }
@@ -88,7 +88,7 @@ function validateConventionalCommit(message: string): Result<CommitValidation, V
         'Use format: type(scope)?: description',
         'Valid types: ' + VALID_TYPES.join(', '),
         'Example: feat(core): add new feature',
-      ],
+      ]
     );
     return Err(error);
   }
@@ -126,7 +126,7 @@ function validateConventionalCommit(message: string): Result<CommitValidation, V
     let errorMessage = `Commit message validation failed: ${issues.join('; ')}`;
 
     // For empty description, use more specific message
-    if (issues.some(issue => issue.includes('description cannot be empty'))) {
+    if (issues.some((issue) => issue.includes('description cannot be empty'))) {
       errorMessage = `Commit message validation failed: ${issues.join('; ')}`;
     }
 
@@ -134,7 +134,7 @@ function validateConventionalCommit(message: string): Result<CommitValidation, V
       'VALIDATION_FAILED',
       errorMessage,
       { message, issues, type, scope },
-      ['Review and fix the validation issues above'],
+      ['Review and fix the validation issues above']
     );
     return Err(error);
   }

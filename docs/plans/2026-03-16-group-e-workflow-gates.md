@@ -21,6 +21,7 @@ New skill at `agents/skills/claude-code/harness-verify/`. Binary pass/fail gate 
 ### Task 1: Create harness-verify skill.yaml
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-verify/skill.yaml`
 
 - [ ] **Step 1: Create skill.yaml**
@@ -29,7 +30,7 @@ Create `agents/skills/claude-code/harness-verify/skill.yaml`:
 
 ```yaml
 name: harness-verify
-version: "1.0.0"
+version: '1.0.0'
 description: Binary pass/fail quick gate — runs test, lint, typecheck commands and returns structured result
 triggers:
   - manual
@@ -76,6 +77,7 @@ depends_on: []
 ### Task 2: Create harness-verify SKILL.md
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-verify/SKILL.md`
 
 - [ ] **Step 1: Create SKILL.md**
@@ -88,6 +90,7 @@ Create `agents/skills/claude-code/harness-verify/SKILL.md`:
 > Binary pass/fail quick gate. Runs test, lint, typecheck — returns structured result. No judgment calls, no deep analysis. Pass or fail.
 
 ## When to Use
+
 - After completing any implementation task (the quick "done" check)
 - As the final step in any code-producing skill
 - Before claiming a task is complete
@@ -97,10 +100,10 @@ Create `agents/skills/claude-code/harness-verify/SKILL.md`:
 
 ### Relationship to harness-verification
 
-| Tier | Skill | When | What |
-|------|-------|------|------|
-| **Quick gate** | harness-verify (this skill) | After every task | test + lint + typecheck → binary pass/fail |
-| **Deep audit** | harness-verification | Milestones, PRs, on-demand | EXISTS → SUBSTANTIVE → WIRED (3-level evidence) |
+| Tier           | Skill                       | When                       | What                                            |
+| -------------- | --------------------------- | -------------------------- | ----------------------------------------------- |
+| **Quick gate** | harness-verify (this skill) | After every task           | test + lint + typecheck → binary pass/fail      |
+| **Deep audit** | harness-verification        | Milestones, PRs, on-demand | EXISTS → SUBSTANTIVE → WIRED (3-level evidence) |
 
 Use this skill for fast, mechanical, binary checks. Use harness-verification when you need deep evidence-based audit with artifact tracing.
 
@@ -142,12 +145,14 @@ Run each detected command in sequence. For each command:
 ### Phase 3: REPORT — Return Structured Result
 
 Produce the verification report in this exact format:
-
 ```
+
 Verification: [PASS/FAIL]
+
 - Tests: [PASS/FAIL/SKIPPED] ([summary of output — e.g., "42/42 passed" or "3 failed"])
 - Lint: [PASS/FAIL/SKIPPED] ([summary — e.g., "0 warnings" or "12 errors"])
 - Types: [PASS/FAIL/SKIPPED] ([summary — e.g., "no errors" or "7 type errors"])
+
 ```
 
 Overall verdict is PASS only if all executed checks pass. SKIPPED checks do not cause failure.
@@ -195,6 +200,7 @@ Now that E1 (harness-verify) exists, complete the A6 unified integrity gate that
 ### Task 3: Create harness-integrity skill.yaml
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-integrity/skill.yaml`
 
 - [ ] **Step 1: Create skill.yaml**
@@ -203,7 +209,7 @@ Create `agents/skills/claude-code/harness-integrity/skill.yaml`:
 
 ```yaml
 name: harness-integrity
-version: "1.0.0"
+version: '1.0.0'
 description: Unified integrity gate — chains verify (quick gate) with AI review into a single report
 triggers:
   - manual
@@ -224,7 +230,7 @@ cli:
       description: Project root path
       required: false
     - name: change-type
-      description: "Type of change: feature, bugfix, refactor, docs"
+      description: 'Type of change: feature, bugfix, refactor, docs'
       required: false
 mcp:
   tool: run_skill
@@ -257,6 +263,7 @@ depends_on:
 ### Task 4: Create harness-integrity SKILL.md
 
 **Files:**
+
 - Create: `agents/skills/claude-code/harness-integrity/SKILL.md`
 
 - [ ] **Step 1: Create SKILL.md**
@@ -269,6 +276,7 @@ Create `agents/skills/claude-code/harness-integrity/SKILL.md`:
 > Unified integrity gate. Single invocation runs the full pipeline: mechanical verification → AI review → unified report. The one command that answers "is this ready?"
 
 ## When to Use
+
 - Before creating a pull request
 - At milestone boundaries
 - When you want a single pass/fail answer covering both mechanical and qualitative checks
@@ -278,12 +286,12 @@ Create `agents/skills/claude-code/harness-integrity/SKILL.md`:
 
 ### Relationship to Other Skills
 
-| Skill | Scope | Speed |
-|-------|-------|-------|
-| harness-verify | Mechanical only (test/lint/types) | Fast (~30s) |
-| harness-code-review | AI review only | Medium (~2min) |
-| harness-integrity (this skill) | Both mechanical + AI review | Full (~3min) |
-| harness-verification | Deep 3-level audit (EXISTS/SUBSTANTIVE/WIRED) | Thorough (~5min) |
+| Skill                          | Scope                                         | Speed            |
+| ------------------------------ | --------------------------------------------- | ---------------- |
+| harness-verify                 | Mechanical only (test/lint/types)             | Fast (~30s)      |
+| harness-code-review            | AI review only                                | Medium (~2min)   |
+| harness-integrity (this skill) | Both mechanical + AI review                   | Full (~3min)     |
+| harness-verification           | Deep 3-level audit (EXISTS/SUBSTANTIVE/WIRED) | Thorough (~5min) |
 
 This skill combines harness-verify and harness-code-review into a single pipeline with a unified report.
 
@@ -322,13 +330,15 @@ Invoke harness-code-review with change-type awareness:
 ### Phase 3: REPORT — Unified Integrity Report
 
 Produce the report in this exact format:
-
 ```
+
 Integrity Check: [PASS/FAIL]
+
 - Tests: [PASS/FAIL/SKIPPED] ([summary])
 - Lint: [PASS/FAIL/SKIPPED] ([summary])
 - Types: [PASS/FAIL/SKIPPED] ([summary])
 - Review: [N findings] ([M blocking])
+
 ```
 
 **Overall verdict:**
@@ -376,6 +386,7 @@ Add EARS (Easy Approach to Requirements Syntax) template section to harness-plan
 ### Task 5: Add EARS section to harness-planning SKILL.md
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-planning/SKILL.md`
 
 - [ ] **Step 1: Add EARS section after the "Phase 1: SCOPE" section**
@@ -383,18 +394,17 @@ Add EARS (Easy Approach to Requirements Syntax) template section to harness-plan
 In `agents/skills/claude-code/harness-planning/SKILL.md`, insert the following after the Phase 1 SCOPE section (after the line `5. **Apply YAGNI.** For every artifact, ask: "Is this required for an observable truth?" If not, cut it.`) and before the `---` that precedes Phase 2:
 
 ```markdown
-
 #### EARS Requirement Patterns
 
 When writing observable truths and acceptance criteria, use EARS (Easy Approach to Requirements Syntax) sentence patterns. These patterns eliminate ambiguity by forcing a consistent grammatical structure.
 
-| Pattern | Template | Use When |
-|---------|----------|----------|
-| **Ubiquitous** | The system shall [behavior]. | Behavior that always applies, unconditionally |
-| **Event-driven** | When [trigger], the system shall [response]. | Behavior triggered by a specific event |
-| **State-driven** | While [state], the system shall [behavior]. | Behavior that applies only during a certain state |
-| **Optional** | Where [feature is enabled], the system shall [behavior]. | Behavior gated by a configuration or feature flag |
-| **Unwanted** | If [condition], then the system shall not [behavior]. | Explicitly preventing undesirable behavior |
+| Pattern          | Template                                                 | Use When                                          |
+| ---------------- | -------------------------------------------------------- | ------------------------------------------------- |
+| **Ubiquitous**   | The system shall [behavior].                             | Behavior that always applies, unconditionally     |
+| **Event-driven** | When [trigger], the system shall [response].             | Behavior triggered by a specific event            |
+| **State-driven** | While [state], the system shall [behavior].              | Behavior that applies only during a certain state |
+| **Optional**     | Where [feature is enabled], the system shall [behavior]. | Behavior gated by a configuration or feature flag |
+| **Unwanted**     | If [condition], then the system shall not [behavior].    | Explicitly preventing undesirable behavior        |
 
 **Worked Examples:**
 
@@ -413,6 +423,7 @@ When writing observable truths and acceptance criteria, use EARS (Easy Approach 
 ### Task 6: Add EARS reference to harness-brainstorming SKILL.md
 
 **Files:**
+
 - Modify: `agents/skills/claude-code/harness-brainstorming/SKILL.md`
 
 - [ ] **Step 1: Read the current brainstorming SKILL.md**
@@ -424,7 +435,6 @@ Read `agents/skills/claude-code/harness-brainstorming/SKILL.md` to find the appr
 Add the following note to the brainstorming skill in the section that covers output or handoff to planning. The exact location depends on the current structure — add it where requirements or acceptance criteria are discussed:
 
 ```markdown
-
 #### Requirement Phrasing
 
 When brainstorming produces requirements or acceptance criteria that will feed into planning, prefer EARS sentence patterns for behavioral requirements. See the EARS Requirement Patterns section in harness-planning for the full template reference. Key patterns:
@@ -447,6 +457,7 @@ New `harness check-phase-gate` command. Validates that implementation files have
 ### Task 7: Add phase-gates config to HarnessConfigSchema
 
 **Files:**
+
 - Modify: `packages/cli/src/config/schema.ts`
 - Test: `packages/cli/tests/config/schema.test.ts` (if exists, otherwise inline validation)
 
@@ -458,12 +469,14 @@ In `packages/cli/src/config/schema.ts`, add the following before the `HarnessCon
 export const PhaseGateConfigSchema = z.object({
   enabled: z.boolean().default(false),
   severity: z.enum(['warning', 'error']).default('warning'),
-  mappings: z.array(z.object({
-    implPattern: z.string(),
-    specPattern: z.string(),
-  })).default([
-    { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' },
-  ]),
+  mappings: z
+    .array(
+      z.object({
+        implPattern: z.string(),
+        specPattern: z.string(),
+      })
+    )
+    .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }]),
 });
 ```
 
@@ -479,6 +492,7 @@ Then add the field to `HarnessConfigSchema`:
 ### Task 8: Write failing test for check-phase-gate command
 
 **Files:**
+
 - Create: `packages/cli/tests/commands/check-phase-gate.test.ts`
 
 - [ ] **Step 1: Create test file**
@@ -487,7 +501,10 @@ Create `packages/cli/tests/commands/check-phase-gate.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/commands/check-phase-gate';
+import {
+  createCheckPhaseGateCommand,
+  runCheckPhaseGate,
+} from '../../src/commands/check-phase-gate';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -538,9 +555,7 @@ describe('check-phase-gate command', () => {
           version: 1,
           phaseGates: {
             enabled: true,
-            mappings: [
-              { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' },
-            ],
+            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }],
           },
         }),
         'src/auth/login.ts': 'export function login() {}',
@@ -570,9 +585,7 @@ describe('check-phase-gate command', () => {
           version: 1,
           phaseGates: {
             enabled: true,
-            mappings: [
-              { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' },
-            ],
+            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }],
           },
         }),
         'src/payments/charge.ts': 'export function charge() {}',
@@ -595,9 +608,7 @@ describe('check-phase-gate command', () => {
           phaseGates: {
             enabled: true,
             severity: 'error',
-            mappings: [
-              { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' },
-            ],
+            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }],
           },
         }),
         'src/foo.ts': 'export const foo = 1;',
@@ -627,6 +638,7 @@ Expect: module not found error for `../../src/commands/check-phase-gate`.
 ### Task 9: Implement check-phase-gate command
 
 **Files:**
+
 - Create: `packages/cli/src/commands/check-phase-gate.ts`
 
 - [ ] **Step 1: Create the command implementation**
@@ -682,7 +694,8 @@ function defaultSpecResolver(implFile: string, implPattern: string): string {
 
   // Use the first path segment as the feature name
   const segments = relative.split(path.sep);
-  const feature = segments.length > 1 ? segments[0] : path.basename(segments[0], path.extname(segments[0]));
+  const feature =
+    segments.length > 1 ? segments[0] : path.basename(segments[0], path.extname(segments[0]));
 
   return `docs/specs/${feature}.md`;
 }
@@ -693,11 +706,13 @@ export async function runCheckPhaseGate(
   const cwd = options.cwd ?? process.cwd();
 
   // Try to load config — phase gates config is optional
-  let phaseGatesConfig: {
-    enabled: boolean;
-    severity: 'warning' | 'error';
-    mappings: Array<{ implPattern: string; specPattern: string }>;
-  } | undefined;
+  let phaseGatesConfig:
+    | {
+        enabled: boolean;
+        severity: 'warning' | 'error';
+        mappings: Array<{ implPattern: string; specPattern: string }>;
+      }
+    | undefined;
 
   const configPath = options.configPath ?? path.join(cwd, 'harness.config.json');
   if (fs.existsSync(configPath)) {
@@ -797,7 +812,9 @@ export function createCheckPhaseGateCommand(): Command {
         if (mode === OutputMode.JSON) {
           console.log(JSON.stringify({ skipped: true, message: 'Phase gates not enabled' }));
         } else if (mode !== OutputMode.QUIET) {
-          console.log('Phase gates not enabled (set phaseGates.enabled: true in harness.config.json)');
+          console.log(
+            'Phase gates not enabled (set phaseGates.enabled: true in harness.config.json)'
+          );
         }
         process.exit(ExitCode.SUCCESS);
       }
@@ -838,6 +855,7 @@ cd /Users/cwarner/Projects/harness-engineering && pnpm --filter @harness-enginee
 ### Task 10: Register check-phase-gate command in CLI
 
 **Files:**
+
 - Modify: `packages/cli/src/index.ts`
 
 - [ ] **Step 1: Add import and registration**
@@ -851,7 +869,7 @@ import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
 Add after the existing `createCheckDocsCommand()` registration:
 
 ```typescript
-  program.addCommand(createCheckPhaseGateCommand());
+program.addCommand(createCheckPhaseGateCommand());
 ```
 
 - [ ] **Step 2: Run `pnpm --filter @harness-engineering/cli build`** to verify compilation
@@ -872,6 +890,7 @@ Add workflow types to `packages/types/` and a workflow runner to `packages/core/
 ### Task 11: Add workflow types to packages/types
 
 **Files:**
+
 - Modify: `packages/types/src/index.ts`
 
 - [ ] **Step 1: Add workflow type definitions**
@@ -947,6 +966,7 @@ export interface WorkflowResult {
 ### Task 12: Write failing tests for workflow runner
 
 **Files:**
+
 - Create: `packages/core/tests/workflow/runner.test.ts`
 
 - [ ] **Step 1: Create test file**
@@ -1127,6 +1147,7 @@ Expect: import failure or `executeWorkflow` is undefined.
 ### Task 13: Implement workflow runner
 
 **Files:**
+
 - Create: `packages/core/src/workflow/runner.ts`
 - Create: `packages/core/src/workflow/index.ts`
 
@@ -1196,9 +1217,7 @@ export async function executeWorkflow(
     }
   }
 
-  const allPassed = stepResults.every(
-    (r) => r.outcome === 'pass' || r.outcome === 'skipped'
-  );
+  const allPassed = stepResults.every((r) => r.outcome === 'pass' || r.outcome === 'skipped');
   // A workflow with all skipped steps (except due to gate failure) is still a pass
   // But if steps were skipped due to a gate failure, it's a fail
   const hasFailure = stepResults.some((r) => r.outcome === 'fail');
@@ -1234,18 +1253,18 @@ export * from './workflow';
 In `packages/core/tests/workflow/runner.test.ts`, replace the dynamic import block at the top of the describe with a direct import. Replace:
 
 ```typescript
-  // Placeholder — tests will use dynamic import to handle module-not-found gracefully
-  let executeWorkflow: any;
-  let StepExecutorType: any;
+// Placeholder — tests will use dynamic import to handle module-not-found gracefully
+let executeWorkflow: any;
+let StepExecutorType: any;
 
-  beforeAll(async () => {
-    try {
-      const mod = await import('../../src/workflow/runner');
-      executeWorkflow = mod.executeWorkflow;
-    } catch {
-      // Module doesn't exist yet — tests will fail as expected
-    }
-  });
+beforeAll(async () => {
+  try {
+    const mod = await import('../../src/workflow/runner');
+    executeWorkflow = mod.executeWorkflow;
+  } catch {
+    // Module doesn't exist yet — tests will fail as expected
+  }
+});
 ```
 
 With a top-level import at the top of the file (after the vitest import):
@@ -1297,6 +1316,7 @@ cd /Users/cwarner/Projects/harness-engineering && pnpm harness validate
 - [ ] **Step 4: Verify all new files exist**
 
 Confirm the following files were created:
+
 - `agents/skills/claude-code/harness-verify/skill.yaml`
 - `agents/skills/claude-code/harness-verify/SKILL.md`
 - `agents/skills/claude-code/harness-integrity/skill.yaml`
@@ -1308,6 +1328,7 @@ Confirm the following files were created:
 - `packages/core/tests/workflow/runner.test.ts`
 
 And the following files were modified:
+
 - `agents/skills/claude-code/harness-planning/SKILL.md` (EARS section)
 - `agents/skills/claude-code/harness-brainstorming/SKILL.md` (EARS reference)
 - `packages/types/src/index.ts` (workflow types)

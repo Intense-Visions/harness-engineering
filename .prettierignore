@@ -7,3 +7,5 @@ coverage
 out
 pnpm-lock.yaml
 *.min.js
+# Intentional syntax-error test fixtures
+packages/core/tests/fixtures/typescript-samples/syntax-error.ts

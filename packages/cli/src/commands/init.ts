@@ -29,10 +29,9 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const configPath = path.join(cwd, 'harness.config.json');
 
   if (!force && fs.existsSync(configPath)) {
-    return Err(new CLIError(
-      'Project already initialized. Use --force to overwrite.',
-      ExitCode.ERROR
-    ));
+    return Err(
+      new CLIError('Project already initialized. Use --force to overwrite.', ExitCode.ERROR)
+    );
   }
 
   const templatesDir = resolveTemplatesDir();
@@ -46,7 +45,7 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const renderResult = engine.render(resolveResult.value, {
     projectName: name,
     level,
-    framework: options.framework,
+    ...(options.framework !== undefined && { framework: options.framework }),
   });
   if (!renderResult.ok) {
     return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));

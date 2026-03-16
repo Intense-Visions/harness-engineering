@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { listPersonasDefinition, generatePersonaArtifactsDefinition, runPersonaDefinition } from '../../src/tools/persona';
+import {
+  listPersonasDefinition,
+  generatePersonaArtifactsDefinition,
+  runPersonaDefinition,
+} from '../../src/tools/persona';
 
 describe('persona tool definitions', () => {
   it('list_personas has correct schema', () => {

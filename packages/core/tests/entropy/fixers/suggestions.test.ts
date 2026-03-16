@@ -19,10 +19,23 @@ describe('generateSuggestions', () => {
         { path: '/project/src/unused.ts', reason: 'NO_IMPORTERS', exportCount: 2, lineCount: 50 },
       ],
       deadExports: [
-        { file: '/project/src/utils.ts', name: 'unusedFn', line: 10, type: 'function', isDefault: false, reason: 'NO_IMPORTERS' },
+        {
+          file: '/project/src/utils.ts',
+          name: 'unusedFn',
+          line: 10,
+          type: 'function',
+          isDefault: false,
+          reason: 'NO_IMPORTERS',
+        },
       ],
       unusedImports: [
-        { file: '/project/src/main.ts', line: 5, source: 'lodash', specifiers: ['map', 'filter'], isFullyUnused: true },
+        {
+          file: '/project/src/main.ts',
+          line: 5,
+          source: 'lodash',
+          specifiers: ['map', 'filter'],
+          isFullyUnused: true,
+        },
       ],
       deadInternals: [],
       stats: {
@@ -41,20 +54,22 @@ describe('generateSuggestions', () => {
     expect(result.suggestions.length).toBe(3);
 
     // Dead file suggestion
-    const deadFileSuggestion = result.suggestions.find(s => s.title.includes('dead file'));
+    const deadFileSuggestion = result.suggestions.find((s) => s.title.includes('dead file'));
     expect(deadFileSuggestion).toBeDefined();
     expect(deadFileSuggestion?.type).toBe('delete');
     expect(deadFileSuggestion?.priority).toBe('high');
     expect(deadFileSuggestion?.source).toBe('dead-code');
 
     // Dead export suggestion
-    const deadExportSuggestion = result.suggestions.find(s => s.title.includes('unused export'));
+    const deadExportSuggestion = result.suggestions.find((s) => s.title.includes('unused export'));
     expect(deadExportSuggestion).toBeDefined();
     expect(deadExportSuggestion?.type).toBe('refactor');
     expect(deadExportSuggestion?.priority).toBe('medium');
 
     // Unused import suggestion
-    const unusedImportSuggestion = result.suggestions.find(s => s.title.includes('unused import'));
+    const unusedImportSuggestion = result.suggestions.find((s) =>
+      s.title.includes('unused import')
+    );
     expect(unusedImportSuggestion).toBeDefined();
     expect(unusedImportSuggestion?.type).toBe('delete');
   });
@@ -98,11 +113,13 @@ describe('generateSuggestions', () => {
     expect(result.suggestions.length).toBe(2);
 
     // High confidence drift should be high priority
-    const highConfidenceDrift = result.suggestions.find(s => s.relatedIssues[0].includes('fetchUser'));
+    const highConfidenceDrift = result.suggestions.find((s) =>
+      s.relatedIssues[0].includes('fetchUser')
+    );
     expect(highConfidenceDrift?.priority).toBe('high');
 
     // Medium confidence drift should be medium priority
-    const mediumConfidenceDrift = result.suggestions.find(s => s.title.includes('example usage'));
+    const mediumConfidenceDrift = result.suggestions.find((s) => s.title.includes('example usage'));
     expect(mediumConfidenceDrift?.priority).toBe('medium');
   });
 
@@ -140,12 +157,12 @@ describe('generateSuggestions', () => {
     expect(result.suggestions.length).toBe(2);
 
     // Error severity should be high priority
-    const errorSuggestion = result.suggestions.find(s => s.title.includes('max-exports'));
+    const errorSuggestion = result.suggestions.find((s) => s.title.includes('max-exports'));
     expect(errorSuggestion?.priority).toBe('high');
     expect(errorSuggestion?.steps[0]).toBe('Split exports into multiple modules');
 
     // Warning severity should be low priority
-    const warningSuggestion = result.suggestions.find(s => s.title.includes('no-lodash'));
+    const warningSuggestion = result.suggestions.find((s) => s.title.includes('no-lodash'));
     expect(warningSuggestion?.priority).toBe('low');
     expect(warningSuggestion?.steps[0]).toBe('Follow pattern guidelines');
   });

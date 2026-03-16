@@ -11,13 +11,13 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 
 ### Top 5 Patterns Worth Adopting
 
-| Pattern | Source | Effort | Impact |
-|---------|--------|--------|--------|
-| Mechanically verifiable "done" criteria | Cursor P/W/J | Low | High |
-| Checkpoint-based context handoff | Turbo Flow, Gas Town | Low | High |
-| Tagged learnings with retrieval | Claude Flow | Low | Medium |
-| Specs/ vs changes/ separation | OpenSpec | Medium | Medium |
-| Skill scoring (activation vs. implementation) | Tessl | Medium | Medium |
+| Pattern                                       | Source               | Effort | Impact |
+| --------------------------------------------- | -------------------- | ------ | ------ |
+| Mechanically verifiable "done" criteria       | Cursor P/W/J         | Low    | High   |
+| Checkpoint-based context handoff              | Turbo Flow, Gas Town | Low    | High   |
+| Tagged learnings with retrieval               | Claude Flow          | Low    | Medium |
+| Specs/ vs changes/ separation                 | OpenSpec             | Medium | Medium |
+| Skill scoring (activation vs. implementation) | Tessl                | Medium | Medium |
 
 ---
 
@@ -26,6 +26,7 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 **Summary:** CLI-first multi-agent orchestration platform deploying 60+ specialized agents via queen/worker hierarchy with distributed consensus protocols. Targets teams wanting fully autonomous AI workflows. The maximalist end of the spectrum.
 
 **Key Innovations:**
+
 - Queen/Worker hierarchy with 3 queen types and 8 worker types
 - Shared memory via SQLite + vector database (AgentDB + RuVector)
 - ReasoningBank: stores successful reasoning patterns, replays on similar tasks (~32% token reduction)
@@ -53,6 +54,7 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 **Summary:** Go-based multi-agent orchestration (~189K LOC) enabling a single developer to coordinate 20-30 parallel Claude Code agents. Uses Git-backed persistent state and a role hierarchy. Targets advanced practitioners ("Stage 7-8 developers") comfortable running 10+ agents at $2K-5K/month API cost.
 
 **Key Innovations:**
+
 - Beads as atomic work units stored in JSONL within Git
 - MEOW workflow stack: Formulas → Protomolecules → Molecules → Beads → Epics
 - Hook-based crash recovery — agents resume from last checkpoint on respawn
@@ -82,6 +84,7 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 **Summary:** Advanced agentic dev environment (v4.0, built on Ruflo v3.5) orchestrating 600+ specialized AI subagents using the SPARC methodology. Targets teams wanting fully automated, multi-agent development pipelines from specification through deployment.
 
 **Key Innovations:**
+
 - SPARC phased workflow: Specification → Pseudocode → Architecture → Refinement (TDD) → Completion
 - Asynchronous coordination via shared, versioned memory bank (JSONL/markdown)
 - Checkpoint-based handoffs: agents commit "context packages" at phase boundaries
@@ -109,6 +112,7 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 **Summary:** Open-source "agentic AI software engineer" (Python, ~19.5K GitHub stars) that takes a high-level objective, autonomously plans, researches the web, writes code, and deploys. Built as an open-source alternative to Cognition AI's Devin. Early-stage, superseded by commercial successor "Opcode."
 
 **Key Innovations:**
+
 - 9+ specialized sub-agents in a pipeline (Planner, Researcher, Formatter, Coder, Action, Runner, Feature, Patcher, Reporter)
 - Internal monologue as state — human-readable "thought" at each step, persisted and streamed
 - Contextual keyword accumulation via SentenceBERT sharpening subsequent prompts
@@ -134,6 +138,7 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 **Summary:** Agent enablement platform functioning as a package manager for AI coding agent "skills" and context — npm for agent instructions. Founded by Guy Podjarny (ex-Snyk), targets enterprise teams using multiple AI tools who need consistency and governance. Registry indexes 3,000+ skills covering 10,000+ packages.
 
 **Key Innovations:**
+
 - Skills as versioned, distributable packages decoupled from any single AI tool
 - Evaluation-driven quality loop with measurable multipliers (e.g., 47% → 96% with terraform skill)
 - Automated skill optimization via `--optimize` (review-then-rewrite cycle)
@@ -163,6 +168,7 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 **Summary:** Hierarchical multi-agent architecture developed for Cursor's autonomous coding at extreme scale (1,000 commits/hour, 1M+ LOC). Planners decompose recursively, Workers execute in isolated git worktrees with zero inter-worker communication, and Judges evaluate quality. Evolved through multiple failed approaches (lock-based, optimistic concurrency).
 
 **Key Innovations:**
+
 - Recursive planning with ownership boundaries — planners never code, only decompose and delegate
 - Workers operate on isolated repo copies (git worktrees) with no coordination
 - Judge role evolved twice: removed from autonomous workflows (agents self-complete), then re-added for parallel-solution comparison in Cursor 2.2
@@ -192,6 +198,7 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 **Summary:** Lightweight open-source spec-driven development framework by Fission-AI (YC-backed, 30.6K GitHub stars). Adds a persistent specification layer to codebases for AI coding assistants, optimized for brownfield change management. Differentiates from Spec Kit with delta-spec format and persistent spec libraries.
 
 **Key Innovations:**
+
 - Delta specs with ADDED/MODIFIED/REMOVED semantics using Gherkin-style scenarios
 - Two-directory architecture: `specs/` (source of truth) vs `changes/` (proposals)
 - Retrofitting mode: AI reverse-engineers undocumented legacy code into baseline specs
@@ -240,21 +247,12 @@ All 7 frameworks were researched. **None warrant deep-dives** — surface-level 
 ### Consolidated Adoptable Patterns (Priority Order)
 
 **High priority (low effort, high impact):**
+
 1. Mechanical "done" criteria in verification (Cursor) — run tests/lint/types as binary gate
 2. Checkpoint-based context handoff (Turbo Flow, Gas Town) — structured file at phase boundaries
 3. Phase gates (Turbo Flow, Cursor) — don't enter implementation without spec validation
 4. Failure/anti-pattern log (Turbo Flow) — append-only "do not retry" file
 
-**Medium priority (medium effort, medium impact):**
-5. Tagged learnings with retrieval (Claude Flow) — filter learnings by skill/outcome
-6. Specs vs changes separation (OpenSpec) — source of truth vs. proposals
-7. Structured handoff documents (Cursor, Gas Town) — what was done, concerns, deviations
-8. Session continuity (Claude Flow, Gas Town) — enriched lastSession with lastSkill + pendingTasks
+**Medium priority (medium effort, medium impact):** 5. Tagged learnings with retrieval (Claude Flow) — filter learnings by skill/outcome 6. Specs vs changes separation (OpenSpec) — source of truth vs. proposals 7. Structured handoff documents (Cursor, Gas Town) — what was done, concerns, deviations 8. Session continuity (Claude Flow, Gas Town) — enriched lastSession with lastSkill + pendingTasks
 
-**Low priority (conceptual, no immediate action):**
-9. Delta-spec format (OpenSpec) — ADDED/MODIFIED/REMOVED semantics
-10. Skill scoring dimensions (Tessl) — activation vs. implementation evaluation
-11. Internal monologue trace (Devika) — optional reasoning transparency
-12. Context keyword accumulation (Devika) — focus keywords across phases
-13. Error budgets for eval (Tessl) — threshold-based rather than binary
-14. CDLC maturity model (Tessl) — adoption roadmap framing
+**Low priority (conceptual, no immediate action):** 9. Delta-spec format (OpenSpec) — ADDED/MODIFIED/REMOVED semantics 10. Skill scoring dimensions (Tessl) — activation vs. implementation evaluation 11. Internal monologue trace (Devika) — optional reasoning transparency 12. Context keyword accumulation (Devika) — focus keywords across phases 13. Error budgets for eval (Tessl) — threshold-based rather than binary 14. CDLC maturity model (Tessl) — adoption roadmap framing

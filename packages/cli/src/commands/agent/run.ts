@@ -58,9 +58,7 @@ export async function runAgentTask(
   );
 
   if (!reviewResult.ok) {
-    return Err(
-      new CLIError(`Agent task failed: ${reviewResult.error.message}`, ExitCode.ERROR)
-    );
+    return Err(new CLIError(`Agent task failed: ${reviewResult.error.message}`, ExitCode.ERROR));
   }
 
   const review = reviewResult.value;
@@ -92,7 +90,12 @@ export function createRunCommand(): Command {
         const persona = personaResult.value;
 
         const ALLOWED_COMMANDS = new Set([
-          'validate', 'check-deps', 'check-docs', 'cleanup', 'fix-drift', 'add',
+          'validate',
+          'check-deps',
+          'check-docs',
+          'cleanup',
+          'fix-drift',
+          'add',
         ]);
 
         const executor: CommandExecutor = async (command: string) => {
