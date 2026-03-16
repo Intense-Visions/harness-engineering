@@ -57,7 +57,7 @@ npm install && harness validate
 | [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                   |
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports |
 | [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                       |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 15 tools for AI agent integration                                          |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 23 tools and 5 resources for AI agent integration                          |
 
 ## Architecture
 
@@ -88,7 +88,7 @@ Connect your AI coding agent to harness for real-time constraint validation:
 harness setup-mcp
 ```
 
-This adds the harness MCP server to your AI client, giving it access to 15 tools (validation, entropy detection, skill execution) and 4 resources (project context, skills catalog, rules, learnings).
+This adds the harness MCP server to your AI client, giving it access to 23 tools (validation, entropy detection, skill execution, state management, code review, and more) and 5 resources (project context, skills catalog, rules, learnings, state).
 
 **Manual setup:**
 

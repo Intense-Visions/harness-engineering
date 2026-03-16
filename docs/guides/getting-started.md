@@ -167,8 +167,8 @@ Then add your project directory to `~/.gemini/trustedFolders.json` so Gemini tru
 
 ### What the MCP Server Provides
 
-- **15 tools** — project validation, dependency checking, entropy detection, skill execution, persona management, linter generation
-- **4 resources** — `harness://project` (AGENTS.md context), `harness://skills` (skill catalog), `harness://rules` (active linter rules), `harness://learnings` (review log)
+- **23 tools** — project validation, dependency checking, entropy detection, skill execution, persona management, linter generation, state management, code review, diff analysis, phase gates, cross-checks, skill scaffolding
+- **5 resources** — `harness://project` (AGENTS.md context), `harness://skills` (skill catalog), `harness://rules` (active linter rules), `harness://learnings` (review log), `harness://state` (project state)
 
 Once connected, your AI agent can validate constraints, run skills, and access project context without leaving the conversation.
 
