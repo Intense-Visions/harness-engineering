@@ -65,3 +65,23 @@ export interface WorkflowResult {
   pass: boolean;
   totalDurationMs: number;
 }
+
+// --- Skill Metadata Types ---
+
+export const STANDARD_COGNITIVE_MODES = [
+  'adversarial-reviewer',
+  'constructive-architect',
+  'meticulous-implementer',
+  'diagnostic-investigator',
+  'advisory-guide',
+  'meticulous-verifier',
+] as const;
+
+export type CognitiveMode = (typeof STANDARD_COGNITIVE_MODES)[number] | (string & {});
+
+export interface SkillMetadata {
+  name: string;
+  version: string;
+  description: string;
+  cognitive_mode?: CognitiveMode;
+}
