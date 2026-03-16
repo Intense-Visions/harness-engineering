@@ -41,11 +41,28 @@ import {
   runAgentTaskDefinition,
   handleRunAgentTask,
 } from './tools/agent.js';
-import { runSkillDefinition, handleRunSkill } from './tools/skill.js';
+import { runSkillDefinition, handleRunSkill, createSkillDefinition, handleCreateSkill } from './tools/skill.js';
 import { getSkillsResource } from './resources/skills.js';
 import { getRulesResource } from './resources/rules.js';
 import { getProjectResource } from './resources/project.js';
 import { getLearningsResource } from './resources/learnings.js';
+import {
+  manageStateDefinition,
+  handleManageState,
+  manageHandoffDefinition,
+  handleManageHandoff,
+} from './tools/state.js';
+import {
+  createSelfReviewDefinition,
+  handleCreateSelfReview,
+  analyzeDiffDefinition,
+  handleAnalyzeDiff,
+  requestPeerReviewDefinition,
+  handleRequestPeerReview,
+} from './tools/feedback.js';
+import { checkPhaseGateDefinition, handleCheckPhaseGate } from './tools/phase-gate.js';
+import { validateCrossCheckDefinition, handleValidateCrossCheck } from './tools/cross-check.js';
+import { getStateResource } from './resources/state.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -68,6 +85,14 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   addComponentDefinition,
   runAgentTaskDefinition,
   runSkillDefinition,
+  manageStateDefinition,
+  manageHandoffDefinition,
+  createSelfReviewDefinition,
+  analyzeDiffDefinition,
+  requestPeerReviewDefinition,
+  checkPhaseGateDefinition,
+  validateCrossCheckDefinition,
+  createSkillDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -85,6 +110,14 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   add_component: handleAddComponent as ToolHandler,
   run_agent_task: handleRunAgentTask as ToolHandler,
   run_skill: handleRunSkill as ToolHandler,
+  manage_state: handleManageState as ToolHandler,
+  manage_handoff: handleManageHandoff as ToolHandler,
+  create_self_review: handleCreateSelfReview as ToolHandler,
+  analyze_diff: handleAnalyzeDiff as ToolHandler,
+  request_peer_review: handleRequestPeerReview as ToolHandler,
+  check_phase_gate: handleCheckPhaseGate as ToolHandler,
+  validate_cross_check: handleValidateCrossCheck as ToolHandler,
+  create_skill: handleCreateSkill as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
@@ -113,6 +146,12 @@ const RESOURCE_DEFINITIONS = [
     description: 'Review learnings and anti-pattern log from .harness/',
     mimeType: 'text/markdown',
   },
+  {
+    uri: 'harness://state',
+    name: 'Project State',
+    description: 'Current harness state including position, progress, decisions, and blockers',
+    mimeType: 'application/json',
+  },
 ];
 
 type ResourceHandler = (projectRoot: string) => Promise<string>;
@@ -122,6 +161,7 @@ const RESOURCE_HANDLERS: Record<string, ResourceHandler> = {
   'harness://rules': getRulesResource,
   'harness://project': getProjectResource,
   'harness://learnings': getLearningsResource,
+  'harness://state': getStateResource,
 };
 
 export function getToolDefinitions(): ToolDefinition[] {
