@@ -89,6 +89,69 @@ If `.harness/review-learnings.md` exists:
 
 If the file does not exist, proceed with default review focus areas. After completing the review, consider suggesting that the team create `.harness/review-learnings.md` if you notice patterns that would benefit from calibration.
 
+## Change-Type Detection
+
+After assembling context, determine the change type. This shapes which checklist to apply during review.
+
+### Detection Method
+
+1. **Explicit argument:** If the review was invoked with a change type (e.g., `--type feature`), use it.
+2. **Commit message prefix:** Parse the most recent commit message for conventional commit prefixes:
+   - `feat:` or `feature:` → **feature**
+   - `fix:` or `bugfix:` → **bugfix**
+   - `refactor:` → **refactor**
+   - `docs:` or `doc:` → **docs**
+3. **Diff pattern heuristic:** If no prefix is found, examine the diff:
+   - New files added + tests added → likely **feature**
+   - Small changes to existing files + test added → likely **bugfix**
+   - File renames, moves, or restructuring with no behavior change → likely **refactor**
+   - Only `.md` files or comments changed → likely **docs**
+4. **Default:** If detection is ambiguous, treat as **feature** (the most thorough checklist).
+
+```bash
+# Parse commit message prefix
+git log --oneline -1 | head -1
+
+# Check for new files
+git diff --name-status HEAD~1 | grep "^A"
+
+# Check if only docs changed
+git diff --name-only HEAD~1 | grep -v "\.md$" | wc -l  # 0 means docs-only
+```
+
+### Per-Type Review Checklists
+
+Apply the checklist matching the detected change type. These replace the generic review — do not apply all checklists to every change.
+
+#### Feature Checklist
+
+- [ ] **Spec alignment:** Does the implementation match the spec/design doc? Are all specified behaviors present?
+- [ ] **Edge cases:** Are boundary conditions handled (empty input, max values, null, concurrent access)?
+- [ ] **Test coverage:** Are there tests for happy path, error paths, and edge cases? Is coverage meaningful, not just present?
+- [ ] **API surface:** Are new public interfaces minimal and well-named? Could any new export be kept internal?
+- [ ] **Backward compatibility:** Does this break existing callers? If so, is the migration path documented?
+
+#### Bugfix Checklist
+
+- [ ] **Root cause identified:** Does the fix address the root cause, not just the symptom? Is the original issue referenced?
+- [ ] **Regression test added:** Is there a test that would have caught this bug before the fix? Does it fail without the fix and pass with it?
+- [ ] **No collateral changes:** Does the fix change only what is necessary? Unrelated changes in a bugfix PR are a red flag.
+- [ ] **Original issue referenced:** Does the commit or PR reference the bug report or issue number?
+
+#### Refactor Checklist
+
+- [ ] **Behavioral equivalence:** Do all existing tests still pass without modification? If tests changed, justify why.
+- [ ] **No functionality changes:** Does the refactor introduce any new behavior, even subtly? New behavior belongs in a feature PR.
+- [ ] **Performance preserved:** Could the restructuring introduce performance regressions (e.g., extra allocations, changed query patterns)?
+- [ ] **Improved clarity:** Is the code demonstrably clearer after the refactor? If not, the refactor may not be justified.
+
+#### Docs Checklist
+
+- [ ] **Accuracy vs. current code:** Do the documented behaviors match what the code actually does? Run the examples if possible.
+- [ ] **Completeness:** Are all public interfaces documented? Are there undocumented parameters, return values, or error conditions?
+- [ ] **Consistency:** Does the new documentation follow the same style, terminology, and structure as existing docs?
+- [ ] **Links valid:** Do all internal links resolve? Are external links still live?
+
 ## Process
 
 This skill covers three distinct roles. Follow the section that matches your current role.
