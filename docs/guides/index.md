@@ -27,6 +27,17 @@ Learn proven patterns and strategies for successful Harness Engineering adoption
 
 **Best for:** Teams ready to scale beyond basic setup
 
+### [Agent Worktree Patterns](./agent-worktree-patterns.md)
+
+Git workflow guidance for agent-driven development:
+
+- Why branch-per-task is an anti-pattern for agent work
+- The worktree-per-milestone pattern
+- Practical how-to for creating and managing worktrees
+- When to squash-merge vs. regular merge
+
+**Best for:** Teams using agents to implement multi-task milestones
+
 ## How to Use These Guides
 
 1. **Start with Getting Started** if you're new to Harness Engineering
@@ -42,4 +53,4 @@ Learn proven patterns and strategies for successful Harness Engineering adoption
 
 ---
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-16_
