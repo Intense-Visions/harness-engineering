@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createProgram, handleError } from '../index';
 
-async function main() {
+async function main(): Promise<void> {
   const program = createProgram();
 
   try {
@@ -11,4 +11,4 @@ async function main() {
   }
 }
 
-main();
+void main();

@@ -19,13 +19,13 @@ interface AddResult {
   created: string[];
 }
 
-const LAYER_INDEX_TEMPLATE = (name: string) => `// ${name} layer
+const LAYER_INDEX_TEMPLATE = (name: string): string => `// ${name} layer
 // Add your ${name} exports here
 
 export {};
 `;
 
-const MODULE_TEMPLATE = (name: string) => `/**
+const MODULE_TEMPLATE = (name: string): string => `/**
  * ${name} module
  */
 
@@ -34,7 +34,7 @@ export function ${name}(): void {
 }
 `;
 
-const DOC_TEMPLATE = (name: string) => `# ${name}
+const DOC_TEMPLATE = (name: string): string => `# ${name}
 
 ## Overview
 
@@ -141,13 +141,15 @@ export async function runAdd(
         break;
       }
 
-      default:
+      default: {
+        const _exhaustive: never = componentType;
         return Err(
           new CLIError(
-            `Unknown component type: ${componentType}. Use: layer, module, doc, skill, persona`,
+            `Unknown component type: ${String(_exhaustive)}. Use: layer, module, doc, skill, persona`,
             ExitCode.ERROR
           )
         );
+      }
     }
 
     return Ok({ created });
@@ -166,8 +168,8 @@ export function createAddCommand(): Command {
     .description('Add a component to the project')
     .argument('<type>', 'Component type (layer, module, doc, skill, persona)')
     .argument('<name>', 'Component name')
-    .action(async (type, name, _opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
+    .action(async (type: string, name: string, _opts: unknown, cmd: Command) => {
+      const globalOpts = cmd.optsWithGlobals() as { config?: string; quiet?: boolean };
 
       const result = await runAdd(type as ComponentType, name, {
         configPath: globalOpts.config,
@@ -179,7 +181,7 @@ export function createAddCommand(): Command {
       }
 
       if (!globalOpts.quiet) {
-        logger.success(`Added ${type}: ${name}`);
+        logger.success(`Added ${type as string}: ${name}`);
         for (const file of result.value.created) {
           console.log(`  + ${file}`);
         }

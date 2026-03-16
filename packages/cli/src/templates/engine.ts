@@ -202,7 +202,7 @@ export class TemplateEngine {
 
   private collectFiles(dir: string, sourceName: string): TemplateFile[] {
     const files: TemplateFile[] = [];
-    const walk = (currentDir: string) => {
+    const walk = (currentDir: string): void => {
       const entries = fs.readdirSync(currentDir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(currentDir, entry.name);
