@@ -25,7 +25,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('add_component');
     expect(names).toContain('run_agent_task');
     expect(names).toContain('run_skill');
-    expect(tools).toHaveLength(15);
+    expect(tools).toHaveLength(23);
   });
 
   it('all tool definitions have inputSchema', () => {

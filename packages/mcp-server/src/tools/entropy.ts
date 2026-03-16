@@ -9,28 +9,33 @@ export const detectEntropyDefinition = {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
+      type: {
+        type: 'string',
+        enum: ['drift', 'dead-code', 'patterns', 'all'],
+        description: 'Type of entropy to detect (default: all)',
+      },
     },
     required: ['path'],
   },
 };
 
-export async function handleDetectEntropy(input: { path: string }) {
+export async function handleDetectEntropy(input: { path: string; type?: string }) {
   try {
     const { EntropyAnalyzer } = await import('@harness-engineering/core');
+    const typeFilter = input.type ?? 'all';
     const analyzer = new EntropyAnalyzer({
       rootDir: path.resolve(input.path),
-      analyze: { drift: true, deadCode: true, patterns: true },
+      analyze: {
+        drift: typeFilter === 'all' || typeFilter === 'drift',
+        deadCode: typeFilter === 'all' || typeFilter === 'dead-code',
+        patterns: typeFilter === 'all' || typeFilter === 'patterns',
+      },
     });
     const result = await analyzer.analyze();
     return resultToMcpResponse(result);
   } catch (error) {
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
+      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
       isError: true,
     };
   }
@@ -38,7 +43,7 @@ export async function handleDetectEntropy(input: { path: string }) {
 
 export const applyFixesDefinition = {
   name: 'apply_fixes',
-  description: 'Auto-fix detected entropy issues',
+  description: 'Auto-fix detected entropy issues and return actionable suggestions for remaining issues',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -51,7 +56,7 @@ export const applyFixesDefinition = {
 
 export async function handleApplyFixes(input: { path: string; dryRun?: boolean }) {
   try {
-    const { EntropyAnalyzer, createFixes, applyFixes } = await import('@harness-engineering/core');
+    const { EntropyAnalyzer, createFixes, applyFixes, generateSuggestions } = await import('@harness-engineering/core');
     const analyzer = new EntropyAnalyzer({
       rootDir: path.resolve(input.path),
       analyze: { drift: true, deadCode: true, patterns: true },
@@ -59,25 +64,25 @@ export async function handleApplyFixes(input: { path: string; dryRun?: boolean }
     const analysisResult = await analyzer.analyze();
     if (!analysisResult.ok) return resultToMcpResponse(analysisResult);
 
-    const deadCode = analysisResult.value.deadCode;
-    if (!deadCode) {
-      return resultToMcpResponse(Ok({ fixes: [], applied: 0 }));
+    const report = analysisResult.value;
+    const deadCode = report.deadCode;
+    const fixes = deadCode ? createFixes(deadCode, {}) : [];
+    const suggestions = generateSuggestions(report.deadCode, report.drift, report.patterns);
+
+    if (input.dryRun) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ fixes, suggestions }) }] };
     }
 
-    const fixes = createFixes(deadCode, {});
-    if (input.dryRun) {
-      return { content: [{ type: 'text' as const, text: JSON.stringify(fixes) }] };
+    if (fixes.length > 0) {
+      const applied = await applyFixes(fixes, {});
+      if (!applied.ok) return resultToMcpResponse(applied);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ ...applied.value, suggestions }) }] };
     }
-    const applied = await applyFixes(fixes, {});
-    return resultToMcpResponse(applied);
+
+    return resultToMcpResponse(Ok({ fixes: [], applied: 0, suggestions }));
   } catch (error) {
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
+      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
       isError: true,
     };
   }

@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Ok, Err } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
+import type { McpToolResponse } from '../utils/result-adapter.js';
 import { resolveSkillsDir } from '../utils/paths.js';
 
 export const runSkillDefinition = {
@@ -57,4 +58,49 @@ export async function handleRunSkill(input: {
   }
 
   return resultToMcpResponse(Ok(content));
+}
+
+export const createSkillDefinition = {
+  name: 'create_skill',
+  description: 'Scaffold a new harness skill with skill.yaml and SKILL.md',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      path: { type: 'string', description: 'Path to project root directory' },
+      name: { type: 'string', description: 'Skill name in kebab-case (e.g., my-new-skill)' },
+      description: { type: 'string', description: 'Skill description' },
+      cognitiveMode: {
+        type: 'string',
+        enum: [
+          'adversarial-reviewer', 'constructive-architect', 'meticulous-implementer',
+          'diagnostic-investigator', 'advisory-guide', 'meticulous-verifier',
+        ],
+        description: 'Cognitive mode (default: constructive-architect)',
+      },
+    },
+    required: ['path', 'name', 'description'],
+  },
+};
+
+export async function handleCreateSkill(input: {
+  path: string;
+  name: string;
+  description: string;
+  cognitiveMode?: string;
+}): Promise<McpToolResponse> {
+  try {
+    const { generateSkillFiles } = await import('@harness-engineering/cli');
+    const result = generateSkillFiles({
+      name: input.name,
+      description: input.description,
+      cognitiveMode: input.cognitiveMode ?? 'constructive-architect',
+      outputDir: path.resolve(input.path),
+    });
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+  } catch (error) {
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true,
+    };
+  }
 }
