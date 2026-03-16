@@ -101,14 +101,14 @@ Each package has a clear responsibility:
 
 Ensure you have these tools installed:
 
-- **Node.js 18+** - Download from [nodejs.org](https://nodejs.org/)
+- **Node.js 22+** - Download from [nodejs.org](https://nodejs.org/)
 - **pnpm 8+** - Install with: `npm install -g pnpm`
 - **Git** - Required for version control
 
 Verify your setup:
 
 ```bash
-node --version    # Should be 18.x or higher
+node --version    # Should be 22.x or higher
 pnpm --version    # Should be 8.x or higher
 git --version     # Any recent version
 ```

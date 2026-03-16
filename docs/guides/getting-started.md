@@ -4,12 +4,12 @@ The fastest way to learn harness engineering is to explore the examples. Each on
 
 ## Prerequisites
 
-- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
+- **Node.js 22+** — [nodejs.org](https://nodejs.org/)
 - **pnpm 8+** — `npm install -g pnpm`
 - **Git**
 
 ```bash
-node --version   # 18+
+node --version   # 22+
 pnpm --version   # 8+
 ```
 
@@ -141,8 +141,8 @@ npm install -g pnpm
 ### "Node version not compatible"
 
 ```bash
-nvm install 18
-nvm use 18
+nvm install 22
+nvm use 22
 ```
 
 ## Next Steps

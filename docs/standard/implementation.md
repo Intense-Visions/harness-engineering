@@ -363,7 +363,7 @@ npm run test:coverage # With coverage
 ## Tools & Standards
 
 - **Package manager**: pnpm
-- **Runtime**: Node.js 18+
+- **Runtime**: Node.js 22+
 - **Language**: TypeScript 5.0+
 - **Linting**: ESLint + Prettier
 - **Testing**: Jest
