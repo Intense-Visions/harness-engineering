@@ -1,0 +1,50 @@
+name: harness-diagnostics
+version: "1.0.0"
+description: Classify errors into taxonomy categories and route to resolution strategies
+cognitive_mode: diagnostic-investigator
+triggers:
+  - manual
+  - on_bug_fix
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+  - Edit
+  - Write
+cli:
+  command: harness skill run harness-diagnostics
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: error
+      description: Error message or description to diagnose
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-diagnostics
+    path: string
+type: rigid
+phases:
+  - name: classify
+    description: Categorize the error into one of 7 taxonomy categories
+    required: true
+  - name: route
+    description: Apply the resolution strategy for the error category
+    required: true
+  - name: resolve
+    description: Execute the resolution and verify the fix
+    required: true
+  - name: record
+    description: Record findings in anti-pattern log if initial approach failed
+    required: false
+state:
+  persistent: true
+  files:
+    - .harness/diagnostics/
+depends_on: []
