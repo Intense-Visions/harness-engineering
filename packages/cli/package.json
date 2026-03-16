@@ -20,7 +20,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/bin/harness.ts --format esm --dts --outDir dist",
+    "build": "tsup src/index.ts src/bin/harness.ts --format esm --dts --outDir dist && cp -r ../../templates dist/templates",
     "dev": "tsup src/index.ts src/bin/harness.ts --format esm --dts --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",

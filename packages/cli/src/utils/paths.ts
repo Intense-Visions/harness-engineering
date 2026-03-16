@@ -27,7 +27,8 @@ function findUpDir(targetName: string, marker: string, maxLevels = 8): string | 
 
 export function resolveTemplatesDir(): string {
   // Look for templates/ dir containing base/template.json (not src/templates/ which has code)
-  return findUpDir('templates', 'base') ?? path.join(__dirname, '..', 'templates');
+  // Walk up first (works in monorepo dev), then fall back to bundled templates in dist/
+  return findUpDir('templates', 'base') ?? path.join(__dirname, 'templates');
 }
 
 export function resolvePersonasDir(): string {
