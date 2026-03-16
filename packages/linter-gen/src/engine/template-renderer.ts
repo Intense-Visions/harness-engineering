@@ -19,7 +19,7 @@ export type RenderResult =
  * Convert kebab-case to camelCase
  */
 function toCamelCase(str: string): string {
-  return str.replace(/-([a-z0-9])/g, (_, char) => char.toUpperCase());
+  return str.replace(/-([a-z0-9])/g, (_: string, char: string) => char.toUpperCase());
 }
 
 /**

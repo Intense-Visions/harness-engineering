@@ -1,5 +1,5 @@
 // src/utils/ast-helpers.ts
-import type { TSESTree } from '@typescript-eslint/utils';
+import { AST_NODE_TYPES, type TSESTree } from '@typescript-eslint/utils';
 
 /**
  * Check if a node has a preceding JSDoc comment
@@ -49,9 +49,18 @@ export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
   function visit(node: TSESTree.Node): void {
     if (found) return;
 
-    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression') {
-      const prop = node.callee.property;
-      if (prop.type === 'Identifier' && (prop.name === 'parse' || prop.name === 'safeParse')) {
+    if (
+      (node.type as AST_NODE_TYPES) === AST_NODE_TYPES.CallExpression &&
+      ((node as TSESTree.CallExpression).callee.type as AST_NODE_TYPES) ===
+        AST_NODE_TYPES.MemberExpression
+    ) {
+      const prop = ((node as TSESTree.CallExpression).callee as TSESTree.MemberExpression).property;
+      const propType = prop.type as AST_NODE_TYPES;
+      if (
+        propType === AST_NODE_TYPES.Identifier &&
+        ((prop as TSESTree.Identifier).name === 'parse' ||
+          (prop as TSESTree.Identifier).name === 'safeParse')
+      ) {
         found = true;
         return;
       }

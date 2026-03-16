@@ -26,7 +26,7 @@ export interface RuleContext {
  * Convert kebab-case to camelCase
  */
 function toCamelCase(str: string): string {
-  return str.replace(/-([a-z0-9])/g, (_, char) => char.toUpperCase());
+  return str.replace(/-([a-z0-9])/g, (_: string, char: string) => char.toUpperCase());
 }
 
 /**
@@ -46,7 +46,7 @@ export function buildRuleContext(rule: RuleConfig, configPath: string): RuleCont
     nameCamel: toCamelCase(rule.name),
     namePascal: toPascalCase(rule.name),
     severity: rule.severity,
-    config: rule.config as Record<string, unknown>,
+    config: rule.config,
     meta: {
       generatedAt: new Date().toISOString(),
       generatorVersion: GENERATOR_VERSION,

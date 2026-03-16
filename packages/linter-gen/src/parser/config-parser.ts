@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import * as fs from 'fs/promises';
 import * as yaml from 'yaml';
 import { LinterConfigSchema, type LinterConfig } from '../schema/linter-config.js';
@@ -32,7 +33,7 @@ export async function parseConfig(configPath: string): Promise<ParseResult> {
   try {
     content = await fs.readFile(configPath, 'utf-8');
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+    if ((err as { code?: string }).code === 'ENOENT') {
       return {
         success: false,
         error: new ParseError(`Config file not found: ${configPath}`, 'FILE_NOT_FOUND', err),

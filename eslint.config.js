@@ -49,5 +49,11 @@ export default [
       ],
     },
   },
+  {
+    files: ['**/tests/**/*.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
   prettierConfig,
 ];

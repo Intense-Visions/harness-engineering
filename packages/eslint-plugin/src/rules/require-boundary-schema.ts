@@ -1,5 +1,5 @@
 // src/rules/require-boundary-schema.ts
-import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
+import { ESLintUtils, AST_NODE_TYPES, type TSESTree } from '@typescript-eslint/utils';
 import { getConfig } from '../utils/config-loader';
 import { matchesPattern, normalizePath } from '../utils/path-utils';
 import { hasZodValidation } from '../utils/ast-helpers';
@@ -46,16 +46,19 @@ export default createRule<[], MessageIds>({
         const decl = node.declaration;
 
         // Only check function declarations
-        if (decl?.type !== 'FunctionDeclaration' || !decl.id || !decl.body) {
+        if (!decl || (decl.type as AST_NODE_TYPES) !== AST_NODE_TYPES.FunctionDeclaration) {
           return;
         }
 
+        const fn = decl as TSESTree.FunctionDeclaration;
+        if (!fn.id || !fn.body) return;
+
         // Check if function has Zod validation
-        if (!hasZodValidation(decl.body)) {
+        if (!hasZodValidation(fn.body)) {
           context.report({
-            node: decl,
+            node: fn,
             messageId: 'missingSchema',
-            data: { name: decl.id.name },
+            data: { name: fn.id.name },
           });
         }
       },

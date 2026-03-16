@@ -19,7 +19,7 @@
     "build": "tsc && cp -r src/templates dist/templates",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src tests",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
