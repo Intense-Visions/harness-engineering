@@ -37,6 +37,28 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
 
 5. **Apply YAGNI.** For every artifact, ask: "Is this required for an observable truth?" If not, cut it.
 
+#### EARS Requirement Patterns
+
+When writing observable truths and acceptance criteria, use EARS (Easy Approach to Requirements Syntax) sentence patterns. These patterns eliminate ambiguity by forcing a consistent grammatical structure.
+
+| Pattern | Template | Use When |
+|---------|----------|----------|
+| **Ubiquitous** | The system shall [behavior]. | Behavior that always applies, unconditionally |
+| **Event-driven** | When [trigger], the system shall [response]. | Behavior triggered by a specific event |
+| **State-driven** | While [state], the system shall [behavior]. | Behavior that applies only during a certain state |
+| **Optional** | Where [feature is enabled], the system shall [behavior]. | Behavior gated by a configuration or feature flag |
+| **Unwanted** | If [condition], then the system shall not [behavior]. | Explicitly preventing undesirable behavior |
+
+**Worked Examples:**
+
+1. **Ubiquitous:** "The system shall return JSON responses with `Content-Type: application/json` header."
+2. **Event-driven:** "When a user submits an invalid form, the system shall display field-level error messages within 200ms."
+3. **State-driven:** "While the database connection is unavailable, the system shall serve cached responses and log reconnection attempts."
+4. **Optional:** "Where rate limiting is enabled, the system shall reject requests exceeding 100/minute per API key with HTTP 429."
+5. **Unwanted:** "If the request body exceeds 10MB, then the system shall not attempt to parse it — return HTTP 413 immediately."
+
+**When to use EARS:** Apply these patterns when writing observable truths in Phase 1. Not every criterion needs an EARS pattern — use them when the requirement is behavioral (not structural). File existence checks ("src/types/user.ts exists with User interface") do not need EARS framing.
+
 ---
 
 ### Phase 2: DECOMPOSE — Map File Structure and Create Tasks
