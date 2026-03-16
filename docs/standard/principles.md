@@ -1,4 +1,4 @@
-# The Six Core Principles of Harness Engineering
+# The Seven Core Principles of Harness Engineering
 
 This document provides a detailed explanation of each principle that defines Harness Engineering. Each principle addresses a specific challenge in building systems that AI agents can work with reliably.
 
@@ -1088,9 +1088,184 @@ Context Density = 0.31 ✓ (above target of 0.3)
 
 ---
 
+## 7. Deterministic-vs-LLM Responsibility Split
+
+### What It Is
+
+**The Deterministic-vs-LLM Split** is a decision framework for choosing whether an operation should be handled by mechanical tooling (linters, scripts, type checkers) or by LLM judgment. The core rule is simple:
+
+> **If an operation can be expressed as if-else logic, it MUST be enforced mechanically — not delegated to LLM judgment.**
+
+This principle extends [Principle 2 (Architectural Rigidity)](#2-architectural-rigidity--mechanical-constraints) from *what to enforce* to *how to decide what to enforce*. Principle 2 says "use mechanical constraints." This principle says "here is the line between what the machine handles and what the LLM handles."
+
+### Why It Matters
+
+LLMs are probabilistic. Given the same input twice, they may produce different outputs. This is a strength for creative tasks (code generation, architectural reasoning) but a liability for deterministic tasks (formatting, import ordering, naming validation).
+
+Without a clear split:
+
+- LLMs waste tokens re-checking formatting that a linter handles in milliseconds
+- Teams argue about whether a rule "should be a linter rule" or "agent guidance"
+- Agents hallucinate compliance — they claim they followed a convention without mechanical verification
+- Quality depends on prompt engineering rather than toolchain engineering
+
+With a clear split:
+
+- Deterministic checks run first, fast, and reliably — every time
+- LLM effort focuses on tasks that genuinely require reasoning
+- Agent output quality is mechanically verified, not self-reported
+- Teams have a simple heuristic for where to invest enforcement effort
+
+### Key Concepts
+
+#### The Responsibility Matrix
+
+| Responsibility | Owner | Examples |
+|---------------|-------|----------|
+| Intent understanding | LLM | "What does the user want to build?" |
+| Architectural reasoning | LLM | "Should this be a service or a utility?" |
+| Code generation | LLM | Writing implementation code |
+| Debugging decisions | LLM | "What's causing this failure?" |
+| Ambiguous trade-offs | LLM | "Should we optimize for speed or readability?" |
+| Formatting | Mechanical | Prettier, Black, gofmt |
+| Import ordering | Mechanical | ESLint import-order rules |
+| Naming conventions | Mechanical | Linter rules for file/variable naming |
+| File structure validation | Mechanical | Structural tests, directory layout checks |
+| Test execution | Mechanical | Test runners, CI pipelines |
+| Type checking | Mechanical | TypeScript compiler, mypy, rustc |
+| Dependency direction | Mechanical | Custom linter rules (see Principle 2) |
+
+#### The Decision Heuristic
+
+When adding a new rule or convention, apply this test:
+
+1. **Can you write it as an if-else statement?** → Mechanical enforcement
+2. **Does it require understanding context or intent?** → LLM judgment
+3. **Is it ambiguous or situation-dependent?** → LLM judgment with documented guidelines
+4. **Does the same input always produce the same correct output?** → Mechanical enforcement
+
+Examples of applying the heuristic:
+
+- "Functions must be under 50 lines" → if-else → **Mechanical** (linter rule)
+- "Functions should have a single responsibility" → requires judgment → **LLM** (review guidance)
+- "Imports must be sorted alphabetically" → if-else → **Mechanical** (auto-formatter)
+- "This abstraction is at the wrong level" → requires reasoning → **LLM** (architectural review)
+
+#### Deterministic-First Execution
+
+When a skill or workflow produces code, it should follow this sequence:
+
+```
+1. LLM generates code (creative phase)
+2. Mechanical checks run (deterministic phase)
+   - Format (prettier, black)
+   - Lint (eslint, ruff)
+   - Type-check (tsc, mypy)
+   - Test (vitest, pytest)
+3. If mechanical checks fail → LLM fixes (targeted creative phase)
+4. Repeat until mechanical checks pass
+5. LLM self-review (creative phase — only after deterministic checks pass)
+```
+
+This sequence ensures LLM effort is never spent on issues that mechanical tools catch faster and more reliably.
+
+#### Skill Template: Deterministic Checks Section
+
+Every skill that produces or modifies code should include a `## Deterministic Checks` section listing what the skill enforces mechanically before and after LLM invocation:
+
+```markdown
+## Deterministic Checks
+
+### Pre-Execution
+- [ ] Target files exist and are readable
+- [ ] Required tools are available (e.g., `tsc`, `eslint`)
+
+### Post-Execution
+- [ ] Linter passes on all modified files
+- [ ] Type checker passes
+- [ ] Tests pass (existing + new)
+- [ ] File naming conventions followed
+- [ ] No unresolved merge conflicts
+```
+
+Skills that only read or analyze (e.g., review, planning) may have lighter deterministic checks (e.g., "target files exist"). Skills that write code must include the full post-execution checks.
+
+### Examples
+
+#### Example 1: Deciding Where to Enforce a New Rule
+
+Scenario: Team decides "all API endpoints must return a standard error envelope."
+
+Apply the heuristic:
+
+- Can you write it as if-else? → **Yes**: check if response type matches `{ error: { code, message } }` schema
+- Same input → same output? → **Yes**: a response either matches the schema or it doesn't
+
+Decision: **Mechanical enforcement**
+
+```typescript
+// Structural test: verify all endpoint handlers return ErrorEnvelope
+const endpoints = findAllEndpoints('src/api/');
+for (const endpoint of endpoints) {
+  const returnType = getReturnType(endpoint);
+  expect(returnType).toMatch(/ErrorEnvelope/);
+}
+```
+
+Not: "Ask the LLM to check if error handling looks right."
+
+#### Example 2: Deciding Where NOT to Mechanically Enforce
+
+Scenario: Team wants to ensure "services use appropriate abstractions."
+
+Apply the heuristic:
+
+- Can you write it as if-else? → **No**: "appropriate" depends on domain context
+- Same input → same output? → **No**: what's appropriate varies by situation
+
+Decision: **LLM judgment** (documented as review guidance)
+
+```markdown
+## Review Guidance: Abstraction Quality
+
+When reviewing service code, consider:
+- Does each service have a single domain concept?
+- Are there signs of a god object (>5 public methods)?
+- Could any method be extracted to a shared utility?
+
+Flag for human review if uncertain.
+```
+
+#### Example 3: Mixed Responsibility
+
+Scenario: Code review for a new feature.
+
+- **Mechanical** (run first): lint, typecheck, test execution, import ordering, naming conventions
+- **LLM** (run after mechanical passes): logic correctness, edge case coverage, architectural fit, documentation quality
+
+The LLM reviewer never comments on formatting or import order — those are already verified mechanically. It focuses on what only reasoning can evaluate.
+
+### Connection to Other Principles
+
+- **Principle 2 (Architectural Rigidity)**: Defines the constraints. This principle defines which constraints are mechanical vs. guidance.
+- **Principle 3 (Agent Feedback Loop)**: The feedback loop should run deterministic checks first, then LLM review — never the reverse.
+- **Principle 4 (Entropy Management)**: Cleanup agents should prioritize mechanically detectable drift (schema mismatches, dead code) over judgment-dependent drift (abstraction quality).
+- **Principle 6 (KPIs)**: Harness Coverage (% of rules enforced mechanically) directly measures how well teams apply this split.
+
+### Implementation Checklist
+
+- [ ] Audit existing conventions: which are deterministic? which require judgment?
+- [ ] Convert all deterministic conventions to linter rules or structural tests
+- [ ] Document remaining LLM-judgment conventions as review guidance
+- [ ] Add `## Deterministic Checks` section to all code-producing skills
+- [ ] Ensure skill execution follows deterministic-first sequence
+- [ ] Measure: track the ratio of mechanical rules to total rules (Harness Coverage KPI)
+
+---
+
 ## Summary
 
-These six principles work together to create a system where:
+These seven principles work together to create a system where:
 
 1. **Context Engineering** ensures agents have the information they need
 2. **Mechanical Constraints** prevent bad decisions automatically
@@ -1098,13 +1273,14 @@ These six principles work together to create a system where:
 4. **Entropy Management** keeps technical debt bounded
 5. **Depth-First Implementation** builds clear examples and patterns
 6. **KPIs** measure progress toward agent autonomy
+7. **Deterministic-vs-LLM Split** draws a clear line between what machines enforce and what LLMs reason about
 
 Adopt them progressively:
 
 - **Level 1**: Context Engineering + Documentation
-- **Level 2**: Add Mechanical Constraints + Linters
+- **Level 2**: Add Mechanical Constraints + Linters + Deterministic-vs-LLM Split
 - **Level 3**: Add Agent Feedback Loop + Entropy Management
 
 [← Back to Overview](./index.md) | [Implementation Guide →](./implementation.md) | [KPIs & Metrics →](./kpis.md)
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-16_
