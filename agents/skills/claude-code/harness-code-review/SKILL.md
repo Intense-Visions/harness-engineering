@@ -11,6 +11,48 @@
 - NOT for rubber-stamping (if you cannot find issues, look harder or state confidence level)
 - NOT for style-only feedback (leave that to linters)
 
+## Context Assembly
+
+Before beginning any review phase, assemble context proportional to the change size.
+
+### 1:1 Context Ratio Rule
+
+For every N lines of diff, gather approximately N lines of surrounding context. This ensures the reviewer understands the ecosystem around the change, not just the change itself.
+
+- **Small diffs (<20 lines):** Gather proportionally more context — aim for 3:1 context-to-diff. Small changes often have outsized impact and need more surrounding understanding.
+- **Medium diffs (20-200 lines):** Target 1:1 ratio. Read the full files containing changes, plus immediate dependencies.
+- **Large diffs (>200 lines):** 1:1 ratio is the floor, but prioritize ruthlessly using the priority order below. Flag large diffs as a review concern — they are harder to review correctly.
+
+### Context Gathering Priority Order
+
+Gather context in this order until the ratio is met:
+
+1. **Files directly imported/referenced by changed files** — read the modules that the changed code calls or depends on. Without this, you cannot evaluate correctness.
+2. **Corresponding test files** — find tests for the changed code. If tests exist, read them to understand expected behavior. If tests are missing, note this as a finding.
+3. **Spec/design docs mentioning changed components** — search `docs/specs/`, `docs/design-docs/`, and `docs/plans/` for references to the changed files or features. The spec defines "correct."
+4. **Type definitions used by changed code** — read interfaces, types, and schemas that the changed code consumes or produces. Type mismatches are high-severity bugs.
+5. **Recent commits touching the same files** — see Commit History below.
+
+### Context Assembly Commands
+
+```bash
+# 1. Get the diff and measure its size
+git diff --stat HEAD~1          # or the relevant commit range
+git diff HEAD~1 -- <file>       # per-file diff
+
+# 2. Find imports/references in changed files
+grep -n "import\|require\|from " <changed-file>
+
+# 3. Find corresponding test files
+find . -name "*<module-name>*test*" -o -name "*<module-name>*spec*"
+
+# 4. Search for spec/design references
+grep -rl "<component-name>" docs/specs/ docs/design-docs/ docs/plans/
+
+# 5. Find type definitions
+grep -rn "interface\|type\|schema" <changed-file> | head -20
+```
+
 ## Process
 
 This skill covers three distinct roles. Follow the section that matches your current role.
