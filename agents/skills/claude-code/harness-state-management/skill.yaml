@@ -1,6 +1,7 @@
 name: harness-state-management
 version: "1.0.0"
 description: Manage persistent session state across harness agent sessions
+cognitive_mode: meticulous-implementer
 triggers:
   - manual
 platforms:

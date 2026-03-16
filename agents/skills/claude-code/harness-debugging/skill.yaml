@@ -1,6 +1,7 @@
 name: harness-debugging
 version: "1.0.0"
 description: Systematic debugging with harness validation and state tracking
+cognitive_mode: diagnostic-investigator
 triggers:
   - manual
   - on_bug_fix

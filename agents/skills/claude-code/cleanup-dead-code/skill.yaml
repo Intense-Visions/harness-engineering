@@ -1,6 +1,7 @@
 name: cleanup-dead-code
 version: "1.0.0"
 description: Detect unused exports and dead code
+cognitive_mode: diagnostic-investigator
 triggers:
   - manual
 platforms:

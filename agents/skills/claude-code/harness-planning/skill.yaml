@@ -1,6 +1,7 @@
 name: harness-planning
 version: "1.0.0"
 description: Structured project planning with harness constraints and validation
+cognitive_mode: constructive-architect
 triggers:
   - manual
   - on_new_feature

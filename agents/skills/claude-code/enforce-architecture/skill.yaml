@@ -1,6 +1,7 @@
 name: enforce-architecture
 version: "1.0.0"
 description: Validate architectural layer boundaries and detect circular dependencies
+cognitive_mode: meticulous-verifier
 triggers:
   - manual
   - on_pr

@@ -1,6 +1,7 @@
 name: check-mechanical-constraints
 version: "1.0.0"
 description: Run all mechanical constraint checks (context validation + architecture)
+cognitive_mode: meticulous-verifier
 triggers:
   - manual
   - on_pr

@@ -1,6 +1,7 @@
 name: harness-refactoring
 version: "1.0.0"
 description: Safe refactoring with validation before and after changes
+cognitive_mode: meticulous-implementer
 triggers:
   - manual
   - on_refactor

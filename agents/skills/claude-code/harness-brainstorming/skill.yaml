@@ -1,6 +1,7 @@
 name: harness-brainstorming
 version: "1.0.0"
 description: Structured ideation and exploration with harness methodology
+cognitive_mode: constructive-architect
 triggers:
   - manual
   - on_new_feature

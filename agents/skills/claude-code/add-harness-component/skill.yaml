@@ -1,6 +1,7 @@
 name: add-harness-component
 version: "1.0.0"
 description: Add a component to an existing harness project
+cognitive_mode: constructive-architect
 triggers:
   - manual
 platforms:

@@ -1,6 +1,7 @@
 name: harness-onboarding
 version: "1.0.0"
 description: Onboard a new developer to a harness-managed project
+cognitive_mode: advisory-guide
 triggers:
   - manual
   - on_project_init

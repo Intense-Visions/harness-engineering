@@ -1,6 +1,7 @@
 name: harness-verification
 version: "1.0.0"
 description: Comprehensive harness verification of project health and compliance
+cognitive_mode: meticulous-verifier
 triggers:
   - manual
   - on_pr

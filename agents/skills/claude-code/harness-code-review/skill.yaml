@@ -1,6 +1,7 @@
 name: harness-code-review
 version: "1.0.0"
 description: Structured code review with automated harness checks
+cognitive_mode: adversarial-reviewer
 triggers:
   - manual
   - on_pr

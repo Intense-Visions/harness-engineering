@@ -1,6 +1,7 @@
 name: harness-skill-authoring
 version: "1.0.0"
 description: Create and maintain harness skills following the rich skill format
+cognitive_mode: constructive-architect
 triggers:
   - manual
 platforms:
