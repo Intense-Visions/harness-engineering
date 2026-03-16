@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import chalk from 'chalk';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
@@ -10,76 +11,87 @@ interface McpConfig {
   [key: string]: unknown;
 }
 
+interface TrustedFolders {
+  [folderPath: string]: string;
+}
+
 const HARNESS_MCP_ENTRY = {
   command: 'npx',
-  args: ['harness-mcp'],
+  args: ['@harness-engineering/mcp-server'],
 };
 
-function mergeConfig(existingPath: string, key: string): boolean {
-  let config: McpConfig = {};
-
-  if (fs.existsSync(existingPath)) {
-    try {
-      const content = fs.readFileSync(existingPath, 'utf-8');
-      config = JSON.parse(content) as McpConfig;
-    } catch {
-      // If file exists but is invalid JSON, back it up
-      fs.copyFileSync(existingPath, existingPath + '.bak');
-      config = {};
-    }
+function readJsonFile<T>(filePath: string): T | null {
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T;
+  } catch {
+    fs.copyFileSync(filePath, filePath + '.bak');
+    return null;
   }
+}
+
+function writeJsonFile(filePath: string, data: unknown): void {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
+}
+
+function configureMcpServer(configPath: string): boolean {
+  const config: McpConfig = readJsonFile<McpConfig>(configPath) ?? {};
 
   if (!config.mcpServers) {
     config.mcpServers = {};
   }
 
-  if (config.mcpServers[key]) {
-    return false; // Already configured
+  if (config.mcpServers['harness']) {
+    return false;
   }
 
-  config.mcpServers[key] = HARNESS_MCP_ENTRY;
-
-  const dir = path.dirname(existingPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  fs.writeFileSync(existingPath, JSON.stringify(config, null, 2) + '\n');
+  config.mcpServers['harness'] = HARNESS_MCP_ENTRY;
+  writeJsonFile(configPath, config);
   return true;
 }
 
-export function setupMcp(cwd: string, client: string): { configured: string[]; skipped: string[] } {
+function addGeminiTrustedFolder(cwd: string): boolean {
+  const trustedPath = path.join(os.homedir(), '.gemini', 'trustedFolders.json');
+  const folders: TrustedFolders = readJsonFile<TrustedFolders>(trustedPath) ?? {};
+
+  if (folders[cwd] === 'TRUST_FOLDER') {
+    return false;
+  }
+
+  folders[cwd] = 'TRUST_FOLDER';
+  writeJsonFile(trustedPath, folders);
+  return true;
+}
+
+export function setupMcp(cwd: string, client: string): { configured: string[]; skipped: string[]; trustedFolder: boolean } {
   const configured: string[] = [];
   const skipped: string[] = [];
-
-  const clients: { name: string; configPath: string; key: string }[] = [];
+  let trustedFolder = false;
 
   if (client === 'all' || client === 'claude') {
-    clients.push({
-      name: 'Claude Code',
-      configPath: path.join(cwd, '.claude', 'settings.json'),
-      key: 'harness',
-    });
-  }
-
-  if (client === 'all' || client === 'gemini') {
-    clients.push({
-      name: 'Gemini CLI',
-      configPath: path.join(cwd, '.gemini', 'settings.json'),
-      key: 'harness',
-    });
-  }
-
-  for (const c of clients) {
-    const wasAdded = mergeConfig(c.configPath, c.key);
-    if (wasAdded) {
-      configured.push(c.name);
+    const configPath = path.join(cwd, '.mcp.json');
+    if (configureMcpServer(configPath)) {
+      configured.push('Claude Code');
     } else {
-      skipped.push(c.name);
+      skipped.push('Claude Code');
     }
   }
 
-  return { configured, skipped };
+  if (client === 'all' || client === 'gemini') {
+    const configPath = path.join(cwd, '.gemini', 'settings.json');
+    if (configureMcpServer(configPath)) {
+      configured.push('Gemini CLI');
+    } else {
+      skipped.push('Gemini CLI');
+    }
+    trustedFolder = addGeminiTrustedFolder(cwd);
+  }
+
+  return { configured, skipped, trustedFolder };
 }
 
 export function createSetupMcpCommand(): Command {
@@ -90,7 +102,7 @@ export function createSetupMcpCommand(): Command {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const { configured, skipped } = setupMcp(cwd, opts.client);
+      const { configured, skipped, trustedFolder } = setupMcp(cwd, opts.client);
 
       if (!globalOpts.quiet) {
         console.log('');
@@ -100,6 +112,10 @@ export function createSetupMcpCommand(): Command {
           for (const name of configured) {
             console.log(`  ${chalk.green('+')} ${name}`);
           }
+        }
+        if (trustedFolder) {
+          console.log('');
+          logger.info('Added project to Gemini trusted folders (~/.gemini/trustedFolders.json)');
         }
         if (skipped.length > 0) {
           console.log('');

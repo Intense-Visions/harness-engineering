@@ -129,33 +129,41 @@ This creates the MCP config in your project directory. The `harness init` comman
 
 ### Manual Setup
 
-Add to your AI client's MCP settings:
-
-**Claude Code** (`.claude/settings.json`):
+**Claude Code** — add to `.mcp.json` in your project root:
 
 ```json
 {
   "mcpServers": {
     "harness": {
       "command": "npx",
-      "args": ["harness-mcp"]
+      "args": ["@harness-engineering/mcp-server"]
     }
   }
 }
 ```
 
-**Gemini CLI** (`.gemini/settings.json`):
+**Gemini CLI** — add to `.gemini/settings.json` in your project root:
 
 ```json
 {
   "mcpServers": {
     "harness": {
       "command": "npx",
-      "args": ["harness-mcp"]
+      "args": ["@harness-engineering/mcp-server"]
     }
   }
 }
 ```
+
+Then add your project directory to `~/.gemini/trustedFolders.json` so Gemini trusts the workspace MCP server:
+
+```json
+{
+  "/path/to/your/project": "TRUST_FOLDER"
+}
+```
+
+> **Note:** Gemini CLI ignores `mcpServers` in workspace settings for untrusted directories. The `harness setup-mcp` command handles this automatically.
 
 ### What the MCP Server Provides
 

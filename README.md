@@ -90,23 +90,46 @@ harness setup-mcp
 
 This adds the harness MCP server to your AI client, giving it access to 15 tools (validation, entropy detection, skill execution) and 4 resources (project context, skills catalog, rules, learnings).
 
-**Manual setup** — add to your client's MCP config:
+**Manual setup:**
+
+**Claude Code** — add to `.mcp.json` in your project root:
 
 ```json
 {
   "mcpServers": {
     "harness": {
       "command": "npx",
-      "args": ["harness-mcp"]
+      "args": ["@harness-engineering/mcp-server"]
     }
   }
 }
 ```
 
-| Client      | Config Location         |
-| ----------- | ----------------------- |
-| Claude Code | `.claude/settings.json` |
-| Gemini CLI  | `.gemini/settings.json` |
+**Gemini CLI** — add to `.gemini/settings.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["@harness-engineering/mcp-server"]
+    }
+  }
+}
+```
+
+Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignores workspace MCP servers in untrusted folders):
+
+```json
+{
+  "/path/to/your/project": "TRUST_FOLDER"
+}
+```
+
+| Client      | MCP Config Location      | Additional Setup                    |
+| ----------- | ------------------------ | ----------------------------------- |
+| Claude Code | `.mcp.json`              | None                                |
+| Gemini CLI  | `.gemini/settings.json`  | Add project to `~/.gemini/trustedFolders.json` |
 
 ## What's Included
 
