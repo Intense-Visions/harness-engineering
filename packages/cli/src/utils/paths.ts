@@ -32,19 +32,19 @@ export function resolveTemplatesDir(): string {
 }
 
 export function resolvePersonasDir(): string {
-  // Look for agents/ dir containing personas/ subdirectory
+  // Walk up first (works in monorepo dev), then fall back to bundled agents in dist/
   const agentsDir = findUpDir('agents', 'personas');
   if (agentsDir) {
     return path.join(agentsDir, 'personas');
   }
-  return path.join(__dirname, '..', '..', 'agents', 'personas');
+  return path.join(__dirname, 'agents', 'personas');
 }
 
 export function resolveSkillsDir(): string {
-  // Find agents/ dir containing skills/ subdirectory, then navigate to skills/claude-code/
+  // Walk up first (works in monorepo dev), then fall back to bundled agents in dist/
   const agentsDir = findUpDir('agents', 'skills');
   if (agentsDir) {
     return path.join(agentsDir, 'skills', 'claude-code');
   }
-  return path.join(__dirname, '..', '..', 'agents', 'skills', 'claude-code');
+  return path.join(__dirname, 'agents', 'skills', 'claude-code');
 }
