@@ -172,7 +172,7 @@ export function createAddCommand(): Command {
       const globalOpts = cmd.optsWithGlobals() as { config?: string; quiet?: boolean };
 
       const result = await runAdd(type as ComponentType, name, {
-        configPath: globalOpts.config,
+        ...(globalOpts.config !== undefined && { configPath: globalOpts.config }),
       });
 
       if (!result.ok) {
