@@ -40,7 +40,7 @@ Dual audience with unified messaging:
 5. **Packages overview** — table of 6 packages with one-line descriptions
 6. **Architecture diagram** — mermaid diagram of the layered dependency model
 7. **Documentation links** — organized by audience: Getting Started, Core Concepts, API Reference, Examples
-8. **Progressive examples** — the 3 examples with time estimates (5 min, 15 min, 30 min)
+8. **Progressive examples** — `hello-world` (5 min), `task-api` (15 min), `multi-tenant-api` (30 min)
 9. **Contributing** — pointer to CONTRIBUTING.md
 10. **License** — MIT
 
@@ -54,16 +54,43 @@ Dual audience with unified messaging:
 
 ## Section 2: npm Publishing & CI/CD
 
+### Prerequisites
+
+- Register `@harness-engineering` npm organization
+- Provision `NPM_TOKEN` as a GitHub repository secret for CI publishing
+
 ### Package Publishing
 
-- Configure all 6 packages for npm under `@harness-engineering` scope
-- Each package.json: `publishConfig`, `files` whitelist, `repository`, `bugs`, `homepage`
-- Verify `main`, `module`, `types`, and `exports` fields for dual CJS/ESM
-- Add coordinated versioning via Changesets
+All 6 packages currently lack `publishConfig`, `repository`, `bugs`, and `homepage` fields. These must be created (not just verified) across every package.
+
+**Fields to add to each package.json:**
+
+```json
+{
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "https://github.com/<org>/harness-engineering", "directory": "packages/<name>" },
+  "bugs": { "url": "https://github.com/<org>/harness-engineering/issues" },
+  "homepage": "https://github.com/<org>/harness-engineering/tree/main/packages/<name>#readme",
+  "files": ["dist", "README.md"]
+}
+```
+
+**Exports remediation** — current state and required work:
+
+| Package | Has `exports` | Has `module` | Has `files` | Action |
+|---------|:---:|:---:|:---:|--------|
+| `core` | Yes | Yes | Yes | Verify only |
+| `types` | Yes | Yes | **No** | Add `files` |
+| `cli` | **No** | **No** | Yes | Add `exports` + `module` |
+| `eslint-plugin` | **No** | **No** | Yes | Add `exports` + `module` |
+| `linter-gen` | **No** | **No** | Yes | Add `exports` + `module` |
+| `mcp-server` | **No** | **No** | Yes | Add `exports` + `module` |
+
+**Peer dependencies:** Audit and document peer dependency requirements, especially `eslint` for `eslint-plugin` and any Node built-in assumptions.
 
 ### Versioning
 
-- Changesets for monorepo version management
+- Initialize Changesets via `pnpm changeset init` (config directory does not exist yet despite `@changesets/cli` being a devDependency)
 - Packages retain current versions (core 0.5.0, cli 1.0.0, etc.)
 - Automatic interdependency version bumps
 
@@ -71,7 +98,7 @@ Dual audience with unified messaging:
 
 - **CI workflow** (PR + push to main): install -> build -> typecheck -> lint -> test
 - **Release workflow** (manual/tag): build -> publish to npm via changesets
-- Node 18 + 20 matrix
+- Node 18, 20, and 22 matrix (22 is current LTS)
 - pnpm store caching
 
 ### Files to Create
@@ -88,7 +115,9 @@ Dual audience with unified messaging:
 ### Init Command Flow
 
 1. Detect existing project (check `package.json`) — if none, prompt for project name
-2. Ask adoption level: basic / intermediate / advanced (one-line descriptions)
+2. Ask adoption level: basic / intermediate / advanced (one-line descriptions each)
+   - `base` template is internal scaffolding shared by all levels, not user-facing
+   - `nextjs` is offered as a separate framework overlay option after level selection
 3. Scaffold from matching template (copy, not symlink)
 4. Install dependencies via detected package manager
 5. Run initial validation
@@ -130,18 +159,42 @@ Refine existing CLI, not rebuild. The `init` and `add` commands are the two gaps
 
 - GitHub issue templates (bug report, feature request)
 - `.github/PULL_REQUEST_TEMPLATE.md`
+- `SECURITY.md` — security reporting policy with contact email
+- `CODE_OF_CONDUCT.md` — standard Contributor Covenant
 - Verify `.gitignore` coverage
+- Verify `turbo.json` pipeline config and caching are correct for CI
 - Add root `CHANGELOG.md` (managed by changesets going forward)
 
 ---
 
 ## Implementation Order
 
-Sections are ordered by priority and dependency:
+Build/test hygiene is a prerequisite for CI/CD (a red build can't have a green CI workflow), so it runs first in parallel with docs:
 
-1. **Section 1** — Documentation polish (no dependencies)
-2. **Section 2** — npm publishing + CI/CD (benefits from clean docs)
-3. **Section 3** — CLI init (benefits from publishable packages)
-4. **Section 4** — Test/build hygiene (validates everything above)
+1. **Section 4 + Section 1 (parallel)** — Test/build hygiene + documentation polish. These are independent and can proceed simultaneously.
+2. **Section 2** — npm publishing + CI/CD. Requires green builds (Section 4) and benefits from polished docs (Section 1).
+3. **Section 3** — CLI init experience. Benefits from publishable packages (Section 2).
 
-Each section can be implemented independently, but the order maximizes coherence.
+---
+
+## Acceptance Criteria
+
+### Section 1: README & Documentation
+- [ ] README renders correctly on GitHub with all sections present
+- [ ] Getting-started guide walks a user from zero to working project in under 5 minutes
+- [ ] No TODO placeholders remain in user-facing documentation
+
+### Section 2: npm Publishing & CI/CD
+- [ ] All 6 packages install cleanly from npm via `pnpm add @harness-engineering/<pkg>`
+- [ ] CI workflow runs green on a PR to main
+- [ ] Release workflow successfully publishes to npm (dry-run verified)
+
+### Section 3: CLI Init
+- [ ] `npx @harness-engineering/cli init` scaffolds a working project for each adoption level
+- [ ] `--yes` flag produces a working project with no prompts
+- [ ] `add` command successfully adds a skill to an existing project
+
+### Section 4: Test & Build Hygiene
+- [ ] `pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test` all pass with zero errors
+- [ ] No TODO/FIXME items remain in source (resolved or converted to GitHub issues)
+- [ ] All repo hygiene files present: issue templates, PR template, SECURITY.md, CODE_OF_CONDUCT.md, CHANGELOG.md
