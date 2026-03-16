@@ -53,6 +53,25 @@ grep -rl "<component-name>" docs/specs/ docs/design-docs/ docs/plans/
 grep -rn "interface\|type\|schema" <changed-file> | head -20
 ```
 
+### Commit History Context
+
+As part of context assembly (priority item #5), retrieve recent commit history for every affected file:
+
+```bash
+# Recent commits touching affected files (5 per file)
+git log --oneline -5 -- <affected-file>
+
+# For all affected files at once
+git log --oneline -5 -- <file1> <file2> <file3>
+```
+
+Use commit history to answer:
+
+- **Is this a hotspot?** If the file has been changed 3+ times in the last 5 commits, it is volatile. Pay extra attention — frequent changes suggest instability or ongoing refactoring.
+- **Was this recently refactored?** If recent commits include "refactor" or "restructure," check whether the current change aligns with or contradicts the refactoring direction.
+- **Who has been working here?** If multiple authors touched the file recently, there may be conflicting assumptions. Look for consistency.
+- **What was the last change?** The most recent commit gives context on the file's trajectory. A bugfix followed by another change to the same area is a yellow flag.
+
 ## Process
 
 This skill covers three distinct roles. Follow the section that matches your current role.
