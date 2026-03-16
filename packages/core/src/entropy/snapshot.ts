@@ -46,15 +46,16 @@ export async function resolveEntryPoints(
     const pkgContent = await readFileContent(pkgPath);
     if (pkgContent.ok) {
       try {
-        const pkg = JSON.parse(pkgContent.value);
+        const pkg = JSON.parse(pkgContent.value) as Record<string, unknown>;
         const entries: string[] = [];
 
         // Check exports field
-        if (pkg.exports) {
-          if (typeof pkg.exports === 'string') {
-            entries.push(resolve(rootDir, pkg.exports));
-          } else if (typeof pkg.exports === 'object') {
-            for (const value of Object.values(pkg.exports)) {
+        if (pkg['exports']) {
+          const exports = pkg['exports'];
+          if (typeof exports === 'string') {
+            entries.push(resolve(rootDir, exports));
+          } else if (typeof exports === 'object' && exports !== null) {
+            for (const value of Object.values(exports as Record<string, unknown>)) {
               if (typeof value === 'string') {
                 entries.push(resolve(rootDir, value));
               }
@@ -63,16 +64,18 @@ export async function resolveEntryPoints(
         }
 
         // Check main field
-        if (pkg.main && entries.length === 0) {
-          entries.push(resolve(rootDir, pkg.main));
+        const main = pkg['main'];
+        if (typeof main === 'string' && entries.length === 0) {
+          entries.push(resolve(rootDir, main));
         }
 
         // Check bin field
-        if (pkg.bin) {
-          if (typeof pkg.bin === 'string') {
-            entries.push(resolve(rootDir, pkg.bin));
-          } else if (typeof pkg.bin === 'object') {
-            for (const value of Object.values(pkg.bin)) {
+        const bin = pkg['bin'];
+        if (bin) {
+          if (typeof bin === 'string') {
+            entries.push(resolve(rootDir, bin));
+          } else if (typeof bin === 'object') {
+            for (const value of Object.values(bin as Record<string, unknown>)) {
               if (typeof value === 'string') {
                 entries.push(resolve(rootDir, value));
               }

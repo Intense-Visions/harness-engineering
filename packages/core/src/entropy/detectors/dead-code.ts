@@ -339,7 +339,7 @@ function findDeadInternals(
           file: file.path,
           name: symbol.name,
           line: symbol.line,
-          type: symbol.type as 'function' | 'class' | 'variable',
+          type: symbol.type,
           reason: 'NEVER_CALLED',
         });
       }
@@ -353,6 +353,7 @@ function findDeadInternals(
  * Detect dead code in a codebase snapshot.
  * Analyzes exports, files, imports, and internal symbols to find unused code.
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function detectDeadCode(
   snapshot: CodebaseSnapshot
 ): Promise<Result<DeadCodeReport, EntropyError>> {

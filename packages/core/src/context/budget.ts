@@ -10,7 +10,14 @@ const DEFAULT_RATIOS = {
 } as const;
 
 export function contextBudget(totalTokens: number, overrides?: TokenBudgetOverrides): TokenBudget {
-  const ratios: Record<keyof typeof DEFAULT_RATIOS, number> = { ...DEFAULT_RATIOS };
+  const ratios: Record<keyof typeof DEFAULT_RATIOS, number> = {
+    systemPrompt: DEFAULT_RATIOS.systemPrompt,
+    projectManifest: DEFAULT_RATIOS.projectManifest,
+    taskSpec: DEFAULT_RATIOS.taskSpec,
+    activeCode: DEFAULT_RATIOS.activeCode,
+    interfaces: DEFAULT_RATIOS.interfaces,
+    reserve: DEFAULT_RATIOS.reserve,
+  };
 
   if (overrides) {
     let overrideSum = 0;
