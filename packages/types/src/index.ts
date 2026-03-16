@@ -35,5 +35,33 @@ export function isErr<T, E>(result: Result<T, E>): result is { ok: false; error:
   return result.ok === false;
 }
 
-// Placeholder for future types
-export type Placeholder = never;
+// Workflow orchestration types
+
+export interface WorkflowStep {
+  skill: string;
+  produces: string;
+  expects?: string;
+  gate?: 'pass-required' | 'advisory';
+}
+
+export interface Workflow {
+  name: string;
+  steps: WorkflowStep[];
+}
+
+export type StepOutcome = 'pass' | 'fail' | 'skipped';
+
+export interface WorkflowStepResult {
+  step: WorkflowStep;
+  outcome: StepOutcome;
+  artifact?: string;
+  error?: string;
+  durationMs: number;
+}
+
+export interface WorkflowResult {
+  workflow: Workflow;
+  stepResults: WorkflowStepResult[];
+  pass: boolean;
+  totalDurationMs: number;
+}
