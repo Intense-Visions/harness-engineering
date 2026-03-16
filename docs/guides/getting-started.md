@@ -56,7 +56,11 @@ Custom linter rules, Zod boundary validation, cross-artifact checking, all 3 per
 Once you've explored the examples, initialize your own project:
 
 ```bash
+# If installed globally
 harness init --name my-project --level intermediate
+
+# Or via npx
+npx @harness-engineering/cli init --name my-project --level intermediate
 ```
 
 This scaffolds a project using the intermediate template with layer definitions, ESLint rules, and an AGENTS.md.
@@ -87,7 +91,7 @@ Defined in `harness.config.json`, enforced by `@harness-engineering/no-layer-vio
 
 ### Skills
 
-21 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
+26 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
 
 ### Personas
 
