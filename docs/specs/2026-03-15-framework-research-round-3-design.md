@@ -84,7 +84,7 @@ After all agents return:
 - Each framework gets an honest verdict — no inflating importance
 - Adoptable patterns must be concrete enough to implement (not just conceptual observations)
 - Skip lists are explicit about *why* something doesn't fit harness philosophy
-- Roadmap addendum only includes patterns that survived deduplication against all 22 prior research entries (5 from Round 1, 7 from Round 2)
+- Roadmap addendum only includes patterns that survived deduplication against all 12 prior research entries (5 from Round 1, 7 from Round 2)
 
 ---
 
