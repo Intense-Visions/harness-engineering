@@ -1,14 +1,26 @@
 name: harness-integrity
-version: "0.1.0"
-description: "Unified integrity gate — chains test, lint, typecheck, and AI review into a single pass/fail report (STUB: awaiting harness-verify from Group E)"
-triggers: [manual]
-platforms: [claude-code, gemini-cli]
-tools: [Bash, Read, Glob, Grep]
+version: "1.0.0"
+description: Unified integrity gate — chains verify (quick gate) with AI review into a single report
+triggers:
+  - manual
+  - on_pr
+  - on_milestone
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
 cli:
   command: harness skill run harness-integrity
   args:
     - name: path
       description: Project root path
+      required: false
+    - name: change-type
+      description: "Type of change: feature, bugfix, refactor, docs"
       required: false
 mcp:
   tool: run_skill
@@ -16,12 +28,13 @@ mcp:
     skill: harness-integrity
     path: string
 type: rigid
+cognitive_mode: meticulous-verifier
 phases:
   - name: verify
-    description: Run mechanical verification (delegated to harness-verify)
+    description: Run harness-verify quick gate (test, lint, typecheck)
     required: true
   - name: review
-    description: Run change-type-aware AI review (delegated to harness-code-review)
+    description: Run change-type-aware AI review
     required: true
   - name: report
     description: Produce unified integrity report
@@ -30,5 +43,5 @@ state:
   persistent: false
   files: []
 depends_on:
+  - harness-verify
   - harness-code-review
-  # - harness-verify  # Uncomment when Group E delivers E1
