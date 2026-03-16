@@ -29,8 +29,8 @@ const MODULE_TEMPLATE = (name: string) => `/**
  * ${name} module
  */
 
-export function ${name}() {
-  // TODO: Implement
+export function ${name}(): void {
+  // Add implementation
 }
 `;
 
@@ -38,11 +38,13 @@ const DOC_TEMPLATE = (name: string) => `# ${name}
 
 ## Overview
 
-TODO: Add overview
+[Describe what ${name} does and why it exists.]
 
 ## Usage
 
-TODO: Add usage examples
+\`\`\`typescript
+import { ${name} } from './${name}';
+\`\`\`
 `;
 
 export async function runAdd(

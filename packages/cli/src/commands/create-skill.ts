@@ -68,8 +68,8 @@ ${opts.description}
 
 ## When to Use
 
-- _TODO: describe when this skill should be invoked_
-- _TODO: describe the trigger conditions_
+- [Describe when this skill should be invoked]
+- [Describe the trigger conditions]
 
 ## Context Assembly
 
@@ -89,8 +89,8 @@ ${postChecksSection}
 
 ## Process
 
-1. _TODO: describe the step-by-step process_
-2. _TODO: add additional steps_
+1. [Describe the step-by-step process]
+2. [Add additional steps as needed]
 
 ## Harness Integration
 
@@ -102,13 +102,13 @@ harness skill run ${opts.name}
 
 ## Success Criteria
 
-- _TODO: define what success looks like_
-- _TODO: add measurable criteria_
+- [Define what a successful execution looks like]
+- [Add measurable criteria]
 
 ## Examples
 
-\`\`\`
-# TODO: add usage examples
+\`\`\`bash
+harness skill run ${opts.name}
 \`\`\`
 `;
 }

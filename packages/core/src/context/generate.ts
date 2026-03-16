@@ -103,7 +103,7 @@ export async function generateAgentsMap(
     // Project Overview section
     lines.push('## Project Overview');
     lines.push('');
-    lines.push('> TODO: Add project description');
+    lines.push('> Add a brief description of this project, its purpose, and key technologies.');
     lines.push('');
 
     // Repository Structure section
@@ -152,7 +152,7 @@ export async function generateAgentsMap(
     // Development Workflow section
     lines.push('## Development Workflow');
     lines.push('');
-    lines.push('> TODO: Add development workflow instructions');
+    lines.push('> Document your development workflow: branching strategy, testing commands, deployment process.');
     lines.push('');
 
     return Ok(lines.join('\n'));
