@@ -1,114 +1,123 @@
 # Harness Engineering
 
+[![CI](https://github.com/harness-engineering/harness-engineering/actions/workflows/ci.yml/badge.svg)](https://github.com/harness-engineering/harness-engineering/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 
-**Self-contained toolkit for agent-first development.**
+**Mechanical constraints for AI agents. Ship faster without the chaos.**
 
-Human engineers design constraints and feedback loops. AI agents execute, maintain, and improve code within those constraints. Harness Engineering provides the mechanical enforcement, behavioral guidance, and state management that makes this work.
+## Why This Exists
+
+AI coding agents are powerful, but unreliable without structure. Left unconstrained, they introduce circular dependencies, violate architectural boundaries, and generate drift that compounds across a codebase. Teams respond with code review backlogs and manual checklists — trading agent speed for human bottlenecks.
+
+Harness Engineering takes a different approach: **mechanical enforcement, not hope.**
+
+Instead of relying on prompts and conventions, harness encodes your architectural decisions as machine-checkable constraints. Agents get real-time feedback when they violate boundaries. Entropy is detected and cleaned automatically. Every rule is validated on every change.
+
+**For tech leads and architects:** Scale AI-assisted development across your team with confidence. Define constraints once, enforce them everywhere — across agents, developers, and CI.
+
+**For individual developers:** Stop babysitting your AI agent. Give it guardrails and let it execute. Spend your time on design decisions, not cleanup.
+
+## Key Features
+
+- **Context Engineering** — Repository-as-documentation keeps agents grounded in project reality, not stale training data
+- **Architectural Constraints** — Layered dependency rules enforced by ESLint, not willpower
+- **Agent Feedback Loop** — Self-correcting agents with peer review and real-time validation
+- **Entropy Management** — Automated detection of dead code, doc drift, and structural decay
+- **Implementation Strategy** — Depth-first execution: one feature to 100% before the next begins
+- **Key Performance Indicators** — Measure agent autonomy, harness coverage, and context density
 
 ## Quick Start
 
-The fastest way to understand harness engineering is to explore the examples:
-
 ```bash
-# Clone the repo
-git clone https://github.com/harness-engineering/harness-engineering.git
-cd harness-engineering
+# Install the CLI
+npm install -g @harness-engineering/cli
 
-# Try the simplest example
-cd examples/hello-world
-npm install
+# Scaffold a new project
+harness init my-project
+
+# Validate constraints
 harness validate
 ```
 
-See the [examples](#examples) section for the full progression.
+Or explore an example directly:
 
-## What's in the Box
-
-| Component                              | Count | What it does                                                                                 |
-| -------------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
-| [Packages](./packages/)                | 6     | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types                 |
-| [Skills](./agents/skills/claude-code/) | 21    | Rigid and flexible workflows for TDD, execution, debugging, verification, planning, and more |
-| [Personas](./agents/personas/)         | 3     | Architecture enforcer, documentation maintainer, entropy cleaner                             |
-| [Templates](./templates/)              | 4     | Basic, intermediate, advanced, Next.js — progressive adoption scaffolds                      |
-| [Examples](./examples/)                | 3     | Hello world, task API, multi-tenant API — progressive tutorials                              |
+```bash
+git clone https://github.com/harness-engineering/harness-engineering.git
+cd harness-engineering/examples/hello-world
+npm install && harness validate
+```
 
 ## Packages
 
-| Package                                                          | Description                                                                                                              |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [`@harness-engineering/types`](./packages/types)                 | Shared TypeScript types and interfaces                                                                                   |
-| [`@harness-engineering/core`](./packages/core)                   | Core runtime: validation, constraints, entropy detection, state management                                               |
-| [`@harness-engineering/cli`](./packages/cli)                     | CLI: `harness validate`, `check-deps`, `skill run`, `state show`, and more                                               |
-| [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 ESLint rules: no-layer-violation, no-circular-deps, no-forbidden-imports, require-boundary-schema, enforce-doc-exports |
-| [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                     |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 15 tools for AI agent integration                                                                        |
+| Package | Description |
+| --- | --- |
+| [`@harness-engineering/types`](./packages/types) | Shared TypeScript types and interfaces |
+| [`@harness-engineering/core`](./packages/core) | Validation, constraints, entropy detection, state management |
+| [`@harness-engineering/cli`](./packages/cli) | CLI: `validate`, `check-deps`, `skill run`, `state show` |
+| [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports |
+| [`@harness-engineering/linter-gen`](./packages/linter-gen) | Generate custom ESLint rules from YAML configuration |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server) | MCP server with 15 tools for AI agent integration |
+
+## Architecture
+
+Harness enforces a strict layered dependency model. Each layer may only import from layers below it.
+
+```mermaid
+graph TD
+    A[agents] --> S[services]
+    S --> R[repository]
+    R --> C[config]
+    C --> T[types]
+
+    style A fill:#4a90d9,stroke:#2c5f8a,color:#fff
+    style S fill:#50b86c,stroke:#2d7a3e,color:#fff
+    style R fill:#f5a623,stroke:#c17d12,color:#fff
+    style C fill:#9b59b6,stroke:#6c3483,color:#fff
+    style T fill:#7f8c8d,stroke:#566573,color:#fff
+```
+
+Violations are caught at lint time via `@harness-engineering/eslint-plugin` — not at code review.
+
+## What's Included
+
+| Component | Count | Description |
+| --- | --- | --- |
+| [Packages](./packages/) | 6 | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types |
+| [Skills](./agents/skills/claude-code/) | 26 | Agent workflows for TDD, execution, debugging, verification, planning, and more |
+| [Personas](./agents/personas/) | 3 | Architecture enforcer, documentation maintainer, entropy cleaner |
+| [Templates](./templates/) | 5 | Base, basic, intermediate, advanced, and Next.js scaffolds |
+| [Examples](./examples/) | 3 | Progressive tutorials from 5 minutes to 30 minutes |
 
 ## Examples
 
-Three progressive examples, each building on the previous:
+Learn by doing. Each example builds on the previous:
 
-### 1. [Hello World](./examples/hello-world/) (Basic) — 5 minutes
-
-Minimal project: config, validation, AGENTS.md. See what a harness-managed project looks like.
-
-### 2. [Task API](./examples/task-api/) (Intermediate) — 15 minutes
-
-Express API with 3-layer architecture enforced by ESLint. Try breaking a constraint and watch harness catch it.
-
-### 3. [Multi-Tenant API](./examples/multi-tenant-api/) (Advanced) — 30 minutes
-
-Custom linter rules, Zod boundary validation, cross-artifact checking, all 3 personas, and full state lifecycle.
-
-## The Six Principles
-
-1. **Context Engineering** — Repository-as-documentation, everything in git
-2. **Architectural Constraints** — Mechanical enforcement of dependencies and boundaries
-3. **Agent Feedback Loop** — Self-correcting agents with peer review
-4. **Entropy Management** — Automated cleanup and drift detection
-5. **Implementation Strategy** — Depth-first, one feature to 100% completion
-6. **Key Performance Indicators** — Agent autonomy, harness coverage, context density
-
-Read the full standard: [docs/standard/](./docs/standard/)
-
-## Project Structure
-
-```
-harness-engineering/
-├── packages/                  # Runtime libraries and tools
-│   ├── types/                # Shared TypeScript types
-│   ├── core/                 # Core runtime library
-│   ├── cli/                  # CLI tool
-│   ├── eslint-plugin/        # ESLint rules for constraint enforcement
-│   ├── linter-gen/           # YAML-to-ESLint rule generator
-│   └── mcp-server/           # MCP server for AI agent integration
-├── agents/                    # Agent configuration
-│   ├── skills/               # 21 skills (skill.yaml + SKILL.md each)
-│   └── personas/             # 3 personas (YAML configs)
-├── templates/                 # Project scaffolding templates
-│   ├── basic/                # Minimal harness setup
-│   ├── intermediate/         # Layers + ESLint + personas
-│   ├── advanced/             # Full feature set
-│   └── nextjs/               # Next.js overlay
-├── examples/                  # Progressive tutorial examples
-│   ├── hello-world/          # Basic adoption level
-│   ├── task-api/             # Intermediate adoption level
-│   └── multi-tenant-api/     # Advanced adoption level
-├── docs/                      # Documentation
-│   ├── standard/             # The six principles
-│   ├── guides/               # Getting started, best practices
-│   ├── specs/                # Technical specifications
-│   └── plans/                # Implementation plans
-└── AGENTS.md                  # AI agent knowledge map
-```
+| Example | Level | Time | What You Learn |
+| --- | --- | --- | --- |
+| [Hello World](./examples/hello-world/) | Basic | 5 min | Config, validation, AGENTS.md — see what a harness project looks like |
+| [Task API](./examples/task-api/) | Intermediate | 15 min | Express API with 3-layer architecture enforced by ESLint |
+| [Multi-Tenant API](./examples/multi-tenant-api/) | Advanced | 30 min | Custom linter rules, Zod boundary validation, personas, full state lifecycle |
 
 ## Documentation
 
-- [The Standard](./docs/standard/index.md) — Six core principles
-- [Getting Started](./docs/guides/getting-started.md) — Quick start via examples
-- [Implementation Guide](./docs/standard/implementation.md) — Adoption levels and rollout
-- [API Reference](./docs/reference/) — Configuration and CLI docs
+**Getting Started**
+- [Getting Started Guide](./docs/guides/getting-started.md) — From zero to validated project
+- [Best Practices](./docs/guides/best-practices.md) — Patterns for effective harness usage
+- [Agent Worktree Patterns](./docs/guides/agent-worktree-patterns.md) — Running multiple agents in parallel
+
+**Core Concepts**
+- [The Six Principles](./docs/standard/principles.md) — Foundational concepts behind harness engineering
+- [Implementation Guide](./docs/standard/implementation.md) — Adoption levels and rollout strategy
+- [KPIs](./docs/standard/kpis.md) — Measuring agent effectiveness
+
+**API Reference**
+- [CLI Reference](./docs/reference/cli.md) — All commands and flags
+- [Configuration Reference](./docs/reference/configuration.md) — `harness.config.yaml` schema
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, coding standards, and pull request guidelines.
 
 ## License
 
