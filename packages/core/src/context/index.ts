@@ -18,6 +18,10 @@ export { generateAgentsMap } from './generate';
 export { contextBudget } from './budget';
 export type { TokenBudget, TokenBudgetOverrides } from './budget.types';
 
+// Context Filter
+export { contextFilter, getPhaseCategories } from './filter';
+export type { WorkflowPhase, FileCategory, ContextFilterResult } from './filter.types';
+
 // Types
 export type {
   AgentMapLink,
