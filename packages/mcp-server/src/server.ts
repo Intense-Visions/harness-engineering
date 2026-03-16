@@ -1,6 +1,11 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs, validateKnowledgeMapDefinition, handleValidateKnowledgeMap } from './tools/docs.js';
@@ -10,6 +15,10 @@ import { initProjectDefinition, handleInitProject } from './tools/init.js';
 import { listPersonasDefinition, handleListPersonas, generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, runPersonaDefinition, handleRunPersona } from './tools/persona.js';
 import { addComponentDefinition, handleAddComponent, runAgentTaskDefinition, handleRunAgentTask } from './tools/agent.js';
 import { runSkillDefinition, handleRunSkill } from './tools/skill.js';
+import { getSkillsResource } from './resources/skills.js';
+import { getRulesResource } from './resources/rules.js';
+import { getProjectResource } from './resources/project.js';
+import { getLearningsResource } from './resources/learnings.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
@@ -49,14 +58,56 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   run_skill: handleRunSkill as ToolHandler,
 };
 
+const RESOURCE_DEFINITIONS = [
+  {
+    uri: 'harness://skills',
+    name: 'Harness Skills',
+    description: 'Available skills with metadata (name, description, cognitive_mode, type, triggers)',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'harness://rules',
+    name: 'Harness Rules',
+    description: 'Active linter rules and constraints from harness config',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'harness://project',
+    name: 'Project Context',
+    description: 'Project structure and agent instructions from AGENTS.md',
+    mimeType: 'text/markdown',
+  },
+  {
+    uri: 'harness://learnings',
+    name: 'Learnings',
+    description: 'Review learnings and anti-pattern log from .harness/',
+    mimeType: 'text/markdown',
+  },
+];
+
+type ResourceHandler = (projectRoot: string) => Promise<string>;
+
+const RESOURCE_HANDLERS: Record<string, ResourceHandler> = {
+  'harness://skills': getSkillsResource,
+  'harness://rules': getRulesResource,
+  'harness://project': getProjectResource,
+  'harness://learnings': getLearningsResource,
+};
+
 export function getToolDefinitions(): ToolDefinition[] {
   return TOOL_DEFINITIONS;
 }
 
-export function createHarnessServer(): Server {
+export function getResourceDefinitions(): typeof RESOURCE_DEFINITIONS {
+  return RESOURCE_DEFINITIONS;
+}
+
+export function createHarnessServer(projectRoot?: string): Server {
+  const resolvedRoot = projectRoot ?? process.cwd();
+
   const server = new Server(
     { name: 'harness-engineering', version: '0.1.0' },
-    { capabilities: { tools: {} } }
+    { capabilities: { tools: {}, resources: {} } }
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -70,6 +121,24 @@ export function createHarnessServer(): Server {
       return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
     }
     return handler(args ?? {}) as Promise<never>;
+  });
+
+  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+    resources: RESOURCE_DEFINITIONS,
+  }));
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const uri = request.params.uri;
+    const handler = RESOURCE_HANDLERS[uri];
+    if (!handler) {
+      throw new Error(`Unknown resource: ${uri}`);
+    }
+    const content = await handler(resolvedRoot);
+    const resourceDef = RESOURCE_DEFINITIONS.find((r) => r.uri === uri);
+    const mimeType = resourceDef?.mimeType ?? 'text/plain';
+    return {
+      contents: [{ uri, text: content, mimeType }],
+    };
   });
 
   return server;
