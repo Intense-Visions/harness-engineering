@@ -1019,6 +1019,117 @@ Checklist:
 
 ---
 
+## Conventions & Standards
+
+These conventions are referenced by skills and workflows. They are not mechanically enforced yet — they are documented standards that agents follow by convention. Future workflow gates (see the research roadmap) may add mechanical enforcement.
+
+### Checkpoint-Based Context Handoff
+
+**Convention:** At phase boundaries (between skills, between milestones, between agent sessions), write a structured handoff document to `.harness/handoff.md`.
+
+**Purpose:** When one skill/phase completes and another begins, context is lost. The handoff file preserves what was done, what was discovered, what's blocked, and what should happen next. Subsequent skills read this file as input context.
+
+**Schema:**
+
+````markdown
+# Handoff: [phase/skill name]
+
+## Completed
+- [what was done, with file paths]
+- Example: Created `src/services/auth.ts` with JWT validation logic
+- Example: Updated `docs/guides/authentication.md` with new flow diagram
+
+## Discovered
+- [unexpected findings, edge cases, dependencies found]
+- Example: The existing UserService has a circular dependency with AuthService
+- Example: Rate limiting is not implemented on the /login endpoint
+
+## Blocked
+- [what couldn't be completed and why]
+- Example: Cannot add Redis caching — redis client package not in dependencies
+- Example: Integration test requires database seed data that doesn't exist yet
+
+## Test Results
+- [pass/fail summary with command output]
+- Example: 14/14 unit tests passing
+- Example: 2/3 integration tests passing — `test-login-rate-limit` skipped (see Blocked)
+
+## Next Steps
+- [what the next skill/phase should do]
+- Example: Run `harness-code-review` on the auth service changes
+- Example: Address the circular dependency before adding caching
+````
+
+**When to write a handoff:**
+
+- After completing a skill invocation that produces artifacts (code, docs, config)
+- After a long-running agent session that spans multiple tasks
+- When pausing work that another agent or session will resume
+- After debugging sessions that discovered unexpected state
+
+**How skills use it:**
+
+- Skills that produce output **write** `.harness/handoff.md` as their final step
+- Skills that consume context **read** `.harness/handoff.md` as their first step (if it exists)
+- Each handoff overwrites the previous one — it captures the current state, not history
+- For historical context, the anti-pattern log (below) and git history serve as the record
+
+### Anti-Pattern Log
+
+**Convention:** Maintain an append-only log at `.harness/anti-patterns.md` that records failed approaches, dead ends, and lessons learned during agent work.
+
+**Purpose:** Agents exploring solutions (debugging, refactoring, architectural decisions) often try approaches that fail. Without a record, the same dead-end gets explored repeatedly — across sessions, across agents, across team members. The anti-pattern log prevents this waste.
+
+**Schema:**
+
+````markdown
+## [YYYY-MM-DD] [skill name]: [brief description]
+
+**Tried:** [what was attempted]
+**Failed because:** [why it didn't work]
+**What worked instead:** [the successful approach]
+````
+
+**Example entries:**
+
+````markdown
+## 2026-03-15 harness-debugging: Fix circular dependency in auth module
+
+**Tried:** Moved shared types into a `common/` directory and re-exported from both services.
+**Failed because:** The re-export created an implicit dependency cycle that TypeScript caught at compile time — `common/` imported a type that transitively depended on `auth/`.
+**What worked instead:** Extracted the shared interface into `src/types/auth-types.ts` (Types layer) with zero upward dependencies. Both services import from the Types layer, following the dependency model.
+
+## 2026-03-14 harness-execution: Add Redis caching to user service
+
+**Tried:** Used `ioredis` with default connection pooling.
+**Failed because:** The test environment doesn't have Redis running, and the `ioredis` mock library doesn't support the `pipeline()` method we needed.
+**What worked instead:** Created a `CachePort` interface in the Repository layer and a `RedisCacheAdapter` that implements it. Tests use an `InMemoryCacheAdapter`. The adapter pattern lets us swap implementations without changing service code.
+````
+
+**Rules:**
+
+- **Append-only**: Never delete entries. The history is the value.
+- **Skills read at start**: Before exploring a solution, check if a similar approach was already tried and failed.
+- **Skills append at end**: After recovering from a failed approach, record what happened.
+- **Keep entries brief**: 3-5 sentences per entry. Link to relevant files instead of pasting code.
+- **Date and skill name are required**: These make it searchable and attributable.
+
+**What belongs in the anti-pattern log:**
+
+- Failed debugging approaches
+- Architectural dead ends
+- Library/tool incompatibilities discovered
+- Configuration mistakes and their fixes
+- Performance optimizations that didn't work
+
+**What does NOT belong:**
+
+- Successful approaches (those go in handoff docs and git history)
+- General best practices (those go in `docs/guides/best-practices.md`)
+- Opinions or preferences (those go in ADRs)
+
+---
+
 ## Measuring Success
 
 Track adoption with these metrics:
@@ -1092,4 +1203,4 @@ Proposes PRs when docs don't match code.
 
 [← Back to Principles](./principles.md) | [KPIs & Metrics →](./kpis.md)
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-16_
