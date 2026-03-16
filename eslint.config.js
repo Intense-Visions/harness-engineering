@@ -65,7 +65,7 @@ export default [
     },
   },
   {
-    files: ['**/commands/**/*.ts', '**/bin/**/*.ts'],
+    files: ['packages/cli/src/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
