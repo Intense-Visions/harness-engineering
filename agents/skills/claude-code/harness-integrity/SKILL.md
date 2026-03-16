@@ -66,6 +66,44 @@ Rules:
 - **Phase 1 is fully deterministic.** Exit codes determine pass/fail with no interpretation.
 - **Phase 2 involves LLM judgment.** The AI review may produce different results on repeated runs. Only "blocking" findings (runtime errors, data loss, security) affect the overall result.
 
+## Harness Integration
+
+- Chains harness-verify (mechanical) and harness-code-review (AI) into a unified pipeline
+- Follows Principle 7 — deterministic checks always run first
+- Consumes change-type detection from harness-code-review for per-type checklists
+- Output can be written to `.harness/integrity-report.md` for CI integration
+
+## Success Criteria
+
+- [ ] Mechanical verification ran and produced structured results
+- [ ] AI review ran with change-type awareness
+- [ ] Unified report follows the exact format
+- [ ] Overall verdict correctly reflects both mechanical and review results
+
+## Examples
+
+### Example: All Clear
+
+```
+Integrity Check: PASS
+- Tests: PASS (42/42)
+- Lint: PASS (0 warnings)
+- Types: PASS
+- Review: 1 suggestion (0 blocking)
+```
+
+### Example: Blocking Issue
+
+```
+Integrity Check: FAIL
+- Tests: PASS (42/42)
+- Lint: PASS
+- Types: PASS
+- Review: 3 findings (1 blocking)
+
+Blocking: [src/auth/login.ts:42] Possible SQL injection — user input passed directly to query without parameterization.
+```
+
 ## Gates
 
 - **Mechanical first.** Always run Phase 1 before Phase 2. If the code does not compile or pass basic checks, AI review is wasted effort (unless partial results exist).

@@ -72,6 +72,40 @@ This skill is entirely deterministic. There are no LLM judgment calls anywhere i
 - No "it looks like this might be okay" reasoning. No interpretation of output.
 - The same codebase with the same commands will always produce the same result.
 
+## Harness Integration
+
+- Follows Principle 7 (Deterministic-vs-LLM Split) — this skill is entirely deterministic
+- Invoked as the final step by code-producing skills (harness-execution, harness-tdd)
+- Complements harness-verification (deep audit) — use verify for quick checks, verification for milestones
+- Output format is consumed by harness-integrity for the unified pipeline
+
+## Success Criteria
+
+- [ ] All detected commands were executed
+- [ ] Report follows the structured format exactly
+- [ ] Overall verdict correctly reflects individual results
+- [ ] Failed checks include error output summary
+
+## Examples
+
+### Example: Node.js Project
+
+```
+Verification: PASS
+- Types: PASS (no errors)
+- Lint: PASS (0 warnings)
+- Tests: PASS (42/42)
+```
+
+### Example: Failing Project
+
+```
+Verification: FAIL
+- Types: FAIL (3 type errors in src/auth/login.ts)
+- Lint: PASS
+- Tests: NOT RUN
+```
+
 ## Gates
 
 - **No judgment calls.** The exit code is the only signal.

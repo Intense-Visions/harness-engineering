@@ -224,6 +224,21 @@ Save the ADR:
 
 Also link from the project's ADR index if one exists.
 
+## Harness Integration
+
+- Extends the human-architect model — the skill is a thinking partner, not a decision maker
+- Respects architectural constraints defined in harness.config.json
+- Outputs structured ADR that other skills can reference
+- Reads prior ADRs from `.harness/architecture/` for consistency
+
+## Success Criteria
+
+- [ ] All 5 discovery questions are asked (or explicitly deferred by human)
+- [ ] At least 2 options are presented with concrete trade-offs
+- [ ] Human makes an explicit choice before documentation proceeds
+- [ ] ADR follows the template structure with all sections filled
+- [ ] ADR references specific files or components (not abstract generalities)
+
 ## Gates
 
 - **Phase 1 to Phase 2: Requires human answers.** Do not proceed to codebase analysis until the human has answered the discovery questions. Without understanding constraints, analysis is directionless.

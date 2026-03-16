@@ -175,6 +175,53 @@ fi
 
 **Note:** AI review observations (WARN) do not block the commit — only mechanical check failures (FAIL) block. The author decides whether to address AI observations.
 
+## Gates
+
+- **Mechanical checks must pass before AI review.** Do not run AI review if lint/typecheck/tests fail.
+- **Fast path is mandatory.** If only docs/config changed, skip AI review — do not waste tokens.
+- **AI review is advisory only.** Observations do not block the commit. Only mechanical failures block.
+
+## Harness Integration
+
+- Follows Principle 7 (Deterministic-vs-LLM Split) — mechanical checks first, AI review second
+- Reads `.harness/review-learnings.md` for calibration (if present)
+- Complements harness-code-review (full review) — use pre-commit for quick checks, code-review for thorough analysis
+
+## Success Criteria
+
+- [ ] Mechanical checks ran and produced clear pass/fail results
+- [ ] Fast path correctly identified docs/config-only changes
+- [ ] AI review focused on high-signal issues only (no style nits)
+- [ ] Report follows the structured format exactly
+
+## Examples
+
+### Example: Clean Commit
+
+```
+Pre-Commit Check: PASS
+
+Mechanical Checks:
+- Lint: PASS
+- Types: PASS
+- Tests: PASS (12/12)
+
+AI Review: PASS (no issues found)
+```
+
+### Example: Docs-Only Fast Path
+
+```
+Pre-Commit Check: PASS (fast path)
+
+Mechanical Checks:
+- Lint: PASS
+- Types: PASS
+- Tests: PASS (12/12)
+
+AI Review: SKIPPED (docs/config only)
+```
+
 ## Escalation
 
 - **Mechanical checks fail:** Fix the issues. Do not bypass the hook.

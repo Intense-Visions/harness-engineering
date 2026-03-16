@@ -196,6 +196,20 @@ ENTRY
 
 This log accumulates over time and helps improve future classifications.
 
+## Harness Integration
+
+- Follows Principle 7 — runs deterministic checks (typecheck, tests) before and after LLM reasoning
+- Builds on harness-debugging but adds structured classification layer
+- Writes to `.harness/anti-patterns.md` per Group B3 convention
+- Category 3 (Design) escalates to human architect per human-architect model
+
+## Success Criteria
+
+- [ ] Error is classified into exactly one of the 7 categories
+- [ ] Resolution strategy matches the category playbook
+- [ ] Post-execution checks pass (typecheck + tests)
+- [ ] If initial approach failed, it is recorded in anti-pattern log
+
 ## Gates
 
 - **Classification must be explicit.** You must write down the category, confidence level, and signals before any fix attempt. Implicit classification ("I'll just fix this type error") skips the evidence step and leads to misclassification.
