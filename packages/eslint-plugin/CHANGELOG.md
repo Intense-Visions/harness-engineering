@@ -1,6 +1,6 @@
-# @harness-engineering/mcp-server
+# @harness-engineering/eslint-plugin
 
-## 0.3.1
+## 0.1.1
 
 ### Patch Changes
 
@@ -17,40 +17,3 @@
   **Test coverage:** Added 96 new tests across 13 new test files (types, cli subcommands, mcp-server tools).
 
   **Documentation:** Rewrote cli.md and configuration.md to match actual implementation. Fixed 10 inaccuracies in AGENTS.md.
-
-- Updated dependencies [dc88a2e]
-  - @harness-engineering/core@0.6.0
-  - @harness-engineering/cli@1.2.1
-  - @harness-engineering/types@0.0.1
-
-## 0.2.0
-
-### Minor Changes
-
-- Expand MCP server from 15 to 23 tools and 4 to 5 resources. New tools: manage_state, manage_handoff, create_self_review, analyze_diff, request_peer_review, check_phase_gate, validate_cross_check, create_skill. Enhanced: detect_entropy (type filter), apply_fixes (suggestions). New resource: harness://state.
-
-### Patch Changes
-
-- Updated dependencies
-  - @harness-engineering/cli@1.1.1
-
-## 0.1.3
-
-### Patch Changes
-
-- Updated dependencies
-  - @harness-engineering/cli@1.1.0
-
-## 0.1.2
-
-### Patch Changes
-
-- Updated dependencies
-  - @harness-engineering/cli@1.0.2
-
-## 0.1.1
-
-### Patch Changes
-
-- Updated dependencies
-  - @harness-engineering/cli@1.0.1
