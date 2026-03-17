@@ -89,7 +89,7 @@ export function createUpdateCommand(): Command {
           targetVersion = getLatestVersion();
         } catch {
           logger.error('Failed to fetch latest version from npm registry');
-          process.exit(ExitCode.ERROR);
+          return process.exit(ExitCode.ERROR);
         }
       }
 
