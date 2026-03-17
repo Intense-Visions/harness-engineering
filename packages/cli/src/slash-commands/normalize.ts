@@ -113,7 +113,7 @@ export function normalizeSkills(
       fullName: `harness:${normalized}`,
       description: meta.description,
       version: meta.version,
-      cognitiveMode: meta.cognitive_mode,
+      ...(meta.cognitive_mode ? { cognitiveMode: meta.cognitive_mode } : {}),
       tools,
       args,
       skillYamlName: meta.name,
