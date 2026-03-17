@@ -108,6 +108,58 @@ export type SkillError = {
   phase: string;
 };
 
+// --- CI/CD Integration Types ---
+
+export type CICheckName = 'validate' | 'deps' | 'docs' | 'entropy' | 'phase-gate';
+
+export type CICheckStatus = 'pass' | 'fail' | 'warn' | 'skip';
+
+export interface CICheckIssue {
+  severity: 'error' | 'warning';
+  message: string;
+  file?: string;
+  line?: number;
+}
+
+export interface CICheckResult {
+  name: CICheckName;
+  status: CICheckStatus;
+  issues: CICheckIssue[];
+  durationMs: number;
+}
+
+export interface CICheckSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  warnings: number;
+  skipped: number;
+}
+
+export interface CICheckReport {
+  version: 1;
+  project: string;
+  timestamp: string;
+  checks: CICheckResult[];
+  summary: CICheckSummary;
+  exitCode: 0 | 1 | 2;
+}
+
+export type CIFailOnSeverity = 'error' | 'warning';
+
+export interface CICheckOptions {
+  skip?: CICheckName[];
+  failOn?: CIFailOnSeverity;
+  configPath?: string;
+}
+
+export type CIPlatform = 'github' | 'gitlab' | 'generic';
+
+export interface CIInitOptions {
+  platform?: CIPlatform;
+  checks?: CICheckName[];
+}
+
 export type SkillResult = {
   success: boolean;
   artifacts: string[];
