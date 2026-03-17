@@ -72,8 +72,12 @@ export const createSkillDefinition = {
       cognitiveMode: {
         type: 'string',
         enum: [
-          'adversarial-reviewer', 'constructive-architect', 'meticulous-implementer',
-          'diagnostic-investigator', 'advisory-guide', 'meticulous-verifier',
+          'adversarial-reviewer',
+          'constructive-architect',
+          'meticulous-implementer',
+          'diagnostic-investigator',
+          'advisory-guide',
+          'meticulous-verifier',
         ],
         description: 'Cognitive mode (default: constructive-architect)',
       },
@@ -99,7 +103,12 @@ export async function handleCreateSkill(input: {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }

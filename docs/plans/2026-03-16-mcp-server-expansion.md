@@ -17,6 +17,7 @@
 ### Task 1: Create state tool — `manage_state` and `manage_handoff`
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/state.ts`
 - Create: `packages/mcp-server/tests/tools/state.test.ts`
 
@@ -116,7 +117,10 @@ export const manageStateDefinition = {
       learning: { type: 'string', description: 'Learning text (required for learn action)' },
       skillName: { type: 'string', description: 'Skill context for learning or failure' },
       outcome: { type: 'string', description: 'Learning outcome' },
-      description: { type: 'string', description: 'Failure description (required for failure action)' },
+      description: {
+        type: 'string',
+        description: 'Failure description (required for failure action)',
+      },
       failureType: { type: 'string', description: 'Failure type (required for failure action)' },
     },
     required: ['path', 'action'],
@@ -191,7 +195,12 @@ export async function handleManageState(input: {
     }
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -245,7 +254,12 @@ export async function handleManageHandoff(input: {
     }
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -269,6 +283,7 @@ git commit -m "feat(mcp-server): add manage_state and manage_handoff tools"
 ### Task 2: Create state resource — `harness://state`
 
 **Files:**
+
 - Create: `packages/mcp-server/src/resources/state.ts`
 - Create: `packages/mcp-server/tests/resources/state.test.ts`
 
@@ -343,6 +358,7 @@ git commit -m "feat(mcp-server): add harness://state resource"
 ### Task 3: Create feedback tools — `create_self_review`, `analyze_diff`, `request_peer_review`
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/feedback.ts`
 - Create: `packages/mcp-server/tests/tools/feedback.test.ts`
 
@@ -464,7 +480,12 @@ export async function handleCreateSelfReview(input: {
     return resultToMcpResponse(result);
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -503,7 +524,10 @@ export async function handleAnalyzeDiff(input: {
 
     const options = {
       enabled: true,
-      forbiddenPatterns: input.forbiddenPatterns?.map((p) => ({ pattern: p, message: `Forbidden pattern: ${p}` })),
+      forbiddenPatterns: input.forbiddenPatterns?.map((p) => ({
+        pattern: p,
+        message: `Forbidden pattern: ${p}`,
+      })),
       maxFileSize: input.maxFileSize,
       maxChangedFiles: input.maxFileCount,
     };
@@ -512,7 +536,12 @@ export async function handleAnalyzeDiff(input: {
     return resultToMcpResponse(result);
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -528,7 +557,13 @@ export const requestPeerReviewDefinition = {
       path: { type: 'string', description: 'Path to project root directory' },
       agentType: {
         type: 'string',
-        enum: ['architecture-enforcer', 'documentation-maintainer', 'test-reviewer', 'entropy-cleaner', 'custom'],
+        enum: [
+          'architecture-enforcer',
+          'documentation-maintainer',
+          'test-reviewer',
+          'entropy-cleaner',
+          'custom',
+        ],
         description: 'Type of review agent to spawn',
       },
       diff: { type: 'string', description: 'Git diff output to review' },
@@ -552,15 +587,19 @@ export async function handleRequestPeerReview(input: {
       metadata: input.context ? { context: input.context } : undefined,
     };
 
-    const result = await core.requestPeerReview(
-      input.agentType as any,
-      reviewContext,
-      { timeout: 120_000, wait: true }
-    );
+    const result = await core.requestPeerReview(input.agentType as any, reviewContext, {
+      timeout: 120_000,
+      wait: true,
+    });
     return resultToMcpResponse(result);
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -586,6 +625,7 @@ git commit -m "feat(mcp-server): add create_self_review, analyze_diff, request_p
 ### Task 4: Create phase gate tool — `check_phase_gate`
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/phase-gate.ts`
 - Create: `packages/mcp-server/tests/tools/phase-gate.test.ts`
 
@@ -645,7 +685,12 @@ export async function handleCheckPhaseGate(input: { path: string }): Promise<Mcp
     return { content: [{ type: 'text' as const, text: result.error.message }], isError: true };
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -669,6 +714,7 @@ git commit -m "feat(mcp-server): add check_phase_gate tool"
 ### Task 5: Create cross-check tool — `validate_cross_check`
 
 **Files:**
+
 - Create: `packages/mcp-server/src/tools/cross-check.ts`
 - Create: `packages/mcp-server/tests/tools/cross-check.test.ts`
 
@@ -677,7 +723,10 @@ git commit -m "feat(mcp-server): add check_phase_gate tool"
 ```typescript
 // packages/mcp-server/tests/tools/cross-check.test.ts
 import { describe, it, expect } from 'vitest';
-import { validateCrossCheckDefinition, handleValidateCrossCheck } from '../../src/tools/cross-check';
+import {
+  validateCrossCheckDefinition,
+  handleValidateCrossCheck,
+} from '../../src/tools/cross-check';
 
 describe('validate_cross_check tool', () => {
   it('has correct definition', () => {
@@ -712,8 +761,14 @@ export const validateCrossCheckDefinition = {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root directory' },
-      specsDir: { type: 'string', description: 'Specs directory relative to project root (default: docs/specs)' },
-      plansDir: { type: 'string', description: 'Plans directory relative to project root (default: docs/plans)' },
+      specsDir: {
+        type: 'string',
+        description: 'Specs directory relative to project root (default: docs/specs)',
+      },
+      plansDir: {
+        type: 'string',
+        description: 'Plans directory relative to project root (default: docs/plans)',
+      },
     },
     required: ['path'],
   },
@@ -739,7 +794,12 @@ export async function handleValidateCrossCheck(input: {
     return { content: [{ type: 'text' as const, text: result.error.message }], isError: true };
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -763,6 +823,7 @@ git commit -m "feat(mcp-server): add validate_cross_check tool"
 ### Task 6: Add `create_skill` to existing skill tool file
 
 **Files:**
+
 - Modify: `packages/mcp-server/src/tools/skill.ts`
 - Modify: `packages/mcp-server/tests/tools/skill.test.ts`
 
@@ -845,7 +906,12 @@ export async function handleCreateSkill(input: {
     return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -877,6 +943,7 @@ git commit -m "feat(mcp-server): add create_skill tool"
 ### Task 7: Add `type` filter to `detect_entropy`
 
 **Files:**
+
 - Modify: `packages/mcp-server/src/tools/entropy.ts`
 - Modify or create: `packages/mcp-server/tests/tools/entropy.test.ts`
 
@@ -891,7 +958,10 @@ describe('detect_entropy tool', () => {
   it('has type parameter in definition', () => {
     expect(detectEntropyDefinition.inputSchema.properties).toHaveProperty('type');
     expect(detectEntropyDefinition.inputSchema.properties.type.enum).toEqual([
-      'drift', 'dead-code', 'patterns', 'all',
+      'drift',
+      'dead-code',
+      'patterns',
+      'all',
     ]);
   });
 });
@@ -973,6 +1043,7 @@ git commit -m "feat(mcp-server): add type filter to detect_entropy tool"
 ### Task 8: Add suggestions to `apply_fixes` response
 
 **Files:**
+
 - Modify: `packages/mcp-server/src/tools/entropy.ts`
 - Modify: `packages/mcp-server/tests/tools/entropy.test.ts`
 
@@ -1002,7 +1073,8 @@ In `packages/mcp-server/src/tools/entropy.ts`, update the definition:
 ```typescript
 export const applyFixesDefinition = {
   name: 'apply_fixes',
-  description: 'Auto-fix detected entropy issues and return actionable suggestions for remaining issues',
+  description:
+    'Auto-fix detected entropy issues and return actionable suggestions for remaining issues',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -1019,9 +1091,8 @@ Update `handleApplyFixes` to include suggestions:
 ```typescript
 export async function handleApplyFixes(input: { path: string; dryRun?: boolean }) {
   try {
-    const { EntropyAnalyzer, createFixes, applyFixes, generateSuggestions } = await import(
-      '@harness-engineering/core'
-    );
+    const { EntropyAnalyzer, createFixes, applyFixes, generateSuggestions } =
+      await import('@harness-engineering/core');
     const analyzer = new EntropyAnalyzer({
       rootDir: path.resolve(input.path),
       analyze: { drift: true, deadCode: true, patterns: true },
@@ -1084,6 +1155,7 @@ git commit -m "feat(mcp-server): add suggestions to apply_fixes response"
 ### Task 9: Register all new tools and resources in server.ts
 
 **Files:**
+
 - Modify: `packages/mcp-server/src/server.ts`
 - Modify: `packages/mcp-server/tests/server.test.ts`
 
@@ -1238,6 +1310,7 @@ git commit -m "feat(mcp-server): register all new tools and resources in server"
 ### Task 10: Update documentation with new counts
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `docs/guides/getting-started.md`
 
@@ -1269,6 +1342,7 @@ git commit -m "docs: update MCP server tool and resource counts"
 ### Task 11: Verify MCP server exports for CLI-wrapped tools
 
 **Files:**
+
 - Check: `packages/cli/src/index.ts` or `packages/cli/package.json` exports
 
 The CLI-wrapped tools (`check_phase_gate`, `validate_cross_check`, `create_skill`) import from `@harness-engineering/cli`. Verify these functions are exported from the CLI package's public API.

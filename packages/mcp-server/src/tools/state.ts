@@ -181,7 +181,10 @@ export async function handleManageHandoff(input: {
             isError: true,
           };
         }
-        const result = await saveHandoff(projectPath, input.handoff as Parameters<typeof saveHandoff>[1]);
+        const result = await saveHandoff(
+          projectPath,
+          input.handoff as Parameters<typeof saveHandoff>[1]
+        );
         return resultToMcpResponse(result.ok ? Ok({ saved: true }) : result);
       }
 

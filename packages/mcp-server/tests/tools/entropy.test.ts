@@ -5,7 +5,10 @@ describe('detect_entropy tool', () => {
   it('has type parameter in definition', () => {
     expect(detectEntropyDefinition.inputSchema.properties).toHaveProperty('type');
     expect(detectEntropyDefinition.inputSchema.properties.type.enum).toEqual([
-      'drift', 'dead-code', 'patterns', 'all',
+      'drift',
+      'dead-code',
+      'patterns',
+      'all',
     ]);
   });
 });

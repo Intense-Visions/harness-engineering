@@ -35,7 +35,12 @@ export async function handleDetectEntropy(input: { path: string; type?: string }
     return resultToMcpResponse(result);
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }
@@ -43,7 +48,8 @@ export async function handleDetectEntropy(input: { path: string; type?: string }
 
 export const applyFixesDefinition = {
   name: 'apply_fixes',
-  description: 'Auto-fix detected entropy issues and return actionable suggestions for remaining issues',
+  description:
+    'Auto-fix detected entropy issues and return actionable suggestions for remaining issues',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -56,7 +62,8 @@ export const applyFixesDefinition = {
 
 export async function handleApplyFixes(input: { path: string; dryRun?: boolean }) {
   try {
-    const { EntropyAnalyzer, createFixes, applyFixes, generateSuggestions } = await import('@harness-engineering/core');
+    const { EntropyAnalyzer, createFixes, applyFixes, generateSuggestions } =
+      await import('@harness-engineering/core');
     const analyzer = new EntropyAnalyzer({
       rootDir: path.resolve(input.path),
       analyze: { drift: true, deadCode: true, patterns: true },
@@ -76,13 +83,22 @@ export async function handleApplyFixes(input: { path: string; dryRun?: boolean }
     if (fixes.length > 0) {
       const applied = await applyFixes(fixes, {});
       if (!applied.ok) return resultToMcpResponse(applied);
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ ...applied.value, suggestions }) }] };
+      return {
+        content: [
+          { type: 'text' as const, text: JSON.stringify({ ...applied.value, suggestions }) },
+        ],
+      };
     }
 
     return resultToMcpResponse(Ok({ fixes: [], applied: 0, suggestions }));
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }

@@ -67,7 +67,10 @@ function addGeminiTrustedFolder(cwd: string): boolean {
   return true;
 }
 
-export function setupMcp(cwd: string, client: string): { configured: string[]; skipped: string[]; trustedFolder: boolean } {
+export function setupMcp(
+  cwd: string,
+  client: string
+): { configured: string[]; skipped: string[]; trustedFolder: boolean } {
   const configured: string[] = [];
   const skipped: string[] = [];
   let trustedFolder = false;

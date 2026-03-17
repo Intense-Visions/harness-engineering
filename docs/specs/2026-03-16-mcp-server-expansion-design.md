@@ -17,16 +17,17 @@ Workflow/pipeline modules are excluded — they require callback functions (`Ste
 **File:** `tools/state.ts`
 **Core APIs:** `loadState`, `saveState`, `appendLearning`, `appendFailure`, `archiveFailures`, `runMechanicalGate`
 
-| Action | Description | Required params | Optional params |
-|--------|-------------|-----------------|-----------------|
-| `show` | Load current state from `.harness/state.json` | `path` | — |
-| `learn` | Append a learning entry to `.harness/learnings.md` | `path`, `learning` | `skillName`, `outcome` |
-| `failure` | Record a failure to `.harness/failures.md` | `path`, `description`, `skillName`, `failureType` | — |
-| `archive` | Archive failures.md to dated backup | `path` | — |
-| `reset` | Reset state to defaults (calls `saveState` with `DEFAULT_STATE`) | `path` | — |
-| `gate` | Run mechanical gate checks (tests, lint) | `path` | — |
+| Action    | Description                                                      | Required params                                   | Optional params        |
+| --------- | ---------------------------------------------------------------- | ------------------------------------------------- | ---------------------- |
+| `show`    | Load current state from `.harness/state.json`                    | `path`                                            | —                      |
+| `learn`   | Append a learning entry to `.harness/learnings.md`               | `path`, `learning`                                | `skillName`, `outcome` |
+| `failure` | Record a failure to `.harness/failures.md`                       | `path`, `description`, `skillName`, `failureType` | —                      |
+| `archive` | Archive failures.md to dated backup                              | `path`                                            | —                      |
+| `reset`   | Reset state to defaults (calls `saveState` with `DEFAULT_STATE`) | `path`                                            | —                      |
+| `gate`    | Run mechanical gate checks (tests, lint)                         | `path`                                            | —                      |
 
 **Input schema:**
+
 ```json
 {
   "path": "string (required) — project root",
@@ -44,12 +45,13 @@ Workflow/pipeline modules are excluded — they require callback functions (`Ste
 **File:** `tools/state.ts`
 **Core APIs:** `saveHandoff`, `loadHandoff`
 
-| Action | Description | Required params | Optional params |
-|--------|-------------|-----------------|-----------------|
-| `save` | Persist handoff context to `.harness/handoff.json` | `path`, `handoff` | — |
-| `load` | Load handoff context | `path` | — |
+| Action | Description                                        | Required params   | Optional params |
+| ------ | -------------------------------------------------- | ----------------- | --------------- |
+| `save` | Persist handoff context to `.harness/handoff.json` | `path`, `handoff` | —               |
+| `load` | Load handoff context                               | `path`            | —               |
 
 **Input schema:**
+
 ```json
 {
   "path": "string (required) — project root",
@@ -66,6 +68,7 @@ Workflow/pipeline modules are excluded — they require callback functions (`Ste
 Analyzes code changes against harness checks, custom rules, and diff patterns. Returns a categorized checklist with pass/fail items, severity, and suggestions.
 
 **Input schema:**
+
 ```json
 {
   "path": "string (required) — project root",
@@ -84,6 +87,7 @@ Analyzes code changes against harness checks, custom rules, and diff patterns. R
 Parses a git diff and checks for forbidden patterns, oversized files, and missing test coverage.
 
 **Input schema:**
+
 ```json
 {
   "diff": "string (required) — git diff output",
@@ -101,6 +105,7 @@ Parses a git diff and checks for forbidden patterns, oversized files, and missin
 Spawns an agent subprocess to perform code review. Returns structured feedback with approval status, comments, and suggestions.
 
 **Input schema:**
+
 ```json
 {
   "path": "string (required) — project root",
@@ -118,6 +123,7 @@ Spawns an agent subprocess to perform code review. Returns structured feedback w
 Maps implementation files to spec documents and validates 1:1 correspondence.
 
 **Input schema:**
+
 ```json
 {
   "path": "string (required) — project root"
@@ -131,6 +137,7 @@ Maps implementation files to spec documents and validates 1:1 correspondence.
 Add optional `type` parameter to filter results by category. When omitted, behaves as before (returns all).
 
 **New input param:**
+
 ```json
 {
   "type": "string — drift|dead-code|patterns|all (default: all)"
@@ -151,6 +158,7 @@ After applying fixes, also call `generateSuggestions` and include the suggestion
 Validates that plans have corresponding implementations and detects staleness.
 
 **Input schema:**
+
 ```json
 {
   "path": "string (required) — project root",
@@ -167,6 +175,7 @@ Validates that plans have corresponding implementations and detects staleness.
 Generates `skill.yaml` and `SKILL.md` for a new skill.
 
 **Input schema:**
+
 ```json
 {
   "path": "string (required) — project root",
@@ -245,6 +254,7 @@ Registration in `server.ts` follows the existing arrays: add to `TOOL_DEFINITION
 ## File Changes
 
 **New files:**
+
 - `packages/mcp-server/src/tools/state.ts` — manage_state, manage_handoff
 - `packages/mcp-server/src/tools/feedback.ts` — create_self_review, analyze_diff, request_peer_review
 - `packages/mcp-server/src/tools/phase-gate.ts` — check_phase_gate
@@ -252,19 +262,21 @@ Registration in `server.ts` follows the existing arrays: add to `TOOL_DEFINITION
 - `packages/mcp-server/src/resources/state.ts` — harness://state resource
 
 **Modified files:**
+
 - `packages/mcp-server/src/tools/entropy.ts` — add `type` filter to detect_entropy, add suggestions to apply_fixes
 - `packages/mcp-server/src/tools/skill.ts` — add create_skill definition + handler
 - `packages/mcp-server/src/server.ts` — register all new tools/resources
 
 **Doc updates:**
+
 - `README.md` — update tool/resource counts
 - `docs/guides/getting-started.md` — update tool/resource counts
 
 ## Final Counts
 
-| | Before | After |
-|---|--------|-------|
-| Tools | 15 | 23 |
-| Resources | 4 | 5 |
-| Tool files | 9 | 13 |
-| Resource files | 4 | 5 |
+|                | Before | After |
+| -------------- | ------ | ----- |
+| Tools          | 15     | 23    |
+| Resources      | 4      | 5     |
+| Tool files     | 9      | 13    |
+| Resource files | 4      | 5     |

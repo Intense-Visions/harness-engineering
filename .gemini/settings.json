@@ -2,9 +2,7 @@
   "mcpServers": {
     "harness": {
       "command": "npx",
-      "args": [
-        "@harness-engineering/mcp-server"
-      ]
+      "args": ["@harness-engineering/mcp-server"]
     }
   }
 }

@@ -126,10 +126,10 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 }
 ```
 
-| Client      | MCP Config Location      | Additional Setup                    |
-| ----------- | ------------------------ | ----------------------------------- |
-| Claude Code | `.mcp.json`              | None                                |
-| Gemini CLI  | `.gemini/settings.json`  | Add project to `~/.gemini/trustedFolders.json` |
+| Client      | MCP Config Location     | Additional Setup                               |
+| ----------- | ----------------------- | ---------------------------------------------- |
+| Claude Code | `.mcp.json`             | None                                           |
+| Gemini CLI  | `.gemini/settings.json` | Add project to `~/.gemini/trustedFolders.json` |
 
 ## What's Included
 

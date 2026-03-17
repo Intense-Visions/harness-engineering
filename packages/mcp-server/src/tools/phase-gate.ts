@@ -3,7 +3,8 @@ import type { McpToolResponse } from '../utils/result-adapter.js';
 
 export const checkPhaseGateDefinition = {
   name: 'check_phase_gate',
-  description: 'Verify implementation-to-spec mappings: checks that each implementation file has a corresponding spec document',
+  description:
+    'Verify implementation-to-spec mappings: checks that each implementation file has a corresponding spec document',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -23,7 +24,12 @@ export async function handleCheckPhaseGate(input: { path: string }): Promise<Mcp
     return { content: [{ type: 'text' as const, text: result.error.message }], isError: true };
   } catch (error) {
     return {
-      content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
       isError: true,
     };
   }

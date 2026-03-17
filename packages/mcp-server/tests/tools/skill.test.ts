@@ -33,7 +33,11 @@ describe('create_skill tool', () => {
   });
 
   it('has valid cognitive mode enum', () => {
-    expect(createSkillDefinition.inputSchema.properties.cognitiveMode.enum).toContain('constructive-architect');
-    expect(createSkillDefinition.inputSchema.properties.cognitiveMode.enum).toContain('adversarial-reviewer');
+    expect(createSkillDefinition.inputSchema.properties.cognitiveMode.enum).toContain(
+      'constructive-architect'
+    );
+    expect(createSkillDefinition.inputSchema.properties.cognitiveMode.enum).toContain(
+      'adversarial-reviewer'
+    );
   });
 });
