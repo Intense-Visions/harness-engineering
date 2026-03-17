@@ -62,6 +62,7 @@ import {
 } from './tools/feedback.js';
 import { checkPhaseGateDefinition, handleCheckPhaseGate } from './tools/phase-gate.js';
 import { validateCrossCheckDefinition, handleValidateCrossCheck } from './tools/cross-check.js';
+import { generateSlashCommandsDefinition, handleGenerateSlashCommands } from './tools/generate-slash-commands.js';
 import { getStateResource } from './resources/state.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
@@ -93,6 +94,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   checkPhaseGateDefinition,
   validateCrossCheckDefinition,
   createSkillDefinition,
+  generateSlashCommandsDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -118,6 +120,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   check_phase_gate: handleCheckPhaseGate as ToolHandler,
   validate_cross_check: handleValidateCrossCheck as ToolHandler,
   create_skill: handleCreateSkill as ToolHandler,
+  generate_slash_commands: handleGenerateSlashCommands as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
