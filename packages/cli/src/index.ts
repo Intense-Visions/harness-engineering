@@ -17,6 +17,7 @@ import { createCreateSkillCommand } from './commands/create-skill';
 import { createSetupMcpCommand } from './commands/setup-mcp';
 import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
 import { createCICommand } from './commands/ci';
+import { createUpdateCommand } from './commands/update';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -48,6 +49,7 @@ export function createProgram(): Command {
   program.addCommand(createSetupMcpCommand());
   program.addCommand(createGenerateSlashCommandsCommand());
   program.addCommand(createCICommand());
+  program.addCommand(createUpdateCommand());
 
   return program;
 }
