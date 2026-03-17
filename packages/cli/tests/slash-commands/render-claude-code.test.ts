@@ -25,9 +25,10 @@ const baseSpec: SlashCommandSpec = {
 };
 
 describe('renderClaudeCode', () => {
-  it('starts with the generated header', () => {
+  it('starts with YAML frontmatter and includes the generated header', () => {
     const output = renderClaudeCode(baseSpec);
-    expect(output.startsWith(GENERATED_HEADER_CLAUDE)).toBe(true);
+    expect(output.startsWith('---\n')).toBe(true);
+    expect(output).toContain(GENERATED_HEADER_CLAUDE);
   });
 
   it('includes YAML frontmatter with name and description', () => {

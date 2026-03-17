@@ -40,8 +40,8 @@ export function computeSyncPlan(outputDir: string, rendered: Map<string, string>
 
       const content = fs.readFileSync(path.join(outputDir, filename), 'utf-8');
       if (
-        content.startsWith(GENERATED_HEADER_CLAUDE) ||
-        content.startsWith(GENERATED_HEADER_GEMINI)
+        content.includes(GENERATED_HEADER_CLAUDE) ||
+        content.includes(GENERATED_HEADER_GEMINI)
       ) {
         removed.push(filename);
       }

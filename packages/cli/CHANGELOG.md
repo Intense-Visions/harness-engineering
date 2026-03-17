@@ -1,5 +1,11 @@
 # @harness-engineering/cli
 
+## 1.2.2
+
+### Patch Changes
+
+- Fix slash command descriptions not appearing in Claude Code by moving YAML frontmatter to line 1
+
 ## 1.2.1
 
 ### Patch Changes

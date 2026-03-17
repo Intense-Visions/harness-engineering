@@ -3,9 +3,7 @@ import { GENERATED_HEADER_CLAUDE } from './types';
 import { buildArgumentHint } from './argument-hint';
 
 export function renderClaudeCode(spec: SlashCommandSpec): string {
-  const lines: string[] = [GENERATED_HEADER_CLAUDE];
-
-  lines.push('---');
+  const lines: string[] = ['---'];
   lines.push(`name: ${spec.fullName}`);
   lines.push(`description: ${spec.description}`);
 
@@ -23,7 +21,8 @@ export function renderClaudeCode(spec: SlashCommandSpec): string {
 
   lines.push('---');
   lines.push('');
-
+  lines.push(GENERATED_HEADER_CLAUDE);
+  lines.push('');
   lines.push('<context>');
   lines.push(spec.prompt.context);
   lines.push('</context>');

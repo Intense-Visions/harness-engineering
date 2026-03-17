@@ -7,5 +7,8 @@ coverage
 out
 pnpm-lock.yaml
 *.min.js
+# Generated slash commands (YAML frontmatter must not be reformatted)
+agents/commands/**
+
 # Intentional syntax-error test fixtures
 packages/core/tests/fixtures/typescript-samples/syntax-error.ts
