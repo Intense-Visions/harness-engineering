@@ -120,16 +120,16 @@ Brief overview of ongoing maintenance tools.
 
 Summary table mapping each workflow stage to its commands and skills.
 
-| Stage | CLI Commands | Skills | Key Artifacts |
-|-------|-------------|--------|---------------|
-| Initialize | `harness init`, `harness validate`, `harness check-deps` | `/harness:initialize-project` | `harness.config.json`, `AGENTS.md` |
-| Design | — | `/harness:brainstorming` | `docs/specs/*.md` |
-| Plan | — | `/harness:planning` | `docs/plans/*.md`, `.harness/handoff.json` |
-| Implement | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd` | `.harness/state.json`, `.harness/learnings.md` |
-| Verify | `harness validate` | `/harness:verification`, `harness-integrity` (skill) | Verification report |
-| Review | — | `/harness:code-review`, `/harness:pre-commit-review` | Review report |
-| Ship | `gh pr create` | `/harness:git-workflow` | PR |
-| Maintain | `harness validate`, `harness check-deps` | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | — |
+| Stage      | CLI Commands                                                         | Skills                                                                                                                                             | Key Artifacts                                  |
+| ---------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Initialize | `harness init`, `harness validate`, `harness check-deps`             | `/harness:initialize-project`                                                                                                                      | `harness.config.json`, `AGENTS.md`             |
+| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/specs/*.md`                              |
+| Plan       | —                                                                    | `/harness:planning`                                                                                                                                | `docs/plans/*.md`, `.harness/handoff.json`     |
+| Implement  | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`                                                                                                               | `.harness/state.json`, `.harness/learnings.md` |
+| Verify     | `harness validate`                                                   | `/harness:verification`, `harness-integrity` (skill)                                                                                               | Verification report                            |
+| Review     | —                                                                    | `/harness:code-review`, `/harness:pre-commit-review`                                                                                               | Review report                                  |
+| Ship       | `gh pr create`                                                       | `/harness:git-workflow`                                                                                                                            | PR                                             |
+| Maintain   | `harness validate`, `harness check-deps`                             | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | —                                              |
 
 ## Tone and Conventions
 

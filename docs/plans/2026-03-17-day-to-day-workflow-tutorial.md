@@ -17,6 +17,7 @@
 - **Create:** `docs/guides/day-to-day-workflow.md` — the tutorial document
 
 **Reference files (read-only):**
+
 - `docs/reference/cli.md` — CLI command syntax and options
 - `docs/reference/configuration.md` — `harness.config.json` schema
 - `docs/guides/getting-started.md` — existing getting-started guide (avoid overlap)
@@ -29,6 +30,7 @@
 ### Task 1: Create document with front matter and Chapter 1
 
 **Files:**
+
 - Create: `docs/guides/day-to-day-workflow.md`
 
 - [ ] **Step 1: Write the document title, introduction, and table of contents**
@@ -74,6 +76,7 @@ Use this structure for the config walkthrough:
 ### What got generated
 
 `harness init` created:
+
 - `harness.config.json` — project configuration with layers, forbidden imports, and phase gates
 - `AGENTS.md` — knowledge map for AI agents working in the project
 - `src/types/`, `src/services/`, `src/api/` — directory structure matching layer definitions
@@ -115,9 +118,7 @@ Explain: this prevents the types layer from importing Express, keeping it framew
   "phaseGates": {
     "enabled": true,
     "severity": "warning",
-    "mappings": [
-      { "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }
-    ]
+    "mappings": [{ "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }]
   }
 }
 ```
@@ -155,6 +156,7 @@ End the chapter with a callout:
 - [ ] **Step 3: Review Chapter 1 content**
 
 Read the written chapter and verify:
+
 - All CLI commands match `docs/reference/cli.md` syntax
 - Config JSON matches `docs/reference/configuration.md` schema
 - No overlap with content already in `docs/guides/getting-started.md`
@@ -174,6 +176,7 @@ git commit -m "docs: add day-to-day workflow tutorial — Chapter 1 (Initialize)
 ### Task 2: Write Chapter 2 — Design
 
 **Files:**
+
 - Modify: `docs/guides/day-to-day-workflow.md`
 
 - [ ] **Step 1: Write Chapter 2 — Design**
@@ -183,9 +186,11 @@ Append Chapter 2 to the document. Cover:
 1. **Why design first** — one sentence: harness enforces spec-first development via phase gates, so you need a spec before you write code.
 
 2. **Invoking the brainstorming skill** — show:
+
    ```
    /harness:brainstorming
    ```
+
    Explain: this skill guides you through exploring the problem space. You describe what you want to build ("CRUD API for bookmarks with tagging and search"), and the skill asks clarifying questions one at a time.
 
 3. **The question/answer flow** — show 2-3 representative questions the skill would ask:
@@ -212,12 +217,15 @@ Verify the skill invocation syntax matches the registered slash command. Verify 
 Append Chapter 3 to the document. Cover:
 
 1. **Invoking the planning skill:**
+
    ```
    /harness:planning
    ```
+
    Explain: this skill reads your approved spec and decomposes it into atomic tasks.
 
 2. **Task decomposition output** — show a representative task list (abbreviated, 4-5 tasks):
+
    ```
    Task 1: Define Bookmark type (src/types/bookmark.ts)
    Task 2: Implement BookmarkService (src/services/bookmark-service.ts)
@@ -225,11 +233,13 @@ Append Chapter 3 to the document. Cover:
    Task 4: Wire routes to Express app (src/api/app.ts)
    Task 5: Integration tests (tests/api/bookmarks.test.ts)
    ```
+
    Note: each task is 2-5 minutes, single context window, with explicit file paths.
 
 3. **Dependency ordering** — explain that tasks are ordered by dependency (types before services before API). One sentence.
 
 4. **Handoff context** — explain `.harness/handoff.json`:
+
    ```json
    {
      "fromSkill": "harness-planning",
@@ -239,6 +249,7 @@ Append Chapter 3 to the document. Cover:
      "contextKeywords": ["bookmark", "CRUD", "tagging"]
    }
    ```
+
    Explain: this file transfers context from planning to execution so the next skill picks up where planning left off.
 
 5. **Plan document** — note that the full plan is also written to `docs/plans/` for human reference.
@@ -257,6 +268,7 @@ git commit -m "docs: add workflow tutorial — Chapters 2-3 (Design, Plan)"
 ### Task 4: Write Chapter 4 — Implement
 
 **Files:**
+
 - Modify: `docs/guides/day-to-day-workflow.md`
 
 - [ ] **Step 1: Write the chapter opening and skill invocation**
@@ -264,9 +276,11 @@ git commit -m "docs: add workflow tutorial — Chapters 2-3 (Design, Plan)"
 Start Chapter 4. Cover:
 
 1. **Invoking the execution skill:**
+
    ```
    /harness:execution
    ```
+
    Explain: this skill loads the plan and `.harness/handoff.json`, then works through tasks sequentially.
 
 2. **TDD note** — mention that `/harness:tdd` is available as a dedicated TDD skill for teams that want it; `/harness:execution` incorporates TDD as part of its workflow.
@@ -276,6 +290,7 @@ Start Chapter 4. Cover:
 Walk through **Task 1** (Define Bookmark type) in full detail, showing the TDD cycle:
 
 1. **Red** — write a failing test:
+
    ```typescript
    // tests/types/bookmark.test.ts
    import { Bookmark } from '../../src/types/bookmark';
@@ -296,6 +311,7 @@ Walk through **Task 1** (Define Bookmark type) in full detail, showing the TDD c
    ```
 
 2. **Green** — implement the type:
+
    ```typescript
    // src/types/bookmark.ts
    export interface Bookmark {
@@ -310,6 +326,7 @@ Walk through **Task 1** (Define Bookmark type) in full detail, showing the TDD c
    ```
 
 3. **Validate** — run the mechanical gate:
+
    ```bash
    npm test
    npm run lint
@@ -329,6 +346,7 @@ Walk through **Task 1** (Define Bookmark type) in full detail, showing the TDD c
 After the detailed walkthrough, cover:
 
 1. **State updates** — show `.harness/state.json` after Task 1 completes:
+
    ```json
    {
      "position": { "phase": "execute", "task": "Task 2" },
@@ -337,19 +355,24 @@ After the detailed walkthrough, cover:
    ```
 
 2. **Learnings** — show a `.harness/learnings.md` entry:
+
    ```
    - **2026-03-17 [skill:harness-execution] [outcome:success]:** Bookmark type
      needs optional description field — not all bookmarks have descriptions.
    ```
+
    Note: the `/harness:state-management` skill provides dedicated commands for inspecting and managing state.
 
 3. **Checkpoint** — explain `[checkpoint:human-verify]`:
+
    > At certain points, the execution skill pauses and shows you what it's built so far. You review the output and confirm before it continues. This prevents the agent from going down a wrong path for too long.
 
 4. **Quick gate between tasks** — explain that `/harness:verify` runs a quick pass/fail gate between tasks (tests + lint + typecheck + `harness validate`). This is distinct from the deep audit in Chapter 5 (`/harness:verification`):
+
    > `/harness:verify` is the between-task quick gate — it runs after every task to catch regressions immediately. `/harness:verification` (Chapter 5) is the deep audit you run at milestone boundaries to check EXISTS → SUBSTANTIVE → WIRED.
 
 5. **Remaining tasks** — briefly note that Tasks 2-5 follow the same cycle. Don't repeat the full walkthrough. Instead, summarize:
+
    > Tasks 2-5 follow the same red-green-validate-commit cycle. The execution skill tracks progress in `.harness/state.json` after each task and runs `/harness:verify` between tasks.
 
 6. **Pre-commit review** — mention that `/harness:pre-commit-review` is available as a quality gate before each commit.
@@ -368,6 +391,7 @@ git commit -m "docs: add workflow tutorial — Chapter 4 (Implement)"
 ### Task 5: Write Chapter 5 — Verify
 
 **Files:**
+
 - Modify: `docs/guides/day-to-day-workflow.md`
 
 - [ ] **Step 1: Write Chapter 5 — Verify**
@@ -375,6 +399,7 @@ git commit -m "docs: add workflow tutorial — Chapter 4 (Implement)"
 Cover:
 
 1. **Invoking verification:**
+
    ```
    /harness:verification
    ```
@@ -382,6 +407,7 @@ Cover:
 2. **Three verification tiers** with bookmark API examples:
 
    **EXISTS:**
+
    ```
    ✓ src/types/bookmark.ts — exists, 15 lines
    ✓ src/services/bookmark-service.ts — exists, 45 lines
@@ -389,6 +415,7 @@ Cover:
    ```
 
    **SUBSTANTIVE:**
+
    ```
    ✓ src/types/bookmark.ts — real type definition, no TODOs
    ✓ src/services/bookmark-service.ts — 5 methods implemented, no stubs
@@ -396,6 +423,7 @@ Cover:
    ```
 
    **WIRED:**
+
    ```
    ✓ Bookmark type imported by bookmark-service.ts, bookmarks.ts
    ✓ BookmarkService imported by bookmarks.ts
@@ -413,6 +441,7 @@ Cover:
 Cover:
 
 1. **Invoking code review:**
+
    ```
    /harness:code-review
    ```
@@ -422,6 +451,7 @@ Cover:
 3. **Change-type detection** — the skill classifies the change (feature, bugfix, refactor, etc.) and runs a checklist specific to that type.
 
 4. **Report output** — show an abbreviated example:
+
    ```
    Change type: feature (new API endpoints)
 
@@ -431,6 +461,7 @@ Cover:
    ✗ Missing input validation on POST /bookmarks body
    ✗ No error handling for duplicate URL constraint
    ```
+
    Note: findings are evidence-based — the skill points to specific lines, not vague suggestions.
 
 ### Task 7: Write Chapter 7 — Ship
@@ -444,6 +475,7 @@ Cover:
 2. **Pre-commit review** — mention `/harness:pre-commit-review` for a final check before merging.
 
 3. **Creating a PR:**
+
    ```bash
    git checkout -b feature/bookmark-api
    git push -u origin feature/bookmark-api
@@ -467,6 +499,7 @@ git commit -m "docs: add workflow tutorial — Chapters 5-7 (Verify, Review, Shi
 ### Task 8: Write the Appendix and Quick Reference
 
 **Files:**
+
 - Modify: `docs/guides/day-to-day-workflow.md`
 
 - [ ] **Step 1: Write Appendix — Maintenance**
@@ -481,6 +514,7 @@ Brief section covering:
 - `harness validate` + `harness check-deps` + `harness check-phase-gate` — project health check (run as a set)
 
 Add a brief note on when to run these:
+
 > Run maintenance checks after shipping a feature, before starting new work, or on a regular schedule. Many teams add `harness validate` and `harness check-deps` to their CI pipeline.
 
 - [ ] **Step 2: Write Quick Reference table**
@@ -488,16 +522,16 @@ Add a brief note on when to run these:
 Add the summary table:
 
 ```markdown
-| Stage | CLI Commands | Skills | Key Artifacts |
-|-------|-------------|--------|---------------|
-| Initialize | `harness init`, `harness validate`, `harness check-deps` | `/harness:initialize-project` | `harness.config.json`, `AGENTS.md` |
-| Design | — | `/harness:brainstorming` | `docs/specs/*.md` |
-| Plan | — | `/harness:planning` | `docs/plans/*.md`, `.harness/handoff.json` |
-| Implement | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`, `/harness:verify` | `.harness/state.json`, `.harness/learnings.md` |
-| Verify | `harness validate` | `/harness:verification` | Verification report |
-| Review | — | `/harness:code-review`, `/harness:pre-commit-review` | Review report |
-| Ship | `gh pr create` | `/harness:git-workflow` | PR |
-| Maintain | `harness validate`, `harness check-deps` | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | — |
+| Stage      | CLI Commands                                                         | Skills                                                                                                                                             | Key Artifacts                                  |
+| ---------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Initialize | `harness init`, `harness validate`, `harness check-deps`             | `/harness:initialize-project`                                                                                                                      | `harness.config.json`, `AGENTS.md`             |
+| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/specs/*.md`                              |
+| Plan       | —                                                                    | `/harness:planning`                                                                                                                                | `docs/plans/*.md`, `.harness/handoff.json`     |
+| Implement  | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`, `/harness:verify`                                                                                            | `.harness/state.json`, `.harness/learnings.md` |
+| Verify     | `harness validate`                                                   | `/harness:verification`                                                                                                                            | Verification report                            |
+| Review     | —                                                                    | `/harness:code-review`, `/harness:pre-commit-review`                                                                                               | Review report                                  |
+| Ship       | `gh pr create`                                                       | `/harness:git-workflow`                                                                                                                            | PR                                             |
+| Maintain   | `harness validate`, `harness check-deps`                             | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | —                                              |
 ```
 
 Add cross-links at the end:
@@ -515,6 +549,7 @@ Add cross-links at the end:
 - [ ] **Step 3: Full document review**
 
 Read the complete document end-to-end and verify:
+
 - All CLI commands match `docs/reference/cli.md` syntax
 - All skill invocations use the `/harness:*` slash command format
 - All file paths use `.harness/` prefix for state files

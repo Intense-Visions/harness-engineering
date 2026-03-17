@@ -78,9 +78,7 @@ This keeps your types layer framework-agnostic.
   "phaseGates": {
     "enabled": true,
     "severity": "warning",
-    "mappings": [
-      { "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }
-    ]
+    "mappings": [{ "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }]
   }
 }
 ```
@@ -161,9 +159,11 @@ The skill writes a spec to `docs/specs/`. Here's what the beginning of a spec lo
 # Bookmark API Spec
 
 ## Overview
+
 CRUD API for managing bookmarks with tagging and search.
 
 ## Data Model
+
 - Bookmark: id, url, title, description?, tags[], createdAt, updatedAt
 - URLs must be unique across all bookmarks
 - Maximum 10 tags per bookmark
@@ -434,13 +434,13 @@ Squash-merging to main keeps the history clean while preserving the detailed per
 
 After shipping, use these tools to keep your project healthy.
 
-| Skill | What it does |
-|-------|-------------|
-| `/harness:detect-doc-drift` | Finds documentation that's fallen out of sync with code |
-| `/harness:cleanup-dead-code` | Removes unused imports, functions, files |
-| `/harness:align-documentation` | Auto-fixes documentation drift |
-| `/harness:enforce-architecture` | Runs periodic architecture validation |
-| `/harness:diagnostics` | Classifies errors and routes to resolution strategies |
+| Skill                           | What it does                                            |
+| ------------------------------- | ------------------------------------------------------- |
+| `/harness:detect-doc-drift`     | Finds documentation that's fallen out of sync with code |
+| `/harness:cleanup-dead-code`    | Removes unused imports, functions, files                |
+| `/harness:align-documentation`  | Auto-fixes documentation drift                          |
+| `/harness:enforce-architecture` | Runs periodic architecture validation                   |
+| `/harness:diagnostics`          | Classifies errors and routes to resolution strategies   |
 
 For a quick project health check, run these as a set:
 
@@ -456,16 +456,16 @@ harness check-phase-gate
 
 ## Quick Reference
 
-| Stage | CLI Commands | Skills | Key Artifacts |
-|-------|-------------|--------|---------------|
-| Initialize | `harness init`, `harness validate`, `harness check-deps` | `/harness:initialize-project` | `harness.config.json`, `AGENTS.md` |
-| Design | — | `/harness:brainstorming` | `docs/specs/*.md` |
-| Plan | — | `/harness:planning` | `docs/plans/*.md`, `.harness/handoff.json` |
-| Implement | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`, `/harness:verify` | `.harness/state.json`, `.harness/learnings.md` |
-| Verify | `harness validate` | `/harness:verification` | Verification report |
-| Review | — | `/harness:code-review`, `/harness:pre-commit-review` | Review report |
-| Ship | `gh pr create` | `/harness:git-workflow` | PR |
-| Maintain | `harness validate`, `harness check-deps` | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | — |
+| Stage      | CLI Commands                                                         | Skills                                                                                                                                             | Key Artifacts                                  |
+| ---------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Initialize | `harness init`, `harness validate`, `harness check-deps`             | `/harness:initialize-project`                                                                                                                      | `harness.config.json`, `AGENTS.md`             |
+| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/specs/*.md`                              |
+| Plan       | —                                                                    | `/harness:planning`                                                                                                                                | `docs/plans/*.md`, `.harness/handoff.json`     |
+| Implement  | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`, `/harness:verify`                                                                                            | `.harness/state.json`, `.harness/learnings.md` |
+| Verify     | `harness validate`                                                   | `/harness:verification`                                                                                                                            | Verification report                            |
+| Review     | —                                                                    | `/harness:code-review`, `/harness:pre-commit-review`                                                                                               | Review report                                  |
+| Ship       | `gh pr create`                                                       | `/harness:git-workflow`                                                                                                                            | PR                                             |
+| Maintain   | `harness validate`, `harness check-deps`                             | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | —                                              |
 
 ## Further Reading
 
