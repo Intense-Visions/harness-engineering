@@ -1,5 +1,14 @@
 # @harness-engineering/mcp-server
 
+## 0.3.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/types@0.1.0
+  - @harness-engineering/core@0.7.0
+  - @harness-engineering/cli@1.3.0
+
 ## 0.3.2
 
 ### Patch Changes

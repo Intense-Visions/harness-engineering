@@ -1,5 +1,17 @@
 # @harness-engineering/types
 
+## 0.1.0
+
+### Minor Changes
+
+- Add CI/CD integration commands and documentation
+  - New `harness ci check` command: runs all harness checks (validate, deps, docs, entropy, phase-gate) with structured JSON output and meaningful exit codes
+  - New `harness ci init` command: generates CI config for GitHub Actions, GitLab CI, or a generic shell script
+  - New CI types: `CICheckReport`, `CICheckName`, `CIPlatform`, and related interfaces
+  - Core `runCIChecks` orchestrator composing existing validation into a single CI entrypoint
+  - 4 documentation guides: automation overview, CI/CD validation, issue tracker integration, headless agents
+  - 6 copy-paste recipes: GitHub Actions, GitLab CI, shell script, webhook handler, Jira rules, headless agent action
+
 ## 0.0.1
 
 ### Patch Changes
