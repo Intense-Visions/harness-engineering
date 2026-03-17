@@ -75,4 +75,14 @@ describe('renderGemini', () => {
     const output = renderGemini(quotedSpec, skillMdContent, skillYamlContent);
     expect(output).toContain('description = "Run the \\"fast\\" mode"');
   });
+
+  it('uses TOML literal strings to preserve backslashes', () => {
+    const mdWithBackslashes =
+      '# Skill\n\n```bash\ngrep -v -E "\\.(md|yml)$" | wc -l\n```';
+    const output = renderGemini(baseSpec, mdWithBackslashes, skillYamlContent);
+    expect(output).toContain("prompt = '''");
+    expect(output).toContain("'''");
+    // Backslashes should be preserved verbatim in literal strings
+    expect(output).toContain('\\.(md|yml)$');
+  });
 });

@@ -65,7 +65,7 @@ describe('generateSlashCommands integration', () => {
     const content = fs.readFileSync(path.join(outputDir, tomlFiles[0]), 'utf-8');
     expect(content).toContain(GENERATED_HEADER_GEMINI);
     expect(content).toContain('description = ');
-    expect(content).toContain('prompt = """');
+    expect(content).toContain("prompt = '''");
   });
 
   it('dry-run does not write files', () => {

@@ -1,8 +1,10 @@
 import type { SlashCommandSpec } from './types';
 import { GENERATED_HEADER_GEMINI } from './types';
 
-function escapeToml(content: string): string {
-  return content.replace(/"""/g, '""\\"');
+function escapeTomlLiteral(content: string): string {
+  // In TOML literal strings ('''), no escaping is processed.
+  // The only sequence that can break is ''' itself — replace with '' + newline + '.
+  return content.replace(/'''/g, "''\\'''");
 }
 
 export function renderGemini(
@@ -14,7 +16,7 @@ export function renderGemini(
 
   const safeDesc = spec.description.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   lines.push(`description = "${safeDesc}"`);
-  lines.push('prompt = """');
+  lines.push("prompt = '''");
 
   lines.push('<context>');
   lines.push(spec.prompt.context);
@@ -31,14 +33,14 @@ export function renderGemini(
     if (skillMdContent) {
       const mdPath = spec.prompt.executionContext.split('\n')[0]?.replace(/^@/, '') ?? '';
       lines.push(`--- SKILL.md (${mdPath}) ---`);
-      lines.push(escapeToml(skillMdContent));
+      lines.push(escapeTomlLiteral(skillMdContent));
       lines.push('');
     }
     if (skillYamlContent) {
       const refs = spec.prompt.executionContext.split('\n');
       const yamlPath = (refs[1] ?? refs[0] ?? '').replace(/^@/, '');
       lines.push(`--- skill.yaml (${yamlPath}) ---`);
-      lines.push(escapeToml(skillYamlContent));
+      lines.push(escapeTomlLiteral(skillYamlContent));
     }
     lines.push('</execution_context>');
     lines.push('');
@@ -52,7 +54,7 @@ export function renderGemini(
   lines.push(geminiProcess);
   lines.push('</process>');
 
-  lines.push('"""');
+  lines.push("'''");
   lines.push('');
 
   return lines.join('\n');
