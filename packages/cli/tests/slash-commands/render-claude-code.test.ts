@@ -17,8 +17,10 @@ const baseSpec: SlashCommandSpec = {
   prompt: {
     context: 'Cognitive mode: meticulous-implementer\nType: rigid',
     objective: 'Execute implementation plans',
-    executionContext: '@agents/skills/claude-code/harness-execution/SKILL.md\n@agents/skills/claude-code/harness-execution/skill.yaml',
-    process: '1. Try: invoke mcp__harness__run_skill with skill: "harness-execution"\n2. If MCP unavailable: read SKILL.md and follow its workflow directly\n3. Pass through any arguments provided by the user',
+    executionContext:
+      '@agents/skills/claude-code/harness-execution/SKILL.md\n@agents/skills/claude-code/harness-execution/skill.yaml',
+    process:
+      '1. Try: invoke mcp__harness__run_skill with skill: "harness-execution"\n2. If MCP unavailable: read SKILL.md and follow its workflow directly\n3. Pass through any arguments provided by the user',
   },
 };
 

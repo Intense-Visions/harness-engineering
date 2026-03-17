@@ -5,7 +5,8 @@ import type { McpToolResponse } from '../utils/result-adapter.js';
 
 export const generateSlashCommandsDefinition = {
   name: 'generate_slash_commands',
-  description: 'Generate native slash commands for Claude Code and Gemini CLI from harness skill metadata',
+  description:
+    'Generate native slash commands for Claude Code and Gemini CLI from harness skill metadata',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -15,7 +16,8 @@ export const generateSlashCommandsDefinition = {
       },
       global: {
         type: 'boolean',
-        description: 'Write to global config directories (~/.claude/commands/, ~/.gemini/commands/)',
+        description:
+          'Write to global config directories (~/.claude/commands/, ~/.gemini/commands/)',
       },
       output: {
         type: 'string',

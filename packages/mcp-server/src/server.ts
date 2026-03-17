@@ -41,7 +41,12 @@ import {
   runAgentTaskDefinition,
   handleRunAgentTask,
 } from './tools/agent.js';
-import { runSkillDefinition, handleRunSkill, createSkillDefinition, handleCreateSkill } from './tools/skill.js';
+import {
+  runSkillDefinition,
+  handleRunSkill,
+  createSkillDefinition,
+  handleCreateSkill,
+} from './tools/skill.js';
 import { getSkillsResource } from './resources/skills.js';
 import { getRulesResource } from './resources/rules.js';
 import { getProjectResource } from './resources/project.js';
@@ -62,7 +67,10 @@ import {
 } from './tools/feedback.js';
 import { checkPhaseGateDefinition, handleCheckPhaseGate } from './tools/phase-gate.js';
 import { validateCrossCheckDefinition, handleValidateCrossCheck } from './tools/cross-check.js';
-import { generateSlashCommandsDefinition, handleGenerateSlashCommands } from './tools/generate-slash-commands.js';
+import {
+  generateSlashCommandsDefinition,
+  handleGenerateSlashCommands,
+} from './tools/generate-slash-commands.js';
 import { getStateResource } from './resources/state.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };

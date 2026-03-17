@@ -9,10 +9,7 @@ export interface SyncResult {
   unchanged: string[];
 }
 
-export function computeSyncPlan(
-  outputDir: string,
-  rendered: Map<string, string>,
-): SyncResult {
+export function computeSyncPlan(outputDir: string, rendered: Map<string, string>): SyncResult {
   const added: string[] = [];
   const updated: string[] = [];
   const removed: string[] = [];
@@ -58,7 +55,7 @@ export function applySyncPlan(
   outputDir: string,
   rendered: Map<string, string>,
   plan: SyncResult,
-  deleteOrphans: boolean,
+  deleteOrphans: boolean
 ): void {
   fs.mkdirSync(outputDir, { recursive: true });
 

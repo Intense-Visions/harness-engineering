@@ -5,12 +5,8 @@ import { SkillMetadataSchema } from '../skill/schema';
 import type { Platform, SlashCommandSpec, SkillArg } from './types';
 import { normalizeName } from './normalize-name';
 
-export function normalizeSkills(
-  skillsDir: string,
-  platforms: Platform[],
-): SlashCommandSpec[] {
-  const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory());
+export function normalizeSkills(skillsDir: string, platforms: Platform[]): SlashCommandSpec[] {
+  const entries = fs.readdirSync(skillsDir, { withFileTypes: true }).filter((d) => d.isDirectory());
 
   const specs: SlashCommandSpec[] = [];
   const nameMap = new Map<string, string>();
@@ -48,11 +44,15 @@ export function normalizeSkills(
     nameMap.set(normalized, meta.name);
 
     const skillMdPath = path.join(skillsDir, entry.name, 'SKILL.md');
-    const skillMdContent = fs.existsSync(skillMdPath)
-      ? fs.readFileSync(skillMdPath, 'utf-8')
-      : '';
-    const skillMdRelative = path.relative(process.cwd(), path.join(skillsDir, entry.name, 'SKILL.md'));
-    const skillYamlRelative = path.relative(process.cwd(), path.join(skillsDir, entry.name, 'skill.yaml'));
+    const skillMdContent = fs.existsSync(skillMdPath) ? fs.readFileSync(skillMdPath, 'utf-8') : '';
+    const skillMdRelative = path.relative(
+      process.cwd(),
+      path.join(skillsDir, entry.name, 'SKILL.md')
+    );
+    const skillYamlRelative = path.relative(
+      process.cwd(),
+      path.join(skillsDir, entry.name, 'skill.yaml')
+    );
 
     const args: SkillArg[] = (meta.cli?.args ?? []).map((a) => ({
       name: a.name,
@@ -95,12 +95,8 @@ export function normalizeSkills(
 
     const processLines: string[] = [];
     if (meta.mcp?.tool) {
-      processLines.push(
-        `1. Try: invoke mcp__harness__${meta.mcp.tool} with skill: "${meta.name}"`
-      );
-      processLines.push(
-        `2. If MCP unavailable: read SKILL.md and follow its workflow directly`
-      );
+      processLines.push(`1. Try: invoke mcp__harness__${meta.mcp.tool} with skill: "${meta.name}"`);
+      processLines.push(`2. If MCP unavailable: read SKILL.md and follow its workflow directly`);
       processLines.push(`3. Pass through any arguments provided by the user`);
     } else {
       processLines.push(`1. Read SKILL.md and follow its workflow directly`);

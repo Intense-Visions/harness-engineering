@@ -14,8 +14,12 @@ const fixturesDir = path.join(__dirname, 'fixtures');
 describe('generateSlashCommands integration', () => {
   let tmpDir: string;
 
-  beforeEach(() => { tmpDir = makeTmpDir(); });
-  afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   it('generates Claude Code markdown files from fixture skills', () => {
     const results = generateSlashCommands({

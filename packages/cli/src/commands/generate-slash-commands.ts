@@ -21,10 +21,7 @@ export interface GenerateResult {
   outputDir: string;
 }
 
-function resolveOutputDir(
-  platform: Platform,
-  opts: { global: boolean; output?: string },
-): string {
+function resolveOutputDir(platform: Platform, opts: { global: boolean; output?: string }): string {
   if (opts.output) {
     return path.join(opts.output, 'harness');
   }
@@ -117,7 +114,7 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
 
 export async function handleOrphanDeletion(
   results: GenerateResult[],
-  opts: { yes: boolean; dryRun: boolean },
+  opts: { yes: boolean; dryRun: boolean }
 ): Promise<void> {
   if (opts.dryRun) return;
 
@@ -138,7 +135,9 @@ export async function handleOrphanDeletion(
 
 export function createGenerateSlashCommandsCommand(): Command {
   return new Command('generate-slash-commands')
-    .description('Generate native slash commands for Claude Code and Gemini CLI from skill metadata')
+    .description(
+      'Generate native slash commands for Claude Code and Gemini CLI from skill metadata'
+    )
     .option('--platforms <list>', 'Target platforms (comma-separated)', 'claude-code,gemini-cli')
     .option('--global', 'Write to global config directories', false)
     .option('--output <dir>', 'Custom output directory')
@@ -153,7 +152,7 @@ export function createGenerateSlashCommandsCommand(): Command {
         if (!VALID_PLATFORMS.includes(p as Platform)) {
           throw new CLIError(
             `Invalid platform "${p}". Valid platforms: ${VALID_PLATFORMS.join(', ')}`,
-            ExitCode.VALIDATION_FAILED,
+            ExitCode.VALIDATION_FAILED
           );
         }
       }

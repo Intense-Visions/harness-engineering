@@ -12,8 +12,12 @@ function makeTmpDir(): string {
 describe('computeSyncPlan', () => {
   let tmpDir: string;
 
-  beforeEach(() => { tmpDir = makeTmpDir(); });
-  afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   it('detects new files when output dir is empty', () => {
     const rendered = new Map([['execution.md', 'content']]);
@@ -60,31 +64,55 @@ describe('computeSyncPlan', () => {
 describe('applySyncPlan', () => {
   let tmpDir: string;
 
-  beforeEach(() => { tmpDir = makeTmpDir(); });
-  afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   it('writes new files', () => {
     const rendered = new Map([['execution.md', 'new content']]);
-    applySyncPlan(tmpDir, rendered, { added: ['execution.md'], updated: [], removed: [], unchanged: [] }, false);
+    applySyncPlan(
+      tmpDir,
+      rendered,
+      { added: ['execution.md'], updated: [], removed: [], unchanged: [] },
+      false
+    );
     expect(fs.readFileSync(path.join(tmpDir, 'execution.md'), 'utf-8')).toBe('new content');
   });
 
   it('overwrites updated files', () => {
     fs.writeFileSync(path.join(tmpDir, 'execution.md'), 'old');
     const rendered = new Map([['execution.md', 'new']]);
-    applySyncPlan(tmpDir, rendered, { added: [], updated: ['execution.md'], removed: [], unchanged: [] }, false);
+    applySyncPlan(
+      tmpDir,
+      rendered,
+      { added: [], updated: ['execution.md'], removed: [], unchanged: [] },
+      false
+    );
     expect(fs.readFileSync(path.join(tmpDir, 'execution.md'), 'utf-8')).toBe('new');
   });
 
   it('deletes removed files when deleteOrphans is true', () => {
     fs.writeFileSync(path.join(tmpDir, 'old.md'), 'x');
-    applySyncPlan(tmpDir, new Map(), { added: [], updated: [], removed: ['old.md'], unchanged: [] }, true);
+    applySyncPlan(
+      tmpDir,
+      new Map(),
+      { added: [], updated: [], removed: ['old.md'], unchanged: [] },
+      true
+    );
     expect(fs.existsSync(path.join(tmpDir, 'old.md'))).toBe(false);
   });
 
   it('does not delete removed files when deleteOrphans is false', () => {
     fs.writeFileSync(path.join(tmpDir, 'old.md'), 'x');
-    applySyncPlan(tmpDir, new Map(), { added: [], updated: [], removed: ['old.md'], unchanged: [] }, false);
+    applySyncPlan(
+      tmpDir,
+      new Map(),
+      { added: [], updated: [], removed: ['old.md'], unchanged: [] },
+      false
+    );
     expect(fs.existsSync(path.join(tmpDir, 'old.md'))).toBe(true);
   });
 });

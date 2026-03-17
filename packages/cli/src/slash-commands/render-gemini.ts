@@ -8,7 +8,7 @@ function escapeToml(content: string): string {
 export function renderGemini(
   spec: SlashCommandSpec,
   skillMdContent: string,
-  skillYamlContent: string,
+  skillYamlContent: string
 ): string {
   const lines: string[] = [GENERATED_HEADER_GEMINI];
 
@@ -46,7 +46,7 @@ export function renderGemini(
 
   const geminiProcess = spec.prompt.process.replace(
     'read SKILL.md and follow its workflow directly',
-    'follow the SKILL.md workflow provided above directly',
+    'follow the SKILL.md workflow provided above directly'
   );
   lines.push('<process>');
   lines.push(geminiProcess);
