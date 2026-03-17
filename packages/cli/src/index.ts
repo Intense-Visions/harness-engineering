@@ -16,6 +16,7 @@ import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
 import { createCreateSkillCommand } from './commands/create-skill';
 import { createSetupMcpCommand } from './commands/setup-mcp';
 import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
+import { createCICommand } from './commands/ci';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -46,6 +47,7 @@ export function createProgram(): Command {
   program.addCommand(createCreateSkillCommand());
   program.addCommand(createSetupMcpCommand());
   program.addCommand(createGenerateSlashCommandsCommand());
+  program.addCommand(createCICommand());
 
   return program;
 }
