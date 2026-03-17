@@ -6,6 +6,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/cli" },
     { "path": "./packages/eslint-plugin" },
-    { "path": "./packages/linter-gen" }
+    { "path": "./packages/linter-gen" },
+    { "path": "./packages/mcp-server" }
   ]
 }

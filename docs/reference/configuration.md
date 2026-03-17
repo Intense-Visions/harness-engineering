@@ -1,520 +1,348 @@
 # Configuration Reference
 
-Complete reference for configuring Harness Engineering projects.
-
-> **Note:** Configuration options and formats are subject to change. This document describes the intended configuration structure. See your project's harness.config.yml for currently configured options.
+Complete reference for configuring Harness Engineering projects via `harness.config.json`.
 
 ## Configuration File
 
-Harness Engineering projects are configured via `harness.config.yml` in the project root.
+Harness Engineering projects are configured via `harness.config.json` in the project root. The configuration is validated against a Zod schema at runtime.
 
-```yaml
-# harness.config.yml - Harness Engineering Configuration
-project:
-  # Your configuration here
+```json
+{
+  "version": 1,
+  "name": "my-project",
+  "rootDir": "."
+}
 ```
 
-## Configuration Sections
+## Top-Level Fields
 
-The harness.config.yml file is organized into these main sections:
+### `version`
 
-- **[Project](#project)** - Basic project information
-- **[Architecture](#architecture)** - Architectural constraints and rules
-- **[Layers](#layers)** - Dependency layers and boundaries
-- **[Agent](#agent)** - Agent behavior and settings
-- **[Build](#build)** - Build and test configuration
-- **[Documentation](#documentation)** - Documentation generation
-- **[Environment](#environment)** - Environment variables and secrets
+- **Type:** `1` (literal)
+- **Required:** Yes
 
-## Project
+Schema version number. Must be `1`.
 
-Basic project information and metadata.
+### `name`
 
-### Schema
+- **Type:** `string`
+- **Required:** No
 
-```yaml
-project:
-  name: string # Project name (required)
-  version: string # Project version
-  description: string # Project description
-  author: string # Project author
-  license: string # License type
-  homepage: string # Project homepage URL
-  repository: string # Repository URL
-```
+Human-readable project name used in logs and reports.
+
+### `rootDir`
+
+- **Type:** `string`
+- **Default:** `"."`
+- **Required:** No
+
+Root directory of the project, relative to the config file location. All patterns in other fields are resolved relative to this directory.
+
+### `agentsMapPath`
+
+- **Type:** `string`
+- **Default:** `"./AGENTS.md"`
+- **Required:** No
+
+Path to the AGENTS.md file that defines agent roles and responsibilities.
+
+### `docsDir`
+
+- **Type:** `string`
+- **Default:** `"./docs"`
+- **Required:** No
+
+Path to the documentation directory used by doc validation and generation tools.
+
+## `layers`
+
+- **Type:** `Array<Layer>`
+- **Required:** No
+
+Defines the dependency layers in your project. Each layer declares which other layers it may depend on, enabling enforcement of a strict dependency hierarchy.
+
+### Layer Object
+
+| Field                 | Type       | Required | Description                                |
+| --------------------- | ---------- | -------- | ------------------------------------------ |
+| `name`                | `string`   | Yes      | Unique layer identifier                    |
+| `pattern`             | `string`   | Yes      | Glob pattern matching files in this layer  |
+| `allowedDependencies` | `string[]` | Yes      | Names of layers this layer may import from |
 
 ### Example
 
-```yaml
-project:
-  name: my-harness-project
-  version: 1.0.0
-  description: Example Harness Engineering project
-  author: Your Team
-  license: MIT
-  homepage: https://github.com/yourorg/my-harness-project
-  repository: https://github.com/yourorg/my-harness-project.git
+```json
+{
+  "layers": [
+    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
+    { "name": "repository", "pattern": "src/repository/**", "allowedDependencies": ["types"] },
+    {
+      "name": "service",
+      "pattern": "src/service/**",
+      "allowedDependencies": ["types", "repository"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "repository", "service"]
+    }
+  ]
+}
 ```
 
-## Architecture
+Layers are evaluated top-down. A file matching the `api` pattern that imports from a module matching `types` is allowed because `"types"` appears in `allowedDependencies`. An import from `api` into `repository` that is not listed would be flagged as a violation.
 
-Define architectural constraints and dependency rules.
+## `forbiddenImports`
 
-### Schema
+- **Type:** `Array<ForbiddenImport>`
+- **Required:** No
 
-```yaml
-architecture:
-  enforce: boolean # Enforce constraints
-  strict: boolean # Strict mode
-  maxCyclomaticComplexity: number # Max complexity
-  maxDepth: number # Max dependency depth
-  rules:
-    - pattern: string # File pattern
-      layer: string # Target layer
-      canDependOn: string[] # Allowed dependencies
-      forbidden: string[] # Forbidden dependencies
-```
+Defines import restrictions that prevent specific file patterns from importing certain modules. Useful for keeping layers free of heavy runtime dependencies.
+
+### ForbiddenImport Object
+
+| Field      | Type       | Required | Description                                          |
+| ---------- | ---------- | -------- | ---------------------------------------------------- |
+| `from`     | `string`   | Yes      | Glob pattern of source files the rule applies to     |
+| `disallow` | `string[]` | Yes      | Module names or patterns that must not be imported   |
+| `message`  | `string`   | No       | Custom error message shown when the rule is violated |
 
 ### Example
 
-```yaml
-architecture:
-  enforce: true
-  strict: false
-  maxCyclomaticComplexity: 15
-  maxDepth: 5
-  rules:
-    - pattern: src/types/**
-      layer: types
-      canDependOn: []
-      forbidden: [types, config, repository, service, ui]
-
-    - pattern: src/config/**
-      layer: config
-      canDependOn: [types]
-      forbidden: [repository, service, ui]
-
-    - pattern: src/repository/**
-      layer: repository
-      canDependOn: [types, config]
-      forbidden: [service, ui]
-
-    - pattern: src/service/**
-      layer: service
-      canDependOn: [types, config, repository]
-      forbidden: [ui]
-
-    - pattern: src/ui/**
-      layer: ui
-      canDependOn: [types, config, repository, service]
-      forbidden: []
+```json
+{
+  "forbiddenImports": [
+    {
+      "from": "src/types/**",
+      "disallow": ["express", "pg"],
+      "message": "Types layer must not depend on runtime libraries"
+    },
+    {
+      "from": "src/repository/**",
+      "disallow": ["express"],
+      "message": "Repository layer must not depend on the HTTP framework"
+    }
+  ]
+}
 ```
 
-## Layers
+## `boundaries`
 
-Define the dependency layers in your project.
+- **Type:** `BoundaryConfig`
+- **Required:** No
 
-### Schema
+Configures boundary enforcement for files that must have a corresponding schema definition.
 
-```yaml
-layers:
-  - name: string # Layer name
-    description: string # Layer description
-    path: string # Directory pattern
-    dependencies: string[] # Allowed dependencies
-```
+### BoundaryConfig Object
+
+| Field           | Type       | Required | Description                                     |
+| --------------- | ---------- | -------- | ----------------------------------------------- |
+| `requireSchema` | `string[]` | Yes      | Glob patterns for files that must have a schema |
 
 ### Example
 
-```yaml
-layers:
-  - name: types
-    description: Type definitions and interfaces
-    path: src/types/**
-    dependencies: []
-
-  - name: config
-    description: Configuration and environment
-    path: src/config/**
-    dependencies: [types]
-
-  - name: repository
-    description: Data access layer
-    path: src/repository/**
-    dependencies: [types, config]
-
-  - name: service
-    description: Business logic layer
-    path: src/service/**
-    dependencies: [types, config, repository]
-
-  - name: ui
-    description: User interface layer
-    path: src/ui/**
-    dependencies: [types, config, repository, service]
+```json
+{
+  "boundaries": {
+    "requireSchema": ["src/api/**", "src/events/**"]
+  }
+}
 ```
 
-## Agent
+## `agent`
 
-Configure agent behavior and execution.
+- **Type:** `AgentConfig`
+- **Required:** No
 
-### Schema
+Controls how agent tasks are executed.
 
-```yaml
-agent:
-  enabled: boolean # Enable agents
-  mode: string # Execution mode (interactive, batch, watch)
-  maxDepth: number # Max recursion depth
-  autoReview: boolean # Auto-review changes
-  autoCommit: boolean # Auto-commit changes
-  parallelization: number # Max parallel tasks
-  timeout: number # Task timeout in seconds
-  retryAttempts: number # Number of retry attempts
-  reviewRules:
-    - pattern: string # File pattern
-      requiresApproval: boolean # Requires approval
-      reviewer: string # Reviewer
-```
+### AgentConfig Object
+
+| Field      | Type                                    | Default        | Description                                  |
+| ---------- | --------------------------------------- | -------------- | -------------------------------------------- |
+| `executor` | `"subprocess"` \| `"cloud"` \| `"noop"` | `"subprocess"` | Execution backend for agent tasks            |
+| `timeout`  | `number`                                | `300000`       | Task timeout in milliseconds (5 min default) |
+| `skills`   | `string[]`                              | —              | List of skill names available to the agent   |
 
 ### Example
 
-```yaml
-agent:
-  enabled: true
-  mode: interactive
-  maxDepth: 10
-  autoReview: true
-  autoCommit: false
-  parallelization: 4
-  timeout: 300
-  retryAttempts: 3
-  reviewRules:
-    - pattern: src/**/*.ts
-      requiresApproval: false
-      reviewer: auto
-
-    - pattern: docs/**
-      requiresApproval: true
-      reviewer: human
-
-    - pattern: AGENTS.md
-      requiresApproval: true
-      reviewer: human
+```json
+{
+  "agent": {
+    "executor": "subprocess",
+    "timeout": 600000,
+    "skills": ["check-dependencies", "detect-entropy", "analyze-diff"]
+  }
+}
 ```
 
-## Build
+## `entropy`
 
-Configure build and test settings.
+- **Type:** `EntropyConfig`
+- **Required:** No
 
-### Schema
+Configures entropy detection, which identifies high-entropy strings (potential secrets or credentials) in source files.
 
-```yaml
-build:
-  target: string # Build target (es2020, node16, etc)
-  module: string # Module format (commonjs, esnext, etc)
-  outDir: string # Output directory
-  sourceMap: boolean # Generate source maps
-  declaration: boolean # Generate type declarations
-  test:
-    framework: string # Test framework (jest, vitest, etc)
-    coverage: number # Coverage threshold (0-100)
-    timeout: number # Test timeout in ms
-    parallel: number # Parallel test execution
-```
+### EntropyConfig Object
+
+| Field             | Type       | Default                                  | Description                                 |
+| ----------------- | ---------- | ---------------------------------------- | ------------------------------------------- |
+| `excludePatterns` | `string[]` | `["**/node_modules/**", "**/*.test.ts"]` | Glob patterns to exclude from entropy scans |
+| `autoFix`         | `boolean`  | `false`                                  | Automatically apply fixes when detected     |
 
 ### Example
 
-```yaml
-build:
-  target: es2020
-  module: esnext
-  outDir: dist
-  sourceMap: true
-  declaration: true
-  test:
-    framework: jest
-    coverage: 80
-    timeout: 10000
-    parallel: 4
+```json
+{
+  "entropy": {
+    "excludePatterns": ["**/node_modules/**", "**/*.test.ts", "**/fixtures/**", "**/*.snap"],
+    "autoFix": false
+  }
+}
 ```
 
-## Documentation
+## `phaseGates`
 
-Configure documentation generation and validation.
+- **Type:** `PhaseGatesConfig`
+- **Required:** No
 
-### Schema
+Phase gates enforce that implementation files have corresponding specification documents. This ensures a spec-first development workflow.
 
-```yaml
-documentation:
-  enabled: boolean # Enable doc generation
-  outputDir: string # Output directory
-  title: string # Site title
-  description: string # Site description
-  theme: string # Theme name
-  validation:
-    checkLinks: boolean # Check for broken links
-    checkTitles: boolean # Check missing titles
-    checkImages: boolean # Check missing images
-    maxLength: number # Max page length
-```
+### PhaseGatesConfig Object
+
+| Field      | Type                      | Default                                                                    | Description                                 |
+| ---------- | ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------- |
+| `enabled`  | `boolean`                 | `false`                                                                    | Enable phase gate checks                    |
+| `severity` | `"error"` \| `"warning"`  | `"error"`                                                                  | Severity level for violations               |
+| `mappings` | `Array<PhaseGateMapping>` | `[{ implPattern: "src/**/*.ts", specPattern: "docs/specs/{feature}.md" }]` | Maps implementation files to spec documents |
+
+### PhaseGateMapping Object
+
+| Field         | Type     | Required | Description                                                                                                             |
+| ------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `implPattern` | `string` | Yes      | Glob pattern matching implementation files                                                                              |
+| `specPattern` | `string` | Yes      | Pattern for the required spec file (`{feature}` is replaced with the feature name derived from the implementation path) |
 
 ### Example
 
-```yaml
-documentation:
-  enabled: true
-  outputDir: docs/.vitepress/dist
-  title: My Project Documentation
-  description: Harness Engineering Example Project
-  theme: default
-  validation:
-    checkLinks: true
-    checkTitles: true
-    checkImages: true
-    maxLength: 10000
+```json
+{
+  "phaseGates": {
+    "enabled": true,
+    "severity": "warning",
+    "mappings": [
+      { "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" },
+      { "implPattern": "src/api/**/*.ts", "specPattern": "docs/api/{feature}.md" }
+    ]
+  }
+}
 ```
 
-## Environment
+## `template`
 
-Define environment variables and secrets.
+- **Type:** `TemplateConfig`
+- **Required:** No
 
-### Schema
+Metadata about the project template used to initialize this configuration. Typically set by `harness init` and not edited manually.
 
-```yaml
-environment:
-  variables:
-    KEY: string # Environment variable
-  secrets:
-    - name: string # Secret name
-      required: boolean # Is required
-      source: string # Source (.env, vault, etc)
-  profiles:
-    - name: string # Profile name
-      variables:
-        KEY: string
-```
+### TemplateConfig Object
+
+| Field       | Type                                          | Required | Description                    |
+| ----------- | --------------------------------------------- | -------- | ------------------------------ |
+| `level`     | `"basic"` \| `"intermediate"` \| `"advanced"` | Yes      | Template complexity level      |
+| `framework` | `string`                                      | No       | Framework the template targets |
+| `version`   | `number`                                      | Yes      | Template version number        |
 
 ### Example
 
-```yaml
-environment:
-  variables:
-    NODE_ENV: development
-    LOG_LEVEL: info
-    API_URL: http://localhost:3000
-
-  secrets:
-    - name: DATABASE_URL
-      required: true
-      source: .env
-
-    - name: API_KEY
-      required: true
-      source: vault
-
-  profiles:
-    - name: development
-      variables:
-        NODE_ENV: development
-        LOG_LEVEL: debug
-        API_URL: http://localhost:3000
-
-    - name: production
-      variables:
-        NODE_ENV: production
-        LOG_LEVEL: warn
-        API_URL: https://api.example.com
+```json
+{
+  "template": {
+    "level": "intermediate",
+    "framework": "express",
+    "version": 1
+  }
+}
 ```
 
 ## Complete Example
 
-Here's a complete harness.config.yml example:
+A full `harness.config.json` for a layered API project:
 
-```yaml
-# Harness Engineering Configuration
-project:
-  name: my-harness-project
-  version: 1.0.0
-  description: Example Harness Engineering project
-  author: Your Team
-  license: MIT
-
-architecture:
-  enforce: true
-  strict: false
-  maxCyclomaticComplexity: 15
-  maxDepth: 5
-  rules:
-    - pattern: src/types/**
-      layer: types
-      canDependOn: []
-    - pattern: src/config/**
-      layer: config
-      canDependOn: [types]
-    - pattern: src/repository/**
-      layer: repository
-      canDependOn: [types, config]
-    - pattern: src/service/**
-      layer: service
-      canDependOn: [types, config, repository]
-    - pattern: src/ui/**
-      layer: ui
-      canDependOn: [types, config, repository, service]
-
-layers:
-  - name: types
-    description: Type definitions and interfaces
-    path: src/types/**
-    dependencies: []
-  - name: config
-    description: Configuration and environment
-    path: src/config/**
-    dependencies: [types]
-  - name: repository
-    description: Data access layer
-    path: src/repository/**
-    dependencies: [types, config]
-  - name: service
-    description: Business logic layer
-    path: src/service/**
-    dependencies: [types, config, repository]
-  - name: ui
-    description: User interface layer
-    path: src/ui/**
-    dependencies: [types, config, repository, service]
-
-agent:
-  enabled: true
-  mode: interactive
-  maxDepth: 10
-  autoReview: true
-  autoCommit: false
-  parallelization: 4
-  timeout: 300
-  retryAttempts: 3
-
-build:
-  target: es2020
-  module: esnext
-  outDir: dist
-  sourceMap: true
-  declaration: true
-  test:
-    framework: jest
-    coverage: 80
-    timeout: 10000
-    parallel: 4
-
-documentation:
-  enabled: true
-  outputDir: docs/.vitepress/dist
-  title: My Project Documentation
-  theme: default
-  validation:
-    checkLinks: true
-    checkTitles: true
-
-environment:
-  variables:
-    NODE_ENV: development
-    LOG_LEVEL: info
-  secrets:
-    - name: DATABASE_URL
-      required: true
-      source: .env
-  profiles:
-    - name: development
-      variables:
-        NODE_ENV: development
-        LOG_LEVEL: debug
-    - name: production
-      variables:
-        NODE_ENV: production
-        LOG_LEVEL: warn
+```json
+{
+  "version": 1,
+  "name": "task-api",
+  "rootDir": ".",
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "layers": [
+    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
+    { "name": "repository", "pattern": "src/repository/**", "allowedDependencies": ["types"] },
+    {
+      "name": "service",
+      "pattern": "src/service/**",
+      "allowedDependencies": ["types", "repository"]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": ["types", "repository", "service"]
+    }
+  ],
+  "forbiddenImports": [
+    {
+      "from": "src/types/**",
+      "disallow": ["express", "pg"],
+      "message": "Types layer must not depend on runtime libraries"
+    }
+  ],
+  "boundaries": {
+    "requireSchema": ["src/api/**"]
+  },
+  "agent": {
+    "executor": "subprocess",
+    "timeout": 300000,
+    "skills": ["check-dependencies", "detect-entropy"]
+  },
+  "entropy": {
+    "excludePatterns": ["**/node_modules/**", "**/*.test.ts"],
+    "autoFix": false
+  },
+  "phaseGates": {
+    "enabled": true,
+    "severity": "error",
+    "mappings": [{ "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }]
+  },
+  "template": {
+    "level": "intermediate",
+    "framework": "express",
+    "version": 1
+  }
+}
 ```
 
-## Environment Variables
+## Minimal Example
 
-Override configuration using environment variables. Format: `HARNESS_<SECTION>_<KEY>`
+The smallest valid configuration:
+
+```json
+{
+  "version": 1
+}
+```
+
+All other fields are optional and fall back to their defaults. This is useful when you want to adopt Harness Engineering incrementally, starting with just the AGENTS.md workflow and adding layers or gates later.
+
+## Validation
+
+The configuration file is validated automatically when any Harness CLI command runs. You can also validate it explicitly:
 
 ```bash
-# Set project name
-export HARNESS_PROJECT_NAME=my-project
-
-# Enable agent
-export HARNESS_AGENT_ENABLED=true
-
-# Set log level
-export HARNESS_BUILD_TEST_COVERAGE=85
-
-# Use custom config file
-export HARNESS_CONFIG=/path/to/custom.yml
+npx harness validate --check-config
 ```
 
-## Configuration Validation
-
-Validate your configuration:
-
-```bash
-harness validate --check-config
-
-# Strict validation
-harness validate --strict
-
-# Show config after loading
-harness config show
-```
-
-## Configuration Profiles
-
-Use profiles for different environments:
-
-```bash
-# Use development profile
-harness validate --profile=development
-
-# Use production profile
-harness validate --profile=production
-```
-
-## Best Practices
-
-1. **Version Control** - Commit harness.config.yml to git
-2. **Documentation** - Document why configuration choices were made
-3. **Validation** - Run `harness validate` before committing
-4. **Profiles** - Use profiles for development, staging, production
-5. **Secrets** - Never commit secrets; use environment variables
-6. **Gradual Adoption** - Start with minimal configuration, add as needed
-
-## Troubleshooting
-
-### Config Not Found
-
-Ensure harness.config.yml exists in project root:
-
-```bash
-ls -la harness.config.yml
-```
-
-### Invalid Configuration
-
-Validate configuration file:
-
-```bash
-harness validate --check-config --verbose
-```
-
-### Override Not Working
-
-Check environment variable format:
-
-```bash
-# Correct format
-export HARNESS_AGENT_ENABLED=true
-
-# Incorrect format (won't work)
-export HARNESS_AGENT.ENABLED=true
-```
+If validation fails, the error message will indicate which field has an invalid value and what was expected.
 
 ## See Also
 
@@ -525,4 +353,4 @@ export HARNESS_AGENT.ENABLED=true
 
 ---
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-17_

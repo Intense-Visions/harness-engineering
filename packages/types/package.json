@@ -17,6 +17,8 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
   "keywords": [
@@ -44,6 +46,7 @@
   },
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/types#readme",
   "devDependencies": {
-    "tsup": "^8.0.0"
+    "tsup": "^8.0.0",
+    "vitest": "^2.0.0"
   }
 }

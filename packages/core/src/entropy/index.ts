@@ -4,12 +4,12 @@
 export { EntropyAnalyzer } from './analyzer';
 
 // Snapshot
-export { buildSnapshot, resolveEntryPoints, parseDocumentationFile } from './snapshot';
+export { buildSnapshot } from './snapshot';
 
 // Detectors
-export { detectDocDrift, findPossibleMatches, levenshteinDistance } from './detectors/drift';
-export { detectDeadCode, buildReachabilityMap } from './detectors/dead-code';
-export { detectPatternViolations, checkConfigPattern } from './detectors/patterns';
+export { detectDocDrift } from './detectors/drift';
+export { detectDeadCode } from './detectors/dead-code';
+export { detectPatternViolations } from './detectors/patterns';
 
 // Fixers
 export { createFixes, applyFixes, previewFix } from './fixers/safe-fixes';

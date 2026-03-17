@@ -22,9 +22,13 @@ export async function handleCheckDependencies(input: { path: string }) {
   // Delegate to core library
   try {
     const { validateDependencies, TypeScriptParser } = await import('@harness-engineering/core');
-    const config = configResult.value;
-    const rawLayers = (config as any).layers ?? [];
-    const layers = rawLayers.map((l: any) => ({
+    const config = configResult.value as Record<string, unknown>;
+    const rawLayers = (Array.isArray(config.layers) ? config.layers : []) as Array<{
+      name: string;
+      pattern: string;
+      allowedDependencies: string[];
+    }>;
+    const layers = rawLayers.map((l) => ({
       name: l.name,
       patterns: [l.pattern],
       allowedDependencies: l.allowedDependencies,

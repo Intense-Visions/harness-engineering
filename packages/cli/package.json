@@ -24,8 +24,10 @@
     "dev": "tsup src/index.ts src/bin/harness.ts --format esm --dts --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@harness-engineering/core": "workspace:*",

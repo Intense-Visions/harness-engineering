@@ -1,3 +1,3 @@
-export { detectDocDrift, findPossibleMatches, levenshteinDistance } from './drift';
-export { buildReachabilityMap, detectDeadCode } from './dead-code';
-export { checkConfigPattern, detectPatternViolations } from './patterns';
+export { detectDocDrift } from './drift';
+export { detectDeadCode } from './dead-code';
+export { detectPatternViolations } from './patterns';

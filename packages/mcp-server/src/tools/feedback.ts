@@ -60,7 +60,10 @@ export async function handleCreateSelfReview(input: {
       },
     };
 
-    const result = await createSelfReview(parseResult.value, config as any);
+    const result = await createSelfReview(
+      parseResult.value,
+      config as Parameters<typeof createSelfReview>[1]
+    );
     return resultToMcpResponse(result);
   } catch (error) {
     return {

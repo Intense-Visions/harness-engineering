@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server), 21 skills, 3 personas, 4 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server), 26 skills, 3 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -32,9 +32,10 @@ harness-engineering/
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
 │   └── mcp-server/           # MCP server for AI agent integration
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 21 skills (skill.yaml + SKILL.md each)
+│   ├── skills/claude-code/   # 26 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 26 skills (same skills, adapted for Gemini CLI platform)
 │   └── personas/             # 3 personas (architecture-enforcer, documentation-maintainer, entropy-cleaner)
-├── templates/                 # Project scaffolding templates (basic, intermediate, advanced, nextjs)
+├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level
 │   ├── task-api/             # Intermediate adoption level
@@ -93,7 +94,7 @@ Each package has a clear responsibility:
 
 - **types**: Type definitions, interfaces, and constants used across packages
 - **core**: Runtime library with validation, utilities, and common functionality
-- Future packages will handle: CLI tools, agent skills, linting rules, etc.
+- See package.json files in each package for full dependency details.
 
 ## Development Workflow
 
@@ -265,7 +266,7 @@ This creates a permanent record that AI agents can access and understand.
 
 - **[docs/standard/](./docs/standard/)** - Core Harness Engineering standard and principles
   - `index.md` - Overview of the standard
-  - `principles.md` - Deep dive into the 6 core principles
+  - `principles.md` - Deep dive into the 7 core principles
   - `implementation.md` - Step-by-step adoption guide
   - `kpis.md` - Metrics for measuring success
 
@@ -279,14 +280,11 @@ This creates a permanent record that AI agents can access and understand.
   - CLI documentation
   - API reference
 
-- **[docs/api/](./docs/api/)** - Generated API documentation
-  - Auto-generated from code comments
-  - TypeScript type definitions
-  - Function signatures and examples
+- **[docs/api/](./docs/api/)** - API documentation (placeholder — currently contains only index.md)
 
 - **[docs/specs/](./docs/specs/)** - Detailed technical specifications for features
 - **[docs/plans/](./docs/plans/)** - Implementation and execution plans
-- **[docs/changes/](./docs/changes/)** - In-progress change proposals
+- **[docs/changes/](./docs/changes/)** - In-progress change proposals (placeholder — currently empty)
 
 ### Key Documentation
 
@@ -308,7 +306,7 @@ When working on this project, agents should prioritize reading:
   - 2-space indentation
   - Single quotes for strings
   - Trailing commas where valid
-  - Line length: 80 characters (practical limit)
+  - Line length: 100 characters (practical limit)
 
 ### Code Organization
 
@@ -375,7 +373,7 @@ Links to related documentation.
 Test file locations:
 
 - Core code: `src/module.ts`
-- Tests: `src/__tests__/module.test.ts`
+- Tests: `tests/module.test.ts`
 
 ## Common Tasks for Agents
 
@@ -498,15 +496,15 @@ This makes error handling explicit and type-safe.
 
 ### File Locations by Task
 
-| Task                 | Location                                         |
-| -------------------- | ------------------------------------------------ |
-| Add a new feature    | `packages/core/src/newfeature.ts`                |
-| Write tests          | `packages/core/src/__tests__/newfeature.test.ts` |
-| Update standard      | `docs/standard/`                                 |
-| Create a guide       | `docs/guides/`                                   |
-| API reference        | `docs/api/`                                      |
-| Technical specs      | `docs/specs/`                                    |
-| Implementation plans | `docs/plans/`                                    |
+| Task                 | Location                                 |
+| -------------------- | ---------------------------------------- |
+| Add a new feature    | `packages/core/src/newfeature.ts`        |
+| Write tests          | `packages/core/tests/newfeature.test.ts` |
+| Update standard      | `docs/standard/`                         |
+| Create a guide       | `docs/guides/`                           |
+| API reference        | `docs/api/`                              |
+| Technical specs      | `docs/specs/`                            |
+| Implementation plans | `docs/plans/`                            |
 
 ### Important Configuration Files
 
@@ -565,6 +563,6 @@ This is the living documentation of our project - keep it accurate and comprehen
 
 ---
 
-**Last Updated**: 2026-03-11
-**Version**: 1.0
+**Last Updated**: 2026-03-17
+**Version**: 1.1
 **Maintained By**: AI Agents and Engineering Team

@@ -42,12 +42,15 @@ export async function handleValidateProject(input: { path: string }) {
     const core = await import('@harness-engineering/core');
     if (
       typeof core.validateFileStructure === 'function' &&
-      Array.isArray((config as any).conventions)
+      Array.isArray((config as Record<string, unknown>).conventions)
     ) {
-      const structureResult = await core.validateFileStructure(
-        projectPath,
-        (config as any).conventions
-      );
+      const conventions = (config as Record<string, unknown>).conventions as Array<{
+        pattern: string;
+        required: boolean;
+        description: string;
+        examples: string[];
+      }>;
+      const structureResult = await core.validateFileStructure(projectPath, conventions);
       if (structureResult.ok) {
         checks.structure = structureResult.value.valid ? 'pass' : 'fail';
         if (!structureResult.value.valid) {

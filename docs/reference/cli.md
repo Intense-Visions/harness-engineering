@@ -2,8 +2,6 @@
 
 Complete reference for Harness Engineering CLI commands, options, and usage.
 
-> **Note:** The Harness Engineering CLI is currently in development. This document describes the intended command structure and functionality. Actual commands and options may vary. See your project's documentation for currently available commands.
-
 ## Command Structure
 
 All Harness Engineering CLI commands follow this structure:
@@ -17,23 +15,17 @@ harness [global-options] <command> [command-options]
 These options are available for all commands:
 
 ```
---help, -h              Show command help
---version, -v           Show CLI version
---config, -c <file>     Path to harness.config.yml
---verbose               Enable verbose output
---quiet, -q             Suppress non-error output
+--config, -c <path>     Path to harness.config.json
 --json                  Output results as JSON
---no-color              Disable colored output
+--verbose               Enable verbose output
+--quiet                 Suppress non-error output
 ```
 
 ### Examples
 
 ```bash
-# Show help for a specific command
-harness validate --help
-
 # Use custom config file
-harness validate --config=my-config.yml
+harness validate --config=./custom/harness.config.json
 
 # Get verbose output
 harness validate --verbose
@@ -49,46 +41,37 @@ harness validate --json
 Initialize a new Harness Engineering project.
 
 ```
-harness init [options] [directory]
+harness init [options]
 ```
 
 **Options:**
 
 ```
---template <template>   Project template (basic, monorepo, full)
---interactive, -i       Interactive setup wizard
---skip-install          Skip dependency installation
---git                   Initialize git repository
+-n, --name <name>       Project name
+-l, --level <level>     Project level
+--framework             Include framework scaffolding
+-f, --force             Overwrite existing files
+-y, --yes               Skip confirmation prompts
 ```
 
 **Examples:**
 
 ```bash
-# Interactive setup
-harness init --interactive
+# Initialize with defaults (interactive)
+harness init
 
-# Create with monorepo template
-harness init my-project --template=monorepo
+# Initialize with a specific name and level
+harness init --name my-project --level 3
 
-# Skip dependency installation
-harness init --skip-install
-```
-
-**Output:**
-
-```
-✓ Created project structure
-✓ Generated harness.config.yml
-✓ Installed dependencies
-✓ Initialized git repository
-Project ready at: ./my-project
+# Non-interactive, overwrite existing
+harness init --name my-project --yes --force
 ```
 
 ---
 
 ### harness validate
 
-Validate project configuration and structure.
+Run all validation checks on the project.
 
 ```
 harness validate [options]
@@ -97,180 +80,171 @@ harness validate [options]
 **Options:**
 
 ```
---strict                Strict validation (fail on warnings)
---fix                   Attempt to fix validation issues
---check-docs            Validate documentation
---check-types           Validate TypeScript configuration
---check-constraints     Validate architectural constraints
+--cross-check           Enable cross-check validation
 ```
 
 **Examples:**
 
 ```bash
-# Validate all aspects
+# Run all validation checks
 harness validate
 
-# Strict mode (fail on any warning)
-harness validate --strict
+# Run with cross-check validation
+harness validate --cross-check
 
-# Auto-fix issues
-harness validate --fix
-
-# Check only documentation
-harness validate --check-docs
-```
-
-**Output:**
-
-```
-Validating project configuration...
-
-✓ Configuration file valid
-✓ Project structure correct
-✓ Dependencies configured
-⚠ Documentation: 2 pages need updating
-✓ Constraints: 15 rules defined
-
-Validation complete: 3 warnings, 0 errors
+# Output results as JSON
+harness validate --json
 ```
 
 ---
 
-## Code Generation Commands
+### harness check-deps
 
-### harness generate
-
-Generate boilerplate and scaffold code.
+Validate dependency layers and detect circular dependencies.
 
 ```
-harness generate <generator> [options]
-```
-
-**Available Generators:**
-
-```
-component        Generate a new component
-service          Generate a service class
-repository       Generate a repository interface
-test             Generate test file
-config           Generate configuration module
-```
-
-**Global Options for all generators:**
-
-```
---force, -f             Overwrite existing files
---dry-run               Show what would be created without creating
---verbose               Show detailed output
+harness check-deps
 ```
 
 **Examples:**
 
 ```bash
-# Generate a new service
-harness generate service UserService --package=core
+# Check for dependency issues
+harness check-deps
 
-# Generate tests for existing file
-harness generate test src/UserService.ts
-
-# Dry run to preview changes
-harness generate component Button --dry-run
+# Verbose output for debugging
+harness check-deps --verbose
 ```
 
 ---
 
-### harness generate service
+### harness check-docs
 
-Generate a new service class with tests and types.
+Check documentation coverage across the project.
 
 ```
-harness generate service <name> [options]
+harness check-docs [options]
 ```
 
 **Options:**
 
 ```
---package <name>        Target package (required)
---interfaces            Generate interface definitions
---tests                 Generate test file
---mock-repository       Generate mock repository
-```
-
-**Example:**
-
-```bash
-harness generate service UserService \
-  --package=core \
-  --interfaces \
-  --tests
-```
-
-**Generates:**
-
-```
-src/
-├── service/
-│   └── UserService.ts
-├── types/
-│   └── User.ts
-└── __tests__/
-    └── UserService.test.ts
-```
-
----
-
-## Analysis Commands
-
-### harness analyze
-
-Analyze project structure, dependencies, and metrics.
-
-```
-harness analyze [options]
-```
-
-**Options:**
-
-```
---metrics               Show project metrics
---dependencies          Show dependency graph
---coverage              Show test coverage
---complexity            Show code complexity
---format <format>       Output format (text, json, html)
+--min-coverage <percent>   Minimum required documentation coverage (0-100)
 ```
 
 **Examples:**
 
 ```bash
-# Full analysis
-harness analyze
+# Check documentation coverage
+harness check-docs
 
-# Show metrics only
-harness analyze --metrics
-
-# Generate HTML report
-harness analyze --format=html
+# Require at least 80% coverage
+harness check-docs --min-coverage 80
 ```
 
-**Output:**
+---
+
+### harness check-phase-gate
+
+Verify that implementation files have matching spec documents.
 
 ```
-Project Analysis for: my-project
+harness check-phase-gate
+```
 
-📊 Metrics
-  - Files: 247
-  - Lines of Code: 15,243
-  - Test Coverage: 82%
-  - Packages: 5
+**Examples:**
 
-🔗 Dependencies
-  - External: 23
-  - Internal: 45
-  - Circular: 0 ✓
+```bash
+# Verify phase gate compliance
+harness check-phase-gate
+```
 
-📈 Complexity
-  - Average Cyclomatic: 3.2
-  - Max Complexity: 12 (in UserService)
+---
+
+### harness add
+
+Add a component to the project.
+
+```
+harness add <type> <name>
+```
+
+**Types:**
+
+```
+layer          Add a new architectural layer
+doc            Add a new documentation file
+component      Add a new component
+```
+
+**Examples:**
+
+```bash
+# Add a new layer
+harness add layer data-access
+
+# Add a documentation file
+harness add doc api-reference
+
+# Add a component
+harness add component UserService
+```
+
+---
+
+## Entropy and Drift Commands
+
+### harness cleanup
+
+Detect entropy issues such as documentation drift, dead code, and inconsistent patterns.
+
+```
+harness cleanup [options]
+```
+
+**Options:**
+
+```
+-t, --type <type>       Type of entropy to check (doc-drift, dead-code, patterns)
+```
+
+**Examples:**
+
+```bash
+# Detect all entropy issues
+harness cleanup
+
+# Check only for documentation drift
+harness cleanup --type doc-drift
+
+# Check only for dead code
+harness cleanup --type dead-code
+```
+
+---
+
+### harness fix-drift
+
+Auto-fix detected entropy issues including documentation drift and dead code.
+
+```
+harness fix-drift [options]
+```
+
+**Options:**
+
+```
+--no-dry-run            Apply fixes (default behavior is dry-run)
+```
+
+**Examples:**
+
+```bash
+# Preview fixes (dry run)
+harness fix-drift
+
+# Apply fixes
+harness fix-drift --no-dry-run
 ```
 
 ---
@@ -279,7 +253,7 @@ Project Analysis for: my-project
 
 ### harness agent run
 
-Run agents to execute tasks and maintain the codebase.
+Run an agent task.
 
 ```
 harness agent run [options]
@@ -288,230 +262,386 @@ harness agent run [options]
 **Options:**
 
 ```
---mode <mode>           Execution mode (interactive, batch, watch)
---max-depth <n>         Maximum recursion depth
---auto-commit           Auto-commit changes
---branch <branch>       Work on specific branch
---task <task>           Specific task to run
+--timeout <ms>          Timeout in milliseconds
+--persona <name>        Agent persona to use
 ```
 
 **Examples:**
 
 ```bash
-# Interactive agent mode
-harness agent run --mode=interactive
+# Run an agent task
+harness agent run
 
-# Batch mode (non-interactive)
-harness agent run --mode=batch --auto-commit
-
-# Watch mode (continuous)
-harness agent run --mode=watch
+# Run with a specific persona and timeout
+harness agent run --persona architect --timeout 60000
 ```
 
 ---
 
-### harness agent validate
+### harness agent review
 
-Validate agent output and changes before committing.
+Run self-review on current changes.
 
 ```
-harness agent validate [options]
+harness agent review
+```
+
+**Examples:**
+
+```bash
+# Review current changes
+harness agent review
+```
+
+---
+
+## Persona Commands
+
+### harness persona list
+
+List available agent personas.
+
+```
+harness persona list
+```
+
+---
+
+### harness persona generate
+
+Generate artifacts from a persona configuration.
+
+```
+harness persona generate <name> [options]
 ```
 
 **Options:**
 
 ```
---branch <branch>       Branch to validate
---strict                Strict validation
---report                Generate validation report
-```
-
-**Example:**
-
-```bash
-harness agent validate --branch=agent/task-123 --strict
-```
-
----
-
-## Constraint and Enforcement Commands
-
-### harness constraints
-
-Manage and validate architectural constraints.
-
-```
-harness constraints <action> [options]
-```
-
-**Actions:**
-
-```
-list                    List all defined constraints
-validate                Validate constraints
-enforce                 Enforce constraint rules
-report                  Generate constraint report
+--output-dir <dir>      Output directory for generated artifacts
+--only <type>           Generate only a specific artifact type
 ```
 
 **Examples:**
 
 ```bash
-# List all constraints
-harness constraints list
+# Generate all artifacts for a persona
+harness persona generate architect
 
-# Validate that code follows constraints
-harness constraints validate
-
-# Generate HTML report
-harness constraints report --format=html
+# Generate only prompts to a custom directory
+harness persona generate architect --only prompts --output-dir ./out
 ```
 
 ---
 
-## Documentation Commands
+## Skill Commands
 
-### harness docs
+### harness skill list
 
-Generate and manage documentation.
-
-```
-harness docs <action> [options]
-```
-
-**Actions:**
+List available skills.
 
 ```
-build                   Build documentation site
-serve                   Start documentation server
-validate                Validate documentation
-generate-toc            Generate table of contents
+harness skill list
+```
+
+---
+
+### harness skill run
+
+Run a skill, outputting SKILL.md content with a context preamble.
+
+```
+harness skill run <name> [options]
 ```
 
 **Options:**
 
 ```
---port <port>           Port for docs server
---output <dir>          Output directory for build
---watch                 Watch for changes
+--path <path>           Project path
+--complexity <level>    Complexity level
+--phase <name>          Phase name
+--party                 Enable party mode
 ```
 
 **Examples:**
 
 ```bash
-# Start documentation server
-harness docs serve --port=3000
+# Run a skill
+harness skill run code-review
 
-# Build static documentation
-harness docs build --output=dist
-
-# Validate documentation
-harness docs validate
+# Run with complexity and phase context
+harness skill run implementation --complexity high --phase build
 ```
 
 ---
 
-## Configuration Commands
+### harness skill validate
 
-### harness config
-
-Manage project configuration.
+Validate all skill.yaml files and SKILL.md structure.
 
 ```
-harness config <action> [options]
+harness skill validate
 ```
 
-**Actions:**
+---
+
+### harness skill info
+
+Show metadata for a specific skill.
 
 ```
-show                    Show current configuration
-set <key> <value>       Set configuration value
-get <key>               Get specific configuration value
-reset                   Reset to defaults
+harness skill info <name>
 ```
 
 **Examples:**
 
 ```bash
-# Show all configuration
-harness config show
-
-# Get specific value
-harness config get agent.autoReview
-
-# Set configuration
-harness config set agent.autoReview true
-
-# Reset to defaults
-harness config reset
+# Show info about a skill
+harness skill info code-review
 ```
 
 ---
 
-## Utility Commands
+### harness create-skill
 
-### harness version
-
-Show CLI version and environment information.
+Scaffold a new skill with skill.yaml and SKILL.md files.
 
 ```
-harness version [options]
+harness create-skill <path> [options]
 ```
 
 **Options:**
 
 ```
---verbose               Show detailed version info
---json                  Output as JSON
-```
-
-**Example:**
-
-```bash
-$ harness version
-Harness Engineering CLI v1.0.0
-Node.js: v18.12.0
-Platform: darwin (arm64)
-```
-
----
-
-### harness help
-
-Show help information.
-
-```
-harness help [command]
+--name <name>           Skill name
+--description <desc>    Skill description
+--cognitive-mode <mode> Cognitive mode for the skill
+--reads <files>         Files the skill reads
+--produces <files>      Files the skill produces
+--pre-checks <checks>   Pre-check commands
+--post-checks <checks>  Post-check commands
 ```
 
 **Examples:**
 
 ```bash
-# Show main help
-harness help
+# Scaffold a new skill
+harness create-skill ./skills/my-skill --name my-skill --description "Does a thing"
 
-# Show help for specific command
-harness help validate
+# Scaffold with full metadata
+harness create-skill ./skills/review \
+  --name review \
+  --cognitive-mode analytical \
+  --reads "src/**/*.ts" \
+  --produces "reports/review.md"
+```
 
-# List all available commands
-harness help --list
+---
+
+## Linter Commands
+
+### harness linter generate
+
+Generate ESLint rules from a harness-linter.yml configuration.
+
+```
+harness linter generate [options]
+```
+
+**Options:**
+
+```
+-c, --config <path>     Path to harness-linter.yml config
+-o, --output <dir>      Output directory for generated rules
+--clean                 Remove existing generated rules before generating
+--dry-run               Preview what would be generated without writing files
+--json                  Output results as JSON
+--verbose               Verbose output
+```
+
+**Examples:**
+
+```bash
+# Generate rules from default config
+harness linter generate
+
+# Generate with custom config and output directory
+harness linter generate --config ./my-linter.yml --output ./eslint-rules
+
+# Preview without writing
+harness linter generate --dry-run
+```
+
+---
+
+### harness linter validate
+
+Validate a harness-linter.yml configuration file.
+
+```
+harness linter validate [options]
+```
+
+**Options:**
+
+```
+-c, --config <path>     Path to harness-linter.yml config
+--json                  Output results as JSON
+```
+
+**Examples:**
+
+```bash
+# Validate default config
+harness linter validate
+
+# Validate a specific config file
+harness linter validate --config ./my-linter.yml
+```
+
+---
+
+## State Commands
+
+### harness state show
+
+Show current project state.
+
+```
+harness state show [options]
+```
+
+**Options:**
+
+```
+--path <path>           Project path
+```
+
+---
+
+### harness state reset
+
+Reset project state.
+
+```
+harness state reset [options]
+```
+
+**Options:**
+
+```
+--path <path>           Project path
+--yes                   Skip confirmation prompt
+```
+
+**Examples:**
+
+```bash
+# Reset state (with confirmation)
+harness state reset
+
+# Reset without confirmation
+harness state reset --yes
+```
+
+---
+
+### harness state learn
+
+Append a learning to .harness/learnings.md.
+
+```
+harness state learn <learning> [options]
+```
+
+**Options:**
+
+```
+--path <path>           Project path
+```
+
+**Examples:**
+
+```bash
+# Record a learning
+harness state learn "Circular deps in data layer resolved by extracting interfaces"
+```
+
+---
+
+## Integration Commands
+
+### harness setup-mcp
+
+Configure MCP server for AI agent integration.
+
+```
+harness setup-mcp [options]
+```
+
+**Options:**
+
+```
+--client <client>       Target AI client to configure
+```
+
+**Examples:**
+
+```bash
+# Set up MCP integration
+harness setup-mcp
+
+# Set up for a specific client
+harness setup-mcp --client claude
+```
+
+---
+
+### harness generate-slash-commands
+
+Generate native slash commands for Claude Code and Gemini CLI from skill metadata.
+
+```
+harness generate-slash-commands [options]
+```
+
+**Options:**
+
+```
+--platforms <platforms>  Target platforms (e.g., claude, gemini)
+--global                Install commands globally
+--output <dir>          Output directory
+--skills-dir <dir>      Directory containing skills
+--dry-run               Preview without writing files
+--yes                   Skip confirmation prompts
+```
+
+**Examples:**
+
+```bash
+# Generate slash commands for all platforms
+harness generate-slash-commands
+
+# Generate only for Claude Code, dry run
+harness generate-slash-commands --platforms claude --dry-run
+
+# Generate globally with custom skills directory
+harness generate-slash-commands --global --skills-dir ./my-skills
 ```
 
 ---
 
 ## Exit Codes
 
-The CLI uses standard exit codes:
+The CLI uses the following exit codes:
 
 ```
 0       Success
 1       General error
-2       Command not found
-3       Configuration error
-4       Validation failed
-5       Build failed
+2       Validation failed
 ```
 
-Use exit codes for scripting:
+Use exit codes in scripts:
 
 ```bash
 harness validate
@@ -523,56 +653,29 @@ fi
 
 ---
 
-## Performance Considerations
-
-For large projects, use these options:
-
-```bash
-# Parallel execution (if supported)
-harness validate --parallel
-
-# Skip expensive checks
-harness validate --skip-complexity
-
-# Batch operations
-harness generate --batch <file>
-```
-
----
-
 ## Troubleshooting
 
 ### Command Not Recognized
 
-Ensure CLI is installed and in PATH:
+Ensure the CLI is installed and in your PATH:
 
 ```bash
-harness --version
+npx harness --help
 which harness
 ```
 
 ### Configuration Not Found
 
-Specify config path explicitly:
+Specify the config path explicitly:
 
 ```bash
-harness validate --config=/path/to/harness.config.yml
-```
-
-### Permission Denied
-
-Ensure proper file permissions:
-
-```bash
-chmod +x node_modules/.bin/harness
+harness validate --config=/path/to/harness.config.json
 ```
 
 ### See Also
 
 - [Configuration Reference](./configuration.md)
-- [Best Practices Guide](/guides/best-practices.md)
-- [Implementation Guide](/standard/implementation.md)
 
 ---
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-17_
