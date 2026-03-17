@@ -33,6 +33,7 @@ vi.mock('../../src/config/loader', () => ({
 }));
 
 import { runCICheck } from '../../src/commands/ci/check';
+import { runCIChecks } from '@harness-engineering/core';
 
 describe('runCICheck', () => {
   it('returns a CICheckReport result', async () => {
@@ -46,10 +47,16 @@ describe('runCICheck', () => {
   it('passes skip option through to core', async () => {
     const result = await runCICheck({ skip: ['entropy', 'docs'] });
     expect(result.ok).toBe(true);
+    expect(runCIChecks).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: ['entropy', 'docs'] })
+    );
   });
 
   it('passes failOn option through to core', async () => {
     const result = await runCICheck({ failOn: 'warning' });
     expect(result.ok).toBe(true);
+    expect(runCIChecks).toHaveBeenCalledWith(
+      expect.objectContaining({ failOn: 'warning' })
+    );
   });
 });

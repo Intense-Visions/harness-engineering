@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { CICheckName, CICheckReport } from '@harness-engineering/types';
 
 // Mock all core modules before importing orchestrator
 vi.mock('../../src/context/agents-map', () => ({
@@ -23,7 +22,7 @@ vi.mock('../../src/context/doc-coverage', () => ({
 vi.mock('../../src/entropy/analyzer', () => {
   const mockAnalyze = vi.fn().mockResolvedValue({
     ok: true,
-    value: { summary: { totalIssues: 0 } },
+    value: { summary: { totalIssues: 0 }, drift: { drifts: [], stats: { driftsFound: 0 } }, deadCode: { deadExports: [] } },
   });
   return {
     EntropyAnalyzer: class {
@@ -32,9 +31,8 @@ vi.mock('../../src/entropy/analyzer', () => {
   };
 });
 
-// Phase gate is optional and depends on config
-vi.mock('../../src/workflow/runner', () => ({
-  executeWorkflow: vi.fn().mockResolvedValue({ pass: true, stepResults: [] }),
+vi.mock('../../src/shared/parsers', () => ({
+  TypeScriptParser: class {},
 }));
 
 import { runCIChecks } from '../../src/ci/check-orchestrator';

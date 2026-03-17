@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import type {
   CICheckName,
   CICheckResult,
@@ -12,6 +13,7 @@ import { validateAgentsMap } from '../context/agents-map';
 import { validateDependencies } from '../constraints/dependencies';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { EntropyAnalyzer } from '../entropy/analyzer';
+import { TypeScriptParser } from '../shared/parsers';
 
 export interface RunCIChecksInput {
   projectRoot: string;
@@ -33,7 +35,7 @@ async function runSingleCheck(
   try {
     switch (name) {
       case 'validate': {
-        const agentsPath = `${projectRoot}/${(config.agentsMapPath as string) ?? 'AGENTS.md'}`;
+        const agentsPath = path.join(projectRoot, (config.agentsMapPath as string) ?? 'AGENTS.md');
         const result = await validateAgentsMap(agentsPath);
         if (!result.ok) {
           issues.push({ severity: 'error', message: result.error.message });
@@ -60,7 +62,6 @@ async function runSingleCheck(
       case 'deps': {
         const layers = config.layers as Array<Record<string, unknown>> | undefined;
         if (layers && layers.length > 0) {
-          const { TypeScriptParser } = await import('../shared/parsers');
           const parser = new TypeScriptParser();
           const result = await validateDependencies({
             layers: layers as never,
@@ -84,7 +85,7 @@ async function runSingleCheck(
       }
 
       case 'docs': {
-        const docsDir = `${projectRoot}/${(config.docsDir as string) ?? 'docs'}`;
+        const docsDir = path.join(projectRoot, (config.docsDir as string) ?? 'docs');
         const result = await checkDocCoverage('project', { docsDir });
         if (!result.ok) {
           issues.push({ severity: 'warning', message: result.error.message });
@@ -108,18 +109,46 @@ async function runSingleCheck(
         const result = await analyzer.analyze();
         if (!result.ok) {
           issues.push({ severity: 'warning', message: result.error.message });
+        } else {
+          const report = result.value;
+          if (report.drift) {
+            for (const drift of report.drift.drifts) {
+              issues.push({
+                severity: 'warning',
+                message: `Doc drift (${drift.type}): ${drift.details}`,
+                file: drift.docFile,
+                line: drift.line,
+              });
+            }
+          }
+          if (report.deadCode) {
+            for (const dead of report.deadCode.deadExports) {
+              issues.push({
+                severity: 'warning',
+                message: `Dead export: ${dead.name}`,
+                file: dead.file,
+                line: dead.line,
+              });
+            }
+          }
         }
         break;
       }
 
       case 'phase-gate': {
         const phaseGates = config.phaseGates as Record<string, unknown> | undefined;
-        if (phaseGates?.enabled) {
-          issues.push({
-            severity: 'warning',
-            message: 'Phase gate check requires CLI context. Use harness check-phase-gate directly.',
-          });
+        if (!phaseGates?.enabled) {
+          // Phase gates not configured — skip silently (not an error)
+          break;
         }
+        // Phase gate validation requires CLI-level context (config resolution,
+        // spec/impl pattern matching). The core orchestrator cannot run it
+        // directly. When phase gates are enabled, the CI check reports this
+        // limitation so users know to also run `harness check-phase-gate`.
+        issues.push({
+          severity: 'warning',
+          message: 'Phase gate is enabled but requires CLI context. Run `harness check-phase-gate` separately for full validation.',
+        });
         break;
       }
     }
