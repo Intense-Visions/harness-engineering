@@ -1,0 +1,10 @@
+name: harness-no-md
+version: "1.0.0"
+description: A skill without SKILL.md
+type: rigid
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools:
+  - Read
