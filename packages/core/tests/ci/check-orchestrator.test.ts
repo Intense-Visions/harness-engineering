@@ -20,14 +20,17 @@ vi.mock('../../src/context/doc-coverage', () => ({
   }),
 }));
 
-vi.mock('../../src/entropy/analyzer', () => ({
-  EntropyAnalyzer: vi.fn().mockImplementation(() => ({
-    analyze: vi.fn().mockResolvedValue({
-      ok: true,
-      value: { summary: { totalIssues: 0 } },
-    }),
-  })),
-}));
+vi.mock('../../src/entropy/analyzer', () => {
+  const mockAnalyze = vi.fn().mockResolvedValue({
+    ok: true,
+    value: { summary: { totalIssues: 0 } },
+  });
+  return {
+    EntropyAnalyzer: class {
+      analyze = mockAnalyze;
+    },
+  };
+});
 
 // Phase gate is optional and depends on config
 vi.mock('../../src/workflow/runner', () => ({
@@ -129,7 +132,7 @@ describe('runCIChecks', () => {
         documented: ['a.md'],
         undocumented: ['b.ts'],
         coveragePercentage: 50,
-        gaps: [{ source: 'b.ts', type: 'missing', description: 'No docs for b.ts' }],
+        gaps: [{ file: 'b.ts', suggestedSection: 'API', importance: 'high' }],
       },
     });
 

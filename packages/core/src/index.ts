@@ -53,5 +53,8 @@ export * from './workflow';
 // Pipeline module
 export * from './pipeline';
 
+// CI module
+export * from './ci';
+
 // Package version
 export const VERSION = '0.6.0';
