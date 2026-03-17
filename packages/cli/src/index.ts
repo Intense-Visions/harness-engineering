@@ -15,6 +15,7 @@ import { createStateCommand } from './commands/state';
 import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
 import { createCreateSkillCommand } from './commands/create-skill';
 import { createSetupMcpCommand } from './commands/setup-mcp';
+import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -44,6 +45,7 @@ export function createProgram(): Command {
   program.addCommand(createCheckPhaseGateCommand());
   program.addCommand(createCreateSkillCommand());
   program.addCommand(createSetupMcpCommand());
+  program.addCommand(createGenerateSlashCommandsCommand());
 
   return program;
 }
@@ -56,6 +58,8 @@ export { runCheckPhaseGate } from './commands/check-phase-gate';
 export { runCrossCheck } from './commands/validate-cross-check';
 export { generateSkillFiles } from './commands/create-skill';
 export type { CreateSkillOptions } from './commands/create-skill';
+export { generateSlashCommands } from './commands/generate-slash-commands';
+export type { GenerateResult } from './commands/generate-slash-commands';
 
 // Re-export utilities
 export { CLIError, ExitCode, handleError } from './utils/errors';

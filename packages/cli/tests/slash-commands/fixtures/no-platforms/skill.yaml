@@ -1,0 +1,10 @@
+name: no-platform-skill
+version: "1.0.0"
+description: A skill with no matching platforms
+type: rigid
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools:
+  - Read
