@@ -212,41 +212,41 @@ CREATE docs/guides/recipes/headless-agent-action.yml
 
 ## Sequence
 
-| Task | Name | Depends | Parallel Group |
-|------|------|---------|---------------|
-| 1 | CI types | — | A |
-| 2 | Core orchestrator test | 1 | B |
-| 3 | Core orchestrator impl | 2 | B |
-| 4 | CLI ci check test | 3 | C |
-| 5 | CLI ci check command | 4 | C |
-| 6 | CLI ci init test | 5 | D |
-| 7 | CI templates + ci init | 6 | D |
-| 8 | Automation overview doc | 5 | E |
-| 9 | CI/CD validation doc | 8 | E |
-| 10 | CI platform recipes | 9 | E |
-| 11 | Issue tracker doc | 10 | F |
-| 12 | Issue tracker recipes | 11 | F |
-| 13 | Headless agents doc | 5 | E (parallel with 8–10) |
-| 14 | Headless agent recipe | 13 | E |
-| 15 | Final link check | 8–14 | G |
+| Task | Name                    | Depends | Parallel Group         |
+| ---- | ----------------------- | ------- | ---------------------- |
+| 1    | CI types                | —       | A                      |
+| 2    | Core orchestrator test  | 1       | B                      |
+| 3    | Core orchestrator impl  | 2       | B                      |
+| 4    | CLI ci check test       | 3       | C                      |
+| 5    | CLI ci check command    | 4       | C                      |
+| 6    | CLI ci init test        | 5       | D                      |
+| 7    | CI templates + ci init  | 6       | D                      |
+| 8    | Automation overview doc | 5       | E                      |
+| 9    | CI/CD validation doc    | 8       | E                      |
+| 10   | CI platform recipes     | 9       | E                      |
+| 11   | Issue tracker doc       | 10      | F                      |
+| 12   | Issue tracker recipes   | 11      | F                      |
+| 13   | Headless agents doc     | 5       | E (parallel with 8–10) |
+| 14   | Headless agent recipe   | 13      | E                      |
+| 15   | Final link check        | 8–14    | G                      |
 
 **Parallel opportunities:** Tasks 8–10 and Tasks 13–14 touch different guides with no shared state and can be executed simultaneously.
 
 ## Traceability
 
-| Observable Truth | Tasks |
-|-----------------|-------|
-| 1. ci check --json returns CICheckReport | 1–5 |
-| 2. Exit codes 0/1/2 | 2–5 |
-| 3. --skip marks checks as skip | 2–5 |
-| 4. --fail-on warning exits 1 | 2–5 |
-| 5. ci init --platform github | 6–7 |
-| 6. ci init --platform gitlab | 6–7 |
-| 7. ci init --platform generic | 6–7 |
-| 8. automation-overview.md with links | 8, 15 |
-| 9. ci-cd-validation.md | 9 |
-| 10. issue-tracker-integration.md | 11 |
-| 11. headless-agents.md | 13 |
-| 12. Six recipe files | 10, 12, 14 |
-| 13. Core CI tests pass | 2–3 |
-| 14. CLI CI tests pass | 4–7 |
+| Observable Truth                         | Tasks      |
+| ---------------------------------------- | ---------- |
+| 1. ci check --json returns CICheckReport | 1–5        |
+| 2. Exit codes 0/1/2                      | 2–5        |
+| 3. --skip marks checks as skip           | 2–5        |
+| 4. --fail-on warning exits 1             | 2–5        |
+| 5. ci init --platform github             | 6–7        |
+| 6. ci init --platform gitlab             | 6–7        |
+| 7. ci init --platform generic            | 6–7        |
+| 8. automation-overview.md with links     | 8, 15      |
+| 9. ci-cd-validation.md                   | 9          |
+| 10. issue-tracker-integration.md         | 11         |
+| 11. headless-agents.md                   | 13         |
+| 12. Six recipe files                     | 10, 12, 14 |
+| 13. Core CI tests pass                   | 2–3        |
+| 14. CLI CI tests pass                    | 4–7        |

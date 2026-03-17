@@ -147,7 +147,8 @@ async function runSingleCheck(
         // limitation so users know to also run `harness check-phase-gate`.
         issues.push({
           severity: 'warning',
-          message: 'Phase gate is enabled but requires CLI context. Run `harness check-phase-gate` separately for full validation.',
+          message:
+            'Phase gate is enabled but requires CLI context. Run `harness check-phase-gate` separately for full validation.',
         });
         break;
       }
@@ -181,18 +182,13 @@ function buildSummary(checks: CICheckResult[]): CICheckSummary {
   };
 }
 
-function determineExitCode(
-  summary: CICheckSummary,
-  failOn: CIFailOnSeverity = 'error'
-): 0 | 1 | 2 {
+function determineExitCode(summary: CICheckSummary, failOn: CIFailOnSeverity = 'error'): 0 | 1 | 2 {
   if (summary.failed > 0) return 1;
   if (failOn === 'warning' && summary.warnings > 0) return 1;
   return 0;
 }
 
-export async function runCIChecks(
-  input: RunCIChecksInput
-): Promise<Result<CICheckReport, Error>> {
+export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CICheckReport, Error>> {
   const { projectRoot, config, skip = [], failOn = 'error' } = input;
 
   try {

@@ -18,6 +18,7 @@ Both directions use CI triggers and scripts — no dedicated webhook service is 
 When `harness ci check` fails in CI, post a summary comment on the PR.
 
 **How it works:**
+
 1. `harness ci check --json` runs in CI and produces a report
 2. A CI step parses the report and formats a comment
 3. The comment is posted to the PR via `gh` CLI
@@ -45,6 +46,7 @@ See the full [GitHub Actions recipe](./recipes/github-actions-harness.yml).
 When entropy detection finds drift above a threshold, automatically create a GitHub issue.
 
 **How it works:**
+
 1. A scheduled CI job runs `harness ci check --json`
 2. A script checks if entropy warnings exceed a threshold
 3. If so, create an issue with the drift details
@@ -54,7 +56,7 @@ When entropy detection finds drift above a threshold, automatically create a Git
 ```yaml
 on:
   schedule:
-    - cron: '0 9 * * 1'  # Weekly
+    - cron: '0 9 * * 1' # Weekly
 
 jobs:
   entropy-check:

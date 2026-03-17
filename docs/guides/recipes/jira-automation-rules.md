@@ -86,6 +86,7 @@ When a Jira issue is labeled with a component, sync that label to the linked Git
      ```
 
 **Note:** Linking Jira issues to GitHub PRs requires either:
+
 - [GitHub for Jira](https://github.com/marketplace/github-for-jira) app
 - A custom field storing the PR number
 - Smart Commit messages (`PROJ-123` in commit messages)

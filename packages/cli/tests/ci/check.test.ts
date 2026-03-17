@@ -55,8 +55,6 @@ describe('runCICheck', () => {
   it('passes failOn option through to core', async () => {
     const result = await runCICheck({ failOn: 'warning' });
     expect(result.ok).toBe(true);
-    expect(runCIChecks).toHaveBeenCalledWith(
-      expect.objectContaining({ failOn: 'warning' })
-    );
+    expect(runCIChecks).toHaveBeenCalledWith(expect.objectContaining({ failOn: 'warning' }));
   });
 });

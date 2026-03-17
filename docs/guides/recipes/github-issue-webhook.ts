@@ -99,9 +99,7 @@ function formatIssueBody(check: CICheckResult, report: CICheckReport): string {
   ];
 
   for (const issue of check.issues) {
-    const location = issue.file
-      ? ` (\`${issue.file}${issue.line ? `:${issue.line}` : ''}\`)`
-      : '';
+    const location = issue.file ? ` (\`${issue.file}${issue.line ? `:${issue.line}` : ''}\`)` : '';
     lines.push(`- **${issue.severity}:** ${issue.message}${location}`);
   }
 

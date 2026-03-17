@@ -1,5 +1,10 @@
 import { Command } from 'commander';
-import type { Result, CICheckName, CICheckReport, CIFailOnSeverity } from '@harness-engineering/core';
+import type {
+  Result,
+  CICheckName,
+  CICheckReport,
+  CIFailOnSeverity,
+} from '@harness-engineering/core';
 import { runCIChecks } from '@harness-engineering/core';
 import { resolveConfig } from '../../config/loader';
 import { OutputMode, type OutputModeType } from '../../output/formatter';

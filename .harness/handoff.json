@@ -19,5 +19,14 @@
     "Support --version flag for pinning, default to latest",
     "Single command file, no premature abstraction"
   ],
-  "contextKeywords": ["cli", "update", "self-update", "package-manager", "npm", "pnpm", "global-install", "slash-commands"]
+  "contextKeywords": [
+    "cli",
+    "update",
+    "self-update",
+    "package-manager",
+    "npm",
+    "pnpm",
+    "global-install",
+    "slash-commands"
+  ]
 }

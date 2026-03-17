@@ -77,8 +77,7 @@ describe('renderGemini', () => {
   });
 
   it('uses TOML literal strings to preserve backslashes', () => {
-    const mdWithBackslashes =
-      '# Skill\n\n```bash\ngrep -v -E "\\.(md|yml)$" | wc -l\n```';
+    const mdWithBackslashes = '# Skill\n\n```bash\ngrep -v -E "\\.(md|yml)$" | wc -l\n```';
     const output = renderGemini(baseSpec, mdWithBackslashes, skillYamlContent);
     expect(output).toContain("prompt = '''");
     expect(output).toContain("'''");

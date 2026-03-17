@@ -22,7 +22,11 @@ vi.mock('../../src/context/doc-coverage', () => ({
 vi.mock('../../src/entropy/analyzer', () => {
   const mockAnalyze = vi.fn().mockResolvedValue({
     ok: true,
-    value: { summary: { totalIssues: 0 }, drift: { drifts: [], stats: { driftsFound: 0 } }, deadCode: { deadExports: [] } },
+    value: {
+      summary: { totalIssues: 0 },
+      drift: { drifts: [], stats: { driftsFound: 0 } },
+      deadCode: { deadExports: [] },
+    },
   });
   return {
     EntropyAnalyzer: class {

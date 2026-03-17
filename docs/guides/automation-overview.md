@@ -12,10 +12,10 @@ Harness Engineering provides a stable CLI interface for integrating validation, 
 
 All CI automation flows through two commands:
 
-| Command | Purpose |
-|---------|---------|
+| Command            | Purpose                                           |
+| ------------------ | ------------------------------------------------- |
 | `harness ci check` | Run all harness checks, return structured results |
-| `harness ci init` | Generate CI config for your platform |
+| `harness ci init`  | Generate CI config for your platform              |
 
 ### `harness ci check`
 
@@ -25,21 +25,21 @@ harness ci check [--json] [--fail-on <severity>] [--skip <check>]
 
 **Checks run:**
 
-| Check | What it validates |
-|-------|-------------------|
-| `validate` | AGENTS.md structure and link integrity |
-| `deps` | Layer dependency boundaries |
-| `docs` | Documentation coverage gaps |
-| `entropy` | Code drift and dead code |
-| `phase-gate` | Spec-to-implementation mapping |
+| Check        | What it validates                      |
+| ------------ | -------------------------------------- |
+| `validate`   | AGENTS.md structure and link integrity |
+| `deps`       | Layer dependency boundaries            |
+| `docs`       | Documentation coverage gaps            |
+| `entropy`    | Code drift and dead code               |
+| `phase-gate` | Spec-to-implementation mapping         |
 
 **Exit codes:**
 
-| Code | Meaning |
-|------|---------|
-| `0` | All checks passed |
-| `1` | One or more checks failed |
-| `2` | Harness internal error |
+| Code | Meaning                   |
+| ---- | ------------------------- |
+| `0`  | All checks passed         |
+| `1`  | One or more checks failed |
+| `2`  | Harness internal error    |
 
 **JSON output:** When `--json` is passed, the command outputs a `CICheckReport` object:
 
@@ -99,14 +99,14 @@ git commit -m "ci: add harness checks"
 
 Copy-paste-ready configuration files:
 
-| Recipe | Description |
-|--------|-------------|
+| Recipe                                                             | Description                                         |
+| ------------------------------------------------------------------ | --------------------------------------------------- |
 | [github-actions-harness.yml](./recipes/github-actions-harness.yml) | GitHub Actions workflow with PR comments and labels |
-| [gitlab-ci-harness.yml](./recipes/gitlab-ci-harness.yml) | GitLab CI job configuration |
-| [ci-check-script.sh](./recipes/ci-check-script.sh) | Platform-agnostic shell script |
-| [github-issue-webhook.ts](./recipes/github-issue-webhook.ts) | Node.js handler: harness results → GitHub Issues |
-| [jira-automation-rules.md](./recipes/jira-automation-rules.md) | Jira automation rules for issue ↔ harness flows |
-| [headless-agent-action.yml](./recipes/headless-agent-action.yml) | GitHub Action for running harness agents headlessly |
+| [gitlab-ci-harness.yml](./recipes/gitlab-ci-harness.yml)           | GitLab CI job configuration                         |
+| [ci-check-script.sh](./recipes/ci-check-script.sh)                 | Platform-agnostic shell script                      |
+| [github-issue-webhook.ts](./recipes/github-issue-webhook.ts)       | Node.js handler: harness results → GitHub Issues    |
+| [jira-automation-rules.md](./recipes/jira-automation-rules.md)     | Jira automation rules for issue ↔ harness flows     |
+| [headless-agent-action.yml](./recipes/headless-agent-action.yml)   | GitHub Action for running harness agents headlessly |
 
 ## Future Direction: Webhook Service
 

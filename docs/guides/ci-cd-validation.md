@@ -21,29 +21,29 @@ harness ci check [--json] [--fail-on <severity>] [--skip <check>]
 
 **Options:**
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--json` | off | Output structured JSON report |
-| `--fail-on <severity>` | `error` | Exit non-zero on `error` (default) or `warning` |
-| `--skip <checks>` | none | Comma-separated checks to skip: `validate`, `deps`, `docs`, `entropy`, `phase-gate` |
+| Flag                   | Default | Description                                                                         |
+| ---------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `--json`               | off     | Output structured JSON report                                                       |
+| `--fail-on <severity>` | `error` | Exit non-zero on `error` (default) or `warning`                                     |
+| `--skip <checks>`      | none    | Comma-separated checks to skip: `validate`, `deps`, `docs`, `entropy`, `phase-gate` |
 
 ### Checks
 
-| Check | What it validates | Severity on failure |
-|-------|-------------------|---------------------|
-| `validate` | AGENTS.md exists, has required sections, no broken links | Error |
-| `deps` | Layer dependency boundaries respected, no forbidden imports | Error |
-| `docs` | Documentation coverage — undocumented source files flagged | Warning |
-| `entropy` | Code drift between docs and source, dead code detection | Warning |
-| `phase-gate` | Spec-to-implementation mapping (when `phaseGates.enabled` in config) | Configurable |
+| Check        | What it validates                                                    | Severity on failure |
+| ------------ | -------------------------------------------------------------------- | ------------------- |
+| `validate`   | AGENTS.md exists, has required sections, no broken links             | Error               |
+| `deps`       | Layer dependency boundaries respected, no forbidden imports          | Error               |
+| `docs`       | Documentation coverage — undocumented source files flagged           | Warning             |
+| `entropy`    | Code drift between docs and source, dead code detection              | Warning             |
+| `phase-gate` | Spec-to-implementation mapping (when `phaseGates.enabled` in config) | Configurable        |
 
 ### Exit Codes
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| `0` | All checks passed (or only skipped) | Proceed |
-| `1` | One or more checks failed at the configured severity | Block merge |
-| `2` | Harness internal error (config not found, parse failure) | Investigate |
+| Code | Meaning                                                  | Action      |
+| ---- | -------------------------------------------------------- | ----------- |
+| `0`  | All checks passed (or only skipped)                      | Proceed     |
+| `1`  | One or more checks failed at the configured severity     | Block merge |
+| `2`  | Harness internal error (config not found, parse failure) | Investigate |
 
 ### JSON Output Schema
 
@@ -53,10 +53,10 @@ interface CICheckReport {
   project: string;
   timestamp: string;
   checks: Array<{
-    name: "validate" | "deps" | "docs" | "entropy" | "phase-gate";
-    status: "pass" | "fail" | "warn" | "skip";
+    name: 'validate' | 'deps' | 'docs' | 'entropy' | 'phase-gate';
+    status: 'pass' | 'fail' | 'warn' | 'skip';
     issues: Array<{
-      severity: "error" | "warning";
+      severity: 'error' | 'warning';
       message: string;
       file?: string;
       line?: number;
@@ -115,7 +115,7 @@ See the [GitHub Actions recipe](./recipes/github-actions-harness.yml) for a comp
 - name: Run harness checks
   id: harness
   run: harness ci check --json > harness-report.json
-  continue-on-error: true  # Capture exit code without failing the step
+  continue-on-error: true # Capture exit code without failing the step
 
 - name: Comment on PR
   if: github.event_name == 'pull_request'
@@ -197,13 +197,13 @@ Phase gates require configuration in `harness.config.json`:
 
 ### Common Issues
 
-| Check | Common failure | Fix |
-|-------|---------------|-----|
+| Check      | Common failure             | Fix                                                                                 |
+| ---------- | -------------------------- | ----------------------------------------------------------------------------------- |
 | `validate` | Missing AGENTS.md sections | Add required sections: Project Overview, Repository Structure, Development Workflow |
-| `validate` | Broken links in AGENTS.md | Update file paths that have moved |
-| `deps` | Layer boundary violation | Move the import or update `layers` config in `harness.config.json` |
-| `docs` | Low documentation coverage | Add documentation for undocumented source files |
-| `entropy` | Doc drift detected | Run `harness fix-drift` to auto-fix, or update docs manually |
+| `validate` | Broken links in AGENTS.md  | Update file paths that have moved                                                   |
+| `deps`     | Layer boundary violation   | Move the import or update `layers` config in `harness.config.json`                  |
+| `docs`     | Low documentation coverage | Add documentation for undocumented source files                                     |
+| `entropy`  | Doc drift detected         | Run `harness fix-drift` to auto-fix, or update docs manually                        |
 
 ### Reading the JSON Report
 

@@ -16,14 +16,14 @@ Add a `harness update` CLI command that updates all globally installed `@harness
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Update mechanism | Shell out to package manager | Delegates to proven tooling, avoids reinventing installation logic |
-| Package manager detection | Auto-detect from binary symlink path, fall back to npm | Covers npm/pnpm/yarn transparently; npm fallback handles edge cases (Volta, asdf) |
-| Scope of update | All `@harness-engineering/*` packages | Keeps packages in sync, avoids version mismatches between cli/core/mcp-server |
-| Version targeting | `latest` by default, `--version <semver>` flag for pinning | Covers 99% case simply, with escape hatch for teams needing specific versions |
-| Post-update actions | Interactive prompt for slash command regeneration only | YAGNI — one action for now, easy to add more later |
-| Architecture | Single command file, inline logic | Follows existing pattern, avoids premature abstraction |
+| Decision                  | Choice                                                     | Rationale                                                                         |
+| ------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Update mechanism          | Shell out to package manager                               | Delegates to proven tooling, avoids reinventing installation logic                |
+| Package manager detection | Auto-detect from binary symlink path, fall back to npm     | Covers npm/pnpm/yarn transparently; npm fallback handles edge cases (Volta, asdf) |
+| Scope of update           | All `@harness-engineering/*` packages                      | Keeps packages in sync, avoids version mismatches between cli/core/mcp-server     |
+| Version targeting         | `latest` by default, `--version <semver>` flag for pinning | Covers 99% case simply, with escape hatch for teams needing specific versions     |
+| Post-update actions       | Interactive prompt for slash command regeneration only     | YAGNI — one action for now, easy to add more later                                |
+| Architecture              | Single command file, inline logic                          | Follows existing pattern, avoids premature abstraction                            |
 
 ## Technical Design
 

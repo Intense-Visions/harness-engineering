@@ -314,11 +314,11 @@ program.addCommand(createUpdateCommand());
 
 ## Traceability
 
-| Observable Truth | Task(s) |
-|-----------------|---------|
-| 1. Detect PM + install packages | Task 1 (detectPackageManager, getInstalledPackages, install logic) |
-| 2. `--version` flag pins version | Task 1 (opts.version handling) |
-| 3. Already up to date message | Task 1 (VERSION === targetVersion check) |
-| 4. Slash command regen prompt | Task 1 (post-update prompt section) |
-| 5. Falls back to npm | Task 1 (detectPackageManager default), Task 2 (tests) |
-| 6. Registered in createProgram | Task 3 |
+| Observable Truth                 | Task(s)                                                            |
+| -------------------------------- | ------------------------------------------------------------------ |
+| 1. Detect PM + install packages  | Task 1 (detectPackageManager, getInstalledPackages, install logic) |
+| 2. `--version` flag pins version | Task 1 (opts.version handling)                                     |
+| 3. Already up to date message    | Task 1 (VERSION === targetVersion check)                           |
+| 4. Slash command regen prompt    | Task 1 (post-update prompt section)                                |
+| 5. Falls back to npm             | Task 1 (detectPackageManager default), Task 2 (tests)              |
+| 6. Registered in createProgram   | Task 3                                                             |

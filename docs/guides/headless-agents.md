@@ -8,13 +8,13 @@ Harness agents normally run interactively in Claude Code or Gemini CLI, with a h
 
 **Key differences from interactive mode:**
 
-| Aspect | Interactive | Headless |
-|--------|------------|----------|
-| Context source | Conversation | File or stdin |
-| Decision making | Human chooses | Agent decides or uses defaults |
-| Output | Conversation | File (`--output`) |
-| Timeout | None (human-paced) | Configurable (`--timeout`) |
-| Trust level | Human reviews each action | Pre-approved operations only |
+| Aspect          | Interactive               | Headless                       |
+| --------------- | ------------------------- | ------------------------------ |
+| Context source  | Conversation              | File or stdin                  |
+| Decision making | Human chooses             | Agent decides or uses defaults |
+| Output          | Conversation              | File (`--output`)              |
+| Timeout         | None (human-paced)        | Configurable (`--timeout`)     |
+| Trust level     | Human reviews each action | Pre-approved operations only   |
 
 ## Environment Setup
 
@@ -57,14 +57,14 @@ harness agent run --headless --skill <skill-name> --context <file> --output <pat
 
 **Parameters:**
 
-| Flag | Required | Description |
-|------|----------|-------------|
-| `--headless` | Yes | Run without interactive input |
-| `--skill <name>` | Yes | Skill to execute (e.g., `harness-code-review`, `detect-doc-drift`) |
-| `--context <file>` | Yes | Path to context file (issue body, PR description, etc.) |
-| `--output <path>` | No | Write results to file (default: stdout) |
-| `--timeout <seconds>` | No | Maximum execution time (default: 300) |
-| `--dry-run` | No | Validate only — no writes, no commits |
+| Flag                  | Required | Description                                                        |
+| --------------------- | -------- | ------------------------------------------------------------------ |
+| `--headless`          | Yes      | Run without interactive input                                      |
+| `--skill <name>`      | Yes      | Skill to execute (e.g., `harness-code-review`, `detect-doc-drift`) |
+| `--context <file>`    | Yes      | Path to context file (issue body, PR description, etc.)            |
+| `--output <path>`     | No       | Write results to file (default: stdout)                            |
+| `--timeout <seconds>` | No       | Maximum execution time (default: 300)                              |
+| `--dry-run`           | No       | Validate only — no writes, no commits                              |
 
 ### Context File Format
 
@@ -72,13 +72,16 @@ The context file provides the information the agent needs. Use plain text or mar
 
 ```markdown
 # Task
+
 Review the changes in PR #42 for architectural violations.
 
 # Files Changed
+
 - src/services/auth.ts
 - src/api/routes/login.ts
 
 # Additional Context
+
 The auth service was recently refactored to use OAuth2.
 ```
 
@@ -121,11 +124,11 @@ When the timeout is reached, the agent is terminated and exits with a non-zero c
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| `0` | Skill completed successfully |
-| `1` | Skill completed with findings (review comments, drift detected, etc.) |
-| `2` | Skill failed (error, timeout, missing context) |
+| Code | Meaning                                                               |
+| ---- | --------------------------------------------------------------------- |
+| `0`  | Skill completed successfully                                          |
+| `1`  | Skill completed with findings (review comments, drift detected, etc.) |
+| `2`  | Skill failed (error, timeout, missing context)                        |
 
 ### Handling Failures in CI
 
@@ -163,6 +166,7 @@ harness agent run --headless --skill harness-code-review --context pr.md --dry-r
 ```
 
 In dry-run mode:
+
 - No files are written or modified
 - No git operations are performed
 - The agent reports what it would do, but does not do it
@@ -193,6 +197,7 @@ harness agent run --headless --skill harness-code-review --context pr.md --outpu
 ### Network Access
 
 Headless agents may need network access for:
+
 - LLM API calls (Anthropic, OpenAI)
 - Package registry checks (npm, PyPI)
 
@@ -234,7 +239,7 @@ Context files come from potentially untrusted sources (issue bodies, PR descript
 # Run weekly to catch drift
 on:
   schedule:
-    - cron: '0 9 * * 1'  # Monday 9am UTC
+    - cron: '0 9 * * 1' # Monday 9am UTC
 
 jobs:
   entropy:
