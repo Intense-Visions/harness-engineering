@@ -1,0 +1,23 @@
+{
+  "fromSkill": "harness-planning",
+  "phase": "VALIDATE",
+  "summary": "Plan for harness update CLI command with PM detection, version pinning, and post-update slash command regeneration",
+  "completed": [],
+  "pending": [
+    "Task 1: Create update command with PM detection, version check, and update logic",
+    "Task 2: Add tests for update command utilities",
+    "Task 3: Register update command in CLI program"
+  ],
+  "concerns": [
+    "Package manager detection heuristic may miss edge cases (Volta, asdf shims) — npm fallback mitigates"
+  ],
+  "decisions": [
+    "Shell out to user's package manager rather than downloading binaries",
+    "Auto-detect PM from binary symlink path, fall back to npm",
+    "Update all @harness-engineering/* packages, not just CLI",
+    "Interactive prompt for slash command regeneration",
+    "Support --version flag for pinning, default to latest",
+    "Single command file, no premature abstraction"
+  ],
+  "contextKeywords": ["cli", "update", "self-update", "package-manager", "npm", "pnpm", "global-install", "slash-commands"]
+}
