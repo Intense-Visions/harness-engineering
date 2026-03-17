@@ -1,0 +1,22 @@
+# Harness CI Check — GitLab CI Configuration
+# Include this in your .gitlab-ci.yml or use it as a standalone file
+# Or generate it with: harness ci init --platform gitlab
+
+harness-check:
+  stage: test
+  image: node:22
+  before_script:
+    - npm install -g @harness-engineering/cli
+  script:
+    - harness ci check --json | tee harness-report.json
+  artifacts:
+    when: always
+    paths:
+      - harness-report.json
+    reports:
+      dotenv: harness-env.txt
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  allow_failure: false
