@@ -1,9 +1,8 @@
 import { Command } from 'commander';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Result } from '@harness-engineering/core';
+import type { Result, CICheckName, CIPlatform } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
-import type { CICheckName, CIPlatform } from '@harness-engineering/types';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 
@@ -133,7 +132,9 @@ export function createInitCommand(): Command {
         ? (opts.checks.split(',').map((s: string) => s.trim()) as CICheckName[])
         : undefined;
 
-      const result = generateCIConfig({ platform, checks });
+      const opts2: Parameters<typeof generateCIConfig>[0] = { platform };
+      if (checks) opts2.checks = checks;
+      const result = generateCIConfig(opts2);
 
       if (!result.ok) {
         logger.error(result.error.message);

@@ -1,7 +1,6 @@
 import { Command } from 'commander';
-import type { Result } from '@harness-engineering/core';
+import type { Result, CICheckName, CICheckReport, CIFailOnSeverity } from '@harness-engineering/core';
 import { runCIChecks } from '@harness-engineering/core';
-import type { CICheckName, CICheckReport, CIFailOnSeverity } from '@harness-engineering/types';
 import { resolveConfig } from '../../config/loader';
 import { OutputMode, type OutputModeType } from '../../output/formatter';
 import { logger } from '../../output/logger';
@@ -19,12 +18,14 @@ export async function runCICheck(options: {
     return configResult;
   }
 
-  const result = await runCIChecks({
+  const input: Parameters<typeof runCIChecks>[0] = {
     projectRoot: process.cwd(),
     config: configResult.value as unknown as Record<string, unknown>,
-    skip: options.skip,
-    failOn: options.failOn,
-  });
+  };
+  if (options.skip) input.skip = options.skip;
+  if (options.failOn) input.failOn = options.failOn;
+
+  const result = await runCIChecks(input);
 
   if (!result.ok) {
     return {
