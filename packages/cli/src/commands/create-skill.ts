@@ -31,7 +31,7 @@ function buildSkillYaml(opts: CreateSkillOptions): Record<string, unknown> {
     description: opts.description,
     cognitive_mode: opts.cognitiveMode ?? 'constructive-architect',
     triggers: ['manual'],
-    platforms: ['claude-code'],
+    platforms: ['claude-code', 'gemini-cli'],
     tools: ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'Bash'],
     type: 'flexible',
     state: {

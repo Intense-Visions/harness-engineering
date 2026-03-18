@@ -57,7 +57,7 @@ describe('create-skill command', () => {
       expect(parsed.description).toBe('A test skill for unit testing');
       expect(parsed.cognitive_mode).toBe('constructive-architect');
       expect(parsed.triggers).toEqual(['manual']);
-      expect(parsed.platforms).toEqual(['claude-code']);
+      expect(parsed.platforms).toEqual(['claude-code', 'gemini-cli']);
       expect(parsed.type).toBe('flexible');
       expect(parsed.tools).toContain('Read');
     });

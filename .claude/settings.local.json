@@ -65,7 +65,12 @@
       "Bash(pnpm run:*)",
       "Bash(tee:*)",
       "Bash(node:*)",
-      "Bash(pnpm:*)"
+      "Bash(pnpm:*)",
+      "Bash(npx turbo:*)",
+      "Bash(npx harness:*)",
+      "Skill(harness:verification)",
+      "Skill(harness:planning)",
+      "Bash(git status:*)"
     ]
   }
 }

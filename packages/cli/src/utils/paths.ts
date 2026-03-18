@@ -48,3 +48,37 @@ export function resolveSkillsDir(): string {
   }
   return path.join(__dirname, 'agents', 'skills', 'claude-code');
 }
+
+/**
+ * Resolve project-level skills directory by walking up from cwd.
+ * Returns null if no project agents/skills/ directory is found.
+ */
+export function resolveProjectSkillsDir(cwd?: string): string | null {
+  let dir = cwd ?? process.cwd();
+  for (let i = 0; i < 8; i++) {
+    const candidate = path.join(dir, 'agents', 'skills', 'claude-code');
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      // Verify this looks like a real skills directory by checking for the parent
+      // agents/skills/ marker (consistent with findUpDir pattern)
+      const agentsDir = path.join(dir, 'agents');
+      if (fs.existsSync(path.join(agentsDir, 'skills'))) {
+        return candidate;
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/**
+ * Resolve the global (bundled) skills directory shipped with the CLI package.
+ */
+export function resolveGlobalSkillsDir(): string {
+  const agentsDir = findUpDir('agents', 'skills');
+  if (agentsDir) {
+    return path.join(agentsDir, 'skills', 'claude-code');
+  }
+  return path.join(__dirname, 'agents', 'skills', 'claude-code');
+}

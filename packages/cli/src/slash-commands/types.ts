@@ -19,6 +19,8 @@ export interface SlashCommandSpec {
   args: SkillArg[];
   skillYamlName: string;
   sourceDir: string;
+  skillsBaseDir: string;
+  source?: 'project' | 'global';
 
   prompt: {
     context: string;
@@ -31,6 +33,7 @@ export interface SlashCommandSpec {
 export interface GenerateOptions {
   platforms: Platform[];
   global: boolean;
+  includeGlobal: boolean;
   output?: string;
   skillsDir: string;
   dryRun: boolean;

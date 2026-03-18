@@ -64,6 +64,7 @@ export { generateSkillFiles } from './commands/create-skill';
 export type { CreateSkillOptions } from './commands/create-skill';
 export { generateSlashCommands } from './commands/generate-slash-commands';
 export type { GenerateResult } from './commands/generate-slash-commands';
+export type { SkillSource } from './slash-commands/normalize';
 
 // Re-export utilities
 export { CLIError, ExitCode, handleError } from './utils/errors';

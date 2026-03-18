@@ -27,6 +27,10 @@ export const generateSlashCommandsDefinition = {
         type: 'string',
         description: 'Skills directory to scan',
       },
+      includeGlobal: {
+        type: 'boolean',
+        description: 'Include built-in global skills alongside project skills',
+      },
       dryRun: {
         type: 'boolean',
         description: 'Show what would change without writing files',
@@ -38,6 +42,7 @@ export const generateSlashCommandsDefinition = {
 export async function handleGenerateSlashCommands(input: {
   platforms?: string;
   global?: boolean;
+  includeGlobal?: boolean;
   output?: string;
   skillsDir?: string;
   dryRun?: boolean;
@@ -50,6 +55,7 @@ export async function handleGenerateSlashCommands(input: {
     const results = generateSlashCommands({
       platforms,
       global: input.global ?? false,
+      includeGlobal: input.includeGlobal ?? false,
       output: input.output,
       skillsDir: input.skillsDir ?? '',
       dryRun: input.dryRun ?? false,

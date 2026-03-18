@@ -4,10 +4,11 @@ import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
 import { normalizeSkills } from '../slash-commands/normalize';
+import type { SkillSource } from '../slash-commands/normalize';
 import { renderClaudeCode } from '../slash-commands/render-claude-code';
 import { renderGemini } from '../slash-commands/render-gemini';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
-import { resolveSkillsDir } from '../utils/paths';
+import { resolveProjectSkillsDir, resolveGlobalSkillsDir } from '../utils/paths';
 import { CLIError, ExitCode, handleError } from '../utils/errors';
 import type { Platform, GenerateOptions } from '../slash-commands/types';
 import { VALID_PLATFORMS } from '../slash-commands/types';
@@ -51,8 +52,27 @@ async function confirmDeletion(files: string[]): Promise<boolean> {
 }
 
 export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
-  const skillsDir = opts.skillsDir || resolveSkillsDir();
-  const specs = normalizeSkills(skillsDir, opts.platforms);
+  const skillSources: SkillSource[] = [];
+
+  if (opts.skillsDir) {
+    // Explicit --skills-dir overrides all discovery
+    skillSources.push({ dir: opts.skillsDir, source: 'project' });
+  } else {
+    const projectDir = resolveProjectSkillsDir();
+    if (projectDir) {
+      skillSources.push({ dir: projectDir, source: 'project' });
+    }
+    if (opts.includeGlobal || skillSources.length === 0) {
+      // Include global if explicitly requested OR if no project found (backward compat)
+      const globalDir = resolveGlobalSkillsDir();
+      // Avoid adding the same directory twice (e.g., running inside the harness-engineering repo)
+      if (!projectDir || path.resolve(globalDir) !== path.resolve(projectDir)) {
+        skillSources.push({ dir: globalDir, source: 'global' });
+      }
+    }
+  }
+
+  const specs = normalizeSkills(skillSources, opts.platforms);
   const results: GenerateResult[] = [];
 
   for (const platform of opts.platforms) {
@@ -85,8 +105,8 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
           : spec;
         rendered.set(filename, renderClaudeCode(renderSpec));
       } else {
-        const mdPath = path.join(skillsDir, spec.sourceDir, 'SKILL.md');
-        const yamlPath = path.join(skillsDir, spec.sourceDir, 'skill.yaml');
+        const mdPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'SKILL.md');
+        const yamlPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'skill.yaml');
         const mdContent = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf-8') : '';
         const yamlContent = fs.existsSync(yamlPath) ? fs.readFileSync(yamlPath, 'utf-8') : '';
         rendered.set(filename, renderGemini(spec, mdContent, yamlContent));
@@ -140,6 +160,7 @@ export function createGenerateSlashCommandsCommand(): Command {
     )
     .option('--platforms <list>', 'Target platforms (comma-separated)', 'claude-code,gemini-cli')
     .option('--global', 'Write to global config directories', false)
+    .option('--include-global', 'Include built-in global skills alongside project skills', false)
     .option('--output <dir>', 'Custom output directory')
     .option('--skills-dir <path>', 'Skills directory to scan')
     .option('--dry-run', 'Show what would change without writing', false)
@@ -160,6 +181,7 @@ export function createGenerateSlashCommandsCommand(): Command {
       const generateOpts: GenerateOptions = {
         platforms: platforms as Platform[],
         global: opts.global,
+        includeGlobal: opts.includeGlobal,
         output: opts.output,
         skillsDir: opts.skillsDir ?? '',
         dryRun: opts.dryRun,
@@ -171,6 +193,17 @@ export function createGenerateSlashCommandsCommand(): Command {
 
         if (globalOpts.json) {
           console.log(JSON.stringify(results, null, 2));
+          return;
+        }
+
+        const totalCommands = results.reduce(
+          (sum, r) => sum + r.added.length + r.updated.length + r.unchanged.length,
+          0
+        );
+        if (totalCommands === 0) {
+          console.log(
+            '\nNo skills found. Use --include-global to include built-in skills, or create a skill with: harness create-skill'
+          );
           return;
         }
 

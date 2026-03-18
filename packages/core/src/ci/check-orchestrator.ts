@@ -10,7 +10,7 @@ import type {
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { validateAgentsMap } from '../context/agents-map';
-import { validateDependencies } from '../constraints/dependencies';
+import { validateDependencies, defineLayer } from '../constraints/dependencies';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { EntropyAnalyzer } from '../entropy/analyzer';
 import { TypeScriptParser } from '../shared/parsers';
@@ -60,11 +60,18 @@ async function runSingleCheck(
       }
 
       case 'deps': {
-        const layers = config.layers as Array<Record<string, unknown>> | undefined;
-        if (layers && layers.length > 0) {
+        const rawLayers = config.layers as Array<Record<string, unknown>> | undefined;
+        if (rawLayers && rawLayers.length > 0) {
           const parser = new TypeScriptParser();
+          const layers = rawLayers.map((l) =>
+            defineLayer(
+              l.name as string,
+              Array.isArray(l.patterns) ? (l.patterns as string[]) : [l.pattern as string],
+              l.allowedDependencies as string[]
+            )
+          );
           const result = await validateDependencies({
-            layers: layers as never,
+            layers,
             rootDir: projectRoot,
             parser,
           });
