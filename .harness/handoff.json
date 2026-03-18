@@ -1,32 +1,46 @@
 {
+  "timestamp": "2026-03-18T00:00:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Plan for harness update CLI command with PM detection, version pinning, and post-update slash command regeneration",
+  "summary": "Planned Phase 1 (Graph Foundation) of the Unified Knowledge Graph — 12 tasks covering package scaffold, type system, GraphStore with LokiJS persistence, VectorStore with cosine similarity, ContextQL with BFS traversal and noise pruning, CodeIngestor with regex-based TypeScript parsing, TopologicalLinker with cycle detection, and end-to-end integration tests.",
   "completed": [],
   "pending": [
-    "Task 1: Create update command with PM detection, version check, and update logic",
-    "Task 2: Add tests for update command utilities",
-    "Task 3: Register update command in CLI program"
+    "Task 1: Scaffold packages/graph package",
+    "Task 2: Define graph type system",
+    "Task 3: Implement GraphStore — node CRUD (TDD)",
+    "Task 4: Implement GraphStore — persistence (TDD)",
+    "Task 5: Implement VectorStore (TDD)",
+    "Task 6: Implement ContextQL — BFS traversal (TDD)",
+    "Task 7: Implement Projection (TDD)",
+    "Task 8: Create test fixture project",
+    "Task 9: Implement CodeIngestor — regex-based parsing (TDD)",
+    "Task 10: Implement TopologicalLinker (TDD)",
+    "Task 11: Integration test — scan and query end-to-end",
+    "Task 12: Run full test suite and build"
   ],
   "concerns": [
-    "Package manager detection heuristic may miss edge cases (Volta, asdf shims) — npm fallback mitigates"
+    "LokiJS types may need @types/lokijs or manual declarations",
+    "Regex-based parsing is intentionally limited — tree-sitter upgrade planned for later",
+    "VectorStore starts with brute-force cosine similarity — HNSWLib integration deferred to Phase 2+"
   ],
   "decisions": [
-    "Shell out to user's package manager rather than downloading binaries",
-    "Auto-detect PM from binary symlink path, fall back to npm",
-    "Update all @harness-engineering/* packages, not just CLI",
-    "Interactive prompt for slash command regeneration",
-    "Support --version flag for pinning, default to latest",
-    "Single command file, no premature abstraction"
+    "Start with regex parsing, not tree-sitter (reduce native dependency risk in Phase 1)",
+    "Start with brute-force vector search, not HNSWLib (prove the interface before optimizing)",
+    "Graph types live in packages/graph, not packages/types (graph-specific, not shared foundation)",
+    "JSON persistence first, Protobuf deferred to when graph size requires it"
   ],
+  "blockers": [],
   "contextKeywords": [
-    "cli",
-    "update",
-    "self-update",
-    "package-manager",
-    "npm",
-    "pnpm",
-    "global-install",
-    "slash-commands"
+    "knowledge-graph",
+    "LokiJS",
+    "ContextQL",
+    "BFS",
+    "noise-pruning",
+    "CodeIngestor",
+    "TopologicalLinker",
+    "VectorStore",
+    "cosine-similarity",
+    "graph-foundation",
+    "packages/graph"
   ]
 }

@@ -3,6 +3,7 @@
   "files": [],
   "references": [
     { "path": "./packages/types" },
+    { "path": "./packages/graph" },
     { "path": "./packages/core" },
     { "path": "./packages/cli" },
     { "path": "./packages/eslint-plugin" },
