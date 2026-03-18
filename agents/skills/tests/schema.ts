@@ -39,6 +39,8 @@ const ALLOWED_TRIGGERS = [
   'on_refactor',
   'on_project_init',
   'on_review',
+  'on_milestone',
+  'on_task_complete',
 ] as const;
 
 const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
