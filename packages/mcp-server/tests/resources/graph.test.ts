@@ -81,6 +81,21 @@ describe('getGraphResource', () => {
     const parsed = new Date(result.lastScanTimestamp);
     expect(parsed.getTime()).not.toBeNaN();
   });
+
+  it('returns status "stale" when graph is older than 24 hours', async () => {
+    const tmpDir = makeTmpDir();
+    await createTestGraph(tmpDir);
+
+    // Overwrite metadata.json with a timestamp 25 hours ago
+    const metaPath = path.join(tmpDir, '.harness', 'graph', 'metadata.json');
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+    meta.lastScanTimestamp = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    fs.writeFileSync(metaPath, JSON.stringify(meta));
+
+    const result = JSON.parse(await getGraphResource(tmpDir));
+
+    expect(result.status).toBe('stale');
+  });
 });
 
 describe('getEntitiesResource', () => {

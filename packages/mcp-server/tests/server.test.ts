@@ -48,4 +48,21 @@ describe('MCP Server', () => {
     const uris = getResourceDefinitions().map((r) => r.uri);
     expect(uris).toContain('harness://state');
   });
+
+  it('registers graph resources', () => {
+    const uris = getResourceDefinitions().map((r) => r.uri);
+    expect(uris).toContain('harness://graph');
+    expect(uris).toContain('harness://entities');
+    expect(uris).toContain('harness://relationships');
+  });
+
+  it('registers graph tools', () => {
+    const names = getToolDefinitions().map((t) => t.name);
+    expect(names).toContain('query_graph');
+    expect(names).toContain('search_similar');
+    expect(names).toContain('find_context_for');
+    expect(names).toContain('get_relationships');
+    expect(names).toContain('get_impact');
+    expect(names).toContain('ingest_source');
+  });
 });

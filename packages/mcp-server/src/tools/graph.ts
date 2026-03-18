@@ -1,16 +1,14 @@
 import * as path from 'path';
+import { loadGraphStore } from '../utils/graph-loader.js';
 
 // ── Shared helper ────────────────────────────────────────────────────
 
-async function loadGraphStore(projectPath: string) {
-  const { GraphStore } = await import('@harness-engineering/graph');
-  const graphDir = path.join(projectPath, '.harness', 'graph');
-  const store = new GraphStore();
-  const loaded = await store.load(graphDir);
-  if (!loaded) {
-    return null;
+function sanitizePath(inputPath: string): string {
+  const resolved = path.resolve(inputPath);
+  if (resolved === '/' || resolved === path.parse(resolved).root) {
+    throw new Error('Invalid project path: cannot use filesystem root');
   }
-  return store;
+  return resolved;
 }
 
 function graphNotFoundError() {
@@ -80,7 +78,7 @@ export async function handleQueryGraph(input: {
   pruneObservability?: boolean;
 }) {
   try {
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const store = await loadGraphStore(projectPath);
     if (!store) return graphNotFoundError();
 
@@ -137,7 +135,7 @@ export const searchSimilarDefinition = {
 
 export async function handleSearchSimilar(input: { path: string; query: string; topK?: number }) {
   try {
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const store = await loadGraphStore(projectPath);
     if (!store) return graphNotFoundError();
 
@@ -187,7 +185,7 @@ export async function handleFindContextFor(input: {
   tokenBudget?: number;
 }) {
   try {
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const store = await loadGraphStore(projectPath);
     if (!store) return graphNotFoundError();
 
@@ -303,7 +301,7 @@ export async function handleGetRelationships(input: {
   depth?: number;
 }) {
   try {
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const store = await loadGraphStore(projectPath);
     if (!store) return graphNotFoundError();
 
@@ -319,6 +317,16 @@ export async function handleGetRelationships(input: {
       bidirectional,
     });
 
+    // Post-filter for inbound-only: remove outbound edges from the root node
+    let filteredNodes = result.nodes;
+    let filteredEdges = result.edges;
+    if (direction === 'inbound') {
+      filteredEdges = result.edges.filter((e) => e.from !== input.nodeId);
+      const reachableNodeIds = new Set(filteredEdges.map((e) => e.from));
+      reachableNodeIds.add(input.nodeId);
+      filteredNodes = result.nodes.filter((n) => reachableNodeIds.has(n.id));
+    }
+
     return {
       content: [
         {
@@ -327,8 +335,8 @@ export async function handleGetRelationships(input: {
             nodeId: input.nodeId,
             direction,
             depth: input.depth ?? 1,
-            nodes: result.nodes,
-            edges: result.edges,
+            nodes: filteredNodes,
+            edges: filteredEdges,
             stats: result.stats,
           }),
         },
@@ -381,7 +389,7 @@ export async function handleGetImpact(input: { path: string; nodeId?: string; fi
       };
     }
 
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const store = await loadGraphStore(projectPath);
     if (!store) return graphNotFoundError();
 
@@ -502,7 +510,7 @@ export async function handleIngestSource(input: {
   source: 'code' | 'knowledge' | 'git' | 'all';
 }) {
   try {
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const graphDir = path.join(projectPath, '.harness', 'graph');
 
     const { GraphStore, CodeIngestor, TopologicalLinker, KnowledgeIngestor, GitIngestor } =

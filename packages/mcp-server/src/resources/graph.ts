@@ -1,5 +1,8 @@
-import * as fs from 'fs';
+import * as fs from 'node:fs/promises';
 import * as path from 'path';
+import { loadGraphStore } from '../utils/graph-loader.js';
+
+const MAX_ITEMS = 5000;
 
 function formatStaleness(isoTimestamp: string): string {
   const then = new Date(isoTimestamp).getTime();
@@ -18,29 +21,24 @@ function formatStaleness(isoTimestamp: string): string {
 }
 
 export async function getGraphResource(projectRoot: string): Promise<string> {
-  const { GraphStore } = await import('@harness-engineering/graph');
+  const store = await loadGraphStore(projectRoot);
 
-  const graphDir = path.join(projectRoot, '.harness', 'graph');
-  const store = new GraphStore();
-  const loaded = await store.load(graphDir);
-
-  if (!loaded) {
+  if (!store) {
     return JSON.stringify({
       status: 'no_graph',
       message: 'No knowledge graph found. Run harness scan to build one.',
     });
   }
 
+  const graphDir = path.join(projectRoot, '.harness', 'graph');
   const metadataPath = path.join(graphDir, 'metadata.json');
   let lastScanTimestamp: string | null = null;
 
-  if (fs.existsSync(metadataPath)) {
-    try {
-      const raw = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
-      lastScanTimestamp = raw.lastScanTimestamp ?? null;
-    } catch {
-      // Ignore malformed metadata
-    }
+  try {
+    const raw = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+    lastScanTimestamp = raw.lastScanTimestamp ?? null;
+  } catch {
+    // Ignore missing or malformed metadata
   }
 
   const allNodes = store.findNodes({});
@@ -80,18 +78,14 @@ export async function getGraphResource(projectRoot: string): Promise<string> {
 }
 
 export async function getEntitiesResource(projectRoot: string): Promise<string> {
-  const { GraphStore } = await import('@harness-engineering/graph');
+  const store = await loadGraphStore(projectRoot);
 
-  const graphDir = path.join(projectRoot, '.harness', 'graph');
-  const store = new GraphStore();
-  const loaded = await store.load(graphDir);
-
-  if (!loaded) {
+  if (!store) {
     return '[]';
   }
 
   const nodes = store.findNodes({});
-  const slim = nodes.map((n) => ({
+  const entities = nodes.slice(0, MAX_ITEMS).map((n) => ({
     id: n.id,
     type: n.type,
     name: n.name,
@@ -99,22 +93,22 @@ export async function getEntitiesResource(projectRoot: string): Promise<string> 
     metadata: n.metadata,
   }));
 
-  return JSON.stringify(slim);
+  if (nodes.length > MAX_ITEMS) {
+    return JSON.stringify({ entities, _truncated: true, _total: nodes.length }, null, 2);
+  }
+
+  return JSON.stringify(entities);
 }
 
 export async function getRelationshipsResource(projectRoot: string): Promise<string> {
-  const { GraphStore } = await import('@harness-engineering/graph');
+  const store = await loadGraphStore(projectRoot);
 
-  const graphDir = path.join(projectRoot, '.harness', 'graph');
-  const store = new GraphStore();
-  const loaded = await store.load(graphDir);
-
-  if (!loaded) {
+  if (!store) {
     return '[]';
   }
 
   const edges = store.getEdges({});
-  const mapped = edges.map((e) => ({
+  const relationships = edges.slice(0, MAX_ITEMS).map((e) => ({
     from: e.from,
     to: e.to,
     type: e.type,
@@ -122,5 +116,9 @@ export async function getRelationshipsResource(projectRoot: string): Promise<str
     metadata: e.metadata,
   }));
 
-  return JSON.stringify(mapped);
+  if (edges.length > MAX_ITEMS) {
+    return JSON.stringify({ relationships, _truncated: true, _total: edges.length }, null, 2);
+  }
+
+  return JSON.stringify(relationships);
 }

@@ -260,7 +260,7 @@ describe('handleGetRelationships', () => {
     expect(nodeIds).toContain('file:src/utils.ts');
   });
 
-  it('returns inbound relationships', async () => {
+  it('returns inbound relationships only (no outbound leakage)', async () => {
     await createTestGraph(tmpDir);
     const result = await handleGetRelationships({
       path: tmpDir,
@@ -274,6 +274,10 @@ describe('handleGetRelationships', () => {
     // adr:001 documents file:src/index.ts, so it should show up
     const nodeIds = data.nodes.map((n: { id: string }) => n.id);
     expect(nodeIds).toContain('adr:001');
+    // Outbound targets should NOT appear in inbound-only query
+    expect(nodeIds).not.toContain('fn:hello');
+    expect(nodeIds).not.toContain('class:App');
+    expect(nodeIds).not.toContain('file:src/utils.ts');
   });
 
   it('returns error when graph does not exist', async () => {
@@ -365,12 +369,55 @@ describe('handleIngestSource', () => {
 
     expect(result.isError).toBeUndefined();
     const data = parseResult(result);
-    expect(data.nodesAdded).toBeGreaterThanOrEqual(0);
+    expect(data.nodesAdded).toBeGreaterThan(0);
     expect(data.edgesAdded).toBeGreaterThanOrEqual(0);
     expect(data.graphStats).toBeDefined();
-    expect(data.graphStats.totalNodes).toBeGreaterThanOrEqual(0);
+    expect(data.graphStats.totalNodes).toBeGreaterThan(0);
     expect(data.graphStats.totalEdges).toBeGreaterThanOrEqual(0);
     expect(typeof data.durationMs).toBe('number');
+
+    // Verify graph file was persisted
+    const graphFile = path.join(tmpDir, '.harness', 'graph', 'graph.json');
+    const stat = await fs.stat(graphFile);
+    expect(stat.isFile()).toBe(true);
+
+    // Verify the graph can be loaded back and has nodes
+    const { GraphStore } = await import('@harness-engineering/graph');
+    const store = new GraphStore();
+    const loaded = await store.load(path.join(tmpDir, '.harness', 'graph'));
+    expect(loaded).toBe(true);
+    expect(store.nodeCount).toBeGreaterThan(0);
+  });
+
+  it('ingests from all sources', async () => {
+    // Create a minimal project with both code and knowledge sources
+    const srcDir = path.join(tmpDir, 'src');
+    await fs.mkdir(srcDir, { recursive: true });
+    await fs.writeFile(path.join(srcDir, 'app.ts'), 'export class App { run() {} }\n');
+
+    const harnessDir = path.join(tmpDir, '.harness');
+    await fs.mkdir(harnessDir, { recursive: true });
+    await fs.writeFile(
+      path.join(harnessDir, 'learnings.md'),
+      '# Learning\n\nAlways validate inputs.\n'
+    );
+
+    const result = await handleIngestSource({
+      path: tmpDir,
+      source: 'all',
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+    expect(data.nodesAdded).toBeGreaterThan(0);
+    expect(data.graphStats.totalNodes).toBeGreaterThan(0);
+
+    // Verify graph was persisted and can be loaded back
+    const { GraphStore } = await import('@harness-engineering/graph');
+    const store = new GraphStore();
+    const loaded = await store.load(path.join(tmpDir, '.harness', 'graph'));
+    expect(loaded).toBe(true);
+    expect(store.nodeCount).toBeGreaterThan(0);
   });
 
   it('creates .harness/graph directory if it does not exist', async () => {
