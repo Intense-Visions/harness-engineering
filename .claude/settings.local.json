@@ -70,7 +70,10 @@
       "Bash(npx harness:*)",
       "Skill(harness:verification)",
       "Skill(harness:planning)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "mcp__harness__check_docs",
+      "mcp__harness__check_dependencies",
+      "mcp__harness__detect_entropy"
     ]
   }
 }

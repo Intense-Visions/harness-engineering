@@ -13,13 +13,13 @@ Both work without interactive input and produce deterministic output suitable fo
 
 **Key differences from interactive mode:**
 
-| Aspect          | Interactive (Claude Code / Gemini CLI) | Headless (CI)                                      |
-| --------------- | -------------------------------------- | -------------------------------------------------- |
-| Context source  | Conversation                           | Config file + repo state                           |
-| Decision making | Human chooses                          | Persona rules or check defaults                    |
-| Output          | Conversation                           | JSON (`--json`) or stdout                          |
-| Timeout         | None (human-paced)                     | Configurable (`--timeout`)                         |
-| Commands        | All skills available                   | `ci check`, `agent run --persona`, `skill run`     |
+| Aspect          | Interactive (Claude Code / Gemini CLI) | Headless (CI)                                  |
+| --------------- | -------------------------------------- | ---------------------------------------------- |
+| Context source  | Conversation                           | Config file + repo state                       |
+| Decision making | Human chooses                          | Persona rules or check defaults                |
+| Output          | Conversation                           | JSON (`--json`) or stdout                      |
+| Timeout         | None (human-paced)                     | Configurable (`--timeout`)                     |
+| Commands        | All skills available                   | `ci check`, `agent run --persona`, `skill run` |
 
 ## Environment Setup
 
@@ -49,11 +49,11 @@ harness ci check --json
 
 **Options:**
 
-| Flag                   | Description                                                 |
-| ---------------------- | ----------------------------------------------------------- |
-| `--json`               | Output structured JSON report                               |
+| Flag                   | Description                                                               |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `--json`               | Output structured JSON report                                             |
 | `--skip <checks>`      | Comma-separated checks to skip: validate, deps, docs, entropy, phase-gate |
-| `--fail-on <severity>` | Exit non-zero on `error` (default) or `warning`             |
+| `--fail-on <severity>` | Exit non-zero on `error` (default) or `warning`                           |
 
 **Exit codes:** `0` = pass, `1` = check failures, `2` = internal error
 
@@ -79,11 +79,11 @@ harness agent run --persona architecture-enforcer --timeout 60000
 
 **Available personas:**
 
-| Persona                    | What it checks                                    |
-| -------------------------- | ------------------------------------------------- |
+| Persona                    | What it checks                                         |
+| -------------------------- | ------------------------------------------------------ |
 | `architecture-enforcer`    | Layer boundaries, dependency violations, circular deps |
-| `documentation-maintainer` | Doc coverage, drift detection, broken links        |
-| `entropy-cleaner`          | Dead code, doc drift, pattern violations           |
+| `documentation-maintainer` | Doc coverage, drift detection, broken links            |
+| `entropy-cleaner`          | Dead code, doc drift, pattern violations               |
 
 ### `harness agent run <task>`
 
@@ -124,10 +124,10 @@ harness agent run --persona architecture-enforcer --timeout 60000
 
 ### Exit Codes
 
-| Command | Code 0 | Code 1 | Code 2 |
-| ------- | ------ | ------ | ------ |
-| `ci check` | All checks pass | Check failures | Internal error |
-| `agent run` | Task/persona succeeded | Issues found | Task failed |
+| Command     | Code 0                 | Code 1         | Code 2         |
+| ----------- | ---------------------- | -------------- | -------------- |
+| `ci check`  | All checks pass        | Check failures | Internal error |
+| `agent run` | Task/persona succeeded | Issues found   | Task failed    |
 
 ### Handling Failures in CI
 
@@ -214,7 +214,7 @@ Harness CLI commands are fully offline — they analyze local files only. No net
 ```yaml
 on:
   schedule:
-    - cron: '0 9 * * 1'  # Monday 9am UTC
+    - cron: '0 9 * * 1' # Monday 9am UTC
 
 jobs:
   entropy:

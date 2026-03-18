@@ -142,12 +142,12 @@ docs/guides/
 
 #### Issues → Harness (inbound)
 
-| Trigger                                    | Action                                                      | Recipe                                 |
-| ------------------------------------------ | ----------------------------------------------------------- | -------------------------------------- |
-| Issue labeled `needs-review`               | Runs architecture-enforcer persona, posts results           | `headless-agent-action.yml`            |
-| Issue labeled `check-entropy`              | Runs entropy checks, posts report                           | `headless-agent-action.yml`            |
-| PR comment `/harness check`                | Runs `harness ci check`, replies with results               | GitHub Actions `issue_comment` trigger |
-| Jira issue transitions to "In Development" | Creates linked GitHub branch + harness state init           | Jira automation rule + webhook         |
+| Trigger                                    | Action                                            | Recipe                                 |
+| ------------------------------------------ | ------------------------------------------------- | -------------------------------------- |
+| Issue labeled `needs-review`               | Runs architecture-enforcer persona, posts results | `headless-agent-action.yml`            |
+| Issue labeled `check-entropy`              | Runs entropy checks, posts report                 | `headless-agent-action.yml`            |
+| PR comment `/harness check`                | Runs `harness ci check`, replies with results     | GitHub Actions `issue_comment` trigger |
+| Jira issue transitions to "In Development" | Creates linked GitHub branch + harness state init | Jira automation rule + webhook         |
 
 ### Headless Agent Execution
 

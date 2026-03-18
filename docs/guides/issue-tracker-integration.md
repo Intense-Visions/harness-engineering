@@ -107,7 +107,7 @@ When an issue is labeled `needs-review`, run the architecture enforcer persona a
 
 **Setup (GitHub Actions):**
 
-```yaml
+````yaml
 on:
   issues:
     types: [labeled]
@@ -132,7 +132,7 @@ jobs:
             cat review.txt
             echo '```'
           } | gh issue comment ${{ github.event.issue.number }} --body-file -
-```
+````
 
 See the full [headless agent action recipe](./recipes/headless-agent-action.yml).
 

@@ -24,13 +24,13 @@
 
 ## Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| Project-local by default, `--include-global` for built-ins | User ran `create-skill` in their project — they expect the generator to find those skills without extra flags |
-| Single canonical skill in `claude-code/` dir, multi-platform render | Matches existing built-in pattern. `platforms` field in `skill.yaml` controls which renderers fire |
-| `findUpDir` from CWD for project root detection | Consistent with existing resolution pattern, forgiving for nested directories |
-| Project skills win on name collision | Local customization should override defaults, same as most config layering systems |
-| `resolveSkillsDir` split into project + global functions | Centralizes the distinction so `skill list`, `skill run` can adopt later without duplicating logic |
+| Decision                                                            | Rationale                                                                                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Project-local by default, `--include-global` for built-ins          | User ran `create-skill` in their project — they expect the generator to find those skills without extra flags |
+| Single canonical skill in `claude-code/` dir, multi-platform render | Matches existing built-in pattern. `platforms` field in `skill.yaml` controls which renderers fire            |
+| `findUpDir` from CWD for project root detection                     | Consistent with existing resolution pattern, forgiving for nested directories                                 |
+| Project skills win on name collision                                | Local customization should override defaults, same as most config layering systems                            |
+| `resolveSkillsDir` split into project + global functions            | Centralizes the distinction so `skill list`, `skill run` can adopt later without duplicating logic            |
 
 ## Technical Design
 
@@ -39,6 +39,7 @@
 **1. `packages/cli/src/utils/paths.ts`**
 
 Split `resolveSkillsDir()` into two functions:
+
 - `resolveProjectSkillsDir(cwd?: string): string | null` — walks up from CWD looking for `agents/skills/claude-code/`. Returns `null` if not in a project context.
 - `resolveGlobalSkillsDir(): string` — current behavior, returns bundled skills path from the CLI package.
 - Keep existing `resolveSkillsDir()` as a wrapper that tries project first, falls back to global (backward compat for other callers).
@@ -50,6 +51,7 @@ Add `source?: 'project' | 'global'` to `SlashCommandSpec` for traceability in dr
 **3. `packages/cli/src/slash-commands/normalize.ts`**
 
 Change `normalizeSkills()` signature to accept `string[]` (array of skill directories) instead of a single `string`:
+
 - Scan all directories, collect skills
 - On collision from different sources: project wins (earlier entries in the array have higher priority)
 - On collision from same source: error (existing behavior preserved)
@@ -89,11 +91,11 @@ generate-slash-commands
 
 ### Collision Handling
 
-| Scenario | Behavior |
-|----------|----------|
-| Two project skills with same normalized name | Error (existing behavior) |
-| Project skill collides with global skill | Project wins, global silently dropped |
-| `--dry-run` with collision | Shows both, marks which is active and which is shadowed |
+| Scenario                                     | Behavior                                                |
+| -------------------------------------------- | ------------------------------------------------------- |
+| Two project skills with same normalized name | Error (existing behavior)                               |
+| Project skill collides with global skill     | Project wins, global silently dropped                   |
+| `--dry-run` with collision                   | Shows both, marks which is active and which is shadowed |
 
 ## Success Criteria
 
