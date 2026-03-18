@@ -108,9 +108,7 @@ describe('update command', () => {
     });
 
     it('returns null when CLI is not in output', () => {
-      mockedExecSync.mockReturnValue(
-        JSON.stringify({ dependencies: {} })
-      );
+      mockedExecSync.mockReturnValue(JSON.stringify({ dependencies: {} }));
       expect(getInstalledVersion('npm')).toBeNull();
     });
 
