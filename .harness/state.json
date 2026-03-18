@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "position": { "phase": "complete", "task": "Task 15" },
+  "position": { "phase": "complete", "task": "Task 8" },
   "progress": {
     "Task 1": "complete",
     "Task 2": "complete",
@@ -9,17 +9,10 @@
     "Task 5": "complete",
     "Task 6": "complete",
     "Task 7": "complete",
-    "Task 8": "complete",
-    "Task 9": "complete",
-    "Task 10": "complete",
-    "Task 11": "complete",
-    "Task 12": "complete",
-    "Task 13": "complete",
-    "Task 14": "complete",
-    "Task 15": "complete"
+    "Task 8": "complete"
   },
   "lastSession": {
-    "date": "2026-03-17",
-    "summary": "All 15 tasks complete. CI check/init commands implemented with tests. 4 guides and 6 recipes written."
+    "date": "2026-03-18",
+    "summary": "Phase 6 (Constraint Migration) complete. GraphConstraintAdapter added to graph package. buildDependencyGraph, validateDependencies, detectCircularDepsInFiles enhanced with graph data paths. 154 graph tests, 375 core tests passing."
   }
 }

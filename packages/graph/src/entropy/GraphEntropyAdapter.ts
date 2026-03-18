@@ -5,8 +5,8 @@ export interface GraphDriftData {
     docNodeId: string;
     codeNodeId: string;
     edgeType: string;
-    codeLastModified?: string;
-    docLastModified?: string;
+    codeLastModified?: string | undefined;
+    docLastModified?: string | undefined;
   }>;
   readonly missingTargets: readonly string[];
   readonly freshEdges: number;
@@ -18,7 +18,7 @@ export interface GraphDeadCodeData {
     id: string;
     type: string;
     name: string;
-    path?: string;
+    path?: string | undefined;
   }>;
   readonly entryPoints: readonly string[];
 }
@@ -49,8 +49,8 @@ export class GraphEntropyAdapter {
       docNodeId: string;
       codeNodeId: string;
       edgeType: string;
-      codeLastModified?: string;
-      docLastModified?: string;
+      codeLastModified?: string | undefined;
+      docLastModified?: string | undefined;
     }> = [];
     const missingTargets: string[] = [];
     let freshEdges = 0;
@@ -161,7 +161,12 @@ export class GraphEntropyAdapter {
     }
 
     // Collect unreachable code nodes
-    const unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }> = [];
+    const unreachableNodes: Array<{
+      id: string;
+      type: string;
+      name: string;
+      path?: string | undefined;
+    }> = [];
     for (const nodeType of CODE_NODE_TYPES) {
       const nodes = this.store.findNodes({ type: nodeType });
       for (const node of nodes) {

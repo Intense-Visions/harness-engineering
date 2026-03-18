@@ -23,4 +23,5 @@ export type {
   BoundaryValidator,
   BoundaryViolation,
   BoundaryValidation,
+  GraphDependencyData,
 } from './types';

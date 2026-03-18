@@ -185,6 +185,9 @@ importers:
       lokijs:
         specifier: ^1.5.12
         version: 1.5.12
+      minimatch:
+        specifier: ^10.2.4
+        version: 10.2.4
       zod:
         specifier: ^3.24.1
         version: 3.25.76

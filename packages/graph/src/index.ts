@@ -73,4 +73,11 @@ export type {
   GraphCoverageReport,
 } from './context/Assembler.js';
 
+// Constraints
+export { GraphConstraintAdapter } from './constraints/GraphConstraintAdapter.js';
+export type {
+  GraphDependencyData,
+  GraphLayerViolation,
+} from './constraints/GraphConstraintAdapter.js';
+
 export const VERSION = '0.1.0';

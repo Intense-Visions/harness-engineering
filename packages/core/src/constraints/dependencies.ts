@@ -10,6 +10,7 @@ import type {
   DependencyGraph,
   DependencyViolation,
   DependencyValidation,
+  GraphDependencyData,
 } from './types';
 import { resolveFileToLayer } from './layers';
 import { findFiles } from '../shared/fs-utils';
@@ -55,8 +56,17 @@ function getImportType(imp: Import): 'static' | 'dynamic' | 'type-only' {
  */
 export async function buildDependencyGraph(
   files: string[],
-  parser: LanguageParser
+  parser: LanguageParser,
+  graphDependencyData?: GraphDependencyData
 ): Promise<Result<DependencyGraph, ConstraintError>> {
+  // When graph data is provided, use it directly
+  if (graphDependencyData) {
+    return Ok({
+      nodes: graphDependencyData.nodes,
+      edges: graphDependencyData.edges,
+    });
+  }
+
   const nodes = [...files];
   const edges: DependencyEdge[] = [];
 
@@ -134,7 +144,23 @@ function checkLayerViolations(
 export async function validateDependencies(
   config: LayerConfig
 ): Promise<Result<DependencyValidation, ConstraintError>> {
-  const { layers, rootDir, parser, fallbackBehavior = 'error' } = config;
+  const { layers, rootDir, parser, fallbackBehavior = 'error', graphDependencyData } = config;
+
+  // When graph data is provided, skip parser health check and file collection
+  if (graphDependencyData) {
+    const graphResult = await buildDependencyGraph([], parser, graphDependencyData);
+    if (!graphResult.ok) {
+      return Err(graphResult.error);
+    }
+
+    const violations = checkLayerViolations(graphResult.value, layers, rootDir);
+
+    return Ok({
+      valid: violations.length === 0,
+      violations,
+      graph: graphResult.value,
+    });
+  }
 
   // Check parser health
   const healthResult = await parser.health();

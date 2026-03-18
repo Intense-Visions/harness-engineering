@@ -29,6 +29,7 @@
   "dependencies": {
     "@harness-engineering/types": "workspace:*",
     "lokijs": "^1.5.12",
+    "minimatch": "^10.2.4",
     "zod": "^3.24.1"
   },
   "optionalDependencies": {

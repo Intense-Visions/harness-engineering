@@ -1,44 +1,42 @@
 {
-  "timestamp": "2026-03-18T17:15:00.000Z",
+  "timestamp": "2026-03-18T19:40:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 2b (MCP Integration) — 9 tasks adding 6 graph tools (query_graph, search_similar, find_context_for, get_relationships, get_impact, ingest_source) and 3 resources (harness://graph, harness://entities, harness://relationships) to the MCP server.",
+  "summary": "Planned Phase 6 (Constraint Migration) — 8 tasks adding GraphConstraintAdapter to packages/graph and enhancing buildDependencyGraph, validateDependencies, and detectCircularDepsInFiles with optional graph-based dependency data.",
   "completed": [],
   "pending": [
-    "Task 1: Add graph dependency to mcp-server",
-    "Task 2: Implement query_graph and search_similar tools",
-    "Task 3: Implement find_context_for and get_relationships tools",
-    "Task 4: Implement get_impact and ingest_source tools",
-    "Task 5: Implement graph resources",
-    "Task 6: Register tools and resources in server.ts",
-    "Task 7: Write tests for graph tools",
-    "Task 8: Write tests for graph resources",
-    "Task 9: Build and test verification"
+    "Task 1: Implement GraphConstraintAdapter (TDD)",
+    "Task 2: Add GraphDependencyData type to core constraints",
+    "Task 3: Enhance buildDependencyGraph with graph data (TDD)",
+    "Task 4: Enhance validateDependencies with graph data (TDD)",
+    "Task 5: Enhance detectCircularDepsInFiles with graph data (TDD)",
+    "Task 6: Write core constraint integration tests",
+    "Task 7: Update graph package exports",
+    "Task 8: Build and test verification"
   ],
   "concerns": [
-    "MCP tools receive project path as input — graph loading from .harness/graph/ must be lazy and handle missing graph gracefully",
-    "Tools modify different sections of the same file (tools/graph.ts) — sequential, not parallel",
-    "MCP server uses dynamic import pattern for core — may need same for graph"
+    "Core cannot import from graph package (circular dependency) — solved by passing plain objects",
+    "DependencyGraph and GraphDependencyData have same shape — core type uses mutable, graph uses readonly",
+    "Layer resolution still uses minimatch patterns — graph mode doesn't change this (layers are config, not graph data)"
   ],
   "decisions": [
-    "All 6 tools go in one file (tools/graph.ts) to keep graph concerns co-located",
-    "All 3 resources go in one file (resources/graph.ts)",
-    "Shared loadGraphStore helper avoids duplicate loading logic",
-    "ingest_source tool serves as the MCP equivalent of harness scan"
+    "GraphConstraintAdapter computes DependencyGraph-compatible data from GraphStore",
+    "buildDependencyGraph short-circuits when graph data provided — returns it directly",
+    "validateDependencies skips parser health check and file globbing when graph data provided",
+    "detectCircularDepsInFiles skips file parsing when graph data provided",
+    "Skill updates (enforce-architecture) deferred to Phase 7 per established pattern"
   ],
   "blockers": [],
   "contextKeywords": [
-    "mcp-server",
-    "tools",
-    "resources",
-    "query_graph",
-    "search_similar",
-    "find_context_for",
-    "get_relationships",
-    "get_impact",
-    "ingest_source",
-    "harness://graph",
-    "harness://entities",
-    "harness://relationships"
+    "constraints",
+    "dependencies",
+    "circular-deps",
+    "layers",
+    "GraphConstraintAdapter",
+    "buildDependencyGraph",
+    "validateDependencies",
+    "detectCircularDeps",
+    "DependencyGraph",
+    "LayerConfig"
   ]
 }

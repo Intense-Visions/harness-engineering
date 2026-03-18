@@ -13,6 +13,7 @@ export interface LayerConfig {
   rootDir: string;
   parser: LanguageParser;
   fallbackBehavior?: 'skip' | 'error' | 'warn';
+  graphDependencyData?: GraphDependencyData;
 }
 
 // Dependency Graph Types
@@ -88,4 +89,18 @@ export interface BoundaryValidator<T> {
     input: unknown
   ): import('../shared/result').Result<boolean, import('../shared/errors').ConstraintError>;
   schema: z.ZodSchema<T>;
+}
+
+/**
+ * Pre-computed dependency data from graph — avoids file parsing.
+ * Compatible with DependencyGraph shape.
+ */
+export interface GraphDependencyData {
+  nodes: string[];
+  edges: Array<{
+    from: string;
+    to: string;
+    importType: 'static' | 'dynamic' | 'type-only';
+    line: number;
+  }>;
 }

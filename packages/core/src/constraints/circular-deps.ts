@@ -2,7 +2,12 @@ import type { Result } from '../shared/result';
 import { Ok } from '../shared/result';
 import type { ConstraintError } from '../shared/errors';
 import type { LanguageParser } from '../shared/parsers';
-import type { DependencyGraph, CircularDependency, CircularDepsResult } from './types';
+import type {
+  DependencyGraph,
+  CircularDependency,
+  CircularDepsResult,
+  GraphDependencyData,
+} from './types';
 import { buildDependencyGraph } from './dependencies';
 
 interface TarjanNode {
@@ -128,9 +133,11 @@ export function detectCircularDeps(
  */
 export async function detectCircularDepsInFiles(
   files: string[],
-  parser: LanguageParser
+  parser: LanguageParser,
+  graphDependencyData?: GraphDependencyData
 ): Promise<Result<CircularDepsResult, ConstraintError>> {
-  const graphResult = await buildDependencyGraph(files, parser);
+  // Delegate to buildDependencyGraph — it handles graph data short-circuit internally
+  const graphResult = await buildDependencyGraph(files, parser, graphDependencyData);
   if (!graphResult.ok) {
     return graphResult as Result<CircularDepsResult, ConstraintError>;
   }
