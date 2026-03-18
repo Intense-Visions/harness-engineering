@@ -56,6 +56,14 @@ export { SlackConnector } from './ingest/connectors/SlackConnector.js';
 export { FusionLayer } from './search/FusionLayer.js';
 export type { FusionResult } from './search/FusionLayer.js';
 
+// Entropy
+export { GraphEntropyAdapter } from './entropy/GraphEntropyAdapter.js';
+export type {
+  GraphDriftData,
+  GraphDeadCodeData,
+  GraphSnapshotSummary,
+} from './entropy/GraphEntropyAdapter.js';
+
 // Context
 export { Assembler } from './context/Assembler.js';
 export type {

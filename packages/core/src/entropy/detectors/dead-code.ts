@@ -352,10 +352,69 @@ function findDeadInternals(
 /**
  * Detect dead code in a codebase snapshot.
  * Analyzes exports, files, imports, and internal symbols to find unused code.
+ * When graphDeadCodeData is provided, uses graph-derived reachability instead of snapshot-based BFS.
  */
 export async function detectDeadCode(
-  snapshot: CodebaseSnapshot
+  snapshot: CodebaseSnapshot,
+  graphDeadCodeData?: {
+    reachableNodeIds: Set<string> | string[];
+    unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }>;
+  }
 ): Promise<Result<DeadCodeReport, EntropyError>> {
+  // Graph-enhanced mode: use pre-computed graph reachability
+  if (graphDeadCodeData) {
+    const deadFiles: DeadFile[] = [];
+    const deadExports: DeadExport[] = [];
+
+    const fileTypes = new Set(['file', 'module']);
+    const exportTypes = new Set(['function', 'class', 'method', 'interface', 'variable']);
+
+    for (const node of graphDeadCodeData.unreachableNodes) {
+      if (fileTypes.has(node.type)) {
+        deadFiles.push({
+          path: node.path || node.id,
+          reason: 'NO_IMPORTERS',
+          exportCount: 0,
+          lineCount: 0,
+        });
+      } else if (exportTypes.has(node.type)) {
+        deadExports.push({
+          file: node.path || node.id,
+          name: node.name,
+          line: 0,
+          type: node.type as DeadExport['type'],
+          isDefault: false,
+          reason: 'NO_IMPORTERS',
+        });
+      }
+    }
+
+    const reachableCount =
+      graphDeadCodeData.reachableNodeIds instanceof Set
+        ? graphDeadCodeData.reachableNodeIds.size
+        : graphDeadCodeData.reachableNodeIds.length;
+
+    const totalNodes = reachableCount + graphDeadCodeData.unreachableNodes.length;
+
+    const report: DeadCodeReport = {
+      deadExports,
+      deadFiles,
+      deadInternals: [],
+      unusedImports: [],
+      stats: {
+        filesAnalyzed: totalNodes,
+        entryPointsUsed: [],
+        totalExports: deadExports.length + reachableCount,
+        deadExportCount: deadExports.length,
+        totalFiles: totalNodes,
+        deadFileCount: deadFiles.length,
+        estimatedDeadLines: 0,
+      },
+    };
+
+    return Ok(report);
+  }
+
   // Build reachability map from entry points
   const reachability = buildReachabilityMap(snapshot);
 

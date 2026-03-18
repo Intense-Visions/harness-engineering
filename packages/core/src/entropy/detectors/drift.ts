@@ -205,12 +205,70 @@ async function checkStructureDrift(
 }
 
 /**
- * Detect documentation drift in a codebase
+ * Detect documentation drift in a codebase.
+ * When graphDriftData is provided, uses graph-derived edges instead of snapshot-based analysis.
  */
 export async function detectDocDrift(
   snapshot: CodebaseSnapshot,
-  config?: Partial<DriftConfig>
+  config?: Partial<DriftConfig>,
+  graphDriftData?: {
+    staleEdges: Array<{ docNodeId: string; codeNodeId: string; edgeType: string }>;
+    missingTargets: string[];
+  }
 ): Promise<Result<DriftReport, EntropyError>> {
+  // Graph-enhanced mode: use pre-computed graph data instead of snapshot analysis
+  if (graphDriftData) {
+    const drifts: DocumentationDrift[] = [];
+
+    // Convert missing targets to drift objects
+    for (const target of graphDriftData.missingTargets) {
+      drifts.push({
+        type: 'api-signature',
+        docFile: target,
+        line: 0,
+        reference: target,
+        context: 'graph-missing-target',
+        issue: 'NOT_FOUND',
+        details: `Graph node "${target}" has no matching code target`,
+        confidence: 'high',
+      });
+    }
+
+    // Convert stale edges to drift objects (stale = potentially drifted)
+    for (const edge of graphDriftData.staleEdges) {
+      drifts.push({
+        type: 'api-signature',
+        docFile: edge.docNodeId,
+        line: 0,
+        reference: edge.codeNodeId,
+        context: `graph-stale-edge:${edge.edgeType}`,
+        issue: 'NOT_FOUND',
+        details: `Stale edge from doc "${edge.docNodeId}" to code "${edge.codeNodeId}" (${edge.edgeType})`,
+        confidence: 'medium',
+      });
+    }
+
+    const severity =
+      drifts.length === 0
+        ? 'none'
+        : drifts.length <= 3
+          ? 'low'
+          : drifts.length <= 10
+            ? 'medium'
+            : 'high';
+
+    return Ok({
+      drifts,
+      stats: {
+        docsScanned: graphDriftData.staleEdges.length,
+        referencesChecked: graphDriftData.staleEdges.length + graphDriftData.missingTargets.length,
+        driftsFound: drifts.length,
+        byType: { api: drifts.length, example: 0, structure: 0 },
+      },
+      severity,
+    });
+  }
+
   const fullConfig = { ...DEFAULT_DRIFT_CONFIG, ...config };
   const drifts: DocumentationDrift[] = [];
 

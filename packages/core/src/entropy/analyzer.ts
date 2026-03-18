@@ -36,9 +36,20 @@ export class EntropyAnalyzer {
   }
 
   /**
-   * Run full entropy analysis
+   * Run full entropy analysis.
+   * When graphOptions is provided, passes graph data to drift and dead code detectors
+   * for graph-enhanced analysis instead of snapshot-based analysis.
    */
-  async analyze(): Promise<Result<EntropyReport, EntropyError>> {
+  async analyze(graphOptions?: {
+    graphDriftData?: {
+      staleEdges: Array<{ docNodeId: string; codeNodeId: string; edgeType: string }>;
+      missingTargets: string[];
+    };
+    graphDeadCodeData?: {
+      reachableNodeIds: Set<string> | string[];
+      unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }>;
+    };
+  }): Promise<Result<EntropyReport, EntropyError>> {
     const startTime = Date.now();
 
     // Build snapshot
@@ -58,7 +69,7 @@ export class EntropyAnalyzer {
     if (this.config.analyze.drift) {
       const driftConfig =
         typeof this.config.analyze.drift === 'object' ? this.config.analyze.drift : {};
-      const result = await detectDocDrift(this.snapshot, driftConfig);
+      const result = await detectDocDrift(this.snapshot, driftConfig, graphOptions?.graphDriftData);
       if (result.ok) {
         driftReport = result.value;
       } else {
@@ -68,7 +79,7 @@ export class EntropyAnalyzer {
 
     // Dead code detection
     if (this.config.analyze.deadCode) {
-      const result = await detectDeadCode(this.snapshot);
+      const result = await detectDeadCode(this.snapshot, graphOptions?.graphDeadCodeData);
       if (result.ok) {
         deadCodeReport = result.value;
       } else {

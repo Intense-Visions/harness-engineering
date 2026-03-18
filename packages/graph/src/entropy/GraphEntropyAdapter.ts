@@ -1,0 +1,223 @@
+import type { GraphStore } from '../store/GraphStore.js';
+import type { GraphNode } from '../types.js';
+
+export interface GraphDriftData {
+  readonly staleEdges: ReadonlyArray<{ docNodeId: string; codeNodeId: string; edgeType: string }>;
+  readonly missingTargets: readonly string[];
+}
+
+export interface GraphDeadCodeData {
+  readonly reachableNodeIds: ReadonlySet<string>;
+  readonly unreachableNodes: ReadonlyArray<{
+    id: string;
+    type: string;
+    name: string;
+    path?: string;
+  }>;
+  readonly entryPoints: readonly string[];
+}
+
+export interface GraphSnapshotSummary {
+  readonly nodeCount: number;
+  readonly edgeCount: number;
+  readonly nodesByType: Record<string, number>;
+  readonly edgesByType: Record<string, number>;
+}
+
+const CODE_NODE_TYPES = ['file', 'function', 'class', 'method', 'interface', 'variable'] as const;
+
+export class GraphEntropyAdapter {
+  constructor(private readonly store: GraphStore) {}
+
+  /**
+   * Find all `documents` edges and classify them as stale or missing-target.
+   *
+   * 1. Find all `documents` edges in the graph
+   * 2. For each edge, check if the target code node still exists in the store
+   * 3. If target doesn't exist -> add to missingTargets
+   * 4. If target exists -> add to staleEdges (all documents edges are potentially stale)
+   */
+  computeDriftData(): GraphDriftData {
+    const documentsEdges = this.store.getEdges({ type: 'documents' });
+    const staleEdges: Array<{ docNodeId: string; codeNodeId: string; edgeType: string }> = [];
+    const missingTargets: string[] = [];
+
+    for (const edge of documentsEdges) {
+      const targetNode = this.store.getNode(edge.to);
+      if (targetNode) {
+        staleEdges.push({
+          docNodeId: edge.from,
+          codeNodeId: edge.to,
+          edgeType: edge.type,
+        });
+      } else {
+        missingTargets.push(edge.to);
+      }
+    }
+
+    return { staleEdges, missingTargets };
+  }
+
+  /**
+   * BFS from entry points to find reachable vs unreachable code nodes.
+   *
+   * 1. Entry points: file nodes named `index.ts` or with metadata `entryPoint: true`
+   * 2. BFS following `imports` and `calls` edges (outbound only)
+   * 3. Unreachable = code nodes NOT in visited set
+   */
+  computeDeadCodeData(): GraphDeadCodeData {
+    // Find entry points
+    const allFileNodes = this.store.findNodes({ type: 'file' });
+    const entryPoints: string[] = [];
+
+    for (const node of allFileNodes) {
+      if (node.name === 'index.ts' || node.metadata?.entryPoint === true) {
+        entryPoints.push(node.id);
+      }
+    }
+
+    // Also check non-file nodes with entryPoint metadata
+    for (const nodeType of CODE_NODE_TYPES) {
+      if (nodeType === 'file') continue;
+      const nodes = this.store.findNodes({ type: nodeType });
+      for (const node of nodes) {
+        if (node.metadata?.entryPoint === true) {
+          entryPoints.push(node.id);
+        }
+      }
+    }
+
+    // BFS from entry points following imports and calls edges (outbound)
+    const visited = new Set<string>();
+    const queue: string[] = [...entryPoints];
+
+    while (queue.length > 0) {
+      const nodeId = queue.shift()!;
+      if (visited.has(nodeId)) continue;
+      visited.add(nodeId);
+
+      // Follow outbound imports edges
+      const importEdges = this.store.getEdges({ from: nodeId, type: 'imports' });
+      for (const edge of importEdges) {
+        if (!visited.has(edge.to)) {
+          queue.push(edge.to);
+        }
+      }
+
+      // Follow outbound calls edges
+      const callEdges = this.store.getEdges({ from: nodeId, type: 'calls' });
+      for (const edge of callEdges) {
+        if (!visited.has(edge.to)) {
+          queue.push(edge.to);
+        }
+      }
+
+      // Follow outbound contains edges so that file -> function/class are reachable
+      const containsEdges = this.store.getEdges({ from: nodeId, type: 'contains' });
+      for (const edge of containsEdges) {
+        if (!visited.has(edge.to)) {
+          queue.push(edge.to);
+        }
+      }
+    }
+
+    // Collect unreachable code nodes
+    const unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }> = [];
+    for (const nodeType of CODE_NODE_TYPES) {
+      const nodes = this.store.findNodes({ type: nodeType });
+      for (const node of nodes) {
+        if (!visited.has(node.id)) {
+          unreachableNodes.push({
+            id: node.id,
+            type: node.type,
+            name: node.name,
+            path: node.path,
+          });
+        }
+      }
+    }
+
+    return {
+      reachableNodeIds: visited,
+      unreachableNodes,
+      entryPoints,
+    };
+  }
+
+  /**
+   * Count all nodes and edges by type.
+   */
+  computeSnapshotSummary(): GraphSnapshotSummary {
+    const nodesByType: Record<string, number> = {};
+    const edgesByType: Record<string, number> = {};
+
+    // Count nodes by type
+    for (const nodeType of [
+      'repository',
+      'module',
+      'file',
+      'class',
+      'interface',
+      'function',
+      'method',
+      'variable',
+      'adr',
+      'decision',
+      'learning',
+      'failure',
+      'issue',
+      'document',
+      'skill',
+      'conversation',
+      'commit',
+      'build',
+      'test_result',
+      'span',
+      'metric',
+      'log',
+      'layer',
+      'pattern',
+      'constraint',
+      'violation',
+    ] as const) {
+      const nodes = this.store.findNodes({ type: nodeType });
+      if (nodes.length > 0) {
+        nodesByType[nodeType] = nodes.length;
+      }
+    }
+
+    // Count edges by type
+    for (const edgeType of [
+      'contains',
+      'imports',
+      'calls',
+      'implements',
+      'inherits',
+      'references',
+      'applies_to',
+      'caused_by',
+      'resolved_by',
+      'documents',
+      'violates',
+      'specifies',
+      'decided',
+      'co_changes_with',
+      'triggered_by',
+      'failed_in',
+      'executed_by',
+      'measured_by',
+    ] as const) {
+      const edges = this.store.getEdges({ type: edgeType });
+      if (edges.length > 0) {
+        edgesByType[edgeType] = edges.length;
+      }
+    }
+
+    return {
+      nodeCount: this.store.nodeCount,
+      edgeCount: this.store.edgeCount,
+      nodesByType,
+      edgesByType,
+    };
+  }
+}
