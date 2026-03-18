@@ -1,9 +1,15 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { GraphNode } from '../types.js';
 
 export interface GraphDriftData {
-  readonly staleEdges: ReadonlyArray<{ docNodeId: string; codeNodeId: string; edgeType: string }>;
+  readonly staleEdges: ReadonlyArray<{
+    docNodeId: string;
+    codeNodeId: string;
+    edgeType: string;
+    codeLastModified?: string;
+    docLastModified?: string;
+  }>;
   readonly missingTargets: readonly string[];
+  readonly freshEdges: number;
 }
 
 export interface GraphDeadCodeData {
@@ -35,27 +41,59 @@ export class GraphEntropyAdapter {
    * 1. Find all `documents` edges in the graph
    * 2. For each edge, check if the target code node still exists in the store
    * 3. If target doesn't exist -> add to missingTargets
-   * 4. If target exists -> add to staleEdges (all documents edges are potentially stale)
+   * 4. If target exists -> compare lastModified timestamps to determine staleness
    */
   computeDriftData(): GraphDriftData {
     const documentsEdges = this.store.getEdges({ type: 'documents' });
-    const staleEdges: Array<{ docNodeId: string; codeNodeId: string; edgeType: string }> = [];
+    const staleEdges: Array<{
+      docNodeId: string;
+      codeNodeId: string;
+      edgeType: string;
+      codeLastModified?: string;
+      docLastModified?: string;
+    }> = [];
     const missingTargets: string[] = [];
+    let freshEdges = 0;
 
     for (const edge of documentsEdges) {
-      const targetNode = this.store.getNode(edge.to);
-      if (targetNode) {
+      const codeNode = this.store.getNode(edge.to);
+      if (!codeNode) {
+        missingTargets.push(edge.to);
+        continue;
+      }
+
+      const docNode = this.store.getNode(edge.from);
+      const codeLastModified = codeNode.lastModified;
+      const docLastModified = docNode?.lastModified;
+
+      // If both timestamps exist, compare them
+      if (codeLastModified && docLastModified) {
+        if (codeLastModified > docLastModified) {
+          // Code changed after docs were written — stale
+          staleEdges.push({
+            docNodeId: edge.from,
+            codeNodeId: edge.to,
+            edgeType: edge.type,
+            codeLastModified,
+            docLastModified,
+          });
+        } else {
+          // Docs are up to date
+          freshEdges++;
+        }
+      } else {
+        // Missing timestamps — conservatively treat as stale
         staleEdges.push({
           docNodeId: edge.from,
           codeNodeId: edge.to,
           edgeType: edge.type,
+          codeLastModified,
+          docLastModified,
         });
-      } else {
-        missingTargets.push(edge.to);
       }
     }
 
-    return { staleEdges, missingTargets };
+    return { staleEdges, missingTargets, freshEdges };
   }
 
   /**
@@ -90,9 +128,10 @@ export class GraphEntropyAdapter {
     // BFS from entry points following imports and calls edges (outbound)
     const visited = new Set<string>();
     const queue: string[] = [...entryPoints];
+    let head = 0;
 
-    while (queue.length > 0) {
-      const nodeId = queue.shift()!;
+    while (head < queue.length) {
+      const nodeId = queue[head++]!;
       if (visited.has(nodeId)) continue;
       visited.add(nodeId);
 
@@ -151,66 +190,16 @@ export class GraphEntropyAdapter {
     const nodesByType: Record<string, number> = {};
     const edgesByType: Record<string, number> = {};
 
-    // Count nodes by type
-    for (const nodeType of [
-      'repository',
-      'module',
-      'file',
-      'class',
-      'interface',
-      'function',
-      'method',
-      'variable',
-      'adr',
-      'decision',
-      'learning',
-      'failure',
-      'issue',
-      'document',
-      'skill',
-      'conversation',
-      'commit',
-      'build',
-      'test_result',
-      'span',
-      'metric',
-      'log',
-      'layer',
-      'pattern',
-      'constraint',
-      'violation',
-    ] as const) {
-      const nodes = this.store.findNodes({ type: nodeType });
-      if (nodes.length > 0) {
-        nodesByType[nodeType] = nodes.length;
-      }
+    // Count nodes by type dynamically
+    const allNodes = this.store.findNodes({});
+    for (const node of allNodes) {
+      nodesByType[node.type] = (nodesByType[node.type] ?? 0) + 1;
     }
 
-    // Count edges by type
-    for (const edgeType of [
-      'contains',
-      'imports',
-      'calls',
-      'implements',
-      'inherits',
-      'references',
-      'applies_to',
-      'caused_by',
-      'resolved_by',
-      'documents',
-      'violates',
-      'specifies',
-      'decided',
-      'co_changes_with',
-      'triggered_by',
-      'failed_in',
-      'executed_by',
-      'measured_by',
-    ] as const) {
-      const edges = this.store.getEdges({ type: edgeType });
-      if (edges.length > 0) {
-        edgesByType[edgeType] = edges.length;
-      }
+    // Count edges by type dynamically
+    const allEdges = this.store.getEdges({});
+    for (const edge of allEdges) {
+      edgesByType[edge.type] = (edgesByType[edge.type] ?? 0) + 1;
     }
 
     return {

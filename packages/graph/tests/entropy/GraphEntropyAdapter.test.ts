@@ -32,11 +32,12 @@ describe('GraphEntropyAdapter', () => {
   });
 
   describe('computeDriftData', () => {
-    it('should return stale edges for documents relationships', () => {
+    it('should return stale edges when timestamps are missing (conservative)', () => {
       const drift = adapter.computeDriftData();
 
-      // After KnowledgeIngestor runs, there should be documents edges
-      expect(drift.staleEdges.length).toBeGreaterThan(0);
+      // Documents edges without lastModified timestamps are conservatively stale
+      const totalDocEdges = drift.staleEdges.length + drift.freshEdges;
+      expect(totalDocEdges).toBeGreaterThan(0);
 
       // Each stale edge should have valid structure
       for (const edge of drift.staleEdges) {
@@ -48,6 +49,112 @@ describe('GraphEntropyAdapter', () => {
         const targetNode = store.getNode(edge.codeNodeId);
         expect(targetNode).not.toBeNull();
       }
+    });
+
+    it('should mark edge as fresh when doc is newer than code', () => {
+      // Add a code node with a lastModified timestamp
+      store.addNode({
+        id: 'function:fresh-test.ts:freshFn',
+        type: 'function',
+        name: 'freshFn',
+        path: 'fresh-test.ts',
+        metadata: {},
+        lastModified: '2024-01-01T00:00:00Z',
+      });
+
+      // Add a doc node with a NEWER lastModified timestamp
+      store.addNode({
+        id: 'adr:ADR-FRESH',
+        type: 'adr',
+        name: 'ADR-FRESH',
+        metadata: {},
+        lastModified: '2024-06-01T00:00:00Z',
+      });
+
+      store.addEdge({
+        from: 'adr:ADR-FRESH',
+        to: 'function:fresh-test.ts:freshFn',
+        type: 'documents',
+      });
+
+      const drift = adapter.computeDriftData();
+
+      // This edge should NOT appear in staleEdges
+      const freshEdge = drift.staleEdges.find(
+        (e) => e.codeNodeId === 'function:fresh-test.ts:freshFn'
+      );
+      expect(freshEdge).toBeUndefined();
+      expect(drift.freshEdges).toBeGreaterThan(0);
+    });
+
+    it('should mark edge as stale when code is newer than doc', () => {
+      // Add a code node modified AFTER the doc
+      store.addNode({
+        id: 'function:stale-test.ts:staleFn',
+        type: 'function',
+        name: 'staleFn',
+        path: 'stale-test.ts',
+        metadata: {},
+        lastModified: '2024-06-01T00:00:00Z',
+      });
+
+      // Add a doc node with an OLDER lastModified timestamp
+      store.addNode({
+        id: 'adr:ADR-STALE',
+        type: 'adr',
+        name: 'ADR-STALE',
+        metadata: {},
+        lastModified: '2024-01-01T00:00:00Z',
+      });
+
+      store.addEdge({
+        from: 'adr:ADR-STALE',
+        to: 'function:stale-test.ts:staleFn',
+        type: 'documents',
+      });
+
+      const drift = adapter.computeDriftData();
+
+      const staleEdge = drift.staleEdges.find(
+        (e) => e.codeNodeId === 'function:stale-test.ts:staleFn'
+      );
+      expect(staleEdge).toBeDefined();
+      expect(staleEdge!.codeLastModified).toBe('2024-06-01T00:00:00Z');
+      expect(staleEdge!.docLastModified).toBe('2024-01-01T00:00:00Z');
+    });
+
+    it('should mark edge as fresh when timestamps are equal', () => {
+      const timestamp = '2024-03-15T12:00:00Z';
+
+      store.addNode({
+        id: 'function:equal-test.ts:equalFn',
+        type: 'function',
+        name: 'equalFn',
+        path: 'equal-test.ts',
+        metadata: {},
+        lastModified: timestamp,
+      });
+
+      store.addNode({
+        id: 'adr:ADR-EQUAL',
+        type: 'adr',
+        name: 'ADR-EQUAL',
+        metadata: {},
+        lastModified: timestamp,
+      });
+
+      store.addEdge({
+        from: 'adr:ADR-EQUAL',
+        to: 'function:equal-test.ts:equalFn',
+        type: 'documents',
+      });
+
+      const drift = adapter.computeDriftData();
+
+      const equalEdge = drift.staleEdges.find(
+        (e) => e.codeNodeId === 'function:equal-test.ts:equalFn'
+      );
+      expect(equalEdge).toBeUndefined();
     });
 
     it('should return missingTargets when a documents edge points to a deleted node', () => {

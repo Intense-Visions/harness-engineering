@@ -52,12 +52,29 @@ export class EntropyAnalyzer {
   }): Promise<Result<EntropyReport, EntropyError>> {
     const startTime = Date.now();
 
-    // Build snapshot
-    const snapshotResult = await buildSnapshot(this.config);
-    if (!snapshotResult.ok) {
-      return Err(snapshotResult.error);
+    // Only build snapshot if we need it (no graph data for some/all detectors)
+    const needsSnapshot =
+      !graphOptions || !graphOptions.graphDriftData || !graphOptions.graphDeadCodeData;
+    if (needsSnapshot) {
+      const snapshotResult = await buildSnapshot(this.config);
+      if (!snapshotResult.ok) {
+        return Err(snapshotResult.error);
+      }
+      this.snapshot = snapshotResult.value;
+    } else {
+      // Provide a minimal empty snapshot for backward compatibility with detector signatures
+      this.snapshot = {
+        files: [],
+        dependencyGraph: { nodes: [], edges: [] },
+        exportMap: { byFile: new Map(), byName: new Map() },
+        docs: [],
+        codeReferences: [],
+        entryPoints: [],
+        rootDir: this.config.rootDir,
+        config: this.config,
+        buildTime: 0,
+      };
     }
-    this.snapshot = snapshotResult.value;
 
     // Run requested analyzers
     let driftReport: DriftReport | undefined;
@@ -205,23 +222,32 @@ export class EntropyAnalyzer {
   /**
    * Run drift detection only (snapshot must be built first)
    */
-  async detectDrift(config?: Partial<DriftConfig>): Promise<Result<DriftReport, EntropyError>> {
+  async detectDrift(
+    config?: Partial<DriftConfig>,
+    graphDriftData?: {
+      staleEdges: Array<{ docNodeId: string; codeNodeId: string; edgeType: string }>;
+      missingTargets: string[];
+    }
+  ): Promise<Result<DriftReport, EntropyError>> {
     const snapshotResult = await this.ensureSnapshot();
     if (!snapshotResult.ok) {
       return Err(snapshotResult.error);
     }
-    return detectDocDrift(snapshotResult.value, config || {});
+    return detectDocDrift(snapshotResult.value, config || {}, graphDriftData);
   }
 
   /**
    * Run dead code detection only (snapshot must be built first)
    */
-  async detectDeadCode(): Promise<Result<DeadCodeReport, EntropyError>> {
+  async detectDeadCode(graphDeadCodeData?: {
+    reachableNodeIds: Set<string> | string[];
+    unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }>;
+  }): Promise<Result<DeadCodeReport, EntropyError>> {
     const snapshotResult = await this.ensureSnapshot();
     if (!snapshotResult.ok) {
       return Err(snapshotResult.error);
     }
-    return detectDeadCode(snapshotResult.value);
+    return detectDeadCode(snapshotResult.value, graphDeadCodeData);
   }
 
   /**

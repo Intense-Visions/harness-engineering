@@ -129,10 +129,6 @@ describe('graph-enhanced entropy detection', () => {
 
       const analyzer = new EntropyAnalyzer(config);
 
-      // We need to inject a snapshot to avoid filesystem scanning.
-      // Use buildSnapshot first, then call analyze with graph options.
-      // Since rootDir doesn't exist, we'll test the detector functions directly
-      // and verify the analyzer signature accepts graphOptions.
       const graphOptions = {
         graphDriftData: {
           staleEdges: [
@@ -148,25 +144,45 @@ describe('graph-enhanced entropy detection', () => {
         },
       };
 
-      // Verify the method signature accepts graphOptions by calling the detectors directly
-      // (analyzer.analyze would try to build a snapshot from rootDir which doesn't exist)
-      const driftResult = await detectDocDrift(emptySnapshot, {}, graphOptions.graphDriftData);
+      // With both graphDriftData and graphDeadCodeData provided, analyzer.analyze
+      // skips snapshot building entirely and uses graph data for detection
+      const result = await analyzer.analyze(graphOptions);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.drift).toBeDefined();
+        expect(result.value.drift!.drifts).toHaveLength(2);
+        expect(result.value.deadCode).toBeDefined();
+        expect(result.value.deadCode!.deadFiles).toHaveLength(1);
+        expect(result.value.deadCode!.deadFiles[0]!.path).toBe('/src/dead.ts');
+      }
+    });
+
+    it('still calls detectors directly with graph data', async () => {
+      const graphDriftData = {
+        staleEdges: [
+          { docNodeId: 'doc:readme.md', codeNodeId: 'code:foo', edgeType: 'references' },
+        ],
+        missingTargets: ['code:bar'],
+      };
+
+      const driftResult = await detectDocDrift(emptySnapshot, {}, graphDriftData);
       expect(driftResult.ok).toBe(true);
       if (driftResult.ok) {
         expect(driftResult.value.drifts).toHaveLength(2);
       }
 
-      const deadCodeResult = await detectDeadCode(emptySnapshot, graphOptions.graphDeadCodeData);
+      const graphDeadCodeData = {
+        reachableNodeIds: ['node:entry'] as string[],
+        unreachableNodes: [
+          { id: 'node:dead.ts', type: 'file', name: 'dead.ts', path: '/src/dead.ts' },
+        ],
+      };
+
+      const deadCodeResult = await detectDeadCode(emptySnapshot, graphDeadCodeData);
       expect(deadCodeResult.ok).toBe(true);
       if (deadCodeResult.ok) {
         expect(deadCodeResult.value.deadFiles).toHaveLength(1);
       }
-
-      // Type check: verify analyzer.analyze accepts graphOptions parameter
-      // This is a compile-time check - if the signature is wrong, TypeScript would fail
-      type AnalyzeParams = Parameters<typeof analyzer.analyze>;
-      const _typeCheck: AnalyzeParams = [graphOptions];
-      expect(_typeCheck).toBeDefined();
     });
   });
 });

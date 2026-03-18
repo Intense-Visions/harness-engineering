@@ -378,11 +378,14 @@ export async function detectDeadCode(
           lineCount: 0,
         });
       } else if (exportTypes.has(node.type)) {
+        // Map 'method' to 'function' since DeadExport['type'] does not include 'method'
+        const exportType: DeadExport['type'] =
+          node.type === 'method' ? 'function' : (node.type as DeadExport['type']);
         deadExports.push({
           file: node.path || node.id,
           name: node.name,
           line: 0,
-          type: node.type as DeadExport['type'],
+          type: exportType,
           isDefault: false,
           reason: 'NO_IMPORTERS',
         });
@@ -394,7 +397,15 @@ export async function detectDeadCode(
         ? graphDeadCodeData.reachableNodeIds.size
         : graphDeadCodeData.reachableNodeIds.length;
 
-    const totalNodes = reachableCount + graphDeadCodeData.unreachableNodes.length;
+    // Separate unreachable nodes by type for accurate stats
+    const fileNodes = graphDeadCodeData.unreachableNodes.filter((n) => fileTypes.has(n.type));
+    const exportNodes = graphDeadCodeData.unreachableNodes.filter((n) => exportTypes.has(n.type));
+
+    // totalFiles: file-type nodes in both reachable and unreachable sets
+    // Since we only have IDs for reachable nodes, use reachableCount as an upper bound
+    // and subtract known non-file unreachable nodes to estimate reachable file count
+    const totalFiles = reachableCount + fileNodes.length;
+    const totalExports = exportNodes.length + (reachableCount > 0 ? reachableCount : 0);
 
     const report: DeadCodeReport = {
       deadExports,
@@ -402,11 +413,11 @@ export async function detectDeadCode(
       deadInternals: [],
       unusedImports: [],
       stats: {
-        filesAnalyzed: totalNodes,
+        filesAnalyzed: totalFiles,
         entryPointsUsed: [],
-        totalExports: deadExports.length + reachableCount,
+        totalExports,
         deadExportCount: deadExports.length,
-        totalFiles: totalNodes,
+        totalFiles,
         deadFileCount: deadFiles.length,
         estimatedDeadLines: 0,
       },
