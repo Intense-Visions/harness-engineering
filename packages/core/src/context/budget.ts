@@ -72,6 +72,15 @@ export function contextBudget(
         }
       }
 
+      // Ensure reserve and systemPrompt have at least their default ratios
+      // since no graph node types map to them
+      if (ratios.reserve < DEFAULT_RATIOS.reserve) {
+        ratios.reserve = DEFAULT_RATIOS.reserve;
+      }
+      if (ratios.systemPrompt < DEFAULT_RATIOS.systemPrompt) {
+        ratios.systemPrompt = DEFAULT_RATIOS.systemPrompt;
+      }
+
       // Normalize so ratios sum to 1.0
       const ratioSum = Object.values(ratios).reduce((sum, r) => sum + r, 0);
       for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
@@ -107,16 +116,17 @@ export function contextBudget(
     }
 
     // Redistribute remaining budget proportionally among non-overridden categories
+    // Use current ratios (which may have been modified by graphDensity) instead of DEFAULT_RATIOS
     if (overrideKeys.length > 0 && overrideKeys.length < 6) {
       const remaining = 1 - overrideSum;
-      const nonOverridden = Object.keys(DEFAULT_RATIOS).filter(
+      const nonOverridden = Object.keys(ratios).filter(
         (k) => !overrideKeys.includes(k as keyof typeof DEFAULT_RATIOS)
       ) as (keyof typeof DEFAULT_RATIOS)[];
 
-      const originalSum = nonOverridden.reduce((sum, k) => sum + DEFAULT_RATIOS[k], 0);
+      const originalSum = nonOverridden.reduce((sum, k) => sum + ratios[k], 0);
 
       for (const k of nonOverridden) {
-        ratios[k] = remaining * (DEFAULT_RATIOS[k] / originalSum);
+        ratios[k] = remaining * (ratios[k] / originalSum);
       }
     }
   }

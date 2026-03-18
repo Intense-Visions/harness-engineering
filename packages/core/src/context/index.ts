@@ -26,6 +26,7 @@ export type {
   DocumentationGap,
   CoverageReport,
   CoverageOptions,
+  GraphCoverageData,
   BrokenLink,
   IntegrityReport,
   GenerationSection,

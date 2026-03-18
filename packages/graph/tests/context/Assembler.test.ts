@@ -53,16 +53,20 @@ describe('Assembler', () => {
   });
 
   // Test 3: assembleContext returns truncated=true when budget exceeded
-  it('assembleContext returns truncated=true when budget exceeded', () => {
-    // Use a very small budget to force truncation
-    const result = assembler.assembleContext('auth', 20);
-    // With a budget of 20 tokens, we should get truncation if there are multiple matches
-    if (result.nodes.length > 0) {
-      const fullResult = assembler.assembleContext('auth', 100000);
-      if (fullResult.nodes.length > result.nodes.length) {
-        expect(result.truncated).toBe(true);
-      }
+  it('assembleContext returns truncated=true when budget is very small', () => {
+    // Add many nodes to ensure we exceed a tiny budget
+    for (let i = 0; i < 50; i++) {
+      store.addNode({
+        id: `fn:test${i}`,
+        type: 'function',
+        name: `testFunction${i}`,
+        path: `src/test${i}.ts`,
+        metadata: { index: i },
+      });
     }
+    const result = assembler.assembleContext('test', 10); // very small budget
+    expect(result.truncated).toBe(true);
+    expect(result.tokenEstimate).toBeLessThanOrEqual(10 + 50); // some tolerance
   });
 
   // Test 4: computeBudget returns allocations summing to totalTokens

@@ -42,11 +42,17 @@ export interface CoverageReport {
   gaps: DocumentationGap[];
 }
 
+export interface GraphCoverageData {
+  documented: string[];
+  undocumented: string[];
+  coveragePercentage: number;
+}
+
 export interface CoverageOptions {
   docsDir?: string; // Default: './docs'
   sourceDir?: string; // Default: './src'
   excludePatterns?: string[]; // Files to ignore
-  graphCoverage?: { documented: string[]; undocumented: string[]; coveragePercentage: number }; // Pre-computed from graph
+  graphCoverage?: GraphCoverageData; // Pre-computed from graph
 }
 
 // Knowledge Map Integrity Types

@@ -38,13 +38,6 @@ const PHASE_NODE_TYPES: Record<string, readonly NodeType[]> = {
   plan: ['adr', 'document', 'module', 'layer'],
 };
 
-const PHASE_BOOST_TYPES: Record<string, readonly NodeType[]> = {
-  implement: ['file', 'function', 'class', 'method', 'interface', 'variable'],
-  review: ['adr', 'document', 'learning', 'commit'],
-  debug: ['failure', 'learning', 'function', 'method'],
-  plan: ['adr', 'document', 'module', 'layer'],
-};
-
 const CODE_NODE_TYPES: ReadonlySet<NodeType> = new Set([
   'file',
   'function',
@@ -59,24 +52,35 @@ const CODE_NODE_TYPES: ReadonlySet<NodeType> = new Set([
  * Uses a 4-characters-per-token heuristic.
  */
 function estimateNodeTokens(node: GraphNode): number {
-  const content = [node.name, node.path ?? '', node.type].join(' ');
-  return Math.ceil(content.length / 4);
+  let chars = (node.name?.length ?? 0) + (node.path?.length ?? 0) + (node.type?.length ?? 0);
+  if (node.metadata) {
+    chars += JSON.stringify(node.metadata).length;
+  }
+  return Math.ceil(chars / 4); // ~4 chars per token
 }
 
 export class Assembler {
   private readonly store: GraphStore;
   private readonly vectorStore: VectorStore | undefined;
+  private fusionLayer: FusionLayer | undefined;
 
   constructor(store: GraphStore, vectorStore?: VectorStore) {
     this.store = store;
     this.vectorStore = vectorStore;
   }
 
+  private getFusionLayer(): FusionLayer {
+    if (!this.fusionLayer) {
+      this.fusionLayer = new FusionLayer(this.store, this.vectorStore);
+    }
+    return this.fusionLayer;
+  }
+
   /**
    * Assemble context relevant to an intent string within a token budget.
    */
   assembleContext(intent: string, tokenBudget = 4000): AssembledContext {
-    const fusion = new FusionLayer(this.store, this.vectorStore);
+    const fusion = this.getFusionLayer();
     const topResults = fusion.search(intent, 10);
 
     if (topResults.length === 0) {
@@ -181,7 +185,7 @@ export class Assembler {
     }
 
     // Apply phase boost
-    const boostTypes = phase ? PHASE_BOOST_TYPES[phase] : undefined;
+    const boostTypes = phase ? PHASE_NODE_TYPES[phase] : undefined;
     const boostFactor = 2.0;
 
     // Calculate weighted total
@@ -219,7 +223,14 @@ export class Assembler {
    * Filter graph nodes relevant to a development phase.
    */
   filterForPhase(phase: string): GraphFilterResult {
-    const relevantTypes = PHASE_NODE_TYPES[phase] ?? [];
+    const nodeTypes = PHASE_NODE_TYPES[phase];
+    if (!nodeTypes) {
+      console.warn(
+        `[harness] Unknown phase "${phase}" in filterForPhase. Returning all code nodes.`
+      );
+      // fall back to implement types
+    }
+    const relevantTypes = nodeTypes ?? PHASE_NODE_TYPES['implement'] ?? [];
     const nodes: GraphNode[] = [];
     const filePathSet = new Set<string>();
 
@@ -276,9 +287,10 @@ export class Assembler {
       }
     }
 
-    // Find entry points: file nodes with high out-degree
+    // Find entry points: file nodes with high out-degree (excluding barrel files)
     const fileNodes = this.store.findNodes({ type: 'file' });
-    const filesWithOutDegree = fileNodes.map((f) => {
+    const nonBarrelFiles = fileNodes.filter((n) => !n.name.startsWith('index.'));
+    const filesWithOutDegree = nonBarrelFiles.map((f) => {
       const outEdges = this.store.getEdges({ from: f.id });
       return { file: f, outDegree: outEdges.length };
     });
