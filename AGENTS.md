@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server), 26 skills, 3 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server), 27 skills, 3 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -32,8 +32,8 @@ harness-engineering/
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
 │   └── mcp-server/           # MCP server for AI agent integration
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 26 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 26 skills (same skills, adapted for Gemini CLI platform)
+│   ├── skills/claude-code/   # 27 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 27 skills (same skills, adapted for Gemini CLI platform)
 │   └── personas/             # 3 personas (architecture-enforcer, documentation-maintainer, entropy-cleaner)
 ├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
 ├── examples/                  # Progressive tutorial examples
@@ -284,7 +284,7 @@ This creates a permanent record that AI agents can access and understand.
 
 - **[docs/specs/](./docs/specs/)** - Detailed technical specifications for features
 - **[docs/plans/](./docs/plans/)** - Implementation and execution plans
-- **[docs/changes/](./docs/changes/)** - In-progress change proposals (placeholder — currently empty)
+- **[docs/changes/](./docs/changes/)** - In-progress change proposals
 
 ### Key Documentation
 

@@ -637,8 +637,8 @@ The CLI uses the following exit codes:
 
 ```
 0       Success
-1       General error
-2       Validation failed
+1       Validation failed
+2       General error
 ```
 
 Use exit codes in scripts:

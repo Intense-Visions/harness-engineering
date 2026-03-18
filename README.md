@@ -57,7 +57,7 @@ npm install && harness validate
 | [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                   |
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports |
 | [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                       |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 23 tools and 5 resources for AI agent integration                          |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 24 tools and 5 resources for AI agent integration                          |
 
 ## Architecture
 
@@ -88,7 +88,7 @@ Connect your AI coding agent to harness for real-time constraint validation:
 harness setup-mcp
 ```
 
-This adds the harness MCP server to your AI client, giving it access to 23 tools (validation, entropy detection, skill execution, state management, code review, and more) and 5 resources (project context, skills catalog, rules, learnings, state).
+This adds the harness MCP server to your AI client, giving it access to 24 tools (validation, entropy detection, skill execution, state management, code review, and more) and 5 resources (project context, skills catalog, rules, learnings, state).
 
 **Manual setup:**
 
@@ -136,7 +136,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 | Component                              | Count | Description                                                                     |
 | -------------------------------------- | ----- | ------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 6     | Core library, CLI, ESLint plugin, linter generator, MCP server, shared types    |
-| [Skills](./agents/skills/claude-code/) | 26    | Agent workflows for TDD, execution, debugging, verification, planning, and more |
+| [Skills](./agents/skills/claude-code/) | 27    | Agent workflows for TDD, execution, debugging, verification, planning, and more |
 | [Personas](./agents/personas/)         | 3     | Architecture enforcer, documentation maintainer, entropy cleaner                |
 | [Templates](./templates/)              | 5     | Base, basic, intermediate, advanced, and Next.js scaffolds                      |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                              |
@@ -168,7 +168,7 @@ Learn by doing. Each example builds on the previous:
 **API Reference**
 
 - [CLI Reference](./docs/reference/cli.md) — All commands and flags
-- [Configuration Reference](./docs/reference/configuration.md) — `harness.config.yaml` schema
+- [Configuration Reference](./docs/reference/configuration.md) — `harness.config.json` schema
 
 ## Contributing
 
