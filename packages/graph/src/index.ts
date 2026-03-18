@@ -34,7 +34,14 @@ export { project } from './query/Projection.js';
 
 // Ingest
 export { CodeIngestor } from './ingest/CodeIngestor.js';
+export { GitIngestor } from './ingest/GitIngestor.js';
+export type { GitRunner } from './ingest/GitIngestor.js';
 export { TopologicalLinker } from './ingest/TopologicalLinker.js';
 export type { LinkResult } from './ingest/TopologicalLinker.js';
+export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
+
+// Search
+export { FusionLayer } from './search/FusionLayer.js';
+export type { FusionResult } from './search/FusionLayer.js';
 
 export const VERSION = '0.1.0';
