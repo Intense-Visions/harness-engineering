@@ -1,46 +1,44 @@
 {
-  "timestamp": "2026-03-18T00:00:00.000Z",
+  "timestamp": "2026-03-18T17:15:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 1 (Graph Foundation) of the Unified Knowledge Graph — 12 tasks covering package scaffold, type system, GraphStore with LokiJS persistence, VectorStore with cosine similarity, ContextQL with BFS traversal and noise pruning, CodeIngestor with regex-based TypeScript parsing, TopologicalLinker with cycle detection, and end-to-end integration tests.",
+  "summary": "Planned Phase 2b (MCP Integration) — 9 tasks adding 6 graph tools (query_graph, search_similar, find_context_for, get_relationships, get_impact, ingest_source) and 3 resources (harness://graph, harness://entities, harness://relationships) to the MCP server.",
   "completed": [],
   "pending": [
-    "Task 1: Scaffold packages/graph package",
-    "Task 2: Define graph type system",
-    "Task 3: Implement GraphStore — node CRUD (TDD)",
-    "Task 4: Implement GraphStore — persistence (TDD)",
-    "Task 5: Implement VectorStore (TDD)",
-    "Task 6: Implement ContextQL — BFS traversal (TDD)",
-    "Task 7: Implement Projection (TDD)",
-    "Task 8: Create test fixture project",
-    "Task 9: Implement CodeIngestor — regex-based parsing (TDD)",
-    "Task 10: Implement TopologicalLinker (TDD)",
-    "Task 11: Integration test — scan and query end-to-end",
-    "Task 12: Run full test suite and build"
+    "Task 1: Add graph dependency to mcp-server",
+    "Task 2: Implement query_graph and search_similar tools",
+    "Task 3: Implement find_context_for and get_relationships tools",
+    "Task 4: Implement get_impact and ingest_source tools",
+    "Task 5: Implement graph resources",
+    "Task 6: Register tools and resources in server.ts",
+    "Task 7: Write tests for graph tools",
+    "Task 8: Write tests for graph resources",
+    "Task 9: Build and test verification"
   ],
   "concerns": [
-    "LokiJS types may need @types/lokijs or manual declarations",
-    "Regex-based parsing is intentionally limited — tree-sitter upgrade planned for later",
-    "VectorStore starts with brute-force cosine similarity — HNSWLib integration deferred to Phase 2+"
+    "MCP tools receive project path as input — graph loading from .harness/graph/ must be lazy and handle missing graph gracefully",
+    "Tools modify different sections of the same file (tools/graph.ts) — sequential, not parallel",
+    "MCP server uses dynamic import pattern for core — may need same for graph"
   ],
   "decisions": [
-    "Start with regex parsing, not tree-sitter (reduce native dependency risk in Phase 1)",
-    "Start with brute-force vector search, not HNSWLib (prove the interface before optimizing)",
-    "Graph types live in packages/graph, not packages/types (graph-specific, not shared foundation)",
-    "JSON persistence first, Protobuf deferred to when graph size requires it"
+    "All 6 tools go in one file (tools/graph.ts) to keep graph concerns co-located",
+    "All 3 resources go in one file (resources/graph.ts)",
+    "Shared loadGraphStore helper avoids duplicate loading logic",
+    "ingest_source tool serves as the MCP equivalent of harness scan"
   ],
   "blockers": [],
   "contextKeywords": [
-    "knowledge-graph",
-    "LokiJS",
-    "ContextQL",
-    "BFS",
-    "noise-pruning",
-    "CodeIngestor",
-    "TopologicalLinker",
-    "VectorStore",
-    "cosine-similarity",
-    "graph-foundation",
-    "packages/graph"
+    "mcp-server",
+    "tools",
+    "resources",
+    "query_graph",
+    "search_similar",
+    "find_context_for",
+    "get_relationships",
+    "get_impact",
+    "ingest_source",
+    "harness://graph",
+    "harness://entities",
+    "harness://relationships"
   ]
 }

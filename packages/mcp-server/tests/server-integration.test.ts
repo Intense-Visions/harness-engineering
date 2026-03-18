@@ -26,7 +26,13 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('run_agent_task');
     expect(names).toContain('run_skill');
     expect(names).toContain('generate_slash_commands');
-    expect(tools).toHaveLength(24);
+    expect(names).toContain('query_graph');
+    expect(names).toContain('search_similar');
+    expect(names).toContain('find_context_for');
+    expect(names).toContain('get_relationships');
+    expect(names).toContain('get_impact');
+    expect(names).toContain('ingest_source');
+    expect(tools).toHaveLength(30);
   });
 
   it('all tool definitions have inputSchema', () => {

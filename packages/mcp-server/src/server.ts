@@ -72,6 +72,25 @@ import {
   handleGenerateSlashCommands,
 } from './tools/generate-slash-commands.js';
 import { getStateResource } from './resources/state.js';
+import {
+  queryGraphDefinition,
+  handleQueryGraph,
+  searchSimilarDefinition,
+  handleSearchSimilar,
+  findContextForDefinition,
+  handleFindContextFor,
+  getRelationshipsDefinition,
+  handleGetRelationships,
+  getImpactDefinition,
+  handleGetImpact,
+  ingestSourceDefinition,
+  handleIngestSource,
+} from './tools/graph.js';
+import {
+  getGraphResource,
+  getEntitiesResource,
+  getRelationshipsResource,
+} from './resources/graph.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -103,6 +122,12 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateCrossCheckDefinition,
   createSkillDefinition,
   generateSlashCommandsDefinition,
+  queryGraphDefinition,
+  searchSimilarDefinition,
+  findContextForDefinition,
+  getRelationshipsDefinition,
+  getImpactDefinition,
+  ingestSourceDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -129,6 +154,12 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_cross_check: handleValidateCrossCheck as ToolHandler,
   create_skill: handleCreateSkill as ToolHandler,
   generate_slash_commands: handleGenerateSlashCommands as ToolHandler,
+  query_graph: handleQueryGraph as ToolHandler,
+  search_similar: handleSearchSimilar as ToolHandler,
+  find_context_for: handleFindContextFor as ToolHandler,
+  get_relationships: handleGetRelationships as ToolHandler,
+  get_impact: handleGetImpact as ToolHandler,
+  ingest_source: handleIngestSource as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
@@ -163,6 +194,24 @@ const RESOURCE_DEFINITIONS = [
     description: 'Current harness state including position, progress, decisions, and blockers',
     mimeType: 'application/json',
   },
+  {
+    uri: 'harness://graph',
+    name: 'Knowledge Graph',
+    description: 'Graph statistics, node/edge counts by type, staleness',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'harness://entities',
+    name: 'Graph Entities',
+    description: 'All entity nodes with types and metadata',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'harness://relationships',
+    name: 'Graph Relationships',
+    description: 'All edges with types, confidence scores, and timestamps',
+    mimeType: 'application/json',
+  },
 ];
 
 type ResourceHandler = (projectRoot: string) => Promise<string>;
@@ -173,6 +222,9 @@ const RESOURCE_HANDLERS: Record<string, ResourceHandler> = {
   'harness://project': getProjectResource,
   'harness://learnings': getLearningsResource,
   'harness://state': getStateResource,
+  'harness://graph': getGraphResource,
+  'harness://entities': getEntitiesResource,
+  'harness://relationships': getRelationshipsResource,
 };
 
 export function getToolDefinitions(): ToolDefinition[] {

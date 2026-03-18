@@ -29,6 +29,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@harness-engineering/core": "workspace:*",
+    "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/cli": "workspace:*",
     "@harness-engineering/linter-gen": "workspace:*",
     "@harness-engineering/types": "workspace:*",
