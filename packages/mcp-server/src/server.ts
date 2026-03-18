@@ -91,6 +91,10 @@ import {
   getEntitiesResource,
   getRelationshipsResource,
 } from './resources/graph.js';
+import {
+  generateAgentDefinitionsDefinition,
+  handleGenerateAgentDefinitions,
+} from './tools/agent-definitions.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -128,6 +132,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   getRelationshipsDefinition,
   getImpactDefinition,
   ingestSourceDefinition,
+  generateAgentDefinitionsDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -160,6 +165,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_relationships: handleGetRelationships as ToolHandler,
   get_impact: handleGetImpact as ToolHandler,
   ingest_source: handleIngestSource as ToolHandler,
+  generate_agent_definitions: handleGenerateAgentDefinitions as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

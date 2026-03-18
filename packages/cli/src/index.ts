@@ -18,6 +18,8 @@ import { createSetupMcpCommand } from './commands/setup-mcp';
 import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
 import { createCICommand } from './commands/ci';
 import { createUpdateCommand } from './commands/update';
+import { createGenerateAgentDefinitionsCommand } from './commands/generate-agent-definitions';
+import { createGenerateCommand } from './commands/generate';
 import { createScanCommand } from './commands/graph/scan';
 import { createIngestCommand } from './commands/graph/ingest';
 import { createQueryCommand } from './commands/graph/query';
@@ -52,6 +54,8 @@ export function createProgram(): Command {
   program.addCommand(createCreateSkillCommand());
   program.addCommand(createSetupMcpCommand());
   program.addCommand(createGenerateSlashCommandsCommand());
+  program.addCommand(createGenerateAgentDefinitionsCommand());
+  program.addCommand(createGenerateCommand());
   program.addCommand(createCICommand());
   program.addCommand(createUpdateCommand());
   program.addCommand(createScanCommand());
@@ -110,3 +114,14 @@ export type { Persona, Step, CommandStep, SkillStep, TriggerContext } from './pe
 export { ALLOWED_PERSONA_COMMANDS } from './persona/constants';
 export { detectTrigger } from './persona/trigger-detector';
 export type { HandoffContext, TriggerDetectionResult } from './persona/trigger-detector';
+
+// Agent definition exports
+export { generateAgentDefinitions } from './commands/generate-agent-definitions';
+export type {
+  GenerateAgentDefsOptions,
+  GenerateAgentDefsResult,
+} from './commands/generate-agent-definitions';
+export { generateAgentDefinition, AGENT_DESCRIPTIONS } from './agent-definitions/generator';
+export type { AgentDefinition } from './agent-definitions/generator';
+export { renderClaudeCodeAgent } from './agent-definitions/render-claude-code';
+export { renderGeminiAgent } from './agent-definitions/render-gemini-cli';

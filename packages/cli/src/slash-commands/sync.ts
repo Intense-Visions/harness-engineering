@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { GENERATED_HEADER_CLAUDE, GENERATED_HEADER_GEMINI } from './types';
+import { GENERATED_HEADER_AGENT } from '../agent-definitions/constants';
 
 export interface SyncResult {
   added: string[];
@@ -39,7 +40,11 @@ export function computeSyncPlan(outputDir: string, rendered: Map<string, string>
       if (rendered.has(filename)) continue;
 
       const content = fs.readFileSync(path.join(outputDir, filename), 'utf-8');
-      if (content.includes(GENERATED_HEADER_CLAUDE) || content.includes(GENERATED_HEADER_GEMINI)) {
+      if (
+        content.includes(GENERATED_HEADER_CLAUDE) ||
+        content.includes(GENERATED_HEADER_GEMINI) ||
+        content.includes(GENERATED_HEADER_AGENT)
+      ) {
         removed.push(filename);
       }
     }
