@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server), 27 skills, 3 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 26 skills (claude-code) / 27 skills (gemini-cli), 6 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -30,11 +30,12 @@ harness-engineering/
 │   ├── cli/                  # CLI tool (harness validate, check-deps, skill, state, etc.)
 │   ├── eslint-plugin/        # ESLint rules for constraint enforcement
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
-│   └── mcp-server/           # MCP server for AI agent integration
+│   ├── mcp-server/           # MCP server for AI agent integration
+│   └── graph/                # Knowledge graph for codebase relationships and entropy detection
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 27 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 27 skills (same skills, adapted for Gemini CLI platform)
-│   └── personas/             # 3 personas (architecture-enforcer, documentation-maintainer, entropy-cleaner)
+│   ├── skills/claude-code/   # 26 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 27 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
+│   └── personas/             # 6 personas (architecture-enforcer, code-reviewer, documentation-maintainer, entropy-cleaner, parallel-coordinator, task-executor)
 ├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level
@@ -58,6 +59,7 @@ harness-engineering/
 
 - **types** → Shared type definitions (no dependencies)
 - **core** → Runtime library (depends on types)
+- **graph** → Knowledge graph for codebase relationships and entropy detection (depends on types)
 - All packages follow strict dependency rules: no circular dependencies, no upward dependencies
 
 ## Architecture
@@ -284,7 +286,6 @@ This creates a permanent record that AI agents can access and understand.
 
 - **[docs/specs/](./docs/specs/)** - Detailed technical specifications for features
 - **[docs/plans/](./docs/plans/)** - Implementation and execution plans
-- **[docs/changes/](./docs/changes/)** - In-progress change proposals
 
 ### Key Documentation
 
