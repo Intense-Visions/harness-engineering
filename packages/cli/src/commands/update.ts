@@ -3,7 +3,6 @@ import { execSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import readline from 'node:readline';
 import chalk from 'chalk';
-import { VERSION } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 
@@ -27,12 +26,26 @@ export function detectPackageManager(): PackageManager {
   return 'npm';
 }
 
-export function getLatestVersion(): string {
-  const output = execSync('npm view @harness-engineering/cli dist-tags.latest', {
+export function getLatestVersion(pkg = '@harness-engineering/cli'): string {
+  const output = execSync(`npm view ${pkg} dist-tags.latest`, {
     encoding: 'utf-8',
     timeout: 15000,
   });
   return output.trim();
+}
+
+export function getInstalledVersion(pm: PackageManager): string | null {
+  try {
+    const output = execSync(`${pm} list -g @harness-engineering/cli --json`, {
+      encoding: 'utf-8',
+      timeout: 15000,
+    });
+    const data = JSON.parse(output);
+    const deps = data.dependencies ?? {};
+    return deps['@harness-engineering/cli']?.version ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function getInstalledPackages(pm: PackageManager): string[] {
@@ -69,7 +82,7 @@ function prompt(question: string): Promise<string> {
 export function createUpdateCommand(): Command {
   return new Command('update')
     .description('Update all @harness-engineering packages to the latest version')
-    .option('--version <semver>', 'Install a specific version instead of latest')
+    .option('--version <semver>', 'Pin @harness-engineering/cli to a specific version')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
 
@@ -79,39 +92,47 @@ export function createUpdateCommand(): Command {
         logger.info(`Detected package manager: ${pm}`);
       }
 
-      // 2. Determine target version
-      let targetVersion: string;
-      if (opts.version) {
-        targetVersion = opts.version;
-      } else {
+      // 2. Check if already up to date (CLI package only)
+      const currentVersion = getInstalledVersion(pm);
+      let latestCliVersion: string | undefined;
+
+      if (!opts.version) {
         logger.info('Checking for updates...');
         try {
-          targetVersion = getLatestVersion();
+          latestCliVersion = getLatestVersion();
         } catch {
           logger.error('Failed to fetch latest version from npm registry');
           return process.exit(ExitCode.ERROR);
         }
+
+        if (currentVersion && currentVersion === latestCliVersion) {
+          logger.success(`Already up to date (v${currentVersion})`);
+          process.exit(ExitCode.SUCCESS);
+        }
+
+        if (currentVersion) {
+          console.log('');
+          logger.info(`Current CLI version: ${chalk.dim(`v${currentVersion}`)}`);
+          logger.info(`Latest CLI version:  ${chalk.green(`v${latestCliVersion}`)}`);
+          console.log('');
+        }
       }
 
-      // 3. Check if already up to date
-      if (VERSION === targetVersion) {
-        logger.success(`Already up to date (v${VERSION})`);
-        process.exit(ExitCode.SUCCESS);
-      }
-
-      console.log('');
-      logger.info(`Current version: ${chalk.dim(`v${VERSION}`)}`);
-      logger.info(`Target version:  ${chalk.green(`v${targetVersion}`)}`);
-      console.log('');
-
-      // 4. Discover installed packages
+      // 3. Discover installed packages
       const packages = getInstalledPackages(pm);
       if (globalOpts.verbose) {
         logger.info(`Installed packages: ${packages.join(', ')}`);
       }
 
-      // 5. Run update
-      const installArgs = packages.map((pkg) => `${pkg}@${targetVersion}`).join(' ');
+      // 4. Build install command — each package gets @latest, except CLI if --version is specified
+      const installArgs = packages
+        .map((pkg) => {
+          if (opts.version && pkg === '@harness-engineering/cli') {
+            return `${pkg}@${opts.version}`;
+          }
+          return `${pkg}@latest`;
+        })
+        .join(' ');
       const installCmd = `${pm} install -g ${installArgs}`;
 
       if (globalOpts.verbose) {
@@ -122,7 +143,7 @@ export function createUpdateCommand(): Command {
         logger.info('Updating packages...');
         execSync(installCmd, { stdio: 'inherit', timeout: 120000 });
         console.log('');
-        logger.success(`Updated to v${targetVersion}`);
+        logger.success('Update complete');
       } catch {
         console.log('');
         logger.error('Update failed. You can try manually:');

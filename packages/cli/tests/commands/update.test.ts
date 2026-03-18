@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   detectPackageManager,
+  getInstalledVersion,
   getInstalledPackages,
   createUpdateCommand,
 } from '../../src/commands/update';
@@ -91,6 +92,33 @@ describe('update command', () => {
         throw new Error('ENOENT');
       });
       expect(detectPackageManager()).toBe('npm');
+    });
+  });
+
+  describe('getInstalledVersion', () => {
+    it('returns CLI version from pm list output', () => {
+      mockedExecSync.mockReturnValue(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.2.2' },
+          },
+        })
+      );
+      expect(getInstalledVersion('npm')).toBe('1.2.2');
+    });
+
+    it('returns null when CLI is not in output', () => {
+      mockedExecSync.mockReturnValue(
+        JSON.stringify({ dependencies: {} })
+      );
+      expect(getInstalledVersion('npm')).toBeNull();
+    });
+
+    it('returns null when execSync throws', () => {
+      mockedExecSync.mockImplementation(() => {
+        throw new Error('command failed');
+      });
+      expect(getInstalledVersion('npm')).toBeNull();
     });
   });
 
