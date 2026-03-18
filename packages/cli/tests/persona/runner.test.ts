@@ -161,4 +161,43 @@ describe('runPersona', () => {
     expect(report.status).toBe('partial');
     expect(report.steps.some((s) => s.status === 'skipped')).toBe(true);
   });
+
+  it('resolves auto trigger to manual when no handoff exists', async () => {
+    const cmdExec: CommandExecutor = vi.fn().mockResolvedValue({ ok: true, value: {} });
+    const report = await runPersona(mockPersona, {
+      trigger: 'auto',
+      commandExecutor: cmdExec,
+      skillExecutor: mockSkillExecutor,
+      projectPath: '/tmp/nonexistent-path',
+    });
+    // manual trigger matches "always" steps
+    expect(report.status).toBe('pass');
+    expect(report.steps).toHaveLength(2);
+  });
+
+  it('passes handoff context to skill steps', async () => {
+    const cmdExec: CommandExecutor = vi.fn().mockResolvedValue({ ok: true, value: {} });
+    const skillExec: SkillExecutor = vi
+      .fn()
+      .mockResolvedValue({ status: 'pass', output: 'Done', durationMs: 0 });
+
+    const handoff = {
+      fromSkill: 'harness-planning',
+      summary: 'Test plan',
+      pending: ['Task 1'],
+    };
+
+    await runPersona(mockV2Persona, {
+      trigger: 'on_pr',
+      commandExecutor: cmdExec,
+      skillExecutor: skillExec,
+      projectPath: '/tmp/test',
+      handoff,
+    });
+
+    expect(skillExec).toHaveBeenCalledWith(
+      'harness-code-review',
+      expect.objectContaining({ handoff })
+    );
+  });
 });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const TriggerContextSchema = z
-  .enum(['always', 'on_pr', 'on_commit', 'on_review', 'scheduled', 'manual'])
+  .enum(['always', 'on_pr', 'on_commit', 'on_review', 'scheduled', 'manual', 'on_plan_approved'])
   .default('always');
 
 export type TriggerContext = z.infer<typeof TriggerContextSchema>;

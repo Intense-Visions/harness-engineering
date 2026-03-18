@@ -108,3 +108,5 @@ export { executeSkill } from './persona/skill-executor';
 export type { SkillExecutionContext, SkillExecutionResult } from './persona/skill-executor';
 export type { Persona, Step, CommandStep, SkillStep, TriggerContext } from './persona/schema';
 export { ALLOWED_PERSONA_COMMANDS } from './persona/constants';
+export { detectTrigger } from './persona/trigger-detector';
+export type { HandoffContext, TriggerDetectionResult } from './persona/trigger-detector';

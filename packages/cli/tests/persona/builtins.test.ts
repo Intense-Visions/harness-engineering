@@ -10,6 +10,8 @@ describe('built-in personas', () => {
     'code-reviewer.yaml',
     'documentation-maintainer.yaml',
     'entropy-cleaner.yaml',
+    'parallel-coordinator.yaml',
+    'task-executor.yaml',
   ];
 
   for (const file of personaFiles) {
@@ -19,10 +21,10 @@ describe('built-in personas', () => {
     });
   }
 
-  it('lists all 3 built-in personas', () => {
+  it('lists all 6 built-in personas', () => {
     const result = listPersonas(PERSONAS_DIR);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.length).toBe(4);
+    expect(result.value.length).toBe(6);
   });
 });

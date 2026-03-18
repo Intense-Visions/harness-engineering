@@ -127,6 +127,14 @@ describe('PersonaSchema v2', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts on_plan_approved as a when value', () => {
+    const result = PersonaSchema.safeParse({
+      ...v2Persona,
+      steps: [{ skill: 'harness-execution', when: 'on_plan_approved', output: 'auto' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('v1 persona still validates', () => {
     const v1 = {
       version: 1 as const,

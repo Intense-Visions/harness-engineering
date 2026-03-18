@@ -4,6 +4,7 @@ import { parse } from 'yaml';
 import { SkillMetadataSchema } from '../skill/schema';
 import { resolveSkillsDir } from '../utils/paths';
 import type { TriggerContext } from './schema';
+import type { HandoffContext } from './trigger-detector';
 
 export interface SkillExecutionContext {
   trigger: TriggerContext;
@@ -11,6 +12,7 @@ export interface SkillExecutionContext {
   outputMode: 'inline' | 'artifact' | 'auto';
   baseSha?: string;
   headSha?: string;
+  handoff?: HandoffContext;
 }
 
 export interface SkillExecutionResult {

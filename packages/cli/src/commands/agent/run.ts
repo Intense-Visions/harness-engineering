@@ -80,6 +80,8 @@ const VALID_TRIGGERS = new Set([
   'on_review',
   'scheduled',
   'manual',
+  'on_plan_approved',
+  'auto',
 ]);
 
 export function createRunCommand(): Command {
@@ -88,7 +90,7 @@ export function createRunCommand(): Command {
     .argument('[task]', 'Task to run (review, doc-review, test-review)')
     .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
     .option('--persona <name>', 'Run a persona by name')
-    .option('--trigger <context>', 'Trigger context (on_pr, on_commit, manual)', 'manual')
+    .option('--trigger <context>', 'Trigger context (auto, on_pr, on_commit, manual)', 'auto')
     .action(async (task, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
 
@@ -102,11 +104,14 @@ export function createRunCommand(): Command {
         }
         const persona = personaResult.value;
 
-        const trigger: TriggerContext = VALID_TRIGGERS.has(opts.trigger)
-          ? (opts.trigger as TriggerContext)
-          : 'manual';
-
         const projectPath = process.cwd();
+
+        const trigger: TriggerContext | 'auto' =
+          opts.trigger === 'auto'
+            ? 'auto'
+            : VALID_TRIGGERS.has(opts.trigger)
+              ? (opts.trigger as TriggerContext)
+              : 'manual';
 
         const commandExecutor: CommandExecutor = async (command: string) => {
           if (!ALLOWED_PERSONA_COMMANDS.has(command)) {

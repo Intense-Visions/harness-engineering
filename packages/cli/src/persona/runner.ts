@@ -1,6 +1,7 @@
 import type { Result } from '@harness-engineering/core';
 import type { Persona, Step, TriggerContext } from './schema';
 import type { SkillExecutionResult, SkillExecutionContext } from './skill-executor';
+import { detectTrigger, type HandoffContext } from './trigger-detector';
 
 const TIMEOUT_ERROR_MESSAGE = '__PERSONA_RUNNER_TIMEOUT__';
 
@@ -28,10 +29,11 @@ export type SkillExecutor = (
 ) => Promise<SkillExecutionResult>;
 
 export interface StepExecutionContext {
-  trigger: TriggerContext;
+  trigger: TriggerContext | 'auto';
   commandExecutor: CommandExecutor;
   skillExecutor: SkillExecutor;
   projectPath: string;
+  handoff?: HandoffContext;
 }
 
 function stepName(step: Step): string {
@@ -72,7 +74,18 @@ export async function runPersona(
     totalDurationMs: 0,
   };
 
-  const activeSteps = persona.steps.filter((s) => matchesTrigger(s, context.trigger));
+  // Resolve auto trigger
+  let resolvedTrigger: TriggerContext;
+  let handoff = context.handoff;
+  if (context.trigger === 'auto') {
+    const detection = detectTrigger(context.projectPath);
+    resolvedTrigger = detection.trigger;
+    handoff = detection.handoff ?? handoff;
+  } else {
+    resolvedTrigger = context.trigger;
+  }
+
+  const activeSteps = persona.steps.filter((s) => matchesTrigger(s, resolvedTrigger));
 
   for (let i = 0; i < activeSteps.length; i++) {
     const step = activeSteps[i]!;
@@ -139,9 +152,10 @@ export async function runPersona(
     } else {
       // Skill step
       const skillContext: SkillExecutionContext = {
-        trigger: context.trigger,
+        trigger: resolvedTrigger,
         projectPath: context.projectPath,
         outputMode: step.output ?? 'auto',
+        handoff,
       };
 
       const SKILL_TIMEOUT_RESULT: SkillExecutionResult = {

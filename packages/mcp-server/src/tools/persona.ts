@@ -66,8 +66,17 @@ export const runPersonaDefinition = {
       path: { type: 'string', description: 'Path to project root' },
       trigger: {
         type: 'string',
-        enum: ['always', 'on_pr', 'on_commit', 'on_review', 'scheduled', 'manual'],
-        description: 'Trigger context for step filtering (default: manual)',
+        enum: [
+          'always',
+          'on_pr',
+          'on_commit',
+          'on_review',
+          'scheduled',
+          'manual',
+          'on_plan_approved',
+          'auto',
+        ],
+        description: 'Trigger context for step filtering (default: auto)',
       },
       dryRun: { type: 'boolean', description: 'Preview without side effects' },
     },
@@ -87,13 +96,15 @@ export async function handleRunPersona(input: {
   if (!personaResult.ok) return resultToMcpResponse(personaResult);
 
   const projectPath = input.path ? path.resolve(input.path) : process.cwd();
-  const trigger = (input.trigger ?? 'manual') as
+  const trigger = (input.trigger ?? 'auto') as
     | 'always'
     | 'on_pr'
     | 'on_commit'
     | 'on_review'
     | 'scheduled'
-    | 'manual';
+    | 'manual'
+    | 'on_plan_approved'
+    | 'auto';
 
   const { ALLOWED_PERSONA_COMMANDS } = await import('@harness-engineering/cli');
 
