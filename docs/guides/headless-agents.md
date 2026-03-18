@@ -1,245 +1,220 @@
 # Headless Agents
 
-Run harness skills and personas in CI without a human in the loop. Headless execution enables automated workflows like spec generation from issues, code review on PRs, and entropy remediation.
+Run harness checks and personas in CI without a human in the loop. Headless execution enables automated validation, entropy detection, and persona-driven workflows in pipelines.
 
 ## Overview
 
-Harness agents normally run interactively in Claude Code or Gemini CLI, with a human guiding decisions. Headless mode removes the human from the loop — the agent reads context from a file or stdin, executes a skill, and writes results to an output path.
+Harness provides two levels of headless CI execution:
+
+1. **`harness ci check`** — Runs all validation checks with structured output. Fully headless, no LLM required.
+2. **`harness agent run --persona <name>`** — Runs a predefined persona's command sequence (e.g., architecture-enforcer, documentation-maintainer, entropy-cleaner).
+
+Both work without interactive input and produce deterministic output suitable for CI.
 
 **Key differences from interactive mode:**
 
-| Aspect          | Interactive               | Headless                       |
-| --------------- | ------------------------- | ------------------------------ |
-| Context source  | Conversation              | File or stdin                  |
-| Decision making | Human chooses             | Agent decides or uses defaults |
-| Output          | Conversation              | File (`--output`)              |
-| Timeout         | None (human-paced)        | Configurable (`--timeout`)     |
-| Trust level     | Human reviews each action | Pre-approved operations only   |
+| Aspect          | Interactive (Claude Code / Gemini CLI) | Headless (CI)                                      |
+| --------------- | -------------------------------------- | -------------------------------------------------- |
+| Context source  | Conversation                           | Config file + repo state                           |
+| Decision making | Human chooses                          | Persona rules or check defaults                    |
+| Output          | Conversation                           | JSON (`--json`) or stdout                          |
+| Timeout         | None (human-paced)                     | Configurable (`--timeout`)                         |
+| Commands        | All skills available                   | `ci check`, `agent run --persona`, `skill run`     |
 
 ## Environment Setup
 
-### Signaling Headless Mode
+### CI Environment
 
-Set `CI=true` in the environment. Harness tools detect this and adjust behavior:
+Set `CI=true` in the environment. Most CI platforms set this automatically (GitHub Actions, GitLab CI, Jenkins, CircleCI).
 
 ```bash
 export CI=true
 ```
 
-Most CI platforms set this automatically (GitHub Actions, GitLab CI, Jenkins, CircleCI).
-
-### API Keys
-
-Headless agents require an LLM API key. Configure via environment variables:
+### Installation
 
 ```bash
-# For Claude-based agents
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# For other providers
-export OPENAI_API_KEY=sk-...
+npm install -g @harness-engineering/cli
 ```
 
-**Secret management recommendations:**
+## Running Checks Headlessly
 
-- Use your CI platform's secret store (GitHub Secrets, GitLab CI/CD Variables, Vault)
-- Never commit API keys to the repository
-- Use separate keys for CI with restricted permissions
-- Rotate keys on a regular schedule
+### `harness ci check` (Recommended)
 
-## Running Skills Headlessly
-
-### Basic Usage
+The primary headless command. Runs all harness checks and returns structured results:
 
 ```bash
-harness agent run --headless --skill <skill-name> --context <file> --output <path>
+harness ci check --json
 ```
 
-**Parameters:**
+**Options:**
 
-| Flag                  | Required | Description                                                        |
-| --------------------- | -------- | ------------------------------------------------------------------ |
-| `--headless`          | Yes      | Run without interactive input                                      |
-| `--skill <name>`      | Yes      | Skill to execute (e.g., `harness-code-review`, `detect-doc-drift`) |
-| `--context <file>`    | Yes      | Path to context file (issue body, PR description, etc.)            |
-| `--output <path>`     | No       | Write results to file (default: stdout)                            |
-| `--timeout <seconds>` | No       | Maximum execution time (default: 300)                              |
-| `--dry-run`           | No       | Validate only — no writes, no commits                              |
+| Flag                   | Description                                                 |
+| ---------------------- | ----------------------------------------------------------- |
+| `--json`               | Output structured JSON report                               |
+| `--skip <checks>`      | Comma-separated checks to skip: validate, deps, docs, entropy, phase-gate |
+| `--fail-on <severity>` | Exit non-zero on `error` (default) or `warning`             |
 
-### Context File Format
+**Exit codes:** `0` = pass, `1` = check failures, `2` = internal error
 
-The context file provides the information the agent needs. Use plain text or markdown:
+See the [CI/CD Validation guide](./ci-cd-validation.md) for full reference.
 
-```markdown
-# Task
+### `harness agent run --persona <name>`
 
-Review the changes in PR #42 for architectural violations.
-
-# Files Changed
-
-- src/services/auth.ts
-- src/api/routes/login.ts
-
-# Additional Context
-
-The auth service was recently refactored to use OAuth2.
-```
-
-### Example: Running Code Review
+Runs a persona's predefined command sequence. Personas combine multiple harness checks into a role-specific workflow:
 
 ```bash
-# Extract PR diff as context
-gh pr diff 42 > /tmp/pr-context.md
+# Run the architecture enforcer persona
+harness agent run --persona architecture-enforcer
 
-# Run code review skill headlessly
-harness agent run \
-  --headless \
-  --skill harness-code-review \
-  --context /tmp/pr-context.md \
-  --output /tmp/review-result.json \
-  --timeout 120
+# Run the documentation maintainer persona
+harness agent run --persona documentation-maintainer
+
+# Run the entropy cleaner persona
+harness agent run --persona entropy-cleaner
+
+# With timeout (milliseconds)
+harness agent run --persona architecture-enforcer --timeout 60000
 ```
 
-### Example: Detecting Documentation Drift
+**Available personas:**
+
+| Persona                    | What it checks                                    |
+| -------------------------- | ------------------------------------------------- |
+| `architecture-enforcer`    | Layer boundaries, dependency violations, circular deps |
+| `documentation-maintainer` | Doc coverage, drift detection, broken links        |
+| `entropy-cleaner`          | Dead code, doc drift, pattern violations           |
+
+### `harness agent run <task>`
+
+Runs a predefined agent task:
 
 ```bash
-harness agent run \
-  --headless \
-  --skill detect-doc-drift \
-  --context /dev/null \
-  --output /tmp/drift-report.json
+# Code review task
+harness agent run review
+
+# Documentation review task
+harness agent run doc-review
+
+# Test review task
+harness agent run test-review
+```
+
+### `harness skill run <name>`
+
+Outputs a skill's content with context preamble. Useful for piping to an LLM CLI or for automation scripts that need skill instructions:
+
+```bash
+# Get skill content for automation
+harness skill run harness-code-review --path .
+
+# With specific complexity level
+harness skill run detect-doc-drift --complexity light
 ```
 
 ## Timeout and Failure Handling
 
 ### Timeout
 
-Set a timeout to prevent runaway agents:
+Set a timeout on persona runs to prevent hangs:
 
 ```bash
-harness agent run --headless --skill <name> --context <file> --timeout 300
+harness agent run --persona architecture-enforcer --timeout 60000
 ```
-
-When the timeout is reached, the agent is terminated and exits with a non-zero code.
 
 ### Exit Codes
 
-| Code | Meaning                                                               |
-| ---- | --------------------------------------------------------------------- |
-| `0`  | Skill completed successfully                                          |
-| `1`  | Skill completed with findings (review comments, drift detected, etc.) |
-| `2`  | Skill failed (error, timeout, missing context)                        |
+| Command | Code 0 | Code 1 | Code 2 |
+| ------- | ------ | ------ | ------ |
+| `ci check` | All checks pass | Check failures | Internal error |
+| `agent run` | Task/persona succeeded | Issues found | Task failed |
 
 ### Handling Failures in CI
 
 ```bash
-# Run agent, capture exit code
-harness agent run --headless --skill detect-doc-drift --context /dev/null --output report.json || true
+# Run checks, capture exit code
+harness ci check --json > report.json || true
+EXIT_CODE=$(jq -r '.exitCode' report.json)
 
-# Check if report was generated
-if [ -f report.json ]; then
-  echo "Agent completed. Processing results..."
-  # Parse and act on results
+if [ "$EXIT_CODE" -eq 0 ]; then
+  echo "All checks passed."
+elif [ "$EXIT_CODE" -eq 1 ]; then
+  echo "Check failures detected."
+  jq '.checks[] | select(.status == "fail") | .issues[]' report.json
 else
-  echo "Agent failed to produce output."
-  exit 1
+  echo "Harness internal error."
+  exit 2
 fi
 ```
 
 ## Trust Boundary
 
-Headless agents operate with limited trust. They should not have the same freedom as interactive agents.
+Headless harness commands operate within strict boundaries:
 
-### Principles
-
-1. **Read-only by default.** Headless agents should analyze and report, not modify code
-2. **Pre-approved writes only.** If writes are needed (e.g., auto-fix drift), the CI workflow should explicitly opt in
-3. **No credential access.** Agents should not handle secrets beyond what's needed for the LLM API
-4. **Audit trail.** All agent actions should be logged and reviewable
-
-### Dry Run Mode
-
-Use `--dry-run` to validate without side effects:
-
-```bash
-harness agent run --headless --skill harness-code-review --context pr.md --dry-run
-```
-
-In dry-run mode:
-
-- No files are written or modified
-- No git operations are performed
-- The agent reports what it would do, but does not do it
+1. **Read-only analysis.** `ci check` and `agent run review` analyze and report — they do not modify code
+2. **Persona-scoped writes.** Personas only execute whitelisted harness commands (validate, check-deps, check-docs, cleanup, fix-drift, add)
+3. **No credential access.** Commands do not handle secrets beyond what's in `harness.config.json`
+4. **Audit trail.** All output is structured and logged
 
 ### Restricting Operations
 
-For CI environments, consider limiting the agent's scope:
+For sensitive CI environments, limit scope:
 
 ```bash
-# Run in a read-only checkout
-git clone --depth 1 --no-checkout $REPO_URL /tmp/review
-cd /tmp/review
-git checkout $PR_SHA
+# Run in a shallow read-only checkout
+git clone --depth 1 $REPO_URL /tmp/check
+cd /tmp/check
 
-# Agent can read but writes go to a temporary directory
-harness agent run --headless --skill harness-code-review --context pr.md --output /tmp/result.json
+# Run checks only (no writes possible)
+harness ci check --json > /tmp/report.json
 ```
 
 ## Security Considerations
 
-### API Key Hygiene
+### Secret Management
 
-- Use **CI-specific API keys** with usage limits
-- Set **per-run spend caps** if your LLM provider supports them
-- **Rotate keys** monthly or on team member departure
-- **Monitor usage** for unexpected spikes that could indicate key compromise
+- Harness CLI commands do not require API keys (they are deterministic, not LLM-based)
+- If your CI workflow uses LLM-powered tools alongside harness (e.g., Claude Code for PR review), store API keys in your CI platform's secret store
+- Never commit secrets to the repository
 
 ### Network Access
 
-Headless agents may need network access for:
-
-- LLM API calls (Anthropic, OpenAI)
-- Package registry checks (npm, PyPI)
-
-Block all other outbound traffic if your CI platform supports network policies.
-
-### Input Validation
-
-Context files come from potentially untrusted sources (issue bodies, PR descriptions). The agent handles this naturally through its skill boundaries, but be aware that:
-
-- Malicious context could attempt prompt injection
-- Very large context files could exhaust API token budgets
-- Context should be size-limited before passing to the agent
+Harness CLI commands are fully offline — they analyze local files only. No network access is required for `ci check`, `agent run`, or `skill run`.
 
 ## Examples
 
-### GitHub Action: Auto-Review PRs
+### GitHub Action: Validate on Every PR
 
 ```yaml
-- name: Run headless code review
-  env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-    CI: true
+- name: Run harness checks
   run: |
-    gh pr diff ${{ github.event.number }} > pr-context.md
-    harness agent run \
-      --headless \
-      --skill harness-code-review \
-      --context pr-context.md \
-      --output review.json \
-      --timeout 120
+    npm install -g @harness-engineering/cli
+    harness ci check --json > report.json || true
 
-    # Post review as PR comment
-    jq -r '.summary' review.json | gh pr comment ${{ github.event.number }} --body-file -
+- name: Comment results on PR
+  if: github.event_name == 'pull_request'
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    SUMMARY=$(jq -r '"Passed: " + (.summary.passed|tostring) + " | Failed: " + (.summary.failed|tostring) + " | Warnings: " + (.summary.warnings|tostring)' report.json)
+    gh pr comment ${{ github.event.number }} --body "**Harness CI:** $SUMMARY"
+```
+
+### GitHub Action: Run Architecture Enforcer Persona
+
+```yaml
+- name: Enforce architecture
+  run: |
+    npm install -g @harness-engineering/cli
+    harness agent run --persona architecture-enforcer --timeout 60000
 ```
 
 ### Scheduled Entropy Check
 
 ```yaml
-# Run weekly to catch drift
 on:
   schedule:
-    - cron: '0 9 * * 1' # Monday 9am UTC
+    - cron: '0 9 * * 1'  # Monday 9am UTC
 
 jobs:
   entropy:
@@ -249,13 +224,13 @@ jobs:
       - run: npm install -g @harness-engineering/cli
       - name: Detect entropy
         env:
-          CI: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           harness ci check --json --skip deps,phase-gate > report.json
           WARNINGS=$(jq '.summary.warnings' report.json)
           if [ "$WARNINGS" -gt 0 ]; then
             gh issue create --title "Entropy detected ($WARNINGS warnings)" \
-              --body "$(jq -r '.checks[] | select(.status == \"warn\") | .issues[] | .message' report.json)"
+              --body "$(jq -r '.checks[] | select(.status == "warn") | .issues[] | .message' report.json)"
           fi
 ```
 

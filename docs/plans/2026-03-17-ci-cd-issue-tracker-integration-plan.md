@@ -21,7 +21,7 @@ Adopters can run all harness checks from CI with a single command, generate CI c
 8. `docs/guides/automation-overview.md` exists and links to all other guides and recipes
 9. `docs/guides/ci-cd-validation.md` exists with platform-agnostic patterns and step-by-step setup
 10. `docs/guides/issue-tracker-integration.md` exists covering both harness→issues and issues→harness flows
-11. `docs/guides/headless-agents.md` exists documenting `CI=true`, `--headless`, timeout, and dry-run patterns
+11. `docs/guides/headless-agents.md` exists documenting `CI=true`, personas, `ci check`, and timeout patterns
 12. Six recipe files exist in `docs/guides/recipes/` and are syntactically valid
 13. `npx vitest run packages/core/tests/ci` passes with all CI module tests
 14. `npx vitest run packages/cli/tests/ci` passes with all CI command tests

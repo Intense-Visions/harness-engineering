@@ -144,8 +144,8 @@ docs/guides/
 
 | Trigger                                    | Action                                                      | Recipe                                 |
 | ------------------------------------------ | ----------------------------------------------------------- | -------------------------------------- |
-| Issue labeled `needs-spec`                 | Agent runs brainstorming skill, posts spec draft as comment | `headless-agent-action.yml`            |
-| Issue labeled `needs-plan`                 | Agent runs planning skill against linked spec               | `headless-agent-action.yml`            |
+| Issue labeled `needs-review`               | Runs architecture-enforcer persona, posts results           | `headless-agent-action.yml`            |
+| Issue labeled `check-entropy`              | Runs entropy checks, posts report                           | `headless-agent-action.yml`            |
 | PR comment `/harness check`                | Runs `harness ci check`, replies with results               | GitHub Actions `issue_comment` trigger |
 | Jira issue transitions to "In Development" | Creates linked GitHub branch + harness state init           | Jira automation rule + webhook         |
 
@@ -154,10 +154,11 @@ docs/guides/
 Patterns for running agents without interactive input:
 
 - **Environment:** `CI=true` environment variable signals headless mode
-- **Agent runtime:** `harness agent run --headless --skill <name> --context <file>` — reads context from file/stdin instead of conversation
-- **Timeout and failure:** `--timeout 300` (seconds), non-zero exit on failure, results written to `--output <path>`
-- **Secrets:** Document required env vars (API keys) and recommend CI secret management
-- **Trust boundary:** Headless agents should only run read-only or pre-approved write operations; document a `--dry-run` flag for validation-only mode
+- **Checks:** `harness ci check --json` — fully headless, no LLM required
+- **Personas:** `harness agent run --persona <name> --timeout <ms>` — runs predefined persona command sequences
+- **Tasks:** `harness agent run <task>` — runs predefined agent tasks (review, doc-review, test-review)
+- **Skills:** `harness skill run <name>` — outputs skill content for piping to automation
+- **Trust boundary:** Headless commands are read-only analysis; personas execute only whitelisted harness commands
 
 ### Implementation Location
 
@@ -186,7 +187,7 @@ Follows existing patterns:
 | 7   | All 6 recipe files exist in `docs/guides/recipes/`                            | Files present and syntactically valid (YAML parses, TS compiles, shell passes `shellcheck`) |
 | 8   | Automation overview links to all guides and recipes                           | No dead links                                                                               |
 | 9   | Issue tracker docs cover both directions (harness → issues, issues → harness) | Both tables documented with step-by-step setup                                              |
-| 10  | Headless agent patterns documented separately from interactive                | Distinct guide with `CI=true`, `--headless`, timeout, dry-run covered                       |
+| 10  | Headless agent patterns documented separately from interactive                | Distinct guide with `CI=true`, personas, `ci check`, timeout covered                        |
 | 11  | Future webhook service documented as roadmap item, not built                  | Section exists in automation overview; no webhook service code shipped                      |
 
 ## Implementation Order
