@@ -1,5 +1,26 @@
 # @harness-engineering/cli
 
+## 1.5.0
+
+### Minor Changes
+
+- Discover project-local skills in `generate-slash-commands` by default instead of only finding built-in global skills
+  - New `--include-global` flag merges built-in skills alongside project skills
+  - Project skills take precedence over global skills on name collision
+  - Falls back to global skills when run outside a project (backward compatible)
+  - Helpful message when no skills are found with guidance on `--include-global` and `create-skill`
+- Export `SkillSource` type from package index
+
+### Patch Changes
+
+- Fix `create-skill` to scaffold with both `claude-code` and `gemini-cli` platforms by default
+
+## 1.4.0
+
+### Patch Changes
+
+- Fix `update` command to use `@latest` per package instead of a single version
+
 ## 1.3.0
 
 ### Minor Changes

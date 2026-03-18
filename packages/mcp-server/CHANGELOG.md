@@ -1,5 +1,16 @@
 # @harness-engineering/mcp-server
 
+## 0.4.0
+
+### Minor Changes
+
+- Add `includeGlobal` parameter to `generate_slash_commands` MCP tool to support merging built-in skills alongside project-local skills
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/cli@1.5.0
+
 ## 0.3.3
 
 ### Patch Changes
