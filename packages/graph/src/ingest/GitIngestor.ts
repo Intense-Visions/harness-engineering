@@ -127,7 +127,7 @@ export class GitIngestor {
     return stdout;
   }
 
-  parseGitLog(output: string): ParsedCommit[] {
+  private parseGitLog(output: string): ParsedCommit[] {
     if (!output.trim()) return [];
 
     const commits: ParsedCommit[] = [];

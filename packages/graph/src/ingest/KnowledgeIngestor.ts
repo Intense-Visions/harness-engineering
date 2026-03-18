@@ -199,27 +199,37 @@ export class KnowledgeIngestor {
     };
   }
 
-  async ingestAll(projectPath: string): Promise<IngestResult> {
-    const adrDir = path.join(projectPath, 'docs', 'adr');
+  async ingestAll(projectPath: string, opts?: { adrDir?: string }): Promise<IngestResult> {
+    const start = Date.now();
+    const adrDir = opts?.adrDir ?? path.join(projectPath, 'docs', 'adr');
     const [adrResult, learningsResult, failuresResult] = await Promise.all([
       this.ingestADRs(adrDir),
       this.ingestLearnings(projectPath),
       this.ingestFailures(projectPath),
     ]);
-    return mergeResults(adrResult, learningsResult, failuresResult);
+    const merged = mergeResults(adrResult, learningsResult, failuresResult);
+    return { ...merged, durationMs: Date.now() - start };
   }
 
   private linkToCode(content: string, sourceNodeId: string, edgeType: EdgeType): number {
     let count = 0;
-    const contentLower = content.toLowerCase();
 
     for (const nodeType of CODE_NODE_TYPES) {
       const codeNodes = this.store.findNodes({ type: nodeType });
       for (const node of codeNodes) {
-        // Check name match (case-insensitive)
-        const nameMatches = contentLower.includes(node.name.toLowerCase());
-        // Check path match (exact)
-        const pathMatches = node.path ? content.includes(node.path) : false;
+        // Skip short names to avoid false positives (e.g. "to", "id")
+        let nameMatches = false;
+        if (node.name.length >= 3) {
+          const escaped = node.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const namePattern = new RegExp(`\\b${escaped}\\b`, 'i');
+          nameMatches = namePattern.test(content);
+        }
+
+        // Check path match — require at least a path segment (dir/file)
+        let pathMatches = false;
+        if (node.path && node.path.includes(path.sep)) {
+          pathMatches = content.includes(node.path);
+        }
 
         if (nameMatches || pathMatches) {
           this.store.addEdge({

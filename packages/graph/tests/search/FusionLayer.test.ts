@@ -133,34 +133,10 @@ describe('FusionLayer', () => {
     vectorStore.add('file:types.ts', [0.0, 0.0, 1.0]);
     vectorStore.add('iface:User', [0.0, 1.0, 0.0]);
 
-    // Also add embeddings to nodes so the FusionLayer can detect them
-    store.addNode({
-      id: 'file:auth.ts',
-      type: 'file',
-      name: 'auth-service.ts',
-      path: 'src/services/auth-service.ts',
-      metadata: { language: 'typescript' },
-      embedding: [1.0, 0.0, 0.0],
-    });
-    store.addNode({
-      id: 'class:AuthService',
-      type: 'class',
-      name: 'AuthService',
-      path: 'src/services/auth-service.ts',
-      metadata: {},
-      embedding: [0.9, 0.1, 0.0],
-    });
-    store.addNode({
-      id: 'fn:hashPassword',
-      type: 'function',
-      name: 'hashPassword',
-      path: 'src/utils/hash.ts',
-      metadata: {},
-      embedding: [0.5, 0.5, 0.0],
-    });
-
     const fusionWithVectors = new FusionLayer(store, vectorStore);
-    const results = fusionWithVectors.search('auth');
+    // Pass a queryEmbedding to enable semantic scoring
+    const queryEmbedding: readonly number[] = [1.0, 0.0, 0.0];
+    const results = fusionWithVectors.search('auth', 10, queryEmbedding);
 
     // Should have semantic scores for matched nodes
     const authResult = results.find((r) => r.nodeId === 'file:auth.ts');

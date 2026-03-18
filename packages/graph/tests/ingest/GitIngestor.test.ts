@@ -93,18 +93,18 @@ describe('GitIngestor', () => {
   it('should create triggered_by edges between file nodes and commit nodes', async () => {
     await ingestor.ingest('/fake/root');
 
-    // auth-service appears in commits abc1234 and def5678
+    // auth-service appears in commit 1 (aaa1111) and commit 2 (bbb2222)
     const authEdges = store.getEdges({
       from: 'file:src/services/auth-service.ts',
       type: 'triggered_by',
     });
     expect(authEdges).toHaveLength(2);
 
-    // types.ts appears in commits def5678 and ghi9012
+    // types.ts appears in commit 2 (bbb2222) and commit 3 (ccc3333)
     const typesEdges = store.getEdges({ from: 'file:src/types.ts', type: 'triggered_by' });
     expect(typesEdges).toHaveLength(2);
 
-    // hash.ts appears in commits abc1234 and def5678
+    // hash.ts appears in commit 1 (aaa1111) and commit 2 (bbb2222)
     const hashEdges = store.getEdges({ from: 'file:src/utils/hash.ts', type: 'triggered_by' });
     expect(hashEdges).toHaveLength(2);
   });

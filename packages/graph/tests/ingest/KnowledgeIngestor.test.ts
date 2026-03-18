@@ -1,5 +1,7 @@
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GraphStore } from '../../src/store/GraphStore.js';
 import { CodeIngestor } from '../../src/ingest/CodeIngestor.js';
 import { KnowledgeIngestor } from '../../src/ingest/KnowledgeIngestor.js';
@@ -167,6 +169,79 @@ describe('KnowledgeIngestor', () => {
           store.findNodes({ type: 'failure' }).length
       );
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('ingestAll options', () => {
+    it('should accept a custom adrDir', async () => {
+      const customAdrDir = path.join(FIXTURE_DIR, 'docs', 'adr');
+      const result = await knowledgeIngestor.ingestAll(FIXTURE_DIR, { adrDir: customAdrDir });
+
+      expect(result.nodesAdded).toBeGreaterThanOrEqual(1);
+      const adrNodes = store.findNodes({ type: 'adr' });
+      expect(adrNodes.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should use wall-clock durationMs instead of summed sub-durations', async () => {
+      const result = await knowledgeIngestor.ingestAll(FIXTURE_DIR);
+
+      // durationMs should be a non-negative number representing real elapsed time
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+      expect(typeof result.durationMs).toBe('number');
+    });
+  });
+
+  describe('malformed markdown', () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'knowledge-ingestor-'));
+      await fs.mkdir(path.join(tmpDir, '.harness'), { recursive: true });
+    });
+
+    afterEach(async () => {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it('should produce 0 learning nodes when file has only headings and no bullets', async () => {
+      const content = '## 2026-01-20 — Some heading\n## 2026-01-21 — Another heading\n';
+      await fs.writeFile(path.join(tmpDir, '.harness', 'learnings.md'), content);
+
+      const result = await knowledgeIngestor.ingestLearnings(tmpDir);
+
+      expect(result.nodesAdded).toBe(0);
+      expect(store.findNodes({ type: 'learning' })).toHaveLength(0);
+    });
+
+    it('should skip failures entry missing Description field', async () => {
+      const content = [
+        '## 2026-01-22 — Failure',
+        '',
+        '- **Date:** 2026-01-22',
+        '- **Skill:** harness-execution',
+        '- **Type:** test-failure',
+        // No Description field
+        '',
+      ].join('\n');
+      await fs.writeFile(path.join(tmpDir, '.harness', 'failures.md'), content);
+
+      const result = await knowledgeIngestor.ingestFailures(tmpDir);
+
+      expect(result.nodesAdded).toBe(0);
+      expect(store.findNodes({ type: 'failure' })).toHaveLength(0);
+    });
+
+    it('should create learning node with undefined tags when skill/outcome missing', async () => {
+      const content = '## 2026-01-20 — Session\n\n- Some learning without any tags at all\n';
+      await fs.writeFile(path.join(tmpDir, '.harness', 'learnings.md'), content);
+
+      const result = await knowledgeIngestor.ingestLearnings(tmpDir);
+
+      expect(result.nodesAdded).toBe(1);
+      const nodes = store.findNodes({ type: 'learning' });
+      expect(nodes).toHaveLength(1);
+      expect(nodes[0]!.metadata.skill).toBeUndefined();
+      expect(nodes[0]!.metadata.outcome).toBeUndefined();
     });
   });
 });
