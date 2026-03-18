@@ -11,6 +11,24 @@ export interface PersonaMetadata {
   filePath: string;
 }
 
+/**
+ * Normalize a parsed persona to always have `steps`.
+ * V1 personas with `commands` get each command converted to a step with `when: "always"`.
+ */
+function normalizePersona(raw: Record<string, unknown>): Persona {
+  if (raw.version === 1 && Array.isArray(raw.commands)) {
+    const { commands, ...rest } = raw as Record<string, unknown> & { commands: string[] };
+    return {
+      ...(rest as unknown as Omit<Persona, 'steps' | 'commands'>),
+      steps: commands.map((cmd) => ({
+        command: cmd,
+        when: 'always' as const,
+      })),
+    } as Persona;
+  }
+  return raw as unknown as Persona;
+}
+
 export function loadPersona(filePath: string): Result<Persona, Error> {
   try {
     if (!fs.existsSync(filePath)) {
@@ -22,7 +40,7 @@ export function loadPersona(filePath: string): Result<Persona, Error> {
     if (!result.success) {
       return Err(new Error(`Invalid persona ${filePath}: ${result.error.message}`));
     }
-    return Ok(result.data);
+    return Ok(normalizePersona(result.data as Record<string, unknown>));
   } catch (error) {
     return Err(
       new Error(`Failed to load persona: ${error instanceof Error ? error.message : String(error)}`)

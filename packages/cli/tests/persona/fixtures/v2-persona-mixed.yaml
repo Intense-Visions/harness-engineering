@@ -1,0 +1,20 @@
+version: 2
+name: Test Mixed
+description: Test v2 with mixed steps
+role: Test mixed role
+skills:
+  - harness-code-review
+steps:
+  - command: validate
+    when: always
+  - command: check-deps
+    when: on_commit
+  - skill: harness-code-review
+    when: on_pr
+    output: artifact
+triggers:
+  - event: on_pr
+  - event: on_commit
+    conditions:
+      branches:
+        - main

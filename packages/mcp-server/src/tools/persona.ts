@@ -58,12 +58,17 @@ export async function handleGeneratePersonaArtifacts(input: { name: string; only
 
 export const runPersonaDefinition = {
   name: 'run_persona',
-  description: 'Execute all commands defined in a persona and return aggregated results',
+  description: 'Execute all steps defined in a persona and return aggregated results',
   inputSchema: {
     type: 'object' as const,
     properties: {
       persona: { type: 'string', description: 'Persona name (e.g., architecture-enforcer)' },
       path: { type: 'string', description: 'Path to project root' },
+      trigger: {
+        type: 'string',
+        enum: ['always', 'on_pr', 'on_commit', 'on_review', 'scheduled', 'manual'],
+        description: 'Trigger context for step filtering (default: manual)',
+      },
       dryRun: { type: 'boolean', description: 'Preview without side effects' },
     },
     required: ['persona'],
@@ -73,26 +78,27 @@ export const runPersonaDefinition = {
 export async function handleRunPersona(input: {
   persona: string;
   path?: string;
+  trigger?: string;
   dryRun?: boolean;
 }) {
-  const { loadPersona, runPersona } = await import('@harness-engineering/cli');
+  const { loadPersona, runPersona, executeSkill } = await import('@harness-engineering/cli');
   const filePath = path.join(resolvePersonasDir(), `${input.persona}.yaml`);
   const personaResult = loadPersona(filePath);
   if (!personaResult.ok) return resultToMcpResponse(personaResult);
 
   const projectPath = input.path ? path.resolve(input.path) : process.cwd();
+  const trigger = (input.trigger ?? 'manual') as
+    | 'always'
+    | 'on_pr'
+    | 'on_commit'
+    | 'on_review'
+    | 'scheduled'
+    | 'manual';
 
-  const ALLOWED_COMMANDS = new Set([
-    'validate',
-    'check-deps',
-    'check-docs',
-    'cleanup',
-    'fix-drift',
-    'add',
-  ]);
+  const { ALLOWED_PERSONA_COMMANDS } = await import('@harness-engineering/cli');
 
-  const executor = async (command: string) => {
-    if (!ALLOWED_COMMANDS.has(command)) {
+  const commandExecutor = async (command: string) => {
+    if (!ALLOWED_PERSONA_COMMANDS.has(command)) {
       return Err(new Error(`Unknown harness command: ${command}`));
     }
     try {
@@ -112,6 +118,11 @@ export async function handleRunPersona(input: {
     }
   };
 
-  const report = await runPersona(personaResult.value, executor);
+  const report = await runPersona(personaResult.value, {
+    trigger,
+    commandExecutor,
+    skillExecutor: executeSkill,
+    projectPath,
+  });
   return resultToMcpResponse(Ok(report));
 }

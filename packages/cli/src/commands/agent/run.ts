@@ -9,7 +9,10 @@ import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 import { loadPersona } from '../../persona/loader';
 import { runPersona, type CommandExecutor } from '../../persona/runner';
+import { executeSkill } from '../../persona/skill-executor';
+import { ALLOWED_PERSONA_COMMANDS } from '../../persona/constants';
 import { resolvePersonasDir } from '../../utils/paths';
+import type { TriggerContext } from '../../persona/schema';
 
 interface RunOptions {
   configPath?: string;
@@ -70,12 +73,22 @@ export async function runAgentTask(
   });
 }
 
+const VALID_TRIGGERS = new Set([
+  'always',
+  'on_pr',
+  'on_commit',
+  'on_review',
+  'scheduled',
+  'manual',
+]);
+
 export function createRunCommand(): Command {
   return new Command('run')
     .description('Run an agent task')
     .argument('[task]', 'Task to run (review, doc-review, test-review)')
     .option('--timeout <ms>', 'Timeout in milliseconds', '300000')
     .option('--persona <name>', 'Run a persona by name')
+    .option('--trigger <context>', 'Trigger context (on_pr, on_commit, manual)', 'manual')
     .action(async (task, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
 
@@ -89,17 +102,14 @@ export function createRunCommand(): Command {
         }
         const persona = personaResult.value;
 
-        const ALLOWED_COMMANDS = new Set([
-          'validate',
-          'check-deps',
-          'check-docs',
-          'cleanup',
-          'fix-drift',
-          'add',
-        ]);
+        const trigger: TriggerContext = VALID_TRIGGERS.has(opts.trigger)
+          ? (opts.trigger as TriggerContext)
+          : 'manual';
 
-        const executor: CommandExecutor = async (command: string) => {
-          if (!ALLOWED_COMMANDS.has(command)) {
+        const projectPath = process.cwd();
+
+        const commandExecutor: CommandExecutor = async (command: string) => {
+          if (!ALLOWED_PERSONA_COMMANDS.has(command)) {
             return Err(new Error(`Unknown harness command: ${command}`));
           }
           try {
@@ -110,13 +120,22 @@ export function createRunCommand(): Command {
           }
         };
 
-        const report = await runPersona(persona, executor);
+        const report = await runPersona(persona, {
+          trigger,
+          commandExecutor,
+          skillExecutor: executeSkill,
+          projectPath,
+        });
 
         if (!globalOpts.quiet) {
           logger.info(`Persona '${report.persona}' status: ${report.status}`);
-          for (const c of report.commands) {
-            const icon = c.status === 'pass' ? 'v' : c.status === 'fail' ? 'x' : '-';
-            console.log(`  [${icon}] ${c.name} (${c.durationMs}ms)`);
+          for (const s of report.steps) {
+            const icon = s.status === 'pass' ? 'v' : s.status === 'fail' ? 'x' : '-';
+            const typeTag = s.type === 'skill' ? ' [skill]' : '';
+            console.log(`  [${icon}] ${s.name}${typeTag} (${s.durationMs}ms)`);
+            if (s.artifactPath) {
+              console.log(`      artifact: ${s.artifactPath}`);
+            }
           }
         }
 

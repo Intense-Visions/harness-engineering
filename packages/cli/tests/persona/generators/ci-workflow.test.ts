@@ -9,7 +9,10 @@ const mockPersona: Persona = {
   description: 'Validates constraints',
   role: 'Enforce boundaries',
   skills: ['enforce-architecture'],
-  commands: ['check-deps', 'validate'],
+  steps: [
+    { command: 'check-deps', when: 'always' },
+    { command: 'validate', when: 'always' },
+  ],
   triggers: [
     { event: 'on_pr' as const, conditions: { paths: ['src/**'] } },
     { event: 'on_commit' as const, conditions: { branches: ['main'] } },
@@ -67,5 +70,25 @@ describe('generateCIWorkflow', () => {
     const result = generateCIWorkflow(mockPersona, 'github');
     if (!result.ok) return;
     expect(result.value).toContain('--severity error');
+  });
+
+  it('only emits command steps in CI (skips skill steps)', () => {
+    const v2Persona: Persona = {
+      ...mockPersona,
+      version: 2,
+      steps: [
+        { command: 'validate', when: 'always' },
+        { command: 'check-deps', when: 'always' },
+        { command: 'check-docs', when: 'on_pr' },
+        { skill: 'harness-code-review', when: 'on_pr', output: 'auto' },
+      ],
+    };
+    const result = generateCIWorkflow(v2Persona, 'github');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    const steps = workflow.jobs.enforce.steps;
+    const runSteps = steps.filter((s: Record<string, unknown>) => typeof s.run === 'string');
+    expect(runSteps.length).toBe(3); // validate, check-deps, check-docs (no skill)
   });
 });

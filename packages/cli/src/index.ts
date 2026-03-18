@@ -84,5 +84,14 @@ export { generateRuntime } from './persona/generators/runtime';
 export { generateAgentsMd } from './persona/generators/agents-md';
 export { generateCIWorkflow } from './persona/generators/ci-workflow';
 export { runPersona } from './persona/runner';
-export type { CommandExecutor, PersonaRunReport } from './persona/runner';
-export type { Persona } from './persona/schema';
+export type {
+  CommandExecutor,
+  SkillExecutor,
+  StepExecutionContext,
+  PersonaRunReport,
+  StepReport,
+} from './persona/runner';
+export { executeSkill } from './persona/skill-executor';
+export type { SkillExecutionContext, SkillExecutionResult } from './persona/skill-executor';
+export type { Persona, Step, CommandStep, SkillStep, TriggerContext } from './persona/schema';
+export { ALLOWED_PERSONA_COMMANDS } from './persona/constants';

@@ -1,0 +1,41 @@
+version: 2
+name: Code Reviewer
+description: Full-lifecycle code review with harness methodology
+role: >
+  Perform AI-powered code review incorporating harness validation,
+  architectural analysis, and project-specific calibration.
+  Produces structured Strengths/Issues/Assessment output.
+skills:
+  - harness-code-review
+steps:
+  - command: validate
+    when: always
+  - command: check-deps
+    when: always
+  - command: check-docs
+    when: on_pr
+  - skill: harness-code-review
+    when: on_pr
+    output: auto
+  - skill: harness-code-review
+    when: manual
+    output: auto
+triggers:
+  - event: on_pr
+    conditions:
+      paths:
+        - "src/**"
+        - "packages/**"
+  - event: on_commit
+    conditions:
+      branches:
+        - main
+        - develop
+config:
+  severity: error
+  autoFix: false
+  timeout: 600000
+outputs:
+  agents-md: true
+  ci-workflow: true
+  runtime-config: true

@@ -21,8 +21,22 @@ export function generateAgentsMd(persona: Persona): Result<string, Error> {
   try {
     const triggers = persona.triggers.map(formatTrigger).join(', ');
     const skills = persona.skills.join(', ');
-    const commands = persona.commands.map((c) => `\`harness ${c}\``).join(', ');
-    const fragment = `## ${persona.name} Agent\n\n**Role:** ${persona.role}\n\n**Triggers:** ${triggers}\n\n**Skills:** ${skills}\n\n**When this agent flags an issue:** Fix violations before merging. Run ${commands} locally to validate.\n`;
+
+    // Extract unique commands from steps
+    const commands = persona.steps
+      .filter((s): s is { command: string; when: string } => 'command' in s)
+      .map((s) => `\`harness ${s.command}\``)
+      .join(', ');
+
+    // Extract skill names from steps
+    const stepSkills = persona.steps
+      .filter((s): s is { skill: string; when: string; output: string } => 'skill' in s)
+      .map((s) => `\`harness skill run ${s.skill}\``)
+      .join(', ');
+
+    const allCommands = [commands, stepSkills].filter(Boolean).join(', ');
+
+    const fragment = `## ${persona.name} Agent\n\n**Role:** ${persona.role}\n\n**Triggers:** ${triggers}\n\n**Skills:** ${skills}\n\n**When this agent flags an issue:** Fix violations before merging. Run ${allCommands} locally to validate.\n`;
     return Ok(fragment);
   } catch (error) {
     return Err(

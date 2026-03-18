@@ -8,7 +8,10 @@ const mockPersona: Persona = {
   description: 'Validates constraints',
   role: 'Enforce layer boundaries, detect circular dependencies',
   skills: ['enforce-architecture', 'check-mechanical-constraints'],
-  commands: ['check-deps', 'validate'],
+  steps: [
+    { command: 'check-deps', when: 'always' },
+    { command: 'validate', when: 'always' },
+  ],
   triggers: [
     { event: 'on_pr' as const, conditions: { paths: ['src/**'] } },
     { event: 'on_commit' as const, conditions: { branches: ['main', 'develop'] } },
@@ -45,5 +48,23 @@ describe('generateAgentsMd', () => {
     if (!result.ok) return;
     expect(result.value).toContain('**When this agent flags an issue:**');
     expect(result.value).toContain('harness check-deps');
+  });
+
+  it('generates markdown with commands and skills from steps', () => {
+    const v2Persona: Persona = {
+      ...mockPersona,
+      version: 2,
+      steps: [
+        { command: 'validate', when: 'always' },
+        { command: 'check-deps', when: 'on_commit' },
+        { skill: 'harness-code-review', when: 'on_pr', output: 'auto' },
+      ],
+    };
+    const result = generateAgentsMd(v2Persona);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toContain('harness validate');
+    expect(result.value).toContain('harness check-deps');
+    expect(result.value).toContain('harness-code-review');
   });
 });

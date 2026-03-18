@@ -1,0 +1,16 @@
+version: 2
+name: Test Reviewer
+description: Test v2 persona
+role: Test review role
+skills:
+  - harness-code-review
+steps:
+  - command: validate
+    when: always
+  - skill: harness-code-review
+    when: on_pr
+    output: auto
+triggers:
+  - event: on_pr
+config:
+  severity: error

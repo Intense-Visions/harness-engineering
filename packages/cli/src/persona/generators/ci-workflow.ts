@@ -41,9 +41,14 @@ export function generateCIWorkflow(
       { uses: 'pnpm/action-setup@v4', with: { run_install: 'frozen' } },
     ];
 
-    for (const cmd of persona.commands) {
+    // Only emit command steps in CI (skill steps require AI agent runtime)
+    const commandSteps = persona.steps.filter(
+      (s): s is { command: string; when: string } => 'command' in s
+    );
+
+    for (const step of commandSteps) {
       const severityFlag = severity ? ` --severity ${severity}` : '';
-      steps.push({ run: `npx harness ${cmd}${severityFlag}` });
+      steps.push({ run: `npx harness ${step.command}${severityFlag}` });
     }
 
     const workflow = {

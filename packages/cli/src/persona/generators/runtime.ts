@@ -8,7 +8,7 @@ export function generateRuntime(persona: Persona): Result<string, Error> {
     const config = {
       name: toKebabCase(persona.name),
       skills: persona.skills,
-      commands: persona.commands,
+      steps: persona.steps,
       timeout: persona.config.timeout,
       severity: persona.config.severity,
     };
