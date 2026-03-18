@@ -9,7 +9,29 @@ const DEFAULT_RATIOS = {
   reserve: 0.1,
 } as const;
 
-export function contextBudget(totalTokens: number, overrides?: TokenBudgetOverrides): TokenBudget {
+/**
+ * Map graph node types to budget categories
+ */
+const NODE_TYPE_TO_CATEGORY: Record<string, keyof typeof DEFAULT_RATIOS> = {
+  file: 'activeCode',
+  function: 'activeCode',
+  class: 'activeCode',
+  method: 'activeCode',
+  interface: 'interfaces',
+  variable: 'interfaces',
+  adr: 'projectManifest',
+  document: 'projectManifest',
+  spec: 'taskSpec',
+  task: 'taskSpec',
+  prompt: 'systemPrompt',
+  system: 'systemPrompt',
+};
+
+export function contextBudget(
+  totalTokens: number,
+  overrides?: TokenBudgetOverrides,
+  graphDensity?: Record<string, number>
+): TokenBudget {
   const ratios: Record<keyof typeof DEFAULT_RATIOS, number> = {
     systemPrompt: DEFAULT_RATIOS.systemPrompt,
     projectManifest: DEFAULT_RATIOS.projectManifest,
@@ -18,6 +40,58 @@ export function contextBudget(totalTokens: number, overrides?: TokenBudgetOverri
     interfaces: DEFAULT_RATIOS.interfaces,
     reserve: DEFAULT_RATIOS.reserve,
   };
+
+  if (graphDensity) {
+    // Compute density-aware allocation
+    const categoryWeights: Record<keyof typeof DEFAULT_RATIOS, number> = {
+      systemPrompt: 0,
+      projectManifest: 0,
+      taskSpec: 0,
+      activeCode: 0,
+      interfaces: 0,
+      reserve: 0,
+    };
+
+    for (const [nodeType, count] of Object.entries(graphDensity)) {
+      const category = NODE_TYPE_TO_CATEGORY[nodeType];
+      if (category) {
+        categoryWeights[category] += count;
+      }
+    }
+
+    const totalWeight = Object.values(categoryWeights).reduce((sum, w) => sum + w, 0);
+
+    if (totalWeight > 0) {
+      const MIN_ALLOCATION = 0.01;
+
+      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
+        if (categoryWeights[key] > 0) {
+          ratios[key] = categoryWeights[key] / totalWeight;
+        } else {
+          ratios[key] = MIN_ALLOCATION;
+        }
+      }
+
+      // Normalize so ratios sum to 1.0
+      const ratioSum = Object.values(ratios).reduce((sum, r) => sum + r, 0);
+      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
+        ratios[key] = ratios[key] / ratioSum;
+      }
+
+      // Ensure all categories have at least 1% allocation
+      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
+        if (ratios[key] < MIN_ALLOCATION) {
+          ratios[key] = MIN_ALLOCATION;
+        }
+      }
+
+      // Re-normalize after enforcing minimums
+      const finalSum = Object.values(ratios).reduce((sum, r) => sum + r, 0);
+      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
+        ratios[key] = ratios[key] / finalSum;
+      }
+    }
+  }
 
   if (overrides) {
     let overrideSum = 0;

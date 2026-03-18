@@ -13,7 +13,7 @@ export class SyncManager {
 
   constructor(
     private readonly store: GraphStore,
-    private readonly graphDir: string
+    graphDir: string
   ) {
     this.metadataPath = path.join(graphDir, 'sync-metadata.json');
   }

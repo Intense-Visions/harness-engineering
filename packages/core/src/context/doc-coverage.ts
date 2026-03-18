@@ -51,7 +51,24 @@ export async function checkDocCoverage(
   domain: string,
   options: CoverageOptions = {}
 ): Promise<Result<CoverageReport, ContextError>> {
-  const { docsDir = './docs', sourceDir = './src', excludePatterns = [] } = options;
+  const { docsDir = './docs', sourceDir = './src', excludePatterns = [], graphCoverage } = options;
+
+  // When graph coverage is provided, use pre-computed results
+  if (graphCoverage) {
+    const gaps: DocumentationGap[] = graphCoverage.undocumented.map((file) => ({
+      file,
+      suggestedSection: suggestSection(file, domain),
+      importance: determineImportance(file),
+    }));
+
+    return Ok({
+      domain,
+      documented: graphCoverage.documented,
+      undocumented: graphCoverage.undocumented,
+      coveragePercentage: graphCoverage.coveragePercentage,
+      gaps,
+    });
+  }
 
   try {
     // Find all source files in the domain

@@ -56,4 +56,13 @@ export { SlackConnector } from './ingest/connectors/SlackConnector.js';
 export { FusionLayer } from './search/FusionLayer.js';
 export type { FusionResult } from './search/FusionLayer.js';
 
+// Context
+export { Assembler } from './context/Assembler.js';
+export type {
+  AssembledContext,
+  GraphBudget,
+  GraphFilterResult,
+  GraphCoverageReport,
+} from './context/Assembler.js';
+
 export const VERSION = '0.1.0';

@@ -46,6 +46,7 @@ export interface CoverageOptions {
   docsDir?: string; // Default: './docs'
   sourceDir?: string; // Default: './src'
   excludePatterns?: string[]; // Files to ignore
+  graphCoverage?: { documented: string[]; undocumented: string[]; coveragePercentage: number }; // Pre-computed from graph
 }
 
 // Knowledge Map Integrity Types

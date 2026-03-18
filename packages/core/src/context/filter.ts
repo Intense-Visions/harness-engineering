@@ -35,7 +35,11 @@ const PHASE_PRIORITIES: Record<WorkflowPhase, FileCategory[]> = {
   ],
 };
 
-export function contextFilter(phase: WorkflowPhase, maxCategories?: number): ContextFilterResult {
+export function contextFilter(
+  phase: WorkflowPhase,
+  maxCategories?: number,
+  graphFilePaths?: string[]
+): ContextFilterResult {
   const categories = PHASE_PRIORITIES[phase];
   const limit = maxCategories ?? categories.length;
 
@@ -46,7 +50,7 @@ export function contextFilter(phase: WorkflowPhase, maxCategories?: number): Con
     phase,
     includedCategories: included.map((c) => c.category),
     excludedCategories: excluded.map((c) => c.category),
-    filePatterns: included.flatMap((c) => c.patterns),
+    filePatterns: graphFilePaths ?? included.flatMap((c) => c.patterns),
   };
 }
 

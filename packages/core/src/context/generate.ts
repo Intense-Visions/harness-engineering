@@ -73,24 +73,12 @@ function matchesExcludePattern(relativePath: string, excludePatterns: string[]):
  * Generate AGENTS.md content from project structure
  */
 export async function generateAgentsMap(
-  config: AgentsMapConfig
+  config: AgentsMapConfig,
+  graphSections?: Array<{ name: string; files: string[]; description?: string }>
 ): Promise<Result<string, ContextError>> {
   const { rootDir, includePaths, excludePaths, sections = DEFAULT_SECTIONS } = config;
 
   try {
-    // Collect all files matching include patterns
-    const allFiles: string[] = [];
-    for (const pattern of includePaths) {
-      const files = await findFiles(pattern, rootDir);
-      allFiles.push(...files);
-    }
-
-    // Filter out excluded patterns
-    const filteredFiles = allFiles.filter((file) => {
-      const relativePath = relative(rootDir, file);
-      return !matchesExcludePattern(relativePath, excludePaths);
-    });
-
     // Start building the AGENTS.md content
     const lines: string[] = [];
 
@@ -106,47 +94,79 @@ export async function generateAgentsMap(
     lines.push('> Add a brief description of this project, its purpose, and key technologies.');
     lines.push('');
 
-    // Repository Structure section
-    lines.push('## Repository Structure');
-    lines.push('');
-    const grouped = groupByDirectory(filteredFiles, rootDir);
-    for (const [dir, files] of grouped) {
-      if (dir !== '.') {
-        lines.push(`### ${dir}/`);
+    if (graphSections) {
+      // Use graph-provided sections instead of glob-based discovery
+      for (const section of graphSections) {
+        lines.push(`## ${section.name}`);
+        lines.push('');
+        if (section.description) {
+          lines.push(section.description);
+          lines.push('');
+        }
+        for (const file of section.files.slice(0, 20)) {
+          lines.push(formatFileLink(file));
+        }
+        if (section.files.length > 20) {
+          lines.push(`- _... and ${section.files.length - 20} more files_`);
+        }
         lines.push('');
       }
-      for (const file of files.slice(0, 10)) {
-        // Limit to 10 files per directory
-        lines.push(formatFileLink(file));
-      }
-      if (files.length > 10) {
-        lines.push(`- _... and ${files.length - 10} more files_`);
-      }
-      lines.push('');
-    }
-
-    // Custom sections
-    for (const section of sections) {
-      lines.push(`## ${section.name}`);
-      lines.push('');
-      if (section.description) {
-        lines.push(section.description);
-        lines.push('');
+    } else {
+      // Collect all files matching include patterns
+      const allFiles: string[] = [];
+      for (const pattern of includePaths) {
+        const files = await findFiles(pattern, rootDir);
+        allFiles.push(...files);
       }
 
-      const sectionFiles = await findFiles(section.pattern, rootDir);
-      const filteredSectionFiles = sectionFiles.filter((file) => {
+      // Filter out excluded patterns
+      const filteredFiles = allFiles.filter((file) => {
         const relativePath = relative(rootDir, file);
         return !matchesExcludePattern(relativePath, excludePaths);
       });
 
-      for (const file of filteredSectionFiles.slice(0, 20)) {
-        lines.push(formatFileLink(relative(rootDir, file)));
-      }
-      if (filteredSectionFiles.length > 20) {
-        lines.push(`- _... and ${filteredSectionFiles.length - 20} more files_`);
-      }
+      // Repository Structure section
+      lines.push('## Repository Structure');
       lines.push('');
+      const grouped = groupByDirectory(filteredFiles, rootDir);
+      for (const [dir, files] of grouped) {
+        if (dir !== '.') {
+          lines.push(`### ${dir}/`);
+          lines.push('');
+        }
+        for (const file of files.slice(0, 10)) {
+          // Limit to 10 files per directory
+          lines.push(formatFileLink(file));
+        }
+        if (files.length > 10) {
+          lines.push(`- _... and ${files.length - 10} more files_`);
+        }
+        lines.push('');
+      }
+
+      // Custom sections
+      for (const section of sections) {
+        lines.push(`## ${section.name}`);
+        lines.push('');
+        if (section.description) {
+          lines.push(section.description);
+          lines.push('');
+        }
+
+        const sectionFiles = await findFiles(section.pattern, rootDir);
+        const filteredSectionFiles = sectionFiles.filter((file) => {
+          const relativePath = relative(rootDir, file);
+          return !matchesExcludePattern(relativePath, excludePaths);
+        });
+
+        for (const file of filteredSectionFiles.slice(0, 20)) {
+          lines.push(formatFileLink(relative(rootDir, file)));
+        }
+        if (filteredSectionFiles.length > 20) {
+          lines.push(`- _... and ${filteredSectionFiles.length - 20} more files_`);
+        }
+        lines.push('');
+      }
     }
 
     // Development Workflow section
