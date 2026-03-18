@@ -20,7 +20,8 @@ export async function runGraphExport(projectPath: string, format: string): Promi
     // Add nodes with sanitized IDs
     for (const node of nodes.slice(0, 200)) {
       const safeId = node.id.replace(/[^a-zA-Z0-9]/g, '_');
-      lines.push(`  ${safeId}["${node.name}"]`);
+      const safeName = node.name.replace(/"/g, '#quot;');
+      lines.push(`  ${safeId}["${safeName}"]`);
     }
     // Add edges
     for (const edge of edges.slice(0, 500)) {

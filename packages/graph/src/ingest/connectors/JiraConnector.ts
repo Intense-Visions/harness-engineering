@@ -1,13 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
-import type { GraphConnector, ConnectorConfig } from './ConnectorInterface.js';
-
-const CODE_NODE_TYPES = ['file', 'function', 'class', 'method', 'interface', 'variable'] as const;
-
-type HttpClient = (
-  url: string,
-  options: RequestInit
-) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
+import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
+import { linkToCode } from './ConnectorUtils.js';
 
 interface JiraIssue {
   key: string;
@@ -23,6 +17,7 @@ interface JiraIssue {
 
 interface JiraSearchResponse {
   issues: JiraIssue[];
+  total: number;
 }
 
 export class JiraConnector implements GraphConnector {
@@ -66,59 +61,76 @@ export class JiraConnector implements GraphConnector {
       };
     }
 
+    // S-2: Build JQL with optional filters
     const project = config.project as string | undefined;
-    const jql = project ? `project=${project}` : '';
-    const url = `${baseUrl}/rest/api/2/search?jql=${encodeURIComponent(jql)}`;
+    let jql = project ? `project=${project}` : '';
+    const filters = config.filters as { status?: string[]; labels?: string[] } | undefined;
+    if (filters?.status?.length) {
+      jql += `${jql ? ' AND ' : ''}status IN (${filters.status.map((s) => `"${s}"`).join(',')})`;
+    }
+    if (filters?.labels?.length) {
+      jql += `${jql ? ' AND ' : ''}labels IN (${filters.labels.map((l) => `"${l}"`).join(',')})`;
+    }
 
-    let data: JiraSearchResponse;
+    const headers = {
+      Authorization: `Basic ${apiKey}`,
+      'Content-Type': 'application/json',
+    };
+
+    // S-3: Pagination loop
+    let startAt = 0;
+    const maxResults = 50;
+    let total = Infinity;
+
     try {
-      const response = await this.httpClient(url, {
-        headers: {
-          Authorization: `Basic ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        return {
-          nodesAdded: 0,
-          nodesUpdated: 0,
-          edgesAdded: 0,
-          edgesUpdated: 0,
-          errors: ['Jira API request failed'],
-          durationMs: Date.now() - start,
-        };
+      while (startAt < total) {
+        const url = `${baseUrl}/rest/api/2/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${maxResults}`;
+        const response = await this.httpClient(url, { headers });
+        if (!response.ok) {
+          return {
+            nodesAdded,
+            nodesUpdated: 0,
+            edgesAdded,
+            edgesUpdated: 0,
+            errors: ['Jira API request failed'],
+            durationMs: Date.now() - start,
+          };
+        }
+        const data = (await response.json()) as JiraSearchResponse;
+        total = data.total;
+
+        for (const issue of data.issues) {
+          const nodeId = `issue:jira:${issue.key}`;
+          store.addNode({
+            id: nodeId,
+            type: 'issue',
+            name: issue.fields.summary,
+            metadata: {
+              key: issue.key,
+              status: issue.fields.status?.name,
+              priority: issue.fields.priority?.name,
+              assignee: issue.fields.assignee?.displayName,
+              labels: issue.fields.labels ?? [],
+            },
+          });
+          nodesAdded++;
+
+          // Link to code nodes via shared utility
+          const searchText = [issue.fields.summary, issue.fields.description ?? ''].join(' ');
+          edgesAdded += linkToCode(store, searchText, nodeId, 'applies_to');
+        }
+
+        startAt += maxResults;
       }
-      data = (await response.json()) as JiraSearchResponse;
     } catch (err) {
       return {
-        nodesAdded: 0,
+        nodesAdded,
         nodesUpdated: 0,
-        edgesAdded: 0,
+        edgesAdded,
         edgesUpdated: 0,
         errors: [`Jira API error: ${err instanceof Error ? err.message : String(err)}`],
         durationMs: Date.now() - start,
       };
-    }
-
-    for (const issue of data.issues) {
-      const nodeId = `issue:jira:${issue.key}`;
-      store.addNode({
-        id: nodeId,
-        type: 'issue',
-        name: issue.fields.summary,
-        metadata: {
-          key: issue.key,
-          status: issue.fields.status?.name,
-          priority: issue.fields.priority?.name,
-          assignee: issue.fields.assignee?.displayName,
-          labels: issue.fields.labels ?? [],
-        },
-      });
-      nodesAdded++;
-
-      // Link to code nodes via word-boundary matching
-      const searchText = [issue.fields.summary, issue.fields.description ?? ''].join(' ');
-      edgesAdded += this.linkToCode(store, searchText, nodeId);
     }
 
     return {
@@ -129,26 +141,5 @@ export class JiraConnector implements GraphConnector {
       errors,
       durationMs: Date.now() - start,
     };
-  }
-
-  private linkToCode(store: GraphStore, content: string, sourceNodeId: string): number {
-    let count = 0;
-    for (const nodeType of CODE_NODE_TYPES) {
-      const codeNodes = store.findNodes({ type: nodeType });
-      for (const node of codeNodes) {
-        if (node.name.length < 3) continue;
-        const escaped = node.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const namePattern = new RegExp(`\\b${escaped}\\b`, 'i');
-        if (namePattern.test(content)) {
-          store.addEdge({
-            from: sourceNodeId,
-            to: node.id,
-            type: 'applies_to',
-          });
-          count++;
-        }
-      }
-    }
-    return count;
   }
 }

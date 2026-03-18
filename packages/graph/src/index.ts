@@ -45,7 +45,9 @@ export type {
   GraphConnector,
   ConnectorConfig,
   SyncMetadata,
+  HttpClient,
 } from './ingest/connectors/ConnectorInterface.js';
+export { linkToCode } from './ingest/connectors/ConnectorUtils.js';
 export { SyncManager } from './ingest/connectors/SyncManager.js';
 export { JiraConnector } from './ingest/connectors/JiraConnector.js';
 export { SlackConnector } from './ingest/connectors/SlackConnector.js';

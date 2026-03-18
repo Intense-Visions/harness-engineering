@@ -50,7 +50,16 @@ export class SyncManager {
   }
 
   async syncAll(): Promise<IngestResult> {
-    let combined: IngestResult = {
+    interface MutableIngestResult {
+      nodesAdded: number;
+      nodesUpdated: number;
+      edgesAdded: number;
+      edgesUpdated: number;
+      errors: string[];
+      durationMs: number;
+    }
+
+    const combined: MutableIngestResult = {
       nodesAdded: 0,
       nodesUpdated: 0,
       edgesAdded: 0,
@@ -61,17 +70,15 @@ export class SyncManager {
 
     for (const [name] of this.registrations) {
       const result = await this.sync(name);
-      combined = {
-        nodesAdded: combined.nodesAdded + result.nodesAdded,
-        nodesUpdated: combined.nodesUpdated + result.nodesUpdated,
-        edgesAdded: combined.edgesAdded + result.edgesAdded,
-        edgesUpdated: combined.edgesUpdated + result.edgesUpdated,
-        errors: [...combined.errors, ...result.errors],
-        durationMs: combined.durationMs + result.durationMs,
-      };
+      combined.nodesAdded += result.nodesAdded;
+      combined.nodesUpdated += result.nodesUpdated;
+      combined.edgesAdded += result.edgesAdded;
+      combined.edgesUpdated += result.edgesUpdated;
+      combined.errors.push(...result.errors);
+      combined.durationMs += result.durationMs;
     }
 
-    return combined;
+    return combined as IngestResult;
   }
 
   async getMetadata(): Promise<SyncMetadata> {

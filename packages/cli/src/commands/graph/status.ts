@@ -7,6 +7,7 @@ export interface GraphStatusResult {
   edgeCount?: number;
   nodesByType?: Record<string, number>;
   lastScanTimestamp?: string;
+  connectorSyncStatus?: Record<string, string>;
 }
 
 export async function runGraphStatus(projectPath: string): Promise<GraphStatusResult> {
@@ -34,11 +35,25 @@ export async function runGraphStatus(projectPath: string): Promise<GraphStatusRe
     nodesByType[node.type] = (nodesByType[node.type] ?? 0) + 1;
   }
 
+  // Read connector sync metadata
+  let connectorSyncStatus: Record<string, string> = {};
+  try {
+    const syncMetaPath = path.join(graphDir, 'sync-metadata.json');
+    const syncMeta = JSON.parse(await fs.readFile(syncMetaPath, 'utf-8'));
+    for (const [name, data] of Object.entries(syncMeta.connectors ?? {})) {
+      connectorSyncStatus[name] = (data as { lastSyncTimestamp: string }).lastSyncTimestamp;
+    }
+  } catch {
+    /* no sync metadata */
+  }
+
   return {
     status: 'ok',
     nodeCount: store.nodeCount,
     edgeCount: store.edgeCount,
     nodesByType,
     lastScanTimestamp: lastScan,
+    connectorSyncStatus:
+      Object.keys(connectorSyncStatus).length > 0 ? connectorSyncStatus : undefined,
   };
 }

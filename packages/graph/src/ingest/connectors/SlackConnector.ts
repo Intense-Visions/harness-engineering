@@ -1,13 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
-import type { GraphConnector, ConnectorConfig } from './ConnectorInterface.js';
-
-const CODE_NODE_TYPES = ['file', 'function', 'class', 'method', 'interface', 'variable'] as const;
-
-type HttpClient = (
-  url: string,
-  options: RequestInit
-) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
+import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
+import { linkToCode } from './ConnectorUtils.js';
 
 interface SlackMessage {
   text: string;
@@ -50,9 +44,17 @@ export class SlackConnector implements GraphConnector {
 
     const channels = (config.channels ?? []) as string[];
 
+    // S-1: Time filtering via lookbackDays
+    const oldest = config.lookbackDays
+      ? String(Math.floor((Date.now() - Number(config.lookbackDays) * 86400000) / 1000))
+      : undefined;
+
     for (const channel of channels) {
       try {
-        const url = `https://slack.com/api/conversations.history?channel=${encodeURIComponent(channel)}`;
+        let url = `https://slack.com/api/conversations.history?channel=${encodeURIComponent(channel)}`;
+        if (oldest) {
+          url += `&oldest=${oldest}`;
+        }
         const response = await this.httpClient(url, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -87,8 +89,8 @@ export class SlackConnector implements GraphConnector {
           });
           nodesAdded++;
 
-          // Link to code nodes via word-boundary matching and path matching
-          edgesAdded += this.linkToCode(store, message.text, nodeId);
+          // Link to code nodes via shared utility (with path matching)
+          edgesAdded += linkToCode(store, message.text, nodeId, 'references', { checkPaths: true });
         }
       } catch (err) {
         errors.push(
@@ -105,35 +107,5 @@ export class SlackConnector implements GraphConnector {
       errors,
       durationMs: Date.now() - start,
     };
-  }
-
-  private linkToCode(store: GraphStore, content: string, sourceNodeId: string): number {
-    let count = 0;
-    for (const nodeType of CODE_NODE_TYPES) {
-      const codeNodes = store.findNodes({ type: nodeType });
-      for (const node of codeNodes) {
-        let nameMatches = false;
-        if (node.name.length >= 3) {
-          const escaped = node.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const namePattern = new RegExp(`\\b${escaped}\\b`, 'i');
-          nameMatches = namePattern.test(content);
-        }
-
-        let pathMatches = false;
-        if (node.path && node.path.includes('/')) {
-          pathMatches = content.includes(node.path);
-        }
-
-        if (nameMatches || pathMatches) {
-          store.addEdge({
-            from: sourceNodeId,
-            to: node.id,
-            type: 'references',
-          });
-          count++;
-        }
-      }
-    }
-    return count;
   }
 }

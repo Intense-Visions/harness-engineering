@@ -15,8 +15,8 @@ const SLACK_FIXTURE = {
 };
 
 function makeMockHttpClient(response: unknown) {
-  return async (_url: string, _options: RequestInit) => ({
-    ok: true,
+  return async (_url: string, _options?: { headers?: Record<string, string> }) => ({
+    ok: true as const,
     json: async () => response,
   });
 }

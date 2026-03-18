@@ -8,7 +8,7 @@ import { runGraphStatus } from '../../src/commands/graph/status';
 import { runGraphExport } from '../../src/commands/graph/export';
 import { createScanCommand } from '../../src/commands/graph/scan';
 import { createQueryCommand } from '../../src/commands/graph/query';
-import { createIngestCommand } from '../../src/commands/graph/ingest';
+import { createIngestCommand, runIngest } from '../../src/commands/graph/ingest';
 import { createGraphCommand } from '../../src/commands/graph/index';
 
 describe('graph commands', () => {
@@ -120,6 +120,23 @@ describe('graph commands', () => {
       const emptyDir = path.join(tmpDir, 'empty');
       await fs.mkdir(emptyDir, { recursive: true });
       await expect(runGraphExport(emptyDir, 'json')).rejects.toThrow('No graph found');
+    });
+  });
+
+  describe('runIngest', () => {
+    it('ingests code source and creates graph nodes', async () => {
+      const result = await runIngest(tmpDir, 'code');
+      expect(result.nodesAdded).toBeGreaterThan(0);
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+
+      // Verify graph was persisted
+      const graphDir = path.join(tmpDir, '.harness', 'graph');
+      const stat = await fs.stat(graphDir);
+      expect(stat.isDirectory()).toBe(true);
+    });
+
+    it('throws on unknown source', async () => {
+      await expect(runIngest(tmpDir, 'nosource')).rejects.toThrow('Unknown source: nosource');
     });
   });
 
