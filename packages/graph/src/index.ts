@@ -40,6 +40,16 @@ export { TopologicalLinker } from './ingest/TopologicalLinker.js';
 export type { LinkResult } from './ingest/TopologicalLinker.js';
 export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
 
+// Connectors
+export type {
+  GraphConnector,
+  ConnectorConfig,
+  SyncMetadata,
+} from './ingest/connectors/ConnectorInterface.js';
+export { SyncManager } from './ingest/connectors/SyncManager.js';
+export { JiraConnector } from './ingest/connectors/JiraConnector.js';
+export { SlackConnector } from './ingest/connectors/SlackConnector.js';
+
 // Search
 export { FusionLayer } from './search/FusionLayer.js';
 export type { FusionResult } from './search/FusionLayer.js';

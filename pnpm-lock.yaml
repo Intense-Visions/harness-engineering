@@ -74,6 +74,9 @@ importers:
       '@harness-engineering/core':
         specifier: workspace:*
         version: link:../core
+      '@harness-engineering/graph':
+        specifier: workspace:*
+        version: link:../graph
       '@harness-engineering/linter-gen':
         specifier: workspace:*
         version: link:../linter-gen

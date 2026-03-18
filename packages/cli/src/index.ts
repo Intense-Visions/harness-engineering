@@ -18,6 +18,10 @@ import { createSetupMcpCommand } from './commands/setup-mcp';
 import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
 import { createCICommand } from './commands/ci';
 import { createUpdateCommand } from './commands/update';
+import { createScanCommand } from './commands/graph/scan';
+import { createIngestCommand } from './commands/graph/ingest';
+import { createQueryCommand } from './commands/graph/query';
+import { createGraphCommand } from './commands/graph/index';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -50,6 +54,10 @@ export function createProgram(): Command {
   program.addCommand(createGenerateSlashCommandsCommand());
   program.addCommand(createCICommand());
   program.addCommand(createUpdateCommand());
+  program.addCommand(createScanCommand());
+  program.addCommand(createIngestCommand());
+  program.addCommand(createQueryCommand());
+  program.addCommand(createGraphCommand());
 
   return program;
 }
@@ -58,6 +66,11 @@ export function createProgram(): Command {
 export { buildPreamble } from './commands/skill/preamble';
 
 // Command function exports (used by MCP server)
+export { runScan } from './commands/graph/scan';
+export { runQuery } from './commands/graph/query';
+export { runIngest } from './commands/graph/ingest';
+export { runGraphStatus } from './commands/graph/status';
+export { runGraphExport } from './commands/graph/export';
 export { runCheckPhaseGate } from './commands/check-phase-gate';
 export { runCrossCheck } from './commands/validate-cross-check';
 export { generateSkillFiles } from './commands/create-skill';
