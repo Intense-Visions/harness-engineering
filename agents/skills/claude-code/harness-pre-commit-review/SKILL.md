@@ -107,7 +107,29 @@ AI Review: SKIPPED (docs/config only)
 
 If any staged file contains code changes, proceed to Phase 3.
 
-### Phase 3: AI Review (Lightweight)
+### Phase 3: Security Scan
+
+Run the built-in security scanner against staged files. This is a mechanical check — no AI judgment involved.
+
+```bash
+# Get list of staged source files
+git diff --cached --name-only --diff-filter=d | grep -E '\.(ts|tsx|js|jsx|go|py)$'
+```
+
+Use the `run_security_scan` MCP tool or invoke the scanner on the staged files. Report any findings:
+
+- **Error findings (blocking):** Hardcoded secrets, eval/injection, weak crypto — these block the commit just like lint failures.
+- **Warning/info findings (advisory):** CORS wildcards, HTTP URLs, disabled TLS — reported but do not block.
+
+Include security scan results in the report output:
+
+```
+Security Scan: [PASS/WARN/FAIL] (N errors, N warnings)
+```
+
+If no source files are staged, skip the security scan.
+
+### Phase 4: AI Review (Lightweight)
 
 Perform a focused, lightweight review of staged changes. This is NOT a full code review — it catches obvious issues only.
 
@@ -122,7 +144,7 @@ git diff --cached
 Review the staged diff for these high-signal issues only:
 
 - **Obvious bugs:** null dereference, infinite loops, off-by-one errors, resource leaks
-- **Security issues:** hardcoded secrets, SQL injection, path traversal, unvalidated input
+- **Security issues:** hardcoded secrets, SQL injection, path traversal, unvalidated input (complements the mechanical scan with semantic analysis — e.g., tracing user input across function boundaries)
 - **Broken imports:** references to files/modules that do not exist
 - **Debug artifacts:** console.log, debugger statements, TODO/FIXME without issue reference
 - **Type mismatches:** function called with wrong argument types (if visible in diff)
@@ -145,6 +167,7 @@ Mechanical Checks:
 - Lint: PASS
 - Types: PASS
 - Tests: PASS (12/12)
+- Security Scan: PASS (0 errors, 0 warnings)
 
 AI Review: PASS (no issues found)
 ```
@@ -158,6 +181,8 @@ Mechanical Checks:
 - Lint: PASS
 - Types: PASS
 - Tests: PASS (12/12)
+- Security Scan: WARN (0 errors, 1 warning)
+  - [SEC-NET-001] src/cors.ts:5 — CORS wildcard origin
 
 AI Review: 2 observations
 1. [file:line] Possible null dereference — `user.email` accessed without null check after `findUser()` which can return null.

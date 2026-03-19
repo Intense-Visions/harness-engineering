@@ -17,3 +17,11 @@
 - [skill:harness-execution] [outcome:success] The `on_plan_approved` trigger required only 1 line added to the TriggerContext enum — minimal schema change for significant capability gain.
 - [skill:harness-execution] [outcome:success] The trigger detector module is pure and testable — reads handoff.json, returns a typed result. No side effects. 6 tests cover all edge cases (missing file, malformed JSON, empty pending, wrong skill, happy path).
 - [skill:harness-execution] [outcome:decision] Runner resolves `auto` trigger at the top of `runPersona` before step filtering, keeping the resolution logic in one place rather than distributed across callers.
+
+## 2026-03-19 — Security Scanner Core Implementation
+
+- [skill:harness-execution] [outcome:success] All 14 tasks completed in a single session. Tasks 5-8 (rule files) were parallelizable as planned — created all in batch.
+- [skill:harness-execution] [outcome:gotcha] The project uses `glob` package, not `fast-glob`. Plan referenced `fast-glob` but adapted to use existing `glob` import pattern from `fs-utils.ts`.
+- [skill:harness-execution] [outcome:gotcha] Type-only imports in test files pass even before implementation exists (TypeScript erases them at runtime). Need `tsc --noEmit` to truly verify type correctness, not just `vitest run`.
+- [skill:harness-execution] [outcome:gotcha] CICheckName type change from 5 to 6 checks required updating the orchestrator test mock setup — needed to add mocks for SecurityScanner, parseSecurityConfig, and glob before the test count assertions would pass.
+- [skill:harness-execution] [outcome:decision] Used class-based mock pattern for SecurityScanner (matching prior learning about vi.mock class constructors) to avoid clearAllMocks issues.

@@ -53,6 +53,9 @@ export * from './workflow';
 // Pipeline module
 export * from './pipeline';
 
+// Security module
+export * from './security';
+
 // CI module
 export * from './ci';
 

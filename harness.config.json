@@ -96,6 +96,11 @@
     "executor": "subprocess",
     "timeout": 300000
   },
+  "security": {
+    "enabled": true,
+    "strict": false,
+    "exclude": ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/tests/fixtures/**"]
+  },
   "entropy": {
     "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/tests/fixtures/**"],
     "autoFix": false

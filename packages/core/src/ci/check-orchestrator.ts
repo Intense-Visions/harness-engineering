@@ -13,6 +13,8 @@ import { validateAgentsMap } from '../context/agents-map';
 import { validateDependencies, defineLayer } from '../constraints/dependencies';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { EntropyAnalyzer } from '../entropy/analyzer';
+import { SecurityScanner } from '../security/scanner';
+import { parseSecurityConfig } from '../security/config';
 import { TypeScriptParser } from '../shared/parsers';
 
 export interface RunCIChecksInput {
@@ -22,7 +24,15 @@ export interface RunCIChecksInput {
   failOn?: CIFailOnSeverity;
 }
 
-const ALL_CHECKS: CICheckName[] = ['validate', 'deps', 'docs', 'entropy', 'phase-gate'];
+const ALL_CHECKS: CICheckName[] = [
+  'validate',
+  'deps',
+  'docs',
+  'entropy',
+  'security',
+  'perf',
+  'phase-gate',
+];
 
 async function runSingleCheck(
   name: CICheckName,
@@ -135,6 +145,75 @@ async function runSingleCheck(
                 message: `Dead export: ${dead.name}`,
                 file: dead.file,
                 line: dead.line,
+              });
+            }
+          }
+        }
+        break;
+      }
+
+      case 'security': {
+        const securityConfig = parseSecurityConfig((config as Record<string, unknown>).security);
+        if (!securityConfig.enabled) break;
+
+        const scanner = new SecurityScanner(securityConfig);
+        scanner.configureForProject(projectRoot);
+
+        // Scan source files using glob
+        const { glob: globFn } = await import('glob');
+        const sourceFiles = await globFn('**/*.{ts,tsx,js,jsx,go,py}', {
+          cwd: projectRoot,
+          ignore: securityConfig.exclude ?? [
+            '**/node_modules/**',
+            '**/dist/**',
+            '**/*.test.ts',
+            '**/fixtures/**',
+          ],
+          absolute: true,
+        });
+
+        const scanResult = await scanner.scanFiles(sourceFiles);
+
+        for (const finding of scanResult.findings) {
+          issues.push({
+            severity: finding.severity === 'info' ? 'warning' : finding.severity,
+            message: `[${finding.ruleId}] ${finding.message}: ${finding.match}`,
+            file: finding.file,
+            line: finding.line,
+          });
+        }
+        break;
+      }
+
+      case 'perf': {
+        const perfAnalyzer = new EntropyAnalyzer({
+          rootDir: projectRoot,
+          analyze: {
+            complexity: true,
+            coupling: true,
+          },
+        });
+        const perfResult = await perfAnalyzer.analyze();
+        if (!perfResult.ok) {
+          issues.push({ severity: 'warning', message: perfResult.error.message });
+        } else {
+          const perfReport = perfResult.value;
+          if (perfReport.complexity) {
+            for (const v of perfReport.complexity.violations) {
+              issues.push({
+                severity: v.severity === 'info' ? 'warning' : v.severity,
+                message: `[Tier ${v.tier}] ${v.metric}: ${v.function} in ${v.file} (${v.value} > ${v.threshold})`,
+                file: v.file,
+                line: v.line,
+              });
+            }
+          }
+          if (perfReport.coupling) {
+            for (const v of perfReport.coupling.violations) {
+              issues.push({
+                severity: v.severity === 'info' ? 'warning' : v.severity,
+                message: `[Tier ${v.tier}] ${v.metric}: ${v.file} (${v.value} > ${v.threshold})`,
+                file: v.file,
               });
             }
           }

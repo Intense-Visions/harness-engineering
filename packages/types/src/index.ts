@@ -110,7 +110,14 @@ export type SkillError = {
 
 // --- CI/CD Integration Types ---
 
-export type CICheckName = 'validate' | 'deps' | 'docs' | 'entropy' | 'phase-gate';
+export type CICheckName =
+  | 'validate'
+  | 'deps'
+  | 'docs'
+  | 'entropy'
+  | 'security'
+  | 'perf'
+  | 'phase-gate';
 
 export type CICheckStatus = 'pass' | 'fail' | 'warn' | 'skip';
 

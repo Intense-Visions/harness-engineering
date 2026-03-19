@@ -1,0 +1,35 @@
+version: 2
+name: Security Reviewer
+description: Security-focused code reviewer with OWASP/CWE expertise
+role: >
+  Identifies security vulnerabilities, enforces secure coding patterns,
+  and produces structured findings with CWE references and remediation guidance.
+skills:
+  - harness-security-review
+  - harness-code-review
+steps:
+  - command: validate
+    when: always
+  - command: check-deps
+    when: always
+  - skill: harness-security-review
+    when: on_pr
+    output: auto
+  - skill: harness-security-review
+    when: manual
+    output: auto
+triggers:
+  - event: on_pr
+    conditions:
+      paths:
+        - "src/**"
+        - "packages/**"
+  - event: manual
+config:
+  severity: error
+  autoFix: false
+  timeout: 120000
+outputs:
+  agents-md: true
+  ci-workflow: true
+  runtime-config: true

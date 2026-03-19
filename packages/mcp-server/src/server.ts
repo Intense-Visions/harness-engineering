@@ -20,6 +20,7 @@ import {
   applyFixesDefinition,
   handleApplyFixes,
 } from './tools/entropy.js';
+import { checkPerformanceDefinition, handleCheckPerformance } from './tools/performance.js';
 import {
   generateLinterDefinition,
   handleGenerateLinter,
@@ -95,6 +96,7 @@ import {
   generateAgentDefinitionsDefinition,
   handleGenerateAgentDefinitions,
 } from './tools/agent-definitions.js';
+import { runSecurityScanDefinition, handleRunSecurityScan } from './tools/security.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -133,6 +135,8 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   getImpactDefinition,
   ingestSourceDefinition,
   generateAgentDefinitionsDefinition,
+  runSecurityScanDefinition,
+  checkPerformanceDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -166,6 +170,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_impact: handleGetImpact as ToolHandler,
   ingest_source: handleIngestSource as ToolHandler,
   generate_agent_definitions: handleGenerateAgentDefinitions as ToolHandler,
+  run_security_scan: handleRunSecurityScan as ToolHandler,
+  check_performance: handleCheckPerformance as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

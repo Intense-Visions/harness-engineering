@@ -32,6 +32,15 @@ Invoke `harness-verify` to run the mechanical quick gate.
 3. **If ALL three checks FAIL**, stop here. Do not proceed to Phase 2. The code is not in a reviewable state.
 4. If at least one check passes (or some are skipped), proceed to Phase 2.
 
+### Phase 1.5: SECURITY SCAN
+
+Run the built-in security scanner as a mechanical check between verification and AI review.
+
+1. Use `run_security_scan` MCP tool against the project root (or changed files if available).
+2. Capture findings by severity: errors, warnings, info.
+3. **Error-severity security findings are blocking** — they cause the overall integrity check to FAIL, same as a test failure.
+4. Warning/info findings are included in the report but do not block.
+
 ### Phase 2: REVIEW
 
 Run change-type-aware AI review using `harness-code-review`.
@@ -40,6 +49,7 @@ Run change-type-aware AI review using `harness-code-review`.
 2. Invoke `harness-code-review` with the detected change type.
 3. Capture the review findings: suggestions, blocking issues, and notes.
 4. A review finding is "blocking" only if it would cause a runtime error, data loss, or security vulnerability.
+5. The AI review includes a security-focused pass that complements the mechanical scanner — checking for semantic issues like user input flowing to dangerous sinks across function boundaries.
 
 ### Phase 3: REPORT
 
@@ -47,10 +57,11 @@ Produce a unified integrity report in this exact format:
 
 ```
 Integrity Check: [PASS/FAIL]
-- Tests:   [PASS/FAIL/SKIPPED]
-- Lint:    [PASS/FAIL/SKIPPED]
-- Types:   [PASS/FAIL/SKIPPED]
-- Review:  [PASS/FAIL] ([count] suggestions, [count] blocking)
+- Tests:    [PASS/FAIL/SKIPPED]
+- Lint:     [PASS/FAIL/SKIPPED]
+- Types:    [PASS/FAIL/SKIPPED]
+- Security: [PASS/WARN/FAIL] ([count] errors, [count] warnings)
+- Review:   [PASS/FAIL] ([count] suggestions, [count] blocking)
 
 Overall: [PASS/FAIL]
 ```
@@ -90,19 +101,22 @@ Integrity Check: PASS
 - Tests: PASS (42/42)
 - Lint: PASS (0 warnings)
 - Types: PASS
+- Security: PASS (0 errors, 0 warnings)
 - Review: 1 suggestion (0 blocking)
 ```
 
-### Example: Blocking Issue
+### Example: Security Blocking Issue
 
 ```
 Integrity Check: FAIL
 - Tests: PASS (42/42)
 - Lint: PASS
 - Types: PASS
+- Security: FAIL (1 error, 0 warnings)
+  - [SEC-INJ-002] src/auth/login.ts:42 — SQL query built with string concatenation
 - Review: 3 findings (1 blocking)
 
-Blocking: [src/auth/login.ts:42] Possible SQL injection — user input passed directly to query without parameterization.
+Blocking: [SEC-INJ-002] SQL injection — user input passed directly to query without parameterization.
 ```
 
 ## Gates

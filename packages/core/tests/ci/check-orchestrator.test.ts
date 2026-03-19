@@ -39,6 +39,31 @@ vi.mock('../../src/shared/parsers', () => ({
   TypeScriptParser: class {},
 }));
 
+vi.mock('../../src/security/scanner', () => ({
+  SecurityScanner: class {
+    configureForProject = vi.fn();
+    scanFiles = vi
+      .fn()
+      .mockResolvedValue({
+        findings: [],
+        scannedFiles: 0,
+        rulesApplied: 0,
+        externalToolsUsed: [],
+        coverage: 'baseline',
+      });
+  },
+}));
+
+vi.mock('../../src/security/config', () => ({
+  parseSecurityConfig: vi
+    .fn()
+    .mockReturnValue({ enabled: true, strict: false, exclude: ['**/node_modules/**'] }),
+}));
+
+vi.mock('glob', () => ({
+  glob: vi.fn().mockResolvedValue([]),
+}));
+
 import { runCIChecks } from '../../src/ci/check-orchestrator';
 
 function minimalConfig(overrides: Record<string, unknown> = {}) {
@@ -67,15 +92,17 @@ describe('runCIChecks', () => {
 
     const report = result.value;
     expect(report.version).toBe(1);
-    expect(report.checks).toHaveLength(5);
+    expect(report.checks).toHaveLength(7);
     expect(report.checks.map((c) => c.name)).toEqual([
       'validate',
       'deps',
       'docs',
       'entropy',
+      'security',
+      'perf',
       'phase-gate',
     ]);
-    expect(report.summary.total).toBe(5);
+    expect(report.summary.total).toBe(7);
   });
 
   it('skips checks listed in skip option', async () => {

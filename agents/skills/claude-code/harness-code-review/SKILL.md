@@ -130,6 +130,21 @@ git diff --name-status HEAD~1 | grep "^A"
 git diff --name-only HEAD~1 | grep -v "\.md$" | wc -l  # 0 means docs-only
 ```
 
+### Security Review (All Change Types)
+
+Every code review includes a security check, regardless of change type. This runs in addition to the per-type checklist below.
+
+1. **Mechanical scan:** Run `run_security_scan` MCP tool on the changed files. Report any findings with rule ID, file, line, and remediation.
+2. **Semantic security review:** Look for issues the mechanical scanner cannot catch:
+   - User input flowing through multiple functions to a dangerous sink (SQL, shell, HTML)
+   - Missing authorization checks on new or modified endpoints
+   - Sensitive data exposed in logs, error messages, or API responses
+   - Authentication bypass paths introduced by the change
+   - Insecure defaults in new configuration options
+3. **Stack-adaptive focus:** Based on the project's tech stack, apply relevant domain knowledge (e.g., prototype pollution for Node.js, XSS for React, race conditions for Go).
+
+Security findings are always "blocking" if they represent a confirmed vulnerability (not a potential pattern match). Include CWE references where applicable.
+
 ### Per-Type Review Checklists
 
 Apply the checklist matching the detected change type. These replace the generic review — do not apply all checklists to every change.
