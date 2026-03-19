@@ -1,5 +1,23 @@
 # @harness-engineering/cli
 
+## 1.6.0
+
+### Minor Changes
+
+- Add agent definition generator for persona-based routing
+- Add 5 new graph-powered skills: harness-impact-analysis, harness-dependency-health, harness-hotspot-detector, harness-test-advisor, harness-knowledge-mapper
+- Add 2 new personas: Graph Maintainer, Codebase Health Analyst
+- Update all 12 Tier-1/Tier-2 skill SKILL.md files with graph-aware context gathering notes
+- Add graph refresh steps to 8 code-modifying skills
+- Add platform parity lint rule (platform-parity.test.ts) ensuring claude-code and gemini-cli skills stay in sync
+- Update 3 existing personas with graph skill references
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/core@0.8.0
+  - @harness-engineering/graph@0.2.0
+
 ## 1.5.0
 
 ### Minor Changes

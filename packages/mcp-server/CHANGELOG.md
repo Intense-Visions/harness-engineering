@@ -1,5 +1,26 @@
 # @harness-engineering/mcp-server
 
+## 0.5.0
+
+### Minor Changes
+
+- Wire MCP tools to use knowledge graph when available
+  - `detect_entropy`: loads graph and passes drift/dead-code data to `EntropyAnalyzer`
+  - `apply_fixes`: same graph-enhanced entropy analysis
+  - `check_dependencies`: loads graph and passes dependency data to `validateDependencies()`
+  - `check_docs`: loads graph and passes coverage data to `checkDocCoverage()`
+  - `create_self_review`: loads graph for impact analysis and harness check data
+  - `analyze_diff`: new optional `path` parameter enables graph-enhanced analysis
+  - `request_peer_review`: pre-assembles graph context into review metadata
+- All graph loading is optional — tools fall back to existing behavior when no graph exists
+
+### Patch Changes
+
+- Fix tool count in server tests (30 → 31)
+- Updated dependencies
+  - @harness-engineering/core@0.8.0
+  - @harness-engineering/graph@0.2.0
+
 ## 0.4.0
 
 ### Minor Changes

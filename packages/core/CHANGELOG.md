@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.8.0
+
+### Minor Changes
+
+- Graph-enhanced context assembly (Phase 4)
+  - `contextBudget()`: optional graph-density-aware token allocation
+  - `contextFilter()`: optional graph-driven phase filtering
+  - `generateAgentsMap()`: optional graph-topology generation
+  - `checkDocCoverage()`: optional graph-based coverage analysis
+  - Deprecation warnings on `validateAgentsMap()` and `validateKnowledgeMap()`
+- Graph-enhanced entropy detection (Phase 5)
+  - `EntropyAnalyzer.analyze()`: optional graph mode skips snapshot rebuild
+  - `detectDocDrift()`: optional graph-based stale edge detection
+  - `detectDeadCode()`: optional graph-based reachability analysis
+- Graph-enhanced constraint checking (Phase 6)
+  - `buildDependencyGraph()`: optional graph data bypasses file parsing
+  - `validateDependencies()`: optional graph data skips parser health check and file globbing
+  - `detectCircularDepsInFiles()`: optional graph data skips file parsing
+  - New `GraphDependencyData` type in constraints
+- Graph-enhanced feedback system (Phase 7)
+  - `analyzeDiff()`: optional graph impact data for test coverage and scope analysis
+  - `ChecklistBuilder.withHarnessChecks()`: optional graph data replaces placeholder harness checks
+  - `createSelfReview()`: optional graph data passthrough to builder and analyzer
+  - New `GraphImpactData` and `GraphHarnessCheckData` types
+
+### Patch Changes
+
+- Move `EntropyError` definition to `shared/errors.ts` to break circular import
+- All graph enhancements use optional trailing parameters — existing behavior unchanged when not provided
+
 ## 0.7.0
 
 ### Minor Changes
