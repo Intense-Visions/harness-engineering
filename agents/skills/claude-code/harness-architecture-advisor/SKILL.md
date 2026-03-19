@@ -104,6 +104,15 @@ Look for existing issues that may affect the decision:
 Store analysis in: .harness/architecture/<topic>/analysis.md
 ```
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+
+- `query_graph` — discover how similar features are structured in the codebase
+- `search_similar` — find analogous patterns and implementations
+
+Replaces manual Glob/Grep exploration with graph pattern discovery. Fall back to file-based commands if no graph is available.
+
 ---
 
 ### Phase 3: PROPOSE — Present Options with Trade-Offs

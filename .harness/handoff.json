@@ -1,44 +1,41 @@
 {
-  "timestamp": "2026-03-18T21:00:00.000Z",
+  "timestamp": "2026-03-18T22:00:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 8 (New Skills & Personas) — 10 tasks: 5 new graph-powered skills (impact-analysis, dependency-health, hotspot-detector, test-advisor, knowledge-mapper), 2 new personas (Graph Maintainer, Codebase Health Analyst), 3 existing persona updates. All documentation/configuration — no TypeScript code.",
+  "summary": "Planned Phase 9 (Tier-2 Skills & Remaining Connectors) — 6 tasks: ConfluenceConnector, CIConnector, graph exports, 5 Tier-2 skill SKILL.md updates, verification.",
   "completed": [],
   "pending": [
-    "Task 1: Create harness-impact-analysis skill",
-    "Task 2: Create harness-dependency-health skill",
-    "Task 3: Create harness-hotspot-detector skill",
-    "Task 4: Create harness-test-advisor skill",
-    "Task 5: Create harness-knowledge-mapper skill",
-    "Task 6: Create Graph Maintainer persona",
-    "Task 7: Create Codebase Health Analyst persona",
-    "Task 8: Update 3 existing personas with graph skills",
-    "Task 9: Regenerate slash commands",
-    "Task 10: Build and verification"
+    "Task 1: Implement ConfluenceConnector (TDD)",
+    "Task 2: Implement CIConnector (TDD)",
+    "Task 3: Export new connectors from graph package",
+    "Task 4: Update 5 Tier-2 skill SKILL.md files with graph notes",
+    "Task 5: Run full graph test suite",
+    "Task 6: Run full test suite verification"
   ],
   "concerns": [
-    "Skills are documentation that guides AI agents — quality of SKILL.md determines agent effectiveness",
-    "Persona YAML must match existing schema (version 1) or agent-definition generator may fail",
-    "New skills use existing MCP graph tools — no new TS implementation needed"
+    "Connectors use httpClient DI for testability — same pattern as JiraConnector/SlackConnector",
+    "ConfluenceConnector uses Confluence REST API v2 (cloud) — may differ from on-prem",
+    "CIConnector targets GitHub Actions API — other CI systems would need separate connectors"
   ],
   "decisions": [
-    "All 5 skills use existing graph MCP tools (query_graph, get_impact, find_context_for, etc.)",
-    "Each skill has SKILL.md (workflow) + skill.yaml (metadata) per existing convention",
-    "Graph Maintainer persona: daily scheduled scan + on_commit to main",
-    "Codebase Health Analyst persona: weekly scheduled + on_pr for large PRs (>10 files)",
-    "Existing personas gain graph skills additively — no existing skills removed"
+    "ConfluenceConnector creates document nodes, links to code via linkToCode keyword matching",
+    "CIConnector creates build + test_result nodes, links via SHA and file path matching",
+    "Both connectors follow established pattern: httpClient DI, graceful API key error, IngestResult return",
+    "Tier-2 skill updates are documentation-only — add graph notes to context gathering sections"
   ],
   "blockers": [],
   "contextKeywords": [
-    "impact-analysis",
-    "dependency-health",
-    "hotspot-detector",
-    "test-advisor",
-    "knowledge-mapper",
-    "Graph Maintainer",
-    "Codebase Health Analyst",
-    "persona",
-    "SKILL.md",
-    "skill.yaml"
+    "ConfluenceConnector",
+    "CIConnector",
+    "connector",
+    "document",
+    "build",
+    "test_result",
+    "Tier-2",
+    "harness-execution",
+    "harness-planning",
+    "harness-architecture-advisor",
+    "harness-refactoring",
+    "align-documentation"
   ]
 }

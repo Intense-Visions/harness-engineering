@@ -60,6 +60,15 @@ When writing observable truths and acceptance criteria, use EARS (Easy Approach 
 
 **When to use EARS:** Apply these patterns when writing observable truths in Phase 1. Not every criterion needs an EARS pattern — use them when the requirement is behavioral (not structural). File existence checks ("src/types/user.ts exists with User interface") do not need EARS framing.
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+
+- `query_graph` — discover module dependencies for realistic task decomposition
+- `get_impact` — estimate which modules a feature touches and their dependencies
+
+Enables accurate effort estimation and task sequencing. Fall back to file-based commands if no graph is available.
+
 ---
 
 ### Phase 2: DECOMPOSE — Map File Structure and Create Tasks

@@ -31,6 +31,15 @@
 
 3. **Run `harness check-docs`** to identify any documentation that already has broken references due to the changes.
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+
+- `query_graph` — find `documents` edges pointing to nodes changed in this diff
+- `get_impact` — auto-suggest which docs need updating after code changes
+
+Replaces manual doc-to-code correlation. Fall back to file-based commands if no graph is available.
+
 ### Phase 2: Map — Connect Code Changes to Documentation
 
 For each changed file, identify all documentation that references it:

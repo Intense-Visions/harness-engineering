@@ -41,6 +41,15 @@ Deviating from the plan mid-execution introduces untested assumptions, breaks ta
 
 7. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+
+- `query_graph` — check file overlap between current and next task for conflict detection
+- `get_impact` — understand blast radius before executing a task
+
+Enables smarter execution ordering and blockage detection. Fall back to file-based commands if no graph is available.
+
 ---
 
 ### Phase 2: EXECUTE — Implement Tasks Atomically

@@ -32,6 +32,15 @@ If tests are not green before you start, you are not refactoring — you are deb
 
 4. **Plan the steps.** Break the refactoring into the smallest possible individual changes. Each step should be independently committable and verifiable. If you cannot describe a step in one sentence, it is too large.
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+
+- `get_impact` — precise impact analysis: "if I move this function, what breaks?"
+- `query_graph` — find all transitive consumers, not just direct importers
+
+Catches indirect consumers that grep misses. Fall back to file-based commands if no graph is available.
+
 ### Phase 2: Execute — One Small Change at a Time
 
 For EACH step in the plan:
