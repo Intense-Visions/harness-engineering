@@ -34,6 +34,10 @@ export const NODE_TYPES = [
   'pattern',
   'constraint',
   'violation',
+  // Design
+  'design_token',
+  'aesthetic_intent',
+  'design_constraint',
 ] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
@@ -63,6 +67,11 @@ export const EDGE_TYPES = [
   // Execution relationships (future)
   'executed_by',
   'measured_by',
+  // Design relationships
+  'uses_token',
+  'declares_intent',
+  'violates_design',
+  'platform_binding',
 ] as const;
 
 export type EdgeType = (typeof EDGE_TYPES)[number];
