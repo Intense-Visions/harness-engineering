@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/mcp-server",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "MCP server for Harness Engineering toolkit",
   "type": "module",
   "main": "./dist/index.js",

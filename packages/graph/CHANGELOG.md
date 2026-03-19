@@ -1,5 +1,11 @@
 # @harness-engineering/graph
 
+## 0.2.1
+
+### Patch Changes
+
+- Add missing license field (MIT) to package.json
+
 ## 0.2.0
 
 ### Minor Changes
