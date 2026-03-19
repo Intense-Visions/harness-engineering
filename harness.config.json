@@ -105,6 +105,32 @@
     "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/tests/fixtures/**"],
     "autoFix": false
   },
+  "performance": {
+    "complexity": {
+      "enabled": true,
+      "thresholds": {
+        "cyclomaticComplexity": { "error": 15, "warn": 10 },
+        "nestingDepth": { "warn": 4 },
+        "functionLength": { "warn": 50 },
+        "parameterCount": { "warn": 5 },
+        "fileLength": { "info": 300 },
+        "hotspotPercentile": { "error": 95 }
+      }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": {
+        "fanOut": { "warn": 15 },
+        "fanIn": { "info": 20 },
+        "couplingRatio": { "warn": 0.7 },
+        "transitiveDependencyDepth": { "info": 30 }
+      }
+    },
+    "sizeBudget": {
+      "enabled": false,
+      "budgets": {}
+    }
+  },
   "template": {
     "level": "advanced",
     "version": 1

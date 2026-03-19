@@ -27,6 +27,6 @@ describe('built-in personas', () => {
     const result = listPersonas(PERSONAS_DIR);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.length).toBe(8);
+    expect(result.value.length).toBe(10);
   });
 });

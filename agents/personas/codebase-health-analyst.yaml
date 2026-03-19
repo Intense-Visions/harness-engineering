@@ -7,9 +7,13 @@ skills:
   - harness-dependency-health
   - harness-impact-analysis
   - cleanup-dead-code
+  - harness-perf
+  - harness-security-scan
 commands:
   - graph status
   - check-deps
+  - check-perf
+  - check-security
 triggers:
   - event: scheduled
     cron: "0 6 * * 1"
@@ -21,6 +25,7 @@ config:
   severity: warning
   autoFix: false
   timeout: 600000
+  securitySeverity: warning
 outputs:
   agents-md: false
   ci-workflow: true

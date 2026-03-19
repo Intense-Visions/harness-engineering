@@ -10,6 +10,9 @@ import type {
   DeadCodeReport,
   PatternReport,
   PatternConfig,
+  ComplexityReport,
+  CouplingReport,
+  SizeBudgetReport,
   SuggestionReport,
   AnalysisError,
 } from './types';
@@ -17,6 +20,9 @@ import { buildSnapshot } from './snapshot';
 import { detectDocDrift } from './detectors/drift';
 import { detectDeadCode } from './detectors/dead-code';
 import { detectPatternViolations } from './detectors/patterns';
+import { detectComplexityViolations } from './detectors/complexity';
+import { detectCouplingViolations } from './detectors/coupling';
+import { detectSizeBudgetViolations } from './detectors/size-budget';
 import { generateSuggestions } from './fixers/suggestions';
 import { TypeScriptParser } from '../shared/parsers';
 
@@ -48,6 +54,19 @@ export class EntropyAnalyzer {
     graphDeadCodeData?: {
       reachableNodeIds: Set<string> | string[];
       unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }>;
+    };
+    graphComplexityData?: {
+      hotspots: Array<{ file: string; function: string; hotspotScore: number }>;
+      percentile95Score: number;
+    };
+    graphCouplingData?: {
+      files: Array<{
+        file: string;
+        fanIn: number;
+        fanOut: number;
+        couplingRatio: number;
+        transitiveDepth: number;
+      }>;
     };
   }): Promise<Result<EntropyReport, EntropyError>> {
     const startTime = Date.now();
@@ -118,6 +137,53 @@ export class EntropyAnalyzer {
       }
     }
 
+    // Complexity detection
+    let complexityReport: ComplexityReport | undefined;
+    if (this.config.analyze.complexity) {
+      const complexityConfig =
+        typeof this.config.analyze.complexity === 'object' ? this.config.analyze.complexity : {};
+      const result = await detectComplexityViolations(
+        this.snapshot,
+        complexityConfig,
+        graphOptions?.graphComplexityData
+      );
+      if (result.ok) {
+        complexityReport = result.value;
+      } else {
+        analysisErrors.push({ analyzer: 'complexity', error: result.error });
+      }
+    }
+
+    // Coupling detection
+    let couplingReport: CouplingReport | undefined;
+    if (this.config.analyze.coupling) {
+      const couplingConfig =
+        typeof this.config.analyze.coupling === 'object' ? this.config.analyze.coupling : {};
+      const result = await detectCouplingViolations(
+        this.snapshot,
+        couplingConfig,
+        graphOptions?.graphCouplingData
+      );
+      if (result.ok) {
+        couplingReport = result.value;
+      } else {
+        analysisErrors.push({ analyzer: 'coupling', error: result.error });
+      }
+    }
+
+    // Size budget detection
+    let sizeBudgetReport: SizeBudgetReport | undefined;
+    if (this.config.analyze.sizeBudget) {
+      const sizeBudgetConfig =
+        typeof this.config.analyze.sizeBudget === 'object' ? this.config.analyze.sizeBudget : {};
+      const result = await detectSizeBudgetViolations(this.config.rootDir, sizeBudgetConfig);
+      if (result.ok) {
+        sizeBudgetReport = result.value;
+      } else {
+        analysisErrors.push({ analyzer: 'sizeBudget', error: result.error });
+      }
+    }
+
     // Calculate summary
     const driftIssues = driftReport?.drifts.length || 0;
     const deadCodeIssues =
@@ -128,7 +194,21 @@ export class EntropyAnalyzer {
     const patternErrors = patternReport?.stats.errorCount || 0;
     const patternWarnings = patternReport?.stats.warningCount || 0;
 
-    const totalIssues = driftIssues + deadCodeIssues + patternIssues;
+    const complexityIssues = complexityReport?.violations.length || 0;
+    const couplingIssues = couplingReport?.violations.length || 0;
+    const sizeBudgetIssues = sizeBudgetReport?.violations.length || 0;
+    const complexityErrors = complexityReport?.stats.errorCount || 0;
+    const complexityWarnings = complexityReport?.stats.warningCount || 0;
+    const couplingWarnings = couplingReport?.stats.warningCount || 0;
+    const sizeBudgetWarnings = sizeBudgetReport?.stats.warningCount || 0;
+
+    const totalIssues =
+      driftIssues +
+      deadCodeIssues +
+      patternIssues +
+      complexityIssues +
+      couplingIssues +
+      sizeBudgetIssues;
 
     // Calculate fixable count
     const fixableCount =
@@ -144,8 +224,13 @@ export class EntropyAnalyzer {
       analysisErrors,
       summary: {
         totalIssues,
-        errors: patternErrors,
-        warnings: patternWarnings + driftIssues,
+        errors: patternErrors + complexityErrors,
+        warnings:
+          patternWarnings +
+          driftIssues +
+          complexityWarnings +
+          couplingWarnings +
+          sizeBudgetWarnings,
         fixableCount,
         suggestionCount: suggestions.suggestions.length,
       },
@@ -162,6 +247,15 @@ export class EntropyAnalyzer {
     }
     if (patternReport) {
       report.patterns = patternReport;
+    }
+    if (complexityReport) {
+      report.complexity = complexityReport;
+    }
+    if (couplingReport) {
+      report.coupling = couplingReport;
+    }
+    if (sizeBudgetReport) {
+      report.sizeBudget = sizeBudgetReport;
     }
 
     this.report = report;

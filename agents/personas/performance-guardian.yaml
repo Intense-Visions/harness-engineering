@@ -1,0 +1,26 @@
+version: 1
+name: Performance Guardian
+description: Enforces performance budgets and detects regressions
+role: Run structural complexity checks, coupling analysis, benchmark regression detection, and size budget enforcement on PRs and scheduled runs
+skills:
+  - harness-perf
+  - harness-tdd
+commands:
+  - check-perf
+  - perf
+triggers:
+  - event: on_pr
+    conditions:
+      paths:
+        - "src/**"
+        - "packages/**"
+  - event: scheduled
+    cron: "0 6 * * 1"
+config:
+  severity: error
+  autoFix: false
+  timeout: 300000
+outputs:
+  agents-md: true
+  ci-workflow: true
+  runtime-config: true

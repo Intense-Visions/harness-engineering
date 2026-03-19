@@ -1,0 +1,47 @@
+name: harness-perf-tdd
+version: "1.0.0"
+description: Performance-aware TDD with benchmark assertions in the red-green-refactor cycle
+cognitive_mode: meticulous-implementer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-perf-tdd
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-perf-tdd
+    path: string
+type: rigid
+phases:
+  - name: red
+    description: Write failing test and benchmark assertion
+    required: true
+  - name: green
+    description: Implement to pass test and benchmark
+    required: true
+  - name: refactor
+    description: Optimize while keeping both green
+    required: false
+  - name: validate
+    description: Run harness check-perf and harness validate
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-tdd
+  - harness-perf

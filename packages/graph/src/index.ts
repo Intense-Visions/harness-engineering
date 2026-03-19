@@ -66,6 +66,15 @@ export type {
   GraphSnapshotSummary,
 } from './entropy/GraphEntropyAdapter.js';
 
+export { GraphComplexityAdapter } from './entropy/GraphComplexityAdapter.js';
+export type {
+  GraphComplexityHotspot,
+  GraphComplexityResult,
+} from './entropy/GraphComplexityAdapter.js';
+
+export { GraphCouplingAdapter } from './entropy/GraphCouplingAdapter.js';
+export type { GraphCouplingFileData, GraphCouplingResult } from './entropy/GraphCouplingAdapter.js';
+
 // Context
 export { Assembler } from './context/Assembler.js';
 export type {

@@ -29,6 +29,9 @@ export * from './constraints';
 // Entropy module
 export * from './entropy';
 
+// Performance module
+export * from './performance';
+
 // Feedback module
 export * from './feedback';
 

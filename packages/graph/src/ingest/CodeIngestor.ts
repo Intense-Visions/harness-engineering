@@ -138,7 +138,13 @@ export class CodeIngestor {
             name,
             path: relativePath,
             location: { fileId, startLine: i + 1, endLine },
-            metadata: { exported: line.includes('export') },
+            metadata: {
+              exported: line.includes('export'),
+              cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
+              nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
+              lineCount: endLine - i,
+              parameterCount: this.countParameters(line),
+            },
           },
           edge: { from: fileId, to: id, type: 'contains' },
         });
@@ -243,7 +249,14 @@ export class CodeIngestor {
               name: methodName,
               path: relativePath,
               location: { fileId, startLine: i + 1, endLine },
-              metadata: { className: currentClassName, exported: false },
+              metadata: {
+                className: currentClassName,
+                exported: false,
+                cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
+                nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
+                lineCount: endLine - i,
+                parameterCount: this.countParameters(line),
+              },
             },
             edge: { from: currentClassId, to: id, type: 'contains' },
           });
@@ -312,8 +325,6 @@ export class CodeIngestor {
     const edges: GraphEdge[] = [];
     const seen = new Set<string>();
 
-    // For each file, find call-site identifiers that match known callable names,
-    // then create file-to-file "calls" edges (not function-to-function)
     for (const [filePath, content] of fileContents) {
       const callerFileId = `file:${filePath}`;
       const callPattern = /\b([a-zA-Z_$][\w$]*)\s*\(/g;
@@ -409,6 +420,49 @@ export class CodeIngestor {
     }
 
     return null;
+  }
+
+  private computeCyclomaticComplexity(lines: string[]): number {
+    let complexity = 1;
+    const decisionPattern = /\b(if|else\s+if|while|for|case)\b|\?\s*[^:?]|&&|\|\||catch\b/g;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+      const matches = trimmed.match(decisionPattern);
+      if (matches) complexity += matches.length;
+    }
+    return complexity;
+  }
+
+  private computeMaxNesting(lines: string[]): number {
+    let maxDepth = 0;
+    let currentDepth = 0;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+      for (const ch of trimmed) {
+        if (ch === '{') {
+          currentDepth++;
+          if (currentDepth > maxDepth) maxDepth = currentDepth;
+        } else if (ch === '}') {
+          currentDepth--;
+        }
+      }
+    }
+    return Math.max(0, maxDepth - 1);
+  }
+
+  private countParameters(declarationLine: string): number {
+    const parenMatch = declarationLine.match(/\(([^)]*)\)/);
+    if (!parenMatch || !parenMatch[1]!.trim()) return 0;
+    let depth = 0;
+    let count = 1;
+    for (const ch of parenMatch[1]!) {
+      if (ch === '<' || ch === '(') depth++;
+      else if (ch === '>' || ch === ')') depth--;
+      else if (ch === ',' && depth === 0) count++;
+    }
+    return count;
   }
 
   private detectLanguage(filePath: string): string {

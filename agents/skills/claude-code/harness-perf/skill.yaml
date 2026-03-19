@@ -1,0 +1,47 @@
+name: harness-perf
+version: "1.0.0"
+description: Performance enforcement and benchmark management
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+  - on_pr
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-perf
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-perf
+    path: string
+type: rigid
+phases:
+  - name: analyze
+    description: Run structural complexity and coupling checks
+    required: true
+  - name: benchmark
+    description: Run benchmarks and detect regressions
+    required: false
+  - name: report
+    description: Generate perf report with violations and recommendations
+    required: true
+  - name: enforce
+    description: Apply tier-based gate decisions
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-verify

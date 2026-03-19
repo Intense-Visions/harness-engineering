@@ -103,6 +103,9 @@ export interface EntropyConfig {
     drift?: boolean | Partial<DriftConfig>;
     deadCode?: boolean | Partial<DeadCodeConfig>;
     patterns?: boolean | PatternConfig;
+    complexity?: boolean | Partial<ComplexityConfig>;
+    coupling?: boolean | Partial<CouplingConfig>;
+    sizeBudget?: boolean | Partial<SizeBudgetConfig>;
   };
   include?: string[];
   exclude?: string[];
@@ -259,6 +262,113 @@ export interface PatternReport {
   passRate: number;
 }
 
+// ============ Complexity Types ============
+
+export interface ComplexityThresholds {
+  cyclomaticComplexity?: { error?: number; warn?: number };
+  nestingDepth?: { warn?: number };
+  functionLength?: { warn?: number };
+  parameterCount?: { warn?: number };
+  fileLength?: { info?: number };
+  hotspotPercentile?: { error?: number };
+}
+
+export interface ComplexityConfig {
+  enabled?: boolean;
+  thresholds?: ComplexityThresholds;
+}
+
+export interface ComplexityViolation {
+  file: string;
+  function: string;
+  line: number;
+  metric:
+    | 'cyclomaticComplexity'
+    | 'nestingDepth'
+    | 'functionLength'
+    | 'parameterCount'
+    | 'fileLength'
+    | 'hotspotScore';
+  value: number;
+  threshold: number;
+  tier: 1 | 2 | 3;
+  severity: 'error' | 'warning' | 'info';
+  message?: string;
+}
+
+export interface ComplexityReport {
+  violations: ComplexityViolation[];
+  stats: {
+    filesAnalyzed: number;
+    functionsAnalyzed: number;
+    violationCount: number;
+    errorCount: number;
+    warningCount: number;
+    infoCount: number;
+  };
+}
+
+// ============ Coupling Types ============
+
+export interface CouplingThresholds {
+  fanOut?: { warn?: number };
+  fanIn?: { info?: number };
+  couplingRatio?: { warn?: number };
+  transitiveDependencyDepth?: { info?: number };
+}
+
+export interface CouplingConfig {
+  enabled?: boolean;
+  thresholds?: CouplingThresholds;
+}
+
+export interface CouplingViolation {
+  file: string;
+  metric: 'fanOut' | 'fanIn' | 'couplingRatio' | 'transitiveDependencyDepth';
+  value: number;
+  threshold: number;
+  tier: 1 | 2 | 3;
+  severity: 'error' | 'warning' | 'info';
+  message?: string;
+}
+
+export interface CouplingReport {
+  violations: CouplingViolation[];
+  stats: {
+    filesAnalyzed: number;
+    violationCount: number;
+    warningCount: number;
+    infoCount: number;
+  };
+}
+
+// ============ Size Budget Types ============
+
+export interface SizeBudgetConfig {
+  enabled?: boolean;
+  budgets: Record<string, { warn?: string }>;
+  dependencyWeight?: { info?: string };
+}
+
+export interface SizeBudgetViolation {
+  package: string;
+  currentSize: number;
+  budgetSize: number;
+  unit: 'bytes';
+  tier: 2 | 3;
+  severity: 'warning' | 'info';
+}
+
+export interface SizeBudgetReport {
+  violations: SizeBudgetViolation[];
+  stats: {
+    packagesChecked: number;
+    violationCount: number;
+    warningCount: number;
+    infoCount: number;
+  };
+}
+
 // ============ Fix Types ============
 
 export type FixType =
@@ -338,7 +448,7 @@ export interface SuggestionReport {
 // ============ Report Types ============
 
 export interface AnalysisError {
-  analyzer: 'drift' | 'deadCode' | 'patterns';
+  analyzer: 'drift' | 'deadCode' | 'patterns' | 'complexity' | 'coupling' | 'sizeBudget';
   error: EntropyError;
 }
 
@@ -347,6 +457,9 @@ export interface EntropyReport {
   drift?: DriftReport;
   deadCode?: DeadCodeReport;
   patterns?: PatternReport;
+  complexity?: ComplexityReport;
+  coupling?: CouplingReport;
+  sizeBudget?: SizeBudgetReport;
   analysisErrors: AnalysisError[];
   summary: {
     totalIssues: number;

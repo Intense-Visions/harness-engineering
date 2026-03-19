@@ -10,6 +10,11 @@ export { buildSnapshot } from './snapshot';
 export { detectDocDrift } from './detectors/drift';
 export { detectDeadCode } from './detectors/dead-code';
 export { detectPatternViolations } from './detectors/patterns';
+export { detectComplexityViolations } from './detectors/complexity';
+export type { GraphComplexityData } from './detectors/complexity';
+export { detectCouplingViolations } from './detectors/coupling';
+export type { GraphCouplingData } from './detectors/coupling';
+export { detectSizeBudgetViolations, parseSize } from './detectors/size-budget';
 
 // Fixers
 export { createFixes, applyFixes, previewFix } from './fixers/safe-fixes';
@@ -50,6 +55,23 @@ export type {
   UnusedImport,
   ReachabilityNode,
   DeadCodeReport,
+
+  // Complexity types
+  ComplexityThresholds,
+  ComplexityConfig,
+  ComplexityViolation,
+  ComplexityReport,
+
+  // Coupling types
+  CouplingThresholds,
+  CouplingConfig,
+  CouplingViolation,
+  CouplingReport,
+
+  // Size budget types
+  SizeBudgetConfig,
+  SizeBudgetViolation,
+  SizeBudgetReport,
 
   // Pattern types
   ConfigPattern,
