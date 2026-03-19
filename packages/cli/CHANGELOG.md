@@ -1,5 +1,11 @@
 # @harness-engineering/cli
 
+## 1.6.2
+
+### Patch Changes
+
+- Bundle workspace packages into CLI dist so global install works without sibling packages
+
 ## 1.6.1
 
 ### Patch Changes
