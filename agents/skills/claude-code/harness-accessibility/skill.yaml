@@ -1,0 +1,51 @@
+name: harness-accessibility
+version: "1.0.0"
+description: WCAG accessibility scanning, contrast checking, ARIA validation, and remediation
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+  - on_new_feature
+  - on_project_init
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-accessibility
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: scope
+      description: Scope of scan (full, component, page)
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-accessibility
+    path: string
+type: rigid
+phases:
+  - name: scan
+    description: Scan codebase for accessibility issues (WCAG AA baseline)
+    required: true
+  - name: evaluate
+    description: Evaluate severity and categorize findings
+    required: true
+  - name: report
+    description: Generate structured accessibility report
+    required: true
+  - name: fix
+    description: Apply automated fixes for mechanical issues
+    required: false
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-design-system
