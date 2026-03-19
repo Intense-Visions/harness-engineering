@@ -9,9 +9,10 @@ export function createLearnCommand(): Command {
     .description('Append a learning to .harness/learnings.md')
     .argument('<message>', 'The learning to record')
     .option('--path <path>', 'Project root path', '.')
+    .option('--stream <name>', 'Target a specific stream')
     .action(async (message, opts, _cmd) => {
       const projectPath = path.resolve(opts.path);
-      const result = await appendLearning(projectPath, message);
+      const result = await appendLearning(projectPath, message, undefined, undefined, opts.stream);
 
       if (!result.ok) {
         logger.error(result.error.message);

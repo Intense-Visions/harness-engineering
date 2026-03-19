@@ -1,6 +1,7 @@
 export async function getStateResource(projectRoot: string): Promise<string> {
   try {
-    const { loadState } = await import('@harness-engineering/core');
+    const { loadState, migrateToStreams } = await import('@harness-engineering/core');
+    await migrateToStreams(projectRoot);
     const result = await loadState(projectRoot);
     if (result.ok) {
       return JSON.stringify(result.value, null, 2);

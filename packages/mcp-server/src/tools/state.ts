@@ -22,6 +22,10 @@ export const manageStateDefinition = {
       outcome: { type: 'string', description: 'Outcome associated with the learning' },
       description: { type: 'string', description: 'Failure description (required for failure)' },
       failureType: { type: 'string', description: 'Type of failure (required for failure)' },
+      stream: {
+        type: 'string',
+        description: 'Stream name to target (auto-resolves from branch if omitted)',
+      },
     },
     required: ['path', 'action'],
   },
@@ -35,6 +39,7 @@ export async function handleManageState(input: {
   outcome?: string;
   description?: string;
   failureType?: string;
+  stream?: string;
 }) {
   try {
     const {
@@ -51,7 +56,7 @@ export async function handleManageState(input: {
 
     switch (input.action) {
       case 'show': {
-        const result = await loadState(projectPath);
+        const result = await loadState(projectPath, input.stream);
         return resultToMcpResponse(result);
       }
 
@@ -68,7 +73,8 @@ export async function handleManageState(input: {
           projectPath,
           input.learning,
           input.skillName,
-          input.outcome
+          input.outcome,
+          input.stream
         );
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ recorded: true }));
@@ -98,20 +104,21 @@ export async function handleManageState(input: {
           projectPath,
           input.description,
           input.skillName ?? 'unknown',
-          input.failureType
+          input.failureType,
+          input.stream
         );
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ recorded: true }));
       }
 
       case 'archive': {
-        const result = await archiveFailures(projectPath);
+        const result = await archiveFailures(projectPath, input.stream);
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ archived: true }));
       }
 
       case 'reset': {
-        const result = await saveState(projectPath, { ...DEFAULT_STATE });
+        const result = await saveState(projectPath, { ...DEFAULT_STATE }, input.stream);
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ reset: true }));
       }
@@ -156,6 +163,10 @@ export const manageHandoffDefinition = {
         description: 'Action to perform',
       },
       handoff: { type: 'object', description: 'Handoff data to save (required for save)' },
+      stream: {
+        type: 'string',
+        description: 'Stream name to target (auto-resolves from branch if omitted)',
+      },
     },
     required: ['path', 'action'],
   },
@@ -165,6 +176,7 @@ export async function handleManageHandoff(input: {
   path: string;
   action: 'save' | 'load';
   handoff?: unknown;
+  stream?: string;
 }) {
   try {
     const { saveHandoff, loadHandoff } = await import('@harness-engineering/core');
@@ -183,13 +195,14 @@ export async function handleManageHandoff(input: {
         }
         const result = await saveHandoff(
           projectPath,
-          input.handoff as Parameters<typeof saveHandoff>[1]
+          input.handoff as Parameters<typeof saveHandoff>[1],
+          input.stream
         );
         return resultToMcpResponse(result.ok ? Ok({ saved: true }) : result);
       }
 
       case 'load': {
-        const result = await loadHandoff(projectPath);
+        const result = await loadHandoff(projectPath, input.stream);
         return resultToMcpResponse(result);
       }
 
@@ -200,6 +213,48 @@ export async function handleManageHandoff(input: {
         };
       }
     }
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+// ── list_streams ──────────────────────────────────────────────────────
+
+export const listStreamsDefinition = {
+  name: 'list_streams',
+  description: 'List known state streams with branch associations and last-active timestamps',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      path: { type: 'string', description: 'Path to project root' },
+    },
+    required: ['path'],
+  },
+};
+
+export async function handleListStreams(input: { path: string }) {
+  try {
+    const { listStreams, loadStreamIndex } = await import('@harness-engineering/core');
+    const projectPath = path.resolve(input.path);
+    const indexResult = await loadStreamIndex(projectPath);
+    const streamsResult = await listStreams(projectPath);
+
+    if (!streamsResult.ok) return resultToMcpResponse(streamsResult);
+
+    return resultToMcpResponse(
+      Ok({
+        activeStream: indexResult.ok ? indexResult.value.activeStream : null,
+        streams: streamsResult.value,
+      })
+    );
   } catch (error) {
     return {
       content: [

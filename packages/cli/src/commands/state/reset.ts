@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
+import { resolveStreamPath } from '@harness-engineering/core';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 
@@ -9,10 +10,23 @@ export function createResetCommand(): Command {
   return new Command('reset')
     .description('Reset project state (deletes .harness/state.json)')
     .option('--path <path>', 'Project root path', '.')
+    .option('--stream <name>', 'Target a specific stream')
     .option('--yes', 'Skip confirmation prompt')
     .action(async (opts, _cmd) => {
       const projectPath = path.resolve(opts.path);
-      const statePath = path.join(projectPath, '.harness', 'state.json');
+
+      let statePath: string;
+      if (opts.stream) {
+        const streamResult = await resolveStreamPath(projectPath, { stream: opts.stream });
+        if (!streamResult.ok) {
+          logger.error(streamResult.error.message);
+          process.exit(ExitCode.ERROR);
+          return;
+        }
+        statePath = path.join(streamResult.value, 'state.json');
+      } else {
+        statePath = path.join(projectPath, '.harness', 'state.json');
+      }
 
       if (!fs.existsSync(statePath)) {
         logger.info('No state file found. Nothing to reset.');

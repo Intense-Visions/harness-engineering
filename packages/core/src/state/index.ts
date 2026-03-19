@@ -20,3 +20,17 @@ export {
   loadHandoff,
   runMechanicalGate,
 } from './state-manager';
+export { StreamInfoSchema, StreamIndexSchema, DEFAULT_STREAM_INDEX } from './stream-types';
+export type { StreamInfo, StreamIndex } from './stream-types';
+export {
+  resolveStreamPath,
+  createStream,
+  listStreams,
+  setActiveStream,
+  archiveStream,
+  loadStreamIndex,
+  saveStreamIndex,
+  migrateToStreams,
+  getStreamForBranch,
+  touchStream,
+} from './stream-resolver';

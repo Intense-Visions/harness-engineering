@@ -18,6 +18,13 @@
 
 ### Phase 1: LOAD — Restore Context from Previous Sessions
 
+0. **Resolve the stream.** State is organized into streams — isolated directories under `.harness/streams/<name>/`. Before loading any state files:
+   - If you know which work item you're resuming, pass `--stream <name>` or use `manage_state` with `stream: "<name>"`.
+   - Otherwise, the system auto-resolves from the current git branch (e.g., `feature/auth-rework` → `auth-rework` stream) or falls back to the active stream.
+   - If resolution fails, ask the user: "Which stream should I use?" and list known streams via `harness state streams list` or the `list_streams` MCP tool.
+   - When starting new work on a new branch, create a new stream: `harness state streams create <name> --branch <branch>`.
+   - Announce which stream was resolved so the human has visibility.
+
 1. **Read `.harness/state.json`.** This is the primary state file. It contains:
    - Current position (phase, task, step)
    - Progress map (which tasks are complete, in progress, or blocked)
@@ -159,7 +166,9 @@
 
 2. **Verify learnings were captured.** Review `.harness/learnings.md` — were all non-obvious discoveries recorded? If something was tricky during the session, it should be in learnings.
 
-3. **Decide whether to commit state files.** State files (`.harness/state.json`, `.harness/learnings.md`) should be committed to git so other team members and agents can access them. Commit state updates separately from code changes so they do not clutter code diffs.
+3. **State is saved to the active stream.** All writes (state, learnings, handoff, failures) go to the resolved stream's directory (e.g., `.harness/streams/auth-rework/state.json`). Switching to a different stream in the next session does not affect the current stream's files.
+
+4. **Decide whether to commit state files.** State files (`.harness/streams/*/state.json`, `.harness/streams/*/learnings.md`) should be committed to git so other team members and agents can access them. Commit state updates separately from code changes so they do not clutter code diffs.
 
 ### Building Institutional Knowledge Over Time
 
@@ -181,13 +190,18 @@ Treat learnings as a first-class project artifact. They are as valuable as tests
 
 ## Harness Integration
 
-- **`harness state show`** — Display current state in a formatted, readable view. Use at session start to quickly orient.
-- **`harness state reset`** — Reset state to initial values. Use when starting a completely new effort and old state is no longer relevant. Use with caution — this discards progress tracking.
-- **`harness state learn "<message>"`** — Append a learning to `.harness/learnings.md` with automatic timestamp formatting.
-- **`.harness/state.json`** — Primary state file. Read at session start, updated throughout, saved at session end.
-- **`.harness/learnings.md`** — Append-only knowledge base. Read at session start for context, appended to when discoveries are made.
-- **`.harness/failures.md`** — Active anti-patterns. Read at session start to avoid known dead ends.
-- **`.harness/handoff.json`** — Structured context from last skill. Read at session start for immediate context.
+- **`harness state show [--stream <name>]`** — Display current state in a formatted, readable view. Use at session start to quickly orient.
+- **`harness state reset [--stream <name>]`** — Reset state to initial values. Use when starting a completely new effort and old state is no longer relevant. Use with caution — this discards progress tracking.
+- **`harness state learn "<message>" [--stream <name>]`** — Append a learning with automatic timestamp formatting.
+- **`harness state streams list`** — List all known streams with branch associations and active status.
+- **`harness state streams create <name> [--branch <branch>]`** — Create a new stream, optionally associated with a git branch.
+- **`harness state streams archive <name>`** — Archive a completed stream.
+- **`harness state streams activate <name>`** — Set the active stream for the project.
+- **`.harness/streams/<name>/state.json`** — Primary state file per stream. Read at session start, updated throughout, saved at session end.
+- **`.harness/streams/<name>/learnings.md`** — Append-only knowledge base per stream.
+- **`.harness/streams/<name>/failures.md`** — Active anti-patterns per stream.
+- **`.harness/streams/<name>/handoff.json`** — Structured context from last skill per stream.
+- **`.harness/streams/index.json`** — Stream index tracking known streams, branch associations, and active stream.
 - **`.harness/trace.md`** — Optional reasoning trace. Useful for debugging agent behavior across sessions.
 - **`.harness/archive/`** — Archived failure logs. Check for historical context when encountering recurring issues.
 

@@ -8,10 +8,11 @@ export function createShowCommand(): Command {
   return new Command('show')
     .description('Show current project state')
     .option('--path <path>', 'Project root path', '.')
+    .option('--stream <name>', 'Target a specific stream')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const projectPath = path.resolve(opts.path);
-      const result = await loadState(projectPath);
+      const result = await loadState(projectPath, opts.stream);
 
       if (!result.ok) {
         logger.error(result.error.message);
@@ -25,6 +26,7 @@ export function createShowCommand(): Command {
       } else if (globalOpts.quiet) {
         console.log(JSON.stringify(state));
       } else {
+        if (opts.stream) console.log(`Stream:         ${opts.stream}`);
         console.log(`Schema Version: ${state.schemaVersion}`);
         if (state.position.phase) console.log(`Phase:          ${state.position.phase}`);
         if (state.position.task) console.log(`Task:           ${state.position.task}`);

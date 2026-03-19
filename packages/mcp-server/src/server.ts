@@ -20,7 +20,16 @@ import {
   applyFixesDefinition,
   handleApplyFixes,
 } from './tools/entropy.js';
-import { checkPerformanceDefinition, handleCheckPerformance } from './tools/performance.js';
+import {
+  checkPerformanceDefinition,
+  handleCheckPerformance,
+  getPerfBaselinesDefinition,
+  handleGetPerfBaselines,
+  updatePerfBaselinesDefinition,
+  handleUpdatePerfBaselines,
+  getCriticalPathsDefinition,
+  handleGetCriticalPaths,
+} from './tools/performance.js';
 import {
   generateLinterDefinition,
   handleGenerateLinter,
@@ -57,6 +66,8 @@ import {
   handleManageState,
   manageHandoffDefinition,
   handleManageHandoff,
+  listStreamsDefinition,
+  handleListStreams,
 } from './tools/state.js';
 import {
   createSelfReviewDefinition,
@@ -137,6 +148,10 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   generateAgentDefinitionsDefinition,
   runSecurityScanDefinition,
   checkPerformanceDefinition,
+  getPerfBaselinesDefinition,
+  updatePerfBaselinesDefinition,
+  getCriticalPathsDefinition,
+  listStreamsDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -172,6 +187,10 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   generate_agent_definitions: handleGenerateAgentDefinitions as ToolHandler,
   run_security_scan: handleRunSecurityScan as ToolHandler,
   check_performance: handleCheckPerformance as ToolHandler,
+  get_perf_baselines: handleGetPerfBaselines as ToolHandler,
+  update_perf_baselines: handleUpdatePerfBaselines as ToolHandler,
+  get_critical_paths: handleGetCriticalPaths as ToolHandler,
+  list_streams: handleListStreams as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

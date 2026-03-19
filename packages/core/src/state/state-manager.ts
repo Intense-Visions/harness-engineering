@@ -13,6 +13,7 @@ import {
   GateConfigSchema,
   type GateResult,
 } from './types';
+import { resolveStreamPath } from './stream-resolver';
 
 const HARNESS_DIR = '.harness';
 const STATE_FILE = 'state.json';
@@ -20,17 +21,52 @@ const LEARNINGS_FILE = 'learnings.md';
 const FAILURES_FILE = 'failures.md';
 const HANDOFF_FILE = 'handoff.json';
 const GATE_CONFIG_FILE = 'gate.json';
+const INDEX_FILE = 'index.json';
+
+/**
+ * Resolves the directory where state files live.
+ *
+ * - If `stream` is provided, resolves to that stream's directory.
+ * - If streams have been set up (index.json exists), resolves via branch/active stream.
+ * - Otherwise, falls back to the legacy `.harness/` directory.
+ *
+ * Does NOT auto-migrate. Migration must be triggered explicitly via `migrateToStreams()`.
+ */
+async function getStateDir(projectPath: string, stream?: string): Promise<Result<string, Error>> {
+  const streamsIndexPath = path.join(projectPath, HARNESS_DIR, 'streams', INDEX_FILE);
+  const hasStreams = fs.existsSync(streamsIndexPath);
+
+  if (stream || hasStreams) {
+    const result = await resolveStreamPath(projectPath, stream ? { stream } : undefined);
+    if (result.ok) {
+      return result;
+    }
+    // If stream was explicitly requested but not found, propagate the error
+    if (stream) {
+      return result;
+    }
+    // Implicit resolution failed — fall back to legacy
+  }
+
+  return Ok(path.join(projectPath, HARNESS_DIR));
+}
 
 // ── State persistence ────────────────────────────────────────────────
 
-export async function loadState(projectPath: string): Promise<Result<HarnessState, Error>> {
-  const statePath = path.join(projectPath, HARNESS_DIR, STATE_FILE);
-
-  if (!fs.existsSync(statePath)) {
-    return Ok({ ...DEFAULT_STATE });
-  }
-
+export async function loadState(
+  projectPath: string,
+  stream?: string
+): Promise<Result<HarnessState, Error>> {
   try {
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult as Result<HarnessState, Error>;
+    const stateDir = dirResult.value;
+    const statePath = path.join(stateDir, STATE_FILE);
+
+    if (!fs.existsSync(statePath)) {
+      return Ok({ ...DEFAULT_STATE });
+    }
+
     const raw = fs.readFileSync(statePath, 'utf-8');
     const parsed = JSON.parse(raw);
     const result = HarnessStateSchema.safeParse(parsed);
@@ -42,22 +78,23 @@ export async function loadState(projectPath: string): Promise<Result<HarnessStat
     return Ok(result.data);
   } catch (error) {
     return Err(
-      new Error(
-        `Failed to load state from ${statePath}: ${error instanceof Error ? error.message : String(error)}`
-      )
+      new Error(`Failed to load state: ${error instanceof Error ? error.message : String(error)}`)
     );
   }
 }
 
 export async function saveState(
   projectPath: string,
-  state: HarnessState
+  state: HarnessState,
+  stream?: string
 ): Promise<Result<void, Error>> {
-  const harnessDir = path.join(projectPath, HARNESS_DIR);
-  const statePath = path.join(harnessDir, STATE_FILE);
-
   try {
-    fs.mkdirSync(harnessDir, { recursive: true });
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const statePath = path.join(stateDir, STATE_FILE);
+
+    fs.mkdirSync(stateDir, { recursive: true });
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
     return Ok(undefined);
   } catch (error) {
@@ -73,13 +110,16 @@ export async function appendLearning(
   projectPath: string,
   learning: string,
   skillName?: string,
-  outcome?: string
+  outcome?: string,
+  stream?: string
 ): Promise<Result<void, Error>> {
-  const harnessDir = path.join(projectPath, HARNESS_DIR);
-  const learningsPath = path.join(harnessDir, LEARNINGS_FILE);
-
   try {
-    fs.mkdirSync(harnessDir, { recursive: true });
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const learningsPath = path.join(stateDir, LEARNINGS_FILE);
+
+    fs.mkdirSync(stateDir, { recursive: true });
     const timestamp = new Date().toISOString().split('T')[0];
 
     let entry: string;
@@ -109,15 +149,19 @@ export async function appendLearning(
 
 export async function loadRelevantLearnings(
   projectPath: string,
-  skillName?: string
+  skillName?: string,
+  stream?: string
 ): Promise<Result<string[], Error>> {
-  const learningsPath = path.join(projectPath, HARNESS_DIR, LEARNINGS_FILE);
-
-  if (!fs.existsSync(learningsPath)) {
-    return Ok([]);
-  }
-
   try {
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const learningsPath = path.join(stateDir, LEARNINGS_FILE);
+
+    if (!fs.existsSync(learningsPath)) {
+      return Ok([]);
+    }
+
     const content = fs.readFileSync(learningsPath, 'utf-8');
     const lines = content.split('\n');
     const entries: string[] = [];
@@ -167,13 +211,16 @@ export async function appendFailure(
   projectPath: string,
   description: string,
   skillName: string,
-  type: string
+  type: string,
+  stream?: string
 ): Promise<Result<void, Error>> {
-  const harnessDir = path.join(projectPath, HARNESS_DIR);
-  const failuresPath = path.join(harnessDir, FAILURES_FILE);
-
   try {
-    fs.mkdirSync(harnessDir, { recursive: true });
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const failuresPath = path.join(stateDir, FAILURES_FILE);
+
+    fs.mkdirSync(stateDir, { recursive: true });
     const timestamp = new Date().toISOString().split('T')[0];
     const entry = `\n- **${timestamp} [skill:${skillName}] [type:${type}]:** ${description}\n`;
 
@@ -194,17 +241,21 @@ export async function appendFailure(
 }
 
 export async function loadFailures(
-  projectPath: string
+  projectPath: string,
+  stream?: string
 ): Promise<
   Result<Array<{ date: string; skill: string; type: string; description: string }>, Error>
 > {
-  const failuresPath = path.join(projectPath, HARNESS_DIR, FAILURES_FILE);
-
-  if (!fs.existsSync(failuresPath)) {
-    return Ok([]);
-  }
-
   try {
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const failuresPath = path.join(stateDir, FAILURES_FILE);
+
+    if (!fs.existsSync(failuresPath)) {
+      return Ok([]);
+    }
+
     const content = fs.readFileSync(failuresPath, 'utf-8');
     const entries: Array<{ date: string; skill: string; type: string; description: string }> = [];
 
@@ -230,16 +281,21 @@ export async function loadFailures(
   }
 }
 
-export async function archiveFailures(projectPath: string): Promise<Result<void, Error>> {
-  const harnessDir = path.join(projectPath, HARNESS_DIR);
-  const failuresPath = path.join(harnessDir, FAILURES_FILE);
-
-  if (!fs.existsSync(failuresPath)) {
-    return Ok(undefined);
-  }
-
+export async function archiveFailures(
+  projectPath: string,
+  stream?: string
+): Promise<Result<void, Error>> {
   try {
-    const archiveDir = path.join(harnessDir, 'archive');
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const failuresPath = path.join(stateDir, FAILURES_FILE);
+
+    if (!fs.existsSync(failuresPath)) {
+      return Ok(undefined);
+    }
+
+    const archiveDir = path.join(stateDir, 'archive');
     fs.mkdirSync(archiveDir, { recursive: true });
 
     const date = new Date().toISOString().split('T')[0];
@@ -266,13 +322,16 @@ export async function archiveFailures(projectPath: string): Promise<Result<void,
 
 export async function saveHandoff(
   projectPath: string,
-  handoff: Handoff
+  handoff: Handoff,
+  stream?: string
 ): Promise<Result<void, Error>> {
-  const harnessDir = path.join(projectPath, HARNESS_DIR);
-  const handoffPath = path.join(harnessDir, HANDOFF_FILE);
-
   try {
-    fs.mkdirSync(harnessDir, { recursive: true });
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const handoffPath = path.join(stateDir, HANDOFF_FILE);
+
+    fs.mkdirSync(stateDir, { recursive: true });
     fs.writeFileSync(handoffPath, JSON.stringify(handoff, null, 2));
     return Ok(undefined);
   } catch (error) {
@@ -282,14 +341,20 @@ export async function saveHandoff(
   }
 }
 
-export async function loadHandoff(projectPath: string): Promise<Result<Handoff | null, Error>> {
-  const handoffPath = path.join(projectPath, HARNESS_DIR, HANDOFF_FILE);
-
-  if (!fs.existsSync(handoffPath)) {
-    return Ok(null);
-  }
-
+export async function loadHandoff(
+  projectPath: string,
+  stream?: string
+): Promise<Result<Handoff | null, Error>> {
   try {
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const handoffPath = path.join(stateDir, HANDOFF_FILE);
+
+    if (!fs.existsSync(handoffPath)) {
+      return Ok(null);
+    }
+
     const raw = fs.readFileSync(handoffPath, 'utf-8');
     const parsed = JSON.parse(raw);
     const result = HandoffSchema.safeParse(parsed);
