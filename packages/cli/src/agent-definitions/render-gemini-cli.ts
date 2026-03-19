@@ -20,7 +20,12 @@ export function renderGeminiAgent(def: AgentDefinition): string {
   lines.push(`name: ${def.name}`);
   lines.push(`description: >`);
   lines.push(`  ${def.description}`);
-  lines.push(`tools: ${def.tools.join(', ')}`);
+  if (def.tools.length > 0) {
+    lines.push('tools:');
+    for (const tool of def.tools) {
+      lines.push(`  - ${tool}`);
+    }
+  }
   lines.push('---');
   lines.push('');
   lines.push(GENERATED_HEADER_AGENT);

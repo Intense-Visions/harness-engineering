@@ -33,6 +33,17 @@ describe('renderGeminiAgent', () => {
     expect(output).toContain('Full methodology here');
   });
 
+  it('renders tools as YAML array', () => {
+    const output = renderGeminiAgent(mockDef);
+    expect(output).toContain('tools:\n  - Bash\n  - Read\n  - Glob\n  - Grep');
+  });
+
+  it('omits tools key when tools array is empty', () => {
+    const def = { ...mockDef, tools: [] as string[] };
+    const output = renderGeminiAgent(def);
+    expect(output).not.toContain('tools:');
+  });
+
   it('includes formatted steps', () => {
     const output = renderGeminiAgent(mockDef);
     expect(output).toContain('1. Run `harness validate` (always)');

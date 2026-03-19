@@ -83,7 +83,11 @@ description: >
   Perform code review and address review findings using harness methodology.
   Use when reviewing code, fixing review findings, responding to review feedback,
   or when a code review has produced issues that need to be addressed.
-tools: Bash, Read, Glob, Grep
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
 ---
 
 [same body content]
