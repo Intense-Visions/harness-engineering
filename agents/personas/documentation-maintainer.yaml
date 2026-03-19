@@ -9,6 +9,7 @@ skills:
 commands:
   - check-docs
   - validate
+  - scan
 triggers:
   - event: on_pr
     conditions:

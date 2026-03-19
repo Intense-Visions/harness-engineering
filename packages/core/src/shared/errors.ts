@@ -1,5 +1,3 @@
-import type { EntropyError } from '../entropy/types';
-
 export type ErrorCode = string;
 
 export interface BaseError {
@@ -27,8 +25,22 @@ export interface ConstraintError extends BaseError {
     | 'PARSER_UNAVAILABLE';
 }
 
-// EntropyError is imported from '../entropy/types' for detailed typing
-export type { EntropyError };
+export interface EntropyError extends BaseError {
+  code:
+    | 'SNAPSHOT_BUILD_FAILED'
+    | 'PARSE_ERROR'
+    | 'ENTRY_POINT_NOT_FOUND'
+    | 'INVALID_CONFIG'
+    | 'CONFIG_VALIDATION_ERROR'
+    | 'FIX_FAILED'
+    | 'BACKUP_FAILED';
+  details: {
+    file?: string;
+    reason?: string;
+    issues?: unknown[];
+    originalError?: Error;
+  };
+}
 
 export interface FeedbackError extends BaseError {
   code:

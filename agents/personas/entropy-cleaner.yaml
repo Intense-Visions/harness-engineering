@@ -10,6 +10,7 @@ skills:
 commands:
   - cleanup
   - fix-drift
+  - scan
 triggers:
   - event: scheduled
     cron: "0 6 * * 1"

@@ -146,6 +146,16 @@ Between tasks (especially between sessions):
    }
    ```
 
+### Graph Refresh
+
+If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
+
+```
+harness scan [path]
+```
+
+Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
+
 2. **Append tagged learnings to `.harness/learnings.md`.** Tag every entry with skill and outcome:
 
    ```markdown

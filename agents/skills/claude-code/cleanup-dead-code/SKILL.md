@@ -72,6 +72,16 @@ For each item categorized as safe:
 
 ### Phase 4: Report Remaining Items
 
+### Graph Refresh
+
+If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
+
+```
+harness scan [path]
+```
+
+Dead code removal changes graph topology — skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
+
 For items that need human review, report:
 
 1. **What it is** — file path, export name, what it does

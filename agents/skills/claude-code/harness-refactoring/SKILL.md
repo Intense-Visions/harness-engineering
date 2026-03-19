@@ -71,6 +71,16 @@ For EACH step in the plan:
 
 2. **Run `harness validate` and `harness check-deps` one final time.** Clean output.
 
+### Graph Refresh
+
+If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
+
+```
+harness scan [path]
+```
+
+Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
+
 3. **Review the cumulative diff.** Does the final state match the intended improvement? Is the code genuinely better, or just different?
 
 4. **If the refactoring introduced no improvement,** revert the entire sequence. Refactoring for its own sake is churn.

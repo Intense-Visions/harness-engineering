@@ -233,6 +233,16 @@ Characteristics of a bad fix (revert immediately):
 4. Run `harness check-deps` — must PASS
 5. Manually verify the original failing scenario works
 
+### Graph Refresh
+
+If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
+
+```
+harness scan [path]
+```
+
+Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
+
 #### Step 4: Verify the Test Catches the Bug
 
 Apply the regression test verification protocol:

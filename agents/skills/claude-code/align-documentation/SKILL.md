@@ -93,6 +93,16 @@ For each affected documentation location:
 
 4. **Run `harness fix-drift`** to catch any remaining simple drift issues that manual review missed.
 
+### Graph Refresh
+
+If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
+
+```
+harness scan [path]
+```
+
+Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
+
 5. **Commit the documentation update.** Use a commit message that references the original change: "docs: update AGENTS.md for notification service refactoring" or "docs: sync API docs after auth module rename."
 
 ## What to Update

@@ -12,6 +12,8 @@ steps:
     when: always
   - command: check-deps
     when: always
+  - command: scan
+    when: on_task_complete
   - skill: harness-execution
     when: on_plan_approved
     output: auto

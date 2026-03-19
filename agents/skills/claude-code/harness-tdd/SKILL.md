@@ -75,6 +75,16 @@ If you find yourself writing production code first, STOP. Delete it. Write the t
 
 4. **Commit the cycle.** Each RED-GREEN-REFACTOR-VALIDATE cycle produces one atomic commit. The commit message references what behavior was added (not "add test" — describe the behavior).
 
+### Graph Refresh
+
+If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
+
+```
+harness scan [path]
+```
+
+Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
+
 ### Cycle Rhythm
 
 Repeat the 4 phases for each new behavior. A typical feature requires 3-10 cycles. Each cycle should take 2-15 minutes. If a cycle takes longer than 15 minutes, the step is too large — break it down.

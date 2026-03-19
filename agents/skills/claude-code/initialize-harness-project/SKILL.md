@@ -72,6 +72,16 @@
 
 3. **Run `harness check-deps`** (intermediate and above) to verify dependency constraints match the actual codebase. If there are violations, decide with the human: update the constraints or fix the code.
 
+### Build the Initial Knowledge Graph
+
+If the project will use graph-based queries, build the initial knowledge graph now:
+
+```
+harness scan [path]
+```
+
+This creates the `.harness/graph/` directory and populates it with the project's dependency and relationship data. Subsequent graph queries (impact analysis, dependency health, test advisor) depend on this initial scan.
+
 4. **Commit the initialization.** All generated and configured files in a single commit.
 
 ## Harness Integration

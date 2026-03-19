@@ -73,6 +73,16 @@
 
 2. **Run `harness check-deps`** to verify no dependency violations were introduced. The new component's imports must respect layer boundaries.
 
+### Graph Refresh
+
+If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
+
+```
+harness scan [path]
+```
+
+Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
+
 3. **If validation fails,** fix the issues before committing. Common causes:
    - New layer not properly registered in `harness.yaml`
    - Component placed in wrong directory for its declared layer
