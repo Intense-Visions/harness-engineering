@@ -1,0 +1,53 @@
+name: harness-design
+version: "1.0.0"
+description: Aesthetic direction workflow, anti-pattern enforcement, DESIGN.md generation, and strictness configuration
+cognitive_mode: advisory-guide
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-design
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: strictness
+      description: Override strictness level (strict, standard, permissive)
+      required: false
+    - name: industry
+      description: Industry vertical for aesthetic recommendations
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-design
+    path: string
+type: flexible
+phases:
+  - name: intent
+    description: Capture aesthetic intent, style, tone, and differentiator
+    required: true
+  - name: direction
+    description: Generate DESIGN.md with aesthetic direction, anti-patterns, and platform notes
+    required: true
+  - name: review
+    description: Review existing components against design intent and anti-patterns
+    required: false
+  - name: enforce
+    description: Enforce design constraints via graph, surface violations by strictness level
+    required: false
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-design-system
