@@ -1,0 +1,52 @@
+name: harness-autopilot
+version: "1.0.0"
+description: Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-autopilot
+  args:
+    - name: spec
+      description: Path to approved spec document
+      required: false
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-autopilot
+    path: string
+type: rigid
+phases:
+  - name: init
+    description: Load spec, identify phases, restore state if resuming
+    required: true
+  - name: loop
+    description: Execute state machine — assess, plan, execute, verify, review per phase
+    required: true
+  - name: complete
+    description: Final summary and PR offering
+    required: true
+state:
+  persistent: true
+  files:
+    - .harness/autopilot-state.json
+    - .harness/state.json
+    - .harness/learnings.md
+depends_on:
+  - harness-planning
+  - harness-execution
+  - harness-verification
+  - harness-code-review
