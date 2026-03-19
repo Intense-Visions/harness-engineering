@@ -13,6 +13,19 @@ node --version   # 22+
 pnpm --version   # 8+
 ```
 
+## Install and Generate Global Skills
+
+Before using harness in any project, install the CLI and generate global slash commands and agent personas:
+
+```bash
+npm install -g @harness-engineering/cli
+harness generate --global
+```
+
+This writes `/harness:*` slash commands and agent definitions to your global config directories for Claude Code and Gemini CLI. After this one-time step, all harness skills and personas are available in every AI agent session — no per-project setup needed.
+
+> **Tip:** Re-run `harness generate --global` after `harness update` to pick up new or changed skills.
+
 ## Quick Start: Try an Example
 
 ### 1. Hello World (Basic) — 5 minutes
@@ -53,15 +66,19 @@ Custom linter rules, Zod boundary validation, cross-artifact checking, all 3 per
 
 ## Starting Your Own Project
 
-Once you've explored the examples, initialize your own project:
+Once you've explored the examples, initialize your own project. The recommended way is via the slash command in your AI agent:
 
-```bash
-# If installed globally
-harness init --name my-project --level intermediate
-
-# Or via npx
-npx @harness-engineering/cli init --name my-project --level intermediate
 ```
+/harness:initialize-project
+```
+
+This walks you through project setup interactively — name, adoption level, framework overlay — and scaffolds everything including MCP server configuration.
+
+> **CLI alternative** (for scripts or non-interactive use):
+>
+> ```bash
+> harness init --name my-project --level intermediate
+> ```
 
 This scaffolds a project using the intermediate template with layer definitions, ESLint rules, and an AGENTS.md.
 
@@ -179,13 +196,32 @@ Then add your project directory to `~/.gemini/trustedFolders.json` so Gemini tru
 
 Once connected, your AI agent can validate constraints, run skills, and access project context without leaving the conversation.
 
-## Common Commands
+## Common Slash Commands
+
+Use these in your AI agent session for the full interactive workflow:
+
+```
+/harness:initialize-project       # Scaffold a new harness-managed project
+/harness:verify                   # Quick pass/fail gate (tests, lint, typecheck, harness checks)
+/harness:brainstorming            # Explore problem space before implementation
+/harness:planning                 # Decompose a spec into executable tasks
+/harness:execution                # Execute a plan with TDD and state tracking
+/harness:verification             # Deep audit — does the implementation match the spec?
+/harness:code-review              # Structured code review with automated checks
+/harness:detect-doc-drift         # Find documentation out of sync with code
+/harness:enforce-architecture     # Validate layer boundaries and dependency rules
+/harness:debugging                # Systematic debugging with state tracking
+```
+
+### CLI Commands (CI/scripts)
+
+For non-interactive use — CI pipelines, shell scripts, or quick terminal checks:
 
 ```bash
 harness validate              # Check project configuration
 harness check-deps            # Verify dependency boundaries
+harness ci check              # Run all CI checks in one pass
 harness skill list            # List available skills
-harness skill run <name>      # Run a skill
 harness state show            # View current state
 harness state learn "..."     # Capture a learning
 harness linter generate       # Generate ESLint rules from YAML
@@ -196,7 +232,7 @@ harness setup-mcp             # Configure MCP server for AI clients
 
 ### "harness: command not found"
 
-Install the CLI globally or use npx:
+Install the CLI globally or use npx. For day-to-day work, prefer slash commands (e.g., `/harness:verify`) which don't require a global install:
 
 ```bash
 npx @harness-engineering/cli validate

@@ -5,6 +5,8 @@ This tutorial walks you through the complete harness development lifecycle — f
 By the end, you'll know when and why to use each harness command and skill, not just what they do.
 
 > **Prerequisites:** Node.js 22+, pnpm 8+, Git. See the [Getting Started guide](./getting-started.md) for installation.
+>
+> **Convention:** This guide uses slash commands (e.g., `/harness:verify`) for interactive agent sessions — the recommended way to work day-to-day. CLI equivalents (e.g., `harness validate`) are noted where useful for CI pipelines and shell scripts.
 
 ## Contents
 
@@ -26,16 +28,19 @@ Create a new harness-managed project and confirm everything validates.
 
 ### Scaffold the project
 
-```bash
-harness init --name bookmark-api --level intermediate
+```
+/harness:initialize-project
 ```
 
-This generates:
+The initialization skill walks you through project setup interactively — name, adoption level, framework overlay — and scaffolds everything in one pass. It generates:
 
 - `harness.config.json` — project configuration with layers, forbidden imports, and phase gates
 - `AGENTS.md` — knowledge map for AI agents working in the project
 - `src/types/`, `src/services/`, `src/api/` — directory structure matching layer definitions
 - `.harness/` — state directory for tracking progress across sessions
+- `.mcp.json` / `.gemini/settings.json` — MCP server configuration for AI clients
+
+> **CLI alternative:** `harness init --name bookmark-api --level intermediate` — use this in scripts or CI, not interactive sessions.
 
 ### Understand the configuration
 
@@ -97,35 +102,27 @@ You'll create the spec in the next chapter before writing any implementation cod
 
 ### Validate
 
-Run the two validation commands to confirm a clean starting state:
+Run a quick verification to confirm a clean starting state:
 
-```bash
-harness validate
 ```
+/harness:verify
+```
+
+This runs all mechanical checks in one pass — configuration validation, dependency boundaries, lint, typecheck, and tests — and returns a binary pass/fail result:
 
 ```
 ✓ Configuration valid
 ✓ AGENTS.md found
 ✓ Layer definitions valid
 ✓ No forbidden import violations
+✓ No dependency violations
 
 All checks passed.
 ```
 
-```bash
-harness check-deps
-```
-
-```
-Checking dependency layers...
-✓ types: 0 violations
-✓ services: 0 violations
-✓ api: 0 violations
-
-No dependency violations found.
-```
-
-> **Tip:** Run `harness validate` frequently — it's fast and catches configuration drift early. Think of it like `npm test` for your project structure.
+> **Tip:** Run `/harness:verify` frequently — it's fast and catches configuration drift early. Think of it like `npm test` for your project structure.
+>
+> **CLI alternative:** `harness validate && harness check-deps` — use this in CI pipelines or shell scripts.
 
 ---
 
@@ -277,14 +274,13 @@ export interface Bookmark {
 
 **Validate — run the mechanical gate:**
 
-```bash
-npm test
-npm run lint
-npx tsc --noEmit
-harness validate
-harness check-deps
-harness check-phase-gate
 ```
+/harness:verify
+```
+
+This runs tests, lint, typecheck, and all harness checks (`validate`, `check-deps`, `check-phase-gate`) in a single pass.
+
+> **CLI alternative:** `npm test && npm run lint && npx tsc --noEmit && harness validate && harness check-deps && harness check-phase-gate`
 
 **Commit:**
 
@@ -319,7 +315,7 @@ At certain points, the execution skill pauses with a `[checkpoint:human-verify]`
 
 ### Quick gate between tasks
 
-Between tasks, `/harness:verify` runs a quick pass/fail gate — tests, lint, typecheck, and `harness validate` in one shot. This catches regressions immediately after each task.
+Between tasks, `/harness:verify` runs a quick pass/fail gate — tests, lint, typecheck, and all harness checks in one shot. This catches regressions immediately after each task.
 
 > `/harness:verify` is the between-task quick gate. `/harness:verification` (Chapter 5) is the deep audit you run at milestone boundaries. Different tools for different moments.
 
@@ -369,7 +365,7 @@ The verification skill checks your implementation at three tiers.
 
 The WIRED tier catches things tests might miss — a route that exists but isn't reachable because it's not registered in the router.
 
-> **Combined gate:** The `harness-integrity` skill chains verification with AI review in a single pass. Invoke it with `harness skill run harness-integrity`.
+> **Combined gate:** `/harness:integrity` chains verification with AI review in a single pass — use it at milestone boundaries for the deepest check.
 
 ---
 
@@ -419,6 +415,10 @@ Run `/harness:pre-commit-review` for a final quality gate before merging.
 
 ### Create a PR
 
+Use `/harness:git-workflow` to handle branch creation, push, and PR creation with harness validation baked in. It ensures all checks pass before the PR is opened.
+
+Alternatively, do it manually:
+
 ```bash
 git checkout -b feature/bookmark-api
 git push -u origin feature/bookmark-api
@@ -432,7 +432,7 @@ Squash-merging to main keeps the history clean while preserving the detailed per
 
 ## Appendix: Maintenance
 
-After shipping, use these tools to keep your project healthy.
+After shipping, use these skills to keep your project healthy.
 
 | Skill                           | What it does                                            |
 | ------------------------------- | ------------------------------------------------------- |
@@ -442,30 +442,30 @@ After shipping, use these tools to keep your project healthy.
 | `/harness:enforce-architecture` | Runs periodic architecture validation                   |
 | `/harness:diagnostics`          | Classifies errors and routes to resolution strategies   |
 
-For a quick project health check, run these as a set:
+For a quick project health check:
 
-```bash
-harness validate
-harness check-deps
-harness check-phase-gate
+```
+/harness:verify
 ```
 
-> Run maintenance checks after shipping a feature, before starting new work, or on a regular schedule. Many teams add `harness validate` and `harness check-deps` to their CI pipeline.
+This runs all mechanical checks (config, deps, phase gates, lint, typecheck, tests) in one pass.
+
+> Run `/harness:verify` after shipping a feature, before starting new work, or on a regular schedule. Many teams also add `harness ci check` to their CI pipeline for the same checks in a non-interactive context.
 
 ---
 
 ## Quick Reference
 
-| Stage      | CLI Commands                                                         | Skills                                                                                                                                             | Key Artifacts                                  |
-| ---------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Initialize | `harness init`, `harness validate`, `harness check-deps`             | `/harness:initialize-project`                                                                                                                      | `harness.config.json`, `AGENTS.md`             |
-| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/specs/*.md`                              |
-| Plan       | —                                                                    | `/harness:planning`                                                                                                                                | `docs/plans/*.md`, `.harness/handoff.json`     |
-| Implement  | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`, `/harness:verify`                                                                                            | `.harness/state.json`, `.harness/learnings.md` |
-| Verify     | `harness validate`                                                   | `/harness:verification`                                                                                                                            | Verification report                            |
-| Review     | —                                                                    | `/harness:code-review`, `/harness:pre-commit-review`                                                                                               | Review report                                  |
-| Ship       | `gh pr create`                                                       | `/harness:git-workflow`                                                                                                                            | PR                                             |
-| Maintain   | `harness validate`, `harness check-deps`                             | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | —                                              |
+| Stage      | Slash Command (interactive)                                                                                                                   | CLI Alternative (CI/scripts)                                         | Key Artifacts                                  |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------- |
+| Initialize | `/harness:initialize-project`                                                                                                                 | `harness init --name <name> --level <level>`                         | `harness.config.json`, `AGENTS.md`             |
+| Design     | `/harness:brainstorming`                                                                                                                      | —                                                                    | `docs/specs/*.md`                              |
+| Plan       | `/harness:planning`                                                                                                                           | —                                                                    | `docs/plans/*.md`, `.harness/handoff.json`     |
+| Implement  | `/harness:execution`, `/harness:tdd`, `/harness:verify`                                                                                       | `harness validate && harness check-deps && harness check-phase-gate` | `.harness/state.json`, `.harness/learnings.md` |
+| Verify     | `/harness:verification`, `/harness:integrity`                                                                                                 | `harness validate`                                                   | Verification report                            |
+| Review     | `/harness:code-review`, `/harness:pre-commit-review`                                                                                          | `harness agent review`                                               | Review report                                  |
+| Ship       | `/harness:git-workflow`                                                                                                                       | `gh pr create`                                                       | PR                                             |
+| Maintain   | `/harness:verify`, `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture` | `harness ci check`                                                   | —                                              |
 
 > **Tip:** For multi-phase projects, `/harness:autopilot` automates the Plan → Implement → Verify → Review cycle across all phases. It chains the skills above, pausing only at human decision points (plan approval, complex design, unrecoverable failures). Use it when your spec has 2+ implementation phases.
 

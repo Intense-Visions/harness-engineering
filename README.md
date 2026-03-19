@@ -29,18 +29,40 @@ Instead of relying on prompts and conventions, harness encodes your architectura
 
 ## Quick Start
 
+### 1. Install and generate global skills + personas
+
 ```bash
-# Install the CLI
 npm install -g @harness-engineering/cli
-
-# Scaffold a new project
-harness init my-project
-
-# Validate constraints
-harness validate
+harness generate --global
 ```
 
-Or explore an example directly:
+This installs the CLI and writes slash commands and agent definitions to your global config directories (`~/.claude/commands/`, `.gemini/` etc.). Once generated, every project on your machine has access to `/harness:*` slash commands and harness agent personas — no per-project setup needed.
+
+> **Tip:** Re-run `harness generate --global` after updating the CLI (`harness update`) to pick up new or changed skills.
+
+### 2. Scaffold a new project
+
+In an AI agent session (Claude Code, Gemini CLI):
+
+```
+/harness:initialize-project
+```
+
+The initialization skill walks you through project setup interactively — name, adoption level, framework overlay — and scaffolds everything including MCP server configuration.
+
+> **CLI alternative** (for scripts or CI): `harness init --name my-project --level intermediate`
+
+### 3. Validate
+
+```
+/harness:verify
+```
+
+Runs all mechanical checks in one pass — configuration, dependency boundaries, lint, typecheck, and tests.
+
+> **CLI alternative:** `harness validate && harness check-deps`
+
+### Explore an example
 
 ```bash
 git clone https://github.com/Intense-Visions/harness-engineering.git
@@ -82,16 +104,44 @@ Violations are caught at lint time via `@harness-engineering/eslint-plugin` — 
 
 ## AI Agent Integration
 
-Connect your AI coding agent to harness for real-time constraint validation:
+### Global setup (one-time)
+
+Install skills and personas so they're available in every project:
 
 ```bash
-# Configure MCP server for Claude Code and Gemini CLI
+npm install -g @harness-engineering/cli
+harness generate --global
+```
+
+This writes to your global config directories:
+
+| Platform    | Slash Commands            | Agent Definitions |
+| ----------- | ------------------------- | ----------------- |
+| Claude Code | `~/.claude/commands/`     | `.claude/agents/` |
+| Gemini CLI  | `.gemini/customCommands/` | `.gemini/agents/` |
+
+After this, `/harness:*` slash commands and harness agent personas are available in every conversation — no per-project install needed.
+
+### Per-project MCP server
+
+For real-time constraint validation, connect the MCP server to your project. The easiest way is during initialization:
+
+```
+/harness:initialize-project
+```
+
+This scaffolds your project **and** configures the MCP server automatically.
+
+To add the MCP server to an existing project:
+
+```bash
 harness setup-mcp
 ```
 
-This adds the harness MCP server to your AI client, giving it access to 37 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 11 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 37 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 11 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
-**Manual setup:**
+<details>
+<summary>Manual MCP setup</summary>
 
 **Claude Code** — add to `.mcp.json` in your project root:
 
@@ -127,6 +177,8 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 }
 ```
 
+</details>
+
 | Client      | MCP Config Location     | Additional Setup                               |
 | ----------- | ----------------------- | ---------------------------------------------- |
 | Claude Code | `.mcp.json`             | None                                           |
@@ -157,6 +209,7 @@ Learn by doing. Each example builds on the previous:
 **Getting Started**
 
 - [Getting Started Guide](./docs/guides/getting-started.md) — From zero to validated project
+- [Day-to-Day Workflow](./docs/guides/day-to-day-workflow.md) — Full lifecycle tutorial using slash commands
 - [Best Practices](./docs/guides/best-practices.md) — Patterns for effective harness usage
 - [Agent Worktree Patterns](./docs/guides/agent-worktree-patterns.md) — Running multiple agents in parallel
 
@@ -166,9 +219,9 @@ Learn by doing. Each example builds on the previous:
 - [Implementation Guide](./docs/standard/implementation.md) — Adoption levels and rollout strategy
 - [KPIs](./docs/standard/kpis.md) — Measuring agent effectiveness
 
-**API Reference**
+**Reference**
 
-- [CLI Reference](./docs/reference/cli.md) — All commands and flags
+- [CLI Reference](./docs/reference/cli.md) — All commands and flags (for CI/scripts)
 - [Configuration Reference](./docs/reference/configuration.md) — `harness.config.json` schema
 
 ## Contributing
