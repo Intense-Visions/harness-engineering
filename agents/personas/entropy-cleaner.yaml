@@ -5,6 +5,8 @@ role: Run scheduled cleanup, detect documentation drift, fix pattern violations
 skills:
   - cleanup-dead-code
   - detect-doc-drift
+  - harness-hotspot-detector
+  - harness-impact-analysis
 commands:
   - cleanup
   - fix-drift

@@ -1,0 +1,44 @@
+name: harness-impact-analysis
+version: "1.0.0"
+description: Graph-based impact analysis — answers "if I change X, what breaks?"
+cognitive_mode: analytical-reporter
+triggers:
+  - manual
+  - on_pr
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-impact-analysis
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: files
+      description: Comma-separated list of changed files
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-impact-analysis
+    path: string
+type: rigid
+phases:
+  - name: identify
+    description: Identify changed files from diff or input
+    required: true
+  - name: analyze
+    description: Query graph for impact of each changed file
+    required: true
+  - name: assess
+    description: Rank findings by risk and generate report
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

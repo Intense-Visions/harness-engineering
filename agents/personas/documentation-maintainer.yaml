@@ -5,6 +5,7 @@ role: Detect documentation drift, validate doc coverage, align docs with code ch
 skills:
   - detect-doc-drift
   - align-documentation
+  - harness-knowledge-mapper
 commands:
   - check-docs
   - validate

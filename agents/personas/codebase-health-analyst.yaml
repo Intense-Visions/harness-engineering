@@ -1,0 +1,27 @@
+version: 1
+name: Codebase Health Analyst
+description: Proactively identifies structural problems, coupling risks, and architectural drift
+role: Run health checks, detect hotspots, analyze impact, surface risks before they become incidents
+skills:
+  - harness-hotspot-detector
+  - harness-dependency-health
+  - harness-impact-analysis
+  - cleanup-dead-code
+commands:
+  - graph status
+  - check-deps
+triggers:
+  - event: scheduled
+    cron: "0 6 * * 1"
+  - event: on_pr
+    conditions:
+      min_files: 10
+  - event: manual
+config:
+  severity: warning
+  autoFix: false
+  timeout: 600000
+outputs:
+  agents-md: false
+  ci-workflow: true
+  runtime-config: true

@@ -1,48 +1,44 @@
 {
-  "timestamp": "2026-03-18T20:00:00.000Z",
+  "timestamp": "2026-03-18T21:00:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 7 (Tier-1 Skill Migration) — 10 tasks: GraphFeedbackAdapter, feedback core enhancements (analyzeDiff, ChecklistBuilder, requestPeerReview), MCP tool wiring (entropy, validation, feedback), 7 Tier-1 skill SKILL.md updates.",
+  "summary": "Planned Phase 8 (New Skills & Personas) — 10 tasks: 5 new graph-powered skills (impact-analysis, dependency-health, hotspot-detector, test-advisor, knowledge-mapper), 2 new personas (Graph Maintainer, Codebase Health Analyst), 3 existing persona updates. All documentation/configuration — no TypeScript code.",
   "completed": [],
   "pending": [
-    "Task 1: Implement GraphFeedbackAdapter (TDD)",
-    "Task 2: Add graph types to core feedback",
-    "Task 3: Enhance analyzeDiff with graph impact data (TDD)",
-    "Task 4: Enhance ChecklistBuilder with graph harness checks (TDD)",
-    "Task 5: Enhance requestPeerReview with graph context",
-    "Task 6: Wire MCP validation and entropy tools to use graph",
-    "Task 7: Wire MCP feedback tools to use graph",
-    "Task 8: Update 7 Tier-1 skill SKILL.md files with graph notes",
-    "Task 9: Write integration tests",
-    "Task 10: Build and test verification"
+    "Task 1: Create harness-impact-analysis skill",
+    "Task 2: Create harness-dependency-health skill",
+    "Task 3: Create harness-hotspot-detector skill",
+    "Task 4: Create harness-test-advisor skill",
+    "Task 5: Create harness-knowledge-mapper skill",
+    "Task 6: Create Graph Maintainer persona",
+    "Task 7: Create Codebase Health Analyst persona",
+    "Task 8: Update 3 existing personas with graph skills",
+    "Task 9: Regenerate slash commands",
+    "Task 10: Build and verification"
   ],
   "concerns": [
-    "MCP tools use dynamic imports — graph loading must be lazy and handle missing graph gracefully",
-    "ChecklistBuilder harness checks are currently placeholders — graph data replaces them with real checks",
-    "Skill SKILL.md files are source files in agents/skills/ but installed from CLI dist — changes propagate on next build"
+    "Skills are documentation that guides AI agents — quality of SKILL.md determines agent effectiveness",
+    "Persona YAML must match existing schema (version 1) or agent-definition generator may fail",
+    "New skills use existing MCP graph tools — no new TS implementation needed"
   ],
   "decisions": [
-    "GraphFeedbackAdapter computes impact data (affected tests/docs) and harness check data (violations/coverage)",
-    "analyzeDiff gets optional graphImpactData for graph-based test coverage detection",
-    "ChecklistBuilder.withHarnessChecks() gets optional graphData to replace placeholders with real results",
-    "requestPeerReview uses existing metadata passthrough — no signature change needed",
-    "MCP tools load graph via existing loadGraphStore utility — optional, falls back gracefully",
-    "All 7 Tier-1 skill SKILL.md files get graph-aware context gathering notes"
+    "All 5 skills use existing graph MCP tools (query_graph, get_impact, find_context_for, etc.)",
+    "Each skill has SKILL.md (workflow) + skill.yaml (metadata) per existing convention",
+    "Graph Maintainer persona: daily scheduled scan + on_commit to main",
+    "Codebase Health Analyst persona: weekly scheduled + on_pr for large PRs (>10 files)",
+    "Existing personas gain graph skills additively — no existing skills removed"
   ],
   "blockers": [],
   "contextKeywords": [
-    "feedback",
-    "analyzeDiff",
-    "createSelfReview",
-    "requestPeerReview",
-    "ChecklistBuilder",
-    "GraphFeedbackAdapter",
-    "GraphImpactData",
-    "GraphHarnessCheckData",
-    "detect_entropy",
-    "check_dependencies",
-    "check_docs",
+    "impact-analysis",
+    "dependency-health",
+    "hotspot-detector",
+    "test-advisor",
+    "knowledge-mapper",
+    "Graph Maintainer",
+    "Codebase Health Analyst",
+    "persona",
     "SKILL.md",
-    "Tier-1"
+    "skill.yaml"
   ]
 }

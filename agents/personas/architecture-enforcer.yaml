@@ -5,6 +5,7 @@ role: Enforce layer boundaries, detect circular dependencies, block forbidden im
 skills:
   - enforce-architecture
   - check-mechanical-constraints
+  - harness-dependency-health
 commands:
   - check-deps
   - validate

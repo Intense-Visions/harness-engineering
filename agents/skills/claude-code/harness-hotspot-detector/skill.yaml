@@ -1,0 +1,44 @@
+name: harness-hotspot-detector
+version: "1.0.0"
+description: Identify structural risk hotspots via co-change and churn analysis
+cognitive_mode: analytical-reporter
+triggers:
+  - manual
+  - scheduled
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-hotspot-detector
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-hotspot-detector
+    path: string
+type: rigid
+phases:
+  - name: co-change
+    description: Analyze co-change patterns from git history
+    required: true
+  - name: churn
+    description: Identify high-churn files and modules
+    required: true
+  - name: coupling
+    description: Detect hidden dependencies via logical coupling
+    required: true
+  - name: report
+    description: Generate ranked hotspot report
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []
