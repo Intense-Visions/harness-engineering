@@ -1,6 +1,11 @@
 import { Command } from 'commander';
 import * as path from 'path';
-import type { ContextQLResult } from '@harness-engineering/graph';
+import type {
+  ContextQLResult,
+  ContextQLParams,
+  NodeType,
+  EdgeType,
+} from '@harness-engineering/graph';
 
 export async function runQuery(
   projectPath: string,
@@ -13,16 +18,16 @@ export async function runQuery(
   const loaded = await store.load(graphDir);
   if (!loaded) throw new Error('No graph found. Run `harness scan` first.');
 
-  const params: Record<string, unknown> = {
+  const params: ContextQLParams = {
     rootNodeIds: [rootNodeId],
     maxDepth: opts.depth ?? 3,
     bidirectional: opts.bidirectional ?? false,
+    ...(opts.types ? { includeTypes: opts.types.split(',') as NodeType[] } : {}),
+    ...(opts.edges ? { includeEdges: opts.edges.split(',') as EdgeType[] } : {}),
   };
-  if (opts.types) params.includeTypes = opts.types.split(',');
-  if (opts.edges) params.includeEdges = opts.edges.split(',');
 
   const cql = new ContextQL(store);
-  return cql.execute(params as any);
+  return cql.execute(params);
 }
 
 export function createQueryCommand(): Command {

@@ -184,7 +184,7 @@ export class GraphStore {
   // --- Internal ---
 
   private stripLokiMeta<T>(doc: T): T {
-    const { $loki, meta, ...rest } = doc as LokiDoc<T>;
+    const { $loki: _, meta: _meta, ...rest } = doc as LokiDoc<T>;
     return rest as T;
   }
 }

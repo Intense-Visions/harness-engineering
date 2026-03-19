@@ -3,10 +3,14 @@ import { GENERATED_HEADER_AGENT } from './constants';
 
 function formatStep(step: Record<string, unknown>, index: number): string {
   if ('command' in step && step.command) {
-    return `${index + 1}. Run \`harness ${step.command}\` (${(step.when as string) ?? 'always'})`;
+    const cmd = step.command as string;
+    const when = (step.when as string) ?? 'always';
+    return `${index + 1}. Run \`harness ${cmd}\` (${when})`;
   }
   if ('skill' in step && step.skill) {
-    return `${index + 1}. Execute ${step.skill} skill (${(step.when as string) ?? 'always'})`;
+    const skill = step.skill as string;
+    const when = (step.when as string) ?? 'always';
+    return `${index + 1}. Execute ${skill} skill (${when})`;
   }
   return `${index + 1}. Unknown step`;
 }

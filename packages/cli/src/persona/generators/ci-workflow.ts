@@ -1,7 +1,7 @@
 import YAML from 'yaml';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
-import type { Persona, PersonaTrigger } from '../schema';
+import type { Persona, PersonaTrigger, CommandStep } from '../schema';
 
 function buildGitHubTriggers(triggers: PersonaTrigger[]): Record<string, unknown> {
   const on: Record<string, unknown> = {};
@@ -42,9 +42,7 @@ export function generateCIWorkflow(
     ];
 
     // Only emit command steps in CI (skill steps require AI agent runtime)
-    const commandSteps = persona.steps.filter(
-      (s): s is { command: string; when: string } => 'command' in s
-    );
+    const commandSteps = persona.steps.filter((s): s is CommandStep => 'command' in s);
 
     for (const step of commandSteps) {
       const severityFlag = severity ? ` --severity ${severity}` : '';

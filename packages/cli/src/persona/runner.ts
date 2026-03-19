@@ -155,7 +155,7 @@ export async function runPersona(
         trigger: resolvedTrigger,
         projectPath: context.projectPath,
         outputMode: step.output ?? 'auto',
-        handoff,
+        ...(handoff ? { handoff } : {}),
       };
 
       const SKILL_TIMEOUT_RESULT: SkillExecutionResult = {
@@ -189,7 +189,7 @@ export async function runPersona(
           type: 'skill',
           status: 'pass',
           result: result.output,
-          artifactPath: result.artifactPath,
+          ...(result.artifactPath ? { artifactPath: result.artifactPath } : {}),
           durationMs,
         });
       } else {

@@ -1,6 +1,6 @@
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
-import type { Persona, PersonaTrigger } from '../schema';
+import type { Persona, PersonaTrigger, CommandStep, SkillStep } from '../schema';
 
 function formatTrigger(trigger: PersonaTrigger): string {
   switch (trigger.event) {
@@ -24,13 +24,13 @@ export function generateAgentsMd(persona: Persona): Result<string, Error> {
 
     // Extract unique commands from steps
     const commands = persona.steps
-      .filter((s): s is { command: string; when: string } => 'command' in s)
+      .filter((s): s is CommandStep => 'command' in s)
       .map((s) => `\`harness ${s.command}\``)
       .join(', ');
 
     // Extract skill names from steps
     const stepSkills = persona.steps
-      .filter((s): s is { skill: string; when: string; output: string } => 'skill' in s)
+      .filter((s): s is SkillStep => 'skill' in s)
       .map((s) => `\`harness skill run ${s.skill}\``)
       .join(', ');
 

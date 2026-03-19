@@ -156,7 +156,7 @@ export async function executeSkill(
   return {
     status: 'pass',
     output,
-    artifactPath,
+    ...(artifactPath ? { artifactPath } : {}),
     durationMs: Date.now() - startTime,
   };
 }

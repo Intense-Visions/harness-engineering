@@ -53,7 +53,6 @@ export async function runGraphStatus(projectPath: string): Promise<GraphStatusRe
     edgeCount: store.edgeCount,
     nodesByType,
     lastScanTimestamp: lastScan,
-    connectorSyncStatus:
-      Object.keys(connectorSyncStatus).length > 0 ? connectorSyncStatus : undefined,
+    ...(Object.keys(connectorSyncStatus).length > 0 ? { connectorSyncStatus } : {}),
   };
 }
