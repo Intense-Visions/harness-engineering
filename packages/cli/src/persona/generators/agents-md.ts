@@ -14,6 +14,8 @@ function formatTrigger(trigger: PersonaTrigger): string {
     }
     case 'scheduled':
       return `Scheduled (cron: ${trigger.cron})`;
+    case 'manual':
+      return 'Manual';
   }
 }
 
