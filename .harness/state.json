@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "position": { "phase": "execute", "task": "Task 8" },
+  "position": { "phase": "complete", "task": "Task 8" },
   "progress": {
     "Task 1": "complete",
     "Task 2": "complete",
@@ -9,12 +9,12 @@
     "Task 5": "complete",
     "Task 6": "complete",
     "Task 7": "complete",
-    "Task 8": "in_progress"
+    "Task 8": "complete"
   },
   "lastSession": {
     "date": "2026-03-19",
-    "summary": "Release readiness skill: created skill.yaml and complete SKILL.md with all 4 phases, gates, escalation, examples. Task 8 (validation + real-world test) pending.",
+    "summary": "Release readiness skill complete. Created skill.yaml + SKILL.md (both platforms), proposal spec, and plan. Verified at all 3 levels, code reviewed, pre-commit checks passed.",
     "lastSkill": "harness-execution",
-    "pendingTasks": ["Task 8"]
+    "pendingTasks": []
   }
 }

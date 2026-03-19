@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-03-19T11:45:00Z",
+  "flags": {
+    "comprehensive": false
+  },
+  "summary": {
+    "result": "FAIL",
+    "passed": 86,
+    "warned": 5,
+    "failed": 0,
+    "total": 91
+  },
+  "categories": {
+    "packaging": {
+      "passed": 70,
+      "warned": 4,
+      "failed": 0,
+      "findings": [
+        {
+          "package": "packages/graph",
+          "check": "publishConfig",
+          "severity": "warn",
+          "fixable": true,
+          "fixed": false
+        },
+        {
+          "package": "packages/graph",
+          "check": "repository",
+          "severity": "warn",
+          "fixable": true,
+          "fixed": false
+        },
+        {
+          "package": "packages/graph",
+          "check": "bugs",
+          "severity": "warn",
+          "fixable": true,
+          "fixed": false
+        },
+        {
+          "package": "packages/graph",
+          "check": "homepage",
+          "severity": "warn",
+          "fixable": true,
+          "fixed": false
+        }
+      ]
+    },
+    "documentation": {
+      "passed": 6,
+      "warned": 0,
+      "failed": 0,
+      "findings": []
+    },
+    "repo-hygiene": {
+      "passed": 4,
+      "warned": 1,
+      "failed": 0,
+      "findings": [
+        {
+          "check": "TODO/FIXME in published source",
+          "severity": "warn",
+          "count": 233,
+          "fixable": false
+        }
+      ]
+    },
+    "ci-cd": {
+      "passed": 6,
+      "warned": 0,
+      "failed": 0,
+      "findings": []
+    },
+    "maintenance": {
+      "doc-drift": {
+        "issues": 13,
+        "findings": [
+          {
+            "file": "docs/guides/getting-started.md",
+            "line": 94,
+            "issue": "Skills count says 31, actual 37/38"
+          },
+          {
+            "file": "docs/guides/getting-started.md",
+            "line": 177,
+            "issue": "MCP tools says 31, actual 35"
+          },
+          {
+            "file": "docs/guides/getting-started.md",
+            "line": 220,
+            "issue": "Says six principles, should be seven"
+          },
+          { "file": "README.md", "line": 37, "issue": "harness init syntax wrong" },
+          { "file": "README.md", "line": 58, "issue": "ESLint plugin says 5 rules, actual 8" },
+          {
+            "file": "README.md",
+            "line": 60,
+            "issue": "MCP server says 37 tools/11 resources, actual 35/8"
+          },
+          { "file": "README.md", "line": 92, "issue": "Repeats wrong tool/resource counts" },
+          { "file": "README.md", "line": 140, "issue": "Skills count says 26, actual 37" },
+          { "file": "README.md", "line": 141, "issue": "Personas count says 6, actual 10" },
+          { "file": "AGENTS.md", "line": 36, "issue": "Claude-code skills says 36, actual 37" },
+          { "file": "AGENTS.md", "line": 37, "issue": "Gemini-cli skills says 37, actual 38" },
+          { "file": "docs/api/index.md", "line": 12, "issue": "MCP tools says 37, actual 35" },
+          {
+            "file": "docs/guides/getting-started.md",
+            "line": 66,
+            "issue": "Init syntax inconsistency"
+          }
+        ]
+      },
+      "dead-code": {
+        "issues": 13,
+        "findings": [
+          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/recommended.ts" },
+          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/strict.ts" },
+          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/index.ts" },
+          { "type": "orphan", "file": "packages/mcp-server/src/utils/glob-helper.ts" },
+          { "type": "orphan", "file": "packages/cli/src/templates/schema.ts" },
+          { "type": "orphan", "file": "packages/cli/src/templates/merger.ts" },
+          { "type": "orphan", "file": "packages/core/src/entropy/fixers/index.ts" },
+          { "type": "orphan", "file": "packages/core/src/entropy/config/index.ts" },
+          { "type": "orphan", "file": "packages/core/src/entropy/detectors/index.ts" },
+          { "type": "orphan", "file": "packages/eslint-plugin/src/utils/index.ts" },
+          { "type": "unused-export", "file": "packages/eslint-plugin/src/utils/schema.ts" },
+          {
+            "type": "unused-export",
+            "file": "packages/core/src/entropy/detectors/patterns.ts",
+            "export": "checkConfigPattern"
+          },
+          {
+            "type": "unused-export",
+            "file": "packages/core/src/shared/parsers/index.ts",
+            "export": "Location"
+          }
+        ]
+      },
+      "architecture": {
+        "issues": 3,
+        "findings": [
+          { "from": "cli", "to": "linter-gen", "severity": "violation" },
+          { "from": "mcp-server", "to": "cli", "severity": "violation", "files_affected": 7 },
+          { "from": "mcp-server", "to": "linter-gen", "severity": "violation" }
+        ]
+      },
+      "diagnostics": {
+        "issues": 3,
+        "findings": [
+          { "severity": "warning", "issue": "Node.js 21.6.1, requires >=22.0.0" },
+          { "severity": "info", "issue": "validateKnowledgeMap() deprecated" },
+          { "severity": "info", "issue": "validateAgentsMap() deprecated" }
+        ]
+      }
+    }
+  },
+  "fixes": {
+    "applied": ["added-license-graph"],
+    "pending": [
+      "graph-publishConfig",
+      "graph-repository",
+      "graph-bugs",
+      "graph-homepage",
+      "doc-drift-13-issues",
+      "dead-code-13-issues",
+      "architecture-3-violations",
+      "todo-fixme-in-dist"
+    ],
+    "skipped": []
+  }
+}

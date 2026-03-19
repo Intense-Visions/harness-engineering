@@ -48,3 +48,8 @@
 - **2026-03-19 [skill:harness-execution] [outcome:success]:** Tasks 1-3 parallelized via worktree agents. All completed successfully on first try — skill files are simple enough that agents produce correct output without deviation.
 
 - **2026-03-19 [skill:harness-execution] [outcome:success]:** Adding check-security to ALLOWED_PERSONA_COMMANDS and the persona YAML did not break persona count tests — the counts had already been updated in a previous session to be non-fragile or account for the current number.
+
+## 2026-03-19 — Release Readiness Skill
+
+- **2026-03-19 [skill:harness-execution] [outcome:gotcha]:** Skills declared with `platforms: [claude-code, gemini-cli]` in skill.yaml must have copies in BOTH `agents/skills/claude-code/` and `agents/skills/gemini-cli/`. The structure tests enforce platform parity — missing gemini-cli copy causes test failure.
+- **2026-03-19 [skill:harness-execution] [outcome:success]:** Brainstorming → planning → execution → verification → code-review → pre-commit-review pipeline completed end-to-end for a documentation-only deliverable (no runtime code). The harness workflow works equally well for skill authoring as for code implementation.
