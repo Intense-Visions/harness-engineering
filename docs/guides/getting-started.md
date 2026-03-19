@@ -95,7 +95,7 @@ Defined in `harness.config.json`, enforced by `@harness-engineering/no-layer-vio
 
 ### Personas
 
-Eight agent personas that run on your project:
+Ten agent personas that run on your project:
 
 - **Architecture Enforcer** — validates constraints on PRs and commits
 - **Code Reviewer** — structured code review with automated checks
@@ -104,6 +104,8 @@ Eight agent personas that run on your project:
 - **Entropy Cleaner** — finds dead code, stale patterns, unused deps
 - **Graph Maintainer** — maintains knowledge graph freshness
 - **Parallel Coordinator** — coordinates parallel agent work
+- **Performance Guardian** — enforces performance budgets and detects regressions
+- **Security Reviewer** — scans for vulnerabilities and enforces security policies
 - **Task Executor** — executes planned tasks with validation
 
 ### State Management

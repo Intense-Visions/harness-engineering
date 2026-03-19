@@ -95,4 +95,4 @@ export type {
 export { GraphFeedbackAdapter } from './feedback/GraphFeedbackAdapter.js';
 export type { GraphImpactData, GraphHarnessCheckData } from './feedback/GraphFeedbackAdapter.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';

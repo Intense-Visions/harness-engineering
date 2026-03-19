@@ -81,6 +81,14 @@ Create `harness.config.json` in your project root:
 | --------------------- | ------------------------ | ------- |
 | `enforce-doc-exports` | Require JSDoc on exports | warn    |
 
+### Performance Rules
+
+| Rule                          | Description                                      | Default |
+| ----------------------------- | ------------------------------------------------ | ------- |
+| `no-nested-loops-in-critical` | Disallow nested loops in critical path functions | warn    |
+| `no-sync-io-in-async`         | Disallow synchronous I/O in async functions      | warn    |
+| `no-unbounded-array-chains`   | Disallow unbounded array method chains           | warn    |
+
 ## Configs
 
 - **recommended**: Architecture rules as errors, others as warnings

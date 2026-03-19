@@ -24,7 +24,11 @@ interface GraphConnector {
 
 Connectors are declared in the `graph.connectors` section of
 `harness.config.json`. Each entry specifies the connector type and its
-options:
+options.
+
+> **Note:** The `graph.connectors` configuration is consumed directly by the
+> graph package's `SyncManager` but is not yet validated by the CLI config
+> schema. Unrecognized keys are passed through without errors.
 
 ```jsonc
 {
@@ -173,7 +177,7 @@ increase the `schedule` interval to spread load over time.
 
 **No edges created** -- Edges are only created when ingested text contains
 keywords or file paths matching existing code nodes in the graph. Run a code
-ingest first (`harness graph build`) before syncing external connectors.
+ingest first (`harness scan`) before syncing external connectors.
 
 **Stale sync-metadata.json** -- The file is safe to delete. The SyncManager
 will recreate it on the next sync run.

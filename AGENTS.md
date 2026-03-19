@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 31 skills (claude-code) / 32 skills (gemini-cli), 8 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 36 skills (claude-code) / 37 skills (gemini-cli), 10 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -33,9 +33,9 @@ harness-engineering/
 │   ├── mcp-server/           # MCP server for AI agent integration
 │   └── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 31 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 32 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
-│   └── personas/             # 8 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, task-executor)
+│   ├── skills/claude-code/   # 36 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 37 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
+│   └── personas/             # 10 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, security-reviewer, task-executor)
 ├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level
@@ -296,7 +296,7 @@ This creates a permanent record that AI agents can access and understand.
 When working on this project, agents should prioritize reading:
 
 1. **First**: [Harness Engineering Standard](./docs/standard/index.md) - Understanding the vision
-2. **Second**: [Six Core Principles](./docs/standard/principles.md) - Understanding how it works
+2. **Second**: [Seven Core Principles](./docs/standard/principles.md) - Understanding how it works
 3. **Third**: [Getting Started Guide](./docs/guides/getting-started.md) - Practical setup
 4. **Reference**: [Implementation Guide](./docs/standard/implementation.md) - Detailed guidance
 5. **Context**: This file (AGENTS.md) - Navigation and quick reference

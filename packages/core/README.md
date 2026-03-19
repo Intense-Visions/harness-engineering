@@ -36,7 +36,7 @@ const conventions: Convention[] = [
   },
 ];
 
-const result = await validateFileStructure(conventions, './my-project');
+const result = await validateFileStructure('./my-project', conventions);
 
 if (result.ok) {
   console.log('Valid:', result.value.valid);
