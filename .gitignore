@@ -38,6 +38,11 @@ temp/
 
 # Worktrees
 .worktrees/
+.claude/worktrees/
+
+# Harness runtime artifacts
+.harness/graph/
+.harness/debug/
 
 .vitepress
 *.tsbuildinfo
