@@ -151,17 +151,17 @@ export function createUpdateCommand(): Command {
         process.exit(ExitCode.ERROR);
       }
 
-      // 6. Post-update: offer to regenerate slash commands
+      // 6. Post-update: offer to regenerate slash commands + agent definitions
       console.log('');
-      const regenAnswer = await prompt('Regenerate slash commands? (y/N) ');
+      const regenAnswer = await prompt('Regenerate slash commands and agent definitions? (y/N) ');
       if (regenAnswer === 'y' || regenAnswer === 'yes') {
         const scopeAnswer = await prompt('Generate for (g)lobal or (l)ocal project? (g/l) ');
         const globalFlag = scopeAnswer === 'g' || scopeAnswer === 'global' ? ' --global' : '';
         try {
-          execSync(`harness generate-slash-commands${globalFlag}`, { stdio: 'inherit' });
+          execSync(`harness generate${globalFlag}`, { stdio: 'inherit' });
         } catch {
-          logger.warn('Slash command generation failed. Run manually:');
-          console.log(`  ${chalk.cyan(`harness generate-slash-commands${globalFlag}`)}`);
+          logger.warn('Generation failed. Run manually:');
+          console.log(`  ${chalk.cyan(`harness generate${globalFlag}`)}`);
         }
       }
 
