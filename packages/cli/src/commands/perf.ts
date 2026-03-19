@@ -12,16 +12,51 @@ export function createPerfCommand(): Command {
     .description('Run benchmarks via vitest bench')
     .action(async (glob: string | undefined, _opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const pattern = glob ?? '**/*.bench.ts';
-      const command = `npx vitest bench ${pattern}`;
+      const cwd = process.cwd();
+
+      const { BenchmarkRunner } = await import('@harness-engineering/core');
+      const runner = new BenchmarkRunner();
+
+      // First check if any bench files exist
+      const benchFiles = runner.discover(cwd, glob);
+      if (benchFiles.length === 0) {
+        if (globalOpts.json) {
+          console.log(JSON.stringify({ benchFiles: [], message: 'No .bench.ts files found' }));
+        } else {
+          logger.info('No .bench.ts files found. Create *.bench.ts files to add benchmarks.');
+        }
+        return;
+      }
 
       if (globalOpts.json) {
-        console.log(
-          JSON.stringify({ command, instructions: 'Run this command to execute benchmarks' })
-        );
+        logger.info(`Found ${benchFiles.length} benchmark file(s). Running...`);
       } else {
-        logger.info(`Run benchmarks with: ${command}`);
-        logger.info('Then update baselines with: harness perf baselines update');
+        logger.info(`Found ${benchFiles.length} benchmark file(s):`);
+        for (const f of benchFiles) {
+          logger.info(`  ${f}`);
+        }
+        logger.info('Running benchmarks...');
+      }
+
+      const result = await runner.run(glob ? { cwd, glob } : { cwd });
+
+      if (globalOpts.json) {
+        console.log(JSON.stringify({ results: result.results, success: result.success }));
+      } else {
+        if (result.success && result.results.length > 0) {
+          logger.info(`\nResults (${result.results.length} benchmarks):`);
+          for (const r of result.results) {
+            logger.info(
+              `  ${r.file}::${r.name}: ${r.opsPerSec} ops/s (mean: ${r.meanMs.toFixed(2)}ms)`
+            );
+          }
+          logger.info('\nTo save as baselines: harness perf baselines update');
+        } else {
+          logger.info('Benchmark run completed. Check output above for details.');
+          if (result.rawOutput) {
+            console.log(result.rawOutput);
+          }
+        }
       }
     });
 
@@ -65,15 +100,38 @@ export function createPerfCommand(): Command {
     .description('Update baselines from latest benchmark run')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      if (globalOpts.json) {
-        console.log(
-          JSON.stringify({ instructions: 'Run vitest bench first, then pipe results to update' })
+      const cwd = process.cwd();
+
+      const { BenchmarkRunner } = await import('@harness-engineering/core');
+      const runner = new BenchmarkRunner();
+      const manager = new BaselineManager(cwd);
+
+      logger.info('Running benchmarks to update baselines...');
+      const benchResult = await runner.run({ cwd });
+
+      if (!benchResult.success || benchResult.results.length === 0) {
+        logger.error(
+          'No benchmark results to save. Run `harness perf bench` first to verify benchmarks work.'
         );
+        return;
+      }
+
+      // Get current commit hash
+      let commitHash = 'unknown';
+      try {
+        const { execSync } = await import('node:child_process');
+        commitHash = execSync('git rev-parse --short HEAD', { cwd, encoding: 'utf-8' }).trim();
+      } catch {
+        /* ignore */
+      }
+
+      manager.save(benchResult.results, commitHash);
+
+      if (globalOpts.json) {
+        console.log(JSON.stringify({ updated: benchResult.results.length, commitHash }));
       } else {
-        logger.info('To update baselines:');
-        logger.info('  1. Run: npx vitest bench --reporter=json > bench-results.json');
-        logger.info('  2. Parse results and call BaselineManager.save()');
-        logger.info('  3. Or use the update_perf_baselines MCP tool');
+        logger.info(`Updated ${benchResult.results.length} baseline(s) from commit ${commitHash}`);
+        logger.info('Baselines saved to .harness/perf/baselines.json');
       }
     });
 
