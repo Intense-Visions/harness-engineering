@@ -467,6 +467,8 @@ harness check-phase-gate
 | Ship       | `gh pr create`                                                       | `/harness:git-workflow`                                                                                                                            | PR                                             |
 | Maintain   | `harness validate`, `harness check-deps`                             | `/harness:detect-doc-drift`, `/harness:cleanup-dead-code`, `/harness:align-documentation`, `/harness:enforce-architecture`, `/harness:diagnostics` | —                                              |
 
+> **Tip:** For multi-phase projects, `/harness:autopilot` automates the Plan → Implement → Verify → Review cycle across all phases. It chains the skills above, pausing only at human decision points (plan approval, complex design, unrecoverable failures). Use it when your spec has 2+ implementation phases.
+
 ## Further Reading
 
 - [Getting Started](./getting-started.md) — installation, examples, adoption levels
