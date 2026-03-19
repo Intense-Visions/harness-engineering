@@ -6,6 +6,8 @@ export const ALLOWED_PERSONA_COMMANDS = new Set([
   'validate',
   'check-deps',
   'check-docs',
+  'check-perf',
+  'check-security',
   'cleanup',
   'fix-drift',
   'add',
