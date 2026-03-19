@@ -40,6 +40,23 @@ export const PhaseGatesConfigSchema = z.object({
     .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }]),
 });
 
+export const SecurityConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    strict: z.boolean().default(false),
+    rules: z.record(z.string(), z.enum(['off', 'error', 'warning', 'info'])).optional(),
+    exclude: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+export const PerformanceConfigSchema = z
+  .object({
+    complexity: z.record(z.unknown()).optional(),
+    coupling: z.record(z.unknown()).optional(),
+    sizeBudget: z.record(z.unknown()).optional(),
+  })
+  .passthrough();
+
 export const HarnessConfigSchema = z.object({
   version: z.literal(1),
   name: z.string().optional(),
@@ -51,6 +68,8 @@ export const HarnessConfigSchema = z.object({
   docsDir: z.string().default('./docs'),
   agent: AgentConfigSchema.optional(),
   entropy: EntropyConfigSchema.optional(),
+  security: SecurityConfigSchema.optional(),
+  performance: PerformanceConfigSchema.optional(),
   template: z
     .object({
       level: z.enum(['basic', 'intermediate', 'advanced']),

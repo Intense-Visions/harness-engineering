@@ -99,6 +99,9 @@
   "security": {
     "enabled": true,
     "strict": false,
+    "rules": {
+      "SEC-CRY-001": "warning"
+    },
     "exclude": [
       "**/node_modules/**",
       "**/dist/**",

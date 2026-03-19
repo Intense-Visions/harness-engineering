@@ -6,5 +6,11 @@
     { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] }
   ],
   "agentsMapPath": "./AGENTS.md",
-  "docsDir": "./docs"
+  "docsDir": "./docs",
+  "security": {
+    "enabled": true,
+    "strict": false,
+    "rules": { "SEC-CRY-001": "warning" },
+    "exclude": ["**/coverage/**", "**/security/rules/**"]
+  }
 }

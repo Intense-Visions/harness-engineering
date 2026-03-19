@@ -40,4 +40,18 @@ describe('loadConfig', () => {
     const result = loadConfig('/nonexistent/harness.config.json');
     expect(result.ok).toBe(false);
   });
+
+  it('preserves security config through schema validation', () => {
+    const configPath = path.join(__dirname, '../fixtures/valid-project/harness.config.json');
+    const result = loadConfig(configPath);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const config = result.value as Record<string, unknown>;
+    const security = config.security as Record<string, unknown>;
+    expect(security).toBeDefined();
+    expect(security.enabled).toBe(true);
+    expect(security.exclude).toEqual(['**/coverage/**', '**/security/rules/**']);
+    expect(security.rules).toEqual({ 'SEC-CRY-001': 'warning' });
+  });
 });
