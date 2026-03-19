@@ -173,8 +173,10 @@ harness add <type> <name>
 
 ```
 layer          Add a new architectural layer
+module         Add a new module
 doc            Add a new documentation file
-component      Add a new component
+skill          Add a new skill
+persona        Add a new persona
 ```
 
 **Examples:**
@@ -186,8 +188,11 @@ harness add layer data-access
 # Add a documentation file
 harness add doc api-reference
 
-# Add a component
-harness add component UserService
+# Add a module
+harness add module user-service
+
+# Add a skill
+harness add skill code-review
 ```
 
 ---
@@ -205,7 +210,7 @@ harness cleanup [options]
 **Options:**
 
 ```
--t, --type <type>       Type of entropy to check (doc-drift, dead-code, patterns)
+-t, --type <type>       Type of entropy to check (doc-drift, dead-code, patterns, all). Default: all
 ```
 
 **Examples:**
@@ -328,8 +333,14 @@ harness persona generate <name> [options]
 # Generate all artifacts for a persona
 harness persona generate architect
 
-# Generate only prompts to a custom directory
-harness persona generate architect --only prompts --output-dir ./out
+# Generate only CI workflow to a custom directory
+harness persona generate architect --only ci --output-dir ./out
+
+# Generate only AGENTS.md fragment
+harness persona generate architect --only agents-md
+
+# Generate only runtime config
+harness persona generate architect --only runtime
 ```
 
 ---
@@ -551,7 +562,7 @@ harness state reset --yes
 Append a learning to .harness/learnings.md.
 
 ```
-harness state learn <learning> [options]
+harness state learn <message> [options]
 ```
 
 **Options:**
@@ -631,6 +642,288 @@ harness generate-slash-commands --global --skills-dir ./my-skills
 
 ---
 
+## Generation Commands
+
+### harness generate-agent-definitions
+
+Generate agent definition files from personas for Claude Code and Gemini CLI.
+
+```
+harness generate-agent-definitions [options]
+```
+
+**Options:**
+
+```
+--platforms <list>       Target platforms (comma-separated, default: claude-code,gemini-cli)
+--global                 Write to global agent directories
+--output <dir>           Custom output directory
+--dry-run                Show what would change without writing
+```
+
+**Examples:**
+
+```bash
+# Generate agent definitions for all platforms
+harness generate-agent-definitions
+
+# Preview without writing
+harness generate-agent-definitions --dry-run
+
+# Generate only for Claude Code
+harness generate-agent-definitions --platforms claude-code
+```
+
+---
+
+### harness generate
+
+Generate all platform integrations (slash commands + agent definitions).
+
+```
+harness generate [options]
+```
+
+**Options:**
+
+```
+--platforms <list>       Target platforms (comma-separated, default: claude-code,gemini-cli)
+--global                 Write to global directories
+--include-global         Include built-in global skills
+--output <dir>           Custom output directory
+--dry-run                Show what would change without writing
+--yes                    Skip deletion confirmation prompts
+```
+
+**Examples:**
+
+```bash
+# Generate all integrations
+harness generate
+
+# Generate globally with dry run
+harness generate --global --dry-run
+```
+
+---
+
+## CI/CD Commands
+
+### harness ci check
+
+Run all harness checks for CI (validate, deps, docs, entropy, phase-gate).
+
+```
+harness ci check [options]
+```
+
+**Options:**
+
+```
+--skip <checks>          Comma-separated checks to skip (e.g., entropy,docs)
+--fail-on <severity>     Fail on severity level: error (default) or warning
+```
+
+**Examples:**
+
+```bash
+# Run all CI checks
+harness ci check
+
+# Skip entropy and docs checks
+harness ci check --skip entropy,docs
+
+# Fail on warnings too
+harness ci check --fail-on warning
+```
+
+---
+
+### harness ci init
+
+Generate CI configuration for harness checks.
+
+```
+harness ci init [options]
+```
+
+**Options:**
+
+```
+--platform <platform>    CI platform: github, gitlab, or generic
+--checks <list>          Comma-separated list of checks to include
+```
+
+**Examples:**
+
+```bash
+# Generate GitHub Actions workflow
+harness ci init --platform github
+
+# Generate with specific checks
+harness ci init --platform gitlab --checks validate,deps,docs
+```
+
+---
+
+## Update Command
+
+### harness update
+
+Update all @harness-engineering packages to the latest version.
+
+```
+harness update [options]
+```
+
+**Options:**
+
+```
+--version <semver>       Pin @harness-engineering/cli to a specific version
+```
+
+**Examples:**
+
+```bash
+# Update to latest
+harness update
+
+# Pin to a specific version
+harness update --version 1.5.0
+```
+
+---
+
+## Graph Commands
+
+### harness scan
+
+Scan project and build knowledge graph.
+
+```
+harness scan [path]
+```
+
+**Arguments:**
+
+```
+[path]                   Project root path (default: .)
+```
+
+**Examples:**
+
+```bash
+# Scan current project
+harness scan
+
+# Scan a specific path
+harness scan /path/to/project
+```
+
+---
+
+### harness ingest
+
+Ingest data into the knowledge graph.
+
+```
+harness ingest [options]
+```
+
+**Options:**
+
+```
+--source <name>          Source to ingest: code, knowledge, git, jira, slack
+--all                    Run all sources (code, knowledge, git, and configured connectors)
+--full                   Force full re-ingestion
+```
+
+**Examples:**
+
+```bash
+# Ingest code structure
+harness ingest --source code
+
+# Ingest all sources
+harness ingest --all
+
+# Force full re-ingestion
+harness ingest --all --full
+```
+
+---
+
+### harness query
+
+Query the knowledge graph.
+
+```
+harness query <rootNodeId> [options]
+```
+
+**Arguments:**
+
+```
+<rootNodeId>             Starting node ID (required)
+```
+
+**Options:**
+
+```
+--depth <n>              Max traversal depth (default: 3)
+--types <types>          Comma-separated node types to include
+--edges <edges>          Comma-separated edge types to include
+--bidirectional          Traverse both directions
+```
+
+**Examples:**
+
+```bash
+# Query from a specific node
+harness query src/services/user-service.ts
+
+# Query with depth and type filters
+harness query src/index.ts --depth 5 --types file,function --edges imports
+```
+
+---
+
+### harness graph status
+
+Show knowledge graph statistics.
+
+```
+harness graph status
+```
+
+---
+
+### harness graph export
+
+Export the knowledge graph.
+
+```
+harness graph export [options]
+```
+
+**Options:**
+
+```
+--format <format>        Output format: json or mermaid (required)
+```
+
+**Examples:**
+
+```bash
+# Export as JSON
+harness graph export --format json
+
+# Export as Mermaid diagram
+harness graph export --format mermaid
+```
+
+---
+
 ## Exit Codes
 
 The CLI uses the following exit codes:
@@ -678,4 +971,4 @@ harness validate --config=/path/to/harness.config.json
 
 ---
 
-_Last Updated: 2026-03-17_
+_Last Updated: 2026-03-19_

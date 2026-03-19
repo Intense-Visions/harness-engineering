@@ -91,15 +91,20 @@ Defined in `harness.config.json`, enforced by `@harness-engineering/no-layer-vio
 
 ### Skills
 
-26 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
+31 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
 
 ### Personas
 
-Three agent personas that run on your project:
+Eight agent personas that run on your project:
 
 - **Architecture Enforcer** — validates constraints on PRs and commits
+- **Code Reviewer** — structured code review with automated checks
+- **Codebase Health Analyst** — analyzes codebase health metrics
 - **Documentation Maintainer** — detects doc drift and missing coverage
 - **Entropy Cleaner** — finds dead code, stale patterns, unused deps
+- **Graph Maintainer** — maintains knowledge graph freshness
+- **Parallel Coordinator** — coordinates parallel agent work
+- **Task Executor** — executes planned tasks with validation
 
 ### State Management
 
@@ -167,8 +172,8 @@ Then add your project directory to `~/.gemini/trustedFolders.json` so Gemini tru
 
 ### What the MCP Server Provides
 
-- **23 tools** — project validation, dependency checking, entropy detection, skill execution, persona management, linter generation, state management, code review, diff analysis, phase gates, cross-checks, skill scaffolding
-- **5 resources** — `harness://project` (AGENTS.md context), `harness://skills` (skill catalog), `harness://rules` (active linter rules), `harness://learnings` (review log), `harness://state` (project state)
+- **31 tools** — project validation, dependency checking, entropy detection, skill execution, persona management, linter generation, state management, code review, diff analysis, phase gates, cross-checks, skill scaffolding, graph querying, impact analysis, agent definition generation, and more
+- **8 resources** — `harness://project` (AGENTS.md context), `harness://skills` (skill catalog), `harness://rules` (active linter rules), `harness://learnings` (review log), `harness://state` (project state), `harness://graph` (graph statistics), `harness://entities` (entity nodes), `harness://relationships` (graph edges)
 
 Once connected, your AI agent can validate constraints, run skills, and access project context without leaving the conversation.
 

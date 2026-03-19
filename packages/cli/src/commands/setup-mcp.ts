@@ -129,8 +129,12 @@ export function createSetupMcpCommand(): Command {
         }
         console.log('');
         console.log(chalk.bold('The harness MCP server provides:'));
-        console.log('  - 15 tools for validation, entropy detection, and skill execution');
-        console.log('  - 4 resources for project context, skills, rules, and learnings');
+        console.log(
+          '  - 31 tools for validation, entropy detection, skill execution, graph querying, and more'
+        );
+        console.log(
+          '  - 8 resources for project context, skills, rules, learnings, state, and graph data'
+        );
         console.log('');
         console.log(`Run ${chalk.cyan('harness skill list')} to see available skills.`);
         console.log('');

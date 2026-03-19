@@ -1,20 +1,7 @@
 {
   "version": 1,
   "name": "harness-hello-world",
-  "layers": [
-    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
-    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
-    {
-      "name": "services",
-      "pattern": "src/services/**",
-      "allowedDependencies": ["types", "domain"]
-    },
-    {
-      "name": "api",
-      "pattern": "src/api/**",
-      "allowedDependencies": ["types", "domain", "services"]
-    }
-  ],
+  "layers": [],
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
   "template": {
