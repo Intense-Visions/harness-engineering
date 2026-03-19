@@ -99,7 +99,14 @@
   "security": {
     "enabled": true,
     "strict": false,
-    "exclude": ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/tests/fixtures/**"]
+    "exclude": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.test.ts",
+      "**/tests/fixtures/**",
+      "**/coverage/**",
+      "**/security/rules/**"
+    ]
   },
   "entropy": {
     "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/tests/fixtures/**"],

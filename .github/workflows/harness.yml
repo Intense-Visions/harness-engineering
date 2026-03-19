@@ -18,6 +18,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install -g @harness-engineering/cli
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - name: Run harness checks
-        run: harness ci check --json
+        run: node packages/cli/dist/bin/harness.js ci check --json
