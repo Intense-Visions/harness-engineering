@@ -49,7 +49,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Skip to the recorded `currentState` and continue from there.
 
 2. **If no existing state (fresh start):**
-   - Read the spec file (provided as argument or found via `.harness/handoff.json`).
+   - Read the spec file (provided as argument or found via `.harness/handoff.json`). If neither is available, ask the user for the spec path.
    - Parse the `## Implementation Order` section to extract phases.
    - For each phase heading (`### Phase N: Name`), extract:
      - Phase name
@@ -269,12 +269,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
    ```json
    {
-     "phase": "<index>",
+     "phase": 0,
      "name": "<phase name>",
      "startedAt": "<timestamp>",
      "completedAt": "<now>",
-     "tasksCompleted": "<count>",
-     "retriesUsed": "<count>",
+     "tasksCompleted": 8,
+     "retriesUsed": 1,
      "verificationPassed": true,
      "reviewFindings": { "blocking": 0, "warning": 1, "note": 3 }
    }
@@ -417,7 +417,7 @@ Rule Engine section of the spec, then re-invoke /harness:autopilot to continue.
 **INIT (resume):**
 
 ```
-Resuming autopilot from state PLAN, phase 1: Rule Engine.
+Resuming autopilot from state PLAN, phase 2: Rule Engine.
 Found plan: docs/plans/2026-03-19-rule-engine-plan.md
 ```
 
