@@ -83,6 +83,43 @@ npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes
 npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes/login.test.ts tests/middleware/verify.test.ts tests/integration/auth-flow.test.ts
 ```
 
+## Harness Integration
+
+- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness validate`** — Run after acting on findings to verify project health.
+- **Graph tools** — This skill uses `query_graph`, `get_impact`, and `get_relationships` MCP tools.
+
+## Success Criteria
+
+- Tests prioritized into 3 tiers (Must Run, Should Run, Could Run)
+- Executable run commands generated for quick and full test runs
+- Coverage gaps flagged for changed files with no test coverage
+- Report follows the structured output format
+- All findings are backed by graph query evidence, not heuristics
+
+## Examples
+
+### Example: Selecting Tests for a Services Change
+
+```
+Input: git diff shows src/services/auth.ts and src/types/user.ts modified
+
+1. PARSE    — 2 changed files identified (both .ts)
+2. DISCOVER — get_impact(filePath="src/services/auth.ts")
+              query_graph with depth 2 for transitive tests
+              Tier 1: auth.test.ts, user.test.ts (direct imports)
+              Tier 2: login.test.ts, verify.test.ts (one hop away)
+              Tier 3: auth-flow.test.ts (co-change history)
+3. PRIORITIZE — 5 tests across 3 tiers
+
+Output:
+  Tier 1 (must run): 2 tests
+  Tier 2 (should run): 2 tests
+  Tier 3 (could run): 1 test
+  Quick command: npx vitest run auth.test.ts user.test.ts login.test.ts verify.test.ts
+  Coverage gaps: none
+```
+
 ## Gates
 
 - **No advice without graph.** If no graph exists, fall back to: "Run all tests in the same directory as changed files."

@@ -107,6 +107,42 @@ harness scan [path]
 
 This ensures subsequent graph queries (impact analysis, drift detection) include the newly generated documentation.
 
+## Harness Integration
+
+- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness validate`** — Run after acting on findings to verify project health.
+- **Graph tools** — This skill uses `query_graph`, `get_relationships`, and `check_docs` MCP tools.
+
+## Success Criteria
+
+- Knowledge map generated with all sections (structure, entry points, dependencies, API surface, patterns)
+- Coverage gaps identified (undocumented modules, missing descriptions, stale references)
+- Output written to AGENTS.md (or specified path) in proper markdown format
+- Report follows the structured output format
+- All findings are backed by graph query evidence, not heuristics
+
+## Examples
+
+### Example: Generating AGENTS.md from Graph
+
+```
+Input: No AGENTS.md exists, graph is current after harness scan
+
+1. SURVEY   — query_graph for module hierarchy: 4 packages found
+              search_similar for entry points: 4 identified
+              get_relationships for dependency flow per module
+2. GENERATE — Built 5 sections: structure, entry points,
+              dependencies, API surface, patterns
+3. AUDIT    — check_docs found 3 undocumented modules,
+              5 files with no test coverage
+4. OUTPUT   — Wrote AGENTS.md to project root (new file)
+
+Output:
+  AGENTS.md generated (142 lines)
+  Coverage gaps: 3 undocumented modules, 5 untested files
+  No stale references (fresh generation)
+```
+
 ## Gates
 
 - **No generation without graph.** If no graph exists, stop and instruct to run `harness scan`.

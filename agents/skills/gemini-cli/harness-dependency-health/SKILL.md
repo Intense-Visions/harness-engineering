@@ -102,6 +102,43 @@ For each problem found, generate a specific, actionable recommendation:
 3. Flatten auth chain by having auth import db directly
 ```
 
+## Harness Integration
+
+- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness validate`** — Run after acting on findings to verify project health.
+- **Graph tools** — This skill uses `query_graph`, `get_relationships`, and `check_dependencies` MCP tools.
+
+## Success Criteria
+
+- Health score computed on 0-100 scale with letter grade (A-F)
+- All five structural metrics gathered (hubs, orphans, cycles, deep chains, cohesion)
+- Recommendations are specific and actionable (name files, suggest concrete fixes)
+- Report follows the structured output format
+- All findings are backed by graph query evidence, not heuristics
+
+## Examples
+
+### Example: Weekly Health Check on Monorepo
+
+```
+Input: Scheduled weekly run on project root
+
+1. METRICS    — query_graph for hubs: 2 found (helpers.ts, index.ts)
+                get_relationships for orphans: 3 found
+                check_dependencies for cycles: 0 found
+                query_graph for deep chains: 1 found (8 hops)
+                Module cohesion average: 0.62
+2. SCORE      — Weighted score: 78/100 (Grade: B)
+3. RECOMMEND  — "Split helpers.ts (14 importers) into domain modules"
+                "Investigate old-parser.ts for removal (0 importers)"
+                "Flatten auth chain — 8 hops exceeds threshold"
+
+Output:
+  Score: B (78/100)
+  Top issues: 2 hubs, 3 orphans, 1 deep chain
+  3 actionable recommendations generated
+```
+
 ## Gates
 
 - **No analysis without graph.** If no graph exists, stop and instruct to run `harness scan`.

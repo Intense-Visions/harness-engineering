@@ -88,6 +88,42 @@ Use `get_relationships` to check structural edges between co-change pairs.
 - Hidden dependencies: 1
 ```
 
+## Harness Integration
+
+- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness validate`** — Run after acting on findings to verify project health.
+- **Graph tools** — This skill uses `query_graph`, `get_impact`, and `get_relationships` MCP tools.
+
+## Success Criteria
+
+- Hotspots ranked by composite risk score (churn + coupling)
+- Hidden dependencies identified (high co-change, no structural edge)
+- Co-change patterns detected and classified (co-located vs distant)
+- Report follows the structured output format
+- All findings are backed by graph query evidence, not heuristics
+
+## Examples
+
+### Example: Detecting Hotspots in a Growing Codebase
+
+```
+Input: Scheduled weekly analysis on project root
+
+1. CO-CHANGE — query_graph for co_changes_with edges
+               Found 4 distant co-change pairs
+2. CHURN     — Ranked files by commit frequency
+               billing.ts: 23 commits, helpers.ts: 45 commits
+3. COUPLING  — Cross-referenced co-change vs imports edges
+               billing.ts <-> invoice.ts: 15 co-changes, no imports edge
+               (hidden dependency detected)
+4. REPORT    — Ranked hotspots by risk score
+
+Output:
+  Hotspots: 5 total (2 high, 3 medium)
+  Hidden dependencies: 1 (billing.ts <-> invoice.ts)
+  Top recommendation: Extract shared billing types
+```
+
 ## Gates
 
 - **No analysis without graph + git data.** Both code structure and git history must be ingested.

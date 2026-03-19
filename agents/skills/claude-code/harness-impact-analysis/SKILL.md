@@ -92,6 +92,42 @@ For each changed file:
    3. src/routes/signup.ts — imports user.ts (transitive via auth.ts)
    ```
 
+## Harness Integration
+
+- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness validate`** — Run after acting on findings to verify project health.
+- **Graph tools** — This skill uses `query_graph`, `get_impact`, and `get_relationships` MCP tools.
+
+## Success Criteria
+
+- Impact report generated with a risk tier (Critical / High / Medium / Low)
+- All affected test files listed with direct vs transitive classification
+- All affected documentation files listed with relationship context
+- Report follows the structured output format
+- All findings are backed by graph query evidence, not heuristics
+
+## Examples
+
+### Example: Analyzing a Change to auth.ts
+
+```
+Input: git diff shows src/services/auth.ts modified
+
+1. IDENTIFY — Extract changed file: src/services/auth.ts
+2. ANALYZE  — get_impact(filePath="src/services/auth.ts")
+              query_graph(rootNodeIds=["file:src/services/auth.ts"], maxDepth=3)
+              Results: 8 direct dependents, 23 transitive, 5 tests, 2 docs
+3. ASSESS   — Impact score: 34 (High tier)
+              - Entry points affected: no
+              - Tests exist: yes (5 files)
+
+Output:
+  Risk tier: HIGH
+  Must-run tests: auth.test.ts, login.test.ts, auth-flow.test.ts
+  Docs to update: auth-guide.md, api-reference.md
+  Downstream consumers: 8 files across 3 modules
+```
+
 ## Gates
 
 - **No analysis without graph.** If no graph exists at `.harness/graph/`, stop and instruct the user to run `harness scan`.
