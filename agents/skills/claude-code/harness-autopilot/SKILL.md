@@ -141,3 +141,70 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Look for files matching `docs/plans/*{phase-name}*` or check `.harness/handoff.json` for a planning handoff.
 2. If found: update `planPath` in state, transition to `APPROVE_PLAN`.
 3. If not found: remind the user and wait.
+
+---
+
+### APPROVE_PLAN — Human Review Gate
+
+**This state always pauses for human input.**
+
+1. **Present the plan summary:**
+   - Phase name and number
+   - Task count
+   - Checkpoint count
+   - Estimated time (task count × 3 minutes)
+   - Effective complexity (original + any override)
+   - Any concerns from the planning handoff
+
+2. **Ask:** "Approve this plan and begin execution? (yes / revise / skip phase / stop)"
+   - **yes** — Transition to EXECUTE.
+   - **revise** — Tell user to edit the plan file directly, then re-present.
+   - **skip phase** — Mark phase as `skipped` in state, transition to PHASE_COMPLETE.
+   - **stop** — Save state and exit. User can resume later.
+
+3. **Record the decision** in state: `decisions` array.
+
+4. **Update state** with `currentState: "EXECUTE"` and save.
+
+---
+
+### EXECUTE — Run the Plan
+
+1. **Dispatch execution subagent:**
+
+   ```
+   You are running harness-execution for phase {N}: {name}.
+
+   Plan: {planPath}
+   State: .harness/state.json
+   Learnings: .harness/learnings.md
+   Failures: .harness/failures.md
+
+   Follow the harness-execution skill process exactly.
+   Update .harness/state.json after each task.
+   Write .harness/handoff.json when done or when blocked.
+   ```
+
+2. **When the subagent returns, check the outcome:**
+   - **All tasks complete:** Transition to VERIFY.
+   - **Checkpoint reached:** Surface the checkpoint to the user in the main conversation. Handle the checkpoint type:
+     - `[checkpoint:human-verify]` — Show output, ask for confirmation, then resume execution subagent.
+     - `[checkpoint:decision]` — Present options, record choice, resume execution subagent.
+     - `[checkpoint:human-action]` — Instruct user, wait for confirmation, resume execution subagent.
+   - **Task failed:** Enter retry logic (see below).
+
+3. **Retry logic on failure:**
+   - Read `retryBudget` from state.
+   - If `attemptsUsed < maxAttempts`:
+     - Increment `attemptsUsed`.
+     - Record the attempt (timestamp, error, fix attempted, result).
+     - **Attempt 1:** Read error output, apply obvious fix, re-dispatch execution subagent for the failed task only.
+     - **Attempt 2:** Expand context — read related files, check `learnings.md` for similar failures, re-dispatch with additional context.
+     - **Attempt 3:** Full context gather — read test output, imports, plan instructions for ambiguity. Re-dispatch with maximum context.
+   - If budget exhausted:
+     - **Stop.** Present all 3 attempts with full context to the user.
+     - Record failure in `.harness/failures.md`.
+     - Ask: "How should we proceed? (fix manually and continue / revise plan / stop)"
+     - Save state. User's choice determines next transition.
+
+4. **Update state** after each execution cycle and save.
