@@ -208,3 +208,122 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      - Save state. User's choice determines next transition.
 
 4. **Update state** after each execution cycle and save.
+
+---
+
+### VERIFY — Post-Execution Validation
+
+1. **Dispatch verification subagent:**
+
+   ```
+   You are running harness-verification for phase {N}: {name}.
+
+   Follow the harness-verification skill process exactly.
+   Report pass/fail with findings.
+   ```
+
+2. **When the subagent returns:**
+   - **All checks pass:** Transition to REVIEW.
+   - **Failures found:** Surface findings to the user. Ask: "Fix these issues before review? (yes / skip verification / stop)"
+     - **yes** — Re-enter EXECUTE with targeted fixes (retry budget resets for verification fixes).
+     - **skip** — Proceed to REVIEW with verification warnings noted.
+     - **stop** — Save state and exit.
+
+3. **Update state** with `currentState: "REVIEW"` and save.
+
+---
+
+### REVIEW — Code Review
+
+1. **Dispatch review subagent:**
+
+   ```
+   You are running harness-code-review for phase {N}: {name}.
+
+   Follow the harness-code-review skill process exactly.
+   Report findings with severity (blocking / warning / note).
+   ```
+
+2. **When the subagent returns:**
+   - **No blocking findings:** Report summary, transition to PHASE_COMPLETE.
+   - **Blocking findings:** Surface to user. Ask: "Address blocking findings before completing this phase? (yes / override / stop)"
+     - **yes** — Re-enter EXECUTE with review fixes.
+     - **override** — Record override decision, transition to PHASE_COMPLETE.
+     - **stop** — Save state and exit.
+
+3. **Update state** with `currentState: "PHASE_COMPLETE"` and save.
+
+---
+
+### PHASE_COMPLETE — Summary and Transition
+
+1. **Present phase summary:**
+   - Phase name and number
+   - Tasks completed
+   - Retries used
+   - Verification result (pass/fail/skipped)
+   - Review findings count (blocking/warning/note)
+   - Time from phase start to completion (from history timestamps)
+
+2. **Record phase in history:**
+
+   ```json
+   {
+     "phase": "<index>",
+     "name": "<phase name>",
+     "startedAt": "<timestamp>",
+     "completedAt": "<now>",
+     "tasksCompleted": "<count>",
+     "retriesUsed": "<count>",
+     "verificationPassed": true,
+     "reviewFindings": { "blocking": 0, "warning": 1, "note": 3 }
+   }
+   ```
+
+3. **Mark phase as `complete`** in state.
+
+4. **Check for next phase:**
+   - If more phases remain: "Phase {N} complete. Next: Phase {N+1}: {name} (complexity: {level}). Continue? (yes / stop)"
+     - **yes** — Increment `currentPhase`, reset `retryBudget`, transition to ASSESS.
+     - **stop** — Save state and exit.
+   - If no more phases: Transition to DONE.
+
+---
+
+### DONE — Final Summary
+
+1. **Present project summary:**
+   - Total phases completed
+   - Total tasks across all phases
+   - Total retries used
+   - Total time (first phase start to last phase completion)
+   - Any overridden review findings
+
+2. **Offer next steps:**
+   - "Create a PR? (yes / no)"
+   - If yes: assemble commit history, suggest PR title and description.
+
+3. **Write final handoff:**
+
+   ```json
+   {
+     "fromSkill": "harness-autopilot",
+     "phase": "DONE",
+     "summary": "Completed {N} phases with {M} total tasks",
+     "completed": ["Phase 1: ...", "Phase 2: ..."],
+     "pending": [],
+     "concerns": [],
+     "decisions": ["<all decisions from all phases>"],
+     "contextKeywords": ["<merged from spec>"]
+   }
+   ```
+
+4. **Append learnings** to `.harness/learnings.md`:
+
+   ```
+   ## {date} — Autopilot: {spec name}
+   - [skill:harness-autopilot] [outcome:complete] Executed {N} phases, {M} tasks, {R} retries
+   - [skill:harness-autopilot] [outcome:observation] {any notable patterns from the run}
+   ```
+
+5. **Clean up state:** Set `currentState: "DONE"` in `autopilot-state.json`. Do not delete the file — it serves as a record.
