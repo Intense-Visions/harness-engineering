@@ -20,8 +20,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/bin/harness.ts --format esm --dts --outDir dist && cp -r ../../templates dist/templates && cp -r ../../agents dist/agents",
-    "dev": "tsup src/index.ts src/bin/harness.ts --format esm --dts --watch",
+    "build": "tsup && cp -r ../../templates dist/templates && cp -r ../../agents dist/agents",
+    "dev": "tsup --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -30,17 +30,21 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@harness-engineering/core": "workspace:*",
-    "@harness-engineering/graph": "workspace:*",
-    "@harness-engineering/linter-gen": "workspace:*",
+    "@typescript-eslint/typescript-estree": "^7.0.0",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "glob": "^10.3.0",
     "handlebars": "^4.7.0",
+    "lokijs": "^1.5.12",
+    "minimatch": "^10.2.4",
     "yaml": "^2.3.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@harness-engineering/core": "workspace:*",
+    "@harness-engineering/graph": "workspace:*",
+    "@harness-engineering/linter-gen": "workspace:*",
+    "@harness-engineering/types": "workspace:*",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.0.18",
     "tsup": "^8.0.0",
