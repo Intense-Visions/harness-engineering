@@ -80,4 +80,8 @@ export type {
   GraphLayerViolation,
 } from './constraints/GraphConstraintAdapter.js';
 
+// Feedback
+export { GraphFeedbackAdapter } from './feedback/GraphFeedbackAdapter.js';
+export type { GraphImpactData, GraphHarnessCheckData } from './feedback/GraphFeedbackAdapter.js';
+
 export const VERSION = '0.1.0';

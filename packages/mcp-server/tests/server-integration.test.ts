@@ -32,7 +32,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('get_relationships');
     expect(names).toContain('get_impact');
     expect(names).toContain('ingest_source');
-    expect(tools).toHaveLength(30);
+    expect(tools).toHaveLength(31);
   });
 
   it('all tool definitions have inputSchema', () => {

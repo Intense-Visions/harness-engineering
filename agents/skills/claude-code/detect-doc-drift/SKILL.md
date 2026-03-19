@@ -22,6 +22,14 @@
 
 3. **Optionally, run `git diff` against a baseline** (last release, last sprint, etc.) to identify which code files changed. This helps prioritize — docs for recently changed files are most likely to be drifted.
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate drift detection:
+
+- `query_graph` — find `documents` edges where the target code node has changed since the doc node was last updated
+
+When a graph is available, drift is simply stale edges: doc-to-code edges where the code side has been modified more recently than the doc side. This replaces regex pattern matching and catches semantic drift that text search misses. Fall back to file-based commands if no graph is available.
+
 ### Phase 2: Identify — Classify Drift Types
 
 Categorize each finding into one of these drift types:

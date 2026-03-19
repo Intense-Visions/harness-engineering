@@ -53,6 +53,10 @@ export type {
   ActionEventHandler,
   ActionSink,
   ActionTracker,
+
+  // Graph-enhanced types
+  GraphImpactData,
+  GraphHarnessCheckData,
 } from './types';
 
 // Self-review

@@ -54,6 +54,16 @@ grep -rl "<component-name>" docs/specs/ docs/design-docs/ docs/plans/
 grep -rn "interface\|type\|schema" <changed-file> | head -20
 ```
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context gathering:
+
+- `query_graph` — traverse dependency chain from changed files to find all imports and transitive dependencies (replaces grep for import tracing)
+- `get_impact` — find all affected tests, docs, and downstream code that may break from the change
+- `find_context_for` — assemble review context for changed files within token budget, ranked by relevance
+
+Graph queries replace manual grep/find commands and discover transitive dependencies that file search misses. Fall back to file-based commands if no graph is available.
+
 ### Commit History Context
 
 As part of context assembly (priority item #5), retrieve recent commit history for every affected file:

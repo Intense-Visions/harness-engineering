@@ -28,6 +28,15 @@
 
 3. **Review the report summary.** Note the total count and distribution. A few dead exports are normal; dozens suggest accumulated entropy from incomplete refactorings.
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate dead code detection:
+
+- `query_graph` — perform graph reachability analysis from entry point nodes to identify truly unreachable code
+- `get_relationships` — distinguish dynamic imports from genuinely unused code by checking edge types
+
+Graph reachability reduces false positives compared to static analysis alone, since it traces the full transitive import graph including re-exports. Fall back to file-based commands if no graph is available.
+
 ### Phase 2: Categorize — Safe vs. Needs Review
 
 **Safe to auto-fix (remove without further analysis):**

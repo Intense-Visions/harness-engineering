@@ -6,6 +6,7 @@ import type {
   ReviewItem,
   SelfReviewConfig,
   FeedbackError,
+  GraphImpactData,
 } from '../types';
 
 export function parseDiff(diff: string): Result<CodeChanges, FeedbackError> {
@@ -63,7 +64,8 @@ export function parseDiff(diff: string): Result<CodeChanges, FeedbackError> {
 
 export async function analyzeDiff(
   changes: CodeChanges,
-  options: SelfReviewConfig['diffAnalysis']
+  options: SelfReviewConfig['diffAnalysis'],
+  graphImpactData?: GraphImpactData
 ): Promise<Result<ReviewItem[], FeedbackError>> {
   if (!options?.enabled) {
     return Ok([]);
@@ -128,30 +130,89 @@ export async function analyzeDiff(
 
   // Check for test coverage (new .ts files without corresponding .test.ts)
   if (options.checkTestCoverage) {
-    const addedSourceFiles = changes.files.filter(
-      (f) => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.')
-    );
-
-    const testFiles = changes.files.filter((f) => f.path.includes('.test.'));
-
-    for (const sourceFile of addedSourceFiles) {
-      const expectedTestPath = sourceFile.path.replace('.ts', '.test.ts');
-      const hasTest = testFiles.some(
-        (t) =>
-          t.path.includes(expectedTestPath) || t.path.includes(sourceFile.path.replace('.ts', ''))
+    if (graphImpactData) {
+      // Use graph relationships for test coverage
+      for (const file of changes.files) {
+        if (file.status === 'added' && file.path.endsWith('.ts') && !file.path.includes('.test.')) {
+          const hasGraphTest = graphImpactData.affectedTests.some(
+            (t) => t.coversFile === file.path
+          );
+          if (!hasGraphTest) {
+            items.push({
+              id: `test-coverage-${file.path}`,
+              category: 'diff' as const,
+              check: 'Test coverage (graph)',
+              passed: false,
+              severity: 'warning' as const,
+              details: `New file ${file.path} has no test file linked in the graph`,
+              file: file.path,
+            });
+          }
+        }
+      }
+    } else {
+      // Existing filename-based test coverage check
+      const addedSourceFiles = changes.files.filter(
+        (f) => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.')
       );
 
-      if (!hasTest) {
-        items.push({
-          id: `diff-${++itemId}`,
-          category: 'diff',
-          check: `Test coverage: ${sourceFile.path}`,
-          passed: false,
-          severity: 'warning',
-          details: 'New source file added without corresponding test file',
-          file: sourceFile.path,
-          suggestion: `Add tests in ${expectedTestPath}`,
-        });
+      const testFiles = changes.files.filter((f) => f.path.includes('.test.'));
+
+      for (const sourceFile of addedSourceFiles) {
+        const expectedTestPath = sourceFile.path.replace('.ts', '.test.ts');
+        const hasTest = testFiles.some(
+          (t) =>
+            t.path.includes(expectedTestPath) || t.path.includes(sourceFile.path.replace('.ts', ''))
+        );
+
+        if (!hasTest) {
+          items.push({
+            id: `diff-${++itemId}`,
+            category: 'diff',
+            check: `Test coverage: ${sourceFile.path}`,
+            passed: false,
+            severity: 'warning',
+            details: 'New source file added without corresponding test file',
+            file: sourceFile.path,
+            suggestion: `Add tests in ${expectedTestPath}`,
+          });
+        }
+      }
+    }
+  }
+
+  // Impact scope warning (graph-enhanced)
+  if (graphImpactData && graphImpactData.impactScope > 20) {
+    items.push({
+      id: 'impact-scope',
+      category: 'diff' as const,
+      check: 'Impact scope',
+      passed: false,
+      severity: 'warning' as const,
+      details: `Changes affect ${graphImpactData.impactScope} downstream dependents — consider a thorough review`,
+    });
+  }
+
+  // Documentation coverage (graph-enhanced)
+  if (graphImpactData) {
+    for (const file of changes.files) {
+      if (
+        file.status === 'modified' &&
+        file.path.endsWith('.ts') &&
+        !file.path.includes('.test.')
+      ) {
+        const hasDoc = graphImpactData.affectedDocs.some((d) => d.documentsFile === file.path);
+        if (!hasDoc) {
+          items.push({
+            id: `doc-coverage-${file.path}`,
+            category: 'diff' as const,
+            check: 'Documentation coverage (graph)',
+            passed: true,
+            severity: 'info' as const,
+            details: `Modified file ${file.path} has no documentation linked in the graph`,
+            file: file.path,
+          });
+        }
       }
     }
   }

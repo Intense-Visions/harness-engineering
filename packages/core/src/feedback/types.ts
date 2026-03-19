@@ -330,6 +330,29 @@ export interface ActionSink {
   close?(): Promise<void>;
 }
 
+// ============ Graph-Enhanced Feedback Types ============
+
+/**
+ * Pre-computed impact data from graph — enriches diff analysis.
+ */
+export interface GraphImpactData {
+  affectedTests: Array<{ testFile: string; coversFile: string }>;
+  affectedDocs: Array<{ docFile: string; documentsFile: string }>;
+  impactScope: number;
+}
+
+/**
+ * Pre-computed harness check data from graph — replaces placeholders.
+ */
+export interface GraphHarnessCheckData {
+  graphExists: boolean;
+  nodeCount: number;
+  edgeCount: number;
+  constraintViolations: number;
+  undocumentedFiles: number;
+  unreachableNodes: number;
+}
+
 export interface ActionTracker {
   readonly action: AgentAction;
   complete(

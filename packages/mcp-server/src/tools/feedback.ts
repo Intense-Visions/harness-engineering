@@ -60,9 +60,46 @@ export async function handleCreateSelfReview(input: {
       },
     };
 
+    // Attempt to load graph for enhanced review
+    const { loadGraphStore } = await import('../utils/graph-loader.js');
+    const store = await loadGraphStore(path.resolve(input.path));
+    let graphData:
+      | {
+          impact: {
+            affectedTests: Array<{ testFile: string; coversFile: string }>;
+            affectedDocs: Array<{ docFile: string; documentsFile: string }>;
+            impactScope: number;
+          };
+          harness: {
+            graphExists: boolean;
+            nodeCount: number;
+            edgeCount: number;
+            constraintViolations: number;
+            undocumentedFiles: number;
+            unreachableNodes: number;
+          };
+        }
+      | undefined;
+    if (store) {
+      const { GraphFeedbackAdapter } = await import('@harness-engineering/graph');
+      const adapter = new GraphFeedbackAdapter(store);
+      const changedFiles = parseResult.value.files.map((f: { path: string }) => f.path);
+      const impact = adapter.computeImpactData(changedFiles);
+      const harness = adapter.computeHarnessCheckData();
+      graphData = {
+        impact: {
+          affectedTests: [...impact.affectedTests],
+          affectedDocs: [...impact.affectedDocs],
+          impactScope: impact.impactScope,
+        },
+        harness: { ...harness },
+      };
+    }
+
     const result = await createSelfReview(
       parseResult.value,
-      config as Parameters<typeof createSelfReview>[1]
+      config as Parameters<typeof createSelfReview>[1],
+      graphData
     );
     return resultToMcpResponse(result);
   } catch (error) {
@@ -88,6 +125,10 @@ export const analyzeDiffDefinition = {
     type: 'object' as const,
     properties: {
       diff: { type: 'string', description: 'Git diff string to analyze' },
+      path: {
+        type: 'string',
+        description: 'Path to project root (enables graph-enhanced analysis)',
+      },
       forbiddenPatterns: {
         type: 'array',
         items: { type: 'string' },
@@ -108,6 +149,7 @@ export const analyzeDiffDefinition = {
 
 export async function handleAnalyzeDiff(input: {
   diff: string;
+  path?: string;
   forbiddenPatterns?: string[];
   maxFileSize?: number;
   maxFileCount?: number;
@@ -135,7 +177,34 @@ export async function handleAnalyzeDiff(input: {
       ...(input.maxFileCount !== undefined ? { maxChangedFiles: input.maxFileCount } : {}),
     };
 
-    const result = await analyzeDiff(parseResult.value, options);
+    let graphImpactData:
+      | {
+          affectedTests: Array<{ testFile: string; coversFile: string }>;
+          affectedDocs: Array<{ docFile: string; documentsFile: string }>;
+          impactScope: number;
+        }
+      | undefined;
+    if (input.path) {
+      try {
+        const { loadGraphStore } = await import('../utils/graph-loader.js');
+        const store = await loadGraphStore(path.resolve(input.path));
+        if (store) {
+          const { GraphFeedbackAdapter } = await import('@harness-engineering/graph');
+          const adapter = new GraphFeedbackAdapter(store);
+          const changedFiles = parseResult.value.files.map((f: { path: string }) => f.path);
+          const impact = adapter.computeImpactData(changedFiles);
+          graphImpactData = {
+            affectedTests: [...impact.affectedTests],
+            affectedDocs: [...impact.affectedDocs],
+            impactScope: impact.impactScope,
+          };
+        }
+      } catch {
+        // Graph loading is optional — continue without it
+      }
+    }
+
+    const result = await analyzeDiff(parseResult.value, options, graphImpactData);
     return resultToMcpResponse(result);
   } catch (error) {
     return {
@@ -197,11 +266,33 @@ export async function handleRequestPeerReview(input: {
       return resultToMcpResponse(parseResult);
     }
 
-    const reviewContext = {
+    const reviewContext: {
+      files: string[];
+      diff: string;
+      metadata?: Record<string, unknown>;
+    } = {
       files: parseResult.value.files.map((f) => f.path),
       diff: input.diff,
       ...(input.context ? { metadata: { context: input.context } } : {}),
     };
+
+    // Attempt to load graph for enhanced context
+    try {
+      const { loadGraphStore } = await import('../utils/graph-loader.js');
+      const store = await loadGraphStore(path.resolve(input.path));
+      if (store) {
+        const { GraphFeedbackAdapter } = await import('@harness-engineering/graph');
+        const adapter = new GraphFeedbackAdapter(store);
+        const changedFiles = parseResult.value.files.map((f: { path: string }) => f.path);
+        const impactData = adapter.computeImpactData(changedFiles);
+        reviewContext.metadata = {
+          ...reviewContext.metadata,
+          graphContext: impactData,
+        };
+      }
+    } catch {
+      // Graph loading is optional
+    }
 
     const result = await requestPeerReview(input.agentType, reviewContext, {
       timeout: 120_000,

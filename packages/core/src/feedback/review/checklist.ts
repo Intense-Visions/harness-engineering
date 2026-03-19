@@ -7,21 +7,29 @@ import type {
   SelfReviewConfig,
   CustomRule,
   FeedbackError,
+  GraphHarnessCheckData,
+  GraphImpactData,
 } from '../types';
 import { analyzeDiff } from './diff-analyzer';
 
 export class ChecklistBuilder {
   private rootDir: string;
   private harnessOptions?: SelfReviewConfig['harness'];
+  private graphHarnessData?: GraphHarnessCheckData | undefined;
   private customRules: CustomRule[] = [];
   private diffOptions?: SelfReviewConfig['diffAnalysis'];
+  private graphImpactData?: GraphImpactData | undefined;
 
   constructor(rootDir: string) {
     this.rootDir = rootDir;
   }
 
-  withHarnessChecks(options?: SelfReviewConfig['harness']): this {
+  withHarnessChecks(
+    options?: SelfReviewConfig['harness'],
+    graphData?: GraphHarnessCheckData
+  ): this {
     this.harnessOptions = options ?? { context: true, constraints: true, entropy: true };
+    this.graphHarnessData = graphData;
     return this;
   }
 
@@ -35,8 +43,12 @@ export class ChecklistBuilder {
     return this;
   }
 
-  withDiffAnalysis(options: SelfReviewConfig['diffAnalysis']): this {
+  withDiffAnalysis(
+    options: SelfReviewConfig['diffAnalysis'],
+    graphImpactData?: GraphImpactData
+  ): this {
     this.diffOptions = options;
+    this.graphImpactData = graphImpactData;
     return this;
   }
 
@@ -48,40 +60,82 @@ export class ChecklistBuilder {
     // Note: Harness module integration is deferred to a follow-up task.
     // This adds placeholder items indicating which checks would run.
     if (this.harnessOptions) {
-      if (this.harnessOptions.context) {
-        items.push({
-          id: 'harness-context',
-          category: 'harness',
-          check: 'Context Engineering (AGENTS.md, doc coverage)',
-          passed: true,
-          severity: 'info',
-          details: 'Harness context validation not yet integrated. See Module 2 (context/).',
-          suggestion: 'Integrate with validateAgentsMap(), checkDocCoverage() from context module',
-        });
+      if (this.harnessOptions.context !== false) {
+        if (this.graphHarnessData) {
+          items.push({
+            id: 'harness-context',
+            category: 'harness',
+            check: 'Context validation',
+            passed: this.graphHarnessData.graphExists && this.graphHarnessData.nodeCount > 0,
+            severity: 'info',
+            details: this.graphHarnessData.graphExists
+              ? `Graph loaded: ${this.graphHarnessData.nodeCount} nodes, ${this.graphHarnessData.edgeCount} edges`
+              : 'No graph available — run harness scan to build the knowledge graph',
+          });
+        } else {
+          items.push({
+            id: 'harness-context',
+            category: 'harness',
+            check: 'Context validation',
+            passed: true,
+            severity: 'info',
+            details:
+              'Harness context validation not yet integrated (run with graph for real checks)',
+          });
+        }
       }
-      if (this.harnessOptions.constraints) {
-        items.push({
-          id: 'harness-constraints',
-          category: 'harness',
-          check: 'Architectural Constraints (dependencies, boundaries)',
-          passed: true,
-          severity: 'info',
-          details:
-            'Harness constraints validation not yet integrated. See Module 3 (constraints/).',
-          suggestion:
-            'Integrate with validateDependencies(), detectCircularDeps() from constraints module',
-        });
+      if (this.harnessOptions.constraints !== false) {
+        if (this.graphHarnessData) {
+          const violations = this.graphHarnessData.constraintViolations;
+          items.push({
+            id: 'harness-constraints',
+            category: 'harness',
+            check: 'Constraint validation',
+            passed: violations === 0,
+            severity: violations > 0 ? 'error' : 'info',
+            details:
+              violations === 0
+                ? 'No constraint violations detected'
+                : `${violations} constraint violation(s) detected`,
+          });
+        } else {
+          items.push({
+            id: 'harness-constraints',
+            category: 'harness',
+            check: 'Constraint validation',
+            passed: true,
+            severity: 'info',
+            details:
+              'Harness constraint validation not yet integrated (run with graph for real checks)',
+          });
+        }
       }
-      if (this.harnessOptions.entropy) {
-        items.push({
-          id: 'harness-entropy',
-          category: 'harness',
-          check: 'Entropy Management (drift, dead code)',
-          passed: true,
-          severity: 'info',
-          details: 'Harness entropy validation not yet integrated. See Module 4 (entropy/).',
-          suggestion: 'Integrate with EntropyAnalyzer from entropy module',
-        });
+      if (this.harnessOptions.entropy !== false) {
+        if (this.graphHarnessData) {
+          const issues =
+            this.graphHarnessData.unreachableNodes + this.graphHarnessData.undocumentedFiles;
+          items.push({
+            id: 'harness-entropy',
+            category: 'harness',
+            check: 'Entropy detection',
+            passed: issues === 0,
+            severity: issues > 0 ? 'warning' : 'info',
+            details:
+              issues === 0
+                ? 'No entropy issues detected'
+                : `${this.graphHarnessData.unreachableNodes} unreachable node(s), ${this.graphHarnessData.undocumentedFiles} undocumented file(s)`,
+          });
+        } else {
+          items.push({
+            id: 'harness-entropy',
+            category: 'harness',
+            check: 'Entropy detection',
+            passed: true,
+            severity: 'info',
+            details:
+              'Harness entropy detection not yet integrated (run with graph for real checks)',
+          });
+        }
       }
     }
 
@@ -121,7 +175,7 @@ export class ChecklistBuilder {
 
     // Run diff analysis
     if (this.diffOptions) {
-      const diffResult = await analyzeDiff(changes, this.diffOptions);
+      const diffResult = await analyzeDiff(changes, this.diffOptions, this.graphImpactData);
       if (diffResult.ok) {
         items.push(...diffResult.value);
       }

@@ -73,6 +73,16 @@
    - Is documentation up to date with the code?
    - Are there tests? What is the approximate coverage?
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate codebase mapping:
+
+- `query_graph` — map architecture automatically from module and layer nodes, replacing manual directory walking
+- `search_similar` — find entry points and key files by querying for high-connectivity nodes
+- `get_relationships` — show layer dependencies and module structure as a traversable graph
+
+Graph queries produce a complete architecture map in seconds, including transitive relationships that directory inspection misses. Fall back to file-based commands if no graph is available.
+
 ### Phase 3: ORIENT — Identify Adoption Level and Maturity
 
 1. **Confirm the adoption level** matches what `harness.yaml` declares:

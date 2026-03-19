@@ -30,6 +30,15 @@ Before dispatching anything in parallel, rigorously verify independence:
 
 5. **When in doubt, run serially.** The cost of a false parallel dispatch (merge conflicts, subtle bugs, wasted work) far exceeds the cost of running serially.
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate independence verification:
+
+- `query_graph` — get the dependency subgraph per candidate task and check for node overlap between tasks
+- `get_impact` — verify tasks do not write to overlapping files or share transitive dependencies
+
+Automated graph-based independence verification replaces manual import grep and catches transitive overlaps that file-level checks miss. Fall back to file-based commands if no graph is available.
+
 ### Step 2: Create Focused Agent Tasks
 
 For each independent task, write a focused agent brief:

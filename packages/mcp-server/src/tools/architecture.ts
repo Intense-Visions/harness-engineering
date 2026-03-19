@@ -34,7 +34,27 @@ export async function handleCheckDependencies(input: { path: string }) {
       allowedDependencies: l.allowedDependencies,
     }));
     const parser = new TypeScriptParser();
-    const result = await validateDependencies({ layers, rootDir: projectPath, parser });
+
+    // Attempt to load graph for enhanced validation
+    const { loadGraphStore } = await import('../utils/graph-loader.js');
+    const store = await loadGraphStore(projectPath);
+    let graphDependencyData;
+    if (store) {
+      const { GraphConstraintAdapter } = await import('@harness-engineering/graph');
+      const adapter = new GraphConstraintAdapter(store);
+      const graphData = adapter.computeDependencyGraph();
+      graphDependencyData = {
+        nodes: [...graphData.nodes],
+        edges: graphData.edges.map((e) => ({ ...e })),
+      };
+    }
+
+    const result = await validateDependencies({
+      layers,
+      rootDir: projectPath,
+      parser,
+      graphDependencyData,
+    });
     return resultToMcpResponse(result);
   } catch (error) {
     return {

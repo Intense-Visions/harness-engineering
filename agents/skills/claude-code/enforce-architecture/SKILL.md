@@ -28,6 +28,15 @@
    - Same-layer imports may or may not be allowed depending on project config
    - Cross-cutting concerns (logging, config) have their own rules
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate violation detection:
+
+- `query_graph` — traverse `imports` edges against layer constraint nodes to find all violations in a single query
+- `get_relationships` — find all code dependent on a violation target to show the full scope of impact
+
+Graph queries show the complete violation scope (not just the first occurrence per file) and reveal transitive violations that single-file analysis misses. Fall back to file-based commands if no graph is available.
+
 ### Phase 2: Run Dependency Checks
 
 1. **Run `harness check-deps`** to analyze all import statements against the constraint model. Capture the full JSON output.

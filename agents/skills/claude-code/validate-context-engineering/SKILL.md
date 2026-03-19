@@ -23,6 +23,15 @@
 
 3. **Review AGENTS.md manually.** Automated tools catch structural issues but miss semantic drift. Read each section and ask: "Is this still true?"
 
+### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate auditing:
+
+- `query_graph` — find all undocumented code nodes (file nodes without `documents` edges), replacing manual cross-referencing
+- `search_similar` — detect stale references in AGENTS.md by matching section text against current code entities
+
+When a graph is available, it IS the source of truth for documentation coverage. Drift = stale or missing edges between code and doc nodes. Fall back to file-based commands if no graph is available.
+
 ### Phase 2: Detect Gaps
 
 Categorize findings into four types:

@@ -18,9 +18,28 @@ export async function handleCheckDocs(input: { path: string; domain?: string }) 
   try {
     const { checkDocCoverage } = await import('@harness-engineering/core');
     const domain = input.domain ?? 'src';
+
+    // Attempt to load graph for enhanced coverage analysis
+    const { loadGraphStore } = await import('../utils/graph-loader.js');
+    const store = await loadGraphStore(path.resolve(input.path));
+    let graphCoverage:
+      | { documented: string[]; undocumented: string[]; coveragePercentage: number }
+      | undefined;
+    if (store) {
+      const { Assembler } = await import('@harness-engineering/graph');
+      const assembler = new Assembler(store);
+      const report = assembler.checkCoverage();
+      graphCoverage = {
+        documented: [...report.documented],
+        undocumented: [...report.undocumented],
+        coveragePercentage: report.coveragePercentage,
+      };
+    }
+
     const result = await checkDocCoverage(domain, {
       sourceDir: path.resolve(input.path, 'src'),
       docsDir: path.resolve(input.path, 'docs'),
+      graphCoverage,
     });
     return resultToMcpResponse(result);
   } catch (error) {

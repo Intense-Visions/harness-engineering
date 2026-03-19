@@ -1,42 +1,48 @@
 {
-  "timestamp": "2026-03-18T19:40:00.000Z",
+  "timestamp": "2026-03-18T20:00:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 6 (Constraint Migration) — 8 tasks adding GraphConstraintAdapter to packages/graph and enhancing buildDependencyGraph, validateDependencies, and detectCircularDepsInFiles with optional graph-based dependency data.",
+  "summary": "Planned Phase 7 (Tier-1 Skill Migration) — 10 tasks: GraphFeedbackAdapter, feedback core enhancements (analyzeDiff, ChecklistBuilder, requestPeerReview), MCP tool wiring (entropy, validation, feedback), 7 Tier-1 skill SKILL.md updates.",
   "completed": [],
   "pending": [
-    "Task 1: Implement GraphConstraintAdapter (TDD)",
-    "Task 2: Add GraphDependencyData type to core constraints",
-    "Task 3: Enhance buildDependencyGraph with graph data (TDD)",
-    "Task 4: Enhance validateDependencies with graph data (TDD)",
-    "Task 5: Enhance detectCircularDepsInFiles with graph data (TDD)",
-    "Task 6: Write core constraint integration tests",
-    "Task 7: Update graph package exports",
-    "Task 8: Build and test verification"
+    "Task 1: Implement GraphFeedbackAdapter (TDD)",
+    "Task 2: Add graph types to core feedback",
+    "Task 3: Enhance analyzeDiff with graph impact data (TDD)",
+    "Task 4: Enhance ChecklistBuilder with graph harness checks (TDD)",
+    "Task 5: Enhance requestPeerReview with graph context",
+    "Task 6: Wire MCP validation and entropy tools to use graph",
+    "Task 7: Wire MCP feedback tools to use graph",
+    "Task 8: Update 7 Tier-1 skill SKILL.md files with graph notes",
+    "Task 9: Write integration tests",
+    "Task 10: Build and test verification"
   ],
   "concerns": [
-    "Core cannot import from graph package (circular dependency) — solved by passing plain objects",
-    "DependencyGraph and GraphDependencyData have same shape — core type uses mutable, graph uses readonly",
-    "Layer resolution still uses minimatch patterns — graph mode doesn't change this (layers are config, not graph data)"
+    "MCP tools use dynamic imports — graph loading must be lazy and handle missing graph gracefully",
+    "ChecklistBuilder harness checks are currently placeholders — graph data replaces them with real checks",
+    "Skill SKILL.md files are source files in agents/skills/ but installed from CLI dist — changes propagate on next build"
   ],
   "decisions": [
-    "GraphConstraintAdapter computes DependencyGraph-compatible data from GraphStore",
-    "buildDependencyGraph short-circuits when graph data provided — returns it directly",
-    "validateDependencies skips parser health check and file globbing when graph data provided",
-    "detectCircularDepsInFiles skips file parsing when graph data provided",
-    "Skill updates (enforce-architecture) deferred to Phase 7 per established pattern"
+    "GraphFeedbackAdapter computes impact data (affected tests/docs) and harness check data (violations/coverage)",
+    "analyzeDiff gets optional graphImpactData for graph-based test coverage detection",
+    "ChecklistBuilder.withHarnessChecks() gets optional graphData to replace placeholders with real results",
+    "requestPeerReview uses existing metadata passthrough — no signature change needed",
+    "MCP tools load graph via existing loadGraphStore utility — optional, falls back gracefully",
+    "All 7 Tier-1 skill SKILL.md files get graph-aware context gathering notes"
   ],
   "blockers": [],
   "contextKeywords": [
-    "constraints",
-    "dependencies",
-    "circular-deps",
-    "layers",
-    "GraphConstraintAdapter",
-    "buildDependencyGraph",
-    "validateDependencies",
-    "detectCircularDeps",
-    "DependencyGraph",
-    "LayerConfig"
+    "feedback",
+    "analyzeDiff",
+    "createSelfReview",
+    "requestPeerReview",
+    "ChecklistBuilder",
+    "GraphFeedbackAdapter",
+    "GraphImpactData",
+    "GraphHarnessCheckData",
+    "detect_entropy",
+    "check_dependencies",
+    "check_docs",
+    "SKILL.md",
+    "Tier-1"
   ]
 }
