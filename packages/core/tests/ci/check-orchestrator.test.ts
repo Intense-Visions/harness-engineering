@@ -42,15 +42,13 @@ vi.mock('../../src/shared/parsers', () => ({
 vi.mock('../../src/security/scanner', () => ({
   SecurityScanner: class {
     configureForProject = vi.fn();
-    scanFiles = vi
-      .fn()
-      .mockResolvedValue({
-        findings: [],
-        scannedFiles: 0,
-        rulesApplied: 0,
-        externalToolsUsed: [],
-        coverage: 'baseline',
-      });
+    scanFiles = vi.fn().mockResolvedValue({
+      findings: [],
+      scannedFiles: 0,
+      rulesApplied: 0,
+      externalToolsUsed: [],
+      coverage: 'baseline',
+    });
   },
 }));
 
