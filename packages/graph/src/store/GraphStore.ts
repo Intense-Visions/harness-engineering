@@ -16,6 +16,17 @@ export interface EdgeQuery {
 
 type LokiDoc<T> = T & { $loki: number; meta: Record<string, unknown> };
 
+const POISONED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function safeMerge(target: any, source: any): void {
+  for (const key of Object.keys(source)) {
+    if (!POISONED_KEYS.has(key)) {
+      target[key] = source[key];
+    }
+  }
+}
+
 export class GraphStore {
   private readonly db: loki;
   private nodes: Collection<GraphNode>;
@@ -39,8 +50,8 @@ export class GraphStore {
   addNode(node: GraphNode): void {
     const existing = this.nodes.by('id', node.id);
     if (existing) {
-      // Update: assign all properties from node onto the existing doc
-      Object.assign(existing, node);
+      // Update: merge properties safely (prevent prototype pollution)
+      safeMerge(existing, node);
       this.nodes.update(existing);
     } else {
       this.nodes.insert({ ...node });
@@ -92,9 +103,9 @@ export class GraphStore {
       type: edge.type,
     });
     if (existing) {
-      // Update metadata if provided
+      // Update metadata if provided (prevent prototype pollution)
       if (edge.metadata) {
-        Object.assign(existing, edge);
+        safeMerge(existing, edge);
         this.edges.update(existing);
       }
       return;

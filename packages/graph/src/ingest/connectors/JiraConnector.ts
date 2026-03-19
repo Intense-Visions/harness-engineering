@@ -1,7 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
-import { linkToCode } from './ConnectorUtils.js';
+import { linkToCode, sanitizeExternalText } from './ConnectorUtils.js';
 
 interface JiraIssue {
   key: string;
@@ -104,7 +104,7 @@ export class JiraConnector implements GraphConnector {
           store.addNode({
             id: nodeId,
             type: 'issue',
-            name: issue.fields.summary,
+            name: sanitizeExternalText(issue.fields.summary, 500),
             metadata: {
               key: issue.key,
               status: issue.fields.status?.name,
@@ -116,7 +116,9 @@ export class JiraConnector implements GraphConnector {
           nodesAdded++;
 
           // Link to code nodes via shared utility
-          const searchText = [issue.fields.summary, issue.fields.description ?? ''].join(' ');
+          const searchText = sanitizeExternalText(
+            [issue.fields.summary, issue.fields.description ?? ''].join(' ')
+          );
           edgesAdded += linkToCode(store, searchText, nodeId, 'applies_to');
         }
 

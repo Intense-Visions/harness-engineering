@@ -1,6 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
+import { sanitizeExternalText } from './ConnectorUtils.js';
 
 interface WorkflowRun {
   id: number;
@@ -69,12 +70,13 @@ export class CIConnector implements GraphConnector {
       const data = (await response.json()) as WorkflowRunsResponse;
 
       for (const run of data.workflow_runs) {
-        // Create build node
+        // Create build node — sanitize workflow name (external data)
         const buildId = `build:${run.id}`;
+        const safeName = sanitizeExternalText(run.name, 200);
         store.addNode({
           id: buildId,
           type: 'build',
-          name: `${run.name} #${run.id}`,
+          name: `${safeName} #${run.id}`,
           metadata: {
             source: 'github-actions',
             status: run.status,
@@ -102,7 +104,7 @@ export class CIConnector implements GraphConnector {
           store.addNode({
             id: testResultId,
             type: 'test_result',
-            name: `Failed: ${run.name} #${run.id}`,
+            name: `Failed: ${safeName} #${run.id}`,
             metadata: {
               source: 'github-actions',
               buildId: String(run.id),

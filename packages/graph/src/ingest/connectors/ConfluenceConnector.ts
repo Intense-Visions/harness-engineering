@@ -1,7 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
-import { linkToCode } from './ConnectorUtils.js';
+import { linkToCode, sanitizeExternalText } from './ConnectorUtils.js';
 
 interface ConfluencePage {
   id: string;
@@ -69,7 +69,7 @@ export class ConfluenceConnector implements GraphConnector {
           store.addNode({
             id: nodeId,
             type: 'document',
-            name: page.title,
+            name: sanitizeExternalText(page.title, 500),
             metadata: {
               source: 'confluence',
               spaceKey,
@@ -81,7 +81,7 @@ export class ConfluenceConnector implements GraphConnector {
           nodesAdded++;
 
           // Link to code via keyword matching on title + body
-          const text = `${page.title} ${page.body?.storage?.value ?? ''}`;
+          const text = sanitizeExternalText(`${page.title} ${page.body?.storage?.value ?? ''}`);
           edgesAdded += linkToCode(store, text, nodeId, 'documents');
         }
 

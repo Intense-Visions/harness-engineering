@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { Result } from '@harness-engineering/core';
 import { Ok } from '@harness-engineering/core';
 import { CLIError } from '../utils/errors';
@@ -38,7 +38,7 @@ function extractPlannedFiles(planContent: string): string[] {
 
 function getFileModTime(filePath: string, projectPath: string): Date | null {
   try {
-    const output = execSync(`git log -1 --format=%aI -- "${filePath}"`, {
+    const output = execFileSync('git', ['log', '-1', '--format=%aI', '--', filePath], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],

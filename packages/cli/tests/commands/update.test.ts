@@ -11,7 +11,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return {
     ...actual,
-    execSync: vi.fn(),
+    execFileSync: vi.fn(),
   };
 });
 
@@ -24,10 +24,10 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 
-const mockedExecSync = vi.mocked(execSync);
+const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedRealpathSync = vi.mocked(realpathSync);
 
 describe('update command', () => {
@@ -97,7 +97,7 @@ describe('update command', () => {
 
   describe('getInstalledVersion', () => {
     it('returns CLI version from pm list output', () => {
-      mockedExecSync.mockReturnValue(
+      mockedExecFileSync.mockReturnValue(
         JSON.stringify({
           dependencies: {
             '@harness-engineering/cli': { version: '1.2.2' },
@@ -108,12 +108,12 @@ describe('update command', () => {
     });
 
     it('returns null when CLI is not in output', () => {
-      mockedExecSync.mockReturnValue(JSON.stringify({ dependencies: {} }));
+      mockedExecFileSync.mockReturnValue(JSON.stringify({ dependencies: {} }));
       expect(getInstalledVersion('npm')).toBeNull();
     });
 
-    it('returns null when execSync throws', () => {
-      mockedExecSync.mockImplementation(() => {
+    it('returns null when execFileSync throws', () => {
+      mockedExecFileSync.mockImplementation(() => {
         throw new Error('command failed');
       });
       expect(getInstalledVersion('npm')).toBeNull();
@@ -122,7 +122,7 @@ describe('update command', () => {
 
   describe('getInstalledPackages', () => {
     it('filters for @harness-engineering packages from npm list output', () => {
-      mockedExecSync.mockReturnValue(
+      mockedExecFileSync.mockReturnValue(
         JSON.stringify({
           dependencies: {
             '@harness-engineering/cli': { version: '1.2.2' },
@@ -142,7 +142,7 @@ describe('update command', () => {
     });
 
     it('returns empty array when no harness packages are installed', () => {
-      mockedExecSync.mockReturnValue(
+      mockedExecFileSync.mockReturnValue(
         JSON.stringify({
           dependencies: {
             typescript: { version: '5.4.0' },
@@ -153,12 +153,12 @@ describe('update command', () => {
     });
 
     it('handles missing dependencies key', () => {
-      mockedExecSync.mockReturnValue(JSON.stringify({}));
+      mockedExecFileSync.mockReturnValue(JSON.stringify({}));
       expect(getInstalledPackages('npm')).toEqual([]);
     });
 
-    it('falls back to default packages when execSync throws', () => {
-      mockedExecSync.mockImplementation(() => {
+    it('falls back to default packages when execFileSync throws', () => {
+      mockedExecFileSync.mockImplementation(() => {
         throw new Error('command failed');
       });
       expect(getInstalledPackages('npm')).toEqual([
@@ -167,10 +167,14 @@ describe('update command', () => {
       ]);
     });
 
-    it('passes correct pm to execSync', () => {
-      mockedExecSync.mockReturnValue(JSON.stringify({ dependencies: {} }));
+    it('passes correct pm to execFileSync', () => {
+      mockedExecFileSync.mockReturnValue(JSON.stringify({ dependencies: {} }));
       getInstalledPackages('pnpm');
-      expect(mockedExecSync).toHaveBeenCalledWith('pnpm list -g --json', expect.any(Object));
+      expect(mockedExecFileSync).toHaveBeenCalledWith(
+        'pnpm',
+        ['list', '-g', '--json'],
+        expect.any(Object)
+      );
     });
   });
 });

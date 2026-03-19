@@ -1,5 +1,5 @@
 // packages/cli/src/skill/complexity.ts
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 export type Complexity = 'light' | 'full' | 'auto';
 
@@ -28,13 +28,13 @@ export function evaluateSignals(signals: Signals): 'light' | 'full' {
 export function detectComplexity(projectPath: string): 'light' | 'full' {
   try {
     // Find base commit
-    const base = execSync('git merge-base HEAD main', {
+    const base = execFileSync('git', ['merge-base', 'HEAD', 'main'], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
 
-    const diffFiles = execSync(`git diff --name-only ${base}`, {
+    const diffFiles = execFileSync('git', ['diff', '--name-only', base], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -43,7 +43,7 @@ export function detectComplexity(projectPath: string): 'light' | 'full' {
       .split('\n')
       .filter(Boolean);
 
-    const diffStat = execSync(`git diff --stat ${base}`, {
+    const diffStat = execFileSync('git', ['diff', '--stat', base], {
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],

@@ -33,9 +33,16 @@ export const generatePersonaArtifactsDefinition = {
 };
 
 export async function handleGeneratePersonaArtifacts(input: { name: string; only?: string }) {
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(input.name)) {
+    return resultToMcpResponse(Err(new Error(`Invalid persona name: ${input.name}`)));
+  }
   const { loadPersona, generateRuntime, generateAgentsMd, generateCIWorkflow } =
     await import('@harness-engineering/cli');
-  const filePath = path.join(resolvePersonasDir(), `${input.name}.yaml`);
+  const personasDir = resolvePersonasDir();
+  const filePath = path.join(personasDir, `${input.name}.yaml`);
+  if (!filePath.startsWith(personasDir)) {
+    return resultToMcpResponse(Err(new Error(`Invalid persona path: ${input.name}`)));
+  }
   const personaResult = loadPersona(filePath);
   if (!personaResult.ok) return resultToMcpResponse(personaResult);
 
@@ -90,8 +97,15 @@ export async function handleRunPersona(input: {
   trigger?: string;
   dryRun?: boolean;
 }) {
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(input.persona)) {
+    return resultToMcpResponse(Err(new Error(`Invalid persona name: ${input.persona}`)));
+  }
   const { loadPersona, runPersona, executeSkill } = await import('@harness-engineering/cli');
-  const filePath = path.join(resolvePersonasDir(), `${input.persona}.yaml`);
+  const personasDir = resolvePersonasDir();
+  const filePath = path.join(personasDir, `${input.persona}.yaml`);
+  if (!filePath.startsWith(personasDir)) {
+    return resultToMcpResponse(Err(new Error(`Invalid persona path: ${input.persona}`)));
+  }
   const personaResult = loadPersona(filePath);
   if (!personaResult.ok) return resultToMcpResponse(personaResult);
 

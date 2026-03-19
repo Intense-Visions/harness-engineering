@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import readline from 'node:readline';
 import chalk from 'chalk';
@@ -27,7 +27,7 @@ export function detectPackageManager(): PackageManager {
 }
 
 export function getLatestVersion(pkg = '@harness-engineering/cli'): string {
-  const output = execSync(`npm view ${pkg} dist-tags.latest`, {
+  const output = execFileSync('npm', ['view', pkg, 'dist-tags.latest'], {
     encoding: 'utf-8',
     timeout: 15000,
   });
@@ -36,7 +36,7 @@ export function getLatestVersion(pkg = '@harness-engineering/cli'): string {
 
 export function getInstalledVersion(pm: PackageManager): string | null {
   try {
-    const output = execSync(`${pm} list -g @harness-engineering/cli --json`, {
+    const output = execFileSync(pm, ['list', '-g', '@harness-engineering/cli', '--json'], {
       encoding: 'utf-8',
       timeout: 15000,
     });
@@ -50,7 +50,7 @@ export function getInstalledVersion(pm: PackageManager): string | null {
 
 export function getInstalledPackages(pm: PackageManager): string[] {
   try {
-    const output = execSync(`${pm} list -g --json`, {
+    const output = execFileSync(pm, ['list', '-g', '--json'], {
       encoding: 'utf-8',
       timeout: 15000,
     });
@@ -125,15 +125,13 @@ export function createUpdateCommand(): Command {
       }
 
       // 4. Build install command — each package gets @latest, except CLI if --version is specified
-      const installArgs = packages
-        .map((pkg) => {
-          if (opts.version && pkg === '@harness-engineering/cli') {
-            return `${pkg}@${opts.version}`;
-          }
-          return `${pkg}@latest`;
-        })
-        .join(' ');
-      const installCmd = `${pm} install -g ${installArgs}`;
+      const installPkgs = packages.map((pkg) => {
+        if (opts.version && pkg === '@harness-engineering/cli') {
+          return `${pkg}@${opts.version}`;
+        }
+        return `${pkg}@latest`;
+      });
+      const installCmd = `${pm} install -g ${installPkgs.join(' ')}`;
 
       if (globalOpts.verbose) {
         logger.info(`Running: ${installCmd}`);
@@ -141,7 +139,7 @@ export function createUpdateCommand(): Command {
 
       try {
         logger.info('Updating packages...');
-        execSync(installCmd, { stdio: 'inherit', timeout: 120000 });
+        execFileSync(pm, ['install', '-g', ...installPkgs], { stdio: 'inherit', timeout: 120000 });
         console.log('');
         logger.success('Update complete');
       } catch {
@@ -156,12 +154,14 @@ export function createUpdateCommand(): Command {
       const regenAnswer = await prompt('Regenerate slash commands and agent definitions? (y/N) ');
       if (regenAnswer === 'y' || regenAnswer === 'yes') {
         const scopeAnswer = await prompt('Generate for (g)lobal or (l)ocal project? (g/l) ');
-        const globalFlag = scopeAnswer === 'g' || scopeAnswer === 'global' ? ' --global' : '';
+        const isGlobal = scopeAnswer === 'g' || scopeAnswer === 'global';
         try {
-          execSync(`harness generate${globalFlag}`, { stdio: 'inherit' });
+          execFileSync('harness', ['generate', ...(isGlobal ? ['--global'] : [])], {
+            stdio: 'inherit',
+          });
         } catch {
           logger.warn('Generation failed. Run manually:');
-          console.log(`  ${chalk.cyan(`harness generate${globalFlag}`)}`);
+          console.log(`  ${chalk.cyan(`harness generate${isGlobal ? ' --global' : ''}`)}`);
         }
       }
 

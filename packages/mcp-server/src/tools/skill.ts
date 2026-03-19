@@ -34,7 +34,13 @@ export async function handleRunSkill(input: {
   party?: boolean;
 }) {
   const skillsDir = resolveSkillsDir();
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(input.skill)) {
+    return resultToMcpResponse(Err(new Error(`Invalid skill name: ${input.skill}`)));
+  }
   const skillDir = path.join(skillsDir, input.skill);
+  if (!skillDir.startsWith(skillsDir)) {
+    return resultToMcpResponse(Err(new Error(`Invalid skill path: ${input.skill}`)));
+  }
 
   if (!fs.existsSync(skillDir)) {
     return resultToMcpResponse(Err(new Error(`Skill not found: ${input.skill}`)));

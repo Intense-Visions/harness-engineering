@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import type { BenchmarkResult } from './types';
 
 export interface BenchmarkRunOptions {
@@ -62,7 +62,7 @@ export class BenchmarkRunner {
     args.push('--reporter=json');
 
     try {
-      const rawOutput = execSync(`npx ${args.join(' ')}`, {
+      const rawOutput = execFileSync('npx', args, {
         cwd,
         encoding: 'utf-8',
         timeout,

@@ -1,7 +1,7 @@
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
-import { linkToCode } from './ConnectorUtils.js';
+import { linkToCode, sanitizeExternalText } from './ConnectorUtils.js';
 
 interface SlackMessage {
   text: string;
@@ -75,7 +75,8 @@ export class SlackConnector implements GraphConnector {
 
         for (const message of data.messages) {
           const nodeId = `conversation:slack:${channel}:${message.ts}`;
-          const snippet = message.text.length > 100 ? message.text.slice(0, 100) : message.text;
+          const sanitizedText = sanitizeExternalText(message.text);
+          const snippet = sanitizedText.length > 100 ? sanitizedText.slice(0, 100) : sanitizedText;
 
           store.addNode({
             id: nodeId,
@@ -90,7 +91,9 @@ export class SlackConnector implements GraphConnector {
           nodesAdded++;
 
           // Link to code nodes via shared utility (with path matching)
-          edgesAdded += linkToCode(store, message.text, nodeId, 'references', { checkPaths: true });
+          edgesAdded += linkToCode(store, sanitizedText, nodeId, 'references', {
+            checkPaths: true,
+          });
         }
       } catch (err) {
         errors.push(
