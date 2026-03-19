@@ -91,6 +91,13 @@ export type {
   GraphLayerViolation,
 } from './constraints/GraphConstraintAdapter.js';
 
+// Design Ingest
+export { DesignIngestor } from './ingest/DesignIngestor.js';
+
+// Design Constraints
+export { DesignConstraintAdapter } from './constraints/DesignConstraintAdapter.js';
+export type { DesignViolation, DesignStrictness } from './constraints/DesignConstraintAdapter.js';
+
 // Feedback
 export { GraphFeedbackAdapter } from './feedback/GraphFeedbackAdapter.js';
 export type { GraphImpactData, GraphHarnessCheckData } from './feedback/GraphFeedbackAdapter.js';
