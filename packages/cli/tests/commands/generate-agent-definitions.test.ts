@@ -89,7 +89,7 @@ describe('generateAgentDefinitions', () => {
       output: tmpDir,
       dryRun: false,
     });
-    // 6 personas = 6 agent files
-    expect(results[0]!.added.length).toBe(6);
+    // 8 personas = 8 agent files
+    expect(results[0]!.added.length).toBe(8);
   });
 });

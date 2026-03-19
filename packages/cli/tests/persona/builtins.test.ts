@@ -8,8 +8,10 @@ describe('built-in personas', () => {
   const personaFiles = [
     'architecture-enforcer.yaml',
     'code-reviewer.yaml',
+    'codebase-health-analyst.yaml',
     'documentation-maintainer.yaml',
     'entropy-cleaner.yaml',
+    'graph-maintainer.yaml',
     'parallel-coordinator.yaml',
     'task-executor.yaml',
   ];
@@ -21,10 +23,10 @@ describe('built-in personas', () => {
     });
   }
 
-  it('lists all 6 built-in personas', () => {
+  it('lists all 8 built-in personas', () => {
     const result = listPersonas(PERSONAS_DIR);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.length).toBe(6);
+    expect(result.value.length).toBe(8);
   });
 });

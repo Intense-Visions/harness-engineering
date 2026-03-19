@@ -13,7 +13,7 @@ steps:
   - command: check-deps
     when: always
   - command: scan
-    when: on_task_complete
+    when: manual
   - skill: harness-execution
     when: on_plan_approved
     output: auto

@@ -26,7 +26,12 @@ export type Step = z.infer<typeof StepSchema>;
 export const PersonaTriggerSchema = z.discriminatedUnion('event', [
   z.object({
     event: z.literal('on_pr'),
-    conditions: z.object({ paths: z.array(z.string()).optional() }).optional(),
+    conditions: z
+      .object({
+        paths: z.array(z.string()).optional(),
+        min_files: z.number().optional(),
+      })
+      .optional(),
   }),
   z.object({
     event: z.literal('on_commit'),
@@ -35,6 +40,9 @@ export const PersonaTriggerSchema = z.discriminatedUnion('event', [
   z.object({
     event: z.literal('scheduled'),
     cron: z.string(),
+  }),
+  z.object({
+    event: z.literal('manual'),
   }),
 ]);
 
