@@ -37,6 +37,14 @@ agents/skills/
 - `initialize-harness-project` - Scaffold new project
 - `add-harness-component` - Add components
 
+### Graph Integration Levels
+
+**Graph-Transformed** (7 skills): harness-code-review, validate-context-engineering, detect-doc-drift, cleanup-dead-code, harness-parallel-agents, enforce-architecture, harness-onboarding
+
+**Graph-Enhanced** (5 skills): harness-execution, harness-planning, harness-architecture-advisor, harness-refactoring, align-documentation
+
+**Graph-Enabled** (5 new skills): harness-impact-analysis, harness-dependency-health, harness-hotspot-detector, harness-test-advisor, harness-knowledge-mapper
+
 ## Usage
 
 ### Claude Code

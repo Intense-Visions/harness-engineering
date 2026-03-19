@@ -31,7 +31,7 @@ harness-engineering/
 │   ├── eslint-plugin/        # ESLint rules for constraint enforcement
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
 │   ├── mcp-server/           # MCP server for AI agent integration
-│   └── graph/                # Knowledge graph for codebase relationships and entropy detection
+│   └── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 ├── agents/                    # Agent configuration
 │   ├── skills/claude-code/   # 26 skills (skill.yaml + SKILL.md each)
 │   ├── skills/gemini-cli/    # 27 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
@@ -242,6 +242,10 @@ Configuration example:
   "references": [{ "path": "./packages/types" }, { "path": "./packages/core" }]
 }
 ```
+
+### Unified Knowledge Graph
+
+The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, and 4 external connectors (Jira, Slack, Confluence, CI).
 
 ### Monorepo Structure Benefits
 

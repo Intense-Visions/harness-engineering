@@ -1,41 +1,40 @@
 {
-  "timestamp": "2026-03-18T22:00:00.000Z",
+  "timestamp": "2026-03-18T23:00:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 9 (Tier-2 Skills & Remaining Connectors) — 6 tasks: ConfluenceConnector, CIConnector, graph exports, 5 Tier-2 skill SKILL.md updates, verification.",
+  "summary": "Planned Phase 10 (Deprecation & Documentation) — 8 tasks: graph README, 3 guides, AGENTS.md/README.md updates, skills README categorization, ADR completion + OmniContext deprecation.",
   "completed": [],
   "pending": [
-    "Task 1: Implement ConfluenceConnector (TDD)",
-    "Task 2: Implement CIConnector (TDD)",
-    "Task 3: Export new connectors from graph package",
-    "Task 4: Update 5 Tier-2 skill SKILL.md files with graph notes",
-    "Task 5: Run full graph test suite",
-    "Task 6: Run full test suite verification"
+    "Task 1: Create packages/graph/README.md",
+    "Task 2: Create connector setup guide",
+    "Task 3: Create context assembly guide",
+    "Task 4: Create custom connector guide",
+    "Task 5: Update AGENTS.md with graph references",
+    "Task 6: Update README.md and agents/skills/README.md",
+    "Task 7: Mark ADR phases complete and deprecate OmniContext",
+    "Task 8: Final verification"
   ],
   "concerns": [
-    "Connectors use httpClient DI for testability — same pattern as JiraConnector/SlackConnector",
-    "ConfluenceConnector uses Confluence REST API v2 (cloud) — may differ from on-prem",
-    "CIConnector targets GitHub Actions API — other CI systems would need separate connectors"
+    "All tasks are documentation-only — no TypeScript code changes",
+    "AGENTS.md update must not break existing agent workflows",
+    "ADR completion marks the end of the 10-phase migration"
   ],
   "decisions": [
-    "ConfluenceConnector creates document nodes, links to code via linkToCode keyword matching",
-    "CIConnector creates build + test_result nodes, links via SHA and file path matching",
-    "Both connectors follow established pattern: httpClient DI, graceful API key error, IngestResult return",
-    "Tier-2 skill updates are documentation-only — add graph notes to context gathering sections"
+    "4 new docs: graph README, connectors guide, assembly guide, custom connector guide",
+    "3 updated docs: AGENTS.md, README.md, agents/skills/README.md",
+    "ADR gets all phases marked [x] complete with completion summary",
+    "OmniContext deprecated — harness graph is the single context system"
   ],
   "blockers": [],
   "contextKeywords": [
-    "ConfluenceConnector",
-    "CIConnector",
-    "connector",
-    "document",
-    "build",
-    "test_result",
-    "Tier-2",
-    "harness-execution",
-    "harness-planning",
-    "harness-architecture-advisor",
-    "harness-refactoring",
-    "align-documentation"
+    "README",
+    "AGENTS.md",
+    "documentation",
+    "deprecation",
+    "OmniContext",
+    "ADR-001",
+    "graph-connectors",
+    "graph-context-assembly",
+    "writing-custom-connectors"
   ]
 }
