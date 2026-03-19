@@ -18,8 +18,8 @@ export class CodeIngestor {
 
     const files = await this.findSourceFiles(rootDir);
 
-    // Track all function/method nodes and file contents for calls-edge pass
-    const callableNodes: Array<{ id: string; name: string; filePath: string }> = [];
+    // Track callable names → defining files for the calls-edge pass
+    const nameToFiles = new Map<string, Set<string>>();
     const fileContents: Map<string, string> = new Map();
 
     for (const filePath of files) {
@@ -53,7 +53,12 @@ export class CodeIngestor {
 
           // Track callables for the calls-edge pass
           if (node.type === 'function' || node.type === 'method') {
-            callableNodes.push({ id: node.id, name: node.name, filePath: relativePath });
+            let files = nameToFiles.get(node.name);
+            if (!files) {
+              files = new Set<string>();
+              nameToFiles.set(node.name, files);
+            }
+            files.add(relativePath);
           }
         }
 
@@ -69,7 +74,7 @@ export class CodeIngestor {
     }
 
     // Second pass: extract calls edges
-    const callsEdges = this.extractCallsEdges(callableNodes, fileContents);
+    const callsEdges = this.extractCallsEdges(nameToFiles, fileContents);
     for (const edge of callsEdges) {
       this.store.addEdge(edge);
       edgesAdded++;
@@ -297,56 +302,45 @@ export class CodeIngestor {
   }
 
   /**
-   * Second pass: for each function/method, check if its file content calls any other
-   * known function/method. Creates approximate "calls" edges via regex matching.
+   * Second pass: scan each file for identifiers matching known callable names,
+   * then create file-to-file "calls" edges. Uses regex heuristic (not AST).
    */
   private extractCallsEdges(
-    callableNodes: Array<{ id: string; name: string; filePath: string }>,
+    nameToFiles: ReadonlyMap<string, ReadonlySet<string>>,
     fileContents: Map<string, string>
   ): GraphEdge[] {
     const edges: GraphEdge[] = [];
+    const seen = new Set<string>();
 
-    // Build a map of function names to their node IDs (may have duplicates across files)
-    const nameToNodes = new Map<string, Array<{ id: string; filePath: string }>>();
-    for (const callable of callableNodes) {
-      let arr = nameToNodes.get(callable.name);
-      if (!arr) {
-        arr = [];
-        nameToNodes.set(callable.name, arr);
-      }
-      arr.push({ id: callable.id, filePath: callable.filePath });
-    }
+    // For each file, find call-site identifiers that match known callable names,
+    // then create file-to-file "calls" edges (not function-to-function)
+    for (const [filePath, content] of fileContents) {
+      const callerFileId = `file:${filePath}`;
+      const callPattern = /\b([a-zA-Z_$][\w$]*)\s*\(/g;
+      let match: RegExpExecArray | null;
 
-    // For each callable, scan its file for calls to other known callables
-    for (const caller of callableNodes) {
-      const content = fileContents.get(caller.filePath);
-      if (!content) continue;
+      while ((match = callPattern.exec(content)) !== null) {
+        const name = match[1]!;
+        const targetFiles = nameToFiles.get(name);
+        if (!targetFiles) continue;
 
-      for (const [name, targets] of nameToNodes) {
-        // Don't create self-referential edges for the same name in the same file
-        // unless it's genuinely a different function
-        if (name === caller.name) continue;
-
-        // Check if this function name appears as a call in the file
-        const callPattern = new RegExp(`\\b${this.escapeRegex(name)}\\s*\\(`, 'g');
-        if (callPattern.test(content)) {
-          for (const target of targets) {
-            edges.push({
-              from: caller.id,
-              to: target.id,
-              type: 'calls',
-              metadata: { confidence: 'regex' },
-            });
-          }
+        for (const targetFile of targetFiles) {
+          if (targetFile === filePath) continue;
+          const targetFileId = `file:${targetFile}`;
+          const key = `${callerFileId}|${targetFileId}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          edges.push({
+            from: callerFileId,
+            to: targetFileId,
+            type: 'calls',
+            metadata: { confidence: 'regex' },
+          });
         }
       }
     }
 
     return edges;
-  }
-
-  private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private async extractImports(

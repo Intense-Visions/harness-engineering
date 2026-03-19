@@ -108,16 +108,16 @@ describe('CodeIngestor', () => {
     expect(names).toContain('MAX_USERS');
   });
 
-  it('should create calls edges between functions/methods', async () => {
+  it('should create calls edges between files', async () => {
     await ingestor.ingest(FIXTURE_DIR);
     const callsEdges = store.getEdges({ type: 'calls' });
     expect(callsEdges.length).toBeGreaterThanOrEqual(1);
 
-    // auth-service's authenticate method calls hashPassword
-    const authenticateId = 'method:src/services/auth-service.ts:AuthService.authenticate';
-    const authenticateCalls = store.getEdges({ from: authenticateId, type: 'calls' });
-    const calledNames = authenticateCalls.map((e) => e.to);
-    expect(calledNames).toContain('function:src/utils/hash.ts:hashPassword');
+    // auth-service.ts calls hashPassword which is defined in hash.ts
+    const authFileId = 'file:src/services/auth-service.ts';
+    const authCalls = store.getEdges({ from: authFileId, type: 'calls' });
+    const calledFiles = authCalls.map((e) => e.to);
+    expect(calledFiles).toContain('file:src/utils/hash.ts');
   });
 
   it('should compute better endLine for classes using brace counting', async () => {
