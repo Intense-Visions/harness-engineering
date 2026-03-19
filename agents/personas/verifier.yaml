@@ -1,0 +1,30 @@
+version: 2
+name: Verifier
+description: Comprehensive verification of implementation against spec and plan
+role: >
+  Verify that implementation matches the approved spec and plan using harness methodology.
+  Checks at three tiers — EXISTS (files present), SUBSTANTIVE (real implementation,
+  not stubs), and WIRED (connected to the rest of the system). Reports pass/fail
+  with evidence-based findings.
+skills:
+  - harness-verification
+steps:
+  - command: validate
+    when: always
+  - command: check-deps
+    when: always
+  - command: check-phase-gate
+    when: always
+  - skill: harness-verification
+    when: manual
+    output: auto
+triggers:
+  - event: manual
+config:
+  severity: error
+  autoFix: false
+  timeout: 600000
+outputs:
+  agents-md: true
+  ci-workflow: false
+  runtime-config: true

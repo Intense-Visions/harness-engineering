@@ -186,13 +186,13 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 
 ## What's Included
 
-| Component                              | Count | Description                                                                                                          |
-| -------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------- |
-| [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, MCP server, graph, shared types                                  |
-| [Skills](./agents/skills/claude-code/) | 26    | Agent workflows for TDD, execution, debugging, verification, planning, and more                                      |
-| [Personas](./agents/personas/)         | 6     | Architecture enforcer, code reviewer, documentation maintainer, entropy cleaner, parallel coordinator, task executor |
-| [Templates](./templates/)              | 5     | Base, basic, intermediate, advanced, and Next.js scaffolds                                                           |
-| [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                                   |
+| Component                              | Count | Description                                                                         |
+| -------------------------------------- | ----- | ----------------------------------------------------------------------------------- |
+| [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, MCP server, graph, shared types |
+| [Skills](./agents/skills/claude-code/) | 26    | Agent workflows for TDD, execution, debugging, verification, planning, and more     |
+| [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more  |
+| [Templates](./templates/)              | 5     | Base, basic, intermediate, advanced, and Next.js scaffolds                          |
+| [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                  |
 
 ## Examples
 

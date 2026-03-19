@@ -24,6 +24,10 @@ export const AGENT_DESCRIPTIONS: Record<string, string> = {
     'Keep documentation in sync with source code. Use when detecting documentation drift, validating doc coverage, or aligning docs with code changes.',
   'entropy-cleaner':
     'Detect and fix codebase entropy including drift, dead code, and pattern violations. Use when running cleanup, detecting dead code, or fixing pattern violations.',
+  planner:
+    'Create detailed implementation plans from specs with task breakdown, dependency ordering, and checkpoint placement. Use when planning a phase, breaking a spec into tasks, or creating an execution plan.',
+  verifier:
+    'Verify implementation completeness against spec and plan at three tiers (EXISTS, SUBSTANTIVE, WIRED). Use when checking if built code matches what was planned, validating phase completion, or auditing implementation quality.',
 };
 
 const DEFAULT_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'];

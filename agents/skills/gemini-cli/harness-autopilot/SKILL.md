@@ -13,18 +13,23 @@
 
 ## Relationship to Other Skills
 
-| Skill                | Role in Autopilot                            |
-| -------------------- | -------------------------------------------- |
-| harness-planning     | Delegated to for phase plan creation         |
-| harness-execution    | Delegated to for task-by-task implementation |
-| harness-verification | Delegated to for post-execution validation   |
-| harness-code-review  | Delegated to for post-verification review    |
+| Skill                | Persona Agent (`subagent_type`) | Role in Autopilot                            |
+| -------------------- | ------------------------------- | -------------------------------------------- |
+| harness-planning     | `harness-planner`               | Delegated to for phase plan creation         |
+| harness-execution    | `harness-task-executor`         | Delegated to for task-by-task implementation |
+| harness-verification | `harness-verifier`              | Delegated to for post-execution validation   |
+| harness-code-review  | `harness-code-reviewer`         | Delegated to for post-verification review    |
 
-Autopilot orchestrates these skills — it never reimplements their logic.
+Autopilot orchestrates these persona agents — it never reimplements their logic. Each agent is dispatched via the Agent tool with the corresponding `subagent_type`, which isolates it to the harness methodology and prevents it from using unrelated skills.
 
 ## Iron Law
 
-**Autopilot delegates, never reimplements.** If you find yourself writing planning logic, execution logic, or review logic inside the autopilot loop, STOP. Delegate to the appropriate skill via subagent.
+**Autopilot delegates, never reimplements.** If you find yourself writing planning logic, execution logic, or review logic inside the autopilot loop, STOP. Delegate to the dedicated persona agent.
+
+**Always use dedicated persona agents, never general-purpose agents.** Every dispatch MUST target the specific harness persona (`harness-planner`, `harness-task-executor`, `harness-verifier`, `harness-code-reviewer`). General-purpose agents see all globally registered skills and may use unrelated workflows instead of the harness methodology.
+
+- **Claude Code:** Use the Agent tool with `subagent_type` set to the persona name.
+- **Gemini CLI:** Use the `run_agent` tool targeting the persona by name, or dispatch via `harness persona run <name>`.
 
 **Human always approves plans.** No plan executes without explicit human sign-off, regardless of complexity level. The difference is whether autopilot generates the plan automatically or asks the human to drive planning interactively.
 
@@ -97,8 +102,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
      | Effective Complexity | Action                                                                                                                                                                                                                               |
      | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-     | `low`                | Auto-plan via subagent. Proceed to PLAN.                                                                                                                                                                                             |
-     | `medium`             | Auto-plan via subagent. Proceed to PLAN. Present with extra scrutiny note.                                                                                                                                                           |
+     | `low`                | Auto-plan via `harness-planner` agent. Proceed to PLAN.                                                                                                                                                                              |
+     | `medium`             | Auto-plan via `harness-planner` agent. Proceed to PLAN. Present with extra scrutiny note.                                                                                                                                            |
      | `high`               | Pause. Tell the user: "Phase {N}: {name} is marked high-complexity. Run `/harness:planning` interactively for this phase, then re-invoke `/harness:autopilot` to continue." Transition to PLAN with `awaitingInteractivePlan: true`. |
 
 4. **Update state** with `currentState: "PLAN"` and save.
@@ -109,21 +114,25 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 **If auto-planning (low/medium complexity):**
 
-1. Dispatch a subagent with the following prompt:
+1. Dispatch a planning agent using the Agent tool:
 
    ```
-   You are running harness-planning for phase {N}: {name}.
+   Agent tool parameters:
+     subagent_type: "harness-planner"
+     description: "Plan phase {N}: {name}"
+     prompt: |
+       You are running harness-planning for phase {N}: {name}.
 
-   Spec: {specPath}
-   Phase description: {phase description from spec}
-   Previous phase learnings: {relevant learnings from .harness/learnings.md}
-   Known failures to avoid: {relevant entries from .harness/failures.md}
+       Spec: {specPath}
+       Phase description: {phase description from spec}
+       Previous phase learnings: {relevant learnings from .harness/learnings.md}
+       Known failures to avoid: {relevant entries from .harness/failures.md}
 
-   Follow the harness-planning skill process exactly. Write the plan to
-   docs/plans/{date}-{phase-name}-plan.md. Write .harness/handoff.json when done.
+       Follow the harness-planning skill process exactly. Write the plan to
+       docs/plans/{date}-{phase-name}-plan.md. Write .harness/handoff.json when done.
    ```
 
-2. When the subagent returns:
+2. When the agent returns:
    - Read the generated plan path from `.harness/handoff.json`.
    - **Apply complexity override check:**
      - Count tasks in the plan.
@@ -170,27 +179,31 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ### EXECUTE — Run the Plan
 
-1. **Dispatch execution subagent:**
+1. **Dispatch execution agent using the Agent tool:**
 
    ```
-   You are running harness-execution for phase {N}: {name}.
+   Agent tool parameters:
+     subagent_type: "harness-task-executor"
+     description: "Execute phase {N}: {name}"
+     prompt: |
+       You are running harness-execution for phase {N}: {name}.
 
-   Plan: {planPath}
-   State: .harness/state.json
-   Learnings: .harness/learnings.md
-   Failures: .harness/failures.md
+       Plan: {planPath}
+       State: .harness/state.json
+       Learnings: .harness/learnings.md
+       Failures: .harness/failures.md
 
-   Follow the harness-execution skill process exactly.
-   Update .harness/state.json after each task.
-   Write .harness/handoff.json when done or when blocked.
+       Follow the harness-execution skill process exactly.
+       Update .harness/state.json after each task.
+       Write .harness/handoff.json when done or when blocked.
    ```
 
-2. **When the subagent returns, check the outcome:**
+2. **When the agent returns, check the outcome:**
    - **All tasks complete:** Transition to VERIFY.
    - **Checkpoint reached:** Surface the checkpoint to the user in the main conversation. Handle the checkpoint type:
-     - `[checkpoint:human-verify]` — Show output, ask for confirmation, then resume execution subagent.
-     - `[checkpoint:decision]` — Present options, record choice, resume execution subagent.
-     - `[checkpoint:human-action]` — Instruct user, wait for confirmation, resume execution subagent.
+     - `[checkpoint:human-verify]` — Show output, ask for confirmation, then resume execution agent.
+     - `[checkpoint:decision]` — Present options, record choice, resume execution agent.
+     - `[checkpoint:human-action]` — Instruct user, wait for confirmation, resume execution agent.
    - **Task failed:** Enter retry logic (see below).
 
 3. **Retry logic on failure:**
@@ -198,7 +211,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - If `attemptsUsed < maxAttempts`:
      - Increment `attemptsUsed`.
      - Record the attempt (timestamp, error, fix attempted, result).
-     - **Attempt 1:** Read error output, apply obvious fix, re-dispatch execution subagent for the failed task only.
+     - **Attempt 1:** Read error output, apply obvious fix, re-dispatch execution agent for the failed task only.
      - **Attempt 2:** Expand context — read related files, check `learnings.md` for similar failures, re-dispatch with additional context.
      - **Attempt 3:** Full context gather — read test output, imports, plan instructions for ambiguity. Re-dispatch with maximum context.
    - If budget exhausted:
@@ -213,16 +226,20 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ### VERIFY — Post-Execution Validation
 
-1. **Dispatch verification subagent:**
+1. **Dispatch verification agent using the Agent tool:**
 
    ```
-   You are running harness-verification for phase {N}: {name}.
+   Agent tool parameters:
+     subagent_type: "harness-verifier"
+     description: "Verify phase {N}: {name}"
+     prompt: |
+       You are running harness-verification for phase {N}: {name}.
 
-   Follow the harness-verification skill process exactly.
-   Report pass/fail with findings.
+       Follow the harness-verification skill process exactly.
+       Report pass/fail with findings.
    ```
 
-2. **When the subagent returns:**
+2. **When the agent returns:**
    - **All checks pass:** Transition to REVIEW.
    - **Failures found:** Surface findings to the user. Ask: "Fix these issues before review? (yes / skip verification / stop)"
      - **yes** — Re-enter EXECUTE with targeted fixes (retry budget resets for verification fixes).
@@ -235,16 +252,20 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ### REVIEW — Code Review
 
-1. **Dispatch review subagent:**
+1. **Dispatch review agent using the Agent tool:**
 
    ```
-   You are running harness-code-review for phase {N}: {name}.
+   Agent tool parameters:
+     subagent_type: "harness-code-reviewer"
+     description: "Review phase {N}: {name}"
+     prompt: |
+       You are running harness-code-review for phase {N}: {name}.
 
-   Follow the harness-code-review skill process exactly.
-   Report findings with severity (blocking / warning / note).
+       Follow the harness-code-review skill process exactly.
+       Report findings with severity (blocking / warning / note).
    ```
 
-2. **When the subagent returns:**
+2. **When the agent returns:**
    - **No blocking findings:** Report summary, transition to PHASE_COMPLETE.
    - **Blocking findings:** Surface to user. Ask: "Address blocking findings before completing this phase? (yes / override / stop)"
      - **yes** — Re-enter EXECUTE with review fixes.
@@ -372,7 +393,7 @@ Phase 1: Core Scanner — complexity: low. Auto-planning.
 **Phase 1 — PLAN:**
 
 ```
-[Subagent runs harness-planning]
+[harness-planner agent runs harness-planning]
 Plan generated: docs/plans/2026-03-19-core-scanner-plan.md (8 tasks, ~24 min)
 ```
 
@@ -388,9 +409,9 @@ Approve this plan and begin execution? (yes / revise / skip / stop)
 **Phase 1 — EXECUTE → VERIFY → REVIEW:**
 
 ```
-[Subagent executes 8 tasks... all pass]
-[Subagent runs verification... pass]
-[Subagent runs code review... 0 blocking, 2 notes]
+[harness-task-executor agent executes 8 tasks... all pass]
+[harness-verifier agent runs verification... pass]
+[harness-code-reviewer agent runs code review... 0 blocking, 2 notes]
 ```
 
 **Phase 1 — PHASE_COMPLETE:**
@@ -479,7 +500,7 @@ How should we proceed? (fix manually and continue / revise plan / stop)
 
 ## Gates
 
-- **No reimplementing delegated skills.** Autopilot orchestrates. If you are writing planning logic, execution logic, verification logic, or review logic, STOP. Delegate to the appropriate skill.
+- **No reimplementing delegated skills.** Autopilot orchestrates. If you are writing planning logic, execution logic, verification logic, or review logic, STOP. Delegate to the appropriate persona agent via `subagent_type`.
 - **No executing without plan approval.** Every plan must be explicitly approved by the human before execution begins. No exceptions, regardless of complexity level.
 - **No skipping VERIFY or REVIEW.** Every phase goes through verification and review. The human can override findings, but the steps cannot be skipped.
 - **No infinite retries.** The retry budget is 3 attempts. If exhausted, STOP and surface to the human. Do not extend the budget without explicit human instruction.
@@ -488,7 +509,7 @@ How should we proceed? (fix manually and continue / revise plan / stop)
 ## Escalation
 
 - **When the spec has no Implementation Order section:** Cannot identify phases. Ask the user to add phase annotations to the spec or provide a roadmap file.
-- **When a delegated skill fails to produce expected output:** Check that handoff.json was written correctly. If the subagent failed, report the failure and ask the user whether to retry the entire phase step or stop.
+- **When a delegated skill fails to produce expected output:** Check that handoff.json was written correctly. If the agent failed, report the failure and ask the user whether to retry the entire phase step or stop.
 - **When the user wants to reorder phases mid-run:** Update the phases array in autopilot-state.json (mark skipped phases, adjust currentPhase). Do not re-run completed phases.
 - **When context limits are approaching:** Persist state immediately and inform the user: "Context limit approaching. State saved. Re-invoke /harness:autopilot to continue from this point."
 - **When multiple phases fail in sequence:** After 2 consecutive phase failures (retry budget exhausted in both), suggest the user review the spec for systemic issues rather than continuing.
