@@ -162,7 +162,7 @@ Learn by doing. Each example builds on the previous:
 
 **Core Concepts**
 
-- [The Six Principles](./docs/standard/principles.md) — Foundational concepts behind harness engineering
+- [The Core Principles](./docs/standard/principles.md) — Foundational concepts behind harness engineering
 - [Implementation Guide](./docs/standard/implementation.md) — Adoption levels and rollout strategy
 - [KPIs](./docs/standard/kpis.md) — Measuring agent effectiveness
 
