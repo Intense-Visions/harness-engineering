@@ -13,6 +13,7 @@
 ## Prerequisites
 
 A knowledge graph must exist at `.harness/graph/` with git history ingested. Run `harness scan` if no graph is available.
+If the graph exists but code has changed since the last scan, re-run `harness scan` first — stale graph data leads to inaccurate results.
 
 ## Process
 

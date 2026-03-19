@@ -61,6 +61,12 @@ Mechanical Checks:
 Action: Fix lint errors before committing.
 ```
 
+### Graph Freshness Check
+
+If a knowledge graph exists at `.harness/graph/` and code files have changed since the last scan, run `harness scan` before proceeding. The AI review phase uses graph-enhanced MCP tools (impact analysis, harness checks) that return stale results with an outdated graph.
+
+If no graph exists, skip this step — the tools fall back to non-graph behavior.
+
 ### Phase 2: Classify Changes
 
 Determine whether AI review is needed based on what changed.
