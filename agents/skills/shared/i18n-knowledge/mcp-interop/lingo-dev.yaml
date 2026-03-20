@@ -1,0 +1,56 @@
+name: "Lingo.dev"
+description: "AI-powered translation platform with brand voice consistency, multi-engine machine translation, and glossary management"
+mcp_server_id: "lingo-dev-mcp"
+source: "https://github.com/anthropics/lingo-dev-mcp"
+
+capabilities:
+  - name: "Multi-Engine Machine Translation"
+    description: "Translate content using multiple AI/MT engines with quality comparison"
+    tools: ["translate_text", "translate_file", "batch_translate"]
+  - name: "Glossary Management"
+    description: "Manage terminology glossaries to ensure translation consistency"
+    tools: ["create_glossary_term", "list_glossary", "update_glossary_term"]
+  - name: "Brand Voice Consistency"
+    description: "Configure and enforce brand voice profiles for translations"
+    tools: ["set_brand_voice", "check_brand_consistency"]
+  - name: "Translation Memory"
+    description: "Leverage previously approved translations for consistency and cost savings"
+    tools: ["search_translation_memory", "add_to_translation_memory"]
+
+when_to_use:
+  - scenario: "Team needs high-quality machine translation with terminology consistency"
+    reason: "Lingo.dev specializes in AI translation quality with glossary enforcement and brand voice"
+  - scenario: "Project has established brand terminology that must be preserved across languages"
+    reason: "Glossary management ensures product names, features, and key terms are translated consistently"
+  - scenario: "Rapid iteration with frequent string changes"
+    reason: "AI translation with translation memory enables fast turnaround without waiting for human translators"
+
+when_not_to_use:
+  - scenario: "Content requiring certified or sworn translations (legal, medical)"
+    reason: "AI translation, even high quality, does not meet certification requirements for regulated content"
+  - scenario: "Team prefers full human translation workflow"
+    reason: "Lingo.dev's value proposition centers on AI translation; pure human workflows are better served by a traditional TMS"
+
+integration_patterns:
+  - pattern: "Harness workflow with Lingo.dev for rapid translation"
+    description: "Use Lingo.dev MCP tools to translate new strings immediately, then queue for human review"
+    config_example: |
+      // harness.config.json
+      {
+        "mcp": {
+          "servers": {
+            "lingo-dev": {
+              "command": "npx",
+              "args": ["-y", "@anthropic/lingo-dev-mcp"],
+              "env": {
+                "LINGO_API_KEY": "<your-api-key>"
+              }
+            }
+          }
+        }
+      }
+
+limitations:
+  - "AI translation quality varies by language pair; low-resource languages may have lower quality"
+  - "Brand voice enforcement requires initial setup and training on existing approved translations"
+  - "Translation memory benefits increase over time; initial runs have no prior context"

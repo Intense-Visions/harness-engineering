@@ -1,0 +1,60 @@
+name: "Lokalise"
+description: "Enterprise translation management system with team collaboration, branching, QA checks, and extensive integration ecosystem"
+mcp_server_id: "lokalise-mcp"
+source: "https://github.com/anthropics/lokalise-mcp"
+
+capabilities:
+  - name: "Key Management"
+    description: "Create, update, delete, and filter translation keys with tags and platform labels"
+    tools: ["create_key", "update_key", "delete_key", "list_keys", "bulk_update_keys"]
+  - name: "File Operations"
+    description: "Upload source files and download translated files in any format"
+    tools: ["upload_file", "download_files", "list_files"]
+  - name: "Task Management"
+    description: "Create and manage translation tasks for team members and external translators"
+    tools: ["create_task", "list_tasks", "complete_task"]
+  - name: "Branching"
+    description: "Create and merge translation branches aligned with code branches"
+    tools: ["create_branch", "merge_branch", "list_branches"]
+  - name: "QA Checks"
+    description: "Run automated quality assurance checks on translations (placeholders, length, glossary)"
+    tools: ["run_qa_checks", "get_qa_results"]
+
+when_to_use:
+  - scenario: "Larger team with multiple translators and complex review workflows"
+    reason: "Lokalise excels at team collaboration with task assignment, review stages, and comments"
+  - scenario: "Project with release branching that needs translation branching to match"
+    reason: "Lokalise's branching model maps to git branches, keeping translations in sync with code releases"
+  - scenario: "Enterprise requiring SOC 2 compliance and uptime SLA"
+    reason: "Lokalise offers enterprise security certifications and guaranteed uptime SLAs"
+
+when_not_to_use:
+  - scenario: "Small team or solo developer with simple translation needs"
+    reason: "Lokalise's enterprise features add complexity; simpler tools like Tolgee may be more appropriate"
+  - scenario: "Team wanting self-hosted translation infrastructure"
+    reason: "Lokalise is cloud-only; use Tolgee or Weblate for self-hosted requirements"
+
+integration_patterns:
+  - pattern: "Harness workflow with Lokalise for enterprise translation management"
+    description: "Use Lokalise MCP tools to sync translation keys with code changes, create tasks for translators, and download completed translations"
+    config_example: |
+      // harness.config.json
+      {
+        "mcp": {
+          "servers": {
+            "lokalise": {
+              "command": "npx",
+              "args": ["-y", "@anthropic/lokalise-mcp"],
+              "env": {
+                "LOKALISE_API_TOKEN": "<your-api-token>",
+                "LOKALISE_PROJECT_ID": "<your-project-id>"
+              }
+            }
+          }
+        }
+      }
+
+limitations:
+  - "Per-seat pricing can be expensive for large teams"
+  - "API rate limits may affect large batch operations via MCP"
+  - "Branch merging requires manual conflict resolution for overlapping translations"
