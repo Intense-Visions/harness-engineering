@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/linter-gen",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate ESLint rules from YAML configuration",
   "type": "module",
   "main": "./dist/index.js",
@@ -27,12 +27,12 @@
     "yaml": "^2.3.0",
     "handlebars": "^4.7.0",
     "zod": "^3.22.0",
-    "minimatch": "^9.0.0"
+    "minimatch": "^10.2.4"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^2.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   },
   "license": "MIT",
   "publishConfig": {

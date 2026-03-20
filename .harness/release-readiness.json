@@ -1,57 +1,50 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-03-19T11:45:00Z",
+  "timestamp": "2026-03-20T12:00:00Z",
   "flags": {
     "comprehensive": false
   },
   "summary": {
     "result": "FAIL",
-    "passed": 86,
-    "warned": 5,
-    "failed": 0,
-    "total": 91
+    "passed": 85,
+    "warned": 2,
+    "failed": 2,
+    "total": 89
   },
   "categories": {
     "packaging": {
       "passed": 70,
-      "warned": 4,
-      "failed": 0,
+      "warned": 0,
+      "failed": 2,
       "findings": [
         {
-          "package": "packages/graph",
-          "check": "publishConfig",
-          "severity": "warn",
-          "fixable": true,
-          "fixed": false
+          "check": "build succeeds",
+          "severity": "fail",
+          "fixable": false,
+          "fixed": false,
+          "detail": "cyclic dependency cli↔mcp-server breaks turbo build"
         },
         {
-          "package": "packages/graph",
-          "check": "repository",
-          "severity": "warn",
-          "fixable": true,
-          "fixed": false
-        },
-        {
-          "package": "packages/graph",
-          "check": "bugs",
-          "severity": "warn",
-          "fixable": true,
-          "fixed": false
-        },
-        {
-          "package": "packages/graph",
-          "check": "homepage",
-          "severity": "warn",
-          "fixable": true,
-          "fixed": false
+          "check": "pnpm pack produces expected files",
+          "severity": "fail",
+          "fixable": false,
+          "fixed": false,
+          "detail": "skipped — requires successful build"
         }
       ]
     },
     "documentation": {
-      "passed": 6,
-      "warned": 0,
+      "passed": 5,
+      "warned": 1,
       "failed": 0,
-      "findings": []
+      "findings": [
+        {
+          "check": "README contains usage/API section",
+          "severity": "warn",
+          "fixable": false,
+          "fixed": false
+        }
+      ]
     },
     "repo-hygiene": {
       "passed": 4,
@@ -61,8 +54,9 @@
         {
           "check": "TODO/FIXME in published source",
           "severity": "warn",
-          "count": 233,
-          "fixable": false
+          "count": 170,
+          "fixable": false,
+          "fixed": false
         }
       ]
     },
@@ -74,57 +68,68 @@
     },
     "maintenance": {
       "doc-drift": {
-        "issues": 13,
+        "issues": 8,
         "findings": [
           {
-            "file": "docs/guides/getting-started.md",
-            "line": 94,
-            "issue": "Skills count says 31, actual 37/38"
+            "file": "AGENTS.md",
+            "line": 19,
+            "issue": "Skills count 37→42 CC, 38→43 Gemini",
+            "fixed": true
           },
           {
-            "file": "docs/guides/getting-started.md",
-            "line": 177,
-            "issue": "MCP tools says 31, actual 35"
+            "file": "AGENTS.md",
+            "line": 36,
+            "issue": "Skills directory count 37→42 CC",
+            "fixed": true
           },
           {
-            "file": "docs/guides/getting-started.md",
-            "line": 220,
-            "issue": "Says six principles, should be seven"
+            "file": "AGENTS.md",
+            "line": 37,
+            "issue": "Skills directory count 38→43 Gemini",
+            "fixed": true
           },
-          { "file": "README.md", "line": 37, "issue": "harness init syntax wrong" },
-          { "file": "README.md", "line": 58, "issue": "ESLint plugin says 5 rules, actual 8" },
+          {
+            "file": "AGENTS.md",
+            "line": 38,
+            "issue": "Personas count 10→12, missing planner/verifier",
+            "fixed": true
+          },
           {
             "file": "README.md",
-            "line": 60,
-            "issue": "MCP server says 37 tools/11 resources, actual 35/8"
+            "line": 80,
+            "issue": "ESLint rules says 5, actual 8",
+            "fixed": true
           },
-          { "file": "README.md", "line": 92, "issue": "Repeats wrong tool/resource counts" },
-          { "file": "README.md", "line": 140, "issue": "Skills count says 26, actual 37" },
-          { "file": "README.md", "line": 141, "issue": "Personas count says 6, actual 10" },
-          { "file": "AGENTS.md", "line": 36, "issue": "Claude-code skills says 36, actual 37" },
-          { "file": "AGENTS.md", "line": 37, "issue": "Gemini-cli skills says 37, actual 38" },
-          { "file": "docs/api/index.md", "line": 12, "issue": "MCP tools says 37, actual 35" },
           {
-            "file": "docs/guides/getting-started.md",
-            "line": 66,
-            "issue": "Init syntax inconsistency"
+            "file": "docs/api/index.md",
+            "line": 6,
+            "issue": "Missing @harness-engineering/graph package",
+            "fixed": false
+          },
+          {
+            "file": "README.md",
+            "line": 82,
+            "issue": "MCP server tool count may need verification",
+            "fixed": false
+          },
+          {
+            "file": "README.md",
+            "line": 192,
+            "issue": "Skills count ambiguous across platforms",
+            "fixed": false
           }
         ]
       },
       "dead-code": {
-        "issues": 13,
+        "issues": 7,
         "findings": [
+          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/index.ts" },
           { "type": "orphan", "file": "packages/eslint-plugin/src/configs/recommended.ts" },
           { "type": "orphan", "file": "packages/eslint-plugin/src/configs/strict.ts" },
-          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/index.ts" },
-          { "type": "orphan", "file": "packages/mcp-server/src/utils/glob-helper.ts" },
-          { "type": "orphan", "file": "packages/cli/src/templates/schema.ts" },
-          { "type": "orphan", "file": "packages/cli/src/templates/merger.ts" },
+          { "type": "orphan", "file": "packages/eslint-plugin/src/utils/index.ts" },
           { "type": "orphan", "file": "packages/core/src/entropy/fixers/index.ts" },
           { "type": "orphan", "file": "packages/core/src/entropy/config/index.ts" },
           { "type": "orphan", "file": "packages/core/src/entropy/detectors/index.ts" },
-          { "type": "orphan", "file": "packages/eslint-plugin/src/utils/index.ts" },
-          { "type": "unused-export", "file": "packages/eslint-plugin/src/utils/schema.ts" },
           {
             "type": "unused-export",
             "file": "packages/core/src/entropy/detectors/patterns.ts",
@@ -132,40 +137,64 @@
           },
           {
             "type": "unused-export",
-            "file": "packages/core/src/shared/parsers/index.ts",
-            "export": "Location"
+            "file": "packages/types/src/index.ts",
+            "export": "STANDARD_COGNITIVE_MODES, SkillError"
+          },
+          {
+            "type": "unused-export",
+            "file": "packages/eslint-plugin/src/utils/schema.ts",
+            "export": "LayerSchema, ForbiddenImportSchema, BoundaryConfigSchema, ForbiddenImport"
           }
         ]
       },
       "architecture": {
-        "issues": 3,
+        "issues": 4,
         "findings": [
-          { "from": "cli", "to": "linter-gen", "severity": "violation" },
-          { "from": "mcp-server", "to": "cli", "severity": "violation", "files_affected": 7 },
-          { "from": "mcp-server", "to": "linter-gen", "severity": "violation" }
+          { "from": "cli", "to": "mcp-server", "severity": "critical", "files_affected": 1 },
+          { "from": "mcp-server", "to": "cli", "severity": "critical", "files_affected": 7 },
+          { "from": "cli", "to": "linter-gen", "severity": "medium", "files_affected": 2 },
+          { "from": "mcp-server", "to": "linter-gen", "severity": "medium", "files_affected": 1 }
         ]
       },
       "diagnostics": {
-        "issues": 3,
+        "issues": 7,
         "findings": [
-          { "severity": "warning", "issue": "Node.js 21.6.1, requires >=22.0.0" },
-          { "severity": "info", "issue": "validateKnowledgeMap() deprecated" },
-          { "severity": "info", "issue": "validateAgentsMap() deprecated" }
+          { "severity": "error", "issue": "Node.js v21.6.1, requires >=22.0.0" },
+          { "severity": "warning", "issue": "validateAgentsMap() deprecated, 3 call sites" },
+          { "severity": "warning", "issue": "validateKnowledgeMap() deprecated, 2 call sites" },
+          { "severity": "warning", "issue": "@types/node version split ^22 vs ^20" },
+          { "severity": "warning", "issue": "vitest major version split ^4 vs ^2" },
+          { "severity": "warning", "issue": "minimatch major version split ^10 vs ^9" },
+          { "severity": "warning", "issue": "harness check-perf cannot resolve entry points" }
         ]
       }
     }
   },
   "fixes": {
-    "applied": ["added-license-graph"],
-    "pending": [
+    "applied": [
+      "added-license-graph",
       "graph-publishConfig",
       "graph-repository",
       "graph-bugs",
       "graph-homepage",
-      "doc-drift-13-issues",
-      "dead-code-13-issues",
-      "architecture-3-violations",
-      "todo-fixme-in-dist"
+      "gitignore-env",
+      "agents-md-skill-counts",
+      "agents-md-persona-counts",
+      "readme-eslint-rule-count"
+    ],
+    "pending": [
+      "build-cyclic-dep",
+      "node-version-upgrade",
+      "readme-usage-section",
+      "todo-fixme-in-dist",
+      "deprecated-api-migration",
+      "types-node-version-align",
+      "vitest-version-align",
+      "minimatch-version-align",
+      "api-docs-graph-package",
+      "orphan-barrel-files",
+      "unused-exports-cleanup",
+      "perf-entry-points"
     ],
     "skipped": []
   }

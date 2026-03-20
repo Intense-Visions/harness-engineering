@@ -87,12 +87,16 @@ function parseAestheticDirection(content: string): AestheticDirection {
     return m ? m[1]!.trim() : undefined;
   };
 
-  return {
-    style: extract(/\*\*Style:\*\*\s*(.+)/),
-    tone: extract(/\*\*Tone:\*\*\s*(.+)/),
-    differentiator: extract(/\*\*Differentiator:\*\*\s*(.+)/),
-    strictness: extract(/^level:\s*(strict|standard|permissive)\s*$/m),
-  };
+  const result: AestheticDirection = {};
+  const style = extract(/\*\*Style:\*\*\s*(.+)/);
+  if (style !== undefined) result.style = style;
+  const tone = extract(/\*\*Tone:\*\*\s*(.+)/);
+  if (tone !== undefined) result.tone = tone;
+  const differentiator = extract(/\*\*Differentiator:\*\*\s*(.+)/);
+  if (differentiator !== undefined) result.differentiator = differentiator;
+  const strictness = extract(/^level:\s*(strict|standard|permissive)\s*$/m);
+  if (strictness !== undefined) result.strictness = strictness;
+  return result;
 }
 
 function parseAntiPatterns(content: string): string[] {

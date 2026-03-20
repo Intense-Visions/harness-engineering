@@ -17,6 +17,7 @@ out/
 # Misc
 .DS_Store
 *.pem
+.env
 .env*.local
 
 # Debug

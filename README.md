@@ -72,15 +72,40 @@ npm install && harness validate
 
 ## Packages
 
-| Package                                                          | Description                                                                                |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| [`@harness-engineering/types`](./packages/types)                 | Shared TypeScript types and interfaces                                                     |
-| [`@harness-engineering/core`](./packages/core)                   | Validation, constraints, entropy detection, state management                               |
-| [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                   |
-| [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports |
-| [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                       |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 37 tools and 8 resources for AI agent integration                          |
-| [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                           |
+| Package                                                          | Description                                                                                                                                                                   |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@harness-engineering/types`](./packages/types)                 | Shared TypeScript types and interfaces                                                                                                                                        |
+| [`@harness-engineering/core`](./packages/core)                   | Validation, constraints, entropy detection, state management                                                                                                                  |
+| [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                                                                                                      |
+| [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 8 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports, no nested loops in critical paths, no sync IO in async, no unbounded array chains |
+| [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                                                                          |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 37 tools and 8 resources for AI agent integration                                                                                                             |
+| [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                                                                                                              |
+
+## Usage
+
+```typescript
+import { validateProject } from '@harness-engineering/core';
+
+const result = validateProject('./harness.config.json');
+if (!result.ok) {
+  console.error('Validation failed:', result.error.message);
+  process.exit(1);
+}
+```
+
+```bash
+# CLI — validate project constraints
+harness validate
+
+# Check architectural dependency boundaries
+harness check-deps
+
+# Run a skill
+harness skill run harness-verification
+```
+
+See [Getting Started](./docs/guides/getting-started.md) for a full walkthrough.
 
 ## Architecture
 

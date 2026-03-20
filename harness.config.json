@@ -116,6 +116,17 @@
     "autoFix": false
   },
   "performance": {
+    "entryPoints": [
+      "packages/types/src/index.ts",
+      "packages/core/src/index.ts",
+      "packages/graph/src/index.ts",
+      "packages/cli/src/index.ts",
+      "packages/cli/src/bin/harness.ts",
+      "packages/eslint-plugin/src/index.ts",
+      "packages/linter-gen/src/index.ts",
+      "packages/mcp-server/src/index.ts",
+      "packages/mcp-server/bin/harness-mcp.ts"
+    ],
     "complexity": {
       "enabled": true,
       "thresholds": {

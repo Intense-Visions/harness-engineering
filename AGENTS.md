@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 37 skills (claude-code) / 38 skills (gemini-cli), 10 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 42 skills (claude-code) / 43 skills (gemini-cli), 12 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -33,9 +33,9 @@ harness-engineering/
 │   ├── mcp-server/           # MCP server for AI agent integration
 │   └── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 37 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 38 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
-│   └── personas/             # 10 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, security-reviewer, task-executor)
+│   ├── skills/claude-code/   # 42 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 43 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
+│   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level

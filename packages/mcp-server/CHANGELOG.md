@@ -1,5 +1,14 @@
 # @harness-engineering/mcp-server
 
+## 0.5.3
+
+### Patch Changes
+
+- Align dependency versions across workspace: `@types/node` ^22, `vitest` ^4, `typescript` ^5.3.3
+- Updated dependencies
+  - @harness-engineering/cli@1.7.0
+  - @harness-engineering/graph@0.2.2
+
 ## 0.5.2
 
 ### Patch Changes

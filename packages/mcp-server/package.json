@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/mcp-server",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "MCP server for Harness Engineering toolkit",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -38,9 +38,9 @@
     "handlebars": "^4.7.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^2.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   },
   "license": "MIT",
   "publishConfig": {

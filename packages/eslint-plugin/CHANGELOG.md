@@ -1,5 +1,11 @@
 # @harness-engineering/eslint-plugin
 
+## 0.1.2
+
+### Patch Changes
+
+- Align dependency versions across workspace: `@types/node` ^22, `vitest` ^4, `minimatch` ^10, `typescript` ^5.3.3
+
 ## 0.1.1
 
 ### Patch Changes

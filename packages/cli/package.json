@@ -1,11 +1,10 @@
 {
   "name": "@harness-engineering/cli",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "CLI for Harness Engineering toolkit",
   "type": "module",
   "bin": {
-    "harness": "./dist/bin/harness.js",
-    "harness-mcp": "./dist/harness-mcp.js"
+    "harness": "./dist/bin/harness.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -30,9 +29,7 @@
     "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
-  "//dependencies": "mcp-server creates a cycle (cli→mcp-server→cli). Safe because: CLI bundles its own code at build time (tsup, noExternal), mcp-server only imports CLI via dynamic await import() at runtime. Both packages must be published together.",
   "dependencies": {
-    "@harness-engineering/mcp-server": "workspace:*",
     "@typescript-eslint/typescript-estree": "^7.0.0",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",

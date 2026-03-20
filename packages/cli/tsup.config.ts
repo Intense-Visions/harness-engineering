@@ -18,7 +18,6 @@ export default defineConfig([
       '@harness-engineering/linter-gen',
       '@harness-engineering/types',
     ],
-    external: ['@harness-engineering/mcp-server'],
     esbuildOptions(options) {
       // Resolve workspace packages to their built dist to avoid pulling
       // in devDependencies and transitive build tooling.
@@ -32,17 +31,5 @@ export default defineConfig([
         '@harness-engineering/types': path.join(workspaceRoot, 'packages/types/dist/index.mjs'),
       };
     },
-  },
-  // MCP server bin wrapper — thin passthrough, no DTS needed.
-  // mcp-server is a runtime dependency (not bundled) so that
-  // `npm install -g @harness-engineering/cli` gives users both
-  // `harness` and `harness-mcp` with version-matched deps.
-  {
-    entry: ['src/bin/harness-mcp.ts'],
-    format: ['esm'],
-    dts: false,
-    outDir: 'dist',
-    external: ['@harness-engineering/mcp-server'],
-    banner: { js: '#!/usr/bin/env node' },
   },
 ]);

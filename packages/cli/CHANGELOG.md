@@ -1,5 +1,16 @@
 # @harness-engineering/cli
 
+## 1.7.0
+
+### Minor Changes
+
+- Remove `harness-mcp` binary from CLI package to break cyclic dependency with `@harness-engineering/mcp-server`. The `harness-mcp` binary is now provided exclusively by `@harness-engineering/mcp-server`. Users who install the CLI globally should also install `npm install -g @harness-engineering/mcp-server` for MCP server support.
+- Remove `@harness-engineering/mcp-server` from production dependencies
+
+### Patch Changes
+
+- Align dependency versions across workspace: `@types/node` ^22, `vitest` ^4, `minimatch` ^10, `typescript` ^5.3.3
+
 ## 1.6.2
 
 ### Patch Changes

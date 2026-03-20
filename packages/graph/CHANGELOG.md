@@ -1,5 +1,12 @@
 # @harness-engineering/graph
 
+## 0.2.2
+
+### Patch Changes
+
+- Fix `exactOptionalPropertyTypes` build error in `DesignIngestor.parseAestheticDirection()`
+- Align dependency versions across workspace: `typescript` ^5.9.3
+
 ## 0.2.1
 
 ### Patch Changes
