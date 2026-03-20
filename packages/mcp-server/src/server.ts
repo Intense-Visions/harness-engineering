@@ -6,6 +6,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { resolveProjectConfig } from './utils/config-resolver.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import {
@@ -300,10 +301,25 @@ export function createHarnessServer(projectRoot?: string): Server {
           VERSION,
         } = await import('@harness-engineering/core');
 
-        if (isUpdateCheckEnabled()) {
+        // Read updateCheckInterval from project config (if available)
+        let configInterval: number | undefined;
+        try {
+          const configResult = resolveProjectConfig(resolvedRoot);
+          if (configResult.ok) {
+            const raw = configResult.value.updateCheckInterval;
+            if (typeof raw === 'number') {
+              configInterval = raw;
+            }
+          }
+        } catch {
+          // Config read failure is non-fatal for update checks
+        }
+
+        const DEFAULT_INTERVAL = 86_400_000; // 24 hours
+
+        if (isUpdateCheckEnabled(configInterval)) {
           const state = readCheckState();
-          const DEFAULT_INTERVAL = 86_400_000; // 24 hours
-          if (shouldRunCheck(state, DEFAULT_INTERVAL)) {
+          if (shouldRunCheck(state, configInterval ?? DEFAULT_INTERVAL)) {
             spawnBackgroundCheck(VERSION);
           }
 
