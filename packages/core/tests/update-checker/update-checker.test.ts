@@ -2,8 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   isUpdateCheckEnabled,
   shouldRunCheck,
+  readCheckState,
   type UpdateCheckState,
 } from '../../src/update-checker';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 describe('isUpdateCheckEnabled', () => {
   const originalEnv = process.env;
@@ -85,5 +89,58 @@ describe('shouldRunCheck', () => {
     };
     // 1000 + 86400000 = 86401000 = Date.now() => elapsed (<=)
     expect(shouldRunCheck(state, 86400000)).toBe(true);
+  });
+});
+
+describe('readCheckState', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-update-'));
+    originalHome = os.homedir();
+    // We need to override the state file path used by readCheckState.
+    // The module reads from ~/.harness/update-check.json.
+    // We override HOME so os.homedir() returns our tmp dir.
+    process.env['HOME'] = tmpDir;
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('returns null when state file does not exist', () => {
+    expect(readCheckState()).toBeNull();
+  });
+
+  it('returns parsed state when file is valid', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    const state: UpdateCheckState = {
+      lastCheckTime: 1000,
+      latestVersion: '1.8.0',
+      currentVersion: '1.7.0',
+    };
+    fs.writeFileSync(path.join(harnessDir, 'update-check.json'), JSON.stringify(state));
+    expect(readCheckState()).toEqual(state);
+  });
+
+  it('returns null when file contains invalid JSON', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(path.join(harnessDir, 'update-check.json'), 'not-json{{{');
+    expect(readCheckState()).toBeNull();
+  });
+
+  it('returns null when file has wrong shape', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({ unrelated: true })
+    );
+    // Missing required fields; readCheckState should treat as corrupt
+    expect(readCheckState()).toBeNull();
   });
 });

@@ -1,3 +1,7 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -9,8 +13,12 @@ export interface UpdateCheckState {
 }
 
 // ---------------------------------------------------------------------------
-// Constants
+// Helpers
 // ---------------------------------------------------------------------------
+
+function getStatePath(): string {
+  return path.join(os.homedir(), '.harness', 'update-check.json');
+}
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -33,4 +41,37 @@ export function isUpdateCheckEnabled(configInterval?: number): boolean {
 export function shouldRunCheck(state: UpdateCheckState | null, intervalMs: number): boolean {
   if (state === null) return true;
   return state.lastCheckTime + intervalMs <= Date.now();
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the update check state from ~/.harness/update-check.json.
+ * Returns null if the file is missing, unreadable, or has invalid content.
+ */
+export function readCheckState(): UpdateCheckState | null {
+  try {
+    const raw = fs.readFileSync(getStatePath(), 'utf-8');
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'lastCheckTime' in parsed &&
+      typeof (parsed as UpdateCheckState).lastCheckTime === 'number' &&
+      'currentVersion' in parsed &&
+      typeof (parsed as UpdateCheckState).currentVersion === 'string'
+    ) {
+      const state = parsed as UpdateCheckState;
+      return {
+        lastCheckTime: state.lastCheckTime,
+        latestVersion: typeof state.latestVersion === 'string' ? state.latestVersion : null,
+        currentVersion: state.currentVersion,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
