@@ -1,0 +1,144 @@
+description: "Flutter platform design rules — cross-platform patterns, Material/Cupertino adaptation, and platform-specific constraints"
+
+platform: flutter
+frameworks: ["Flutter"]
+minimum_version: "Flutter 3.19+ / Dart 3.3+"
+design_systems: ["Material 3", "Cupertino (adaptive)"]
+
+token_binding:
+  description: "How design tokens map to Flutter platform primitives"
+  methods:
+    - name: "ThemeData / ColorScheme"
+      priority: 1
+      example: "Theme.of(context).colorScheme.primary"
+      usage: "Map design tokens to Material 3 ColorScheme and TextTheme via custom ThemeData"
+    - name: "App Theme Extension"
+      priority: 2
+      example: "context.appColors.primary"
+      usage: "ThemeExtension<T> for tokens that don't map to Material roles"
+    - name: "Generated Token Constants"
+      priority: 3
+      example: "AppTokens.colorPrimary"
+      usage: "Build-time generated Dart constants from tokens.json for type-safe access"
+
+component_patterns:
+  - name: "Platform-adaptive components"
+    rule: "Use platform-adaptive widgets that render Material on Android and Cupertino on iOS"
+    approach: |
+      Use .adaptive constructors where available:
+      - Switch.adaptive()
+      - Slider.adaptive()
+      - CircularProgressIndicator.adaptive()
+      For complex components, use Platform.isIOS checks with CupertinoTheme wrapping.
+    reason: "Users expect platform-native interaction patterns — Android users expect Material, iOS users expect Cupertino"
+
+  - name: "Token-bound styling"
+    rule: "All colors, typography, and spacing must reference design tokens via the theme"
+    detect: "Search for Color(0xFF...), hardcoded fontSize doubles, and literal EdgeInsets values"
+    example: |
+      // Correct:
+      Text('Hello', style: Theme.of(context).textTheme.bodyLarge)
+      Container(color: Theme.of(context).colorScheme.surface)
+      // Wrong:
+      Text('Hello', style: TextStyle(fontSize: 16, color: Color(0xFF2563EB)))
+
+  - name: "Responsive layout"
+    rule: "Support phones, tablets, foldables, and web using LayoutBuilder and MediaQuery"
+    approach: "Define breakpoints matching the design system and use LayoutBuilder to switch between compact/expanded layouts"
+
+platform_adaptation:
+  ios:
+    navigation: "Use CupertinoNavigationBar and swipe-to-go-back gesture"
+    scroll_physics: "BouncingScrollPhysics (iOS default)"
+    haptics: "HapticFeedback.lightImpact() for selections"
+    safe_area: "Use SafeArea widget for notch/Dynamic Island"
+    typography: "SF Pro via .cupertino text theme"
+
+  android:
+    navigation: "Use NavigationBar (M3 bottom nav) and predictive back gesture"
+    scroll_physics: "ClampingScrollPhysics (Android default)"
+    haptics: "HapticFeedback.mediumImpact() for confirmations"
+    edge_to_edge: "Use SystemChrome.setEnabledSystemUIMode for edge-to-edge"
+    typography: "Roboto via Material text theme"
+
+  web:
+    navigation: "Use NavigationRail or permanent drawer for wider layouts"
+    scroll_physics: "ClampingScrollPhysics with mouse wheel support"
+    hover_states: "Add MouseRegion and hover feedback for pointer devices"
+    text_selection: "Enable SelectionArea for text content"
+    font_loading: "Use GoogleFonts package with preloading"
+
+material3:
+  color_roles:
+    rule: "Map design tokens to M3 color roles, not arbitrary colors"
+    mapping:
+      primary: "Brand primary — buttons, FAB, active indicators"
+      secondary: "Brand secondary — chips, filters, less prominent actions"
+      tertiary: "Complementary accent — badges, highlights"
+      surface: "Card and container backgrounds"
+      error: "Error states, destructive actions"
+      outline: "Borders, dividers"
+
+  elevation:
+    rule: "Use M3 tonal elevation via Surface widget"
+    implementation: "Set elevation in Material() or Card() — Flutter M3 auto-applies surface tint"
+
+  shape:
+    rule: "Use ShapeTheme for consistent corner radii"
+    scale:
+      extraSmall: 4
+      small: 8
+      medium: 12
+      large: 16
+      extraLarge: 28
+      full: 1000
+
+accessibility:
+  semantics:
+    rule: "All interactive elements must have semantic labels"
+    requirements:
+      - "Set Semantics(label:) on all Icon and Image widgets"
+      - "Use Semantics(button: true) for custom tappable widgets"
+      - "Use MergeSemantics to group related content"
+      - "Use ExcludeSemantics for decorative elements"
+
+  text_scaling:
+    rule: "All text must scale with system accessibility settings"
+    implementation: "Use Theme textTheme styles. Never hardcode fontSize without textScaleFactor awareness."
+    testing: "Test at textScaleFactor 1.0, 1.5, and 2.0"
+    constraints:
+      - "Layouts must not overflow at 2.0x text scale"
+      - "Use Flexible/Expanded to accommodate variable text size"
+
+  touch_targets:
+    rule: "Minimum 48x48 logical pixels for all interactive elements"
+    implementation: "Use MaterialTapTargetSize.padded (default) or explicit SizedBox constraints"
+
+  screen_readers:
+    rule: "Test with TalkBack (Android) and VoiceOver (iOS)"
+    implementation: "Use semanticsLabel, Semantics widget, and SemanticsService.announce for dynamic content"
+
+performance:
+  - rule: "Build with --release for performance testing (debug mode is 10x slower)"
+  - rule: "Use const constructors wherever possible to reduce widget rebuilds"
+    detect: "Lint rule prefer_const_constructors"
+  - rule: "ListView.builder for lists over 20 items (never ListView with children:[])"
+    reason: "ListView with children builds all items eagerly, causing jank and memory pressure"
+  - rule: "Cache images with CachedNetworkImage or precacheImage"
+  - rule: "Avoid rebuilds — use const, final, ValueListenableBuilder, and Selector for granular rebuilds"
+    measurement: "Use DevTools widget rebuild tracker"
+  - rule: "Shader compilation jank — use SkSL warmup for known animations"
+
+testing:
+  - type: "Widget tests"
+    tools: ["flutter_test"]
+    rule: "All components must have widget tests covering default state, interactions, and edge cases"
+  - type: "Golden tests"
+    tools: ["golden_toolkit", "alchemist"]
+    rule: "Screenshot all component variants in light/dark mode, LTR/RTL, and at multiple text scales"
+  - type: "Integration"
+    tools: ["integration_test"]
+    rule: "Key user flows must have integration tests on both Android and iOS"
+  - type: "Accessibility"
+    tools: ["flutter_test Semantics matchers"]
+    rule: "Verify semantics tree for all screens using find.bySemanticsLabel and semantics matchers"

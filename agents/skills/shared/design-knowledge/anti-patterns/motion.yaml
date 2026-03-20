@@ -1,0 +1,109 @@
+description: "Motion and animation anti-patterns — common mistakes in transitions, animations, and interactive feedback"
+
+patterns:
+  - name: "Animation without prefers-reduced-motion"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for CSS animations or transitions without a @media (prefers-reduced-motion: reduce) override"
+      context: "Applies to all non-essential animations. Essential animations (progress indicators, loading states) should reduce, not remove."
+    reason: "Motion can trigger vestibular disorders, migraines, and seizures. WCAG 2.3.3 requires respecting user motion preferences."
+    instead: "Wrap animations in a motion-safe media query or provide a prefers-reduced-motion: reduce override that disables or minimizes the animation."
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error
+
+  - name: "Animations longer than 500ms"
+    severity: warning
+    scope: all
+    detect:
+      css_properties: ["animation-duration", "transition-duration"]
+      threshold: "> 500ms"
+      exclude: ["page transitions", "skeleton loaders", "progress bars"]
+    reason: "Long animations feel sluggish and block user interaction. Users perceive delays over 400ms as 'slow'. Interface animations should feel instant and responsive."
+    instead: "Keep UI transitions between 150-300ms. Use 200ms as the default. Reserve longer durations (300-500ms) for complex multi-element orchestrations."
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Linear easing on UI transitions"
+    severity: info
+    scope: all
+    detect:
+      css_properties: ["transition-timing-function", "animation-timing-function"]
+      values: ["linear"]
+      context: "Flagged for UI element transitions, not progress bars or loading animations"
+    reason: "Linear motion feels mechanical and unnatural. Real objects accelerate and decelerate — interfaces should too."
+    instead: "Use ease-out for entrances (elements arriving), ease-in for exits (elements leaving), and ease-in-out for state changes. Default: cubic-bezier(0.4, 0, 0.2, 1)."
+    strictness:
+      permissive: info
+      standard: info
+      strict: warn
+
+  - name: "Auto-playing animation loops"
+    severity: warning
+    scope: all
+    detect:
+      css_properties: ["animation-iteration-count"]
+      values: ["infinite"]
+      context: "Excludes loading spinners and progress indicators that are temporary"
+    reason: "Infinite animation loops are distracting, increase CPU/GPU usage, and can trigger motion sensitivity issues. They compete with content for attention."
+    instead: "Play animations once on entrance, or limit to 3 iterations. If continuous animation is needed, provide a pause control and respect prefers-reduced-motion."
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error
+
+  - name: "Scroll-jacking"
+    severity: error
+    scope: web
+    detect:
+      method: "Check for JavaScript that overrides native scroll behavior (custom scroll speed, snap-to-section, parallax scroll hijacking)"
+      exclude: ["scroll-snap-type CSS (native)", "smooth-scroll for anchor links"]
+    reason: "Overriding native scroll breaks user expectations, disables accessibility features (keyboard scroll, screen reader navigation), and creates motion sickness. It is the single most complained-about UX pattern."
+    instead: "Use native CSS scroll-snap for section snapping. For parallax, use CSS transform with will-change, not scroll event listeners. Never change scroll speed or direction."
+    strictness:
+      permissive: warn
+      standard: error
+      strict: error
+
+  - name: "Flash or strobe effects"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for elements that flash more than 3 times per second"
+      threshold: "> 3 flashes per second"
+    reason: "Flashing content can cause seizures in people with photosensitive epilepsy. WCAG 2.3.1 requires no more than 3 flashes per second."
+    instead: "Avoid flashing entirely. If attention is needed, use a subtle pulse (opacity 0.8-1.0) at no more than 2 cycles per second."
+    strictness:
+      permissive: warn
+      standard: error
+      strict: error
+
+  - name: "Entrance animations on above-the-fold content"
+    severity: warning
+    scope: web
+    detect:
+      method: "Check for fade-in, slide-in, or scale animations on elements visible in the initial viewport"
+      context: "Hero sections, navigation, primary CTAs"
+    reason: "Animating content that should be immediately visible delays the user's ability to orient and act. It adds perceived load time to an already-loaded page."
+    instead: "Show above-the-fold content immediately. Reserve entrance animations for below-the-fold content revealed on scroll (intersection observer pattern)."
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Transition on color-scheme change"
+    severity: info
+    scope: web
+    detect:
+      method: "Check for transitions applied during dark/light mode toggle that affect all elements"
+      context: "Global transition: all on :root or body during theme switch"
+    reason: "Transitioning every element's colors during theme change causes a jarring ripple effect and high paint cost. Individual element transitions compound into visual chaos."
+    instead: "Apply transition only to background-color and color on specific containers (body, main sections), not globally. Or use instant switch with no transition."
+    strictness:
+      permissive: info
+      standard: info
+      strict: info

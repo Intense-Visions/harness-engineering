@@ -1,0 +1,106 @@
+description: "iOS platform design rules — SwiftUI patterns, Human Interface Guidelines compliance, and platform-specific constraints"
+
+platform: ios
+frameworks: ["SwiftUI", "UIKit"]
+minimum_version: "iOS 16+"
+
+token_binding:
+  description: "How design tokens map to iOS platform primitives"
+  methods:
+    - name: "Asset Catalog Colors"
+      priority: 1
+      example: "Color('primary')"
+      usage: "Named colors in Assets.xcassets with light/dark variants"
+    - name: "SwiftUI Color Extension"
+      priority: 2
+      example: "Color.primary, Color.surface"
+      usage: "Static Color extension mapping token names to asset catalog entries"
+    - name: "UIKit UIColor Extension"
+      priority: 3
+      example: "UIColor.primary"
+      usage: "For UIKit compatibility layers"
+
+component_patterns:
+  - name: "Native controls first"
+    rule: "Use standard UIKit/SwiftUI controls before building custom ones"
+    reason: "Native controls inherit accessibility, Dynamic Type, and platform behaviors automatically"
+    exceptions: ["When the design system explicitly defines a custom variant", "When the native control cannot be styled to match tokens"]
+
+  - name: "Token-bound styling"
+    rule: "All colors, fonts, and spacing must reference design tokens, never hardcoded values"
+    detect: "Search for Color(red:green:blue:), UIColor(red:green:blue:), and literal CGFloat spacing values"
+    example: |
+      // Correct:
+      .foregroundColor(.primary)
+      .font(.custom("Inter", size: Typography.body))
+      // Wrong:
+      .foregroundColor(Color(red: 0.15, green: 0.38, blue: 0.92))
+
+  - name: "Adaptive layout"
+    rule: "Support all device sizes from iPhone SE to iPad Pro"
+    approach: "Use GeometryReader sparingly, prefer native layout (VStack/HStack/LazyGrid) with size classes"
+
+hig_compliance:
+  safe_areas:
+    rule: "Content must respect safe area insets on all devices"
+    context: "Notch, Dynamic Island, home indicator, status bar"
+    implementation: "Use .safeAreaInset() modifiers, never hardcode top/bottom padding"
+
+  navigation:
+    rule: "Follow iOS navigation patterns — push for drill-down, modal for focused tasks"
+    patterns:
+      - "NavigationStack for hierarchical content"
+      - ".sheet() for focused tasks that don't require full context"
+      - ".fullScreenCover() for immersive experiences (photo viewer, video player)"
+    avoid: "Custom hamburger menus, bottom tab bars with more than 5 items"
+
+  dynamic_type:
+    rule: "All text must scale with Dynamic Type settings"
+    implementation: "Use .font(.body), .font(.title) semantic styles, or .dynamicTypeSize() modifier"
+    testing: "Test at all Dynamic Type sizes, especially accessibility sizes (AX1-AX5)"
+    constraints:
+      - "Layouts must not break at the largest accessibility size"
+      - "Minimum touch target remains 44x44pt regardless of text size"
+
+  haptics:
+    rule: "Use appropriate haptic feedback for interactions"
+    patterns:
+      - "UIImpactFeedbackGenerator(.light) for toggles and selections"
+      - "UINotificationFeedbackGenerator for success/error/warning"
+      - "UISelectionFeedbackGenerator for picker scrolling"
+    avoid: "Haptics on every tap — reserve for meaningful state changes"
+
+accessibility:
+  voiceover:
+    rule: "All interactive elements must be accessible to VoiceOver"
+    requirements:
+      - "Set .accessibilityLabel() on all images and icons"
+      - "Use .accessibilityHint() for non-obvious interactions"
+      - "Group related elements with .accessibilityElement(children: .combine)"
+      - "Set .accessibilityAddTraits() correctly (.isButton, .isHeader, etc.)"
+
+  color:
+    rule: "Support Increase Contrast and Differentiate Without Color settings"
+    implementation: "Check UIAccessibility.isDifferentiateWithoutColorEnabled and provide shape/icon alternatives"
+
+  motion:
+    rule: "Respect Reduce Motion setting"
+    implementation: "Check UIAccessibility.isReduceMotionEnabled; replace animations with crossfade or instant transitions"
+
+performance:
+  - rule: "App launch to interactive in under 2 seconds"
+    measurement: "Use Instruments Time Profiler and MetricKit"
+  - rule: "Scroll at 60fps minimum (120fps on ProMotion devices)"
+    implementation: "Use LazyVStack/LazyHStack for long lists, avoid onAppear heavy work"
+  - rule: "Images loaded asynchronously with AsyncImage or custom cache"
+    reason: "Synchronous image loading blocks the main thread and causes scroll jank"
+
+testing:
+  - type: "Snapshot"
+    tools: ["swift-snapshot-testing"]
+    rule: "Snapshot all component variants in light/dark mode and at standard/accessibility type sizes"
+  - type: "Accessibility audit"
+    tools: ["Xcode Accessibility Inspector", "XCUITest"]
+    rule: "Run accessibility audit on all screens"
+  - type: "Device matrix"
+    rule: "Test on iPhone SE, iPhone 15, iPhone 15 Pro Max, and iPad minimum"
