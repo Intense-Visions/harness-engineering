@@ -30,7 +30,23 @@ export const AGENT_DESCRIPTIONS: Record<string, string> = {
     'Verify implementation completeness against spec and plan at three tiers (EXISTS, SUBSTANTIVE, WIRED). Use when checking if built code matches what was planned, validating phase completion, or auditing implementation quality.',
 };
 
-const DEFAULT_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'];
+export const DEFAULT_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'] as const;
+
+/**
+ * Map Claude Code tool names to Gemini CLI tool names.
+ * Gemini CLI validates tool names and rejects unknown ones.
+ *
+ * Co-located with DEFAULT_TOOLS so adding a new default tool
+ * is a clear prompt to add its Gemini equivalent here.
+ */
+export const GEMINI_TOOL_MAP: Record<string, string> = {
+  Bash: 'run_shell_command',
+  Read: 'read_file',
+  Write: 'write_file',
+  Edit: 'replace',
+  Glob: 'glob',
+  Grep: 'search_file_content',
+};
 
 export function generateAgentDefinition(
   persona: Persona,
@@ -51,7 +67,7 @@ export function generateAgentDefinition(
   return {
     name,
     description,
-    tools: DEFAULT_TOOLS,
+    tools: [...DEFAULT_TOOLS],
     role: persona.role,
     skills: persona.skills,
     steps: persona.steps,

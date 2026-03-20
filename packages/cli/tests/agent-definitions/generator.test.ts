@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { generateAgentDefinition, AGENT_DESCRIPTIONS } from '../../src/agent-definitions/generator';
+import {
+  generateAgentDefinition,
+  AGENT_DESCRIPTIONS,
+  DEFAULT_TOOLS,
+  GEMINI_TOOL_MAP,
+} from '../../src/agent-definitions/generator';
 import type { Persona } from '../../src/persona/schema';
 
 const mockPersona: Persona = {
@@ -57,6 +62,12 @@ describe('generateAgentDefinition', () => {
     expect(def.tools).toContain('Bash');
     expect(def.tools).toContain('Read');
     expect(def.tools).toContain('Write');
+  });
+
+  it('GEMINI_TOOL_MAP covers every DEFAULT_TOOLS entry', () => {
+    for (const tool of DEFAULT_TOOLS) {
+      expect(GEMINI_TOOL_MAP[tool], `missing Gemini mapping for "${tool}"`).toBeDefined();
+    }
   });
 
   it('has descriptions for all known personas', () => {

@@ -1,5 +1,10 @@
 import type { AgentDefinition } from './generator';
+import { GEMINI_TOOL_MAP } from './generator';
 import { GENERATED_HEADER_AGENT } from './constants';
+
+function toGeminiToolName(tool: string): string {
+  return GEMINI_TOOL_MAP[tool] ?? tool;
+}
 
 function formatStep(step: Record<string, unknown>, index: number): string {
   if ('command' in step && step.command) {
@@ -23,7 +28,7 @@ export function renderGeminiAgent(def: AgentDefinition): string {
   if (def.tools.length > 0) {
     lines.push('tools:');
     for (const tool of def.tools) {
-      lines.push(`  - ${tool}`);
+      lines.push(`  - ${toGeminiToolName(tool)}`);
     }
   }
   lines.push('---');
