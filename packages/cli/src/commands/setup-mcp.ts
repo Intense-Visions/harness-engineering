@@ -7,7 +7,7 @@ import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 
 interface McpConfig {
-  mcpServers?: Record<string, { command: string; args: string[] }>;
+  mcpServers?: Record<string, { command: string; args?: string[] }>;
   [key: string]: unknown;
 }
 
@@ -16,8 +16,7 @@ interface TrustedFolders {
 }
 
 const HARNESS_MCP_ENTRY = {
-  command: 'npx',
-  args: ['@harness-engineering/mcp-server'],
+  command: 'harness-mcp',
 };
 
 function readJsonFile<T>(filePath: string): T | null {

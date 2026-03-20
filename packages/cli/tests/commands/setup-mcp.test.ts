@@ -39,8 +39,7 @@ describe('setup-mcp command', () => {
       expect(fs.existsSync(configPath)).toBe(true);
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       expect(config.mcpServers.harness).toBeDefined();
-      expect(config.mcpServers.harness.command).toBe('npx');
-      expect(config.mcpServers.harness.args).toContain('@harness-engineering/mcp-server');
+      expect(config.mcpServers.harness.command).toBe('harness-mcp');
     });
 
     it('configures Gemini CLI MCP server', () => {

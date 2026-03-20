@@ -38,6 +38,18 @@
     "tree-sitter": "^0.22.4",
     "tree-sitter-typescript": "^0.23.2"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
+    "directory": "packages/graph"
+  },
+  "bugs": {
+    "url": "https://github.com/Intense-Visions/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/graph#readme",
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.0.18",

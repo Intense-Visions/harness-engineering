@@ -36,7 +36,7 @@ npm install -g @harness-engineering/cli
 harness generate --global
 ```
 
-This installs the CLI and writes slash commands and agent definitions to your global config directories (`~/.claude/commands/`, `.gemini/` etc.). Once generated, every project on your machine has access to `/harness:*` slash commands and harness agent personas — no per-project setup needed.
+This installs the CLI, the MCP server, and writes slash commands and agent definitions to your global config directories (`~/.claude/commands/`, `.gemini/` etc.). Once generated, every project on your machine has access to `/harness:*` slash commands, agent personas, and the `harness-mcp` server binary — no per-project setup needed.
 
 > **Tip:** Re-run `harness generate --global` after updating the CLI (`harness update`) to pick up new or changed skills.
 
@@ -79,7 +79,7 @@ npm install && harness validate
 | [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                   |
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 5 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports |
 | [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                       |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 37 tools and 11 resources for AI agent integration                         |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 37 tools and 8 resources for AI agent integration                          |
 | [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                           |
 
 ## Architecture
@@ -106,14 +106,14 @@ Violations are caught at lint time via `@harness-engineering/eslint-plugin` — 
 
 ### Global setup (one-time)
 
-Install skills and personas so they're available in every project:
+Install the CLI, MCP server, skills, and personas so they're available in every project:
 
 ```bash
 npm install -g @harness-engineering/cli
 harness generate --global
 ```
 
-This writes to your global config directories:
+The single `npm install -g` provides both the `harness` CLI and the `harness-mcp` server binary, with all dependencies version-matched. `harness generate --global` then writes to your global config directories:
 
 | Platform    | Slash Commands            | Agent Definitions |
 | ----------- | ------------------------- | ----------------- |
@@ -138,7 +138,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 37 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 11 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 37 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
 <details>
 <summary>Manual MCP setup</summary>
@@ -149,8 +149,7 @@ This gives your AI agent access to 37 tools (validation, entropy detection, skil
 {
   "mcpServers": {
     "harness": {
-      "command": "npx",
-      "args": ["@harness-engineering/mcp-server"]
+      "command": "harness-mcp"
     }
   }
 }
@@ -162,8 +161,7 @@ This gives your AI agent access to 37 tools (validation, entropy detection, skil
 {
   "mcpServers": {
     "harness": {
-      "command": "npx",
-      "args": ["@harness-engineering/mcp-server"]
+      "command": "harness-mcp"
     }
   }
 }
@@ -177,6 +175,8 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 }
 ```
 
+> **Note:** `harness-mcp` is installed alongside the CLI by `npm install -g @harness-engineering/cli`. Using the installed binary instead of `npx @harness-engineering/mcp-server` avoids stale npx cache issues and ensures the MCP server uses the same package versions as the CLI.
+
 </details>
 
 | Client      | MCP Config Location     | Additional Setup                               |
@@ -189,7 +189,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 | Component                              | Count | Description                                                                         |
 | -------------------------------------- | ----- | ----------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, MCP server, graph, shared types |
-| [Skills](./agents/skills/claude-code/) | 26    | Agent workflows for TDD, execution, debugging, verification, planning, and more     |
+| [Skills](./agents/skills/claude-code/) | 42    | Agent workflows for TDD, execution, debugging, verification, planning, and more     |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more  |
 | [Templates](./templates/)              | 5     | Base, basic, intermediate, advanced, and Next.js scaffolds                          |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                  |

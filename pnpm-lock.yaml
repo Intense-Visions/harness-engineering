@@ -71,6 +71,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@harness-engineering/mcp-server':
+        specifier: workspace:*
+        version: link:../mcp-server
       '@typescript-eslint/typescript-estree':
         specifier: ^7.0.0
         version: 7.18.0(typescript@5.9.3)
