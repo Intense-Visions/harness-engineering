@@ -268,6 +268,7 @@ export function getResourceDefinitions(): typeof RESOURCE_DEFINITIONS {
 
 export function createHarnessServer(projectRoot?: string): Server {
   const resolvedRoot = projectRoot ?? process.cwd();
+  let sessionChecked = false;
 
   const server = new Server(
     { name: 'harness-engineering', version: '0.1.0' },
@@ -284,7 +285,40 @@ export function createHarnessServer(projectRoot?: string): Server {
     if (!handler) {
       return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
     }
-    return handler(args ?? {}) as Promise<never>;
+
+    const result = await handler(args ?? {});
+
+    // On first tool invocation per session, check for updates
+    if (!sessionChecked) {
+      sessionChecked = true;
+      try {
+        const {
+          getUpdateNotification,
+          isUpdateCheckEnabled,
+          shouldRunCheck,
+          readCheckState,
+          spawnBackgroundCheck,
+          VERSION,
+        } = await import('@harness-engineering/core');
+
+        if (isUpdateCheckEnabled()) {
+          const state = readCheckState();
+          const DEFAULT_INTERVAL = 86_400_000; // 24 hours
+          if (shouldRunCheck(state, DEFAULT_INTERVAL)) {
+            spawnBackgroundCheck(VERSION);
+          }
+
+          const notification = getUpdateNotification(VERSION);
+          if (notification) {
+            result.content.push({ type: 'text', text: `\n---\n${notification}` });
+          }
+        }
+      } catch {
+        // Graceful degradation — update check failures must never break tool responses
+      }
+    }
+
+    return result as Promise<never>;
   });
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
