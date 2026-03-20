@@ -50,11 +50,12 @@
   "dependencies": {
     "@harness-engineering/types": "workspace:*",
     "@typescript-eslint/typescript-estree": "^7.0.0",
-    "glob": "^10.3.0",
+    "glob": "^11.0.0",
     "minimatch": "^10.2.4",
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
     "tsup": "^8.0.0",

@@ -1,0 +1,56 @@
+name: "i18next MCP"
+description: "i18next-specific MCP server for project analysis, translation coverage reporting, key usage analysis, and namespace management"
+mcp_server_id: "i18next-mcp"
+source: "https://github.com/anthropics/i18next-mcp"
+
+capabilities:
+  - name: "Project Analysis"
+    description: "Analyze i18next project structure, configuration, and translation file organization"
+    tools: ["analyze_project", "get_config", "list_namespaces"]
+  - name: "Translation Coverage"
+    description: "Report translation coverage per locale and namespace, identifying missing translations"
+    tools: ["get_coverage_report", "find_missing_translations", "find_unused_keys"]
+  - name: "Key Usage Analysis"
+    description: "Trace translation key usage in source code to find unused or missing keys"
+    tools: ["find_key_usage", "find_hardcoded_strings", "extract_keys"]
+  - name: "Namespace Management"
+    description: "Create, merge, and split translation namespaces"
+    tools: ["create_namespace", "merge_namespaces", "move_keys"]
+
+when_to_use:
+  - scenario: "Project already using i18next that wants deeper translation insights"
+    reason: "i18next MCP understands i18next conventions (namespaces, pluralization suffixes, interpolation) natively"
+  - scenario: "Auditing an existing codebase for i18n completeness"
+    reason: "Key usage analysis finds hardcoded strings and unused translation keys without manual code review"
+  - scenario: "Refactoring translation file organization"
+    reason: "Namespace management tools help split large translation files or merge fragmented namespaces"
+
+when_not_to_use:
+  - scenario: "Project using react-intl, vue-i18n, or other non-i18next frameworks"
+    reason: "i18next MCP tools are specific to i18next conventions and file structures"
+  - scenario: "Team needing full TMS capabilities (translator collaboration, review workflows)"
+    reason: "i18next MCP is a developer tool, not a TMS; use Tolgee or Lokalise for translator workflows"
+
+integration_patterns:
+  - pattern: "Harness workflow with i18next MCP for translation audit"
+    description: "Use i18next MCP tools during the i18n assessment phase to analyze coverage and identify gaps"
+    config_example: |
+      // harness.config.json
+      {
+        "mcp": {
+          "servers": {
+            "i18next": {
+              "command": "npx",
+              "args": ["-y", "@anthropic/i18next-mcp"],
+              "env": {
+                "I18NEXT_PROJECT_PATH": "."
+              }
+            }
+          }
+        }
+      }
+
+limitations:
+  - "Only supports i18next ecosystem; not compatible with other i18n frameworks"
+  - "Key extraction may miss dynamically constructed translation keys (t(`error.${code}`))"
+  - "Coverage reporting depends on consistent file structure matching the configured pattern"

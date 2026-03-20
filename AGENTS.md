@@ -47,7 +47,8 @@ harness-engineering/
 │   ├── reference/           # Configuration and API reference
 │   ├── specs/               # Detailed technical specifications
 │   ├── plans/               # Implementation and execution plans
-│   └── research/            # Framework research and analysis
+│   ├── research/            # Framework research and analysis
+│   └── changes/             # Changelog and release notes
 ├── package.json             # Root package metadata and scripts
 ├── tsconfig.json            # Root TypeScript configuration
 ├── pnpm-workspace.yaml      # pnpm workspace definition

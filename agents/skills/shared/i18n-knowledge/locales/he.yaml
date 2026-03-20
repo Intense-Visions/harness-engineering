@@ -1,0 +1,41 @@
+locale: "he"
+name: "Hebrew"
+native_name: "עברית"
+script: "Hebrew"
+direction: rtl
+cldr_plural_categories: [one, two, other]
+expansion_factor: 1.20
+script_characteristics:
+  avg_char_width: "standard"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+bidi_considerations:
+  mirror_icons: true
+  mirror_layout: true
+  mixed_direction_text: true
+  calendar_system: "gregorian"
+  digit_system: "western"
+number_format:
+  decimal_separator: "."
+  grouping_separator: ","
+  grouping_size: 3
+date_format:
+  short: "DD.MM.YYYY"
+  long: "DD b-Month YYYY"
+  first_day_of_week: "sunday"
+common_pitfalls:
+  - pitfall: "Dual number form (unique to Hebrew among major languages)"
+    example: "Hebrew has a special form for exactly two: 'יום אחד' (1 day), 'יומיים' (2 days), 'ימים' (3+ days)"
+    fix: "Use CLDR plural categories [one, two, many, other] — do not skip the 'two' form"
+  - pitfall: "RTL layout mirroring without Hebrew-specific testing"
+    example: "Icons that should NOT mirror in RTL (checkmarks, media play buttons) get mirrored anyway"
+    fix: "Create an icon exception list for bidirectional layouts; test with native Hebrew speakers"
+  - pitfall: "Nikud (vowel diacritics) in UI text"
+    example: "Modern Hebrew usually omits nikud — adding it looks childish or overly formal in a UI context"
+    fix: "Use unvocalized Hebrew for UI strings unless targeting children's educational content"
+  - pitfall: "Mixed Hebrew and English in tech interfaces"
+    example: "Hebrew UI with English brand names, code, or tech terms creates complex bidi paragraphs"
+    fix: "Wrap English terms in spans with dir='ltr' to prevent bidi algorithm from reordering them"
+  - pitfall: "Hebrew calendar for date display"
+    example: "Some users expect Hebrew calendar dates alongside or instead of Gregorian dates"
+    fix: "Use Intl.DateTimeFormat('he-IL', {calendar: 'hebrew'}) when Hebrew calendar is needed"

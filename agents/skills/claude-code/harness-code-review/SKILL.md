@@ -1,40 +1,216 @@
 # Harness Code Review
 
-> Full code review lifecycle — request, perform, respond — with automated harness checks and technical rigor over social performance.
+> Multi-phase code review pipeline — mechanical checks, graph-scoped context, parallel review agents, cross-agent deduplication, and structured output with technical rigor over social performance.
 
 ## When to Use
 
-- When requesting a review of your completed work (before merge)
-- When performing a review of someone else's code (human or agent)
-- When responding to review feedback on your own code
-- When `on_review` or `on_pr` triggers fire
+- When performing a code review (manual invocation or triggered by `on_pr` / `on_review`)
+- When requesting a review of completed work (see Role A at the end of this document)
+- When responding to review feedback (see Role C at the end of this document)
 - NOT for in-progress work (complete the feature first)
 - NOT for rubber-stamping (if you cannot find issues, look harder or state confidence level)
-- NOT for style-only feedback (leave that to linters)
+- NOT for style-only feedback (leave that to linters and mechanical checks)
 
-## Context Assembly
+## Pipeline Overview
 
-Before beginning any review phase, assemble context proportional to the change size.
+The review runs as a 7-phase pipeline. Each phase has a clear input, output, and exit condition.
 
-### 1:1 Context Ratio Rule
+```
+Phase 1: GATE ──→ Phase 2: MECHANICAL ──→ Phase 3: CONTEXT ──→ Phase 4: FAN-OUT
+                                                                       │
+Phase 7: OUTPUT ←── Phase 6: DEDUP+MERGE ←── Phase 5: VALIDATE ←──────┘
+```
 
-For every N lines of diff, gather approximately N lines of surrounding context. This ensures the reviewer understands the ecosystem around the change, not just the change itself.
+| Phase          | Tier  | Purpose                                            | Exit Condition                                        |
+| -------------- | ----- | -------------------------------------------------- | ----------------------------------------------------- |
+| 1. GATE        | fast  | Skip ineligible PRs (CI mode only)                 | PR is eligible, or exit with reason                   |
+| 2. MECHANICAL  | none  | Lint, typecheck, test, security scan               | All pass → continue; any fail → report and stop       |
+| 3. CONTEXT     | fast  | Scope context per review domain                    | Context bundles assembled for each subagent           |
+| 4. FAN-OUT     | mixed | Parallel review subagents                          | All subagents return findings in ReviewFinding schema |
+| 5. VALIDATE    | none  | Exclude mechanical duplicates, verify reachability | Unvalidated findings discarded                        |
+| 6. DEDUP+MERGE | none  | Group, merge, assign final severity                | Deduplicated finding list with merged evidence        |
+| 7. OUTPUT      | none  | Terminal or inline GitHub comments                 | Review delivered, exit code set                       |
 
-- **Small diffs (<20 lines):** Gather proportionally more context — aim for 3:1 context-to-diff. Small changes often have outsized impact and need more surrounding understanding.
-- **Medium diffs (20-200 lines):** Target 1:1 ratio. Read the full files containing changes, plus immediate dependencies.
-- **Large diffs (>200 lines):** 1:1 ratio is the floor, but prioritize ruthlessly using the priority order below. Flag large diffs as a review concern — they are harder to review correctly.
+### Finding Schema
 
-### Context Gathering Priority Order
+Each review agent produces findings in this common format:
+
+```typescript
+interface ReviewFinding {
+  id: string; // unique, for dedup
+  file: string; // file path
+  lineRange: [number, number]; // start, end
+  domain: 'compliance' | 'bug' | 'security' | 'architecture';
+  severity: 'critical' | 'important' | 'suggestion';
+  title: string; // one-line summary
+  rationale: string; // why this is an issue
+  suggestion?: string; // fix, if available
+  evidence: string[]; // supporting context from agent
+  validatedBy: 'mechanical' | 'graph' | 'heuristic';
+}
+```
+
+### Flags
+
+| Flag              | Effect                                                       |
+| ----------------- | ------------------------------------------------------------ |
+| `--comment`       | Post inline comments to GitHub PR via `gh` CLI or GitHub MCP |
+| `--deep`          | Add threat modeling pass (invokes security-review `--deep`)  |
+| `--no-mechanical` | Skip mechanical checks (useful if already run in CI)         |
+| `--ci`            | Enable eligibility gate, non-interactive output              |
+
+### Model Tiers
+
+Tiers are abstract labels resolved at runtime from project config. If no config exists, all phases use the current model (no tiering).
+
+| Tier       | Default      | Used By                              |
+| ---------- | ------------ | ------------------------------------ |
+| `fast`     | haiku-class  | GATE, CONTEXT                        |
+| `standard` | sonnet-class | Compliance agent, Architecture agent |
+| `strong`   | opus-class   | Bug Detection agent, Security agent  |
+
+### Review Learnings Calibration
+
+Before starting the pipeline, check for a project-specific calibration file:
+
+```bash
+cat .harness/review-learnings.md 2>/dev/null
+```
+
+If `.harness/review-learnings.md` exists:
+
+1. **Read the Useful Findings section.** Prioritize these categories during review — they have historically caught real issues in this project.
+2. **Read the Noise / False Positives section.** De-prioritize or skip these categories — flagging them wastes the author's time and erodes trust in the review process.
+3. **Read the Calibration Notes section.** Apply these project-specific overrides to your review judgment. These represent deliberate team decisions, not oversights.
+
+If the file does not exist, proceed with default review focus areas. After completing the review, consider suggesting that the team create `.harness/review-learnings.md` if you notice patterns that would benefit from calibration.
+
+## Pipeline Phases
+
+### Phase 1: GATE
+
+**Tier:** fast
+**Mode:** CI only (`--ci` flag). When invoked manually, skip this phase entirely.
+
+Check whether the PR should be reviewed at all. This prevents wasted compute in CI pipelines.
+
+**Checks:**
+
+1. **PR state:** Is the PR closed or merged? → Skip with reason "PR is closed."
+2. **Draft status:** Is the PR marked as draft? → Skip with reason "PR is draft."
+3. **Trivial change:** Is the diff documentation-only (all changed files are `.md`)? → Skip with reason "Documentation-only change."
+4. **Already reviewed:** Has this exact commit range been reviewed before (check for prior review comment from this tool)? → Skip with reason "Already reviewed at {sha}."
+
+```bash
+# Check PR state
+gh pr view --json state,isDraft,files
+
+# Check if documentation-only
+gh pr diff --name-only | grep -v '\.md$' | wc -l  # 0 means docs-only
+```
+
+**Exit:** If any check triggers a skip, output the reason and exit with code 0. Otherwise, continue to Phase 2.
+
+---
+
+### Phase 2: MECHANICAL
+
+**Tier:** none (no LLM)
+**Mode:** Skipped if `--no-mechanical` flag is set.
+
+Run mechanical checks to establish an exclusion boundary. Any issue caught mechanically is excluded from AI review (Phase 4) to prevent duplicate findings.
+
+**Checks:**
+
+1. **Harness validation:**
+   ```bash
+   harness validate
+   harness check-deps
+   harness check-docs
+   ```
+2. **Security scan:** Run `run_security_scan` MCP tool on changed files. Record findings with rule ID, file, line, and remediation.
+3. **Type checking:** Run the project's type checker (e.g., `tsc --noEmit`). Record any type errors.
+4. **Linting:** Run the project's linter (e.g., `eslint`). Record any lint violations.
+5. **Tests:** Run the project's test suite. Record any failures.
+
+**Output:** A set of mechanical findings (file, line, tool, message). This set becomes the exclusion list for Phase 5.
+
+**Exit:** If any mechanical check fails (harness validate, typecheck, or tests), report the mechanical failures in Strengths/Issues/Assessment format and stop the pipeline. The code has fundamental issues that must be fixed before AI review adds value. Lint warnings and security scan findings do not stop the pipeline — they are recorded for exclusion only.
+
+---
+
+### Phase 3: CONTEXT
+
+**Tier:** fast
+**Purpose:** Assemble scoped context bundles for each review domain. Each subagent in Phase 4 receives only the context relevant to its domain, not the full diff.
+
+#### Change-Type Detection
+
+Before scoping context, determine the change type. This shapes which review focus areas apply.
+
+1. **Commit message prefix:** Parse the most recent commit message for conventional commit prefixes:
+   - `feat:` or `feature:` → **feature**
+   - `fix:` or `bugfix:` → **bugfix**
+   - `refactor:` → **refactor**
+   - `docs:` or `doc:` → **docs**
+2. **Diff pattern heuristic:** If no prefix is found, examine the diff:
+   - New files added + tests added → likely **feature**
+   - Small changes to existing files + test added → likely **bugfix**
+   - File renames, moves, or restructuring with no behavior change → likely **refactor**
+   - Only `.md` files or comments changed → likely **docs**
+3. **Default:** If detection is ambiguous, treat as **feature** (the most thorough review).
+
+```bash
+# Parse commit message prefix
+git log --oneline -1 | head -1
+
+# Check for new files
+git diff --name-status HEAD~1 | grep "^A"
+
+# Check if only docs changed
+git diff --name-only HEAD~1 | grep -v '\.md$' | wc -l  # 0 means docs-only
+```
+
+#### Context Scoping
+
+Scope context per review domain. When a knowledge graph exists at `.harness/graph/`, use graph queries. Otherwise, fall back to file-based heuristics.
+
+| Domain            | With Graph                                                               | Without Graph (Fallback)                                                                |
+| ----------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| **Compliance**    | Convention files (`CLAUDE.md`, `AGENTS.md`, `.harness/`) + changed files | Convention files + changed files (same — no graph needed)                               |
+| **Bug Detection** | Changed files + direct dependencies via `query_graph`                    | Changed files + files imported by changed files (`grep import`)                         |
+| **Security**      | Security-relevant paths + data flow traversal via `query_graph`          | Changed files + files containing security-sensitive patterns (auth, crypto, SQL, shell) |
+| **Architecture**  | Layer boundaries + import graph via `query_graph` + `get_impact`         | Changed files + `harness check-deps` output                                             |
+
+#### 1:1 Context Ratio Rule
+
+For every N lines of diff, gather approximately N lines of surrounding context:
+
+- **Small diffs (<20 lines):** Gather proportionally more context — aim for 3:1 context-to-diff.
+- **Medium diffs (20-200 lines):** Target 1:1 ratio. Read full files containing changes, plus immediate dependencies.
+- **Large diffs (>200 lines):** 1:1 ratio is the floor. Prioritize ruthlessly. Flag large diffs as a review concern.
+
+#### Context Gathering Priority Order
 
 Gather context in this order until the ratio is met:
 
-1. **Files directly imported/referenced by changed files** — read the modules that the changed code calls or depends on. Without this, you cannot evaluate correctness.
-2. **Corresponding test files** — find tests for the changed code. If tests exist, read them to understand expected behavior. If tests are missing, note this as a finding.
-3. **Spec/design docs mentioning changed components** — search `docs/specs/`, `docs/design-docs/`, and `docs/plans/` for references to the changed files or features. The spec defines "correct."
-4. **Type definitions used by changed code** — read interfaces, types, and schemas that the changed code consumes or produces. Type mismatches are high-severity bugs.
+1. **Files directly imported/referenced by changed files** — read the modules the changed code calls or depends on.
+2. **Corresponding test files** — find tests for changed code. If tests are missing, note this as a finding.
+3. **Spec/design docs mentioning changed components** — search `docs/specs/`, `docs/design-docs/`, `docs/plans/`.
+4. **Type definitions used by changed code** — read interfaces, types, schemas consumed or produced.
 5. **Recent commits touching the same files** — see Commit History below.
 
-### Context Assembly Commands
+#### Graph-Enhanced Context (when available)
+
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+
+- `query_graph` — traverse dependency chain from changed files to find all imports and transitive dependencies
+- `get_impact` — find all affected tests, docs, and downstream code
+- `find_context_for` — assemble review context within token budget, ranked by relevance
+
+Graph queries replace manual grep/find commands and discover transitive dependencies that file search misses. Fall back to file-based commands if no graph is available.
+
+#### Context Assembly Commands
 
 ```bash
 # 1. Get the diff and measure its size
@@ -54,339 +230,331 @@ grep -rl "<component-name>" docs/specs/ docs/design-docs/ docs/plans/
 grep -rn "interface\|type\|schema" <changed-file> | head -20
 ```
 
-### Graph-Enhanced Context (when available)
+#### Commit History Context
 
-When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context gathering:
-
-- `query_graph` — traverse dependency chain from changed files to find all imports and transitive dependencies (replaces grep for import tracing)
-- `get_impact` — find all affected tests, docs, and downstream code that may break from the change
-- `find_context_for` — assemble review context for changed files within token budget, ranked by relevance
-
-Graph queries replace manual grep/find commands and discover transitive dependencies that file search misses. Fall back to file-based commands if no graph is available.
-
-### Commit History Context
-
-As part of context assembly (priority item #5), retrieve recent commit history for every affected file:
+Retrieve recent commit history for every affected file:
 
 ```bash
 # Recent commits touching affected files (5 per file)
 git log --oneline -5 -- <affected-file>
-
-# For all affected files at once
-git log --oneline -5 -- <file1> <file2> <file3>
 ```
 
 Use commit history to answer:
 
-- **Is this a hotspot?** If the file has been changed 3+ times in the last 5 commits, it is volatile. Pay extra attention — frequent changes suggest instability or ongoing refactoring.
-- **Was this recently refactored?** If recent commits include "refactor" or "restructure," check whether the current change aligns with or contradicts the refactoring direction.
-- **Who has been working here?** If multiple authors touched the file recently, there may be conflicting assumptions. Look for consistency.
-- **What was the last change?** The most recent commit gives context on the file's trajectory. A bugfix followed by another change to the same area is a yellow flag.
+- **Is this a hotspot?** Changed 3+ times in last 5 commits → volatile, pay extra attention.
+- **Was this recently refactored?** Recent "refactor" commits → check alignment with refactoring direction.
+- **Who has been working here?** Multiple authors → look for conflicting assumptions.
+- **What was the last change?** Bugfix followed by change in same area → yellow flag.
 
-### Review Learnings Calibration
+**Exit:** Context bundles are assembled for each of the four review domains. Continue to Phase 4.
 
-Before starting the review, check for a project-specific calibration file:
+---
 
-```bash
-# Check if review learnings file exists
-cat .harness/review-learnings.md 2>/dev/null
-```
+### Phase 4: FAN-OUT
 
-If `.harness/review-learnings.md` exists:
+**Tier:** mixed (see per-agent tiers below)
+**Purpose:** Run four parallel review subagents, each with domain-scoped context from Phase 3. Each agent produces findings in the `ReviewFinding` schema.
 
-1. **Read the Useful Findings section.** Prioritize these categories during review — they have historically caught real issues in this project.
-2. **Read the Noise / False Positives section.** De-prioritize or skip these categories — flagging them wastes the author's time and erodes trust in the review process.
-3. **Read the Calibration Notes section.** Apply these project-specific overrides to your review judgment. These represent deliberate team decisions, not oversights.
+#### Compliance Agent (standard tier)
 
-If the file does not exist, proceed with default review focus areas. After completing the review, consider suggesting that the team create `.harness/review-learnings.md` if you notice patterns that would benefit from calibration.
+Reviews adherence to project conventions, standards, and documentation requirements.
 
-## Change-Type Detection
+**Input:** Compliance context bundle (convention files + changed files + change type)
 
-After assembling context, determine the change type. This shapes which checklist to apply during review.
+**Focus by change type:**
 
-### Detection Method
+_Feature:_
 
-1. **Explicit argument:** If the review was invoked with a change type (e.g., `--type feature`), use it.
-2. **Commit message prefix:** Parse the most recent commit message for conventional commit prefixes:
-   - `feat:` or `feature:` → **feature**
-   - `fix:` or `bugfix:` → **bugfix**
-   - `refactor:` → **refactor**
-   - `docs:` or `doc:` → **docs**
-3. **Diff pattern heuristic:** If no prefix is found, examine the diff:
-   - New files added + tests added → likely **feature**
-   - Small changes to existing files + test added → likely **bugfix**
-   - File renames, moves, or restructuring with no behavior change → likely **refactor**
-   - Only `.md` files or comments changed → likely **docs**
-4. **Default:** If detection is ambiguous, treat as **feature** (the most thorough checklist).
+- [ ] **Spec alignment:** Does the implementation match the spec/design doc? Are all specified behaviors present?
+- [ ] **API surface:** Are new public interfaces minimal and well-named? Could any new export be kept internal?
+- [ ] **Backward compatibility:** Does this break existing callers? If so, is the migration path documented?
 
-```bash
-# Parse commit message prefix
-git log --oneline -1 | head -1
+_Bugfix:_
 
-# Check for new files
-git diff --name-status HEAD~1 | grep "^A"
+- [ ] **Root cause identified:** Does the fix address the root cause, not just the symptom?
+- [ ] **Original issue referenced:** Does the commit or PR reference the bug report or issue number?
+- [ ] **No collateral changes:** Does the fix change only what is necessary?
 
-# Check if only docs changed
-git diff --name-only HEAD~1 | grep -v "\.md$" | wc -l  # 0 means docs-only
-```
+_Refactor:_
 
-### Security Review (All Change Types)
+- [ ] **Behavioral equivalence:** Do all existing tests still pass without modification?
+- [ ] **No functionality changes:** Does the refactor introduce any new behavior?
 
-Every code review includes a security check, regardless of change type. This runs in addition to the per-type checklist below.
+_Docs:_
 
-1. **Mechanical scan:** Run `run_security_scan` MCP tool on the changed files. Report any findings with rule ID, file, line, and remediation.
-2. **Semantic security review:** Look for issues the mechanical scanner cannot catch:
-   - User input flowing through multiple functions to a dangerous sink (SQL, shell, HTML)
+- [ ] **Accuracy vs. current code:** Do documented behaviors match what the code actually does?
+- [ ] **Completeness:** Are all public interfaces documented?
+- [ ] **Consistency:** Does new documentation follow existing style and terminology?
+- [ ] **Links valid:** Do all internal links resolve?
+
+**Output:** `ReviewFinding[]` with `domain: 'compliance'`
+
+---
+
+#### Bug Detection Agent (strong tier)
+
+Reviews for logic errors, edge cases, and correctness issues.
+
+**Input:** Bug detection context bundle (changed files + dependencies)
+
+**Focus areas:**
+
+- [ ] **Edge cases:** Boundary conditions (empty input, max values, null, concurrent access)
+- [ ] **Error handling:** Errors handled at appropriate level, helpful messages, no silent swallowing
+- [ ] **Logic errors:** Off-by-one, incorrect boolean logic, missing early returns
+- [ ] **Race conditions:** Concurrent access to shared state, missing locks or atomic operations
+- [ ] **Resource leaks:** Unclosed handles, missing cleanup in error paths
+- [ ] **Type safety:** Type mismatches, unsafe casts, missing null checks
+- [ ] **Test coverage:** Tests for happy path, error paths, and edge cases. Coverage meaningful, not just present.
+- [ ] **Regression tests:** For bugfixes — test that would have caught the bug before the fix
+
+**Output:** `ReviewFinding[]` with `domain: 'bug'`
+
+---
+
+#### Security Agent (strong tier)
+
+Reviews for security vulnerabilities using OWASP baseline plus stack-adaptive focus.
+
+**Input:** Security context bundle (security-relevant paths + data flows)
+
+If `--deep` flag is set, additionally invoke `security-review --deep` for threat modeling.
+
+**Focus areas:**
+
+1. **Semantic security review** (issues mechanical scanners cannot catch):
+   - User input flowing through multiple functions to dangerous sinks (SQL, shell, HTML)
    - Missing authorization checks on new or modified endpoints
    - Sensitive data exposed in logs, error messages, or API responses
    - Authentication bypass paths introduced by the change
    - Insecure defaults in new configuration options
-3. **Stack-adaptive focus:** Based on the project's tech stack, apply relevant domain knowledge (e.g., prototype pollution for Node.js, XSS for React, race conditions for Go).
 
-Security findings are always "blocking" if they represent a confirmed vulnerability (not a potential pattern match). Include CWE references where applicable.
+2. **Stack-adaptive focus:** Based on the project's tech stack:
+   - Node.js: prototype pollution, ReDoS, path traversal
+   - React: XSS, dangerouslySetInnerHTML, state injection
+   - Go: race conditions, integer overflow, unsafe pointer
+   - Python: pickle deserialization, SSTI, command injection
 
-### Per-Type Review Checklists
+3. **CWE references:** Include CWE IDs for confirmed vulnerabilities.
 
-Apply the checklist matching the detected change type. These replace the generic review — do not apply all checklists to every change.
+Security findings with confirmed vulnerabilities are always `severity: 'critical'`.
 
-#### Feature Checklist
-
-- [ ] **Spec alignment:** Does the implementation match the spec/design doc? Are all specified behaviors present?
-- [ ] **Edge cases:** Are boundary conditions handled (empty input, max values, null, concurrent access)?
-- [ ] **Test coverage:** Are there tests for happy path, error paths, and edge cases? Is coverage meaningful, not just present?
-- [ ] **API surface:** Are new public interfaces minimal and well-named? Could any new export be kept internal?
-- [ ] **Backward compatibility:** Does this break existing callers? If so, is the migration path documented?
-
-#### Bugfix Checklist
-
-- [ ] **Root cause identified:** Does the fix address the root cause, not just the symptom? Is the original issue referenced?
-- [ ] **Regression test added:** Is there a test that would have caught this bug before the fix? Does it fail without the fix and pass with it?
-- [ ] **No collateral changes:** Does the fix change only what is necessary? Unrelated changes in a bugfix PR are a red flag.
-- [ ] **Original issue referenced:** Does the commit or PR reference the bug report or issue number?
-
-#### Refactor Checklist
-
-- [ ] **Behavioral equivalence:** Do all existing tests still pass without modification? If tests changed, justify why.
-- [ ] **No functionality changes:** Does the refactor introduce any new behavior, even subtly? New behavior belongs in a feature PR.
-- [ ] **Performance preserved:** Could the restructuring introduce performance regressions (e.g., extra allocations, changed query patterns)?
-- [ ] **Improved clarity:** Is the code demonstrably clearer after the refactor? If not, the refactor may not be justified.
-
-#### Docs Checklist
-
-- [ ] **Accuracy vs. current code:** Do the documented behaviors match what the code actually does? Run the examples if possible.
-- [ ] **Completeness:** Are all public interfaces documented? Are there undocumented parameters, return values, or error conditions?
-- [ ] **Consistency:** Does the new documentation follow the same style, terminology, and structure as existing docs?
-- [ ] **Links valid:** Do all internal links resolve? Are external links still live?
-
-## Process
-
-This skill covers three distinct roles. Follow the section that matches your current role.
+**Output:** `ReviewFinding[]` with `domain: 'security'`
 
 ---
 
-### Role A: Requesting a Review
+#### Architecture Agent (standard tier)
 
-When you have completed work and need it reviewed.
+Reviews for architectural violations, dependency direction, and design pattern compliance.
 
-#### 1. Prepare the Review Context
+**Input:** Architecture context bundle (layer boundaries + import graph)
 
-Before requesting review, assemble the following:
+**Focus areas:**
 
-- **Commit range:** The exact SHAs or branch diff that constitute the change. Use `git log --oneline base..HEAD` to confirm.
-- **Description:** A concise summary of WHAT changed and WHY. Not a commit-by-commit retelling — the reviewer can read the diff. Focus on intent, tradeoffs, and anything non-obvious.
-- **Plan reference:** If this work implements a plan or spec, link to it. The reviewer needs to know what "correct" looks like.
-- **Test evidence:** Confirm tests pass. Include the test command and output summary. If tests were skipped, explain why.
-- **Harness check results:** Run `harness validate` and `harness check-deps` before requesting review. Include results. Fix any failures before requesting.
+- [ ] **Layer compliance:** Does the code respect the project's architectural layers? Are imports flowing in the correct direction?
+- [ ] **Dependency direction:** Do modules depend on abstractions, not concretions? (Dependency Inversion)
+- [ ] **Single Responsibility:** Does each module have one reason to change?
+- [ ] **Open/Closed:** Can behavior be extended without modifying existing code?
+- [ ] **Pattern consistency:** Does the code follow established codebase patterns? If introducing a new pattern, is it justified?
+- [ ] **Separation of concerns:** Business logic separated from infrastructure? Each function/module does one thing?
+- [ ] **DRY violations:** Duplicated logic that should be extracted — but NOT intentional duplication of things that will diverge.
+- [ ] **Performance preserved:** Could restructuring introduce regressions (extra allocations, changed query patterns)?
 
-#### 2. Dispatch the Review
+**Output:** `ReviewFinding[]` with `domain: 'architecture'`
 
-- **Identify the right reviewer.** For architectural changes, request review from someone who understands the architecture. For domain logic, someone who understands the domain.
-- **Provide the context package** (SHAs, description, plan reference, test evidence, harness results). Do not make the reviewer hunt for context.
-- **State what kind of feedback you want.** "Full review" vs "architecture only" vs "test coverage check" — be specific.
-
-#### 3. Wait
-
-Do not continue modifying the code under review. If you find issues while waiting, note them but do not push fixes until the review is complete. Interleaving changes with review creates confusion.
+**Exit:** All four agents have returned their findings. Continue to Phase 5.
 
 ---
 
-### Role B: Performing a Review
+### Phase 5: VALIDATE
 
-When you are reviewing someone else's code.
+**Tier:** none (mechanical)
+**Purpose:** Remove false positives by cross-referencing AI findings against mechanical results and graph reachability.
 
-#### 1. Understand Before Judging
+**Steps:**
 
-- **Read the description and plan first.** Understand what the change is trying to accomplish before reading code.
-- **Read the full diff.** Do not skim. Read every changed file. If the diff is large (>500 lines), note this as a concern — large diffs are harder to review correctly.
-- **Check the commit history.** Are commits atomic and well-described? Or is it one giant squash with "updates"?
+1. **Mechanical exclusion:** For each finding from Phase 4, check if the same file + line range was already flagged by a mechanical check in Phase 2. If so, discard the AI finding — the mechanical check is authoritative and the issue is already reported.
 
-#### 2. Run Automated Checks
+2. **Graph reachability validation (if graph available):** For findings that claim an issue affects other parts of the system (e.g., "this change breaks callers"), verify via `query_graph` that the claimed dependency path exists. Discard findings with invalid reachability claims.
 
-Run these commands and include results in your review:
+3. **Import-chain heuristic (fallback, no graph):** Follow imports 2 levels deep from the flagged file. If the finding claims impact on a file not reachable within 2 import hops, downgrade severity to `suggestion` rather than discarding.
 
-```bash
-harness validate          # Full project health check
-harness check-deps        # Dependency boundary verification
-harness check-docs        # Documentation drift detection
-```
+**Exit:** Validated finding set. Continue to Phase 6.
 
-If any check fails, this is a **Critical** issue. The code cannot merge with failing harness checks.
+---
 
-#### 3. Evaluate Code Quality
+### Phase 6: DEDUP + MERGE
 
-Review each changed file against these criteria:
+**Tier:** none (mechanical)
+**Purpose:** Eliminate redundant findings across agents and produce the final finding list.
 
-**Separation of Concerns:**
+**Steps:**
 
-- Does each function/module do one thing?
-- Are responsibilities clearly divided between files?
-- Is business logic separated from infrastructure?
+1. **Group by location:** Group findings by `file` + overlapping `lineRange`. Two findings overlap if their line ranges intersect or are within 3 lines of each other.
 
-**Error Handling:**
+2. **Merge overlapping findings:** When multiple agents flag the same location:
+   - Keep the highest `severity` from any agent
+   - Combine `evidence` arrays from all agents
+   - Preserve the `rationale` with the strongest justification
+   - Merge `domain` tags (a finding can be both `bug` and `security`)
+   - Generate a single merged `id`
 
-- Are errors handled at the appropriate level?
-- Are error messages helpful for debugging?
-- Are edge cases handled (null, empty, boundary values)?
-- Do errors propagate correctly (not swallowed silently)?
+3. **Assign final severity:**
+   - **Critical** — Must fix before merge. Bugs, security vulnerabilities, failing harness checks, architectural violations that break boundaries.
+   - **Important** — Should fix before merge. Missing error handling, missing tests for critical paths, unclear naming.
+   - **Suggestion** — Consider for improvement. Style preferences, minor optimizations, alternative approaches. Does not block merge.
 
-**DRY (Don't Repeat Yourself):**
+**Exit:** Deduplicated, severity-assigned finding list. Continue to Phase 7.
 
-- Is there duplicated logic that should be extracted?
-- Are there copy-pasted blocks with minor variations?
-- BUT: do not flag intentional duplication (sometimes two similar things should remain separate because they will diverge).
+---
 
-**Naming and Clarity:**
+### Phase 7: OUTPUT
 
-- Do names communicate intent?
-- Are abbreviations explained or avoided?
-- Can you understand the code without reading the implementation of every called function?
+**Tier:** none
+**Purpose:** Deliver the review in the requested format.
 
-#### 4. Evaluate Architecture
+#### Terminal Output (default)
 
-**SOLID Principles:**
-
-- Single Responsibility: Does each module have one reason to change?
-- Open/Closed: Can behavior be extended without modifying existing code?
-- Dependency Inversion: Do modules depend on abstractions, not concretions?
-
-**Layer Compliance:**
-
-- Does the code respect the project's architectural layers?
-- Are imports flowing in the correct direction?
-- Does `harness check-deps` confirm no boundary violations?
-
-**Pattern Consistency:**
-
-- Does the code follow established patterns in the codebase?
-- If introducing a new pattern, is it justified and documented?
-
-#### 5. Evaluate Testing
-
-**Real Tests:**
-
-- Do tests exercise real behavior, not mock implementations?
-- Do tests make meaningful assertions (not just "does not throw")?
-- Are tests deterministic (no flaky timing, network, or randomness)?
-
-**Edge Cases:**
-
-- Are boundary conditions tested (empty input, max values, null)?
-- Are error paths tested (invalid input, network failures, permission errors)?
-
-**Coverage:**
-
-- Is every new public function/method tested?
-- Are critical paths covered (not just happy paths)?
-
-#### 6. Write the Review
-
-Structure your review output as follows:
+Structure the review as:
 
 **Strengths:** What is done well. Be specific. "Clean separation between X and Y" is useful. "Looks good" is not.
 
-**Issues:** Categorize each issue:
+**Issues:** List each finding from Phase 6, grouped by severity:
 
-- **Critical** — Must fix before merge. Bugs, security issues, failing harness checks, broken tests, architectural violations.
-- **Important** — Should fix before merge. Missing error handling, missing tests for critical paths, unclear naming that will cause confusion.
-- **Suggestion** — Consider for improvement. Style preferences, minor optimizations, alternative approaches. These do not block merge.
+- **Critical:** [findings with severity 'critical']
+- **Important:** [findings with severity 'important']
+- **Suggestion:** [findings with severity 'suggestion']
 
 For each issue, provide:
 
-1. The specific location (file and line or function name)
-2. What the problem is
-3. Why it matters
-4. A suggested fix (if you have one)
+1. The specific location (file and line range)
+2. What the problem is (title)
+3. Why it matters (rationale)
+4. A suggested fix (if available)
 
 **Assessment:** One of:
 
 - **Approve** — No critical or important issues. Ready to merge.
-- **Request Changes** — Critical or important issues must be addressed. Re-review needed after fixes.
-- **Comment** — Observations only, no blocking issues, but author should consider feedback.
+- **Request Changes** — Critical or important issues must be addressed.
+- **Comment** — Observations only, no blocking issues.
+
+**Exit code:** 0 for Approve/Comment, 1 for Request Changes.
+
+#### Inline GitHub Comments (`--comment` flag)
+
+When `--comment` is set, post findings as inline PR comments via `gh` CLI or GitHub MCP:
+
+- **Small fixes** (suggestion is < 10 lines): Post as committable suggestion block using GitHub's suggestion syntax.
+- **Large fixes** (suggestion is >= 10 lines or no concrete suggestion): Post description + rationale as a regular comment.
+- **Summary comment:** Post the Strengths/Issues/Assessment as a top-level PR review comment.
+
+```bash
+# Post a review with inline comments
+gh pr review --event APPROVE|REQUEST_CHANGES|COMMENT --body "<summary>"
+
+# Post inline comment with suggestion
+gh api repos/{owner}/{repo}/pulls/{pr}/comments \
+  --field body="<rationale>\n\`\`\`suggestion\n<fix>\n\`\`\`" \
+  --field path="<file>" --field line=<line>
+```
 
 ---
 
-### Role C: Responding to Review Feedback
+## Role A: Requesting a Review
 
-When you receive feedback on your code.
+_This section is not part of the pipeline. It documents the process for requesting a review from others._
 
-#### 1. Read All Feedback First
+When you have completed work and need it reviewed:
 
-Read every comment before responding to any. Understand the full picture. Some comments may contradict each other or be resolved by the same fix.
+1. **Prepare the review context:**
+   - Commit range (exact SHAs or branch diff)
+   - Description (WHAT changed and WHY — not a commit-by-commit retelling)
+   - Plan reference (link to spec/plan if applicable)
+   - Test evidence (`harness validate` and test suite results)
+   - Harness check results (`harness validate`, `harness check-deps`)
 
-#### 2. Verify Before Implementing
+2. **Dispatch the review:** Identify the right reviewer, provide the context package, state what kind of feedback you want.
 
-For each piece of feedback:
+3. **Wait.** Do not modify code under review. Note issues but do not push fixes until review is complete.
 
-- **Do you understand it?** If not, ask for clarification. Do not guess at what the reviewer means.
-- **Is it correct?** Verify the reviewer's claim. Read the code they reference. Run the scenario they describe. Reviewers make mistakes too.
-- **Is it actionable?** Vague feedback ("this could be better") requires clarification. Ask for specific suggestions.
+---
 
-#### 3. Technical Rigor Over Social Performance
+## Role C: Responding to Review Feedback
 
-- **Do NOT agree with feedback just to be agreeable.** If the feedback is wrong, say so with evidence. "I considered that approach, but it does not work because [specific reason]" is a valid response.
-- **Do NOT implement every suggestion.** Apply the YAGNI check to every suggestion: Does this change serve a current, concrete need? If it is speculative ("you might need this later"), push back.
-- **Do NOT make changes you do not understand.** If a reviewer suggests a change and you cannot explain why it is better, do not make it. Ask them to explain.
-- **DO acknowledge when feedback is correct.** "Good catch, fixing" is appropriate when the reviewer found a real issue.
-- **DO push back when feedback contradicts the plan or spec.** The plan was approved. If review feedback wants to change the plan, that is a scope discussion, not a code review issue.
+_This section is not part of the pipeline. It documents the process for responding to review feedback._
 
-#### 4. Implement Fixes
+1. **Read all feedback first.** Understand the full picture before responding.
 
-For each accepted piece of feedback:
+2. **Verify before implementing.** For each piece of feedback:
+   - Do you understand it? If not, ask for clarification.
+   - Is it correct? Verify the claim — reviewers make mistakes too.
+   - Is it actionable? Vague feedback requires clarification.
 
-1. Make the change
-2. Run the full test suite
-3. Run `harness validate` and `harness check-deps`
-4. Commit with a message referencing the review feedback
+3. **Technical rigor over social performance:**
+   - Do NOT agree with feedback just to be agreeable. Push back with evidence if wrong.
+   - Do NOT implement every suggestion. Apply YAGNI.
+   - Do NOT make changes you do not understand. Ask for explanation.
+   - DO acknowledge when feedback is correct.
+   - DO push back when feedback contradicts the approved plan/spec.
 
-#### 5. Re-request Review
+4. **Implement fixes:** For each accepted piece of feedback: make the change, run tests, run `harness validate` and `harness check-deps`, commit with a message referencing the review feedback.
 
-After addressing all feedback, re-request review with:
+5. **Re-request review** with summary of changes, which feedback was addressed vs. pushed back on, and fresh harness check results.
 
-- Summary of what changed
-- Which feedback was addressed and which was pushed back on (with reasons)
-- Fresh harness check results
+---
 
 ## Harness Integration
 
-- **`harness validate`** — Run before requesting review and during review performance. Must pass for approval.
-- **`harness check-deps`** — Run to verify dependency boundaries. Failures are Critical issues.
-- **`harness check-docs`** — Run to detect documentation drift. If code changed but docs did not, flag as Important.
-- **`harness cleanup`** — Optional during review to check for entropy accumulation in the changed files.
+- **`harness validate`** — Run in Phase 2 (MECHANICAL). Must pass for the pipeline to continue to AI review.
+- **`harness check-deps`** — Run in Phase 2 (MECHANICAL). Failures are Critical issues that stop the pipeline.
+- **`harness check-docs`** — Run in Phase 2 (MECHANICAL). Documentation drift findings are recorded for the exclusion set.
+- **`harness cleanup`** — Optional check during Phase 2 for entropy accumulation in changed files.
+- **Graph queries** — Used in Phase 3 (CONTEXT) for dependency-scoped context and in Phase 5 (VALIDATE) for reachability verification. Graceful fallback when no graph exists.
 
 ## Success Criteria
 
-- Every review request includes: commit range, description, plan reference, test evidence, harness results
-- Every review evaluates: code quality, architecture, testing, harness checks
-- Every review uses the Strengths/Issues/Assessment format
-- Issues are categorized as Critical/Important/Suggestion
+- The pipeline runs all 7 phases in order when invoked manually (skipping GATE)
+- The pipeline runs all 7 phases including GATE when invoked with `--ci`
+- Mechanical failures in Phase 2 stop the pipeline before AI review (Phase 4)
+- Each Phase 4 subagent receives only its domain-scoped context, not the full diff
+- All findings use the ReviewFinding schema
+- Mechanical findings from Phase 2 are excluded from Phase 4 output in Phase 5
+- Cross-agent duplicate findings are merged in Phase 6
+- Terminal output uses Strengths/Issues/Assessment format with Critical/Important/Suggestion severity
+- `--comment` posts inline GitHub comments with committable suggestion blocks for small fixes
+- `--deep` adds threat modeling to the Security agent
 - No code merges with Critical issues unresolved
 - No code merges with failing harness checks
-- Response to feedback is verified before implementation
+- Response to feedback (Role C) is verified before implementation
 - Pushback on incorrect feedback is evidence-based
 
 ## Examples
 
-### Example: Reviewing a New API Endpoint
+### Example: Pipeline Review of a New API Endpoint
+
+**Phase 1 (GATE):** Skipped — manual invocation.
+
+**Phase 2 (MECHANICAL):** `harness validate` passes. `harness check-deps` passes. Security scan finds no issues. `tsc --noEmit` passes. Lint passes.
+
+**Phase 3 (CONTEXT):** Change type detected as `feature` (commit prefix `feat:`). Context bundles assembled:
+
+- Compliance: `CLAUDE.md` + changed files
+- Bug detection: `api/routes/users.ts`, `services/user-service.ts`, `db/queries.ts`
+- Security: `api/routes/users.ts` (endpoint), `services/user-service.ts` (data flow)
+- Architecture: import graph showing `routes → services → db` layers
+
+**Phase 4 (FAN-OUT):** Four agents run in parallel:
+
+- Compliance agent: 0 findings (spec alignment confirmed)
+- Bug detection agent: 1 finding (missing duplicate email handling in createUser)
+- Security agent: 0 findings (no vulnerabilities detected)
+- Architecture agent: 1 finding (routes/users.ts imports directly from db/queries.ts)
+
+**Phase 5 (VALIDATE):** No mechanical exclusions apply. Architecture finding validated by `check-deps` output showing layer violation.
+
+**Phase 6 (DEDUP+MERGE):** No overlaps — 2 distinct findings in different files.
+
+**Phase 7 (OUTPUT):**
 
 **Strengths:**
 
@@ -398,22 +566,19 @@ After addressing all feedback, re-request review with:
 
 **Critical:**
 
-- `harness check-deps` fails: `api/routes/users.ts` imports directly from `db/queries.ts`, bypassing the service layer. Must route through `services/user-service.ts`.
+- `api/routes/users.ts:12-15` — Direct import from `db/queries.ts` bypasses service layer. Must route through `services/user-service.ts`. (domain: architecture, validatedBy: heuristic)
 
 **Important:**
 
-- `services/user-service.ts:45` — `createUser` does not handle duplicate email. The database will throw a constraint violation that surfaces as a 500 error. Should catch and return a 409.
-- Missing test for concurrent creation with same email.
+- `services/user-service.ts:45` — `createUser` does not handle duplicate email. Database will throw constraint violation surfacing as 500. Should catch and return 409. (domain: bug, validatedBy: heuristic)
 
-**Suggestion:**
-
-- Consider extracting the pagination logic in `api/routes/users.ts:30-55` into a shared utility — the same pattern exists in `api/routes/orders.ts`.
+**Suggestion:** (none)
 
 **Assessment:** Request Changes — one critical layer violation and one important missing error handler.
 
 ## Gates
 
-- **Never skip review.** All code that will be merged must be reviewed. No exceptions for "small changes" or "obvious fixes."
+- **Never skip mechanical checks without `--no-mechanical`.** If mechanical checks have not run (in CI or locally), they must run in Phase 2 before AI review.
 - **Never merge with failing harness checks.** `harness validate` and `harness check-deps` must pass. This is a Critical issue, always.
 - **Never implement feedback without verification.** Before changing code based on review feedback, verify the feedback is correct. Run the scenario. Read the code. Do not blindly comply.
 - **Never agree performatively.** "Sure, I'll change that" without understanding why is forbidden. Every change must be understood.
@@ -421,8 +586,9 @@ After addressing all feedback, re-request review with:
 
 ## Escalation
 
-- **When reviewers disagree:** If two reviewers give contradictory feedback, escalate to the human or tech lead. Do not try to satisfy both.
-- **When review feedback changes the plan:** If feedback requires changes that alter the approved plan or spec, pause the review. The plan must be updated and re-approved first.
-- **When you cannot reproduce a reported issue:** Ask the reviewer for exact reproduction steps. If they cannot provide them, the issue may not be real.
-- **When review is taking more than 2 rounds:** If the same code is going through a third round of review, something is fundamentally misaligned. Stop and discuss the approach in a meeting or synchronous conversation.
-- **When harness checks fail and you believe the check is wrong:** Do not override or skip the check. File an issue against the harness configuration and work around the limitation until it is resolved.
+- **When reviewers disagree:** If two reviewers give contradictory feedback, escalate to the human or tech lead.
+- **When review feedback changes the plan:** If feedback requires altering the approved plan or spec, pause the review. The plan must be updated first.
+- **When you cannot reproduce a reported issue:** Ask the reviewer for exact reproduction steps.
+- **When review is taking more than 2 rounds:** Something is fundamentally misaligned. Stop and discuss the approach synchronously.
+- **When harness checks fail and you believe the check is wrong:** Do not override or skip. File an issue against the harness configuration.
+- **When the pipeline produces a false positive after validation:** Add the pattern to `.harness/review-learnings.md` in the Noise / False Positives section for future calibration.

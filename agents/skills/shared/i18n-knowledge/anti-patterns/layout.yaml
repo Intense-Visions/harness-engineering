@@ -1,0 +1,80 @@
+description: "Layout anti-patterns — common mistakes in spatial design, text containers, and directional assumptions that break in localized contexts"
+
+patterns:
+  - name: "Fixed-width containers for text"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for fixed pixel widths on containers that hold translated text"
+      context: "Buttons, labels, or cards with hardcoded width in px that hold user-facing text"
+    reason: "German expands 30-35% over English. Finnish expands up to 40%. Fixed-width containers cause text overflow or truncation."
+    instead: "Use min-width/max-width with flexible layouts; test with the longest target language (typically German or Finnish)"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error
+
+  - name: "Hardcoded CSS left/right instead of logical properties"
+    severity: warning
+    scope: web
+    detect:
+      method: "Check for CSS properties using physical directions: margin-left, padding-right, text-align: left, float: left"
+      context: "Layout CSS that uses physical direction properties instead of logical equivalents"
+    reason: "Physical left/right breaks in RTL layouts. margin-left becomes the wrong side for Arabic and Hebrew users."
+    instead: "Use CSS logical properties: margin-inline-start, padding-inline-end, text-align: start, float: inline-start"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Icon placement assumptions"
+    severity: warning
+    scope: all
+    detect:
+      method: "Check for icons hardcoded to left or right side of text"
+      context: "Arrow icons, action icons, or navigation indicators with fixed directional placement"
+    reason: "Left-side icons in LTR become wrong-side icons in RTL. But some icons should NOT mirror (checkmarks, media play buttons)."
+    instead: "Use logical placement (inline-start/end); create an icon exception list for icons that should not mirror in RTL"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Text truncation without dir attribute"
+    severity: warning
+    scope: web
+    detect:
+      method: "Check for text-overflow: ellipsis without corresponding dir attribute on the container"
+      context: "Truncated text elements that may contain RTL content"
+    reason: "Ellipsis appears at the wrong end for RTL text without dir attribute. Bidi truncation shows '...مرحبا' instead of 'مرحبا...'"
+    instead: "Set dir attribute on text containers; use CSS direction property in conjunction with text-overflow"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Fixed height on text containers"
+    severity: warning
+    scope: all
+    detect:
+      method: "Check for fixed pixel heights on containers that hold multi-line translated text"
+      context: "Cards, tooltips, or modals with hardcoded height that hold translatable content"
+    reason: "Translated text may wrap to more lines due to expansion. Thai and Devanagari need more vertical space for diacritics."
+    instead: "Use min-height instead of height; increase line-height for scripts with stacking diacritics (Thai: 1.8, Devanagari: 1.6)"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Images or graphics containing embedded text"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for images, SVGs, or canvas elements with text baked into the visual"
+      context: "Hero images, infographics, or icons with embedded text labels"
+    reason: "Text in images cannot be translated, searched, or read by screen readers. Each locale requires a new image asset."
+    instead: "Overlay text on images using CSS positioning; use SVG with <text> elements that can reference translation keys"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error

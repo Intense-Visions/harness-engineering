@@ -10,5 +10,12 @@
     "summary": "Phase 2 (autopilot session scoping skill.yaml updates) complete. Both platform copies updated: singleton state paths replaced with session-scoped glob patterns, handoff.json added. 507 skill tests pass, harness validate passes.",
     "lastSkill": "harness-execution",
     "pendingTasks": []
+  },
+  "perfGate": {
+    "result": "pass",
+    "tier1Count": 0,
+    "tier2Count": 0,
+    "tier3Count": 0,
+    "timestamp": "2026-03-20T14:54:00.000Z"
   }
 }

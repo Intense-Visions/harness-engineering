@@ -1,0 +1,60 @@
+name: "Tolgee"
+description: "Open-source translation management system with in-context editing, AI translation, and comprehensive MCP server exposing 59 tools"
+mcp_server_id: "tolgee-mcp"
+source: "https://github.com/tolgee/tolgee-mcp"
+
+capabilities:
+  - name: "Project Management"
+    description: "Create, list, and manage translation projects"
+    tools: ["create_project", "list_projects", "get_project"]
+  - name: "Key Management"
+    description: "Create, update, delete, and search translation keys with namespace support"
+    tools: ["create_key", "update_key", "delete_key", "search_keys", "import_keys"]
+  - name: "Translation Operations"
+    description: "Get, set, and batch-update translations per locale"
+    tools: ["get_translations", "set_translation", "batch_set_translations"]
+  - name: "Screenshot Management"
+    description: "Upload and manage screenshots linked to translation keys for translator context"
+    tools: ["upload_screenshot", "get_screenshots", "delete_screenshot"]
+  - name: "Import/Export"
+    description: "Import and export translation files in various formats (JSON, XLIFF, PO, etc.)"
+    tools: ["import_file", "export_translations"]
+
+when_to_use:
+  - scenario: "Team wants a self-hosted TMS with developer-friendly workflow"
+    reason: "Tolgee can be self-hosted (Docker) and provides in-context editing for developers to see translations in the actual UI"
+  - scenario: "Project needs AI-assisted translation with human review"
+    reason: "Tolgee integrates AI translation providers while maintaining a human review workflow"
+  - scenario: "Small to medium team without budget for enterprise TMS"
+    reason: "Open-source core with generous free tier; self-hosting eliminates per-seat costs"
+
+when_not_to_use:
+  - scenario: "Enterprise requiring SOC 2 compliance and SLA guarantees"
+    reason: "Self-hosted requires managing your own infrastructure and compliance; Tolgee Cloud has fewer enterprise certifications than Lokalise"
+  - scenario: "Project with complex branching/versioning workflows"
+    reason: "Tolgee's branching support is less mature than Lokalise or Crowdin for complex release management"
+
+integration_patterns:
+  - pattern: "Harness workflow with Tolgee MCP for key management"
+    description: "Use Tolgee MCP tools during the i18n audit phase to check translation coverage and create missing keys"
+    config_example: |
+      // harness.config.json
+      {
+        "mcp": {
+          "servers": {
+            "tolgee": {
+              "command": "npx",
+              "args": ["-y", "@anthropic/tolgee-mcp"],
+              "env": {
+                "TOLGEE_API_URL": "https://app.tolgee.io",
+                "TOLGEE_API_KEY": "<your-api-key>"
+              }
+            }
+          }
+        }
+      }
+
+limitations:
+  - "59 MCP tools may cause token overhead in LLM context; consider filtering to used capabilities"
+  - "Self-hosted instance requires Docker and PostgreSQL infrastructure"
+  - "In-context editing SDK adds bundle size to the frontend application"

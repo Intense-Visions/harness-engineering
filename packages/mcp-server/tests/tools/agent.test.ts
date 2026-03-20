@@ -59,9 +59,19 @@ describe('run_agent_task tool', () => {
     expect(runAgentTaskDefinition.inputSchema.properties).toHaveProperty('timeout');
   });
 
-  it('returns error for nonexistent project', async () => {
+  it('returns error for invalid task name', async () => {
     const response = await handleRunAgentTask({
-      task: 'test-task',
+      task: 'not-a-real-task',
+      path: '/nonexistent/project',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content).toHaveLength(1);
+    expect(response.content[0].text).toContain('Invalid task');
+  });
+
+  it('returns error for nonexistent project with valid task', async () => {
+    const response = await handleRunAgentTask({
+      task: 'review',
       path: '/nonexistent/project',
     });
     expect(response.isError).toBe(true);

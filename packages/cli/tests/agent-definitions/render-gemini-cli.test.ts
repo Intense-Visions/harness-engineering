@@ -33,9 +33,30 @@ describe('renderGeminiAgent', () => {
     expect(output).toContain('Full methodology here');
   });
 
-  it('renders tools as YAML array', () => {
+  it('renders tools as YAML array with Gemini CLI tool names', () => {
     const output = renderGeminiAgent(mockDef);
-    expect(output).toContain('tools:\n  - Bash\n  - Read\n  - Glob\n  - Grep');
+    expect(output).toContain(
+      'tools:\n  - run_shell_command\n  - read_file\n  - glob\n  - search_file_content'
+    );
+  });
+
+  it('maps all Claude Code tool names to Gemini equivalents', () => {
+    const def = {
+      ...mockDef,
+      tools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'],
+    };
+    const output = renderGeminiAgent(def);
+    expect(output).toContain('run_shell_command');
+    expect(output).toContain('read_file');
+    expect(output).toContain('write_file');
+    expect(output).toContain('replace');
+    expect(output).toContain('glob');
+    expect(output).toContain('search_file_content');
+    expect(output).not.toContain('- Bash');
+    expect(output).not.toContain('- Read');
+    expect(output).not.toContain('- Write');
+    expect(output).not.toContain('- Edit');
+    expect(output).not.toContain('- Grep');
   });
 
   it('omits tools key when tools array is empty', () => {

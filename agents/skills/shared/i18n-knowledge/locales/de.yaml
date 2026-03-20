@@ -1,0 +1,35 @@
+locale: "de"
+name: "German"
+native_name: "Deutsch"
+script: "Latin"
+direction: ltr
+cldr_plural_categories: [one, other]
+expansion_factor: 1.35
+script_characteristics:
+  avg_char_width: "narrow"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+number_format:
+  decimal_separator: ","
+  grouping_separator: "."
+  grouping_size: 3
+date_format:
+  short: "DD.MM.YYYY"
+  long: "DD. Month YYYY"
+  first_day_of_week: "monday"
+common_pitfalls:
+  - pitfall: "Long compound words overflowing containers"
+    example: "'Geschwindigkeitsbegrenzung' (speed limit) is 26 characters with no natural break point"
+    fix: "Use CSS hyphens: auto with lang='de', or soft hyphens (U+00AD) for compound word break hints"
+  - pitfall: "Formal vs informal address (Sie/du)"
+    example: "Using informal 'du' in a banking app where formal 'Sie' is expected"
+    fix: "Establish formal/informal convention per product and apply consistently across all translations"
+  - pitfall: "Noun capitalization rules"
+    example: "Lowercasing a translated noun — all German nouns are capitalized regardless of position"
+    fix: "Never apply text-transform: lowercase to German text; preserve translator-specified capitalization"
+  - pitfall: "Text expansion of 30-35% breaking UI layouts"
+    example: "'Submit' (6 chars) becomes 'Absenden' (8 chars); 'Settings' becomes 'Einstellungen' (13 chars)"
+    fix: "Design for at least 35% text expansion; German is often the longest common Western European language"
+  - pitfall: "Date format with periods"
+    example: "Using DD/MM/YYYY instead of DD.MM.YYYY — German dates use periods as separators"
+    fix: "Use Intl.DateTimeFormat('de') for correct date formatting with period separators"

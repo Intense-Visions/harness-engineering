@@ -1,0 +1,35 @@
+locale: "tr"
+name: "Turkish"
+native_name: "Türkçe"
+script: "Latin"
+direction: ltr
+cldr_plural_categories: [one, other]
+expansion_factor: 1.20
+script_characteristics:
+  avg_char_width: "narrow"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+number_format:
+  decimal_separator: ","
+  grouping_separator: "."
+  grouping_size: 3
+date_format:
+  short: "DD.MM.YYYY"
+  long: "DD Month YYYY"
+  first_day_of_week: "monday"
+common_pitfalls:
+  - pitfall: "Dotted vs dotless I — the most famous i18n bug"
+    example: "'istanbul'.toUpperCase() produces 'ISTANBUL' (ASCII I) instead of correct Turkish 'İSTANBUL' (İ, U+0130 Latin Capital Letter I With Dot Above)"
+    fix: "Always use locale-aware case conversion: toLocaleUpperCase('tr') and toLocaleLowerCase('tr')"
+  - pitfall: "Case-insensitive comparison breaking with Turkish locale"
+    example: "Comparing 'FILE' and 'file' with Turkish locale fails because I != i in Turkish"
+    fix: "Use locale-aware comparison (Intl.Collator) or normalize to a known locale for case-insensitive checks"
+  - pitfall: "Agglutinative grammar creating long words"
+    example: "'Avrupalilasamayanlardan' (from those who cannot be Europeanized) — suffixes stack"
+    fix: "Design for text expansion from suffix stacking; use CSS overflow-wrap: break-word for safety"
+  - pitfall: "Vowel harmony in suffixes"
+    example: "Suffixes change based on the last vowel: 'evde' (in the house) vs 'okulda' (in the school)"
+    fix: "Never programmatically append Turkish suffixes; always use translator-provided complete forms"
+  - pitfall: "Currency formatting for Turkish Lira"
+    example: "Turkish Lira symbol (₺) placement and number formatting must follow Turkish conventions"
+    fix: "Use Intl.NumberFormat('tr-TR', {style: 'currency', currency: 'TRY'}) for proper Lira formatting"
