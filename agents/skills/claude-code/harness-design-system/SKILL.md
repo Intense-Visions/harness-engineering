@@ -26,10 +26,10 @@
    - `theme.ts`, `theme.js`, `styles/variables.*` -- CSS-in-JS or preprocessor variables
 
 2. **Check harness configuration.** Read `harness.config.json` for:
-   - `design.palette` -- previously selected palette name
-   - `design.typography` -- previously selected font pairing
-   - `design.industry` -- industry vertical for recommendations
-   - `designStrictness` -- enforcement level (`strict`, `standard`, `permissive`)
+   - `design.strictness` -- enforcement level (`strict`, `standard`, `permissive`)
+   - `design.platforms` -- which platforms are enabled (web, mobile)
+   - `design.tokenPath` -- path to tokens file (default: `design-system/tokens.json`)
+   - `design.aestheticIntent` -- path to design intent doc (default: `design-system/DESIGN.md`)
 
 3. **Detect framework.** Identify the CSS strategy in use:
    - Tailwind CSS (presence of `tailwind.config.*`)
@@ -105,7 +105,7 @@
      "typography": {
        "heading": {
          "fontFamily": { "$value": "Inter, system-ui, sans-serif", "$type": "fontFamily" },
-         "fontWeight": { "$value": "600", "$type": "fontWeight" }
+         "fontWeight": { "$value": 600, "$type": "fontWeight" }
        },
        "body": {
          "fontFamily": { "$value": "Source Sans 3, system-ui, sans-serif", "$type": "fontFamily" },
@@ -129,14 +129,14 @@
    - Spacing conventions (component padding, layout gaps, section margins)
    - Anti-patterns (explicitly forbidden design choices)
    - Platform-specific notes (Tailwind class mappings, CSS variable names)
-   - Strictness override instructions (how to change `designStrictness`)
+   - Strictness override instructions (how to change `design.strictness`)
 
 3. **Populate the knowledge graph.** If a graph exists at `.harness/graph/`, run `DesignIngestor` from `packages/graph/src/ingest/DesignIngestor.ts` to create graph nodes for:
    - Each color token (type: `design_token`, subtype: `color`)
    - Each typography token (type: `design_token`, subtype: `typography`)
    - Each spacing token (type: `design_token`, subtype: `spacing`)
-   - The design document (type: `design_doc`)
-   - Relationships between tokens and the design document
+   - The aesthetic intent (type: `aesthetic_intent`) with style, tone, differentiator, and strictness properties
+   - `declares_intent` edges from the project to the aesthetic intent node
 
 ### Phase 4: VALIDATE -- Verify Tokens and Compliance
 
@@ -278,5 +278,5 @@ These are hard stops. Violating any gate means the process has broken down.
 - **After 3 failed contrast validations on the same palette:** Suggest an alternative palette from the curated set that has pre-verified contrast ratios. Present the alternative with a comparison showing which pairs now pass.
 - **When user rejects all curated palettes:** Accept custom colors but warn: "Custom colors have not been pre-validated for contrast compliance. Running full contrast check now." Run validation and report results before generating.
 - **When existing project has conflicting design patterns:** Surface the specific conflicts (e.g., "Found 5 different blue values across 12 components"). Ask the user to choose: consolidate to the new palette, or map each existing value to the nearest token. Do not silently override existing colors.
-- **When `designStrictness` is set to `permissive` but contrast fails:** Still report the failure as a warning. Permissive mode does not suppress contrast checks -- it only changes the severity from error to warning.
+- **When `design.strictness` is set to `permissive` but contrast fails:** Still report the failure as a warning. Permissive mode does not suppress contrast checks -- it only changes the severity from error to warning.
 - **When the graph is unavailable:** Skip the graph population step in GENERATE. Log: "Graph not available at .harness/graph/ -- skipping token graph population. Run `harness scan` later to populate." Continue with file generation.
