@@ -4,7 +4,7 @@ description: Lightweight mechanical security scan for health checks
 cognitive_mode: meticulous-implementer
 triggers:
   - manual
-  - scheduled
+  - on_milestone
 platforms:
   - claude-code
   - gemini-cli

@@ -4,7 +4,7 @@ description: Analyze structural health of the codebase using graph metrics
 cognitive_mode: analytical-reporter
 triggers:
   - manual
-  - scheduled
+  - on_milestone
 platforms:
   - claude-code
   - gemini-cli

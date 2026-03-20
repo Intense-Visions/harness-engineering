@@ -4,7 +4,7 @@ description: Identify structural risk hotspots via co-change and churn analysis
 cognitive_mode: analytical-reporter
 triggers:
   - manual
-  - scheduled
+  - on_milestone
 platforms:
   - claude-code
   - gemini-cli

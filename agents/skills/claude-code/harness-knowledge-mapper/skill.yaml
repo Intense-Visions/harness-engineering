@@ -5,7 +5,7 @@ cognitive_mode: constructive-architect
 triggers:
   - manual
   - on_commit
-  - scheduled
+  - on_milestone
 platforms:
   - claude-code
   - gemini-cli
