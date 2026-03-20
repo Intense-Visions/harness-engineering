@@ -4,6 +4,7 @@ import {
   shouldRunCheck,
   readCheckState,
   spawnBackgroundCheck,
+  getUpdateNotification,
   type UpdateCheckState,
 } from '../../src/update-checker';
 
@@ -207,5 +208,122 @@ describe('spawnBackgroundCheck', () => {
     expect(script).toContain('npm');
     expect(script).toContain('@harness-engineering/cli');
     expect(script).toContain('update-check.json');
+  });
+});
+
+describe('getUpdateNotification', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-notif-'));
+    originalHome = os.homedir();
+    process.env['HOME'] = tmpDir;
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('returns formatted message when latestVersion > currentVersion', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: '1.8.0',
+        currentVersion: '1.7.0',
+      })
+    );
+
+    const msg = getUpdateNotification('1.7.0');
+    expect(msg).toContain('1.7.0');
+    expect(msg).toContain('1.8.0');
+    expect(msg).toContain('harness update');
+  });
+
+  it('returns null when versions are equal', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: '1.7.0',
+        currentVersion: '1.7.0',
+      })
+    );
+
+    expect(getUpdateNotification('1.7.0')).toBeNull();
+  });
+
+  it('returns null when current is newer than latest (downgrade)', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: '1.6.0',
+        currentVersion: '1.7.0',
+      })
+    );
+
+    expect(getUpdateNotification('1.7.0')).toBeNull();
+  });
+
+  it('returns null when latestVersion is null', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: null,
+        currentVersion: '1.7.0',
+      })
+    );
+
+    expect(getUpdateNotification('1.7.0')).toBeNull();
+  });
+
+  it('returns null when state file is missing', () => {
+    expect(getUpdateNotification('1.7.0')).toBeNull();
+  });
+
+  it('handles major version bump', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: '2.0.0',
+        currentVersion: '1.9.9',
+      })
+    );
+
+    const msg = getUpdateNotification('1.9.9');
+    expect(msg).toContain('2.0.0');
+    expect(msg).toContain('1.9.9');
+  });
+
+  it('handles patch version bump', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: '1.7.1',
+        currentVersion: '1.7.0',
+      })
+    );
+
+    const msg = getUpdateNotification('1.7.0');
+    expect(msg).not.toBeNull();
+    expect(msg).toContain('1.7.1');
   });
 });
