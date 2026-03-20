@@ -269,6 +269,7 @@ export function getResourceDefinitions(): typeof RESOURCE_DEFINITIONS {
 
 export function createHarnessServer(projectRoot?: string): Server {
   const resolvedRoot = projectRoot ?? process.cwd();
+  let sessionChecked = false;
 
   const server = new Server(
     { name: 'harness-engineering', version: '0.1.0' },
