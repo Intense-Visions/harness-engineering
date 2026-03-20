@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 async function loadEntropyGraphOptions(projectPath: string) {
   const { loadGraphStore } = await import('../utils/graph-loader.js');
@@ -55,7 +56,7 @@ export async function handleDetectEntropy(input: { path: string; type?: string }
     const typeFilter = input.type ?? 'all';
 
     const analyzer = new EntropyAnalyzer({
-      rootDir: path.resolve(input.path),
+      rootDir: sanitizePath(input.path),
       analyze: {
         drift: typeFilter === 'all' || typeFilter === 'drift',
         deadCode: typeFilter === 'all' || typeFilter === 'dead-code',
@@ -63,7 +64,7 @@ export async function handleDetectEntropy(input: { path: string; type?: string }
       },
     });
 
-    const graphOptions = await loadEntropyGraphOptions(path.resolve(input.path));
+    const graphOptions = await loadEntropyGraphOptions(sanitizePath(input.path));
     const result = await analyzer.analyze(graphOptions);
     return resultToMcpResponse(result);
   } catch (error) {
@@ -98,11 +99,11 @@ export async function handleApplyFixes(input: { path: string; dryRun?: boolean }
     const { EntropyAnalyzer, createFixes, applyFixes, generateSuggestions } =
       await import('@harness-engineering/core');
     const analyzer = new EntropyAnalyzer({
-      rootDir: path.resolve(input.path),
+      rootDir: sanitizePath(input.path),
       analyze: { drift: true, deadCode: true, patterns: true },
     });
 
-    const graphOptions = await loadEntropyGraphOptions(path.resolve(input.path));
+    const graphOptions = await loadEntropyGraphOptions(sanitizePath(input.path));
     const analysisResult = await analyzer.analyze(graphOptions);
     if (!analysisResult.ok) return resultToMcpResponse(analysisResult);
 

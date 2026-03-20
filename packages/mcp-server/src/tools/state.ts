@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 // ── manage_state ──────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export async function handleManageState(input: {
       DEFAULT_STATE,
     } = await import('@harness-engineering/core');
 
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
 
     switch (input.action) {
       case 'show': {
@@ -181,7 +182,7 @@ export async function handleManageHandoff(input: {
   try {
     const { saveHandoff, loadHandoff } = await import('@harness-engineering/core');
 
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
 
     switch (input.action) {
       case 'save': {
@@ -243,7 +244,7 @@ export const listStreamsDefinition = {
 export async function handleListStreams(input: { path: string }) {
   try {
     const { listStreams, loadStreamIndex } = await import('@harness-engineering/core');
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const indexResult = await loadStreamIndex(projectPath);
     const streamsResult = await listStreams(projectPath);
 
