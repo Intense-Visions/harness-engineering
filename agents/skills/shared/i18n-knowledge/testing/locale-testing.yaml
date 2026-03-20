@@ -1,0 +1,107 @@
+description: "Locale testing techniques — systematic approaches to verify i18n correctness across real locales"
+
+techniques:
+  - name: "Functional testing per locale"
+    description: "Run functional test suites with different locale configurations to verify locale-dependent behavior"
+    catches:
+      - "Form submission failures with locale-formatted input (commas vs periods in numbers)"
+      - "Date picker displaying wrong format or first day of week"
+      - "Number input rejecting valid locale-formatted values"
+      - "Sort order bugs with locale-specific collation"
+    implementation:
+      approach: "Parameterize functional tests with locale fixtures; run core user flows per locale"
+      tools: ["Playwright with locale option", "Cypress with cy.clock locale", "Jest with Intl mocks"]
+      example: |
+        // Playwright locale-parameterized test
+        for (const locale of ['en-US', 'de-DE', 'ja-JP', 'ar-SA']) {
+          test(`checkout flow works in ${locale}`, async ({ browser }) => {
+            const context = await browser.newContext({ locale });
+            const page = await context.newPage();
+            // ... test checkout flow
+          });
+        }
+    when_to_use: "In CI pipeline for every PR that touches i18n-sensitive code"
+    automation: "Run locale matrix in CI: en-US (baseline), de-DE (expansion), ja-JP (CJK), ar-SA (RTL)"
+
+  - name: "Visual regression testing across locales"
+    description: "Capture screenshots per locale and compare against baselines to detect text overflow and layout shifts"
+    catches:
+      - "Text overflow from translation expansion"
+      - "RTL layout mirroring regressions"
+      - "Font rendering differences across locales"
+      - "Container height changes from multi-line wrapping"
+    implementation:
+      approach: "Run visual regression tool with locale-specific baselines; flag visual differences above threshold"
+      tools: ["Playwright screenshot comparison", "Percy", "Chromatic", "BackstopJS"]
+      example: |
+        // Capture screenshots for visual comparison
+        for (const locale of ['en', 'de', 'ar', 'ja']) {
+          await page.goto(`/?locale=${locale}`);
+          await expect(page).toHaveScreenshot(`homepage-${locale}.png`);
+        }
+    when_to_use: "In CI for PRs that touch layout, typography, or translation files"
+    automation: "Maintain per-locale visual baselines; auto-update baselines when translations change"
+
+  - name: "Boundary locale testing"
+    description: "Test with the most extreme locales to find edge cases: longest translations, most plural forms, RTL"
+    catches:
+      - "Worst-case text expansion overflow (German/Finnish)"
+      - "Complex pluralization bugs (Arabic with 6 forms)"
+      - "Bidi rendering issues (Arabic RTL)"
+      - "CJK-specific line breaking and width issues (Japanese)"
+    implementation:
+      approach: "Select boundary locales that represent extremes: de (long), fi (longest), ar (RTL + 6 plurals), ja (CJK)"
+      tools: ["Any test framework with locale configuration"]
+      example: |
+        // Boundary locale set for maximum coverage
+        const BOUNDARY_LOCALES = {
+          'de': 'Longest Western European text expansion',
+          'fi': 'Extreme expansion with agglutinative grammar',
+          'ar': 'RTL + 6 plural forms + letter reshaping',
+          'ja': 'CJK no-space + multiple scripts + contraction',
+          'th': 'Dictionary-based line breaking + stacking diacritics',
+        };
+    when_to_use: "For every release; as smoke test in CI for i18n-related changes"
+    automation: "Run boundary locale tests as a required CI check; block release if any boundary locale fails"
+
+  - name: "Input method testing"
+    description: "Test text input with locale-specific input methods (CJK IME, Arabic keyboard, Devanagari input)"
+    catches:
+      - "IME composition events not handled (text appears garbled during CJK input)"
+      - "Keyboard layout assumptions (QWERTY vs AZERTY vs others)"
+      - "Input field not accepting non-Latin characters"
+      - "Search and filter not working with IME-composed text"
+    implementation:
+      approach: "Use Playwright's keyboard IME simulation or manual testing with actual input methods"
+      tools: ["Playwright keyboard API", "BrowserStack with device keyboards", "manual testing with OS IME"]
+      example: |
+        // Test CJK IME input in Playwright
+        await page.locator('input[name="search"]').click();
+        await page.keyboard.imeSetComposition('にほん', 3, 3);
+        await page.keyboard.imeCommit();
+        // Verify search results include Japanese text
+    when_to_use: "Before releasing to CJK, Arabic, or Devanagari markets; for search and text input features"
+    automation: "Include IME input tests in smoke test suite for markets with non-Latin input methods"
+
+  - name: "Locale switching testing"
+    description: "Test runtime locale change without page reload to verify all components update correctly"
+    catches:
+      - "Components that cache translated text and do not re-render on locale change"
+      - "Date/number formatters that initialize once and do not update"
+      - "Stale translations in error messages or toast notifications"
+      - "Layout direction not updating when switching between LTR and RTL locales"
+    implementation:
+      approach: "Switch locale at runtime and verify all visible text, formatting, and layout update"
+      tools: ["Framework-specific locale switching API", "Playwright for E2E verification"]
+      example: |
+        // Test locale switching
+        await page.click('[data-testid="language-selector"]');
+        await page.click('[data-value="ar"]');
+        // Verify RTL layout applied
+        const dir = await page.getAttribute('html', 'dir');
+        expect(dir).toBe('rtl');
+        // Verify translated content
+        const heading = await page.textContent('h1');
+        expect(heading).toMatch(/[\u0600-\u06FF]/); // Arabic characters
+    when_to_use: "When the app supports runtime locale switching; after changes to locale provider or context"
+    automation: "Include locale switching in E2E test suite; test switching from LTR to RTL and back"
