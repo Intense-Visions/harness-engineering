@@ -318,7 +318,7 @@ export function createHarnessServer(projectRoot?: string): Server {
       }
     }
 
-    return result as Promise<never>;
+    return result as unknown as Promise<never>;
   });
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
