@@ -100,3 +100,13 @@
 - [skill:harness-autopilot] [outcome:observation] Cross-phase verification after Phase 5 caught 2 missing Phase 1 deliverables (anti-patterns/ and platform-rules/ directories) — mid-run verification is valuable for catching gaps before downstream phases depend on them
 - [skill:harness-autopilot] [outcome:observation] Documentation-only integration phases (Phase 6) are fast and clean when the infrastructure skills have consistent SKILL.md structure — all 5 edits followed the same conditional insertion pattern
 - [skill:harness-autopilot] [outcome:observation] Code review findings accumulated a consistent theme: PascalCase graph entity names in prose vs snake_case in schema. Adding a naming convention note to Harness Integration sections resolved it across all skills
+
+## 2026-03-20 — Autopilot Session Scoping Phase 1: SKILL.md Updates
+
+- [skill:harness-execution] [outcome:success] All 3 tasks completed in a single pass. SKILL.md had 12 distinct locations requiring singleton-to-session path updates (INIT, ASSESS, PLAN, EXECUTE, VERIFY, REVIEW, DONE, Harness Integration, Gates, Escalation, Success Criteria, Example).
+- [skill:harness-execution] [outcome:success] Both platform copies (claude-code and gemini-cli) staged together after all edits, preserving byte-identical parity. Prettier check passed without needing reformatting.
+
+## 2026-03-20 — Autopilot Session Scoping Phase 2: skill.yaml Updates
+
+- [skill:harness-execution] [outcome:success] Both tasks completed in a single pass. skill.yaml state.files block updated from 3 singleton paths to 4 entries (3 session-scoped globs + 1 global learnings.md). handoff.json was missing from old declaration — now included.
+- [skill:harness-execution] [outcome:success] 507 skill tests pass after changes — structure, schema, platform-parity, and references all green. No count assertion breakage.

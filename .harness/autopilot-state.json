@@ -1,56 +1,21 @@
 {
   "schemaVersion": 1,
-  "specPath": "docs/changes/design-system-skills/proposal.md",
+  "specPath": "docs/changes/autopilot-session-scoping/proposal.md",
   "currentState": "DONE",
-  "currentPhase": 6,
+  "currentPhase": 1,
   "phases": [
     {
-      "name": "Shared Foundation",
-      "complexity": "medium",
-      "complexityOverride": null,
-      "planPath": "docs/plans/2026-03-19-design-system-phase1-shared-foundation-plan.md",
-      "status": "complete"
-    },
-    {
-      "name": "Graph Schema",
-      "complexity": "medium",
-      "complexityOverride": null,
-      "planPath": "docs/plans/2026-03-19-design-system-phase2-graph-schema-plan.md",
-      "status": "complete"
-    },
-    {
-      "name": "Foundation Skills",
-      "complexity": "medium",
-      "complexityOverride": null,
-      "planPath": "docs/plans/2026-03-19-design-system-phase3-foundation-skills-plan.md",
-      "status": "complete"
-    },
-    {
-      "name": "Aesthetic Skill",
+      "name": "Update autopilot SKILL.md with session scoping",
       "complexity": "low",
       "complexityOverride": null,
-      "planPath": "docs/plans/2026-03-19-design-system-phase4-aesthetic-skill-plan.md",
+      "planPath": "docs/plans/2026-03-19-autopilot-session-scoping-phase1-skill-md-plan.md",
       "status": "complete"
     },
     {
-      "name": "Implementation Skills",
-      "complexity": "medium",
-      "complexityOverride": null,
-      "planPath": "docs/plans/2026-03-19-design-system-phase5-implementation-skills-plan.md",
-      "status": "complete"
-    },
-    {
-      "name": "Integration",
-      "complexity": "medium",
-      "complexityOverride": null,
-      "planPath": "docs/plans/2026-03-19-design-system-phase6-integration-plan.md",
-      "status": "complete"
-    },
-    {
-      "name": "Validation",
+      "name": "Update skill.yaml state declaration",
       "complexity": "low",
       "complexityOverride": null,
-      "planPath": "docs/plans/2026-03-19-design-system-phase7-validation-plan.md",
+      "planPath": "docs/plans/2026-03-20-autopilot-session-scoping-phase2-skill-yaml-plan.md",
       "status": "complete"
     }
   ],
@@ -60,67 +25,25 @@
   },
   "history": [
     {
+      "phase": 0,
+      "name": "Update autopilot SKILL.md with session scoping",
+      "startedAt": "2026-03-20T00:00:00Z",
+      "completedAt": "2026-03-20T00:30:00Z",
+      "tasksCompleted": 3,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "suggestion": 2 }
+    },
+    {
       "phase": 1,
-      "name": "Graph Schema",
-      "startedAt": "2026-03-19T17:30:00Z",
-      "completedAt": "2026-03-19T17:56:00Z",
-      "tasksCompleted": 8,
+      "name": "Update skill.yaml state declaration",
+      "startedAt": "2026-03-20T00:31:00Z",
+      "completedAt": "2026-03-20T00:45:00Z",
+      "tasksCompleted": 2,
       "retriesUsed": 0,
       "verificationPassed": true,
-      "reviewFindings": { "blocking": 0, "important": 3, "suggestion": 4 },
-      "reviewFixesApplied": true
-    },
-    {
-      "phase": 2,
-      "name": "Foundation Skills",
-      "startedAt": "2026-03-19T17:57:00Z",
-      "completedAt": "2026-03-19T18:15:00Z",
-      "tasksCompleted": 4,
-      "retriesUsed": 0,
-      "verificationPassed": true,
-      "reviewFindings": { "blocking": 0, "warning": 3, "suggestion": 4 },
-      "reviewFixesApplied": true
-    },
-    {
-      "phase": 3,
-      "name": "Aesthetic Skill",
-      "startedAt": "2026-03-19T18:16:00Z",
-      "completedAt": "2026-03-19T18:27:00Z",
-      "tasksCompleted": 4,
-      "retriesUsed": 0,
-      "verificationPassed": true,
-      "reviewFindings": { "blocking": 0, "suggestion": 7 }
-    },
-    {
-      "phase": 4,
-      "name": "Implementation Skills",
-      "startedAt": "2026-03-19T18:50:00Z",
-      "completedAt": "2026-03-19T19:10:00Z",
-      "tasksCompleted": 6,
-      "retriesUsed": 0,
-      "verificationPassed": true,
-      "reviewFindings": { "blocking": 0, "note": 3 }
-    },
-    {
-      "phase": 5,
-      "name": "Integration",
-      "startedAt": "2026-03-19T19:30:00Z",
-      "completedAt": "2026-03-19T19:50:00Z",
-      "tasksCompleted": 8,
-      "retriesUsed": 0,
-      "verificationPassed": true,
-      "reviewFindings": { "blocking": 0, "warning": 1, "note": 3 },
-      "reviewFixesApplied": true
-    },
-    {
-      "phase": 6,
-      "name": "Validation",
-      "startedAt": "2026-03-19T20:00:00Z",
-      "completedAt": "2026-03-19T20:20:00Z",
-      "tasksCompleted": 5,
-      "retriesUsed": 0,
-      "verificationPassed": true,
-      "reviewFindings": { "blocking": 0, "suggestion": 4 }
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 2 }
     }
-  ]
+  ],
+  "decisions": ["Phase 1 plan approved by user", "Phase 2 plan approved by user"]
 }

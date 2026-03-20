@@ -1,37 +1,20 @@
 {
   "fromSkill": "harness-autopilot",
   "phase": "DONE",
-  "summary": "Completed 7 phases with 43 total tasks across the design system skills project",
+  "summary": "Completed 2 phases with 5 total tasks",
   "completed": [
-    "Phase 1: Shared Foundation — 18 YAML data files + config schema",
-    "Phase 2: Graph Schema — 3 node types, 4 edge types, DesignIngestor, DesignConstraintAdapter",
-    "Phase 3: Foundation Skills — harness-design-system + harness-accessibility",
-    "Phase 4: Aesthetic Skill — harness-design",
-    "Phase 5: Implementation Skills — harness-design-web + harness-design-mobile",
-    "Phase 6: Integration — Wired into verify, integrity, onboarding, impact-analysis, enforce-architecture",
-    "Phase 7: Validation — 106 tests covering all 15 success criteria"
+    "Phase 1: Update autopilot SKILL.md with session scoping",
+    "Phase 2: Update skill.yaml state declaration"
   ],
   "pending": [],
-  "concerns": [
-    "Pre-existing designStrictness vs design.strictness inconsistency in some SKILL.md files",
-    "enforce-architecture and other older skills lack gemini-cli copies (pre-existing parity gap)"
-  ],
-  "decisions": [
-    "Used violates_design edge type instead of violates to avoid collision",
-    "PascalCase graph entity names in prose with naming convention note in Harness Integration",
-    "All design integrations conditional on design config in harness.config.json",
-    "Validation via vitest test file rather than shell scripts"
-  ],
+  "concerns": [],
+  "decisions": ["Phase 1 plan approved by user", "Phase 2 plan approved by user"],
   "contextKeywords": [
-    "design-tokens",
-    "accessibility",
-    "WCAG",
-    "typography",
-    "color-palette",
-    "component-patterns",
-    "aesthetic-direction",
-    "W3C-DTCG",
-    "design-enforcement",
-    "mobile-design"
+    "autopilot",
+    "state-isolation",
+    "sessions",
+    "concurrent-execution",
+    "slugify",
+    "spec-scoping"
   ]
 }
