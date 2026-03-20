@@ -71,6 +71,15 @@ importers:
 
   packages/cli:
     dependencies:
+      '@harness-engineering/core':
+        specifier: workspace:*
+        version: link:../core
+      '@harness-engineering/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@harness-engineering/linter-gen':
+        specifier: workspace:*
+        version: link:../linter-gen
       '@typescript-eslint/typescript-estree':
         specifier: ^7.0.0
         version: 7.18.0(typescript@5.9.3)
@@ -99,15 +108,6 @@ importers:
         specifier: ^3.22.0
         version: 3.25.76
     devDependencies:
-      '@harness-engineering/core':
-        specifier: workspace:*
-        version: link:../core
-      '@harness-engineering/graph':
-        specifier: workspace:*
-        version: link:../graph
-      '@harness-engineering/linter-gen':
-        specifier: workspace:*
-        version: link:../linter-gen
       '@harness-engineering/types':
         specifier: workspace:*
         version: link:../types
