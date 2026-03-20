@@ -326,4 +326,41 @@ describe('getUpdateNotification', () => {
     expect(msg).not.toBeNull();
     expect(msg).toContain('1.7.1');
   });
+
+  it('uses ASCII arrow in notification format', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: '2.0.0',
+        currentVersion: '1.0.0',
+      })
+    );
+
+    const msg = getUpdateNotification('1.0.0');
+    expect(msg).toContain('v1.0.0 -> v2.0.0');
+    // Should NOT contain Unicode arrow
+    expect(msg).not.toContain('\u2192');
+  });
+
+  it('returns null for pre-release version strings when NaN affects comparison', () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'update-check.json'),
+      JSON.stringify({
+        lastCheckTime: Date.now(),
+        latestVersion: '1.7.1-beta.1',
+        currentVersion: '1.7.0',
+      })
+    );
+
+    // "1-beta" in the patch position becomes NaN, causing the relational
+    // checks (NaN > 0, NaN < 0) to both be false. The loop falls through
+    // and returns 0 ("equal"), suppressing the notification. This is
+    // intentional: pre-release handling is a non-goal per the spec.
+    expect(getUpdateNotification('1.7.0')).toBeNull();
+  });
 });

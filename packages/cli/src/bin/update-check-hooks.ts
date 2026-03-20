@@ -10,23 +10,44 @@ import { findConfigFile, loadConfig } from '../config/loader';
 
 const DEFAULT_INTERVAL_MS = 86_400_000; // 24 hours
 
+// Cached config interval — read once per process, shared by both hooks.
+let cachedConfigInterval: number | undefined | null = null; // null = not yet read
+
 /**
- * Reads updateCheckInterval from harness.config.json.
+ * Reads updateCheckInterval from harness.config.json (cached after first call).
  * Returns undefined if config is missing or does not contain the field.
  * Never throws.
  */
 function readConfigInterval(): number | undefined {
+  if (cachedConfigInterval !== null) return cachedConfigInterval;
   try {
     const findResult = findConfigFile();
-    if (!findResult.ok) return undefined;
+    if (!findResult.ok) {
+      cachedConfigInterval = undefined;
+      return undefined;
+    }
     const configResult = loadConfig(findResult.value);
-    if (!configResult.ok) return undefined;
-    return (configResult.value as Record<string, unknown>).updateCheckInterval as
+    if (!configResult.ok) {
+      cachedConfigInterval = undefined;
+      return undefined;
+    }
+    const val = (configResult.value as Record<string, unknown>).updateCheckInterval as
       | number
       | undefined;
+    cachedConfigInterval = val;
+    return val;
   } catch {
+    cachedConfigInterval = undefined;
     return undefined;
   }
+}
+
+/**
+ * Resets the cached config interval (for testing only).
+ * @internal
+ */
+export function _resetConfigCache(): void {
+  cachedConfigInterval = null;
 }
 
 /**

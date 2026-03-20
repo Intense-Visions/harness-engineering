@@ -183,13 +183,13 @@ describe('spawnBackgroundCheck — does not throw when spawn fails', () => {
     });
   });
 
-  it('propagates if spawn itself throws (caller should wrap)', () => {
+  it('does not throw when spawn itself throws', () => {
     mockSpawn.mockImplementation(() => {
       throw new Error('spawn ENOENT');
     });
-    // spawnBackgroundCheck does NOT wrap the spawn call in try/catch.
-    // The callers (CLI + MCP) catch this. Verify current behavior:
-    expect(() => spawnBackgroundCheck('1.0.0')).toThrow('spawn ENOENT');
+    // spawnBackgroundCheck wraps spawn() in try/catch internally,
+    // so callers never see the error.
+    expect(() => spawnBackgroundCheck('1.0.0')).not.toThrow();
   });
 });
 

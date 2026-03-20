@@ -119,11 +119,16 @@ try {
 } catch (_) {}
 `.trim();
 
-  const child = spawn(process.execPath, ['-e', script], {
-    detached: true,
-    stdio: 'ignore',
-  });
-  child.unref();
+  try {
+    const child = spawn(process.execPath, ['-e', script], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+  } catch {
+    // spawn() itself can throw (e.g. ENOENT). Swallow silently so callers
+    // never need to worry about it.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +138,12 @@ try {
 /**
  * Compares two semver strings (MAJOR.MINOR.PATCH).
  * Returns 1 if a > b, -1 if a < b, 0 if equal.
+ *
+ * Pre-release suffixes (e.g. "1.8.0-beta.1") cause NaN in the numeric
+ * comparison, which makes all relational checks false and falls through
+ * to return 0 ("equal"). This is intentional: the spec lists pre-release
+ * version handling as a non-goal, so we treat unknown suffixes as equal
+ * and suppress the notification.
  */
 function compareVersions(a: string, b: string): number {
   const pa = a.split('.').map(Number);
@@ -163,7 +174,7 @@ export function getUpdateNotification(currentVersion: string): string | null {
   if (compareVersions(state.latestVersion, currentVersion) <= 0) return null;
 
   return (
-    `Update available: v${currentVersion} \u2192 v${state.latestVersion}\n` +
+    `Update available: v${currentVersion} -> v${state.latestVersion}\n` +
     `Run "harness update" to upgrade.`
   );
 }
