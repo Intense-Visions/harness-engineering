@@ -124,3 +124,45 @@ try {
   });
   child.unref();
 }
+
+// ---------------------------------------------------------------------------
+// Version comparison
+// ---------------------------------------------------------------------------
+
+/**
+ * Compares two semver strings (MAJOR.MINOR.PATCH).
+ * Returns 1 if a > b, -1 if a < b, 0 if equal.
+ */
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const na = pa[i] ?? 0;
+    const nb = pb[i] ?? 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Notification
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the cached update check state and returns a formatted notification
+ * string if a newer version is available. Returns null otherwise.
+ *
+ * @param currentVersion - The currently running version (e.g. VERSION from index.ts)
+ */
+export function getUpdateNotification(currentVersion: string): string | null {
+  const state = readCheckState();
+  if (!state) return null;
+  if (!state.latestVersion) return null;
+  if (compareVersions(state.latestVersion, currentVersion) <= 0) return null;
+
+  return (
+    `Update available: v${currentVersion} \u2192 v${state.latestVersion}\n` +
+    `Run "harness update" to upgrade.`
+  );
+}
