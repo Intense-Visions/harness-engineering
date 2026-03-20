@@ -62,5 +62,15 @@ export * from './security';
 // CI module
 export * from './ci';
 
+// Update checker
+export {
+  isUpdateCheckEnabled,
+  shouldRunCheck,
+  readCheckState,
+  spawnBackgroundCheck,
+  getUpdateNotification,
+} from './update-checker';
+export type { UpdateCheckState } from './update-checker';
+
 // Package version
 export const VERSION = '0.8.0';
