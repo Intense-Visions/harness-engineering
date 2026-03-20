@@ -1,6 +1,6 @@
 name: harness-code-review
-version: "1.0.0"
-description: Structured code review with automated harness checks
+version: "2.0.0"
+description: Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents
 cognitive_mode: adversarial-reviewer
 triggers:
   - manual
@@ -19,6 +19,18 @@ cli:
   args:
     - name: path
       description: Project root path
+      required: false
+    - name: --comment
+      description: Post inline comments to GitHub PR
+      required: false
+    - name: --deep
+      description: Add threat modeling pass (invokes security-review --deep)
+      required: false
+    - name: --no-mechanical
+      description: Skip mechanical checks (useful if already run)
+      required: false
+    - name: --ci
+      description: Enable eligibility gate, non-interactive output
       required: false
 mcp:
   tool: run_skill
