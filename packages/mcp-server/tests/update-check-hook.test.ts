@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 // Mock @harness-engineering/core before importing server
 vi.mock('@harness-engineering/core', async (importOriginal) => {
@@ -184,5 +187,68 @@ describe('MCP Update Check Hook', () => {
 
     expect(result.content).toBeDefined();
     expect((result.content as Array<{ type: string; text: string }>).length).toBeGreaterThan(0);
+  });
+});
+
+async function createConnectedClientWithConfig(config: Record<string, unknown>) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-update-config-'));
+  fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), JSON.stringify(config));
+  const server = createHarnessServer(tmpDir);
+  const client = new Client({ name: 'test-client', version: '1.0.0' });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  return { client, server, tmpDir };
+}
+
+describe('MCP Update Check with Config', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIsUpdateCheckEnabled.mockReturnValue(true);
+    mockShouldRunCheck.mockReturnValue(true);
+    mockReadCheckState.mockReturnValue(null);
+    mockGetUpdateNotification.mockReturnValue(null);
+    mockSpawnBackgroundCheck.mockReturnValue(undefined);
+  });
+
+  it('passes custom interval from config to isUpdateCheckEnabled and shouldRunCheck', async () => {
+    const { client, tmpDir } = await createConnectedClientWithConfig({
+      version: 1,
+      updateCheckInterval: 7200000,
+    });
+
+    await client.callTool({ name: 'validate_project', arguments: { path: '/tmp/nonexistent' } });
+
+    expect(mockIsUpdateCheckEnabled).toHaveBeenCalledWith(7200000);
+    expect(mockShouldRunCheck).toHaveBeenCalledWith(null, 7200000);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('passes 0 interval to disable update checks', async () => {
+    mockIsUpdateCheckEnabled.mockReturnValue(false);
+    const { client, tmpDir } = await createConnectedClientWithConfig({
+      version: 1,
+      updateCheckInterval: 0,
+    });
+
+    await client.callTool({ name: 'validate_project', arguments: { path: '/tmp/nonexistent' } });
+
+    expect(mockIsUpdateCheckEnabled).toHaveBeenCalledWith(0);
+    expect(mockSpawnBackgroundCheck).not.toHaveBeenCalled();
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('uses default interval when config has no updateCheckInterval', async () => {
+    const { client, tmpDir } = await createConnectedClientWithConfig({
+      version: 1,
+    });
+
+    await client.callTool({ name: 'validate_project', arguments: { path: '/tmp/nonexistent' } });
+
+    expect(mockIsUpdateCheckEnabled).toHaveBeenCalledWith(undefined);
+    expect(mockShouldRunCheck).toHaveBeenCalledWith(null, 86_400_000);
+
+    fs.rmSync(tmpDir, { recursive: true });
   });
 });
