@@ -57,6 +57,13 @@ export const PerformanceConfigSchema = z
   })
   .passthrough();
 
+export const DesignConfigSchema = z.object({
+  strictness: z.enum(['strict', 'standard', 'permissive']).default('standard'),
+  platforms: z.array(z.enum(['web', 'mobile'])).default([]),
+  tokenPath: z.string().optional(),
+  aestheticIntent: z.string().optional(),
+});
+
 export const HarnessConfigSchema = z.object({
   version: z.literal(1),
   name: z.string().optional(),
@@ -78,7 +85,9 @@ export const HarnessConfigSchema = z.object({
     })
     .optional(),
   phaseGates: PhaseGatesConfigSchema.optional(),
+  design: DesignConfigSchema.optional(),
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
+export type DesignConfig = z.infer<typeof DesignConfigSchema>;
 export type Layer = z.infer<typeof LayerSchema>;

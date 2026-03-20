@@ -132,5 +132,51 @@ describe('DesignIngestor', () => {
       const constraintNodes = store.findNodes({ type: 'design_constraint' });
       expect(constraintNodes.length).toBe(3);
     });
+
+    it('handles missing DESIGN.md gracefully when tokens.json exists', async () => {
+      const os = await import('node:os');
+      const fsp = await import('node:fs/promises');
+      const tmpDir = path.join(os.tmpdir(), `design-test-${Date.now()}`);
+      await fsp.mkdir(tmpDir, { recursive: true });
+      await fsp.copyFile(
+        path.join(FIXTURE_DIR, 'design-system', 'tokens.json'),
+        path.join(tmpDir, 'tokens.json')
+      );
+
+      const result = await ingestor.ingestAll(tmpDir);
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.nodesAdded).toBe(7); // tokens only, no intent/constraints
+
+      const tokenNodes = store.findNodes({ type: 'design_token' });
+      expect(tokenNodes.length).toBe(7);
+      const intentNodes = store.findNodes({ type: 'aesthetic_intent' });
+      expect(intentNodes.length).toBe(0);
+
+      await fsp.rm(tmpDir, { recursive: true });
+    });
+
+    it('handles missing tokens.json gracefully when DESIGN.md exists', async () => {
+      const os = await import('node:os');
+      const fsp = await import('node:fs/promises');
+      const tmpDir = path.join(os.tmpdir(), `design-test-${Date.now()}`);
+      await fsp.mkdir(tmpDir, { recursive: true });
+      await fsp.copyFile(
+        path.join(FIXTURE_DIR, 'design-system', 'DESIGN.md'),
+        path.join(tmpDir, 'DESIGN.md')
+      );
+
+      const result = await ingestor.ingestAll(tmpDir);
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.nodesAdded).toBe(4); // 1 intent + 3 constraints, no tokens
+
+      const tokenNodes = store.findNodes({ type: 'design_token' });
+      expect(tokenNodes.length).toBe(0);
+      const intentNodes = store.findNodes({ type: 'aesthetic_intent' });
+      expect(intentNodes.length).toBe(1);
+
+      await fsp.rm(tmpDir, { recursive: true });
+    });
   });
 });

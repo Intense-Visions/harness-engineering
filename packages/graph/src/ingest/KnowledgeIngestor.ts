@@ -1,29 +1,10 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { IngestResult, EdgeType } from '../types.js';
+import { hash, mergeResults, emptyResult } from './ingestUtils.js';
 
 const CODE_NODE_TYPES = ['file', 'function', 'class', 'method', 'interface', 'variable'] as const;
-
-function hash(text: string): string {
-  return crypto.createHash('md5').update(text).digest('hex').slice(0, 8);
-}
-
-function mergeResults(...results: IngestResult[]): IngestResult {
-  return {
-    nodesAdded: results.reduce((s, r) => s + r.nodesAdded, 0),
-    nodesUpdated: results.reduce((s, r) => s + r.nodesUpdated, 0),
-    edgesAdded: results.reduce((s, r) => s + r.edgesAdded, 0),
-    edgesUpdated: results.reduce((s, r) => s + r.edgesUpdated, 0),
-    errors: results.flatMap((r) => r.errors),
-    durationMs: results.reduce((s, r) => s + r.durationMs, 0),
-  };
-}
-
-function emptyResult(durationMs = 0): IngestResult {
-  return { nodesAdded: 0, nodesUpdated: 0, edgesAdded: 0, edgesUpdated: 0, errors: [], durationMs };
-}
 
 export class KnowledgeIngestor {
   constructor(private readonly store: GraphStore) {}

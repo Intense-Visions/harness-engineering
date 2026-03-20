@@ -1,0 +1,80 @@
+name: "Creative"
+description: "Expressive, editorial design with bold typography, intentional whitespace, and distinctive visual identity"
+
+styles:
+  primary: "Editorial layouts with strong typographic hierarchy and intentional use of whitespace as a design element"
+  secondary: "Portfolio-driven presentation with immersive imagery, grid-breaking layouts, and art-directed content"
+  avoid: ["Generic stock photography that undermines creative credibility", "Template-feeling layouts that contradict the creative message", "Overly uniform grids that feel corporate rather than curated", "Decorative effects without purpose (gratuitous parallax, unnecessary animation)"]
+
+palette:
+  primary:
+    - name: "Charcoal"
+      hex: "#1a1a1a"
+      usage: "Primary text, editorial headlines, strong contrast backgrounds"
+    - name: "Off-Black"
+      hex: "#2d2d2d"
+      usage: "Secondary surfaces, navigation backgrounds, card overlays"
+    - name: "Warm White"
+      hex: "#faf8f5"
+      usage: "Page backgrounds, content surfaces, breathing space"
+  accent:
+    - name: "Coral 500"
+      hex: "#f97066"
+      usage: "Primary accent, CTAs, highlighted portfolio items"
+    - name: "Electric Blue"
+      hex: "#3b82f6"
+      usage: "Links, interactive elements, secondary accent"
+    - name: "Saffron"
+      hex: "#e8a838"
+      usage: "Awards, featured work, premium tier indicators"
+  neutral:
+    - name: "Stone 800"
+      hex: "#292524"
+      usage: "Body text, primary readable content"
+    - name: "Stone 400"
+      hex: "#a8a29e"
+      usage: "Captions, metadata, subtle labels"
+    - name: "Stone 100"
+      hex: "#f5f5f4"
+      usage: "Section dividers, subtle background shifts"
+    - name: "White"
+      hex: "#ffffff"
+      usage: "Image framing, overlay text backgrounds, modal surfaces"
+  semantic:
+    success: "#22c55e"
+    warning: "#f59e0b"
+    error: "#ef4444"
+    info: "#6366f1"
+
+typography:
+  display:
+    families: ["Instrument Serif", "Playfair Display", "Fraunces"]
+    weights: [400, 700, 900]
+    characteristics: "Expressive serif typefaces with distinctive character for headlines. High contrast between thick and thin strokes creates visual drama at large sizes."
+  body:
+    families: ["Inter", "Geist", "DM Sans"]
+    weights: [400, 500]
+    characteristics: "Clean sans-serif paired with serif display creates editorial contrast. Body type should recede, letting display type and imagery lead."
+  mono:
+    families: ["Geist Mono", "Space Mono"]
+    usage: "Code examples in case studies, technical specifications, date stamps on editorial content"
+
+anti_patterns:
+  - pattern: "Using generic stock photography on a creative portfolio or agency site"
+    reason: "Stock imagery directly contradicts the message of original creative work; it signals inauthenticity"
+    instead: "Use original photography, custom illustrations, or carefully art-directed imagery that reflects actual creative capability"
+  - pattern: "Uniform grid layouts for all content types"
+    reason: "Creative sites should demonstrate design range; predictable grids feel template-driven and corporate"
+    instead: "Vary layout rhythm with full-bleed images, asymmetric grids, and intentional whitespace; let content dictate layout"
+  - pattern: "Autoplay background video on every page"
+    reason: "Overuse dilutes impact, increases load time, and creates accessibility issues; it becomes wallpaper rather than storytelling"
+    instead: "Use video intentionally for hero moments or case study intros; provide play controls and poster frames"
+  - pattern: "Cramming every project into the portfolio with equal weight"
+    reason: "Undifferentiated project lists signal lack of editorial judgment; the portfolio itself is a design artifact"
+    instead: "Curate 8-12 best projects with clear hierarchy; feature 2-3 as hero case studies with deeper storytelling"
+  - pattern: "Tiny body text to appear more 'design-forward'"
+    reason: "Sacrificing readability for aesthetics alienates users and fails accessibility standards"
+    instead: "Use generous body text (16px+) and let typographic hierarchy, spacing, and weight create sophistication"
+
+examples:
+  reference_sites: ["pentagram.com", "itsnicethat.com", "awwwards.com", "siteinspire.com", "creativeboom.com"]

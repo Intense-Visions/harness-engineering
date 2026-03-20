@@ -35,19 +35,6 @@ describe('DesignConstraintAdapter', () => {
     });
   }
 
-  function seedConstraints(): void {
-    store.addNode({
-      id: 'design_constraint:no-system-fonts',
-      type: 'design_constraint',
-      name: 'No system/default fonts in user-facing UI',
-      metadata: {
-        rule: 'No system/default fonts in user-facing UI',
-        severity: 'warn',
-        scope: 'project',
-      },
-    });
-  }
-
   beforeEach(() => {
     store = new GraphStore();
     adapter = new DesignConstraintAdapter(store);

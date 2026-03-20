@@ -1,0 +1,80 @@
+name: "Lifestyle"
+description: "Warm, aspirational design that evokes feeling and connection through earthy tones, organic shapes, and inviting imagery"
+
+styles:
+  primary: "Warm and aspirational with organic layouts, generous imagery, and an inviting human-centered feel"
+  secondary: "Community-driven with user-generated content integration and relatable, authentic photography"
+  avoid: ["Corporate sterility that feels disconnected from real life", "Dense text-heavy layouts that suppress the visual storytelling", "Harsh geometric precision that feels cold and institutional", "Oversaturated filters that make imagery feel artificial"]
+
+palette:
+  primary:
+    - name: "Terracotta"
+      hex: "#c2714f"
+      usage: "Primary brand, warm CTAs, hero section accents"
+    - name: "Warm Brown"
+      hex: "#8b5e3c"
+      usage: "Grounding elements, navigation, footer"
+    - name: "Sand"
+      hex: "#f5ebe0"
+      usage: "Page backgrounds, warm surface tones"
+  accent:
+    - name: "Sage Green"
+      hex: "#7c9070"
+      usage: "Wellness and nature-related content, secondary CTAs"
+    - name: "Dusty Rose"
+      hex: "#d4a0a0"
+      usage: "Lifestyle imagery overlays, soft highlights, feminine accents"
+    - name: "Sunshine"
+      hex: "#f2c94c"
+      usage: "Joy and energy indicators, featured content, seasonal promotions"
+  neutral:
+    - name: "Warm Gray 800"
+      hex: "#3d3532"
+      usage: "Primary text, headings"
+    - name: "Warm Gray 500"
+      hex: "#8a817c"
+      usage: "Secondary text, captions, metadata"
+    - name: "Warm Gray 100"
+      hex: "#f0ebe5"
+      usage: "Alternating section backgrounds, card surfaces"
+    - name: "Cream"
+      hex: "#fdfbf7"
+      usage: "Primary page backgrounds, content areas"
+  semantic:
+    success: "#4ade80"
+    warning: "#fbbf24"
+    error: "#f87171"
+    info: "#60a5fa"
+
+typography:
+  display:
+    families: ["Lora", "DM Serif Display"]
+    weights: [400, 700]
+    characteristics: "Warm serif typefaces that feel inviting and editorial. Organic curves and moderate contrast convey approachability and authenticity."
+  body:
+    families: ["Nunito Sans", "DM Sans", "system-ui"]
+    weights: [400, 600]
+    characteristics: "Rounded sans-serifs that complement serif display type. Friendly letterforms with open counters for warm, approachable body text."
+  mono:
+    families: ["Source Code Pro", "JetBrains Mono"]
+    usage: "Recipe measurements, product dimensions, order tracking codes"
+
+anti_patterns:
+  - pattern: "Using corporate stock photography with posed models and white backgrounds"
+    reason: "Lifestyle brands depend on authenticity; staged corporate imagery breaks the emotional connection"
+    instead: "Use natural-light photography with real environments, candid moments, and diverse representation"
+  - pattern: "Dense text blocks for product descriptions or about-us content"
+    reason: "Lifestyle audiences engage through visuals and emotion first; text walls suppress the aspirational feeling"
+    instead: "Lead with imagery, use short evocative copy (2-3 sentences), and let whitespace breathe between content blocks"
+  - pattern: "Aggressive email capture pop-ups on first visit"
+    reason: "Interrupting the aspirational browsing experience before any emotional investment destroys engagement"
+    instead: "Introduce email capture after scroll depth (50%+) or second page visit; offer genuine value (styling guide, recipe book)"
+  - pattern: "Monochromatic color schemes with no warmth"
+    reason: "Pure grayscale or cool-toned palettes feel clinical and corporate for lifestyle brands"
+    instead: "Infuse warmth through earthy tones, textured backgrounds, and warm-filtered photography"
+  - pattern: "Tiny product thumbnails in grid layouts without lifestyle context"
+    reason: "Products shown in isolation lose the aspirational context that drives lifestyle purchases"
+    instead: "Show products in context (styled rooms, worn outfits, prepared meals) alongside detail views"
+
+examples:
+  reference_sites: ["airbnb.com", "goop.com", "aesop.com", "kinfolk.com", "patagonia.com"]

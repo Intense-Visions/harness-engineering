@@ -105,7 +105,7 @@ This skill is entirely deterministic. There are no LLM judgment calls anywhere i
 - Complements harness-verification (deep audit) — use verify for quick checks, verification for milestones
 - Output format is consumed by harness-integrity for the unified pipeline
 - Invokes `harness-accessibility` for design constraint checking when `design` config exists
-- Design violations respect `designStrictness` from `harness.config.json`
+- Design violations respect `design.strictness` from `harness.config.json`
 
 ## Success Criteria
 

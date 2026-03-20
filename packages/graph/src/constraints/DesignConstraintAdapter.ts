@@ -71,11 +71,7 @@ export class DesignConstraintAdapter {
     }
 
     // Extract font family names from source
-    const fontPatterns = [
-      /fontFamily:\s*['"]([^'"]+)['"]/g,
-      /font-family:\s*['"]([^'"]+)['"]/g,
-      /fontFamily:\s*"([^"]+)"/g,
-    ];
+    const fontPatterns = [/fontFamily:\s*['"]([^'"]+)['"]/g, /font-family:\s*['"]([^'"]+)['"]/g];
 
     const violations: DesignViolation[] = [];
     const seen = new Set<string>();

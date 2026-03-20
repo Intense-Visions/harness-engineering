@@ -20,7 +20,7 @@
 
 1. **Load design tokens.** Read `design-system/tokens.json` (if it exists) to identify declared color values and contrast pairs. Token-defined colors are the source of truth -- hardcoded colors in components are themselves a violation.
 
-2. **Read design strictness.** Check `harness.config.json` for `designStrictness`:
+2. **Read design strictness.** Check `harness.config.json` for `design.strictness`:
    - `strict` -- all findings are errors that block (CI fails, PR cannot merge)
    - `standard` -- warnings are visible, errors block (default behavior)
    - `permissive` -- all findings are informational (nothing blocks, but everything is reported)
@@ -70,7 +70,7 @@
 
 ### Phase 2: EVALUATE -- Assess Severity and Categorize
 
-1. **Assign severity based on `designStrictness`:**
+1. **Assign severity based on `design.strictness`:**
    - `strict` mode: all violations are `error` severity
    - `standard` mode: missing alt, missing labels, contrast failures are `error`; heading order, tabIndex are `warn`; informational patterns are `info`
    - `permissive` mode: contrast failures and missing labels are `warn`; everything else is `info`
@@ -92,7 +92,7 @@
 4. **Check graph constraints.** If a graph exists at `.harness/graph/`, use `DesignConstraintAdapter` from `packages/graph/src/constraints/DesignConstraintAdapter.ts` to:
    - Query for existing `VIOLATES` edges (violations already recorded in the graph)
    - Add new `VIOLATES` edges for findings from this scan
-   - The adapter reads `designStrictness` to control which violations produce edges
+   - The adapter reads `design.strictness` to control which violations produce edges
 
 5. **Categorize findings.** Group into categories:
    - **Contrast** (A11Y-030, A11Y-031): color-related violations
@@ -170,9 +170,9 @@ This phase is optional. It applies fixes only for **mechanical issues** -- viola
 
 ## Harness Integration
 
-- **`harness validate`** -- Accessibility findings surface as design constraint violations when `designStrictness` is `strict` or `standard`. Running validate after a scan reflects the current a11y state.
+- **`harness validate`** -- Accessibility findings surface as design constraint violations when `design.strictness` is `strict` or `standard`. Running validate after a scan reflects the current a11y state.
 - **`harness scan`** -- Refresh the knowledge graph after fixes to update `VIOLATES` edges. Ensures impact analysis stays current.
-- **`DesignConstraintAdapter`** (`packages/graph/src/constraints/DesignConstraintAdapter.ts`) -- Reads `designStrictness` from project config to control violation severity. Manages `VIOLATES` edges in the graph for design and accessibility constraints.
+- **`DesignConstraintAdapter`** (`packages/graph/src/constraints/DesignConstraintAdapter.ts`) -- Reads `design.strictness` from project config to control violation severity. Manages `VIOLATES` edges in the graph for design and accessibility constraints.
 - **`DesignIngestor`** (`packages/graph/src/ingest/DesignIngestor.ts`) -- Provides token data used for contrast checking. The ingestor parses `tokens.json` so the accessibility scanner can compare code colors against declared tokens.
 - **`harness-impact-analysis`** -- When tokens change (palette update, new colors), impact analysis traces affected components. The accessibility skill uses this to determine which components need re-scanning.
 - **`harness-design-system`** -- Dependency. When contrast failures originate from token definitions (not component code), escalate to harness-design-system to fix at the source.
@@ -260,7 +260,7 @@ These are hard stops. Violating any gate means the process has broken down.
 
 - **No component marked "accessible" without passing WCAG AA contrast checks.** A passing scan means zero `error`-severity contrast violations, not zero findings overall.
 - **No automated fix applied without showing the before/after diff.** Every fix must be presented to the user with the exact code change before being written to disk.
-- **No severity downgrade below what `designStrictness` config specifies.** If the project is in `strict` mode, a missing alt attribute is an error. The scanner does not get to decide it is a warning.
+- **No severity downgrade below what `design.strictness` config specifies.** If the project is in `strict` mode, a missing alt attribute is an error. The scanner does not get to decide it is a warning.
 - **The scan phase must complete before evaluate.** No partial evaluations on incomplete scan results. All files must be scanned before severity assignment begins.
 - **No fixes that change visual appearance.** Automated fixes are structural (adding attributes, roles, handlers). If a fix would visibly change the rendered output, it requires human approval.
 
@@ -270,5 +270,5 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When a component has more than 10 findings:** Suggest architectural refactoring rather than piecemeal fixes. The component likely has systemic accessibility issues that individual fixes will not adequately address. Recommend: "This component has 14 accessibility findings. Consider refactoring to use accessible base components rather than fixing each issue individually."
 - **When design tokens themselves have contrast failures:** Do not fix at the usage site. Escalate to harness-design-system: "Token pair primary-500 on neutral-50 has contrast ratio 3.2:1. This must be fixed in design-system/tokens.json, not in individual components. Run harness-design-system to update the palette."
 - **When automated fix would change visual appearance:** Require explicit human approval. Present the fix with a note: "This fix changes the rendered output. The current <div> will become keyboard-focusable with a visible focus ring. Approve this change?"
-- **When `designStrictness` is not configured:** Default to `standard` mode. Report: "No designStrictness found in harness.config.json. Using 'standard' (warnings visible, errors block). Set designStrictness in config to customize."
+- **When `design.strictness` is not configured:** Default to `standard` mode. Report: "No design.strictness found in harness.config.json. Using 'standard' (warnings visible, errors block). Set design.strictness in config to customize."
 - **After 3 failed attempts to resolve a contrast issue:** The color pair may be fundamentally incompatible. Suggest: "Consider using a different color combination. The current pair cannot achieve WCAG AA compliance without changing one of the colors significantly."
