@@ -3,8 +3,26 @@ import {
   isUpdateCheckEnabled,
   shouldRunCheck,
   readCheckState,
+  spawnBackgroundCheck,
   type UpdateCheckState,
 } from '../../src/update-checker';
+
+const mockUnref = vi.fn();
+const mockSpawn = vi.fn().mockReturnValue({
+  unref: mockUnref,
+  pid: 12345,
+  stdin: null,
+  stdout: null,
+  stderr: null,
+});
+
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    spawn: (...args: unknown[]) => mockSpawn(...args),
+  };
+});
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -142,5 +160,52 @@ describe('readCheckState', () => {
     );
     // Missing required fields; readCheckState should treat as corrupt
     expect(readCheckState()).toBeNull();
+  });
+});
+
+describe('spawnBackgroundCheck', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-spawn-'));
+    originalHome = os.homedir();
+    process.env['HOME'] = tmpDir;
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('spawns a detached node process with unref', () => {
+    mockSpawn.mockClear();
+    mockUnref.mockClear();
+
+    spawnBackgroundCheck('1.7.0');
+
+    expect(mockSpawn).toHaveBeenCalledOnce();
+    const [cmd, args, opts] = mockSpawn.mock.calls[0]!;
+    expect(cmd).toBe(process.execPath);
+    expect(args![0]).toBe('-e');
+    expect(typeof args![1]).toBe('string');
+    expect(opts).toMatchObject({
+      detached: true,
+      stdio: 'ignore',
+    });
+    expect(mockUnref).toHaveBeenCalledOnce();
+  });
+
+  it('inline script references npm view and the state file path', () => {
+    mockSpawn.mockClear();
+    mockUnref.mockClear();
+
+    spawnBackgroundCheck('1.7.0');
+
+    const script = mockSpawn.mock.calls[0]![1]![1] as string;
+    expect(script).toContain('npm');
+    expect(script).toContain('@harness-engineering/cli');
+    expect(script).toContain('update-check.json');
   });
 });
