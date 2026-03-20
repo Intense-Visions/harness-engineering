@@ -64,6 +64,47 @@ export const DesignConfigSchema = z.object({
   aestheticIntent: z.string().optional(),
 });
 
+export const I18nCoverageConfigSchema = z.object({
+  minimumPercent: z.number().min(0).max(100).default(100),
+  requirePlurals: z.boolean().default(true),
+  detectUntranslated: z.boolean().default(true),
+});
+
+export const I18nMcpConfigSchema = z.object({
+  server: z.string(),
+  projectId: z.string().optional(),
+});
+
+export const I18nConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  strictness: z.enum(['strict', 'standard', 'permissive']).default('standard'),
+  sourceLocale: z.string().default('en'),
+  targetLocales: z.array(z.string()).default([]),
+  framework: z
+    .enum([
+      'auto',
+      'i18next',
+      'react-intl',
+      'vue-i18n',
+      'flutter-intl',
+      'apple',
+      'android',
+      'custom',
+    ])
+    .default('auto'),
+  format: z.string().default('json'),
+  messageFormat: z.enum(['icu', 'i18next', 'custom']).default('icu'),
+  keyConvention: z
+    .enum(['dot-notation', 'snake_case', 'camelCase', 'custom'])
+    .default('dot-notation'),
+  translationPaths: z.record(z.string(), z.string()).optional(),
+  platforms: z.array(z.enum(['web', 'mobile', 'backend'])).default([]),
+  industry: z.string().optional(),
+  coverage: I18nCoverageConfigSchema.optional(),
+  pseudoLocale: z.string().optional(),
+  mcp: I18nMcpConfigSchema.optional(),
+});
+
 export const HarnessConfigSchema = z.object({
   version: z.literal(1),
   name: z.string().optional(),
@@ -86,9 +127,11 @@ export const HarnessConfigSchema = z.object({
     .optional(),
   phaseGates: PhaseGatesConfigSchema.optional(),
   design: DesignConfigSchema.optional(),
+  i18n: I18nConfigSchema.optional(),
   updateCheckInterval: z.number().int().min(0).optional(),
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
 export type DesignConfig = z.infer<typeof DesignConfigSchema>;
+export type I18nConfig = z.infer<typeof I18nConfigSchema>;
 export type Layer = z.infer<typeof LayerSchema>;
