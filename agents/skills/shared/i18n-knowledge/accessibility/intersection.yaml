@@ -1,0 +1,142 @@
+description: "Rules at the intersection of i18n and accessibility — ensuring localized content remains accessible across languages, scripts, and text directions"
+
+rules:
+  - name: "lang attribute on html element"
+    category: "lang-tags"
+    wcag_criteria: ["3.1.1"]
+    description: "The <html> element must have a valid lang attribute matching the page's primary language"
+    detect:
+      method: "Check for lang attribute on <html> element; verify it matches a valid BCP 47 tag and corresponds to the page content language"
+    reason: "Screen readers use the lang attribute to select the correct pronunciation engine. Without it, an English screen reader will mispronounce French content."
+    fix: "Set <html lang='fr'> for French content, <html lang='ar' dir='rtl'> for Arabic, etc. Update dynamically when locale changes."
+    severity: error
+    strictness:
+      permissive: warn
+      standard: error
+      strict: error
+
+  - name: "lang attribute on inline language switches"
+    category: "lang-tags"
+    wcag_criteria: ["3.1.2"]
+    description: "Inline content in a different language must be wrapped with a lang attribute"
+    detect:
+      method: "Check for foreign-language words or phrases without a lang attribute on their container"
+    reason: "Screen readers will pronounce foreign words using the page's primary language rules, making them unintelligible."
+    fix: "Wrap language switches: <span lang='fr'>bonjour</span> within English content, <span lang='en'>API</span> within Japanese content."
+    severity: warning
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error
+
+  - name: "dir attribute for RTL content"
+    category: "bidi-a11y"
+    wcag_criteria: ["1.3.2"]
+    description: "RTL content must have dir='rtl' set on the appropriate container element"
+    detect:
+      method: "Check for Arabic, Hebrew, or other RTL script content without a dir attribute on its container"
+    reason: "Without dir='rtl', screen readers may read RTL text in the wrong order, and visual rendering will be incorrect."
+    fix: "Set dir='rtl' on containers with RTL content. For the full page: <html lang='ar' dir='rtl'>. For inline: <span dir='rtl'>."
+    severity: error
+    strictness:
+      permissive: warn
+      standard: error
+      strict: error
+
+  - name: "dir=auto on user-generated content"
+    category: "bidi-a11y"
+    wcag_criteria: ["1.3.2"]
+    description: "User-generated content containers should use dir='auto' to detect text direction automatically"
+    detect:
+      method: "Check for user-generated content areas (comments, messages, reviews) without dir='auto'"
+    reason: "User content may be in any language. Without dir='auto', an Arabic comment in an English page will render incorrectly."
+    fix: "Set dir='auto' on elements that display user-generated content: <p dir='auto'>{userComment}</p>"
+    severity: warning
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Font size scaling for complex scripts"
+    category: "script-sizing"
+    wcag_criteria: ["1.4.4"]
+    description: "Complex scripts (Devanagari, Thai, Arabic, CJK) require larger minimum font sizes for legibility"
+    detect:
+      method: "Check minimum font sizes when content language uses complex scripts; flag sizes below recommended minimums"
+    reason: "Complex scripts have more visual detail per character. Arabic letters reshape by position. Thai stacks diacritics vertically. Below 12-14px, these become illegible."
+    fix: "Set minimum font sizes: 12px for CJK, 13px for Arabic, 14px for Devanagari and Thai. Increase line-height to 1.6-1.8 for scripts with stacking marks."
+    severity: warning
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error
+
+  - name: "Screen reader pronunciation of numbers and dates"
+    category: "screen-readers"
+    wcag_criteria: ["1.3.1"]
+    description: "Numbers and dates must use semantic markup so screen readers pronounce them correctly per locale"
+    detect:
+      method: "Check for visually formatted numbers/dates that lack semantic markup (time element, appropriate ARIA)"
+    reason: "A screen reader seeing '03/04/2025' cannot determine if it is March 4 or April 3 without semantic context. '1.234' could be one-point-two-three-four or one-thousand-two-hundred-thirty-four."
+    fix: "Use <time datetime='2025-03-04'>March 4, 2025</time> for dates. Use aria-label for ambiguous number formats."
+    severity: warning
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "ARIA labels must be translated"
+    category: "screen-readers"
+    wcag_criteria: ["4.1.2"]
+    description: "All ARIA labels, descriptions, and live region content must go through the translation pipeline"
+    detect:
+      method: "Check for hardcoded English strings in aria-label, aria-description, aria-roledescription attributes"
+    reason: "Untranslated ARIA labels make the interface inaccessible to screen reader users in non-English locales."
+    fix: "Wrap ARIA attributes in translation functions: aria-label={t('nav.menu')} instead of aria-label='Menu'"
+    severity: error
+    strictness:
+      permissive: warn
+      standard: error
+      strict: error
+
+  - name: "hreflang attribute on alternate-language links"
+    category: "lang-tags"
+    wcag_criteria: ["3.1.1"]
+    description: "Links to alternate-language versions of a page must have hreflang attributes"
+    detect:
+      method: "Check for <link rel='alternate'> elements without hreflang, or language switcher links without hreflang"
+    reason: "hreflang helps search engines serve the correct language version and assists screen readers in announcing the target language."
+    fix: "Add hreflang to all alternate links: <link rel='alternate' hreflang='es' href='/es/page'>. Include x-default for the default version."
+    severity: warning
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Translated alt text for images"
+    category: "screen-readers"
+    wcag_criteria: ["1.1.1"]
+    description: "Image alt text must be translated along with all other user-facing content"
+    detect:
+      method: "Check for img alt attributes containing English text when the page language is non-English"
+    reason: "Untranslated alt text is meaningless to screen reader users who do not speak the source language."
+    fix: "Include all alt attributes in the translation pipeline: <img alt={t('hero.alt')} /> instead of hardcoded text"
+    severity: error
+    strictness:
+      permissive: warn
+      standard: error
+      strict: error
+
+  - name: "Keyboard navigation in RTL layouts"
+    category: "bidi-a11y"
+    wcag_criteria: ["2.4.3"]
+    description: "Tab order must follow visual order in RTL layouts — right-to-left, top-to-bottom"
+    detect:
+      method: "Check tab order in RTL layouts; verify it matches the visual reading order (right to left)"
+    reason: "If tab order remains LTR in an RTL layout, keyboard users navigate against the visual flow, causing confusion."
+    fix: "Use CSS logical properties for layout; avoid manual tabindex that assumes LTR order; test tab navigation with RTL locale"
+    severity: error
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error

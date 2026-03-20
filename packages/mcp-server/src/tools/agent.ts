@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const addComponentDefinition = {
   name: 'add_component',
@@ -19,12 +20,14 @@ export const addComponentDefinition = {
   },
 };
 
+const COMPONENT_NAME_REGEX = /^[a-z0-9][a-z0-9._-]{0,64}$/i;
+
 export async function handleAddComponent(input: {
   path: string;
   type: 'layer' | 'doc' | 'component';
   name: string;
 }) {
-  const projectPath = path.resolve(input.path);
+  const projectPath = sanitizePath(input.path);
 
   const ALLOWED_TYPES = new Set(['layer', 'doc', 'component']);
   if (!ALLOWED_TYPES.has(input.type)) {
@@ -33,6 +36,20 @@ export async function handleAddComponent(input: {
         {
           type: 'text' as const,
           text: JSON.stringify({ error: `Invalid component type: ${input.type}` }),
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (!COMPONENT_NAME_REGEX.test(input.name)) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: `Invalid component name: must match ${COMPONENT_NAME_REGEX} (lowercase alphanumeric, dots, hyphens, underscores, max 65 chars)`,
+          }),
         },
       ],
       isError: true,
@@ -77,8 +94,24 @@ export const runAgentTaskDefinition = {
   },
 };
 
+const ALLOWED_AGENT_TASKS = new Set(['review', 'doc-review', 'test-review']);
+
 export async function handleRunAgentTask(input: { task: string; path?: string; timeout?: number }) {
-  const projectPath = input.path ? path.resolve(input.path) : process.cwd();
+  if (!ALLOWED_AGENT_TASKS.has(input.task)) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: `Invalid task: "${input.task}". Allowed tasks: ${[...ALLOWED_AGENT_TASKS].join(', ')}`,
+          }),
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const projectPath = input.path ? sanitizePath(input.path) : process.cwd();
 
   try {
     const { execFileSync } = await import('node:child_process');

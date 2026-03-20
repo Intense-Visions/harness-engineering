@@ -1,0 +1,66 @@
+name: "Fintech"
+description: "i18n challenges in financial technology — currency precision, number formatting, and regulatory compliance across markets"
+
+requirements:
+  - area: "Currency Display"
+    description: "Currency formatting varies by locale — symbol position, decimal precision, and grouping separators differ"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "'$' + amount.toFixed(2)"
+        good: "new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(amount)"
+  - area: "Currency Precision"
+    description: "Decimal places vary by currency — JPY has 0, USD/EUR have 2, BHD/KWD have 3"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "amount.toFixed(2) for all currencies"
+        good: "Use Intl.NumberFormat with currency option which auto-selects correct decimal places"
+  - area: "Number Formatting"
+    description: "Thousands separators and decimal points vary — 1,234.56 (en) vs 1.234,56 (de) vs 1 234,56 (fr)"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "amount.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',')"
+        good: "new Intl.NumberFormat(locale).format(amount)"
+  - area: "Regulatory Date Formats"
+    description: "Financial regulations often mandate specific date formats — ambiguous dates (01/02/2025) cause compliance issues"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "01/02/2025 (is this Jan 2 or Feb 1?)"
+        good: "Use unambiguous formats (2025-01-02) for regulatory documents; locale-specific for user display"
+  - area: "Financial Amount Display"
+    description: "Negative amounts, accounting notation, and color coding must follow locale conventions"
+    severity: warning
+    locales_affected: "all"
+    examples:
+      - bad: "Showing -$1,234.56 in all locales"
+        good: "Use Intl.NumberFormat with signDisplay and currencySign: 'accounting' for locale-correct negative display"
+
+anti_patterns:
+  - pattern: "Hardcoding currency symbol position"
+    reason: "Symbol placement varies: $100 (en-US), 100$ (fr-CA), 100 $ (fr-FR)"
+    instead: "Use Intl.NumberFormat with currency style which handles symbol placement per locale"
+  - pattern: "Converting currencies with hardcoded exchange rates"
+    reason: "Exchange rates change constantly; stale rates in code cause incorrect financial displays"
+    instead: "Fetch exchange rates from a reliable API; cache with appropriate TTL"
+  - pattern: "Using floating point for financial calculations"
+    reason: "IEEE 754 floating point causes rounding errors: 0.1 + 0.2 !== 0.3"
+    instead: "Use integer arithmetic in smallest currency unit (cents) or a decimal library"
+  - pattern: "Displaying amounts without locale-specific accounting format"
+    reason: "Negative amounts display differently: -$100 (US), ($100) (accounting), -100$ (other locales)"
+    instead: "Use Intl.NumberFormat with currencySign: 'accounting' for financial contexts"
+
+regulations:
+  - name: "PSD2 (Payment Services Directive 2)"
+    locales: ["EU member states"]
+    impact: "Transaction amounts must be displayed in the customer's local currency with correct formatting"
+  - name: "MiFID II"
+    locales: ["EU member states"]
+    impact: "Financial documents must show costs in the client's preferred currency with mandated precision"
+  - name: "RBI Guidelines"
+    locales: ["hi", "en-IN"]
+    impact: "Indian Rupee amounts must use Indian number grouping (lakhs/crores) in customer-facing displays"
+
+reference_products: ["wise.com", "stripe.com", "revolut.com", "mercury.com"]

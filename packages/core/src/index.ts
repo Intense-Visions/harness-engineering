@@ -62,6 +62,9 @@ export * from './security';
 // CI module
 export * from './ci';
 
+// Review pipeline module
+export * from './review';
+
 // Update checker
 export {
   isUpdateCheckEnabled,

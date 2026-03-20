@@ -1,0 +1,47 @@
+name: "i18next"
+description: "Full-featured i18n framework with plugins for React, Vue, Node, and many other platforms"
+platforms: ["web", "mobile", "backend"]
+message_format: "i18next"
+
+detection:
+  package_json_keys:
+    dependencies: ["i18next", "react-i18next", "next-i18next", "i18next-http-backend", "i18next-browser-languagedetector"]
+    devDependencies: ["i18next-parser", "i18next-scanner"]
+  file_patterns: ["src/**/*.{ts,tsx,js,jsx}", "public/locales/**/*.json"]
+  config_files: ["i18next.config.js", "i18next.config.ts", "next-i18next.config.js"]
+
+conventions:
+  key_format: "nested"
+  file_format: "json"
+  file_structure: "public/locales/{locale}/{namespace}.json"
+  plural_syntax: "key_one: '# item', key_other: '# items' (suffix-based)"
+  interpolation_syntax: "{{variable}}"
+
+recommended_tooling:
+  extraction: ["i18next-parser", "i18next-scanner"]
+  linting: ["eslint-plugin-i18next"]
+  pseudo_locale: ["i18next-pseudo"]
+
+anti_patterns:
+  - pattern: "Not using the count option for pluralization"
+    severity: error
+    instead: "Pass { count: n } to t() function: t('items', { count: itemCount }) — i18next auto-selects the plural form"
+  - pattern: "Nesting translations with $t() inside translations"
+    severity: warning
+    instead: "Use flat interpolation or context-based keys instead of nested $t() references which are hard to extract"
+  - pattern: "Loading all namespaces upfront"
+    severity: warning
+    instead: "Use lazy loading with i18next-http-backend to load namespaces on demand for better performance"
+  - pattern: "Hardcoding the fallback language in multiple places"
+    severity: warning
+    instead: "Configure fallbackLng once in i18next.init(); use namespace-level fallbacks for granular control"
+  - pattern: "Using the t() function outside React components without proper initialization"
+    severity: error
+    instead: "Use i18next.t() directly for non-React code, or pass the t function from initialized context"
+
+migration_notes:
+  from:
+    - framework: "react-intl"
+      guidance: "Convert ICU {variable} to {{variable}}; convert ICU plural syntax to suffix-based keys (_one, _other); replace FormattedMessage with useTranslation() hook"
+    - framework: "custom-solution"
+      guidance: "Map existing key-value pairs to i18next namespace structure; configure fallback chains; add language detection plugin"

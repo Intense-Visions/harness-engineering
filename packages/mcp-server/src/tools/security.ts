@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 // ============ run_security_scan ============
 
@@ -32,7 +33,7 @@ export async function handleRunSecurityScan(input: {
   try {
     const core = await import('@harness-engineering/core');
 
-    const projectRoot = path.resolve(input.path);
+    const projectRoot = sanitizePath(input.path);
 
     // Load config from project
     let configData: Record<string, unknown> = {};

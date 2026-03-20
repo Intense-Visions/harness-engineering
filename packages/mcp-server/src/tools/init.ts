@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveTemplatesDir } from '../utils/paths.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const initProjectDefinition = {
   name: 'init_project',
@@ -44,7 +45,7 @@ export async function handleInitProject(input: {
     });
     if (!renderResult.ok) return resultToMcpResponse(renderResult);
 
-    const writeResult = engine.write(renderResult.value, path.resolve(input.path), {
+    const writeResult = engine.write(renderResult.value, sanitizePath(input.path), {
       overwrite: false,
     });
     return resultToMcpResponse(writeResult);

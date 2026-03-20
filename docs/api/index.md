@@ -29,16 +29,17 @@ This pattern ensures that errors are always explicit and must be handled by the 
 ## Getting Started
 
 ```typescript
-import { Result } from '@harness-engineering/types';
-import { validateAgentsMap } from '@harness-engineering/core';
+import { Assembler } from '@harness-engineering/graph';
+import type { Result } from '@harness-engineering/types';
 
-const result = validateAgentsMap('./AGENTS.md');
+const assembler = new Assembler({ rootDir: '.' });
+const result: Result<{ coverage: number }> = assembler.checkCoverage();
 if (!result.ok) {
   console.error(result.error.message);
   process.exit(1);
 }
 
-console.log('Validation passed!', result.value);
+console.log('Coverage check passed!', result.value);
 ```
 
 See the package-specific documentation for detailed API references.

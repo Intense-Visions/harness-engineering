@@ -1,0 +1,47 @@
+name: "Android Resources"
+description: "Android platform localization using XML string resources and the Android resource system"
+platforms: ["mobile"]
+message_format: "custom"
+
+detection:
+  package_json_keys:
+    dependencies: []
+    devDependencies: []
+  file_patterns: ["**/res/values*/strings.xml", "**/*.kt", "**/*.java"]
+  config_files: ["build.gradle", "build.gradle.kts", "AndroidManifest.xml"]
+
+conventions:
+  key_format: "snake_case"
+  file_format: "xml"
+  file_structure: "res/values-{locale}/strings.xml"
+  plural_syntax: "<plurals name='items'><item quantity='one'>%d item</item><item quantity='other'>%d items</item></plurals>"
+  interpolation_syntax: "%s (positional: %1$s, %2$s)"
+
+recommended_tooling:
+  extraction: ["Android Studio translation editor", "Lint checks"]
+  linting: ["Android Lint (MissingTranslation, HardcodedText)"]
+  pseudo_locale: ["Android built-in pseudolocales: en-XA (accented), ar-XB (bidi)"]
+
+anti_patterns:
+  - pattern: "String concatenation instead of getString() with format args"
+    severity: error
+    instead: "Use getString(R.string.greeting, userName) with %1$s placeholders in strings.xml"
+  - pattern: "Hardcoded strings in layout XML"
+    severity: error
+    instead: "Use @string/key references in all android:text and android:hint attributes; Android Lint flags these"
+  - pattern: "Missing quantity entries in <plurals>"
+    severity: error
+    instead: "Include all CLDR quantities for target locales (zero, one, two, few, many, other as applicable)"
+  - pattern: "Using string-array for translatable content without context"
+    severity: warning
+    instead: "Add translatorNote attributes or XML comments for string arrays to provide context for translators"
+  - pattern: "Not using Android pseudolocales for testing"
+    severity: warning
+    instead: "Enable en-XA (accented English) and ar-XB (bidi) pseudolocales in developer settings for testing"
+
+migration_notes:
+  from:
+    - framework: "legacy Java ResourceBundle"
+      guidance: "Move .properties files to Android XML resources; convert MessageFormat patterns to Android format strings; update getString() calls"
+    - framework: "custom key-value solution"
+      guidance: "Map keys to Android resource naming conventions (snake_case); create strings.xml per locale in res/values-{locale}/ directories"

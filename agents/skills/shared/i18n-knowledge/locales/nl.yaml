@@ -1,0 +1,32 @@
+locale: "nl"
+name: "Dutch"
+native_name: "Nederlands"
+script: "Latin"
+direction: ltr
+cldr_plural_categories: [one, other]
+expansion_factor: 1.20
+script_characteristics:
+  avg_char_width: "narrow"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+number_format:
+  decimal_separator: ","
+  grouping_separator: "."
+  grouping_size: 3
+date_format:
+  short: "DD-MM-YYYY"
+  long: "DD Month YYYY"
+  first_day_of_week: "monday"
+common_pitfalls:
+  - pitfall: "Long compound words similar to German"
+    example: "'arbeidsongeschiktheidsverzekering' (disability insurance) — 35 characters without spaces"
+    fix: "Apply CSS hyphens: auto with lang='nl' and test overflow behavior with real Dutch translations"
+  - pitfall: "Confusing nl-NL and nl-BE (Flemish)"
+    example: "Using 'fiets' vs regional vocabulary differences between Netherlands and Belgium"
+    fix: "Support nl-NL and nl-BE separately when targeting both markets; formatting conventions differ"
+  - pitfall: "IJ digraph capitalization"
+    example: "Capitalizing only the I in 'IJsselmeer' — IJ is a single unit and both letters must capitalize"
+    fix: "When applying text-transform: capitalize, handle the IJ digraph as a special case for Dutch"
+  - pitfall: "Diminutive suffixes in UI labels"
+    example: "Dutch uses diminutives extensively (-je, -tje, -pje) which can change word length unpredictably"
+    fix: "Test with actual translations rather than estimating expansion; diminutives can shorten or lengthen labels"

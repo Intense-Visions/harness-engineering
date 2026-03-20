@@ -1,15 +1,6 @@
 import * as path from 'path';
 import { loadGraphStore } from '../utils/graph-loader.js';
-
-// ── Shared helper ────────────────────────────────────────────────────
-
-function sanitizePath(inputPath: string): string {
-  const resolved = path.resolve(inputPath);
-  if (resolved === '/' || resolved === path.parse(resolved).root) {
-    throw new Error('Invalid project path: cannot use filesystem root');
-  }
-  return resolved;
-}
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 function graphNotFoundError() {
   return {

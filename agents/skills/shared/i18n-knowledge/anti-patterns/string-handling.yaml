@@ -1,0 +1,106 @@
+description: "String handling anti-patterns — common mistakes in text manipulation, concatenation, and string operations that break in localized contexts"
+
+patterns:
+  - name: "String concatenation for sentences"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for string concatenation of user-facing text segments"
+      context: "Expressions like 'Hello, ' + name + '!' or `Welcome to ${place}`"
+    reason: "Word order varies by locale. 'Hello, {name}!' in English becomes '{name}さん、こんにちは！' in Japanese — the name comes first."
+    instead: "Use ICU MessageFormat or framework translation function with named placeholders: t('greeting', { name })"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error
+
+  - name: "Hardcoded user-facing strings"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for string literals in JSX, templates, or UI rendering code"
+      context: "Text nodes in JSX, template literals in HTML attributes, string args to UI components"
+    reason: "Untranslated strings are invisible to the localization pipeline. They remain in the source language for all users."
+    instead: "Wrap all user-facing strings in the framework's translation function (t(), $t(), FormattedMessage, etc.)"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error
+
+  - name: "Substring or split on translated strings"
+    severity: warning
+    scope: all
+    detect:
+      method: "Check for .substring(), .split(), .slice() applied to translated text"
+      context: "Operations that assume word boundaries or character positions in translated strings"
+    reason: "Word boundaries differ by locale. CJK has no spaces. Thai has no word breaks. Splitting on space fails."
+    instead: "Use Intl.Segmenter for locale-aware text segmentation; redesign to avoid splitting translated text"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Hardcoded plural logic"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for ternary or if/else choosing singular vs plural form"
+      context: "count === 1 ? 'item' : 'items' or similar binary plural selection"
+    reason: "Arabic has 6 plural forms. Polish has 4. Welsh has 6. Binary singular/plural only works for a few languages."
+    instead: "Use CLDR plural rules via ICU MessageFormat: {count, plural, one {# item} other {# items}}"
+    strictness:
+      permissive: warn
+      standard: error
+      strict: error
+
+  - name: "String templates with positional assumptions"
+    severity: warning
+    scope: all
+    detect:
+      method: "Check for template literals or format strings that assume a fixed order of interpolated values"
+      context: "Patterns like `${greeting} ${name}` or String.format('%s %s', greeting, name)"
+    reason: "Interpolation order may need to change per locale. Japanese may need name before greeting."
+    instead: "Use named placeholders ({greeting} {name}) so translators can reorder: '{name}さん、{greeting}'"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "UI text in code comments used as display strings"
+    severity: warning
+    scope: all
+    detect:
+      method: "Check for display text stored in constants or enums without translation function wrapping"
+      context: "const LABEL = 'Submit' or enum Status { Active = 'Active' } used directly in UI"
+    reason: "Constants and enum values are not extracted by localization tools. They bypass the translation pipeline."
+    instead: "Map enum values to translation keys: const LABELS = { active: t('status.active') }"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "String length validation on translated input"
+    severity: warning
+    scope: all
+    detect:
+      method: "Check for maxLength validation on text that will be translated or on user input from localized forms"
+      context: "Input validation like value.length <= 50 applied to fields that accept multilingual input"
+    reason: "A 50-character limit may be too short for German translations (30-35% expansion) or too long for CJK (visual width differs)."
+    instead: "Use visual width constraints (CSS max-width) instead of character count; adjust limits per locale if needed"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: warn
+
+  - name: "Case transformation without locale"
+    severity: error
+    scope: all
+    detect:
+      method: "Check for .toUpperCase() and .toLowerCase() without locale argument"
+      context: "String case operations that do not use toLocaleUpperCase() or toLocaleLowerCase()"
+    reason: "Turkish dotted-i bug: 'istanbul'.toUpperCase() produces 'ISTANBUL' (wrong) instead of 'ISTANBUL'. German eszett: 'strasse'.toUpperCase() should consider locale."
+    instead: "Always use toLocaleUpperCase(locale) and toLocaleLowerCase(locale) for user-facing text"
+    strictness:
+      permissive: info
+      standard: warn
+      strict: error

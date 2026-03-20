@@ -415,7 +415,25 @@ export async function runMechanicalGate(projectPath: string): Promise<Result<Gat
 
     const results: GateResult['checks'] = [];
 
+    // Gate commands from gate.json must match a safe pattern to prevent
+    // arbitrary code execution from untrusted repo configs (CWE-78).
+    // npx is excluded because it can auto-install and execute arbitrary packages.
+    // python -c is excluded via the subcommand pattern (no single-letter flags allowed).
+    const SAFE_GATE_COMMAND =
+      /^(?:npm|pnpm|yarn)\s+(?:test|run\s+[\w.-]+|run-script\s+[\w.-]+)$|^go\s+(?:test|build|vet|fmt)\s+[\w./ -]+$|^(?:python|python3)\s+-m\s+[\w.-]+$|^make\s+[\w.-]+$|^cargo\s+(?:test|build|check|clippy)(?:\s+[\w./ -]+)?$|^(?:gradle|mvn)\s+[\w:.-]+$/;
+
     for (const check of checks) {
+      if (!SAFE_GATE_COMMAND.test(check.command)) {
+        results.push({
+          name: check.name,
+          passed: false,
+          command: check.command,
+          output: `Blocked: command does not match safe gate pattern. Allowed prefixes: npm, npx, pnpm, yarn, go, python, python3, make, cargo, gradle, mvn`,
+          duration: 0,
+        });
+        continue;
+      }
+
       const start = Date.now();
       try {
         execSync(check.command, {

@@ -127,7 +127,12 @@ export type {
   GenerateAgentDefsOptions,
   GenerateAgentDefsResult,
 } from './commands/generate-agent-definitions';
-export { generateAgentDefinition, AGENT_DESCRIPTIONS } from './agent-definitions/generator';
+export {
+  generateAgentDefinition,
+  AGENT_DESCRIPTIONS,
+  DEFAULT_TOOLS,
+  GEMINI_TOOL_MAP,
+} from './agent-definitions/generator';
 export type { AgentDefinition } from './agent-definitions/generator';
 export { renderClaudeCodeAgent } from './agent-definitions/render-claude-code';
 export { renderGeminiAgent } from './agent-definitions/render-gemini-cli';

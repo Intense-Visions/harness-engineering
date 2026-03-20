@@ -1,0 +1,47 @@
+name: "React Intl (FormatJS)"
+description: "ICU MessageFormat-based i18n library for React, part of the FormatJS ecosystem"
+platforms: ["web"]
+message_format: "icu"
+
+detection:
+  package_json_keys:
+    dependencies: ["react-intl", "@formatjs/intl", "@formatjs/intl-messageformat"]
+    devDependencies: ["@formatjs/cli", "eslint-plugin-formatjs", "@formatjs/ts-transformer"]
+  file_patterns: ["src/**/*.{ts,tsx,js,jsx}"]
+  config_files: [".formatjsrc", ".formatjsrc.json"]
+
+conventions:
+  key_format: "dot-notation"
+  file_format: "json"
+  file_structure: "lang/{locale}.json"
+  plural_syntax: "ICU {count, plural, one {# item} other {# items}}"
+  interpolation_syntax: "{variable}"
+
+recommended_tooling:
+  extraction: ["@formatjs/cli extract"]
+  linting: ["eslint-plugin-formatjs"]
+  pseudo_locale: ["@formatjs/cli compile --pseudo-locale"]
+
+anti_patterns:
+  - pattern: "String concatenation inside FormattedMessage"
+    severity: error
+    instead: "Use ICU MessageFormat with placeholders: <FormattedMessage id='greeting' values={{name}} />"
+  - pattern: "Using defaultMessage as the translation key"
+    severity: warning
+    instead: "Use explicit message IDs (dot-notation) for stable keys; defaultMessage is a fallback, not an ID"
+  - pattern: "Inline messages without extraction"
+    severity: warning
+    instead: "Run @formatjs/cli extract to generate message catalogs; do not manually maintain translation files"
+  - pattern: "Using dangerouslySetInnerHTML with translated strings"
+    severity: error
+    instead: "Use FormattedMessage rich text support: <FormattedMessage values={{b: chunks => <b>{chunks}</b>}} />"
+  - pattern: "Not wrapping date/number formatting with FormatJS APIs"
+    severity: warning
+    instead: "Use intl.formatDate(), intl.formatNumber(), and intl.formatRelativeTime() for locale-aware formatting"
+
+migration_notes:
+  from:
+    - framework: "i18next"
+      guidance: "Convert {{variable}} interpolation to {variable}; convert i18next plural suffixes (_one, _other) to ICU plural syntax; update extraction pipeline from i18next-parser to @formatjs/cli"
+    - framework: "vue-i18n"
+      guidance: "Convert $t() calls to useIntl().formatMessage(); convert named interpolation to ICU syntax; move from SFC i18n blocks to centralized message files"

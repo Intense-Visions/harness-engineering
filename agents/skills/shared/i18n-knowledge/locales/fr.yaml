@@ -1,0 +1,35 @@
+locale: "fr"
+name: "French"
+native_name: "Français"
+script: "Latin"
+direction: ltr
+cldr_plural_categories: [one, other]
+expansion_factor: 1.20
+script_characteristics:
+  avg_char_width: "narrow"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+number_format:
+  decimal_separator: ","
+  grouping_separator: "\u202F"
+  grouping_size: 3
+date_format:
+  short: "DD/MM/YYYY"
+  long: "DD Month YYYY"
+  first_day_of_week: "monday"
+common_pitfalls:
+  - pitfall: "Missing spaces before high punctuation"
+    example: "Bonjour! instead of 'Bonjour !' — French requires a non-breaking space before ; : ! and ?"
+    fix: "Insert a narrow non-breaking space (U+202F) before semicolon, colon, exclamation, and question marks"
+  - pitfall: "Confusing French number grouping"
+    example: "Displaying 1,234 instead of 1 234 — French uses narrow no-break space as grouping separator"
+    fix: "Use Intl.NumberFormat('fr') which correctly uses U+202F as the grouping separator"
+  - pitfall: "Not handling fr-FR vs fr-CA differences"
+    example: "Canadian French uses different vocabulary ('courriel' vs 'email') and some formatting conventions"
+    fix: "Support fr-FR and fr-CA as separate locales when targeting both markets"
+  - pitfall: "Gendered agreement in dynamic strings"
+    example: "'Vous etes connecte' vs 'Vous etes connectee' — adjective ending depends on user gender"
+    fix: "Use inclusive writing patterns or avoid gendered past participles in UI strings where possible"
+  - pitfall: "Quotation mark style"
+    example: "Using English \"quotes\" instead of French guillemets with spaces: 'texte'"
+    fix: "Ensure translation process converts quotation marks to locale-appropriate style (guillemets for French)"
