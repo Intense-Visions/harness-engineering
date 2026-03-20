@@ -28,6 +28,7 @@ pnpm-debug.log*
 # IDE
 .vscode/
 .idea/
+.claude/settings.local.json
 *.swp
 *.swo
 *~
