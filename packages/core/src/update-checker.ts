@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { spawn } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,4 +75,52 @@ export function readCheckState(): UpdateCheckState | null {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Background check
+// ---------------------------------------------------------------------------
+
+/**
+ * Spawns a detached background Node process that:
+ * 1. Queries npm registry for the latest version of @harness-engineering/cli
+ * 2. Writes the result to ~/.harness/update-check.json
+ * 3. Exits silently on any failure
+ *
+ * The parent calls child.unref() so the child does not block process exit.
+ */
+export function spawnBackgroundCheck(currentVersion: string): void {
+  const statePath = getStatePath();
+  const stateDir = path.dirname(statePath);
+
+  // The inline script is a self-contained Node program.
+  // It must handle all errors internally so the user never sees failures.
+  const script = `
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+try {
+  const latest = execSync('npm view @harness-engineering/cli dist-tags.latest', {
+    encoding: 'utf-8',
+    timeout: 15000,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+  const stateDir = ${JSON.stringify(stateDir)};
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(
+    ${JSON.stringify(statePath)},
+    JSON.stringify({
+      lastCheckTime: Date.now(),
+      latestVersion: latest || null,
+      currentVersion: ${JSON.stringify(currentVersion)},
+    })
+  );
+} catch (_) {}
+`.trim();
+
+  const child = spawn(process.execPath, ['-e', script], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  child.unref();
 }
