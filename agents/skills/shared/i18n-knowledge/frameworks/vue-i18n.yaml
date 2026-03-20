@@ -1,0 +1,47 @@
+name: "Vue I18n"
+description: "Internationalization plugin for Vue.js with SFC support and composition API integration"
+platforms: ["web"]
+message_format: "icu"
+
+detection:
+  package_json_keys:
+    dependencies: ["vue-i18n", "@intlify/vue-i18n-extensions", "@intlify/unplugin-vue-i18n"]
+    devDependencies: ["@intlify/vite-plugin-vue-i18n", "@intlify/eslint-plugin-vue-i18n"]
+  file_patterns: ["src/**/*.vue", "src/locales/**/*.{json,yaml}"]
+  config_files: ["vue-i18n.config.ts", "i18n.ts"]
+
+conventions:
+  key_format: "dot-notation"
+  file_format: "json"
+  file_structure: "src/locales/{locale}.json"
+  plural_syntax: "ICU {count, plural, one {# item} other {# items}} or pipe syntax: item | items"
+  interpolation_syntax: "{variable} or @:key for linked messages"
+
+recommended_tooling:
+  extraction: ["@intlify/cli"]
+  linting: ["@intlify/eslint-plugin-vue-i18n"]
+  pseudo_locale: ["custom generator with vue-i18n message compiler"]
+
+anti_patterns:
+  - pattern: "Using v-html with translated strings"
+    severity: error
+    instead: "Use the <i18n-t> component with named slots for HTML in translations — v-html creates XSS risk"
+  - pattern: "Hardcoding messages in template attributes"
+    severity: warning
+    instead: "Use $t() in attribute bindings: :placeholder=\"$t('search.placeholder')\" instead of hardcoded strings"
+  - pattern: "Not using SFC <i18n> blocks for component-local messages"
+    severity: info
+    instead: "Put component-specific messages in <i18n> blocks to co-locate translations with the component"
+  - pattern: "Ignoring SSR hydration mismatch with locale detection"
+    severity: error
+    instead: "Detect locale server-side (Accept-Language header) and pass to client to prevent hydration mismatch"
+  - pattern: "Using legacy API ($t) in Composition API components"
+    severity: warning
+    instead: "Use useI18n() composable in <script setup> components for type-safe translation access"
+
+migration_notes:
+  from:
+    - framework: "vue-i18n v8 (Vue 2)"
+      guidance: "Migrate from VueI18n class to createI18n(); update $t() to useI18n().t() in Composition API; convert <i18n> blocks to new format"
+    - framework: "i18next"
+      guidance: "Convert {{variable}} to {variable}; map namespaces to vue-i18n scoped messages; replace useTranslation() with useI18n()"
