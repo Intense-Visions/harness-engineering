@@ -1,6 +1,6 @@
 locale: "ar"
 name: "Arabic"
-native_name: "Al-Arabiyyah"
+native_name: "العربية"
 script: "Arabic"
 direction: rtl
 cldr_plural_categories: [zero, one, two, few, many, other]

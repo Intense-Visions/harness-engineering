@@ -1,6 +1,6 @@
 locale: "zh-Hans"
 name: "Chinese (Simplified)"
-native_name: "Zhongwen"
+native_name: "简体中文"
 script: "CJK"
 direction: ltr
 cldr_plural_categories: [other]

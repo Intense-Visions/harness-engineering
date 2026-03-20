@@ -1,9 +1,9 @@
 locale: "fr"
 name: "French"
-native_name: "Francais"
+native_name: "Français"
 script: "Latin"
 direction: ltr
-cldr_plural_categories: [one, many, other]
+cldr_plural_categories: [one, other]
 expansion_factor: 1.20
 script_characteristics:
   avg_char_width: "narrow"

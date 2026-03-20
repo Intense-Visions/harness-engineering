@@ -1,9 +1,9 @@
 locale: "es"
 name: "Spanish"
-native_name: "Espanol"
+native_name: "Español"
 script: "Latin"
 direction: ltr
-cldr_plural_categories: [one, many, other]
+cldr_plural_categories: [one, other]
 expansion_factor: 1.25
 script_characteristics:
   avg_char_width: "narrow"

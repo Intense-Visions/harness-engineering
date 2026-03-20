@@ -1,6 +1,6 @@
 locale: "tr"
 name: "Turkish"
-native_name: "Turkce"
+native_name: "Türkçe"
 script: "Latin"
 direction: ltr
 cldr_plural_categories: [one, other]
@@ -19,7 +19,7 @@ date_format:
   first_day_of_week: "monday"
 common_pitfalls:
   - pitfall: "Dotted vs dotless I — the most famous i18n bug"
-    example: "'istanbul'.toUpperCase() produces 'ISTANBUL' not 'ISTANBUL' — Turkish has both I/i and I/i"
+    example: "'istanbul'.toUpperCase() produces 'ISTANBUL' (ASCII I) instead of correct Turkish 'İSTANBUL' (İ, U+0130 Latin Capital Letter I With Dot Above)"
     fix: "Always use locale-aware case conversion: toLocaleUpperCase('tr') and toLocaleLowerCase('tr')"
   - pitfall: "Case-insensitive comparison breaking with Turkish locale"
     example: "Comparing 'FILE' and 'file' with Turkish locale fails because I != i in Turkish"

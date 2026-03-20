@@ -25,7 +25,7 @@ common_pitfalls:
     example: "'talo' (house) has forms: talon, taloa, talossa, talosta, taloon, talolla, talolta, talolle..."
     fix: "Never programmatically construct Finnish phrases — let translators handle case inflection in full sentences"
   - pitfall: "Vowel harmony in suffixes"
-    example: "Suffixes must match the vowel pattern of the root word — back vowels (a,o,u) vs front vowels (a,o,y)"
+    example: "Suffixes must match the vowel pattern of the root word — back vowels (a, o, u) vs front vowels (ä, ö, y)"
     fix: "Do not attempt to programmatically add Finnish suffixes; always use translator-provided complete forms"
   - pitfall: "No grammatical gender but complex number agreement"
     example: "Finnish has no gendered nouns, but number-noun agreement is partitive: '1 talo' but '2 taloa'"

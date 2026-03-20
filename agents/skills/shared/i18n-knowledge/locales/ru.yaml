@@ -1,6 +1,6 @@
 locale: "ru"
 name: "Russian"
-native_name: "Russkiy"
+native_name: "Русский"
 script: "Cyrillic"
 direction: ltr
 cldr_plural_categories: [one, few, many, other]

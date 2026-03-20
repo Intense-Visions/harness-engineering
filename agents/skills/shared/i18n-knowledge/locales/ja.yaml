@@ -1,6 +1,6 @@
 locale: "ja"
 name: "Japanese"
-native_name: "Nihongo"
+native_name: "日本語"
 script: "CJK"
 direction: ltr
 cldr_plural_categories: [other]

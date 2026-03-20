@@ -1,9 +1,9 @@
 locale: "pt"
 name: "Portuguese"
-native_name: "Portugues"
+native_name: "Português"
 script: "Latin"
 direction: ltr
-cldr_plural_categories: [one, many, other]
+cldr_plural_categories: [one, other]
 expansion_factor: 1.25
 script_characteristics:
   avg_char_width: "narrow"

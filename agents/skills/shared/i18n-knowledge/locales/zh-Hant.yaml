@@ -1,6 +1,6 @@
 locale: "zh-Hant"
 name: "Chinese (Traditional)"
-native_name: "Zhongwen"
+native_name: "繁體中文"
 script: "CJK"
 direction: ltr
 cldr_plural_categories: [other]
@@ -10,7 +10,7 @@ script_characteristics:
   requires_complex_shaping: false
   line_break_rules: "no-spaces"
   cjk_width_handling: true
-  vertical_text_support: false
+  vertical_text_support: true
   multiple_scripts: false
 number_format:
   decimal_separator: "."

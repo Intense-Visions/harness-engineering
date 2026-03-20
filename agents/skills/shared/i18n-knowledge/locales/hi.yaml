@@ -1,6 +1,6 @@
 locale: "hi"
 name: "Hindi"
-native_name: "Hindi"
+native_name: "हिन्दी"
 script: "Devanagari"
 direction: ltr
 cldr_plural_categories: [one, other]
@@ -12,8 +12,7 @@ script_characteristics:
 number_format:
   decimal_separator: "."
   grouping_separator: ","
-  grouping_size: 3
-  indian_grouping: true
+  grouping_sizes: [3, 2]
 date_format:
   short: "DD/MM/YYYY"
   long: "DD Month YYYY"

@@ -1,6 +1,6 @@
 locale: "ko"
 name: "Korean"
-native_name: "Hangugeo"
+native_name: "한국어"
 script: "Hangul"
 direction: ltr
 cldr_plural_categories: [other]
@@ -8,7 +8,7 @@ expansion_factor: 1.0
 script_characteristics:
   avg_char_width: "wide"
   requires_complex_shaping: false
-  line_break_rules: "no-spaces"
+  line_break_rules: "standard"
   cjk_width_handling: true
   vertical_text_support: false
   multiple_scripts: false

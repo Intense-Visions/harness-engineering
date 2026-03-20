@@ -28,5 +28,5 @@ common_pitfalls:
     example: "count === 1 ? 'item' : 'items' — works for English but fails for languages with more plural forms"
     fix: "Use ICU MessageFormat or framework plural support that references CLDR plural rules"
   - pitfall: "Relying on ASCII-only input validation"
-    example: "Regex [a-zA-Z]+ rejects valid names like 'Rene' or 'Muller'"
+    example: "Regex [a-zA-Z]+ rejects valid names like 'René' or 'Müller'"
     fix: "Use Unicode-aware patterns (\\p{Letter}) or avoid restricting character sets in name fields"

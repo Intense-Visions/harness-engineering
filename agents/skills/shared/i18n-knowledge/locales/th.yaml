@@ -1,6 +1,6 @@
 locale: "th"
 name: "Thai"
-native_name: "Phasa Thai"
+native_name: "ภาษาไทย"
 script: "Thai"
 direction: ltr
 cldr_plural_categories: [other]
