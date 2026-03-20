@@ -53,3 +53,50 @@
 
 - **2026-03-19 [skill:harness-execution] [outcome:gotcha]:** Skills declared with `platforms: [claude-code, gemini-cli]` in skill.yaml must have copies in BOTH `agents/skills/claude-code/` and `agents/skills/gemini-cli/`. The structure tests enforce platform parity — missing gemini-cli copy causes test failure.
 - **2026-03-19 [skill:harness-execution] [outcome:success]:** Brainstorming → planning → execution → verification → code-review → pre-commit-review pipeline completed end-to-end for a documentation-only deliverable (no runtime code). The harness workflow works equally well for skill authoring as for code implementation.
+
+## 2026-03-19 — Design System Phase 2: Graph Schema
+
+- [skill:harness-execution] [outcome:success] All 8 tasks completed in a single session with 4 atomic commits (Tasks 1+2, Tasks 3+5 RED, Tasks 4+6 GREEN, Task 7 exports). Full TDD rhythm worked cleanly.
+- [skill:harness-execution] [outcome:gotcha] Prettier reformats DESIGN.md fixture by adding blank lines after markdown headings. The ingestor's per-line regex parsing handles this correctly, but if using multi-line regex matching across heading-to-content, this would break.
+- [skill:harness-execution] [outcome:success] No cascading NODE_TYPES/EDGE_TYPES count assertion breakage — the monorepo currently has no tests that assert on exact type array lengths. This may change in future phases.
+- [skill:harness-execution] [outcome:decision] Used `violates_design` edge type instead of `violates` to avoid collision with existing edge type, as identified during planning.
+
+## 2026-03-19 — Design System Phase 3: Foundation Skills
+
+- [skill:harness-execution] [outcome:success] All 4 tasks completed in a single pass. Wave 1 (Tasks 1+2 skill creation), Wave 2 (Task 3 platform copy), Wave 3 (Task 4 tests) all passed on first attempt.
+- [skill:harness-execution] [outcome:success] Pre-existing sensitive-data-compliance parity issue (gemini-cli only) did NOT cause test failures — the parity count test still passes with 39 claude-code vs 40 gemini-cli skills. The test checks count equality but the sensitive-data-compliance skill may not have SKILL.md/skill.yaml matching the filter criteria.
+- [skill:harness-execution] [outcome:gotcha] Prettier reformats JSON code blocks inside SKILL.md during pre-commit hooks. Because both claude-code and gemini-cli copies were staged together, prettier formatted both identically — parity preserved. If copies were committed separately, parity would break.
+- [skill:harness-execution] [outcome:success] cognitive_mode field in skill.yaml is not validated by SkillMetadataSchema (Zod strips unknown keys). This is intentional — the field is consumed by the agent runtime, not the test harness.
+
+## 2026-03-19 — Design System Phase 4: Aesthetic Skill (harness-design)
+
+- [skill:harness-execution] [outcome:success] All 4 tasks completed in a single pass. Combined Tasks 2+3 into a single commit to stage both SKILL.md platform copies together, honoring the Phase 3 learning about Prettier parity.
+- [skill:harness-execution] [outcome:success] Test count went from 445 to 459 (14 new tests) — more than the plan's estimate of 3. The test suite adds schema, structure, platform-parity, and references tests automatically for each new skill.
+- [skill:harness-execution] [outcome:decision] Deviated from plan's per-task commit strategy for Tasks 2+3 to honor the Prettier parity learning. The plan said commit SKILL.md separately, but the Important note and Phase 3 learning both said to stage both platform copies together. Chose to honor the learning over the literal task boundary.
+
+## 2026-03-19 — Design System Phase 5: Implementation Skills (harness-design-web, harness-design-mobile)
+
+- [skill:harness-execution] [outcome:success] All 6 tasks completed in 2 commits: Wave 1 committed both skill.yaml files together, Wave 2+3 committed all SKILL.md files and gemini-cli copies together. 491 skill tests pass (32 new, ~16 per skill).
+- [skill:harness-execution] [outcome:success] Staging all 6 SKILL.md/skill.yaml files (both platforms, both skills) together in one commit ensured Prettier formatted all copies identically — parity preserved without any fixup needed.
+- [skill:harness-execution] [outcome:success] The SKILL.md files reference platform-rules and anti-patterns data files from agents/skills/shared/design-knowledge/ as instructed, connecting the implementation skills to the Phase 1 shared foundation data.
+
+## 2026-03-19 — Design System Phase 6: Integration
+
+- [skill:harness-execution] [outcome:success] All 8 tasks completed in a single session with 1 commit. Tasks 1-5 (parallel SKILL.md edits) all passed on first attempt, no test breakage.
+- [skill:harness-execution] [outcome:success] Prettier renumbered onboarding MAP phase list items when inserting step 5 (design system mapping) — bumped old step 5 to step 6. This is expected formatting behavior, not a content issue.
+- [skill:harness-execution] [outcome:success] Staging all 6 SKILL.md files in one commit (including both platform copies of impact-analysis) preserved parity — consistent with Phase 3 and Phase 5 learnings.
+- [skill:harness-execution] [outcome:decision] Used single-commit approach (Task 7) rather than per-task commits (Tasks 1-5 each). The plan explicitly allowed either approach. Single commit is cleaner for documentation-only changes that are all part of one integration story.
+
+## 2026-03-19 — Design System Phase 7: Validation
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed in a single session with 2 commits: Task 1 (validation test) and Task 5 (verification report). Tasks 2-4 were verification-only (no file changes).
+- [skill:harness-execution] [outcome:success] 106 validation tests cover all 15 success criteria. Dynamic test generation for industry YAML files (8 files x 4 assertions each = 32 tests) plus structural checks for 5 skills across 2 platforms.
+- [skill:harness-execution] [outcome:gotcha] The project uses `import YAML from 'yaml'` (default import), not `import * as yaml from 'yaml'` (namespace import). The plan's code used the namespace style — adapted to match project conventions.
+- [skill:harness-execution] [outcome:success] vitest must be run from within the package directory (`cd packages/cli && pnpm exec vitest run`) rather than from the repo root (`npx vitest run`). The root does not have vitest in its PATH.
+
+## 2026-03-19 — Autopilot: Design System Skills
+
+- [skill:harness-autopilot] [outcome:complete] Executed 7 phases, 43 tasks, 0 retries across Phases 2-7 (Phase 1 was pre-completed)
+- [skill:harness-autopilot] [outcome:observation] Cross-phase verification after Phase 5 caught 2 missing Phase 1 deliverables (anti-patterns/ and platform-rules/ directories) — mid-run verification is valuable for catching gaps before downstream phases depend on them
+- [skill:harness-autopilot] [outcome:observation] Documentation-only integration phases (Phase 6) are fast and clean when the infrastructure skills have consistent SKILL.md structure — all 5 edits followed the same conditional insertion pattern
+- [skill:harness-autopilot] [outcome:observation] Code review findings accumulated a consistent theme: PascalCase graph entity names in prose vs snake_case in schema. Adding a naming convention note to Harness Integration sections resolved it across all skills
