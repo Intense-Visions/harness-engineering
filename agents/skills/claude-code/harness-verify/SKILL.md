@@ -48,6 +48,20 @@ Rules:
 - Run each command from the project root directory.
 - Do not modify any files. Do not install dependencies. Do not fix errors.
 
+### Design Constraint Check (conditional)
+
+When `harness.config.json` contains a `design` block:
+
+1. **Run design constraint checks** by invoking `harness-accessibility` in scan+evaluate mode against the project.
+2. Apply the `design.strictness` setting to determine severity:
+   - `strict`: accessibility violations are FAIL; anti-pattern violations are WARN
+   - `standard`: accessibility and anti-pattern violations are WARN; nothing blocks
+   - `permissive`: all design violations are INFO
+3. Capture the result as `Design: [PASS/WARN/FAIL/SKIPPED]`.
+4. If no `design` block exists in config, mark Design as `SKIPPED`.
+
+The design check runs AFTER test/lint/typecheck. It does not short-circuit on earlier failures.
+
 ### Phase 3: REPORT
 
 Output a structured result in this exact format:
@@ -57,6 +71,16 @@ Verification: [PASS/FAIL]
 - Typecheck: [PASS/FAIL/SKIPPED]
 - Lint:      [PASS/FAIL/SKIPPED]
 - Test:      [PASS/FAIL/SKIPPED]
+```
+
+When design config is present, include the design line:
+
+```
+Verification: [PASS/FAIL]
+- Typecheck: [PASS/FAIL/SKIPPED]
+- Lint:      [PASS/FAIL/SKIPPED]
+- Test:      [PASS/FAIL/SKIPPED]
+- Design:    [PASS/WARN/FAIL/SKIPPED]
 ```
 
 Rules:
@@ -80,6 +104,8 @@ This skill is entirely deterministic. There are no LLM judgment calls anywhere i
 - Invoked as the final step by code-producing skills (harness-execution, harness-tdd)
 - Complements harness-verification (deep audit) — use verify for quick checks, verification for milestones
 - Output format is consumed by harness-integrity for the unified pipeline
+- Invokes `harness-accessibility` for design constraint checking when `design` config exists
+- Design violations respect `designStrictness` from `harness.config.json`
 
 ## Success Criteria
 

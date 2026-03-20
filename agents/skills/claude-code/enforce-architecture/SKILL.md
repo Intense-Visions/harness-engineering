@@ -22,6 +22,12 @@
    - **Forbidden imports** — specific import paths that are never allowed in certain contexts
    - **Boundary definitions** — which directories/packages belong to which layer
 
+- **Design constraints** — when `design` config exists, also load design constraint rules:
+  - Token compliance — components must reference design tokens, not hardcoded values
+  - Accessibility compliance — color pairs must meet WCAG contrast ratios
+  - Anti-pattern enforcement — project-specific anti-patterns from `design-system/DESIGN.md`
+  - Platform binding — tokens must have appropriate platform bindings for enabled platforms
+
 2. **Understand the layer model.** In a typical layered architecture:
    - Higher layers depend on lower layers (UI depends on Service, Service depends on Repository)
    - Lower layers NEVER depend on higher layers (Repository must not import from UI)
@@ -58,6 +64,11 @@ For each violation, determine:
    - **Skip-layer dependency** — a layer reaches past its immediate neighbor (e.g., UI importing directly from Repository, bypassing Service). This breaks encapsulation and makes the middle layer pointless.
    - **Circular dependency** — two modules or layers depend on each other. This creates fragile coupling where changing either module risks breaking the other.
    - **Forbidden import** — a specific import that is explicitly banned (e.g., importing a database driver outside the repository layer). This prevents implementation details from leaking.
+   - **Design constraint violation** — a component uses hardcoded values instead of design tokens, or violates a declared anti-pattern. Severity depends on `design.strictness` in config. These violations surface as DESIGN-xxx codes:
+     - `DESIGN-001` [warn] — Hardcoded color/font/spacing instead of token reference
+     - `DESIGN-002` [warn] — Value matches a project anti-pattern
+     - `DESIGN-003` [error] — WCAG contrast ratio failure (error in strict mode)
+     - `DESIGN-004` [info] — Missing platform binding for enabled platform
 
 3. **Explain the impact.** For each violation, state:
    - WHY the constraint exists (what architectural property it protects)
@@ -72,6 +83,7 @@ For each violation, provide a specific fix:
 - **Skip-layer dependency:** Route the call through the intermediate layer. Add a method to the Service layer that delegates to the Repository, then have the UI call the Service.
 - **Circular dependency:** Break the cycle by extracting shared types into a common module that both can depend on, or restructure so the dependency flows in one direction only.
 - **Forbidden import:** Replace the forbidden import with the approved alternative. If no alternative exists, the feature may need to live in a different layer.
+- **Design constraint violation:** Replace hardcoded values with token references from `design-system/tokens.json`. For anti-pattern violations, consult `design-system/DESIGN.md` for the project's aesthetic intent and approved alternatives. For contrast failures, use `harness-accessibility` to find compliant color pairs.
 
 ## Common Violation Patterns
 
@@ -87,6 +99,10 @@ Two layers both need the same type definition. Fix: place shared types in the lo
 
 Test helpers import across layer boundaries for convenience. Fix: each layer's tests should only import from that layer and below. Test utilities should follow the same constraints as production code.
 
+### Pattern: "Hardcoded colors in components"
+
+A component uses `#3b82f6` directly instead of referencing `color.primary` from the design token system. Fix: import and reference the token. In Tailwind: use the token-mapped utility class. In CSS: use the custom property `var(--color-primary)`.
+
 ### Pattern: "Circular dependency through re-exports"
 
 Module A re-exports from Module B, and Module B imports from Module A. The circular dependency is hidden by the re-export. Fix: identify the true dependency direction and remove the reverse path.
@@ -96,6 +112,9 @@ Module A re-exports from Module B, and Module B imports from Module A. The circu
 - **`harness check-deps`** — Primary tool. Analyzes all imports against the layer model defined in `harness.config.json`. Returns structured violation data including file, line, source layer, target layer, and rule violated.
 - **`harness check-deps --json`** — Machine-readable output for automated pipelines. Use this when parsing results programmatically.
 - **`harness validate`** — Includes dependency checking as part of full project validation. Use when you want a complete health check, not just architecture.
+- **`harness-design-system`** — Provides the design token source of truth (`tokens.json`) that constraints validate against.
+- **`harness-accessibility`** — Provides WCAG contrast validation used by DESIGN-003 constraints.
+- **Design constraint category** — Controlled by `design.strictness` in `harness.config.json`. Design violations surface alongside architectural violations in the same report.
 
 ## Success Criteria
 

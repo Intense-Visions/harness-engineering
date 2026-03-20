@@ -47,6 +47,17 @@ For each changed file:
 
 4. **Test coverage**: Identify test files connected via `imports` edges. Flag changed files with no test coverage.
 
+5. **Design token impact**: When the graph contains `DesignToken` nodes, use `query_graph` with `USES_TOKEN` edges to find components that consume changed tokens.
+
+   ```
+   query_graph(rootNodeIds=["designtoken:color.primary"], maxDepth=2, includeEdges=["uses_token"])
+   → components: [Button.tsx, Card.tsx, Header.tsx, ...]
+   ```
+
+   If a changed file is `design-system/tokens.json`, identify ALL tokens that changed and trace each to its consuming components. This reveals the full design blast radius of a token change.
+
+6. **Design constraint impact**: When the graph contains `DesignConstraint` nodes, check if changed code introduces new `VIOLATES_DESIGN` edges.
+
 ### Phase 3: ASSESS — Risk Assessment and Report
 
 1. **Impact score**: Calculate based on:
@@ -54,6 +65,7 @@ For each changed file:
    - Number of transitive dependents (weight: 1x)
    - Whether affected code includes entry points (weight: 5x)
    - Whether tests exist for the changed code (no tests = higher risk)
+   - Whether design tokens are affected (weight: 2x — token changes cascade to all consumers)
 
 2. **Risk tiers**:
    - **Critical** (score > 50): Changes affect entry points or >20 downstream files
@@ -90,6 +102,10 @@ For each changed file:
    1. src/routes/login.ts — imports auth.ts
    2. src/middleware/verify.ts — imports auth.ts
    3. src/routes/signup.ts — imports user.ts (transitive via auth.ts)
+
+   ### Affected Design Tokens (when tokens change)
+   1. color.primary → used by 12 components
+   2. typography.body → used by 8 components
    ```
 
 ## Harness Integration

@@ -41,6 +41,19 @@ Run the built-in security scanner as a mechanical check between verification and
 3. **Error-severity security findings are blocking** — they cause the overall integrity check to FAIL, same as a test failure.
 4. Warning/info findings are included in the report but do not block.
 
+### Phase 1.7: DESIGN HEALTH (conditional)
+
+When the project has `design` configured in `harness.config.json`:
+
+1. Run `harness-design` in review mode to check existing components against design intent and anti-patterns.
+2. Run `harness-accessibility` in scan+evaluate mode to check WCAG compliance.
+3. Combine findings into a design health summary:
+   - Error count (blocking, based on strictness)
+   - Warning count (non-blocking)
+   - Info count (advisory)
+4. **Error-severity design findings are blocking** in `strict` mode only. In `standard` and `permissive` modes, design findings do not block.
+5. If no `design` block exists, skip this phase entirely.
+
 ### Phase 2: REVIEW
 
 Run change-type-aware AI review using `harness-code-review`.
@@ -61,6 +74,7 @@ Integrity Check: [PASS/FAIL]
 - Lint:     [PASS/FAIL/SKIPPED]
 - Types:    [PASS/FAIL/SKIPPED]
 - Security: [PASS/WARN/FAIL] ([count] errors, [count] warnings)
+- Design:   [PASS/WARN/FAIL/SKIPPED] ([count] errors, [count] warnings)
 - Review:   [PASS/FAIL] ([count] suggestions, [count] blocking)
 
 Overall: [PASS/FAIL]
@@ -68,7 +82,7 @@ Overall: [PASS/FAIL]
 
 Rules:
 
-- Overall `PASS` requires: all non-skipped mechanical checks pass AND zero blocking review findings.
+- Overall `PASS` requires: all non-skipped mechanical checks pass AND zero blocking review findings AND zero blocking design findings (strict mode only).
 - Any mechanical failure OR any blocking review finding means `FAIL`.
 - On FAIL, include a summary section listing each failure reason.
 - Non-blocking review suggestions are noted but do not cause FAIL.
@@ -84,6 +98,8 @@ Rules:
 - Follows Principle 7 — deterministic checks always run first
 - Consumes change-type detection from harness-code-review for per-type checklists
 - Output can be written to `.harness/integrity-report.md` for CI integration
+- Invokes `harness-design` and `harness-accessibility` for design health when `design` config exists
+- Design strictness from config controls whether design findings block the overall result
 
 ## Success Criteria
 
@@ -102,6 +118,7 @@ Integrity Check: PASS
 - Lint: PASS (0 warnings)
 - Types: PASS
 - Security: PASS (0 errors, 0 warnings)
+- Design: PASS (0 errors, 0 warnings)
 - Review: 1 suggestion (0 blocking)
 ```
 
@@ -114,6 +131,7 @@ Integrity Check: FAIL
 - Types: PASS
 - Security: FAIL (1 error, 0 warnings)
   - [SEC-INJ-002] src/auth/login.ts:42 — SQL query built with string concatenation
+- Design: WARN (0 errors, 2 warnings)
 - Review: 3 findings (1 blocking)
 
 Blocking: [SEC-INJ-002] SQL injection — user input passed directly to query without parameterization.

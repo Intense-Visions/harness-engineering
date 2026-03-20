@@ -66,7 +66,17 @@
    - Linting rules that encode architectural decisions
    - Any constraints documented in `AGENTS.md` that are not yet automated
 
-5. **Map the concerns.** Identify areas that need attention:
+5. **Map the design system** (when present). Look for:
+   - `design-system/tokens.json` — W3C DTCG design tokens (colors, typography, spacing)
+   - `design-system/DESIGN.md` — Aesthetic intent, anti-patterns, platform notes
+   - `harness.config.json` `design` block — strictness level, enabled platforms, token path
+   - Active design skills — check if `harness-design-system`, `harness-accessibility`, `harness-design`, `harness-design-web`, `harness-design-mobile` are available
+   - Design constraint violations — run a quick `harness-accessibility` scan to surface any existing issues
+   - Token coverage — how many components reference tokens vs. hardcoded values
+
+   If no design system exists, note this as a potential improvement area.
+
+6. **Map the concerns.** Identify areas that need attention:
    - Are there TODOs or FIXMEs in the code?
    - Does `harness validate` pass cleanly, or are there warnings?
    - Are there known blockers in `.harness/state.json`?
@@ -136,6 +146,14 @@ Graph queries produce a complete architecture map in seconds, including transiti
 
 - <convention 1>
 - <convention 2>
+
+## Design System
+
+- **Tokens:** [present/absent] ([token count] tokens in [group count] groups)
+- **Aesthetic Intent:** [present/absent] (style: [style], strictness: [level])
+- **Platforms:** [web, mobile, or none configured]
+- **Accessibility:** [baseline scan result — e.g., "3 warnings, 0 errors"]
+- **Design Skills:** [list of available design skills]
 
 ## Harness Status
 
