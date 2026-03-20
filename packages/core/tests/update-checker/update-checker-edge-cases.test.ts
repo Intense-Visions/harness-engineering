@@ -231,3 +231,24 @@ describe('spawnBackgroundCheck — atomic write', () => {
     expect(script).toContain('randomBytes');
   });
 });
+
+describe('edge case summary — resilience guarantees', () => {
+  it('readCheckState never throws for any file content', () => {
+    // This is a meta-test documenting the contract.
+    // readCheckState wraps everything in try/catch and returns null on any error.
+    // Verified by the corrupt data tests above.
+    const tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-meta-'));
+    const origHome = process.env['HOME']!;
+    process.env['HOME'] = tmpDir2;
+
+    // No directory at all
+    expect(readCheckState()).toBeNull();
+
+    // Directory exists but file is a directory (not a file)
+    fs.mkdirSync(path.join(tmpDir2, '.harness', 'update-check.json'), { recursive: true });
+    expect(readCheckState()).toBeNull();
+
+    process.env['HOME'] = origHome;
+    fs.rmSync(tmpDir2, { recursive: true });
+  });
+});
