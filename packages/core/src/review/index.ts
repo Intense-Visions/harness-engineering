@@ -4,6 +4,14 @@ export type {
   MechanicalCheckResult,
   MechanicalCheckStatus,
   MechanicalCheckOptions,
+  ChangeType,
+  ReviewDomain,
+  ContextFile,
+  CommitHistoryEntry,
+  ContextBundle,
+  DiffInfo,
+  GraphAdapter,
+  ContextScopeOptions,
 } from './types';
 
 // Mechanical checks
