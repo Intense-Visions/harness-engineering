@@ -36,6 +36,7 @@ vi.mock('../../src/shared/parsers', () => {
 });
 
 import { runMechanicalChecks } from '../../src/review/mechanical-checks';
+import { buildExclusionSet } from '../../src/review/exclusion-set';
 import { validateAgentsMap } from '../../src/context/agents-map';
 import { validateDependencies } from '../../src/constraints/dependencies';
 import { checkDocCoverage } from '../../src/context/doc-coverage';
@@ -237,5 +238,63 @@ describe('runMechanicalChecks()', () => {
         message: expect.stringContaining('File system error'),
       })
     );
+  });
+});
+
+describe('runMechanicalChecks + ExclusionSet integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockScanFiles.mockResolvedValue({ findings: [], scannedFiles: 0, rulesApplied: 0 });
+    vi.mocked(validateAgentsMap).mockResolvedValue({
+      ok: true,
+      value: { valid: true, missingSections: [], brokenLinks: [] },
+    } as any);
+    vi.mocked(validateDependencies).mockResolvedValue({
+      ok: true,
+      value: { violations: [] },
+    } as any);
+    vi.mocked(checkDocCoverage).mockResolvedValue({
+      ok: true,
+      value: { coveragePercentage: 100, documented: [], undocumented: [], gaps: [] },
+    } as any);
+  });
+
+  it('mechanical findings feed into ExclusionSet for Phase 5 exclusion', async () => {
+    mockScanFiles.mockResolvedValueOnce({
+      findings: [
+        {
+          ruleId: 'SEC-002',
+          file: 'src/utils/crypto.ts',
+          line: 15,
+          severity: 'warning',
+          message: 'Weak hash algorithm',
+          remediation: 'Use SHA-256',
+          match: 'md5(',
+          context: 'md5(data)',
+          ruleName: 'weak-crypto',
+          category: 'crypto',
+          confidence: 'high',
+        },
+      ],
+      scannedFiles: 1,
+      rulesApplied: 5,
+    });
+
+    const result = await runMechanicalChecks({
+      ...baseOptions,
+      changedFiles: ['src/utils/crypto.ts'],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Feed findings into ExclusionSet
+    const exclusionSet = buildExclusionSet(result.value.findings);
+
+    // AI finding overlapping with mechanical finding should be excluded
+    expect(exclusionSet.isExcluded('src/utils/crypto.ts', [10, 20])).toBe(true);
+
+    // AI finding in a different file should NOT be excluded
+    expect(exclusionSet.isExcluded('src/other.ts', [10, 20])).toBe(false);
   });
 });
