@@ -99,6 +99,7 @@ export function spawnBackgroundCheck(currentVersion: string): void {
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 try {
   const latest = execSync('npm view @harness-engineering/cli dist-tags.latest', {
     encoding: 'utf-8',
@@ -106,15 +107,15 @@ try {
     stdio: ['ignore', 'pipe', 'ignore'],
   }).trim();
   const stateDir = ${JSON.stringify(stateDir)};
+  const statePath = ${JSON.stringify(statePath)};
   fs.mkdirSync(stateDir, { recursive: true });
-  fs.writeFileSync(
-    ${JSON.stringify(statePath)},
-    JSON.stringify({
-      lastCheckTime: Date.now(),
-      latestVersion: latest || null,
-      currentVersion: ${JSON.stringify(currentVersion)},
-    })
-  );
+  const tmpFile = path.join(stateDir, '.update-check-' + crypto.randomBytes(4).toString('hex') + '.tmp');
+  fs.writeFileSync(tmpFile, JSON.stringify({
+    lastCheckTime: Date.now(),
+    latestVersion: latest || null,
+    currentVersion: ${JSON.stringify(currentVersion)},
+  }), { mode: 0o644 });
+  fs.renameSync(tmpFile, statePath);
 } catch (_) {}
 `.trim();
 

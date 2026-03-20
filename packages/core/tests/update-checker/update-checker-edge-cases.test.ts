@@ -192,3 +192,42 @@ describe('spawnBackgroundCheck — does not throw when spawn fails', () => {
     expect(() => spawnBackgroundCheck('1.0.0')).toThrow('spawn ENOENT');
   });
 });
+
+describe('spawnBackgroundCheck — atomic write', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-atomic-'));
+    originalHome = process.env['HOME']!;
+    process.env['HOME'] = tmpDir;
+    mockSpawn.mockClear();
+    mockUnref.mockClear();
+    mockSpawn.mockReturnValue({
+      unref: mockUnref,
+      pid: 99999,
+      stdin: null,
+      stdout: null,
+      stderr: null,
+    });
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('inline script uses renameSync for atomic write', () => {
+    spawnBackgroundCheck('1.0.0');
+    const script = mockSpawn.mock.calls[0]![1]![1] as string;
+    expect(script).toContain('renameSync');
+    expect(script).toContain('.tmp');
+  });
+
+  it('inline script uses crypto for unique temp file name', () => {
+    spawnBackgroundCheck('1.0.0');
+    const script = mockSpawn.mock.calls[0]![1]![1] as string;
+    expect(script).toContain('crypto');
+    expect(script).toContain('randomBytes');
+  });
+});
