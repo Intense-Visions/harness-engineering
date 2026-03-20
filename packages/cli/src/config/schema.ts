@@ -86,6 +86,7 @@ export const HarnessConfigSchema = z.object({
     .optional(),
   phaseGates: PhaseGatesConfigSchema.optional(),
   design: DesignConfigSchema.optional(),
+  updateCheckInterval: z.number().int().min(0).optional(),
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
