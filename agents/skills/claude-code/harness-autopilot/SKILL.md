@@ -49,20 +49,32 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ### Phase 1: INIT — Load Spec and Restore State
 
-1. **Check for existing state.** Read `.harness/autopilot-state.json`. If it exists and `currentState` is not `DONE`:
+1. **Resolve spec path.** The spec file is provided as an argument, or ask the user for the spec path.
+
+2. **Derive session slug and directory:**
+   - Derive the session slug from the spec path:
+     1. If the path starts with `docs/`, strip the `docs/` prefix. Otherwise, use the full relative path.
+     2. Drop the trailing `.md` extension
+     3. Replace all `/` and `.` characters with `--`
+     4. Lowercase the result
+   - Set `sessionDir = .harness/sessions/<slug>/`
+   - Create the session directory if it does not exist
+
+3. **Check for existing state.** Read `{sessionDir}/autopilot-state.json`. If it exists and `currentState` is not `DONE`:
    - Report: "Resuming autopilot from state `{currentState}`, phase {currentPhase}: {phaseName}."
    - Skip to the recorded `currentState` and continue from there.
 
-2. **If no existing state (fresh start):**
-   - Read the spec file (provided as argument or found via `.harness/handoff.json`). If neither is available, ask the user for the spec path.
+4. **If no existing state (fresh start):**
+   - Read the spec file.
    - Parse the `## Implementation Order` section to extract phases.
    - For each phase heading (`### Phase N: Name`), extract:
      - Phase name
      - Complexity annotation (`<!-- complexity: low|medium|high -->`, default: `medium`)
-   - Create `.harness/autopilot-state.json`:
+   - Create `{sessionDir}/autopilot-state.json`:
      ```json
      {
-       "schemaVersion": 1,
+       "schemaVersion": 2,
+       "sessionDir": ".harness/sessions/<slug>",
        "specPath": "<path to spec>",
        "currentState": "ASSESS",
        "currentPhase": 0,
@@ -83,15 +95,15 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      }
      ```
 
-3. **Load context.** Read `.harness/learnings.md` and `.harness/failures.md` if they exist. Note any relevant learnings or known dead ends for the current phase.
+5. **Load context.** Read `.harness/learnings.md` and `.harness/failures.md` (global, at `.harness/` root) if they exist. Note any relevant learnings or known dead ends for the current phase.
 
-4. **Transition to ASSESS.**
+6. **Transition to ASSESS.**
 
 ---
 
 ### ASSESS — Determine Phase Approach
 
-1. **Read the current phase** from `autopilot-state.json` at index `currentPhase`.
+1. **Read the current phase** from `{sessionDir}/autopilot-state.json` at index `currentPhase`.
 
 2. **Check if plan already exists.** If `planPath` is set and the file exists, skip to `APPROVE_PLAN`.
 
@@ -124,16 +136,17 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        You are running harness-planning for phase {N}: {name}.
 
        Spec: {specPath}
+       Session directory: {sessionDir}
        Phase description: {phase description from spec}
-       Previous phase learnings: {relevant learnings from .harness/learnings.md}
-       Known failures to avoid: {relevant entries from .harness/failures.md}
+       Previous phase learnings (global): {relevant learnings from .harness/learnings.md}
+       Known failures to avoid (global): {relevant entries from .harness/failures.md}
 
        Follow the harness-planning skill process exactly. Write the plan to
-       docs/plans/{date}-{phase-name}-plan.md. Write .harness/handoff.json when done.
+       docs/plans/{date}-{phase-name}-plan.md. Write {sessionDir}/handoff.json when done.
    ```
 
 2. When the agent returns:
-   - Read the generated plan path from `.harness/handoff.json`.
+   - Read the generated plan path from `{sessionDir}/handoff.json`.
    - **Apply complexity override check:**
      - Count tasks in the plan.
      - Count `[checkpoint:*]` markers.
@@ -147,7 +160,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 **If awaiting interactive plan (high complexity):**
 
 1. Check if a plan file now exists for this phase (user ran planning separately).
-   - Look for files matching `docs/plans/*{phase-name}*` or check `.harness/handoff.json` for a planning handoff.
+   - Look for files matching `docs/plans/*{phase-name}*` or check `{sessionDir}/handoff.json` for a planning handoff.
 2. If found: update `planPath` in state, transition to `APPROVE_PLAN`.
 3. If not found: remind the user and wait.
 
@@ -189,13 +202,14 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        You are running harness-execution for phase {N}: {name}.
 
        Plan: {planPath}
-       State: .harness/state.json
-       Learnings: .harness/learnings.md
-       Failures: .harness/failures.md
+       Session directory: {sessionDir}
+       State: {sessionDir}/state.json
+       Learnings (global): .harness/learnings.md
+       Failures (global): .harness/failures.md
 
        Follow the harness-execution skill process exactly.
-       Update .harness/state.json after each task.
-       Write .harness/handoff.json when done or when blocked.
+       Update {sessionDir}/state.json after each task.
+       Write {sessionDir}/handoff.json when done or when blocked.
    ```
 
 2. **When the agent returns, check the outcome:**
@@ -235,6 +249,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      prompt: |
        You are running harness-verification for phase {N}: {name}.
 
+       Session directory: {sessionDir}
+
        Follow the harness-verification skill process exactly.
        Report pass/fail with findings.
    ```
@@ -260,6 +276,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      description: "Review phase {N}: {name}"
      prompt: |
        You are running harness-code-review for phase {N}: {name}.
+
+       Session directory: {sessionDir}
 
        Follow the harness-code-review skill process exactly.
        Report findings with severity (blocking / warning / note).
@@ -324,7 +342,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - "Create a PR? (yes / no)"
    - If yes: assemble commit history, suggest PR title and description.
 
-3. **Write final handoff:**
+3. **Write final handoff** to `{sessionDir}/handoff.json`:
 
    ```json
    {
@@ -347,20 +365,20 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - [skill:harness-autopilot] [outcome:observation] {any notable patterns from the run}
    ```
 
-5. **Clean up state:** Set `currentState: "DONE"` in `autopilot-state.json`. Do not delete the file — it serves as a record.
+5. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
 
 ## Harness Integration
 
 - **`harness validate`** — Run during INIT to verify project health. Included in every execution task via harness-execution delegation.
 - **`harness check-deps`** — Delegated to harness-execution (included in task steps).
-- **State file** — `.harness/autopilot-state.json` tracks the orchestration state machine. `.harness/state.json` tracks task-level execution state (managed by harness-execution).
-- **Handoff** — `.harness/handoff.json` is written by each delegated skill and read by the next. Autopilot writes a final handoff on DONE.
-- **Learnings** — `.harness/learnings.md` is appended by both delegated skills and autopilot itself.
+- **State file** — `.harness/sessions/<slug>/autopilot-state.json` tracks the orchestration state machine. `.harness/sessions/<slug>/state.json` tracks task-level execution state (managed by harness-execution). The slug is derived from the spec path during INIT.
+- **Handoff** — `.harness/sessions/<slug>/handoff.json` is written by each delegated skill and read by the next. Autopilot writes a final handoff on DONE.
+- **Learnings** — `.harness/learnings.md` (global) is appended by both delegated skills and autopilot itself.
 
 ## Success Criteria
 
 - Single `/harness:autopilot` invocation executes all phases through to completion
-- Resume from any state after context reset via `.harness/autopilot-state.json`
+- Resume from any state after context reset via session-scoped `autopilot-state.json`
 - Low-complexity phases auto-plan; high-complexity phases pause for interactive planning
 - Planning override bumps complexity upward when task signals disagree
 - Retry budget (3 attempts) with escalating context before surfacing failures
@@ -381,7 +399,7 @@ Read spec — found 3 phases:
   Phase 1: Core Scanner (complexity: low)
   Phase 2: Rule Engine (complexity: high)
   Phase 3: CLI Integration (complexity: low)
-Created .harness/autopilot-state.json. Starting Phase 1.
+Created .harness/sessions/specs--2026-03-19-security-scanner/autopilot-state.json. Starting Phase 1.
 ```
 
 **Phase 1 — ASSESS:**
@@ -504,12 +522,12 @@ How should we proceed? (fix manually and continue / revise plan / stop)
 - **No executing without plan approval.** Every plan must be explicitly approved by the human before execution begins. No exceptions, regardless of complexity level.
 - **No skipping VERIFY or REVIEW.** Every phase goes through verification and review. The human can override findings, but the steps cannot be skipped.
 - **No infinite retries.** The retry budget is 3 attempts. If exhausted, STOP and surface to the human. Do not extend the budget without explicit human instruction.
-- **No modifying autopilot-state.json manually.** The state file is managed by the skill. If the state appears corrupted, start fresh rather than patching it.
+- **No modifying session state files manually.** The session state files are managed by the skill. If the state appears corrupted, start fresh rather than patching it.
 
 ## Escalation
 
 - **When the spec has no Implementation Order section:** Cannot identify phases. Ask the user to add phase annotations to the spec or provide a roadmap file.
-- **When a delegated skill fails to produce expected output:** Check that handoff.json was written correctly. If the agent failed, report the failure and ask the user whether to retry the entire phase step or stop.
-- **When the user wants to reorder phases mid-run:** Update the phases array in autopilot-state.json (mark skipped phases, adjust currentPhase). Do not re-run completed phases.
+- **When a delegated skill fails to produce expected output:** Check that `{sessionDir}/handoff.json` was written correctly. If the agent failed, report the failure and ask the user whether to retry the entire phase step or stop.
+- **When the user wants to reorder phases mid-run:** Update the phases array in the session-scoped `autopilot-state.json` (mark skipped phases, adjust currentPhase). Do not re-run completed phases.
 - **When context limits are approaching:** Persist state immediately and inform the user: "Context limit approaching. State saved. Re-invoke /harness:autopilot to continue from this point."
 - **When multiple phases fail in sequence:** After 2 consecutive phase failures (retry budget exhausted in both), suggest the user review the spec for systemic issues rather than continuing.

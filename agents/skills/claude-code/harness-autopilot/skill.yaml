@@ -42,9 +42,11 @@ phases:
 state:
   persistent: true
   files:
-    - .harness/autopilot-state.json
-    - .harness/state.json
+    - .harness/sessions/*/autopilot-state.json
+    - .harness/sessions/*/state.json
+    - .harness/sessions/*/handoff.json
     - .harness/learnings.md
+    - .harness/failures.md
 depends_on:
   - harness-planning
   - harness-execution
