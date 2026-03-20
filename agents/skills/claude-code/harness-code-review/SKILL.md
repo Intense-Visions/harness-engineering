@@ -148,18 +148,17 @@ Run mechanical checks to establish an exclusion boundary. Any issue caught mecha
 
 Before scoping context, determine the change type. This shapes which review focus areas apply.
 
-1. **Explicit argument:** If invoked with a change type (e.g., `--type feature`), use it.
-2. **Commit message prefix:** Parse the most recent commit message for conventional commit prefixes:
+1. **Commit message prefix:** Parse the most recent commit message for conventional commit prefixes:
    - `feat:` or `feature:` → **feature**
    - `fix:` or `bugfix:` → **bugfix**
    - `refactor:` → **refactor**
    - `docs:` or `doc:` → **docs**
-3. **Diff pattern heuristic:** If no prefix is found, examine the diff:
+2. **Diff pattern heuristic:** If no prefix is found, examine the diff:
    - New files added + tests added → likely **feature**
    - Small changes to existing files + test added → likely **bugfix**
    - File renames, moves, or restructuring with no behavior change → likely **refactor**
    - Only `.md` files or comments changed → likely **docs**
-4. **Default:** If detection is ambiguous, treat as **feature** (the most thorough review).
+3. **Default:** If detection is ambiguous, treat as **feature** (the most thorough review).
 
 ```bash
 # Parse commit message prefix
