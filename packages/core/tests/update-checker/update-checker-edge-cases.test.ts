@@ -91,3 +91,24 @@ describe('readCheckState — edge cases', () => {
     expect(readCheckState()).toBeNull();
   });
 });
+
+describe('readCheckState — missing directory', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-nodir-'));
+    originalHome = process.env['HOME']!;
+    process.env['HOME'] = tmpDir;
+    // Deliberately do NOT create ~/.harness/
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('returns null when ~/.harness/ directory does not exist', () => {
+    expect(readCheckState()).toBeNull();
+  });
+});
