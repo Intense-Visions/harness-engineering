@@ -1,0 +1,66 @@
+name: "Healthcare"
+description: "i18n challenges in healthcare — patient safety through unambiguous dates, medical terminology precision, and regulatory compliance"
+
+requirements:
+  - area: "Date Format Safety"
+    description: "Ambiguous dates in medical contexts can be life-threatening — 01/02 could mean Jan 2 or Feb 1"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "Prescription date: 01/02/2025"
+        good: "Prescription date: 02 Jan 2025 (unambiguous month name format per FDA/EMA guidance)"
+  - area: "Medical Terminology Precision"
+    description: "Medical terms must not be machine-translated — incorrect translation of drug names or dosages risks patient safety"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "Auto-translating 'once' (English: one time) which means 'eleven' in Spanish"
+        good: "Use verified medical glossaries; have translations reviewed by locale-specific medical professionals"
+  - area: "Unit of Measurement"
+    description: "Dosage units, body measurements, and lab values use different systems by region"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "Displaying weight in pounds for a metric-system locale"
+        good: "Detect locale and display in expected units (kg/cm for most locales, lb/in for US)"
+  - area: "Patient Consent Forms"
+    description: "Informed consent must be in the patient's language and meet local legal requirements"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "Presenting consent form only in English for non-English-speaking patients"
+        good: "Provide certified translations of consent forms in all supported patient languages"
+  - area: "Instructions for Use (IFU)"
+    description: "Medical device IFU must be translated per MDR/IVDR requirements for EU markets"
+    severity: error
+    locales_affected: ["EU member states"]
+    examples:
+      - bad: "Shipping medical device with English-only IFU to Germany"
+        good: "Include IFU in the official language(s) of each target market per MDR Article 10(11)"
+
+anti_patterns:
+  - pattern: "Machine-translating drug names or medical procedures"
+    reason: "Drug brand names differ by country; procedures have specific medical terminology per locale"
+    instead: "Use locale-specific medical dictionaries and have all medical content reviewed by qualified translators"
+  - pattern: "Using ambiguous date formats in clinical records"
+    reason: "Date misinterpretation in medical contexts can lead to wrong treatment timing"
+    instead: "Use DD-MMM-YYYY format (02-Jan-2025) in clinical records per ICH guidelines"
+  - pattern: "Displaying lab reference ranges without locale context"
+    reason: "Reference ranges and units vary by country (mmol/L vs mg/dL for blood glucose)"
+    instead: "Store values in a canonical unit and convert for display based on locale medical conventions"
+  - pattern: "Truncating patient names to fit fixed-width fields"
+    reason: "Names in many scripts (Arabic, Devanagari, CJK) may be truncated incorrectly, causing identity errors"
+    instead: "Use flexible-width name fields; never truncate patient identification information"
+
+regulations:
+  - name: "FDA 21 CFR Part 11"
+    locales: ["en-US"]
+    impact: "Electronic records must maintain data integrity including proper date/time formatting"
+  - name: "EU MDR (Medical Device Regulation)"
+    locales: ["EU member states"]
+    impact: "Labeling and IFU must be in the official language(s) of the member state where the device is sold"
+  - name: "HIPAA"
+    locales: ["en-US"]
+    impact: "Translation workflows must maintain PHI security; translators need BAA agreements"
+
+reference_products: ["epic.com", "cerner.com", "athenahealth.com"]

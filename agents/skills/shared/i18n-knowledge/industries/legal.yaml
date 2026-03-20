@@ -1,0 +1,66 @@
+name: "Legal"
+description: "i18n challenges in legal technology — jurisdiction-specific terminology, unambiguous dates, and certified translation requirements"
+
+requirements:
+  - area: "Contract Date Formats"
+    description: "Ambiguous dates in legal documents can invalidate contracts or cause disputes"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "Effective date: 01/02/2025 (ambiguous month/day)"
+        good: "Effective date: 2 January 2025 (unambiguous written month format)"
+  - area: "Legal Terminology Precision"
+    description: "Legal terms have specific meanings per jurisdiction — 'tort' in common law vs civil law systems"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "Machine-translating 'consideration' (legal: something of value in a contract)"
+        good: "Use jurisdiction-specific legal glossaries maintained by qualified legal translators"
+  - area: "Jurisdiction-Specific Formatting"
+    description: "Legal citations, court names, and statutory references follow jurisdiction-specific formats"
+    severity: warning
+    locales_affected: "all"
+    examples:
+      - bad: "Using US legal citation format (Bluebook) for EU legal documents"
+        good: "Apply jurisdiction-appropriate citation styles (OSCOLA for UK, Guide des citations for France)"
+  - area: "Right-to-Left Legal Documents"
+    description: "Legal documents in Arabic and Hebrew must maintain correct reading order, especially for numbered clauses"
+    severity: error
+    locales_affected: ["ar", "he"]
+    examples:
+      - bad: "Generating Arabic legal PDF with LTR numbered lists"
+        good: "Use RTL-aware document generation with proper clause numbering direction"
+  - area: "Certified Translation Requirements"
+    description: "Legal documents often require certified or sworn translations with specific attestation formats"
+    severity: error
+    locales_affected: "all"
+    examples:
+      - bad: "Using uncertified machine translation for court filings"
+        good: "Use certified translators; include translator attestation in format required by target jurisdiction"
+
+anti_patterns:
+  - pattern: "Machine-translating legal contracts without human review"
+    reason: "Legal language is precise and jurisdiction-specific; MT errors can create unintended obligations"
+    instead: "Use qualified legal translators with jurisdiction expertise; MT may assist but never replace review"
+  - pattern: "Using the same legal terms across jurisdictions"
+    reason: "'Privacy policy' has different legal implications and required content across GDPR, CCPA, LGPD, PIPA"
+    instead: "Maintain jurisdiction-specific legal content; do not just translate — adapt to local legal frameworks"
+  - pattern: "Displaying contract amounts without locale-appropriate number formatting"
+    reason: "A contract for 1.000 means 1 in English but 1000 in German — financial disputes result"
+    instead: "Spell out amounts in words alongside numerals in legal documents; use locale-correct formatting"
+  - pattern: "Fixed-width contract templates for all languages"
+    reason: "German legal text expands 30-35% over English; Arabic/Hebrew need RTL-aware templates"
+    instead: "Use flexible document templates that adapt to text direction and expansion per locale"
+
+regulations:
+  - name: "GDPR (Article 12)"
+    locales: ["EU member states"]
+    impact: "Privacy information must be provided in clear and plain language — implies user's language"
+  - name: "LGPD (Brazil)"
+    locales: ["pt-BR"]
+    impact: "Data processing notices must be in Portuguese and comply with Brazilian data protection law"
+  - name: "Hague Convention"
+    locales: ["all signatory countries"]
+    impact: "International legal documents must follow apostille and translation requirements per country"
+
+reference_products: ["clio.com", "docusign.com", "ironclad.com"]
