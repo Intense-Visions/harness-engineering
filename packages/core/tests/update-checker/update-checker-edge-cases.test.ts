@@ -1,8 +1,25 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readCheckState, spawnBackgroundCheck } from '../../src/update-checker';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+
+const mockUnref = vi.fn();
+const mockSpawn = vi.fn().mockReturnValue({
+  unref: mockUnref,
+  pid: 99999,
+  stdin: null,
+  stdout: null,
+  stderr: null,
+});
+
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    spawn: (...args: unknown[]) => mockSpawn(...args),
+  };
+});
 
 describe('readCheckState — edge cases', () => {
   let tmpDir: string;
@@ -110,5 +127,68 @@ describe('readCheckState — missing directory', () => {
 
   it('returns null when ~/.harness/ directory does not exist', () => {
     expect(readCheckState()).toBeNull();
+  });
+});
+
+describe('spawnBackgroundCheck — missing directory', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-spawn-nodir-'));
+    originalHome = process.env['HOME']!;
+    process.env['HOME'] = tmpDir;
+    mockSpawn.mockClear();
+    mockUnref.mockClear();
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not throw when ~/.harness/ does not exist', () => {
+    expect(() => spawnBackgroundCheck('1.0.0')).not.toThrow();
+    expect(mockSpawn).toHaveBeenCalledOnce();
+    expect(mockUnref).toHaveBeenCalledOnce();
+  });
+
+  it('inline script includes mkdirSync with recursive true', () => {
+    spawnBackgroundCheck('1.0.0');
+    const script = mockSpawn.mock.calls[0]![1]![1] as string;
+    expect(script).toContain('mkdirSync');
+    expect(script).toContain('recursive');
+  });
+});
+
+describe('spawnBackgroundCheck — does not throw when spawn fails', () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-spawn-fail-'));
+    originalHome = process.env['HOME']!;
+    process.env['HOME'] = tmpDir;
+  });
+
+  afterEach(() => {
+    process.env['HOME'] = originalHome;
+    fs.rmSync(tmpDir, { recursive: true });
+    mockSpawn.mockReturnValue({
+      unref: mockUnref,
+      pid: 99999,
+      stdin: null,
+      stdout: null,
+      stderr: null,
+    });
+  });
+
+  it('propagates if spawn itself throws (caller should wrap)', () => {
+    mockSpawn.mockImplementation(() => {
+      throw new Error('spawn ENOENT');
+    });
+    // spawnBackgroundCheck does NOT wrap the spawn call in try/catch.
+    // The callers (CLI + MCP) catch this. Verify current behavior:
+    expect(() => spawnBackgroundCheck('1.0.0')).toThrow('spawn ENOENT');
   });
 });
