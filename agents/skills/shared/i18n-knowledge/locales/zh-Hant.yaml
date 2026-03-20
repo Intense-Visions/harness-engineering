@@ -1,0 +1,35 @@
+locale: "zh-Hant"
+name: "Chinese (Traditional)"
+native_name: "Zhongwen"
+script: "CJK"
+direction: ltr
+cldr_plural_categories: [other]
+expansion_factor: 0.6
+script_characteristics:
+  avg_char_width: "wide"
+  requires_complex_shaping: false
+  line_break_rules: "no-spaces"
+  cjk_width_handling: true
+  vertical_text_support: false
+  multiple_scripts: false
+number_format:
+  decimal_separator: "."
+  grouping_separator: ","
+  grouping_size: 3
+date_format:
+  short: "YYYY/MM/DD"
+  long: "YYYY年MM月DD日"
+  first_day_of_week: "sunday"
+common_pitfalls:
+  - pitfall: "Regional vocabulary differences (Taiwan vs Hong Kong vs Macau)"
+    example: "'Software' is '軟體' in Taiwan but '軟件' in Hong Kong — same script, different terms"
+    fix: "Support zh-Hant-TW and zh-Hant-HK as separate locales when targeting both markets"
+  - pitfall: "Automatic simplified-to-traditional conversion producing wrong characters"
+    example: "One simplified character may map to multiple traditional characters based on context"
+    fix: "Never use automated character conversion; commission proper traditional Chinese translations"
+  - pitfall: "More complex characters requiring larger minimum font size"
+    example: "Traditional characters have more strokes than simplified — 體 vs 体 — needing higher resolution"
+    fix: "Use minimum 13-14px for traditional Chinese body text to ensure stroke clarity"
+  - pitfall: "Mixed CJK and Latin text spacing"
+    example: "No space between Chinese and English words looks cramped: '使用GitHub' vs '使用 GitHub'"
+    fix: "Apply CSS text-autospace or insert thin spaces between CJK and Latin text runs programmatically"

@@ -1,0 +1,38 @@
+locale: "ko"
+name: "Korean"
+native_name: "Hangugeo"
+script: "Hangul"
+direction: ltr
+cldr_plural_categories: [other]
+expansion_factor: 1.0
+script_characteristics:
+  avg_char_width: "wide"
+  requires_complex_shaping: false
+  line_break_rules: "no-spaces"
+  cjk_width_handling: true
+  vertical_text_support: false
+  multiple_scripts: false
+number_format:
+  decimal_separator: "."
+  grouping_separator: ","
+  grouping_size: 3
+date_format:
+  short: "YYYY. MM. DD."
+  long: "YYYY년 MM월 DD일"
+  first_day_of_week: "sunday"
+common_pitfalls:
+  - pitfall: "Korean has spaces between words unlike Japanese and Chinese"
+    example: "Korean uses spaces between words: '한국어 번역' — do not apply CJK no-space rules blindly"
+    fix: "Use standard word-wrap for Korean; it breaks between words unlike Chinese/Japanese character-level breaking"
+  - pitfall: "Honorific speech levels affecting text length"
+    example: "Korean has 7 speech levels — formal polite forms are longer than casual forms"
+    fix: "Standardize on formal polite level (합니다체) for apps and ensure consistent usage across all strings"
+  - pitfall: "Postposition particles attached to words"
+    example: "'파일을' (file + object marker) vs '파일이' (file + subject marker) — particle depends on context"
+    fix: "Include particles in the translatable string; never programmatically append Korean particles"
+  - pitfall: "Hangul syllable block composition"
+    example: "One Hangul syllable is composed of 2-3 jamo but displays as one character block"
+    fix: "Use Unicode NFC normalization for Korean text; decomposed jamo (NFD) render as separate components"
+  - pitfall: "Number grouping with man (10,000) convention"
+    example: "Large numbers sometimes group by 10,000 (만) instead of 1,000 in informal contexts"
+    fix: "Use Intl.NumberFormat('ko') for standard grouping; add 만/억 suffixes only where culturally appropriate"

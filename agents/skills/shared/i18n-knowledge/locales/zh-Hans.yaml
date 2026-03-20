@@ -1,0 +1,38 @@
+locale: "zh-Hans"
+name: "Chinese (Simplified)"
+native_name: "Zhongwen"
+script: "CJK"
+direction: ltr
+cldr_plural_categories: [other]
+expansion_factor: 0.6
+script_characteristics:
+  avg_char_width: "wide"
+  requires_complex_shaping: false
+  line_break_rules: "no-spaces"
+  cjk_width_handling: true
+  vertical_text_support: false
+  multiple_scripts: false
+number_format:
+  decimal_separator: "."
+  grouping_separator: ","
+  grouping_size: 3
+date_format:
+  short: "YYYY/MM/DD"
+  long: "YYYY年MM月DD日"
+  first_day_of_week: "sunday"
+common_pitfalls:
+  - pitfall: "Text contraction causing UI elements to look empty"
+    example: "'Internationalization' (20 chars) becomes '国际化' (3 chars) — a 85% reduction"
+    fix: "Use min-width on buttons and containers to prevent them from collapsing with short CJK translations"
+  - pitfall: "No word spaces means no natural line breaks"
+    example: "A long Chinese sentence has no spaces — wrapping can break between any two characters"
+    fix: "Use CSS word-break: normal for CJK; browsers handle character-level breaking correctly by default"
+  - pitfall: "Confusing zh-Hans with zh-Hant"
+    example: "Showing traditional characters (繁體) to mainland China users who expect simplified (简体)"
+    fix: "Use explicit zh-Hans (simplified) vs zh-Hant (traditional) subtags; never use bare 'zh'"
+  - pitfall: "CJK punctuation width"
+    example: "Chinese uses full-width punctuation (。，！) not half-width (.  , !) — affects text measurement"
+    fix: "Account for full-width punctuation in text width calculations and do not replace with ASCII equivalents"
+  - pitfall: "Font size minimum for CJK readability"
+    example: "Complex characters become illegible below 12px — strokes merge at small sizes"
+    fix: "Set minimum font size of 12px for CJK text; 14px is recommended for body text"
