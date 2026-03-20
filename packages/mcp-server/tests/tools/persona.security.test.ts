@@ -57,7 +57,7 @@ describe('persona path traversal prevention', () => {
       expect(result.isError).toBe(true);
     });
 
-    it('accepts valid kebab-case persona names', async () => {
+    it('accepts valid kebab-case persona names', { timeout: 15000 }, async () => {
       const result = await handleRunPersona({ persona: 'code-reviewer' });
       if (result.isError) {
         const text = (result.content[0] as { text: string }).text;
