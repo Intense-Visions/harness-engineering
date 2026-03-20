@@ -308,7 +308,7 @@ export function createHarnessServer(projectRoot?: string): Server {
           const configResult = resolveProjectConfig(resolvedRoot);
           if (configResult.ok) {
             const raw = configResult.value.updateCheckInterval;
-            if (typeof raw === 'number') {
+            if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 0) {
               configInterval = raw;
             }
           }

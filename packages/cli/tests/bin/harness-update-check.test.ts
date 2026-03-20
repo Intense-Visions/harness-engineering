@@ -22,11 +22,16 @@ import {
   getUpdateNotification,
   VERSION,
 } from '@harness-engineering/core';
-import { runUpdateCheckAtStartup, printUpdateNotification } from '../../src/bin/update-check-hooks';
+import {
+  runUpdateCheckAtStartup,
+  printUpdateNotification,
+  _resetConfigCache,
+} from '../../src/bin/update-check-hooks';
 
 describe('update-check CLI hooks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetConfigCache();
   });
 
   describe('runUpdateCheckAtStartup', () => {
@@ -90,13 +95,13 @@ describe('update-check CLI hooks', () => {
     it('prints notification to stderr when getUpdateNotification returns a message', () => {
       vi.mocked(isUpdateCheckEnabled).mockReturnValue(true);
       vi.mocked(getUpdateNotification).mockReturnValue(
-        'Update available: v1.7.0 \u2192 v1.8.0\nRun "harness update" to upgrade.'
+        'Update available: v1.7.0 -> v1.8.0\nRun "harness update" to upgrade.'
       );
 
       printUpdateNotification();
 
       expect(stderrSpy).toHaveBeenCalledWith(
-        '\nUpdate available: v1.7.0 \u2192 v1.8.0\nRun "harness update" to upgrade.\n'
+        '\nUpdate available: v1.7.0 -> v1.8.0\nRun "harness update" to upgrade.\n'
       );
     });
 

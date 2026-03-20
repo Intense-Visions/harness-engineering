@@ -51,7 +51,7 @@ describe('MCP Update Check Hook', () => {
     mockShouldRunCheck.mockReturnValue(true);
     mockReadCheckState.mockReturnValue(null);
     mockGetUpdateNotification.mockReturnValue(
-      'Update available: v1.0.0 \u2192 v1.1.0\nRun "harness update" to upgrade.'
+      'Update available: v1.0.0 -> v1.1.0\nRun "harness update" to upgrade.'
     );
     mockSpawnBackgroundCheck.mockReturnValue(undefined);
   });
@@ -154,7 +154,7 @@ describe('MCP Update Check Hook', () => {
     // Second call — should NOT trigger again
     vi.clearAllMocks();
     mockGetUpdateNotification.mockReturnValue(
-      'Update available: v1.0.0 \u2192 v1.1.0\nRun "harness update" to upgrade.'
+      'Update available: v1.0.0 -> v1.1.0\nRun "harness update" to upgrade.'
     );
 
     const result2 = await client.callTool({
@@ -248,6 +248,46 @@ describe('MCP Update Check with Config', () => {
 
     expect(mockIsUpdateCheckEnabled).toHaveBeenCalledWith(undefined);
     expect(mockShouldRunCheck).toHaveBeenCalledWith(null, 86_400_000);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('rejects negative updateCheckInterval', async () => {
+    const { client, tmpDir } = await createConnectedClientWithConfig({
+      version: 1,
+      updateCheckInterval: -1,
+    });
+
+    await client.callTool({ name: 'validate_project', arguments: { path: '/tmp/nonexistent' } });
+
+    // Negative number should be rejected; configInterval should be undefined
+    expect(mockIsUpdateCheckEnabled).toHaveBeenCalledWith(undefined);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('rejects string updateCheckInterval', async () => {
+    const { client, tmpDir } = await createConnectedClientWithConfig({
+      version: 1,
+      updateCheckInterval: 'fast',
+    });
+
+    await client.callTool({ name: 'validate_project', arguments: { path: '/tmp/nonexistent' } });
+
+    expect(mockIsUpdateCheckEnabled).toHaveBeenCalledWith(undefined);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('rejects float updateCheckInterval', async () => {
+    const { client, tmpDir } = await createConnectedClientWithConfig({
+      version: 1,
+      updateCheckInterval: 3600.5,
+    });
+
+    await client.callTool({ name: 'validate_project', arguments: { path: '/tmp/nonexistent' } });
+
+    expect(mockIsUpdateCheckEnabled).toHaveBeenCalledWith(undefined);
 
     fs.rmSync(tmpDir, { recursive: true });
   });

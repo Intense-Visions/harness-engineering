@@ -28,7 +28,11 @@ import {
   getUpdateNotification,
 } from '@harness-engineering/core';
 import { findConfigFile, loadConfig } from '../../src/config/loader';
-import { runUpdateCheckAtStartup, printUpdateNotification } from '../../src/bin/update-check-hooks';
+import {
+  runUpdateCheckAtStartup,
+  printUpdateNotification,
+  _resetConfigCache,
+} from '../../src/bin/update-check-hooks';
 
 const mockIsUpdateCheckEnabled = vi.mocked(isUpdateCheckEnabled);
 const mockShouldRunCheck = vi.mocked(shouldRunCheck);
@@ -40,6 +44,7 @@ const mockLoadConfig = vi.mocked(loadConfig);
 describe('runUpdateCheckAtStartup with config', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetConfigCache();
     mockIsUpdateCheckEnabled.mockReturnValue(true);
     mockShouldRunCheck.mockReturnValue(true);
     mockSpawnBackgroundCheck.mockReturnValue(undefined);
@@ -111,9 +116,46 @@ describe('runUpdateCheckAtStartup with config', () => {
   });
 });
 
+describe('config caching behavior', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _resetConfigCache();
+    mockIsUpdateCheckEnabled.mockReturnValue(true);
+    mockShouldRunCheck.mockReturnValue(true);
+    mockSpawnBackgroundCheck.mockReturnValue(undefined);
+    mockGetUpdateNotification.mockReturnValue(null);
+  });
+
+  it('reads config only once across both hooks', () => {
+    mockFindConfigFile.mockReturnValue({ ok: true, value: '/project/harness.config.json' } as any);
+    mockLoadConfig.mockReturnValue({
+      ok: true,
+      value: {
+        version: 1 as const,
+        rootDir: '.',
+        agentsMapPath: './AGENTS.md',
+        docsDir: './docs',
+        updateCheckInterval: 3600000,
+      },
+    } as any);
+
+    runUpdateCheckAtStartup();
+    printUpdateNotification();
+
+    // findConfigFile should be called only once (cached on second call)
+    expect(mockFindConfigFile).toHaveBeenCalledTimes(1);
+    expect(mockLoadConfig).toHaveBeenCalledTimes(1);
+    // Both hooks should still use the cached interval
+    expect(mockIsUpdateCheckEnabled).toHaveBeenCalledTimes(2);
+    expect(mockIsUpdateCheckEnabled).toHaveBeenNthCalledWith(1, 3600000);
+    expect(mockIsUpdateCheckEnabled).toHaveBeenNthCalledWith(2, 3600000);
+  });
+});
+
 describe('printUpdateNotification with config', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetConfigCache();
     mockIsUpdateCheckEnabled.mockReturnValue(true);
     mockGetUpdateNotification.mockReturnValue(null);
   });
