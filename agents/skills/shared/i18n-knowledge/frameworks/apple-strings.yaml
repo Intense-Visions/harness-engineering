@@ -1,0 +1,47 @@
+name: "Apple Strings"
+description: "Apple platform localization using .strings, .stringsdict, and .xcstrings (String Catalogs) files"
+platforms: ["mobile"]
+message_format: "custom"
+
+detection:
+  package_json_keys:
+    dependencies: []
+    devDependencies: []
+  file_patterns: ["**/*.strings", "**/*.stringsdict", "**/*.xcstrings", "**/*.lproj/**"]
+  config_files: ["*.xcodeproj/project.pbxproj", "*.xcworkspace"]
+
+conventions:
+  key_format: "dot-notation"
+  file_format: "strings"
+  file_structure: "{locale}.lproj/Localizable.strings"
+  plural_syntax: ".stringsdict plist format with NSStringLocalizedFormatKey"
+  interpolation_syntax: "%@ (positional: %1$@, %2$@)"
+
+recommended_tooling:
+  extraction: ["genstrings", "Xcode String Catalog auto-extraction"]
+  linting: ["SwiftLint custom rules", "Xcode build warnings"]
+  pseudo_locale: ["xcstrings pseudo-locale generation"]
+
+anti_patterns:
+  - pattern: "Missing .stringsdict for plurals"
+    severity: error
+    instead: "Create .stringsdict files for all pluralized strings; NSLocalizedString alone cannot handle plural forms"
+  - pattern: "Concatenating localized strings"
+    severity: error
+    instead: "Use String(format:) with positional specifiers: String(format: NSLocalizedString('greeting_%@_%@'), firstName, lastName)"
+  - pattern: "Not using String Catalogs (Xcode 15+)"
+    severity: info
+    instead: "Migrate from .strings/.stringsdict to .xcstrings (String Catalogs) for unified translation management"
+  - pattern: "Hardcoded strings in storyboards/XIBs without localization"
+    severity: warning
+    instead: "Use Base Internationalization with .strings files for Interface Builder, or switch to programmatic UI with NSLocalizedString"
+  - pattern: "Not testing with pseudolanguage locale on device"
+    severity: warning
+    instead: "Enable Double-Length Pseudolanguage in Xcode scheme settings to test text expansion"
+
+migration_notes:
+  from:
+    - framework: "legacy .strings"
+      guidance: "Open .strings files in Xcode 15+ and migrate to String Catalogs (.xcstrings); Xcode provides automatic migration; review pluralization rules post-migration"
+    - framework: "third-party (Lokalise SDK, Crowdin SDK)"
+      guidance: "Replace OTA SDK with build-time .xcstrings integration; use export/import workflows instead of runtime translation fetching"
