@@ -77,6 +77,8 @@ Run every check below. Record each as **pass**, **warn**, or **fail**:
 | `homepage` field exists                                                              | warn                |
 | `description` field exists                                                           | warn                |
 | Build succeeds: run the project's build command                                      | fail                |
+| Typecheck passes: run the project's typecheck command (e.g., `pnpm typecheck`)       | fail                |
+| Tests pass: run the project's test command (e.g., `pnpm test`)                       | fail                |
 | `pnpm pack --dry-run` produces expected files (no test files, no src if dist exists) | warn                |
 
 ##### Documentation (root level)
@@ -107,8 +109,8 @@ Run every check below. Record each as **pass**, **warn**, or **fail**:
 | CI workflow file exists (`.github/workflows/ci.yml` or similar) | fail                |
 | Release/publish workflow file exists                            | warn                |
 | `test` script exists in root `package.json`                     | fail                |
-| `lint` script exists in root `package.json`                     | warn                |
-| `typecheck` or `tsc` script exists in root `package.json`       | warn                |
+| `lint` script exists in root `package.json`                     | fail                |
+| `typecheck` or `tsc` script exists in root `package.json`       | fail                |
 | `harness validate` passes (project-level health check)          | fail                |
 
 #### Comprehensive Checks (only with `--comprehensive`)
@@ -267,13 +269,15 @@ After each batch of fixes (or after each individual fix if not batching), run `h
 
 These require human judgment and cannot be auto-fixed. List them with guidance:
 
-| Finding                                                      | Guidance                                                                                                                                                               |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TODO`/`FIXME` in published source                           | List each location with file:line. Human must resolve or move to a tracked issue.                                                                                      |
-| README missing usage/API sections                            | Suggest section structure but do not generate content — only the author knows the API.                                                                                 |
-| CHANGELOG exists but has no entries (empty or template-only) | Suggest running `git log --oneline <last-tag>..HEAD` to generate entries. Unlike a missing file (auto-fixable above), an empty CHANGELOG needs human-authored content. |
-| CI workflow missing                                          | Provide a starter template but flag for human review before committing.                                                                                                |
-| Build failure                                                | Show the error output. Do not attempt to fix build issues automatically.                                                                                               |
+| Finding                                                      | Guidance                                                                                                                                                                                                                      |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TODO`/`FIXME` in published source                           | List each location with file:line. Human must resolve or move to a tracked issue.                                                                                                                                             |
+| README missing usage/API sections                            | Suggest section structure but do not generate content — only the author knows the API.                                                                                                                                        |
+| CHANGELOG exists but has no entries (empty or template-only) | Suggest running `git log --oneline <last-tag>..HEAD` to generate entries. Unlike a missing file (auto-fixable above), an empty CHANGELOG needs human-authored content.                                                        |
+| CI workflow missing                                          | Provide a starter template but flag for human review before committing.                                                                                                                                                       |
+| Build failure                                                | Show the error output. Do not attempt to fix build issues automatically.                                                                                                                                                      |
+| Typecheck failure                                            | Show the error output with file:line. Common causes: orphaned files with stale imports, missing type declarations, `exactOptionalPropertyTypes` violations. Do not auto-fix — type errors often indicate structural problems. |
+| Test failure                                                 | Show the error output with failing test names. Do not attempt to fix test failures automatically — they may indicate real bugs.                                                                                               |
 
 #### Output
 
