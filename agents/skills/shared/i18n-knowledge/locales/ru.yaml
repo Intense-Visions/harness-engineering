@@ -1,0 +1,35 @@
+locale: "ru"
+name: "Russian"
+native_name: "Russkiy"
+script: "Cyrillic"
+direction: ltr
+cldr_plural_categories: [one, few, many, other]
+expansion_factor: 1.25
+script_characteristics:
+  avg_char_width: "standard"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+number_format:
+  decimal_separator: ","
+  grouping_separator: "\u00A0"
+  grouping_size: 3
+date_format:
+  short: "DD.MM.YYYY"
+  long: "DD Month YYYY g."
+  first_day_of_week: "monday"
+common_pitfalls:
+  - pitfall: "Four plural forms with complex rules"
+    example: "1 файл, 2 файла, 5 файлов, 21 файл — the rule depends on the last two digits"
+    fix: "Use CLDR plural rules: one (1,21,31...), few (2-4,22-24...), many (5-20,25-30...), other (fractional)"
+  - pitfall: "Six grammatical cases affecting dynamic content"
+    example: "'Москва' changes form by case: Москвы (genitive), Москве (dative), Москву (accusative)"
+    fix: "Include case-inflected forms in translation strings; never try to programmatically decline Russian nouns"
+  - pitfall: "Cyrillic characters that look identical to Latin"
+    example: "Cyrillic 'а' (U+0430) looks like Latin 'a' (U+0061) but they are different characters"
+    fix: "Use Unicode-aware text comparison; visually identical Cyrillic/Latin chars cause search and auth issues"
+  - pitfall: "Number grouping with non-breaking space"
+    example: "1 000 000 not 1,000,000 — Russian uses non-breaking space as grouping separator"
+    fix: "Use Intl.NumberFormat('ru') for correct space-based number grouping"
+  - pitfall: "Abbreviated month and day names"
+    example: "Russian abbreviations follow different patterns than English — 'янв.' not 'Янв'"
+    fix: "Use Intl.DateTimeFormat('ru') for abbreviated date components; do not manually truncate month names"
