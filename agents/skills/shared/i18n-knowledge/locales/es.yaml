@@ -1,0 +1,35 @@
+locale: "es"
+name: "Spanish"
+native_name: "Espanol"
+script: "Latin"
+direction: ltr
+cldr_plural_categories: [one, many, other]
+expansion_factor: 1.25
+script_characteristics:
+  avg_char_width: "narrow"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+number_format:
+  decimal_separator: ","
+  grouping_separator: "."
+  grouping_size: 3
+date_format:
+  short: "DD/MM/YYYY"
+  long: "DD de Month de YYYY"
+  first_day_of_week: "monday"
+common_pitfalls:
+  - pitfall: "Ignoring inverted punctuation marks"
+    example: "Displaying 'How are you?' without the opening inverted question mark"
+    fix: "Spanish requires opening punctuation: 'Como estas?' — ensure translation tools preserve these characters"
+  - pitfall: "Not accounting for es-ES vs es-MX vs es-419 differences"
+    example: "Using 'ordenador' (Spain) when targeting Latin America where 'computadora' is standard"
+    fix: "Support regional variants (es-ES, es-MX, es-419) or use neutral Spanish as a fallback"
+  - pitfall: "Assuming gender-neutral nouns"
+    example: "Translating 'the user' — Spanish requires gendered articles (el usuario / la usuaria)"
+    fix: "Design UI strings to avoid gendered references or provide both forms where grammar requires it"
+  - pitfall: "Text expansion breaking fixed-width layouts"
+    example: "'Settings' (8 chars) becomes 'Configuracion' (13 chars) — a 62% expansion"
+    fix: "Design containers to accommodate 20-25% text expansion; test with Spanish translations early"
+  - pitfall: "Incorrect number formatting"
+    example: "Displaying 1,234.56 instead of 1.234,56 for Spanish locales"
+    fix: "Use Intl.NumberFormat('es') to format numbers with correct decimal comma and period grouping"

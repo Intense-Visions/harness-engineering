@@ -1,0 +1,35 @@
+locale: "fi"
+name: "Finnish"
+native_name: "Suomi"
+script: "Latin"
+direction: ltr
+cldr_plural_categories: [one, other]
+expansion_factor: 1.40
+script_characteristics:
+  avg_char_width: "narrow"
+  requires_complex_shaping: false
+  line_break_rules: "standard"
+number_format:
+  decimal_separator: ","
+  grouping_separator: "\u00A0"
+  grouping_size: 3
+date_format:
+  short: "DD.MM.YYYY"
+  long: "DD. MonthTA YYYY"
+  first_day_of_week: "monday"
+common_pitfalls:
+  - pitfall: "Extreme text expansion due to agglutinative grammar"
+    example: "'in the house' translates to 'talossa' (one word); but compound phrases can be very long"
+    fix: "Design for up to 40% expansion; Finnish is one of the longest Western languages for UI strings"
+  - pitfall: "15 grammatical cases affecting word forms"
+    example: "'talo' (house) has forms: talon, taloa, talossa, talosta, taloon, talolla, talolta, talolle..."
+    fix: "Never programmatically construct Finnish phrases — let translators handle case inflection in full sentences"
+  - pitfall: "Vowel harmony in suffixes"
+    example: "Suffixes must match the vowel pattern of the root word — back vowels (a,o,u) vs front vowels (a,o,y)"
+    fix: "Do not attempt to programmatically add Finnish suffixes; always use translator-provided complete forms"
+  - pitfall: "No grammatical gender but complex number agreement"
+    example: "Finnish has no gendered nouns, but number-noun agreement is partitive: '1 talo' but '2 taloa'"
+    fix: "Use CLDR plural rules (Finnish has only one/other) and let translators handle partitive case in plural form"
+  - pitfall: "Long words breaking fixed layouts"
+    example: "'lentokonesuihkuturbiinimoottoriapumekaanikkoaliupseerioppilas' — valid compound word"
+    fix: "Use CSS overflow-wrap: break-word and hyphens: auto with lang='fi' to handle extreme compound words"
