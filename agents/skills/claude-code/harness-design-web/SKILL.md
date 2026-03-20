@@ -181,6 +181,8 @@
 - **`harness-design`** — Dependency. This skill reads aesthetic intent from harness-design output (`design-system/DESIGN.md`). Anti-pattern enforcement and style constraints come from the design intent document.
 - **`harness-impact-analysis`** — When tokens change, impact analysis traces which components consume affected tokens via `USES_TOKEN` edges. Use this to identify components that need regeneration after token updates.
 
+**Graph naming convention:** This skill uses PascalCase for node types (`DesignToken`, `DesignConstraint`) and UPPER_SNAKE for edge types (`USES_TOKEN`, `PLATFORM_BINDING`, `VIOLATES_DESIGN`) as conceptual labels. The graph schema registers these as snake_case identifiers (`design_token`, `design_constraint`, `uses_token`, `platform_binding`, `violates_design`). The adapter classes (`DesignIngestor`, `DesignConstraintAdapter`) handle the mapping — always use the adapters rather than constructing graph queries with raw type names.
+
 ## Success Criteria
 
 - Generated components reference design tokens exclusively — no hardcoded color, font, or spacing values
