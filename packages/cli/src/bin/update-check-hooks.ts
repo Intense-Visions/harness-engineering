@@ -6,8 +6,28 @@ import {
   getUpdateNotification,
   VERSION,
 } from '@harness-engineering/core';
+import { findConfigFile, loadConfig } from '../config/loader';
 
 const DEFAULT_INTERVAL_MS = 86_400_000; // 24 hours
+
+/**
+ * Reads updateCheckInterval from harness.config.json.
+ * Returns undefined if config is missing or does not contain the field.
+ * Never throws.
+ */
+function readConfigInterval(): number | undefined {
+  try {
+    const findResult = findConfigFile();
+    if (!findResult.ok) return undefined;
+    const configResult = loadConfig(findResult.value);
+    if (!configResult.ok) return undefined;
+    return (configResult.value as Record<string, unknown>).updateCheckInterval as
+      | number
+      | undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Called at CLI startup (before parseAsync).
@@ -18,9 +38,11 @@ const DEFAULT_INTERVAL_MS = 86_400_000; // 24 hours
  */
 export function runUpdateCheckAtStartup(): void {
   try {
-    if (!isUpdateCheckEnabled()) return;
+    const configInterval = readConfigInterval();
+    if (!isUpdateCheckEnabled(configInterval)) return;
     const state = readCheckState();
-    if (!shouldRunCheck(state, DEFAULT_INTERVAL_MS)) return;
+    const interval = configInterval ?? DEFAULT_INTERVAL_MS;
+    if (!shouldRunCheck(state, interval)) return;
     spawnBackgroundCheck(VERSION);
   } catch {
     // Silent -- update checks must never interfere with CLI operation
@@ -36,7 +58,8 @@ export function runUpdateCheckAtStartup(): void {
  */
 export function printUpdateNotification(): void {
   try {
-    if (!isUpdateCheckEnabled()) return;
+    const configInterval = readConfigInterval();
+    if (!isUpdateCheckEnabled(configInterval)) return;
     const message = getUpdateNotification(VERSION);
     if (message) {
       process.stderr.write(`\n${message}\n`);
