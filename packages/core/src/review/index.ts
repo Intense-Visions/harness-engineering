@@ -19,3 +19,9 @@ export { runMechanicalChecks } from './mechanical-checks';
 
 // Exclusion set
 export { ExclusionSet, buildExclusionSet } from './exclusion-set';
+
+// Change-type detection
+export { detectChangeType } from './change-type';
+
+// Context scoping
+export { scopeContext } from './context-scoper';
