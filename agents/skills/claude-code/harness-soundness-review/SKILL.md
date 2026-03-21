@@ -1092,17 +1092,17 @@ Phase 3: CONVERGE
 Phase 4: SURFACE
   2 remaining issues need your input:
 
-  [P5-001] Spec risk 'convergence loop may not terminate' has no mitigation (warning)
-  The spec identifies loop termination as a risk, but no plan task tests
-  termination behavior.
-  -> Add a test task for convergence termination, or accept the risk explicitly.
+  [P5-001] Spec risk 'performance vs correctness tradeoff' has no mitigation (warning)
+  The spec notes that strict validation may impact throughput, but no plan task
+  addresses performance testing or defines an acceptable latency threshold.
+  -> Add a performance benchmark task, relax validation, or accept the risk.
 
   [P7-001] Task 7 depends on undecided caching strategy (error)
   Task 7 says 'implement caching layer' but the spec Decisions table has no
   entry for caching strategy. This task cannot be executed without a decision.
   -> Make the caching decision in the spec, then update Task 7 with specifics.
 
-  User resolves P5-001 -> adds Task 10 for termination test.
+  User resolves P5-001 -> adds Task 10 for performance benchmark at 100ms threshold.
   User resolves P7-001 -> updates spec with LRU cache decision, updates Task 7.
   Re-running checks... 0 findings.
 
