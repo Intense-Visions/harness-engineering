@@ -1129,7 +1129,7 @@ All checks produce useful results from document analysis and basic codebase read
 ## Harness Integration
 
 - **`harness validate`** — Run before and after the soundness review to verify project health is maintained.
-- **Parent skill invocation** — harness-brainstorming invokes `--mode spec` before sign-off; harness-planning invokes `--mode plan` before sign-off. (Integration lines to be added in Phase 7 of implementation.)
+- **Parent skill invocation** — harness-brainstorming invokes `--mode spec` before sign-off; harness-planning invokes `--mode plan` before sign-off.
 - **No new user commands** — Users invoke brainstorming and planning exactly as before. The soundness review is invisible until it surfaces an issue.
 - **Graph queries** — When `.harness/graph/` exists, use `query_graph` and `get_impact` for enhanced feasibility and dependency checks. Fall back to file-based reads when no graph is available.
 
