@@ -24,6 +24,10 @@ export type {
   ReviewStrength,
   ReviewOutputOptions,
   GitHubInlineComment,
+  // Phase 1: Eligibility Gate types
+  PriorReview,
+  PrMetadata,
+  EligibilityResult,
 } from './types';
 
 // Mechanical checks
@@ -63,6 +67,9 @@ export { deduplicateFindings } from './deduplicate-findings';
 export type { DeduplicateFindingsOptions } from './deduplicate-findings';
 
 // Phase 7: Output
+// Phase 1: Eligibility gate
+export { checkEligibility } from './eligibility-gate';
+
 export {
   determineAssessment,
   getExitCode,
