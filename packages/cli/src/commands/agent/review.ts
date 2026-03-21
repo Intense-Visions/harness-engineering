@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import { execSync } from 'child_process';
 import type { Result } from '@harness-engineering/core';
-import { Ok, Err } from '@harness-engineering/core';
-import { createSelfReview, parseDiff } from '@harness-engineering/core';
+import { Ok, Err, parseDiff, runReviewPipeline } from '@harness-engineering/core';
+import type { ReviewPipelineResult } from '@harness-engineering/core';
 import { resolveConfig } from '../../config/loader';
 import { OutputMode, type OutputModeType } from '../../output/formatter';
 import { logger } from '../../output/logger';
@@ -13,6 +13,10 @@ interface ReviewOptions {
   json?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+  comment?: boolean;
+  ci?: boolean;
+  deep?: boolean;
+  noMechanical?: boolean;
 }
 
 export async function runAgentReview(options: ReviewOptions): Promise<
@@ -20,6 +24,7 @@ export async function runAgentReview(options: ReviewOptions): Promise<
     {
       passed: boolean;
       checklist: Array<{ check: string; passed: boolean; details?: string }>;
+      pipelineResult?: ReviewPipelineResult;
     },
     CLIError
   >
@@ -57,33 +62,56 @@ export async function runAgentReview(options: ReviewOptions): Promise<
 
   const codeChanges = parsedDiffResult.value;
 
-  // Create self-review with proper config
-  const review = await createSelfReview(codeChanges, {
-    rootDir: config.rootDir,
-    diffAnalysis: {
-      enabled: true,
-      checkTestCoverage: true,
-    },
-  });
-
-  if (!review.ok) {
-    return Err(new CLIError(review.error.message, ExitCode.ERROR));
+  // Get commit message
+  let commitMessage = '';
+  try {
+    commitMessage = execSync('git log --oneline -1', { encoding: 'utf-8' }).trim();
+  } catch {
+    // No commit message available
   }
 
+  // Build DiffInfo
+  const diffInfo = {
+    changedFiles: codeChanges.files.map((f) => f.path),
+    newFiles: codeChanges.files.filter((f) => f.status === 'added').map((f) => f.path),
+    deletedFiles: codeChanges.files.filter((f) => f.status === 'deleted').map((f) => f.path),
+    totalDiffLines: diff.split('\n').length,
+    fileDiffs: new Map(codeChanges.files.map((f) => [f.path, ''])),
+  };
+
+  // Run the unified pipeline
+  const pipelineResult = await runReviewPipeline({
+    projectRoot: config.rootDir,
+    diff: diffInfo,
+    commitMessage,
+    flags: {
+      comment: options.comment ?? false,
+      ci: options.ci ?? false,
+      deep: options.deep ?? false,
+      noMechanical: options.noMechanical ?? false,
+    },
+    config: config as unknown as Record<string, unknown>,
+  });
+
   return Ok({
-    passed: review.value.passed,
-    checklist: review.value.items.map((item) => ({
-      check: item.check,
-      passed: item.passed,
-      details: item.details,
+    passed: pipelineResult.exitCode === 0,
+    checklist: pipelineResult.findings.map((f) => ({
+      check: `[${f.domain}] ${f.title}`,
+      passed: f.severity === 'suggestion',
+      details: f.rationale,
     })),
+    pipelineResult,
   });
 }
 
 export function createReviewCommand(): Command {
   return new Command('review')
-    .description('Run self-review on current changes')
-    .action(async (_opts, cmd) => {
+    .description('Run unified code review pipeline on current changes')
+    .option('--comment', 'Post inline comments to GitHub PR')
+    .option('--ci', 'Enable eligibility gate, non-interactive output')
+    .option('--deep', 'Add threat modeling pass to security agent')
+    .option('--no-mechanical', 'Skip mechanical checks')
+    .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json
         ? OutputMode.JSON
@@ -96,6 +124,10 @@ export function createReviewCommand(): Command {
         json: globalOpts.json,
         verbose: globalOpts.verbose,
         quiet: globalOpts.quiet,
+        comment: opts.comment,
+        ci: opts.ci,
+        deep: opts.deep,
+        noMechanical: opts.mechanical === false, // Commander negation: --no-mechanical sets mechanical=false
       });
 
       if (!result.ok) {
@@ -107,21 +139,39 @@ export function createReviewCommand(): Command {
         process.exit(result.error.exitCode);
       }
 
-      if (mode === OutputMode.JSON) {
-        console.log(JSON.stringify(result.value, null, 2));
-      } else if (mode !== OutputMode.QUIET) {
-        console.log(result.value.passed ? 'v Self-review passed' : 'x Self-review found issues');
-        console.log('');
+      const { pipelineResult } = result.value;
 
-        for (const item of result.value.checklist) {
-          const icon = item.passed ? 'v' : 'x';
-          console.log(`  ${icon} ${item.check}`);
-          if (item.details && !item.passed) {
-            console.log(`    ${item.details}`);
-          }
+      if (mode === OutputMode.JSON) {
+        console.log(
+          JSON.stringify(
+            {
+              ...result.value,
+              pipelineResult: pipelineResult
+                ? {
+                    assessment: pipelineResult.assessment,
+                    findings: pipelineResult.findings,
+                    exitCode: pipelineResult.exitCode,
+                  }
+                : undefined,
+            },
+            null,
+            2
+          )
+        );
+      } else if (mode !== OutputMode.QUIET) {
+        if (pipelineResult) {
+          console.log(pipelineResult.terminalOutput);
+        } else {
+          console.log(result.value.passed ? 'v Self-review passed' : 'x Self-review found issues');
         }
       }
 
-      process.exit(result.value.passed ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+      process.exit(
+        pipelineResult
+          ? pipelineResult.exitCode
+          : result.value.passed
+            ? ExitCode.SUCCESS
+            : ExitCode.VALIDATION_FAILED
+      );
     });
 }
