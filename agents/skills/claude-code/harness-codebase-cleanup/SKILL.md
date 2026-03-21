@@ -136,3 +136,79 @@ while iteration < 5:
 - Dead import from forbidden layer: removing the dead import also resolves the architecture violation. Single fix, both resolved.
 - Architecture fix creates dead code: replacing a forbidden import makes the old module's export dead. Next detect cycle catches it.
 - Dead file resolves multiple violations: deleting a dead file that imports from wrong layers resolves those violations too.
+
+### Phase 5: REPORT -- Actionable Output
+
+Generate a structured report with two sections:
+
+**1. Fixes Applied:**
+For each fix that was applied:
+
+- File and line
+- What was fixed (finding type and description)
+- What action was taken (delete, replace, reorder)
+- Verification status (pass/fail)
+
+**2. Remaining Findings (requires human action):**
+For each unsafe finding that was not auto-fixed:
+
+- **What is wrong:** The finding type, file, line, and description
+- **Why it cannot be auto-fixed:** The safety reason and classification logic
+- **Suggested approach:** Concrete next steps for manual resolution
+
+Example report output:
+
+```
+=== HARNESS CODEBASE CLEANUP REPORT ===
+
+Fixes applied: 12
+  - 5 unused imports removed (safe)
+  - 3 dead exports de-exported (safe)
+  - 2 commented-out code blocks deleted (safe)
+  - 1 forbidden import replaced (probably-safe, approved)
+  - 1 orphaned dependency removed (probably-safe, approved)
+
+Convergence: 3 iterations, 12 → 8 → 3 → 3 (stopped)
+
+Remaining findings: 3 (require human action)
+
+  1. UNSAFE: Circular dependency
+     File: src/services/order-service.ts <-> src/services/inventory-service.ts
+     Why: Circular dependencies require structural refactoring
+     Suggested: Extract shared logic into src/services/stock-calculator.ts
+
+  2. UNSAFE: Dead internal function
+     File: src/utils/legacy.ts:45 — processLegacyFormat()
+     Why: Cannot reliably determine all callers (possible dynamic usage)
+     Suggested: Search for string references, check config files, then delete if confirmed unused
+
+  3. UNSAFE: Public API dead export
+     File: packages/core/src/index.ts — legacyHelper
+     Why: Export is in package entry point; external consumers may depend on it
+     Suggested: Deprecate with @deprecated JSDoc tag, remove in next major version
+```
+
+## Harness Integration
+
+- **`harness cleanup --type dead-code --json`** -- Dead code detection input
+- **`harness check-deps --json`** -- Architecture violation detection input
+- **`harness skill run harness-hotspot-detector`** -- Hotspot context for safety classification
+- **`apply_fixes` MCP tool** -- Applies safe fixes via the MCP server
+- **`harness validate`** -- Final validation after all fixes
+- **`harness check-deps`** -- Final architecture check after all fixes
+
+## Success Criteria
+
+- All safe fixes are applied without test failures
+- Probably-safe fixes are presented as diffs for approval (or skipped in CI mode)
+- Unsafe findings are never auto-fixed
+- Convergence loop catches cross-concern cascades
+- Report includes actionable guidance for every remaining finding
+- `harness validate` passes after cleanup
+
+## Escalation
+
+- **When convergence loop does not converge after 5 iterations:** The codebase has deeply tangled issues. Stop and report all remaining findings. Consider breaking the cleanup into focused sessions.
+- **When a safe fix causes test failures:** The classification was wrong. Revert, reclassify as unsafe, and investigate the hidden dependency. Document the false positive for future improvement.
+- **When the hotspot detector is unavailable:** Skip the hotspot downgrade. All safety classifications use their base level without churn context.
+- **When dead code and architecture fixes conflict:** The convergence loop handles this naturally. If removing dead code creates an architecture issue (rare), the next detection cycle catches it.
