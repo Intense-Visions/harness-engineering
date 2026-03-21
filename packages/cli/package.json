@@ -20,14 +20,14 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && cp -r ../../templates dist/templates && cp -r ../../agents dist/agents",
+    "build": "tsup && node scripts/copy-assets.mjs",
     "dev": "tsup --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "clean": "rm -rf dist"
+    "clean": "node ../../scripts/clean.mjs dist"
   },
   "dependencies": {
     "@harness-engineering/core": "workspace:*",
