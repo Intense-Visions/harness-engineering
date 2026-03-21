@@ -123,6 +123,14 @@
 - [skill:harness-execution] [outcome:success] All 4 tasks completed in a single session with 2 atomic commits. 8 new update-check tests, 524 total CLI tests pass.
 - [skill:harness-execution] [outcome:gotcha] Core package dist must be rebuilt (`pnpm run build` in packages/core) before CLI typecheck (`tsc --noEmit`) can see new exports. Tests pass without rebuild because tsup bundles workspace packages at build time via aliases, but tsc needs the `.d.ts` files.
 
+## 2026-03-21 — Autopilot: Unified Code Review Pipeline
+
+- [skill:harness-autopilot] [outcome:complete] Executed 8 phases, 59 tasks, 0 retries
+- [skill:harness-autopilot] [outcome:observation] All 8 phases were medium complexity — auto-planning worked for all of them without needing interactive planning
+- [skill:harness-autopilot] [outcome:observation] Code review consistently caught real issues: mutable module-level counters (Phase 4), unused interface fields (Phase 4), missing path normalization (Phase 2→5), undeclared flags (Phase 1). Review-then-fix cycle added ~10% time but caught bugs that would have compounded in later phases
+- [skill:harness-autopilot] [outcome:observation] The gemini-cli harness-code-review is a symlink to claude-code, so platform parity is automatic — no separate copy needed
+- [skill:harness-autopilot] [outcome:observation] Pure function design (eligibility gate, change-type detection, assessment) makes testing trivial and keeps the review module composable — zero mocking needed for 3 of 8 phases
+
 ## 2026-03-20 — Update Checker Config Support (Phase 4)
 
 - [skill:harness-execution] [outcome:success] All 4 tasks completed across 2 sessions. Schema field, CLI hooks, MCP server wiring, and integration tests all pass. 10 MCP update-check tests (7 existing + 3 new config integration), 166 total MCP tests pass.
@@ -176,3 +184,40 @@
 - [skill:harness-execution] [outcome:success] All 10 tasks completed in a single session with 7 atomic commits. 47 new tests (12 compliance + 9 bug + 10 security + 9 architecture + 7 fan-out), 93 total review tests pass.
 - [skill:harness-execution] [outcome:success] Tasks 4-6 (bug, security, architecture agents) were parallelizable after Task 1 (types) as planned. All passed on first try with no adaptation needed.
 - [skill:harness-execution] [outcome:success] Combined TDD RED+GREEN into single commits for agent tasks since the test and implementation files are tightly coupled and the plan specified the commit message on the GREEN task.
+
+## 2026-03-21 — Review Pipeline Phase 6: Output + Inline Comments
+
+- [skill:harness-execution] [outcome:success] All 8 tasks completed in a single session with 6 atomic commits. 31 new tests (8 assessment + 10 terminal + 13 GitHub), 146 total review tests pass.
+- [skill:harness-execution] [outcome:gotcha] Plan test for severity ordering used `indexOf('Suggestion')` which matched `Suggestion:` in finding blocks (from formatFindingBlock output) before the `### Suggestion` section header. Fixed by searching for `### Suggestion` (with header prefix) to ensure correct ordering assertion.
+- [skill:harness-execution] [outcome:gotcha] State.json was corrupted from a previous session (showed all tasks complete but output/ directory did not exist). Always verify file/directory existence before trusting state — corrupted state can cause skipped work.
+
+## 2026-03-21 — Review Pipeline Phase 7: Eligibility Gate + CI Mode
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed in a single session with 3 atomic commits. 11 new eligibility gate tests, 157 total review tests pass.
+- [skill:harness-execution] [outcome:gotcha] State.json was stale from Phase 6 (showed 8/8 tasks complete for a 5-task plan). Verified artifact non-existence before resetting state — same pattern as Phase 6 learning about corrupted state.
+
+## 2026-03-21 — Soundness Review Phase 7: Parent Skill Integration
+
+- [skill:harness-execution] [outcome:success] Both tasks completed in a single session with 1 atomic commit. Brainstorming SKILL.md got new step 2, planning SKILL.md got new step 6 — both for soundness review invocation.
+- [skill:harness-execution] [outcome:gotcha] Plan referenced `tests/skills` path that does not exist in packages/cli. Skill-related tests are distributed across tests/slash-commands, tests/commands/skill.test.ts, and tests/persona/builtins.test.ts.
+- [skill:harness-execution] [outcome:gotcha] State.json was stale from a different plan (showed Task 1 complete with unrelated summary). Verified actual file contents before trusting state — same pattern as prior learnings about corrupted/stale state.
+
+## 2026-03-21 — Soundness Review Phase 8: User Escalation UX
+
+- [skill:harness-execution] [outcome:success] Both tasks completed in a single session with 1 atomic commit (88aeba8). Replaced the last "Not yet implemented" stub with 5-step SURFACE procedures + Clean Exit criteria. 150 lines added, 18 removed.
+- [skill:harness-execution] [outcome:gotcha] State.json was stale from Phase 7 (showed both tasks complete). Grep for the stub confirmed it was still present — same recurring pattern of stale state across session-scoped state files.
+- [skill:harness-execution] [outcome:success] Combined Tasks 1+2 into a single commit with both platform copies staged together, honoring the Prettier parity learning. Prettier reformatted both copies identically.
+
+## 2026-03-21 — Review Pipeline Phase 8: Model Tiering Config (FINAL)
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed in a single session with 5 atomic commits. 13 new core resolver tests, 14 new CLI schema tests. 170 total review tests, 63 CLI config tests pass.
+- [skill:harness-execution] [outcome:success] State.json was stale from Phase 7 — same recurring pattern. Reset state before execution.
+- [skill:harness-execution] [outcome:success] This was the FINAL phase of the unified code review pipeline (8 phases total). All phases complete: exclusion set, mechanical checks, context scoping, fan-out agents, validation, deduplication/output, eligibility gate, model tiering config.
+
+## 2026-03-21 — Autopilot: Spec & Plan Soundness Review
+
+- [skill:harness-autopilot] [outcome:complete] Executed 8 phases, 33 tasks, 0 retries
+- [skill:harness-autopilot] [outcome:observation] Documentation-only phases (SKILL.md edits) are fast and clean — all 8 phases completed without a single retry
+- [skill:harness-autopilot] [outcome:observation] Code review consistently caught internal coherence issues (arithmetic in examples, mislabeled cascading fixes, P5-001 classification inconsistency, stale forward references) — exactly the kind of issues this soundness review skill is designed to detect
+- [skill:harness-autopilot] [outcome:observation] Phases 4-6 were more comprehensive than the spec anticipated — Phase 4 delivered plan-mode fix procedures (spec Phase 5 scope), and Phases 2/4 delivered graph variants (spec Phase 6 scope), reducing later phases to gap-filling
+- [skill:harness-autopilot] [outcome:observation] gemini-cli copies: some skills use symlinks (brainstorming, planning) while others use regular files (soundness-review). Always check before assuming copy behavior
