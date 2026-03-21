@@ -4,10 +4,12 @@
 
 ## When to Use
 
+- When a user asks about project status and a roadmap exists (default -- no args)
 - When a project needs a unified roadmap and none exists yet (`--create`)
 - When adding a new feature to an existing roadmap (`--add <feature-name>`)
+- When roadmap statuses may be stale and need updating from plan execution state (`--sync`)
+- When features need reordering, moving between milestones, or blocker updates (`--edit`)
 - When user asks about project status and no roadmap exists -- suggest `--create`
-- NOT for `--sync`, `--edit`, or default show (deferred to Phase 6)
 - NOT for programmatic CRUD (use `manage_roadmap` MCP tool directly)
 
 ## Process
@@ -189,6 +191,211 @@ Wait for confirmation before proceeding.
    harness validate: passed
    ```
 
+---
+
+### Command: _(no args)_ -- Show Roadmap Summary
+
+#### Phase 1: SCAN -- Load Roadmap
+
+1. Check if `docs/roadmap.md` exists.
+   - If missing: suggest `--create`. "No roadmap found at docs/roadmap.md. Run `--create` to bootstrap one from existing specs and plans."
+2. Parse the roadmap (via `manage_roadmap show` or direct read).
+
+#### Phase 2: PRESENT -- Display Summary
+
+1. Display a compact summary of the roadmap:
+
+   ```
+   ROADMAP: <project-name>
+   Last synced: YYYY-MM-DD HH:MM
+
+   ## <Milestone 1> (N features)
+     - Feature A .................. in-progress
+     - Feature B .................. planned
+     - Feature C .................. blocked (by: Feature A)
+
+   ## <Milestone 2> (N features)
+     - Feature D .................. done
+     - Feature E .................. backlog
+
+   Total: N features | N done | N in-progress | N planned | N blocked | N backlog
+   ```
+
+2. If any features have stale sync timestamps (last_synced older than 24 hours), append a note:
+
+   ```
+   Hint: Roadmap may be stale. Run `--sync` to update statuses from plan execution state.
+   ```
+
+3. No file writes. This is a read-only operation. No `harness validate` needed.
+
+---
+
+### Command: `--sync` -- Sync Statuses from Execution State
+
+#### Phase 1: SCAN -- Load Roadmap and Execution State
+
+1. Check if `docs/roadmap.md` exists.
+   - If missing: error with clear message. "No roadmap found at docs/roadmap.md. Run `--create` first to bootstrap one."
+   - Do NOT create a roadmap. Do NOT offer alternatives. Stop.
+2. Parse the roadmap (via `manage_roadmap show` or direct read).
+3. For each feature with linked plans, scan execution state:
+   - `.harness/state.json` (root execution state)
+   - `.harness/sessions/*/autopilot-state.json` (session-scoped execution state)
+   - Plan file completion markers
+
+#### Phase 2: PROPOSE -- Present Status Changes
+
+1. Infer status for each feature:
+   - All tasks complete -> suggest `done`
+   - Any task started -> suggest `in-progress`
+   - Blocker feature not done -> suggest `blocked`
+   - No execution data found -> no change
+
+2. Check the **human-always-wins** rule: if `last_manual_edit` is more recent than `last_synced` for a feature, preserve the manually set status. Report it as "skipped (manual override)".
+
+3. Present proposed changes:
+
+   ```
+   SYNC RESULTS
+
+   Changes detected:
+     - Feature A: planned -> in-progress (3/8 tasks started)
+     - Feature B: in-progress -> done (all tasks complete)
+     - Feature C: planned -> blocked (blocked by: Feature A, not done)
+
+   Unchanged:
+     - Feature D: done (no change)
+
+   Skipped (manual override):
+     - Feature E: kept as "planned" (manually edited 2h ago)
+
+   Apply these changes? (y/n)
+   ```
+
+4. Wait for human confirmation before applying.
+
+#### Phase 3: WRITE -- Apply Changes
+
+1. Apply via `manage_roadmap sync` MCP tool if available, or via `manage_roadmap update` for each changed feature. If MCP is unavailable, parse the roadmap, update statuses, and serialize back.
+2. Update `last_synced` timestamp in frontmatter.
+3. Write to `docs/roadmap.md`.
+
+#### Phase 4: VALIDATE -- Verify Output
+
+1. Read back `docs/roadmap.md`.
+2. Verify changes applied correctly via `manage_roadmap show` if MCP is available.
+3. Run `harness validate`.
+4. Present summary:
+
+   ```
+   Sync complete: docs/roadmap.md
+   Updated: N features
+   Skipped: N (manual override)
+   Unchanged: N
+   harness validate: passed
+   ```
+
+---
+
+### Command: `--edit` -- Interactive Edit Session
+
+#### Phase 1: SCAN -- Load Existing Roadmap
+
+1. Check if `docs/roadmap.md` exists.
+   - If missing: error with clear message. "No roadmap found at docs/roadmap.md. Run `--create` first to bootstrap one."
+2. Parse the roadmap (via `manage_roadmap show` or direct read).
+3. Present current structure:
+
+   ```
+   Current roadmap: <project-name>
+
+   ## <Milestone 1>
+     1. Feature A (in-progress)
+     2. Feature B (planned)
+
+   ## <Milestone 2>
+     3. Feature C (done)
+     4. Feature D (backlog)
+   ```
+
+#### Phase 2: EDIT -- Interactive Modifications
+
+Offer edit actions in a loop until the human is done:
+
+1. **Reorder features within a milestone:**
+   - "Move which feature? (number)" -> "To which position?" -> reorder.
+
+2. **Move a feature between milestones:**
+   - "Move which feature? (number)" -> "To which milestone?" (list milestones + `[NEW]`) -> move.
+   - If `[NEW]`: ask for the new milestone name, create it.
+
+3. **Update blockers:**
+   - "Update blockers for which feature? (number)" -> "Blocked by? (feature names, comma-separated, or 'none')" -> update.
+
+4. **Update status:**
+   - "Update status for which feature? (number)" -> offer: `backlog`, `planned`, `in-progress`, `blocked`, `done` -> update.
+
+5. **Rename a feature:**
+   - "Rename which feature? (number)" -> "New name?" -> rename.
+
+6. **Remove a feature:**
+   - "Remove which feature? (number)" -> "Confirm removal of '<name>'? (y/n)" -> remove on confirm.
+
+7. **Rename a milestone:**
+   - "Rename which milestone?" -> "New name?" -> rename.
+
+8. **Done:**
+   - Exit edit loop, proceed to WRITE phase.
+
+Present the menu after each action:
+
+```
+Edit actions:
+  (1) Reorder features within a milestone
+  (2) Move feature to different milestone
+  (3) Update blockers
+  (4) Update status
+  (5) Rename feature
+  (6) Remove feature
+  (7) Rename milestone
+  (D) Done -- save and exit
+
+Choice?
+```
+
+#### Phase 3: WRITE -- Save Changes
+
+1. Present a diff summary of all changes made during the edit session:
+
+   ```
+   Changes to apply:
+
+     - Moved "Feature B" from "Current Work" to "Q2 Release"
+     - Updated "Feature A" blockers: none -> Feature C
+     - Reordered "Q2 Release": Feature B now at position 1
+
+   Apply? (y/n)
+   ```
+
+2. Wait for confirmation before writing.
+3. Apply all changes via `manage_roadmap update` / `manage_roadmap remove` MCP tool calls, or direct file manipulation if MCP is unavailable.
+4. Update `last_manual_edit` timestamp in frontmatter (since this is a human-driven edit).
+5. Write to `docs/roadmap.md`.
+
+#### Phase 4: VALIDATE -- Verify Output
+
+1. Read back `docs/roadmap.md`.
+2. Verify changes applied correctly.
+3. Run `harness validate`.
+4. Present summary:
+
+   ```
+   Edit complete: docs/roadmap.md
+   Changes applied: N
+   harness validate: passed
+   ```
+
 ## Harness Integration
 
 - **`manage_roadmap` MCP tool** -- Primary read/write interface for roadmap operations. Supports `show`, `add`, `update`, `remove`, and `query` actions. Use this when MCP is available for structured CRUD.
@@ -204,8 +411,18 @@ Wait for confirmation before proceeding.
 4. `--add` collects all fields interactively (milestone, status, spec, summary, blockers, plan)
 5. `--add` rejects duplicate feature names with a clear error message
 6. `--add` errors gracefully when no roadmap exists, directing the user to `--create`
-7. Output matches the roadmap markdown format exactly (frontmatter, H2 milestones, H3 features, 5 fields each)
-8. `harness validate` passes after both `--create` and `--add` operations
+7. Default (no args) displays a compact status summary with feature counts by status
+8. Default (no args) suggests `--create` when no roadmap exists
+9. Default (no args) hints at `--sync` when roadmap may be stale
+10. `--sync` scans `.harness/state.json` and `.harness/sessions/*/autopilot-state.json` for execution state
+11. `--sync` respects the human-always-wins rule -- manually edited statuses are preserved
+12. `--sync` presents proposed changes and waits for human confirmation before applying
+13. `--sync` errors gracefully when no roadmap exists, directing the user to `--create`
+14. `--edit` offers reorder, move, blocker update, status update, rename, and remove actions
+15. `--edit` presents a diff summary and waits for confirmation before writing
+16. `--edit` updates `last_manual_edit` timestamp (since changes are human-driven)
+17. Output matches the roadmap markdown format exactly (frontmatter, H2 milestones, H3 features, 5 fields each)
+18. `harness validate` passes after all operations
 
 ## Examples
 
@@ -335,6 +552,8 @@ These are hard stops. Violating any gate means the process has broken down.
 - **No overwriting an existing roadmap without explicit user consent.** If `docs/roadmap.md` exists when `--create` runs, the human must confirm the overwrite. Silent overwrites destroy prior work.
 - **No adding features with duplicate names.** If a feature with the same name already exists in any milestone, reject the add with a clear error. Duplicates corrupt the roadmap structure.
 - **No proceeding when `docs/roadmap.md` is missing for `--add`.** If the roadmap does not exist, do not create one silently. Error and direct the user to `--create`.
+- **No syncing when `docs/roadmap.md` does not exist.** `--sync` must error immediately with a message directing the user to `--create`. Do not create a roadmap as a side effect of sync.
+- **No writing changes from `--edit` without showing a diff summary and getting confirmation.** The WRITE phase must present all pending changes and wait for explicit accept before modifying `docs/roadmap.md`.
 
 ## Escalation
 
