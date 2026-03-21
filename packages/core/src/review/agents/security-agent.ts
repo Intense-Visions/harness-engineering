@@ -51,6 +51,15 @@ function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
             'Replace eval/Function with a safe alternative (JSON.parse for data, a sandboxed evaluator for expressions).',
           evidence: [`Line ${i + 1}: ${line.trim()}`],
           validatedBy: 'heuristic',
+          cweId: 'CWE-94',
+          owaspCategory: 'A03:2021 Injection',
+          confidence: 'high',
+          remediation:
+            'Replace eval/Function with a safe alternative (JSON.parse for data, a sandboxed evaluator for expressions).',
+          references: [
+            'https://cwe.mitre.org/data/definitions/94.html',
+            'https://owasp.org/Top10/A03_2021-Injection/',
+          ],
         });
       }
     }
@@ -80,6 +89,15 @@ function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
             suggestion: 'Move the secret to an environment variable and access it via process.env.',
             evidence: [`Line ${i + 1}: [secret detected — value redacted]`],
             validatedBy: 'heuristic',
+            cweId: 'CWE-798',
+            owaspCategory: 'A07:2021 Identification and Authentication Failures',
+            confidence: 'high',
+            remediation:
+              'Move the secret to an environment variable and access it via process.env.',
+            references: [
+              'https://cwe.mitre.org/data/definitions/798.html',
+              'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/',
+            ],
           });
           break; // One finding per line
         }
@@ -109,6 +127,15 @@ function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
             'Use parameterized queries or a query builder (e.g., Knex, Prisma) instead of string concatenation.',
           evidence: [`Line ${i + 1}: ${line.trim()}`],
           validatedBy: 'heuristic',
+          cweId: 'CWE-89',
+          owaspCategory: 'A03:2021 Injection',
+          confidence: 'high',
+          remediation:
+            'Use parameterized queries or a query builder (e.g., Knex, Prisma) instead of string concatenation.',
+          references: [
+            'https://cwe.mitre.org/data/definitions/89.html',
+            'https://owasp.org/Top10/A03_2021-Injection/',
+          ],
         });
       }
     }
@@ -136,6 +163,15 @@ function detectCommandInjection(bundle: ContextBundle): ReviewFinding[] {
             'Use execFile or spawn with an arguments array instead of shell string interpolation.',
           evidence: [`Line ${i + 1}: ${line.trim()}`],
           validatedBy: 'heuristic',
+          cweId: 'CWE-78',
+          owaspCategory: 'A03:2021 Injection',
+          confidence: 'high',
+          remediation:
+            'Use execFile or spawn with an arguments array instead of shell string interpolation.',
+          references: [
+            'https://cwe.mitre.org/data/definitions/78.html',
+            'https://owasp.org/Top10/A03_2021-Injection/',
+          ],
         });
       }
     }
