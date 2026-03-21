@@ -30,6 +30,10 @@ describe('normalizeName', () => {
     expect(normalizeName('check-harness')).toBe('check');
   });
 
+  it('strips leading harness- prefix from roadmap skill', () => {
+    expect(normalizeName('harness-roadmap')).toBe('roadmap');
+  });
+
   it('handles name that is just "harness"', () => {
     expect(normalizeName('harness')).toBe('harness');
   });
