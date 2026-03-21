@@ -70,6 +70,29 @@ function createDeadExportFixes(deadCodeReport: DeadCodeReport): Fix[] {
     }));
 }
 
+export interface CommentedCodeBlock {
+  file: string;
+  startLine: number;
+  endLine: number;
+  content: string;
+}
+
+/**
+ * Create fixes for commented-out code blocks
+ */
+export function createCommentedCodeFixes(blocks: CommentedCodeBlock[]): Fix[] {
+  return blocks.map((block) => ({
+    type: 'commented-code' as FixType,
+    file: block.file,
+    description: `Remove commented-out code block (lines ${block.startLine}-${block.endLine})`,
+    action: 'replace' as const,
+    oldContent: block.content,
+    newContent: '',
+    safe: true as const,
+    reversible: true,
+  }));
+}
+
 /**
  * Create fixes from dead code report
  */
