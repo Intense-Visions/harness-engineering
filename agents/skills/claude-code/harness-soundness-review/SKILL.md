@@ -456,7 +456,7 @@ Invoking harness-soundness-review --mode spec...
 Phase 1: CHECK
   Running S1 (internal coherence)... 0 findings
   Running S2 (goal-criteria traceability)... 1 finding (auto-fixable)
-  Running S3 (unstated assumptions)... 2 findings (1 auto-fixable, 1 needs user input)
+  Running S3 (unstated assumptions)... 2 findings (2 need user input)
   Running S4 (requirement completeness)... 1 finding (auto-fixable)
   Running S5 (feasibility red flags)... 0 findings
   Running S6 (YAGNI re-scan)... 0 findings
@@ -472,7 +472,8 @@ Phase 2: FIX
 
 Phase 3: CONVERGE
   Re-running checks...
-  S3-001 (implicit Node.js assumption) — auto-fixable, fixing...
+  S3-001 (implicit Node.js assumption) — now auto-fixable (S4-001 fix added
+    Assumptions section, so S3-001 can append to it instead of creating one).
   [S3-001] Added Node.js runtime assumption to Assumptions section.
   1 additional fix applied. Re-checking...
   Issue count: 1 (was 2). Decreased — continuing.
