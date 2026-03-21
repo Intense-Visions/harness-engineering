@@ -11,7 +11,7 @@
 - NOT for rubber-stamping (if you cannot find issues, look harder or state confidence level)
 - NOT for style-only feedback (leave that to linters and mechanical checks)
 
-## Pipeline Overview
+## Process
 
 The review runs as a 7-phase pipeline. Each phase has a clear input, output, and exit condition.
 
