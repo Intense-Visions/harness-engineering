@@ -952,6 +952,56 @@ Pass 4 (re-check):
   → Proceed to Phase 4 (SURFACE) with 1 remaining issue.
 ```
 
+#### Worked Example: Plan-Mode Two-Pass Convergence
+
+```
+Pass 1 (initial check):
+  P1: 1 finding (auto-fixable: spec criterion #6 has no plan task)
+  P2: 1 finding (auto-fixable: Task 4 missing verification step)
+  P3: 0 findings
+  P4: 0 findings
+  P5: 1 finding (needs user input: performance vs correctness tradeoff)
+  P6: 0 findings
+  P7: 1 finding (needs user input: Task 7 depends on undecided caching strategy)
+  Total: 4 findings, 2 auto-fixable, 2 need user input.
+  → count_previous = 4
+
+Phase 2 (FIX): Apply 2 auto-fixes.
+  [P1-001] FIXED: Added Task 9 covering spec criterion #6 (structured error logging).
+    Creates src/utils/error-logger.ts and src/utils/error-logger.test.ts.
+  [P2-001] FIXED: Added verification step to Task 4:
+    'Run: npx vitest run src/services/notification-service.test.ts'
+
+Pass 2 (re-check):
+  P1: 0 findings (criterion now covered by Task 9)
+  P2: 0 findings (Task 4 now has verification)
+  P3: 1 finding — CASCADING: Task 9 (added by P1-001) creates
+      src/utils/error-logger.ts, but Task 6 imports from it without
+      declaring 'Depends on: Task 9'. (1 auto-fixable)
+  P4: 0 findings
+  P5: 1 finding (unchanged: performance tradeoff still needs user input)
+  P6: 0 findings
+  P7: 1 finding (unchanged: caching decision still needed)
+  Total: 3 findings, 1 auto-fixable, 2 need user input.
+  → count_current = 3 < count_previous = 4. Progress made. Continue.
+
+Phase 2 (FIX): Apply 1 auto-fix.
+  [P3-001] FIXED: Added 'Depends on: Task 9' to Task 6.
+
+Pass 3 (re-check):
+  P5: 1 finding (unchanged: performance tradeoff)
+  P7: 1 finding (unchanged: caching decision)
+  Total: 2 findings, 0 auto-fixable, 2 need user input.
+  → count_current = 2 < count_previous = 3. Progress made. Continue.
+
+Phase 2 (FIX): 0 auto-fixable findings. Nothing to fix.
+
+Pass 4 (re-check):
+  Total: 2 findings, 0 auto-fixable.
+  → count_current = 2 = count_previous = 2. No progress. Converged.
+  → Proceed to Phase 4 (SURFACE) with 2 remaining issues.
+```
+
 #### Termination Guarantee
 
 The loop terminates because:
