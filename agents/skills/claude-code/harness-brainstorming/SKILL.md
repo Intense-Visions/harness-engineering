@@ -129,20 +129,39 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
 
    The human must explicitly approve before this skill is complete.
 
-6. **Emit phase transition:**
+6. **Write handoff and suggest transition.** After the human approves the spec:
+
+   Write `.harness/handoff.json`:
 
    ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "transition",
-     transition: {
-       completedPhase: "brainstorming",
-       suggestedNext: "planning",
-       reason: "Spec approved by human, ready for implementation planning",
-       artifacts: ["<spec-file-path>"]
-     }
-   })
+   {
+     "fromSkill": "harness-brainstorming",
+     "phase": "VALIDATE",
+     "summary": "<1-sentence spec summary>",
+     "artifacts": ["<spec file path>"],
+     "decisions": [{ "what": "<decision>", "why": "<rationale>" }],
+     "contextKeywords": ["<domain keywords from Phase 2>"]
+   }
    ```
+
+   Call `emit_interaction`:
+
+   ```json
+   {
+     "type": "transition",
+     "transition": {
+       "completedPhase": "brainstorming",
+       "suggestedNext": "planning",
+       "reason": "Spec approved and written to docs/",
+       "artifacts": ["<spec file path>"],
+       "requiresConfirmation": true,
+       "summary": "<Spec title> -- <key design choices>. <N> success criteria, <N> implementation phases."
+     }
+   }
+   ```
+
+   If the user confirms: invoke harness-planning with the spec path.
+   If the user declines: stop. The handoff is written for future invocation.
 
 ---
 
@@ -199,6 +218,7 @@ Converge on a recommendation that addresses all concerns before presenting the d
 - **`harness check-docs`** — Run to verify the spec does not conflict with existing documentation.
 - **Spec location** — Specs go to `docs/` (or `docs/specs/` if the project uses that convention). Follow existing naming patterns.
 - **Handoff to harness-planning** — Once the spec is approved, invoke harness-planning to create the implementation plan from the spec.
+- **`emit_interaction`** -- Call at the end of Phase 4 to suggest transitioning to harness-planning. Uses confirmed transition (waits for user approval).
 
 #### Requirement Phrasing
 
