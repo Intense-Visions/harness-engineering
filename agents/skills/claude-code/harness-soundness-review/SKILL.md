@@ -573,6 +573,54 @@ Execute all checks for the active mode. Classify each finding as `autoFixable: t
 }
 ```
 
+##### P7 Task-Level Feasibility
+
+**What to analyze:** Each task's description, file paths, code snippets, and referenced decisions.
+
+**How to detect:**
+
+- **Undecided dependencies:** Check whether any task requires a design decision that was not made during brainstorming. Indicators: task description says "depending on the approach chosen", "if we go with option A", or references a decision not present in the spec's Decisions table.
+- **Vague instructions:** Check whether any task lacks the specificity required by the harness-planning iron law ("every task must be completable in one context window"). Indicators: task says "implement the service" without specifying which functions, "add validation" without specifying what validation rules, or "handle errors" without specifying which errors and how.
+- **Oversized tasks:** Check whether any task touches more than 3 files, or combines multiple independent concerns (e.g., "create the type, implement the service, write tests, and integrate with the API" in a single task).
+
+**Finding classification:** Always `severity: "error"`, always `autoFixable: false`. Feasibility problems require the planner to revise the task — either by making a decision, splitting the task, or adding specificity. These are judgment calls that an auto-fix cannot resolve correctly.
+
+**Example findings:**
+
+```json
+{
+  "id": "P7-001",
+  "check": "P7",
+  "title": "Task depends on undecided design choice",
+  "detail": "Task 7 says 'implement caching layer' but the spec's Decisions table has no entry for caching strategy (LRU, TTL, write-through, etc.). The task cannot be executed without knowing which caching approach to use.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Make the caching decision in the spec's Decisions table (e.g., 'D5: Use LRU cache with 5-minute TTL'), then update Task 7 with the specific implementation details.",
+  "evidence": [
+    "Task 7: 'Implement caching layer for API responses'",
+    "Spec Decisions table: no entry for caching strategy",
+    "Task 7 references no specific cache implementation"
+  ]
+}
+```
+
+```json
+{
+  "id": "P7-002",
+  "check": "P7",
+  "title": "Task too vague to execute in one context window",
+  "detail": "Task 4 says 'implement the notification service' without specifying which methods to implement, what the function signatures are, or what error handling to apply. A developer cannot complete this task without making design decisions that should have been made during planning.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Split Task 4 into specific sub-tasks: (a) create NotificationService.create() with signature and error handling, (b) create NotificationService.list() with filtering logic, (c) create NotificationService.markRead() with idempotency handling.",
+  "evidence": [
+    "Task 4: 'Implement the notification service'",
+    "No function signatures, no error handling spec, no test expectations",
+    "harness-planning iron law: every task must be completable in one context window"
+  ]
+}
+```
+
 ---
 
 ### Phase 2: FIX — Auto-Fix Inferrable Issues
