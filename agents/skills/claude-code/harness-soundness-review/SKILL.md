@@ -500,6 +500,79 @@ Execute all checks for the active mode. Classify each finding as `autoFixable: t
 }
 ```
 
+##### P5 Risk Coverage
+
+**What to analyze:** The spec's risk-related content (any section mentioning risks, caveats, concerns, open questions) and the plan's tasks and checkpoints.
+
+**How to detect:** Identify risks stated in the spec. These appear in: explicit "Risks" sections, decision rationale mentioning tradeoffs, success criteria that imply failure modes, non-goals that have adjacent risk (e.g., "not in CI" implies no automated gate). For each identified risk, check whether the plan contains: (a) a task that directly mitigates it, (b) a checkpoint that acknowledges it, or (c) an explicit "accepted risk" note. Flag risks with no coverage.
+
+**Finding classification:**
+
+- Obvious mitigation (the risk is technical and a straightforward task addresses it, e.g., "add error handling for X"): `severity: "warning"`, `autoFixable: true`. The fix is to add a mitigation task or extend an existing task's verification step.
+- Judgment-dependent mitigation (the risk involves a design tradeoff, e.g., "performance vs correctness" or "scope vs timeline"): `severity: "warning"`, `autoFixable: false`. Surface to user with mitigation options.
+
+**Example findings:**
+
+```json
+{
+  "id": "P5-001",
+  "check": "P5",
+  "title": "Spec risk has no mitigation in plan",
+  "detail": "The spec identifies 'convergence loop may not terminate' as a risk in the Risks section, but no plan task tests termination behavior. The mitigation is straightforward: add a test that verifies the loop terminates on fixed-point inputs.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add a task that tests convergence termination with inputs that produce a fixed point (zero auto-fixable findings on first pass).",
+  "evidence": [
+    "Spec Risks: 'The convergence loop may not terminate if auto-fixes oscillate'",
+    "Plan Tasks 1-8: no task references termination testing or loop bounds"
+  ]
+}
+```
+
+```json
+{
+  "id": "P5-002",
+  "check": "P5",
+  "title": "Risk requires design judgment to mitigate",
+  "detail": "The spec notes 'auto-fix may introduce new issues' as a risk. Mitigation depends on a design choice: (a) add a rollback mechanism, (b) limit auto-fixes to one pass, or (c) require human approval for cascading fixes. This is a design tradeoff the user must decide.",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Choose a mitigation strategy: (a) rollback mechanism — add undo capability, (b) single-pass limit — simpler but less thorough, (c) human gate — safer but slower.",
+  "evidence": [
+    "Spec Risks: 'Auto-fixes may introduce new issues in subsequent passes'",
+    "No mitigation strategy specified in spec Decisions table"
+  ]
+}
+```
+
+##### P6 Scope Drift
+
+**What to analyze:** The plan's tasks and the spec's goals, success criteria, and technical design.
+
+**How to detect:** For each plan task, check whether it is traceable to a spec requirement. A task is traceable if it (a) directly implements a success criterion, (b) is a necessary prerequisite for a task that implements a criterion (type definitions, shared utilities), or (c) is infrastructure work explicitly called for in the spec's implementation order. Flag tasks that cannot be traced to any spec requirement.
+
+**Finding classification:** Always `severity: "warning"`, always `autoFixable: false`. Untraceable tasks might be intentional prerequisite work that the planner identified as necessary. The user must confirm whether each flagged task is in scope or should be removed.
+
+**Example finding:**
+
+```json
+{
+  "id": "P6-001",
+  "check": "P6",
+  "title": "Plan task not traceable to spec requirement",
+  "detail": "Task 8 ('Add Redis caching layer for API responses') is not traceable to any spec goal, success criterion, or technical design section. The spec does not mention caching, Redis, or response-time optimization.",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Either (a) remove Task 8 if caching is not needed for the current scope, or (b) add a corresponding goal and success criterion to the spec if caching is a genuine requirement.",
+  "evidence": [
+    "Task 8: 'Add Redis caching layer for API responses'",
+    "Spec goals: no mention of caching or performance optimization",
+    "Spec success criteria: no criterion references response time or caching",
+    "Spec technical design: no caching architecture described"
+  ]
+}
+```
+
 ---
 
 ### Phase 2: FIX — Auto-Fix Inferrable Issues
