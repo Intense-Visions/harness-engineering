@@ -1,4 +1,3 @@
-import * as path from 'path';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const addComponentDefinition = {

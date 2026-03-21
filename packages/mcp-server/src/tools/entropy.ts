@@ -1,4 +1,3 @@
-import * as path from 'path';
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
