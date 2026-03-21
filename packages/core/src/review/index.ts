@@ -35,7 +35,7 @@ export type {
   // Pipeline orchestrator types
   PipelineFlags,
   PipelineContext,
-  PipelineResult,
+  ReviewPipelineResult,
 } from './types';
 
 // Mechanical checks
@@ -90,3 +90,7 @@ export {
   formatGitHubSummary,
   isSmallSuggestion,
 } from './output';
+
+// Pipeline orchestrator
+export { runPipeline } from './pipeline-orchestrator';
+export type { RunPipelineOptions } from './pipeline-orchestrator';

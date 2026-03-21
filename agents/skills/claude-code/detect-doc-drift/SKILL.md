@@ -30,6 +30,18 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 
 When a graph is available, drift is simply stale edges: doc-to-code edges where the code side has been modified more recently than the doc side. This replaces regex pattern matching and catches semantic drift that text search misses. Fall back to file-based commands if no graph is available.
 
+### Pipeline Context (when orchestrated)
+
+When invoked by `harness-docs-pipeline`, check for a `pipeline` field in `.harness/handoff.json`:
+
+- If `pipeline` field exists: read `DocPipelineContext` from it
+  - Use `pipeline.exclusions` to skip findings that were already addressed in a previous phase
+  - Write `DriftFinding[]` results back to `pipeline.driftFindings` in handoff.json
+  - This enables the orchestrator to track findings across phases and avoid double-counting
+- If `pipeline` field does not exist: behave exactly as today (standalone mode)
+
+No changes to the skill's interface or output format — the pipeline field is purely additive.
+
 ### Phase 2: Identify — Classify Drift Types
 
 Categorize each finding into one of these drift types:
