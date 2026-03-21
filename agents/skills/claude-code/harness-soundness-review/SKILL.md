@@ -515,7 +515,7 @@ After auto-fixes are applied in Phase 2, the convergence loop determines whether
 
 A fix applied in one pass can make a previously non-auto-fixable finding become auto-fixable in the next pass. This is called a **cascading fix**. Examples:
 
-- **S3 enables S3:** The S4 fix adds an error case that creates an Assumptions section. In the next pass, S3 finds that additional obvious assumptions can now be appended to the existing section (previously S3 could not infer whether to create the section or append to it).
+- **S4 enables S3:** The S4 fix adds an error case that creates an Assumptions section. In the next pass, S3 finds that additional obvious assumptions can now be appended to the existing section (previously S3 could not infer whether to create the section or append to it).
 - **S2 enables S7:** The S2 fix adds a new success criterion. In the next pass, S7 checks the new criterion and finds it can be made more specific using Technical Design context.
 - **S4 enables S4:** The S4 fix adds an error case for one operation. In the next pass, S4 finds a related operation that can now follow the same error pattern (the first fix established a local convention).
 
@@ -536,10 +536,10 @@ Pass 1 (initial check):
   → count_previous = 5
 
 Phase 2 (FIX): Apply 4 auto-fixes.
-  [S2-001] Added success criterion #11 for 'offline mode'.
-  [S3-001] Added Node.js runtime assumption to new Assumptions section.
-  [S4-001] Added ENOENT error case for config read.
-  [S7-001] Replaced 'fast' with 'under 30 seconds on CI'.
+  [S2-001] FIXED: Added success criterion #11 for 'offline mode'.
+  [S3-001] FIXED: Added Node.js runtime assumption to new Assumptions section.
+  [S4-001] FIXED: Added ENOENT error case for config read.
+  [S7-001] FIXED: Replaced 'fast' with 'under 30 seconds on CI'.
 
 Pass 2 (re-check):
   S1: 0 findings
@@ -557,7 +557,7 @@ Pass 2 (re-check):
   → count_current = 2 < count_previous = 5. Progress made. Continue.
 
 Phase 2 (FIX): Apply 1 auto-fix.
-  [S3-003] Added UTF-8 encoding assumption to Assumptions section.
+  [S3-003] FIXED: Added UTF-8 encoding assumption to Assumptions section.
 
 Pass 3 (re-check):
   S3: 1 finding (unchanged: concurrency model still needs user input)
