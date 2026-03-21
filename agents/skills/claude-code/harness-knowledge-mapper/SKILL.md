@@ -13,8 +13,23 @@
 
 ## Prerequisites
 
-A knowledge graph must exist at `.harness/graph/`. Run `harness scan` if no graph is available.
-If the graph exists but code has changed since the last scan, re-run `harness scan` first — stale graph data leads to inaccurate results.
+A knowledge graph at `.harness/graph/` enables full analysis. If no graph exists,
+the skill uses static analysis fallbacks (see Graph Availability section).
+Run `harness scan` to enable graph-enhanced analysis.
+
+### Graph Availability
+
+Before starting, check if `.harness/graph/graph.json` exists.
+
+**If graph exists:** Check staleness — compare `.harness/graph/metadata.json`
+scanTimestamp against `git log -1 --format=%ct` (latest commit timestamp).
+If graph is more than 10 commits behind (`git log --oneline <scanTimestamp>..HEAD | wc -l`),
+run `harness scan` to refresh before proceeding. (Staleness sensitivity: **Medium**)
+
+**If graph exists and is fresh (or refreshed):** Use graph tools as primary strategy.
+
+**If no graph exists:** Output "Running without graph (run `harness scan` to
+enable full analysis)" and use fallback strategies for all subsequent steps.
 
 ## Process
 
@@ -39,6 +54,20 @@ If the graph exists but code has changed since the last scan, re-run `harness sc
    ```
    get_relationships(nodeId=<module>, direction="outbound", depth=1)
    ```
+
+#### Fallback (without graph)
+
+When no graph is available, use directory structure and file analysis:
+
+1. **Module hierarchy from directories**: Use the directory structure as the module hierarchy — each directory represents a module. Glob for all source files to build the tree.
+2. **Entry points**: Check `package.json` for `main` and `exports` fields. Glob for `src/index.*` and `index.*` patterns. These are the entry points.
+3. **Source file inventory**: Glob for all source files (`**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.jsx`, etc.).
+4. **Documentation inventory**: Glob for all doc files (`**/*.md`, `docs/**/*`).
+5. **Undocumented module detection**: Diff the source directory set against the doc directory set. Source directories with no corresponding docs (no README.md, no matching doc file) are undocumented.
+6. **Existing knowledge map**: Read existing AGENTS.md if present for current knowledge map state.
+7. **Dependency flow (approximate)**: Parse import statements in each module's files to determine which modules depend on which others.
+
+> Fallback completeness: ~50% — no semantic grouping; modules grouped by directory only; no cross-cutting concern detection.
 
 ### Phase 2: GENERATE — Build Knowledge Map
 
@@ -109,7 +138,7 @@ This ensures subsequent graph queries (impact analysis, drift detection) include
 
 ## Harness Integration
 
-- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness scan`** — Recommended before this skill for full graph-enhanced analysis. If graph is missing, skill uses directory structure fallbacks.
 - **`harness validate`** — Run after acting on findings to verify project health.
 - **Graph tools** — This skill uses `query_graph`, `get_relationships`, and `check_docs` MCP tools.
 
@@ -119,7 +148,7 @@ This ensures subsequent graph queries (impact analysis, drift detection) include
 - Coverage gaps identified (undocumented modules, missing descriptions, stale references)
 - Output written to AGENTS.md (or specified path) in proper markdown format
 - Report follows the structured output format
-- All findings are backed by graph query evidence, not heuristics
+- All findings are backed by graph query evidence (with graph) or directory/file analysis (without graph)
 
 ## Examples
 
@@ -145,7 +174,7 @@ Output:
 
 ## Gates
 
-- **No generation without graph.** If no graph exists, stop and instruct to run `harness scan`.
+- **Graph preferred, fallback available.** If no graph exists, use directory structure and file analysis to build the knowledge map. Do not stop — produce the best map possible.
 - **Never overwrite without confirmation.** If AGENTS.md exists, show the diff and ask before replacing.
 
 ## Escalation
