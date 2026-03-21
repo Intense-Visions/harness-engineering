@@ -1,0 +1,185 @@
+import type { Roadmap } from '@harness-engineering/types';
+
+/**
+ * A complete valid roadmap markdown string matching the spec example.
+ * Used by both parse and serialize tests. Any change here must keep
+ * parse and serialize tests in sync.
+ */
+export const VALID_ROADMAP_MD = `---
+project: harness-engineering
+version: 1
+last_synced: 2026-03-21T14:30:00Z
+last_manual_edit: 2026-03-21T15:00:00Z
+---
+
+# Project Roadmap
+
+## Milestone: MVP Release
+
+### Feature: Notification System
+- **Status:** in-progress
+- **Spec:** docs/specs/2026-03-14-notification-system.md
+- **Plans:** docs/plans/2026-03-14-notification-phase-1-plan.md, docs/plans/2026-03-15-notification-phase-2-plan.md
+- **Blocked by:** \u2014
+- **Summary:** Email and in-app notifications with polling
+
+### Feature: User Auth Revamp
+- **Status:** planned
+- **Spec:** docs/specs/2026-02-20-auth-revamp.md
+- **Plans:** \u2014
+- **Blocked by:** Notification System
+- **Summary:** OAuth2 migration for compliance requirements
+
+## Milestone: Q3 Hardening
+
+### Feature: Performance Baselines
+- **Status:** planned
+- **Spec:** \u2014
+- **Plans:** \u2014
+- **Blocked by:** \u2014
+- **Summary:** Establish and enforce perf budgets across critical paths
+
+## Backlog
+
+### Feature: Push Notifications
+- **Status:** backlog
+- **Spec:** \u2014
+- **Plans:** \u2014
+- **Blocked by:** \u2014
+- **Summary:** Extend notification system with WebSocket push
+`;
+
+/**
+ * The expected parsed Roadmap object for VALID_ROADMAP_MD.
+ */
+export const VALID_ROADMAP: Roadmap = {
+  frontmatter: {
+    project: 'harness-engineering',
+    version: 1,
+    lastSynced: '2026-03-21T14:30:00Z',
+    lastManualEdit: '2026-03-21T15:00:00Z',
+  },
+  milestones: [
+    {
+      name: 'MVP Release',
+      isBacklog: false,
+      features: [
+        {
+          name: 'Notification System',
+          status: 'in-progress',
+          spec: 'docs/specs/2026-03-14-notification-system.md',
+          plans: [
+            'docs/plans/2026-03-14-notification-phase-1-plan.md',
+            'docs/plans/2026-03-15-notification-phase-2-plan.md',
+          ],
+          blockedBy: [],
+          summary: 'Email and in-app notifications with polling',
+        },
+        {
+          name: 'User Auth Revamp',
+          status: 'planned',
+          spec: 'docs/specs/2026-02-20-auth-revamp.md',
+          plans: [],
+          blockedBy: ['Notification System'],
+          summary: 'OAuth2 migration for compliance requirements',
+        },
+      ],
+    },
+    {
+      name: 'Q3 Hardening',
+      isBacklog: false,
+      features: [
+        {
+          name: 'Performance Baselines',
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Establish and enforce perf budgets across critical paths',
+        },
+      ],
+    },
+    {
+      name: 'Backlog',
+      isBacklog: true,
+      features: [
+        {
+          name: 'Push Notifications',
+          status: 'backlog',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Extend notification system with WebSocket push',
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * Roadmap markdown with missing frontmatter.
+ */
+export const NO_FRONTMATTER_MD = `# Project Roadmap
+
+## Milestone: MVP Release
+
+### Feature: Something
+- **Status:** planned
+- **Spec:** \u2014
+- **Plans:** \u2014
+- **Blocked by:** \u2014
+- **Summary:** A feature
+`;
+
+/**
+ * Roadmap markdown with an invalid status value.
+ */
+export const INVALID_STATUS_MD = `---
+project: test
+version: 1
+last_synced: 2026-01-01T00:00:00Z
+last_manual_edit: 2026-01-01T00:00:00Z
+---
+
+# Project Roadmap
+
+## Milestone: M1
+
+### Feature: Bad Status
+- **Status:** cancelled
+- **Spec:** \u2014
+- **Plans:** \u2014
+- **Blocked by:** \u2014
+- **Summary:** Has an invalid status
+`;
+
+/**
+ * Minimal valid roadmap with only a backlog section and no features.
+ */
+export const EMPTY_BACKLOG_MD = `---
+project: empty-project
+version: 1
+last_synced: 2026-01-01T00:00:00Z
+last_manual_edit: 2026-01-01T00:00:00Z
+---
+
+# Project Roadmap
+
+## Backlog
+`;
+
+export const EMPTY_BACKLOG: Roadmap = {
+  frontmatter: {
+    project: 'empty-project',
+    version: 1,
+    lastSynced: '2026-01-01T00:00:00Z',
+    lastManualEdit: '2026-01-01T00:00:00Z',
+  },
+  milestones: [
+    {
+      name: 'Backlog',
+      isBacklog: true,
+      features: [],
+    },
+  ],
+};
