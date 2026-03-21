@@ -15,7 +15,7 @@ Adopt 14 patterns from 7 researched frameworks (Claude Flow, Gas Town, Turbo Flo
 - **Minimal learning tags:** `[skill:name] [outcome:status]` only — two tags, simple grep
 - **Scoped failure log:** Failures archived at milestone boundaries, not accumulated forever
 - **Behavioral patterns woven into skills:** No separate conventions doc — colocated where agents read it
-- **Specs/changes directory convention:** `docs/specs/` (source of truth) + `docs/changes/` (proposals) — behavioral, not enforced
+- **Specs/changes directory convention:** `docs/changes/` (specs and proposals organized by feature) — behavioral, not enforced
 
 ## Phase 1: Core State Extensions
 
@@ -178,11 +178,11 @@ docs/
 1. Brainstorming → `docs/changes/<feature>/proposal.md`
 2. Planning → `delta.md` + `tasks.md`
 3. Execution → implements from tasks.md
-4. Completion → merge deltas into `docs/specs/`, archive change dir
+4. Completion → merge deltas into `docs/changes/`, archive change dir
 
 ### Skill integration
 
-- harness-brainstorming: write proposals to `docs/changes/` when `docs/specs/` exists
+- harness-brainstorming: write proposals to `docs/changes/<feature>/proposal.md`
 - harness-planning: produce delta.md alongside tasks.md
 - harness-execution: prompt to merge deltas on completion
 - initialize-harness-project: add dirs to intermediate+ templates

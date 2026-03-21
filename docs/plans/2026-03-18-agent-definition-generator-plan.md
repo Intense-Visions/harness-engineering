@@ -1,7 +1,7 @@
 # Plan: Agent Definition Generator for Persona-Based Routing
 
 **Date:** 2026-03-18
-**Spec:** docs/specs/2026-03-18-agent-definition-generator-design.md
+**Spec:** docs/changes/agent-definition-generator/proposal.md
 **Estimated tasks:** 9
 **Estimated time:** 45 minutes
 

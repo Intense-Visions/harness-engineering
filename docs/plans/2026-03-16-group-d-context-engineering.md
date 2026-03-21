@@ -1711,12 +1711,12 @@ const DEFAULT_PRIORITIES: Record<WorkflowPhase, ContextPriorityRule[]> = {
     { match: '*.types.ts', priority: 80, category: 'interfaces' },
     { match: 'types/**', priority: 80, category: 'interfaces' },
     { match: '*.test.ts', priority: 60, category: 'activeCode' },
-    { match: 'docs/specs/**', priority: 70, category: 'taskSpec' },
+    { match: 'docs/changes/**', priority: 70, category: 'taskSpec' },
     { match: 'SKILL.md', priority: 50, category: 'systemPrompt' },
   ],
   review: [
     { match: '*.diff', priority: 95, category: 'activeCode' },
-    { match: 'docs/specs/**', priority: 85, category: 'taskSpec' },
+    { match: 'docs/changes/**', priority: 85, category: 'taskSpec' },
     { match: '.harness/review-learnings.md', priority: 80, category: 'systemPrompt' },
     { match: '*.lint.json', priority: 70, category: 'interfaces' },
     { match: 'git-log', priority: 65, category: 'activeCode' },
@@ -1731,7 +1731,7 @@ const DEFAULT_PRIORITIES: Record<WorkflowPhase, ContextPriorityRule[]> = {
     { match: 'git-diff', priority: 70, category: 'activeCode' },
   ],
   plan: [
-    { match: 'docs/specs/**', priority: 90, category: 'taskSpec' },
+    { match: 'docs/changes/**', priority: 90, category: 'taskSpec' },
     { match: 'docs/architecture/**', priority: 85, category: 'interfaces' },
     { match: 'AGENTS.md', priority: 80, category: 'projectManifest' },
     { match: '.harness/handoff.md', priority: 75, category: 'taskSpec' },

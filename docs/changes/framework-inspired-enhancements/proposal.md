@@ -21,7 +21,7 @@ Five enhancements adopted from analysis of GitHub Spec Kit, BMAD Method, and pat
 - Scale-adaptive: hybrid auto-detect with manual override (`--complexity light|full|auto`). Base for auto-detect: `git merge-base HEAD main`.
 - Auto-detection signals: file count, change type, directory creation, dependency changes
 - Principles live in `docs/principles.md`, referenced from AGENTS.md, loaded by skills
-- Cross-artifact validation is heuristic (warns, doesn't block). Checks spec→plan, plan→implementation, staleness. Spec/plan paths configurable in `harness.config.json`, default to `docs/specs/` and `docs/plans/`.
+- Cross-artifact validation is heuristic (warns, doesn't block). Checks spec→plan, plan→implementation, staleness. Spec/plan paths configurable in `harness.config.json`, default to `docs/changes/` and `docs/plans/`.
 - Workflow re-entry is state-aware with confirmation: loads prior state if available, asks before proceeding without it. State discovery uses `skill.yaml`'s `state.files` array.
 - Party mode selects perspectives based on design topic context, not fixed roles
 - Schema changes apply to BOTH `agents/skills/tests/schema.ts` AND `packages/cli/src/skill/schema.ts` (duplicate schemas — consolidation deferred to future cleanup)
@@ -204,13 +204,13 @@ Spec and plan directories are configurable in `harness.config.json`:
 ```json
 {
   "crossCheck": {
-    "specsDir": "docs/specs",
+    "specsDir": "docs/changes",
     "plansDir": "docs/plans"
   }
 }
 ```
 
-Defaults to `docs/specs/` and `docs/plans/` if not configured.
+Defaults to `docs/changes/` and `docs/plans/` if not configured.
 
 ### Four checks
 

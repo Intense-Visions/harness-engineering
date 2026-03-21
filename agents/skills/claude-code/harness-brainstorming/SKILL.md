@@ -108,9 +108,7 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
 
 2. **Run soundness review.** After all sections are reviewed and the spec is drafted, invoke `harness-soundness-review --mode spec` against the draft. Do not proceed to write the spec to `docs/` until the soundness review converges with no remaining issues.
 
-3. **Write the spec to `docs/`.** Use the project's existing spec naming convention. If none exists, use `docs/specs/YYYY-MM-DD-<feature-name>.md`.
-
-   When the project has `docs/specs/`, write proposals to `docs/changes/<feature>/proposal.md` instead. This keeps change proposals separate from established specs. Fall back to the existing behavior (`docs/specs/`) when no `docs/specs/` directory exists yet.
+3. **Write the spec to `docs/`.** Write proposals to `docs/changes/<feature>/proposal.md`. This keeps change proposals organized by feature in a consistent location.
 
 4. **Run `harness validate`** to verify the spec file is properly placed and the project remains healthy.
 
@@ -216,7 +214,7 @@ Converge on a recommendation that addresses all concerns before presenting the d
 
 - **`harness validate`** — Run after writing the spec to `docs/`. Verifies project health and that the new spec file is properly placed.
 - **`harness check-docs`** — Run to verify the spec does not conflict with existing documentation.
-- **Spec location** — Specs go to `docs/` (or `docs/specs/` if the project uses that convention). Follow existing naming patterns.
+- **Spec location** — Specs go to `docs/changes/<feature>/proposal.md`. Follow existing naming patterns.
 - **Handoff to harness-planning** — Once the spec is approved, invoke harness-planning to create the implementation plan from the spec.
 - **`emit_interaction`** -- Call at the end of Phase 4 to suggest transitioning to harness-planning. Uses confirmed transition (waits for user approval).
 
@@ -247,7 +245,7 @@ These patterns make requirements testable and unambiguous. Apply them when the o
 
 ```
 Read AGENTS.md — project is a TypeScript monorepo with React frontend and Express backend.
-Read existing docs/ — no prior notification specs. Found docs/specs/2026-01-15-user-auth.md as naming example.
+Read existing docs/ — no prior notification specs. Found docs/changes/user-auth/proposal.md as naming example.
 Checked src/services/ — no notification code exists. Found email utility in src/utils/email.ts.
 Scope assessment: single subsystem (notifications), estimated 1 week. Proceed.
 ```
@@ -293,10 +291,10 @@ Human: "Agreed, approach 2."
 **VALIDATE:**
 
 ```
-Wrote docs/specs/2026-03-14-notification-system.md
+Wrote docs/changes/notification-system/proposal.md
 Sections: Overview, Decisions, Technical Design, Success Criteria, Implementation Order
 harness validate — passes
-"Spec written to docs/specs/2026-03-14-notification-system.md. Ready for sign-off?"
+"Spec written to docs/changes/notification-system/proposal.md. Ready for sign-off?"
 Human: "Approved."
 ```
 

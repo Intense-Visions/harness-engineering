@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown
 
-**Spec:** `docs/specs/2026-03-16-research-roadmap-design.md` (Group B section)
+**Spec:** `docs/changes/research-roadmap/proposal.md` (Group B section)
 
 ---
 

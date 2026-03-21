@@ -12,7 +12,7 @@ updated: 2026-03-21
 ### Core Library Design & Modules
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-11-harness-engineering-library-design.md
+- **Spec:** docs/changes/core-library-design/proposal.md
 - **Summary:** Core library architecture with validation, context engineering, architectural constraints, entropy management, and agent feedback modules
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-11-phase1-foundation-and-docs.md
@@ -20,7 +20,7 @@ updated: 2026-03-21
 ### Module 1: Validation
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-11-harness-engineering-library-design.md
+- **Spec:** docs/changes/core-library-design/proposal.md
 - **Summary:** Schema validation engine for harness configuration and project artifacts
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-11-module1-validation.md
@@ -28,7 +28,7 @@ updated: 2026-03-21
 ### Module 2: Context Engineering
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-11-phase2-core-library-implementation.md
+- **Spec:** docs/changes/core-library-implementation/proposal.md
 - **Summary:** Context assembly and management for AI agent interactions
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-12-module2-context-engineering.md
@@ -36,7 +36,7 @@ updated: 2026-03-21
 ### Module 3: Architectural Constraints
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-12-module3-architectural-constraints-design.md
+- **Spec:** docs/changes/architectural-constraints/proposal.md
 - **Summary:** Layer boundary enforcement and dependency rule validation
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-12-module3-architectural-constraints.md
@@ -44,7 +44,7 @@ updated: 2026-03-21
 ### Module 4: Entropy Management
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-12-module4-entropy-management-design.md
+- **Spec:** docs/changes/entropy-management/proposal.md
 - **Summary:** Codebase entropy detection including dead code, drift, and pattern violations
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-12-module4-entropy-management.md
@@ -52,7 +52,7 @@ updated: 2026-03-21
 ### Module 5: Agent Feedback
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-12-module5-agent-feedback-design.md
+- **Spec:** docs/changes/agent-feedback/proposal.md
 - **Summary:** Structured feedback loops between AI agents and harness validation
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-12-module5-agent-feedback.md
@@ -60,7 +60,7 @@ updated: 2026-03-21
 ### CLI & Tooling
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-12-phase2-tooling-automation-design.md
+- **Spec:** docs/changes/cli-tooling/proposal.md
 - **Summary:** CLI package for running harness commands and automation tooling
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-12-phase2-cli.md
@@ -68,7 +68,7 @@ updated: 2026-03-21
 ### Agent Skills
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-13-agent-skills-design.md
+- **Spec:** docs/changes/agent-skills/proposal.md
 - **Summary:** Skill system enabling AI agents to execute structured workflows
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-13-agent-skills.md
@@ -76,7 +76,7 @@ updated: 2026-03-21
 ### ESLint Plugin
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-13-eslint-plugin-design.md
+- **Spec:** docs/changes/eslint-plugin/proposal.md
 - **Summary:** ESLint plugin for enforcing harness architectural constraints in code
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-13-eslint-plugin.md
@@ -84,7 +84,7 @@ updated: 2026-03-21
 ### Linter Generator
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-13-linter-gen-design.md
+- **Spec:** docs/changes/linter-generator/proposal.md
 - **Summary:** Dynamic linter configuration generation from harness project constraints
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-13-linter-gen.md
@@ -92,7 +92,7 @@ updated: 2026-03-21
 ### Framework-Inspired Enhancements
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-14-framework-inspired-enhancements-design.md
+- **Spec:** docs/changes/framework-inspired-enhancements/proposal.md
 - **Summary:** Enhancements drawn from competitor framework research (Spec Kit, BMAD, etc.)
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-14-framework-inspired-enhancements.md
@@ -100,7 +100,7 @@ updated: 2026-03-21
 ### Pattern Adoption
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-14-pattern-adoption-design.md
+- **Spec:** docs/changes/pattern-adoption/proposal.md
 - **Summary:** Adoption of proven patterns from framework research into harness core
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-14-pattern-adoption.md
@@ -108,7 +108,7 @@ updated: 2026-03-21
 ### Templates & Agents
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-14-phase3-templates-and-agents-design.md
+- **Spec:** docs/changes/templates-and-agents/proposal.md
 - **Summary:** Project templates and agent persona definitions for common workflows
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-14-phase3-templates-and-agents.md
@@ -116,7 +116,7 @@ updated: 2026-03-21
 ### Rich Skill Format
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-14-rich-skill-format-design.md
+- **Spec:** docs/changes/rich-skill-format/proposal.md
 - **Summary:** Structured skill format with YAML metadata, phases, gates, and cognitive modes
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-14-rich-skill-format.md
@@ -126,7 +126,7 @@ updated: 2026-03-21
 ### Examples & Documentation
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-15-examples-and-docs-design.md
+- **Spec:** docs/changes/examples-and-docs/proposal.md
 - **Summary:** Example projects and comprehensive documentation for onboarding
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-15-examples-and-docs.md
@@ -134,7 +134,7 @@ updated: 2026-03-21
 ### Framework Research Round 3
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-15-framework-research-round-3-design.md
+- **Spec:** docs/changes/framework-research-round-3/proposal.md
 - **Summary:** Third round of competitive framework analysis driving final v1 enhancements
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-15-framework-research-round-3.md
@@ -142,7 +142,7 @@ updated: 2026-03-21
 ### Research Roadmap Groups A-E
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-16-research-roadmap-design.md
+- **Spec:** docs/changes/research-roadmap/proposal.md
 - **Summary:** Implementation of 20 prioritized research recommendations across 5 theme groups
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-16-group-a-review-system.md
@@ -150,7 +150,7 @@ updated: 2026-03-21
 ### Release Readiness
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-16-release-readiness-design.md
+- **Spec:** docs/changes/release-readiness-prep/proposal.md
 - **Summary:** Audit and preparation for general consumption including packaging and docs
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-16-release-readiness.md
@@ -158,7 +158,7 @@ updated: 2026-03-21
 ### MCP Setup & Documentation
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-16-mcp-setup-design.md
+- **Spec:** docs/changes/mcp-setup/proposal.md
 - **Summary:** MCP server setup documentation and scaffolding for tool integration
 - **Blockers:** none
 - **Plan:** none
@@ -166,7 +166,7 @@ updated: 2026-03-21
 ### Slash Command Generation
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-16-slash-command-generation-design.md
+- **Spec:** docs/changes/slash-command-generation/proposal.md
 - **Summary:** Automatic slash command generation for Claude Code and Gemini CLI from skills
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-16-slash-command-generation.md
@@ -174,7 +174,7 @@ updated: 2026-03-21
 ### MCP Server Expansion
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-16-mcp-server-expansion-design.md
+- **Spec:** docs/changes/mcp-server-expansion/proposal.md
 - **Summary:** Expanding MCP server with additional harness tools and capabilities
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-16-mcp-server-expansion.md
@@ -182,7 +182,7 @@ updated: 2026-03-21
 ### Day-to-Day Workflow Tutorial
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-17-day-to-day-workflow-tutorial-design.md
+- **Spec:** docs/changes/day-to-day-workflow-tutorial/proposal.md
 - **Summary:** Step-by-step tutorial for common developer workflows using harness
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-17-day-to-day-workflow-tutorial.md
@@ -190,7 +190,7 @@ updated: 2026-03-21
 ### CLI Self-Update
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-17-cli-self-update-design.md
+- **Spec:** docs/changes/cli-self-update/proposal.md
 - **Summary:** Self-update command for the harness CLI to pull latest versions
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-17-cli-self-update.md
@@ -208,7 +208,7 @@ updated: 2026-03-21
 ### Project-Local Skill Discovery
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-18-project-local-skill-discovery-design.md
+- **Spec:** docs/changes/project-local-skill-discovery/proposal.md
 - **Summary:** Automatic discovery and loading of project-specific skills from local directories
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-18-project-local-skill-discovery-plan.md
@@ -216,7 +216,7 @@ updated: 2026-03-21
 ### Code Reviewer Persona
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-18-code-reviewer-persona-design.md
+- **Spec:** docs/changes/code-reviewer-persona/proposal.md
 - **Summary:** Specialized AI persona for multi-phase code review with conditional steps
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-18-code-reviewer-persona-plan.md
@@ -224,7 +224,7 @@ updated: 2026-03-21
 ### Executor Personas
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-18-executor-personas-design.md
+- **Spec:** docs/changes/executor-personas/proposal.md
 - **Summary:** Task executor and parallel coordinator personas for plan execution
 - **Blockers:** none
 - **Plan:** none
@@ -232,7 +232,7 @@ updated: 2026-03-21
 ### Agent Definition Generator
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-18-agent-definition-generator-design.md
+- **Spec:** docs/changes/agent-definition-generator/proposal.md
 - **Summary:** Generates agent definitions for persona-based routing in Claude Code and Gemini CLI
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-18-agent-definition-generator-plan.md
@@ -242,7 +242,7 @@ updated: 2026-03-21
 ### Security: First-Class Concern
 
 - **Status:** done
-- **Spec:** docs/specs/2026-03-19-security-first-class-design.md
+- **Spec:** docs/changes/security-first-class/proposal.md
 - **Summary:** Elevating code security to a first-class harness concern with scanning, review, and enforcement
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-19-security-scanner-core-plan.md
@@ -414,7 +414,7 @@ updated: 2026-03-21
 ### CI/CD & Issue Tracker Integration
 
 - **Status:** backlog
-- **Spec:** docs/specs/2026-03-17-ci-cd-issue-tracker-integration.md
+- **Spec:** docs/changes/ci-cd-issue-tracker-integration/proposal.md
 - **Summary:** Automated CI/CD pipeline and issue tracker integration for harness workflows
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-17-ci-cd-issue-tracker-integration-plan.md

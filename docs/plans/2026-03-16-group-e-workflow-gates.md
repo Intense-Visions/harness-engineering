@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Commander, Vitest, YAML, Markdown
 
-**Spec:** `docs/specs/2026-03-16-research-roadmap-design.md` (Group E section)
+**Spec:** `docs/changes/research-roadmap/proposal.md` (Group E section)
 
 **Implementation order:** E1 → A6 (deferred completion) → E2 → E3 → E4
 
@@ -476,7 +476,7 @@ export const PhaseGateConfigSchema = z.object({
         specPattern: z.string(),
       })
     )
-    .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }]),
+    .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/changes/*/proposal.md' }]),
 });
 ```
 
@@ -555,21 +555,21 @@ describe('check-phase-gate command', () => {
           version: 1,
           phaseGates: {
             enabled: true,
-            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }],
+            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/changes/*/proposal.md' }],
           },
         }),
         'src/auth/login.ts': 'export function login() {}',
-        'docs/specs/auth.md': '# Auth Spec',
+        'docs/changes/auth/proposal.md': '# Auth Spec',
         'AGENTS.md': '# Agents',
       });
 
       const result = await runCheckPhaseGate({
         cwd: projectDir,
         specResolver: (implFile: string) => {
-          // Simple resolver: src/auth/login.ts -> docs/specs/auth.md
+          // Simple resolver: src/auth/login.ts -> docs/changes/auth/proposal.md
           const parts = implFile.split(path.sep);
           const feature = parts[1]; // 'auth' from 'src/auth/login.ts'
-          return `docs/specs/${feature}.md`;
+          return `docs/changes/${feature}/proposal.md`;
         },
       });
       expect(result.ok).toBe(true);
@@ -585,7 +585,7 @@ describe('check-phase-gate command', () => {
           version: 1,
           phaseGates: {
             enabled: true,
-            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }],
+            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/changes/*/proposal.md' }],
           },
         }),
         'src/payments/charge.ts': 'export function charge() {}',
@@ -608,7 +608,7 @@ describe('check-phase-gate command', () => {
           phaseGates: {
             enabled: true,
             severity: 'error',
-            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' }],
+            mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/changes/*/proposal.md' }],
           },
         }),
         'src/foo.ts': 'export const foo = 1;',
@@ -682,7 +682,7 @@ interface CheckPhaseGateOptions {
 }
 
 /**
- * Default spec resolver: maps src/<feature>/file.ts to docs/specs/<feature>.md
+ * Default spec resolver: maps src/<feature>/file.ts to docs/changes/<feature>/proposal.md
  * Extracts the first directory segment after the impl root as the feature name.
  */
 function defaultSpecResolver(implFile: string, implPattern: string): string {
@@ -697,7 +697,7 @@ function defaultSpecResolver(implFile: string, implPattern: string): string {
   const feature =
     segments.length > 1 ? segments[0] : path.basename(segments[0], path.extname(segments[0]));
 
-  return `docs/specs/${feature}.md`;
+  return `docs/changes/${feature}/proposal.md`;
 }
 
 export async function runCheckPhaseGate(
@@ -737,7 +737,7 @@ export async function runCheckPhaseGate(
 
   const severity = phaseGatesConfig.severity ?? 'warning';
   const mappings = phaseGatesConfig.mappings ?? [
-    { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/**/*.md' },
+    { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/*/proposal.md' },
   ];
 
   const missingSpecs: MissingSpec[] = [];

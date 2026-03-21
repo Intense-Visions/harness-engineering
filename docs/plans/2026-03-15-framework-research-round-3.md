@@ -8,7 +8,7 @@
 
 **Tech Stack:** Web research, GitHub repo analysis, markdown documentation
 
-**Spec:** `docs/specs/2026-03-15-framework-research-round-3-design.md`
+**Spec:** `docs/changes/framework-research-round-3/proposal.md`
 
 ---
 
@@ -19,7 +19,7 @@
 **Files:**
 
 - Reference: `docs/research/framework-research-round-2.md` (for format consistency)
-- Reference: `docs/specs/2026-03-15-framework-research-round-3-design.md` (for analysis template)
+- Reference: `docs/changes/framework-research-round-3/proposal.md` (for analysis template)
 
 - [ ] **Step 1: Fetch and analyze the gstack repository**
 
@@ -49,7 +49,7 @@ Return the complete markdown section.
 **Files:**
 
 - Reference: `docs/research/framework-research-round-2.md` (for format consistency)
-- Reference: `docs/specs/2026-03-15-framework-research-round-3-design.md` (for analysis template)
+- Reference: `docs/changes/framework-research-round-3/proposal.md` (for analysis template)
 
 - [ ] **Step 1: Fetch and analyze the gsd-2 repository**
 
@@ -81,7 +81,7 @@ Return the complete markdown section.
 **Files:**
 
 - Reference: `docs/research/framework-research-round-2.md` (for format consistency)
-- Reference: `docs/specs/2026-03-15-framework-research-round-3-design.md` (for analysis template and exclusion list)
+- Reference: `docs/changes/framework-research-round-3/proposal.md` (for analysis template and exclusion list)
 
 - [ ] **Step 1: Search for new frameworks across all categories**
 

@@ -69,7 +69,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 ```json
 {
   "schemaVersion": 1,
-  "specPath": "docs/specs/2026-03-19-feature-x.md",
+  "specPath": "docs/changes/feature-x/proposal.md",
   "currentState": "EXECUTE",
   "currentPhase": 1,
   "phases": [

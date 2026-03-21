@@ -263,7 +263,7 @@ All architectural decisions must be documented:
 1. **Design Documents** - Explain the "why" before implementing
 2. **Architecture Decisions** - Record key choices in `/docs/standard/`
 3. **Implementation Plans** - Track execution in `/docs/plans/`
-4. **Specifications** - Detailed technical specs in `/docs/specs/`
+4. **Specifications** - Detailed technical specs in `/docs/changes/`
 5. **Guides** - How-to documentation for common tasks
 
 This creates a permanent record that AI agents can access and understand.
@@ -290,7 +290,7 @@ This creates a permanent record that AI agents can access and understand.
 
 - **[docs/api/](./docs/api/)** - API documentation (placeholder — currently contains only index.md)
 
-- **[docs/specs/](./docs/specs/)** - Detailed technical specifications for features
+- **[docs/changes/](./docs/changes/)** - Detailed technical specifications for features
 - **[docs/plans/](./docs/plans/)** - Implementation and execution plans
 
 ### Key Documentation
@@ -514,7 +514,7 @@ This makes error handling explicit and type-safe.
 | Update standard      | `docs/standard/`                         |
 | Create a guide       | `docs/guides/`                           |
 | API reference        | `docs/api/`                              |
-| Technical specs      | `docs/specs/`                            |
+| Technical specs      | `docs/changes/`                          |
 | Implementation plans | `docs/plans/`                            |
 
 ### Important Configuration Files

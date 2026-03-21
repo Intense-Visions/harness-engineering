@@ -47,9 +47,9 @@ Note: `agents/skills/gemini-cli/harness-brainstorming` and `agents/skills/gemini
       - Success criteria (observable, testable outcomes)
       - Implementation order (high-level phases, not detailed tasks — that is harness-planning's job)
 
-   2. **After all sections are reviewed, write the spec to `docs/`.** Use the project's existing spec naming convention. If none exists, use `docs/specs/YYYY-MM-DD-<feature-name>.md`.
+   2. **After all sections are reviewed, write the spec to `docs/`.** Use the project's existing spec naming convention. If none exists, use `docs/changes/<feature-name>/proposal.md`.
 
-      When the project has `docs/specs/`, write proposals to `docs/changes/<feature>/proposal.md` instead. This keeps change proposals separate from established specs. Fall back to the existing behavior (`docs/specs/`) when no `docs/specs/` directory exists yet.
+      When the project has `docs/changes/`, write proposals to `docs/changes/<feature>/proposal.md` instead. This keeps change proposals separate from established specs. Fall back to the existing behavior (`docs/changes/`) when no `docs/changes/` directory exists yet.
 
    3. **Run `harness validate`** to verify the spec file is properly placed and the project remains healthy.
 
@@ -68,9 +68,9 @@ Note: `agents/skills/gemini-cli/harness-brainstorming` and `agents/skills/gemini
 
    2. **Run soundness review.** After all sections are reviewed and the spec is drafted, invoke `harness-soundness-review --mode spec` against the draft. Do not proceed to write the spec to `docs/` until the soundness review converges with no remaining issues.
 
-   3. **After all sections are reviewed, write the spec to `docs/`.** Use the project's existing spec naming convention. If none exists, use `docs/specs/YYYY-MM-DD-<feature-name>.md`.
+   3. **After all sections are reviewed, write the spec to `docs/`.** Use the project's existing spec naming convention. If none exists, use `docs/changes/<feature-name>/proposal.md`.
 
-      When the project has `docs/specs/`, write proposals to `docs/changes/<feature>/proposal.md` instead. This keeps change proposals separate from established specs. Fall back to the existing behavior (`docs/specs/`) when no `docs/specs/` directory exists yet.
+      When the project has `docs/changes/`, write proposals to `docs/changes/<feature>/proposal.md` instead. This keeps change proposals separate from established specs. Fall back to the existing behavior (`docs/changes/`) when no `docs/changes/` directory exists yet.
 
    4. **Run `harness validate`** to verify the spec file is properly placed and the project remains healthy.
 

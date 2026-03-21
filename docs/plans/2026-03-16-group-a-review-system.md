@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown (SKILL.md files), YAML (skill.yaml files), Git (commit history commands)
 
-**Spec:** `docs/specs/2026-03-16-research-roadmap-design.md` (Group A section)
+**Spec:** `docs/changes/research-roadmap/proposal.md` (Group A section)
 
 ---
 
@@ -43,7 +43,7 @@ Gather context in this order until the ratio is met:
 
 1. **Files directly imported/referenced by changed files** — read the modules that the changed code calls or depends on. Without this, you cannot evaluate correctness.
 2. **Corresponding test files** — find tests for the changed code. If tests exist, read them to understand expected behavior. If tests are missing, note this as a finding.
-3. **Spec/design docs mentioning changed components** — search `docs/specs/`, `docs/design-docs/`, and `docs/plans/` for references to the changed files or features. The spec defines "correct."
+3. **Spec/design docs mentioning changed components** — search `docs/changes/`, `docs/design-docs/`, and `docs/plans/` for references to the changed files or features. The spec defines "correct."
 4. **Type definitions used by changed code** — read interfaces, types, and schemas that the changed code consumes or produces. Type mismatches are high-severity bugs.
 5. **Recent commits touching the same files** — see Commit History below (A2).
 
@@ -61,7 +61,7 @@ grep -n "import\|require\|from " <changed-file>
 find . -name "*<module-name>*test*" -o -name "*<module-name>*spec*"
 
 # 4. Search for spec/design references
-grep -rl "<component-name>" docs/specs/ docs/design-docs/ docs/plans/
+grep -rl "<component-name>" docs/changes/ docs/design-docs/ docs/plans/
 
 # 5. Find type definitions
 grep -rn "interface\|type\|schema" <changed-file> | head -20

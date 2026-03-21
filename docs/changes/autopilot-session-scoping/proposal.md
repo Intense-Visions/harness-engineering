@@ -53,7 +53,7 @@ Result: .harness/sessions/changes--autopilot--proposal/
 More examples:
 
 ```
-docs/specs/2026-03-19-security-scanner.md → specs--2026-03-19-security-scanner
+docs/changes/security-scanner/proposal.md → changes--security-scanner--proposal
 docs/changes/design-system-skills/proposal.md → changes--design-system-skills--proposal
 specs/feature.md → specs--feature
 ```

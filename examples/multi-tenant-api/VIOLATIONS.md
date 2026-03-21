@@ -48,7 +48,7 @@ Remove the import when done.
 
 ## 3. Cross-Artifact Staleness
 
-Edit `docs/specs/tenant-isolation.md` and add a new rule:
+Edit `docs/changes/tenant-isolation/proposal.md` and add a new rule:
 
 ```markdown
 6. All tenant data must be encrypted at rest

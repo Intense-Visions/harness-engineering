@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Commander (CLI), Zod (validation), Vitest (testing), yaml (YAML parsing)
 
-**Spec:** `docs/specs/2026-03-16-slash-command-generation-design.md`
+**Spec:** `docs/changes/slash-command-generation/proposal.md`
 
 ---
 

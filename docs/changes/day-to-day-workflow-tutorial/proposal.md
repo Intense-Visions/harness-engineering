@@ -40,7 +40,7 @@ Explore the problem space and produce a spec.
 
 - Invoke the `/harness:brainstorming` skill with the feature idea ("CRUD API for bookmarks with tagging")
 - Show the clarifying question/answer flow and approach selection
-- Spec gets written to `docs/specs/`
+- Spec gets written to `docs/changes/`
 - Spec review loop: automated reviewer checks, then human approval gate
 - Output: an approved spec document
 
@@ -123,7 +123,7 @@ Summary table mapping each workflow stage to its commands and skills.
 | Stage      | CLI Commands                                                         | Skills                                                                                                                                             | Key Artifacts                                  |
 | ---------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | Initialize | `harness init`, `harness validate`, `harness check-deps`             | `/harness:initialize-project`                                                                                                                      | `harness.config.json`, `AGENTS.md`             |
-| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/specs/*.md`                              |
+| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/changes/*/proposal.md`                   |
 | Plan       | —                                                                    | `/harness:planning`                                                                                                                                | `docs/plans/*.md`, `.harness/handoff.json`     |
 | Implement  | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`                                                                                                               | `.harness/state.json`, `.harness/learnings.md` |
 | Verify     | `harness validate`                                                   | `/harness:verification`, `harness-integrity` (skill)                                                                                               | Verification report                            |

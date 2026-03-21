@@ -1,7 +1,7 @@
 # Plan: Security Scanner Core (Phases 1-4)
 
 **Date:** 2026-03-19
-**Spec:** docs/specs/2026-03-19-security-first-class-design.md
+**Spec:** docs/changes/security-first-class/proposal.md
 **Estimated tasks:** 14
 **Estimated time:** 50 minutes
 **Scope:** Spec Phases 1-4 (Core Scanner Engine, Built-in Rules, Stack-Adaptive Rules, CI Integration)

@@ -335,7 +335,7 @@ Group B (Principles & Conventions)
 **Design:**
 
 - CLI command: `harness check-phase-gate` — validates that implementation files have corresponding specs
-- Rule logic: when a file in `src/` or equivalent is created/modified, check that a spec file exists in `docs/specs/` matching the feature name
+- Rule logic: when a file in `src/` or equivalent is created/modified, check that a spec file exists in `docs/changes/` matching the feature name
 - Configurable mapping: projects define spec-to-implementation path mapping in `.harness/config`
 - Opt-in: `phase-gates.enabled: true` in `.harness/config`
 - Can be wired as a git pre-commit hook or CI step

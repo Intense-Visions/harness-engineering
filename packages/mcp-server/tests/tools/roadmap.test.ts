@@ -18,7 +18,7 @@ last_manual_edit: 2026-01-01T00:00:00Z
 
 ### Feature: Auth System
 - **Status:** in-progress
-- **Spec:** docs/specs/auth.md
+- **Spec:** docs/changes/auth/proposal.md
 - **Plans:** docs/plans/auth-plan.md
 - **Blocked by:** \u2014
 - **Summary:** Authentication and authorization
@@ -169,7 +169,7 @@ describe('manage_roadmap add action', () => {
       milestone: 'Q2 Polish',
       status: 'in-progress',
       summary: 'Structured logging',
-      spec: 'docs/specs/logging.md',
+      spec: 'docs/changes/logging/proposal.md',
       plans: ['docs/plans/logging-plan.md'],
       blocked_by: ['Auth System'],
     });
@@ -177,7 +177,7 @@ describe('manage_roadmap add action', () => {
     const parsed = JSON.parse(response.content[0].text);
     const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
     const logging = q2.features.find((f: { name: string }) => f.name === 'Logging');
-    expect(logging.spec).toBe('docs/specs/logging.md');
+    expect(logging.spec).toBe('docs/changes/logging/proposal.md');
     expect(logging.plans).toEqual(['docs/plans/logging-plan.md']);
     expect(logging.blockedBy).toEqual(['Auth System']);
   });
@@ -258,14 +258,14 @@ describe('manage_roadmap update action', () => {
       action: 'update',
       feature: 'Dark Mode',
       summary: 'Updated dark mode support',
-      spec: 'docs/specs/dark-mode.md',
+      spec: 'docs/changes/dark-mode/proposal.md',
     });
     expect(response.isError).toBeFalsy();
     const parsed = JSON.parse(response.content[0].text);
     const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
     const dark = q2.features.find((f: { name: string }) => f.name === 'Dark Mode');
     expect(dark.summary).toBe('Updated dark mode support');
-    expect(dark.spec).toBe('docs/specs/dark-mode.md');
+    expect(dark.spec).toBe('docs/changes/dark-mode/proposal.md');
   });
 
   it('updates blocked_by and plans', async () => {

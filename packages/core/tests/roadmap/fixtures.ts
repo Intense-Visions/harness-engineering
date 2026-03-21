@@ -18,14 +18,14 @@ last_manual_edit: 2026-03-21T15:00:00Z
 
 ### Feature: Notification System
 - **Status:** in-progress
-- **Spec:** docs/specs/2026-03-14-notification-system.md
+- **Spec:** docs/changes/notification-system/proposal.md
 - **Plans:** docs/plans/2026-03-14-notification-phase-1-plan.md, docs/plans/2026-03-15-notification-phase-2-plan.md
 - **Blocked by:** \u2014
 - **Summary:** Email and in-app notifications with polling
 
 ### Feature: User Auth Revamp
 - **Status:** planned
-- **Spec:** docs/specs/2026-02-20-auth-revamp.md
+- **Spec:** docs/changes/auth-revamp/proposal.md
 - **Plans:** \u2014
 - **Blocked by:** Notification System
 - **Summary:** OAuth2 migration for compliance requirements
@@ -67,7 +67,7 @@ export const VALID_ROADMAP: Roadmap = {
         {
           name: 'Notification System',
           status: 'in-progress',
-          spec: 'docs/specs/2026-03-14-notification-system.md',
+          spec: 'docs/changes/notification-system/proposal.md',
           plans: [
             'docs/plans/2026-03-14-notification-phase-1-plan.md',
             'docs/plans/2026-03-15-notification-phase-2-plan.md',
@@ -78,7 +78,7 @@ export const VALID_ROADMAP: Roadmap = {
         {
           name: 'User Auth Revamp',
           status: 'planned',
-          spec: 'docs/specs/2026-02-20-auth-revamp.md',
+          spec: 'docs/changes/auth-revamp/proposal.md',
           plans: [],
           blockedBy: ['Notification System'],
           summary: 'OAuth2 migration for compliance requirements',

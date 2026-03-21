@@ -52,7 +52,7 @@ last_manual_edit: 2026-03-21T15:00:00Z
 ### Feature: Notification System
 
 - **Status:** in-progress
-- **Spec:** docs/specs/2026-03-14-notification-system.md
+- **Spec:** docs/changes/notification-system/proposal.md
 - **Plans:** docs/plans/2026-03-14-notification-phase-1-plan.md, docs/plans/2026-03-15-notification-phase-2-plan.md
 - **Blocked by:** —
 - **Summary:** Email and in-app notifications with polling
@@ -60,7 +60,7 @@ last_manual_edit: 2026-03-21T15:00:00Z
 ### Feature: User Auth Revamp
 
 - **Status:** planned
-- **Spec:** docs/specs/2026-02-20-auth-revamp.md
+- **Spec:** docs/changes/auth-revamp/proposal.md
 - **Plans:** —
 - **Blocked by:** Notification System
 - **Summary:** OAuth2 migration for compliance requirements
@@ -105,7 +105,7 @@ last_manual_edit: 2026-03-21T15:00:00Z
 | Command                | Behavior                                                                                                                                    |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | _(no args)_            | Show current roadmap status summary                                                                                                         |
-| `--create`             | Bootstrap roadmap from existing `docs/specs/` and `docs/plans/`; interactive — asks about milestones and grouping                           |
+| `--create`             | Bootstrap roadmap from existing `docs/changes/` and `docs/plans/`; interactive — asks about milestones and grouping                         |
 | `--add <feature-name>` | Add a feature to a milestone (interactive: asks which milestone, status, spec link)                                                         |
 | `--sync`               | Scan plan execution state and update statuses; report what changed. Errors if `docs/roadmap.md` does not exist — directs user to `--create` |
 | `--edit`               | Interactive edit session (reorder, move between milestones, update blockers)                                                                |

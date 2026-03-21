@@ -185,7 +185,7 @@ Phase gates require configuration in `harness.config.json`:
     "severity": "warning",
     "mappings": [
       {
-        "specPattern": "docs/specs/*.md",
+        "specPattern": "docs/changes/*/proposal.md",
         "implPattern": "src/**/*.ts"
       }
     ]

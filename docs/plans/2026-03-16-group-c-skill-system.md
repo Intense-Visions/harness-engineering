@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Commander, YAML, Vitest, chalk
 
-**Spec:** `docs/specs/2026-03-16-research-roadmap-design.md` (Group C section)
+**Spec:** `docs/changes/research-roadmap/proposal.md` (Group C section)
 
 **Implementation order:** C1 -> C2 -> C3 -> C4
 
@@ -922,7 +922,7 @@ Interactive architecture advisor that helps humans make informed design decision
 
 **Files read:**
 
-- `docs/specs/**/*.md` — existing specs and design documents
+- `docs/changes/*/proposal.md` — existing specs and design documents
 - `docs/standard/**/*.md` — project principles and conventions
 - `AGENTS.md` — project structure and architecture overview
 - `harness.config.json` — layer definitions and architectural constraints

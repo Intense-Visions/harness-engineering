@@ -24,7 +24,7 @@ api/         →  can import from types, middleware, services
 - Data store is partitioned by tenant
 - Cross-tenant access returns 404
 
-See `docs/specs/tenant-isolation.md` for the full specification.
+See `docs/changes/tenant-isolation/proposal.md` for the full specification.
 
 ## Repository Structure
 
