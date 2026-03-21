@@ -105,6 +105,16 @@ export const I18nConfigSchema = z.object({
   mcp: I18nMcpConfigSchema.optional(),
 });
 
+export const ModelTierConfigSchema = z.object({
+  fast: z.string().optional(),
+  standard: z.string().optional(),
+  strong: z.string().optional(),
+});
+
+export const ReviewConfigSchema = z.object({
+  model_tiers: ModelTierConfigSchema.optional(),
+});
+
 export const HarnessConfigSchema = z.object({
   version: z.literal(1),
   name: z.string().optional(),
@@ -128,6 +138,7 @@ export const HarnessConfigSchema = z.object({
   phaseGates: PhaseGatesConfigSchema.optional(),
   design: DesignConfigSchema.optional(),
   i18n: I18nConfigSchema.optional(),
+  review: ReviewConfigSchema.optional(),
   updateCheckInterval: z.number().int().min(0).optional(),
 });
 
@@ -135,3 +146,5 @@ export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
 export type DesignConfig = z.infer<typeof DesignConfigSchema>;
 export type I18nConfig = z.infer<typeof I18nConfigSchema>;
 export type Layer = z.infer<typeof LayerSchema>;
+export type ReviewConfig = z.infer<typeof ReviewConfigSchema>;
+export type ModelTierConfigZod = z.infer<typeof ModelTierConfigSchema>;
