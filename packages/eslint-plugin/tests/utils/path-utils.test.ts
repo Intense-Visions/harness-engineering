@@ -25,11 +25,12 @@ describe('path-utils', () => {
       expect(result).toBe('src/domain/helper');
     });
 
-    it('handles Windows-style backslash paths', () => {
-      // Simulate a Windows-resolved path containing backslashes
-      // resolveImportPath should find /src/ or \\src\\ and extract correctly
-      const result = resolveImportPath('./helper', '/project/src/domain/service.ts');
-      expect(result).toBe('src/domain/helper');
+    it('handles Windows-style backslash paths via normalizePath', () => {
+      // resolveImportPath calls path.resolve which normalizes separators on
+      // the current OS, so backslash normalization only fires on Windows.
+      // Test the normalization logic indirectly through normalizePath which
+      // uses the same .replace(/\\/g, '/') + indexOf('/src/') pattern.
+      expect(normalizePath('C:\\project\\src\\domain\\helper')).toBe('src/domain/helper');
     });
   });
 
