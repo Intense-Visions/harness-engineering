@@ -498,20 +498,51 @@ emit_interaction({
 })
 ```
 
-After review is accepted:
+#### Handoff and Transition
+
+After delivering the review output, write the handoff and conditionally transition:
+
+Write `.harness/handoff.json`:
 
 ```json
-emit_interaction({
-  path: "<project-root>",
-  type: "transition",
-  transition: {
-    completedPhase: "review",
-    suggestedNext: "merge",
-    reason: "Review accepted with assessment: <Approve|Request Changes|Comment>",
-    artifacts: ["<reviewed PR or files>"]
-  }
-})
+{
+  "fromSkill": "harness-code-review",
+  "phase": "OUTPUT",
+  "summary": "<assessment summary>",
+  "assessment": "approve | request-changes | comment",
+  "findingCount": { "critical": 0, "important": 0, "suggestion": 0 },
+  "artifacts": ["<reviewed files>"]
+}
 ```
+
+**If assessment is "approve":**
+
+Call `emit_interaction`:
+
+```json
+{
+  "type": "transition",
+  "transition": {
+    "completedPhase": "review",
+    "suggestedNext": "merge",
+    "reason": "Review approved with no blocking issues",
+    "artifacts": ["<reviewed files>"],
+    "requiresConfirmation": true,
+    "summary": "Review approved. <N> suggestions noted. Ready to create PR or merge."
+  }
+}
+```
+
+If the user confirms: proceed to create PR or merge.
+If the user declines: stop. The handoff is written for future invocation.
+
+**If assessment is "request-changes":**
+
+Do NOT emit a transition. Surface the critical and important findings to the user for resolution. After fixes are applied, re-run the review pipeline.
+
+**If assessment is "comment":**
+
+Do NOT emit a transition. Observations have been delivered. No further action is implied.
 
 ---
 
@@ -565,6 +596,7 @@ _This section is not part of the pipeline. It documents the process for respondi
 - **`harness check-docs`** — Run in Phase 2 (MECHANICAL). Documentation drift findings are recorded for the exclusion set.
 - **`harness cleanup`** — Optional check during Phase 2 for entropy accumulation in changed files.
 - **Graph queries** — Used in Phase 3 (CONTEXT) for dependency-scoped context and in Phase 5 (VALIDATE) for reachability verification. Graceful fallback when no graph exists.
+- **`emit_interaction`** -- Call after review approval to suggest transitioning to merge/PR creation. Only emitted on APPROVE assessment. Uses confirmed transition (waits for user approval).
 
 ## Success Criteria
 
