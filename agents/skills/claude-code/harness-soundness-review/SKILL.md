@@ -468,6 +468,38 @@ Execute all checks for the active mode. Classify each finding as `autoFixable: t
 }
 ```
 
+##### P4 Ordering Sanity
+
+**What to analyze:** The task execution order (numbering and dependency graph), the file paths each task touches, and any parallel opportunities declared.
+
+**How to detect:**
+
+- **File conflict detection:** Extract file paths from each task. If two tasks touch the same file and are not sequenced by a dependency edge (one could run before the other), flag them as a potential conflict. Tasks touching the same file must be ordered.
+- **Consumer-before-producer:** If Task A creates a type or export that Task B imports, but Task B has a lower number and no dependency on Task A, the consumer is scheduled before the producer. Flag the ordering violation.
+- Without graph: Parse file paths from task descriptions and the File Map. Build a file-to-task mapping and check for conflicts.
+- With graph: Use graph file ownership data to get accurate file-to-module mappings. This catches indirect conflicts (e.g., two tasks modify different files in the same module, and the module has a single barrel export that both affect).
+
+**Finding classification:** Always `severity: "warning"`, always `autoFixable: true`. The fix is to reorder the tasks (update task numbers and "Depends on" declarations) so that producers come before consumers and file-conflicting tasks are sequenced.
+
+**Example finding:**
+
+```json
+{
+  "id": "P4-001",
+  "check": "P4",
+  "title": "Consumer task scheduled before producer",
+  "detail": "Task 2 imports from 'src/types/user.ts' which is created by Task 4. Task 2 has no dependency on Task 4, so it could execute first and fail on the missing import.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add 'Depends on: Task 4' to Task 2, or reorder so the type definition task (currently Task 4) comes before Task 2.",
+  "evidence": [
+    "Task 2: 'import { User } from src/types/user.ts'",
+    "Task 4: 'Create src/types/user.ts with User interface'",
+    "Task 2 'Depends on': 'none' (Task 4 not listed)"
+  ]
+}
+```
+
 ---
 
 ### Phase 2: FIX — Auto-Fix Inferrable Issues
