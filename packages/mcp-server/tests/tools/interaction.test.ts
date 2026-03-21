@@ -88,6 +88,8 @@ describe('emit_interaction tool', () => {
           suggestedNext: 'DECOMPOSE',
           reason: 'All must-haves derived',
           artifacts: ['docs/plans/plan.md'],
+          requiresConfirmation: true,
+          summary: 'All must-haves derived from goals.',
         },
       });
       expect(response.isError).toBeFalsy();
@@ -96,6 +98,63 @@ describe('emit_interaction tool', () => {
       expect(parsed.prompt).toContain('SCOPE');
       expect(parsed.prompt).toContain('DECOMPOSE');
       expect(parsed.handoffWritten).toBe(true);
+    });
+
+    it('returns autoTransition and nextAction for auto-transitions', async () => {
+      const response = await handleEmitInteraction({
+        path: '/tmp/test-interaction',
+        type: 'transition',
+        transition: {
+          completedPhase: 'execution',
+          suggestedNext: 'verification',
+          reason: 'All tasks complete',
+          artifacts: ['src/service.ts'],
+          requiresConfirmation: false,
+          summary: 'Completed 5 tasks. 3 files created.',
+        },
+      });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.autoTransition).toBe(true);
+      expect(parsed.nextAction).toContain('verification');
+      expect(parsed.handoffWritten).toBe(true);
+    });
+
+    it('does not include autoTransition for confirmed transitions', async () => {
+      const response = await handleEmitInteraction({
+        path: '/tmp/test-interaction',
+        type: 'transition',
+        transition: {
+          completedPhase: 'brainstorming',
+          suggestedNext: 'planning',
+          reason: 'Spec approved',
+          artifacts: ['docs/spec.md'],
+          requiresConfirmation: true,
+          summary: 'Auth spec approved with 5 decisions.',
+        },
+      });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.autoTransition).toBeUndefined();
+      expect(parsed.nextAction).toBeUndefined();
+      expect(parsed.handoffWritten).toBe(true);
+    });
+
+    it('includes summary in transition prompt', async () => {
+      const response = await handleEmitInteraction({
+        path: '/tmp/test-interaction',
+        type: 'transition',
+        transition: {
+          completedPhase: 'planning',
+          suggestedNext: 'execution',
+          reason: 'Plan approved',
+          artifacts: ['docs/plans/plan.md'],
+          requiresConfirmation: true,
+          summary: 'Notification system — 8 tasks, 30 min estimate.',
+        },
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.prompt).toContain('Notification system');
     });
 
     it('returns error when transition payload is missing', async () => {

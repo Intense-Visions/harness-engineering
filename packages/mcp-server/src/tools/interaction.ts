@@ -65,8 +65,23 @@ export const emitInteractionDefinition = {
             items: { type: 'string' },
             description: 'File paths produced during the completed phase',
           },
+          requiresConfirmation: {
+            type: 'boolean',
+            description: 'true = wait for user confirmation, false = proceed immediately',
+          },
+          summary: {
+            type: 'string',
+            description: '1-2 sentence rich summary with key metrics',
+          },
         },
-        required: ['completedPhase', 'suggestedNext', 'reason', 'artifacts'],
+        required: [
+          'completedPhase',
+          'suggestedNext',
+          'reason',
+          'artifacts',
+          'requiresConfirmation',
+          'summary',
+        ],
       },
     },
     required: ['path', 'type'],
@@ -84,6 +99,8 @@ interface EmitInteractionInput {
     suggestedNext: string;
     reason: string;
     artifacts: string[];
+    requiresConfirmation: boolean;
+    summary: string;
   };
 }
 
@@ -158,11 +175,15 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
             isError: true,
           };
         }
-        const { completedPhase, suggestedNext, reason, artifacts } = input.transition;
+        const { completedPhase, suggestedNext, reason, artifacts, requiresConfirmation, summary } =
+          input.transition;
         const prompt =
           `Phase "${completedPhase}" complete. ${reason}\n\n` +
+          `${summary}\n\n` +
           `Artifacts produced:\n${artifacts.map((a) => `  - ${a}`).join('\n')}\n\n` +
-          `Suggested next: "${suggestedNext}". Proceed?`;
+          (requiresConfirmation
+            ? `Suggested next: "${suggestedNext}". Proceed?`
+            : `Proceeding to ${suggestedNext}...`);
 
         // Write handoff
         try {
@@ -195,11 +216,17 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
           input.stream
         );
 
+        const responsePayload: Record<string, unknown> = { id, prompt, handoffWritten: true };
+        if (!requiresConfirmation) {
+          responsePayload.autoTransition = true;
+          responsePayload.nextAction = `Invoke harness-${suggestedNext} skill now`;
+        }
+
         return {
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify({ id, prompt, handoffWritten: true }),
+              text: JSON.stringify(responsePayload),
             },
           ],
         };
