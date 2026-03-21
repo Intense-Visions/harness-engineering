@@ -229,6 +229,16 @@ export interface ReviewFinding {
   evidence: string[];
   /** How this finding was validated (set in Phase 5; agents set 'heuristic' by default) */
   validatedBy: 'mechanical' | 'graph' | 'heuristic';
+  /** CWE identifier, e.g. "CWE-89" (security domain only) */
+  cweId?: string;
+  /** OWASP Top 10 category, e.g. "A03:2021 Injection" (security domain only) */
+  owaspCategory?: string;
+  /** Confidence level of the finding (security domain only) */
+  confidence?: 'high' | 'medium' | 'low';
+  /** Specific remediation guidance (security domain only) */
+  remediation?: string;
+  /** Links to CWE/OWASP reference docs (security domain only) */
+  references?: string[];
 }
 
 /**
