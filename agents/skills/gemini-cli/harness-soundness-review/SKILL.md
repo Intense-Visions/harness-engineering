@@ -360,7 +360,266 @@ Execute all checks for the active mode. Classify each finding as `autoFixable: t
 | P6  | Scope drift            | Plan tasks not traceable to any spec requirement                                    | No — surface to user (might be intentional prerequisite work)      |
 | P7  | Task-level feasibility | Tasks requiring decisions not made in brainstorming; tasks too vague to execute     | No — surface to user                                               |
 
-> **Status:** Not yet implemented. Check stubs will be added in Phase 4 of the implementation order.
+##### P1 Spec-Plan Coverage
+
+**What to analyze:** The spec's Success Criteria section and the plan's Tasks section. Requires access to both the spec document (referenced in the plan header) and the plan being reviewed.
+
+**How to detect:**
+
+- Without graph: Extract each numbered success criterion from the spec. For each criterion, search the plan's task descriptions, verification steps, and observable truths for text that covers the criterion. A criterion is "covered" if at least one task's verification step or observable truth would confirm the criterion is met. Flag any criterion with no corresponding task coverage.
+- With graph: If graph traceability edges exist between spec criteria and plan tasks, use those edges to verify coverage. Flag criteria with no inbound traceability edge.
+
+**Finding classification:** Always `severity: "error"`, always `autoFixable: true`. The fix is to add a new task (or extend an existing task's verification step) that covers the uncovered criterion.
+
+**Example finding:**
+
+```json
+{
+  "id": "P1-001",
+  "check": "P1",
+  "title": "Spec criterion not covered by any plan task",
+  "detail": "Success criterion #4 ('All API errors return structured error responses with request-id') has no corresponding task in the plan. No task's verification step or observable truth would confirm this criterion is met.",
+  "severity": "error",
+  "autoFixable": true,
+  "suggestedFix": "Add a new task that implements structured error responses and verifies request-id headers are included. Place it after the API route tasks (Task 3) with appropriate dependencies.",
+  "evidence": [
+    "Spec Success Criteria #4: 'All API errors return structured error responses with request-id'",
+    "Plan Tasks 1-8: no task references error response format or request-id"
+  ]
+}
+```
+
+##### P2 Task Completeness
+
+**What to analyze:** Each task in the plan's Tasks section.
+
+**How to detect:** For each task, verify it has: (a) clear inputs (what files/artifacts the task reads or depends on), (b) clear outputs (what files the task creates or modifies), (c) a verification criterion (a test command, observable behavior, or check that confirms the task succeeded). Flag tasks missing any of these three elements.
+
+**Finding classification:** Always `severity: "warning"`, always `autoFixable: true`. The fix is to infer the missing element from the task description and surrounding context (e.g., if a task says "create src/foo.ts" but has no verification, add "Run: `npx vitest run src/foo.test.ts`" if a test file exists in the plan, or "Run: `tsc --noEmit`" as a minimal verification).
+
+**Example finding:**
+
+```json
+{
+  "id": "P2-001",
+  "check": "P2",
+  "title": "Task missing verification criterion",
+  "detail": "Task 3 ('Create notification service') specifies inputs (notification types from Task 1) and outputs (src/services/notification-service.ts) but has no verification criterion. There is no test command, observable behavior, or check that confirms the task succeeded.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add verification: 'Run: `npx vitest run src/services/notification-service.test.ts`' (test file exists in Task 4 of the plan).",
+  "evidence": [
+    "Task 3: no 'Run:', 'Verify:', or 'Check:' step found",
+    "Task 4 creates src/services/notification-service.test.ts — can be referenced as verification"
+  ]
+}
+```
+
+##### P3 Dependency Correctness
+
+**What to analyze:** The "Depends on" declarations across all tasks, and the file paths / artifacts referenced in each task.
+
+**How to detect:**
+
+- Build a dependency graph from all "Depends on: Task N" declarations.
+- **Cycle detection:** Run a topological sort on the graph. If the sort fails, a cycle exists. Report the cycle as the set of tasks involved (e.g., "Task 3 -> Task 5 -> Task 3").
+- **Missing edges:** For each task, extract the files it reads or imports. If a file is created by another task (check the File Map), verify the creating task is declared as a dependency. Flag missing edges.
+- Without graph (static analysis): Parse file paths from task descriptions ("Create src/types/foo.ts", "Modify src/services/bar.ts") and match creators to consumers.
+- With graph: Use `get_impact` on each task's output files to verify that all downstream consumers are declared as dependents. Graph edges provide more accurate dependency data than text parsing.
+
+**Finding classification:**
+
+- Cycles: `severity: "error"`, `autoFixable: false`. Cycles indicate a decomposition error that requires restructuring tasks. Surface to user.
+- Missing dependency edges: `severity: "warning"`, `autoFixable: true`. The fix is to add the missing "Depends on" declaration to the consuming task.
+
+**Example findings:**
+
+```json
+{
+  "id": "P3-001",
+  "check": "P3",
+  "title": "Dependency cycle detected",
+  "detail": "Tasks form a cycle: Task 3 depends on Task 5, Task 5 depends on Task 3. Topological sort fails. These tasks cannot be executed in any valid order without restructuring.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Break the cycle by merging Tasks 3 and 5 into a single task, or by extracting the shared dependency into a new task that both depend on.",
+  "evidence": [
+    "Task 3: 'Depends on: Task 5'",
+    "Task 5: 'Depends on: Task 3'",
+    "Topological sort failed — cycle: Task 3 -> Task 5 -> Task 3"
+  ]
+}
+```
+
+```json
+{
+  "id": "P3-002",
+  "check": "P3",
+  "title": "Missing dependency edge",
+  "detail": "Task 5 imports from 'src/types/notification.ts' which is created by Task 1, but Task 5 does not declare 'Depends on: Task 1'. If Task 5 runs before Task 1, it will fail.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add 'Depends on: Task 1' to Task 5's header.",
+  "evidence": [
+    "Task 5: imports src/types/notification.ts",
+    "File Map: src/types/notification.ts created by Task 1",
+    "Task 5 'Depends on' line: 'Depends on: Task 4' (Task 1 not listed)"
+  ]
+}
+```
+
+##### P4 Ordering Sanity
+
+**What to analyze:** The task execution order (numbering and dependency graph), the file paths each task touches, and any parallel opportunities declared.
+
+**How to detect:**
+
+- **File conflict detection:** Extract file paths from each task. If two tasks touch the same file and are not sequenced by a dependency edge (one could run before the other), flag them as a potential conflict. Tasks touching the same file must be ordered.
+- **Consumer-before-producer:** If Task A creates a type or export that Task B imports, but Task B has a lower number and no dependency on Task A, the consumer is scheduled before the producer. Flag the ordering violation.
+- Without graph: Parse file paths from task descriptions and the File Map. Build a file-to-task mapping and check for conflicts.
+- With graph: Use graph file ownership data to get accurate file-to-module mappings. This catches indirect conflicts (e.g., two tasks modify different files in the same module, and the module has a single barrel export that both affect).
+
+**Finding classification:** Always `severity: "warning"`, always `autoFixable: true`. The fix is to reorder the tasks (update task numbers and "Depends on" declarations) so that producers come before consumers and file-conflicting tasks are sequenced.
+
+**Example finding:**
+
+```json
+{
+  "id": "P4-001",
+  "check": "P4",
+  "title": "Consumer task scheduled before producer",
+  "detail": "Task 2 imports from 'src/types/user.ts' which is created by Task 4. Task 2 has no dependency on Task 4, so it could execute first and fail on the missing import.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add 'Depends on: Task 4' to Task 2, or reorder so the type definition task (currently Task 4) comes before Task 2.",
+  "evidence": [
+    "Task 2: 'import { User } from src/types/user.ts'",
+    "Task 4: 'Create src/types/user.ts with User interface'",
+    "Task 2 'Depends on': 'none' (Task 4 not listed)"
+  ]
+}
+```
+
+##### P5 Risk Coverage
+
+**What to analyze:** The spec's risk-related content (any section mentioning risks, caveats, concerns, open questions) and the plan's tasks and checkpoints.
+
+**How to detect:** Identify risks stated in the spec. These appear in: explicit "Risks" sections, decision rationale mentioning tradeoffs, success criteria that imply failure modes, non-goals that have adjacent risk (e.g., "not in CI" implies no automated gate). For each identified risk, check whether the plan contains: (a) a task that directly mitigates it, (b) a checkpoint that acknowledges it, or (c) an explicit "accepted risk" note. Flag risks with no coverage.
+
+**Finding classification:**
+
+- Obvious mitigation (the risk is technical and a straightforward task addresses it, e.g., "add error handling for X"): `severity: "warning"`, `autoFixable: true`. The fix is to add a mitigation task or extend an existing task's verification step.
+- Judgment-dependent mitigation (the risk involves a design tradeoff, e.g., "performance vs correctness" or "scope vs timeline"): `severity: "warning"`, `autoFixable: false`. Surface to user with mitigation options.
+
+**Example findings:**
+
+```json
+{
+  "id": "P5-001",
+  "check": "P5",
+  "title": "Spec risk has no mitigation in plan",
+  "detail": "The spec identifies 'convergence loop may not terminate' as a risk in the Risks section, but no plan task tests termination behavior. The mitigation is straightforward: add a test that verifies the loop terminates on fixed-point inputs.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add a task that tests convergence termination with inputs that produce a fixed point (zero auto-fixable findings on first pass).",
+  "evidence": [
+    "Spec Risks: 'The convergence loop may not terminate if auto-fixes oscillate'",
+    "Plan Tasks 1-8: no task references termination testing or loop bounds"
+  ]
+}
+```
+
+```json
+{
+  "id": "P5-002",
+  "check": "P5",
+  "title": "Risk requires design judgment to mitigate",
+  "detail": "The spec notes 'auto-fix may introduce new issues' as a risk. Mitigation depends on a design choice: (a) add a rollback mechanism, (b) limit auto-fixes to one pass, or (c) require human approval for cascading fixes. This is a design tradeoff the user must decide.",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Choose a mitigation strategy: (a) rollback mechanism — add undo capability, (b) single-pass limit — simpler but less thorough, (c) human gate — safer but slower.",
+  "evidence": [
+    "Spec Risks: 'Auto-fixes may introduce new issues in subsequent passes'",
+    "No mitigation strategy specified in spec Decisions table"
+  ]
+}
+```
+
+##### P6 Scope Drift
+
+**What to analyze:** The plan's tasks and the spec's goals, success criteria, and technical design.
+
+**How to detect:** For each plan task, check whether it is traceable to a spec requirement. A task is traceable if it (a) directly implements a success criterion, (b) is a necessary prerequisite for a task that implements a criterion (type definitions, shared utilities), or (c) is infrastructure work explicitly called for in the spec's implementation order. Flag tasks that cannot be traced to any spec requirement.
+
+**Finding classification:** Always `severity: "warning"`, always `autoFixable: false`. Untraceable tasks might be intentional prerequisite work that the planner identified as necessary. The user must confirm whether each flagged task is in scope or should be removed.
+
+**Example finding:**
+
+```json
+{
+  "id": "P6-001",
+  "check": "P6",
+  "title": "Plan task not traceable to spec requirement",
+  "detail": "Task 8 ('Add Redis caching layer for API responses') is not traceable to any spec goal, success criterion, or technical design section. The spec does not mention caching, Redis, or response-time optimization.",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Either (a) remove Task 8 if caching is not needed for the current scope, or (b) add a corresponding goal and success criterion to the spec if caching is a genuine requirement.",
+  "evidence": [
+    "Task 8: 'Add Redis caching layer for API responses'",
+    "Spec goals: no mention of caching or performance optimization",
+    "Spec success criteria: no criterion references response time or caching",
+    "Spec technical design: no caching architecture described"
+  ]
+}
+```
+
+##### P7 Task-Level Feasibility
+
+**What to analyze:** Each task's description, file paths, code snippets, and referenced decisions.
+
+**How to detect:**
+
+- **Undecided dependencies:** Check whether any task requires a design decision that was not made during brainstorming. Indicators: task description says "depending on the approach chosen", "if we go with option A", or references a decision not present in the spec's Decisions table.
+- **Vague instructions:** Check whether any task lacks the specificity required by the harness-planning iron law ("every task must be completable in one context window"). Indicators: task says "implement the service" without specifying which functions, "add validation" without specifying what validation rules, or "handle errors" without specifying which errors and how.
+- **Oversized tasks:** Check whether any task touches more than 3 files, or combines multiple independent concerns (e.g., "create the type, implement the service, write tests, and integrate with the API" in a single task).
+
+**Finding classification:** Always `severity: "error"`, always `autoFixable: false`. Feasibility problems require the planner to revise the task — either by making a decision, splitting the task, or adding specificity. These are judgment calls that an auto-fix cannot resolve correctly.
+
+**Example findings:**
+
+```json
+{
+  "id": "P7-001",
+  "check": "P7",
+  "title": "Task depends on undecided design choice",
+  "detail": "Task 7 says 'implement caching layer' but the spec's Decisions table has no entry for caching strategy (LRU, TTL, write-through, etc.). The task cannot be executed without knowing which caching approach to use.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Make the caching decision in the spec's Decisions table (e.g., 'D5: Use LRU cache with 5-minute TTL'), then update Task 7 with the specific implementation details.",
+  "evidence": [
+    "Task 7: 'Implement caching layer for API responses'",
+    "Spec Decisions table: no entry for caching strategy",
+    "Task 7 references no specific cache implementation"
+  ]
+}
+```
+
+```json
+{
+  "id": "P7-002",
+  "check": "P7",
+  "title": "Task too vague to execute in one context window",
+  "detail": "Task 4 says 'implement the notification service' without specifying which methods to implement, what the function signatures are, or what error handling to apply. A developer cannot complete this task without making design decisions that should have been made during planning.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Split Task 4 into specific sub-tasks: (a) create NotificationService.create() with signature and error handling, (b) create NotificationService.list() with filtering logic, (c) create NotificationService.markRead() with idempotency handling.",
+  "evidence": [
+    "Task 4: 'Implement the notification service'",
+    "No function signatures, no error handling spec, no test expectations",
+    "harness-planning iron law: every task must be completable in one context window"
+  ]
+}
+```
 
 ---
 
@@ -389,6 +648,15 @@ For findings where `autoFixable: false`: skip them in this phase. They will be s
 | S6    | None — all findings need user input                         | Always surfaced                                   |
 | S7    | Vague criteria with inferrable thresholds                   | Silent fix                                        |
 | S7    | Unmeasurable criteria (no context to infer)                 | Surfaced — user must rewrite                      |
+| P1    | Missing task for uncovered criterion                        | Silent fix                                        |
+| P2    | Missing inputs, outputs, or verification                    | Silent fix                                        |
+| P3    | Missing dependency edges                                    | Silent fix                                        |
+| P3    | Dependency cycles                                           | Surfaced — restructuring is a design decision     |
+| P4    | File conflicts or consumer-before-producer                  | Silent fix                                        |
+| P5    | Obvious risk mitigation (technical, straightforward)        | Silent fix                                        |
+| P5    | Judgment-dependent risk mitigation                          | Surfaced — user must choose strategy              |
+| P6    | None — all findings need user input                         | Always surfaced                                   |
+| P7    | None — all findings need user input                         | Always surfaced                                   |
 
 **Rule:** A fix is silent when the correct resolution can be determined from the document context alone, with no design judgment required. If there are two or more plausible resolutions, the fix is surfaced.
 
@@ -479,6 +747,112 @@ For findings where `autoFixable: false`: skip them in this phase. They will be s
   'If the config file does not exist (ENOENT), return the default
    configuration object. Log a debug message indicating defaults are used.'
   Following codebase pattern: packages/core/src/config.ts returns defaults on ENOENT.
+```
+
+##### P1 Fix: Add Missing Tasks for Uncovered Criteria
+
+**When:** A spec success criterion has no corresponding plan task.
+
+**Procedure:**
+
+1. Read the spec criterion and Technical Design for context.
+2. Draft a new task that would verify the criterion, including file paths, test commands, and commit message.
+3. Insert the task at the appropriate position in the task list (respecting dependencies).
+4. Update the File Map if new files are introduced.
+5. Record a fix log entry.
+
+**Edit operation:** Insert new task in Tasks section; update File Map.
+
+**Fix log entry example:**
+
+```
+[P1-001] FIXED: Added Task 9 covering spec criterion #5 (error logging):
+  'Create src/utils/error-logger.ts with structured error logging.
+   Verify: npx vitest run src/utils/error-logger.test.ts'
+  Derived from: Spec criterion #5 and Technical Design > Error Handling section.
+```
+
+##### P2 Fix: Fill In Missing Task Elements
+
+**When:** A task is missing clear inputs, outputs, or verification criteria.
+
+**Procedure:**
+
+1. Identify which element is missing (inputs, outputs, or verification).
+2. Infer from the task description and surrounding tasks.
+3. Add the missing element to the task.
+4. Record a fix log entry.
+
+**Edit operation:** Modify the task in place.
+
+**Fix log entry example:**
+
+```
+[P2-001] FIXED: Added verification step to Task 3:
+  'Run: npx vitest run src/services/notification-service.test.ts'
+  Inferred from: Task 4 creates the test file for the service Task 3 implements.
+```
+
+##### P3 Fix: Add Missing Dependency Edges
+
+**When:** Task B uses a file or artifact produced by Task A but does not declare "Depends on: Task A".
+
+**Procedure:**
+
+1. Identify the producer task from the File Map.
+2. Add "Depends on: Task N" to the consuming task's header.
+3. Record a fix log entry.
+
+**Edit operation:** Modify the consuming task's "Depends on" line.
+
+**Fix log entry example:**
+
+```
+[P3-001] FIXED: Added 'Depends on: Task 2' to Task 5:
+  Task 5 imports src/types/notification.ts which is created by Task 2.
+```
+
+##### P4 Fix: Reorder Conflicting Tasks
+
+**When:** Two tasks touch the same file but are not sequenced, or a consumer task is numbered before its producer.
+
+**Procedure:**
+
+1. Identify the conflict.
+2. Reorder by updating task numbers or adding a dependency edge.
+3. If reordering changes task numbers, update all "Depends on" references throughout the plan.
+4. Record a fix log entry.
+
+**Edit operation:** Reorder tasks and update cross-references.
+
+**Fix log entry example:**
+
+```
+[P4-001] FIXED: Added 'Depends on: Task 4' to Task 2:
+  Both tasks modify src/routes/index.ts. Task 4 creates the base route
+  that Task 2 extends. Sequencing prevents merge conflicts.
+```
+
+##### P5 Fix: Add Obvious Mitigation Tasks
+
+**When:** A spec risk has no coverage in the plan and the mitigation is straightforward (e.g., add error handling, add a test for an edge case).
+
+**Procedure:**
+
+1. Read the risk description from the spec.
+2. Draft a mitigation task or extend an existing task's verification step.
+3. Insert at the appropriate position.
+4. Record a fix log entry.
+
+**Edit operation:** Insert new task or extend existing task; update File Map if needed.
+
+**Fix log entry example:**
+
+```
+[P5-001] FIXED: Added Task 10 for convergence termination testing:
+  'Add test that verifies convergence loop terminates on fixed-point inputs
+   (zero auto-fixable findings on first pass).'
+  Mitigates spec risk: 'convergence loop may not terminate'.
 ```
 
 #### Fix Log Format
@@ -684,7 +1058,7 @@ Phase 4: SURFACE
 CLEAN EXIT — returning control to harness-brainstorming for sign-off.
 ```
 
-### Example: Plan Mode Invocation (Skeleton)
+### Example: Plan Mode Invocation
 
 **Context:** harness-planning has drafted a plan and is about to sign off.
 
@@ -692,24 +1066,45 @@ CLEAN EXIT — returning control to harness-brainstorming for sign-off.
 Invoking harness-soundness-review --mode plan...
 
 Phase 1: CHECK
-  Running P1 (spec-plan coverage)... [not yet implemented]
-  Running P2 (task completeness)... [not yet implemented]
-  Running P3 (dependency correctness)... [not yet implemented]
-  Running P4 (ordering sanity)... [not yet implemented]
-  Running P5 (risk coverage)... [not yet implemented]
-  Running P6 (scope drift)... [not yet implemented]
-  Running P7 (task-level feasibility)... [not yet implemented]
+  Running P1 (spec-plan coverage)... 1 finding (auto-fixable)
+  Running P2 (task completeness)... 2 findings (auto-fixable)
+  Running P3 (dependency correctness)... 1 finding (auto-fixable)
+  Running P4 (ordering sanity)... 0 findings
+  Running P5 (risk coverage)... 1 finding (1 needs user input)
+  Running P6 (scope drift)... 0 findings
+  Running P7 (task-level feasibility)... 1 finding (needs user input)
 
-  0 findings. All checks are stubs — no issues detected.
+  6 findings total: 4 auto-fixable, 2 need user input.
 
 Phase 2: FIX
-  No auto-fixable findings.
+  [P1-001] FIXED: Added Task 9 covering spec criterion #5 (error logging).
+  [P2-001] FIXED: Added verification step to Task 3 (run vitest).
+  [P2-002] FIXED: Added outputs to Task 6 (creates src/utils/helper.ts).
+  [P3-001] FIXED: Added 'Depends on: Task 2' to Task 5 (uses types from Task 2).
+  4 auto-fixes applied.
 
 Phase 3: CONVERGE
-  Issue count unchanged (0). Converged.
+  Re-running checks...
+  Issue count: 2 (was 6). Decreased — continuing.
+  Re-running checks...
+  Issue count: 2 (unchanged). Converged.
 
 Phase 4: SURFACE
-  No remaining issues.
+  2 remaining issues need your input:
+
+  [P5-001] Spec risk 'convergence loop may not terminate' has no mitigation (warning)
+  The spec identifies loop termination as a risk, but no plan task tests
+  termination behavior.
+  -> Add a test task for convergence termination, or accept the risk explicitly.
+
+  [P7-001] Task 7 depends on undecided caching strategy (error)
+  Task 7 says 'implement caching layer' but the spec Decisions table has no
+  entry for caching strategy. This task cannot be executed without a decision.
+  -> Make the caching decision in the spec, then update Task 7 with specifics.
+
+  User resolves P5-001 -> adds Task 10 for termination test.
+  User resolves P7-001 -> updates spec with LRU cache decision, updates Task 7.
+  Re-running checks... 0 findings.
 
 CLEAN EXIT — returning control to harness-planning for sign-off.
 ```

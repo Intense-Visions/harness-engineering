@@ -1058,7 +1058,7 @@ Phase 4: SURFACE
 CLEAN EXIT — returning control to harness-brainstorming for sign-off.
 ```
 
-### Example: Plan Mode Invocation (Skeleton)
+### Example: Plan Mode Invocation
 
 **Context:** harness-planning has drafted a plan and is about to sign off.
 
@@ -1066,24 +1066,45 @@ CLEAN EXIT — returning control to harness-brainstorming for sign-off.
 Invoking harness-soundness-review --mode plan...
 
 Phase 1: CHECK
-  Running P1 (spec-plan coverage)... [not yet implemented]
-  Running P2 (task completeness)... [not yet implemented]
-  Running P3 (dependency correctness)... [not yet implemented]
-  Running P4 (ordering sanity)... [not yet implemented]
-  Running P5 (risk coverage)... [not yet implemented]
-  Running P6 (scope drift)... [not yet implemented]
-  Running P7 (task-level feasibility)... [not yet implemented]
+  Running P1 (spec-plan coverage)... 1 finding (auto-fixable)
+  Running P2 (task completeness)... 2 findings (auto-fixable)
+  Running P3 (dependency correctness)... 1 finding (auto-fixable)
+  Running P4 (ordering sanity)... 0 findings
+  Running P5 (risk coverage)... 1 finding (1 needs user input)
+  Running P6 (scope drift)... 0 findings
+  Running P7 (task-level feasibility)... 1 finding (needs user input)
 
-  0 findings. All checks are stubs — no issues detected.
+  6 findings total: 4 auto-fixable, 2 need user input.
 
 Phase 2: FIX
-  No auto-fixable findings.
+  [P1-001] FIXED: Added Task 9 covering spec criterion #5 (error logging).
+  [P2-001] FIXED: Added verification step to Task 3 (run vitest).
+  [P2-002] FIXED: Added outputs to Task 6 (creates src/utils/helper.ts).
+  [P3-001] FIXED: Added 'Depends on: Task 2' to Task 5 (uses types from Task 2).
+  4 auto-fixes applied.
 
 Phase 3: CONVERGE
-  Issue count unchanged (0). Converged.
+  Re-running checks...
+  Issue count: 2 (was 6). Decreased — continuing.
+  Re-running checks...
+  Issue count: 2 (unchanged). Converged.
 
 Phase 4: SURFACE
-  No remaining issues.
+  2 remaining issues need your input:
+
+  [P5-001] Spec risk 'convergence loop may not terminate' has no mitigation (warning)
+  The spec identifies loop termination as a risk, but no plan task tests
+  termination behavior.
+  -> Add a test task for convergence termination, or accept the risk explicitly.
+
+  [P7-001] Task 7 depends on undecided caching strategy (error)
+  Task 7 says 'implement caching layer' but the spec Decisions table has no
+  entry for caching strategy. This task cannot be executed without a decision.
+  -> Make the caching decision in the spec, then update Task 7 with specifics.
+
+  User resolves P5-001 -> adds Task 10 for termination test.
+  User resolves P7-001 -> updates spec with LRU cache decision, updates Task 7.
+  Re-running checks... 0 findings.
 
 CLEAN EXIT — returning control to harness-planning for sign-off.
 ```
