@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { OutputFormatter, OutputMode } from '../../src/output/formatter';
+import { OutputFormatter, OutputMode, parseConventionalMarkdown } from '../../src/output/formatter';
 
 describe('OutputFormatter', () => {
   describe('json mode', () => {
@@ -48,5 +48,50 @@ describe('OutputFormatter', () => {
       const result = formatter.formatValidation(data);
       expect(result).toContain('Error');
     });
+  });
+});
+
+describe('parseConventionalMarkdown', () => {
+  it('extracts CRITICAL finding', () => {
+    const result = parseConventionalMarkdown('**[CRITICAL]** Missing auth check');
+    expect(result).toEqual([{ type: 'CRITICAL', title: 'Missing auth check' }]);
+  });
+
+  it('extracts multiple findings', () => {
+    const input = [
+      '**[CRITICAL]** Bad thing',
+      '**[STRENGTH]** Good thing',
+      '**[SUGGESTION]** Maybe this',
+    ].join('\n');
+    const result = parseConventionalMarkdown(input);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({ type: 'CRITICAL', title: 'Bad thing' });
+    expect(result[1]).toEqual({ type: 'STRENGTH', title: 'Good thing' });
+    expect(result[2]).toEqual({ type: 'SUGGESTION', title: 'Maybe this' });
+  });
+
+  it('extracts Phase progress markers', () => {
+    const result = parseConventionalMarkdown('**[Phase 3/7]** Context scoping');
+    expect(result).toEqual([{ type: 'Phase 3/7', title: 'Context scoping' }]);
+  });
+
+  it('extracts FIXED markers', () => {
+    const result = parseConventionalMarkdown('**[FIXED]** Added missing link');
+    expect(result).toEqual([{ type: 'FIXED', title: 'Added missing link' }]);
+  });
+
+  it('extracts IMPORTANT markers', () => {
+    const result = parseConventionalMarkdown('**[IMPORTANT]** Check error handling');
+    expect(result).toEqual([{ type: 'IMPORTANT', title: 'Check error handling' }]);
+  });
+
+  it('returns empty array for no matches', () => {
+    const result = parseConventionalMarkdown('Just some regular text');
+    expect(result).toEqual([]);
+  });
+
+  it('ignores non-matching bold text', () => {
+    const result = parseConventionalMarkdown('**bold** not a marker');
+    expect(result).toEqual([]);
   });
 });

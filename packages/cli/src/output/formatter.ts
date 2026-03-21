@@ -83,3 +83,24 @@ export class OutputFormatter {
     return `${icon} ${label}: ${value}`;
   }
 }
+
+export interface ConventionalMarkdownEntry {
+  type: string;
+  title: string;
+}
+
+/**
+ * Parse conventional markdown patterns (**[TYPE]** Title) from text.
+ * Extracts structured data from display-only output using the harness
+ * interaction surface conventions.
+ */
+export function parseConventionalMarkdown(text: string): ConventionalMarkdownEntry[] {
+  const pattern =
+    /\*\*\[(CRITICAL|IMPORTANT|SUGGESTION|STRENGTH|FIXED|Phase \d+\/\d+)\]\*\*\s+(.+)/g;
+  const entries: ConventionalMarkdownEntry[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    entries.push({ type: match[1], title: match[2].trim() });
+  }
+  return entries;
+}
