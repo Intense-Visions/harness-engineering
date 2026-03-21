@@ -99,7 +99,7 @@ export async function handleManageRoadmap(input: ManageRoadmapInput) {
   try {
     const { parseRoadmap, serializeRoadmap, syncRoadmap } =
       await import('@harness-engineering/core');
-    const { Ok, Err } = await import('@harness-engineering/types');
+    const { Ok } = await import('@harness-engineering/types');
 
     const projectPath = sanitizePath(input.path);
 

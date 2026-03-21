@@ -1,4 +1,3 @@
-import * as path from 'path';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
