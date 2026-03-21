@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyFinding,
   applyHotspotDowngrade,
-  deduplicateFindings,
+  deduplicateCleanupFindings,
 } from '../../../src/entropy/fixers/cleanup-finding';
 import type { CleanupFinding, HotspotContext } from '../../../src/entropy/types';
 
@@ -105,7 +105,7 @@ describe('applyHotspotDowngrade', () => {
   });
 });
 
-describe('deduplicateFindings', () => {
+describe('deduplicateCleanupFindings', () => {
   it('should merge dead import that is also a forbidden import into one finding', () => {
     const findings: CleanupFinding[] = [
       {
@@ -136,7 +136,7 @@ describe('deduplicateFindings', () => {
       },
     ];
 
-    const deduped = deduplicateFindings(findings);
+    const deduped = deduplicateCleanupFindings(findings);
     expect(deduped.length).toBe(1);
     expect(deduped[0].concern).toBe('dead-code');
     expect(deduped[0].description).toContain('also violates architecture');

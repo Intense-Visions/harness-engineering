@@ -128,7 +128,9 @@ export async function handleApplyFixes(input: {
 
     const report = analysisResult.value;
     const deadCode = report.deadCode;
-    const fixTypesConfig = input.fixTypes ? { fixTypes: input.fixTypes } : {};
+    const fixTypesConfig = input.fixTypes
+      ? { fixTypes: input.fixTypes as import('@harness-engineering/core').FixType[] }
+      : undefined;
     const fixes = deadCode ? createFixes(deadCode, fixTypesConfig) : [];
     const suggestions = generateSuggestions(report.deadCode, report.drift, report.patterns);
 

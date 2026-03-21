@@ -12,8 +12,21 @@
 
 ## Prerequisites
 
-A knowledge graph must exist at `.harness/graph/` with git history ingested. Run `harness scan` if no graph is available.
-If the graph exists but code has changed since the last scan, re-run `harness scan` first — stale graph data leads to inaccurate results.
+A knowledge graph at `.harness/graph/` with git history enables full analysis. If no graph exists,
+the skill uses static analysis fallbacks (see Graph Availability section).
+Run `harness scan` to enable graph-enhanced analysis.
+
+### Graph Availability
+
+Before starting, check if `.harness/graph/graph.json` exists.
+
+**If graph exists:** Use graph tools as primary strategy. (Staleness sensitivity: **Low** — never auto-refresh.
+Git-based churn data in the graph remains useful even when slightly stale.)
+
+**If graph exists and is fresh (or refreshed):** Use graph tools as primary strategy.
+
+**If no graph exists:** Output "Running without graph (run `harness scan` to
+enable full analysis)" and use fallback strategies for all subsequent steps.
 
 ## Process
 
@@ -47,6 +60,19 @@ Rank files by:
 - Change size (total lines added + deleted)
 
 High churn in shared utilities or core modules = high risk.
+
+#### Fallback (without graph)
+
+When no graph is available, git log provides nearly all the data needed (~90% completeness):
+
+1. **Per-file churn**: `git log --format="%H" -- <file>` for each source file (use glob to enumerate). Count commits per file. Sort descending to rank by churn.
+2. **Recent velocity**: `git log --since="30 days ago" --format="%H" -- <file>` vs `git log --since="60 days ago" --until="30 days ago" --format="%H" -- <file>` to compare recent vs prior 30-day windows.
+3. **Co-change detection**: `git log --format="%H %n" --name-only` to build a map of which files changed together in the same commit. File pairs that appear together in >3 commits are co-change candidates.
+4. **Distant co-change identification**: For co-change pairs, check if they share a parent directory (co-located = normal) or are in different modules (distant = suspicious).
+5. **Complexity proxy**: Use line count (`wc -l`) as a rough proxy for complexity when graph complexity metrics are unavailable.
+6. **Hidden dependency detection**: Cross-reference co-change pairs against import parsing (grep for import statements). Co-change pairs with no import relationship indicate hidden dependencies.
+
+> Fallback completeness: ~90% — git log provides nearly all the data the graph stores for this use case.
 
 ### Phase 3: COUPLING — Detect Hidden Dependencies
 
@@ -90,7 +116,7 @@ Use `get_relationships` to check structural edges between co-change pairs.
 
 ## Harness Integration
 
-- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness scan`** — Recommended before this skill for full graph-enhanced analysis. If graph is missing, skill uses git log fallbacks.
 - **`harness validate`** — Run after acting on findings to verify project health.
 - **Graph tools** — This skill uses `query_graph`, `get_impact`, and `get_relationships` MCP tools.
 
@@ -100,7 +126,7 @@ Use `get_relationships` to check structural edges between co-change pairs.
 - Hidden dependencies identified (high co-change, no structural edge)
 - Co-change patterns detected and classified (co-located vs distant)
 - Report follows the structured output format
-- All findings are backed by graph query evidence, not heuristics
+- All findings are backed by graph query evidence (with graph) or git log analysis (without graph)
 
 ## Examples
 
@@ -126,8 +152,8 @@ Output:
 
 ## Gates
 
-- **No analysis without graph + git data.** Both code structure and git history must be ingested.
-- **No guessing at co-change patterns.** Use graph `co_changes_with` edges, not manual git log parsing.
+- **Graph preferred, fallback available.** If no graph exists, use git log for churn and co-change analysis. Do not stop — git log provides ~90% of the data needed.
+- **Systematic analysis required.** Use graph `co_changes_with` edges when available; use `git log` commit analysis when not. Do not guess — parse actual git history.
 
 ## Escalation
 

@@ -100,7 +100,7 @@ export function parseConventionalMarkdown(text: string): ConventionalMarkdownEnt
   const entries: ConventionalMarkdownEntry[] = [];
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
-    entries.push({ type: match[1], title: match[2].trim() });
+    entries.push({ type: match[1]!, title: match[2]!.trim() });
   }
   return entries;
 }

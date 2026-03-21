@@ -12,8 +12,23 @@
 
 ## Prerequisites
 
-A knowledge graph must exist at `.harness/graph/`. Run `harness scan` if no graph is available.
-If the graph exists but code has changed since the last scan, re-run `harness scan` first — stale graph data leads to inaccurate results.
+A knowledge graph at `.harness/graph/` enables full analysis. If no graph exists,
+the skill uses static analysis fallbacks (see Graph Availability section).
+Run `harness scan` to enable graph-enhanced analysis.
+
+### Graph Availability
+
+Before starting, check if `.harness/graph/graph.json` exists.
+
+**If graph exists:** Check staleness — compare `.harness/graph/metadata.json`
+scanTimestamp against `git log -1 --format=%ct` (latest commit timestamp).
+If graph is more than 2 commits behind (`git log --oneline <scanTimestamp>..HEAD | wc -l`),
+run `harness scan` to refresh before proceeding. (Staleness sensitivity: **High**)
+
+**If graph exists and is fresh (or refreshed):** Use graph tools as primary strategy.
+
+**If no graph exists:** Output "Running without graph (run `harness scan` to
+enable full analysis)" and use fallback strategies for all subsequent steps.
 
 ## Process
 
@@ -49,6 +64,20 @@ Query the graph for five key structural indicators:
    Deep chains are fragile — a change at the bottom propagates unpredictably.
 
 5. **Module cohesion**: For each module (directory), count internal vs external edges. Low internal cohesion (many external edges, few internal) suggests misplaced code.
+
+#### Fallback (without graph)
+
+When no graph is available, use static analysis to approximate structural metrics:
+
+1. **Build adjacency list**: Grep all source files for `import`/`require` statements. Parse each to extract the imported path. Build an adjacency list mapping each file to its imports.
+2. **Hub detection**: From the adjacency list, count inbound edges per file. Files with >10 importers are hubs.
+3. **Orphan detection**: Files with zero inbound edges that are not entry points (not `index.*`, not in `package.json` main/exports). Use glob to find all source files, then subtract those that appear as import targets.
+4. **Cycle detection**: Run DFS on the adjacency list. When a back-edge is found, report the cycle path.
+5. **Deep chain detection**: From entry points, DFS to find the longest import chain. Report chains exceeding 7 hops.
+6. **Module cohesion (approximate)**: For each directory, count imports that stay within the directory (internal) vs imports that leave it (external). Cohesion = internal / (internal + external).
+7. **Run `check_dependencies` CLI** — this works without a graph and can detect layer violations.
+
+> Fallback completeness: ~60% — cannot compute transitive depth beyond what import parsing reveals; coupling metrics are approximate.
 
 ### Phase 2: SCORE — Calculate Health Score
 
@@ -104,7 +133,7 @@ For each problem found, generate a specific, actionable recommendation:
 
 ## Harness Integration
 
-- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness scan`** — Recommended before this skill for full graph-enhanced analysis. If graph is missing, skill uses static analysis fallbacks.
 - **`harness validate`** — Run after acting on findings to verify project health.
 - **Graph tools** — This skill uses `query_graph`, `get_relationships`, and `check_dependencies` MCP tools.
 
@@ -114,7 +143,7 @@ For each problem found, generate a specific, actionable recommendation:
 - All five structural metrics gathered (hubs, orphans, cycles, deep chains, cohesion)
 - Recommendations are specific and actionable (name files, suggest concrete fixes)
 - Report follows the structured output format
-- All findings are backed by graph query evidence, not heuristics
+- All findings are backed by graph query evidence (with graph) or systematic static analysis (without graph)
 
 ## Examples
 
@@ -141,8 +170,8 @@ Output:
 
 ## Gates
 
-- **No analysis without graph.** If no graph exists, stop and instruct to run `harness scan`.
-- **No guessing.** All metrics must come from graph queries, not heuristics.
+- **Graph preferred, fallback available.** If no graph exists, use fallback strategies (import parsing, DFS cycle detection, hub/orphan identification). Do not stop — produce the best analysis possible.
+- **Systematic analysis required.** All metrics must come from graph queries (with graph) or systematic import parsing (without graph). Do not guess — parse actual import statements.
 
 ## Escalation
 

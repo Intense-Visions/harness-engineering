@@ -13,8 +13,23 @@
 
 ## Prerequisites
 
-A knowledge graph must exist at `.harness/graph/`. Run `harness scan` if no graph is available.
-If the graph exists but code has changed since the last scan, re-run `harness scan` first — stale graph data leads to inaccurate results.
+A knowledge graph at `.harness/graph/` enables full analysis. If no graph exists,
+the skill uses static analysis fallbacks (see Graph Availability section).
+Run `harness scan` to enable graph-enhanced analysis.
+
+### Graph Availability
+
+Before starting, check if `.harness/graph/graph.json` exists.
+
+**If graph exists:** Check staleness — compare `.harness/graph/metadata.json`
+scanTimestamp against `git log -1 --format=%ct` (latest commit timestamp).
+If graph is more than 2 commits behind (`git log --oneline <scanTimestamp>..HEAD | wc -l`),
+run `harness scan` to refresh before proceeding. (Staleness sensitivity: **High**)
+
+**If graph exists and is fresh (or refreshed):** Use graph tools as primary strategy.
+
+**If no graph exists:** Output "Running without graph (run `harness scan` to
+enable full analysis)" and use fallback strategies for all subsequent steps.
 
 ## Process
 
@@ -57,6 +72,20 @@ For each changed file:
    If a changed file is `design-system/tokens.json`, identify ALL tokens that changed and trace each to its consuming components. This reveals the full design blast radius of a token change.
 
 6. **Design constraint impact**: When the graph contains `DesignConstraint` nodes, check if changed code introduces new `VIOLATES_DESIGN` edges.
+
+#### Fallback (without graph)
+
+When no graph is available, use static analysis to approximate impact:
+
+1. **Parse imports**: For each changed file, grep all source files for `import.*from.*<changed-file>` and `require.*<changed-file>` patterns to find direct dependents.
+2. **Follow imports 2 levels deep**: For each direct dependent found, repeat the import grep to find second-level dependents. Stop at 2 levels (fallback cannot reliably trace deeper).
+3. **Find test files by naming convention**: For each changed file `foo.ts`, search for:
+   - `foo.test.ts`, `foo.spec.ts` (same directory and `__tests__/` directory)
+   - `*.test.*` and `*.spec.*` files that import the changed file (from step 1)
+4. **Find docs by path matching**: Grep `docs/` directory for references to the changed module name (filename without extension).
+5. **Group results** the same as the graph version: tests, docs, code, other. Note the count of files found.
+
+> Fallback completeness: ~70% — misses transitive deps beyond 2 levels.
 
 ### Phase 3: ASSESS — Risk Assessment and Report
 
@@ -110,7 +139,7 @@ For each changed file:
 
 ## Harness Integration
 
-- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness scan`** — Recommended before this skill for full graph-enhanced analysis. If graph is missing, skill uses static analysis fallbacks.
 - **`harness validate`** — Run after acting on findings to verify project health.
 - **Graph tools** — This skill uses `query_graph`, `get_impact`, and `get_relationships` MCP tools.
 
@@ -120,7 +149,7 @@ For each changed file:
 - All affected test files listed with direct vs transitive classification
 - All affected documentation files listed with relationship context
 - Report follows the structured output format
-- All findings are backed by graph query evidence, not heuristics
+- All findings are backed by graph query evidence (with graph) or systematic static analysis (without graph)
 
 ## Examples
 
@@ -146,8 +175,8 @@ Output:
 
 ## Gates
 
-- **No analysis without graph.** If no graph exists at `.harness/graph/`, stop and instruct the user to run `harness scan`.
-- **No risk assessment without data.** Do not guess at impact — use graph queries. If graph data is incomplete, state what is missing.
+- **Graph preferred, fallback available.** If no graph exists, use fallback strategies (import parsing, naming conventions, path matching). Do not stop — produce the best analysis possible with available tools.
+- **No risk assessment without data.** Use graph queries when available; use import parsing and naming conventions when not. If neither approach yields data, state what is missing.
 
 ## Escalation
 

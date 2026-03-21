@@ -13,8 +13,23 @@
 
 ## Prerequisites
 
-A knowledge graph must exist at `.harness/graph/`. Run `harness scan` if no graph is available.
-If the graph exists but code has changed since the last scan, re-run `harness scan` first — stale graph data leads to inaccurate results.
+A knowledge graph at `.harness/graph/` enables full analysis. If no graph exists,
+the skill uses static analysis fallbacks (see Graph Availability section).
+Run `harness scan` to enable graph-enhanced analysis.
+
+### Graph Availability
+
+Before starting, check if `.harness/graph/graph.json` exists.
+
+**If graph exists:** Check staleness — compare `.harness/graph/metadata.json`
+scanTimestamp against `git log -1 --format=%ct` (latest commit timestamp).
+If graph is more than 10 commits behind (`git log --oneline <scanTimestamp>..HEAD | wc -l`),
+run `harness scan` to refresh before proceeding. (Staleness sensitivity: **Medium**)
+
+**If graph exists and is fresh (or refreshed):** Use graph tools as primary strategy.
+
+**If no graph exists:** Output "Running without graph (run `harness scan` to
+enable full analysis)" and use fallback strategies for all subsequent steps.
 
 ## Process
 
@@ -42,6 +57,20 @@ For each changed file, use graph traversal to find test files:
    ```
 
 3. **Co-change tests**: Check `co_changes_with` edges for test files that historically change alongside the modified files.
+
+#### Fallback (without graph)
+
+When no graph is available, use naming conventions, import parsing, and git history:
+
+1. **Tier 1 — Filename convention matching**: For each changed file `foo.ts`, search for:
+   - `foo.test.ts`, `foo.spec.ts` (same directory)
+   - `__tests__/foo.ts`, `__tests__/foo.test.ts`
+   - Test files in a parallel `tests/` directory mirroring the source path
+2. **Tier 2 — Import-linked tests**: Parse test files' import statements (grep for `import.*from` in `*.test.*` and `*.spec.*` files). If a test file imports the changed file, it belongs in Tier 2 (if not already in Tier 1).
+3. **Tier 3 — Co-change correlated tests**: Use `git log --format="%H" --name-only` to find test files that frequently change in the same commit as the target file. Files that co-change in >2 commits are co-change correlated.
+4. **Rank**: Tier 1 = direct filename match, Tier 2 = import-linked tests, Tier 3 = co-change correlated tests. Output the same tiered format as the graph version.
+
+> Fallback completeness: ~80% — naming conventions and imports catch most mappings; misses dynamic imports and indirect coverage.
 
 ### Phase 3: PRIORITIZE — Rank and Generate Commands
 
@@ -85,7 +114,7 @@ npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes
 
 ## Harness Integration
 
-- **`harness scan`** — Must run before this skill to ensure graph is current.
+- **`harness scan`** — Recommended before this skill for full graph-enhanced analysis. If graph is missing, skill uses naming convention and import parsing fallbacks.
 - **`harness validate`** — Run after acting on findings to verify project health.
 - **Graph tools** — This skill uses `query_graph`, `get_impact`, and `get_relationships` MCP tools.
 
@@ -95,7 +124,7 @@ npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes
 - Executable run commands generated for quick and full test runs
 - Coverage gaps flagged for changed files with no test coverage
 - Report follows the structured output format
-- All findings are backed by graph query evidence, not heuristics
+- All findings are backed by graph query evidence (with graph) or systematic static analysis (without graph)
 
 ## Examples
 
@@ -122,8 +151,8 @@ Output:
 
 ## Gates
 
-- **No advice without graph.** If no graph exists, fall back to: "Run all tests in the same directory as changed files."
-- **Always include Tier 1.** Direct test coverage is non-negotiable — always recommend running these.
+- **Graph preferred, fallback available.** If no graph exists, use naming conventions, import parsing, and git co-change analysis to identify relevant tests. Do not stop — produce the best test selection possible.
+- **Always include Tier 1.** Direct test coverage is non-negotiable — always recommend running these (whether found via graph or naming conventions).
 
 ## Escalation
 

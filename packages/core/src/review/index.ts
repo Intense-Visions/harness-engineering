@@ -92,5 +92,5 @@ export {
 } from './output';
 
 // Pipeline orchestrator
-export { runPipeline } from './pipeline-orchestrator';
+export { runReviewPipeline } from './pipeline-orchestrator';
 export type { RunPipelineOptions } from './pipeline-orchestrator';

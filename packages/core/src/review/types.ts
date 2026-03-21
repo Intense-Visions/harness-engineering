@@ -474,7 +474,7 @@ export interface PipelineContext {
 /**
  * Immutable result returned from `runPipeline()`.
  */
-export interface PipelineResult {
+export interface ReviewPipelineResult {
   /** Whether the pipeline was skipped by the eligibility gate */
   skipped: boolean;
   /** Reason for skipping */

@@ -56,7 +56,9 @@ export interface RunPipelineOptions {
  * Phase 6: DEDUP+MERGE
  * Phase 7: OUTPUT
  */
-export async function runPipeline(options: RunPipelineOptions): Promise<ReviewPipelineResult> {
+export async function runReviewPipeline(
+  options: RunPipelineOptions
+): Promise<ReviewPipelineResult> {
   const {
     projectRoot,
     diff,

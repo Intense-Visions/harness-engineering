@@ -90,13 +90,13 @@ export function classifyFinding(input: FindingInput): CleanupFinding {
     id,
     concern: input.concern,
     file: input.file,
-    line: input.line,
+    ...(input.line !== undefined ? { line: input.line } : {}),
     type: input.type,
     description: input.description,
     safety,
     safetyReason,
     hotspotDowngraded: false,
-    fixAction,
+    ...(fixAction !== undefined ? { fixAction } : {}),
     suggestion,
   };
 }
@@ -126,7 +126,7 @@ export function applyHotspotDowngrade(
 /**
  * Deduplicate cross-concern findings (e.g., dead import + forbidden import on same line)
  */
-export function deduplicateFindings(findings: CleanupFinding[]): CleanupFinding[] {
+export function deduplicateCleanupFindings(findings: CleanupFinding[]): CleanupFinding[] {
   const byFileAndLine = new Map<string, CleanupFinding[]>();
 
   for (const f of findings) {
@@ -140,7 +140,7 @@ export function deduplicateFindings(findings: CleanupFinding[]): CleanupFinding[
 
   for (const group of byFileAndLine.values()) {
     if (group.length === 1) {
-      result.push(group[0]);
+      result.push(group[0]!);
       continue;
     }
 
