@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--update-check-notification--proposal",
+  "specPath": "docs/changes/update-check-notification/proposal.md",
+  "currentState": "DONE",
+  "currentPhase": 4,
+  "phases": [
+    {
+      "name": "Core module",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-20-update-checker-core-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "CLI integration",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-20-update-checker-cli-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "MCP integration",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-20-update-checker-mcp-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Config support",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-20-update-checker-config-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Edge case hardening",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-20-update-checker-edge-cases-plan.md",
+      "status": "complete"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [
+    {
+      "phase": 0,
+      "name": "Core module",
+      "startedAt": "2026-03-20T12:30:00Z",
+      "completedAt": "2026-03-20T12:49:30Z",
+      "tasksCompleted": 6,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 1,
+      "name": "CLI integration",
+      "startedAt": "2026-03-20T12:50:00Z",
+      "completedAt": "2026-03-20T13:07:00Z",
+      "tasksCompleted": 4,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 2,
+      "name": "MCP integration",
+      "startedAt": "2026-03-20T13:08:00Z",
+      "completedAt": "2026-03-20T13:21:00Z",
+      "tasksCompleted": 4,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 3,
+      "name": "Config support",
+      "startedAt": "2026-03-20T13:22:00Z",
+      "completedAt": "2026-03-20T13:37:00Z",
+      "tasksCompleted": 4,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 4,
+      "name": "Edge case hardening",
+      "startedAt": "2026-03-20T13:38:00Z",
+      "completedAt": "2026-03-20T13:44:30Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    }
+  ]
+}
