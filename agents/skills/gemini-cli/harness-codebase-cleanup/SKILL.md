@@ -188,6 +188,18 @@ Remaining findings: 3 (require human action)
      Suggested: Deprecate with @deprecated JSDoc tag, remove in next major version
 ```
 
+## Examples
+
+### Example: Post-Refactoring Cleanup
+
+After removing the `legacy-auth` module:
+
+1. **Phase 1 (CONTEXT):** Hotspot analysis shows `src/services/auth.ts` has 42 commits (top 5%).
+2. **Phase 2 (DETECT):** Dead code detects 3 dead exports in `src/utils/token.ts` (were only used by legacy-auth). Architecture detects 1 forbidden import in `src/services/session.ts` (still importing from removed module's location).
+3. **Phase 3 (CLASSIFY):** Dead exports classified as `safe` but downgraded to `probably-safe` because `token.ts` is in a high-churn file. Forbidden import classified as `unsafe` (no alternative configured).
+4. **Phase 4 (FIX):** First iteration removes 3 dead exports (approved as probably-safe). Re-detect finds `token.ts` now has zero exports and becomes a dead file. Second iteration deletes the dead file. Convergence stops -- the forbidden import requires manual restructuring.
+5. **Phase 5 (REPORT):** 4 fixes applied (3 dead exports + 1 dead file), 1 remaining finding (forbidden import requiring restructuring).
+
 ## Harness Integration
 
 - **`harness cleanup --type dead-code --json`** -- Dead code detection input
