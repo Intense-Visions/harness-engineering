@@ -37,7 +37,8 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('update_perf_baselines');
     expect(names).toContain('get_critical_paths');
     expect(names).toContain('list_streams');
-    expect(tools).toHaveLength(39);
+    expect(names).toContain('run_code_review');
+    expect(tools).toHaveLength(40);
   });
 
   it('all tool definitions have inputSchema', () => {

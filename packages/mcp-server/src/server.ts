@@ -111,6 +111,7 @@ import {
 import { runSecurityScanDefinition, handleRunSecurityScan } from './tools/security.js';
 import { manageRoadmapDefinition, handleManageRoadmap } from './tools/roadmap.js';
 import { emitInteractionDefinition, handleEmitInteraction } from './tools/interaction.js';
+import { runCodeReviewDefinition, handleRunCodeReview } from './tools/review-pipeline.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -157,6 +158,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   listStreamsDefinition,
   manageRoadmapDefinition,
   emitInteractionDefinition,
+  runCodeReviewDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -197,7 +199,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_critical_paths: handleGetCriticalPaths as ToolHandler,
   list_streams: handleListStreams as ToolHandler,
   manage_roadmap: handleManageRoadmap as unknown as ToolHandler,
-  emit_interaction: handleEmitInteraction as ToolHandler,
+  emit_interaction: handleEmitInteraction as unknown as ToolHandler,
+  run_code_review: handleRunCodeReview as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
