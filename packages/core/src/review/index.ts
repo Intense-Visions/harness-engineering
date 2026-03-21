@@ -48,3 +48,11 @@ export {
 
 // Fan-out orchestrator
 export { fanOutReview } from './fan-out';
+
+// Phase 5: Validation
+export { validateFindings } from './validate-findings';
+export type { ValidateFindingsOptions } from './validate-findings';
+
+// Phase 6: Deduplication
+export { deduplicateFindings } from './deduplicate-findings';
+export type { DeduplicateFindingsOptions } from './deduplicate-findings';
