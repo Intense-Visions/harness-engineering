@@ -497,16 +497,89 @@ The fix log serves two purposes: (1) the user can review what was silently chang
 
 ### Phase 3: CONVERGE — Re-Check and Loop
 
-After auto-fixes are applied:
+After auto-fixes are applied in Phase 2, the convergence loop determines whether further progress is possible.
 
-1. Re-run all checks for the current mode.
-2. Compare the new issue count to the previous pass's issue count.
-3. If the count **decreased**: go back to Phase 2 (FIX) and apply any new auto-fixes.
-4. If the count is **unchanged**: stop looping. All remaining issues require user input.
+#### Convergence Procedure
 
-This convergence-based termination prevents infinite loops. The loop stops when no progress is being made.
+1. **Record the issue count.** After Phase 2 completes, note the total number of remaining findings (both auto-fixable and non-auto-fixable) as `count_previous`.
 
-> **Status:** Not yet implemented. Convergence logic will be added in Phase 3 (spec mode) and Phase 5 (plan mode) of the implementation order.
+2. **Re-run all checks.** Execute every check for the current mode (S1-S7 for spec mode) against the updated document. Produce a fresh set of findings. Note the new total as `count_current`.
+
+3. **Compare counts.**
+   - If `count_current < count_previous`: progress was made. Some auto-fixes resolved issues, or a fix in one area resolved a finding in another (cascading fix). Go to Phase 2 (FIX) and apply any new auto-fixable findings, then return here.
+   - If `count_current >= count_previous`: no progress. The remaining issues either need user input or cannot be resolved by auto-fix. Stop looping and proceed to Phase 4 (SURFACE).
+
+4. **Repeat.** Steps 1-3 repeat until no progress is detected. There is no arbitrary iteration cap — the "no progress" check is the termination condition.
+
+#### Cascading Fixes
+
+A fix applied in one pass can make a previously non-auto-fixable finding become auto-fixable in the next pass. This is called a **cascading fix**. Examples:
+
+- **S3 enables S3:** The S4 fix adds an error case that creates an Assumptions section. In the next pass, S3 finds that additional obvious assumptions can now be appended to the existing section (previously S3 could not infer whether to create the section or append to it).
+- **S2 enables S7:** The S2 fix adds a new success criterion. In the next pass, S7 checks the new criterion and finds it can be made more specific using Technical Design context.
+- **S4 enables S4:** The S4 fix adds an error case for one operation. In the next pass, S4 finds a related operation that can now follow the same error pattern (the first fix established a local convention).
+
+Cascading fixes are the reason the loop re-runs all checks, not just the checks that produced auto-fixable findings in the previous pass.
+
+#### Worked Example: Two-Pass Convergence
+
+```
+Pass 1 (initial check):
+  S1: 0 findings
+  S2: 1 finding (auto-fixable: missing criterion for 'offline mode' goal)
+  S3: 2 findings (1 auto-fixable: Node.js runtime, 1 needs user input: concurrency)
+  S4: 1 finding (auto-fixable: missing ENOENT error case)
+  S5: 0 findings
+  S6: 0 findings
+  S7: 1 finding (auto-fixable: vague 'fast' criterion)
+  Total: 5 findings, 4 auto-fixable, 1 needs user input.
+  → count_previous = 5
+
+Phase 2 (FIX): Apply 4 auto-fixes.
+  [S2-001] Added success criterion #11 for 'offline mode'.
+  [S3-001] Added Node.js runtime assumption to new Assumptions section.
+  [S4-001] Added ENOENT error case for config read.
+  [S7-001] Replaced 'fast' with 'under 30 seconds on CI'.
+
+Pass 2 (re-check):
+  S1: 0 findings
+  S2: 0 findings (criterion added — gap closed)
+  S3: 1 finding — CASCADING: S4-001 fix created Assumptions section,
+      so the Node.js assumption that S3-001 added is confirmed,
+      BUT a new obvious assumption (UTF-8 encoding) can now be appended.
+      (1 auto-fixable)
+  S3: 1 finding (unchanged: concurrency model still needs user input)
+  S4: 0 findings (error case added)
+  S5: 0 findings
+  S6: 0 findings
+  S7: 0 findings (criterion sharpened)
+  Total: 2 findings, 1 auto-fixable, 1 needs user input.
+  → count_current = 2 < count_previous = 5. Progress made. Continue.
+
+Phase 2 (FIX): Apply 1 auto-fix.
+  [S3-003] Added UTF-8 encoding assumption to Assumptions section.
+
+Pass 3 (re-check):
+  S3: 1 finding (unchanged: concurrency model still needs user input)
+  Total: 1 finding, 0 auto-fixable, 1 needs user input.
+  → count_current = 1 < count_previous = 2. Progress made. Continue.
+
+Phase 2 (FIX): 0 auto-fixable findings. Nothing to fix.
+
+Pass 4 (re-check):
+  Total: 1 finding, 0 auto-fixable.
+  → count_current = 1 = count_previous = 1. No progress. Converged.
+  → Proceed to Phase 4 (SURFACE) with 1 remaining issue.
+```
+
+#### Termination Guarantee
+
+The loop terminates because:
+
+1. Each pass can only fix auto-fixable findings. The set of auto-fixable findings is finite (bounded by the document size).
+2. Each fix modifies the document, so the "same" finding cannot be auto-fixed twice (the context has changed).
+3. If no auto-fixable findings remain, Phase 2 applies zero fixes, and the re-check produces the same count — triggering the "no progress" exit.
+4. Cascading fixes can only occur a finite number of times because each adds content to the document, and the checks that detect missing content will eventually find nothing missing.
 
 ---
 
