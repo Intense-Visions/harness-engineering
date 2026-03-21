@@ -374,7 +374,124 @@ For every finding where `autoFixable: true`:
 
 For findings where `autoFixable: false`: skip them in this phase. They will be surfaced in Phase 4.
 
-> **Status:** Not yet implemented. Auto-fix logic will be added in Phase 3 (spec mode) and Phase 5 (plan mode) of the implementation order.
+#### Silent vs Surfaced Classification
+
+| Check | Auto-fixable findings                                       | Fix behavior                                      |
+| ----- | ----------------------------------------------------------- | ------------------------------------------------- |
+| S1    | None — all findings need user input                         | Always surfaced                                   |
+| S2    | Missing traceability links (goals without criteria)         | Silent fix                                        |
+| S2    | Orphan criteria (criteria without goals)                    | Surfaced — removing criteria is a design decision |
+| S3    | Obvious assumptions (runtime, encoding, filesystem)         | Silent fix                                        |
+| S3    | Ambiguous assumptions (concurrency, tenancy, deployment)    | Surfaced — user must choose                       |
+| S4    | Obvious error cases (file I/O, JSON parse, network timeout) | Silent fix                                        |
+| S4    | Design-dependent error handling (retry strategy, failover)  | Surfaced — user must choose strategy              |
+| S5    | None — all findings need user input                         | Always surfaced                                   |
+| S6    | None — all findings need user input                         | Always surfaced                                   |
+| S7    | Vague criteria with inferrable thresholds                   | Silent fix                                        |
+| S7    | Unmeasurable criteria (no context to infer)                 | Surfaced — user must rewrite                      |
+
+**Rule:** A fix is silent when the correct resolution can be determined from the document context alone, with no design judgment required. If there are two or more plausible resolutions, the fix is surfaced.
+
+#### Fix Procedures by Check
+
+##### S2 Fix: Add Missing Success Criteria
+
+**When:** A goal in the Overview has no corresponding success criterion.
+
+**Procedure:**
+
+1. Read the Technical Design section for context about the uncovered goal.
+2. Draft a success criterion that is specific, observable, and testable — following the EARS patterns if applicable.
+3. Append the new criterion to the Success Criteria section with the next available number.
+4. Record a fix log entry.
+
+**Edit operation:** Append to the Success Criteria list.
+
+**Fix log entry example:**
+
+```
+[S2-001] FIXED: Added success criterion #11 for goal 'Support offline mode':
+  'The application functions without network connectivity for all read operations,
+   returning cached data when available.'
+  Derived from: Technical Design > Offline Cache section.
+```
+
+##### S7 Fix: Replace Vague Criteria with Specific Thresholds
+
+**When:** A success criterion uses vague qualifiers ("should be fast", "handles errors well") and the Technical Design provides a concrete threshold or behavior to reference.
+
+**Procedure:**
+
+1. Identify the vague qualifier in the criterion.
+2. Search the Technical Design for a related threshold, timeout, limit, or behavioral specification.
+3. Replace the vague qualifier with the specific threshold, citing the Technical Design source.
+4. Record a fix log entry.
+
+**Edit operation:** Replace the vague criterion text in place.
+
+**Fix log entry example:**
+
+```
+[S7-001] FIXED: Replaced vague criterion #3 'the build should be fast' with:
+  'The build completes in under 30 seconds on CI
+   (per Technical Design > CI Configuration: 30-second timeout).'
+```
+
+##### S3 Fix: Add Obvious Assumptions
+
+**When:** The Technical Design uses patterns or APIs that imply a specific runtime, encoding, or environment, and no Assumptions section exists or the assumption is missing from it.
+
+**Procedure:**
+
+1. Identify the assumption from the Technical Design evidence (e.g., `fs.readFileSync` implies Node.js, `UTF-8` encoding implied by string operations).
+2. If no Assumptions section exists in the spec, create one after the Non-goals section.
+3. Add the assumption as a bullet point with a brief rationale.
+4. Record a fix log entry.
+
+**Edit operation:** Append to the Assumptions section (create section if missing).
+
+**Fix log entry example:**
+
+```
+[S3-001] FIXED: Added assumption to Assumptions section:
+  'Runtime: Node.js >= 18.x (LTS). The implementation uses Node.js
+   built-in modules (fs, path, child_process).'
+  Evidence: Technical Design references path.join, fs.readFileSync.
+```
+
+##### S4 Fix: Add Obvious Error Cases
+
+**When:** A Technical Design operation (file I/O, JSON parsing, network call) has no defined error behavior, and the codebase has an established pattern for that error.
+
+**Procedure:**
+
+1. Identify the operation missing error handling.
+2. Read the referenced codebase module (if cited) to find the established error pattern (e.g., return defaults on ENOENT, log and rethrow on parse errors).
+3. Add the error case to the Technical Design section near the operation, following EARS "Unwanted" pattern: "If [failure condition], then the system shall [graceful behavior]."
+4. Record a fix log entry.
+
+**Edit operation:** Insert error case after the operation description in Technical Design.
+
+**Fix log entry example:**
+
+```
+[S4-001] FIXED: Added error case for config file read:
+  'If the config file does not exist (ENOENT), return the default
+   configuration object. Log a debug message indicating defaults are used.'
+  Following codebase pattern: packages/core/src/config.ts returns defaults on ENOENT.
+```
+
+#### Fix Log Format
+
+Every auto-fix MUST be logged. The fix log is accumulated during Phase 2 and presented to the user after convergence (in Phase 4) as an informational summary. The format is:
+
+```
+[{finding-id}] FIXED: {one-line description of what changed}
+  {the new text or criterion that was added/modified}
+  {source/evidence for the fix}
+```
+
+The fix log serves two purposes: (1) the user can review what was silently changed, and (2) if a fix introduces a new issue in the re-check, the log helps trace the cause.
 
 ---
 
