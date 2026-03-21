@@ -40,6 +40,4 @@ phases:
 state:
   persistent: false
   files: []
-depends_on:
-  - harness-i18n
-  - harness-i18n-workflow
+depends_on: []

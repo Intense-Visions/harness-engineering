@@ -138,17 +138,17 @@ If missing:
 
 **During code review:**
 
-Validate that the code changes do not introduce new i18n violations. This is a lightweight check — the full scan is `harness-i18n`'s responsibility. Check:
+Validate that the review artifact addresses i18n considerations. Do NOT scan source code directly — that is `harness-i18n`'s responsibility. Instead, check the review context:
 
-- New files with user-facing strings: are they using translation functions?
-- Modified files: did the change add hardcoded strings where translation keys existed before?
-- New date/number/currency formatting: is it locale-aware?
+- Does the PR description mention i18n impact (new strings, locale changes, formatting)?
+- If the PR touches user-facing components (based on file paths and PR description), was `harness-i18n` run as part of the review?
+- Does the review checklist include i18n items (hardcoded string check, locale-aware formatting)?
 
-If violations are found:
+If the review does not address i18n for a user-facing change:
 
-- `permissive`: informational note listing findings
-- `standard`: warning with specific file and line references
-- `strict`: error blocking the review: "New hardcoded strings detected in {files}. Wrap in translation function before merging."
+- `permissive`: informational note suggesting i18n review items
+- `standard`: warning: "PR touches user-facing code but i18n was not addressed in the review. Recommend running `harness-i18n` on the changed files."
+- `strict`: error: "PR touches user-facing code and i18n review is required. Run `harness-i18n` on the changed files before merging."
 
 ---
 
@@ -342,20 +342,20 @@ Entering gate mode (strict).
 ```
 i18n Review Validation
 ======================
-Scanning changed files for i18n compliance...
+Checking review context for i18n coverage...
 
-src/components/Settings.tsx:
-  Line 24: Hardcoded string "Account Settings" in <h1> tag
-  Line 31: Hardcoded string "Save Changes" in <button> tag
-  Line 45: Hardcoded string "Profile updated successfully" in toast message
+PR: "Add settings page" (#142)
+Changed files: src/components/Settings.tsx, src/components/SettingsForm.tsx
+PR description mentions: new UI components, form fields, toast notifications
 
-src/components/SettingsForm.tsx:
-  Line 12: Hardcoded placeholder "Enter your name" in <input>
-  Line 18: new Date().toLocaleDateString() without locale argument (line 67)
+i18n review status:
+  - PR description does not mention i18n impact: MISSING
+  - harness-i18n scan not referenced in review: MISSING
+  - Review checklist does not include i18n items: MISSING
 
-[ERROR] 5 i18n violations found in new code.
-Strictness is set to "strict" — these must be resolved before merging.
-Wrap strings in translation functions and use locale-aware date formatting.
+[ERROR] PR touches user-facing code and i18n review is required.
+Run `harness-i18n` on the changed files before merging.
+Recommended: harness skill run harness-i18n --scope file --path src/components/Settings.tsx src/components/SettingsForm.tsx
 ```
 
 **Phase 3: VALIDATE**
@@ -365,14 +365,15 @@ i18n Process Validation
 =======================
 Mode:           gate (strict)
 Workflow:        review
-Result:         BLOCKED -- 5 unresolved i18n violations
+Result:         BLOCKED -- i18n review not conducted for user-facing PR
+Action:         Run harness-i18n scan on changed files, address findings, then re-review
 ```
 
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.
 
-- **No source code scanning.** This skill operates on artifacts (specs, plans, reviews), not source code. If you are running Grep/Glob on `.tsx` files to find hardcoded strings, STOP. That is `harness-i18n`'s job. The review-phase check is a lightweight heuristic on changed files in the PR diff, not a full codebase scan.
+- **No source code scanning.** This skill operates on artifacts (specs, plans, review context), not source code. If you are running Grep/Glob on `.tsx` files to find hardcoded strings, STOP. That is `harness-i18n`'s job. During the review phase, check the review artifact (PR description, checklist, whether `harness-i18n` was run) — never scan the code directly.
 - **Respect the configured mode.** If `i18n.enabled: false`, do not enforce gate-mode validation. If `i18n.enabled: true`, do not downgrade to prompt mode. The team made a configuration choice -- honor it.
 - **Respect the configured strictness.** `permissive` never blocks. `standard` warns but does not block. `strict` blocks. Do not escalate or de-escalate the enforcement level.
 - **Prompt mode is always dismissible.** In prompt mode, suggestions must be presented as questions or checklists the team can acknowledge and move past. Never block progression in prompt mode.
