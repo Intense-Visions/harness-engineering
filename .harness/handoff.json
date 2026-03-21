@@ -1,48 +1,49 @@
 {
-  "fromSkill": "harness-planning",
+  "fromSkill": "harness-brainstorming",
   "phase": "VALIDATE",
-  "summary": "Planned unified code review pipeline orchestrator: 12 tasks to add PipelineContext/PipelineResult types, implement runPipeline() orchestrating all 7 phases, create run_code_review MCP tool, and upgrade CLI with --comment/--ci/--deep/--no-mechanical flags.",
-  "completed": [],
-  "pending": [
-    "Task 1: Add PipelineContext, PipelineFlags, and PipelineResult types",
-    "Task 2: Export new pipeline types from review barrel",
-    "Task 3: Create pipeline orchestrator test file (TDD - write failing tests)",
-    "Task 4: Implement pipeline orchestrator (make tests green)",
-    "Task 5: Export runPipeline from review barrel",
-    "Task 6: Add pipeline orchestrator tests for --comment flag and GitHub output",
-    "Task 7: Add pipeline orchestrator tests for mechanical stop and gate edge cases",
-    "Task 8: Create MCP tool definition for run_code_review",
-    "Task 9: Register run_code_review in MCP server tool index",
-    "Task 10: Upgrade CLI review command with pipeline flags",
-    "Task 11: Add PipelineContext inline import type for ExclusionSet",
-    "Task 12: Final verification -- run full test suite and validate"
-  ],
-  "concerns": [
-    "ExclusionSet inline import type in PipelineContext must use import('./exclusion-set').ExclusionSet to avoid circular dependency with types.ts",
-    "MCP tool registration pattern in tools/index.ts must be verified at checkpoint before Task 9",
-    "CLI review.ts replacement is a full rewrite -- existing tests or consumers of runAgentReview() may need adjustment",
-    "parseDiff output shape (codeChanges.files[].status, .diff) must be verified against actual CodeChanges type"
-  ],
+  "summary": "Spec approved for full cross-platform support (Windows/Mac/Linux) with three enforcement layers: CI matrix (3 OSes), 2 ESLint rules (no-unix-shell-command, no-hardcoded-path-separator), and a root-level platform parity test suite scanning 5 anti-patterns.",
+  "artifacts": ["docs/changes/cross-platform-enforcement/proposal.md"],
   "decisions": [
-    "Pipeline orchestrator lives in packages/core/src/review/pipeline-orchestrator.ts, not in CLI or MCP",
-    "PipelineContext is a mutable context object threaded through phases; PipelineResult is the immutable return value",
-    "Mechanical check errors are caught gracefully -- pipeline continues with empty exclusion set rather than crashing",
-    "Context scoping errors are caught gracefully -- pipeline uses minimal empty bundles as fallback",
-    "Tasks 6 and 7 are parallelizable (both add tests to the same file but different describe blocks)"
+    {
+      "what": "Full native support on all 3 OSes, not WSL-only",
+      "why": "Users shouldn't need WSL to use harness on Windows"
+    },
+    {
+      "what": "Three enforcement layers: CI + ESLint + test suite",
+      "why": "Defense in depth — catch issues at authoring time, lint time, and CI time"
+    },
+    {
+      "what": "Minimal CI matrix (3 OS x Node 22 only)",
+      "why": "Biggest win is going from 1 OS to 3. Second Node version adds cost without current need"
+    },
+    {
+      "what": "Node.js scripts using fs.rm()/fs.cp() instead of rimraf/cpy-cli",
+      "why": "Node 22 has stable recursive fs APIs. Zero new dependencies"
+    },
+    {
+      "what": "ESLint rules in existing @harness-engineering/eslint-plugin",
+      "why": "Platform safety is the same category as existing architectural constraints"
+    },
+    {
+      "what": "Single root-level platform parity test suite",
+      "why": "Repo-wide structural checks belong in one place, not duplicated per package"
+    },
+    {
+      "what": "Parallel development on feature branch, atomic merge",
+      "why": "main stays green throughout. No window for regressions between fixes and enforcement"
+    }
   ],
   "contextKeywords": [
-    "code-review",
-    "pipeline-orchestrator",
-    "PipelineContext",
-    "PipelineResult",
-    "runPipeline",
-    "run_code_review",
-    "fan-out",
-    "mechanical-exclusion",
-    "eligibility-gate",
-    "deduplication",
-    "model-tiering",
-    "inline-comments",
-    "ReviewFinding"
+    "cross-platform",
+    "windows",
+    "path-handling",
+    "eslint",
+    "ci-matrix",
+    "enforcement",
+    "platform-parity",
+    "fs.rm",
+    "fs.cp",
+    "execFile",
+    "path.sep"
   ]
 }
