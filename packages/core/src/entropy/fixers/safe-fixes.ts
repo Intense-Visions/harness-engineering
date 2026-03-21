@@ -49,6 +49,28 @@ function createUnusedImportFixes(deadCodeReport: DeadCodeReport): Fix[] {
 }
 
 /**
+ * Create fixes for dead exports (non-public, zero importers)
+ */
+function createDeadExportFixes(deadCodeReport: DeadCodeReport): Fix[] {
+  return deadCodeReport.deadExports
+    .filter((exp) => exp.reason === 'NO_IMPORTERS')
+    .map((exp) => ({
+      type: 'dead-exports' as FixType,
+      file: exp.file,
+      description: `Remove export keyword from ${exp.name} (${exp.reason})`,
+      action: 'replace' as const,
+      oldContent: exp.isDefault
+        ? `export default ${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : ''} ${exp.name}`
+        : `export ${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : exp.type === 'variable' ? 'const' : exp.type === 'type' ? 'type' : exp.type === 'interface' ? 'interface' : 'enum'} ${exp.name}`,
+      newContent: exp.isDefault
+        ? `${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : ''} ${exp.name}`
+        : `${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : exp.type === 'variable' ? 'const' : exp.type === 'type' ? 'type' : exp.type === 'interface' ? 'interface' : 'enum'} ${exp.name}`,
+      safe: true as const,
+      reversible: true,
+    }));
+}
+
+/**
  * Create fixes from dead code report
  */
 export function createFixes(deadCodeReport: DeadCodeReport, config?: Partial<FixConfig>): Fix[] {
@@ -61,6 +83,10 @@ export function createFixes(deadCodeReport: DeadCodeReport, config?: Partial<Fix
 
   if (fullConfig.fixTypes.includes('unused-imports')) {
     fixes.push(...createUnusedImportFixes(deadCodeReport));
+  }
+
+  if (fullConfig.fixTypes.includes('dead-exports')) {
+    fixes.push(...createDeadExportFixes(deadCodeReport));
   }
 
   return fixes;
