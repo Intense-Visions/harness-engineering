@@ -1,0 +1,464 @@
+# Harness Docs Pipeline
+
+> Orchestrator composing 4 documentation skills into a sequential pipeline with convergence-based remediation, producing a qualitative documentation health report.
+
+## When to Use
+
+- When you want a single-command documentation health check across drift, coverage, links, and freshness
+- After major refactoring that may have caused widespread documentation drift
+- As a periodic hygiene check (weekly or per-sprint)
+- When onboarding a new project that has no AGENTS.md (bootstrap mode)
+- When `on_doc_check` triggers fire
+- NOT for fixing a single known drift issue (use align-documentation directly)
+- NOT for generating AGENTS.md from scratch when you know you have a graph (use harness-knowledge-mapper directly)
+- NOT for validating a single file's context (use validate-context-engineering directly)
+
+## Relationship to Sub-Skills
+
+| Skill                        | Pipeline Phase | Role                                        |
+| ---------------------------- | -------------- | ------------------------------------------- |
+| detect-doc-drift             | DETECT         | Find drift between code and docs            |
+| align-documentation          | FIX            | Apply fixes for drift findings              |
+| validate-context-engineering | AUDIT          | Find gaps in documentation coverage         |
+| harness-knowledge-mapper     | FILL           | Generate/regenerate AGENTS.md and fill gaps |
+
+This orchestrator delegates to sub-skills — it never reimplements their logic. Each sub-skill retains full standalone functionality.
+
+## Iron Law
+
+**The pipeline delegates, never reimplements.** If you find yourself writing drift detection logic, fix application logic, or gap analysis logic inside the pipeline, STOP. Delegate to the dedicated sub-skill.
+
+**Safe fixes are silent, unsafe fixes surface.** Never apply a fix classified as `unsafe` without explicit user approval. Never prompt the user for a fix classified as `safe`.
+
+## Flags
+
+| Flag           | Effect                                                         |
+| -------------- | -------------------------------------------------------------- |
+| `--fix`        | Enable convergence-based auto-fix (default: detect + report only) |
+| `--no-freshen` | Skip graph staleness check                                    |
+| `--bootstrap`  | Force AGENTS.md regeneration even if one exists                |
+| `--ci`         | Non-interactive: apply safe fixes only, report everything else |
+
+## Shared Context Object
+
+All phases read from and write to a shared `DocPipelineContext`:
+
+```typescript
+interface DocPipelineContext {
+  // Pipeline state
+  graphAvailable: boolean;
+  agentsMdExists: boolean;
+  bootstrapped: boolean; // true if AGENTS.md was created this run
+
+  // Phase outputs
+  driftFindings: DriftFinding[];
+  fixesApplied: DocFix[];
+  gapFindings: GapFinding[];
+  fillsApplied: DocFix[];
+  exclusions: Set<string>; // finding IDs already addressed
+
+  // Health verdict
+  verdict: "pass" | "warn" | "fail";
+  summary: string;
+}
+
+interface DriftFinding {
+  id: string;
+  file: string;
+  line?: number;
+  driftType:
+    | "renamed"
+    | "new-code"
+    | "deleted-code"
+    | "changed-behavior"
+    | "moved-code";
+  priority: "critical" | "high" | "medium" | "low";
+  staleText: string;
+  codeChange: string;
+  suggestedFix: string;
+  fixSafety: "safe" | "probably-safe" | "unsafe";
+}
+
+interface GapFinding {
+  id: string;
+  file?: string;
+  gapType:
+    | "undocumented"
+    | "broken-link"
+    | "stale-section"
+    | "missing-context";
+  priority: "critical" | "high" | "medium" | "low";
+  description: string;
+  suggestedFix: string;
+  fixSafety: "safe" | "probably-safe" | "unsafe";
+}
+
+interface DocFix {
+  findingId: string;
+  file: string;
+  oldText: string;
+  newText: string;
+  safety: "safe" | "probably-safe";
+  verified: boolean; // harness check-docs passed after applying
+}
+```
+
+The context is passed to sub-skills via `handoff.json` with a `pipeline` field. Sub-skills check for this field; if absent, they run in standalone mode.
+
+## Process
+
+### Phase 1: FRESHEN — Graph Freshness and AGENTS.md Bootstrap
+
+**Skip this phase if `--no-freshen` flag is set.**
+
+1. **Check graph existence.** Look for `.harness/graph/` directory.
+   - If exists: set `context.graphAvailable = true`
+   - If not: set `context.graphAvailable = false`, log notice: "No knowledge graph available. Pipeline will use static analysis fallbacks. Run `harness scan` for richer results."
+
+2. **Check graph staleness** (only if graph exists).
+   - Count commits since last graph update: `git rev-list --count HEAD ^$(cat .harness/graph/.last-scan-commit 2>/dev/null || echo HEAD)`
+   - If >10 commits behind: run `harness scan` to refresh
+   - If <=10 commits: proceed with current graph
+
+3. **Check AGENTS.md existence.**
+   - If exists and `--bootstrap` not set: set `context.agentsMdExists = true`, proceed to DETECT
+   - If exists and `--bootstrap` set: proceed to step 4 (regenerate)
+   - If not exists: proceed to step 4
+
+4. **Bootstrap AGENTS.md.**
+
+   **If graph available:**
+   - Invoke `harness-knowledge-mapper` to generate AGENTS.md
+   - Set `context.bootstrapped = true`
+   - Set `context.agentsMdExists = true`
+
+   **If no graph (directory structure fallback):**
+   - Glob source directories: `src/*/`, `packages/*/`, `lib/*/`
+   - Read `package.json` for project name and description
+   - Identify entry points: files matching `src/index.*`, `main` field in package.json
+   - List top-level modules: each immediate subdirectory of `src/` (or `packages/`) with its directory name as the module name
+   - Generate minimal AGENTS.md:
+     ```markdown
+     # AGENTS.md
+
+     > Generated from directory structure. Run `harness scan` for richer output.
+
+     ## Project
+     <name from package.json> — <description from package.json>
+
+     ## Entry Points
+     - <each identified entry point>
+
+     ## Modules
+     - **<dir-name>/** — <inferred from directory name>
+     ```
+   - Set `context.bootstrapped = true`
+   - Set `context.agentsMdExists = true`
+
+5. Proceed to DETECT phase.
+
+### Phase 2: DETECT — Find Documentation Drift
+
+1. **Write pipeline context to handoff.json.** Set the `pipeline` field in `.harness/handoff.json` with the current `DocPipelineContext` so detect-doc-drift can read it.
+
+2. **Invoke detect-doc-drift.** Run the skill's full process:
+   - Phase 1 (Scan): `harness check-docs` and `harness cleanup --type drift`
+   - Phase 2 (Identify): Classify each finding into drift types
+   - Phase 3 (Prioritize): Rank by impact (Critical > High > Medium > Low)
+   - Phase 4 (Report): Structured output
+
+3. **Populate context with DriftFinding objects.** For each finding from detect-doc-drift, create a `DriftFinding` with:
+   - `id`: deterministic hash of `file + line + driftType` (for dedup tracking)
+   - `driftType`: map to one of `renamed`, `new-code`, `deleted-code`, `changed-behavior`, `moved-code`
+   - `priority`: map to `critical`, `high`, `medium`, `low`
+   - `fixSafety`: classify using the safety table below
+
+4. **Store findings.** Set `context.driftFindings = <all DriftFinding objects>`.
+
+5. **If `--fix` flag is not set:** Skip to AUDIT phase (Phase 4).
+
+### Fix Safety Classification
+
+| Category        | Safe (apply silently)                                                     | Probably safe (present diff)                                                  | Unsafe (surface to user)                                           |
+| --------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Drift fixes** | Update file path where rename is unambiguous; fix import reference        | Rewrite description for simple rename/parameter change; update code examples  | Rewrite behavioral explanations; remove sections for deleted code  |
+| **Gap fills**   | Add entry for new file with obvious single-purpose name                   | Add entry for new file requiring description; update AGENTS.md section ordering | Write documentation for complex modules; create new doc pages     |
+| **Link fixes**  | Redirect broken link where target is unambiguous                          | Redirect when multiple candidates exist (present options)                     | Remove link when target no longer exists                           |
+
+### Phase 3: FIX — Convergence-Based Drift Remediation
+
+**This phase runs only when `--fix` flag is set.**
+
+#### Convergence Loop
+
+```
+previousCount = context.driftFindings.length
+maxIterations = 5
+
+while iteration < maxIterations:
+  1. Partition findings by safety
+  2. Apply safe fixes → verify → record
+  3. Present probably-safe fixes → apply approved → verify → record
+  4. Surface unsafe fixes to user (no auto-apply)
+  5. Re-run detect-doc-drift
+  6. newCount = remaining findings
+  7. if newCount >= previousCount: STOP (converged)
+  8. previousCount = newCount
+  9. iteration++
+```
+
+#### Step-by-step
+
+1. **Partition findings by fixSafety.**
+   - `safeFixes`: findings where `fixSafety === 'safe'`
+   - `probablySafeFixes`: findings where `fixSafety === 'probably-safe'`
+   - `unsafeFixes`: findings where `fixSafety === 'unsafe'`
+
+2. **Apply safe fixes silently.**
+   - Write pipeline context to handoff.json with `pipeline.fixBatch = safeFixes`
+   - Invoke align-documentation to apply the fixes
+   - Run `harness check-docs` after the batch
+   - If check passes: record each fix as a `DocFix` with `verified: true` in `context.fixesApplied`
+   - If check fails: revert the batch (`git checkout -- <files>`), record fixes as `verified: false`
+   - Add fixed finding IDs to `context.exclusions`
+
+3. **Present probably-safe fixes** (skip in `--ci` mode).
+   - For each fix, show the diff (oldText vs newText) to the user
+   - Apply user-approved fixes
+   - Run `harness check-docs` after the batch
+   - Same verify/revert logic as safe fixes
+   - Add fixed finding IDs to `context.exclusions`
+
+4. **Surface unsafe fixes.**
+   - List each unsafe finding with its `suggestedFix` text
+   - Do not apply — user must handle manually
+   - In `--ci` mode: log to report, do not prompt
+
+5. **Re-run detect-doc-drift** to check for cascading issues revealed by fixes.
+   - If new finding count < previous count: loop back to step 1
+   - If new finding count >= previous count: stop (converged or no progress)
+   - If max iterations reached: stop
+
+6. **Record remaining unfixed findings** for the REPORT phase.
+
+### Phase 4: AUDIT — Find Documentation Gaps
+
+1. **Write pipeline context to handoff.json.** Update the `pipeline` field with the current `DocPipelineContext` (including `exclusions` from FIX phase).
+
+2. **Invoke validate-context-engineering.** Run the skill's full process:
+   - Phase 1 (Audit): `harness validate` and `harness check-docs`
+   - Phase 2 (Detect Gaps): Classify into undocumented, broken-link, stale-section, missing-context
+   - Phase 3 (Suggest Updates): Generate specific suggestions
+   - Phase 4 (Apply): Deferred to FILL phase
+
+3. **Populate context with GapFinding objects.** For each finding, create a `GapFinding` with:
+   - `id`: deterministic hash of `file + gapType + description`
+   - `gapType`: map to `undocumented`, `broken-link`, `stale-section`, `missing-context`
+   - `priority`: map to `critical`, `high`, `medium`, `low`
+   - `fixSafety`: classify using the safety table from DETECT phase
+
+4. **Dedup against FIX phase.** Remove any `GapFinding` whose `id` appears in `context.exclusions`. This prevents double-counting items already fixed in the FIX phase.
+
+5. **Store findings.** Set `context.gapFindings = <deduplicated GapFinding objects>`.
+
+6. **If `--fix` flag is not set:** Skip to REPORT phase (Phase 6).
+
+### Phase 5: FILL — Convergence-Based Gap Remediation
+
+**This phase runs only when `--fix` flag is set.**
+
+1. **Check if AGENTS.md needs regeneration.** If `context.bootstrapped === true` and gap findings include AGENTS.md coverage issues, invoke harness-knowledge-mapper (if graph available) or the directory-structure fallback to improve AGENTS.md quality.
+
+2. **Run convergence loop** (same pattern as FIX phase):
+
+   ```
+   previousCount = context.gapFindings.length
+   maxIterations = 5
+
+   while iteration < maxIterations:
+     1. Partition findings by safety
+     2. Apply safe fills → verify → record
+     3. Present probably-safe fills → apply approved → verify → record
+     4. Surface unsafe fills to user
+     5. Re-run validate-context-engineering
+     6. newCount = remaining gaps (after dedup against exclusions)
+     7. if newCount >= previousCount: STOP (converged)
+     8. previousCount = newCount
+     9. iteration++
+   ```
+
+3. **Apply safe fills silently.**
+   - For `broken-link` with unambiguous target: redirect the link
+   - For `undocumented` with obvious single-purpose name: add minimal entry
+   - Run `harness check-docs` after each batch
+   - Record in `context.fillsApplied`
+   - Add filled finding IDs to `context.exclusions`
+
+4. **Present probably-safe fills** (skip in `--ci` mode).
+   - Show diff for: new file entries requiring description, AGENTS.md section reordering
+   - Apply approved fills, verify, record
+
+5. **Surface unsafe fills.**
+   - Documentation for complex modules, new doc pages
+   - Log for report, do not apply
+
+6. **Record remaining unfilled gaps** for the REPORT phase.
+
+### Phase 6: REPORT — Synthesize Health Verdict
+
+1. **Run final `harness check-docs`** to establish the post-pipeline state.
+
+2. **Compute verdict.**
+
+   **FAIL if any of:**
+   - Any critical drift findings remain unfixed
+   - `harness check-docs` fails after all fix attempts
+   - AGENTS.md does not exist and bootstrap failed
+
+   **WARN if any of:**
+   - High-priority drift or gap findings remain (user-deferred)
+   - >30% of source modules are undocumented
+   - Graph not available (reduced accuracy notice)
+
+   **PASS if:**
+   - No critical or high findings remaining
+   - `harness check-docs` passes
+   - AGENTS.md exists and covers >70% of modules
+
+3. **Generate per-category breakdown:**
+
+   | Category  | Metric                                 |
+   | --------- | -------------------------------------- |
+   | Accuracy  | Drift findings remaining (by priority) |
+   | Coverage  | Undocumented modules remaining         |
+   | Links     | Broken references remaining            |
+   | Freshness | Graph staleness status                 |
+
+4. **List actions taken:**
+   - Auto-fixes applied (safe): count and file list
+   - User-approved fixes (probably-safe): count and file list
+   - Findings deferred to user (unsafe): count and details
+   - AGENTS.md bootstrapped: yes/no and method (graph or directory structure)
+
+5. **Set context verdict and summary.** Write `context.verdict` and `context.summary`.
+
+6. **Output report** to console. Format:
+
+   ```
+   === Documentation Health Report ===
+
+   Verdict: PASS | WARN | FAIL
+
+   Accuracy:  N drift findings remaining (0 critical, 0 high, N medium, N low)
+   Coverage:  N/M modules documented (N%)
+   Links:     N broken references remaining
+   Freshness: Graph current | Graph stale (N commits behind) | No graph
+
+   Actions:
+     - N safe fixes applied silently
+     - N probably-safe fixes applied (user-approved)
+     - N unsafe findings deferred to user
+     - AGENTS.md bootstrapped from <graph|directory structure>
+
+   Remaining findings:
+     [list of unfixed findings with priority and suggested action]
+   ```
+
+## Harness Integration
+
+- **`harness check-docs`** — Run in DETECT, after each fix batch in FIX/FILL, and in REPORT for final state
+- **`harness cleanup --type drift`** — Used by detect-doc-drift during DETECT phase
+- **`harness scan`** — Used in FRESHEN to refresh stale graph
+- **`harness validate`** — Run as final step in each task to verify project health
+
+## Success Criteria
+
+- `harness-docs-pipeline` runs all 4 sub-skills in the right order with shared context
+- FIX and FILL phases iterate until converged; cascading fixes are caught
+- Safe fixes are applied silently; unsafe changes surface to user
+- `harness check-docs` runs after every fix batch; failed fixes are reverted
+- Bootstrap handles cold start (no AGENTS.md) with graph path and directory structure fallback
+- Standalone skills work independently exactly as today when invoked without pipeline context
+- Entire pipeline runs without graph using static analysis fallbacks
+- PASS/WARN/FAIL report includes per-category breakdown and specific remaining findings
+- Drift fixes in FIX phase are excluded from AUDIT findings (no double-counting)
+
+## Examples
+
+### Example: Full pipeline run with fixes
+
+```
+Input: --fix flag set, graph available, AGENTS.md exists
+
+1. FRESHEN  — Graph exists, 3 commits behind (< 10, skip refresh)
+               AGENTS.md exists, no bootstrap needed
+2. DETECT   — detect-doc-drift found 8 findings:
+               2 critical (deleted file still referenced)
+               3 high (renamed functions)
+               2 medium (stale descriptions)
+               1 low (formatting)
+3. FIX      — Iteration 1:
+                 3 safe fixes applied (renamed file paths)
+                 2 probably-safe presented, 2 approved
+                 2 unsafe surfaced to user
+                 harness check-docs: pass
+               Re-detect: 1 new finding (cascading rename)
+               Iteration 2:
+                 1 safe fix applied
+                 Re-detect: 0 new findings — converged
+4. AUDIT    — validate-context-engineering found 5 gaps
+               2 already in exclusions (fixed in FIX) → 3 remaining
+5. FILL     — 1 safe fill (broken link redirect)
+               1 probably-safe (new module entry) → approved
+               1 unsafe (complex module docs) → deferred
+               Re-audit: converged
+6. REPORT   — Verdict: WARN
+               Accuracy: 2 drift findings remaining (0 critical, 0 high, 1 medium, 1 low)
+               Coverage: 12/14 modules documented (86%)
+               Links: 0 broken references
+               Freshness: Graph current
+```
+
+### Example: CI mode (non-interactive)
+
+```
+Input: --fix --ci flags set, no graph
+
+1. FRESHEN  — No graph (notice logged), AGENTS.md exists
+2. DETECT   — 4 findings (1 critical, 2 high, 1 medium)
+3. FIX      — 2 safe fixes applied silently
+               probably-safe and unsafe: logged to report (no prompts)
+4. AUDIT    — 2 gaps (1 deduped) → 1 remaining
+5. FILL     — 0 safe fills, 1 probably-safe logged to report
+6. REPORT   — Verdict: FAIL (1 critical finding remains)
+```
+
+### Example: Bootstrap from directory structure
+
+```
+Input: --bootstrap flag set, no graph, no AGENTS.md
+
+1. FRESHEN  — No graph, no AGENTS.md
+               Fallback bootstrap: glob src/*, read package.json
+               Generated minimal AGENTS.md (32 lines)
+               context.bootstrapped = true
+2. DETECT   — 0 drift findings (fresh AGENTS.md, no stale refs)
+3. AUDIT    — 6 gaps (4 undocumented modules, 2 missing context)
+4. REPORT   — Verdict: WARN (>30% modules undocumented, no graph)
+```
+
+## Gates
+
+- **No fix without verification.** Every fix batch must be followed by `harness check-docs`. If check fails, revert the batch.
+- **No unsafe auto-apply.** Fixes classified as `unsafe` are never applied without explicit user approval. In `--ci` mode, they are logged but never applied.
+- **No reimplementation of sub-skill logic.** The pipeline delegates to sub-skills. If the DETECT phase is writing drift detection code, the plan is wrong.
+- **No convergence without progress.** If a convergence loop iteration does not reduce the finding count, stop immediately. Do not retry.
+- **Max 5 iterations per convergence loop.** Hard cap to prevent runaway loops.
+
+## Escalation
+
+- **When findings exceed 50:** Focus on critical and high priority only. Defer medium and low to a follow-up run.
+- **When bootstrap produces low-quality AGENTS.md:** This is expected without a graph. Log a notice recommending `harness scan` and accept the reduced quality for the current run.
+- **When convergence loop does not converge within 5 iterations:** Stop the loop, log remaining findings, and proceed to the next phase. The report will reflect the unconverged state.
+- **When a sub-skill fails:** Log the failure, skip the phase, and continue the pipeline. The report will note the skipped phase with a WARN or FAIL verdict.
+- **When `harness check-docs` is unavailable:** Fall back to file existence checks and link validation via grep. Log a notice about reduced verification accuracy.

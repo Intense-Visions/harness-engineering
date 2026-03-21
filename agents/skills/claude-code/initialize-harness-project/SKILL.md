@@ -87,7 +87,9 @@ harness scan [path]
 
 This creates the `.harness/graph/` directory and populates it with the project's dependency and relationship data. Subsequent graph queries (impact analysis, dependency health, test advisor) depend on this initial scan.
 
-4. **Commit the initialization.** All generated and configured files in a single commit.
+4. **Mention roadmap.** After validation passes, inform the user: "When you are ready to set up a project roadmap, run `/harness:roadmap --create`. This creates a unified `docs/roadmap.md` that tracks features, milestones, and status across your specs and plans." This is informational only — do not create the roadmap automatically.
+
+5. **Commit the initialization.** All generated and configured files in a single commit.
 
 ## Harness Integration
 
@@ -97,6 +99,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - **`harness validate`** — Verify the full project configuration is valid and complete.
 - **`harness check-deps`** — Verify dependency constraints match the actual codebase (intermediate and above).
 - **`harness-i18n-workflow configure` + `harness-i18n-workflow scaffold`** — Invoked during Phase 3 if the project will support multiple languages. Sets up i18n configuration and translation file structure.
+- **Roadmap nudge** — After successful initialization, inform the user about `/harness:roadmap --create` for setting up project-level feature tracking. Informational only; does not create the roadmap.
 
 ## Success Criteria
 
