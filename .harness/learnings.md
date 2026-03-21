@@ -110,3 +110,69 @@
 
 - [skill:harness-execution] [outcome:success] Both tasks completed in a single pass. skill.yaml state.files block updated from 3 singleton paths to 4 entries (3 session-scoped globs + 1 global learnings.md). handoff.json was missing from old declaration — now included.
 - [skill:harness-execution] [outcome:success] 507 skill tests pass after changes — structure, schema, platform-parity, and references all green. No count assertion breakage.
+
+## 2026-03-20 — Update Checker Core Module (Phase 1)
+
+- [skill:harness-execution] [outcome:success] All 6 tasks completed in a single session with 5 atomic commits. 22 new tests, 547 total tests pass. Full TDD rhythm on all 4 implementation tasks.
+- [skill:harness-execution] [outcome:gotcha] child_process.spawn is read-only in ESM — vi.spyOn fails with "Cannot redefine property: spawn". Use vi.mock with importOriginal pattern instead, matching the project convention in update.test.ts.
+- [skill:harness-execution] [outcome:gotcha] Adding imports for future tasks (fs, path, os, spawn) before they are used causes TS6133 (unused declarations) failures at the tsc --noEmit gate. Add imports only when the functions that use them are implemented.
+- [skill:harness-execution] [outcome:decision] Adapted plan's vi.spyOn approach for child_process to vi.mock with importOriginal, matching existing project patterns. This is within task scope since the behavioral contract (mock spawn, verify args) is unchanged.
+
+## 2026-03-20 — Update Checker CLI Integration (Phase 2)
+
+- [skill:harness-execution] [outcome:success] All 4 tasks completed in a single session with 2 atomic commits. 8 new update-check tests, 524 total CLI tests pass.
+- [skill:harness-execution] [outcome:gotcha] Core package dist must be rebuilt (`pnpm run build` in packages/core) before CLI typecheck (`tsc --noEmit`) can see new exports. Tests pass without rebuild because tsup bundles workspace packages at build time via aliases, but tsc needs the `.d.ts` files.
+
+## 2026-03-20 — Update Checker Config Support (Phase 4)
+
+- [skill:harness-execution] [outcome:success] All 4 tasks completed across 2 sessions. Schema field, CLI hooks, MCP server wiring, and integration tests all pass. 10 MCP update-check tests (7 existing + 3 new config integration), 166 total MCP tests pass.
+- [skill:harness-execution] [outcome:gotcha] `expect.anything()` in vitest does NOT match `null`. When `readCheckState` mock returns `null`, `shouldRunCheck` receives `null` as its first arg — must assert with explicit `null` instead of `expect.anything()`.
+- [skill:harness-execution] [outcome:success] `resolveProjectConfig` reads `harness.config.json` from the filesystem using `fs.readFileSync`, so integration tests with real temp directories (`fs.mkdtempSync`) work without any fs mocking — consistent with the project learning about preferring real temp dirs over fs mocks.
+
+## 2026-03-20 — Update Checker Edge Case Hardening (Phase 5)
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed across 2 sessions. 16 edge case tests + 1 resilience guarantee test, 1 production change (atomic write). 38 update-checker tests, 563 total core tests pass.
+- [skill:harness-execution] [outcome:success] readCheckState handles file-is-directory case (EISDIR) gracefully via the existing try/catch — no production code change needed for this edge case.
+
+## 2026-03-20 — Autopilot: Update Check Notification
+
+- [skill:harness-autopilot] [outcome:complete] Executed 5 phases, 23 tasks, 0 retries. Brainstorming → autopilot → verification → code review → fix → pre-commit review → PR.
+- [skill:harness-autopilot] [outcome:observation] Cherry-picking interleaved commits onto a feature branch can lose variable declarations when conflict resolution only handles the function body. Always re-run tests after cherry-pick sequences.
+- [skill:harness-autopilot] [outcome:observation] Code review caught a real validation gap (MCP path accepting negative/NaN/Infinity config values) that unit tests missed because they only tested the happy path and disabled path. Bounds checking at system boundaries matters even for "simple" config reads.
+
+## 2026-03-20 — i18n Knowledge Base Phase 1: Review Fixes
+
+- [skill:harness-execution] [outcome:success] Applied all 9 review corrections (B1/B2 + W1-W7) to 16 locale YAML files. All 44 files parse, all counts match spec, harness validate passes.
+- [skill:harness-execution] [outcome:gotcha] Previous session wrote files to both source (agents/skills/shared/) and dist (packages/cli/dist/agents/agents/skills/shared/) directories. The dist files are not git-tracked (gitignored) so they caused no commit issues, but the review fixes applied to source files in the previous session were never actually committed because the state.json showed Task 13 as complete.
+- [skill:harness-execution] [outcome:gotcha] CLDR plural categories for French, Spanish, Italian, and Portuguese are [one, other] NOT [one, many, other]. The "many" category only applies to languages like Arabic (6 forms), Russian/Polish (4 forms). This is a common misconception.
+- [skill:harness-execution] [outcome:gotcha] Korean uses spaces between words unlike Japanese and Chinese, so line_break_rules should be "standard" not "no-spaces". Korean Hangul is CJK-width but does not follow CJK no-space line breaking conventions.
+
+## 2026-03-20 — Mechanical Exclusion Boundary (Review Pipeline Phase 2)
+
+- [skill:harness-execution] [outcome:success] All 8 tasks completed in a single session. 19 new review tests (11 exclusion-set + 8 mechanical-checks), 584 total core tests pass.
+- [skill:harness-execution] [outcome:gotcha] lint-staged stash/restore can cause commits to land on a different branch (e.g., feat/update-check-notification instead of main). The commit output message shows the branch — always verify it matches the expected branch. Cherry-pick to recover if needed.
+- [skill:harness-execution] [outcome:gotcha] SecurityScanner and TypeScriptParser mocks must use class syntax (not vi.fn().mockImplementation(() => ...)) because arrow functions cannot be used as constructors with `new`. Use module-scoped mock variables (e.g., `const mockScanFiles = vi.fn()`) to allow per-test overrides while keeping the class mock stable across vi.clearAllMocks() calls.
+
+## 2026-03-20 — i18n Core Skill (Phase 2)
+
+- [skill:harness-execution] [outcome:success] All 7 Phase 2 tasks completed. 6 files committed: 2 skill.yaml, 2 SKILL.md, 1 schema.ts update, 1 test file. 558 CLI tests pass, harness validate passes.
+- [skill:harness-execution] [outcome:success] Platform parity preserved by staging both claude-code and gemini-cli copies together in one commit, consistent with prior learnings.
+- [skill:harness-execution] [outcome:observation] Pre-existing test failure in harness-code-review/SKILL.md (missing ## Process section) exists in the skills test suite. This is unrelated to i18n work and was not introduced by these changes.
+
+## 2026-03-20 — i18n Workflow Skill (Phase 3)
+
+- [skill:harness-execution] [outcome:success] All 4 Phase 3 tasks completed. 2 commits: skill.yaml (Task 1), SKILL.md + gemini-cli copies (Tasks 2+3 combined). 558 CLI tests pass, harness validate passes.
+- [skill:harness-execution] [outcome:decision] Combined Tasks 2+3 into a single commit to stage both SKILL.md platform copies together, honoring the Prettier parity learning. Plan specified separate commits but parity learning takes precedence.
+- [skill:harness-execution] [outcome:success] SKILL.md is a large file (~500 lines) covering 4 phases (CONFIGURE, SCAFFOLD, EXTRACT, TRACK) with detailed agent instructions. Prettier reformatted JSON code blocks (added trailing commas) but both copies were formatted identically since they were staged together.
+
+## 2026-03-20 — i18n Process Skill (Phase 4)
+
+- [skill:harness-execution] [outcome:success] All 3 Phase 4 tasks completed. 2 commits: skill.yaml (Task 1), SKILL.md + gemini-cli copies (Tasks 2+3 combined). 558 CLI tests pass, harness validate passes.
+- [skill:harness-execution] [outcome:decision] Combined Tasks 2+3 into a single commit to stage both SKILL.md platform copies together, consistent with Phases 3, 4, and 5 learnings about Prettier parity.
+- [skill:harness-execution] [outcome:success] Prettier reformatted SKILL.md (added blank lines after list-preceding paragraphs in gate mode sections). Both platform copies formatted identically since they were staged together.
+
+## 2026-03-20 — Review Pipeline Phase 4: Parallel Fan-Out
+
+- [skill:harness-execution] [outcome:success] All 10 tasks completed in a single session with 7 atomic commits. 47 new tests (12 compliance + 9 bug + 10 security + 9 architecture + 7 fan-out), 93 total review tests pass.
+- [skill:harness-execution] [outcome:success] Tasks 4-6 (bug, security, architecture agents) were parallelizable after Task 1 (types) as planned. All passed on first try with no adaptation needed.
+- [skill:harness-execution] [outcome:success] Combined TDD RED+GREEN into single commits for agent tasks since the test and implementation files are tightly coupled and the plan specified the commit message on the GREEN task.
