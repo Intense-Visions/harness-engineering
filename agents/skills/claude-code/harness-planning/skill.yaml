@@ -45,3 +45,4 @@ state:
   files: []
 depends_on:
   - harness-verification
+  - harness-soundness-review

@@ -45,6 +45,4 @@ phases:
 state:
   persistent: false
   files: []
-depends_on:
-  - harness-brainstorming
-  - harness-planning
+depends_on: []

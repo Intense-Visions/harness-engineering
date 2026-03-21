@@ -895,7 +895,8 @@ After auto-fixes are applied in Phase 2, the convergence loop determines whether
 
 3. **Compare counts.**
    - If `count_current < count_previous`: progress was made. Some auto-fixes resolved issues, or a fix in one area resolved a finding in another (cascading fix). Go to Phase 2 (FIX) and apply any new auto-fixable findings, then return here.
-   - If `count_current >= count_previous`: no progress. The remaining issues either need user input or cannot be resolved by auto-fix. Stop looping and proceed to Phase 4 (SURFACE).
+   - If `count_current == count_previous`: no progress. The remaining issues either need user input or cannot be resolved by auto-fix. Stop looping and proceed to Phase 4 (SURFACE).
+   - If `count_current > count_previous`: auto-fixes introduced new issues. Log a warning in the fix log ("Auto-fixes increased issue count from {previous} to {current} — review fix procedures for unintended side effects.") and proceed to Phase 4 (SURFACE). Do not continue looping.
 
 4. **Repeat.** Steps 1-3 repeat until no progress is detected. There is no arbitrary iteration cap — the "no progress" check is the termination condition.
 
@@ -1116,24 +1117,26 @@ On clean exit:
 
 Checks that benefit from codebase awareness (S3, S5, P1, P3, P4) use these tools:
 
-| Check | Without graph                        | With graph                                             |
-| ----- | ------------------------------------ | ------------------------------------------------------ |
-| S5    | Grep/glob for referenced patterns    | `query_graph` to verify dependencies exist             |
-| S3    | Infer from codebase conventions      | `find_context_for` to surface related design decisions |
-| P1    | Text matching criteria to tasks      | Graph traceability edges if available                  |
-| P3    | Static analysis of task descriptions | `get_impact` to verify dependency completeness         |
-| P4    | Parse file paths, detect conflicts   | Graph file ownership for accurate conflict detection   |
+| Check | Without graph                        | With graph                                                                                |
+| ----- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| S5    | Grep/glob for referenced patterns    | `query_graph` + `get_relationships` to verify dependencies and architecture compatibility |
+| S3    | Infer from codebase conventions      | `find_context_for` to surface related design decisions                                    |
+| P1    | Text matching criteria to tasks      | Graph traceability edges if available                                                     |
+| P3    | Static analysis of task descriptions | `get_impact` to verify dependency completeness                                            |
+| P4    | Parse file paths, detect conflicts   | Graph file ownership for accurate conflict detection                                      |
 
 All checks produce useful results from document analysis and basic codebase reads alone. Graph adds precision but is never required.
 
 ## Harness Integration
 
-- **`harness validate`** — Run before and after the soundness review to verify project health is maintained.
+- **`harness validate`** — Run by the parent skill (harness-brainstorming or harness-planning) before and after the soundness review. This skill does not invoke validate directly.
 - **Parent skill invocation** — harness-brainstorming invokes `--mode spec` before sign-off; harness-planning invokes `--mode plan` before sign-off.
 - **No new user commands** — Users invoke brainstorming and planning exactly as before. The soundness review is invisible until it surfaces an issue.
 - **Graph queries** — When `.harness/graph/` exists, use `query_graph` and `get_impact` for enhanced feasibility and dependency checks. Fall back to file-based reads when no graph is available.
 
 ## Success Criteria
+
+These criteria validate the skill implementation artifacts. The behavioral success criteria from the spec (automatic invocation, coherence detection, convergence termination, etc.) are verified by running the skill against real specs and plans.
 
 1. The skill.yaml passes schema validation with all required fields
 2. The SKILL.md contains all required sections and passes structure tests
@@ -1260,3 +1263,5 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When a check produces false positives:** Log the false positive and skip it. Do not block sign-off on a finding that the user has explicitly dismissed.
 - **When the convergence loop makes no progress on the first iteration:** All remaining findings need user input. Skip directly to Phase 4 (SURFACE) without looping.
 - **When graph queries are unavailable:** Fall back to document analysis and codebase reads. All checks are designed to work without graph. Do not block or warn about missing graph — just use the fallback path.
+- **When user resolutions repeatedly introduce new errors:** After 2 consecutive resolution attempts that each introduce a new error-severity finding, suggest pausing the soundness review to revisit the spec design holistically rather than fixing issues one at a time.
+- **When codebase files referenced in the spec cannot be read:** Skip the feasibility sub-check for that file. Log the skip and continue with the remaining checks. Do not block the review on inaccessible files.
