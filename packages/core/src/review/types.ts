@@ -349,3 +349,30 @@ export interface EligibilityResult {
   /** Human-readable reason when not eligible */
   reason?: string;
 }
+
+// --- Phase 8: Model Tiering Config types ---
+
+/**
+ * Configuration mapping abstract model tiers to concrete model identifiers.
+ * All tiers are optional — unmapped tiers resolve to undefined (use current model).
+ *
+ * Example config:
+ *   { fast: "haiku", standard: "sonnet", strong: "opus" }
+ *   { fast: "gpt-4o-mini", standard: "gpt-4o", strong: "o1" }
+ */
+export interface ModelTierConfig {
+  fast?: string;
+  standard?: string;
+  strong?: string;
+}
+
+/**
+ * Known provider identifiers for default tier resolution.
+ */
+export type ModelProvider = 'claude' | 'openai' | 'gemini';
+
+/**
+ * Default model tier mappings per provider.
+ * Used as fallback when config does not specify a tier.
+ */
+export type ProviderDefaults = Record<ModelProvider, ModelTierConfig>;
