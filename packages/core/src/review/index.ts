@@ -28,6 +28,10 @@ export type {
   PriorReview,
   PrMetadata,
   EligibilityResult,
+  // Phase 8: Model Tiering Config types
+  ModelTierConfig,
+  ModelProvider,
+  ProviderDefaults,
 } from './types';
 
 // Mechanical checks
@@ -69,6 +73,9 @@ export type { DeduplicateFindingsOptions } from './deduplicate-findings';
 // Phase 7: Output
 // Phase 1: Eligibility gate
 export { checkEligibility } from './eligibility-gate';
+
+// Model tier resolver
+export { resolveModelTier, DEFAULT_PROVIDER_TIERS } from './model-tier-resolver';
 
 export {
   determineAssessment,
