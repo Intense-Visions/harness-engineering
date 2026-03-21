@@ -16,8 +16,10 @@ export function detectPackageManager(): PackageManager {
 
     // Normalize to forward slashes for cross-platform path matching
     const normalizedBin = binPath.replace(/\\/g, '/');
-    if (normalizedBin.includes('pnpm/global/') || normalizedBin.includes('pnpm-global/')) {
-      // platform-safe: already normalized
+    if (
+      normalizedBin.includes('pnpm/global/') || // platform-safe: already normalized
+      normalizedBin.includes('pnpm-global/')
+    ) {
       return 'pnpm';
     }
     if (normalizedBin.includes('.yarn/')) {
