@@ -21,6 +21,9 @@ cli:
     - name: path
       description: Project root path
       required: false
+    - name: check-baselines
+      description: Verify baseline file is updated when benchmarks change
+      required: false
 mcp:
   tool: run_skill
   input:

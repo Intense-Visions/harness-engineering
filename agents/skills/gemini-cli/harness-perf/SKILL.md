@@ -45,34 +45,62 @@ Tier 1 violations are non-negotiable blockers. If a Tier 1 violation is detected
 
 ---
 
+### Graph Availability
+
+Hotspot scoring and coupling analysis benefit from the knowledge graph but work without it.
+
+**Staleness sensitivity:** Medium -- auto-refresh if >10 commits stale. Hotspot scoring uses churn data which does not change rapidly.
+
+| Feature                              | With Graph                                                   | Without Graph                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Hotspot scoring (churn x complexity) | `GraphComplexityAdapter` computes from graph nodes           | `git log --format="%H" -- <file>` for per-file commit count; complexity from `check-perf --structural` output; multiply manually |
+| Coupling ratio                       | `GraphCouplingAdapter` computes from graph edges             | Parse import statements, count fan-out/fan-in per file                                                                           |
+| Critical path resolution             | Graph inference (high fan-in) + `@perf-critical` annotations | `@perf-critical` annotations only; grep for decorator/comment                                                                    |
+| Transitive dep depth                 | Graph BFS depth                                              | Import chain follow, 2 levels deep                                                                                               |
+
+**Notice when running without graph:** "Running without graph (run `harness scan` to enable hotspot scoring and coupling analysis)"
+
+**Impact on tiers:** Without graph, Tier 1 hotspot detection is degraded. Hotspot scoring falls back to churn-only (no complexity multiplication). This limitation is documented in the performance report output.
+
+---
+
 ### Phase 2: BENCHMARK — Runtime Performance
 
 This phase runs only when `.bench.ts` files exist in the project. If none are found, skip to Phase 3.
 
-1. **Check for benchmark files.** Scan the project for `*.bench.ts` files. If none exist, skip this phase entirely.
+1. **Check baseline lock-in.** Before running benchmarks, verify baselines are kept in sync:
+   - List all `.bench.ts` files changed in this PR: `git diff --name-only | grep '.bench.ts'`
+   - If any `.bench.ts` files are new or modified:
+     - Check if `.harness/perf/baselines.json` is also modified in this PR
+     - If NOT modified: flag as Tier 2 warning: "Benchmark files changed but baselines not updated. Run `harness perf baselines update` and commit the result."
+     - If modified: verify the updated baselines include entries for all changed benchmarks
+   - If no `.bench.ts` files changed: skip this check
+   - This check also runs standalone via `--check-baselines` flag
 
-2. **Verify clean working tree.** Run `git status --porcelain`. If there are uncommitted changes, STOP. Benchmarks on dirty trees produce unreliable results.
+2. **Check for benchmark files.** Scan the project for `*.bench.ts` files. If none exist, skip this phase entirely.
 
-3. **Run benchmarks.** Execute `harness perf bench` to run all benchmark suites.
+3. **Verify clean working tree.** Run `git status --porcelain`. If there are uncommitted changes, STOP. Benchmarks on dirty trees produce unreliable results.
 
-4. **Load baselines.** Read `.harness/perf/baselines.json` for previous benchmark results. If no baselines exist, treat this as a baseline-capture run.
+4. **Run benchmarks.** Execute `harness perf bench` to run all benchmark suites.
 
-5. **Compare results against baselines** using the `RegressionDetector`:
+5. **Load baselines.** Read `.harness/perf/baselines.json` for previous benchmark results. If no baselines exist, treat this as a baseline-capture run.
+
+6. **Compare results against baselines** using the `RegressionDetector`:
    - Calculate percentage change for each benchmark
    - Apply noise margin (default: 3%) before flagging regressions
    - Distinguish between critical-path and non-critical-path benchmarks
 
-6. **Resolve critical paths** via `CriticalPathResolver`:
+7. **Resolve critical paths** via `CriticalPathResolver`:
    - Check `@perf-critical` annotations in source files
    - Check graph fan-in data (functions called by many consumers)
    - Functions in the critical path set have stricter thresholds
 
-7. **Flag regressions by tier:**
+8. **Flag regressions by tier:**
    - **Tier 1:** >5% regression on a critical path benchmark
    - **Tier 2:** >10% regression on a non-critical-path benchmark
    - **Tier 3:** >5% regression on a non-critical-path benchmark (within noise margin consideration)
 
-8. **If this is a baseline-capture run,** report results without regression comparison. Recommend running `harness perf baselines update` to persist.
+9. **If this is a baseline-capture run,** report results without regression comparison. Recommend running `harness perf baselines update` to persist.
 
 ---
 
@@ -138,6 +166,7 @@ This phase runs only when `.bench.ts` files exist in the project. If none are fo
 - **`harness perf bench`** — Run benchmarks only. Requires clean working tree.
 - **`harness perf baselines show`** — View current benchmark baselines.
 - **`harness perf baselines update`** — Persist current benchmark results as new baselines.
+- **`harness perf --check-baselines`** -- Verify baseline file is updated when benchmarks change. Runs the baseline lock-in check standalone.
 - **`harness perf critical-paths`** — View the current critical path set and how it was determined.
 - **`harness validate`** — Run after enforcement to verify overall project health.
 - **`harness graph scan`** — Refresh knowledge graph for accurate hotspot scoring.
