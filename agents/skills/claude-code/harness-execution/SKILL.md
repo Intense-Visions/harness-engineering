@@ -54,6 +54,12 @@ Enables smarter execution ordering and blockage detection. Fall back to file-bas
 
 ### Phase 2: EXECUTE — Implement Tasks Atomically
 
+When reporting task progress, use progress markers:
+
+```
+**[Phase N/M]** Task N — <task description>
+```
+
 For each task, starting from the current position:
 
 1. **Read the task instructions completely** before writing any code. Understand what files to touch, what tests to write, what the expected outcome is.
@@ -96,17 +102,34 @@ Plans contain three types of checkpoints. Each requires pausing execution.
 **`[checkpoint:human-verify]` — Show and Confirm**
 
 1. Stop execution.
-2. Show the human what was just completed (test output, file diff, running application).
-3. State: "Task N complete. Output: [summary]. Continue to Task N+1?"
-4. Wait for the human to confirm before proceeding.
+2. Use `emit_interaction` to present the checkpoint:
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "confirmation",
+     confirmation: {
+       text: "Task N complete. Output: <summary>. Continue to Task N+1?",
+       context: "<test output or file diff summary>"
+     }
+   })
+   ```
+3. Wait for the human to confirm before proceeding.
 
 **`[checkpoint:decision]` — Present Options and Wait**
 
 1. Stop execution.
-2. Present the decision with options exactly as described in the plan.
-3. State: "Task N requires a decision: [options]. Which do you prefer?"
-4. Wait for the human to choose.
-5. Record the decision in `.harness/state.json` under `decisions`.
+2. Use `emit_interaction` to present the decision:
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "question",
+     question: {
+       text: "Task N requires a decision: <description>",
+       options: ["<option A>", "<option B>"]
+     }
+   })
+   ```
+3. Wait for the human to choose.
 
 **`[checkpoint:human-action]` — Instruct and Wait**
 
@@ -128,6 +151,21 @@ Plans contain three types of checkpoints. Each requires pausing execution.
 3. **WIRED** — Are those artifacts integrated into the system (imported, routed, tested, reachable)?
 
 If the deep audit fails at any level, treat it as a blocker. Record it and stop.
+
+After all tasks pass verification:
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "transition",
+  transition: {
+    completedPhase: "execution",
+    suggestedNext: "verification",
+    reason: "All plan tasks executed and verified",
+    artifacts: ["<list of created/modified files>"]
+  }
+})
+```
 
 ---
 

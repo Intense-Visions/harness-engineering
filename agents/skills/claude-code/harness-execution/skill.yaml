@@ -16,6 +16,7 @@ tools:
   - Edit
   - Glob
   - Grep
+  - emit_interaction
 cli:
   command: harness skill run harness-execution
   args:
