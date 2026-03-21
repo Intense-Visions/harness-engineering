@@ -223,6 +223,29 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 
 6. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
 
+7. **Auto-transition to verification.** When ALL tasks in the plan are complete (not when stopping mid-plan):
+
+   Call `emit_interaction`:
+
+   ```json
+   {
+     "type": "transition",
+     "transition": {
+       "completedPhase": "execution",
+       "suggestedNext": "verification",
+       "reason": "All tasks complete",
+       "artifacts": ["<list of created/modified files>"],
+       "requiresConfirmation": false,
+       "summary": "Completed <N> tasks. <N> files created, <N> modified. All quick gates passed."
+     }
+   }
+   ```
+
+   The response will include `nextAction: "Invoke harness-verification skill now"`.
+   Immediately invoke harness-verification without waiting for user input.
+
+   **Important:** Only emit this transition when all tasks are complete. If execution stopped due to a blocker, checkpoint, or partial completion, do NOT emit a transition -- write the handoff and stop.
+
 ---
 
 ### Stopping Conditions
@@ -248,6 +271,7 @@ These are non-negotiable. When any condition is met, stop immediately.
 - **`.harness/state.json`** — Read at session start to resume position. Updated after every task.
 - **`.harness/learnings.md`** — Append-only knowledge capture. Read at session start for prior context.
 - **Roadmap sync** — After completing plan execution, sync roadmap status via `manage_roadmap sync` if `docs/roadmap.md` exists. Keeps roadmap current with execution progress.
+- **`emit_interaction`** -- Call at plan completion to auto-transition to harness-verification. Uses auto-transition (proceeds immediately without user confirmation).
 
 ## Success Criteria
 
