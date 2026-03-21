@@ -237,7 +237,7 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
           content: [
             {
               type: 'text' as const,
-              text: `Error: unknown interaction type: ${input.type}`,
+              text: `Error: unknown interaction type: ${String(input.type)}`,
             },
           ],
           isError: true,

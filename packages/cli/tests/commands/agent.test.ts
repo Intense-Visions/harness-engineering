@@ -38,6 +38,6 @@ describe('createRunCommand', () => {
 describe('createReviewCommand', () => {
   it('has correct description', () => {
     const cmd = createReviewCommand();
-    expect(cmd.description()).toContain('self-review');
+    expect(cmd.description()).toContain('code review');
   });
 });
