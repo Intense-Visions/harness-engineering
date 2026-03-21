@@ -13,6 +13,7 @@ tools:
   - Bash
   - Read
   - Glob
+  - emit_interaction
 cli:
   command: harness skill run harness-verification
   args:

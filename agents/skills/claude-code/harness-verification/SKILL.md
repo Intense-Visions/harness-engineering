@@ -160,6 +160,43 @@ After running all three levels, produce a structured gap report:
 ### Verdict: INCOMPLETE — 2 gaps must be resolved
 ```
 
+The verification report uses conventional markdown patterns for structured output:
+
+```
+**[CRITICAL]** path/to/file.ts:22 — TODO: implement validation (anti-pattern)
+**[IMPORTANT]** path/to/file.ts — exported but not imported by any other file
+```
+
+### Verification Sign-Off
+
+After producing the verification report, request acceptance:
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "confirmation",
+  confirmation: {
+    text: "Verification report: <VERDICT>. Accept and proceed?",
+    context: "<summary: N artifacts checked, N gaps found>"
+  }
+})
+```
+
+After verification is accepted:
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "transition",
+  transition: {
+    completedPhase: "verification",
+    suggestedNext: "review",
+    reason: "All artifacts verified at 3 levels, no gaps remaining",
+    artifacts: ["<verified file paths>"]
+  }
+})
+```
+
 ---
 
 ### Regression Test Verification
