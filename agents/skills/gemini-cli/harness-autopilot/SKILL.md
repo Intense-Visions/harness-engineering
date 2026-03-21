@@ -97,7 +97,14 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 5. **Load context.** Read `.harness/learnings.md` and `.harness/failures.md` (global, at `.harness/` root) if they exist. Note any relevant learnings or known dead ends for the current phase.
 
-6. **Transition to ASSESS.**
+6. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
+   - Current project priorities (which features are `in-progress`)
+   - Blockers that may affect the upcoming phases
+   - Overall project status and milestone progress
+
+   This provides the autopilot with project-level context beyond the individual spec being executed. If the roadmap does not exist, skip this step — the autopilot operates normally without it.
+
+7. **Transition to ASSESS.**
 
 ---
 
@@ -374,6 +381,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 - **State file** — `.harness/sessions/<slug>/autopilot-state.json` tracks the orchestration state machine. `.harness/sessions/<slug>/state.json` tracks task-level execution state (managed by harness-execution). The slug is derived from the spec path during INIT.
 - **Handoff** — `.harness/sessions/<slug>/handoff.json` is written by each delegated skill and read by the next. Autopilot writes a final handoff on DONE.
 - **Learnings** — `.harness/learnings.md` (global) is appended by both delegated skills and autopilot itself.
+- **Roadmap context** — During INIT, reads `docs/roadmap.md` (if present) for project-level priorities, blockers, and milestone status. Provides broader context for phase execution decisions.
 
 ## Success Criteria
 
