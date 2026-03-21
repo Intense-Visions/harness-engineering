@@ -89,6 +89,16 @@ Rules:
 - If all checks are SKIPPED, overall result is `PASS` (nothing to fail).
 - On FAIL, include a brief summary of what failed (e.g., "3 type errors", "2 lint errors", "5 tests failed") below the structured block.
 
+### Roadmap Sync (conditional)
+
+When all non-skipped checks pass (overall `Verification: PASS`) and `docs/roadmap.md` exists:
+
+1. Trigger a roadmap sync to update feature statuses based on the verified state.
+2. Use the `manage_roadmap` MCP tool with `sync` action if available, or note to the caller that a roadmap sync is recommended.
+3. Features linked to plans whose tasks are all complete and verified may be marked as `done`.
+
+If `docs/roadmap.md` does not exist, skip this step silently. If verification failed, do not sync — the roadmap should only reflect verified completions.
+
 ## Deterministic Checks
 
 This skill is entirely deterministic. There are no LLM judgment calls anywhere in the process.
@@ -106,6 +116,7 @@ This skill is entirely deterministic. There are no LLM judgment calls anywhere i
 - Output format is consumed by harness-integrity for the unified pipeline
 - Invokes `harness-accessibility` for design constraint checking when `design` config exists
 - Design violations respect `design.strictness` from `harness.config.json`
+- **Roadmap sync** — When verification passes and `docs/roadmap.md` exists, triggers `manage_roadmap sync` to mark verified features as `done`. Only fires on overall PASS.
 
 ## Success Criteria
 
