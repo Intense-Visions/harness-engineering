@@ -82,6 +82,24 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
     merged.suggestion = suggestion;
   }
 
+  // Preserve security-specific fields from the primary finding (or either)
+  const cweId = primaryFinding.cweId ?? a.cweId ?? b.cweId;
+  const owaspCategory = primaryFinding.owaspCategory ?? a.owaspCategory ?? b.owaspCategory;
+  const confidence = primaryFinding.confidence ?? a.confidence ?? b.confidence;
+  const remediation =
+    a.remediation && b.remediation
+      ? a.remediation.length >= b.remediation.length
+        ? a.remediation
+        : b.remediation
+      : (a.remediation ?? b.remediation);
+  const mergedRefs = [...new Set([...(a.references ?? []), ...(b.references ?? [])])];
+
+  if (cweId !== undefined) merged.cweId = cweId;
+  if (owaspCategory !== undefined) merged.owaspCategory = owaspCategory;
+  if (confidence !== undefined) merged.confidence = confidence;
+  if (remediation !== undefined) merged.remediation = remediation;
+  if (mergedRefs.length > 0) merged.references = mergedRefs;
+
   return merged;
 }
 

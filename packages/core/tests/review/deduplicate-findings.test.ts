@@ -185,6 +185,91 @@ describe('deduplicateFindings()', () => {
     expect(result[0]!.lineRange).toEqual([10, 25]);
   });
 
+  it('preserves security fields when merging overlapping security findings', () => {
+    const findings: ReviewFinding[] = [
+      {
+        id: 'security-src-api-10-sqli',
+        file: 'src/api.ts',
+        lineRange: [10, 10],
+        domain: 'security',
+        severity: 'critical',
+        title: 'SQL injection',
+        rationale: 'String concat in query',
+        evidence: ['Line 10: query + userId'],
+        validatedBy: 'heuristic',
+        cweId: 'CWE-89',
+        owaspCategory: 'A03:2021 Injection',
+        confidence: 'high',
+        remediation: 'Use parameterized queries',
+        references: ['https://cwe.mitre.org/data/definitions/89.html'],
+      },
+      {
+        id: 'bug-src-api-11-nullcheck',
+        file: 'src/api.ts',
+        lineRange: [11, 11],
+        domain: 'bug',
+        severity: 'important',
+        title: 'Missing null check',
+        rationale: 'userId could be undefined',
+        evidence: ['Line 11: userId.trim()'],
+        validatedBy: 'heuristic',
+      },
+    ];
+
+    const result = deduplicateFindings({ findings });
+    expect(result.length).toBe(1);
+    const merged = result[0]!;
+    expect(merged.cweId).toBe('CWE-89');
+    expect(merged.owaspCategory).toBe('A03:2021 Injection');
+    expect(merged.confidence).toBe('high');
+    expect(merged.remediation).toBe('Use parameterized queries');
+    expect(merged.references).toEqual(['https://cwe.mitre.org/data/definitions/89.html']);
+  });
+
+  it('merges security fields from both findings when both have them', () => {
+    const findings: ReviewFinding[] = [
+      {
+        id: 'security-src-api-10-sqli',
+        file: 'src/api.ts',
+        lineRange: [10, 10],
+        domain: 'security',
+        severity: 'critical',
+        title: 'SQL injection',
+        rationale: 'String concat in query',
+        evidence: ['Line 10'],
+        validatedBy: 'heuristic',
+        cweId: 'CWE-89',
+        owaspCategory: 'A03:2021 Injection',
+        confidence: 'high',
+        remediation: 'Use parameterized queries',
+        references: ['https://cwe.mitre.org/data/definitions/89.html'],
+      },
+      {
+        id: 'security-src-api-11-xss',
+        file: 'src/api.ts',
+        lineRange: [11, 11],
+        domain: 'security',
+        severity: 'critical',
+        title: 'XSS vulnerability',
+        rationale: 'Unsanitized output',
+        evidence: ['Line 11'],
+        validatedBy: 'heuristic',
+        cweId: 'CWE-79',
+        owaspCategory: 'A03:2021 Injection',
+        confidence: 'medium',
+        remediation: 'Sanitize HTML output',
+        references: ['https://cwe.mitre.org/data/definitions/79.html'],
+      },
+    ];
+
+    const result = deduplicateFindings({ findings });
+    expect(result.length).toBe(1);
+    const merged = result[0]!;
+    // Should keep security fields from the primary (higher-severity or first-in-order) finding
+    expect(merged.cweId).toBeDefined();
+    expect(merged.owaspCategory).toBeDefined();
+  });
+
   it('preserves validatedBy with highest priority (graph > heuristic > mechanical)', () => {
     const findings = [
       makeFinding({ id: 'a', file: 'src/auth.ts', lineRange: [40, 45], validatedBy: 'heuristic' }),
