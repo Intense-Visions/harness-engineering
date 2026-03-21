@@ -25,6 +25,12 @@
    - `standard` -- warnings are visible, errors block (default behavior)
    - `permissive` -- all findings are informational (nothing blocks, but everything is reported)
 
+2.5. **Check for i18n skill overlap.** Read `harness.config.json` for `i18n.enabled`:
+
+- If `i18n.enabled: true`, **defer** `lang` and `dir` attribute checks to `harness-i18n`. Do not scan for missing `lang` on `<html>` or missing `dir` on user-content containers -- those checks are covered by the i18n skill's scan phase with more context (locale-aware, RTL-aware).
+- If `i18n.enabled` is false or absent, scan for `lang`/`dir` as normal (these remain part of the accessibility audit).
+- This deduplication prevents the same finding from appearing in both the accessibility report and the i18n report.
+
 3. **Scan component files.** Search all files matching `.tsx`, `.jsx`, `.vue`, `.svelte`, `.html` for the following violations:
 
    **Images and media:**
@@ -176,6 +182,7 @@ This phase is optional. It applies fixes only for **mechanical issues** -- viola
 - **`DesignIngestor`** (`packages/graph/src/ingest/DesignIngestor.ts`) -- Provides token data used for contrast checking. The ingestor parses `tokens.json` so the accessibility scanner can compare code colors against declared tokens.
 - **`harness-impact-analysis`** -- When tokens change (palette update, new colors), impact analysis traces affected components. The accessibility skill uses this to determine which components need re-scanning.
 - **`harness-design-system`** -- Dependency. When contrast failures originate from token definitions (not component code), escalate to harness-design-system to fix at the source.
+- **`harness-i18n` deduplication** -- When `i18n.enabled: true` in config, `lang` and `dir` attribute checks are deferred to the i18n skill. This prevents duplicate findings across the accessibility and i18n reports. When i18n is not enabled, these checks remain part of the accessibility scan.
 
 ## Success Criteria
 

@@ -54,6 +54,18 @@ When the project has `design` configured in `harness.config.json`:
 4. **Error-severity design findings are blocking** in `strict` mode only. In `standard` and `permissive` modes, design findings do not block.
 5. If no `design` block exists, skip this phase entirely.
 
+### Phase 1.8: I18N SCAN (conditional)
+
+When the project has `i18n.enabled: true` in `harness.config.json`:
+
+1. Run `harness-i18n` in scan mode to detect hardcoded strings, missing translations, locale-sensitive formatting issues, and RTL violations.
+2. Combine findings into an i18n health summary:
+   - Error count (blocking, based on `i18n.strictness`)
+   - Warning count (non-blocking)
+   - Info count (advisory)
+3. **Error-severity i18n findings are blocking** in `strict` mode only. In `standard` and `permissive` modes, i18n findings do not block.
+4. If no `i18n` block exists or `i18n.enabled` is false, skip this phase entirely.
+
 ### Phase 2: REVIEW
 
 Run change-type-aware AI review using `harness-code-review`.
@@ -75,6 +87,7 @@ Integrity Check: [PASS/FAIL]
 - Types:    [PASS/FAIL/SKIPPED]
 - Security: [PASS/WARN/FAIL] ([count] errors, [count] warnings)
 - Design:   [PASS/WARN/FAIL/SKIPPED] ([count] errors, [count] warnings)
+- i18n:     [PASS/WARN/FAIL/SKIPPED] ([count] errors, [count] warnings)
 - Review:   [PASS/FAIL] ([count] suggestions, [count] blocking)
 
 Overall: [PASS/FAIL]
@@ -82,7 +95,7 @@ Overall: [PASS/FAIL]
 
 Rules:
 
-- Overall `PASS` requires: all non-skipped mechanical checks pass AND zero blocking review findings AND zero blocking design findings (strict mode only).
+- Overall `PASS` requires: all non-skipped mechanical checks pass AND zero blocking review findings AND zero blocking design findings (strict mode only) AND zero blocking i18n findings (strict mode only).
 - Any mechanical failure OR any blocking review finding means `FAIL`.
 - On FAIL, include a summary section listing each failure reason.
 - Non-blocking review suggestions are noted but do not cause FAIL.
@@ -100,6 +113,7 @@ Rules:
 - Output can be written to `.harness/integrity-report.md` for CI integration
 - Invokes `harness-design` and `harness-accessibility` for design health when `design` config exists
 - Design strictness from config controls whether design findings block the overall result
+- Invokes `harness-i18n` for i18n compliance when `i18n.enabled` is true in config. i18n strictness controls whether findings block the overall result.
 
 ## Success Criteria
 
@@ -119,6 +133,7 @@ Integrity Check: PASS
 - Types: PASS
 - Security: PASS (0 errors, 0 warnings)
 - Design: PASS (0 errors, 0 warnings)
+- i18n: PASS (0 errors, 0 warnings)
 - Review: 1 suggestion (0 blocking)
 ```
 
@@ -132,6 +147,7 @@ Integrity Check: FAIL
 - Security: FAIL (1 error, 0 warnings)
   - [SEC-INJ-002] src/auth/login.ts:42 — SQL query built with string concatenation
 - Design: WARN (0 errors, 2 warnings)
+- i18n: SKIPPED
 - Review: 3 findings (1 blocking)
 
 Blocking: [SEC-INJ-002] SQL injection — user input passed directly to query without parameterization.

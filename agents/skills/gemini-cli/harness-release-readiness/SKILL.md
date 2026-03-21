@@ -113,6 +113,20 @@ Run every check below. Record each as **pass**, **warn**, or **fail**:
 | `typecheck` or `tsc` script exists in root `package.json`       | fail                |
 | `harness validate` passes (project-level health check)          | fail                |
 
+##### i18n Coverage (conditional)
+
+When `i18n.enabled: true` in `harness.config.json`, run these checks:
+
+| Check                                                                                          | Severity if failing             |
+| ---------------------------------------------------------------------------------------------- | ------------------------------- |
+| Translation coverage meets `i18n.coverage.minimumPercent` for all target locales               | fail (strict) / warn (standard) |
+| No untranslated values (source text in target locale files) when `coverage.detectUntranslated` | warn                            |
+| All CLDR plural forms present for target locales when `coverage.requirePlurals`                | warn                            |
+| No stale translations (source changed since last translation timestamp)                        | warn                            |
+| `harness-i18n` scan passes with zero errors                                                    | fail (strict) / warn (standard) |
+
+If `i18n.enabled` is false or the `i18n` config block is absent, skip this section entirely and report it as "N/A" in the audit output.
+
 #### Comprehensive Checks (only with `--comprehensive`)
 
 These checks run only when `--comprehensive` is passed. They are slower and may require network access.
@@ -160,6 +174,7 @@ Packaging:  8/12 passed, 2 warnings, 2 failures
 Docs:       5/6 passed, 1 warning, 0 failures
 Hygiene:    3/5 passed, 2 warnings, 0 failures
 CI/CD:      4/5 passed, 1 warning, 0 failures
+i18n:       N/N passed, N warnings, N failures (or: skipped — i18n not enabled)
 [comprehensive] API Docs:  skipped (use --comprehensive)
 [comprehensive] Examples:  skipped (use --comprehensive)
 [comprehensive] Dep Health: skipped (use --comprehensive)
@@ -496,6 +511,7 @@ This framing is informational — it does not block anything. It gives the team 
 - **Sub-skill invocations** — Phase 2 dispatches `detect-doc-drift`, `cleanup-dead-code`, `enforce-architecture`, and `diagnostics` as parallel agents. Phase 3 delegates fixes to `align-documentation` and `cleanup-dead-code`.
 - **State file** — `.harness/release-readiness.json` enables session resumption and progress tracking. This file is read at the start of each invocation and written at the end.
 - **Report file** — `release-readiness-report.md` is written to the project root. It is a snapshot, not a tracked artifact — regenerate it on each run.
+- **i18n coverage** — When `i18n.enabled: true`, Phase 1 checks translation coverage against configured thresholds. Uses `harness-i18n` scan results and `harness-i18n-workflow` coverage tracking. Blocks release in strict mode if coverage is below `i18n.coverage.minimumPercent`.
 
 ## Success Criteria
 

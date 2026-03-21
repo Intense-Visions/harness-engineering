@@ -59,6 +59,11 @@
 
 4. **For advanced:** Configure state management (`.harness/state.json` schema), learnings capture (`.harness/learnings.md` conventions), and CI integration hooks.
 
+5. **Configure i18n (all levels).** Ask: "Will this project support multiple languages?" Based on the answer:
+   - **Yes:** Invoke `harness-i18n-workflow` configure phase to set up i18n config in `harness.config.json` (source locale, target locales, framework, strictness). Then invoke `harness-i18n-workflow` scaffold phase to create translation file structure and extraction config. Set `i18n.enabled: true`.
+   - **No:** Set `i18n.enabled: false` in `harness.config.json`. The `harness-i18n-process` skill will still fire gentle prompts for unconfigured projects when features touch user-facing strings.
+   - **Not sure yet:** Skip i18n configuration entirely. Do not set `i18n.enabled`. The project can enable i18n later by running `harness-i18n-workflow` directly.
+
 ### Phase 4: VALIDATE — Confirm Everything Works
 
 1. **Run `harness validate`** to verify the full configuration. This checks:
@@ -91,6 +96,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - **`harness persona generate`** — Generate persona definitions based on project stack and team structure.
 - **`harness validate`** — Verify the full project configuration is valid and complete.
 - **`harness check-deps`** — Verify dependency constraints match the actual codebase (intermediate and above).
+- **`harness-i18n-workflow configure` + `harness-i18n-workflow scaffold`** — Invoked during Phase 3 if the project will support multiple languages. Sets up i18n configuration and translation file structure.
 
 ## Success Criteria
 
@@ -102,6 +108,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - Personas are configured if the project uses them
 - The adoption level matches what was agreed upon with the human
 - All generated files are committed in a single atomic commit
+- i18n configuration is set if the human chose to enable it during init
 
 ## Examples
 
@@ -131,6 +138,10 @@ Edit AGENTS.md:
   - Add stack: TypeScript, Express, Vitest, PostgreSQL
   - Add conventions: "Use zod for validation, repository pattern for data access"
   - Add constraints: "No direct SQL queries outside repository layer"
+  - Ask: "Will this project support multiple languages?"
+  - Human: "Yes, Spanish and French."
+  - Run harness-i18n-workflow configure (source: en, targets: es, fr)
+  - Run harness-i18n-workflow scaffold (creates locales/ directory structure)
 ```
 
 **VALIDATE:**
