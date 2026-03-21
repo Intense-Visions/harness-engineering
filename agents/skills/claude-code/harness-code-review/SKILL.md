@@ -422,7 +422,23 @@ Reviews for architectural violations, dependency direction, and design pattern c
 **Tier:** none
 **Purpose:** Deliver the review in the requested format.
 
-#### Terminal Output (default)
+#### Text Output (default)
+
+When rendering the review output, use conventional markdown patterns:
+
+For strengths:
+
+```
+**[STRENGTH]** Clean separation between route handler and service logic
+```
+
+For issues by severity:
+
+```
+**[CRITICAL]** api/routes/users.ts:12-15 — Direct import from db/queries.ts bypasses service layer
+**[IMPORTANT]** services/user-service.ts:45 — createUser does not handle duplicate email
+**[SUGGESTION]** Consider extracting validation into a shared utility
+```
 
 Structure the review as:
 
@@ -465,6 +481,36 @@ gh pr review --event APPROVE|REQUEST_CHANGES|COMMENT --body "<summary>"
 gh api repos/{owner}/{repo}/pulls/{pr}/comments \
   --field body="<rationale>\n\`\`\`suggestion\n<fix>\n\`\`\`" \
   --field path="<file>" --field line=<line>
+```
+
+### Review Acceptance
+
+After delivering the review output, request acceptance:
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "confirmation",
+  confirmation: {
+    text: "Review complete: <Assessment>. Accept review?",
+    context: "<N critical, N important, N suggestion findings>"
+  }
+})
+```
+
+After review is accepted:
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "transition",
+  transition: {
+    completedPhase: "review",
+    suggestedNext: "merge",
+    reason: "Review accepted with assessment: <Approve|Request Changes|Comment>",
+    artifacts: ["<reviewed PR or files>"]
+  }
+})
 ```
 
 ---
