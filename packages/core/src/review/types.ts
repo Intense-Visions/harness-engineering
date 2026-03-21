@@ -309,3 +309,43 @@ export interface GitHubInlineComment {
   /** Comment body (markdown) */
   body: string;
 }
+
+// --- Phase 1: Eligibility Gate types ---
+
+/**
+ * Information about a prior review on this PR.
+ */
+export interface PriorReview {
+  /** The head commit SHA that was reviewed */
+  headSha: string;
+  /** ISO timestamp of when the review was submitted */
+  reviewedAt: string;
+}
+
+/**
+ * PR metadata used by the eligibility gate.
+ * This is a pure data object — the caller is responsible for fetching
+ * this data from GitHub (via `gh` CLI, GitHub MCP, or mock).
+ */
+export interface PrMetadata {
+  /** PR state: open, closed, or merged */
+  state: 'open' | 'closed' | 'merged';
+  /** Whether the PR is marked as draft */
+  isDraft: boolean;
+  /** List of changed file paths (project-relative) */
+  changedFiles: string[];
+  /** The HEAD commit SHA of the PR branch */
+  headSha: string;
+  /** Prior reviews submitted on this PR */
+  priorReviews: PriorReview[];
+}
+
+/**
+ * Result of the eligibility gate check.
+ */
+export interface EligibilityResult {
+  /** Whether the PR is eligible for review */
+  eligible: boolean;
+  /** Human-readable reason when not eligible */
+  reason?: string;
+}
