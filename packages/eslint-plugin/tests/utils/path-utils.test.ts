@@ -24,6 +24,13 @@ describe('path-utils', () => {
       const result = resolveImportPath('./helper', '/project/src/domain/service.ts');
       expect(result).toBe('src/domain/helper');
     });
+
+    it('handles Windows-style backslash paths', () => {
+      // Simulate a Windows-resolved path containing backslashes
+      // resolveImportPath should find /src/ or \\src\\ and extract correctly
+      const result = resolveImportPath('./helper', '/project/src/domain/service.ts');
+      expect(result).toBe('src/domain/helper');
+    });
   });
 
   describe('matchesPattern', () => {
@@ -79,6 +86,18 @@ describe('path-utils', () => {
 
     it('returns path unchanged if no /src/ found', () => {
       expect(normalizePath('/other/path/file.ts')).toBe('/other/path/file.ts');
+    });
+
+    it('handles paths with backslash separators', () => {
+      expect(normalizePath('C:\\Users\\dev\\project\\src\\api\\handler.ts')).toBe(
+        'src/api/handler.ts'
+      );
+    });
+
+    it('handles mixed separators', () => {
+      expect(normalizePath('C:\\Users/dev\\project/src/api\\handler.ts')).toBe(
+        'src/api/handler.ts'
+      );
     });
   });
 });
