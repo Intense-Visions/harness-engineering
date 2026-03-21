@@ -59,7 +59,294 @@ Execute all checks for the active mode. Classify each finding as `autoFixable: t
 | S6  | YAGNI re-scan              | Speculative features that crept in during conversation                                         | No — surface to user (removing features is a design decision) |
 | S7  | Testability                | Vague success criteria that are not observable or measurable ("should be fast")                | Yes — add thresholds/specificity where inferrable             |
 
-> **Status:** Not yet implemented. Check stubs will be added in Phase 2 of the implementation order.
+##### S1 Internal Coherence
+
+**What to analyze:** Decisions table, Technical Design section, Success Criteria section, Non-goals section.
+
+**How to detect:**
+
+1. For each decision in the Decisions table, verify it is consistent with the Technical Design. A decision that says "use approach A" while the Technical Design describes approach B is a contradiction.
+2. For each success criterion, verify it does not contradict a decision or a non-goal. A criterion that requires behavior explicitly excluded by a non-goal is a contradiction.
+3. For each non-goal, verify no part of the Technical Design implements it. A non-goal with a corresponding implementation section is a contradiction.
+4. Flag any pair where one section asserts X and another section asserts not-X or a conflicting approach.
+
+**Finding classification:** Always `severity: "error"`, always `autoFixable: false`. Contradictions are design decisions — the user must resolve which side is correct.
+
+**Example finding:**
+
+```json
+{
+  "id": "S1-001",
+  "check": "S1",
+  "title": "Decision contradicts Technical Design",
+  "detail": "Decision D3 says 'use SQLite for local storage' but Technical Design section 'Data Layer' describes a PostgreSQL schema with migrations. These are incompatible storage approaches.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Align the Technical Design with the decision (use SQLite) or update the decision to reflect the PostgreSQL approach.",
+  "evidence": [
+    "Decisions table, row D3: 'Use SQLite for local storage'",
+    "Technical Design > Data Layer: 'PostgreSQL schema with up/down migrations'"
+  ]
+}
+```
+
+##### S2 Goal-Criteria Traceability
+
+**What to analyze:** Overview section (goals), Success Criteria section.
+
+**How to detect:**
+
+1. Extract the stated goals from the Overview section. Goals are typically phrased as desired outcomes or capabilities the system should have after implementation.
+2. For each goal, check that at least one success criterion covers it. A goal without a corresponding criterion is a **gap** — there is no way to verify the goal was achieved.
+3. For each success criterion, check that it traces back to a stated goal or an explicit design decision. A criterion with no corresponding goal is an **orphan** — it may be testing something that was never requested.
+4. Flag gaps (goals without criteria) and orphans (criteria without goals) separately, as they have different fix strategies.
+
+**Finding classification:**
+
+- Missing traceability links (goals without criteria): `severity: "warning"`, `autoFixable: true`. The fix is to add a new success criterion that covers the uncovered goal, derived from the Technical Design context.
+- Orphan criteria (criteria without goals): `severity: "warning"`, `autoFixable: false`. Removing or reassigning criteria is a design decision — the criterion may be intentional prerequisite work.
+
+**Example findings:**
+
+```json
+{
+  "id": "S2-001",
+  "check": "S2",
+  "title": "Goal has no success criterion",
+  "detail": "Overview goal 'Support offline mode' has no corresponding success criterion. There is no way to verify this goal was achieved.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add criterion: 'The application functions without network connectivity for all read operations, returning cached data when available.'",
+  "evidence": ["Overview: 'Support offline mode'", "Success Criteria: no match found"]
+}
+```
+
+```json
+{
+  "id": "S2-002",
+  "check": "S2",
+  "title": "Orphan criterion not tied to any goal",
+  "detail": "Success criterion 7 ('All API responses include request-id headers') does not trace to any stated goal in the Overview. It may be an operational requirement that should be added as a goal, or it may be out of scope.",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Either add a corresponding goal to the Overview (e.g., 'Support request tracing for debugging') or remove this criterion if it is out of scope.",
+  "evidence": [
+    "Success Criteria #7: 'All API responses include request-id headers'",
+    "Overview: no matching goal found"
+  ]
+}
+```
+
+##### S3 Unstated Assumptions
+
+**What to analyze:** Technical Design section, Decisions table, data structures, integration points.
+
+**How to detect:**
+
+- **Document analysis:** Scan for implicit assumptions about runtime environment (single-process, always-online, specific OS), data characteristics (fits in memory, UTF-8 only, no concurrent access), deployment model (single-tenant, monolith, specific cloud provider), and user context (has admin access, uses specific tools). Check whether the spec explicitly states or acknowledges these assumptions.
+- **Without graph (codebase reads):** Read referenced source files (from Technical Design) to identify conventions the spec assumes but does not state (e.g., "uses the existing email utility" — does that utility exist? Does it have the expected interface?). Use Grep/Glob to verify referenced patterns and modules exist.
+- **With graph:** Use `query_graph` to find related modules and their documented assumptions. Use `find_context_for` to surface design decisions from related specs that may conflict.
+
+**Finding classification:**
+
+- Obvious assumptions (e.g., Node.js runtime, filesystem access, UTF-8 encoding): `severity: "warning"`, `autoFixable: true`. The fix is to add them to an explicit Assumptions section in the spec.
+- Ambiguous assumptions (e.g., single-tenant vs multi-tenant, concurrency model, deployment topology): `severity: "warning"`, `autoFixable: false`. The user must decide which assumption is correct.
+
+**Example findings:**
+
+```json
+{
+  "id": "S3-001",
+  "check": "S3",
+  "title": "Implicit Node.js runtime assumption",
+  "detail": "Technical Design references 'path.join' and 'fs.readFileSync' without stating the runtime environment. The spec assumes Node.js but does not declare it.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add to Assumptions section: 'Runtime: Node.js >= 18.x (LTS). The implementation uses Node.js built-in modules (fs, path, child_process).'",
+  "evidence": [
+    "Technical Design > File Operations: uses path.join, fs.readFileSync",
+    "No Assumptions section found in spec"
+  ]
+}
+```
+
+```json
+{
+  "id": "S3-002",
+  "check": "S3",
+  "title": "Ambiguous concurrency model",
+  "detail": "Technical Design describes a background job processor but does not specify whether it runs in-process (setTimeout/setInterval), as a separate worker thread, or as an independent process. This affects error isolation, memory limits, and deployment.",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Add a decision to the Decisions table specifying the concurrency model: in-process event loop, worker_threads, or separate process.",
+  "evidence": [
+    "Technical Design > Job Processor: 'processes background jobs'",
+    "Decisions table: no entry for concurrency model"
+  ]
+}
+```
+
+##### S4 Requirement Completeness
+
+**What to analyze:** Technical Design section (especially data structures, API endpoints, integration points), Success Criteria section.
+
+**How to detect:**
+
+- **Error cases:** For each data structure, identify what happens when fields are missing, null, or malformed. For each API endpoint or function, identify error responses. Flag any operation that has no defined error behavior.
+- **Edge cases:** For each numeric field, check if boundary values are specified (zero, negative, overflow). For each string field, check if empty string, very long string, and special character handling is defined. For each collection, check if empty collection behavior is defined.
+- **Failure modes:** For each external dependency (network call, file I/O, third-party service), check if timeout, unavailability, and partial failure behaviors are defined. Apply the EARS "Unwanted" pattern: "If [failure condition], then the system shall [graceful behavior]."
+- **Codebase context:** Read referenced modules to identify error patterns already established in the codebase that the spec should follow.
+
+**Finding classification:**
+
+- Obvious error cases (missing error handling for file I/O, network calls, JSON parsing): `severity: "warning"`, `autoFixable: true`. The fix is to add the error case following established codebase patterns.
+- Design-dependent error handling (what to do when a service is down — retry? cache? fail?): `severity: "warning"`, `autoFixable: false`. The user must decide the error strategy.
+
+**Example findings:**
+
+```json
+{
+  "id": "S4-001",
+  "check": "S4",
+  "title": "Missing file-not-found error case",
+  "detail": "Technical Design describes reading a config file with fs.readFileSync but does not specify behavior when the file does not exist. The codebase convention (see packages/core/src/config.ts) is to return a default config object.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add error case: 'If the config file does not exist (ENOENT), return the default configuration object. Log a debug message indicating defaults are being used.'",
+  "evidence": [
+    "Technical Design > Configuration: 'read config from harness.config.json'",
+    "No error handling specified for missing file",
+    "Codebase pattern: packages/core/src/config.ts returns defaults on ENOENT"
+  ]
+}
+```
+
+```json
+{
+  "id": "S4-002",
+  "check": "S4",
+  "title": "Undefined retry strategy for external service",
+  "detail": "Technical Design describes calling an external API for license validation but does not specify behavior when the API is unavailable, times out, or returns an error. This is a design decision that affects user experience (block vs. degrade gracefully).",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Add a decision: 'When the license API is unavailable: (a) fail open — allow usage with a warning, (b) fail closed — block usage until validated, or (c) cache — use last known result for N hours.'",
+  "evidence": [
+    "Technical Design > License Check: 'call /api/validate on startup'",
+    "No timeout, retry, or fallback behavior specified"
+  ]
+}
+```
+
+##### S5 Feasibility Red Flags
+
+**What to analyze:** Technical Design section (referenced modules, dependencies, patterns, APIs).
+
+**How to detect:**
+
+- **Without graph (codebase reads):** For each module, function, or class referenced in the Technical Design, use Glob/Grep to verify it exists in the codebase. For each API or interface referenced, read the source to verify the expected signature matches. For each pattern referenced ("uses the existing X"), verify X exists and has the capabilities assumed. Flag references to nonexistent modules, functions with different signatures than assumed, or patterns incompatible with the codebase architecture.
+- **With graph:** Use `query_graph` to verify referenced modules exist and check their dependency relationships. Use `get_relationships` to verify architectural compatibility (e.g., a module in layer A should not depend on layer B). Use `get_impact` to assess whether the proposed changes have cascading effects not accounted for in the spec.
+
+**Finding classification:** Always `severity: "error"`, always `autoFixable: false`. Feasibility problems require the user to revise the technical design.
+
+**Example finding:**
+
+```json
+{
+  "id": "S5-001",
+  "check": "S5",
+  "title": "Referenced function has different signature",
+  "detail": "Technical Design says 'call validateDependencies(projectPath)' but the actual function signature is 'validateDependencies(config: ProjectConfig): ValidationResult'. The spec assumes a simpler interface than what exists.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Update the Technical Design to use the actual signature: validateDependencies(config) where config is a ProjectConfig object. This may require adding a config construction step before the call.",
+  "evidence": [
+    "Technical Design > Validation: 'call validateDependencies(projectPath)'",
+    "packages/core/src/validator.ts:42: export function validateDependencies(config: ProjectConfig): ValidationResult"
+  ]
+}
+```
+
+##### S6 YAGNI Re-scan
+
+**What to analyze:** Technical Design section, Decisions table, Implementation Order.
+
+**How to detect:**
+
+1. For each technical component, interface, or configuration option described in Technical Design, check whether it is required by a stated goal or success criterion. Flag components that exist "for future use", "in case we need", or that implement functionality explicitly listed in Non-goals.
+2. Flag decision rationale that references hypothetical future requirements rather than current needs (e.g., "we might need this later", "for extensibility", "in case the requirements change").
+3. Flag configuration options that toggle features not yet defined in any goal or criterion.
+4. Flag abstraction layers or interfaces introduced solely for "flexibility" without a concrete current consumer.
+
+**Finding classification:** Always `severity: "warning"`, always `autoFixable: false`. Removing speculative features is a design decision — the user must decide whether the feature is truly needed now or can be deferred.
+
+**Example finding:**
+
+```json
+{
+  "id": "S6-001",
+  "check": "S6",
+  "title": "Speculative configuration option",
+  "detail": "Technical Design defines a 'pluginDir' configuration option for loading third-party plugins, but no goal or success criterion mentions plugins. The Non-goals section does not exclude plugins, but no current requirement needs them.",
+  "severity": "warning",
+  "autoFixable": false,
+  "suggestedFix": "Remove the pluginDir configuration option and plugin loading logic from the Technical Design. If plugin support is needed later, it can be added in a future spec.",
+  "evidence": [
+    "Technical Design > Configuration: 'pluginDir: string — directory for third-party plugins'",
+    "Overview goals: no mention of plugins",
+    "Success Criteria: no criterion references plugins"
+  ]
+}
+```
+
+##### S7 Testability
+
+**What to analyze:** Success Criteria section.
+
+**How to detect:**
+
+1. For each success criterion, evaluate whether it is observable and measurable. A testable criterion describes a specific behavior that can be verified with a concrete test or measurement.
+2. Flag criteria that use vague qualifiers without specific thresholds: "should be fast", "handles errors well", "is user-friendly", "scales appropriately", "is robust", "performs efficiently".
+3. Flag criteria that describe internal implementation details rather than externally observable outcomes (e.g., "uses a clean architecture" — what does "clean" mean in observable terms?).
+4. For vague criteria where the Technical Design provides context, infer a specific threshold. For example, if the Technical Design mentions a 100ms timeout, "should be fast" can be replaced with "responds within 100ms".
+
+**Finding classification:**
+
+- Vague criteria with inferrable thresholds (context in Technical Design provides a specific number or behavior): `severity: "warning"`, `autoFixable: true`. The fix is to replace the vague qualifier with the specific threshold or observable behavior derived from the Technical Design.
+- Criteria that are fundamentally unmeasurable (subjective quality, aesthetic judgment, no Technical Design context to infer from): `severity: "error"`, `autoFixable: false`. The user must rewrite the criterion to be observable.
+
+**Example findings:**
+
+```json
+{
+  "id": "S7-001",
+  "check": "S7",
+  "title": "Vague performance criterion",
+  "detail": "Success criterion 3 says 'the build should be fast' without specifying a threshold. The Technical Design mentions a 30-second CI timeout, suggesting a concrete threshold exists.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Replace 'the build should be fast' with 'the build completes in under 30 seconds on CI (as specified in Technical Design > CI Configuration).'",
+  "evidence": [
+    "Success Criteria #3: 'the build should be fast'",
+    "Technical Design > CI Configuration: '30-second timeout'"
+  ]
+}
+```
+
+```json
+{
+  "id": "S7-002",
+  "check": "S7",
+  "title": "Unmeasurable quality criterion",
+  "detail": "Success criterion 8 says 'the code is clean and maintainable'. This is a subjective judgment with no observable behavior. There is no Technical Design context to infer specific metrics.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Rewrite with observable criteria, e.g., 'all functions are under 50 lines, cyclomatic complexity under 10, no eslint warnings' or remove if covered by existing linting rules.",
+  "evidence": [
+    "Success Criteria #8: 'the code is clean and maintainable'",
+    "No Technical Design context for measurable thresholds"
+  ]
+}
+```
 
 #### Plan Mode Checks (`--mode plan`)
 
@@ -159,7 +446,7 @@ All checks produce useful results from document analysis and basic codebase read
 
 ## Examples
 
-### Example: Spec Mode Invocation (Skeleton)
+### Example: Spec Mode Invocation
 
 **Context:** harness-brainstorming has drafted a spec and is about to sign off.
 
@@ -167,24 +454,41 @@ All checks produce useful results from document analysis and basic codebase read
 Invoking harness-soundness-review --mode spec...
 
 Phase 1: CHECK
-  Running S1 (internal coherence)... [not yet implemented]
-  Running S2 (goal-criteria traceability)... [not yet implemented]
-  Running S3 (unstated assumptions)... [not yet implemented]
-  Running S4 (requirement completeness)... [not yet implemented]
-  Running S5 (feasibility red flags)... [not yet implemented]
-  Running S6 (YAGNI re-scan)... [not yet implemented]
-  Running S7 (testability)... [not yet implemented]
+  Running S1 (internal coherence)... 0 findings
+  Running S2 (goal-criteria traceability)... 1 finding (auto-fixable)
+  Running S3 (unstated assumptions)... 2 findings (1 auto-fixable, 1 needs user input)
+  Running S4 (requirement completeness)... 1 finding (auto-fixable)
+  Running S5 (feasibility red flags)... 0 findings
+  Running S6 (YAGNI re-scan)... 0 findings
+  Running S7 (testability)... 1 finding (auto-fixable)
 
-  0 findings. All checks are stubs — no issues detected.
+  5 findings total: 3 auto-fixable, 2 need user input.
 
 Phase 2: FIX
-  No auto-fixable findings.
+  [S2-001] Added success criterion for 'Support offline mode' goal.
+  [S4-001] Added ENOENT error case for config file read (following codebase pattern).
+  [S7-001] Replaced 'build should be fast' with 'completes in under 30 seconds on CI'.
+  3 auto-fixes applied.
 
 Phase 3: CONVERGE
-  Issue count unchanged (0). Converged.
+  Re-running checks...
+  S3-001 (implicit Node.js assumption) — auto-fixable, fixing...
+  [S3-001] Added Node.js runtime assumption to Assumptions section.
+  1 additional fix applied. Re-checking...
+  Issue count: 1 (was 2). Decreased — continuing.
+  Re-running checks...
+  Issue count: 1 (unchanged). Converged.
 
 Phase 4: SURFACE
-  No remaining issues.
+  1 remaining issue needs your input:
+
+  [S3-002] Ambiguous concurrency model (warning)
+  Technical Design describes a background job processor but does not specify
+  whether it runs in-process, as a worker thread, or as a separate process.
+  → Add a decision to the Decisions table specifying the concurrency model.
+
+  User resolves S3-002 → adds decision: "in-process event loop"
+  Re-running checks... 0 findings.
 
 CLEAN EXIT — returning control to harness-brainstorming for sign-off.
 ```
