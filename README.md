@@ -79,7 +79,7 @@ npm install && harness validate
 | [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                                                                                                      |
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 8 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports, no nested loops in critical paths, no sync IO in async, no unbounded array chains |
 | [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                                                                          |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 37 tools and 8 resources for AI agent integration                                                                                                             |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 41 tools and 8 resources for AI agent integration                                                                                                             |
 | [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                                                                                                              |
 
 ## Usage
@@ -164,7 +164,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 37 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 41 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
 <details>
 <summary>Manual MCP setup</summary>
@@ -215,7 +215,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 | Component                              | Count | Description                                                                         |
 | -------------------------------------- | ----- | ----------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, MCP server, graph, shared types |
-| [Skills](./agents/skills/claude-code/) | 46    | Agent workflows for TDD, execution, debugging, verification, planning, and more     |
+| [Skills](./agents/skills/claude-code/) | 49    | Agent workflows for TDD, execution, debugging, verification, planning, and more     |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more  |
 | [Templates](./templates/)              | 5     | Base, basic, intermediate, advanced, and Next.js scaffolds                          |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                  |

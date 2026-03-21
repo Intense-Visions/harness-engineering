@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 46 skills (claude-code) / 47 skills (gemini-cli), 12 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 49 skills (claude-code) / 50 skills (gemini-cli), 12 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -33,8 +33,8 @@ harness-engineering/
 │   ├── mcp-server/           # MCP server for AI agent integration
 │   └── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 46 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 47 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
+│   ├── skills/claude-code/   # 49 skills (skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 50 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
 ├── examples/                  # Progressive tutorial examples
@@ -48,7 +48,8 @@ harness-engineering/
 │   ├── specs/               # Detailed technical specifications
 │   ├── plans/               # Implementation and execution plans
 │   ├── research/            # Framework research and analysis
-│   └── changes/             # Changelog and release notes
+│   ├── conventions/          # Format conventions (markdown interaction patterns)
+│   └── changes/             # Design change proposals and deltas
 ├── package.json             # Root package metadata and scripts
 ├── tsconfig.json            # Root TypeScript configuration
 ├── pnpm-workspace.yaml      # pnpm workspace definition

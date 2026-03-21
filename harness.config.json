@@ -30,12 +30,12 @@
     {
       "name": "cli",
       "pattern": "packages/cli/src/**",
-      "allowedDependencies": ["types", "core", "graph"]
+      "allowedDependencies": ["types", "core", "graph", "linter-gen"]
     },
     {
       "name": "mcp-server",
       "pattern": "packages/mcp-server/src/**",
-      "allowedDependencies": ["types", "core", "graph", "cli"]
+      "allowedDependencies": ["types", "core", "graph", "cli", "linter-gen"]
     }
   ],
   "forbiddenImports": [
