@@ -128,9 +128,11 @@ Enables accurate effort estimation and task sequencing. Fall back to file-based 
 
 5. **Check failures log.** Read `.harness/failures.md` before finalizing. If planned approaches match known failures, flag them with warnings.
 
-6. **Write the plan to `docs/plans/`.** Use naming convention: `YYYY-MM-DD-<feature-name>-plan.md`. If the directory does not exist, create it.
+6. **Run soundness review.** After the plan passes completeness verification, invoke `harness-soundness-review --mode plan` against the draft. Do not proceed to write the plan until the soundness review converges with no remaining issues.
 
-7. **Write handoff.** Save `.harness/handoff.json` with the following structure:
+7. **Write the plan to `docs/plans/`.** Use naming convention: `YYYY-MM-DD-<feature-name>-plan.md`. If the directory does not exist, create it.
+
+8. **Write handoff.** Save `.harness/handoff.json` with the following structure:
 
    ```json
    {
@@ -145,7 +147,7 @@ Enables accurate effort estimation and task sequencing. Fall back to file-based 
    }
    ```
 
-8. **Present the plan to the human for review.** Walk through the task list, the estimated timeline, and any checkpoints that require human input.
+9. **Present the plan to the human for review.** Walk through the task list, the estimated timeline, and any checkpoints that require human input.
 
 ---
 
