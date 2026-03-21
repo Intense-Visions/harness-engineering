@@ -147,4 +147,182 @@ describe('syncRoadmap()', () => {
       expect(result.value).toEqual([]);
     });
   });
+
+  describe('autopilot-state.json-based inference', () => {
+    it('proposes done when all linked phases are complete', () => {
+      const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+      writeJson(path.join(sessionDir, 'autopilot-state.json'), {
+        schemaVersion: 2,
+        sessionDir: '.harness/sessions/test-session',
+        currentState: 'DONE',
+        currentPhase: 1,
+        phases: [
+          {
+            name: 'Phase 1',
+            planPath: 'docs/plans/feature-a-plan.md',
+            status: 'complete',
+            complexity: 'low',
+            complexityOverride: null,
+          },
+        ],
+      });
+      const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
+      fs.mkdirSync(path.dirname(planPath), { recursive: true });
+      fs.writeFileSync(planPath, '# Plan\n');
+
+      const roadmap = baseRoadmap();
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'done' }]);
+    });
+
+    it('proposes in-progress when some phases are not complete', () => {
+      const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+      writeJson(path.join(sessionDir, 'autopilot-state.json'), {
+        schemaVersion: 2,
+        sessionDir: '.harness/sessions/test-session',
+        currentState: 'PLAN',
+        currentPhase: 1,
+        phases: [
+          {
+            name: 'Phase 1',
+            planPath: 'docs/plans/feature-a-plan.md',
+            status: 'complete',
+            complexity: 'low',
+            complexityOverride: null,
+          },
+          {
+            name: 'Phase 2',
+            planPath: 'docs/plans/feature-a-phase2-plan.md',
+            status: 'pending',
+            complexity: 'low',
+            complexityOverride: null,
+          },
+        ],
+      });
+
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features[0]!.plans = [
+        'docs/plans/feature-a-plan.md',
+        'docs/plans/feature-a-phase2-plan.md',
+      ];
+
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'in-progress' }]);
+    });
+  });
+
+  describe('blocker inference', () => {
+    it('proposes blocked when a blocker feature is not done', () => {
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features = [
+        {
+          name: 'Feature A',
+          status: 'done',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Dep',
+        },
+        {
+          name: 'Feature B',
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: ['Feature A'],
+          summary: 'Blocked feature',
+        },
+      ];
+      // Feature A is done, so Feature B should NOT be blocked
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]);
+    });
+
+    it('proposes blocked when blocker is in-progress', () => {
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features = [
+        {
+          name: 'Feature A',
+          status: 'in-progress',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Dep',
+        },
+        {
+          name: 'Feature B',
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: ['Feature A'],
+          summary: 'Blocked feature',
+        },
+      ];
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([{ feature: 'Feature B', from: 'planned', to: 'blocked' }]);
+    });
+  });
+
+  describe('human-always-wins', () => {
+    it('skips changes when last_manual_edit > last_synced', () => {
+      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
+        schemaVersion: 1,
+        position: { phase: 'complete' },
+        progress: { 'Task 1': 'complete' },
+      });
+      const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
+      fs.mkdirSync(path.dirname(planPath), { recursive: true });
+      fs.writeFileSync(planPath, '# Plan\n');
+
+      const roadmap = baseRoadmap({
+        frontmatter: {
+          project: 'test',
+          version: 1,
+          lastSynced: '2026-03-21T09:00:00Z',
+          lastManualEdit: '2026-03-21T10:00:00Z', // newer
+        },
+      });
+
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]); // no changes — human wins
+    });
+
+    it('overrides when forceSync is true even with manual edit', () => {
+      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
+        schemaVersion: 1,
+        position: { phase: 'complete' },
+        progress: { 'Task 1': 'complete' },
+      });
+      const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
+      fs.mkdirSync(path.dirname(planPath), { recursive: true });
+      fs.writeFileSync(planPath, '# Plan\n');
+
+      const roadmap = baseRoadmap({
+        frontmatter: {
+          project: 'test',
+          version: 1,
+          lastSynced: '2026-03-21T09:00:00Z',
+          lastManualEdit: '2026-03-21T10:00:00Z',
+        },
+      });
+
+      const result = syncRoadmap({
+        projectPath: tmpDir,
+        roadmap,
+        forceSync: true,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'done' }]);
+    });
+  });
 });
