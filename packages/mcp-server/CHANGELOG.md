@@ -1,5 +1,28 @@
 # @harness-engineering/mcp-server
 
+## 0.6.0
+
+### Minor Changes
+
+- Add `manage_roadmap` tool with CRUD and query actions for project roadmap management
+- Add `run_code_review` tool for unified 7-phase review pipeline
+- Add `emit_interaction` tool for interaction surface abstraction
+- Extend transition handler with auto-transition support
+- Wire new entropy fix types (dead export, commented-out code, orphaned dependency, forbidden import) into `apply_fixes` handler
+- Add update notification to first tool response per session
+- Read `updateCheckInterval` from project config for update checks
+
+### Patch Changes
+
+- Enforce path sanitization across all MCP tools and harden crypto
+- Remove unused path imports from tool files
+- Restore `sessionChecked` declaration lost in cherry-pick
+- Address typecheck issue from update check hook
+- Updated dependencies
+  - @harness-engineering/core@0.9.0
+  - @harness-engineering/cli@1.8.0
+  - @harness-engineering/types@0.2.0
+
 ## 0.5.3
 
 ### Patch Changes

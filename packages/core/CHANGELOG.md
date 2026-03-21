@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.9.0
+
+### Minor Changes
+
+- **Review pipeline** — full 7-phase code review system
+  - Mechanical checks with `runMechanicalChecks()` and `ExclusionSet` for file+line range matching
+  - Context scoping with graph-aware and heuristic fallback change-type detection
+  - Fan-out orchestrator with parallel agent dispatch (architecture, security, bug detection, compliance agents)
+  - `ReviewFinding`, `ModelTierConfig`, and `ReviewAgentDescriptor` types
+  - Validation and deduplication phases with security field preservation
+  - Model tier resolver with provider defaults via `resolveModelTier()`
+  - Eligibility gate for CI mode
+  - Output formatters for terminal, GitHub comment, and summary
+  - Assessment logic with exit code mapping
+  - `runPipeline()` orchestrator for the complete 7-phase review pipeline
+  - `PipelineContext`, `PipelineFlags`, and `PipelineResult` types
+- **Roadmap module** — parse, serialize, and sync project roadmaps
+  - `parseRoadmap()` with frontmatter and feature parsing
+  - `serializeRoadmap()` with round-trip fidelity
+  - `syncRoadmap()` with state inference logic
+- **Update checker** — background update check system
+  - `UpdateCheckState` type, `isUpdateCheckEnabled`, `shouldRunCheck`
+  - `readCheckState` with graceful error handling
+  - `spawnBackgroundCheck` with detached child process
+  - `getUpdateNotification` with semver comparison
+- **Entropy enhancements** — new fix types and cleanup finding classifier
+  - Dead export, commented-out code, orphaned dependency, and forbidden import replacement fix creators
+  - `CleanupFinding` classifier with hotspot downgrade and dedup
+  - Expanded `FixType` union and `CleanupFinding` schema
+- **Config schema additions**
+  - `updateCheckInterval` in `HarnessConfigSchema`
+  - `review.model_tiers` in `HarnessConfigSchema`
+- **Transition system** — add `requiresConfirmation` and `summary` to `TransitionSchema`
+- **Constraints** — add `ForbiddenImportRule` type with alternative field
+- **Security** — add `harness-ignore` inline suppression for false positives
+- Re-export interaction module from core index
+
+### Patch Changes
+
+- Fix `exactOptionalPropertyTypes` for suggestion field in `mergeFindings`
+- Fix security agent strings from triggering SEC-INJ-001 scan
+- Enforce path sanitization across all MCP tools and harden crypto
+- Address code review findings for fan-out agents, context scoping, and review pipeline
+- Resolve TypeScript strict-mode errors and platform parity gaps
+- Updated dependencies
+  - @harness-engineering/types@0.2.0
+
 ## 0.8.0
 
 ### Minor Changes

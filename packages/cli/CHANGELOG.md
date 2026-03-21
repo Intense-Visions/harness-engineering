@@ -1,5 +1,21 @@
 # @harness-engineering/cli
 
+## 1.8.0
+
+### Minor Changes
+
+- Upgrade `review` command with `--comment`, `--ci`, `--deep`, and `--no-mechanical` flags for the unified 7-phase review pipeline
+- Add update-check hooks with startup background check and notification helpers
+- Read `updateCheckInterval` from project config in update-check hooks
+- Add `parseConventionalMarkdown` utility for interaction surface patterns
+
+### Patch Changes
+
+- Resolve TypeScript strict-mode errors and platform parity gaps
+- Updated dependencies
+  - @harness-engineering/core@0.9.0
+  - @harness-engineering/types@0.2.0
+
 ## 1.7.0
 
 ### Minor Changes
