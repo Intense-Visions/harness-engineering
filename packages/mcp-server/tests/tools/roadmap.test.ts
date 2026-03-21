@@ -142,3 +142,97 @@ describe('manage_roadmap show action', () => {
     }
   });
 });
+
+describe('manage_roadmap add action', () => {
+  it('adds a feature to an existing milestone', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'add',
+      feature: 'API Gateway',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Central API gateway',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const mvp = parsed.milestones.find((m: { name: string }) => m.name === 'MVP Release');
+    expect(mvp.features).toHaveLength(3);
+    expect(mvp.features[2].name).toBe('API Gateway');
+    expect(mvp.features[2].status).toBe('planned');
+  });
+
+  it('adds a feature with optional fields', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'add',
+      feature: 'Logging',
+      milestone: 'Q2 Polish',
+      status: 'in-progress',
+      summary: 'Structured logging',
+      spec: 'docs/specs/logging.md',
+      plans: ['docs/plans/logging-plan.md'],
+      blocked_by: ['Auth System'],
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
+    const logging = q2.features.find((f: { name: string }) => f.name === 'Logging');
+    expect(logging.spec).toBe('docs/specs/logging.md');
+    expect(logging.plans).toEqual(['docs/plans/logging-plan.md']);
+    expect(logging.blockedBy).toEqual(['Auth System']);
+  });
+
+  it('persists changes to disk', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'add',
+      feature: 'Webhooks',
+      milestone: 'Backlog',
+      status: 'backlog',
+      summary: 'Webhook support',
+    });
+    // Re-read and verify
+    const response = await handleManageRoadmap({ path: tmpDir, action: 'show' });
+    const parsed = JSON.parse(response.content[0].text);
+    const backlog = parsed.milestones.find((m: { name: string }) => m.name === 'Backlog');
+    expect(backlog.features).toHaveLength(2);
+    expect(backlog.features[1].name).toBe('Webhooks');
+  });
+
+  it('returns error when milestone does not exist', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'add',
+      feature: 'Ghost Feature',
+      milestone: 'Nonexistent',
+      status: 'planned',
+      summary: 'Should fail',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('not found');
+  });
+
+  it('returns error when required fields are missing', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'add',
+    } as Parameters<typeof handleManageRoadmap>[0]);
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('feature is required');
+  });
+
+  it('updates last_manual_edit timestamp', async () => {
+    const before = new Date().toISOString();
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'add',
+      feature: 'Timestamp Test',
+      milestone: 'Backlog',
+      status: 'backlog',
+      summary: 'Test timestamp',
+    });
+    const response = await handleManageRoadmap({ path: tmpDir, action: 'show' });
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.frontmatter.lastManualEdit >= before).toBe(true);
+  });
+});
