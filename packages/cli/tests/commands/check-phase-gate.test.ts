@@ -75,7 +75,9 @@ describe('check-phase-gate command', () => {
         phaseGates: {
           enabled: true,
           severity: 'error',
-          mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }],
+          mappings: [
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+          ],
         },
       });
 
@@ -99,7 +101,9 @@ describe('check-phase-gate command', () => {
         phaseGates: {
           enabled: true,
           severity: 'error',
-          mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }],
+          mappings: [
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+          ],
         },
       });
 
@@ -111,7 +115,7 @@ describe('check-phase-gate command', () => {
         expect(result.value.checkedFiles).toBe(1);
         expect(result.value.missingSpecs).toHaveLength(1);
         expect(result.value.missingSpecs[0].implFile).toContain('payments/charge.ts');
-        expect(result.value.missingSpecs[0].expectedSpec).toBe('docs/specs/payments.md');
+        expect(result.value.missingSpecs[0].expectedSpec).toBe('docs/changes/payments/proposal.md');
       }
     });
 
@@ -124,7 +128,9 @@ describe('check-phase-gate command', () => {
         phaseGates: {
           enabled: true,
           severity: 'warning',
-          mappings: [{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }],
+          mappings: [
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+          ],
         },
       });
 
@@ -154,8 +160,8 @@ describe('check-phase-gate command', () => {
           enabled: true,
           severity: 'error',
           mappings: [
-            { implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' },
-            { implPattern: 'lib/**/*.ts', specPattern: 'docs/specs/{feature}.md' },
+            { implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
+            { implPattern: 'lib/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' },
           ],
         },
       });

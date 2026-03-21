@@ -37,7 +37,7 @@ export const PhaseGatesConfigSchema = z.object({
   severity: z.enum(['error', 'warning']).default('error'),
   mappings: z
     .array(PhaseGateMappingSchema)
-    .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/specs/{feature}.md' }]),
+    .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' }]),
 });
 
 export const SecurityConfigSchema = z
