@@ -374,6 +374,11 @@ export interface SizeBudgetReport {
 export type FixType =
   | 'unused-imports'
   | 'dead-files'
+  | 'dead-exports'
+  | 'commented-code'
+  | 'orphaned-deps'
+  | 'forbidden-import-replacement'
+  | 'import-ordering'
   | 'trailing-whitespace'
   | 'broken-links'
   | 'sort-imports';
@@ -407,6 +412,29 @@ export interface FixResult {
     linesRemoved: number;
     backupPath?: string;
   };
+}
+
+// ============ Cleanup Finding Types ============
+
+export type SafetyLevel = 'safe' | 'probably-safe' | 'unsafe';
+
+export interface CleanupFinding {
+  id: string;
+  concern: 'dead-code' | 'architecture';
+  file: string;
+  line?: number;
+  type: string;
+  description: string;
+  safety: SafetyLevel;
+  safetyReason: string;
+  hotspotDowngraded: boolean;
+  fixAction?: string;
+  suggestion: string;
+}
+
+export interface HotspotContext {
+  churnMap: Map<string, number>;
+  topPercentileThreshold: number;
 }
 
 // ============ Suggestion Types ============
