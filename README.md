@@ -85,9 +85,10 @@ npm install && harness validate
 ## Usage
 
 ```typescript
-import { validateProject } from '@harness-engineering/core';
+import { validateConfig } from '@harness-engineering/core';
+import { HarnessConfigSchema } from '@harness-engineering/cli';
 
-const result = validateProject('./harness.config.json');
+const result = validateConfig(configData, HarnessConfigSchema);
 if (!result.ok) {
   console.error('Validation failed:', result.error.message);
   process.exit(1);
@@ -214,7 +215,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 | Component                              | Count | Description                                                                         |
 | -------------------------------------- | ----- | ----------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, MCP server, graph, shared types |
-| [Skills](./agents/skills/claude-code/) | 42    | Agent workflows for TDD, execution, debugging, verification, planning, and more     |
+| [Skills](./agents/skills/claude-code/) | 46    | Agent workflows for TDD, execution, debugging, verification, planning, and more     |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more  |
 | [Templates](./templates/)              | 5     | Base, basic, intermediate, advanced, and Next.js scaffolds                          |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                  |

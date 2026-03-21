@@ -49,12 +49,19 @@ This is a pnpm monorepo using Turborepo for build orchestration:
 
 ```
 harness-engineering/
-├── packages/          # Runtime libraries
-│   ├── types/        # Shared types
-│   └── core/         # Core library
-├── docs/             # VitePress documentation
-├── AGENTS.md         # Knowledge map
-└── ROADMAP.md        # Project roadmap
+├── packages/              # Runtime libraries
+│   ├── types/            # Shared TypeScript types and interfaces
+│   ├── core/             # Core runtime library and utilities
+│   ├── cli/              # CLI tool (harness validate, check-deps, skill, state, etc.)
+│   ├── eslint-plugin/    # ESLint rules for constraint enforcement
+│   ├── linter-gen/       # YAML-to-ESLint rule generator
+│   ├── mcp-server/       # MCP server for AI agent integration
+│   └── graph/            # Knowledge graph for codebase relationships
+├── agents/                # Agent configuration (skills + personas)
+├── templates/             # Project scaffolding templates
+├── examples/              # Progressive tutorial examples
+├── docs/                  # VitePress documentation
+└── AGENTS.md              # Knowledge map
 ```
 
 ---
@@ -138,7 +145,7 @@ Documentation lives in `docs/` and uses VitePress.
 
 **Structure:**
 
-- `docs/standard/` - The 6 principles (manifesto)
+- `docs/standard/` - The 7 principles (manifesto)
 - `docs/guides/` - Implementation guides
 - `docs/reference/` - API reference
 
