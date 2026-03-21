@@ -32,12 +32,12 @@ This orchestrator delegates to sub-skills — it never reimplements their logic.
 
 ## Flags
 
-| Flag           | Effect                                                         |
-| -------------- | -------------------------------------------------------------- |
+| Flag           | Effect                                                            |
+| -------------- | ----------------------------------------------------------------- |
 | `--fix`        | Enable convergence-based auto-fix (default: detect + report only) |
-| `--no-freshen` | Skip graph staleness check                                    |
-| `--bootstrap`  | Force AGENTS.md regeneration even if one exists                |
-| `--ci`         | Non-interactive: apply safe fixes only, report everything else |
+| `--no-freshen` | Skip graph staleness check                                        |
+| `--bootstrap`  | Force AGENTS.md regeneration even if one exists                   |
+| `--ci`         | Non-interactive: apply safe fixes only, report everything else    |
 
 ## Shared Context Object
 
@@ -58,7 +58,7 @@ interface DocPipelineContext {
   exclusions: Set<string>; // finding IDs already addressed
 
   // Health verdict
-  verdict: "pass" | "warn" | "fail";
+  verdict: 'pass' | 'warn' | 'fail';
   summary: string;
 }
 
@@ -66,31 +66,22 @@ interface DriftFinding {
   id: string;
   file: string;
   line?: number;
-  driftType:
-    | "renamed"
-    | "new-code"
-    | "deleted-code"
-    | "changed-behavior"
-    | "moved-code";
-  priority: "critical" | "high" | "medium" | "low";
+  driftType: 'renamed' | 'new-code' | 'deleted-code' | 'changed-behavior' | 'moved-code';
+  priority: 'critical' | 'high' | 'medium' | 'low';
   staleText: string;
   codeChange: string;
   suggestedFix: string;
-  fixSafety: "safe" | "probably-safe" | "unsafe";
+  fixSafety: 'safe' | 'probably-safe' | 'unsafe';
 }
 
 interface GapFinding {
   id: string;
   file?: string;
-  gapType:
-    | "undocumented"
-    | "broken-link"
-    | "stale-section"
-    | "missing-context";
-  priority: "critical" | "high" | "medium" | "low";
+  gapType: 'undocumented' | 'broken-link' | 'stale-section' | 'missing-context';
+  priority: 'critical' | 'high' | 'medium' | 'low';
   description: string;
   suggestedFix: string;
-  fixSafety: "safe" | "probably-safe" | "unsafe";
+  fixSafety: 'safe' | 'probably-safe' | 'unsafe';
 }
 
 interface DocFix {
@@ -98,7 +89,7 @@ interface DocFix {
   file: string;
   oldText: string;
   newText: string;
-  safety: "safe" | "probably-safe";
+  safety: 'safe' | 'probably-safe';
   verified: boolean; // harness check-docs passed after applying
 }
 ```
@@ -138,20 +129,25 @@ The context is passed to sub-skills via `handoff.json` with a `pipeline` field. 
    - Identify entry points: files matching `src/index.*`, `main` field in package.json
    - List top-level modules: each immediate subdirectory of `src/` (or `packages/`) with its directory name as the module name
    - Generate minimal AGENTS.md:
+
      ```markdown
      # AGENTS.md
 
      > Generated from directory structure. Run `harness scan` for richer output.
 
      ## Project
+
      <name from package.json> — <description from package.json>
 
      ## Entry Points
+
      - <each identified entry point>
 
      ## Modules
+
      - **<dir-name>/** — <inferred from directory name>
      ```
+
    - Set `context.bootstrapped = true`
    - Set `context.agentsMdExists = true`
 
@@ -179,11 +175,11 @@ The context is passed to sub-skills via `handoff.json` with a `pipeline` field. 
 
 ### Fix Safety Classification
 
-| Category        | Safe (apply silently)                                                     | Probably safe (present diff)                                                  | Unsafe (surface to user)                                           |
-| --------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| **Drift fixes** | Update file path where rename is unambiguous; fix import reference        | Rewrite description for simple rename/parameter change; update code examples  | Rewrite behavioral explanations; remove sections for deleted code  |
-| **Gap fills**   | Add entry for new file with obvious single-purpose name                   | Add entry for new file requiring description; update AGENTS.md section ordering | Write documentation for complex modules; create new doc pages     |
-| **Link fixes**  | Redirect broken link where target is unambiguous                          | Redirect when multiple candidates exist (present options)                     | Remove link when target no longer exists                           |
+| Category        | Safe (apply silently)                                              | Probably safe (present diff)                                                    | Unsafe (surface to user)                                          |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Drift fixes** | Update file path where rename is unambiguous; fix import reference | Rewrite description for simple rename/parameter change; update code examples    | Rewrite behavioral explanations; remove sections for deleted code |
+| **Gap fills**   | Add entry for new file with obvious single-purpose name            | Add entry for new file requiring description; update AGENTS.md section ordering | Write documentation for complex modules; create new doc pages     |
+| **Link fixes**  | Redirect broken link where target is unambiguous                   | Redirect when multiple candidates exist (present options)                       | Remove link when target no longer exists                          |
 
 ### Phase 3: FIX — Convergence-Based Drift Remediation
 
@@ -317,7 +313,7 @@ while iteration < maxIterations:
 
    **WARN if any of:**
    - High-priority drift or gap findings remain (user-deferred)
-   - >30% of source modules are undocumented
+   - > 30% of source modules are undocumented
    - Graph not available (reduced accuracy notice)
 
    **PASS if:**

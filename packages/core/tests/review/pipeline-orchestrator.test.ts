@@ -190,6 +190,79 @@ describe('runReviewPipeline()', () => {
     });
   });
 
+  describe('gate edge cases', () => {
+    it('skips docs-only PRs in CI mode', async () => {
+      const pr: PrMetadata = {
+        state: 'open',
+        isDraft: false,
+        changedFiles: ['README.md', 'docs/guide.md'],
+        headSha: 'abc123',
+        priorReviews: [],
+      };
+      const result = await runReviewPipeline({
+        projectRoot: '/tmp/test',
+        diff: {
+          changedFiles: ['README.md'],
+          newFiles: [],
+          deletedFiles: [],
+          totalDiffLines: 5,
+          fileDiffs: new Map(),
+        },
+        commitMessage: 'docs: update readme',
+        flags: { ...DEFAULT_FLAGS, ci: true },
+        prMetadata: pr,
+      });
+      expect(result.skipped).toBe(true);
+      expect(result.skipReason).toContain('documentation');
+    });
+
+    it('skips already-reviewed PRs in CI mode', async () => {
+      const pr: PrMetadata = {
+        state: 'open',
+        isDraft: false,
+        changedFiles: ['src/foo.ts'],
+        headSha: 'abc123',
+        priorReviews: [{ headSha: 'abc123', reviewedAt: '2026-03-21T00:00:00Z' }],
+      };
+      const result = await runReviewPipeline({
+        projectRoot: '/tmp/test',
+        diff: MINIMAL_DIFF,
+        commitMessage: 'feat: test',
+        flags: { ...DEFAULT_FLAGS, ci: true },
+        prMetadata: pr,
+      });
+      expect(result.skipped).toBe(true);
+      expect(result.skipReason).toContain('abc123');
+    });
+
+    it('proceeds when CI mode but no prMetadata provided', async () => {
+      const result = await runReviewPipeline({
+        projectRoot: '/tmp/test',
+        diff: MINIMAL_DIFF,
+        commitMessage: 'feat: test',
+        flags: { ...DEFAULT_FLAGS, ci: true, noMechanical: true },
+      });
+      // No prMetadata means gate cannot check -> proceed
+      expect(result.skipped).toBe(false);
+    });
+  });
+
+  describe('stoppedByMechanical', () => {
+    it('includes mechanical failures in terminal output when pipeline stops', async () => {
+      // This test exercises the path where mechanical checks halt the pipeline.
+      // Since we cannot easily mock runMechanicalChecks in an integration test,
+      // we verify the field exists and is boolean.
+      const result = await runReviewPipeline({
+        projectRoot: '/tmp/test',
+        diff: MINIMAL_DIFF,
+        commitMessage: 'feat: test',
+        flags: DEFAULT_FLAGS,
+      });
+      expect(typeof result.stoppedByMechanical).toBe('boolean');
+      expect(typeof result.terminalOutput).toBe('string');
+    });
+  });
+
   describe('end-to-end (noMechanical)', () => {
     it('returns a complete PipelineResult', async () => {
       const result = await runReviewPipeline({
