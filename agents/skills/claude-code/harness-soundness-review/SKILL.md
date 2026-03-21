@@ -655,16 +655,16 @@ Phase 1: CHECK
   5 findings total: 3 auto-fixable, 2 need user input.
 
 Phase 2: FIX
-  [S2-001] Added success criterion for 'Support offline mode' goal.
-  [S4-001] Added ENOENT error case for config file read (following codebase pattern).
-  [S7-001] Replaced 'build should be fast' with 'completes in under 30 seconds on CI'.
+  [S2-001] FIXED: Added success criterion for 'Support offline mode' goal.
+  [S4-001] FIXED: Added ENOENT error case for config file read (following codebase pattern).
+  [S7-001] FIXED: Replaced 'build should be fast' with 'completes in under 30 seconds on CI'.
   3 auto-fixes applied.
 
 Phase 3: CONVERGE
   Re-running checks...
   S3-001 (implicit Node.js assumption) — now auto-fixable (S4-001 fix added
     Assumptions section, so S3-001 can append to it instead of creating one).
-  [S3-001] Added Node.js runtime assumption to Assumptions section.
+  [S3-001] FIXED: Added Node.js runtime assumption to Assumptions section.
   1 additional fix applied. Re-checking...
   Issue count: 1 (was 2). Decreased — continuing.
   Re-running checks...
