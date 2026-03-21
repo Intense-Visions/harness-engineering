@@ -264,3 +264,48 @@ export interface FanOutOptions {
   /** Context bundles from Phase 3 (one per domain) */
   bundles: ContextBundle[];
 }
+
+// --- Phase 7: Output types ---
+
+/**
+ * Assessment decision — determines exit code and PR review action.
+ */
+export type ReviewAssessment = 'approve' | 'comment' | 'request-changes';
+
+/**
+ * A strength identified during review (positive feedback).
+ */
+export interface ReviewStrength {
+  /** File path (project-relative), or null for project-wide strengths */
+  file: string | null;
+  /** One-line description of what's done well */
+  description: string;
+}
+
+/**
+ * Options for formatting review output.
+ */
+export interface ReviewOutputOptions {
+  /** Deduplicated findings from Phase 6 */
+  findings: ReviewFinding[];
+  /** Strengths identified during review */
+  strengths: ReviewStrength[];
+  /** PR number (required for GitHub comments) */
+  prNumber?: number;
+  /** Repository in owner/repo format (required for GitHub comments) */
+  repo?: string;
+}
+
+/**
+ * A formatted GitHub inline comment ready for posting.
+ */
+export interface GitHubInlineComment {
+  /** File path (project-relative) */
+  path: string;
+  /** Line number for the comment */
+  line: number;
+  /** Side of the diff ('RIGHT' for additions) */
+  side: 'RIGHT';
+  /** Comment body (markdown) */
+  body: string;
+}
