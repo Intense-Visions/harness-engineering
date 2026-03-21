@@ -75,6 +75,53 @@ For each violation, determine:
    - WHAT would happen if the violation were allowed to persist
    - HOW it affects testability, maintainability, and changeability
 
+### Phase 3.5: Apply Safe Architecture Fixes
+
+Some architecture violations can be auto-fixed. Apply these before surfacing remaining violations.
+
+**Import ordering violations:**
+
+1. Identify files where imports are not ordered according to the project's layer convention.
+2. Reorder imports: external packages first, then by layer (lowest to highest), then relative imports.
+3. Verify with lint + typecheck. This is a safe, mechanical fix.
+
+**Forbidden import replacement (with configured alternative):**
+
+1. Check `harness.config.json` for `forbiddenImports` entries that include an `alternative` field.
+2. For each violation where an alternative exists, replace the import path with the alternative.
+3. Verify with typecheck + test. This is "probably safe" -- present as a diff for approval in interactive mode, apply silently in CI mode.
+
+**Design token substitution (unambiguous mapping):**
+
+1. When a hardcoded value has exactly one matching design token, replace the literal with the token reference.
+2. Verify with typecheck + test.
+3. If the mapping is ambiguous (multiple candidate tokens), surface to user.
+
+**Never auto-fix these (always surface to user):**
+
+- Upward dependencies
+- Skip-layer dependencies
+- Circular dependencies
+- Forbidden imports without a configured alternative
+
+### Phase 3.6: Convergence Loop (Standalone)
+
+When running standalone (not through the orchestrator), apply a single-concern convergence loop:
+
+1. **Re-run detection.** After applying all safe/probably-safe fixes, run `harness check-deps` again.
+2. **Check if violation count decreased.** Compare the new count to the previous count.
+3. **If decreased: loop.** Fixing one violation can resolve others (e.g., replacing a forbidden import may eliminate a transitive skip-layer violation). Go back to Phase 2 with the new results.
+4. **If unchanged: stop.** Proceed to Phase 4 (Guide Resolution) for remaining violations.
+5. **Maximum iterations: 5.** To prevent infinite loops.
+
+**Verification gate:** After each fix batch, run:
+
+```
+pnpm lint && pnpm tsc --noEmit && pnpm test
+```
+
+If any command fails, revert the batch and reclassify those findings as unsafe.
+
 ### Phase 4: Guide Resolution
 
 For each violation, provide a specific fix:
@@ -82,7 +129,7 @@ For each violation, provide a specific fix:
 - **Upward dependency:** Introduce an interface or abstraction in the lower layer. The higher layer implements it; the lower layer depends only on the abstraction. Alternatively, use dependency injection.
 - **Skip-layer dependency:** Route the call through the intermediate layer. Add a method to the Service layer that delegates to the Repository, then have the UI call the Service.
 - **Circular dependency:** Break the cycle by extracting shared types into a common module that both can depend on, or restructure so the dependency flows in one direction only.
-- **Forbidden import:** Replace the forbidden import with the approved alternative. If no alternative exists, the feature may need to live in a different layer.
+- **Forbidden import:** Check `harness.config.json` for an `alternative` field. If present, this should have been auto-fixed in Phase 3.5. If not present, replace the forbidden import with the approved alternative or restructure the code.
 - **Design constraint violation:** Replace hardcoded values with token references from `design-system/tokens.json`. For anti-pattern violations, consult `design-system/DESIGN.md` for the project's aesthetic intent and approved alternatives. For contrast failures, use `harness-accessibility` to find compliant color pairs.
 
 ## Common Violation Patterns
