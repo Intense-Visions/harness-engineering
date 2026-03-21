@@ -29,7 +29,7 @@ Phase 7: OUTPUT ←── Phase 6: DEDUP+MERGE ←── Phase 5: VALIDATE ←�
 | 4. FAN-OUT     | mixed | Parallel review subagents                          | All subagents return findings in ReviewFinding schema |
 | 5. VALIDATE    | none  | Exclude mechanical duplicates, verify reachability | Unvalidated findings discarded                        |
 | 6. DEDUP+MERGE | none  | Group, merge, assign final severity                | Deduplicated finding list with merged evidence        |
-| 7. OUTPUT      | none  | Terminal or inline GitHub comments                 | Review delivered, exit code set                       |
+| 7. OUTPUT      | none  | Text output or inline GitHub comments              | Review delivered, exit code set                       |
 
 ### Finding Schema
 
@@ -575,7 +575,7 @@ _This section is not part of the pipeline. It documents the process for respondi
 - All findings use the ReviewFinding schema
 - Mechanical findings from Phase 2 are excluded from Phase 4 output in Phase 5
 - Cross-agent duplicate findings are merged in Phase 6
-- Terminal output uses Strengths/Issues/Assessment format with Critical/Important/Suggestion severity
+- Text output uses Strengths/Issues/Assessment format with Critical/Important/Suggestion severity
 - `--comment` posts inline GitHub comments with committable suggestion blocks for small fixes
 - `--deep` adds threat modeling to the Security agent
 - No code merges with Critical issues unresolved

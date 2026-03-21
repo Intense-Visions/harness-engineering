@@ -6,14 +6,14 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
   description:
-    'Manage the project roadmap: show, add, update, remove features, or query by filter. Reads and writes docs/roadmap.md.',
+    'Manage the project roadmap: show, add, update, remove, sync features, or query by filter. Reads and writes docs/roadmap.md.',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       action: {
         type: 'string',
-        enum: ['show', 'add', 'update', 'remove', 'query'],
+        enum: ['show', 'add', 'update', 'remove', 'query', 'sync'],
         description: 'Action to perform',
       },
       feature: { type: 'string', description: 'Feature name (required for add, update, remove)' },
@@ -47,6 +47,14 @@ export const manageRoadmapDefinition = {
         description:
           'Query filter: "blocked", "in-progress", "done", "planned", "backlog", or "milestone:<name>" (required for query)',
       },
+      apply: {
+        type: 'boolean',
+        description: 'For sync action: apply proposed changes (default: false, preview only)',
+      },
+      force_sync: {
+        type: 'boolean',
+        description: 'For sync action: override human-always-wins rule',
+      },
     },
     required: ['path', 'action'],
   },
@@ -54,7 +62,7 @@ export const manageRoadmapDefinition = {
 
 interface ManageRoadmapInput {
   path: string;
-  action: 'show' | 'add' | 'update' | 'remove' | 'query';
+  action: 'show' | 'add' | 'update' | 'remove' | 'query' | 'sync';
   feature?: string;
   milestone?: string;
   status?: 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
@@ -63,6 +71,8 @@ interface ManageRoadmapInput {
   plans?: string[];
   blocked_by?: string[];
   filter?: string;
+  apply?: boolean;
+  force_sync?: boolean;
 }
 
 function roadmapPath(projectRoot: string): string {
@@ -363,6 +373,71 @@ export async function handleManageRoadmap(input: ManageRoadmapInput) {
         }
 
         return resultToMcpResponse(Ok(filtered));
+      }
+
+      case 'sync': {
+        const raw = readRoadmapFile(projectPath);
+        if (raw === null) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        const result = parseRoadmap(raw);
+        if (!result.ok) return resultToMcpResponse(result);
+
+        // syncRoadmap is exported from @harness-engineering/core but may not be in dist .d.ts yet
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const coreModule = (await import('@harness-engineering/core')) as any;
+        const syncRoadmap = coreModule.syncRoadmap as (options: {
+          projectPath: string;
+          roadmap: typeof roadmap;
+          forceSync?: boolean;
+        }) => import('@harness-engineering/types').Result<
+          Array<{
+            feature: string;
+            from: import('@harness-engineering/types').FeatureStatus;
+            to: import('@harness-engineering/types').FeatureStatus;
+          }>
+        >;
+        const roadmap = result.value;
+        const syncResult = syncRoadmap({
+          projectPath,
+          roadmap,
+          forceSync: input.force_sync ?? false,
+        });
+        if (!syncResult.ok) return resultToMcpResponse(syncResult);
+
+        const changes = syncResult.value;
+
+        if (changes.length === 0) {
+          return resultToMcpResponse(Ok({ changes: [], message: 'Roadmap is up to date.' }));
+        }
+
+        if (input.apply) {
+          // Apply changes to roadmap
+          for (const change of changes) {
+            for (const m of roadmap.milestones) {
+              const feature = m.features.find(
+                (f) => f.name.toLowerCase() === change.feature.toLowerCase()
+              );
+              if (feature) {
+                feature.status = change.to;
+                break;
+              }
+            }
+          }
+          roadmap.frontmatter.lastSynced = new Date().toISOString();
+          writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+          return resultToMcpResponse(Ok({ changes, applied: true, roadmap }));
+        }
+
+        return resultToMcpResponse(Ok({ changes, applied: false }));
       }
 
       default: {

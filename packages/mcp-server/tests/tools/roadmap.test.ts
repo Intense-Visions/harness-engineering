@@ -77,7 +77,7 @@ describe('manage_roadmap tool definition', () => {
       type: string;
       enum: string[];
     };
-    expect(actionProp.enum).toEqual(['show', 'add', 'update', 'remove', 'query']);
+    expect(actionProp.enum).toEqual(['show', 'add', 'update', 'remove', 'query', 'sync']);
   });
 
   it('has feature, milestone, status, summary, spec, plans, blocked_by, filter properties', () => {
