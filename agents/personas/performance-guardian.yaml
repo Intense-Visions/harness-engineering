@@ -5,6 +5,7 @@ role: Run structural complexity checks, coupling analysis, benchmark regression 
 skills:
   - harness-perf
   - harness-tdd
+  - harness-perf-tdd
 commands:
   - check-perf
   - perf
@@ -20,6 +21,28 @@ config:
   severity: error
   autoFix: false
   timeout: 300000
+steps:
+  - command: validate
+    when: always
+  - command: check-deps
+    when: always
+  - command: check-perf --structural
+    when: always
+  - command: check-perf --coupling
+    when: always
+  - skill: harness-perf
+    phases: [BENCHMARK, REPORT, ENFORCE]
+    when: on_pr
+  - check: missing-benchmarks
+    when: on_pr
+missing_benchmark_detection:
+  description: Detect new/modified source files without co-located benchmarks
+  logic:
+    - step: Identify new/modified source files in the PR diff
+    - step: For each file, check if a co-located .bench.ts file exists
+    - step: "If file is on a @perf-critical path (via get_critical_paths) and has no benchmark: flag Tier 2 warning"
+    - step: "If file is not critical but is new: flag Tier 3 info suggesting harness-perf-tdd"
+    - step: 'Output example: "New file src/core/parser.ts is on a critical path but has no benchmark. Consider using harness-perf-tdd to add one."'
 outputs:
   agents-md: true
   ci-workflow: true
