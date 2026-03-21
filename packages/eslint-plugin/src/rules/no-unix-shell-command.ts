@@ -10,7 +10,10 @@ type MessageIds = 'unixShellCommand';
 const UNIX_COMMANDS = ['rm', 'cp', 'mv', 'mkdir', 'chmod', 'chown'];
 
 // Match unix commands at the start of the string or after whitespace/shell operators
-const UNIX_COMMAND_PATTERN = new RegExp(`(?:^|[;&|]\\s*)(?:${UNIX_COMMANDS.join('|')})(?:\\s|$)`);
+// Also matches full-path invocations like /bin/rm or /usr/bin/cp
+const UNIX_COMMAND_PATTERN = new RegExp(
+  `(?:^|[;&|]\\s*)(?:/(?:usr/)?(?:bin|sbin)/)?(?:${UNIX_COMMANDS.join('|')})(?:\\s|$)`
+);
 
 // Only flag exec() and execSync() — NOT execFile/execFileSync
 const FLAGGED_FUNCTIONS = new Set(['exec', 'execSync']);
@@ -58,8 +61,8 @@ export default createRule<[], MessageIds>({
         if (firstArg.type === 'Literal' && typeof firstArg.value === 'string') {
           commandString = firstArg.value;
         } else if (firstArg.type === 'TemplateLiteral' && firstArg.quasis.length > 0) {
-          // Check the first quasi (static part) of the template literal
-          commandString = firstArg.quasis[0]?.value.raw;
+          // Check all static segments of the template literal
+          commandString = firstArg.quasis.map((q) => q.value.raw).join(' ');
         }
 
         if (commandString && UNIX_COMMAND_PATTERN.test(commandString)) {
