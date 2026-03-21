@@ -93,6 +93,26 @@ export function createCommentedCodeFixes(blocks: CommentedCodeBlock[]): Fix[] {
   }));
 }
 
+export interface OrphanedDep {
+  name: string;
+  packageJsonPath: string;
+  depType: 'dependencies' | 'devDependencies';
+}
+
+/**
+ * Create fixes for orphaned npm dependencies
+ */
+export function createOrphanedDepFixes(deps: OrphanedDep[]): Fix[] {
+  return deps.map((dep) => ({
+    type: 'orphaned-deps' as FixType,
+    file: dep.packageJsonPath,
+    description: `Remove orphaned dependency: ${dep.name}`,
+    action: 'replace' as const,
+    safe: true as const,
+    reversible: true,
+  }));
+}
+
 /**
  * Create fixes from dead code report
  */
