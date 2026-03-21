@@ -279,17 +279,27 @@ async function scopeSecurityContext(
 
   if (options.graph) {
     // Use graph to find security-relevant dependencies
-    const deps = await gatherGraphDependencyContext(
-      projectRoot,
-      changedPaths,
-      options.graph,
-      budget
-    );
-    // Filter to security-relevant files
-    const securityDeps = deps.filter(
-      (f) => SECURITY_PATTERNS.test(f.path) || SECURITY_PATTERNS.test(f.content)
-    );
-    contextFiles.push(...(securityDeps.length > 0 ? securityDeps : deps));
+    // Get all dependency paths first, filter to security-relevant before reading content
+    const allPaths: string[] = [];
+    for (const filePath of changedPaths) {
+      const deps = await options.graph.getDependencies(filePath);
+      allPaths.push(...deps);
+    }
+    const uniquePaths = [...new Set(allPaths)];
+
+    // Prioritize security-relevant paths by sorting them first
+    const securityFirst = uniquePaths.sort((a, b) => {
+      const aMatch = SECURITY_PATTERNS.test(a) ? 0 : 1;
+      const bMatch = SECURITY_PATTERNS.test(b) ? 0 : 1;
+      return aMatch - bMatch;
+    });
+
+    // Read files within budget, security-relevant paths first
+    for (const depPath of securityFirst) {
+      if (contextFiles.reduce((sum, f) => sum + f.lines, 0) >= budget) break;
+      const cf = await readContextFile(projectRoot, depPath, 'graph-dependency');
+      if (cf) contextFiles.push(cf);
+    }
   } else {
     // Fallback: import-based + filter for security patterns
     const deps = await gatherImportContext(projectRoot, changedFiles, budget);
@@ -322,9 +332,19 @@ async function scopeArchitectureContext(
       }
     }
   } else {
-    // Fallback: import context
+    // Fallback: import context + check-deps output
     const deps = await gatherImportContext(projectRoot, changedFiles, budget);
     contextFiles.push(...deps);
+
+    // Include check-deps output as context for layer violation detection
+    if (options.checkDepsOutput) {
+      contextFiles.push({
+        path: 'harness-check-deps-output',
+        content: options.checkDepsOutput,
+        lines: options.checkDepsOutput.split('\n').length,
+        reason: 'convention',
+      });
+    }
   }
 
   return contextFiles;
@@ -370,7 +390,7 @@ export async function scopeContext(options: ContextScopeOptions): Promise<Contex
       changeType,
       changedFiles: [...changedFiles],
       contextFiles,
-      commitHistory: [], // Populated by caller via git log
+      commitHistory: options.commitHistory ?? [],
       diffLines: diff.totalDiffLines,
       contextLines,
     });

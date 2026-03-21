@@ -111,7 +111,12 @@ export interface ContextBundle {
   changedFiles: ContextFile[];
   /** Additional context files (imports, tests, specs, types, conventions) */
   contextFiles: ContextFile[];
-  /** Recent commit history for changed files */
+  /**
+   * Recent commit history for changed files.
+   * @remarks Empty by default from `scopeContext()`. Callers should populate this
+   * via `git log` commands at the orchestration layer before passing bundles to
+   * Phase 4 subagents. Example: `git log --oneline -5 -- <file>` per changed file.
+   */
   commitHistory: CommitHistoryEntry[];
   /** Total lines of diff */
   diffLines: number;
@@ -180,4 +185,6 @@ export interface ContextScopeOptions {
   conventionFiles?: string[];
   /** Output from `harness check-deps` (for architecture fallback) */
   checkDepsOutput?: string;
+  /** Pre-gathered commit history entries. If provided, included in all bundles. */
+  commitHistory?: CommitHistoryEntry[];
 }
