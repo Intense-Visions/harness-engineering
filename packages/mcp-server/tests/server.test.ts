@@ -7,9 +7,9 @@ describe('MCP Server', () => {
     expect(server).toBeDefined();
   });
 
-  it('registers all 37 tools', () => {
+  it('registers all 38 tools', () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(37);
+    expect(tools).toHaveLength(38);
   });
 
   it('registers all 8 resources', () => {
@@ -42,6 +42,11 @@ describe('MCP Server', () => {
     expect(names).toContain('check_phase_gate');
     expect(names).toContain('validate_cross_check');
     expect(names).toContain('create_skill');
+  });
+
+  it('registers manage_roadmap tool', () => {
+    const names = getToolDefinitions().map((t) => t.name);
+    expect(names).toContain('manage_roadmap');
   });
 
   it('registers harness://state resource', () => {
