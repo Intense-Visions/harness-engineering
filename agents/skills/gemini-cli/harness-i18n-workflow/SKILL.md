@@ -116,11 +116,13 @@
    - Create pseudo-locale directory (`locales/en-XA/`) -- will be populated in Track phase.
 
 3. **Retrofit scaffolding.** Run the retrofit workflow:
+
    a. **Invoke harness-i18n detect + scan phases** to assess current state. This produces:
    - Detected platform(s) and framework
    - List of hardcoded user-facing strings with file paths and line numbers
    - Existing translation files and their coverage
-     b. **Report audit results:**
+
+   b. **Report audit results:**
 
    ```
    Retrofit Audit Results
@@ -135,9 +137,12 @@
    - Generate a dot-notation key based on file path and context (e.g., `components.header.welcomeTitle`)
    - Use the original string as the source locale value
    - Flag strings that need human review for key naming (ambiguous context, duplicate meanings)
-     d. **Scaffold translation files** with the generated key catalog for the source locale.
-     e. **Create empty target locale files** with the same key structure and empty values.
-     f. **Present the key catalog to the user for review.** This is a checkpoint -- the user should review and approve key names before they become permanent.
+
+   d. **Scaffold translation files** with the generated key catalog for the source locale.
+
+   e. **Create empty target locale files** with the same key structure and empty values.
+
+   f. **Present the key catalog to the user for review.** This is a checkpoint -- the user should review and approve key names before they become permanent.
 
 [checkpoint:human-verify] -- User must review generated key catalog before proceeding.
 
@@ -231,7 +236,7 @@
    - Count translated keys in target locale (non-empty, non-source-identical values).
    - Calculate percentage: `(translated / total) * 100`.
    - Check for missing plural forms per CLDR rules (load from `agents/skills/shared/i18n-knowledge/locales/{locale}.yaml`).
-   - Detect stale translations: keys where the source locale value has changed since the target was last updated (compare by value -- if source changed but target still matches old source, it is stale).
+   - Detect stale translations using `git diff` on the source locale file. Run `git log --diff-filter=M -p -- {sourceLocalePath}` to identify keys whose source values changed since the last commit that touched the target locale file. A translation is stale when the source value changed but the target was not updated in a subsequent commit. If git history is unavailable, fall back to heuristic detection: flag target values that are identical to the current source value (likely untranslated) or that contain substrings of the old source (partial staleness).
 
 2. **Generate coverage dashboard:**
 
@@ -281,20 +286,20 @@
      - Strings < 10 chars: +50% expansion
      - Strings 10-50 chars: +35% expansion
      - Strings > 50 chars: +25% expansion
-   - **Accent characters:** Replace ASCII vowels with accented equivalents:
-     - a -> a with combining accent (e.g., Unicode accented forms)
-     - e -> e with accent, i -> i with accent, o -> o with accent, u -> u with accent
+   - **Accent characters:** Replace ASCII characters with accented Unicode equivalents to test font rendering and encoding:
+     - a → à, e → ë, i → ì, o → ö, u → ù, c → ç, n → ñ, s → š, z → ž
+     - Uppercase: A → À, E → Ë, I → Ì, O → Ö, U → Ù, C → Ç, N → Ñ, S → Š, Z → Ž
    - **Bracket wrapping:** Wrap each string in `[` and `]` to detect truncation and overflow.
    - **Preserve placeholders:** ICU MessageFormat placeholders (`{name}`, `{count, plural, ...}`) must NOT be modified.
    - **Preserve HTML/JSX tags:** Tags like `<strong>`, `<br/>`, `<Link>` must NOT be modified.
 
-   Example transformations:
+   Example transformations (showing both expansion and accent replacement):
 
    ```
-   "Save"           -> "[Savee]"
-   "Hello {name}"   -> "[Heelloo {name}]"
-   "Cancel"         -> "[Caanceel]"
-   "{count, plural, one {# item} other {# items}}" -> "[{count, plural, one {# iiteem} other {# iiteems}}]"
+   "Save"           -> "[Šàvëë]"
+   "Hello {name}"   -> "[Hëëllöö {name}]"
+   "Cancel"         -> "[Çààñçëël]"
+   "{count, plural, one {# item} other {# items}}" -> "[{count, plural, one {# ìtëëm} other {# ìtëëmš}}]"
    ```
 
    Write the pseudo-locale file to the configured pseudo-locale path (e.g., `locales/en-XA/common.json`).
