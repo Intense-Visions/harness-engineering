@@ -60,10 +60,23 @@ If you find yourself writing production code before both the test and the benchm
 
 2. **Run the test** — observe pass. If it fails, fix the implementation until it passes.
 
-3. **Run the benchmark** — capture initial results. This is the first measurement. Note:
-   - If a performance assertion exists in the spec, verify it passes
-   - If no assertion exists, record the result as a baseline reference
-   - Do not optimize at this stage unless the assertion fails
+3. **Run the benchmark** -- capture initial results and apply thresholds:
+
+   **When the spec defines a performance requirement** (e.g., "< 50ms"):
+   - Use the spec requirement as the benchmark assertion threshold
+   - Verify it passes; if not, see step 4
+
+   **When the spec is vague or silent on performance:**
+   - Fall back to harness-perf tier thresholds:
+     - Critical path functions (annotated `@perf-critical` or high fan-in): must not regress >5% from baseline (Tier 1)
+     - Non-critical functions: must not regress >10% from baseline (Tier 2)
+     - Structural complexity: must stay under Tier 2 thresholds (cyclomatic <=15, nesting <=4, function length <=50 lines, params <=5)
+   - These thresholds give developers concrete targets even when the spec does not specify performance requirements
+
+   **When no baseline exists (new code):**
+   - This run captures the initial baseline
+   - No regression comparison on first run
+   - VALIDATE phase (Phase 4) ensures the captured baseline is committed via `harness perf baselines update`
 
 4. **If the performance assertion fails,** you have two options:
    - The implementation approach is fundamentally wrong (e.g., O(n^2) when O(n) is needed) — revise the algorithm
