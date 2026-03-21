@@ -219,7 +219,9 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
    }
    ```
 
-5. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
+5. **Sync roadmap (if present).** If `docs/roadmap.md` exists, trigger a roadmap sync to update linked feature statuses based on the just-completed execution state. Use the `manage_roadmap` MCP tool with `sync` action if available, or invoke `/harness:roadmap --sync`. This keeps the roadmap current as plans are executed. If no roadmap exists, skip this step silently.
+
+6. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
 
 ---
 
@@ -245,6 +247,7 @@ These are non-negotiable. When any condition is met, stop immediately.
 - **`harness state learn "<message>"`** — Append a learning from the command line.
 - **`.harness/state.json`** — Read at session start to resume position. Updated after every task.
 - **`.harness/learnings.md`** — Append-only knowledge capture. Read at session start for prior context.
+- **Roadmap sync** — After completing plan execution, sync roadmap status via `manage_roadmap sync` if `docs/roadmap.md` exists. Keeps roadmap current with execution progress.
 
 ## Success Criteria
 
