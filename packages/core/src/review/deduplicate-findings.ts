@@ -1,4 +1,5 @@
-import type { ReviewFinding, FindingSeverity, ReviewDomain } from './types';
+import type { ReviewFinding, ReviewDomain } from './types';
+import { SEVERITY_RANK, VALIDATED_BY_RANK } from './constants';
 
 /**
  * Options for the deduplication phase.
@@ -9,24 +10,6 @@ export interface DeduplicateFindingsOptions {
   /** Maximum line gap to consider findings as overlapping (default: 3) */
   lineGap?: number;
 }
-
-/**
- * Severity rank — higher is more severe.
- */
-const SEVERITY_RANK: Record<FindingSeverity, number> = {
-  suggestion: 0,
-  important: 1,
-  critical: 2,
-};
-
-/**
- * ValidatedBy priority — higher is more authoritative.
- */
-const VALIDATED_BY_RANK: Record<string, number> = {
-  mechanical: 0,
-  heuristic: 1,
-  graph: 2,
-};
 
 /**
  * Check if two line ranges overlap (or are within `gap` lines of each other).
@@ -77,10 +60,11 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
         : b.suggestion
       : (a.suggestion ?? b.suggestion);
 
-  // Build title with domain info
+  // Build title with domain info — strip existing domain prefix to prevent nesting
   const primaryFinding = SEVERITY_RANK[a.severity] >= SEVERITY_RANK[b.severity] ? a : b;
   const domainList = [...domains].sort().join(', ');
-  const title = `[${domainList}] ${primaryFinding.title}`;
+  const cleanTitle = primaryFinding.title.replace(/^\[.*?\]\s*/, '');
+  const title = `[${domainList}] ${cleanTitle}`;
 
   const merged: ReviewFinding = {
     id: primaryFinding.id,

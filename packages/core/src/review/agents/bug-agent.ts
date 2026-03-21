@@ -1,4 +1,5 @@
 import type { ContextBundle, ReviewFinding, ReviewAgentDescriptor } from '../types';
+import { makeFindingId } from '../constants';
 
 export const BUG_DETECTION_DESCRIPTOR: ReviewAgentDescriptor = {
   domain: 'bug',
@@ -14,11 +15,6 @@ export const BUG_DETECTION_DESCRIPTOR: ReviewAgentDescriptor = {
     'Test coverage — tests for happy path, error paths, and edge cases',
   ],
 };
-
-function makeFindingId(file: string, line: number, title: string): string {
-  const hash = title.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '');
-  return `bug-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${hash}`;
-}
 
 /**
  * Detect potential division-by-zero issues.
@@ -40,7 +36,7 @@ function detectDivisionByZero(bundle: ContextBundle): ReviewFinding[] {
           !preceding.includes('!= 0')
         ) {
           findings.push({
-            id: makeFindingId(cf.path, i + 1, 'division by zero'),
+            id: makeFindingId('bug', cf.path, i + 1, 'division by zero'),
             file: cf.path,
             lineRange: [i + 1, i + 1],
             domain: 'bug',
@@ -76,7 +72,7 @@ function detectEmptyCatch(bundle: ContextBundle): ReviewFinding[] {
           lines[i + 1]!.trim() === '}')
       ) {
         findings.push({
-          id: makeFindingId(cf.path, i + 1, 'empty catch block'),
+          id: makeFindingId('bug', cf.path, i + 1, 'empty catch block'),
           file: cf.path,
           lineRange: [i + 1, i + 2],
           domain: 'bug',
@@ -110,7 +106,7 @@ function detectMissingTests(bundle: ContextBundle): ReviewFinding[] {
     if (sourceFiles.length > 0) {
       const firstFile = sourceFiles[0]!;
       findings.push({
-        id: makeFindingId(firstFile.path, 1, 'no test files'),
+        id: makeFindingId('bug', firstFile.path, 1, 'no test files'),
         file: firstFile.path,
         lineRange: [1, 1],
         domain: 'bug',

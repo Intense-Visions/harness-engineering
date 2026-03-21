@@ -26,8 +26,18 @@ function computeContextBudget(diffLines: number): number {
 }
 
 /**
+ * Check if a resolved path stays within the project root.
+ * Prevents path traversal (CWE-22) when reading files from external inputs.
+ */
+function isWithinProject(absPath: string, projectRoot: string): boolean {
+  const resolvedRoot = path.resolve(projectRoot) + path.sep;
+  const resolvedPath = path.resolve(absPath);
+  return resolvedPath.startsWith(resolvedRoot) || resolvedPath === path.resolve(projectRoot);
+}
+
+/**
  * Read a file and produce a ContextFile entry.
- * Returns null if the file cannot be read.
+ * Returns null if the file cannot be read or is outside the project root.
  */
 async function readContextFile(
   projectRoot: string,
@@ -35,6 +45,7 @@ async function readContextFile(
   reason: ContextFile['reason']
 ): Promise<ContextFile | null> {
   const absPath = path.isAbsolute(filePath) ? filePath : path.join(projectRoot, filePath);
+  if (!isWithinProject(absPath, projectRoot)) return null;
   const result = await readFileContent(absPath);
   if (!result.ok) return null;
 
@@ -77,6 +88,8 @@ async function resolveImportPath(
 
   const fromDir = path.dirname(path.join(projectRoot, fromFile));
   const basePath = path.resolve(fromDir, importSource);
+  // Prevent path traversal outside project root
+  if (!isWithinProject(basePath, projectRoot)) return null;
   const relBase = path.relative(projectRoot, basePath);
 
   const candidates = [
@@ -156,7 +169,12 @@ async function gatherGraphDependencyContext(
   for (const filePath of changedFilePaths) {
     if (linesGathered >= budget) break;
 
-    const deps = await graph.getDependencies(filePath);
+    let deps: string[];
+    try {
+      deps = await graph.getDependencies(filePath);
+    } catch {
+      continue; // Skip this file if graph fails — graceful degradation
+    }
     for (const dep of deps) {
       if (linesGathered >= budget) break;
       if (seen.has(dep)) continue;
@@ -186,7 +204,12 @@ async function gatherTestContext(
 
   if (graph) {
     for (const filePath of changedFilePaths) {
-      const impact = await graph.getImpact(filePath);
+      let impact: { tests: string[]; docs: string[]; code: string[] };
+      try {
+        impact = await graph.getImpact(filePath);
+      } catch {
+        continue; // Skip this file if graph fails
+      }
       for (const testFile of impact.tests) {
         if (seen.has(testFile)) continue;
         seen.add(testFile);
@@ -282,8 +305,12 @@ async function scopeSecurityContext(
     // Get all dependency paths first, filter to security-relevant before reading content
     const allPaths: string[] = [];
     for (const filePath of changedPaths) {
-      const deps = await options.graph.getDependencies(filePath);
-      allPaths.push(...deps);
+      try {
+        const deps = await options.graph.getDependencies(filePath);
+        allPaths.push(...deps);
+      } catch {
+        continue; // Skip this file if graph fails
+      }
     }
     const uniquePaths = [...new Set(allPaths)];
 
@@ -323,12 +350,23 @@ async function scopeArchitectureContext(
   const changedPaths = changedFiles.map((f) => f.path);
 
   if (options.graph) {
-    // Use graph for impact analysis
+    // Use graph for impact analysis with budget tracking
+    let linesGathered = 0;
     for (const filePath of changedPaths) {
-      const impact = await options.graph.getImpact(filePath);
+      if (linesGathered >= budget) break;
+      let impact: { tests: string[]; docs: string[]; code: string[] };
+      try {
+        impact = await options.graph.getImpact(filePath);
+      } catch {
+        continue; // Skip this file if graph fails
+      }
       for (const codePath of impact.code) {
+        if (linesGathered >= budget) break;
         const cf = await readContextFile(projectRoot, codePath, 'graph-impact');
-        if (cf) contextFiles.push(cf);
+        if (cf) {
+          contextFiles.push(cf);
+          linesGathered += cf.lines;
+        }
       }
     }
   } else {

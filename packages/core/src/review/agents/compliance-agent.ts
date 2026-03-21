@@ -1,4 +1,5 @@
 import type { ContextBundle, ReviewFinding, ReviewAgentDescriptor } from '../types';
+import { makeFindingId } from '../constants';
 
 /**
  * Descriptor for the compliance review agent.
@@ -85,11 +86,6 @@ function findMissingJsDoc(
   }
 
   return missing;
-}
-
-function makeFindingId(domain: string, file: string, line: number, title: string): string {
-  const hash = title.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '');
-  return `${domain}-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${hash}`;
 }
 
 /**

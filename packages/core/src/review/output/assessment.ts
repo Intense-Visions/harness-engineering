@@ -1,13 +1,5 @@
 import type { ReviewFinding, ReviewAssessment, FindingSeverity } from '../types';
-
-/**
- * Severity rank — higher value means more severe.
- */
-const SEVERITY_RANK: Record<FindingSeverity, number> = {
-  suggestion: 0,
-  important: 1,
-  critical: 2,
-};
+import { SEVERITY_RANK } from '../constants';
 
 /**
  * Determine the overall assessment based on the highest severity finding.

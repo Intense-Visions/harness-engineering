@@ -161,21 +161,28 @@ export async function validateFindings(options: ValidateFindingsOptions): Promis
 
     // Step 3: Validate cross-file claims
     if (graph) {
-      // Graph reachability validation
-      let allReachable = true;
-      for (const ref of crossFileRefs) {
-        const reachable = await graph.isReachable(ref.from, ref.to);
-        if (!reachable) {
-          allReachable = false;
-          break;
+      // Graph reachability validation — fall back to heuristic if graph throws
+      try {
+        let allReachable = true;
+        for (const ref of crossFileRefs) {
+          const reachable = await graph.isReachable(ref.from, ref.to);
+          if (!reachable) {
+            allReachable = false;
+            break;
+          }
         }
-      }
 
-      if (allReachable) {
-        validated.push({ ...finding, validatedBy: 'graph' });
+        if (allReachable) {
+          validated.push({ ...finding, validatedBy: 'graph' });
+        }
+        // else: discard — graph says unreachable
+        continue;
+      } catch {
+        // Graph failed — fall through to heuristic fallback below
       }
-      // else: discard — graph says unreachable
-    } else {
+    }
+
+    {
       // Import-chain heuristic fallback
       let chainValidated = false;
 

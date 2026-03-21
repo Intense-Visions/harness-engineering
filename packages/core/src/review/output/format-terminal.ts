@@ -1,15 +1,6 @@
-import type { ReviewFinding, ReviewStrength, FindingSeverity } from '../types';
+import type { ReviewFinding, ReviewStrength } from '../types';
 import { determineAssessment } from './assessment';
-
-/**
- * Severity display labels and ordering (highest first).
- */
-const SEVERITY_ORDER: FindingSeverity[] = ['critical', 'important', 'suggestion'];
-const SEVERITY_LABELS: Record<FindingSeverity, string> = {
-  critical: 'Critical',
-  important: 'Important',
-  suggestion: 'Suggestion',
-};
+import { SEVERITY_ORDER, SEVERITY_LABELS } from '../constants';
 
 /**
  * Format a single finding as a terminal text block.

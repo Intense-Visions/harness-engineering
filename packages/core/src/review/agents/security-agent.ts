@@ -1,4 +1,5 @@
 import type { ContextBundle, ReviewFinding, ReviewAgentDescriptor } from '../types';
+import { makeFindingId } from '../constants';
 
 export const SECURITY_DESCRIPTOR: ReviewAgentDescriptor = {
   domain: 'security',
@@ -13,11 +14,6 @@ export const SECURITY_DESCRIPTOR: ReviewAgentDescriptor = {
     'Node.js specific — prototype pollution, ReDoS, path traversal',
   ],
 };
-
-function makeFindingId(file: string, line: number, title: string): string {
-  const hash = title.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '');
-  return `security-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${hash}`;
-}
 
 /** Patterns that indicate dangerous eval/Function usage. */
 const EVAL_PATTERN = /\beval\s*\(|new\s+Function\s*\(/;
@@ -43,7 +39,7 @@ function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
       const line = lines[i]!;
       if (EVAL_PATTERN.test(line)) {
         findings.push({
-          id: makeFindingId(cf.path, i + 1, 'eval usage CWE-94'),
+          id: makeFindingId('security', cf.path, i + 1, 'eval usage CWE-94'),
           file: cf.path,
           lineRange: [i + 1, i + 1],
           domain: 'security',
@@ -68,11 +64,12 @@ function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      if (line.includes('//') && line.indexOf('//') < line.indexOf('=')) continue;
+      // Strip inline comments before checking for secrets
+      const codePart = line.includes('//') ? line.slice(0, line.indexOf('//')) : line;
       for (const pattern of SECRET_PATTERNS) {
-        if (pattern.test(line)) {
+        if (pattern.test(codePart)) {
           findings.push({
-            id: makeFindingId(cf.path, i + 1, 'hardcoded secret CWE-798'),
+            id: makeFindingId('security', cf.path, i + 1, 'hardcoded secret CWE-798'),
             file: cf.path,
             lineRange: [i + 1, i + 1],
             domain: 'security',
@@ -81,7 +78,7 @@ function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
             rationale:
               'Hardcoded secrets in source code can be extracted from version history even after removal. Use environment variables or a secrets manager (CWE-798).',
             suggestion: 'Move the secret to an environment variable and access it via process.env.',
-            evidence: [`Line ${i + 1}: ${line.trim().slice(0, 80)}...`],
+            evidence: [`Line ${i + 1}: [secret detected — value redacted]`],
             validatedBy: 'heuristic',
           });
           break; // One finding per line
@@ -100,7 +97,7 @@ function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
       const line = lines[i]!;
       if (SQL_CONCAT_PATTERN.test(line)) {
         findings.push({
-          id: makeFindingId(cf.path, i + 1, 'SQL injection CWE-89'),
+          id: makeFindingId('security', cf.path, i + 1, 'SQL injection CWE-89'),
           file: cf.path,
           lineRange: [i + 1, i + 1],
           domain: 'security',
@@ -127,7 +124,7 @@ function detectCommandInjection(bundle: ContextBundle): ReviewFinding[] {
       const line = lines[i]!;
       if (SHELL_EXEC_PATTERN.test(line)) {
         findings.push({
-          id: makeFindingId(cf.path, i + 1, 'command injection CWE-78'),
+          id: makeFindingId('security', cf.path, i + 1, 'command injection CWE-78'),
           file: cf.path,
           lineRange: [i + 1, i + 1],
           domain: 'security',

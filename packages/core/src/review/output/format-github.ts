@@ -1,14 +1,16 @@
-import type { ReviewFinding, ReviewStrength, FindingSeverity, GitHubInlineComment } from '../types';
+import type { ReviewFinding, ReviewStrength, GitHubInlineComment } from '../types';
 import { determineAssessment } from './assessment';
-
-const SEVERITY_ORDER: FindingSeverity[] = ['critical', 'important', 'suggestion'];
-const SEVERITY_LABELS: Record<FindingSeverity, string> = {
-  critical: 'Critical',
-  important: 'Important',
-  suggestion: 'Suggestion',
-};
+import { SEVERITY_ORDER, SEVERITY_LABELS } from '../constants';
 
 const SMALL_SUGGESTION_LINE_LIMIT = 10;
+
+/**
+ * Sanitize text for safe inclusion in GitHub markdown comments.
+ * Escapes characters that could be used for markdown/HTML injection (CWE-79).
+ */
+function sanitizeMarkdown(text: string): string {
+  return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 /**
  * Check if a suggestion is "small" (under 10 lines) and suitable
@@ -28,19 +30,25 @@ export function isSmallSuggestion(suggestion: string | undefined): boolean {
  */
 export function formatGitHubComment(finding: ReviewFinding): GitHubInlineComment {
   const severityBadge = `**${finding.severity.toUpperCase()}**`;
-  const header = `${severityBadge} [${finding.domain}] ${finding.title}`;
+  const header = `${severityBadge} [${finding.domain}] ${sanitizeMarkdown(finding.title)}`;
 
   let body: string;
 
   if (isSmallSuggestion(finding.suggestion)) {
-    body = [header, '', finding.rationale, '', '```suggestion', finding.suggestion!, '```'].join(
-      '\n'
-    );
+    body = [
+      header,
+      '',
+      sanitizeMarkdown(finding.rationale),
+      '',
+      '```suggestion',
+      finding.suggestion!,
+      '```',
+    ].join('\n');
   } else {
-    const parts = [header, '', `**Rationale:** ${finding.rationale}`];
+    const parts = [header, '', `**Rationale:** ${sanitizeMarkdown(finding.rationale)}`];
 
     if (finding.suggestion) {
-      parts.push('', `**Suggested approach:** ${finding.suggestion}`);
+      parts.push('', `**Suggested approach:** ${sanitizeMarkdown(finding.suggestion)}`);
     }
 
     body = parts.join('\n');
@@ -72,7 +80,7 @@ export function formatGitHubSummary(options: {
   } else {
     for (const s of strengths) {
       const prefix = s.file ? `**${s.file}:** ` : '';
-      sections.push(`- ${prefix}${s.description}`);
+      sections.push(`- ${prefix}${sanitizeMarkdown(s.description)}`);
     }
     sections.push('');
   }
@@ -89,8 +97,8 @@ export function formatGitHubSummary(options: {
     sections.push(`### ${SEVERITY_LABELS[severity]} (${group.length})\n`);
     for (const finding of group) {
       const location = `\`${finding.file}:L${finding.lineRange[0]}-${finding.lineRange[1]}\``;
-      sections.push(`- **${finding.title}** at ${location}`);
-      sections.push(`  ${finding.rationale}`);
+      sections.push(`- **${sanitizeMarkdown(finding.title)}** at ${location}`);
+      sections.push(`  ${sanitizeMarkdown(finding.rationale)}`);
       sections.push('');
     }
   }
