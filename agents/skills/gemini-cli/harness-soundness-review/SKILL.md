@@ -1029,20 +1029,86 @@ The loop terminates because:
 
 ### Phase 4: SURFACE — Present Remaining Issues
 
-For all findings where `autoFixable: false` (or auto-fix was attempted but the issue persists):
+When findings remain after the convergence loop (Phase 3 determined no further auto-fix progress), present them to the user. If no `needs-user-input` findings remain (all were resolved by auto-fix), skip this phase entirely and proceed to Clean Exit.
 
-1. Present each issue to the user with:
-   - **What is wrong** — the finding title and detail
-   - **Why it matters** — the severity and impact on spec/plan quality
-   - **Suggested resolution** — concrete options the user can choose from
-2. Wait for the user to resolve each issue.
-3. After user resolution: loop back to Phase 1 (CHECK) to verify the fix and catch any cascading issues.
+#### Step 1: Group and Prioritize Findings
+
+Organize remaining findings for presentation:
+
+1. **Group by severity.** Present all `error` findings before `warning` findings. Errors block sign-off; warnings are advisory.
+2. **Within each severity group, order by check ID.** S1 before S2 before S3 (spec mode); P1 before P2 before P3 (plan mode). This gives the user a predictable reading order.
+3. **Count and announce.** State the total: `N remaining issues need your input (X errors, Y warnings).`
+
+#### Step 2: Present Each Finding
+
+For each finding, present exactly three sections:
+
+**What is wrong** — Use the finding's `title` as a heading, followed by the `detail` field. Include the `evidence` references so the user can locate the problem in context.
+
+```
+[{id}] {title} ({severity})
+{detail}
+Evidence: {evidence[0]}, {evidence[1]}, ...
+```
+
+**Why it matters** — Explain the consequence of leaving this unresolved:
+
+- For `error` severity: "This blocks sign-off. The spec/plan cannot be finalized until this is resolved."
+- For `warning` severity: "This is advisory. You may dismiss it with a reason, but the concern will be logged."
+
+**Suggested resolution** — Present the `suggestedFix` as the primary option, then list alternative resolution paths:
+
+- **Option A (recommended):** The suggested fix from the finding.
+- **Option B:** An alternative approach if one is apparent from context.
+- **Option C (warnings only):** "Dismiss with reason — explain why this is acceptable."
+
+#### Step 3: User Interaction
+
+Wait for the user to respond to each finding. Accepted responses:
+
+1. **Resolve:** The user makes the suggested change (or an alternative). Mark the finding as `resolved`. The user may edit the spec/plan directly, add a decision to the Decisions table, add a task, or modify an existing task.
+
+2. **Dismiss with reason (warnings only):** The user provides a reason why the warning is acceptable. Mark the finding as `dismissed` and log: `[{id}] DISMISSED by user: {reason}`. Dismissed findings are not re-surfaced in subsequent loop iterations.
+
+3. **Clarify:** The user asks for more context about the finding. Provide additional detail from the evidence and codebase reads. Do not mark the finding as resolved — wait for a resolve or dismiss response.
+
+Error-severity findings cannot be dismissed. They must be resolved before sign-off.
+
+#### Step 4: Track Resolution Progress
+
+Maintain a running status of all surfaced findings:
+
+```
+Surfaced findings: N total
+  Resolved: X
+  Dismissed: Y (warnings only)
+  Pending: Z
+```
+
+After each user resolution or dismissal, update the count and present the next pending finding. When all findings are either resolved or dismissed, proceed to Step 5.
+
+#### Step 5: Re-Check After Resolution
+
+After all surfaced findings have been addressed:
+
+1. Loop back to Phase 1 (CHECK) to verify that user resolutions are correct and catch any cascading issues introduced by the changes.
+2. Previously dismissed findings (logged with reason) are excluded from this re-check. They do not re-appear.
+3. If the re-check produces new findings, the full convergence loop runs again (Phase 1 through Phase 4). This is expected — user changes can introduce new issues.
+4. If the re-check produces zero findings, proceed to Clean Exit.
 
 #### Clean Exit
 
-When no issues remain (all checks pass, zero findings), return control to the parent skill (harness-brainstorming or harness-planning) for sign-off.
+Clean Exit occurs when ALL of the following are true:
 
-> **Status:** Not yet implemented. Surfacing UX will be added in Phase 8 of the implementation order.
+- All checks pass with zero findings (excluding dismissed warnings).
+- No `error`-severity findings are pending or dismissed (errors cannot be dismissed).
+- The convergence loop has terminated (issue count stopped decreasing or reached zero).
+
+On clean exit:
+
+1. Announce: `CLEAN EXIT — all checks pass. Returning control to {parent skill} for sign-off.`
+2. If any warnings were dismissed, include a summary: `Note: {N} warnings were dismissed by user. See log for reasons.`
+3. Return control to the parent skill (harness-brainstorming or harness-planning).
 
 ---
 
