@@ -188,3 +188,81 @@ export interface ContextScopeOptions {
   /** Pre-gathered commit history entries. If provided, included in all bundles. */
   commitHistory?: CommitHistoryEntry[];
 }
+
+// --- Phase 4: Fan-Out types ---
+
+/**
+ * Model tier — abstract label resolved at runtime from project config.
+ * - fast: haiku-class (gate, context phases)
+ * - standard: sonnet-class (compliance, architecture agents)
+ * - strong: opus-class (bug detection, security agents)
+ */
+export type ModelTier = 'fast' | 'standard' | 'strong';
+
+/**
+ * Severity level for AI-produced review findings.
+ */
+export type FindingSeverity = 'critical' | 'important' | 'suggestion';
+
+/**
+ * A finding produced by a Phase 4 review subagent.
+ * Common schema used across all four agents and in Phases 5-7.
+ */
+export interface ReviewFinding {
+  /** Unique identifier for dedup (format: domain-file-line, e.g. "bug-src/auth.ts-42") */
+  id: string;
+  /** File path (project-relative) */
+  file: string;
+  /** Start and end line numbers */
+  lineRange: [number, number];
+  /** Which review domain produced this finding */
+  domain: ReviewDomain;
+  /** Severity level */
+  severity: FindingSeverity;
+  /** One-line summary of the issue */
+  title: string;
+  /** Why this is an issue — the reasoning */
+  rationale: string;
+  /** Suggested fix, if available */
+  suggestion?: string;
+  /** Supporting context/evidence from the agent */
+  evidence: string[];
+  /** How this finding was validated (set in Phase 5; agents set 'heuristic' by default) */
+  validatedBy: 'mechanical' | 'graph' | 'heuristic';
+}
+
+/**
+ * Descriptor for a review subagent — metadata about its purpose and model tier.
+ */
+export interface ReviewAgentDescriptor {
+  /** Review domain this agent covers */
+  domain: ReviewDomain;
+  /** Model tier annotation (resolved to a concrete model at runtime) */
+  tier: ModelTier;
+  /** Human-readable name for output */
+  displayName: string;
+  /** Focus area descriptions for this agent */
+  focusAreas: string[];
+}
+
+/**
+ * Result from a single review agent.
+ */
+export interface AgentReviewResult {
+  /** Which domain produced these findings */
+  domain: ReviewDomain;
+  /** Findings produced by this agent */
+  findings: ReviewFinding[];
+  /** Time taken in milliseconds */
+  durationMs: number;
+}
+
+/**
+ * Options for the fan-out orchestrator.
+ */
+export interface FanOutOptions {
+  /** Context bundles from Phase 3 (one per domain) */
+  bundles: ContextBundle[];
+  /** Exclusion set from Phase 2 (for pre-filtering, optional) */
+  exclusionSet?: import('./exclusion-set').ExclusionSet;
+}
