@@ -109,6 +109,7 @@ import {
   handleGenerateAgentDefinitions,
 } from './tools/agent-definitions.js';
 import { runSecurityScanDefinition, handleRunSecurityScan } from './tools/security.js';
+import { manageRoadmapDefinition, handleManageRoadmap } from './tools/roadmap.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -153,6 +154,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   updatePerfBaselinesDefinition,
   getCriticalPathsDefinition,
   listStreamsDefinition,
+  manageRoadmapDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -192,6 +194,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   update_perf_baselines: handleUpdatePerfBaselines as ToolHandler,
   get_critical_paths: handleGetCriticalPaths as ToolHandler,
   list_streams: handleListStreams as ToolHandler,
+  manage_roadmap: handleManageRoadmap as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
