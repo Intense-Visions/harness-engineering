@@ -66,6 +66,10 @@ export class SecurityScanner {
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i] ?? '';
+
+        // Support inline suppression: // harness-ignore SEC-XXX-NNN
+        if (line.includes('harness-ignore') && line.includes(rule.id)) continue;
+
         for (const pattern of rule.patterns) {
           // Reset regex lastIndex for global/sticky patterns
           pattern.lastIndex = 0;

@@ -16,7 +16,7 @@ export interface EdgeQuery {
 
 type LokiDoc<T> = T & { $loki: number; meta: Record<string, unknown> };
 
-const POISONED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const POISONED_KEYS = new Set(['__proto__', 'constructor', 'prototype']); // harness-ignore SEC-NODE-001
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function safeMerge(target: any, source: any): void {
