@@ -32,6 +32,10 @@ export type {
   ModelTierConfig,
   ModelProvider,
   ProviderDefaults,
+  // Pipeline orchestrator types
+  PipelineFlags,
+  PipelineContext,
+  PipelineResult,
 } from './types';
 
 // Mechanical checks
