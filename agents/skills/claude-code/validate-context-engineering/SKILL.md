@@ -32,6 +32,18 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 
 When a graph is available, it IS the source of truth for documentation coverage. Drift = stale or missing edges between code and doc nodes. Fall back to file-based commands if no graph is available.
 
+### Pipeline Context (when orchestrated)
+
+When invoked by `harness-docs-pipeline`, check for a `pipeline` field in `.harness/handoff.json`:
+
+- If `pipeline` field exists: read `DocPipelineContext` from it
+  - Use `pipeline.exclusions` to skip findings that were already addressed in the FIX phase
+  - Write `GapFinding[]` results back to `pipeline.gapFindings` in handoff.json
+  - This enables dedup across FIX and AUDIT phases
+- If `pipeline` field does not exist: behave exactly as today (standalone mode)
+
+No changes to the skill's interface or output format — the pipeline field is purely additive.
+
 ### Phase 2: Detect Gaps
 
 Categorize findings into four types:

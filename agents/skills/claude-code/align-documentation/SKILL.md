@@ -40,6 +40,19 @@ When a knowledge graph exists at `.harness/graph/`, use graph queries for faster
 
 Replaces manual doc-to-code correlation. Fall back to file-based commands if no graph is available.
 
+### Pipeline Context (when orchestrated)
+
+When invoked by `harness-docs-pipeline`, check for a `pipeline` field in `.harness/handoff.json`:
+
+- If `pipeline` field exists: read `DocPipelineContext` from it
+  - Read `pipeline.driftFindings` to know which fixes to apply (pre-classified by safety)
+  - If `pipeline.fixBatch` is set, apply only those specific fixes rather than running full detection
+  - Write applied fixes as `DocFix[]` back to `pipeline.fixesApplied`
+  - This enables the convergence loop to track fix verification status
+- If `pipeline` field does not exist: behave exactly as today (standalone mode)
+
+No changes to the skill's interface or output format — the pipeline field is purely additive.
+
 ### Phase 2: Map — Connect Code Changes to Documentation
 
 For each changed file, identify all documentation that references it:

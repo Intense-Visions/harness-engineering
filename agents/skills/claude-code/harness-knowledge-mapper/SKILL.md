@@ -31,6 +31,18 @@ run `harness scan` to refresh before proceeding. (Staleness sensitivity: **Mediu
 **If no graph exists:** Output "Running without graph (run `harness scan` to
 enable full analysis)" and use fallback strategies for all subsequent steps.
 
+### Pipeline Context (when orchestrated)
+
+When invoked by `harness-docs-pipeline`, check for a `pipeline` field in `.harness/handoff.json`:
+
+- If `pipeline` field exists: read `DocPipelineContext` from it
+  - If `pipeline.bootstrapped === true`, this is a bootstrap invocation — generate full AGENTS.md without confirmation prompt
+  - Write any generated documentation back as `DocFix[]` to `pipeline.fillsApplied`
+  - This enables the orchestrator to track what was generated and verify it
+- If `pipeline` field does not exist: behave exactly as today (standalone mode)
+
+No changes to the skill's interface or output format — the pipeline field is purely additive.
+
 ## Process
 
 ### Phase 1: SURVEY — Query Graph for Structure
