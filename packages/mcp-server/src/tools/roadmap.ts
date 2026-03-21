@@ -1,0 +1,386 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import { resultToMcpResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
+
+export const manageRoadmapDefinition = {
+  name: 'manage_roadmap',
+  description:
+    'Manage the project roadmap: show, add, update, remove features, or query by filter. Reads and writes docs/roadmap.md.',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      path: { type: 'string', description: 'Path to project root' },
+      action: {
+        type: 'string',
+        enum: ['show', 'add', 'update', 'remove', 'query'],
+        description: 'Action to perform',
+      },
+      feature: { type: 'string', description: 'Feature name (required for add, update, remove)' },
+      milestone: {
+        type: 'string',
+        description: 'Milestone name (required for add; optional filter for show)',
+      },
+      status: {
+        type: 'string',
+        enum: ['backlog', 'planned', 'in-progress', 'done', 'blocked'],
+        description:
+          'Feature status (required for add; optional for update; optional filter for show)',
+      },
+      summary: {
+        type: 'string',
+        description: 'Feature summary (required for add; optional for update)',
+      },
+      spec: { type: 'string', description: 'Spec file path (optional for add/update)' },
+      plans: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Plan file paths (optional for add/update)',
+      },
+      blocked_by: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Blocking feature names (optional for add/update)',
+      },
+      filter: {
+        type: 'string',
+        description:
+          'Query filter: "blocked", "in-progress", "done", "planned", "backlog", or "milestone:<name>" (required for query)',
+      },
+    },
+    required: ['path', 'action'],
+  },
+};
+
+interface ManageRoadmapInput {
+  path: string;
+  action: 'show' | 'add' | 'update' | 'remove' | 'query';
+  feature?: string;
+  milestone?: string;
+  status?: 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
+  summary?: string;
+  spec?: string;
+  plans?: string[];
+  blocked_by?: string[];
+  filter?: string;
+}
+
+function roadmapPath(projectRoot: string): string {
+  return path.join(projectRoot, 'docs', 'roadmap.md');
+}
+
+function readRoadmapFile(projectRoot: string): string | null {
+  const filePath = roadmapPath(projectRoot);
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+function writeRoadmapFile(projectRoot: string, content: string): void {
+  const filePath = roadmapPath(projectRoot);
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(filePath, content, 'utf-8');
+}
+
+export async function handleManageRoadmap(input: ManageRoadmapInput) {
+  try {
+    const { parseRoadmap, serializeRoadmap } = await import('@harness-engineering/core');
+    const { Ok, Err } = await import('@harness-engineering/types');
+
+    const projectPath = sanitizePath(input.path);
+
+    switch (input.action) {
+      case 'show': {
+        const raw = readRoadmapFile(projectPath);
+        if (raw === null) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        const result = parseRoadmap(raw);
+        if (!result.ok) return resultToMcpResponse(result);
+
+        let roadmap = result.value;
+
+        // Apply milestone filter
+        if (input.milestone) {
+          const milestoneFilter = input.milestone;
+          roadmap = {
+            ...roadmap,
+            milestones: roadmap.milestones.filter(
+              (m) => m.name.toLowerCase() === milestoneFilter.toLowerCase()
+            ),
+          };
+        }
+
+        // Apply status filter
+        if (input.status) {
+          const statusFilter = input.status;
+          roadmap = {
+            ...roadmap,
+            milestones: roadmap.milestones
+              .map((m) => ({
+                ...m,
+                features: m.features.filter((f) => f.status === statusFilter),
+              }))
+              .filter((m) => m.features.length > 0),
+          };
+        }
+
+        return resultToMcpResponse(Ok(roadmap));
+      }
+
+      case 'add': {
+        if (!input.feature) {
+          return {
+            content: [{ type: 'text' as const, text: 'Error: feature is required for add action' }],
+            isError: true,
+          };
+        }
+        if (!input.milestone) {
+          return {
+            content: [
+              { type: 'text' as const, text: 'Error: milestone is required for add action' },
+            ],
+            isError: true,
+          };
+        }
+        if (!input.status) {
+          return {
+            content: [{ type: 'text' as const, text: 'Error: status is required for add action' }],
+            isError: true,
+          };
+        }
+        if (!input.summary) {
+          return {
+            content: [{ type: 'text' as const, text: 'Error: summary is required for add action' }],
+            isError: true,
+          };
+        }
+
+        const raw = readRoadmapFile(projectPath);
+        if (raw === null) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        const result = parseRoadmap(raw);
+        if (!result.ok) return resultToMcpResponse(result);
+
+        const roadmap = result.value;
+        const milestone = roadmap.milestones.find(
+          (m) => m.name.toLowerCase() === input.milestone!.toLowerCase()
+        );
+        if (!milestone) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Error: milestone "${input.milestone}" not found` },
+            ],
+            isError: true,
+          };
+        }
+
+        milestone.features.push({
+          name: input.feature,
+          status: input.status,
+          spec: input.spec ?? null,
+          plans: input.plans ?? [],
+          blockedBy: input.blocked_by ?? [],
+          summary: input.summary,
+        });
+
+        // Update last_manual_edit timestamp
+        roadmap.frontmatter.lastManualEdit = new Date().toISOString();
+
+        writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+        return resultToMcpResponse(Ok(roadmap));
+      }
+
+      case 'update': {
+        if (!input.feature) {
+          return {
+            content: [
+              { type: 'text' as const, text: 'Error: feature is required for update action' },
+            ],
+            isError: true,
+          };
+        }
+
+        const raw = readRoadmapFile(projectPath);
+        if (raw === null) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        const result = parseRoadmap(raw);
+        if (!result.ok) return resultToMcpResponse(result);
+
+        const roadmap = result.value;
+        let found = false;
+        for (const m of roadmap.milestones) {
+          const feature = m.features.find(
+            (f) => f.name.toLowerCase() === input.feature!.toLowerCase()
+          );
+          if (feature) {
+            if (input.status) feature.status = input.status;
+            if (input.summary !== undefined) feature.summary = input.summary;
+            if (input.spec !== undefined) feature.spec = input.spec || null;
+            if (input.plans !== undefined) feature.plans = input.plans;
+            if (input.blocked_by !== undefined) feature.blockedBy = input.blocked_by;
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Error: feature "${input.feature}" not found` },
+            ],
+            isError: true,
+          };
+        }
+
+        roadmap.frontmatter.lastManualEdit = new Date().toISOString();
+
+        writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+        return resultToMcpResponse(Ok(roadmap));
+      }
+
+      case 'remove': {
+        if (!input.feature) {
+          return {
+            content: [
+              { type: 'text' as const, text: 'Error: feature is required for remove action' },
+            ],
+            isError: true,
+          };
+        }
+
+        const raw = readRoadmapFile(projectPath);
+        if (raw === null) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        const result = parseRoadmap(raw);
+        if (!result.ok) return resultToMcpResponse(result);
+
+        const roadmap = result.value;
+        let found = false;
+        for (const m of roadmap.milestones) {
+          const idx = m.features.findIndex(
+            (f) => f.name.toLowerCase() === input.feature!.toLowerCase()
+          );
+          if (idx !== -1) {
+            m.features.splice(idx, 1);
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Error: feature "${input.feature}" not found` },
+            ],
+            isError: true,
+          };
+        }
+
+        roadmap.frontmatter.lastManualEdit = new Date().toISOString();
+
+        writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
+        return resultToMcpResponse(Ok(roadmap));
+      }
+
+      case 'query': {
+        if (!input.filter) {
+          return {
+            content: [
+              { type: 'text' as const, text: 'Error: filter is required for query action' },
+            ],
+            isError: true,
+          };
+        }
+
+        const raw = readRoadmapFile(projectPath);
+        if (raw === null) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: docs/roadmap.md not found. Create a roadmap first.',
+              },
+            ],
+            isError: true,
+          };
+        }
+        const result = parseRoadmap(raw);
+        if (!result.ok) return resultToMcpResponse(result);
+
+        const roadmap = result.value;
+        const allFeatures = roadmap.milestones.flatMap((m) =>
+          m.features.map((f) => ({ ...f, milestone: m.name }))
+        );
+
+        const filter = input.filter.toLowerCase();
+        let filtered: typeof allFeatures;
+
+        if (filter.startsWith('milestone:')) {
+          const milestoneName = filter.slice('milestone:'.length).trim();
+          filtered = allFeatures.filter((f) => f.milestone.toLowerCase().includes(milestoneName));
+        } else {
+          // Treat filter as a status value
+          filtered = allFeatures.filter((f) => f.status === filter);
+        }
+
+        return resultToMcpResponse(Ok(filtered));
+      }
+
+      default: {
+        return {
+          content: [{ type: 'text' as const, text: `Error: unknown action` }],
+          isError: true,
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
