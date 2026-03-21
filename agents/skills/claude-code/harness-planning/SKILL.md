@@ -38,6 +38,19 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
 
 5. **Apply YAGNI.** For every artifact, ask: "Is this required for an observable truth?" If not, cut it.
 
+   When scope is ambiguous and requires clarification, use `emit_interaction`:
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "question",
+     question: {
+       text: "The spec mentions X but does not define behavior for Y. Should we:",
+       options: ["A) Include Y in this plan", "B) Defer Y to a follow-up plan", "C) Update the spec first"]
+     }
+   })
+   ```
+
 #### EARS Requirement Patterns
 
 When writing observable truths and acceptance criteria, use EARS (Easy Approach to Requirements Syntax) sentence patterns. These patterns eliminate ambiguity by forcing a consistent grammatical structure.
@@ -72,6 +85,12 @@ Enables accurate effort estimation and task sequencing. Fall back to file-based 
 ---
 
 ### Phase 2: DECOMPOSE — Map File Structure and Create Tasks
+
+When presenting the task breakdown, use progress markers:
+
+```
+**[Phase 2/4]** DECOMPOSE — mapping file structure and creating tasks
+```
 
 1. **Map the file structure first.** Before writing any tasks, list every file that will be created or modified. This is where decomposition decisions are locked. Example:
 
@@ -147,7 +166,33 @@ Enables accurate effort estimation and task sequencing. Fall back to file-based 
    }
    ```
 
-9. **Present the plan to the human for review.** Walk through the task list, the estimated timeline, and any checkpoints that require human input.
+9. **Request plan sign-off:**
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "confirmation",
+     confirmation: {
+       text: "Approve plan at <plan-file-path>?",
+       context: "<task count> tasks, <estimated time> minutes. <one-sentence summary>"
+     }
+   })
+   ```
+
+10. **Emit phase transition after approval:**
+
+    ```json
+    emit_interaction({
+      path: "<project-root>",
+      type: "transition",
+      transition: {
+        completedPhase: "planning",
+        suggestedNext: "execution",
+        reason: "Plan approved, ready for task-by-task implementation",
+        artifacts: ["<plan-file-path>"]
+      }
+    })
+    ```
 
 ---
 

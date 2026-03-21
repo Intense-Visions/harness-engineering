@@ -15,6 +15,7 @@ tools:
   - Write
   - Edit
   - Glob
+  - emit_interaction
 cli:
   command: harness skill run harness-planning
   args:
