@@ -14,10 +14,14 @@ export function detectPackageManager(): PackageManager {
     if (!argv1) return 'npm';
     const binPath = realpathSync(argv1);
 
-    if (binPath.includes('pnpm/global/') || binPath.includes('pnpm-global/')) {
+    // Normalize to forward slashes for cross-platform path matching
+    const normalizedBin = binPath.replace(/\\/g, '/');
+    if (normalizedBin.includes('pnpm/global/') || normalizedBin.includes('pnpm-global/')) {
+      // platform-safe: already normalized
       return 'pnpm';
     }
-    if (binPath.includes('.yarn/')) {
+    if (normalizedBin.includes('.yarn/')) {
+      // platform-safe: already normalized
       return 'yarn';
     }
   } catch {
