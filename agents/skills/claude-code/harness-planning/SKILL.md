@@ -179,20 +179,26 @@ When presenting the task breakdown, use progress markers:
    })
    ```
 
-10. **Emit phase transition after approval:**
+10. **Suggest transition to execution.** After the human approves the plan:
+
+    Call `emit_interaction`:
 
     ```json
-    emit_interaction({
-      path: "<project-root>",
-      type: "transition",
-      transition: {
-        completedPhase: "planning",
-        suggestedNext: "execution",
-        reason: "Plan approved, ready for task-by-task implementation",
-        artifacts: ["<plan-file-path>"]
+    {
+      "type": "transition",
+      "transition": {
+        "completedPhase": "planning",
+        "suggestedNext": "execution",
+        "reason": "Plan approved with all tasks defined",
+        "artifacts": ["<plan file path>"],
+        "requiresConfirmation": true,
+        "summary": "<Plan title> -- <N> tasks, <N> checkpoints. Estimated <time>."
       }
-    })
+    }
     ```
+
+    If the user confirms: invoke harness-execution with the plan path.
+    If the user declines: stop. The handoff is already written for future invocation.
 
 ---
 
@@ -258,6 +264,7 @@ One sentence.
 - **Plan location** — Plans go to `docs/plans/`. Follow the naming convention: `YYYY-MM-DD-<feature-name>-plan.md`.
 - **Handoff to harness-execution** — Once the plan is approved, invoke harness-execution to begin task-by-task implementation.
 - **Task commands** — Every task includes exact harness CLI commands to run (e.g., `harness validate`, `harness check-deps`).
+- **`emit_interaction`** -- Call at the end of Phase 4 to suggest transitioning to harness-execution. Uses confirmed transition (waits for user approval).
 
 ## Change Specifications
 
