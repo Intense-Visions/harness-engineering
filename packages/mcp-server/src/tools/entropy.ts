@@ -88,12 +88,32 @@ export const applyFixesDefinition = {
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       dryRun: { type: 'boolean', description: 'Preview fixes without applying' },
+      fixTypes: {
+        type: 'array',
+        items: {
+          type: 'string',
+          enum: [
+            'unused-imports',
+            'dead-files',
+            'dead-exports',
+            'commented-code',
+            'orphaned-deps',
+            'forbidden-import-replacement',
+            'import-ordering',
+          ],
+        },
+        description: 'Specific fix types to apply (default: all safe types)',
+      },
     },
     required: ['path'],
   },
 };
 
-export async function handleApplyFixes(input: { path: string; dryRun?: boolean }) {
+export async function handleApplyFixes(input: {
+  path: string;
+  dryRun?: boolean;
+  fixTypes?: string[];
+}) {
   try {
     const { EntropyAnalyzer, createFixes, applyFixes, generateSuggestions } =
       await import('@harness-engineering/core');
@@ -108,7 +128,8 @@ export async function handleApplyFixes(input: { path: string; dryRun?: boolean }
 
     const report = analysisResult.value;
     const deadCode = report.deadCode;
-    const fixes = deadCode ? createFixes(deadCode, {}) : [];
+    const fixTypesConfig = input.fixTypes ? { fixTypes: input.fixTypes } : {};
+    const fixes = deadCode ? createFixes(deadCode, fixTypesConfig) : [];
     const suggestions = generateSuggestions(report.deadCode, report.drift, report.patterns);
 
     if (input.dryRun) {
