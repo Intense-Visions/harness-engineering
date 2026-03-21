@@ -359,3 +359,93 @@ describe('manage_roadmap remove action', () => {
     expect(response.content[0].text).toContain('feature is required');
   });
 });
+
+describe('manage_roadmap query action', () => {
+  it('queries by status "in-progress"', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'query',
+      filter: 'in-progress',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].name).toBe('Auth System');
+    expect(parsed[0].milestone).toBe('MVP Release');
+  });
+
+  it('queries by status "planned"', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'query',
+      filter: 'planned',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed).toHaveLength(2);
+    const names = parsed.map((f: { name: string }) => f.name);
+    expect(names).toContain('User Dashboard');
+    expect(names).toContain('Dark Mode');
+  });
+
+  it('queries by milestone prefix', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'query',
+      filter: 'milestone:MVP',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed).toHaveLength(2);
+    for (const f of parsed) {
+      expect(f.milestone).toBe('MVP Release');
+    }
+  });
+
+  it('queries by status "backlog"', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'query',
+      filter: 'backlog',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].name).toBe('Mobile App');
+  });
+
+  it('returns empty array when no features match', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'query',
+      filter: 'done',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed).toEqual([]);
+  });
+
+  it('returns error when filter is missing', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'query',
+    } as Parameters<typeof handleManageRoadmap>[0]);
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('filter is required');
+  });
+
+  it('returns error when roadmap file does not exist', async () => {
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-empty-'));
+    try {
+      const response = await handleManageRoadmap({
+        path: emptyDir,
+        action: 'query',
+        filter: 'blocked',
+      });
+      expect(response.isError).toBe(true);
+      expect(response.content[0].text).toContain('not found');
+    } finally {
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    }
+  });
+});
