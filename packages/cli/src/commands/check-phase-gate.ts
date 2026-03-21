@@ -28,7 +28,7 @@ export interface CheckPhaseGateResult {
 /**
  * Resolve an implementation file path to an expected spec path.
  *
- * Default mapping: `src/<feature>/file.ts` -> `docs/specs/<feature>.md`
+ * Default mapping: `src/<feature>/file.ts` -> `docs/changes/<feature>/proposal.md`
  * The specPattern supports `{feature}` as a placeholder for the first
  * directory segment under the impl pattern's base.
  */
