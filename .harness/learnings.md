@@ -221,3 +221,56 @@
 - [skill:harness-autopilot] [outcome:observation] Code review consistently caught internal coherence issues (arithmetic in examples, mislabeled cascading fixes, P5-001 classification inconsistency, stale forward references) — exactly the kind of issues this soundness review skill is designed to detect
 - [skill:harness-autopilot] [outcome:observation] Phases 4-6 were more comprehensive than the spec anticipated — Phase 4 delivered plan-mode fix procedures (spec Phase 5 scope), and Phases 2/4 delivered graph variants (spec Phase 6 scope), reducing later phases to gap-filling
 - [skill:harness-autopilot] [outcome:observation] gemini-cli copies: some skills use symlinks (brainstorming, planning) while others use regular files (soundness-review). Always check before assuming copy behavior
+
+## 2026-03-21 — Roadmap Core Types and Parser (Phase 1)
+
+- [skill:harness-execution] [outcome:success] All 6 tasks completed in a single session with 6 atomic commits. 16 new tests (10 parse + 6 serialize), full TDD rhythm.
+- [skill:harness-execution] [outcome:gotcha] Types package dist must be rebuilt (`pnpm run build` in packages/types) before core `tsc --noEmit` can resolve new type exports. Tests pass without rebuild (vitest resolves via workspace aliases), but tsc needs the .d.ts files. Same pattern as update-checker Phase 2 learning.
+
+## 2026-03-21 — Roadmap MCP Tool CRUD Operations (Phase 2)
+
+- [skill:harness-execution] [outcome:success] All 7 tasks completed in a single session with 7 atomic commits. 31 new roadmap tests, 201 total MCP server tests pass.
+- [skill:harness-execution] [outcome:gotcha] server-integration.test.ts has a separate tool count assertion from server.test.ts -- both must be updated when adding new tools. Plan only mentioned server.test.ts (37->38), but server-integration.test.ts also had a hardcoded 37.
+
+## 2026-03-21 — Roadmap Skill Interactive Creation (Phase 3)
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed in a single session with 3 atomic commits. 248 structure tests, 55 slash-command tests pass. Both platform copies staged together for Prettier parity.
+- [skill:harness-execution] [outcome:gotcha] Skill structure tests must be run via `./packages/cli/node_modules/.bin/vitest` from root, not `npx vitest` or `pnpm exec vitest`. The root does not have vitest in PATH and pnpm exec runs recursively across workspaces.
+- [skill:harness-execution] [outcome:gotcha] dist/ copies of agents/skills/tests/ always fail due to pre-existing tsconfig resolution issue (extends: ../../tsconfig.base.json cannot resolve from dist/). Only the actual agents/skills/tests/ results matter -- the 2 dist/ failures are noise.
+- [skill:harness-execution] [outcome:success] Combined Tasks 2+3 (SKILL.md creation) with gemini-cli copy into a single commit, honoring the Prettier parity learning from prior phases. Prettier reformatted both copies identically.
+
+## 2026-03-21 — Interaction Surface Abstraction: Skill Migration (Tasks 7-14)
+
+- [skill:harness-execution] [outcome:success] All 8 tasks (7-14) completed in a single session with 7 atomic commits. All 5 core skills migrated with emit_interaction tool and markdown conventions. 14 core + 10 MCP + 12 CLI tests pass.
+- [skill:harness-execution] [outcome:gotcha] All 5 core skill files (brainstorming, planning, execution, verification, code-review) are hardlinked between claude-code and gemini-cli directories (same inode). Editing the claude-code copy automatically updates gemini-cli — no separate copy step needed. The cp command even fails with "identical (not copied)" error.
+- [skill:harness-execution] [outcome:gotcha] code-review SKILL.md had "Terminal" references in two locations beyond the Phase 7 heading: the pipeline phase table (row 7) and the success criteria list. Both needed surface-agnostic renaming to "Text output" for complete migration.
+- [skill:harness-execution] [outcome:success] Prettier reformatted the JSON code blocks inside SKILL.md files during pre-commit hooks, but since all platform copies are hardlinks, parity is preserved automatically.
+
+## 2026-03-21 — Detection-Remediation for Dead Code & Architecture
+
+- [skill:harness-execution] [outcome:success] All 18 tasks completed in a single session. 5 new test files (33 tests), 3 new implementation files, 7 modified files. Full TDD rhythm on all 5 implementation tasks (Tasks 3-7).
+- [skill:harness-execution] [outcome:gotcha] lint-staged stash/restore included uncommitted SKILL.md Phase 3+4 edits in an unrelated commit (93f2374). Same recurring pattern from prior learnings. Content was correct but the commit boundary was wrong.
+- [skill:harness-execution] [outcome:gotcha] SKILL.md structure tests require ## Examples section -- plan omitted this for the new harness-codebase-cleanup skill. Added post-hoc with an extra commit.
+- [skill:harness-execution] [outcome:success] cleanup-dead-code and enforce-architecture gemini-cli copies were already in sync (identical files, not symlinks). Editing claude-code copy and re-checking showed no diff needed.
+- [skill:harness-execution] [outcome:decision] Task 12 (config format) required no file changes -- the ForbiddenImportRule type from Task 2 already documents the optional alternative field, and no existing forbiddenImports entries need alternatives.
+
+## 2026-03-21 — Roadmap Integration Hooks (Phase 5)
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed. Documentation-only SKILL.md edits to 4 skills (harness-execution, harness-verify, initialize-harness-project, harness-autopilot) plus gemini-cli mirror. harness validate passes.
+- [skill:harness-execution] [outcome:gotcha] Task 4 commit failed due to lint-staged "prevented an empty git commit" -- Prettier reformatted the file to match what was already committed, making the staged diff empty after formatting. The changes had been absorbed into an unrelated commit (a51d5b8) by lint-staged stash/restore during the Task 3 commit. Same recurring lint-staged pattern.
+- [skill:harness-execution] [outcome:success] claude-code and gemini-cli harness-autopilot SKILL.md files are separate files (different inodes, not hardlinks). Both must be edited independently, unlike the 5 core skills (brainstorming, planning, execution, verification, code-review) which ARE hardlinked.
+
+## 2026-03-21 — Unified Documentation Pipeline
+
+- [skill:harness-execution] [outcome:success] All 12 tasks completed in a single session. 609 skill tests pass, 197 parity tests pass. 8 files created/modified across 7 commits.
+- [skill:harness-execution] [outcome:gotcha] Tasks 2-8 (incremental SKILL.md construction) cannot be committed individually because structure tests require ## Process, ## Examples, ## Gates, and ## Escalation sections. Must combine into a single file write.
+- [skill:harness-execution] [outcome:gotcha] 3 of 4 sub-skill SKILL.md files (detect-doc-drift, align-documentation, validate-context-engineering) are hardlinked between claude-code and gemini-cli. harness-knowledge-mapper is NOT hardlinked and needs manual copy for parity.
+- [skill:harness-execution] [outcome:gotcha] lint-staged stash/restore absorbed SKILL.md changes into unrelated commits (75769db, 9a1955d, b67c367). Same recurring pattern. Content was correct but commit boundaries and messages were wrong.
+
+## 2026-03-21 — Unified Code Review Pipeline Orchestrator
+
+- [skill:harness-execution] [outcome:success] All 12 tasks completed in a single session. 16 pipeline orchestrator tests, 193 total review tests, 40 MCP tools, CLI review command with 4 new flags.
+- [skill:harness-execution] [outcome:gotcha] Linter/prettier renamed PipelineResult to ReviewPipelineResult and runPipeline to runReviewPipeline during pre-commit hooks. All downstream references (tests, barrel exports, MCP tool) needed updating to match the renamed identifiers.
+- [skill:harness-execution] [outcome:gotcha] exactOptionalPropertyTypes strict mode requires conditional spreading (`graph != null ? { graph } : {}`) when passing optional fields destructured from options objects, since destructured undefined values fail assignment to optional properties.
+- [skill:harness-execution] [outcome:gotcha] ChangedFile type from feedback module does not have a `diff` field. The plan assumed `f.diff` would be available on parsed diff results, but only `f.path`, `f.status`, `f.additions`, `f.deletions` exist. fileDiffs must be populated separately.
+- [skill:harness-execution] [outcome:gotcha] lint-staged stash/restore continues to absorb staged changes into unrelated commits. Same pattern as 5+ prior sessions. Commit boundaries are wrong but content lands correctly.

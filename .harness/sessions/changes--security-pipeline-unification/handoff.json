@@ -1,0 +1,16 @@
+{
+  "fromSkill": "harness-execution",
+  "timestamp": "2026-03-21T12:40:00Z",
+  "summary": "All 7 tasks complete. Security pipeline unification implemented: ReviewFinding extended with security fields, security agent populates CWE/OWASP data, dedup preserves security fields, harness-security-review adapted for pipeline composition (scope arg, conditional phases), harness-code-review delegates to harness-security-review in Phase 4 fan-out.",
+  "pendingTasks": [],
+  "blockers": [],
+  "learnings": [
+    "gemini-cli harness-code-review SKILL.md is a hard link (same inode) to claude-code copy — editing one updates both automatically",
+    "skill.yaml for gemini-cli harness-security-review is a regular file copy — must be copied manually after edits"
+  ],
+  "commits": [
+    "96b4b8b feat(security-review): update skill.yaml for scope adaptation and pipeline composition",
+    "e329982 docs(code-review): replace security agent with harness-security-review invocation",
+    "3b711b4 docs(security): add change delta for security pipeline unification"
+  ]
+}

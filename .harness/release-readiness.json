@@ -1,30 +1,22 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-03-20T19:45:00Z",
+  "timestamp": "2026-03-21T08:03:00Z",
   "flags": {
     "comprehensive": false
   },
   "summary": {
-    "result": "FAIL",
-    "passed": 93,
+    "result": "PASS",
+    "passed": 94,
     "warned": 0,
-    "failed": 1,
+    "failed": 0,
     "total": 94
   },
   "categories": {
     "packaging": {
-      "passed": 76,
+      "passed": 77,
       "warned": 0,
-      "failed": 1,
-      "findings": [
-        {
-          "check": "lint passes",
-          "severity": "fail",
-          "fixable": false,
-          "fixed": false,
-          "detail": "ESLint 10 util.styleText requires Node >=22, running v21.6.1"
-        }
-      ]
+      "failed": 0,
+      "findings": []
     },
     "documentation": {
       "passed": 6,
@@ -45,10 +37,7 @@
       "findings": []
     },
     "maintenance": {
-      "doc-drift": {
-        "issues": 0,
-        "findings": []
-      },
+      "doc-drift": { "issues": 0, "findings": [] },
       "dead-code": {
         "issues": 11,
         "findings": [
@@ -112,9 +101,8 @@
         ]
       },
       "diagnostics": {
-        "issues": 4,
+        "issues": 2,
         "findings": [
-          { "severity": "error", "issue": "Node.js v21.6.1, requires >=22.0.0" },
           {
             "severity": "warning",
             "issue": "6 deprecated API call sites (validateAgentsMap/validateKnowledgeMap)"
@@ -122,10 +110,6 @@
           {
             "severity": "error",
             "issue": "harness check-perf cannot resolve entry points at monorepo root"
-          },
-          {
-            "severity": "ok",
-            "issue": "dependency versions aligned (@types/node, vitest, minimatch)"
           }
         ]
       }
@@ -144,10 +128,10 @@
       "readme-eslint-rule-count",
       "cli-devdeps-to-deps",
       "agents-md-docs-changes-dir",
-      "docs-api-deprecated-example"
+      "docs-api-deprecated-example",
+      "mcp-server-unused-path-imports"
     ],
     "pending": [
-      "node-version-upgrade",
       "mcp-server-cli-decoupling",
       "deprecated-api-migration",
       "orphan-barrel-files",

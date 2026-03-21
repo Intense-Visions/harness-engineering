@@ -1,20 +1,48 @@
 {
-  "fromSkill": "harness-autopilot",
-  "phase": "DONE",
-  "summary": "Completed 2 phases with 5 total tasks",
-  "completed": [
-    "Phase 1: Update autopilot SKILL.md with session scoping",
-    "Phase 2: Update skill.yaml state declaration"
+  "fromSkill": "harness-planning",
+  "phase": "VALIDATE",
+  "summary": "Planned unified code review pipeline orchestrator: 12 tasks to add PipelineContext/PipelineResult types, implement runPipeline() orchestrating all 7 phases, create run_code_review MCP tool, and upgrade CLI with --comment/--ci/--deep/--no-mechanical flags.",
+  "completed": [],
+  "pending": [
+    "Task 1: Add PipelineContext, PipelineFlags, and PipelineResult types",
+    "Task 2: Export new pipeline types from review barrel",
+    "Task 3: Create pipeline orchestrator test file (TDD - write failing tests)",
+    "Task 4: Implement pipeline orchestrator (make tests green)",
+    "Task 5: Export runPipeline from review barrel",
+    "Task 6: Add pipeline orchestrator tests for --comment flag and GitHub output",
+    "Task 7: Add pipeline orchestrator tests for mechanical stop and gate edge cases",
+    "Task 8: Create MCP tool definition for run_code_review",
+    "Task 9: Register run_code_review in MCP server tool index",
+    "Task 10: Upgrade CLI review command with pipeline flags",
+    "Task 11: Add PipelineContext inline import type for ExclusionSet",
+    "Task 12: Final verification -- run full test suite and validate"
   ],
-  "pending": [],
-  "concerns": [],
-  "decisions": ["Phase 1 plan approved by user", "Phase 2 plan approved by user"],
+  "concerns": [
+    "ExclusionSet inline import type in PipelineContext must use import('./exclusion-set').ExclusionSet to avoid circular dependency with types.ts",
+    "MCP tool registration pattern in tools/index.ts must be verified at checkpoint before Task 9",
+    "CLI review.ts replacement is a full rewrite -- existing tests or consumers of runAgentReview() may need adjustment",
+    "parseDiff output shape (codeChanges.files[].status, .diff) must be verified against actual CodeChanges type"
+  ],
+  "decisions": [
+    "Pipeline orchestrator lives in packages/core/src/review/pipeline-orchestrator.ts, not in CLI or MCP",
+    "PipelineContext is a mutable context object threaded through phases; PipelineResult is the immutable return value",
+    "Mechanical check errors are caught gracefully -- pipeline continues with empty exclusion set rather than crashing",
+    "Context scoping errors are caught gracefully -- pipeline uses minimal empty bundles as fallback",
+    "Tasks 6 and 7 are parallelizable (both add tests to the same file but different describe blocks)"
+  ],
   "contextKeywords": [
-    "autopilot",
-    "state-isolation",
-    "sessions",
-    "concurrent-execution",
-    "slugify",
-    "spec-scoping"
+    "code-review",
+    "pipeline-orchestrator",
+    "PipelineContext",
+    "PipelineResult",
+    "runPipeline",
+    "run_code_review",
+    "fan-out",
+    "mechanical-exclusion",
+    "eligibility-gate",
+    "deduplication",
+    "model-tiering",
+    "inline-comments",
+    "ReviewFinding"
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "fromSkill": "harness-execution",
+  "timestamp": "2026-03-21T16:27:00Z",
+  "summary": "All 12 tasks completed. Unified code review pipeline orchestrator implemented with runReviewPipeline(), MCP tool run_code_review, and CLI flags --comment/--ci/--deep/--no-mechanical.",
+  "pendingTasks": [],
+  "blockers": [],
+  "learnings": [
+    "Linter/prettier renamed PipelineResult to ReviewPipelineResult and runPipeline to runReviewPipeline during pre-commit hooks — all downstream references needed updating",
+    "lint-staged stash/restore continues to pull in unstaged changes from working tree into unrelated commits — same recurring pattern from prior sessions",
+    "exactOptionalPropertyTypes requires conditional spreading (graph != null ? { graph } : {}) when passing optional fields that may be undefined from destructuring",
+    "ChangedFile type from feedback module does not have a diff field — fileDiffs must be populated from raw diff string instead"
+  ]
+}
