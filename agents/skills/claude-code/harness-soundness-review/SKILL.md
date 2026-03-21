@@ -893,6 +893,12 @@ A fix applied in one pass can make a previously non-auto-fixable finding become 
 - **S2 enables S7:** The S2 fix adds a new success criterion. In the next pass, S7 checks the new criterion and finds it can be made more specific using Technical Design context.
 - **S4 enables S4:** The S4 fix adds an error case for one operation. In the next pass, S4 finds a related operation that can now follow the same error pattern (the first fix established a local convention).
 
+Plan-mode cascading fix examples:
+
+- **P1 enables P3:** The P1 fix adds a new task (covering a missing spec criterion). In the next pass, P3 detects that existing tasks import files created by the new task but do not declare a dependency on it. P3 adds the missing dependency edges.
+- **P1 enables P4:** The P1 fix adds a new task that creates a type file. In the next pass, P4 detects that the new task should be ordered before tasks that import that type, and reorders accordingly.
+- **P2 enables P5:** The P2 fix adds a verification step to a task, making its outputs explicit. In the next pass, P5 finds that a spec risk (previously unmatched to any task) is now mitigated by the newly explicit verification step.
+
 Cascading fixes are the reason the loop re-runs all checks, not just the checks that produced auto-fixable findings in the previous pass.
 
 #### Worked Example: Two-Pass Convergence
