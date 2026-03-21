@@ -148,7 +148,7 @@ export function createInitCommand(): Command {
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(targetPath, content);
 
-      if (platform === 'generic') {
+      if (platform === 'generic' && process.platform !== 'win32') {
         fs.chmodSync(targetPath, '755');
       }
 
