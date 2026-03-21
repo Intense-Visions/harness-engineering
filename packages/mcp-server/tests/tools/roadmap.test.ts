@@ -236,3 +236,126 @@ describe('manage_roadmap add action', () => {
     expect(parsed.frontmatter.lastManualEdit >= before).toBe(true);
   });
 });
+
+describe('manage_roadmap update action', () => {
+  it('updates feature status', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Auth System',
+      status: 'done',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const mvp = parsed.milestones.find((m: { name: string }) => m.name === 'MVP Release');
+    const auth = mvp.features.find((f: { name: string }) => f.name === 'Auth System');
+    expect(auth.status).toBe('done');
+  });
+
+  it('updates feature summary and spec', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      summary: 'Updated dark mode support',
+      spec: 'docs/specs/dark-mode.md',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
+    const dark = q2.features.find((f: { name: string }) => f.name === 'Dark Mode');
+    expect(dark.summary).toBe('Updated dark mode support');
+    expect(dark.spec).toBe('docs/specs/dark-mode.md');
+  });
+
+  it('updates blocked_by and plans', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'User Dashboard',
+      plans: ['docs/plans/dashboard-plan.md'],
+      blocked_by: ['Auth System', 'Dark Mode'],
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const mvp = parsed.milestones.find((m: { name: string }) => m.name === 'MVP Release');
+    const dash = mvp.features.find((f: { name: string }) => f.name === 'User Dashboard');
+    expect(dash.plans).toEqual(['docs/plans/dashboard-plan.md']);
+    expect(dash.blockedBy).toEqual(['Auth System', 'Dark Mode']);
+  });
+
+  it('performs case-insensitive feature lookup', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'auth system',
+      status: 'done',
+    });
+    expect(response.isError).toBeFalsy();
+  });
+
+  it('returns error when feature not found', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Nonexistent',
+      status: 'done',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('not found');
+  });
+
+  it('returns error when feature name is missing', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+    } as Parameters<typeof handleManageRoadmap>[0]);
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('feature is required');
+  });
+});
+
+describe('manage_roadmap remove action', () => {
+  it('removes a feature from its milestone', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'remove',
+      feature: 'Mobile App',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const backlog = parsed.milestones.find((m: { name: string }) => m.name === 'Backlog');
+    expect(backlog.features).toHaveLength(0);
+  });
+
+  it('persists removal to disk', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'remove',
+      feature: 'Dark Mode',
+    });
+    const response = await handleManageRoadmap({ path: tmpDir, action: 'show' });
+    const parsed = JSON.parse(response.content[0].text);
+    const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
+    expect(q2.features).toHaveLength(0);
+  });
+
+  it('returns error when feature not found', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'remove',
+      feature: 'Nonexistent',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('not found');
+  });
+
+  it('returns error when feature name is missing', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'remove',
+    } as Parameters<typeof handleManageRoadmap>[0]);
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('feature is required');
+  });
+});
