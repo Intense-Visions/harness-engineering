@@ -97,7 +97,8 @@ function writeRoadmapFile(projectRoot: string, content: string): void {
 
 export async function handleManageRoadmap(input: ManageRoadmapInput) {
   try {
-    const { parseRoadmap, serializeRoadmap } = await import('@harness-engineering/core');
+    const { parseRoadmap, serializeRoadmap, syncRoadmap } =
+      await import('@harness-engineering/core');
     const { Ok, Err } = await import('@harness-engineering/types');
 
     const projectPath = sanitizePath(input.path);
@@ -391,20 +392,6 @@ export async function handleManageRoadmap(input: ManageRoadmapInput) {
         const result = parseRoadmap(raw);
         if (!result.ok) return resultToMcpResponse(result);
 
-        // syncRoadmap is exported from @harness-engineering/core but may not be in dist .d.ts yet
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const coreModule = (await import('@harness-engineering/core')) as any;
-        const syncRoadmap = coreModule.syncRoadmap as (options: {
-          projectPath: string;
-          roadmap: typeof roadmap;
-          forceSync?: boolean;
-        }) => import('@harness-engineering/types').Result<
-          Array<{
-            feature: string;
-            from: import('@harness-engineering/types').FeatureStatus;
-            to: import('@harness-engineering/types').FeatureStatus;
-          }>
-        >;
         const roadmap = result.value;
         const syncResult = syncRoadmap({
           projectPath,

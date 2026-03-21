@@ -364,11 +364,10 @@ describe('syncRoadmap()', () => {
       const result = syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      // state.json progress applies globally (root state) — both features may be affected
-      // unless we add plan-path matching to root state
-      // For now, root state is global. Only autopilot state does plan matching.
-      // This test documents the current behavior.
-      expect(result.value.length).toBeGreaterThanOrEqual(1);
+      // Root state.json is skipped when multiple features have linked plans
+      // because it has no planPath field and would produce ambiguous inferences.
+      // Only autopilot session state (with precise planPath matching) is used.
+      expect(result.value).toEqual([]);
     });
   });
 });

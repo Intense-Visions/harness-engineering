@@ -64,18 +64,27 @@ function inferStatus(
   const allTaskStatuses: TaskStatus[] = [];
 
   // 3a. Check root .harness/state.json
-  const rootStatePath = path.join(projectPath, '.harness', 'state.json');
-  if (fs.existsSync(rootStatePath)) {
-    try {
-      const raw = fs.readFileSync(rootStatePath, 'utf-8');
-      const state: RootState = JSON.parse(raw);
-      if (state.progress) {
-        for (const status of Object.values(state.progress)) {
-          allTaskStatuses.push(status);
+  // Root state has no planPath field, so we can only use it when exactly one
+  // feature has linked plans. With multiple plan-linked features, root state
+  // is ambiguous and we rely solely on autopilot session state (which has
+  // precise planPath matching).
+  const featuresWithPlans = allFeatures.filter((f) => f.plans.length > 0);
+  const useRootState = featuresWithPlans.length <= 1;
+
+  if (useRootState) {
+    const rootStatePath = path.join(projectPath, '.harness', 'state.json');
+    if (fs.existsSync(rootStatePath)) {
+      try {
+        const raw = fs.readFileSync(rootStatePath, 'utf-8');
+        const state: RootState = JSON.parse(raw);
+        if (state.progress) {
+          for (const status of Object.values(state.progress)) {
+            allTaskStatuses.push(status);
+          }
         }
+      } catch {
+        // Ignore malformed state files
       }
-    } catch {
-      // Ignore malformed state files
     }
   }
 
