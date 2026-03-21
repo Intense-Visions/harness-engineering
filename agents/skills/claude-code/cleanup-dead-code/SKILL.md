@@ -43,7 +43,9 @@ Graph reachability reduces false positives compared to static analysis alone, si
 
 - Exports that are not imported anywhere AND not referenced in any config file
 - Files that are not imported anywhere AND have no side effects (no top-level execution)
-- Commented-out code blocks (dead by definition)
+- Dead exports (non-public, zero importers) -- remove `export` keyword or delete entirely if zero internal callers
+- Commented-out code blocks -- delete commented block (dead by definition, code is in git history)
+- Orphaned npm dependencies -- remove from package.json (probably safe; needs install+test verification)
 - Unused local variables and imports within a file (linter can catch these)
 
 **Needs human review before removal:**
@@ -69,6 +71,28 @@ For each item categorized as safe:
 4. **Run `harness validate` and `harness check-deps`.** Both must pass.
 
 5. **Commit the cleanup.** Group related removals into logical commits (e.g., "remove unused shipping utilities" not "delete dead code").
+
+**New fix types:**
+
+- **Dead exports (non-public):** Use `apply_fixes` with `fixTypes: ['dead-exports']`. The tool removes the `export` keyword. If the function/class has zero internal callers too, delete the entire declaration.
+- **Commented-out code:** Use `apply_fixes` with `fixTypes: ['commented-code']`. The tool deletes commented-out code blocks. This is cosmetic and only needs lint verification.
+- **Orphaned dependencies:** Use `apply_fixes` with `fixTypes: ['orphaned-deps']`. The tool removes the dep from package.json. **Must run `pnpm install && pnpm test` after** to verify nothing breaks.
+
+### Phase 3.5: Convergence Loop (Standalone)
+
+When running standalone (not through the orchestrator), apply a single-concern convergence loop:
+
+1. **Re-run detection.** After applying all safe fixes, run `harness cleanup --type dead-code` again.
+2. **Check if issue count decreased.** Compare the new count to the previous count.
+3. **If decreased: loop.** New dead code may have been exposed by the fixes (e.g., removing a dead export made a file fully unused). Go back to Phase 2 (Categorize) with the new report.
+4. **If unchanged: stop.** No more cascading fixes are possible. Proceed to Phase 4 (Report).
+5. **Maximum iterations: 5.** To prevent infinite loops, stop after 5 convergence cycles regardless.
+
+**Why convergence matters:** Removing dead code can create more dead code. For example:
+
+- Removing a dead export may make all remaining exports in a file dead, making the file itself dead.
+- Removing a dead file removes its imports, which may make other files' exports dead.
+- Removing an orphaned dep may cause lint warnings that reveal unused imports.
 
 ### Phase 4: Report Remaining Items
 
