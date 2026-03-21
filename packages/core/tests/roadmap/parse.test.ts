@@ -46,7 +46,7 @@ describe('parseRoadmap()', () => {
       const notif = result.value.milestones[0]?.features[0];
       expect(notif?.name).toBe('Notification System');
       expect(notif?.status).toBe('in-progress');
-      expect(notif?.spec).toBe('docs/specs/2026-03-14-notification-system.md');
+      expect(notif?.spec).toBe('docs/changes/notification-system/proposal.md');
       expect(notif?.plans).toHaveLength(2);
       expect(notif?.blockedBy).toEqual([]);
       expect(notif?.summary).toBe('Email and in-app notifications with polling');

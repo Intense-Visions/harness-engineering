@@ -208,7 +208,7 @@ When presenting the task breakdown, use progress markers:
 # Plan: <Feature Name>
 
 **Date:** YYYY-MM-DD
-**Spec:** docs/specs/<spec-file>.md (if applicable)
+**Spec:** docs/changes/<feature>/proposal.md (if applicable)
 **Estimated tasks:** N
 **Estimated time:** N minutes
 
@@ -286,7 +286,7 @@ When planning changes to existing functionality (not greenfield), express requir
 
 This is not mandatory for greenfield features. Only apply when modifying existing documented behavior.
 
-When `docs/specs/` exists in the project, produce `docs/changes/<feature>/delta.md` alongside the task plan. This keeps the change intent separate from the full spec and makes review easier.
+When `docs/changes/` exists in the project, produce `docs/changes/<feature>/delta.md` alongside the task plan. This keeps the change intent separate from the full spec and makes review easier.
 
 ## Success Criteria
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** pnpm monorepo, Turborepo, TypeScript, tsup, Vitest, GitHub Actions, Changesets
 
-**Spec:** `docs/specs/2026-03-16-release-readiness-design.md`
+**Spec:** `docs/changes/release-readiness-prep/proposal.md`
 
 ---
 

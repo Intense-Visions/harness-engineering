@@ -288,7 +288,7 @@ Complete the harness-roadmap skill by adding the three remaining commands (defau
    ```markdown
    ## Success Criteria
 
-   1. `--create` discovers all specs (`docs/specs/*.md`, `docs/changes/*/proposal.md`) and plans (`docs/plans/*.md`)
+   1. `--create` discovers all specs (`docs/changes/*/proposal.md`, `docs/changes/*/proposal.md`) and plans (`docs/plans/*.md`)
    2. `--create` proposes groupings and waits for human confirmation before writing
    3. `--create` produces a valid `docs/roadmap.md` that round-trips through `parseRoadmap`/`serializeRoadmap`
    4. `--add` collects all fields interactively (milestone, status, spec, summary, blockers, plan)

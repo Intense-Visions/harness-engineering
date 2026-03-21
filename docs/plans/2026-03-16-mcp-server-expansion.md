@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, `@modelcontextprotocol/sdk`, `@harness-engineering/core`, `vitest`
 
-**Spec:** `docs/specs/2026-03-16-mcp-server-expansion-design.md`
+**Spec:** `docs/changes/mcp-server-expansion/proposal.md`
 
 ---
 

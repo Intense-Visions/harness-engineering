@@ -38,7 +38,7 @@ Four layers, strict one-way dependencies:
 
 Every request must include `X-Tenant-ID`. Middleware validates it before any route handler runs. Services take `tenantId` as their first parameter. The data store is partitioned by tenant.
 
-See `docs/specs/tenant-isolation.md` for the full specification.
+See `docs/changes/tenant-isolation/proposal.md` for the full specification.
 
 ## Custom Linter Rules
 
@@ -73,7 +73,7 @@ const CreateUserSchema = z.object({
 harness validate --cross-check
 ```
 
-Checks that specs in `docs/specs/` align with the implementation. If the spec says something the code doesn't do (or vice versa), you'll get a warning.
+Checks that specs in `docs/changes/` align with the implementation. If the spec says something the code doesn't do (or vice versa), you'll get a warning.
 
 ## All Three Personas
 
@@ -85,9 +85,9 @@ Checks that specs in `docs/specs/` align with the implementation. If the spec sa
 
 ## Specs and Changes
 
-This project uses the `docs/specs/` + `docs/changes/` convention:
+This project uses the `docs/changes/` convention:
 
-- `docs/specs/` — Source of truth for what the system does today
+- `docs/changes/` — Specs and proposals organized by feature
 - `docs/changes/` — Proposals for new features (empty now, ready for use)
 
 When planning a new feature, create `docs/changes/<feature>/proposal.md` with your design.

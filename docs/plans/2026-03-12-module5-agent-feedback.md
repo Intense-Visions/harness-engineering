@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest, Node.js EventEmitter
 
-**Spec:** `docs/specs/2026-03-12-module5-agent-feedback-design.md`
+**Spec:** `docs/changes/agent-feedback/proposal.md`
 
 ---
 

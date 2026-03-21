@@ -1,7 +1,7 @@
 # Plan: Project-Local Skill Discovery
 
 **Date:** 2026-03-18
-**Spec:** docs/specs/2026-03-18-project-local-skill-discovery-design.md
+**Spec:** docs/changes/project-local-skill-discovery/proposal.md
 **Estimated tasks:** 7
 **Estimated time:** 14-25 minutes
 

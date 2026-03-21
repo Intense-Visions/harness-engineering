@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Express, Vitest, Zod, ESLint, @harness-engineering/eslint-plugin
 
-**Spec:** `docs/specs/2026-03-15-examples-and-docs-design.md`
+**Spec:** `docs/changes/examples-and-docs/proposal.md`
 
 ---
 
@@ -1024,7 +1024,7 @@ git commit -m "feat(examples): add task-api AGENTS.md, sample state, violations 
 - Create: `examples/multi-tenant-api/eslint.config.mjs`
 - Create: `examples/multi-tenant-api/harness-linter.yml`
 - Create: `examples/multi-tenant-api/docs/principles.md`
-- Create: `examples/multi-tenant-api/docs/specs/tenant-isolation.md`
+- Create: `examples/multi-tenant-api/docs/changes/tenant-isolation/proposal.md`
 - Create: `examples/multi-tenant-api/docs/changes/.gitkeep`
 
 - [ ] **Step 1: Create package.json**
@@ -1176,7 +1176,7 @@ Create `examples/multi-tenant-api/docs/principles.md`:
 5. **Defense in Depth** — Even if middleware fails, services reject requests without a valid tenantId.
 ```
 
-Create `examples/multi-tenant-api/docs/specs/tenant-isolation.md`:
+Create `examples/multi-tenant-api/docs/changes/tenant-isolation/proposal.md`:
 
 ```markdown
 # Tenant Isolation Specification
@@ -1591,7 +1591,7 @@ api/ → can import from types, middleware, services
 - Data store is partitioned by tenant
 - Cross-tenant access returns 404
 
-See `docs/specs/tenant-isolation.md` for the full specification.
+See `docs/changes/tenant-isolation/proposal.md` for the full specification.
 
 ## Repository Structure
 
@@ -1798,7 +1798,7 @@ Remove the import when done.
 
 ## 3. Cross-Artifact Staleness
 
-Edit `docs/specs/tenant-isolation.md` and add a new rule:
+Edit `docs/changes/tenant-isolation/proposal.md` and add a new rule:
 
 ```markdown
 6. All tenant data must be encrypted at rest
@@ -1879,7 +1879,7 @@ Four layers, strict one-way dependencies:
 
 Every request must include `X-Tenant-ID`. Middleware validates it before any route handler runs. Services take `tenantId` as their first parameter. The data store is partitioned by tenant.
 
-See `docs/specs/tenant-isolation.md` for the full specification.
+See `docs/changes/tenant-isolation/proposal.md` for the full specification.
 
 ## Custom Linter Rules
 
@@ -1914,7 +1914,7 @@ const CreateUserSchema = z.object({
 harness validate --cross-check
 ```
 
-Checks that specs in `docs/specs/` align with the implementation. If the spec says something the code doesn't do (or vice versa), you'll get a warning.
+Checks that specs in `docs/changes/` align with the implementation. If the spec says something the code doesn't do (or vice versa), you'll get a warning.
 
 ## All Three Personas
 
@@ -1926,9 +1926,9 @@ Checks that specs in `docs/specs/` align with the implementation. If the spec sa
 
 ## Specs and Changes
 
-This project uses the `docs/specs/` + `docs/changes/` convention:
+This project uses the `docs/changes/` + `docs/changes/` convention:
 
-- `docs/specs/` — Source of truth for what the system does today
+- `docs/changes/` — Source of truth for what the system does today
 - `docs/changes/` — Proposals for new features (empty now, ready for use)
 
 When planning a new feature, create `docs/changes/<feature>/proposal.md` with your design.

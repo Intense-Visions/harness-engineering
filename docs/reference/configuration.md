@@ -210,11 +210,11 @@ Phase gates enforce that implementation files have corresponding specification d
 
 ### PhaseGatesConfig Object
 
-| Field      | Type                      | Default                                                                    | Description                                 |
-| ---------- | ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------- |
-| `enabled`  | `boolean`                 | `false`                                                                    | Enable phase gate checks                    |
-| `severity` | `"error"` \| `"warning"`  | `"error"`                                                                  | Severity level for violations               |
-| `mappings` | `Array<PhaseGateMapping>` | `[{ implPattern: "src/**/*.ts", specPattern: "docs/specs/{feature}.md" }]` | Maps implementation files to spec documents |
+| Field      | Type                      | Default                                                                               | Description                                 |
+| ---------- | ------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `enabled`  | `boolean`                 | `false`                                                                               | Enable phase gate checks                    |
+| `severity` | `"error"` \| `"warning"`  | `"error"`                                                                             | Severity level for violations               |
+| `mappings` | `Array<PhaseGateMapping>` | `[{ implPattern: "src/**/*.ts", specPattern: "docs/changes/{feature}/proposal.md" }]` | Maps implementation files to spec documents |
 
 ### PhaseGateMapping Object
 
@@ -231,7 +231,7 @@ Phase gates enforce that implementation files have corresponding specification d
     "enabled": true,
     "severity": "warning",
     "mappings": [
-      { "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" },
+      { "implPattern": "src/**/*.ts", "specPattern": "docs/changes/{feature}/proposal.md" },
       { "implPattern": "src/api/**/*.ts", "specPattern": "docs/api/{feature}.md" }
     ]
   }
@@ -312,7 +312,9 @@ A full `harness.config.json` for a layered API project:
   "phaseGates": {
     "enabled": true,
     "severity": "error",
-    "mappings": [{ "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }]
+    "mappings": [
+      { "implPattern": "src/**/*.ts", "specPattern": "docs/changes/{feature}/proposal.md" }
+    ]
   },
   "template": {
     "level": "intermediate",

@@ -398,7 +398,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ### Example: 3-Phase Security Scanner
 
-**User invokes:** `/harness:autopilot docs/specs/2026-03-19-security-scanner.md`
+**User invokes:** `/harness:autopilot docs/changes/security-scanner/proposal.md`
 
 **INIT:**
 
@@ -407,7 +407,7 @@ Read spec — found 3 phases:
   Phase 1: Core Scanner (complexity: low)
   Phase 2: Rule Engine (complexity: high)
   Phase 3: CLI Integration (complexity: low)
-Created .harness/sessions/specs--2026-03-19-security-scanner/autopilot-state.json. Starting Phase 1.
+Created .harness/sessions/changes--security-scanner--proposal/autopilot-state.json. Starting Phase 1.
 ```
 
 **Phase 1 — ASSESS:**

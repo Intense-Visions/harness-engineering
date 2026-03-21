@@ -196,7 +196,7 @@ Gather context in this order until the ratio is met:
 
 1. **Files directly imported/referenced by changed files** — read the modules the changed code calls or depends on.
 2. **Corresponding test files** — find tests for changed code. If tests are missing, note this as a finding.
-3. **Spec/design docs mentioning changed components** — search `docs/specs/`, `docs/design-docs/`, `docs/plans/`.
+3. **Spec/design docs mentioning changed components** — search `docs/changes/`, `docs/design-docs/`, `docs/plans/`.
 4. **Type definitions used by changed code** — read interfaces, types, schemas consumed or produced.
 5. **Recent commits touching the same files** — see Commit History below.
 
@@ -224,7 +224,7 @@ grep -n "import\|require\|from " <changed-file>
 find . -name "*<module-name>*test*" -o -name "*<module-name>*spec*"
 
 # 4. Search for spec/design references
-grep -rl "<component-name>" docs/specs/ docs/design-docs/ docs/plans/
+grep -rl "<component-name>" docs/changes/ docs/design-docs/ docs/plans/
 
 # 5. Find type definitions
 grep -rn "interface\|type\|schema" <changed-file> | head -20

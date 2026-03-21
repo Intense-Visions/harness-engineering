@@ -1,7 +1,7 @@
 # Plan: CLI Self-Update Command
 
 **Date:** 2026-03-17
-**Spec:** docs/specs/2026-03-17-cli-self-update-design.md
+**Spec:** docs/changes/cli-self-update/proposal.md
 **Estimated tasks:** 3
 **Estimated time:** 10-15 minutes
 

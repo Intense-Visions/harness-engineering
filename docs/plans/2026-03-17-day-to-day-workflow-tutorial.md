@@ -8,7 +8,7 @@
 
 **Tech Stack:** Markdown documentation only. References existing harness CLI commands, skills, and configuration.
 
-**Spec:** `docs/specs/2026-03-17-day-to-day-workflow-tutorial-design.md`
+**Spec:** `docs/changes/day-to-day-workflow-tutorial/proposal.md`
 
 ---
 
@@ -118,7 +118,9 @@ Explain: this prevents the types layer from importing Express, keeping it framew
   "phaseGates": {
     "enabled": true,
     "severity": "warning",
-    "mappings": [{ "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }]
+    "mappings": [
+      { "implPattern": "src/**/*.ts", "specPattern": "docs/changes/{feature}/proposal.md" }
+    ]
   }
 }
 ```
@@ -200,11 +202,11 @@ Append Chapter 2 to the document. Cover:
 
 4. **Approach selection** — the skill proposes 2-3 approaches. Show a brief example of the recommended approach being selected.
 
-5. **Spec output** — the skill writes a spec to `docs/specs/`. Show the file path and a brief excerpt (3-5 lines) of what a spec looks like — not the full spec.
+5. **Spec output** — the skill writes a spec to `docs/changes/`. Show the file path and a brief excerpt (3-5 lines) of what a spec looks like — not the full spec.
 
 6. **Spec review** — explain the automated review loop (reviewer checks the spec) and the human approval gate. One paragraph.
 
-7. **Output** — end with what you now have: an approved spec document in `docs/specs/`.
+7. **Output** — end with what you now have: an approved spec document in `docs/changes/`.
 
 - [ ] **Step 2: Review Chapter 2**
 
@@ -480,7 +482,7 @@ Cover:
    git checkout -b feature/bookmark-api
    git push -u origin feature/bookmark-api
    gh pr create --title "feat: bookmark API with CRUD and tagging" \
-     --body "Implements bookmark CRUD API per spec in docs/specs/bookmark-api.md"
+     --body "Implements bookmark CRUD API per spec in docs/changes/bookmark-api/proposal.md"
    ```
 
 4. **Squash-merge** — note that squash-merging to main keeps the history clean while preserving the detailed commits in the PR.
@@ -525,7 +527,7 @@ Add the summary table:
 | Stage      | CLI Commands                                                         | Skills                                                                                                                                             | Key Artifacts                                  |
 | ---------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | Initialize | `harness init`, `harness validate`, `harness check-deps`             | `/harness:initialize-project`                                                                                                                      | `harness.config.json`, `AGENTS.md`             |
-| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/specs/*.md`                              |
+| Design     | —                                                                    | `/harness:brainstorming`                                                                                                                           | `docs/changes/*/proposal.md`                   |
 | Plan       | —                                                                    | `/harness:planning`                                                                                                                                | `docs/plans/*.md`, `.harness/handoff.json`     |
 | Implement  | `harness validate`, `harness check-deps`, `harness check-phase-gate` | `/harness:execution`, `/harness:tdd`, `/harness:verify`                                                                                            | `.harness/state.json`, `.harness/learnings.md` |
 | Verify     | `harness validate`                                                   | `/harness:verification`                                                                                                                            | Verification report                            |

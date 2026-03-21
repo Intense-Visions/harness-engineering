@@ -83,7 +83,9 @@ This keeps your types layer framework-agnostic.
   "phaseGates": {
     "enabled": true,
     "severity": "warning",
-    "mappings": [{ "implPattern": "src/**/*.ts", "specPattern": "docs/specs/{feature}.md" }]
+    "mappings": [
+      { "implPattern": "src/**/*.ts", "specPattern": "docs/changes/{feature}/proposal.md" }
+    ]
   }
 }
 ```
@@ -150,7 +152,7 @@ The skill proposes 2-3 approaches with trade-offs. For a simple CRUD API, the ap
 
 ### Spec output
 
-The skill writes a spec to `docs/specs/`. Here's what the beginning of a spec looks like:
+The skill writes a spec to `docs/changes/`. Here's what the beginning of a spec looks like:
 
 ```markdown
 # Bookmark API Spec
@@ -170,7 +172,7 @@ CRUD API for managing bookmarks with tagging and search.
 
 After writing the spec, an automated reviewer checks it for completeness and consistency. You then review and approve the spec yourself before moving on. This is your last chance to change the design before implementation begins.
 
-**Output:** An approved spec document in `docs/specs/`.
+**Output:** An approved spec document in `docs/changes/`.
 
 ---
 
@@ -423,7 +425,7 @@ Alternatively, do it manually:
 git checkout -b feature/bookmark-api
 git push -u origin feature/bookmark-api
 gh pr create --title "feat: bookmark API with CRUD and tagging" \
-  --body "Implements bookmark CRUD API per spec in docs/specs/bookmark-api.md"
+  --body "Implements bookmark CRUD API per spec in docs/changes/bookmark-api/proposal.md"
 ```
 
 Squash-merging to main keeps the history clean while preserving the detailed per-task commits in the PR for future reference.
@@ -459,7 +461,7 @@ This runs all mechanical checks (config, deps, phase gates, lint, typecheck, tes
 | Stage      | Slash Command (interactive)                                                                                                                   | CLI Alternative (CI/scripts)                                         | Key Artifacts                                  |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------- |
 | Initialize | `/harness:initialize-project`                                                                                                                 | `harness init --name <name> --level <level>`                         | `harness.config.json`, `AGENTS.md`             |
-| Design     | `/harness:brainstorming`                                                                                                                      | —                                                                    | `docs/specs/*.md`                              |
+| Design     | `/harness:brainstorming`                                                                                                                      | —                                                                    | `docs/changes/*/proposal.md`                   |
 | Plan       | `/harness:planning`                                                                                                                           | —                                                                    | `docs/plans/*.md`, `.harness/handoff.json`     |
 | Implement  | `/harness:execution`, `/harness:tdd`, `/harness:verify`                                                                                       | `harness validate && harness check-deps && harness check-phase-gate` | `.harness/state.json`, `.harness/learnings.md` |
 | Verify     | `/harness:verification`, `/harness:integrity`                                                                                                 | `harness validate`                                                   | Verification report                            |

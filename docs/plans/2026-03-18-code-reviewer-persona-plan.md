@@ -1,7 +1,7 @@
 # Plan: Code Reviewer Persona with Schema v2 Conditional Steps
 
 **Date:** 2026-03-18
-**Spec:** docs/specs/2026-03-18-code-reviewer-persona-design.md
+**Spec:** docs/changes/code-reviewer-persona/proposal.md
 **Estimated tasks:** 10
 **Estimated time:** 40 minutes
 

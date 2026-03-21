@@ -38,7 +38,7 @@
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
   "crossCheck": {
-    "specsDir": "docs/specs",
+    "specsDir": "docs/changes",
     "plansDir": "docs/plans"
   },
   "agent": {

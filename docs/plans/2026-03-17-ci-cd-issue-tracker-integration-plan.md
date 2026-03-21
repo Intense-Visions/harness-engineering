@@ -1,7 +1,7 @@
 # Plan: CI/CD and Issue Tracker Integration
 
 **Date:** 2026-03-17
-**Spec:** docs/specs/2026-03-17-ci-cd-issue-tracker-integration.md
+**Spec:** docs/changes/ci-cd-issue-tracker-integration/proposal.md
 **Estimated tasks:** 15
 **Estimated time:** 45–75 minutes
 

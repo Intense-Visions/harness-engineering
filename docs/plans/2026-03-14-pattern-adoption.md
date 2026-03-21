@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Zod, Vitest, Node.js fs API
 
-**Spec:** `docs/specs/2026-03-14-pattern-adoption-design.md`
+**Spec:** `docs/changes/pattern-adoption/proposal.md`
 
 ---
 
@@ -1648,7 +1648,7 @@ Example:
 
 ```
 
-This format is not mandatory for greenfield work. Use it when the plan modifies existing documented behavior, especially when a `docs/specs/` directory exists with source-of-truth specifications. When present, produce a `docs/changes/<feature>/delta.md` alongside the task plan.
+This format is not mandatory for greenfield work. Use it when the plan modifies existing documented behavior, especially when a `docs/changes/` directory exists with source-of-truth specifications. When present, produce a `docs/changes/<feature>/delta.md` alongside the task plan.
 ```
 
 - [ ] **Step 4: Commit**
@@ -1691,7 +1691,7 @@ These keywords flow into `.harness/handoff.json` (via the `contextKeywords` fiel
 Also add to Phase 4 VALIDATE, after "Write the spec to `docs/`":
 
 ```markdown
-When the project has a `docs/specs/` directory, write proposals to `docs/changes/<feature>/proposal.md` instead of a flat spec file. This follows the specs/changes convention: `docs/specs/` is the source of truth for what exists, `docs/changes/` is for what's being proposed. When no `docs/specs/` exists, fall back to the existing behavior.
+When the project has a `docs/changes/` directory, write proposals to `docs/changes/<feature>/proposal.md` instead of a flat spec file. This follows the specs/changes convention: `docs/changes/` is the source of truth for what exists, `docs/changes/` is for what's being proposed. When no `docs/changes/` exists, fall back to the existing behavior.
 ````
 
 - [ ] **Step 2: Add Skill Quality Checklist to harness-skill-authoring**
@@ -1748,16 +1748,16 @@ git commit -m "feat(skills): add behavioral patterns — context keywords, skill
 
 ---
 
-### Task 12: Add docs/specs/ and docs/changes/ to templates
+### Task 12: Add docs/changes/ and docs/changes/ to templates
 
 **Files:**
 
 - Modify: `templates/intermediate/template.json`
 - Modify: `templates/advanced/template.json`
 - Modify: `templates/nextjs/template.json`
-- Create: `templates/intermediate/docs/specs/.gitkeep`
 - Create: `templates/intermediate/docs/changes/.gitkeep`
-- Create: `templates/advanced/docs/specs/.gitkeep`
+- Create: `templates/intermediate/docs/changes/.gitkeep`
+- Create: `templates/advanced/docs/changes/.gitkeep`
 - Create: `templates/advanced/docs/changes/.gitkeep`
 
 - [ ] **Step 1: Read template.json files**
@@ -1768,9 +1768,9 @@ Read all three template.json files to understand their structure.
 
 Create the following empty files:
 
-- `templates/intermediate/docs/specs/.gitkeep`
 - `templates/intermediate/docs/changes/.gitkeep`
-- `templates/advanced/docs/specs/.gitkeep`
+- `templates/intermediate/docs/changes/.gitkeep`
+- `templates/advanced/docs/changes/.gitkeep`
 - `templates/advanced/docs/changes/.gitkeep`
 
 Note: nextjs template does not have a docs/ directory — skip it to avoid adding structure that doesn't fit the template's convention.
@@ -1783,7 +1783,7 @@ Check if `template.json` files enumerate their contents. If so, add the new dire
 
 ```bash
 git add templates/
-git commit -m "feat(templates): add docs/specs/ and docs/changes/ to intermediate and advanced templates"
+git commit -m "feat(templates): add docs/changes/ and docs/changes/ to intermediate and advanced templates"
 ```
 
 ---
@@ -1798,7 +1798,7 @@ Expected: PASS — all tests pass including new state tests
 - [ ] **Step 2: Run cross-check tests**
 
 Run: `cd /Users/cwarner/Projects/harness-engineering/packages/cli && pnpm exec vitest run tests/commands/validate-cross-check.test.ts`
-Expected: PASS — cross-check tests pass with new docs/specs/ and docs/plans/ paths
+Expected: PASS — cross-check tests pass with new docs/changes/ and docs/plans/ paths
 
 - [ ] **Step 3: Verify no superpowers directory references**
 

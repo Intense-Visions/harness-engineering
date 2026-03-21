@@ -29,7 +29,6 @@ If the human has not seen and approved the milestone groupings and feature list,
 1. Check if `docs/roadmap.md` already exists.
    - If it exists: warn the human. "A roadmap already exists. Overwriting will replace it. Continue? (y/n)" Wait for confirmation before proceeding. If declined, stop.
 2. Scan for specs:
-   - `docs/specs/*.md`
    - `docs/changes/*/proposal.md`
    - Record each spec's title, status (if detectable from frontmatter or content), and file path.
 3. Scan for plans:
@@ -68,11 +67,11 @@ Unmatched plans: N (flag for review)
 
    ## Current Work
    - Feature A (in-progress) -- spec: docs/changes/feature-a/proposal.md
-   - Feature B (in-progress) -- spec: docs/specs/feature-b.md
+   - Feature B (in-progress) -- spec: docs/changes/feature-b/proposal.md
 
    ## Backlog
    - Feature C (planned) -- spec: docs/changes/feature-c/proposal.md
-   - Feature D (backlog) -- spec: docs/specs/feature-d.md
+   - Feature D (backlog) -- spec: docs/changes/feature-d/proposal.md
    ```
 
 2. Offer choices:
@@ -405,7 +404,7 @@ Choice?
 
 ## Success Criteria
 
-1. `--create` discovers all specs (`docs/specs/*.md`, `docs/changes/*/proposal.md`) and plans (`docs/plans/*.md`)
+1. `--create` discovers all specs (`docs/changes/*/proposal.md`) and plans (`docs/plans/*.md`)
 2. `--create` proposes groupings and waits for human confirmation before writing
 3. `--create` produces a valid `docs/roadmap.md` that round-trips through `parseRoadmap`/`serializeRoadmap`
 4. `--add` collects all fields interactively (milestone, status, spec, summary, blockers, plan)
@@ -452,7 +451,7 @@ Proposed Roadmap Structure:
 - Update Checker (in-progress) -- spec: docs/changes/update-checker/proposal.md
 
 ## Backlog
-- Design System (backlog) -- spec: docs/specs/design-system.md
+- Design System (backlog) -- spec: docs/changes/design-system/proposal.md
 
 Options:
   (A) Accept this structure
