@@ -47,6 +47,14 @@ export interface DependencyValidation {
   reason?: string;
 }
 
+// Forbidden Import Config Types
+export interface ForbiddenImportRule {
+  from: string;
+  disallow: string[];
+  message: string;
+  alternative?: string;
+}
+
 // Circular Dependency Types
 export interface CircularDependency {
   cycle: string[];
