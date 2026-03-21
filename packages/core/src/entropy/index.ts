@@ -17,8 +17,22 @@ export type { GraphCouplingData } from './detectors/coupling';
 export { detectSizeBudgetViolations, parseSize } from './detectors/size-budget';
 
 // Fixers
-export { createFixes, applyFixes, previewFix } from './fixers/safe-fixes';
+export {
+  createFixes,
+  applyFixes,
+  previewFix,
+  createCommentedCodeFixes,
+  createOrphanedDepFixes,
+} from './fixers/safe-fixes';
+export type { CommentedCodeBlock, OrphanedDep } from './fixers/safe-fixes';
 export { generateSuggestions } from './fixers/suggestions';
+export { createForbiddenImportFixes } from './fixers/architecture-fixes';
+export type { ForbiddenImportViolation } from './fixers/architecture-fixes';
+export {
+  classifyFinding,
+  applyHotspotDowngrade,
+  deduplicateFindings,
+} from './fixers/cleanup-finding';
 
 // Config
 export { validatePatternConfig, PatternConfigSchema, EntropyConfigSchema } from './config/schema';
@@ -86,6 +100,11 @@ export type {
   FixConfig,
   Fix,
   FixResult,
+
+  // Cleanup Finding types
+  SafetyLevel,
+  CleanupFinding,
+  HotspotContext,
 
   // Suggestion types
   Suggestion,

@@ -1,2 +1,12 @@
-export { createFixes, previewFix, applyFixes } from './safe-fixes';
+export {
+  createFixes,
+  previewFix,
+  applyFixes,
+  createCommentedCodeFixes,
+  createOrphanedDepFixes,
+} from './safe-fixes';
+export type { CommentedCodeBlock, OrphanedDep } from './safe-fixes';
 export { generateSuggestions } from './suggestions';
+export { createForbiddenImportFixes } from './architecture-fixes';
+export type { ForbiddenImportViolation } from './architecture-fixes';
+export { classifyFinding, applyHotspotDowngrade, deduplicateFindings } from './cleanup-finding';
