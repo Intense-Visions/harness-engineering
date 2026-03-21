@@ -14,11 +14,9 @@ export const SECURITY_DESCRIPTOR: ReviewAgentDescriptor = {
   ],
 };
 
-let findingCounter = 0;
-
-function makeFindingId(file: string, line: number): string {
-  findingCounter++;
-  return `security-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${findingCounter}`;
+function makeFindingId(file: string, line: number, title: string): string {
+  const hash = title.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '');
+  return `security-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${hash}`;
 }
 
 /** Patterns that indicate dangerous eval/Function usage. */
@@ -45,7 +43,7 @@ function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
       const line = lines[i]!;
       if (EVAL_PATTERN.test(line)) {
         findings.push({
-          id: makeFindingId(cf.path, i + 1),
+          id: makeFindingId(cf.path, i + 1, 'eval usage CWE-94'),
           file: cf.path,
           lineRange: [i + 1, i + 1],
           domain: 'security',
@@ -74,7 +72,7 @@ function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
       for (const pattern of SECRET_PATTERNS) {
         if (pattern.test(line)) {
           findings.push({
-            id: makeFindingId(cf.path, i + 1),
+            id: makeFindingId(cf.path, i + 1, 'hardcoded secret CWE-798'),
             file: cf.path,
             lineRange: [i + 1, i + 1],
             domain: 'security',
@@ -102,7 +100,7 @@ function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
       const line = lines[i]!;
       if (SQL_CONCAT_PATTERN.test(line)) {
         findings.push({
-          id: makeFindingId(cf.path, i + 1),
+          id: makeFindingId(cf.path, i + 1, 'SQL injection CWE-89'),
           file: cf.path,
           lineRange: [i + 1, i + 1],
           domain: 'security',
@@ -129,7 +127,7 @@ function detectCommandInjection(bundle: ContextBundle): ReviewFinding[] {
       const line = lines[i]!;
       if (SHELL_EXEC_PATTERN.test(line)) {
         findings.push({
-          id: makeFindingId(cf.path, i + 1),
+          id: makeFindingId(cf.path, i + 1, 'command injection CWE-78'),
           file: cf.path,
           lineRange: [i + 1, i + 1],
           domain: 'security',

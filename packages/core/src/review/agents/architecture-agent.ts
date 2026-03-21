@@ -16,11 +16,9 @@ export const ARCHITECTURE_DESCRIPTOR: ReviewAgentDescriptor = {
 
 const LARGE_FILE_THRESHOLD = 300;
 
-let findingCounter = 0;
-
-function makeFindingId(file: string, line: number): string {
-  findingCounter++;
-  return `arch-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${findingCounter}`;
+function makeFindingId(file: string, line: number, title: string): string {
+  const hash = title.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '');
+  return `arch-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${hash}`;
 }
 
 /**
@@ -40,7 +38,7 @@ function detectLayerViolations(bundle: ContextBundle): ReviewFinding[] {
       const lineNum = fileMatch?.[2] ? parseInt(fileMatch[2], 10) : 1;
 
       findings.push({
-        id: makeFindingId(file, lineNum),
+        id: makeFindingId(file, lineNum, 'layer violation'),
         file,
         lineRange: [lineNum, lineNum],
         domain: 'architecture',
@@ -65,7 +63,7 @@ function detectLargeFiles(bundle: ContextBundle): ReviewFinding[] {
   for (const cf of bundle.changedFiles) {
     if (cf.lines > LARGE_FILE_THRESHOLD) {
       findings.push({
-        id: makeFindingId(cf.path, 1),
+        id: makeFindingId(cf.path, 1, 'large file SRP'),
         file: cf.path,
         lineRange: [1, cf.lines],
         domain: 'architecture',
@@ -118,7 +116,7 @@ function detectCircularImports(bundle: ContextBundle): ReviewFinding[] {
               imports.has(ctxFile.path.replace(/.*\//, '').replace(/\.(ts|tsx|js|jsx)$/, ''))
             ) {
               findings.push({
-                id: makeFindingId(cf.path, 1),
+                id: makeFindingId(cf.path, 1, `circular ${ctxFile.path}`),
                 file: cf.path,
                 lineRange: [1, 1],
                 domain: 'architecture',

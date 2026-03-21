@@ -87,11 +87,9 @@ function findMissingJsDoc(
   return missing;
 }
 
-let findingCounter = 0;
-
-function makeFindingId(domain: string, file: string, line: number): string {
-  findingCounter++;
-  return `${domain}-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${findingCounter}`;
+function makeFindingId(domain: string, file: string, line: number, title: string): string {
+  const hash = title.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '');
+  return `${domain}-${file.replace(/[^a-zA-Z0-9]/g, '-')}-${line}-${hash}`;
 }
 
 /**
@@ -113,7 +111,7 @@ export function runComplianceAgent(bundle: ContextBundle): ReviewFinding[] {
     const missingDocs = findMissingJsDoc(bundle);
     for (const m of missingDocs) {
       findings.push({
-        id: makeFindingId('compliance', m.file, m.line),
+        id: makeFindingId('compliance', m.file, m.line, `Missing JSDoc ${m.exportName}`),
         file: m.file,
         lineRange: [m.line, m.line],
         domain: 'compliance',
@@ -140,7 +138,7 @@ export function runComplianceAgent(bundle: ContextBundle): ReviewFinding[] {
       if (!hasSpecContext && bundle.changedFiles.length > 0) {
         const firstFile = bundle.changedFiles[0]!;
         findings.push({
-          id: makeFindingId('compliance', firstFile.path, 1),
+          id: makeFindingId('compliance', firstFile.path, 1, 'No spec for feature'),
           file: firstFile.path,
           lineRange: [1, 1],
           domain: 'compliance',
@@ -159,7 +157,7 @@ export function runComplianceAgent(bundle: ContextBundle): ReviewFinding[] {
       if (bundle.commitHistory.length === 0 && bundle.changedFiles.length > 0) {
         const firstFile = bundle.changedFiles[0]!;
         findings.push({
-          id: makeFindingId('compliance', firstFile.path, 1),
+          id: makeFindingId('compliance', firstFile.path, 1, 'Bugfix no history'),
           file: firstFile.path,
           lineRange: [1, 1],
           domain: 'compliance',
@@ -195,7 +193,7 @@ export function runComplianceAgent(bundle: ContextBundle): ReviewFinding[] {
         cf.content.includes(': Result');
       if (hasTryCatch && !usesResult) {
         findings.push({
-          id: makeFindingId('compliance', cf.path, 1),
+          id: makeFindingId('compliance', cf.path, 1, 'try-catch not Result'),
           file: cf.path,
           lineRange: [1, cf.lines],
           domain: 'compliance',

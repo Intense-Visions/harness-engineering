@@ -42,6 +42,9 @@ async function runAgent(bundle: ContextBundle): Promise<AgentReviewResult> {
  * Dispatches one agent per context bundle (each bundle targets a specific domain).
  * All agents run concurrently via Promise.all.
  *
+ * Currently dispatches synchronous heuristic agents. Parallelism becomes
+ * meaningful when agents perform async LLM calls (Phase 8 model tiering).
+ *
  * Returns an AgentReviewResult per domain, each containing the findings
  * and timing information.
  */

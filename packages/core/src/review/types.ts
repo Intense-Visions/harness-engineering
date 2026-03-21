@@ -263,6 +263,4 @@ export interface AgentReviewResult {
 export interface FanOutOptions {
   /** Context bundles from Phase 3 (one per domain) */
   bundles: ContextBundle[];
-  /** Exclusion set from Phase 2 (for pre-filtering, optional) */
-  exclusionSet?: import('./exclusion-set').ExclusionSet;
 }
