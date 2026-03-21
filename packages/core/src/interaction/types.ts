@@ -1,11 +1,7 @@
 // packages/core/src/interaction/types.ts
 import { z } from 'zod';
 
-export const InteractionTypeSchema = z.enum([
-  'question',
-  'confirmation',
-  'transition',
-]);
+export const InteractionTypeSchema = z.enum(['question', 'confirmation', 'transition']);
 
 export const QuestionSchema = z.object({
   text: z.string(),
@@ -23,6 +19,8 @@ export const TransitionSchema = z.object({
   suggestedNext: z.string(),
   reason: z.string(),
   artifacts: z.array(z.string()),
+  requiresConfirmation: z.boolean(),
+  summary: z.string(),
 });
 
 export const EmitInteractionInputSchema = z.object({

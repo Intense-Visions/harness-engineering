@@ -61,6 +61,54 @@ describe('TransitionSchema', () => {
       suggestedNext: 'DECOMPOSE',
       reason: 'All must-haves derived',
       artifacts: ['docs/plans/plan.md'],
+      requiresConfirmation: true,
+      summary: 'All must-haves derived from goals.',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates a transition with requiresConfirmation and summary', () => {
+    const result = TransitionSchema.safeParse({
+      completedPhase: 'brainstorming',
+      suggestedNext: 'planning',
+      reason: 'Spec approved',
+      artifacts: ['docs/changes/auth/proposal.md'],
+      requiresConfirmation: true,
+      summary: 'Auth pipeline — 5 decisions, 8 success criteria.',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects transition missing requiresConfirmation', () => {
+    const result = TransitionSchema.safeParse({
+      completedPhase: 'brainstorming',
+      suggestedNext: 'planning',
+      reason: 'Spec approved',
+      artifacts: ['spec.md'],
+      summary: 'Summary here.',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects transition missing summary', () => {
+    const result = TransitionSchema.safeParse({
+      completedPhase: 'brainstorming',
+      suggestedNext: 'planning',
+      reason: 'Spec approved',
+      artifacts: ['spec.md'],
+      requiresConfirmation: true,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('validates auto-transition with requiresConfirmation false', () => {
+    const result = TransitionSchema.safeParse({
+      completedPhase: 'execution',
+      suggestedNext: 'verification',
+      reason: 'All tasks complete',
+      artifacts: ['src/service.ts'],
+      requiresConfirmation: false,
+      summary: 'Completed 5 tasks. 3 files created.',
     });
     expect(result.success).toBe(true);
   });
@@ -104,6 +152,8 @@ describe('EmitInteractionInputSchema', () => {
         suggestedNext: 'EVALUATE',
         reason: 'Context gathered',
         artifacts: ['notes.md'],
+        requiresConfirmation: true,
+        summary: 'Context gathered from 5 sources.',
       },
     });
     expect(result.success).toBe(true);
