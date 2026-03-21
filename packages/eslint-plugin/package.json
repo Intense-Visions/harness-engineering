@@ -16,7 +16,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsup src/index.ts --format esm --dts --tsconfig tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",
@@ -33,6 +33,7 @@
     "@typescript-eslint/parser": "^8.57.0",
     "@typescript-eslint/rule-tester": "^8.0.0",
     "eslint": "^10.0.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18"
   },
