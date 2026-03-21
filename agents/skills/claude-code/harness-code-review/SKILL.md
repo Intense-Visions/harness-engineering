@@ -52,12 +52,12 @@ interface ReviewFinding {
 
 ### Flags
 
-| Flag              | Effect                                                       |
-| ----------------- | ------------------------------------------------------------ |
-| `--comment`       | Post inline comments to GitHub PR via `gh` CLI or GitHub MCP |
-| `--deep`          | Add threat modeling pass (invokes security-review `--deep`)  |
-| `--no-mechanical` | Skip mechanical checks (useful if already run in CI)         |
-| `--ci`            | Enable eligibility gate, non-interactive output              |
+| Flag              | Effect                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| `--comment`       | Post inline comments to GitHub PR via `gh` CLI or GitHub MCP                                |
+| `--deep`          | Pass `--deep` to `harness-security-review` for threat modeling in the security fan-out slot |
+| `--no-mechanical` | Skip mechanical checks (useful if already run in CI)                                        |
+| `--ci`            | Enable eligibility gate, non-interactive output                                             |
 
 ### Model Tiers
 
@@ -312,13 +312,20 @@ Reviews for logic errors, edge cases, and correctness issues.
 
 ---
 
-#### Security Agent (strong tier)
+#### Security Agent (strong tier) -- via harness-security-review
 
-Reviews for security vulnerabilities using OWASP baseline plus stack-adaptive focus.
+Invokes `harness-security-review` in changed-files mode as the security slot in the fan-out.
 
 **Input:** Security context bundle (security-relevant paths + data flows)
 
-If `--deep` flag is set, additionally invoke `security-review --deep` for threat modeling.
+**Invocation:** The pipeline invokes `harness-security-review` with scope `changed-files`. The skill:
+
+- Skips its own Phase 1 (SCAN) -- reads mechanical findings from PipelineContext (Phase 2 already ran `run_security_scan`)
+- Runs Phase 2 (REVIEW) -- OWASP baseline + stack-adaptive on changed files and their direct imports
+- Skips Phase 3 (THREAT-MODEL) unless `--deep` was passed to code review
+- Returns `ReviewFinding[]` with populated security fields (`cweId`, `owaspCategory`, `confidence`, `remediation`, `references`)
+
+If `--deep` flag is set on code review, additionally pass `--deep` to `harness-security-review` for threat modeling.
 
 **Focus areas:**
 
@@ -335,9 +342,11 @@ If `--deep` flag is set, additionally invoke `security-review --deep` for threat
    - Go: race conditions, integer overflow, unsafe pointer
    - Python: pickle deserialization, SSTI, command injection
 
-3. **CWE references:** Include CWE IDs for confirmed vulnerabilities.
+3. **CWE/OWASP references:** All security findings include `cweId`, `owaspCategory`, and `remediation` fields.
 
 Security findings with confirmed vulnerabilities are always `severity: 'critical'`.
+
+**Dedup with mechanical scan:** The pipeline's Phase 5 (VALIDATE) uses the exclusion set from Phase 2 mechanical findings to discard any security-review finding that overlaps with an already-reported mechanical finding. This prevents duplicate reporting of the same issue.
 
 **Output:** `ReviewFinding[]` with `domain: 'security'`
 
