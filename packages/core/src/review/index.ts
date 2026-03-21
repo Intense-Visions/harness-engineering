@@ -19,6 +19,11 @@ export type {
   ReviewAgentDescriptor,
   AgentReviewResult,
   FanOutOptions,
+  // Phase 7 types
+  ReviewAssessment,
+  ReviewStrength,
+  ReviewOutputOptions,
+  GitHubInlineComment,
 } from './types';
 
 // Mechanical checks
@@ -56,3 +61,14 @@ export type { ValidateFindingsOptions } from './validate-findings';
 // Phase 6: Deduplication
 export { deduplicateFindings } from './deduplicate-findings';
 export type { DeduplicateFindingsOptions } from './deduplicate-findings';
+
+// Phase 7: Output
+export {
+  determineAssessment,
+  getExitCode,
+  formatTerminalOutput,
+  formatFindingBlock,
+  formatGitHubComment,
+  formatGitHubSummary,
+  isSmallSuggestion,
+} from './output';
