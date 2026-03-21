@@ -11,13 +11,47 @@
 - NOT for quick pre-commit checks (use harness-pre-commit-review for that)
 - NOT for general code review (use harness-code-review for that)
 
+## Scope Adaptation
+
+This skill adapts its behavior based on invocation context — standalone or as part of the code review pipeline.
+
+### Detection
+
+Check for `pipelineContext` in `.harness/handoff.json`. If present, run in **changed-files mode**. Otherwise, run in **full mode**.
+
+```bash
+# Check for pipeline context
+cat .harness/handoff.json 2>/dev/null | grep -q '"pipelineContext"'
+```
+
+### Changed-Files Mode (Code Review Pipeline)
+
+When invoked from the code review pipeline (Phase 4 fan-out, security slot):
+
+- **Phase 1 (SCAN): SKIPPED.** The mechanical security scan already ran in code review Phase 2. Read the mechanical findings from `PipelineContext.findings` where `domain === 'security'` instead of re-running `run_security_scan`.
+- **Phase 2 (REVIEW):** Run OWASP baseline + stack-adaptive analysis on **changed files only** plus their direct imports (for data flow tracing). The changed file list is provided in the context bundle from the pipeline.
+- **Phase 3 (THREAT-MODEL): SKIPPED** unless `--deep` flag was passed through from code review.
+- **Phase 4 (REPORT): SKIPPED.** Return findings as `ReviewFinding[]` to the pipeline. The pipeline handles output formatting (Phase 7).
+
+Findings returned in this mode **must** use the `ReviewFinding` schema with populated security fields (`cweId`, `owaspCategory`, `confidence`, `remediation`, `references`).
+
+### Full Mode (Standalone)
+
+When invoked directly (no PipelineContext):
+
+- All phases run as documented below (Phase 1 through Phase 4).
+- Output is the standalone security report format.
+- This is the existing behavior — no changes.
+
 ## Principle: Layered Security
 
 This skill follows the Deterministic-vs-LLM Responsibility Split principle. The mechanical scanner runs first and catches what patterns can catch. The AI review then looks for semantic issues that patterns miss — user input flowing through multiple functions to a dangerous sink, missing authorization checks, logic flaws in authentication flows.
 
 ## Process
 
-### Phase 1: SCAN — Mechanical Security Scanner
+### Phase 1: SCAN — Mechanical Security Scanner (full mode only)
+
+> **Note:** This phase is skipped in changed-files mode. See [Scope Adaptation](#scope-adaptation) above.
 
 Run the built-in security scanner against the project.
 
@@ -69,7 +103,7 @@ After the OWASP baseline, add stack-specific checks:
 - **React:** XSS via `dangerouslySetInnerHTML`, sensitive data in client state, insecure `postMessage` listeners
 - **Go:** Race conditions in concurrent handlers, `unsafe.Pointer` usage, format string injection
 
-### Phase 3: THREAT-MODEL (optional, `--deep` flag)
+### Phase 3: THREAT-MODEL (optional, `--deep` flag; full mode or explicit `--deep` in pipeline)
 
 When invoked with `--deep`, build a lightweight threat model:
 

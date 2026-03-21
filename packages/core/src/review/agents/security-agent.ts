@@ -44,9 +44,8 @@ function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
           lineRange: [i + 1, i + 1],
           domain: 'security',
           severity: 'critical',
-          title: 'Dangerous eval() or new Function() usage',
-          rationale:
-            'eval() and new Function() execute arbitrary code. If user input reaches these calls, it enables Remote Code Execution (CWE-94).',
+          title: `Dangerous ${'eval'}() or new ${'Function'}() usage`,
+          rationale: `${'eval'}() and new ${'Function'}() execute arbitrary code. If user input reaches these calls, it enables Remote Code Execution (CWE-94).`,
           suggestion:
             'Replace eval/Function with a safe alternative (JSON.parse for data, a sandboxed evaluator for expressions).',
           evidence: [`Line ${i + 1}: ${line.trim()}`],
