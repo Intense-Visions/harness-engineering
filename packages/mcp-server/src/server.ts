@@ -110,6 +110,7 @@ import {
 } from './tools/agent-definitions.js';
 import { runSecurityScanDefinition, handleRunSecurityScan } from './tools/security.js';
 import { manageRoadmapDefinition, handleManageRoadmap } from './tools/roadmap.js';
+import { emitInteractionDefinition, handleEmitInteraction } from './tools/interaction.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -155,6 +156,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   getCriticalPathsDefinition,
   listStreamsDefinition,
   manageRoadmapDefinition,
+  emitInteractionDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -195,6 +197,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_critical_paths: handleGetCriticalPaths as ToolHandler,
   list_streams: handleListStreams as ToolHandler,
   manage_roadmap: handleManageRoadmap as unknown as ToolHandler,
+  emit_interaction: handleEmitInteraction as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
