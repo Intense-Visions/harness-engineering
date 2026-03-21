@@ -65,6 +65,9 @@ export * from './ci';
 // Review pipeline module
 export * from './review';
 
+// Roadmap module
+export * from './roadmap';
+
 // Update checker
 export {
   isUpdateCheckEnabled,
