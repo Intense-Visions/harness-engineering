@@ -648,6 +648,15 @@ For findings where `autoFixable: false`: skip them in this phase. They will be s
 | S6    | None — all findings need user input                         | Always surfaced                                   |
 | S7    | Vague criteria with inferrable thresholds                   | Silent fix                                        |
 | S7    | Unmeasurable criteria (no context to infer)                 | Surfaced — user must rewrite                      |
+| P1    | Missing task for uncovered criterion                        | Silent fix                                        |
+| P2    | Missing inputs, outputs, or verification                    | Silent fix                                        |
+| P3    | Missing dependency edges                                    | Silent fix                                        |
+| P3    | Dependency cycles                                           | Surfaced — restructuring is a design decision     |
+| P4    | File conflicts or consumer-before-producer                  | Silent fix                                        |
+| P5    | Obvious risk mitigation (technical, straightforward)        | Silent fix                                        |
+| P5    | Judgment-dependent risk mitigation                          | Surfaced — user must choose strategy              |
+| P6    | None — all findings need user input                         | Always surfaced                                   |
+| P7    | None — all findings need user input                         | Always surfaced                                   |
 
 **Rule:** A fix is silent when the correct resolution can be determined from the document context alone, with no design judgment required. If there are two or more plausible resolutions, the fix is surfaced.
 
@@ -738,6 +747,112 @@ For findings where `autoFixable: false`: skip them in this phase. They will be s
   'If the config file does not exist (ENOENT), return the default
    configuration object. Log a debug message indicating defaults are used.'
   Following codebase pattern: packages/core/src/config.ts returns defaults on ENOENT.
+```
+
+##### P1 Fix: Add Missing Tasks for Uncovered Criteria
+
+**When:** A spec success criterion has no corresponding plan task.
+
+**Procedure:**
+
+1. Read the spec criterion and Technical Design for context.
+2. Draft a new task that would verify the criterion, including file paths, test commands, and commit message.
+3. Insert the task at the appropriate position in the task list (respecting dependencies).
+4. Update the File Map if new files are introduced.
+5. Record a fix log entry.
+
+**Edit operation:** Insert new task in Tasks section; update File Map.
+
+**Fix log entry example:**
+
+```
+[P1-001] FIXED: Added Task 9 covering spec criterion #5 (error logging):
+  'Create src/utils/error-logger.ts with structured error logging.
+   Verify: npx vitest run src/utils/error-logger.test.ts'
+  Derived from: Spec criterion #5 and Technical Design > Error Handling section.
+```
+
+##### P2 Fix: Fill In Missing Task Elements
+
+**When:** A task is missing clear inputs, outputs, or verification criteria.
+
+**Procedure:**
+
+1. Identify which element is missing (inputs, outputs, or verification).
+2. Infer from the task description and surrounding tasks.
+3. Add the missing element to the task.
+4. Record a fix log entry.
+
+**Edit operation:** Modify the task in place.
+
+**Fix log entry example:**
+
+```
+[P2-001] FIXED: Added verification step to Task 3:
+  'Run: npx vitest run src/services/notification-service.test.ts'
+  Inferred from: Task 4 creates the test file for the service Task 3 implements.
+```
+
+##### P3 Fix: Add Missing Dependency Edges
+
+**When:** Task B uses a file or artifact produced by Task A but does not declare "Depends on: Task A".
+
+**Procedure:**
+
+1. Identify the producer task from the File Map.
+2. Add "Depends on: Task N" to the consuming task's header.
+3. Record a fix log entry.
+
+**Edit operation:** Modify the consuming task's "Depends on" line.
+
+**Fix log entry example:**
+
+```
+[P3-001] FIXED: Added 'Depends on: Task 2' to Task 5:
+  Task 5 imports src/types/notification.ts which is created by Task 2.
+```
+
+##### P4 Fix: Reorder Conflicting Tasks
+
+**When:** Two tasks touch the same file but are not sequenced, or a consumer task is numbered before its producer.
+
+**Procedure:**
+
+1. Identify the conflict.
+2. Reorder by updating task numbers or adding a dependency edge.
+3. If reordering changes task numbers, update all "Depends on" references throughout the plan.
+4. Record a fix log entry.
+
+**Edit operation:** Reorder tasks and update cross-references.
+
+**Fix log entry example:**
+
+```
+[P4-001] FIXED: Added 'Depends on: Task 4' to Task 2:
+  Both tasks modify src/routes/index.ts. Task 4 creates the base route
+  that Task 2 extends. Sequencing prevents merge conflicts.
+```
+
+##### P5 Fix: Add Obvious Mitigation Tasks
+
+**When:** A spec risk has no coverage in the plan and the mitigation is straightforward (e.g., add error handling, add a test for an edge case).
+
+**Procedure:**
+
+1. Read the risk description from the spec.
+2. Draft a mitigation task or extend an existing task's verification step.
+3. Insert at the appropriate position.
+4. Record a fix log entry.
+
+**Edit operation:** Insert new task or extend existing task; update File Map if needed.
+
+**Fix log entry example:**
+
+```
+[P5-001] FIXED: Added Task 10 for convergence termination testing:
+  'Add test that verifies convergence loop terminates on fixed-point inputs
+   (zero auto-fixable findings on first pass).'
+  Mitigates spec risk: 'convergence loop may not terminate'.
 ```
 
 #### Fix Log Format
