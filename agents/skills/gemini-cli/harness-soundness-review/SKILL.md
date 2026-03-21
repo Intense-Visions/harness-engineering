@@ -47,6 +47,20 @@ Every finding produced by a check conforms to this structure:
 
 Execute all checks for the active mode. Classify each finding as `autoFixable: true` or `autoFixable: false`. Record the total issue count.
 
+#### Graph Detection and Fallback
+
+Before running checks, determine graph availability:
+
+1. Check whether `.harness/graph/` exists in the project root.
+2. If the directory exists, the following MCP tools are available for enhanced analysis during checks S3, S5, P1, P3, and P4:
+   - `query_graph` — traverse module and dependency nodes to verify referenced patterns exist and check architectural compatibility
+   - `find_context_for` — search the graph for related design decisions and assumptions from other specs
+   - `get_relationships` — get inbound/outbound relationships for a node to verify dependency direction and layer compliance
+   - `get_impact` — analyze downstream impact of file changes to verify dependency completeness and detect indirect conflicts
+3. If the directory does not exist, use the "Without graph" path for every check. Do not block, warn, or degrade the review — all checks produce useful results from document analysis and codebase reads alone.
+
+The per-check procedures below include "Without graph" and "With graph" variants. Use the variant matching the detection result from step 1.
+
 #### Spec Mode Checks (`--mode spec`)
 
 | #   | Check                      | What it detects                                                                                | Auto-fixable?                                                 |
