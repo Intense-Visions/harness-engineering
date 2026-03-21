@@ -82,7 +82,7 @@ export default [
     },
   },
   {
-    files: ['packages/*/src/**/*.ts'],
+    files: ['packages/*/src/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs'],
     plugins: {
       '@harness-engineering': harnessPlugin,
     },

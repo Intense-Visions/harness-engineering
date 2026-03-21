@@ -13,6 +13,8 @@ const config: TSESLint.FlatConfig.Config = {
     '@harness-engineering/no-forbidden-imports': 'error',
     '@harness-engineering/require-boundary-schema': 'error',
     '@harness-engineering/enforce-doc-exports': 'error',
+    '@harness-engineering/no-unix-shell-command': 'error',
+    '@harness-engineering/no-hardcoded-path-separator': 'error',
   },
 };
 
