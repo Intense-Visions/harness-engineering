@@ -21,7 +21,7 @@
     "test:watch": "vitest",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "node ../../scripts/clean.mjs dist"
   },
   "dependencies": {
     "@typescript-eslint/utils": "^8.0.0",

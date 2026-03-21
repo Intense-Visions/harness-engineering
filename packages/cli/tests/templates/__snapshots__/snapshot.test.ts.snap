@@ -59,7 +59,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
 ## Design
 - TODO: Define your design principles
 ",
-  "docs/changes/.gitkeep": "",
   "harness.config.json": "{
   "version": 1,
   "name": "snapshot-test",
@@ -327,7 +326,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
 ## Design
 - TODO: Define your design principles
 ",
-  "docs/changes/.gitkeep": "",
   "eslint.config.mjs": "import harnessPlugin from '@harness-engineering/eslint-plugin';
 
 export default [
