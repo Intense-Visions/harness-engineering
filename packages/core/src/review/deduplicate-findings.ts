@@ -82,7 +82,7 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
   const domainList = [...domains].sort().join(', ');
   const title = `[${domainList}] ${primaryFinding.title}`;
 
-  return {
+  const merged: ReviewFinding = {
     id: primaryFinding.id,
     file: a.file, // same file for all merged findings
     lineRange,
@@ -90,10 +90,15 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
     severity: highestSeverity,
     title,
     rationale: longestRationale,
-    suggestion,
     evidence: [...evidenceSet],
     validatedBy: highestValidatedBy,
   };
+
+  if (suggestion !== undefined) {
+    merged.suggestion = suggestion;
+  }
+
+  return merged;
 }
 
 /**
