@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier';
+import harnessPlugin from '@harness-engineering/eslint-plugin';
 
 export default [
   {
@@ -78,6 +79,16 @@ export default [
       '@typescript-eslint/no-floating-promises': 'off',
       'no-undef': 'off',
       '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+    },
+  },
+  {
+    files: ['packages/*/src/**/*.ts'],
+    plugins: {
+      '@harness-engineering': harnessPlugin,
+    },
+    rules: {
+      '@harness-engineering/no-unix-shell-command': 'warn',
+      '@harness-engineering/no-hardcoded-path-separator': 'warn',
     },
   },
   prettierConfig,
