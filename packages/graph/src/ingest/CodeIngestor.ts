@@ -24,7 +24,7 @@ export class CodeIngestor {
 
     for (const filePath of files) {
       try {
-        const relativePath = path.relative(rootDir, filePath);
+        const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
         const content = await fs.readFile(filePath, 'utf-8');
         const stat = await fs.stat(filePath);
         const fileId = `file:${relativePath}`;
@@ -392,7 +392,7 @@ export class CodeIngestor {
     rootDir: string
   ): Promise<string | null> {
     const fromDir = path.dirname(fromFile);
-    const resolved = path.normalize(path.join(fromDir, importPath));
+    const resolved = path.normalize(path.join(fromDir, importPath)).replace(/\\/g, '/');
 
     // Try with extensions
     const extensions = ['.ts', '.tsx', '.js', '.jsx'];
@@ -409,7 +409,7 @@ export class CodeIngestor {
 
     // Try as directory with index
     for (const ext of extensions) {
-      const candidate = path.join(resolved, `index${ext}`);
+      const candidate = path.join(resolved, `index${ext}`).replace(/\\/g, '/');
       const fullPath = path.join(rootDir, candidate);
       try {
         await fs.access(fullPath);
