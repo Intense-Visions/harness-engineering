@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { join } from 'path';
 import { generateRule, type GeneratedRule } from '../../src/generator/rule-generator';
 import type { RuleConfig } from '../../src/schema/linter-config';
 import type { TemplateSource } from '../../src/engine/template-loader';
@@ -31,7 +32,7 @@ export default {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.rule.name).toBe('no-ui-in-services');
-      expect(result.rule.outputPath).toBe('generated/no-ui-in-services.ts');
+      expect(result.rule.outputPath).toBe(join('generated', 'no-ui-in-services.ts'));
       expect(result.rule.content).toContain("name: 'no-ui-in-services'");
       expect(result.rule.content).toContain("severity: 'error'");
       expect(result.rule.content).toContain('"forbiddenImports":["react"]');

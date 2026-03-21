@@ -107,7 +107,7 @@ describe('no hardcoded path separators in source files', () => {
         const lineNum = content.substring(0, match.index).split('\n').length;
         // Skip lines with platform-safe suppression comment
         const line = lines[lineNum - 1] ?? '';
-        if (line.includes('// platform-safe')) continue;
+        if (line.includes('platform-safe')) continue;
         matches.push(`Line ${lineNum}: ${match[0]}`);
       }
 

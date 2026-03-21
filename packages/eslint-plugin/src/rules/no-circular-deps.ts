@@ -71,8 +71,7 @@ function normalizePath(filePath: string): string {
   // Normalize separators to forward slash for cross-platform consistency
   const normalized = filePath.replace(/\\/g, '/');
   // Extract path from /project/src/... or similar
-  // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- platform-safe: already normalized to forward slashes
-  const srcIndex = normalized.indexOf('/src/');
+  const srcIndex = normalized.indexOf('/src/'); // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
   if (srcIndex !== -1) {
     return normalized.slice(srcIndex + 1);
   }

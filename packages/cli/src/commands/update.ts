@@ -17,14 +17,13 @@ export function detectPackageManager(): PackageManager {
     // Normalize to forward slashes for cross-platform path matching
     const normalizedBin = binPath.replace(/\\/g, '/');
     if (
-      // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- platform-safe: already normalized
-      normalizedBin.includes('pnpm/global/') ||
+      normalizedBin.includes('pnpm/global/') || // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
       normalizedBin.includes('pnpm-global/')
     ) {
       return 'pnpm';
     }
-    // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- platform-safe: already normalized
     if (normalizedBin.includes('.yarn/')) {
+      // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
       return 'yarn';
     }
   } catch {
