@@ -182,20 +182,47 @@ emit_interaction({
 })
 ```
 
-After verification is accepted:
+### Handoff and Transition
+
+After producing the verification report, write the handoff and conditionally transition:
+
+Write `.harness/handoff.json`:
 
 ```json
-emit_interaction({
-  path: "<project-root>",
-  type: "transition",
-  transition: {
-    completedPhase: "verification",
-    suggestedNext: "review",
-    reason: "All artifacts verified at 3 levels, no gaps remaining",
-    artifacts: ["<verified file paths>"]
-  }
-})
+{
+  "fromSkill": "harness-verification",
+  "phase": "COMPLETE",
+  "summary": "<verdict summary>",
+  "artifacts": ["<verified file paths>"],
+  "verdict": "pass | fail",
+  "gaps": ["<gap descriptions if any>"]
+}
 ```
+
+**If verdict is PASS (all levels passed, no gaps):**
+
+Call `emit_interaction`:
+
+```json
+{
+  "type": "transition",
+  "transition": {
+    "completedPhase": "verification",
+    "suggestedNext": "review",
+    "reason": "Verification passed at all 3 levels",
+    "artifacts": ["<verified file paths>"],
+    "requiresConfirmation": false,
+    "summary": "Verification passed: <N> artifacts checked. EXISTS, SUBSTANTIVE, WIRED all passed."
+  }
+}
+```
+
+The response will include `nextAction: "Invoke harness-code-review skill now"`.
+Immediately invoke harness-code-review without waiting for user input.
+
+**If verdict is FAIL or INCOMPLETE:**
+
+Do NOT emit a transition. Surface gaps to the user for resolution. The handoff is written with the gaps recorded for future reference.
 
 ---
 
@@ -220,6 +247,8 @@ If step 4 passes (test does not fail without the fix), the test is not a valid r
 - **Test runner** — Must be run fresh (not cached) during Level 3. Read actual output, check exit codes.
 
 All commands must be run fresh in the current session. Do not rely on results from a previous session or a previous run in the same session if code has changed since.
+
+- **`emit_interaction`** -- Call after verification passes to auto-transition to harness-code-review. Only emitted on PASS verdict. Uses auto-transition (proceeds immediately).
 
 ## Success Criteria
 
