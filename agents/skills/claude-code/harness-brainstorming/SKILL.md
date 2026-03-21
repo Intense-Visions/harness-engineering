@@ -38,6 +38,21 @@ If you find yourself writing production code, tests, or scaffolding before the h
 
 1. **Ask ONE question at a time.** Do not dump a list of 10 questions on the human. Ask the most important question first. Wait for the answer. Let the answer inform the next question.
 
+   When asking a clarifying question, use `emit_interaction` with `type: 'question'`:
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "question",
+     question: {
+       text: "For auth, should we use:",
+       options: ["A) existing JWT middleware", "B) OAuth2 via provider X", "C) external service"]
+     }
+   })
+   ```
+
+   This records the question in state and returns a formatted prompt to present.
+
 2. **Prefer multiple choice.** Instead of "How should we handle auth?", ask "For auth, should we: (A) use existing JWT middleware, (B) add OAuth2 via provider X, or (C) delegate to an external service?" Give 2-4 concrete options with brief tradeoff notes.
 
 3. **When the human answers, acknowledge and build on it.** Do not re-ask clarified points. Track decisions as they accumulate.
@@ -67,6 +82,13 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
    - **Estimated complexity:** Low / Medium / High, with a brief justification
    - **Risk:** What could go wrong, what assumptions might be wrong
 
+   When presenting approach tradeoffs, use conventional markdown patterns:
+
+   ```
+   **[IMPORTANT]** Approach 1 trades simplicity for extensibility
+   **[SUGGESTION]** Consider Approach 2 if real-time requirements emerge later
+   ```
+
 2. **Be honest about tradeoffs.** Do not soft-sell a preferred approach. If approach A is simpler but less extensible, say so plainly.
 
 3. **State your recommendation** and why, but defer to the human's decision.
@@ -92,7 +114,35 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
 
 4. **Run `harness validate`** to verify the spec file is properly placed and the project remains healthy.
 
-5. **Ask for final sign-off.** Present the complete spec file path and a one-paragraph summary. The human must explicitly approve before this skill is complete.
+5. **Request sign-off via `emit_interaction`:**
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "confirmation",
+     confirmation: {
+       text: "Approve spec at <file-path>?",
+       context: "<one-paragraph summary of the design>"
+     }
+   })
+   ```
+
+   The human must explicitly approve before this skill is complete.
+
+6. **Emit phase transition:**
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "transition",
+     transition: {
+       completedPhase: "brainstorming",
+       suggestedNext: "planning",
+       reason: "Spec approved by human, ready for implementation planning",
+       artifacts: ["<spec-file-path>"]
+     }
+   })
+   ```
 
 ---
 
