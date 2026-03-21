@@ -4,6 +4,7 @@ import { Ok, Err } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
 import { resolveSkillsDir } from '../utils/paths.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const runSkillDefinition = {
   name: 'run_skill',
@@ -55,7 +56,7 @@ export async function handleRunSkill(input: {
 
   // Optionally inject project state context
   if (input.path) {
-    const projectPath = path.resolve(input.path);
+    const projectPath = sanitizePath(input.path);
     const stateFile = path.join(projectPath, '.harness', 'state.json');
     if (fs.existsSync(stateFile)) {
       const stateContent = fs.readFileSync(stateFile, 'utf-8');
@@ -104,7 +105,7 @@ export async function handleCreateSkill(input: {
       name: input.name,
       description: input.description,
       cognitiveMode: input.cognitiveMode ?? 'constructive-architect',
-      outputDir: path.resolve(input.path),
+      outputDir: sanitizePath(input.path),
     });
     return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
   } catch (error) {

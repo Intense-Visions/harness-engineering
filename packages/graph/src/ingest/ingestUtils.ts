@@ -1,8 +1,13 @@
 import * as crypto from 'node:crypto';
 import type { IngestResult } from '../types.js';
 
+/**
+ * Content fingerprint for graph node IDs. Not used for security — truncated to
+ * 8 hex chars (32 bits) for readability. Changed from MD5 to SHA-256; existing
+ * persisted graph stores must be regenerated (`harness graph scan`).
+ */
 export function hash(text: string): string {
-  return crypto.createHash('md5').update(text).digest('hex').slice(0, 8);
+  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 8);
 }
 
 export function mergeResults(...results: IngestResult[]): IngestResult {

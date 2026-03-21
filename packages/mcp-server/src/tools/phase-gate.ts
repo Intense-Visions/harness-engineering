@@ -1,5 +1,5 @@
-import * as path from 'path';
 import type { McpToolResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const checkPhaseGateDefinition = {
   name: 'check_phase_gate',
@@ -17,7 +17,7 @@ export const checkPhaseGateDefinition = {
 export async function handleCheckPhaseGate(input: { path: string }): Promise<McpToolResponse> {
   try {
     const { runCheckPhaseGate } = await import('@harness-engineering/cli');
-    const result = await runCheckPhaseGate({ cwd: path.resolve(input.path) });
+    const result = await runCheckPhaseGate({ cwd: sanitizePath(input.path) });
     if (result.ok) {
       return { content: [{ type: 'text' as const, text: JSON.stringify(result.value) }] };
     }

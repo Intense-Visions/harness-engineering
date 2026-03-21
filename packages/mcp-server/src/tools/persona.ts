@@ -2,6 +2,7 @@ import * as path from 'path';
 import { Ok, Err } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolvePersonasDir } from '../utils/paths.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const listPersonasDefinition = {
   name: 'list_personas',
@@ -109,7 +110,7 @@ export async function handleRunPersona(input: {
   const personaResult = loadPersona(filePath);
   if (!personaResult.ok) return resultToMcpResponse(personaResult);
 
-  const projectPath = input.path ? path.resolve(input.path) : process.cwd();
+  const projectPath = input.path ? sanitizePath(input.path) : process.cwd();
   const trigger = (input.trigger ?? 'auto') as
     | 'always'
     | 'on_pr'

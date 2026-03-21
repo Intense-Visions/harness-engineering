@@ -2,6 +2,7 @@ import { Ok, Err } from '@harness-engineering/core';
 import { generateSlashCommands } from '@harness-engineering/cli';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const generateSlashCommandsDefinition = {
   name: 'generate_slash_commands',
@@ -56,8 +57,8 @@ export async function handleGenerateSlashCommands(input: {
       platforms,
       global: input.global ?? false,
       includeGlobal: input.includeGlobal ?? false,
-      output: input.output,
-      skillsDir: input.skillsDir ?? '',
+      output: input.output ? sanitizePath(input.output) : undefined,
+      skillsDir: input.skillsDir ? sanitizePath(input.skillsDir) : '',
       dryRun: input.dryRun ?? false,
       yes: true,
     });

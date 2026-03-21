@@ -1,6 +1,6 @@
-import * as path from 'path';
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const checkPerformanceDefinition = {
   name: 'check_performance',
@@ -24,8 +24,9 @@ export async function handleCheckPerformance(input: { path: string; type?: strin
     const { EntropyAnalyzer } = await import('@harness-engineering/core');
     const typeFilter = input.type ?? 'all';
 
+    const projectPath = sanitizePath(input.path);
     const analyzer = new EntropyAnalyzer({
-      rootDir: path.resolve(input.path),
+      rootDir: projectPath,
       analyze: {
         complexity: typeFilter === 'all' || typeFilter === 'structural',
         coupling: typeFilter === 'all' || typeFilter === 'coupling',
@@ -37,7 +38,7 @@ export async function handleCheckPerformance(input: { path: string; type?: strin
     let graphOptions: Record<string, unknown> | undefined;
     try {
       const { loadGraphStore } = await import('../utils/graph-loader.js');
-      const store = await loadGraphStore(path.resolve(input.path));
+      const store = await loadGraphStore(projectPath);
       if (store) {
         const { GraphComplexityAdapter, GraphCouplingAdapter } =
           await import('@harness-engineering/graph');
@@ -84,7 +85,7 @@ export const getPerfBaselinesDefinition = {
 export async function handleGetPerfBaselines(input: { path: string }) {
   try {
     const { BaselineManager } = await import('@harness-engineering/core');
-    const manager = new BaselineManager(path.resolve(input.path));
+    const manager = new BaselineManager(sanitizePath(input.path));
     const baselines = manager.load();
     return resultToMcpResponse(
       Ok(baselines ?? { version: 1, updatedAt: '', updatedFrom: '', benchmarks: {} })
@@ -147,7 +148,7 @@ export async function handleUpdatePerfBaselines(input: {
 }) {
   try {
     const { BaselineManager } = await import('@harness-engineering/core');
-    const manager = new BaselineManager(path.resolve(input.path));
+    const manager = new BaselineManager(sanitizePath(input.path));
     manager.save(input.results, input.commitHash);
     const updated = manager.load();
     return resultToMcpResponse(Ok(updated));
@@ -182,7 +183,7 @@ export const getCriticalPathsDefinition = {
 export async function handleGetCriticalPaths(input: { path: string }) {
   try {
     const { CriticalPathResolver } = await import('@harness-engineering/core');
-    const resolver = new CriticalPathResolver(path.resolve(input.path));
+    const resolver = new CriticalPathResolver(sanitizePath(input.path));
     const result = await resolver.resolve();
     return resultToMcpResponse(Ok(result));
   } catch (error) {

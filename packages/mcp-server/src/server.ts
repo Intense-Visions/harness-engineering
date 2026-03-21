@@ -194,7 +194,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   update_perf_baselines: handleUpdatePerfBaselines as ToolHandler,
   get_critical_paths: handleGetCriticalPaths as ToolHandler,
   list_streams: handleListStreams as ToolHandler,
-  manage_roadmap: handleManageRoadmap as ToolHandler,
+  manage_roadmap: handleManageRoadmap as unknown as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

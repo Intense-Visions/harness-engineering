@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const checkDependenciesDefinition = {
   name: 'check_dependencies',
@@ -15,7 +16,20 @@ export const checkDependenciesDefinition = {
 };
 
 export async function handleCheckDependencies(input: { path: string }) {
-  const projectPath = path.resolve(input.path);
+  let projectPath: string;
+  try {
+    projectPath = sanitizePath(input.path);
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
   const configResult = resolveProjectConfig(projectPath);
   if (!configResult.ok) return resultToMcpResponse(configResult);
 

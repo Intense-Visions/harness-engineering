@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const checkDocsDefinition = {
   name: 'check_docs',
@@ -21,7 +22,8 @@ export async function handleCheckDocs(input: { path: string; domain?: string }) 
 
     // Attempt to load graph for enhanced coverage analysis
     const { loadGraphStore } = await import('../utils/graph-loader.js');
-    const store = await loadGraphStore(path.resolve(input.path));
+    const projectPath = sanitizePath(input.path);
+    const store = await loadGraphStore(projectPath);
     let graphCoverage:
       | { documented: string[]; undocumented: string[]; coveragePercentage: number }
       | undefined;
@@ -37,8 +39,8 @@ export async function handleCheckDocs(input: { path: string; domain?: string }) 
     }
 
     const result = await checkDocCoverage(domain, {
-      sourceDir: path.resolve(input.path, 'src'),
-      docsDir: path.resolve(input.path, 'docs'),
+      sourceDir: path.resolve(projectPath, 'src'),
+      docsDir: path.resolve(projectPath, 'docs'),
       graphCoverage,
     });
     return resultToMcpResponse(result);
@@ -70,7 +72,7 @@ export const validateKnowledgeMapDefinition = {
 export async function handleValidateKnowledgeMap(input: { path: string }) {
   try {
     const { validateKnowledgeMap } = await import('@harness-engineering/core');
-    const result = await validateKnowledgeMap(path.resolve(input.path));
+    const result = await validateKnowledgeMap(sanitizePath(input.path));
     return resultToMcpResponse(result);
   } catch (error) {
     return {

@@ -38,14 +38,15 @@ export async function handleInitProject(input: {
     const resolveResult = engine.resolveTemplate(level, input.framework);
     if (!resolveResult.ok) return resultToMcpResponse(resolveResult);
 
+    const safePath = sanitizePath(input.path);
     const renderResult = engine.render(resolveResult.value, {
-      projectName: input.name ?? path.basename(input.path),
+      projectName: input.name ?? path.basename(safePath),
       level,
       framework: input.framework,
     });
     if (!renderResult.ok) return resultToMcpResponse(renderResult);
 
-    const writeResult = engine.write(renderResult.value, sanitizePath(input.path), {
+    const writeResult = engine.write(renderResult.value, safePath, {
       overwrite: false,
     });
     return resultToMcpResponse(writeResult);

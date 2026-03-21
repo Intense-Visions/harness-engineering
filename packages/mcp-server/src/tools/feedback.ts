@@ -1,5 +1,5 @@
-import * as path from 'path';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 // ============ create_self_review ============
 
@@ -45,8 +45,9 @@ export async function handleCreateSelfReview(input: {
       return resultToMcpResponse(parseResult);
     }
 
+    const projectPath = sanitizePath(input.path);
     const config = {
-      rootDir: path.resolve(input.path),
+      rootDir: projectPath,
       harness: {
         context: true,
         constraints: true,
@@ -62,7 +63,7 @@ export async function handleCreateSelfReview(input: {
 
     // Attempt to load graph for enhanced review
     const { loadGraphStore } = await import('../utils/graph-loader.js');
-    const store = await loadGraphStore(path.resolve(input.path));
+    const store = await loadGraphStore(projectPath);
     let graphData:
       | {
           impact: {
@@ -187,7 +188,7 @@ export async function handleAnalyzeDiff(input: {
     if (input.path) {
       try {
         const { loadGraphStore } = await import('../utils/graph-loader.js');
-        const store = await loadGraphStore(path.resolve(input.path));
+        const store = await loadGraphStore(sanitizePath(input.path));
         if (store) {
           const { GraphFeedbackAdapter } = await import('@harness-engineering/graph');
           const adapter = new GraphFeedbackAdapter(store);
@@ -279,7 +280,7 @@ export async function handleRequestPeerReview(input: {
     // Attempt to load graph for enhanced context
     try {
       const { loadGraphStore } = await import('../utils/graph-loader.js');
-      const store = await loadGraphStore(path.resolve(input.path));
+      const store = await loadGraphStore(sanitizePath(input.path));
       if (store) {
         const { GraphFeedbackAdapter } = await import('@harness-engineering/graph');
         const adapter = new GraphFeedbackAdapter(store);

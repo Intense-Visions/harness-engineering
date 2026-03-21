@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
+import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const validateToolDefinition = {
   name: 'validate_project',
@@ -14,7 +15,20 @@ export const validateToolDefinition = {
 };
 
 export async function handleValidateProject(input: { path: string }) {
-  const projectPath = path.resolve(input.path);
+  let projectPath: string;
+  try {
+    projectPath = sanitizePath(input.path);
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
   const errors: string[] = [];
   const checks: {
     config: 'pass' | 'fail';
