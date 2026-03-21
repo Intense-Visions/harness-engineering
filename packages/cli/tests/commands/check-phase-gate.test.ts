@@ -67,8 +67,8 @@ describe('check-phase-gate command', () => {
       fs.writeFileSync(path.join(tmpDir, 'src', 'auth', 'login.ts'), 'export {}');
 
       // Create matching spec
-      mkdirp(path.join(tmpDir, 'docs', 'specs'));
-      fs.writeFileSync(path.join(tmpDir, 'docs', 'specs', 'auth.md'), '# Auth Spec');
+      mkdirp(path.join(tmpDir, 'docs', 'changes', 'auth'));
+      fs.writeFileSync(path.join(tmpDir, 'docs', 'changes', 'auth', 'proposal.md'), '# Auth Spec');
 
       const configPath = writeConfig(tmpDir, {
         version: 1,
@@ -151,8 +151,8 @@ describe('check-phase-gate command', () => {
       fs.writeFileSync(path.join(tmpDir, 'lib', 'utils', 'hash.ts'), 'export {}');
 
       // Only create spec for first mapping
-      mkdirp(path.join(tmpDir, 'docs', 'specs'));
-      fs.writeFileSync(path.join(tmpDir, 'docs', 'specs', 'auth.md'), '# Auth');
+      mkdirp(path.join(tmpDir, 'docs', 'changes', 'auth'));
+      fs.writeFileSync(path.join(tmpDir, 'docs', 'changes', 'auth', 'proposal.md'), '# Auth');
 
       const configPath = writeConfig(tmpDir, {
         version: 1,
