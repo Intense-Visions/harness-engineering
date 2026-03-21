@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.2.0
+
+### Minor Changes
+
+- Add Roadmap, Milestone, Feature, and FeatureStatus types for project roadmap management
+
 ## 0.1.0
 
 ### Minor Changes
