@@ -68,6 +68,9 @@ export * from './review';
 // Roadmap module
 export * from './roadmap';
 
+// Interaction module
+export * from './interaction';
+
 // Update checker
 export {
   isUpdateCheckEnabled,
