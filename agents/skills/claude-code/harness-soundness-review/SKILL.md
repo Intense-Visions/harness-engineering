@@ -360,7 +360,60 @@ Execute all checks for the active mode. Classify each finding as `autoFixable: t
 | P6  | Scope drift            | Plan tasks not traceable to any spec requirement                                    | No — surface to user (might be intentional prerequisite work)      |
 | P7  | Task-level feasibility | Tasks requiring decisions not made in brainstorming; tasks too vague to execute     | No — surface to user                                               |
 
-> **Status:** Not yet implemented. Check stubs will be added in Phase 4 of the implementation order.
+##### P1 Spec-Plan Coverage
+
+**What to analyze:** The spec's Success Criteria section and the plan's Tasks section. Requires access to both the spec document (referenced in the plan header) and the plan being reviewed.
+
+**How to detect:**
+
+- Without graph: Extract each numbered success criterion from the spec. For each criterion, search the plan's task descriptions, verification steps, and observable truths for text that covers the criterion. A criterion is "covered" if at least one task's verification step or observable truth would confirm the criterion is met. Flag any criterion with no corresponding task coverage.
+- With graph: If graph traceability edges exist between spec criteria and plan tasks, use those edges to verify coverage. Flag criteria with no inbound traceability edge.
+
+**Finding classification:** Always `severity: "error"`, always `autoFixable: true`. The fix is to add a new task (or extend an existing task's verification step) that covers the uncovered criterion.
+
+**Example finding:**
+
+```json
+{
+  "id": "P1-001",
+  "check": "P1",
+  "title": "Spec criterion not covered by any plan task",
+  "detail": "Success criterion #4 ('All API errors return structured error responses with request-id') has no corresponding task in the plan. No task's verification step or observable truth would confirm this criterion is met.",
+  "severity": "error",
+  "autoFixable": true,
+  "suggestedFix": "Add a new task that implements structured error responses and verifies request-id headers are included. Place it after the API route tasks (Task 3) with appropriate dependencies.",
+  "evidence": [
+    "Spec Success Criteria #4: 'All API errors return structured error responses with request-id'",
+    "Plan Tasks 1-8: no task references error response format or request-id"
+  ]
+}
+```
+
+##### P2 Task Completeness
+
+**What to analyze:** Each task in the plan's Tasks section.
+
+**How to detect:** For each task, verify it has: (a) clear inputs (what files/artifacts the task reads or depends on), (b) clear outputs (what files the task creates or modifies), (c) a verification criterion (a test command, observable behavior, or check that confirms the task succeeded). Flag tasks missing any of these three elements.
+
+**Finding classification:** Always `severity: "warning"`, always `autoFixable: true`. The fix is to infer the missing element from the task description and surrounding context (e.g., if a task says "create src/foo.ts" but has no verification, add "Run: `npx vitest run src/foo.test.ts`" if a test file exists in the plan, or "Run: `tsc --noEmit`" as a minimal verification).
+
+**Example finding:**
+
+```json
+{
+  "id": "P2-001",
+  "check": "P2",
+  "title": "Task missing verification criterion",
+  "detail": "Task 3 ('Create notification service') specifies inputs (notification types from Task 1) and outputs (src/services/notification-service.ts) but has no verification criterion. There is no test command, observable behavior, or check that confirms the task succeeded.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add verification: 'Run: `npx vitest run src/services/notification-service.test.ts`' (test file exists in Task 4 of the plan).",
+  "evidence": [
+    "Task 3: no 'Run:', 'Verify:', or 'Check:' step found",
+    "Task 4 creates src/services/notification-service.test.ts — can be referenced as verification"
+  ]
+}
+```
 
 ---
 
