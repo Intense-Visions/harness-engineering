@@ -68,10 +68,12 @@ export function detectCycle(from: string, to: string): string[] | null {
  * Normalize file path to project-relative
  */
 function normalizePath(filePath: string): string {
+  // Normalize separators to forward slash for cross-platform consistency
+  const normalized = filePath.replace(/\\/g, '/');
   // Extract path from /project/src/... or similar
-  const srcIndex = filePath.indexOf('/src/');
+  const srcIndex = normalized.indexOf('/src/'); // platform-safe: already normalized to forward slashes
   if (srcIndex !== -1) {
-    return filePath.slice(srcIndex + 1);
+    return normalized.slice(srcIndex + 1);
   }
   return path.basename(filePath);
 }

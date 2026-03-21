@@ -20,7 +20,7 @@ export function resolveImportPath(importPath: string, importingFile: string): st
   // Extract path relative to project root
   // Assumes paths like /project/src/... or /path/to/project/src/...
   const normalized = resolved.replace(/\\/g, '/');
-  const srcIndex = normalized.indexOf('/src/');
+  const srcIndex = normalized.indexOf('/src/'); // platform-safe: already normalized to forward slashes
   if (srcIndex !== -1) {
     return normalized.slice(srcIndex + 1); // Remove leading /
   }
@@ -65,7 +65,7 @@ export function getLayerByName(name: string, layers: Layer[]): Layer | undefined
  */
 export function normalizePath(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/');
-  const srcIndex = normalized.indexOf('/src/');
+  const srcIndex = normalized.indexOf('/src/'); // platform-safe: already normalized to forward slashes
   if (srcIndex !== -1) {
     return normalized.slice(srcIndex + 1);
   }
