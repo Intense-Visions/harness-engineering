@@ -49,3 +49,27 @@
 - [ADDED] Bug detection domain includes direct dependencies and test files
 - [ADDED] Security domain includes security-relevant imports filtered by pattern
 - [ADDED] Architecture domain includes reverse dependency impact from graph or import heuristic
+
+# Delta: Unified Code Review Pipeline — Phase 8 (Model Tiering Config)
+
+## Changes to @harness-engineering/core
+
+- [ADDED] `ModelTierConfig` interface in `review/types.ts` — maps abstract tiers to concrete model identifier strings (all fields optional)
+- [ADDED] `ModelProvider` type in `review/types.ts` — `'claude' | 'openai' | 'gemini'`
+- [ADDED] `ProviderDefaults` type in `review/types.ts` — `Record<ModelProvider, ModelTierConfig>`
+- [ADDED] `resolveModelTier()` function in `review/model-tier-resolver.ts` — resolves tier to model string via config, then provider defaults, then undefined
+- [ADDED] `DEFAULT_PROVIDER_TIERS` constant in `review/model-tier-resolver.ts` — sensible defaults (claude: haiku/sonnet/opus, openai: gpt-4o-mini/gpt-4o/o1, gemini: flash/pro/ultra)
+- [MODIFIED] `review/index.ts` — added exports for `ModelTierConfig`, `ModelProvider`, `ProviderDefaults`, `resolveModelTier`, `DEFAULT_PROVIDER_TIERS`
+
+## Changes to @harness-engineering/cli
+
+- [ADDED] `ModelTierConfigSchema` Zod schema in `config/schema.ts` — validates `{ fast?: string, standard?: string, strong?: string }`
+- [ADDED] `ReviewConfigSchema` Zod schema in `config/schema.ts` — validates `{ model_tiers?: ModelTierConfigSchema }`
+- [MODIFIED] `HarnessConfigSchema` — added optional `review: ReviewConfigSchema` field
+
+## Behavioral Changes
+
+- [ADDED] When `harness.config.json` contains `review.model_tiers`, the values are parsed and available to the review pipeline
+- [ADDED] When `resolveModelTier` is called with config that has the tier mapped, it returns the configured model string
+- [ADDED] When config is absent or does not map the tier, and a provider is specified, the resolver returns the provider default
+- [ADDED] When no config and no provider, the resolver returns undefined (meaning "use current model" — no tiering)
