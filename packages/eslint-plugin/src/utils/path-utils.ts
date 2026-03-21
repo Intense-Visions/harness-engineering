@@ -20,8 +20,7 @@ export function resolveImportPath(importPath: string, importingFile: string): st
   // Extract path relative to project root
   // Assumes paths like /project/src/... or /path/to/project/src/...
   const normalized = resolved.replace(/\\/g, '/');
-  // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- platform-safe: already normalized to forward slashes
-  const srcIndex = normalized.indexOf('/src/');
+  const srcIndex = normalized.indexOf('/src/'); // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
   if (srcIndex !== -1) {
     return normalized.slice(srcIndex + 1); // Remove leading /
   }
@@ -66,8 +65,7 @@ export function getLayerByName(name: string, layers: Layer[]): Layer | undefined
  */
 export function normalizePath(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/');
-  // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- platform-safe: already normalized to forward slashes
-  const srcIndex = normalized.indexOf('/src/');
+  const srcIndex = normalized.indexOf('/src/'); // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
   if (srcIndex !== -1) {
     return normalized.slice(srcIndex + 1);
   }
