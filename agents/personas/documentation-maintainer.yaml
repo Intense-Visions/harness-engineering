@@ -1,11 +1,13 @@
 version: 1
 name: Documentation Maintainer
 description: Keeps documentation in sync with source code
-role: Detect documentation drift, validate doc coverage, align docs with code changes
+role: Detect documentation drift, validate doc coverage, align docs with code changes, run full documentation health pipeline
 skills:
   - detect-doc-drift
   - align-documentation
   - harness-knowledge-mapper
+  - validate-context-engineering
+  - harness-docs-pipeline
 commands:
   - check-docs
   - validate
