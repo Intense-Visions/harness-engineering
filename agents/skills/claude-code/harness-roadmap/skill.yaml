@@ -18,7 +18,7 @@ cli:
   command: harness skill run harness-roadmap
   args:
     - name: command
-      description: "Command: --create (bootstrap roadmap), --add <feature-name> (add feature)"
+      description: "Command: --create (bootstrap roadmap), --add <feature-name> (add feature), --sync (update statuses from execution state), --edit (interactive edit session), or no args (show summary)"
       required: false
 mcp:
   tool: run_skill
