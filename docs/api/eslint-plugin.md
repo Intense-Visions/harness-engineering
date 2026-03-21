@@ -1,0 +1,94 @@
+# @harness-engineering/eslint-plugin
+
+ESLint plugin for enforcing harness engineering architectural constraints. Provides 8 rules and 2 shared configurations.
+
+**Version:** 0.1.2
+
+## Installation
+
+```bash
+npm install @harness-engineering/eslint-plugin
+```
+
+**Peer dependencies:** `eslint` (^8, ^9, or ^10), `typescript` (^5)
+
+## Setup
+
+```javascript
+// eslint.config.js (flat config)
+import harnessPlugin from '@harness-engineering/eslint-plugin';
+
+export default [
+  harnessPlugin.configs.recommended,
+  // or: harnessPlugin.configs.strict,
+];
+```
+
+## Shared Configurations
+
+### `recommended`
+
+Enables all rules. Architectural rules are set to `error`, documentation rules to `warn`.
+
+| Rule                      | Severity |
+| ------------------------- | -------- |
+| `no-layer-violation`      | error    |
+| `no-circular-deps`        | error    |
+| `no-forbidden-imports`    | error    |
+| `require-boundary-schema` | warn     |
+| `enforce-doc-exports`     | warn     |
+
+### `strict`
+
+Same rules as `recommended`, but all set to `error`.
+
+## Rules
+
+### `no-layer-violation`
+
+Prevents imports that violate the defined architectural layer hierarchy. For example, a "domain" layer module cannot import from a "presentation" layer module.
+
+### `no-circular-deps`
+
+Detects and reports circular dependency chains between modules.
+
+### `no-forbidden-imports`
+
+Blocks imports matching forbidden patterns defined in configuration. Useful for enforcing boundaries (e.g., no importing test utilities in production code).
+
+### `require-boundary-schema`
+
+Requires that public API boundaries include Zod schema validation. Ensures that data crossing module boundaries is validated at runtime.
+
+### `enforce-doc-exports`
+
+Ensures that all publicly exported symbols have JSDoc documentation.
+
+### `no-nested-loops-in-critical`
+
+Flags nested loops inside functions marked as performance-critical paths.
+
+### `no-sync-io-in-async`
+
+Detects synchronous I/O calls (`readFileSync`, `writeFileSync`, etc.) inside async functions.
+
+### `no-unbounded-array-chains`
+
+Flags method chains on arrays (`.map().filter().reduce()`) that operate on unbounded data without size guards.
+
+## Exports
+
+### Default Export
+
+```typescript
+export default plugin;
+```
+
+The plugin object containing `meta`, `rules`, and `configs`.
+
+### Named Exports
+
+```typescript
+export { rules };
+export const configs: { recommended: object; strict: object };
+```

@@ -4,15 +4,13 @@ Welcome to the Harness Engineering API documentation.
 
 ## Packages
 
-- **@harness-engineering/types** — Core TypeScript types and interfaces (`Result<T,E>`, workflow types, skill metadata)
-- **@harness-engineering/core** — Runtime library (validation, constraints, entropy detection, context generation, feedback, state)
-- **@harness-engineering/cli** — CLI tool and template engine (`harness validate`, `harness init`, skill/persona management)
-- **@harness-engineering/eslint-plugin** — ESLint rules for architectural constraint enforcement (8 rules)
-- **@harness-engineering/linter-gen** — Generate custom ESLint rules from YAML configuration
-- **@harness-engineering/graph** — Knowledge graph for codebase relationships, context assembly, and entropy detection
-- **@harness-engineering/mcp-server** — MCP server exposing 37 tools and 8 resources for AI agent integration
-
-> **Note:** Package-specific API reference pages are not yet generated. Use TypeScript definitions in each package's `dist/index.d.ts` for the authoritative API surface.
+- **[@harness-engineering/types](types.md)** — Core TypeScript types and interfaces (`Result<T,E>`, workflow types, skill metadata)
+- **[@harness-engineering/core](core.md)** — Runtime library (validation, constraints, entropy detection, context generation, feedback, state)
+- **[@harness-engineering/cli](cli.md)** — CLI tool and template engine (`harness validate`, `harness init`, skill/persona management)
+- **[@harness-engineering/eslint-plugin](eslint-plugin.md)** — ESLint rules for architectural constraint enforcement (8 rules)
+- **[@harness-engineering/linter-gen](linter-gen.md)** — Generate custom ESLint rules from YAML configuration
+- **[@harness-engineering/graph](graph.md)** — Knowledge graph for codebase relationships, context assembly, and entropy detection
+- **[@harness-engineering/mcp-server](mcp-server.md)** — MCP server exposing 41 tools and 8 resources for AI agent integration
 
 ## Overview
 

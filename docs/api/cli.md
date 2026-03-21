@@ -1,0 +1,185 @@
+# @harness-engineering/cli
+
+CLI for the Harness Engineering toolkit. Provides the `harness` command with subcommands for validation, initialization, skill management, persona execution, graph operations, and more.
+
+**Version:** 1.7.0
+
+## Installation
+
+```bash
+npm install -g @harness-engineering/cli
+```
+
+## CLI Commands
+
+The `harness` binary supports these global options:
+
+| Option                | Description         |
+| --------------------- | ------------------- |
+| `-c, --config <path>` | Path to config file |
+| `--json`              | Output as JSON      |
+| `--verbose`           | Verbose output      |
+| `--quiet`             | Minimal output      |
+
+### Commands
+
+| Command                              | Description                                   |
+| ------------------------------------ | --------------------------------------------- |
+| `harness validate`                   | Validate project structure and configuration  |
+| `harness check-deps`                 | Check architectural dependency constraints    |
+| `harness check-docs`                 | Check documentation coverage                  |
+| `harness check-perf`                 | Check performance against baselines           |
+| `harness check-security`             | Run security scan                             |
+| `harness check-phase-gate`           | Run phase gate checks                         |
+| `harness perf`                       | Performance benchmarking commands             |
+| `harness init`                       | Initialize a harness-engineered project       |
+| `harness cleanup`                    | Clean up generated artifacts                  |
+| `harness fix-drift`                  | Fix documentation drift                       |
+| `harness agent`                      | Agent task management                         |
+| `harness add`                        | Add components to the project                 |
+| `harness linter`                     | Generate ESLint rules from YAML config        |
+| `harness persona`                    | Persona management                            |
+| `harness skill`                      | Skill execution and management                |
+| `harness state`                      | State management                              |
+| `harness create-skill`               | Scaffold a new skill                          |
+| `harness setup-mcp`                  | Configure MCP server integration              |
+| `harness generate-slash-commands`    | Generate slash command definitions            |
+| `harness generate-agent-definitions` | Generate agent definition files               |
+| `harness generate`                   | General-purpose code generation               |
+| `harness ci`                         | CI/CD pipeline commands                       |
+| `harness update`                     | Check for and apply updates                   |
+| `harness scan`                       | Scan codebase into the knowledge graph        |
+| `harness ingest`                     | Ingest external data into the knowledge graph |
+| `harness query`                      | Query the knowledge graph                     |
+| `harness graph`                      | Knowledge graph management                    |
+
+## Programmatic API
+
+The CLI also exports functions and types for use as a library.
+
+### `createProgram()`
+
+```typescript
+function createProgram(): Command;
+```
+
+Creates and returns the configured Commander program. Useful for embedding the CLI in other tools.
+
+### Preamble
+
+### `buildPreamble(skillDir)`
+
+Builds a skill preamble from a skill directory.
+
+### Graph Operations
+
+| Function                  | Description                                |
+| ------------------------- | ------------------------------------------ |
+| `runScan(options)`        | Scans source code into the knowledge graph |
+| `runQuery(options)`       | Queries the knowledge graph                |
+| `runIngest(options)`      | Ingests external data sources              |
+| `runGraphStatus(options)` | Returns graph status information           |
+| `runGraphExport(options)` | Exports graph data                         |
+
+### Phase Gate
+
+### `runCheckPhaseGate(options)`
+
+Runs phase gate validation checks.
+
+### Cross-Check
+
+### `runCrossCheck(options)`
+
+Validates cross-references between documents.
+
+### Skill Creation
+
+### `generateSkillFiles(options)`
+
+```typescript
+function generateSkillFiles(options: CreateSkillOptions): Promise<void>;
+```
+
+Generates the file scaffolding for a new skill.
+
+**Types:** `CreateSkillOptions`
+
+### Slash Commands
+
+### `generateSlashCommands(options)`
+
+Generates slash command definition files from skill metadata.
+
+**Types:** `GenerateResult`, `SkillSource`
+
+### Error Handling
+
+| Export               | Description                       |
+| -------------------- | --------------------------------- |
+| `CLIError`           | Custom error class for CLI errors |
+| `ExitCode`           | Enum of CLI exit codes            |
+| `handleError(error)` | Formats and handles CLI errors    |
+
+### Output
+
+| Export            | Description                         |
+| ----------------- | ----------------------------------- |
+| `OutputFormatter` | Formats output for terminal or JSON |
+| `OutputMode`      | Output mode enum (`text`, `json`)   |
+| `logger`          | Shared logger instance              |
+
+### Configuration
+
+| Function                  | Description                        |
+| ------------------------- | ---------------------------------- |
+| `loadConfig(path)`        | Loads a harness config file        |
+| `findConfigFile(rootDir)` | Finds the config file in a project |
+| `resolveConfig(rootDir)`  | Finds and loads the config file    |
+
+**Types:** `HarnessConfig`
+
+### Template Engine
+
+### `TemplateEngine`
+
+Handlebars-based template engine for code generation.
+
+**Types:** `TemplateContext`, `RenderedFiles`
+
+### Persona Management
+
+| Function                       | Description                               |
+| ------------------------------ | ----------------------------------------- |
+| `loadPersona(name)`            | Loads a persona definition by name        |
+| `listPersonas()`               | Lists all available personas              |
+| `runPersona(persona, context)` | Executes a persona's workflow             |
+| `generateRuntime(persona)`     | Generates runtime artifacts for a persona |
+| `generateAgentsMd(persona)`    | Generates an AGENTS.md for a persona      |
+| `generateCIWorkflow(persona)`  | Generates a CI workflow for a persona     |
+| `detectTrigger(context)`       | Detects which persona trigger matches     |
+
+**Types:** `PersonaMetadata`, `Persona`, `Step`, `CommandStep`, `SkillStep`, `TriggerContext`, `CommandExecutor`, `SkillExecutor`, `StepExecutionContext`, `PersonaRunReport`, `StepReport`, `HandoffContext`, `TriggerDetectionResult`
+
+**Constants:** `ALLOWED_PERSONA_COMMANDS`
+
+### Skill Execution
+
+| Function                | Description                          |
+| ----------------------- | ------------------------------------ |
+| `executeSkill(context)` | Executes a skill with full lifecycle |
+
+**Types:** `SkillExecutionContext`, `SkillExecutionResult`
+
+### Agent Definitions
+
+| Function                                   | Description                                             |
+| ------------------------------------------ | ------------------------------------------------------- |
+| `generateAgentDefinitions(options)`        | Generates agent definition files for multiple platforms |
+| `generateAgentDefinition(agent, platform)` | Generates a single agent definition                     |
+| `renderClaudeCodeAgent(definition)`        | Renders a Claude Code agent YAML                        |
+| `renderGeminiAgent(definition)`            | Renders a Gemini CLI agent YAML                         |
+
+**Types:** `GenerateAgentDefsOptions`, `GenerateAgentDefsResult`, `AgentDefinition`
+
+**Constants:** `AGENT_DESCRIPTIONS`, `DEFAULT_TOOLS`, `GEMINI_TOOL_MAP`
