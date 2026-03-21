@@ -415,6 +415,59 @@ Execute all checks for the active mode. Classify each finding as `autoFixable: t
 }
 ```
 
+##### P3 Dependency Correctness
+
+**What to analyze:** The "Depends on" declarations across all tasks, and the file paths / artifacts referenced in each task.
+
+**How to detect:**
+
+- Build a dependency graph from all "Depends on: Task N" declarations.
+- **Cycle detection:** Run a topological sort on the graph. If the sort fails, a cycle exists. Report the cycle as the set of tasks involved (e.g., "Task 3 -> Task 5 -> Task 3").
+- **Missing edges:** For each task, extract the files it reads or imports. If a file is created by another task (check the File Map), verify the creating task is declared as a dependency. Flag missing edges.
+- Without graph (static analysis): Parse file paths from task descriptions ("Create src/types/foo.ts", "Modify src/services/bar.ts") and match creators to consumers.
+- With graph: Use `get_impact` on each task's output files to verify that all downstream consumers are declared as dependents. Graph edges provide more accurate dependency data than text parsing.
+
+**Finding classification:**
+
+- Cycles: `severity: "error"`, `autoFixable: false`. Cycles indicate a decomposition error that requires restructuring tasks. Surface to user.
+- Missing dependency edges: `severity: "warning"`, `autoFixable: true`. The fix is to add the missing "Depends on" declaration to the consuming task.
+
+**Example findings:**
+
+```json
+{
+  "id": "P3-001",
+  "check": "P3",
+  "title": "Dependency cycle detected",
+  "detail": "Tasks form a cycle: Task 3 depends on Task 5, Task 5 depends on Task 3. Topological sort fails. These tasks cannot be executed in any valid order without restructuring.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Break the cycle by merging Tasks 3 and 5 into a single task, or by extracting the shared dependency into a new task that both depend on.",
+  "evidence": [
+    "Task 3: 'Depends on: Task 5'",
+    "Task 5: 'Depends on: Task 3'",
+    "Topological sort failed — cycle: Task 3 -> Task 5 -> Task 3"
+  ]
+}
+```
+
+```json
+{
+  "id": "P3-002",
+  "check": "P3",
+  "title": "Missing dependency edge",
+  "detail": "Task 5 imports from 'src/types/notification.ts' which is created by Task 1, but Task 5 does not declare 'Depends on: Task 1'. If Task 5 runs before Task 1, it will fail.",
+  "severity": "warning",
+  "autoFixable": true,
+  "suggestedFix": "Add 'Depends on: Task 1' to Task 5's header.",
+  "evidence": [
+    "Task 5: imports src/types/notification.ts",
+    "File Map: src/types/notification.ts created by Task 1",
+    "Task 5 'Depends on' line: 'Depends on: Task 4' (Task 1 not listed)"
+  ]
+}
+```
+
 ---
 
 ### Phase 2: FIX — Auto-Fix Inferrable Issues
