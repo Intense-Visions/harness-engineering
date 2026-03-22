@@ -1,17 +1,30 @@
 import { randomUUID } from 'crypto';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import {
+  EmitInteractionInputSchema,
+  InteractionQuestionWithOptionsSchema,
+  InteractionConfirmationSchema,
+  InteractionTransitionSchema,
+  InteractionBatchSchema,
+} from './interaction-schemas.js';
+import {
+  renderQuestion,
+  renderConfirmation,
+  renderTransition,
+  renderBatch,
+} from './interaction-renderer.js';
 
 export const emitInteractionDefinition = {
   name: 'emit_interaction',
   description:
-    'Emit a structured interaction (question, confirmation, or phase transition) for round-trip communication with the user',
+    'Emit a structured interaction (question, confirmation, phase transition, or batch decision) for round-trip communication with the user',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       type: {
         type: 'string',
-        enum: ['question', 'confirmation', 'transition'],
+        enum: ['question', 'confirmation', 'transition', 'batch'],
         description: 'Type of interaction',
       },
       stream: {
@@ -25,10 +38,30 @@ export const emitInteractionDefinition = {
           text: { type: 'string', description: 'The question text' },
           options: {
             type: 'array',
-            items: { type: 'string' },
-            description: 'Multiple choice options (omit for free-form)',
+            items: {
+              type: 'object',
+              properties: {
+                label: { type: 'string' },
+                pros: { type: 'array', items: { type: 'string' } },
+                cons: { type: 'array', items: { type: 'string' } },
+                risk: { type: 'string', enum: ['low', 'medium', 'high'] },
+                effort: { type: 'string', enum: ['low', 'medium', 'high'] },
+              },
+              required: ['label', 'pros', 'cons'],
+            },
+            description: 'Structured options with pros/cons (omit for free-form)',
           },
-          default: { type: 'string', description: 'Default answer' },
+          recommendation: {
+            type: 'object',
+            properties: {
+              optionIndex: { type: 'number', description: 'Index of recommended option' },
+              reason: { type: 'string', description: 'Why this option is recommended' },
+              confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+            },
+            required: ['optionIndex', 'reason', 'confidence'],
+            description: 'Required when options are provided',
+          },
+          default: { type: 'number', description: 'Default option index' },
         },
         required: ['text'],
       },
@@ -41,6 +74,8 @@ export const emitInteractionDefinition = {
             type: 'string',
             description: 'Why confirmation is needed',
           },
+          impact: { type: 'string', description: 'Impact description' },
+          risk: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Risk level' },
         },
         required: ['text', 'context'],
       },
@@ -73,6 +108,26 @@ export const emitInteractionDefinition = {
             type: 'string',
             description: '1-2 sentence rich summary with key metrics',
           },
+          qualityGate: {
+            type: 'object',
+            properties: {
+              checks: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    passed: { type: 'boolean' },
+                    detail: { type: 'string' },
+                  },
+                  required: ['name', 'passed'],
+                },
+              },
+              allPassed: { type: 'boolean' },
+            },
+            required: ['checks', 'allPassed'],
+            description: 'Quality gate results for the completed phase',
+          },
         },
         required: [
           'completedPhase',
@@ -83,35 +138,57 @@ export const emitInteractionDefinition = {
           'summary',
         ],
       },
+      batch: {
+        type: 'object',
+        description: 'Batch decision payload (required when type is batch)',
+        properties: {
+          text: { type: 'string', description: 'Batch description' },
+          decisions: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                label: { type: 'string' },
+                recommendation: { type: 'string' },
+                risk: { type: 'string', enum: ['low'] },
+              },
+              required: ['label', 'recommendation', 'risk'],
+            },
+            description: 'Low-risk decisions to approve in batch',
+          },
+        },
+        required: ['text', 'decisions'],
+      },
     },
     required: ['path', 'type'],
   },
 };
 
-interface EmitInteractionInput {
-  path: string;
-  type: 'question' | 'confirmation' | 'transition';
-  stream?: string;
-  question?: { text: string; options?: string[]; default?: string };
-  confirmation?: { text: string; context: string };
-  transition?: {
-    completedPhase: string;
-    suggestedNext: string;
-    reason: string;
-    artifacts: string[];
-    requiresConfirmation: boolean;
-    summary: string;
-  };
-}
-
-export async function handleEmitInteraction(input: EmitInteractionInput) {
+// Accept broad input type from MCP server handler dispatch
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function handleEmitInteraction(input: Record<string, any>) {
   try {
-    const projectPath = sanitizePath(input.path);
+    // Validate top-level input with Zod
+    const parseResult = EmitInteractionInputSchema.safeParse(input);
+    if (!parseResult.success) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${parseResult.error.issues.map((i) => i.message).join('; ')}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const validInput = parseResult.data;
+    const projectPath = sanitizePath(validInput.path);
     const id = randomUUID();
 
-    switch (input.type) {
+    switch (validInput.type) {
       case 'question': {
-        if (!input.question) {
+        if (!validInput.question) {
           return {
             content: [
               {
@@ -122,19 +199,29 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
             isError: true,
           };
         }
-        const { text, options, default: defaultAnswer } = input.question;
-        let prompt = text;
-        if (options && options.length > 0) {
-          prompt +=
-            '\n\nOptions:\n' +
-            options.map((o, i) => `  ${String.fromCharCode(65 + i)}) ${o}`).join('\n');
-        }
-        if (defaultAnswer) {
-          prompt += `\n\nDefault: ${defaultAnswer}`;
+
+        // Validate with refined schema (enforces recommendation when options present)
+        const questionResult = InteractionQuestionWithOptionsSchema.safeParse(validInput.question);
+        if (!questionResult.success) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error: ${questionResult.error.issues.map((i) => i.message).join('; ')}`,
+              },
+            ],
+            isError: true,
+          };
         }
 
-        // Record in state decisions array
-        await recordInteraction(projectPath, id, 'question', text, input.stream);
+        const prompt = renderQuestion(questionResult.data);
+        await recordInteraction(
+          projectPath,
+          id,
+          'question',
+          questionResult.data.text,
+          validInput.stream
+        );
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }],
@@ -142,7 +229,7 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
       }
 
       case 'confirmation': {
-        if (!input.confirmation) {
+        if (!validInput.confirmation) {
           return {
             content: [
               {
@@ -153,10 +240,28 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
             isError: true,
           };
         }
-        const { text, context } = input.confirmation;
-        const prompt = `${text}\n\nContext: ${context}\n\nProceed? (yes/no)`;
 
-        await recordInteraction(projectPath, id, 'confirmation', text, input.stream);
+        const confirmResult = InteractionConfirmationSchema.safeParse(validInput.confirmation);
+        if (!confirmResult.success) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error: ${confirmResult.error.issues.map((i) => i.message).join('; ')}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const prompt = renderConfirmation(confirmResult.data);
+        await recordInteraction(
+          projectPath,
+          id,
+          'confirmation',
+          confirmResult.data.text,
+          validInput.stream
+        );
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }],
@@ -164,7 +269,7 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
       }
 
       case 'transition': {
-        if (!input.transition) {
+        if (!validInput.transition) {
           return {
             content: [
               {
@@ -175,15 +280,22 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
             isError: true,
           };
         }
-        const { completedPhase, suggestedNext, reason, artifacts, requiresConfirmation, summary } =
-          input.transition;
-        const prompt =
-          `Phase "${completedPhase}" complete. ${reason}\n\n` +
-          `${summary}\n\n` +
-          `Artifacts produced:\n${artifacts.map((a) => `  - ${a}`).join('\n')}\n\n` +
-          (requiresConfirmation
-            ? `Suggested next: "${suggestedNext}". Proceed?`
-            : `Proceeding to ${suggestedNext}...`);
+
+        const transitionResult = InteractionTransitionSchema.safeParse(validInput.transition);
+        if (!transitionResult.success) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error: ${transitionResult.error.issues.map((i) => i.message).join('; ')}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const transition = transitionResult.data;
+        const prompt = renderTransition(transition);
 
         // Write handoff
         try {
@@ -193,16 +305,16 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
             {
               timestamp: new Date().toISOString(),
               fromSkill: 'emit_interaction',
-              phase: completedPhase,
-              summary: reason,
-              completed: [completedPhase],
-              pending: [suggestedNext],
+              phase: transition.completedPhase,
+              summary: transition.reason,
+              completed: [transition.completedPhase],
+              pending: [transition.suggestedNext],
               concerns: [],
               decisions: [],
               blockers: [],
               contextKeywords: [],
             },
-            input.stream
+            validInput.stream
           );
         } catch {
           // Handoff write failure is non-fatal
@@ -212,14 +324,14 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
           projectPath,
           id,
           'transition',
-          `${completedPhase} -> ${suggestedNext}`,
-          input.stream
+          `${transition.completedPhase} -> ${transition.suggestedNext}`,
+          validInput.stream
         );
 
         const responsePayload: Record<string, unknown> = { id, prompt, handoffWritten: true };
-        if (!requiresConfirmation) {
+        if (!transition.requiresConfirmation) {
           responsePayload.autoTransition = true;
-          responsePayload.nextAction = `Invoke harness-${suggestedNext} skill now`;
+          responsePayload.nextAction = `Invoke harness-${transition.suggestedNext} skill now`;
         }
 
         return {
@@ -232,12 +344,51 @@ export async function handleEmitInteraction(input: EmitInteractionInput) {
         };
       }
 
+      case 'batch': {
+        if (!validInput.batch) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error: batch payload is required when type is batch',
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const batchResult = InteractionBatchSchema.safeParse(validInput.batch);
+        if (!batchResult.success) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error: ${batchResult.error.issues.map((i) => i.message).join('; ')}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const prompt = renderBatch(batchResult.data);
+        await recordInteraction(projectPath, id, 'batch', batchResult.data.text, validInput.stream);
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ id, prompt, batchMode: true }),
+            },
+          ],
+        };
+      }
+
       default: {
         return {
           content: [
             {
               type: 'text' as const,
-              text: `Error: unknown interaction type: ${String(input.type)}`,
+              text: `Error: unknown interaction type: ${String(validInput.type)}`,
             },
           ],
           isError: true,
