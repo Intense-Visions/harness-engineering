@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import { initProjectDefinition, handleInitProject } from '../../src/tools/init';
 
 describe('init_project tool', () => {
@@ -24,10 +26,13 @@ describe('init_project tool', () => {
     expect(level.enum).toContain('advanced');
   });
 
-  it('returns error for nonexistent path', async () => {
-    const response = await handleInitProject({ path: '/nonexistent/project' });
+  it('returns error for invalid path', async () => {
+    // Use a path under a file (not a directory) to guarantee write failure
+    // on all platforms — package.json is a file, so writing inside it fails
+    const invalidPath = join(__dirname, '..', '..', 'package.json', 'nested', 'project');
+    const response = await handleInitProject({ path: invalidPath });
     expect(response.isError).toBe(true);
     expect(response.content).toHaveLength(1);
-    expect(response.content[0].text).toBeDefined();
+    expect(response.content[0]!.text).toBeDefined();
   });
 });
