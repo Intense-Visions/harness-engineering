@@ -99,8 +99,8 @@ export async function runCheckPhaseGate(
 
       if (!fs.existsSync(expectedSpec)) {
         missingSpecs.push({
-          implFile: path.relative(cwd, implFile),
-          expectedSpec: path.relative(cwd, expectedSpec),
+          implFile: path.relative(cwd, implFile).replace(/\\/g, '/'),
+          expectedSpec: path.relative(cwd, expectedSpec).replace(/\\/g, '/'),
         });
       }
     }
