@@ -136,82 +136,96 @@ export async function runMechanicalChecks(
     }
   }
 
+  // --- Phase 2: Parallel warning-only checks ---
+
+  const parallelChecks: Array<Promise<void>> = [];
+
   // --- Check-docs ---
   if (!skip.includes('check-docs')) {
-    try {
-      const docsDir = path.join(projectRoot, (config.docsDir as string) ?? 'docs');
-      const result = await checkDocCoverage('project', { docsDir });
-      if (!result.ok) {
-        statuses['check-docs'] = 'warn';
-        findings.push({
-          tool: 'check-docs',
-          file: docsDir,
-          message: result.error.message,
-          severity: 'warning',
-        });
-      } else if (result.value.gaps && result.value.gaps.length > 0) {
-        statuses['check-docs'] = 'warn';
-        for (const gap of result.value.gaps) {
+    parallelChecks.push(
+      (async () => {
+        try {
+          const docsDir = path.join(projectRoot, (config.docsDir as string) ?? 'docs');
+          const result = await checkDocCoverage('project', { docsDir });
+          if (!result.ok) {
+            statuses['check-docs'] = 'warn';
+            findings.push({
+              tool: 'check-docs',
+              file: docsDir,
+              message: result.error.message,
+              severity: 'warning',
+            });
+          } else if (result.value.gaps && result.value.gaps.length > 0) {
+            statuses['check-docs'] = 'warn';
+            for (const gap of result.value.gaps) {
+              findings.push({
+                tool: 'check-docs',
+                file: gap.file,
+                message: `Undocumented: ${gap.file} (suggested: ${gap.suggestedSection})`,
+                severity: 'warning',
+              });
+            }
+          } else {
+            statuses['check-docs'] = 'pass';
+          }
+        } catch (err) {
+          statuses['check-docs'] = 'warn';
           findings.push({
             tool: 'check-docs',
-            file: gap.file,
-            message: `Undocumented: ${gap.file} (suggested: ${gap.suggestedSection})`,
+            file: path.join(projectRoot, 'docs'),
+            message: err instanceof Error ? err.message : String(err),
             severity: 'warning',
           });
         }
-      } else {
-        statuses['check-docs'] = 'pass';
-      }
-    } catch (err) {
-      statuses['check-docs'] = 'warn';
-      findings.push({
-        tool: 'check-docs',
-        file: path.join(projectRoot, 'docs'),
-        message: err instanceof Error ? err.message : String(err),
-        severity: 'warning',
-      });
-    }
+      })()
+    );
   }
 
   // --- Security scan ---
   if (!skip.includes('security-scan')) {
-    try {
-      const securityConfig = parseSecurityConfig((config as Record<string, unknown>).security);
-      if (!securityConfig.enabled) {
-        statuses['security-scan'] = 'skip';
-      } else {
-        const scanner = new SecurityScanner(securityConfig);
-        scanner.configureForProject(projectRoot);
+    parallelChecks.push(
+      (async () => {
+        try {
+          const securityConfig = parseSecurityConfig((config as Record<string, unknown>).security);
+          if (!securityConfig.enabled) {
+            statuses['security-scan'] = 'skip';
+          } else {
+            const scanner = new SecurityScanner(securityConfig);
+            scanner.configureForProject(projectRoot);
 
-        const filesToScan = changedFiles ?? [];
-        const scanResult = await scanner.scanFiles(filesToScan);
+            const filesToScan = changedFiles ?? [];
+            const scanResult = await scanner.scanFiles(filesToScan);
 
-        if (scanResult.findings.length > 0) {
-          statuses['security-scan'] = 'warn';
-          for (const f of scanResult.findings) {
-            findings.push({
-              tool: 'security-scan',
-              file: f.file,
-              line: f.line,
-              ruleId: f.ruleId,
-              message: f.message,
-              severity: f.severity === 'info' ? 'warning' : f.severity,
-            });
+            if (scanResult.findings.length > 0) {
+              statuses['security-scan'] = 'warn';
+              for (const f of scanResult.findings) {
+                findings.push({
+                  tool: 'security-scan',
+                  file: f.file,
+                  line: f.line,
+                  ruleId: f.ruleId,
+                  message: f.message,
+                  severity: f.severity === 'info' ? 'warning' : f.severity,
+                });
+              }
+            } else {
+              statuses['security-scan'] = 'pass';
+            }
           }
-        } else {
-          statuses['security-scan'] = 'pass';
+        } catch (err) {
+          statuses['security-scan'] = 'warn';
+          findings.push({
+            tool: 'security-scan',
+            file: projectRoot,
+            message: err instanceof Error ? err.message : String(err),
+            severity: 'warning',
+          });
         }
-      }
-    } catch (err) {
-      statuses['security-scan'] = 'warn';
-      findings.push({
-        tool: 'security-scan',
-        file: projectRoot,
-        message: err instanceof Error ? err.message : String(err),
-        severity: 'warning',
-      });
-    }
+      })()
+    );
   }
+
+  await Promise.all(parallelChecks);
 
   // Determine overall status
   const hasErrors = findings.some((f) => f.severity === 'error');
