@@ -8,9 +8,34 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ### Added
 
+- Full cross-platform support (Windows, macOS, Linux) with mechanical enforcement
+- CI matrix expanded to test on all 3 OSes with `fail-fast: false`
+- ESLint rules `no-unix-shell-command` and `no-hardcoded-path-separator` for platform enforcement
+- Root-level platform parity test suite (918 tests) scanning for 5 anti-pattern categories
+- `.gitattributes` with `eol=lf` for consistent line endings on Windows
+- Cross-platform Node.js scripts (`scripts/clean.mjs`, `copy-assets.mjs`, `copy-templates.mjs`) replacing Unix shell commands
+
+### Fixed
+
+- Normalized all `path.relative()`/`path.resolve()` outputs to forward slashes across 12 source files for Windows compatibility
+- Fixed `fs.chmodSync` crash on Windows with platform guard
+- Fixed hardcoded `/src/` path separators in eslint-plugin `path-utils.ts`
+- Fixed `CodeIngestor` graph node ID mismatches on Windows (backslash in file IDs)
+- Fixed `TemplateEngine` producing backslash `relativePath` values on Windows
+- Fixed `check-phase-gate` spec path resolution failing on Windows
+- Fixed `validate-findings` exclusion matching on Windows paths
+- Fixed `update-checker` state file path resolution on Windows
+- Fixed `CriticalPathResolver` returning backslash file paths on Windows
+- Fixed dependency graph `nodes`/`edges` path mismatch breaking cycle detection on Windows
+- Switched eslint-plugin build from `tsc` to `tsup` for ESM-compatible output
+
+## 0.1.0 — 2026-03-21
+
+### Added
+
 - Initial public release of harness-engineering toolkit
 - 7 packages: types, core, cli, eslint-plugin, linter-gen, mcp-server, graph
-- 42 agent skills for Claude Code, 43 for Gemini CLI
+- 49 agent skills for Claude Code, 50 for Gemini CLI
 - 12 agent personas (code-reviewer, architecture-enforcer, task-executor, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, codebase-health-analyst, performance-guardian, security-reviewer, planner, verifier)
 - 5 project templates (base, basic, intermediate, advanced, nextjs)
 - 3 progressive examples (hello-world, task-api, multi-tenant-api)
