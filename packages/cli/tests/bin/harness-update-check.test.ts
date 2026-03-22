@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { CLI_VERSION } from '../../src/version';
 
 // Mock the core module before importing the function under test
 vi.mock('@harness-engineering/core', async (importOriginal) => {
@@ -10,7 +11,6 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
     readCheckState: vi.fn(() => null),
     spawnBackgroundCheck: vi.fn(),
     getUpdateNotification: vi.fn(() => null),
-    VERSION: '1.7.0',
   };
 });
 
@@ -20,7 +20,6 @@ import {
   readCheckState,
   spawnBackgroundCheck,
   getUpdateNotification,
-  VERSION,
 } from '@harness-engineering/core';
 import {
   runUpdateCheckAtStartup,
@@ -45,7 +44,7 @@ describe('update-check CLI hooks', () => {
       expect(isUpdateCheckEnabled).toHaveBeenCalled();
       expect(readCheckState).toHaveBeenCalled();
       expect(shouldRunCheck).toHaveBeenCalled();
-      expect(spawnBackgroundCheck).toHaveBeenCalledWith(VERSION);
+      expect(spawnBackgroundCheck).toHaveBeenCalledWith(CLI_VERSION);
     });
 
     it('does not call spawnBackgroundCheck when isUpdateCheckEnabled returns false', () => {

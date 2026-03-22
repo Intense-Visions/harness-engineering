@@ -81,5 +81,10 @@ export {
 } from './update-checker';
 export type { UpdateCheckState } from './update-checker';
 
-// Package version
-export const VERSION = '0.8.0';
+/**
+ * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`
+ * instead. This hardcoded constant drifts from the actual CLI version on each
+ * release. Kept only as a fallback for consumers that cannot resolve the CLI
+ * package at runtime.
+ */
+export const VERSION = '1.8.1';

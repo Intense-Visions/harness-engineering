@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { VERSION } from '@harness-engineering/core';
+import { CLI_VERSION } from './version';
 import { createValidateCommand } from './commands/validate';
 import { createCheckDepsCommand } from './commands/check-deps';
 import { createCheckPerfCommand } from './commands/check-perf';
@@ -34,7 +34,7 @@ export function createProgram(): Command {
   program
     .name('harness')
     .description('CLI for Harness Engineering toolkit')
-    .version(VERSION)
+    .version(CLI_VERSION)
     .option('-c, --config <path>', 'Path to config file')
     .option('--json', 'Output as JSON')
     .option('--verbose', 'Verbose output')

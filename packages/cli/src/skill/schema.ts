@@ -40,6 +40,7 @@ const ALLOWED_TRIGGERS = [
   'on_review',
   'on_milestone',
   'on_task_complete',
+  'on_doc_check',
 ] as const;
 
 const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
