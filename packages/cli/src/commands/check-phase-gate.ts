@@ -38,8 +38,8 @@ function resolveSpecPath(
   specPattern: string,
   cwd: string
 ): string {
-  // Get relative path from cwd
-  const relImpl = path.relative(cwd, implFile);
+  // Get relative path from cwd and normalize to forward slashes for consistent matching
+  const relImpl = path.relative(cwd, implFile).replace(/\\/g, '/');
 
   // Determine the base directory of the impl pattern (everything before the first glob)
   const implBase = (implPattern.split('*')[0] ?? '').replace(/\/+$/, '');

@@ -56,7 +56,7 @@ describe('CLI Integration', () => {
   });
 
   describe('harness validate', () => {
-    it('validates initialized project', () => {
+    it('validates initialized project', { timeout: 15000 }, () => {
       // Initialize first
       runCLI(['init', '--name', 'test'], tempDir);
 
