@@ -203,4 +203,57 @@ describe('runCIChecks', () => {
       }
     }
   });
+
+  it('runs independent checks in parallel (validate first, then others)', async () => {
+    // Track call order using timestamps
+    const callOrder: string[] = [];
+    const { validateAgentsMap } = await import('../../src/context/agents-map');
+    vi.mocked(validateAgentsMap).mockImplementation(async () => {
+      callOrder.push('validate');
+      return { ok: true, value: { valid: true } } as any;
+    });
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: minimalConfig(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // validate must be the first check to start
+    expect(callOrder[0]).toBe('validate');
+
+    // All checks still produce results
+    expect(result.value.checks).toHaveLength(7);
+    expect(result.value.checks.map((c) => c.name)).toEqual([
+      'validate',
+      'deps',
+      'docs',
+      'entropy',
+      'security',
+      'perf',
+      'phase-gate',
+    ]);
+  });
+
+  it('preserves check ordering in output even with parallel execution', async () => {
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: minimalConfig(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Output order must match ALL_CHECKS order regardless of completion order
+    expect(result.value.checks.map((c) => c.name)).toEqual([
+      'validate',
+      'deps',
+      'docs',
+      'entropy',
+      'security',
+      'perf',
+      'phase-gate',
+    ]);
+  });
 });

@@ -279,15 +279,33 @@ export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CIChe
 
   try {
     const checks: CICheckResult[] = [];
+    const skippedSet = new Set(skip);
 
-    for (const name of ALL_CHECKS) {
-      if (skip.includes(name)) {
-        checks.push({ name, status: 'skip', issues: [], durationMs: 0 });
-      } else {
-        const result = await runSingleCheck(name, projectRoot, config);
-        checks.push(result);
-      }
+    // Phase 1: validate runs first (deps may depend on config resolution)
+    if (skippedSet.has('validate')) {
+      checks.push({ name: 'validate', status: 'skip', issues: [], durationMs: 0 });
+    } else {
+      checks.push(await runSingleCheck('validate', projectRoot, config));
     }
+
+    // Phase 2: all remaining checks in parallel
+    const remainingChecks: CICheckName[] = [
+      'deps',
+      'docs',
+      'entropy',
+      'security',
+      'perf',
+      'phase-gate',
+    ];
+    const phase2Results = await Promise.all(
+      remainingChecks.map(async (name) => {
+        if (skippedSet.has(name)) {
+          return { name, status: 'skip' as const, issues: [] as CICheckIssue[], durationMs: 0 };
+        }
+        return runSingleCheck(name, projectRoot, config);
+      })
+    );
+    checks.push(...phase2Results);
 
     const summary = buildSummary(checks);
     const exitCode = determineExitCode(summary, failOn);
