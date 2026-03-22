@@ -20,6 +20,7 @@ Instead of relying on prompts and conventions, harness encodes your architectura
 
 ## Key Features
 
+- **Cross-Platform Support** — Fully tested on Windows, macOS, and Linux with mechanical enforcement preventing platform-specific regressions
 - **Context Engineering** — Repository-as-documentation keeps agents grounded in project reality, not stale training data
 - **Architectural Constraints** — Layered dependency rules enforced by ESLint, not willpower
 - **Agent Feedback Loop** — Self-correcting agents with peer review and real-time validation
