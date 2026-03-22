@@ -2,13 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { createRequire } from 'node:module';
+
+const require_ = createRequire(import.meta.url);
+const CLI_VERSION: string = (
+  require_('@harness-engineering/cli/package.json') as { version: string }
+).version;
 
 // Mock @harness-engineering/core before importing server
 vi.mock('@harness-engineering/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@harness-engineering/core')>();
   return {
     ...actual,
-    VERSION: '1.0.0',
     getUpdateNotification: vi.fn(),
     isUpdateCheckEnabled: vi.fn(),
     shouldRunCheck: vi.fn(),
@@ -23,7 +28,6 @@ import {
   shouldRunCheck,
   readCheckState,
   spawnBackgroundCheck,
-  VERSION,
 } from '@harness-engineering/core';
 import { createHarnessServer } from '../src/server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -102,7 +106,7 @@ describe('MCP Update Check Hook', () => {
     });
 
     expect(mockSpawnBackgroundCheck).toHaveBeenCalledOnce();
-    expect(mockSpawnBackgroundCheck).toHaveBeenCalledWith(VERSION);
+    expect(mockSpawnBackgroundCheck).toHaveBeenCalledWith(CLI_VERSION);
   });
 
   it('does not call spawnBackgroundCheck when shouldRunCheck is false', async () => {

@@ -308,8 +308,21 @@ export function createHarnessServer(projectRoot?: string): Server {
           shouldRunCheck,
           readCheckState,
           spawnBackgroundCheck,
-          VERSION,
         } = await import('@harness-engineering/core');
+
+        // Read CLI version from its package.json — this is the version users
+        // see and the one the update checker compares against npm registry.
+        let CLI_VERSION = '0.0.0';
+        try {
+          const { createRequire } = await import('node:module');
+          const require_ = createRequire(import.meta.url);
+          CLI_VERSION = (require_('@harness-engineering/cli/package.json') as { version: string })
+            .version;
+        } catch {
+          // CLI package not resolvable — fall back to core's VERSION
+          const core = await import('@harness-engineering/core');
+          CLI_VERSION = core.VERSION;
+        }
 
         // Read updateCheckInterval from project config (if available)
         let configInterval: number | undefined;
@@ -330,10 +343,10 @@ export function createHarnessServer(projectRoot?: string): Server {
         if (isUpdateCheckEnabled(configInterval)) {
           const state = readCheckState();
           if (shouldRunCheck(state, configInterval ?? DEFAULT_INTERVAL)) {
-            spawnBackgroundCheck(VERSION);
+            spawnBackgroundCheck(CLI_VERSION);
           }
 
-          const notification = getUpdateNotification(VERSION);
+          const notification = getUpdateNotification(CLI_VERSION);
           if (notification) {
             result.content.push({ type: 'text', text: `\n---\n${notification}` });
           }

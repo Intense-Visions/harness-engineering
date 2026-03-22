@@ -4,9 +4,9 @@ import {
   readCheckState,
   spawnBackgroundCheck,
   getUpdateNotification,
-  VERSION,
 } from '@harness-engineering/core';
 import { findConfigFile, loadConfig } from '../config/loader';
+import { CLI_VERSION } from '../version';
 
 const DEFAULT_INTERVAL_MS = 86_400_000; // 24 hours
 
@@ -64,7 +64,7 @@ export function runUpdateCheckAtStartup(): void {
     const state = readCheckState();
     const interval = configInterval ?? DEFAULT_INTERVAL_MS;
     if (!shouldRunCheck(state, interval)) return;
-    spawnBackgroundCheck(VERSION);
+    spawnBackgroundCheck(CLI_VERSION);
   } catch {
     // Silent -- update checks must never interfere with CLI operation
   }
@@ -81,7 +81,7 @@ export function printUpdateNotification(): void {
   try {
     const configInterval = readConfigInterval();
     if (!isUpdateCheckEnabled(configInterval)) return;
-    const message = getUpdateNotification(VERSION);
+    const message = getUpdateNotification(CLI_VERSION);
     if (message) {
       process.stderr.write(`\n${message}\n`);
     }

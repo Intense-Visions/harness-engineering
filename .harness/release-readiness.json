@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-03-21T08:03:00Z",
+  "timestamp": "2026-03-22T01:10:00Z",
   "flags": {
     "comprehensive": false
   },
@@ -37,66 +37,66 @@
       "findings": []
     },
     "maintenance": {
-      "doc-drift": { "issues": 0, "findings": [] },
+      "doc-drift": {
+        "issues": 2,
+        "findings": [
+          {
+            "file": "README.md",
+            "issue": "MCP tool count says 41, actual may be 40",
+            "severity": "low"
+          },
+          {
+            "file": "README.md",
+            "issue": "MCP resource count says 8, primary resources are 6",
+            "severity": "low"
+          }
+        ]
+      },
       "dead-code": {
-        "issues": 11,
+        "issues": 8,
         "findings": [
           { "type": "orphan", "file": "packages/eslint-plugin/src/configs/index.ts" },
-          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/recommended.ts" },
-          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/strict.ts" },
-          { "type": "orphan", "file": "packages/eslint-plugin/src/utils/index.ts" },
-          { "type": "orphan", "file": "packages/core/src/entropy/fixers/index.ts" },
-          { "type": "orphan", "file": "packages/core/src/entropy/config/index.ts" },
-          { "type": "orphan", "file": "packages/core/src/entropy/detectors/index.ts" },
           {
-            "type": "unused-export",
-            "file": "packages/core/src/entropy/detectors/patterns.ts",
-            "export": "checkConfigPattern"
+            "type": "orphan",
+            "file": "packages/eslint-plugin/src/configs/recommended.ts",
+            "note": "divergent from inline configs in index.ts — synced in this session"
+          },
+          {
+            "type": "orphan",
+            "file": "packages/eslint-plugin/src/configs/strict.ts",
+            "note": "divergent from inline configs in index.ts — synced in this session"
           },
           {
             "type": "unused-export",
             "file": "packages/types/src/index.ts",
-            "export": "STANDARD_COGNITIVE_MODES, SkillError"
+            "export": "STANDARD_COGNITIVE_MODES"
+          },
+          {
+            "type": "unused-export",
+            "file": "packages/types/src/index.ts",
+            "export": "SkillError"
           },
           {
             "type": "unused-export",
             "file": "packages/eslint-plugin/src/utils/schema.ts",
             "export": "ForbiddenImport"
-          }
+          },
+          {
+            "type": "internal-only",
+            "file": "packages/core/src/entropy/detectors/patterns.ts",
+            "export": "checkConfigPattern"
+          },
+          { "type": "orphan", "file": "packages/eslint-plugin/src/utils/index.ts" }
         ]
       },
       "architecture": {
-        "issues": 5,
+        "issues": 1,
         "findings": [
           {
             "from": "mcp-server",
             "to": "cli",
             "severity": "critical",
-            "detail": "runtime dependency between application-layer packages"
-          },
-          {
-            "from": "cli",
-            "to": "core",
-            "severity": "fixed",
-            "detail": "moved from devDeps to deps"
-          },
-          {
-            "from": "cli",
-            "to": "graph",
-            "severity": "fixed",
-            "detail": "moved from devDeps to deps"
-          },
-          {
-            "from": "cli",
-            "to": "linter-gen",
-            "severity": "fixed",
-            "detail": "moved from devDeps to deps"
-          },
-          {
-            "from": "cli",
-            "to": "types",
-            "severity": "low",
-            "detail": "devDep, likely type-only imports"
+            "detail": "Runtime dependency on higher-layer package — requires architectural refactoring"
           }
         ]
       },
@@ -105,10 +105,10 @@
         "findings": [
           {
             "severity": "warning",
-            "issue": "6 deprecated API call sites (validateAgentsMap/validateKnowledgeMap)"
+            "issue": "9 deprecated API call sites (validateAgentsMap/validateKnowledgeMap) across 6 files"
           },
           {
-            "severity": "error",
+            "severity": "warning",
             "issue": "harness check-perf cannot resolve entry points at monorepo root"
           }
         ]
@@ -129,14 +129,16 @@
       "cli-devdeps-to-deps",
       "agents-md-docs-changes-dir",
       "docs-api-deprecated-example",
-      "mcp-server-unused-path-imports"
+      "mcp-server-unused-path-imports",
+      "readme-eslint-rule-count-10"
     ],
     "pending": [
       "mcp-server-cli-decoupling",
       "deprecated-api-migration",
-      "orphan-barrel-files",
+      "orphan-barrel-consolidation",
       "unused-exports-cleanup",
-      "perf-entry-points"
+      "perf-entry-points",
+      "mcp-tool-resource-counts"
     ],
     "skipped": ["mcp-server-linter-gen-removal"]
   }
