@@ -87,4 +87,4 @@ export type { UpdateCheckState } from './update-checker';
  * release. Kept only as a fallback for consumers that cannot resolve the CLI
  * package at runtime.
  */
-export const VERSION = '1.8.1';
+export const VERSION = '1.8.2';
