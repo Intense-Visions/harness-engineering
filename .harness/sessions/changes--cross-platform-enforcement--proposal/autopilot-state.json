@@ -3,34 +3,58 @@
   "sessionDir": ".harness/sessions/changes--cross-platform-enforcement--proposal",
   "specPath": "docs/changes/cross-platform-enforcement/proposal.md",
   "currentState": "EXECUTE",
-  "currentPhase": 0,
+  "currentPhase": 2,
   "phases": [
     {
       "name": "Source Fixes (A1-A4)",
       "complexity": "low",
       "complexityOverride": null,
       "planPath": "docs/plans/2026-03-21-cross-platform-source-fixes-plan.md",
-      "status": "in-progress"
+      "status": "complete"
     },
     {
       "name": "Enforcement (B1-B4)",
       "complexity": "medium",
       "complexityOverride": null,
-      "planPath": null,
-      "status": "pending"
+      "planPath": "docs/plans/2026-03-21-cross-platform-enforcement-plan.md",
+      "status": "complete"
     },
     {
       "name": "CI Matrix (C1-C2)",
       "complexity": "low",
       "complexityOverride": null,
       "planPath": null,
-      "status": "pending"
+      "status": "in-progress"
     }
   ],
   "retryBudget": {
     "maxAttempts": 3,
     "currentTask": null
   },
-  "history": [],
-  "decisions": [{ "phase": 0, "action": "approve_plan", "timestamp": "2026-03-21T00:00:00Z" }]
+  "history": [
+    {
+      "phase": 0,
+      "name": "Source Fixes (A1-A4)",
+      "startedAt": "2026-03-21T00:00:00Z",
+      "completedAt": "2026-03-21T00:00:00Z",
+      "tasksCompleted": 6,
+      "retriesUsed": 1,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 1, "note": 1 }
+    },
+    {
+      "phase": 1,
+      "name": "Enforcement (B1-B4)",
+      "startedAt": "2026-03-21T00:00:00Z",
+      "completedAt": "2026-03-21T00:00:00Z",
+      "tasksCompleted": 7,
+      "retriesUsed": 1,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 2, "note": 3 }
+    }
+  ],
+  "decisions": [
+    { "phase": 0, "action": "approve_plan", "timestamp": "2026-03-21T00:00:00Z" },
+    { "phase": 1, "action": "approve_plan", "timestamp": "2026-03-21T00:00:00Z" }
+  ]
 }
