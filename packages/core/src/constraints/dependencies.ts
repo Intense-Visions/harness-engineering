@@ -68,10 +68,12 @@ export async function buildDependencyGraph(
     });
   }
 
-  const nodes = [...files];
+  // Normalize all paths to forward slashes for cross-platform consistency
+  const nodes = files.map((f) => f.replace(/\\/g, '/'));
   const edges: DependencyEdge[] = [];
 
   for (const file of files) {
+    const normalizedFile = file.replace(/\\/g, '/');
     const parseResult = await parser.parseFile(file);
     if (!parseResult.ok) {
       // Skip files that can't be parsed
@@ -87,7 +89,7 @@ export async function buildDependencyGraph(
       const resolvedPath = resolveImportPath(imp.source, file, '');
       if (resolvedPath) {
         edges.push({
-          from: file,
+          from: normalizedFile,
           to: resolvedPath,
           importType: getImportType(imp),
           line: imp.location.line,
