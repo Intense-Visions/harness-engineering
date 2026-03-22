@@ -23,6 +23,29 @@ const HANDOFF_FILE = 'handoff.json';
 const GATE_CONFIG_FILE = 'gate.json';
 const INDEX_FILE = 'index.json';
 
+// ── Cache infrastructure ─────────────────────────────────────────────
+
+interface LearningsCache {
+  mtimeMs: number;
+  entries: string[];
+}
+
+interface FailuresCache {
+  mtimeMs: number;
+  entries: Array<{ date: string; skill: string; type: string; description: string }>;
+}
+
+const learningsCacheMap = new Map<string, LearningsCache>();
+const failuresCacheMap = new Map<string, FailuresCache>();
+
+export function clearLearningsCache(): void {
+  learningsCacheMap.clear();
+}
+
+export function clearFailuresCache(): void {
+  failuresCacheMap.clear();
+}
+
 /**
  * Resolves the directory where state files live.
  *
@@ -162,29 +185,43 @@ export async function loadRelevantLearnings(
       return Ok([]);
     }
 
-    const content = fs.readFileSync(learningsPath, 'utf-8');
-    const lines = content.split('\n');
-    const entries: string[] = [];
-    let currentBlock: string[] = [];
+    // Cache check: use mtime to determine if re-parse is needed
+    const stats = fs.statSync(learningsPath);
+    const cacheKey = learningsPath;
+    const cached = learningsCacheMap.get(cacheKey);
 
-    for (const line of lines) {
-      if (line.startsWith('# ')) continue;
+    let entries: string[];
 
-      const isDatedBullet = /^- \*\*\d{4}-\d{2}-\d{2}/.test(line);
-      const isHeading = /^## \d{4}-\d{2}-\d{2}/.test(line);
+    if (cached && cached.mtimeMs === stats.mtimeMs) {
+      entries = cached.entries;
+    } else {
+      // Parse file and populate cache
+      const content = fs.readFileSync(learningsPath, 'utf-8');
+      const lines = content.split('\n');
+      entries = [];
+      let currentBlock: string[] = [];
 
-      if (isDatedBullet || isHeading) {
-        if (currentBlock.length > 0) {
-          entries.push(currentBlock.join('\n'));
+      for (const line of lines) {
+        if (line.startsWith('# ')) continue;
+
+        const isDatedBullet = /^- \*\*\d{4}-\d{2}-\d{2}/.test(line);
+        const isHeading = /^## \d{4}-\d{2}-\d{2}/.test(line);
+
+        if (isDatedBullet || isHeading) {
+          if (currentBlock.length > 0) {
+            entries.push(currentBlock.join('\n'));
+          }
+          currentBlock = [line];
+        } else if (line.trim() !== '' && currentBlock.length > 0) {
+          currentBlock.push(line);
         }
-        currentBlock = [line];
-      } else if (line.trim() !== '' && currentBlock.length > 0) {
-        currentBlock.push(line);
       }
-    }
 
-    if (currentBlock.length > 0) {
-      entries.push(currentBlock.join('\n'));
+      if (currentBlock.length > 0) {
+        entries.push(currentBlock.join('\n'));
+      }
+
+      learningsCacheMap.set(cacheKey, { mtimeMs: stats.mtimeMs, entries });
     }
 
     if (!skillName) {
@@ -256,6 +293,15 @@ export async function loadFailures(
       return Ok([]);
     }
 
+    // Cache check: use mtime to determine if re-parse is needed
+    const stats = fs.statSync(failuresPath);
+    const cacheKey = failuresPath;
+    const cached = failuresCacheMap.get(cacheKey);
+
+    if (cached && cached.mtimeMs === stats.mtimeMs) {
+      return Ok(cached.entries);
+    }
+
     const content = fs.readFileSync(failuresPath, 'utf-8');
     const entries: Array<{ date: string; skill: string; type: string; description: string }> = [];
 
@@ -271,6 +317,7 @@ export async function loadFailures(
       }
     }
 
+    failuresCacheMap.set(cacheKey, { mtimeMs: stats.mtimeMs, entries });
     return Ok(entries);
   } catch (error) {
     return Err(
