@@ -54,9 +54,13 @@ function extractCrossFileRefs(finding: ReviewFinding): Array<{ from: string; to:
 function normalizePath(filePath: string, projectRoot: string): string {
   let normalized = filePath;
 
+  // Normalize to forward slashes for cross-platform consistency
+  normalized = normalized.replace(/\\/g, '/');
+  const normalizedRoot = projectRoot.replace(/\\/g, '/');
+
   // Strip project root if absolute
   if (path.isAbsolute(normalized)) {
-    const root = projectRoot.endsWith(path.sep) ? projectRoot : projectRoot + path.sep;
+    const root = normalizedRoot.endsWith('/') ? normalizedRoot : normalizedRoot + '/';
     if (normalized.startsWith(root)) {
       normalized = normalized.slice(root.length);
     }
@@ -67,8 +71,7 @@ function normalizePath(filePath: string, projectRoot: string): string {
     normalized = normalized.slice(2);
   }
 
-  // Normalize path separators
-  return path.normalize(normalized);
+  return normalized;
 }
 
 /**
@@ -100,13 +103,13 @@ function followImportChain(
 
       // Resolve relative import to file path
       const dir = path.dirname(current.file);
-      let resolved = path.join(dir, importPath);
+      let resolved = path.join(dir, importPath).replace(/\\/g, '/');
       // Add .ts extension if missing
       if (!resolved.match(/\.(ts|tsx|js|jsx)$/)) {
         resolved += '.ts';
       }
       // Normalize
-      resolved = path.normalize(resolved);
+      resolved = path.normalize(resolved).replace(/\\/g, '/');
 
       if (!visited.has(resolved) && current.depth + 1 <= maxDepth) {
         queue.push({ file: resolved, depth: current.depth + 1 });
@@ -145,7 +148,7 @@ export async function validateFindings(options: ValidateFindingsOptions): Promis
     // Also check absolute form against exclusion set
     const absoluteFile = path.isAbsolute(finding.file)
       ? finding.file
-      : path.join(projectRoot, finding.file);
+      : path.join(projectRoot, finding.file).replace(/\\/g, '/');
     if (exclusionSet.isExcluded(absoluteFile, finding.lineRange)) {
       continue;
     }
