@@ -289,14 +289,7 @@ export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CIChe
     }
 
     // Phase 2: all remaining checks in parallel
-    const remainingChecks: CICheckName[] = [
-      'deps',
-      'docs',
-      'entropy',
-      'security',
-      'perf',
-      'phase-gate',
-    ];
+    const remainingChecks = ALL_CHECKS.slice(1);
     const phase2Results = await Promise.all(
       remainingChecks.map(async (name) => {
         if (skippedSet.has(name)) {
