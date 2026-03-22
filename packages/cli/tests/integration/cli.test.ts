@@ -22,7 +22,11 @@ describe('CLI Integration', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // Windows may hold file locks briefly after process exit
+    }
   });
 
   describe('harness --version', () => {

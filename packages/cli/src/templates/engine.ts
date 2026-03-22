@@ -210,7 +210,7 @@ export class TemplateEngine {
           walk(fullPath);
         } else {
           files.push({
-            relativePath: path.relative(dir, fullPath),
+            relativePath: path.relative(dir, fullPath).replace(/\\/g, '/'),
             absolutePath: fullPath,
             isHandlebars: entry.name.endsWith('.hbs'),
             sourceTemplate: sourceName,

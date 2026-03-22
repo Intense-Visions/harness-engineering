@@ -76,7 +76,7 @@ describe('executeSkill', () => {
     };
     const result = await executeSkill('test-skill', ctx);
     expect(result.status).toBe('pass');
-    expect(result.artifactPath).toMatch(/\.harness\/reviews\//);
+    expect(result.artifactPath).toMatch(/\.harness[/\\]reviews[/\\]/);
     expect(result.artifactPath).toContain('abc1234');
     // Verify file was written
     expect(fs.existsSync(result.artifactPath!)).toBe(true);
