@@ -6,6 +6,18 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolved stale `VERSION` constant in core (was `0.8.0`, should be `1.8.1`) causing incorrect update notifications
+- Added `on_doc_check` to `ALLOWED_TRIGGERS` so `harness-docs-pipeline` skill validates correctly
+- Extracted `packages/cli/src/version.ts` to read CLI version from `package.json` at runtime, preventing future version drift
+- Added `./package.json` to CLI exports map for cross-package version resolution
+- Updated MCP server to read CLI version from `package.json` with fallback to core `VERSION`
+- Deprecated core `VERSION` export — consumers should read from `@harness-engineering/cli/package.json`
+- Updated README MCP tool count from 40 to 41
+
+## 0.2.0 — 2026-03-22
+
 ### Added
 
 - Full cross-platform support (Windows, macOS, Linux) with mechanical enforcement
