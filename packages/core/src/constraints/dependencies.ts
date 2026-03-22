@@ -39,7 +39,8 @@ function resolveImportPath(
     resolved = resolved + '.ts';
   }
 
-  return resolved;
+  // Normalize to forward slashes for cross-platform consistency
+  return resolved.replace(/\\/g, '/');
 }
 
 /**

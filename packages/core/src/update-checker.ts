@@ -18,7 +18,8 @@ export interface UpdateCheckState {
 // ---------------------------------------------------------------------------
 
 function getStatePath(): string {
-  return path.join(os.homedir(), '.harness', 'update-check.json');
+  const home = process.env['HOME'] || os.homedir();
+  return path.join(home, '.harness', 'update-check.json');
 }
 
 // ---------------------------------------------------------------------------

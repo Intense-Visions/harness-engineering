@@ -92,7 +92,7 @@ export class CriticalPathResolver {
     }
 
     const lines = content.split('\n');
-    const relativePath = path.relative(this.projectRoot, filePath);
+    const relativePath = path.relative(this.projectRoot, filePath).replace(/\\/g, '/');
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
