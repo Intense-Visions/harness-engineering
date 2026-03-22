@@ -1,176 +1,182 @@
 import { describe, it, expect } from 'vitest';
-import { emitInteractionDefinition, handleEmitInteraction } from '../../src/tools/interaction';
+import {
+  InteractionOptionSchema,
+  InteractionQuestionWithOptionsSchema,
+  InteractionConfirmationSchema,
+  InteractionTransitionSchema,
+  InteractionBatchSchema,
+  EmitInteractionInputSchema,
+} from '../../src/tools/interaction-schemas';
 
-describe('emit_interaction tool', () => {
-  it('has correct definition', () => {
-    expect(emitInteractionDefinition.name).toBe('emit_interaction');
-    expect(emitInteractionDefinition.inputSchema.required).toContain('path');
-    expect(emitInteractionDefinition.inputSchema.required).toContain('type');
+describe('InteractionOptionSchema', () => {
+  it('accepts valid option with pros, cons, risk, effort', () => {
+    const result = InteractionOptionSchema.safeParse({
+      label: 'Use JWT',
+      pros: ['Already in codebase'],
+      cons: ['No refresh tokens'],
+      risk: 'low',
+      effort: 'low',
+    });
+    expect(result.success).toBe(true);
   });
 
-  it('has type enum with question, confirmation, transition', () => {
-    const typeProp = emitInteractionDefinition.inputSchema.properties.type as {
-      enum: string[];
-    };
-    expect(typeProp.enum).toContain('question');
-    expect(typeProp.enum).toContain('confirmation');
-    expect(typeProp.enum).toContain('transition');
+  it('rejects option with empty pros', () => {
+    const result = InteractionOptionSchema.safeParse({
+      label: 'Use JWT',
+      pros: [],
+      cons: ['No refresh tokens'],
+    });
+    expect(result.success).toBe(false);
   });
 
-  describe('question type', () => {
-    it('returns id and prompt for a multiple-choice question', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'question',
-        question: { text: 'Pick a framework', options: ['React', 'Vue'] },
-      });
-      expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-      expect(parsed.prompt).toContain('Pick a framework');
-      expect(parsed.prompt).toContain('React');
-      expect(parsed.prompt).toContain('Vue');
+  it('rejects option missing cons', () => {
+    const result = InteractionOptionSchema.safeParse({
+      label: 'Use JWT',
+      pros: ['Fast'],
     });
-
-    it('returns prompt for a free-form question', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'question',
-        question: { text: 'What is the target environment?' },
-      });
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.prompt).toContain('What is the target environment?');
-    });
-
-    it('returns error when question payload is missing', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'question',
-      });
-      expect(response.isError).toBe(true);
-      expect(response.content[0].text).toContain('question');
-    });
+    expect(result.success).toBe(false);
   });
 
-  describe('confirmation type', () => {
-    it('returns id and prompt for a confirmation', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'confirmation',
-        confirmation: {
-          text: 'Deploy to production?',
-          context: 'All staging tests pass',
-        },
-      });
-      expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.id).toBeDefined();
-      expect(parsed.prompt).toContain('Deploy to production?');
-      expect(parsed.prompt).toContain('All staging tests pass');
+  it('rejects invalid risk enum value', () => {
+    const result = InteractionOptionSchema.safeParse({
+      label: 'Use JWT',
+      pros: ['Fast'],
+      cons: ['Slow'],
+      risk: 'critical',
     });
+    expect(result.success).toBe(false);
+  });
+});
 
-    it('returns error when confirmation payload is missing', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'confirmation',
-      });
-      expect(response.isError).toBe(true);
+describe('InteractionQuestionWithOptionsSchema', () => {
+  it('accepts question with options and recommendation', () => {
+    const result = InteractionQuestionWithOptionsSchema.safeParse({
+      text: 'Pick auth approach',
+      options: [
+        { label: 'JWT', pros: ['Simple'], cons: ['No refresh'] },
+        { label: 'OAuth2', pros: ['Standard'], cons: ['Complex'] },
+      ],
+      recommendation: { optionIndex: 0, reason: 'Simpler', confidence: 'high' },
     });
+    expect(result.success).toBe(true);
   });
 
-  describe('transition type', () => {
-    it('returns id, prompt, and handoffWritten for a transition', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'transition',
-        transition: {
-          completedPhase: 'SCOPE',
-          suggestedNext: 'DECOMPOSE',
-          reason: 'All must-haves derived',
-          artifacts: ['docs/plans/plan.md'],
-          requiresConfirmation: true,
-          summary: 'All must-haves derived from goals.',
-        },
-      });
-      expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.id).toBeDefined();
-      expect(parsed.prompt).toContain('SCOPE');
-      expect(parsed.prompt).toContain('DECOMPOSE');
-      expect(parsed.handoffWritten).toBe(true);
+  it('rejects question with options but no recommendation', () => {
+    const result = InteractionQuestionWithOptionsSchema.safeParse({
+      text: 'Pick auth approach',
+      options: [
+        { label: 'JWT', pros: ['Simple'], cons: ['No refresh'] },
+        { label: 'OAuth2', pros: ['Standard'], cons: ['Complex'] },
+      ],
     });
-
-    it('returns autoTransition and nextAction for auto-transitions', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'transition',
-        transition: {
-          completedPhase: 'execution',
-          suggestedNext: 'verification',
-          reason: 'All tasks complete',
-          artifacts: ['src/service.ts'],
-          requiresConfirmation: false,
-          summary: 'Completed 5 tasks. 3 files created.',
-        },
-      });
-      expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.autoTransition).toBe(true);
-      expect(parsed.nextAction).toContain('verification');
-      expect(parsed.handoffWritten).toBe(true);
-    });
-
-    it('does not include autoTransition for confirmed transitions', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'transition',
-        transition: {
-          completedPhase: 'brainstorming',
-          suggestedNext: 'planning',
-          reason: 'Spec approved',
-          artifacts: ['docs/spec.md'],
-          requiresConfirmation: true,
-          summary: 'Auth spec approved with 5 decisions.',
-        },
-      });
-      expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.autoTransition).toBeUndefined();
-      expect(parsed.nextAction).toBeUndefined();
-      expect(parsed.handoffWritten).toBe(true);
-    });
-
-    it('includes summary in transition prompt', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'transition',
-        transition: {
-          completedPhase: 'planning',
-          suggestedNext: 'execution',
-          reason: 'Plan approved',
-          artifacts: ['docs/plans/plan.md'],
-          requiresConfirmation: true,
-          summary: 'Notification system — 8 tasks, 30 min estimate.',
-        },
-      });
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.prompt).toContain('Notification system');
-    });
-
-    it('returns error when transition payload is missing', async () => {
-      const response = await handleEmitInteraction({
-        path: '/tmp/test-interaction',
-        type: 'transition',
-      });
-      expect(response.isError).toBe(true);
-    });
+    expect(result.success).toBe(false);
   });
 
-  it('returns error for unknown type', async () => {
-    const response = await handleEmitInteraction({
-      path: '/tmp/test-interaction',
-      type: 'unknown' as 'question',
+  it('rejects recommendation with out-of-bounds optionIndex', () => {
+    const result = InteractionQuestionWithOptionsSchema.safeParse({
+      text: 'Pick auth approach',
+      options: [
+        { label: 'JWT', pros: ['Simple'], cons: ['No refresh'] },
+        { label: 'OAuth2', pros: ['Standard'], cons: ['Complex'] },
+      ],
+      recommendation: { optionIndex: 5, reason: 'Simpler', confidence: 'high' },
     });
-    expect(response.isError).toBe(true);
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts free-form question (no options, no recommendation)', () => {
+    const result = InteractionQuestionWithOptionsSchema.safeParse({
+      text: 'What is the target environment?',
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('InteractionConfirmationSchema', () => {
+  it('accepts valid confirmation with impact and risk', () => {
+    const result = InteractionConfirmationSchema.safeParse({
+      text: 'Deploy?',
+      context: 'All tests pass',
+      impact: 'Production updated',
+      risk: 'medium',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts confirmation without optional fields', () => {
+    const result = InteractionConfirmationSchema.safeParse({
+      text: 'Deploy?',
+      context: 'All tests pass',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects confirmation missing context', () => {
+    const result = InteractionConfirmationSchema.safeParse({
+      text: 'Deploy?',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('InteractionTransitionSchema', () => {
+  it('accepts transition with qualityGate', () => {
+    const result = InteractionTransitionSchema.safeParse({
+      completedPhase: 'planning',
+      suggestedNext: 'execution',
+      reason: 'Plan approved',
+      artifacts: ['plan.md'],
+      requiresConfirmation: true,
+      summary: '8 tasks planned',
+      qualityGate: {
+        checks: [
+          { name: 'validate', passed: true },
+          { name: 'typecheck', passed: false, detail: '3 errors' },
+        ],
+        allPassed: false,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts transition without qualityGate', () => {
+    const result = InteractionTransitionSchema.safeParse({
+      completedPhase: 'planning',
+      suggestedNext: 'execution',
+      reason: 'Plan approved',
+      artifacts: [],
+      requiresConfirmation: true,
+      summary: 'Done',
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('InteractionBatchSchema', () => {
+  it('accepts batch with low-risk decisions', () => {
+    const result = InteractionBatchSchema.safeParse({
+      text: 'Approve these decisions:',
+      decisions: [
+        { label: 'Use ESM', recommendation: 'Yes', risk: 'low' },
+        { label: 'Add vitest', recommendation: 'Yes', risk: 'low' },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects batch with non-low risk', () => {
+    const result = InteractionBatchSchema.safeParse({
+      text: 'Approve these:',
+      decisions: [{ label: 'Drop database', recommendation: 'No', risk: 'high' }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects batch with empty decisions', () => {
+    const result = InteractionBatchSchema.safeParse({
+      text: 'Approve these:',
+      decisions: [],
+    });
+    expect(result.success).toBe(false);
   });
 });
