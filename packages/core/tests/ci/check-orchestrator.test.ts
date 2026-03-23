@@ -204,7 +204,7 @@ describe('runCIChecks', () => {
     }
   });
 
-  it('runs independent checks in parallel (validate first, then others)', async () => {
+  it('runs validate first and produces all 7 check results', async () => {
     // Track call order using timestamps
     const callOrder: string[] = [];
     const { validateAgentsMap } = await import('../../src/context/agents-map');

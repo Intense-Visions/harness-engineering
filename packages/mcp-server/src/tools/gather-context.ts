@@ -205,36 +205,51 @@ export async function handleGatherContext(input: {
   const validation = validationRaw;
 
   const assembledIn = Date.now() - start;
-  const responseJson = JSON.stringify({
-    state: state ?? null,
-    learnings: learnings ?? [],
-    handoff: handoff ?? null,
-    graphContext: graphContext ?? null,
-    validation: validation ?? null,
-    meta: {
-      assembledIn,
-      graphAvailable: graphContext !== null,
-      tokenEstimate: 0, // will be set below
-      errors,
-    },
-  });
+  const mode = input.mode ?? 'summary'; // default summary for composites
 
-  // Estimate tokens (~4 chars per token)
-  const tokenEstimate = Math.ceil(responseJson.length / 4);
+  // Build output, applying summary stripping if mode is 'summary'
+  const outputState = state ?? null;
+  const outputLearnings = learnings ?? [];
+  const outputHandoff = handoff ?? null;
+  // Graph context shape: { intent, tokenBudget, blocksReturned, context: [{rootNode, score, nodes[], edges[]}] }
+  // Summary mode aggregates node/edge counts across all context blocks.
+  const outputGraphContext =
+    graphContext == null
+      ? null
+      : mode === 'summary'
+        ? {
+            blocksReturned: (graphContext as any).blocksReturned ?? 0,
+            nodeCount: ((graphContext as any).context ?? []).reduce(
+              (sum: number, b: any) => sum + (Array.isArray(b.nodes) ? b.nodes.length : 0),
+              0
+            ),
+            edgeCount: ((graphContext as any).context ?? []).reduce(
+              (sum: number, b: any) => sum + (Array.isArray(b.edges) ? b.edges.length : 0),
+              0
+            ),
+            intent: (graphContext as any).intent ?? null,
+          }
+        : graphContext;
+  const outputValidation = validation ?? null;
 
   const output = {
-    state: state ?? null,
-    learnings: learnings ?? [],
-    handoff: handoff ?? null,
-    graphContext: graphContext ?? null,
-    validation: validation ?? null,
+    state: outputState,
+    learnings: outputLearnings,
+    handoff: outputHandoff,
+    graphContext: outputGraphContext,
+    validation: outputValidation,
     meta: {
       assembledIn,
       graphAvailable: graphContext !== null,
-      tokenEstimate,
+      tokenEstimate: 0, // set below from final serialization
       errors,
     },
   };
+
+  // Compute token estimate from final output (avoid double serialization)
+  const outputText = JSON.stringify(output);
+  const tokenEstimate = Math.ceil(outputText.length / 4);
+  output.meta.tokenEstimate = tokenEstimate;
 
   return {
     content: [

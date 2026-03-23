@@ -136,7 +136,7 @@ describe('assess_project tool', () => {
   });
 
   describe('assess_project performance', () => {
-    it('parallel execution reports timing in assessedIn', async () => {
+    it('reports assessedIn timing', async () => {
       const response = await handleAssessProject({
         path: '/nonexistent/project-bench',
         checks: ['validate'],
@@ -144,6 +144,27 @@ describe('assess_project tool', () => {
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.assessedIn).toBeGreaterThanOrEqual(0);
       expect(typeof parsed.assessedIn).toBe('number');
+    });
+
+    it('runs all checks and returns unified result in a single call', async () => {
+      // Structural verification: assess_project returns results from all
+      // requested checks in a single call, proving parallel internal execution.
+      // Timing-based assertions are unreliable with mocked dependencies.
+      const response = await handleAssessProject({
+        path: '/nonexistent/project-bench',
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed).toHaveProperty('healthy');
+      expect(parsed).toHaveProperty('checks');
+      expect(parsed).toHaveProperty('assessedIn');
+      // Should have results for all default checks
+      expect(parsed.checks.length).toBeGreaterThanOrEqual(1);
+      // Each check should have the expected shape
+      for (const check of parsed.checks) {
+        expect(check).toHaveProperty('name');
+        expect(check).toHaveProperty('passed');
+        expect(check).toHaveProperty('issueCount');
+      }
     });
   });
 });

@@ -13,24 +13,20 @@ function columnLabel(index: number): string {
 export function renderQuestion(question: InteractionQuestion): string {
   const { text, options, recommendation } = question;
 
-  // Free-form question (no options)
+  // Free-form question (no options) — suppress default since it has no meaning without options
   if (!options || options.length === 0) {
-    let prompt = text;
-    if (question.default !== undefined) {
-      prompt += `\n\nDefault: option ${question.default}`;
-    }
-    return prompt;
+    return text;
   }
 
   // Build comparison table
   const headers = options.map(
-    (opt: InteractionOption, i: number) => `${columnLabel(i)}) ${opt.label}`
+    (opt: InteractionOption, i: number) => `${columnLabel(i)}) ${escapeCell(opt.label)}`
   );
   const headerRow = `| | ${headers.join(' | ')} |`;
   const separatorRow = `|---|${options.map(() => '---').join('|')}|`;
 
-  const prosRow = `| **Pros** | ${options.map((opt: InteractionOption) => opt.pros.join('; ')).join(' | ')} |`;
-  const consRow = `| **Cons** | ${options.map((opt: InteractionOption) => opt.cons.join('; ')).join(' | ')} |`;
+  const prosRow = `| **Pros** | ${options.map((opt: InteractionOption) => opt.pros.map(escapeCell).join('; ')).join(' | ')} |`;
+  const consRow = `| **Cons** | ${options.map((opt: InteractionOption) => opt.cons.map(escapeCell).join('; ')).join(' | ')} |`;
 
   const rows = [headerRow, separatorRow, prosRow, consRow];
 
@@ -110,4 +106,9 @@ export function renderBatch(batch: InteractionBatch): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Escape pipe characters that would break markdown table cells. */
+function escapeCell(s: string): string {
+  return s.replace(/\|/g, '\\|');
 }

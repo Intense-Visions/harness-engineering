@@ -14,7 +14,7 @@ export const InteractionOptionSchema = z.object({
 
 export const InteractionQuestionSchema = z.object({
   text: z.string().min(1),
-  options: z.array(InteractionOptionSchema).min(2).optional(),
+  options: z.array(InteractionOptionSchema).min(2).max(10).optional(),
   recommendation: z
     .object({
       optionIndex: z.number().int().min(0),
@@ -34,15 +34,25 @@ export const InteractionQuestionWithOptionsSchema = InteractionQuestionSchema.re
     return true;
   },
   { message: 'recommendation is required when options are provided' }
-).refine(
-  (data) => {
-    if (data.recommendation && data.options) {
-      return data.recommendation.optionIndex < data.options.length;
-    }
-    return true;
-  },
-  { message: 'recommendation.optionIndex must reference a valid option' }
-);
+)
+  .refine(
+    (data) => {
+      if (data.recommendation && data.options) {
+        return data.recommendation.optionIndex < data.options.length;
+      }
+      return true;
+    },
+    { message: 'recommendation.optionIndex must reference a valid option' }
+  )
+  .refine(
+    (data) => {
+      if (data.default !== undefined && data.options) {
+        return data.default < data.options.length;
+      }
+      return true;
+    },
+    { message: 'default must reference a valid option index' }
+  );
 
 export const InteractionConfirmationSchema = z.object({
   text: z.string().min(1),
@@ -89,6 +99,9 @@ export const EmitInteractionInputSchema = z.object({
   path: z.string().min(1),
   type: InteractionTypeSchema,
   stream: z.string().optional(),
+  // Uses base schema here; refined validation (recommendation required with options)
+  // is applied in the handler's question branch via InteractionQuestionWithOptionsSchema.
+  // Refined schemas with .refine() cannot be nested inside z.object().optional() reliably.
   question: InteractionQuestionSchema.optional(),
   confirmation: InteractionConfirmationSchema.optional(),
   transition: InteractionTransitionSchema.optional(),

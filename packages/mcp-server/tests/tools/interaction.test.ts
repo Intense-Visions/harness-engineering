@@ -270,6 +270,62 @@ describe('emit_interaction tool', () => {
       });
       expect(response.isError).toBe(true);
     });
+
+    it('escapes pipe characters in pros and cons', async () => {
+      const response = await handleEmitInteraction({
+        path: '/tmp/test-interaction',
+        type: 'question',
+        question: {
+          text: 'Pick one',
+          options: [
+            { label: 'Option A', pros: ['Fast | reliable'], cons: ['Complex | fragile'] },
+            { label: 'Option B', pros: ['Simple'], cons: ['Slow'] },
+          ],
+          recommendation: { optionIndex: 0, reason: 'Better', confidence: 'high' },
+        },
+      });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      // Pipes in cell content should be escaped
+      expect(parsed.prompt).toContain('Fast \\| reliable');
+      expect(parsed.prompt).toContain('Complex \\| fragile');
+    });
+
+    it('rejects more than 10 options', async () => {
+      const options = Array.from({ length: 11 }, (_, i) => ({
+        label: `Option ${i}`,
+        pros: ['Pro'],
+        cons: ['Con'],
+      }));
+      const response = await handleEmitInteraction({
+        path: '/tmp/test-interaction',
+        type: 'question',
+        question: {
+          text: 'Too many',
+          options,
+          recommendation: { optionIndex: 0, reason: 'First', confidence: 'low' },
+        },
+      });
+      expect(response.isError).toBe(true);
+    });
+
+    it('returns error when default index exceeds options length', async () => {
+      const response = await handleEmitInteraction({
+        path: '/tmp/test-interaction',
+        type: 'question',
+        question: {
+          text: 'Pick one',
+          options: [
+            { label: 'A', pros: ['Good'], cons: ['Bad'] },
+            { label: 'B', pros: ['Fast'], cons: ['Slow'] },
+          ],
+          recommendation: { optionIndex: 0, reason: 'Better', confidence: 'high' },
+          default: 99,
+        },
+      });
+      expect(response.isError).toBe(true);
+      expect(response.content[0].text).toContain('default');
+    });
   });
 
   describe('confirmation type', () => {
