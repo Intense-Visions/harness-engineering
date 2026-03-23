@@ -26,20 +26,27 @@ Deviating from the plan mid-execution introduces untested assumptions, breaks ta
 
 1. **Load the plan.** Read the plan document from `docs/plans/`. Identify the total task count and any checkpoints.
 
-2. **Load state.** Read `.harness/state.json` to determine current position. If the file does not exist, this is a fresh start — position is Task 1.
+2. **Gather context in one call.** Use the `gather_context` MCP tool to load all working context at once:
 
-3. **Load learnings.** Read `.harness/learnings.md` for context from previous sessions. These are hard-won insights — do not ignore them.
+   ```json
+   gather_context({
+     path: "<project-root>",
+     intent: "Execute plan tasks starting from current position",
+     skill: "harness-execution",
+     include: ["state", "learnings", "handoff", "validation"]
+   })
+   ```
 
-4. **Load failures.** Read `.harness/failures.md` for known dead ends. If any entries match approaches in the current plan, surface warnings before proceeding.
+   This returns `state` (current position — if null, this is a fresh start at Task 1), `learnings` (hard-won insights from previous sessions — do not ignore them), `handoff` (structured context from the previous skill), and `validation` (current project health). If any constituent fails, its field is null and the error is reported in `meta.errors`.
 
-5. **Load handoff.** Read `.harness/handoff.json` if it exists. Contains structured context from the previous skill (e.g., harness-planning passing context to harness-execution). Use this to prime session state.
+3. **Check for known dead ends.** Review `learnings` entries tagged `[outcome:failure]`. If any match approaches in the current plan, surface warnings before proceeding.
 
-6. **Verify prerequisites.** For the current task:
+4. **Verify prerequisites.** For the current task:
    - Are dependency tasks marked complete in state?
    - Do the files referenced in the task exist as expected?
    - Does the test suite pass? Run `harness validate` to confirm a clean baseline.
 
-7. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
+5. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
 ### Graph-Enhanced Context (when available)
 
@@ -304,6 +311,7 @@ These are non-negotiable. When any condition is met, stop immediately.
 ## Harness Integration
 
 - **`harness validate`** — Run after every task completion. Mandatory. No task is complete without a passing validation.
+- **`gather_context`** — Used in PREPARE phase to load state, learnings, handoff, and validation in a single call instead of 4+ separate reads.
 - **`harness check-deps`** — Run when tasks add new imports or modules. Catches boundary violations early.
 - **`harness state show`** — View current execution position and progress.
 - **`harness state learn "<message>"`** — Append a learning from the command line.
