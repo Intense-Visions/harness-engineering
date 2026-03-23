@@ -9,18 +9,8 @@ import {
 import { resolveProjectConfig } from './utils/config-resolver.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
-import {
-  checkDocsDefinition,
-  handleCheckDocs,
-  validateKnowledgeMapDefinition,
-  handleValidateKnowledgeMap,
-} from './tools/docs.js';
-import {
-  detectEntropyDefinition,
-  handleDetectEntropy,
-  applyFixesDefinition,
-  handleApplyFixes,
-} from './tools/entropy.js';
+import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
+import { detectEntropyDefinition, handleDetectEntropy } from './tools/entropy.js';
 import {
   checkPerformanceDefinition,
   handleCheckPerformance,
@@ -65,8 +55,6 @@ import { getLearningsResource } from './resources/learnings.js';
 import {
   manageStateDefinition,
   handleManageState,
-  manageHandoffDefinition,
-  handleManageHandoff,
   listStreamsDefinition,
   handleListStreams,
 } from './tools/state.js';
@@ -122,9 +110,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateToolDefinition,
   checkDependenciesDefinition,
   checkDocsDefinition,
-  validateKnowledgeMapDefinition,
   detectEntropyDefinition,
-  applyFixesDefinition,
   generateLinterDefinition,
   validateLinterConfigDefinition,
   initProjectDefinition,
@@ -135,7 +121,6 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   runAgentTaskDefinition,
   runSkillDefinition,
   manageStateDefinition,
-  manageHandoffDefinition,
   createSelfReviewDefinition,
   analyzeDiffDefinition,
   requestPeerReviewDefinition,
@@ -164,9 +149,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
   check_dependencies: handleCheckDependencies as ToolHandler,
   check_docs: handleCheckDocs as ToolHandler,
-  validate_knowledge_map: handleValidateKnowledgeMap as ToolHandler,
   detect_entropy: handleDetectEntropy as ToolHandler,
-  apply_fixes: handleApplyFixes as ToolHandler,
   generate_linter: handleGenerateLinter as ToolHandler,
   validate_linter_config: handleValidateLinterConfig as ToolHandler,
   init_project: handleInitProject as ToolHandler,
@@ -177,7 +160,6 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   run_agent_task: handleRunAgentTask as ToolHandler,
   run_skill: handleRunSkill as ToolHandler,
   manage_state: handleManageState as ToolHandler,
-  manage_handoff: handleManageHandoff as ToolHandler,
   create_self_review: handleCreateSelfReview as ToolHandler,
   analyze_diff: handleAnalyzeDiff as ToolHandler,
   request_peer_review: handleRequestPeerReview as ToolHandler,
