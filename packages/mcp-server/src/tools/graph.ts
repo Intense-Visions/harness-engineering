@@ -570,10 +570,10 @@ export async function handleGetImpact(input: {
         ...groups['tests']!.slice(0, 2),
         ...groups['code']!.slice(0, 2),
         ...groups['docs']!.slice(0, 2),
-      ].map((n: { id: string; type: string }) => ({
-        id: (n as { id: string }).id,
-        type: (n as { type: string }).type,
-      }));
+      ].map((n) => {
+        const node = n as { id: string; type: string };
+        return { id: node.id, type: node.type };
+      });
       return {
         content: [
           {
