@@ -45,8 +45,35 @@ If you find yourself writing production code, tests, or scaffolding before the h
      path: "<project-root>",
      type: "question",
      question: {
-       text: "For auth, should we use:",
-       options: ["A) existing JWT middleware", "B) OAuth2 via provider X", "C) external service"]
+       text: "For auth, which approach should we use?",
+       options: [
+         {
+           label: "A) Existing JWT middleware",
+           pros: ["Already in codebase", "Team has experience"],
+           cons: ["No refresh token support", "Session-only"],
+           risk: "low",
+           effort: "low"
+         },
+         {
+           label: "B) OAuth2 via provider X",
+           pros: ["Industry standard", "Refresh tokens built-in"],
+           cons: ["New dependency", "Learning curve"],
+           risk: "medium",
+           effort: "medium"
+         },
+         {
+           label: "C) External auth service",
+           pros: ["Zero maintenance", "Enterprise features included"],
+           cons: ["Vendor lock-in", "Monthly cost", "Latency"],
+           risk: "medium",
+           effort: "low"
+         }
+       ],
+       recommendation: {
+         optionIndex: 0,
+         reason: "Sufficient for current requirements. OAuth2 adds complexity we don't need yet.",
+         confidence: "high"
+       }
      }
    })
    ```
@@ -120,7 +147,9 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
      type: "confirmation",
      confirmation: {
        text: "Approve spec at <file-path>?",
-       context: "<one-paragraph summary of the design>"
+       context: "<one-paragraph summary of the design>",
+       impact: "Spec approval unlocks implementation planning. No code changes yet.",
+       risk: "low"
      }
    })
    ```
@@ -153,7 +182,19 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
        "reason": "Spec approved and written to docs/",
        "artifacts": ["<spec file path>"],
        "requiresConfirmation": true,
-       "summary": "<Spec title> -- <key design choices>. <N> success criteria, <N> implementation phases."
+       "summary": "<Spec title> -- <key design choices>. <N> success criteria, <N> implementation phases.",
+       "qualityGate": {
+         "checks": [
+           {
+             "name": "spec-written",
+             "passed": true,
+             "detail": "Written to docs/changes/<feature>/proposal.md"
+           },
+           { "name": "harness-validate", "passed": true },
+           { "name": "human-approved", "passed": true }
+         ],
+         "allPassed": true
+       }
      }
    }
    ```
