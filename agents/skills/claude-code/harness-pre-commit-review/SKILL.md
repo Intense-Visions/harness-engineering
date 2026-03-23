@@ -43,6 +43,20 @@ pnpm typecheck 2>&1 || npx tsc --noEmit 2>&1 || make typecheck 2>&1
 pnpm test 2>&1 || npm test 2>&1 || make test 2>&1
 ```
 
+#### 2b. Harness Health Check
+
+If the project uses harness, run `assess_project` for harness-specific validation:
+
+```json
+assess_project({
+  path: "<project-root>",
+  checks: ["validate", "deps"],
+  mode: "summary"
+})
+```
+
+If `healthy: false`, include harness check failures in the mechanical check report. This replaces manually running `harness validate` and `harness check-deps` as separate commands.
+
 #### 3. Gate Decision
 
 - **Any check fails:** STOP. Report the failure. Do not proceed to AI review. The author must fix mechanical issues first.
@@ -133,11 +147,20 @@ If no source files are staged, skip the security scan.
 
 Perform a focused, lightweight review of staged changes. This is NOT a full code review — it catches obvious issues only.
 
-#### 1. Get the Staged Diff
+#### 1. Quick Review via review_changes
 
-```bash
-git diff --cached
+Use the `review_changes` MCP tool with `depth: 'quick'` for fast pre-commit analysis:
+
+```json
+review_changes({
+  path: "<project-root>",
+  diff: "<output of git diff --cached>",
+  depth: "quick",
+  mode: "summary"
+})
 ```
+
+This runs forbidden pattern checks and size analysis. For the semantic review items below, supplement with manual diff reading.
 
 #### 2. Quick Review Checklist
 
@@ -219,6 +242,8 @@ fi
 - Follows Principle 7 (Deterministic-vs-LLM Split) — mechanical checks first, AI review second
 - Reads `.harness/review-learnings.md` for calibration (if present)
 - Complements harness-code-review (full review) — use pre-commit for quick checks, code-review for thorough analysis
+- **`assess_project`** — Used in Phase 1 for harness-specific health checks (validate + deps) in a single call.
+- **`review_changes`** — Used in Phase 4 with `depth: 'quick'` for fast pre-commit diff analysis.
 
 ## Success Criteria
 
