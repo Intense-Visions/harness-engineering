@@ -110,4 +110,14 @@ export type { DesignViolation, DesignStrictness } from './constraints/DesignCons
 export { GraphFeedbackAdapter } from './feedback/GraphFeedbackAdapter.js';
 export type { GraphImpactData, GraphHarnessCheckData } from './feedback/GraphFeedbackAdapter.js';
 
+// Independence
+export { TaskIndependenceAnalyzer } from './independence/index.js';
+export type {
+  TaskDefinition,
+  IndependenceCheckParams,
+  OverlapDetail,
+  PairResult,
+  IndependenceResult,
+} from './independence/index.js';
+
 export const VERSION = '0.2.0';
