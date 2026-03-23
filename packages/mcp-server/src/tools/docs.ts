@@ -1,28 +1,91 @@
 import * as path from 'path';
+import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const checkDocsDefinition = {
   name: 'check_docs',
-  description: 'Analyze documentation coverage',
+  description: 'Analyze documentation coverage and/or validate knowledge map integrity',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       domain: { type: 'string', description: 'Domain/module to check' },
+      scope: {
+        type: 'string',
+        enum: ['coverage', 'integrity', 'all'],
+        description:
+          "Scope of check: 'coverage' (doc coverage), 'integrity' (knowledge map validation), 'all' (both). Default: 'coverage'",
+      },
     },
     required: ['path'],
   },
 };
 
-export async function handleCheckDocs(input: { path: string; domain?: string }) {
+export async function handleCheckDocs(input: {
+  path: string;
+  domain?: string;
+  scope?: 'coverage' | 'integrity' | 'all';
+}) {
   try {
+    const projectPath = sanitizePath(input.path);
+    const scope = input.scope ?? 'coverage';
+
+    if (scope === 'integrity') {
+      const { validateKnowledgeMap } = await import('@harness-engineering/core');
+      const result = await validateKnowledgeMap(projectPath);
+      return resultToMcpResponse(result);
+    }
+
+    if (scope === 'all') {
+      const { checkDocCoverage, validateKnowledgeMap } = await import('@harness-engineering/core');
+      const domain = input.domain ?? 'src';
+
+      const { loadGraphStore } = await import('../utils/graph-loader.js');
+      const store = await loadGraphStore(projectPath);
+      let graphCoverage:
+        | { documented: string[]; undocumented: string[]; coveragePercentage: number }
+        | undefined;
+      if (store) {
+        const { Assembler } = await import('@harness-engineering/graph');
+        const assembler = new Assembler(store);
+        const report = assembler.checkCoverage();
+        graphCoverage = {
+          documented: [...report.documented],
+          undocumented: [...report.undocumented],
+          coveragePercentage: report.coveragePercentage,
+        };
+      }
+
+      const [coverageResult, integrityResult] = await Promise.allSettled([
+        checkDocCoverage(domain, {
+          sourceDir: path.resolve(projectPath, 'src'),
+          docsDir: path.resolve(projectPath, 'docs'),
+          graphCoverage,
+        }),
+        validateKnowledgeMap(projectPath),
+      ]);
+
+      const coverage =
+        coverageResult.status === 'fulfilled' && coverageResult.value.ok
+          ? coverageResult.value.value
+          : coverageResult.status === 'fulfilled'
+            ? { error: coverageResult.value.error }
+            : { error: String(coverageResult.reason) };
+      const integrity =
+        integrityResult.status === 'fulfilled' && integrityResult.value.ok
+          ? integrityResult.value.value
+          : integrityResult.status === 'fulfilled'
+            ? { error: integrityResult.value.error }
+            : { error: String(integrityResult.reason) };
+
+      return resultToMcpResponse(Ok({ coverage, integrity }));
+    }
+
+    // scope === 'coverage' (default -- existing behavior)
     const { checkDocCoverage } = await import('@harness-engineering/core');
     const domain = input.domain ?? 'src';
-
-    // Attempt to load graph for enhanced coverage analysis
     const { loadGraphStore } = await import('../utils/graph-loader.js');
-    const projectPath = sanitizePath(input.path);
     const store = await loadGraphStore(projectPath);
     let graphCoverage:
       | { documented: string[]; undocumented: string[]; coveragePercentage: number }
@@ -43,36 +106,6 @@ export async function handleCheckDocs(input: { path: string; domain?: string }) 
       docsDir: path.resolve(projectPath, 'docs'),
       graphCoverage,
     });
-    return resultToMcpResponse(result);
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-      isError: true,
-    };
-  }
-}
-
-export const validateKnowledgeMapDefinition = {
-  name: 'validate_knowledge_map',
-  description: 'Validate AGENTS.md knowledge map structure and links',
-  inputSchema: {
-    type: 'object' as const,
-    properties: {
-      path: { type: 'string', description: 'Path to project root' },
-    },
-    required: ['path'],
-  },
-};
-
-export async function handleValidateKnowledgeMap(input: { path: string }) {
-  try {
-    const { validateKnowledgeMap } = await import('@harness-engineering/core');
-    const result = await validateKnowledgeMap(sanitizePath(input.path));
     return resultToMcpResponse(result);
   } catch (error) {
     return {
