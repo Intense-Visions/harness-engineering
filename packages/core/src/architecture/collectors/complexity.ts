@@ -8,7 +8,7 @@ import { findFiles } from '../../shared/fs-utils';
 export class ComplexityCollector implements Collector {
   readonly category = 'complexity' as const;
 
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const files = await findFiles('**/*.ts', rootDir);
     const snapshot: CodebaseSnapshot = {
       files: files.map((f) => ({

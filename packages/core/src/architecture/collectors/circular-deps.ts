@@ -8,13 +8,16 @@ import { findFiles } from '../../shared/fs-utils';
 export class CircularDepsCollector implements Collector {
   readonly category = 'circular-deps' as const;
 
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const files = await findFiles('**/*.ts', rootDir);
     const graphResult = await buildDependencyGraph(files, {
       name: 'typescript',
+      extensions: ['.ts', '.tsx'],
       parseFile: async () =>
         ({ ok: false, error: { code: 'PARSE_ERROR', message: 'not needed' } }) as any,
       extractImports: () =>
+        ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }) as any,
+      extractExports: () =>
         ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }) as any,
       health: async () => ({ ok: true, value: { available: true } }) as any,
     });
