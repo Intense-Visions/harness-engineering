@@ -1,5 +1,22 @@
 # @harness-engineering/graph
 
+## 0.3.1
+
+### Patch Changes
+
+- Remove redundant `undefined` from optional parameters
+
+## 0.3.0
+
+### Minor Changes
+
+- **GraphAnomalyAdapter** — Tarjan's articulation point detection, Z-score statistical outlier detection, overlap computation for graph anomaly analysis
+- Export GraphAnomalyAdapter from package index
+
+### Patch Changes
+
+- Address code review findings for GraphAnomalyAdapter
+
 ## 0.2.2
 
 ### Patch Changes

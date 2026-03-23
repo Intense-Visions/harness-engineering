@@ -6,6 +6,22 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.4.0 — 2026-03-23
+
+### Added
+
+- **MCP server merged into CLI** — `@harness-engineering/mcp-server` absorbed into `@harness-engineering/cli`. A single `npm install -g @harness-engineering/cli` now provides both `harness` and `harness-mcp` binaries. The standalone `@harness-engineering/mcp-server` package is deprecated.
+- Lint check in `assess_project` MCP tool with enforcement in execution skill
+- Automatic roadmap sync embedded into pipeline skills
+- Updated `release-readiness` skill to use `assess_project` with lint
+
+### Fixed
+
+- State cache invalidation on write to prevent stale hits in CI
+- Redundant `undefined` removed from optional graph parameters
+- `no-explicit-any` casts replaced with typed interfaces in `gather-context`
+- Unified `paths.ts` with `findUpFrom` + `process.cwd()` fallback
+
 ## 0.3.0 — 2026-03-23
 
 ### Added

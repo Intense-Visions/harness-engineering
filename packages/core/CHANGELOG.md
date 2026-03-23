@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.10.1
+
+### Patch Changes
+
+- Invalidate state cache on write to prevent stale hits in CI
+
+## 0.10.0
+
+### Minor Changes
+
+- **GraphStore singleton cache** with mtime-based invalidation and pending-promise dedup for concurrent access (LRU cap: 8 entries)
+- **Learnings/failures index cache** with mtime invalidation and LRU eviction in state-manager
+- **Parallelized CI checks** — `check-orchestrator` runs validate first, then 6 remaining checks via `Promise.all`
+- **Parallelized mechanical checks** — docs and security checks run in parallel with explicit findings-merge pattern
+
+### Patch Changes
+
+- Resolve stale `VERSION` constant (was `0.8.0`, should be `1.8.1`) causing incorrect update notifications
+- Deprecate core `VERSION` export — consumers should read from `@harness-engineering/cli/package.json`
+
 ## 0.9.0
 
 ### Minor Changes
