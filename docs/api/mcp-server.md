@@ -1,6 +1,6 @@
 # @harness-engineering/mcp-server
 
-MCP (Model Context Protocol) server exposing 37 tools and 8 resources for AI agent integration with the Harness Engineering toolkit.
+MCP (Model Context Protocol) server exposing 42 tools and 8 resources for AI agent integration with the Harness Engineering toolkit.
 
 **Version:** 0.5.3
 

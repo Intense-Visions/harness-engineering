@@ -6,6 +6,32 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.3.0 — 2026-03-23
+
+### Added
+
+- **Agent workflow acceleration:** Redesigned `emit_interaction` with structured decision UX — every question now includes pros/cons per option, recommendation with confidence level, risk/effort indicators, and markdown table rendering
+- **Composite MCP tools:** `gather_context` (parallel context assembly replacing 5 sequential calls), `assess_project` (parallel health checks replacing 6 sequential calls), `review_changes` (depth-controlled review with quick/standard/deep modes)
+- **Batch decision mode** for `emit_interaction` — group low-risk decisions for approval as a set
+- **Quality gate** on phase transitions — `emit_interaction` transition type now includes `qualityGate` with per-check pass/fail indicators
+- **Response density control** — `mode: 'summary' | 'detailed'` parameter on `query_graph`, `detect_entropy`, `get_relationships`, `get_impact`, `search_similar`, and all composite tools
+- **GraphStore singleton cache** with mtime-based invalidation and pending-promise dedup for concurrent access (LRU cap: 8 entries)
+- **Learnings/failures index cache** with mtime invalidation and LRU eviction in state-manager
+- **Parallelized CI checks** — `check-orchestrator` runs validate first, then 6 remaining checks via `Promise.all`
+- **Parallelized mechanical checks** — docs and security checks run in parallel with explicit findings-merge pattern
+- **GraphAnomalyAdapter** — Tarjan's articulation point detection, Z-score statistical outlier detection, overlap computation for graph anomaly analysis
+- **`detect_anomalies` MCP tool** for graph-based anomaly detection
+- 42 MCP tools total (was 40)
+
+### Changed
+
+- **Tool consolidation:** `manage_handoff` absorbed into `manage_state` (new `save-handoff`/`load-handoff` actions), `validate_knowledge_map` absorbed into `check_docs` (new `scope` parameter), `apply_fixes` absorbed into `detect_entropy` (new `autoFix` parameter)
+- **All 7 core skills updated** (brainstorming, planning, execution, verification, code-review, autopilot, pre-commit-review) to use structured `InteractionOption` format, composite tools, and `qualityGate` transitions — both claude-code and gemini-cli platforms
+- `emit_interaction` Zod schema now enforces structured options with `.min(2).max(10)`, recommendation required when options present, default index bounds check
+- Pipe characters in user-supplied text escaped in markdown table rendering
+- `review_changes` uses `execFileSync` instead of `execSync` for security hardening
+- Zod error messages now include field paths for easier debugging
+
 ### Fixed
 
 - Resolved stale `VERSION` constant in core (was `0.8.0`, should be `1.8.1`) causing incorrect update notifications
@@ -14,7 +40,9 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 - Added `./package.json` to CLI exports map for cross-package version resolution
 - Updated MCP server to read CLI version from `package.json` with fallback to core `VERSION`
 - Deprecated core `VERSION` export — consumers should read from `@harness-engineering/cli/package.json`
-- Updated README MCP tool count from 40 to 41
+- Fixed graph-loader race condition where concurrent loads with different mtimes could cache stale data
+- Fixed `gather_context` summary mode graph stripping (was accessing wrong property paths on graph context object)
+- Updated README and docs/api MCP tool count to 42
 
 ## 0.2.0 — 2026-03-22
 
