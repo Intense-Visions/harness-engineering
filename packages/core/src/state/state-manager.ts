@@ -170,6 +170,9 @@ export async function appendLearning(
       fs.appendFileSync(learningsPath, entry);
     }
 
+    // Invalidate cache on write
+    learningsCacheMap.delete(learningsPath);
+
     return Ok(undefined);
   } catch (error) {
     return Err(
@@ -278,6 +281,9 @@ export async function appendFailure(
       fs.appendFileSync(failuresPath, entry);
     }
 
+    // Invalidate cache on write
+    failuresCacheMap.delete(failuresPath);
+
     return Ok(undefined);
   } catch (error) {
     return Err(
@@ -367,6 +373,10 @@ export async function archiveFailures(
     }
 
     fs.renameSync(failuresPath, path.join(archiveDir, archiveName));
+
+    // Invalidate cache on move
+    failuresCacheMap.delete(failuresPath);
+
     return Ok(undefined);
   } catch (error) {
     return Err(
