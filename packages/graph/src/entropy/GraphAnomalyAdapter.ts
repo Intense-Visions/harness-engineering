@@ -1,6 +1,8 @@
 import type { GraphStore } from '../store/GraphStore.js';
 import { GraphCouplingAdapter } from './GraphCouplingAdapter.js';
+import type { GraphCouplingResult } from './GraphCouplingAdapter.js';
 import { GraphComplexityAdapter } from './GraphComplexityAdapter.js';
+import type { GraphComplexityResult } from './GraphComplexityAdapter.js';
 
 export interface AnomalyDetectionOptions {
   threshold?: number;
@@ -10,7 +12,7 @@ export interface AnomalyDetectionOptions {
 export interface StatisticalOutlier {
   nodeId: string;
   nodeName: string;
-  nodePath?: string;
+  nodePath?: string | undefined;
   nodeType: string;
   metric: string;
   value: number;
@@ -22,7 +24,7 @@ export interface StatisticalOutlier {
 export interface ArticulationPoint {
   nodeId: string;
   nodeName: string;
-  nodePath?: string;
+  nodePath?: string | undefined;
   componentsIfRemoved: number;
   dependentCount: number;
 }
@@ -75,8 +77,20 @@ export class GraphAnomalyAdapter {
     const allOutliers: StatisticalOutlier[] = [];
     const analyzedNodeIds = new Set<string>();
 
+    // Pre-compute adapter results once to avoid redundant computation
+    const couplingMetrics = ['fanIn', 'fanOut', 'transitiveDepth'];
+    const needsCoupling = metricsToAnalyze.some((m) => couplingMetrics.includes(m));
+    const needsComplexity = metricsToAnalyze.includes('hotspotScore');
+
+    const cachedCouplingData = needsCoupling
+      ? new GraphCouplingAdapter(this.store).computeCouplingData()
+      : undefined;
+    const cachedHotspotData = needsComplexity
+      ? new GraphComplexityAdapter(this.store).computeComplexityHotspots()
+      : undefined;
+
     for (const metric of metricsToAnalyze) {
-      const entries = this.collectMetricValues(metric);
+      const entries = this.collectMetricValues(metric, cachedCouplingData, cachedHotspotData);
       for (const e of entries) {
         analyzedNodeIds.add(e.nodeId);
       }
@@ -110,17 +124,21 @@ export class GraphAnomalyAdapter {
     };
   }
 
-  private collectMetricValues(metric: string): Array<{
+  private collectMetricValues(
+    metric: string,
+    cachedCouplingData?: GraphCouplingResult | undefined,
+    cachedHotspotData?: GraphComplexityResult | undefined
+  ): Array<{
     nodeId: string;
     nodeName: string;
-    nodePath?: string;
+    nodePath?: string | undefined;
     nodeType: string;
     value: number;
   }> {
     const entries: Array<{
       nodeId: string;
       nodeName: string;
-      nodePath?: string;
+      nodePath?: string | undefined;
       nodeType: string;
       value: number;
     }> = [];
@@ -143,8 +161,8 @@ export class GraphAnomalyAdapter {
         }
       }
     } else if (metric === 'fanIn' || metric === 'fanOut' || metric === 'transitiveDepth') {
-      const couplingAdapter = new GraphCouplingAdapter(this.store);
-      const couplingData = couplingAdapter.computeCouplingData();
+      const couplingData =
+        cachedCouplingData ?? new GraphCouplingAdapter(this.store).computeCouplingData();
       const fileNodes = this.store.findNodes({ type: 'file' });
       for (const fileData of couplingData.files) {
         const fileNode = fileNodes.find((n) => (n.path ?? n.name) === fileData.file);
@@ -158,8 +176,8 @@ export class GraphAnomalyAdapter {
         });
       }
     } else if (metric === 'hotspotScore') {
-      const complexityAdapter = new GraphComplexityAdapter(this.store);
-      const hotspots = complexityAdapter.computeComplexityHotspots();
+      const hotspots =
+        cachedHotspotData ?? new GraphComplexityAdapter(this.store).computeComplexityHotspots();
       const functionNodes = [
         ...this.store.findNodes({ type: 'function' }),
         ...this.store.findNodes({ type: 'method' }),
@@ -186,7 +204,7 @@ export class GraphAnomalyAdapter {
     entries: Array<{
       nodeId: string;
       nodeName: string;
-      nodePath?: string;
+      nodePath?: string | undefined;
       nodeType: string;
       value: number;
     }>,
@@ -228,7 +246,7 @@ export class GraphAnomalyAdapter {
     const fileNodes = this.store.findNodes({ type: 'file' });
     if (fileNodes.length === 0) return [];
 
-    const nodeMap = new Map<string, { name: string; path?: string }>();
+    const nodeMap = new Map<string, { name: string; path?: string | undefined }>();
     const adj = new Map<string, Set<string>>();
 
     for (const node of fileNodes) {
