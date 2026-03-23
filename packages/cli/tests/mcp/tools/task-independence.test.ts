@@ -215,6 +215,53 @@ describe('handleCheckTaskIndependence', () => {
     expect(data.pairs[0].independent).toBe(true);
   });
 
+  it('handles 4 tasks with mixed independence producing multiple groups', async () => {
+    await createTestGraph(tmpDir);
+    // Graph: a.ts -> b.ts -> c.ts, d.ts (isolated)
+    // task1 has a.ts, task2 has b.ts — conflict via transitive at depth 1 (a imports b)
+    // task3 has c.ts — conflict with task2 at depth 1 (b imports c)
+    // task4 has d.ts — independent of all others
+    // Expected: tasks 1,2,3 grouped together (transitively connected), task4 alone
+    const result = await handleCheckTaskIndependence({
+      path: tmpDir,
+      tasks: [
+        { id: 'task1', files: ['a.ts'] },
+        { id: 'task2', files: ['b.ts'] },
+        { id: 'task3', files: ['c.ts'] },
+        { id: 'task4', files: ['d.ts'] },
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+
+    // 4 tasks produce 6 pairs (4 choose 2)
+    expect(data.pairs).toHaveLength(6);
+
+    // task4 should be independent of all others
+    const task4Pairs = data.pairs.filter(
+      (p: { taskA: string; taskB: string }) => p.taskA === 'task4' || p.taskB === 'task4'
+    );
+    expect(task4Pairs.every((p: { independent: boolean }) => p.independent)).toBe(true);
+
+    // task1 and task2 should conflict (a.ts imports b.ts)
+    const pair12 = data.pairs.find(
+      (p: { taskA: string; taskB: string }) => p.taskA === 'task1' && p.taskB === 'task2'
+    );
+    expect(pair12.independent).toBe(false);
+
+    // Should produce 2 groups: {task1, task2, task3} and {task4}
+    expect(data.groups).toHaveLength(2);
+    const groupWith1 = data.groups.find((g: string[]) => g.includes('task1'));
+    expect(groupWith1).toContain('task2');
+    expect(groupWith1).toContain('task3');
+    const groupWith4 = data.groups.find((g: string[]) => g.includes('task4'));
+    expect(groupWith4).toEqual(['task4']);
+
+    // Verdict should mention 2 groups
+    expect(data.verdict).toContain('2 independent groups');
+  });
+
   it('returns error for fewer than 2 tasks', async () => {
     const result = await handleCheckTaskIndependence({
       path: tmpDir,
