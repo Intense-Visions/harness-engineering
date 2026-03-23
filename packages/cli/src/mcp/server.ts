@@ -105,6 +105,10 @@ import { runCodeReviewDefinition, handleRunCodeReview } from './tools/review-pip
 import { gatherContextDefinition, handleGatherContext } from './tools/gather-context.js';
 import { assessProjectDefinition, handleAssessProject } from './tools/assess-project.js';
 import { reviewChangesDefinition, handleReviewChanges } from './tools/review-changes.js';
+import {
+  checkTaskIndependenceDefinition,
+  handleCheckTaskIndependence,
+} from './tools/task-independence.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -153,6 +157,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   assessProjectDefinition,
   reviewChangesDefinition,
   detectAnomaliesDefinition,
+  checkTaskIndependenceDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -196,6 +201,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   assess_project: handleAssessProject as ToolHandler,
   review_changes: handleReviewChanges as ToolHandler,
   detect_anomalies: handleDetectAnomalies as ToolHandler,
+  check_task_independence: handleCheckTaskIndependence as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
