@@ -122,12 +122,15 @@ Run mechanical checks to establish an exclusion boundary. Any issue caught mecha
 
 **Checks:**
 
-1. **Harness validation:**
-   ```bash
-   harness validate
-   harness check-deps
-   harness check-docs
+1. **Harness validation:** Use `assess_project` to run all harness health checks in parallel:
+   ```json
+   assess_project({
+     path: "<project-root>",
+     checks: ["validate", "deps", "docs"],
+     mode: "detailed"
+   })
    ```
+   This runs `harness validate`, `harness check-deps`, and `harness check-docs` in parallel and returns a unified report. Any check failure is reported in the `checks` array with `passed: false`.
 2. **Security scan:** Run `run_security_scan` MCP tool on changed files. Record findings with rule ID, file, line, and remediation.
 3. **Type checking:** Run the project's type checker (e.g., `tsc --noEmit`). Record any type errors.
 4. **Linting:** Run the project's linter (e.g., `eslint`). Record any lint violations.
@@ -602,9 +605,7 @@ _This section is not part of the pipeline. It documents the process for respondi
 
 ## Harness Integration
 
-- **`harness validate`** — Run in Phase 2 (MECHANICAL). Must pass for the pipeline to continue to AI review.
-- **`harness check-deps`** — Run in Phase 2 (MECHANICAL). Failures are Critical issues that stop the pipeline.
-- **`harness check-docs`** — Run in Phase 2 (MECHANICAL). Documentation drift findings are recorded for the exclusion set.
+- **`assess_project`** — Used in Phase 2 (MECHANICAL) to run `validate`, `deps`, and `docs` checks in parallel. Must pass for the pipeline to continue to AI review. Failures are Critical issues that stop the pipeline.
 - **`harness cleanup`** — Optional check during Phase 2 for entropy accumulation in changed files.
 - **Graph queries** — Used in Phase 3 (CONTEXT) for dependency-scoped context and in Phase 5 (VALIDATE) for reachability verification. Graceful fallback when no graph exists.
 - **`emit_interaction`** -- Call after review approval to suggest transitioning to merge/PR creation. Only emitted on APPROVE assessment. Uses confirmed transition (waits for user approval).
