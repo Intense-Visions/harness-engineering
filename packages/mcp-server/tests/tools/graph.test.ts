@@ -9,6 +9,7 @@ import {
   handleGetRelationships,
   handleGetImpact,
   handleIngestSource,
+  queryGraphDefinition,
 } from '../../src/tools/graph.js';
 
 // ── Test helper ─────────────────────────────────────────────────────
@@ -79,6 +80,15 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true });
+});
+
+// ── query_graph definition ──────────────────────────────────────────
+
+describe('query_graph definition', () => {
+  it('query_graph definition has mode parameter', () => {
+    expect(queryGraphDefinition.inputSchema.properties).toHaveProperty('mode');
+    expect(queryGraphDefinition.inputSchema.properties.mode.enum).toEqual(['summary', 'detailed']);
+  });
 });
 
 // ── handleQueryGraph ────────────────────────────────────────────────
