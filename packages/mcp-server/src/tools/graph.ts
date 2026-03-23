@@ -53,6 +53,12 @@ export const queryGraphDefinition = {
         type: 'boolean',
         description: 'Prune observability nodes like spans/metrics/logs (default true)',
       },
+      mode: {
+        type: 'string',
+        enum: ['summary', 'detailed'],
+        description:
+          'Response density: summary returns node/edge counts by type + top 10 nodes by connectivity, detailed returns full arrays. Default: detailed',
+      },
     },
     required: ['path', 'rootNodeIds'],
   },
@@ -67,6 +73,7 @@ export async function handleQueryGraph(input: {
   includeEdges?: string[];
   bidirectional?: boolean;
   pruneObservability?: boolean;
+  mode?: 'summary' | 'detailed';
 }) {
   try {
     const projectPath = sanitizePath(input.path);
@@ -90,6 +97,46 @@ export async function handleQueryGraph(input: {
       bidirectional: input.bidirectional,
       pruneObservability: input.pruneObservability,
     });
+
+    if (input.mode === 'summary') {
+      // Count nodes by type
+      const nodesByType: Record<string, number> = {};
+      for (const node of result.nodes) {
+        nodesByType[node.type] = (nodesByType[node.type] ?? 0) + 1;
+      }
+      // Count edges by type
+      const edgesByType: Record<string, number> = {};
+      for (const edge of result.edges) {
+        edgesByType[edge.type] = (edgesByType[edge.type] ?? 0) + 1;
+      }
+      // Top 10 nodes by connectivity (number of edges)
+      const edgeCounts = new Map<string, number>();
+      for (const edge of result.edges) {
+        edgeCounts.set(edge.from, (edgeCounts.get(edge.from) ?? 0) + 1);
+        edgeCounts.set(edge.to, (edgeCounts.get(edge.to) ?? 0) + 1);
+      }
+      const topNodes = [...edgeCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([id, connections]) => ({ id, connections }));
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              mode: 'summary',
+              totalNodes: result.nodes.length,
+              totalEdges: result.edges.length,
+              nodesByType,
+              edgesByType,
+              topNodes,
+              stats: result.stats,
+            }),
+          },
+        ],
+      };
+    }
 
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result) }],
