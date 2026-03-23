@@ -31,4 +31,12 @@ describe('detect_entropy tool', () => {
   it('description mentions fix capability', () => {
     expect(detectEntropyDefinition.description).toContain('fix');
   });
+
+  it('has mode parameter in definition', () => {
+    expect(detectEntropyDefinition.inputSchema.properties).toHaveProperty('mode');
+    expect(detectEntropyDefinition.inputSchema.properties.mode.enum).toEqual([
+      'summary',
+      'detailed',
+    ]);
+  });
 });
