@@ -75,6 +75,14 @@ export type {
 export { GraphCouplingAdapter } from './entropy/GraphCouplingAdapter.js';
 export type { GraphCouplingFileData, GraphCouplingResult } from './entropy/GraphCouplingAdapter.js';
 
+export { GraphAnomalyAdapter } from './entropy/GraphAnomalyAdapter.js';
+export type {
+  AnomalyDetectionOptions,
+  StatisticalOutlier,
+  ArticulationPoint,
+  AnomalyReport,
+} from './entropy/GraphAnomalyAdapter.js';
+
 // Context
 export { Assembler } from './context/Assembler.js';
 export type {
