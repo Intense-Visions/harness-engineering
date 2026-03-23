@@ -89,6 +89,9 @@ importers:
       '@harness-engineering/linter-gen':
         specifier: workspace:*
         version: link:../linter-gen
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.0.0
+        version: 1.27.1(zod@3.25.76)
       '@typescript-eslint/typescript-estree':
         specifier: ^7.0.0
         version: 7.18.0(typescript@5.9.3)
@@ -253,46 +256,6 @@ importers:
       minimatch:
         specifier: ^10.2.4
         version: 10.2.4
-      yaml:
-        specifier: ^2.3.0
-        version: 2.8.2
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.15
-      typescript:
-        specifier: ^5.3.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@22.19.15)(yaml@2.8.2)
-
-  packages/mcp-server:
-    dependencies:
-      '@harness-engineering/cli':
-        specifier: workspace:*
-        version: link:../cli
-      '@harness-engineering/core':
-        specifier: workspace:*
-        version: link:../core
-      '@harness-engineering/graph':
-        specifier: workspace:*
-        version: link:../graph
-      '@harness-engineering/linter-gen':
-        specifier: workspace:*
-        version: link:../linter-gen
-      '@harness-engineering/types':
-        specifier: workspace:*
-        version: link:../types
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.0.0
-        version: 1.27.1(zod@3.25.76)
-      handlebars:
-        specifier: ^4.7.0
-        version: 4.7.8
       yaml:
         specifier: ^2.3.0
         version: 2.8.2
@@ -1994,7 +1957,7 @@ packages:
       '@vitest/spy': 4.0.18
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.1(@types/node@22.19.15)(tsx@4.21.0)
+      vite: 7.3.1(@types/node@22.19.15)(yaml@2.8.2)
     dev: true
 
   /@vitest/pretty-format@4.0.18:

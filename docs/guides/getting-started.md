@@ -187,7 +187,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` so Gemini tru
 }
 ```
 
-> **Note:** `harness-mcp` is installed alongside the CLI by `npm install -g @harness-engineering/cli`. Using the installed binary instead of `npx @harness-engineering/mcp-server` avoids stale npx cache issues and ensures version-matched dependencies.
+> **Note:** `harness-mcp` is installed alongside the CLI by `npm install -g @harness-engineering/cli`. The MCP server is bundled with the CLI -- no separate package needed.
 
 > **Note:** Gemini CLI ignores `mcpServers` in workspace settings for untrusted directories. The `harness setup-mcp` command handles this automatically.
 

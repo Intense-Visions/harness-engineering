@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--merge-mcp-into-cli--proposal",
+  "specPath": "docs/changes/merge-mcp-into-cli/proposal.md",
+  "currentState": "DONE",
+  "currentPhase": 2,
+  "phases": [
+    {
+      "name": "Move and Rewire",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-23-phase1-move-and-rewire-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Tests",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-23-phase2-tests-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Cleanup and Deprecation",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-23-phase3-cleanup-plan.md",
+      "status": "complete"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [
+    {
+      "phase": 0,
+      "name": "Move and Rewire",
+      "startedAt": "2026-03-23T00:00:00Z",
+      "completedAt": "2026-03-23T01:00:00Z",
+      "tasksCompleted": 11,
+      "retriesUsed": 1,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 1, "note": 1 }
+    },
+    {
+      "phase": 1,
+      "name": "Tests",
+      "startedAt": "2026-03-23T01:00:00Z",
+      "completedAt": "2026-03-23T02:00:00Z",
+      "tasksCompleted": 7,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 2,
+      "name": "Cleanup and Deprecation",
+      "startedAt": "2026-03-23T02:00:00Z",
+      "completedAt": "2026-03-23T02:30:00Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    }
+  ]
+}

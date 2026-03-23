@@ -4,7 +4,8 @@
   "description": "CLI for Harness Engineering toolkit",
   "type": "module",
   "bin": {
-    "harness": "./dist/bin/harness.js"
+    "harness": "./dist/bin/harness.js",
+    "harness-mcp": "./dist/bin/harness-mcp.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -31,6 +32,7 @@
     "clean": "node ../../scripts/clean.mjs dist"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/linter-gen": "workspace:*",
