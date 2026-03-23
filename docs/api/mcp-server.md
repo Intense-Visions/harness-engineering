@@ -1,6 +1,6 @@
 # @harness-engineering/mcp-server
 
-MCP (Model Context Protocol) server exposing 41 tools and 8 resources for AI agent integration with the Harness Engineering toolkit.
+MCP (Model Context Protocol) server exposing 37 tools and 8 resources for AI agent integration with the Harness Engineering toolkit.
 
 **Version:** 0.5.3
 
@@ -67,7 +67,7 @@ Converts a `Result<T, E>` to an MCP-compatible response object.
 
 Resolves and loads the project configuration from a root directory.
 
-## Tools (41)
+## Tools (37)
 
 ### Validation & Architecture
 
@@ -80,17 +80,15 @@ Resolves and loads the project configuration from a root directory.
 
 ### Documentation
 
-| Tool                     | Description                      |
-| ------------------------ | -------------------------------- |
-| `check_docs`             | Check documentation coverage     |
-| `validate_knowledge_map` | Validate knowledge map integrity |
+| Tool         | Description                                                                     |
+| ------------ | ------------------------------------------------------------------------------- |
+| `check_docs` | Check documentation coverage and/or knowledge map integrity (`scope` parameter) |
 
 ### Entropy & Code Quality
 
-| Tool             | Description                                                  |
-| ---------------- | ------------------------------------------------------------ |
-| `detect_entropy` | Detect code entropy (drift, dead code, complexity, coupling) |
-| `apply_fixes`    | Apply auto-fixes for entropy findings                        |
+| Tool             | Description                                                              |
+| ---------------- | ------------------------------------------------------------------------ |
+| `detect_entropy` | Detect code entropy and optionally auto-fix issues (`autoFix` parameter) |
 
 ### Linting
 
@@ -126,11 +124,10 @@ Resolves and loads the project configuration from a root directory.
 
 ### State Management
 
-| Tool             | Description                 |
-| ---------------- | --------------------------- |
-| `manage_state`   | Read/write harness state    |
-| `manage_handoff` | Save/load handoff documents |
-| `list_streams`   | List all work streams       |
+| Tool           | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `manage_state` | Read/write harness state including handoff save/load |
+| `list_streams` | List all work streams                                |
 
 ### Feedback & Review
 
