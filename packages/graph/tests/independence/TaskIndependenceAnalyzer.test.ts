@@ -85,4 +85,118 @@ describe('TaskIndependenceAnalyzer', () => {
       expect(result.verdict).toContain('Graph unavailable');
     });
   });
+
+  describe('graph-expanded analysis', () => {
+    function buildGraphWithImports(): GraphStore {
+      const store = new GraphStore();
+      // Files: a.ts -> shared.ts <- b.ts
+      // a.ts imports shared.ts, b.ts imports shared.ts
+      store.addNode({
+        id: 'file:src/a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:src/b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:src/shared.ts',
+        type: 'file',
+        name: 'shared.ts',
+        path: 'src/shared.ts',
+        metadata: {},
+      });
+      store.addEdge({ from: 'file:src/a.ts', to: 'file:src/shared.ts', type: 'imports' });
+      store.addEdge({ from: 'file:src/b.ts', to: 'file:src/shared.ts', type: 'imports' });
+      return store;
+    }
+
+    it('detects transitive overlap via graph expansion at depth 1', () => {
+      const store = buildGraphWithImports();
+      const analyzer = new TaskIndependenceAnalyzer(store);
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 1,
+      });
+
+      expect(result.analysisLevel).toBe('graph-expanded');
+      expect(result.pairs[0]!.independent).toBe(false);
+
+      const transitiveOverlap = result.pairs[0]!.overlaps.find(
+        (o) => o.type === 'transitive' && o.file === 'src/shared.ts'
+      );
+      expect(transitiveOverlap).toBeDefined();
+      expect(transitiveOverlap!.via).toBeDefined();
+    });
+
+    it('does not detect transitive overlap at depth 0', () => {
+      const store = buildGraphWithImports();
+      const analyzer = new TaskIndependenceAnalyzer(store);
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 0,
+      });
+
+      expect(result.pairs[0]!.independent).toBe(true);
+    });
+
+    it('respects edgeTypes filter', () => {
+      const store = buildGraphWithImports();
+      // Add a 'calls' edge that would create a conflict
+      store.addNode({
+        id: 'file:src/called.ts',
+        type: 'file',
+        name: 'called.ts',
+        path: 'src/called.ts',
+        metadata: {},
+      });
+      store.addEdge({ from: 'file:src/a.ts', to: 'file:src/called.ts', type: 'calls' });
+      store.addEdge({ from: 'file:src/b.ts', to: 'file:src/called.ts', type: 'calls' });
+
+      const analyzer = new TaskIndependenceAnalyzer(store);
+
+      // Only check 'calls' edges — should find overlap on called.ts
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 1,
+        edgeTypes: ['calls'],
+      });
+
+      expect(result.pairs[0]!.independent).toBe(false);
+      const calledOverlap = result.pairs[0]!.overlaps.find((o) => o.file === 'src/called.ts');
+      expect(calledOverlap).toBeDefined();
+    });
+
+    it('handles files not found in graph gracefully', () => {
+      const store = new GraphStore();
+      // Graph is empty — no nodes exist
+      const analyzer = new TaskIndependenceAnalyzer(store);
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 1,
+      });
+
+      // No graph nodes found, so falls back to direct-only comparison
+      expect(result.analysisLevel).toBe('graph-expanded');
+      expect(result.pairs[0]!.independent).toBe(true);
+    });
+  });
 });
