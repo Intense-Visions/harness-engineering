@@ -1,12 +1,36 @@
 {
-  "timestamp": "2026-03-23T12:37:08.847Z",
-  "fromSkill": "emit_interaction",
-  "phase": "review",
-  "summary": "Review approved with no blocking issues",
-  "completed": ["review"],
-  "pending": ["merge"],
-  "concerns": [],
-  "decisions": [],
-  "blockers": [],
-  "contextKeywords": []
+  "fromSkill": "harness-brainstorming",
+  "phase": "VALIDATE",
+  "summary": "Roadmap Pipeline Sync — embed automatic roadmap updates into brainstorming, execution, and autopilot skills so docs/roadmap.md stays current without manual sync",
+  "artifacts": ["docs/changes/roadmap-pipeline-sync/proposal.md"],
+  "decisions": [
+    {
+      "what": "Full pipeline coverage (Approach B)",
+      "why": "Covers entire feature lifecycle from conception to completion"
+    },
+    {
+      "what": "Four integration points across 3 skills",
+      "why": "Brainstorming adds features, execution syncs progress, autopilot marks phase/feature completion"
+    },
+    {
+      "what": "Human-always-wins rule respected",
+      "why": "Manual roadmap edits are never overwritten by automated sync"
+    },
+    {
+      "what": "Silent when no roadmap exists",
+      "why": "Roadmap is opt-in; skills should not error when it's absent"
+    }
+  ],
+  "contextKeywords": [
+    "roadmap",
+    "sync",
+    "pipeline",
+    "manage_roadmap",
+    "autopilot",
+    "execution",
+    "brainstorming",
+    "PHASE_COMPLETE",
+    "DONE",
+    "PERSIST"
+  ]
 }

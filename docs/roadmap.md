@@ -2,7 +2,7 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-03-22
+updated: 2026-03-23
 ---
 
 # Roadmap
@@ -401,6 +401,22 @@ updated: 2026-03-22
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-21-roadmap-core-types-parser-plan.md
 
+### Cross-Platform Enforcement
+
+- **Status:** done
+- **Spec:** docs/changes/cross-platform-enforcement/proposal.md
+- **Summary:** Cross-platform support with ESLint rules, platform parity tests, and 3-OS CI matrix enforcement
+- **Blockers:** none
+- **Plan:** none
+
+### Agent Workflow Acceleration
+
+- **Status:** done
+- **Spec:** docs/changes/agent-workflow-acceleration/proposal.md
+- **Summary:** Composite MCP tools, structured decision UX, and tool consolidation reducing agent round-trips from 10-15 to 3-5 calls
+- **Blockers:** none
+- **Plan:** none
+
 ### Harness v2 Patterns
 
 - **Status:** done
@@ -409,11 +425,29 @@ updated: 2026-03-22
 - **Blockers:** none
 - **Plan:** none
 
+## Current Work
+
+### Merge MCP into CLI
+
+- **Status:** in-progress
+- **Spec:** docs/changes/merge-mcp-into-cli/proposal.md
+- **Summary:** Eliminate standalone mcp-server package by moving source into CLI with unified binary and paths
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-23-phase1-move-and-rewire-plan.md
+
+### Roadmap Pipeline Sync
+
+- **Status:** done
+- **Spec:** docs/changes/roadmap-pipeline-sync/proposal.md
+- **Summary:** Embed automatic roadmap status updates into brainstorming, execution, and autopilot skills
+- **Blockers:** none
+- **Plan:** none
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Z-score outlier detection over complexity, coupling, fanIn/fanOut metrics plus articulation point identification via knowledge graph. New MCP tool: detect_anomalies. [C15]
 - **Blockers:** none

@@ -339,7 +339,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 3. **Mark phase as `complete`** in state.
 
-4. **Check for next phase:**
+4. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true`. This reflects the just-completed phase in the roadmap (e.g., updating the feature from `planned` to `in-progress`). If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. Skip silently if no roadmap exists. Do not use `force_sync: true` — the human-always-wins rule applies.
+
+5. **Check for next phase:**
    - If more phases remain: "Phase {N} complete. Next: Phase {N+1}: {name} (complexity: {level}). Continue? (yes / stop)"
      - **yes** — Increment `currentPhase`, reset `retryBudget`, transition to ASSESS.
      - **stop** — Save state and exit.
@@ -383,7 +385,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - [skill:harness-autopilot] [outcome:observation] {any notable patterns from the run}
    ```
 
-5. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
+5. **Update roadmap to done.** If `docs/roadmap.md` exists and the current spec maps to a roadmap feature, call `manage_roadmap` with action `update` to set the feature status to `done`. Derive the feature name from the spec title (H1 heading) or the session's `handoff.json` `summary` field. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `updateFeature()` from core. Skip silently if no roadmap exists or if the feature is not found. Do not use `force_sync: true`.
+
+6. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
 
 ## Harness Integration
 
@@ -394,6 +398,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 - **Handoff** — `.harness/sessions/<slug>/handoff.json` is written by each delegated skill and read by the next. Autopilot writes a final handoff on DONE.
 - **Learnings** — `.harness/learnings.md` (global) is appended by both delegated skills and autopilot itself.
 - **Roadmap context** — During INIT, reads `docs/roadmap.md` (if present) for project-level priorities, blockers, and milestone status. Provides broader context for phase execution decisions.
+- **Roadmap sync** — During PHASE_COMPLETE, calls `manage_roadmap` with `sync` and `apply: true` to reflect phase progress. During DONE, calls `manage_roadmap` with `update` to set feature status to `done`. Both skip silently when no roadmap exists. Neither uses `force_sync: true`.
 
 ## Success Criteria
 
