@@ -266,7 +266,7 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
    }
    ```
 
-5. **Sync roadmap (if present).** If `docs/roadmap.md` exists, trigger a roadmap sync to update linked feature statuses based on the just-completed execution state. Use the `manage_roadmap` MCP tool with `sync` action if available, or invoke `/harness:roadmap --sync`. This keeps the roadmap current as plans are executed. If no roadmap exists, skip this step silently.
+5. **Sync roadmap (mandatory when present).** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true` to update linked feature statuses from the just-completed execution state. Do not use `force_sync: true` — the human-always-wins rule applies. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. If no roadmap exists, skip silently.
 
 6. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
 
@@ -327,7 +327,7 @@ These are non-negotiable. When any condition is met, stop immediately.
 - **`harness state learn "<message>"`** — Append a learning from the command line.
 - **`.harness/state.json`** — Read at session start to resume position. Updated after every task.
 - **`.harness/learnings.md`** — Append-only knowledge capture. Read at session start for prior context.
-- **Roadmap sync** — After completing plan execution, sync roadmap status via `manage_roadmap sync` if `docs/roadmap.md` exists. Keeps roadmap current with execution progress.
+- **Roadmap sync** — After completing plan execution, call `manage_roadmap` with action `sync` and `apply: true` to update roadmap status. Mandatory when `docs/roadmap.md` exists. Do not use `force_sync: true`. Falls back to `syncRoadmap()` from core if MCP tool is unavailable.
 - **`emit_interaction`** -- Call at plan completion to auto-transition to harness-verification. Uses auto-transition (proceeds immediately without user confirmation).
 
 ## Success Criteria

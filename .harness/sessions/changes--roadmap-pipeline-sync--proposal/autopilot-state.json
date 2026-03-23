@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--roadmap-pipeline-sync--proposal",
+  "specPath": "docs/changes/roadmap-pipeline-sync/proposal.md",
+  "currentState": "DONE",
+  "currentPhase": 3,
+  "phases": [
+    {
+      "name": "harness-execution enforcement",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-23-roadmap-sync-phase0-execution-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "harness-autopilot PHASE_COMPLETE + DONE",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    },
+    {
+      "name": "harness-brainstorming add",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    },
+    {
+      "name": "harness-validation",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [
+    {
+      "phase": 0,
+      "name": "harness-execution enforcement",
+      "startedAt": "2026-03-23T18:00:00Z",
+      "completedAt": "2026-03-23T18:05:00Z",
+      "tasksCompleted": 1,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 1,
+      "name": "harness-autopilot PHASE_COMPLETE + DONE",
+      "startedAt": "2026-03-23T18:05:00Z",
+      "completedAt": "2026-03-23T18:10:00Z",
+      "tasksCompleted": 3,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 2,
+      "name": "harness-brainstorming add",
+      "startedAt": "2026-03-23T18:10:00Z",
+      "completedAt": "2026-03-23T18:12:00Z",
+      "tasksCompleted": 2,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 3,
+      "name": "harness-validation",
+      "startedAt": "2026-03-23T18:12:00Z",
+      "completedAt": "2026-03-23T18:15:00Z",
+      "tasksCompleted": 1,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    }
+  ]
+}

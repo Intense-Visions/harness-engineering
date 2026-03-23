@@ -156,7 +156,15 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
 
    The human must explicitly approve before this skill is complete.
 
-6. **Write handoff and suggest transition.** After the human approves the spec:
+6. **Add feature to roadmap.** If `docs/roadmap.md` exists:
+   - Derive the feature name from the spec title (the H1 heading of the proposal).
+   - Call `manage_roadmap` with action `add`, `status: "planned"`, `milestone: "Current Work"`, and the spec path. Include a one-line summary from the spec overview.
+   - If the feature already exists in the roadmap (duplicate name), skip silently — the feature was likely added manually or by a prior brainstorming session.
+   - Log: `"Added '<feature-name>' to roadmap as planned"` (informational, not a prompt).
+   - If `manage_roadmap` is unavailable, fall back to direct file manipulation using `addFeature()` from core.
+   - If no roadmap exists, skip this step silently.
+
+7. **Write handoff and suggest transition.** After the human approves the spec:
 
    Write `.harness/handoff.json`:
 
@@ -257,6 +265,7 @@ Converge on a recommendation that addresses all concerns before presenting the d
 - **`harness check-docs`** — Run to verify the spec does not conflict with existing documentation.
 - **Spec location** — Specs go to `docs/changes/<feature>/proposal.md`. Follow existing naming patterns.
 - **Handoff to harness-planning** — Once the spec is approved, invoke harness-planning to create the implementation plan from the spec.
+- **Roadmap sync** — After spec approval, call `manage_roadmap` with action `add` to register the new feature as `planned` in `docs/roadmap.md`. Skip silently if no roadmap exists. Duplicates are silently ignored.
 - **`emit_interaction`** -- Call at the end of Phase 4 to suggest transitioning to harness-planning. Uses confirmed transition (waits for user approval).
 
 #### Requirement Phrasing
