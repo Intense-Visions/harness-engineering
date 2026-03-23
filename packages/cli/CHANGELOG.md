@@ -1,5 +1,40 @@
 # @harness-engineering/cli
 
+## 1.10.0
+
+### Minor Changes
+
+- **Merge `@harness-engineering/mcp-server` into CLI** — the MCP server (42 tools, 8 resources) now ships as part of the CLI package. Installing `@harness-engineering/cli` provides both `harness` and `harness-mcp` binaries.
+  - Move source to `packages/cli/src/mcp/` (server, tools, resources, utils)
+  - Move tests to `packages/cli/tests/mcp/` (37 test files, 889 tests)
+  - Add `harness mcp` subcommand and `harness-mcp` bin entry
+  - Add `@modelcontextprotocol/sdk` as dependency (externalized in tsup)
+  - Re-export `createHarnessServer`, `startServer`, `getToolDefinitions` from CLI index
+  - `@harness-engineering/mcp-server` is now deprecated
+- Add lint check to `assess_project` tool with enforcement in execution skill
+- Embed automatic roadmap sync into pipeline skills
+- Update `release-readiness` skill to use `assess_project` with lint
+
+### Patch Changes
+
+- Replace `no-explicit-any` casts with typed interfaces in `gather-context`
+- Unify `paths.ts` with `findUpFrom` + `process.cwd()` fallback
+- Updated dependencies
+  - @harness-engineering/core@0.10.1
+  - @harness-engineering/graph@0.3.1
+
+## 1.9.0
+
+### Minor Changes
+
+- Pick up composite MCP tools (`gather_context`, `assess_project`, `review_changes`), agent workflow acceleration, and `detect_anomalies` tool via updated mcp-server
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/core@0.10.0
+  - @harness-engineering/graph@0.3.0
+
 ## 1.8.0
 
 ### Minor Changes
