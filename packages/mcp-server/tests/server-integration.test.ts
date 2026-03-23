@@ -13,9 +13,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('validate_project');
     expect(names).toContain('check_dependencies');
     expect(names).toContain('check_docs');
-    expect(names).toContain('validate_knowledge_map');
     expect(names).toContain('detect_entropy');
-    expect(names).toContain('apply_fixes');
     expect(names).toContain('generate_linter');
     expect(names).toContain('validate_linter_config');
     expect(names).toContain('init_project');
@@ -38,7 +36,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('get_critical_paths');
     expect(names).toContain('list_streams');
     expect(names).toContain('run_code_review');
-    expect(tools).toHaveLength(40);
+    expect(tools).toHaveLength(37);
   });
 
   it('all tool definitions have inputSchema', () => {

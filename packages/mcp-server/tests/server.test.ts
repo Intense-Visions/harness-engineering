@@ -7,9 +7,9 @@ describe('MCP Server', () => {
     expect(server).toBeDefined();
   });
 
-  it('registers all 40 tools', () => {
+  it('registers all 37 tools', () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(40);
+    expect(tools).toHaveLength(37);
   });
 
   it('registers all 8 resources', () => {
@@ -27,7 +27,13 @@ describe('MCP Server', () => {
   it('registers new state tools', () => {
     const names = getToolDefinitions().map((t) => t.name);
     expect(names).toContain('manage_state');
-    expect(names).toContain('manage_handoff');
+  });
+
+  it('does not register removed tools', () => {
+    const names = getToolDefinitions().map((t) => t.name);
+    expect(names).not.toContain('manage_handoff');
+    expect(names).not.toContain('validate_knowledge_map');
+    expect(names).not.toContain('apply_fixes');
   });
 
   it('registers new feedback tools', () => {
