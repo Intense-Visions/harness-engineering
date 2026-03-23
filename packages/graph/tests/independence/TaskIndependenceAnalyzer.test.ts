@@ -191,6 +191,80 @@ describe('TaskIndependenceAnalyzer', () => {
       expect(calledOverlap).toBeDefined();
     });
 
+    it('detects transitive overlap at depth 2 across two hops', () => {
+      // Build chain: a.ts -> mid.ts -> deep.ts <- b.ts -> mid2.ts -> deep.ts
+      // At depth 1, a.ts expands to {mid.ts} and b.ts expands to {mid2.ts, deep.ts} — no overlap
+      // At depth 2, a.ts expands to {mid.ts, deep.ts} — overlaps with b.ts's expansion {mid2.ts, deep.ts}
+      const store = new GraphStore();
+      store.addNode({
+        id: 'file:src/a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:src/mid.ts',
+        type: 'file',
+        name: 'mid.ts',
+        path: 'src/mid.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:src/deep.ts',
+        type: 'file',
+        name: 'deep.ts',
+        path: 'src/deep.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:src/b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:src/mid2.ts',
+        type: 'file',
+        name: 'mid2.ts',
+        path: 'src/mid2.ts',
+        metadata: {},
+      });
+
+      store.addEdge({ from: 'file:src/a.ts', to: 'file:src/mid.ts', type: 'imports' });
+      store.addEdge({ from: 'file:src/mid.ts', to: 'file:src/deep.ts', type: 'imports' });
+      store.addEdge({ from: 'file:src/b.ts', to: 'file:src/mid2.ts', type: 'imports' });
+      store.addEdge({ from: 'file:src/mid2.ts', to: 'file:src/deep.ts', type: 'imports' });
+
+      const analyzer = new TaskIndependenceAnalyzer(store);
+
+      // At depth 1: no overlap (a expands to mid, b expands to mid2 — no intersection)
+      const resultDepth1 = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 1,
+      });
+      expect(resultDepth1.pairs[0]!.independent).toBe(true);
+
+      // At depth 2: overlap on deep.ts (a expands through mid to deep, b expands through mid2 to deep)
+      const resultDepth2 = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 2,
+      });
+      expect(resultDepth2.depth).toBe(2);
+      expect(resultDepth2.pairs[0]!.independent).toBe(false);
+
+      const deepOverlap = resultDepth2.pairs[0]!.overlaps.find((o) => o.file === 'src/deep.ts');
+      expect(deepOverlap).toBeDefined();
+      expect(deepOverlap!.type).toBe('transitive');
+    });
+
     it('handles files not found in graph gracefully', () => {
       const store = new GraphStore();
       // Graph is empty — no nodes exist

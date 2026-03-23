@@ -1,0 +1,34 @@
+{
+  "fromSkill": "harness-execution",
+  "timestamp": "2026-03-23T14:37:00Z",
+  "summary": "Phase 2 (Collectors) complete. All 10 tasks executed: violation ID hashing utility, 7 collectors (circular-deps, layer-violations, complexity, coupling, forbidden-imports, module-size, dep-depth), registry with runAll(), and barrel exports. 72 architecture tests pass. Build and typecheck clean.",
+  "pendingTasks": [],
+  "blockers": [],
+  "learnings": [
+    "LanguageParser stubs need extensions and extractExports properties for DTS build to pass",
+    "Unused interface params require underscore prefix for strict TypeScript noUnusedLocals",
+    "Pure function mocking pattern with vi.mock hoisting works cleanly for collector tests"
+  ],
+  "concerns": [
+    "CircularDepsCollector and LayerViolationCollector currently use a stub parser — real parser wiring will come in Phase 4 (config schema)",
+    "LayerViolationCollector and ForbiddenImportCollector both call validateDependencies with empty layers — real layer config wiring deferred to Phase 4",
+    "ModuleSizeCollector and DepDepthCollector scan the filesystem directly — they skip test files and node_modules but may need additional exclusion patterns for large projects"
+  ],
+  "contextKeywords": [
+    "architecture-assertions",
+    "collectors",
+    "MetricResult",
+    "Violation",
+    "sha256",
+    "violation-id",
+    "circular-deps",
+    "layer-violations",
+    "complexity",
+    "coupling",
+    "forbidden-imports",
+    "module-size",
+    "dependency-depth",
+    "runAll",
+    "defaultCollectors"
+  ]
+}
