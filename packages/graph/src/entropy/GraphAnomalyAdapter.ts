@@ -89,15 +89,20 @@ export class GraphAnomalyAdapter {
 
     const articulationPoints = this.findArticulationPoints();
 
+    // Compute overlap: nodes that are both statistical outliers and articulation points
+    const outlierNodeIds = new Set(allOutliers.map((o) => o.nodeId));
+    const apNodeIds = new Set(articulationPoints.map((ap) => ap.nodeId));
+    const overlapping = [...outlierNodeIds].filter((id) => apNodeIds.has(id));
+
     return {
       statisticalOutliers: allOutliers,
       articulationPoints,
-      overlapping: [],
+      overlapping,
       summary: {
         totalNodesAnalyzed: analyzedNodeIds.size,
         outlierCount: allOutliers.length,
         articulationPointCount: articulationPoints.length,
-        overlapCount: 0,
+        overlapCount: overlapping.length,
         metricsAnalyzed: metricsToAnalyze,
         warnings,
         threshold,
