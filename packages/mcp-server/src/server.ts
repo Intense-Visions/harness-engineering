@@ -86,6 +86,8 @@ import {
   handleGetImpact,
   ingestSourceDefinition,
   handleIngestSource,
+  detectAnomaliesDefinition,
+  handleDetectAnomalies,
 } from './tools/graph.js';
 import {
   getGraphResource,
@@ -150,6 +152,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   gatherContextDefinition,
   assessProjectDefinition,
   reviewChangesDefinition,
+  detectAnomaliesDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -192,6 +195,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   gather_context: handleGatherContext as ToolHandler,
   assess_project: handleAssessProject as ToolHandler,
   review_changes: handleReviewChanges as ToolHandler,
+  detect_anomalies: handleDetectAnomalies as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
