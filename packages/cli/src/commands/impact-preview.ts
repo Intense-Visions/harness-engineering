@@ -149,19 +149,26 @@ function formatCompactLine(
   return `  ${labelPad}${countStr} ${unit.padEnd(7)} ${namePart}`;
 }
 
-function formatCompact(stagedCount: number, merged: ImpactGroup): string {
+interface AggregatedCounts {
+  code: number;
+  tests: number;
+  docs: number;
+  other: number;
+}
+
+function formatCompact(stagedCount: number, merged: ImpactGroup, counts: AggregatedCounts): string {
   const lines: string[] = [];
   lines.push(`Impact Preview (${stagedCount} staged file${stagedCount === 1 ? '' : 's'})`);
 
-  const codeLine = formatCompactLine('Code:', merged.code.length, 'files', merged.code, 2);
-  const testsLine = formatCompactLine('Tests:', merged.tests.length, 'tests', merged.tests, 2);
-  const docsLine = formatCompactLine('Docs:', merged.docs.length, 'docs', merged.docs, 2);
+  const codeLine = formatCompactLine('Code:', counts.code, 'files', merged.code, 2);
+  const testsLine = formatCompactLine('Tests:', counts.tests, 'tests', merged.tests, 2);
+  const docsLine = formatCompactLine('Docs:', counts.docs, 'docs', merged.docs, 2);
 
   if (codeLine) lines.push(codeLine);
   if (testsLine) lines.push(testsLine);
   if (docsLine) lines.push(docsLine);
 
-  const total = merged.code.length + merged.tests.length + merged.docs.length + merged.other.length;
+  const total = counts.code + counts.tests + counts.docs + counts.other;
   lines.push(`  Total: ${total} affected`);
 
   return lines.join('\n');
@@ -232,6 +239,7 @@ export async function runImpactPreview(options: ImpactPreviewOptions): Promise<s
   const mode = options.detailed ? 'detailed' : 'summary';
   const perFileResults: PerFileImpact[] = [];
   const allGroups: ImpactGroup[] = [];
+  const aggregateCounts: AggregatedCounts = { code: 0, tests: 0, docs: 0, other: 0 };
 
   for (const file of stagedFiles) {
     const response = await handleGetImpact({
@@ -242,6 +250,12 @@ export async function runImpactPreview(options: ImpactPreviewOptions): Promise<s
 
     const parsed = parseImpactResponse(response);
     if (!parsed) continue;
+
+    // Accumulate true counts from API response
+    aggregateCounts.code += parsed.counts.code;
+    aggregateCounts.tests += parsed.counts.tests;
+    aggregateCounts.docs += parsed.counts.docs;
+    aggregateCounts.other += parsed.counts.other;
 
     if (options.perFile) {
       perFileResults.push({
@@ -257,6 +271,9 @@ export async function runImpactPreview(options: ImpactPreviewOptions): Promise<s
 
   // Step 4: Format output
   if (options.perFile) {
+    if (perFileResults.length === 0) {
+      return `Impact Preview (${stagedFiles.length} staged file${stagedFiles.length === 1 ? '' : 's'}): no impact data`;
+    }
     return formatPerFile(perFileResults);
   }
 
@@ -266,7 +283,7 @@ export async function runImpactPreview(options: ImpactPreviewOptions): Promise<s
     return formatDetailed(stagedFiles.length, merged);
   }
 
-  return formatCompact(stagedFiles.length, merged);
+  return formatCompact(stagedFiles.length, merged, aggregateCounts);
 }
 
 export function createImpactPreviewCommand(): Command {

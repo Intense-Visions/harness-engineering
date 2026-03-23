@@ -81,6 +81,26 @@ If a knowledge graph exists at `.harness/graph/` and code files have changed sin
 
 If no graph exists, skip this step — the tools fall back to non-graph behavior.
 
+### Impact Preview
+
+After mechanical checks pass, run `harness impact-preview` to surface the blast radius of staged changes. This is informational only — it never blocks the commit.
+
+```bash
+harness impact-preview
+```
+
+Include the output in the report between the mechanical checks section and the AI review section:
+
+```
+Impact Preview (3 staged files)
+  Code:   12 files   (routes/login.ts, middleware/verify.ts, +10)
+  Tests:   3 tests   (auth.test.ts, integration.test.ts, +1)
+  Docs:    2 docs    (auth-guide.md, api-reference.md)
+  Total:  17 affected
+```
+
+If no graph exists, the command prints a nudge message and returns — no action needed. If no files are staged, it says so. Neither case blocks the workflow.
+
 ### Phase 2: Classify Changes
 
 Determine whether AI review is needed based on what changed.
@@ -192,6 +212,12 @@ Mechanical Checks:
 - Tests: PASS (12/12)
 - Security Scan: PASS (0 errors, 0 warnings)
 
+Impact Preview (3 staged files)
+  Code:   12 files   (routes/login.ts, middleware/verify.ts, +10)
+  Tests:   3 tests   (auth.test.ts, integration.test.ts, +1)
+  Docs:    2 docs    (auth-guide.md, api-reference.md)
+  Total:  17 affected
+
 AI Review: PASS (no issues found)
 ```
 
@@ -206,6 +232,11 @@ Mechanical Checks:
 - Tests: PASS (12/12)
 - Security Scan: WARN (0 errors, 1 warning)
   - [SEC-NET-001] src/cors.ts:5 — CORS wildcard origin
+
+Impact Preview (2 staged files)
+  Code:    8 files   (cors.ts, server.ts, +6)
+  Tests:   2 tests   (cors.test.ts, server.test.ts)
+  Total:  10 affected
 
 AI Review: 2 observations
 1. [file:line] Possible null dereference — `user.email` accessed without null check after `findUser()` which can return null.
@@ -244,6 +275,7 @@ fi
 - Complements harness-code-review (full review) — use pre-commit for quick checks, code-review for thorough analysis
 - **`assess_project`** — Used in Phase 1 for harness-specific health checks (validate + deps) in a single call.
 - **`review_changes`** — Used in Phase 4 with `depth: 'quick'` for fast pre-commit diff analysis.
+- **`harness impact-preview`** — Run after mechanical checks pass to show blast radius of staged changes. Informational only — never blocks.
 
 ## Success Criteria
 
@@ -263,6 +295,11 @@ Mechanical Checks:
 - Lint: PASS
 - Types: PASS
 - Tests: PASS (12/12)
+
+Impact Preview (2 staged files)
+  Code:    5 files   (auth.ts, login.ts, +3)
+  Tests:   2 tests   (auth.test.ts, login.test.ts)
+  Total:   7 affected
 
 AI Review: PASS (no issues found)
 ```
