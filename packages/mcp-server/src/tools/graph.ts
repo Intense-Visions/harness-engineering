@@ -166,12 +166,23 @@ export const searchSimilarDefinition = {
       path: { type: 'string', description: 'Path to project root' },
       query: { type: 'string', description: 'Search query string' },
       topK: { type: 'number', description: 'Maximum number of results to return (default 10)' },
+      mode: {
+        type: 'string',
+        enum: ['summary', 'detailed'],
+        description:
+          'Response density: summary returns top 5 results with scores only, detailed returns top 10+ with full metadata. Default: detailed',
+      },
     },
     required: ['path', 'query'],
   },
 };
 
-export async function handleSearchSimilar(input: { path: string; query: string; topK?: number }) {
+export async function handleSearchSimilar(input: {
+  path: string;
+  query: string;
+  topK?: number;
+  mode?: 'summary' | 'detailed';
+}) {
   try {
     const projectPath = sanitizePath(input.path);
     const store = await loadGraphStore(projectPath);
@@ -180,6 +191,21 @@ export async function handleSearchSimilar(input: { path: string; query: string; 
     const { FusionLayer } = await import('@harness-engineering/graph');
     const fusion = new FusionLayer(store);
     const results = fusion.search(input.query, input.topK ?? 10);
+
+    if (input.mode === 'summary') {
+      const summaryResults = results.slice(0, 5).map((r: { nodeId: string; score: number }) => ({
+        nodeId: r.nodeId,
+        score: r.score,
+      }));
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ mode: 'summary', results: summaryResults }),
+          },
+        ],
+      };
+    }
 
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(results) }],
@@ -327,6 +353,12 @@ export const getRelationshipsDefinition = {
         description: 'Direction of relationships to include (default both)',
       },
       depth: { type: 'number', description: 'Traversal depth (default 1)' },
+      mode: {
+        type: 'string',
+        enum: ['summary', 'detailed'],
+        description:
+          'Response density: summary returns neighbor counts by type + direct neighbors only, detailed returns full traversal. Default: detailed',
+      },
     },
     required: ['path', 'nodeId'],
   },
@@ -337,6 +369,7 @@ export async function handleGetRelationships(input: {
   nodeId: string;
   direction?: 'outbound' | 'inbound' | 'both';
   depth?: number;
+  mode?: 'summary' | 'detailed';
 }) {
   try {
     const projectPath = sanitizePath(input.path);
@@ -363,6 +396,30 @@ export async function handleGetRelationships(input: {
       const reachableNodeIds = new Set(filteredEdges.map((e) => e.from));
       reachableNodeIds.add(input.nodeId);
       filteredNodes = result.nodes.filter((n) => reachableNodeIds.has(n.id));
+    }
+
+    if (input.mode === 'summary') {
+      const neighborsByType: Record<string, number> = {};
+      for (const node of filteredNodes) {
+        if (node.id === input.nodeId) continue;
+        neighborsByType[node.type] = (neighborsByType[node.type] ?? 0) + 1;
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              mode: 'summary',
+              nodeId: input.nodeId,
+              direction,
+              totalNeighbors: filteredNodes.length - 1,
+              neighborsByType,
+              totalEdges: filteredEdges.length,
+              stats: result.stats,
+            }),
+          },
+        ],
+      };
     }
 
     return {
@@ -408,12 +465,23 @@ export const getImpactDefinition = {
         type: 'string',
         description: 'File path (relative to project root) to analyze impact for',
       },
+      mode: {
+        type: 'string',
+        enum: ['summary', 'detailed'],
+        description:
+          'Response density: summary returns impacted file count by category + highest-risk items, detailed returns full impact tree. Default: detailed',
+      },
     },
     required: ['path'],
   },
 };
 
-export async function handleGetImpact(input: { path: string; nodeId?: string; filePath?: string }) {
+export async function handleGetImpact(input: {
+  path: string;
+  nodeId?: string;
+  filePath?: string;
+  mode?: 'summary' | 'detailed';
+}) {
   try {
     if (!input.nodeId && !input.filePath) {
       return {
@@ -495,6 +563,36 @@ export async function handleGetImpact(input: { path: string; nodeId?: string; fi
       } else {
         groups['other']!.push(node);
       }
+    }
+
+    if (input.mode === 'summary') {
+      const highestRiskItems = [
+        ...groups['tests']!.slice(0, 2),
+        ...groups['code']!.slice(0, 2),
+        ...groups['docs']!.slice(0, 2),
+      ].map((n: { id: string; type: string }) => ({
+        id: (n as { id: string }).id,
+        type: (n as { type: string }).type,
+      }));
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              mode: 'summary',
+              targetNodeId,
+              impactCounts: {
+                tests: groups['tests']!.length,
+                docs: groups['docs']!.length,
+                code: groups['code']!.length,
+                other: groups['other']!.length,
+              },
+              highestRiskItems,
+              stats: result.stats,
+            }),
+          },
+        ],
+      };
     }
 
     return {

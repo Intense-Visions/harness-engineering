@@ -10,6 +10,9 @@ import {
   handleGetImpact,
   handleIngestSource,
   queryGraphDefinition,
+  searchSimilarDefinition,
+  getRelationshipsDefinition,
+  getImpactDefinition,
 } from '../../src/tools/graph.js';
 
 // ── Test helper ─────────────────────────────────────────────────────
@@ -88,6 +91,24 @@ describe('query_graph definition', () => {
   it('query_graph definition has mode parameter', () => {
     expect(queryGraphDefinition.inputSchema.properties).toHaveProperty('mode');
     expect(queryGraphDefinition.inputSchema.properties.mode.enum).toEqual(['summary', 'detailed']);
+  });
+});
+
+describe('search_similar definition', () => {
+  it('search_similar definition has mode parameter', () => {
+    expect(searchSimilarDefinition.inputSchema.properties).toHaveProperty('mode');
+  });
+});
+
+describe('get_relationships definition', () => {
+  it('get_relationships definition has mode parameter', () => {
+    expect(getRelationshipsDefinition.inputSchema.properties).toHaveProperty('mode');
+  });
+});
+
+describe('get_impact definition', () => {
+  it('get_impact definition has mode parameter', () => {
+    expect(getImpactDefinition.inputSchema.properties).toHaveProperty('mode');
   });
 });
 
