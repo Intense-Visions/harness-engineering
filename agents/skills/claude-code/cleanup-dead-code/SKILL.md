@@ -74,9 +74,9 @@ For each item categorized as safe:
 
 **New fix types:**
 
-- **Dead exports (non-public):** Use `apply_fixes` with `fixTypes: ['dead-exports']`. The tool removes the `export` keyword. If the function/class has zero internal callers too, delete the entire declaration.
-- **Commented-out code:** Use `apply_fixes` with `fixTypes: ['commented-code']`. The tool deletes commented-out code blocks. This is cosmetic and only needs lint verification.
-- **Orphaned dependencies:** Use `apply_fixes` with `fixTypes: ['orphaned-deps']`. The tool removes the dep from package.json. **Must run `pnpm install && pnpm test` after** to verify nothing breaks.
+- **Dead exports (non-public):** Use `detect_entropy` with `autoFix: true, fixTypes: ['dead-exports']`. The tool removes the `export` keyword. If the function/class has zero internal callers too, delete the entire declaration.
+- **Commented-out code:** Use `detect_entropy` with `autoFix: true, fixTypes: ['commented-code']`. The tool deletes commented-out code blocks. This is cosmetic and only needs lint verification.
+- **Orphaned dependencies:** Use `detect_entropy` with `autoFix: true, fixTypes: ['orphaned-deps']`. The tool removes the dep from package.json. **Must run `pnpm install && pnpm test` after** to verify nothing breaks.
 
 ### Phase 3.5: Convergence Loop (Standalone)
 
