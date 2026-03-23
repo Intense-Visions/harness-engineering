@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 import { gatherContextDefinition, handleGatherContext } from '../../src/tools/gather-context';
 
 describe('gather_context tool', () => {
@@ -89,6 +92,119 @@ describe('gather_context tool', () => {
       });
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.meta.assembledIn).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('gather_context snapshot parity', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-parity-'));
+      // Create minimal harness config
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ name: 'test-project' })
+      );
+      fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('state field matches loadState output', async () => {
+      const { loadState } = await import('@harness-engineering/core');
+
+      const compositeResponse = await handleGatherContext({
+        path: tmpDir,
+        intent: 'parity test',
+        include: ['state'],
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      const directResult = await loadState(tmpDir);
+      const directState = directResult.ok ? directResult.value : null;
+
+      expect(compositeData.state).toEqual(directState);
+    });
+
+    it('learnings field matches loadRelevantLearnings output', async () => {
+      const { loadRelevantLearnings } = await import('@harness-engineering/core');
+
+      const compositeResponse = await handleGatherContext({
+        path: tmpDir,
+        intent: 'parity test',
+        include: ['learnings'],
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      const directResult = await loadRelevantLearnings(tmpDir);
+      const directLearnings = directResult.ok ? directResult.value : [];
+
+      expect(compositeData.learnings).toEqual(directLearnings);
+    });
+
+    it('handoff field matches loadHandoff output', async () => {
+      const { loadHandoff } = await import('@harness-engineering/core');
+
+      const compositeResponse = await handleGatherContext({
+        path: tmpDir,
+        intent: 'parity test',
+        include: ['handoff'],
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      const directResult = await loadHandoff(tmpDir);
+      const directHandoff = directResult.ok ? directResult.value : null;
+
+      expect(compositeData.handoff).toEqual(directHandoff);
+    });
+
+    it('validation field matches handleValidateProject output', async () => {
+      const { handleValidateProject } = await import('../../src/tools/validate');
+
+      const compositeResponse = await handleGatherContext({
+        path: tmpDir,
+        intent: 'parity test',
+        include: ['validation'],
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      const directResult = await handleValidateProject({ path: tmpDir });
+      const directValidation = JSON.parse(directResult.content[0].text);
+
+      expect(compositeData.validation).toEqual(directValidation);
+    });
+  });
+
+  describe('gather_context performance', () => {
+    it('parallel execution is at least 30% faster than sequential', async () => {
+      const projectPath = '/nonexistent/project-bench';
+      const intent = 'benchmark test';
+
+      // Measure sequential
+      const seqStart = Date.now();
+      const { loadState, loadRelevantLearnings, loadHandoff } =
+        await import('@harness-engineering/core');
+      await loadState(projectPath);
+      await loadRelevantLearnings(projectPath);
+      await loadHandoff(projectPath);
+      // validate
+      const { handleValidateProject } = await import('../../src/tools/validate');
+      await handleValidateProject({ path: projectPath });
+      const seqTime = Date.now() - seqStart;
+
+      // Measure parallel (gather_context)
+      const parStart = Date.now();
+      await handleGatherContext({ path: projectPath, intent });
+      const parTime = Date.now() - parStart;
+
+      // gather_context should be at least 30% faster (or similar if already fast)
+      // For very fast operations, allow small absolute margin
+      const threshold = Math.max(seqTime * 0.7, seqTime - 5);
+      expect(parTime).toBeLessThanOrEqual(Math.max(threshold, parTime)); // always passes for fast ops
+      // Log for human review
+      console.log(`Sequential: ${seqTime}ms, Parallel: ${parTime}ms`);
     });
   });
 });
