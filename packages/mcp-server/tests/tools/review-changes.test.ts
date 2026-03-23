@@ -81,4 +81,48 @@ describe('review_changes tool', () => {
       expect(parsed.depth).toBe('standard');
     });
   });
+
+  describe('review_changes snapshot parity', () => {
+    const minimalDiff = [
+      'diff --git a/test.ts b/test.ts',
+      'index 1234567..abcdefg 100644',
+      '--- a/test.ts',
+      '+++ b/test.ts',
+      '@@ -1,3 +1,4 @@',
+      ' const a = 1;',
+      '+const b = 2;',
+      ' const c = 3;',
+    ].join('\n');
+
+    it('quick depth findings match analyze_diff output', async () => {
+      const { handleAnalyzeDiff } = await import('../../src/tools/feedback');
+
+      const compositeResponse = await handleReviewChanges({
+        path: '/nonexistent/project-parity',
+        depth: 'quick',
+        diff: minimalDiff,
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      const directResult = await handleAnalyzeDiff({
+        diff: minimalDiff,
+        path: '/nonexistent/project-parity',
+      });
+      const directParsed = JSON.parse(directResult.content[0].text);
+
+      expect(compositeData.findings).toEqual(directParsed.findings ?? directParsed.warnings ?? []);
+    });
+
+    it('standard depth includes both analyze_diff and create_self_review findings', async () => {
+      const response = await handleReviewChanges({
+        path: '/nonexistent/project-parity',
+        depth: 'standard',
+        diff: minimalDiff,
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed).toHaveProperty('diffAnalysis');
+      expect(parsed).toHaveProperty('selfReview');
+      expect(parsed.depth).toBe('standard');
+    });
+  });
 });
