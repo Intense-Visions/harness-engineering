@@ -1,0 +1,60 @@
+import { relative } from 'node:path';
+import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
+import { violationId } from './hash';
+import { validateDependencies } from '../../constraints/dependencies';
+import type { DependencyViolation } from '../../constraints/types';
+
+export class ForbiddenImportCollector implements Collector {
+  readonly category = 'forbidden-imports' as const;
+
+  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const result = await validateDependencies({
+      layers: [],
+      rootDir,
+      parser: {
+        name: 'typescript',
+        parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }) as any,
+        extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
+        health: async () => ({ ok: true, value: { available: true } }) as any,
+      },
+      fallbackBehavior: 'skip',
+    });
+
+    if (!result.ok) {
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: 'Failed to validate dependencies' },
+        },
+      ];
+    }
+
+    const forbidden = result.value.violations.filter(
+      (v: DependencyViolation) => v.reason === 'FORBIDDEN_IMPORT'
+    );
+
+    const violations: Violation[] = forbidden.map((v: DependencyViolation) => {
+      const relFile = relative(rootDir, v.file);
+      const relImport = relative(rootDir, v.imports);
+      const detail = `forbidden import: ${relFile} -> ${relImport}`;
+      return {
+        id: violationId(relFile, this.category, detail),
+        file: relFile,
+        detail,
+        severity: 'error' as const,
+      };
+    });
+
+    return [
+      {
+        category: this.category,
+        scope: 'project',
+        value: violations.length,
+        violations,
+      },
+    ];
+  }
+}
