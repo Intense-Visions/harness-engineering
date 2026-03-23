@@ -82,7 +82,17 @@ For each task, starting from the current position:
 
 4. **Commit atomically.** Each task produces exactly one commit. Use the commit message specified in the plan. If no message is specified, write a descriptive message in the project's convention.
 
-5. **Run mechanical gate.** After each task commit, run the full gate check: test suite, linter, type checker, build, and `harness validate`. This is binary pass/fail.
+5. **Run mechanical gate.** After each task commit, run the full gate check. Use `assess_project` to run harness checks (including lint) in parallel, then run the test suite:
+
+   ```json
+   assess_project({
+     path: "<project-root>",
+     checks: ["validate", "deps", "lint"],
+     mode: "summary"
+   })
+   ```
+
+   Then run the project's test suite (`npx turbo run test` or equivalent). This is binary pass/fail.
    - **All pass →** proceed to the next task.
    - **Any fail →** retry with error context (max 2 attempts).
    - **Still failing after retries →** record the failure in `.harness/failures.md`, escalate, and stop.
