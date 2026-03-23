@@ -40,7 +40,8 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('assess_project');
     expect(names).toContain('review_changes');
     expect(names).toContain('detect_anomalies');
-    expect(tools).toHaveLength(41);
+    expect(names).toContain('check_task_independence');
+    expect(tools).toHaveLength(42);
   });
 
   it('all tool definitions have inputSchema', () => {
