@@ -46,7 +46,34 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
      type: "question",
      question: {
        text: "The spec mentions X but does not define behavior for Y. Should we:",
-       options: ["A) Include Y in this plan", "B) Defer Y to a follow-up plan", "C) Update the spec first"]
+       options: [
+         {
+           label: "A) Include Y in this plan",
+           pros: ["Complete feature in one pass", "No follow-up coordination needed"],
+           cons: ["Increases plan scope and time", "May delay delivery"],
+           risk: "medium",
+           effort: "high"
+         },
+         {
+           label: "B) Defer Y to a follow-up plan",
+           pros: ["Keeps current plan focused", "Ship sooner"],
+           cons: ["Y remains unhandled", "May need rework when Y is added"],
+           risk: "low",
+           effort: "low"
+         },
+         {
+           label: "C) Update the spec first",
+           pros: ["Design is complete before planning", "No surprises during execution"],
+           cons: ["Blocks planning until spec is updated", "Extra round-trip"],
+           risk: "low",
+           effort: "medium"
+         }
+       ],
+       recommendation: {
+         optionIndex: 1,
+         reason: "Keeping the current plan focused reduces risk. Y can be addressed in a dedicated follow-up.",
+         confidence: "medium"
+       }
      }
    })
    ```
@@ -174,7 +201,9 @@ When presenting the task breakdown, use progress markers:
      type: "confirmation",
      confirmation: {
        text: "Approve plan at <plan-file-path>?",
-       context: "<task count> tasks, <estimated time> minutes. <one-sentence summary>"
+       context: "<task count> tasks, <estimated time> minutes. <one-sentence summary>",
+       impact: "Approving unlocks task-by-task execution. Plan defines exact file paths, code, and commands.",
+       risk: "low"
      }
    })
    ```
@@ -192,7 +221,16 @@ When presenting the task breakdown, use progress markers:
         "reason": "Plan approved with all tasks defined",
         "artifacts": ["<plan file path>"],
         "requiresConfirmation": true,
-        "summary": "<Plan title> -- <N> tasks, <N> checkpoints. Estimated <time>."
+        "summary": "<Plan title> -- <N> tasks, <N> checkpoints. Estimated <time>.",
+        "qualityGate": {
+          "checks": [
+            { "name": "plan-written", "passed": true, "detail": "Written to docs/plans/" },
+            { "name": "harness-validate", "passed": true },
+            { "name": "observable-truths-traced", "passed": true },
+            { "name": "human-approved", "passed": true }
+          ],
+          "allPassed": true
+        }
       }
     }
     ```
