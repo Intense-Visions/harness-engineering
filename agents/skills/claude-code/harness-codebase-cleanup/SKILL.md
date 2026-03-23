@@ -205,7 +205,7 @@ After removing the `legacy-auth` module:
 - **`harness cleanup --type dead-code --json`** -- Dead code detection input
 - **`harness check-deps --json`** -- Architecture violation detection input
 - **`harness skill run harness-hotspot-detector`** -- Hotspot context for safety classification
-- **`apply_fixes` MCP tool** -- Applies safe fixes via the MCP server
+- **`detect_entropy` MCP tool with `autoFix: true`** -- Detects entropy and applies safe fixes via the MCP server
 - **`harness validate`** -- Final validation after all fixes
 - **`harness check-deps`** -- Final architecture check after all fixes
 
