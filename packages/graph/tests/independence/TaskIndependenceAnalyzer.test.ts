@@ -199,4 +199,90 @@ describe('TaskIndependenceAnalyzer', () => {
       expect(result.pairs[0]!.independent).toBe(true);
     });
   });
+
+  describe('parallel grouping', () => {
+    it('groups conflicting tasks together and independent tasks separately', () => {
+      const analyzer = new TaskIndependenceAnalyzer();
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/shared.ts'] },
+          { id: 'b', files: ['src/shared.ts'] },
+          { id: 'c', files: ['src/other.ts'] },
+        ],
+      });
+
+      expect(result.groups).toHaveLength(2);
+      // Find the group containing 'a' — it must also contain 'b'
+      const groupWithA = result.groups.find((g) => g.includes('a'));
+      expect(groupWithA).toContain('b');
+      expect(groupWithA).not.toContain('c');
+      // 'c' is in its own group
+      const groupWithC = result.groups.find((g) => g.includes('c'));
+      expect(groupWithC).toEqual(['c']);
+    });
+
+    it('puts all tasks in one group when all conflict', () => {
+      const analyzer = new TaskIndependenceAnalyzer();
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/shared.ts'] },
+          { id: 'b', files: ['src/shared.ts'] },
+          { id: 'c', files: ['src/shared.ts'] },
+        ],
+      });
+
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0]).toHaveLength(3);
+    });
+
+    it('puts each task in its own group when all independent', () => {
+      const analyzer = new TaskIndependenceAnalyzer();
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+          { id: 'c', files: ['src/c.ts'] },
+        ],
+      });
+
+      expect(result.groups).toHaveLength(3);
+    });
+  });
+
+  describe('verdict', () => {
+    it('says all tasks conflict when one group', () => {
+      const analyzer = new TaskIndependenceAnalyzer();
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/x.ts'] },
+          { id: 'b', files: ['src/x.ts'] },
+        ],
+      });
+      expect(result.verdict).toContain('must run serially');
+    });
+
+    it('says all independent when each task is its own group', () => {
+      const analyzer = new TaskIndependenceAnalyzer();
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+      });
+      expect(result.verdict).toContain('can all run in parallel');
+    });
+
+    it('says N groups when mixed', () => {
+      const analyzer = new TaskIndependenceAnalyzer();
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/shared.ts'] },
+          { id: 'b', files: ['src/shared.ts'] },
+          { id: 'c', files: ['src/c.ts'] },
+        ],
+      });
+      expect(result.verdict).toContain('2 independent groups');
+      expect(result.verdict).toContain('2 parallel waves');
+    });
+  });
 });
