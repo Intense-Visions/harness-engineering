@@ -95,7 +95,18 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      }
      ```
 
-5. **Load context.** Read `.harness/learnings.md` and `.harness/failures.md` (global, at `.harness/` root) if they exist. Note any relevant learnings or known dead ends for the current phase.
+5. **Load context via gather_context.** Use the `gather_context` MCP tool to load all working context efficiently:
+
+   ```json
+   gather_context({
+     path: "<project-root>",
+     intent: "Autopilot phase execution for <spec name>",
+     skill: "harness-autopilot",
+     include: ["state", "learnings", "handoff", "validation"]
+   })
+   ```
+
+   This loads learnings (including failure entries tagged `[outcome:failure]`), handoff context, state, and validation results in a single call. Note any relevant learnings or known dead ends for the current phase from the returned `learnings` array.
 
 6. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
    - Current project priorities (which features are `in-progress`)
@@ -377,6 +388,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 ## Harness Integration
 
 - **`harness validate`** — Run during INIT to verify project health. Included in every execution task via harness-execution delegation.
+- **`gather_context`** — Used in INIT phase to load learnings, state, handoff, and validation in a single call instead of reading files individually.
 - **`harness check-deps`** — Delegated to harness-execution (included in task steps).
 - **State file** — `.harness/sessions/<slug>/autopilot-state.json` tracks the orchestration state machine. `.harness/sessions/<slug>/state.json` tracks task-level execution state (managed by harness-execution). The slug is derived from the spec path during INIT.
 - **Handoff** — `.harness/sessions/<slug>/handoff.json` is written by each delegated skill and read by the next. Autopilot writes a final handoff on DONE.
