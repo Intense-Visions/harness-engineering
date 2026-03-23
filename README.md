@@ -80,7 +80,7 @@ npm install && harness validate
 | [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                                                                                                                                                             |
 | [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 10 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports, no nested loops in critical paths, no sync IO in async, no unbounded array chains, no unix shell commands, no hardcoded path separators |
 | [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                                                                                                                                 |
-| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 41 tools and 8 resources for AI agent integration                                                                                                                                                                    |
+| [`@harness-engineering/mcp-server`](./packages/mcp-server)       | MCP server with 42 tools and 8 resources for AI agent integration                                                                                                                                                                    |
 | [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                                                                                                                                                                     |
 
 ## Usage
@@ -165,7 +165,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 41 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 42 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
 <details>
 <summary>Manual MCP setup</summary>
