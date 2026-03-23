@@ -324,4 +324,289 @@ describe('GraphAnomalyAdapter', () => {
       expect(report.summary.totalNodesAnalyzed).toBeGreaterThanOrEqual(5);
     });
   });
+
+  describe('Articulation point detection', () => {
+    it('detects a bridge node in a linear chain', () => {
+      const store = new GraphStore();
+
+      // Chain: A -> B -> C (B is articulation point)
+      store.addNode({
+        id: 'file:a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:c.ts',
+        type: 'file',
+        name: 'c.ts',
+        path: 'src/c.ts',
+        metadata: {},
+      });
+
+      store.addEdge({ from: 'file:a.ts', to: 'file:b.ts', type: 'imports' });
+      store.addEdge({ from: 'file:b.ts', to: 'file:c.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: [] }); // skip Z-score, only test articulation
+
+      expect(report.articulationPoints).toHaveLength(1);
+      expect(report.articulationPoints[0]!.nodeId).toBe('file:b.ts');
+      expect(report.articulationPoints[0]!.componentsIfRemoved).toBe(2);
+      // dependentCount = nodes in smaller component(s)
+      expect(report.articulationPoints[0]!.dependentCount).toBe(1);
+    });
+
+    it('detects no articulation points in a fully connected triangle', () => {
+      const store = new GraphStore();
+
+      store.addNode({
+        id: 'file:a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:c.ts',
+        type: 'file',
+        name: 'c.ts',
+        path: 'src/c.ts',
+        metadata: {},
+      });
+
+      store.addEdge({ from: 'file:a.ts', to: 'file:b.ts', type: 'imports' });
+      store.addEdge({ from: 'file:b.ts', to: 'file:c.ts', type: 'imports' });
+      store.addEdge({ from: 'file:c.ts', to: 'file:a.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: [] });
+
+      expect(report.articulationPoints).toHaveLength(0);
+    });
+
+    it('detects root as articulation point with 2+ DFS children', () => {
+      const store = new GraphStore();
+
+      // Star topology: center connects to A and B but A and B have no path between them
+      store.addNode({
+        id: 'file:center.ts',
+        type: 'file',
+        name: 'center.ts',
+        path: 'src/center.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+
+      store.addEdge({ from: 'file:center.ts', to: 'file:a.ts', type: 'imports' });
+      store.addEdge({ from: 'file:center.ts', to: 'file:b.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: [] });
+
+      expect(report.articulationPoints).toHaveLength(1);
+      expect(report.articulationPoints[0]!.nodeId).toBe('file:center.ts');
+      expect(report.articulationPoints[0]!.componentsIfRemoved).toBe(2);
+    });
+
+    it('computes dependentCount as nodes in smaller components', () => {
+      const store = new GraphStore();
+
+      // A -> B -> C -> D -> E
+      const files = ['a', 'b', 'c', 'd', 'e'];
+      for (const f of files) {
+        store.addNode({
+          id: `file:${f}.ts`,
+          type: 'file',
+          name: `${f}.ts`,
+          path: `src/${f}.ts`,
+          metadata: {},
+        });
+      }
+      store.addEdge({ from: 'file:a.ts', to: 'file:b.ts', type: 'imports' });
+      store.addEdge({ from: 'file:b.ts', to: 'file:c.ts', type: 'imports' });
+      store.addEdge({ from: 'file:c.ts', to: 'file:d.ts', type: 'imports' });
+      store.addEdge({ from: 'file:d.ts', to: 'file:e.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: [] });
+
+      // Multiple articulation points: b, c, d
+      expect(report.articulationPoints.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('sorts articulationPoints by dependentCount descending', () => {
+      const store = new GraphStore();
+
+      store.addNode({
+        id: 'file:center.ts',
+        type: 'file',
+        name: 'center.ts',
+        path: 'src/center.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:left.ts',
+        type: 'file',
+        name: 'left.ts',
+        path: 'src/left.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:r1.ts',
+        type: 'file',
+        name: 'r1.ts',
+        path: 'src/r1.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:r2.ts',
+        type: 'file',
+        name: 'r2.ts',
+        path: 'src/r2.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:r3.ts',
+        type: 'file',
+        name: 'r3.ts',
+        path: 'src/r3.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:bridge.ts',
+        type: 'file',
+        name: 'bridge.ts',
+        path: 'src/bridge.ts',
+        metadata: {},
+      });
+
+      // left -> center -> bridge -> r1, bridge -> r2, bridge -> r3
+      store.addEdge({ from: 'file:left.ts', to: 'file:center.ts', type: 'imports' });
+      store.addEdge({ from: 'file:center.ts', to: 'file:bridge.ts', type: 'imports' });
+      store.addEdge({ from: 'file:bridge.ts', to: 'file:r1.ts', type: 'imports' });
+      store.addEdge({ from: 'file:bridge.ts', to: 'file:r2.ts', type: 'imports' });
+      store.addEdge({ from: 'file:bridge.ts', to: 'file:r3.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: [] });
+
+      // Both center and bridge are APs. bridge has higher dependentCount.
+      expect(report.articulationPoints.length).toBeGreaterThanOrEqual(2);
+      // Sorted by dependentCount desc
+      for (let i = 1; i < report.articulationPoints.length; i++) {
+        expect(report.articulationPoints[i - 1]!.dependentCount).toBeGreaterThanOrEqual(
+          report.articulationPoints[i]!.dependentCount
+        );
+      }
+    });
+
+    it('only considers imports edges for articulation detection', () => {
+      const store = new GraphStore();
+
+      store.addNode({
+        id: 'file:a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:c.ts',
+        type: 'file',
+        name: 'c.ts',
+        path: 'src/c.ts',
+        metadata: {},
+      });
+
+      store.addEdge({ from: 'file:a.ts', to: 'file:b.ts', type: 'imports' });
+      store.addEdge({ from: 'file:b.ts', to: 'file:c.ts', type: 'imports' });
+      store.addEdge({ from: 'file:a.ts', to: 'file:c.ts', type: 'calls' }); // NOT imports
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: [] });
+
+      // B should still be an articulation point (calls edge doesn't count)
+      expect(report.articulationPoints).toHaveLength(1);
+      expect(report.articulationPoints[0]!.nodeId).toBe('file:b.ts');
+    });
+
+    it('handles disconnected graph components', () => {
+      const store = new GraphStore();
+
+      // Two separate components: {A, B} and {C, D}
+      store.addNode({
+        id: 'file:a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:c.ts',
+        type: 'file',
+        name: 'c.ts',
+        path: 'src/c.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:d.ts',
+        type: 'file',
+        name: 'd.ts',
+        path: 'src/d.ts',
+        metadata: {},
+      });
+
+      store.addEdge({ from: 'file:a.ts', to: 'file:b.ts', type: 'imports' });
+      store.addEdge({ from: 'file:c.ts', to: 'file:d.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: [] });
+
+      // No articulation points (removing any node doesn't increase component count)
+      expect(report.articulationPoints).toHaveLength(0);
+    });
+  });
 });
