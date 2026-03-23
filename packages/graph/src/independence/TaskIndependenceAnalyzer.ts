@@ -119,6 +119,10 @@ export class TaskIndependenceAnalyzer {
   // --- Private methods ---
 
   private validate(tasks: readonly TaskDefinition[]): void {
+    if (tasks.length < 2) {
+      throw new Error('At least 2 tasks are required for independence analysis');
+    }
+
     const seenIds = new Set<string>();
     for (const task of tasks) {
       if (seenIds.has(task.id)) {
@@ -142,6 +146,8 @@ export class TaskIndependenceAnalyzer {
     const store = this.store!;
     const cql = new ContextQL(store);
 
+    const fileSet = new Set(files);
+
     for (const file of files) {
       const nodeId = `file:${file}`;
       // Only expand if the node exists in the graph
@@ -159,7 +165,7 @@ export class TaskIndependenceAnalyzer {
         // Extract the file path from the node ID (strip 'file:' prefix)
         const path = n.path ?? n.id.replace(/^file:/, '');
         // Do not include original files in the expanded set
-        if (!files.includes(path)) {
+        if (!fileSet.has(path)) {
           // Only record the first source (first original file that led here)
           if (!result.has(path)) {
             result.set(path, file);

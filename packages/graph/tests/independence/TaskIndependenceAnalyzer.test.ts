@@ -4,6 +4,15 @@ import { TaskIndependenceAnalyzer } from '../../src/independence/TaskIndependenc
 
 describe('TaskIndependenceAnalyzer', () => {
   describe('validation', () => {
+    it('throws when fewer than 2 tasks provided', () => {
+      const analyzer = new TaskIndependenceAnalyzer();
+      expect(() =>
+        analyzer.analyze({
+          tasks: [{ id: 'a', files: ['f1.ts'] }],
+        })
+      ).toThrow('At least 2 tasks are required');
+    });
+
     it('throws on duplicate task IDs', () => {
       const analyzer = new TaskIndependenceAnalyzer();
       expect(() =>
