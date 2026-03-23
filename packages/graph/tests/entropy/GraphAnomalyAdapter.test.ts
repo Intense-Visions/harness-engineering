@@ -609,4 +609,118 @@ describe('GraphAnomalyAdapter', () => {
       expect(report.articulationPoints).toHaveLength(0);
     });
   });
+
+  describe('Overlap computation', () => {
+    it('identifies nodes that are both statistical outliers and articulation points', () => {
+      const store = new GraphStore();
+
+      // Create a hub that is BOTH an articulation point AND a fanOut outlier.
+      // hub imports left1, left2, left3 and also imports right (right imports nothing else).
+      // hub is the only connection between left-group and right.
+      store.addNode({
+        id: 'file:hub.ts',
+        type: 'file',
+        name: 'hub.ts',
+        path: 'src/hub.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:left1.ts',
+        type: 'file',
+        name: 'left1.ts',
+        path: 'src/left1.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:left2.ts',
+        type: 'file',
+        name: 'left2.ts',
+        path: 'src/left2.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:left3.ts',
+        type: 'file',
+        name: 'left3.ts',
+        path: 'src/left3.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:right.ts',
+        type: 'file',
+        name: 'right.ts',
+        path: 'src/right.ts',
+        metadata: {},
+      });
+      // Extra isolated nodes to make fanOut stats work
+      for (let i = 0; i < 5; i++) {
+        store.addNode({
+          id: `file:iso${i}.ts`,
+          type: 'file',
+          name: `iso${i}.ts`,
+          path: `src/iso${i}.ts`,
+          metadata: {},
+        });
+      }
+
+      store.addEdge({ from: 'file:hub.ts', to: 'file:left1.ts', type: 'imports' });
+      store.addEdge({ from: 'file:hub.ts', to: 'file:left2.ts', type: 'imports' });
+      store.addEdge({ from: 'file:hub.ts', to: 'file:left3.ts', type: 'imports' });
+      store.addEdge({ from: 'file:hub.ts', to: 'file:right.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      const report = adapter.detect({ metrics: ['fanOut'] });
+
+      // hub is an articulation point (removing it disconnects left from right)
+      const hubAP = report.articulationPoints.find((ap) => ap.nodeId === 'file:hub.ts');
+      expect(hubAP).toBeDefined();
+
+      // hub should be a fanOut outlier (4 imports vs 0 for everyone else)
+      const hubOutlier = report.statisticalOutliers.find(
+        (o) => o.nodeId === 'file:hub.ts' && o.metric === 'fanOut'
+      );
+      expect(hubOutlier).toBeDefined();
+
+      // hub should appear in overlapping
+      expect(report.overlapping).toContain('file:hub.ts');
+      expect(report.summary.overlapCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('overlapping is empty when no node appears in both sets', () => {
+      const store = new GraphStore();
+
+      // Simple chain with no outlier metrics
+      store.addNode({
+        id: 'file:a.ts',
+        type: 'file',
+        name: 'a.ts',
+        path: 'src/a.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:b.ts',
+        type: 'file',
+        name: 'b.ts',
+        path: 'src/b.ts',
+        metadata: {},
+      });
+      store.addNode({
+        id: 'file:c.ts',
+        type: 'file',
+        name: 'c.ts',
+        path: 'src/c.ts',
+        metadata: {},
+      });
+
+      store.addEdge({ from: 'file:a.ts', to: 'file:b.ts', type: 'imports' });
+      store.addEdge({ from: 'file:b.ts', to: 'file:c.ts', type: 'imports' });
+
+      const adapter = new GraphAnomalyAdapter(store);
+      // Use no metrics so no outliers, but B is an articulation point
+      const report = adapter.detect({ metrics: [] });
+
+      expect(report.articulationPoints).toHaveLength(1);
+      expect(report.overlapping).toEqual([]);
+    });
+  });
 });
