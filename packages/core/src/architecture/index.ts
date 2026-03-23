@@ -22,3 +22,16 @@ export type {
   ArchConfig,
   Collector,
 } from './types';
+
+export {
+  defaultCollectors,
+  runAll,
+  CircularDepsCollector,
+  LayerViolationCollector,
+  ComplexityCollector,
+  CouplingCollector,
+  ForbiddenImportCollector,
+  ModuleSizeCollector,
+  DepDepthCollector,
+  violationId,
+} from './collectors/index';
