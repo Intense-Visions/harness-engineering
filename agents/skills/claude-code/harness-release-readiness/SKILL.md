@@ -111,7 +111,19 @@ Run every check below. Record each as **pass**, **warn**, or **fail**:
 | `test` script exists in root `package.json`                     | fail                |
 | `lint` script exists in root `package.json`                     | fail                |
 | `typecheck` or `tsc` script exists in root `package.json`       | fail                |
-| `harness validate` passes (project-level health check)          | fail                |
+| `assess_project` passes (harness health + lint gate)            | fail                |
+
+For the `assess_project` check, run it with all harness-specific checks including lint:
+
+```json
+assess_project({
+  path: "<project-root>",
+  checks: ["validate", "deps", "docs", "lint"],
+  mode: "detailed"
+})
+```
+
+If `healthy: false`, each failing check in the `checks` array maps to a separate finding with its `topIssue`. This replaces running `harness validate`, `harness check-deps`, and lint as separate commands.
 
 ##### i18n Coverage (conditional)
 
@@ -507,7 +519,7 @@ This framing is informational — it does not block anything. It gives the team 
 
 ## Harness Integration
 
-- **`harness validate`** — Run after auto-fixes to verify project health. Also included in AUDIT phase as a meta-check (does the project pass its own validation?).
+- **`assess_project`** — Used in AUDIT Phase 1 (CI/CD section) to run harness validation, dependency checks, doc coverage, and lint in a single parallel call. Also run after auto-fixes in Phase 3 to verify project health. Automatically inherits new checks added to `assess_project`.
 - **Sub-skill invocations** — Phase 2 dispatches `detect-doc-drift`, `cleanup-dead-code`, `enforce-architecture`, and `diagnostics` as parallel agents. Phase 3 delegates fixes to `align-documentation` and `cleanup-dead-code`.
 - **State file** — `.harness/release-readiness.json` enables session resumption and progress tracking. This file is read at the start of each invocation and written at the end.
 - **Report file** — `release-readiness-report.md` is written to the project root. It is a snapshot, not a tracked artifact — regenerate it on each run.
