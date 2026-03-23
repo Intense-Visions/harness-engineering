@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectEntropyDefinition, applyFixesDefinition } from '../../src/tools/entropy';
+import { detectEntropyDefinition } from '../../src/tools/entropy';
 
 describe('detect_entropy tool', () => {
   it('has type parameter in definition', () => {
@@ -11,10 +11,24 @@ describe('detect_entropy tool', () => {
       'all',
     ]);
   });
-});
 
-describe('apply_fixes tool', () => {
-  it('description mentions suggestions', () => {
-    expect(applyFixesDefinition.description).toContain('suggestion');
+  it('has autoFix parameter in definition', () => {
+    expect(detectEntropyDefinition.inputSchema.properties).toHaveProperty('autoFix');
+    expect(detectEntropyDefinition.inputSchema.properties.autoFix).toEqual({
+      type: 'boolean',
+      description: 'When true, apply fixes after analysis. Default: false (analysis only)',
+    });
+  });
+
+  it('has dryRun parameter in definition', () => {
+    expect(detectEntropyDefinition.inputSchema.properties).toHaveProperty('dryRun');
+  });
+
+  it('has fixTypes parameter in definition', () => {
+    expect(detectEntropyDefinition.inputSchema.properties).toHaveProperty('fixTypes');
+  });
+
+  it('description mentions fix capability', () => {
+    expect(detectEntropyDefinition.description).toContain('fix');
   });
 });
