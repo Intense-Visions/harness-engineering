@@ -51,6 +51,9 @@ function extractNodeName(id: string): string {
   return id;
 }
 
+const TEST_NODE_TYPES = new Set(['test_result']);
+const DOC_NODE_TYPES = new Set(['adr', 'decision', 'document', 'learning']);
+
 function parseImpactResponse(response: {
   content: Array<{ type: string; text: string }>;
   isError?: boolean;
@@ -68,10 +71,8 @@ function parseImpactResponse(response: {
       // Summary mode — reconstruct items from highestRiskItems
       const items: ImpactGroup = { code: [], tests: [], docs: [], other: [] };
       for (const item of data.highestRiskItems ?? []) {
-        const testTypes = new Set(['test_result']);
-        const docTypes = new Set(['adr', 'decision', 'document', 'learning']);
-        if (testTypes.has(item.type)) items.tests.push(item);
-        else if (docTypes.has(item.type)) items.docs.push(item);
+        if (TEST_NODE_TYPES.has(item.type)) items.tests.push(item);
+        else if (DOC_NODE_TYPES.has(item.type)) items.docs.push(item);
         else items.code.push(item);
       }
       return { counts: data.impactCounts, items };
@@ -174,25 +175,34 @@ function formatCompact(stagedCount: number, merged: ImpactGroup, counts: Aggrega
   return lines.join('\n');
 }
 
-function formatDetailed(stagedCount: number, merged: ImpactGroup): string {
+function formatDetailed(
+  stagedCount: number,
+  merged: ImpactGroup,
+  counts: AggregatedCounts
+): string {
   const lines: string[] = [];
   lines.push(`Impact Preview (${stagedCount} staged file${stagedCount === 1 ? '' : 's'})`);
 
-  const sections: Array<{ label: string; items: Array<{ id: string }> }> = [
-    { label: `Code: ${merged.code.length} files`, items: merged.code },
-    { label: `Tests: ${merged.tests.length} tests`, items: merged.tests },
-    { label: `Docs: ${merged.docs.length} docs`, items: merged.docs },
+  const sections: Array<{
+    label: string;
+    count: number;
+    unit: string;
+    items: Array<{ id: string }>;
+  }> = [
+    { label: 'Code', count: counts.code, unit: 'files', items: merged.code },
+    { label: 'Tests', count: counts.tests, unit: 'tests', items: merged.tests },
+    { label: 'Docs', count: counts.docs, unit: 'docs', items: merged.docs },
   ];
 
   for (const section of sections) {
-    if (section.items.length === 0) continue;
-    lines.push(`  ${section.label}`);
+    if (section.count === 0 && section.items.length === 0) continue;
+    lines.push(`  ${section.label}: ${section.count} ${section.unit}`);
     for (const item of section.items) {
       lines.push(`    ${extractNodeName(item.id)}`);
     }
   }
 
-  const total = merged.code.length + merged.tests.length + merged.docs.length + merged.other.length;
+  const total = counts.code + counts.tests + counts.docs + counts.other;
   lines.push(`  Total: ${total} affected`);
 
   return lines.join('\n');
@@ -280,7 +290,7 @@ export async function runImpactPreview(options: ImpactPreviewOptions): Promise<s
   const merged = mergeImpactGroups(allGroups);
 
   if (options.detailed) {
-    return formatDetailed(stagedFiles.length, merged);
+    return formatDetailed(stagedFiles.length, merged, aggregateCounts);
   }
 
   return formatCompact(stagedFiles.length, merged, aggregateCounts);
