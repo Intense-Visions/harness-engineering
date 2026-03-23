@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  manageStateDefinition,
-  handleManageState,
-  manageHandoffDefinition,
-  handleManageHandoff,
-} from '../../src/tools/state';
+import { manageStateDefinition, handleManageState } from '../../src/tools/state';
 
 describe('manage_state tool', () => {
   it('has correct definition', () => {
@@ -72,37 +67,35 @@ describe('manage_state tool', () => {
     const parsed = JSON.parse(response.content[0].text);
     expect(parsed.archived).toBe(true);
   });
-});
 
-describe('manage_handoff tool', () => {
-  it('has correct definition', () => {
-    expect(manageHandoffDefinition.name).toBe('manage_handoff');
-    expect(manageHandoffDefinition.inputSchema.required).toContain('path');
-    expect(manageHandoffDefinition.inputSchema.required).toContain('action');
-  });
-
-  it('has save and load in action enum', () => {
-    const actionProp = manageHandoffDefinition.inputSchema.properties.action as {
+  it('has save-handoff and load-handoff in action enum', () => {
+    const actionProp = manageStateDefinition.inputSchema.properties.action as {
       type: string;
       enum: string[];
     };
-    expect(actionProp.enum).toContain('save');
-    expect(actionProp.enum).toContain('load');
+    expect(actionProp.enum).toContain('save-handoff');
+    expect(actionProp.enum).toContain('load-handoff');
   });
 
   it('has optional handoff property', () => {
-    expect(manageHandoffDefinition.inputSchema.properties.handoff).toBeDefined();
+    expect(manageStateDefinition.inputSchema.properties.handoff).toBeDefined();
   });
 
-  it('load action returns null for nonexistent handoff', async () => {
-    const response = await handleManageHandoff({ path: '/nonexistent/project', action: 'load' });
+  it('load-handoff action returns null for nonexistent handoff', async () => {
+    const response = await handleManageState({
+      path: '/nonexistent/project',
+      action: 'load-handoff',
+    });
     expect(response.isError).toBeFalsy();
     const parsed = JSON.parse(response.content[0].text);
     expect(parsed).toBeNull();
   });
 
-  it('save action returns error when handoff is missing', async () => {
-    const response = await handleManageHandoff({ path: '/nonexistent/project', action: 'save' });
+  it('save-handoff action returns error when handoff is missing', async () => {
+    const response = await handleManageState({
+      path: '/nonexistent/project',
+      action: 'save-handoff',
+    });
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain('handoff is required');
   });
