@@ -35,6 +35,9 @@ export * from './performance';
 // Feedback module
 export * from './feedback';
 
+// Architecture module
+export * from './architecture';
+
 // Parsers
 export { TypeScriptParser } from './shared/parsers';
 export type {
