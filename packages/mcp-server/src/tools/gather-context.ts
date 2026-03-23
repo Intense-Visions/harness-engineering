@@ -211,23 +211,38 @@ export async function handleGatherContext(input: {
   const outputState = state ?? null;
   const outputLearnings = learnings ?? [];
   const outputHandoff = handoff ?? null;
-  // Graph context shape: { intent, tokenBudget, blocksReturned, context: [{rootNode, score, nodes[], edges[]}] }
+  // Graph context shape returned by the graph promise above.
   // Summary mode aggregates node/edge counts across all context blocks.
+  interface GraphContextBlock {
+    rootNode: string;
+    score: number;
+    nodes: unknown[];
+    edges: unknown[];
+  }
+  interface GraphContextResult {
+    intent: string;
+    tokenBudget: number;
+    blocksReturned: number;
+    context: GraphContextBlock[];
+  }
+
   const outputGraphContext =
     graphContext == null
       ? null
       : mode === 'summary'
         ? {
-            blocksReturned: (graphContext as any).blocksReturned ?? 0,
-            nodeCount: ((graphContext as any).context ?? []).reduce(
-              (sum: number, b: any) => sum + (Array.isArray(b.nodes) ? b.nodes.length : 0),
+            blocksReturned: (graphContext as GraphContextResult).blocksReturned ?? 0,
+            nodeCount: ((graphContext as GraphContextResult).context ?? []).reduce(
+              (sum: number, b: GraphContextBlock) =>
+                sum + (Array.isArray(b.nodes) ? b.nodes.length : 0),
               0
             ),
-            edgeCount: ((graphContext as any).context ?? []).reduce(
-              (sum: number, b: any) => sum + (Array.isArray(b.edges) ? b.edges.length : 0),
+            edgeCount: ((graphContext as GraphContextResult).context ?? []).reduce(
+              (sum: number, b: GraphContextBlock) =>
+                sum + (Array.isArray(b.edges) ? b.edges.length : 0),
               0
             ),
-            intent: (graphContext as any).intent ?? null,
+            intent: (graphContext as GraphContextResult).intent ?? null,
           }
         : graphContext;
   const outputValidation = validation ?? null;
