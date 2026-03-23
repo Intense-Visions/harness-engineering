@@ -7,14 +7,23 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 export const manageStateDefinition = {
   name: 'manage_state',
   description:
-    'Manage harness project state: show current state, record learnings/failures, archive failures, reset state, or run mechanical gate checks',
+    'Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, or save/load session handoff',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       action: {
         type: 'string',
-        enum: ['show', 'learn', 'failure', 'archive', 'reset', 'gate'],
+        enum: [
+          'show',
+          'learn',
+          'failure',
+          'archive',
+          'reset',
+          'gate',
+          'save-handoff',
+          'load-handoff',
+        ],
         description: 'Action to perform',
       },
       learning: { type: 'string', description: 'Learning text to record (required for learn)' },
@@ -22,6 +31,7 @@ export const manageStateDefinition = {
       outcome: { type: 'string', description: 'Outcome associated with the learning' },
       description: { type: 'string', description: 'Failure description (required for failure)' },
       failureType: { type: 'string', description: 'Type of failure (required for failure)' },
+      handoff: { type: 'object', description: 'Handoff data to save (required for save-handoff)' },
       stream: {
         type: 'string',
         description: 'Stream name to target (auto-resolves from branch if omitted)',
@@ -33,12 +43,21 @@ export const manageStateDefinition = {
 
 export async function handleManageState(input: {
   path: string;
-  action: 'show' | 'learn' | 'failure' | 'archive' | 'reset' | 'gate';
+  action:
+    | 'show'
+    | 'learn'
+    | 'failure'
+    | 'archive'
+    | 'reset'
+    | 'gate'
+    | 'save-handoff'
+    | 'load-handoff';
   learning?: string;
   skillName?: string;
   outcome?: string;
   description?: string;
   failureType?: string;
+  handoff?: unknown;
   stream?: string;
 }) {
   try {
@@ -128,71 +147,16 @@ export async function handleManageState(input: {
         return resultToMcpResponse(result);
       }
 
-      default: {
-        return {
-          content: [{ type: 'text' as const, text: `Error: unknown action` }],
-          isError: true,
-        };
-      }
-    }
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-      isError: true,
-    };
-  }
-}
-
-// ── manage_handoff ────────────────────────────────────────────────────
-
-export const manageHandoffDefinition = {
-  name: 'manage_handoff',
-  description: 'Save or load session handoff context for agent continuity across sessions',
-  inputSchema: {
-    type: 'object' as const,
-    properties: {
-      path: { type: 'string', description: 'Path to project root' },
-      action: {
-        type: 'string',
-        enum: ['save', 'load'],
-        description: 'Action to perform',
-      },
-      handoff: { type: 'object', description: 'Handoff data to save (required for save)' },
-      stream: {
-        type: 'string',
-        description: 'Stream name to target (auto-resolves from branch if omitted)',
-      },
-    },
-    required: ['path', 'action'],
-  },
-};
-
-export async function handleManageHandoff(input: {
-  path: string;
-  action: 'save' | 'load';
-  handoff?: unknown;
-  stream?: string;
-}) {
-  try {
-    const { saveHandoff, loadHandoff } = await import('@harness-engineering/core');
-
-    const projectPath = sanitizePath(input.path);
-
-    switch (input.action) {
-      case 'save': {
+      case 'save-handoff': {
         if (!input.handoff) {
           return {
             content: [
-              { type: 'text' as const, text: 'Error: handoff is required for save action' },
+              { type: 'text' as const, text: 'Error: handoff is required for save-handoff action' },
             ],
             isError: true,
           };
         }
+        const { saveHandoff } = await import('@harness-engineering/core');
         const result = await saveHandoff(
           projectPath,
           input.handoff as Parameters<typeof saveHandoff>[1],
@@ -201,7 +165,8 @@ export async function handleManageHandoff(input: {
         return resultToMcpResponse(result.ok ? Ok({ saved: true }) : result);
       }
 
-      case 'load': {
+      case 'load-handoff': {
+        const { loadHandoff } = await import('@harness-engineering/core');
         const result = await loadHandoff(projectPath, input.stream);
         return resultToMcpResponse(result);
       }
