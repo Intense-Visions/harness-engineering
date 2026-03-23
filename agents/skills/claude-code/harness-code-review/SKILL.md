@@ -205,13 +205,21 @@ Gather context in this order until the ratio is met:
 
 #### Graph-Enhanced Context (when available)
 
-When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+When a knowledge graph exists at `.harness/graph/`, use `gather_context` for efficient context assembly:
 
-- `query_graph` — traverse dependency chain from changed files to find all imports and transitive dependencies
-- `get_impact` — find all affected tests, docs, and downstream code
-- `find_context_for` — assemble review context within token budget, ranked by relevance
+```json
+gather_context({
+  path: "<project-root>",
+  intent: "Code review of <change description>",
+  skill: "harness-code-review",
+  tokenBudget: 8000,
+  include: ["graph", "learnings", "validation"]
+})
+```
 
-Graph queries replace manual grep/find commands and discover transitive dependencies that file search misses. Fall back to file-based commands if no graph is available.
+This replaces manual `query_graph` + `get_impact` + `find_context_for` calls with a single composite call that assembles review context in parallel, ranked by relevance. Falls back gracefully when no graph is available (`meta.graphAvailable: false`).
+
+For domain-specific scoping (compliance, bug detection, security, architecture), supplement `gather_context` output with targeted `query_graph` calls as needed.
 
 #### Context Assembly Commands
 
@@ -606,6 +614,7 @@ _This section is not part of the pipeline. It documents the process for respondi
 ## Harness Integration
 
 - **`assess_project`** — Used in Phase 2 (MECHANICAL) to run `validate`, `deps`, and `docs` checks in parallel. Must pass for the pipeline to continue to AI review. Failures are Critical issues that stop the pipeline.
+- **`gather_context`** — Used in Phase 3 (CONTEXT) for efficient parallel context assembly. Replaces separate graph query calls.
 - **`harness cleanup`** — Optional check during Phase 2 for entropy accumulation in changed files.
 - **Graph queries** — Used in Phase 3 (CONTEXT) for dependency-scoped context and in Phase 5 (VALIDATE) for reachability verification. Graceful fallback when no graph exists.
 - **`emit_interaction`** -- Call after review approval to suggest transitioning to merge/PR creation. Only emitted on APPROVE assessment. Uses confirmed transition (waits for user approval).
