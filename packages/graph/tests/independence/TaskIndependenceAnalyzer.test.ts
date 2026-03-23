@@ -265,6 +265,30 @@ describe('TaskIndependenceAnalyzer', () => {
       expect(deepOverlap!.type).toBe('transitive');
     });
 
+    it('populates via field with the original source file path for transitive overlaps', () => {
+      const store = buildGraphWithImports();
+      // Graph: a.ts --imports--> shared.ts <--imports-- b.ts
+      // Task a has [src/a.ts], task b has [src/b.ts]
+      // At depth 1, both expand to include shared.ts
+      // The via field for the transitive overlap on shared.ts should reference the original file
+      const analyzer = new TaskIndependenceAnalyzer(store);
+      const result = analyzer.analyze({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 1,
+      });
+
+      expect(result.pairs[0]!.independent).toBe(false);
+      const transitiveOverlap = result.pairs[0]!.overlaps.find(
+        (o) => o.type === 'transitive' && o.file === 'src/shared.ts'
+      );
+      expect(transitiveOverlap).toBeDefined();
+      // via should be either 'src/a.ts' or 'src/b.ts' — the original file that led to the expansion
+      expect(['src/a.ts', 'src/b.ts']).toContain(transitiveOverlap!.via);
+    });
+
     it('handles files not found in graph gracefully', () => {
       const store = new GraphStore();
       // Graph is empty — no nodes exist
