@@ -33,17 +33,17 @@ export const reviewChangesDefinition = {
 async function getDiff(projectPath: string, providedDiff?: string): Promise<string> {
   if (providedDiff) return providedDiff;
 
-  // Auto-detect from git
-  const { execSync } = await import('child_process');
+  // Auto-detect from git (using execFileSync to avoid shell injection surface)
+  const { execFileSync } = await import('child_process');
   try {
-    const staged = execSync('git diff --cached', {
+    const staged = execFileSync('git', ['diff', '--cached'], {
       cwd: projectPath,
       encoding: 'utf-8',
       timeout: 10_000,
     });
     if (staged.trim().length > 0) return staged;
 
-    const unstaged = execSync('git diff', {
+    const unstaged = execFileSync('git', ['diff'], {
       cwd: projectPath,
       encoding: 'utf-8',
       timeout: 10_000,
@@ -54,7 +54,8 @@ async function getDiff(projectPath: string, providedDiff?: string): Promise<stri
   } catch (error) {
     if (error instanceof Error && error.message.includes('No diff found')) throw error;
     throw new Error(
-      `Failed to get diff from git: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to get diff from git: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     );
   }
 }

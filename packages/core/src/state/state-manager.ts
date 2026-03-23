@@ -25,6 +25,8 @@ const INDEX_FILE = 'index.json';
 
 // ── Cache infrastructure ─────────────────────────────────────────────
 
+const MAX_CACHE_ENTRIES = 8;
+
 interface LearningsCache {
   mtimeMs: number;
   entries: string[];
@@ -37,6 +39,14 @@ interface FailuresCache {
 
 const learningsCacheMap = new Map<string, LearningsCache>();
 const failuresCacheMap = new Map<string, FailuresCache>();
+
+/** Evict oldest entry when cache exceeds MAX_CACHE_ENTRIES. */
+function evictIfNeeded<V>(map: Map<string, V>): void {
+  if (map.size > MAX_CACHE_ENTRIES) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+}
 
 export function clearLearningsCache(): void {
   learningsCacheMap.clear();
@@ -222,6 +232,7 @@ export async function loadRelevantLearnings(
       }
 
       learningsCacheMap.set(cacheKey, { mtimeMs: stats.mtimeMs, entries });
+      evictIfNeeded(learningsCacheMap);
     }
 
     if (!skillName) {
@@ -318,6 +329,7 @@ export async function loadFailures(
     }
 
     failuresCacheMap.set(cacheKey, { mtimeMs: stats.mtimeMs, entries });
+    evictIfNeeded(failuresCacheMap);
     return Ok(entries);
   } catch (error) {
     return Err(

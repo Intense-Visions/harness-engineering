@@ -158,7 +158,7 @@ describe('Workflow E2E: gather_context -> work -> emit_interaction -> assess_pro
 
     // Step 2: Do work (simulated -- nothing to do in test)
 
-    // Step 3: Ask a structured question
+    // Step 3: Ask a structured question (min 2 options required by schema)
     const question = await handleEmitInteraction({
       path: tmpDir,
       type: 'question',
@@ -167,10 +167,17 @@ describe('Workflow E2E: gather_context -> work -> emit_interaction -> assess_pro
         options: [
           {
             label: 'Yes, proceed',
-            pros: ['Keeps momentum'],
+            pros: ['Keeps momentum', 'Tests are green'],
             cons: ['None identified'],
             risk: 'low',
             effort: 'low',
+          },
+          {
+            label: 'No, investigate further',
+            pros: ['More confidence in approach'],
+            cons: ['Delays delivery'],
+            risk: 'low',
+            effort: 'medium',
           },
         ],
         recommendation: {
@@ -180,6 +187,7 @@ describe('Workflow E2E: gather_context -> work -> emit_interaction -> assess_pro
         },
       },
     });
+    expect(question.isError).toBeFalsy();
     expect(question.content).toBeDefined();
 
     // Step 4: Assess project health
@@ -188,6 +196,7 @@ describe('Workflow E2E: gather_context -> work -> emit_interaction -> assess_pro
       checks: ['validate'],
       mode: 'summary',
     });
+    expect(assessResponse.isError).toBeFalsy();
     const assessment = JSON.parse(assessResponse.content[0].text);
     expect(assessment).toHaveProperty('healthy');
 
@@ -211,6 +220,7 @@ describe('Workflow E2E: gather_context -> work -> emit_interaction -> assess_pro
         },
       },
     });
+    expect(transition.isError).toBeFalsy();
     expect(transition.content).toBeDefined();
   });
 });

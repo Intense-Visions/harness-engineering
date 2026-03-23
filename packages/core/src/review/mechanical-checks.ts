@@ -137,19 +137,22 @@ export async function runMechanicalChecks(
   }
 
   // --- Phase 2: Parallel warning-only checks ---
+  // Each check returns its own findings array; merged after Promise.all to avoid
+  // concurrent mutation of the shared findings array.
 
-  const parallelChecks: Array<Promise<void>> = [];
+  const parallelChecks: Array<Promise<MechanicalFinding[]>> = [];
 
   // --- Check-docs ---
   if (!skip.includes('check-docs')) {
     parallelChecks.push(
-      (async () => {
+      (async (): Promise<MechanicalFinding[]> => {
+        const localFindings: MechanicalFinding[] = [];
         try {
           const docsDir = path.join(projectRoot, (config.docsDir as string) ?? 'docs');
           const result = await checkDocCoverage('project', { docsDir });
           if (!result.ok) {
             statuses['check-docs'] = 'warn';
-            findings.push({
+            localFindings.push({
               tool: 'check-docs',
               file: docsDir,
               message: result.error.message,
@@ -158,7 +161,7 @@ export async function runMechanicalChecks(
           } else if (result.value.gaps && result.value.gaps.length > 0) {
             statuses['check-docs'] = 'warn';
             for (const gap of result.value.gaps) {
-              findings.push({
+              localFindings.push({
                 tool: 'check-docs',
                 file: gap.file,
                 message: `Undocumented: ${gap.file} (suggested: ${gap.suggestedSection})`,
@@ -170,13 +173,14 @@ export async function runMechanicalChecks(
           }
         } catch (err) {
           statuses['check-docs'] = 'warn';
-          findings.push({
+          localFindings.push({
             tool: 'check-docs',
             file: path.join(projectRoot, 'docs'),
             message: err instanceof Error ? err.message : String(err),
             severity: 'warning',
           });
         }
+        return localFindings;
       })()
     );
   }
@@ -184,7 +188,8 @@ export async function runMechanicalChecks(
   // --- Security scan ---
   if (!skip.includes('security-scan')) {
     parallelChecks.push(
-      (async () => {
+      (async (): Promise<MechanicalFinding[]> => {
+        const localFindings: MechanicalFinding[] = [];
         try {
           const securityConfig = parseSecurityConfig((config as Record<string, unknown>).security);
           if (!securityConfig.enabled) {
@@ -199,7 +204,7 @@ export async function runMechanicalChecks(
             if (scanResult.findings.length > 0) {
               statuses['security-scan'] = 'warn';
               for (const f of scanResult.findings) {
-                findings.push({
+                localFindings.push({
                   tool: 'security-scan',
                   file: f.file,
                   line: f.line,
@@ -214,18 +219,22 @@ export async function runMechanicalChecks(
           }
         } catch (err) {
           statuses['security-scan'] = 'warn';
-          findings.push({
+          localFindings.push({
             tool: 'security-scan',
             file: projectRoot,
             message: err instanceof Error ? err.message : String(err),
             severity: 'warning',
           });
         }
+        return localFindings;
       })()
     );
   }
 
-  await Promise.all(parallelChecks);
+  const parallelResults = await Promise.all(parallelChecks);
+  for (const result of parallelResults) {
+    findings.push(...result);
+  }
 
   // Determine overall status
   const hasErrors = findings.some((f) => f.severity === 'error');

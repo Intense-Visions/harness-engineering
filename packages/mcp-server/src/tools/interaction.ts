@@ -175,7 +175,7 @@ export async function handleEmitInteraction(input: Record<string, any>) {
         content: [
           {
             type: 'text' as const,
-            text: `Error: ${parseResult.error.issues.map((i) => i.message).join('; ')}`,
+            text: `Error: ${parseResult.error.issues.map((i) => (i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message)).join('; ')}`,
           },
         ],
         isError: true,
@@ -200,14 +200,16 @@ export async function handleEmitInteraction(input: Record<string, any>) {
           };
         }
 
-        // Validate with refined schema (enforces recommendation when options present)
+        // Apply refined validation (recommendation required when options present,
+        // optionIndex bounds, default bounds). Top-level schema uses base schema
+        // because Zod refined schemas can't nest inside z.object().optional().
         const questionResult = InteractionQuestionWithOptionsSchema.safeParse(validInput.question);
         if (!questionResult.success) {
           return {
             content: [
               {
                 type: 'text' as const,
-                text: `Error: ${questionResult.error.issues.map((i) => i.message).join('; ')}`,
+                text: `Error: ${questionResult.error.issues.map((i) => (i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message)).join('; ')}`,
               },
             ],
             isError: true,

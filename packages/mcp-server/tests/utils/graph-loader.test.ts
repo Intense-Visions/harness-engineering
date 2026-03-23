@@ -67,11 +67,17 @@ describe('loadGraphStore', () => {
     expect(mockLoad).toHaveBeenCalledTimes(2);
   });
 
-  it('returns null when load fails', async () => {
+  it('returns null when load fails and does not cache the null result', async () => {
     mockStat.mockResolvedValue({ mtimeMs: 1000 });
     mockLoad.mockResolvedValueOnce(false);
     const store = await loadGraphStore('/project');
     expect(store).toBeNull();
+
+    // Second call should retry loading, not return cached null
+    mockLoad.mockResolvedValueOnce(true);
+    const store2 = await loadGraphStore('/project');
+    expect(store2).not.toBeNull();
+    expect(constructorCallCount).toBe(2);
   });
 
   it('returns null when graph.json does not exist (stat throws)', async () => {
