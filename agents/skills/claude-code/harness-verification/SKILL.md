@@ -177,7 +177,9 @@ emit_interaction({
   type: "confirmation",
   confirmation: {
     text: "Verification report: <VERDICT>. Accept and proceed?",
-    context: "<summary: N artifacts checked, N gaps found>"
+    context: "<summary: N artifacts checked, N gaps found>",
+    impact: "Accepting proceeds to code review. Declining requires gap resolution first.",
+    risk: "<low if PASS, high if gaps remain>"
   }
 })
 ```
@@ -212,7 +214,21 @@ Call `emit_interaction`:
     "reason": "Verification passed at all 3 levels",
     "artifacts": ["<verified file paths>"],
     "requiresConfirmation": false,
-    "summary": "Verification passed: <N> artifacts checked. EXISTS, SUBSTANTIVE, WIRED all passed."
+    "summary": "Verification passed: <N> artifacts checked. EXISTS, SUBSTANTIVE, WIRED all passed.",
+    "qualityGate": {
+      "checks": [
+        { "name": "level1-exists", "passed": true, "detail": "<N> artifacts present" },
+        { "name": "level2-substantive", "passed": true, "detail": "No stubs or placeholders" },
+        {
+          "name": "level3-wired",
+          "passed": true,
+          "detail": "All artifacts imported, tested, integrated"
+        },
+        { "name": "anti-pattern-scan", "passed": true, "detail": "No matches" },
+        { "name": "harness-validate", "passed": true }
+      ],
+      "allPassed": true
+    }
   }
 }
 ```
