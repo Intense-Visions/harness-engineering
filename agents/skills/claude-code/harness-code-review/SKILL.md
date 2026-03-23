@@ -493,7 +493,9 @@ emit_interaction({
   type: "confirmation",
   confirmation: {
     text: "Review complete: <Assessment>. Accept review?",
-    context: "<N critical, N important, N suggestion findings>"
+    context: "<N critical, N important, N suggestion findings>",
+    impact: "Accepting the review finalizes findings. If 'approve', ready for merge. If 'request-changes', fixes are needed.",
+    risk: "<low if approve, high if critical findings>"
   }
 })
 ```
@@ -528,7 +530,16 @@ Call `emit_interaction`:
     "reason": "Review approved with no blocking issues",
     "artifacts": ["<reviewed files>"],
     "requiresConfirmation": true,
-    "summary": "Review approved. <N> suggestions noted. Ready to create PR or merge."
+    "summary": "Review approved. <N> suggestions noted. Ready to create PR or merge.",
+    "qualityGate": {
+      "checks": [
+        { "name": "mechanical-checks", "passed": true },
+        { "name": "no-critical-findings", "passed": true },
+        { "name": "no-important-findings", "passed": true },
+        { "name": "harness-validate", "passed": true }
+      ],
+      "allPassed": true
+    }
   }
 }
 ```
