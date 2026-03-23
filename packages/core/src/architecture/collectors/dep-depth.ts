@@ -3,12 +3,6 @@ import { join, relative, dirname, resolve } from 'node:path';
 import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
 import { violationId } from './hash';
 
-interface ModuleDepthInfo {
-  modulePath: string;
-  longestChain: number;
-  files: string[];
-}
-
 /**
  * Extract relative import sources from a TypeScript file using regex.
  * Returns resolved absolute paths.

@@ -7,14 +7,16 @@ import type { DependencyViolation } from '../../constraints/types';
 export class ForbiddenImportCollector implements Collector {
   readonly category = 'forbidden-imports' as const;
 
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const result = await validateDependencies({
       layers: [],
       rootDir,
       parser: {
         name: 'typescript',
+        extensions: ['.ts', '.tsx'],
         parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }) as any,
         extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
+        extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
         health: async () => ({ ok: true, value: { available: true } }) as any,
       },
       fallbackBehavior: 'skip',

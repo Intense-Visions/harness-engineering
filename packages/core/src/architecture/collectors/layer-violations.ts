@@ -7,7 +7,7 @@ import type { DependencyViolation } from '../../constraints/types';
 export class LayerViolationCollector implements Collector {
   readonly category = 'layer-violations' as const;
 
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     // LayerViolationCollector requires layer config to be passed through ArchConfig.
     // For now, use an empty layer set — the real layer config will come from harness.config.json
     // wiring in Phase 4 (config schema). This collector is invoked with the right LayerConfig
@@ -17,8 +17,10 @@ export class LayerViolationCollector implements Collector {
       rootDir,
       parser: {
         name: 'typescript',
+        extensions: ['.ts', '.tsx'],
         parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }) as any,
         extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
+        extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
         health: async () => ({ ok: true, value: { available: true } }) as any,
       },
       fallbackBehavior: 'skip',
