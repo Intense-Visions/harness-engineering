@@ -262,6 +262,74 @@ describe('handleCheckTaskIndependence', () => {
     expect(data.verdict).toContain('2 independent groups');
   });
 
+  it('returns complete IndependenceResult JSON shape in detailed mode', async () => {
+    await createTestGraph(tmpDir);
+    // Use tasks that produce both direct and transitive overlaps for maximum shape coverage
+    // task1 has a.ts, task2 has a.ts (direct) and b.ts (which a.ts imports — transitive from task1)
+    const result = await handleCheckTaskIndependence({
+      path: tmpDir,
+      tasks: [
+        { id: 'task1', files: ['a.ts'] },
+        { id: 'task2', files: ['a.ts', 'b.ts'] },
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content).toHaveLength(1);
+    expect(result.content[0].type).toBe('text');
+
+    const data = parseResult(result);
+
+    // Top-level fields
+    expect(data).toHaveProperty('tasks');
+    expect(data).toHaveProperty('analysisLevel');
+    expect(data).toHaveProperty('depth');
+    expect(data).toHaveProperty('pairs');
+    expect(data).toHaveProperty('groups');
+    expect(data).toHaveProperty('verdict');
+
+    // Type checks on top-level fields
+    expect(Array.isArray(data.tasks)).toBe(true);
+    expect(data.tasks).toEqual(['task1', 'task2']);
+    expect(typeof data.analysisLevel).toBe('string');
+    expect(['graph-expanded', 'file-only']).toContain(data.analysisLevel);
+    expect(typeof data.depth).toBe('number');
+    expect(typeof data.verdict).toBe('string');
+
+    // Pairs shape
+    expect(Array.isArray(data.pairs)).toBe(true);
+    expect(data.pairs).toHaveLength(1);
+    const pair = data.pairs[0];
+    expect(pair).toHaveProperty('taskA');
+    expect(pair).toHaveProperty('taskB');
+    expect(pair).toHaveProperty('independent');
+    expect(pair).toHaveProperty('overlaps');
+    expect(typeof pair.taskA).toBe('string');
+    expect(typeof pair.taskB).toBe('string');
+    expect(typeof pair.independent).toBe('boolean');
+    expect(Array.isArray(pair.overlaps)).toBe(true);
+
+    // Overlaps shape — should have at least one direct overlap on a.ts
+    expect(pair.overlaps.length).toBeGreaterThan(0);
+    const directOverlap = pair.overlaps.find(
+      (o: { file: string; type: string }) => o.type === 'direct' && o.file === 'a.ts'
+    );
+    expect(directOverlap).toBeDefined();
+    expect(directOverlap).toHaveProperty('file');
+    expect(directOverlap).toHaveProperty('type');
+    // Direct overlaps should NOT have a via field
+    expect(directOverlap.via).toBeUndefined();
+
+    // Groups shape
+    expect(Array.isArray(data.groups)).toBe(true);
+    for (const group of data.groups) {
+      expect(Array.isArray(group)).toBe(true);
+      for (const member of group) {
+        expect(typeof member).toBe('string');
+      }
+    }
+  });
+
   it('returns error for fewer than 2 tasks', async () => {
     const result = await handleCheckTaskIndependence({
       path: tmpDir,
