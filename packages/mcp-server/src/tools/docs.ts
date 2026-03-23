@@ -66,18 +66,20 @@ export async function handleCheckDocs(input: {
         validateKnowledgeMap(projectPath),
       ]);
 
-      const coverage =
-        coverageResult.status === 'fulfilled' && coverageResult.value.ok
-          ? coverageResult.value.value
-          : coverageResult.status === 'fulfilled'
-            ? { error: coverageResult.value.error }
-            : { error: String(coverageResult.reason) };
-      const integrity =
-        integrityResult.status === 'fulfilled' && integrityResult.value.ok
-          ? integrityResult.value.value
-          : integrityResult.status === 'fulfilled'
-            ? { error: integrityResult.value.error }
-            : { error: String(integrityResult.reason) };
+      let coverage: unknown;
+      if (coverageResult.status === 'fulfilled') {
+        const r = coverageResult.value;
+        coverage = r.ok ? r.value : { error: r.error };
+      } else {
+        coverage = { error: String(coverageResult.reason) };
+      }
+      let integrity: unknown;
+      if (integrityResult.status === 'fulfilled') {
+        const r = integrityResult.value;
+        integrity = r.ok ? r.value : { error: r.error };
+      } else {
+        integrity = { error: String(integrityResult.reason) };
+      }
 
       return resultToMcpResponse(Ok({ coverage, integrity }));
     }
