@@ -70,6 +70,12 @@ export const detectEntropyDefinition = {
         description:
           'Specific fix types to apply (default: all safe types). Only used when autoFix is true.',
       },
+      mode: {
+        type: 'string',
+        enum: ['summary', 'detailed'],
+        description:
+          'Response density: summary returns issue counts and top issues per category, detailed returns full findings. Default: detailed',
+      },
     },
     required: ['path'],
   },
@@ -81,6 +87,7 @@ export async function handleDetectEntropy(input: {
   autoFix?: boolean;
   dryRun?: boolean;
   fixTypes?: string[];
+  mode?: 'summary' | 'detailed';
 }) {
   try {
     const { EntropyAnalyzer } = await import('@harness-engineering/core');
@@ -97,6 +104,63 @@ export async function handleDetectEntropy(input: {
 
     const graphOptions = await loadEntropyGraphOptions(sanitizePath(input.path));
     const result = await analyzer.analyze(graphOptions);
+
+    // Response density control
+    if (input.mode === 'summary' && result.ok && !input.autoFix) {
+      const report = result.value;
+      const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
+
+      if (report.drift) {
+        const driftIssues = [
+          ...(report.drift.staleReferences ?? []).map(
+            (r: { source: string }) => `Stale ref: ${r.source}`
+          ),
+          ...(report.drift.missingTargets ?? []).map((t: string) => `Missing target: ${t}`),
+        ];
+        summary['drift'] = {
+          issueCount: driftIssues.length,
+          topIssues: driftIssues.slice(0, 3),
+        };
+      }
+
+      if (report.deadCode) {
+        const deadIssues = [
+          ...(report.deadCode.unusedImports ?? []).map(
+            (i: { name: string }) => `Unused import: ${i.name}`
+          ),
+          ...(report.deadCode.unusedExports ?? []).map(
+            (e: { name: string }) => `Unused export: ${e.name}`
+          ),
+          ...(report.deadCode.unreachableCode ?? []).map(
+            (u: { file: string }) => `Unreachable: ${u.file}`
+          ),
+        ];
+        summary['deadCode'] = {
+          issueCount: deadIssues.length,
+          topIssues: deadIssues.slice(0, 3),
+        };
+      }
+
+      if (report.patterns) {
+        const patternIssues = (report.patterns.violations ?? []).map(
+          (v: { rule: string; file: string }) => `${v.rule}: ${v.file}`
+        );
+        summary['patterns'] = {
+          issueCount: patternIssues.length,
+          topIssues: patternIssues.slice(0, 3),
+        };
+      }
+
+      const totalIssues = Object.values(summary).reduce((s, c) => s + c.issueCount, 0);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ mode: 'summary', totalIssues, categories: summary }),
+          },
+        ],
+      };
+    }
 
     if (!input.autoFix) {
       return resultToMcpResponse(result);
