@@ -20,7 +20,7 @@ describe('assess_project tool', () => {
       expect(props).toHaveProperty('mode');
     });
 
-    it('checks enum has all check names', () => {
+    it('checks enum has all check names including lint', () => {
       const checksProp = assessProjectDefinition.inputSchema.properties.checks;
       expect(checksProp.items.enum).toEqual([
         'validate',
@@ -29,6 +29,7 @@ describe('assess_project tool', () => {
         'entropy',
         'security',
         'perf',
+        'lint',
       ]);
     });
 

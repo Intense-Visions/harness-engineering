@@ -1,11 +1,11 @@
 import { sanitizePath } from '../utils/sanitize-path.js';
 
-type CheckName = 'validate' | 'deps' | 'docs' | 'entropy' | 'security' | 'perf';
+type CheckName = 'validate' | 'deps' | 'docs' | 'entropy' | 'security' | 'perf' | 'lint';
 
 export const assessProjectDefinition = {
   name: 'assess_project',
   description:
-    'Run all project health checks in parallel and return a unified report. Checks: validate, dependencies, docs, entropy, security, performance.',
+    'Run all project health checks in parallel and return a unified report. Checks: validate, dependencies, docs, entropy, security, performance, lint.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -14,7 +14,7 @@ export const assessProjectDefinition = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['validate', 'deps', 'docs', 'entropy', 'security', 'perf'],
+          enum: ['validate', 'deps', 'docs', 'entropy', 'security', 'perf', 'lint'],
         },
         description: 'Which checks to run (default: all)',
       },
@@ -59,7 +59,7 @@ export async function handleAssessProject(input: {
   }
 
   const checksToRun = new Set<CheckName>(
-    input.checks ?? ['validate', 'deps', 'docs', 'entropy', 'security', 'perf']
+    input.checks ?? ['validate', 'deps', 'docs', 'entropy', 'security', 'perf', 'lint']
   );
   const mode = input.mode ?? 'summary';
 
@@ -237,6 +237,51 @@ export async function handleAssessProject(input: {
             passed: false,
             issueCount: 1,
             topIssue: error instanceof Error ? error.message : String(error),
+          };
+        }
+      })()
+    );
+  }
+
+  if (checksToRun.has('lint')) {
+    parallelChecks.push(
+      (async (): Promise<CheckResult> => {
+        try {
+          const { execFileSync } = await import('child_process');
+          const output = execFileSync('npx', ['turbo', 'run', 'lint', '--force'], {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            timeout: 60_000,
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+          return {
+            name: 'lint',
+            passed: true,
+            issueCount: 0,
+            ...(mode === 'detailed' ? { detailed: output } : {}),
+          };
+        } catch (error) {
+          const stderr =
+            error && typeof error === 'object' && 'stderr' in error
+              ? String((error as { stderr: unknown }).stderr)
+              : '';
+          const stdout =
+            error && typeof error === 'object' && 'stdout' in error
+              ? String((error as { stdout: unknown }).stdout)
+              : '';
+          const combined = (stderr + '\n' + stdout).trim();
+          // Count error lines from eslint output
+          const errorMatch = combined.match(/(\d+) error/);
+          const issueCount = errorMatch ? parseInt(errorMatch[1], 10) : 1;
+          // Extract first error line for topIssue
+          const firstError = combined.split('\n').find((line) => line.includes('error'));
+          return {
+            name: 'lint',
+            passed: false,
+            issueCount,
+            topIssue:
+              firstError?.trim() ?? (error instanceof Error ? error.message : String(error)),
+            ...(mode === 'detailed' ? { detailed: combined } : {}),
           };
         }
       })()
