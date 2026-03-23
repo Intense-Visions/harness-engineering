@@ -111,12 +111,9 @@ export async function handleDetectEntropy(input: {
       const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
 
       if (report.drift) {
-        const driftIssues = [
-          ...(report.drift.staleReferences ?? []).map(
-            (r: { source: string }) => `Stale ref: ${r.source}`
-          ),
-          ...(report.drift.missingTargets ?? []).map((t: string) => `Missing target: ${t}`),
-        ];
+        const driftIssues = (report.drift.drifts ?? []).map(
+          (d: { type: string; file?: string }) => `Drift: ${d.type}${d.file ? ` in ${d.file}` : ''}`
+        );
         summary['drift'] = {
           issueCount: driftIssues.length,
           topIssues: driftIssues.slice(0, 3),
@@ -126,14 +123,10 @@ export async function handleDetectEntropy(input: {
       if (report.deadCode) {
         const deadIssues = [
           ...(report.deadCode.unusedImports ?? []).map(
-            (i: { name: string }) => `Unused import: ${i.name}`
+            (i) => `Unused import: ${i.specifiers.join(', ')} from ${i.source}`
           ),
-          ...(report.deadCode.unusedExports ?? []).map(
-            (e: { name: string }) => `Unused export: ${e.name}`
-          ),
-          ...(report.deadCode.unreachableCode ?? []).map(
-            (u: { file: string }) => `Unreachable: ${u.file}`
-          ),
+          ...(report.deadCode.deadExports ?? []).map((e) => `Dead export: ${e.name} in ${e.file}`),
+          ...(report.deadCode.deadFiles ?? []).map((f) => `Dead file: ${f.path}`),
         ];
         summary['deadCode'] = {
           issueCount: deadIssues.length,
@@ -143,7 +136,7 @@ export async function handleDetectEntropy(input: {
 
       if (report.patterns) {
         const patternIssues = (report.patterns.violations ?? []).map(
-          (v: { rule: string; file: string }) => `${v.rule}: ${v.file}`
+          (v) => `${v.pattern}: ${v.file}`
         );
         summary['patterns'] = {
           issueCount: patternIssues.length,
