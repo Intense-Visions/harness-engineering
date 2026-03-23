@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 import { assessProjectDefinition, handleAssessProject } from '../../src/tools/assess-project';
 
 describe('assess_project tool', () => {
@@ -72,6 +75,75 @@ describe('assess_project tool', () => {
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.checks).toHaveLength(1);
       expect(parsed.checks[0].name).toBe('validate');
+    });
+  });
+
+  describe('assess_project snapshot parity', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-parity-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ name: 'test-project' })
+      );
+      fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('validate check matches handleValidateProject output', async () => {
+      const { handleValidateProject } = await import('../../src/tools/validate');
+
+      const compositeResponse = await handleAssessProject({
+        path: tmpDir,
+        checks: ['validate'],
+        mode: 'detailed',
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      const directResult = await handleValidateProject({ path: tmpDir });
+      const directParsed = JSON.parse(directResult.content[0].text);
+
+      const compositeCheck = compositeData.checks.find(
+        (c: { name: string }) => c.name === 'validate'
+      );
+      expect(compositeCheck).toBeDefined();
+      expect(compositeCheck.detailed).toEqual(directParsed);
+    });
+
+    it('detailed mode includes full results for each check', async () => {
+      const response = await handleAssessProject({
+        path: tmpDir,
+        checks: ['validate'],
+        mode: 'detailed',
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.checks[0]).toHaveProperty('detailed');
+    });
+
+    it('summary mode omits detailed field', async () => {
+      const response = await handleAssessProject({
+        path: tmpDir,
+        checks: ['validate'],
+        mode: 'summary',
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.checks[0]).not.toHaveProperty('detailed');
+    });
+  });
+
+  describe('assess_project performance', () => {
+    it('parallel execution reports timing in assessedIn', async () => {
+      const response = await handleAssessProject({
+        path: '/nonexistent/project-bench',
+        checks: ['validate'],
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.assessedIn).toBeGreaterThanOrEqual(0);
+      expect(typeof parsed.assessedIn).toBe('number');
     });
   });
 });
