@@ -456,7 +456,7 @@ updated: 2026-03-23
 ### Automatic Task Independence Detection
 
 - **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/changes/task-independence-detection/proposal.md
 - **Summary:** Pairwise file-overlap, import-chain, and call-graph reachability analysis to verify parallel tasks won't conflict. New MCP tool: check_task_independence. [F5]
 - **Blockers:** none
 - **Plan:** none
@@ -472,8 +472,8 @@ updated: 2026-03-23
 ### Natural Language Graph Queries
 
 - **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** English-to-ContextQL translation via Claude API enabling conversational codebase exploration. Ask 'what breaks if I change auth?' and get graph-backed answers. New MCP tool: ask_graph. [K7]
+- **Spec:** docs/changes/natural-language-graph-queries/proposal.md
+- **Summary:** English-to-ContextQL translation via scored multi-signal classifier enabling conversational codebase exploration. Ask 'what breaks if I change auth?' and get graph-backed answers with NL summaries. New MCP tool: ask_graph. No external LLM dependency — works on both Claude Code and Gemini CLI. [K7]
 - **Blockers:** none
 - **Plan:** none
 
@@ -487,11 +487,11 @@ updated: 2026-03-23
 
 ### Pre-Commit Impact Preview
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Formatted summary from get_impact() showing 'this change affects N files, M tests, K docs' before commit. Surfaces blast radius at the point of maximum developer attention. [J6]
+- **Status:** done
+- **Spec:** docs/changes/pre-commit-impact-preview/proposal.md
+- **Summary:** CLI command `harness impact-preview` showing blast radius of staged changes (affected files, tests, docs) with compact/detailed/per-file modes. Integrated into harness-pre-commit-review skill. [J6]
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-23-impact-preview-cli-plan.md
 
 ### Constraint Deprecation Detection
 
