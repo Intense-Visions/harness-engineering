@@ -573,8 +573,7 @@ This file is hardlinked to gemini-cli, so one edit covers both.
       ```
    ````
 
-   This returns `state` (current position — if null, this is a fresh start at Task 1), `learnings` (hard-won insights from previous sessions — do not ignore them), `handoff` (structured context from the previous skill), and `validation` (current project health). If any constituent fails, its field is null and the error is reported in `meta.errors`.
-   3. **Check for known dead ends.** Review `learnings` entries tagged `[outcome:failure]`. If any match approaches in the current plan, surface warnings before proceeding.
+   This returns `state` (current position — if null, this is a fresh start at Task 1), `learnings` (hard-won insights from previous sessions — do not ignore them), `handoff` (structured context from the previous skill), and `validation` (current project health). If any constituent fails, its field is null and the error is reported in `meta.errors`. 3. **Check for known dead ends.** Review `learnings` entries tagged `[outcome:failure]`. If any match approaches in the current plan, surface warnings before proceeding.
 
    ```
 
