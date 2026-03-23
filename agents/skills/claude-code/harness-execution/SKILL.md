@@ -109,7 +109,9 @@ Plans contain three types of checkpoints. Each requires pausing execution.
      type: "confirmation",
      confirmation: {
        text: "Task N complete. Output: <summary>. Continue to Task N+1?",
-       context: "<test output or file diff summary>"
+       context: "<test output or file diff summary>",
+       impact: "Continuing proceeds to the next task. Declining pauses execution for review.",
+       risk: "low"
      }
    })
    ```
@@ -125,7 +127,27 @@ Plans contain three types of checkpoints. Each requires pausing execution.
      type: "question",
      question: {
        text: "Task N requires a decision: <description>",
-       options: ["<option A>", "<option B>"]
+       options: [
+         {
+           label: "<option A>",
+           pros: ["<pro 1>", "<pro 2>"],
+           cons: ["<con 1>"],
+           risk: "low",
+           effort: "low"
+         },
+         {
+           label: "<option B>",
+           pros: ["<pro 1>"],
+           cons: ["<con 1>", "<con 2>"],
+           risk: "medium",
+           effort: "medium"
+         }
+       ],
+       recommendation: {
+         optionIndex: 0,
+         reason: "<why this option is recommended>",
+         confidence: "medium"
+       }
      }
    })
    ```
@@ -162,7 +184,15 @@ emit_interaction({
     completedPhase: "execution",
     suggestedNext: "verification",
     reason: "All plan tasks executed and verified",
-    artifacts: ["<list of created/modified files>"]
+    artifacts: ["<list of created/modified files>"],
+    qualityGate: {
+      checks: [
+        { name: "all-tasks-complete", passed: true, detail: "<N>/<N> tasks" },
+        { name: "harness-validate", passed: true },
+        { name: "tests-pass", passed: true }
+      ],
+      allPassed: true
+    }
   }
 })
 ```
@@ -236,7 +266,16 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
        "reason": "All tasks complete",
        "artifacts": ["<list of created/modified files>"],
        "requiresConfirmation": false,
-       "summary": "Completed <N> tasks. <N> files created, <N> modified. All quick gates passed."
+       "summary": "Completed <N> tasks. <N> files created, <N> modified. All quick gates passed.",
+       "qualityGate": {
+         "checks": [
+           { "name": "all-tasks-complete", "passed": true, "detail": "<N>/<N> tasks" },
+           { "name": "harness-validate", "passed": true },
+           { "name": "tests-pass", "passed": true },
+           { "name": "no-blockers", "passed": true }
+         ],
+         "allPassed": true
+       }
      }
    }
    ```
