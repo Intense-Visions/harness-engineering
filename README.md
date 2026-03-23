@@ -251,6 +251,18 @@ Learn by doing. Each example builds on the previous:
 - [CLI Reference](./docs/reference/cli.md) — All commands and flags (for CI/scripts)
 - [Configuration Reference](./docs/reference/configuration.md) — `harness.config.json` schema
 
+## Inspirations
+
+| Project                                                        | Key Contribution                                                       |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [GitHub Spec Kit](https://github.com/nicholasgubbins/spec-kit) | Constitution/principles, cross-artifact validation                     |
+| [BMAD Method](https://github.com/bmadcode/BMAD-METHOD)         | Scale-adaptive intelligence, workflow re-entry, party mode             |
+| [GSD](https://github.com/coleam00/gsd)                         | Goal-backward verification, persistent state, codebase mapping         |
+| [Superpowers](https://github.com/jlowin/superpowers)           | Rigid behavioral workflows, subagent dispatch, verification discipline |
+| [Ralph Loop](https://github.com/PlusNowhere/ralph-loop)        | Fresh-context iteration, append-only learnings, task sizing            |
+
+These five projects most directly shaped harness engineering. See the full [Inspirations & Acknowledgments](./docs/inspirations.md) for all 42 projects, standards, and tools analyzed — what we adopted, what we skipped, and why.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, coding standards, and pull request guidelines.
