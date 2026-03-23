@@ -100,6 +100,9 @@ import { runSecurityScanDefinition, handleRunSecurityScan } from './tools/securi
 import { manageRoadmapDefinition, handleManageRoadmap } from './tools/roadmap.js';
 import { emitInteractionDefinition, handleEmitInteraction } from './tools/interaction.js';
 import { runCodeReviewDefinition, handleRunCodeReview } from './tools/review-pipeline.js';
+import { gatherContextDefinition, handleGatherContext } from './tools/gather-context.js';
+import { assessProjectDefinition, handleAssessProject } from './tools/assess-project.js';
+import { reviewChangesDefinition, handleReviewChanges } from './tools/review-changes.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -144,6 +147,9 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   manageRoadmapDefinition,
   emitInteractionDefinition,
   runCodeReviewDefinition,
+  gatherContextDefinition,
+  assessProjectDefinition,
+  reviewChangesDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -183,6 +189,9 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   manage_roadmap: handleManageRoadmap as unknown as ToolHandler,
   emit_interaction: handleEmitInteraction as unknown as ToolHandler,
   run_code_review: handleRunCodeReview as ToolHandler,
+  gather_context: handleGatherContext as ToolHandler,
+  assess_project: handleAssessProject as ToolHandler,
+  review_changes: handleReviewChanges as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

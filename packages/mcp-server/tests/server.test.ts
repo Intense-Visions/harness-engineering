@@ -7,9 +7,9 @@ describe('MCP Server', () => {
     expect(server).toBeDefined();
   });
 
-  it('registers all 37 tools', () => {
+  it('registers all 40 tools', () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(37);
+    expect(tools).toHaveLength(40);
   });
 
   it('registers all 8 resources', () => {
@@ -75,5 +75,12 @@ describe('MCP Server', () => {
     expect(names).toContain('get_relationships');
     expect(names).toContain('get_impact');
     expect(names).toContain('ingest_source');
+  });
+
+  it('registers composite tools', () => {
+    const names = getToolDefinitions().map((t) => t.name);
+    expect(names).toContain('gather_context');
+    expect(names).toContain('assess_project');
+    expect(names).toContain('review_changes');
   });
 });
