@@ -429,7 +429,7 @@ updated: 2026-03-23
 
 ### Merge MCP into CLI
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/merge-mcp-into-cli/proposal.md
 - **Summary:** Eliminate standalone mcp-server package by moving source into CLI with unified binary and paths
 - **Blockers:** none

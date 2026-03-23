@@ -6,10 +6,11 @@ const workspaceRoot = path.resolve(__dirname, '../..');
 export default defineConfig([
   // Main CLI — bundles workspace packages, generates type declarations
   {
-    entry: ['src/index.ts', 'src/bin/harness.ts'],
+    entry: ['src/index.ts', 'src/bin/harness.ts', 'src/bin/harness-mcp.ts'],
     format: ['esm'],
     dts: true,
     outDir: 'dist',
+    external: ['@modelcontextprotocol/sdk'],
     // Bundle workspace packages into the CLI dist so the CLI works
     // when installed globally without needing sibling packages.
     noExternal: [

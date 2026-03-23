@@ -6,16 +6,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Walk up from the current file to find a directory by name.
+ * Walk up from a given start directory to find a directory by name.
  * Uses a marker file/dir to distinguish from same-named code directories.
- * Works for both src (vitest) and dist (compiled) contexts.
  */
-function findUpDir(targetName: string, marker: string, maxLevels = 8): string | null {
-  let dir = __dirname;
+export function findUpFrom(
+  startDir: string,
+  targetName: string,
+  marker: string,
+  maxLevels: number
+): string | null {
+  let dir = startDir;
   for (let i = 0; i < maxLevels; i++) {
     const candidate = path.join(dir, targetName);
     if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-      // Verify with marker to avoid matching code directories (e.g., src/templates/)
       if (fs.existsSync(path.join(candidate, marker))) {
         return candidate;
       }
@@ -23,6 +26,19 @@ function findUpDir(targetName: string, marker: string, maxLevels = 8): string | 
     dir = path.dirname(dir);
   }
   return null;
+}
+
+/**
+ * Walk up from the current file to find a directory by name.
+ * Uses a marker file/dir to distinguish from same-named code directories.
+ * Works for both src (vitest) and dist (compiled) contexts.
+ */
+function findUpDir(targetName: string, marker: string, maxLevels = 8): string | null {
+  // First try from the compiled module location (works in monorepo dev and bundled dist)
+  const fromModule = findUpFrom(__dirname, targetName, marker, maxLevels);
+  if (fromModule) return fromModule;
+  // Fallback: search from cwd (works when running via npx from project root)
+  return findUpFrom(process.cwd(), targetName, marker, maxLevels);
 }
 
 export function resolveTemplatesDir(): string {

@@ -10,7 +10,7 @@ Welcome to the Harness Engineering API documentation.
 - **[@harness-engineering/eslint-plugin](eslint-plugin.md)** — ESLint rules for architectural constraint enforcement (8 rules)
 - **[@harness-engineering/linter-gen](linter-gen.md)** — Generate custom ESLint rules from YAML configuration
 - **[@harness-engineering/graph](graph.md)** — Knowledge graph for codebase relationships, context assembly, and entropy detection
-- **[@harness-engineering/mcp-server](mcp-server.md)** — MCP server exposing 41 tools and 8 resources for AI agent integration
+- **[@harness-engineering/mcp-server](mcp-server.md)** — _(Deprecated)_ MCP server now included in `@harness-engineering/cli`
 
 ## Overview
 
