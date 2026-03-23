@@ -87,14 +87,16 @@ export class GraphAnomalyAdapter {
     // Sort by zScore descending
     allOutliers.sort((a, b) => b.zScore - a.zScore);
 
+    const articulationPoints = this.findArticulationPoints();
+
     return {
       statisticalOutliers: allOutliers,
-      articulationPoints: [],
+      articulationPoints,
       overlapping: [],
       summary: {
         totalNodesAnalyzed: analyzedNodeIds.size,
         outlierCount: allOutliers.length,
-        articulationPointCount: 0,
+        articulationPointCount: articulationPoints.length,
         overlapCount: 0,
         metricsAnalyzed: metricsToAnalyze,
         warnings,
@@ -103,9 +105,7 @@ export class GraphAnomalyAdapter {
     };
   }
 
-  private collectMetricValues(
-    metric: string
-  ): Array<{
+  private collectMetricValues(metric: string): Array<{
     nodeId: string;
     nodeName: string;
     nodePath?: string;
@@ -216,5 +216,137 @@ export class GraphAnomalyAdapter {
     }
 
     return outliers;
+  }
+
+  private findArticulationPoints(): ArticulationPoint[] {
+    // Build undirected adjacency list from imports edges (file nodes only)
+    const fileNodes = this.store.findNodes({ type: 'file' });
+    if (fileNodes.length === 0) return [];
+
+    const nodeMap = new Map<string, { name: string; path?: string }>();
+    const adj = new Map<string, Set<string>>();
+
+    for (const node of fileNodes) {
+      nodeMap.set(node.id, { name: node.name, path: node.path });
+      adj.set(node.id, new Set());
+    }
+
+    // Build undirected adjacency from imports edges
+    const importEdges = this.store.getEdges({ type: 'imports' });
+    for (const edge of importEdges) {
+      if (adj.has(edge.from) && adj.has(edge.to)) {
+        adj.get(edge.from)!.add(edge.to);
+        adj.get(edge.to)!.add(edge.from);
+      }
+    }
+
+    // Tarjan's algorithm for articulation points
+    const disc = new Map<string, number>();
+    const low = new Map<string, number>();
+    const parent = new Map<string, string | null>();
+    const apSet = new Set<string>();
+    let timer = 0;
+
+    const dfs = (u: string): void => {
+      disc.set(u, timer);
+      low.set(u, timer);
+      timer++;
+      let children = 0;
+
+      for (const v of adj.get(u)!) {
+        if (!disc.has(v)) {
+          children++;
+          parent.set(v, u);
+          dfs(v);
+
+          low.set(u, Math.min(low.get(u)!, low.get(v)!));
+
+          // u is AP if:
+          // 1) u is root and has 2+ children
+          if (parent.get(u) === null && children > 1) {
+            apSet.add(u);
+          }
+          // 2) u is not root and low[v] >= disc[u]
+          if (parent.get(u) !== null && low.get(v)! >= disc.get(u)!) {
+            apSet.add(u);
+          }
+        } else if (v !== parent.get(u)) {
+          low.set(u, Math.min(low.get(u)!, disc.get(v)!));
+        }
+      }
+    };
+
+    // Handle disconnected components
+    for (const nodeId of adj.keys()) {
+      if (!disc.has(nodeId)) {
+        parent.set(nodeId, null);
+        dfs(nodeId);
+      }
+    }
+
+    // For each AP, compute componentsIfRemoved and dependentCount
+    const results: ArticulationPoint[] = [];
+
+    for (const apId of apSet) {
+      const { components, dependentCount } = this.computeRemovalImpact(apId, adj);
+      const info = nodeMap.get(apId)!;
+      results.push({
+        nodeId: apId,
+        nodeName: info.name,
+        nodePath: info.path,
+        componentsIfRemoved: components,
+        dependentCount,
+      });
+    }
+
+    // Sort by dependentCount descending
+    results.sort((a, b) => b.dependentCount - a.dependentCount);
+
+    return results;
+  }
+
+  private computeRemovalImpact(
+    removedId: string,
+    adj: Map<string, Set<string>>
+  ): { components: number; dependentCount: number } {
+    // BFS on graph with removedId deleted, count connected components
+    const visited = new Set<string>();
+    visited.add(removedId); // treat as removed
+
+    const componentSizes: number[] = [];
+
+    for (const nodeId of adj.keys()) {
+      if (visited.has(nodeId)) continue;
+
+      // BFS from this node
+      const queue: string[] = [nodeId];
+      visited.add(nodeId);
+      let size = 0;
+      let head = 0;
+
+      while (head < queue.length) {
+        const current = queue[head++]!;
+        size++;
+        for (const neighbor of adj.get(current)!) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+
+      componentSizes.push(size);
+    }
+
+    const components = componentSizes.length;
+    // dependentCount = total nodes in all components except the largest
+    if (componentSizes.length <= 1) {
+      return { components, dependentCount: 0 };
+    }
+
+    const maxSize = Math.max(...componentSizes);
+    const dependentCount = componentSizes.reduce((sum, s) => sum + s, 0) - maxSize;
+
+    return { components, dependentCount };
   }
 }
