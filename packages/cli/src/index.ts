@@ -28,6 +28,7 @@ import { createIngestCommand } from './commands/graph/ingest';
 import { createQueryCommand } from './commands/graph/query';
 import { createGraphCommand } from './commands/graph/index';
 import { createMcpCommand } from './commands/mcp';
+import { createImpactPreviewCommand } from './commands/impact-preview';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -70,6 +71,7 @@ export function createProgram(): Command {
   program.addCommand(createQueryCommand());
   program.addCommand(createGraphCommand());
   program.addCommand(createMcpCommand());
+  program.addCommand(createImpactPreviewCommand());
 
   return program;
 }
@@ -138,6 +140,9 @@ export {
 export type { AgentDefinition } from './agent-definitions/generator';
 export { renderClaudeCodeAgent } from './agent-definitions/render-claude-code';
 export { renderGeminiAgent } from './agent-definitions/render-gemini-cli';
+
+// Impact preview export
+export { runImpactPreview } from './commands/impact-preview';
 
 // MCP server exports
 export { createHarnessServer, startServer, getToolDefinitions } from './mcp/index';
