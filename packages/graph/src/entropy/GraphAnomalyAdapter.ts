@@ -126,8 +126,8 @@ export class GraphAnomalyAdapter {
 
   private collectMetricValues(
     metric: string,
-    cachedCouplingData?: GraphCouplingResult | undefined,
-    cachedHotspotData?: GraphComplexityResult | undefined
+    cachedCouplingData?: GraphCouplingResult,
+    cachedHotspotData?: GraphComplexityResult
   ): Array<{
     nodeId: string;
     nodeName: string;
