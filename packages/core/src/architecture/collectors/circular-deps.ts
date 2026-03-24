@@ -1,12 +1,24 @@
 import { relative } from 'node:path';
-import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
-import { violationId } from './hash';
+import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
+import { violationId, constraintRuleId } from './hash';
 import { buildDependencyGraph } from '../../constraints/dependencies';
 import { detectCircularDeps } from '../../constraints/circular-deps';
 import { findFiles } from '../../shared/fs-utils';
 
 export class CircularDepsCollector implements Collector {
   readonly category = 'circular-deps' as const;
+
+  getRules(_config: ArchConfig, _rootDir: string): ConstraintRule[] {
+    const description = 'No circular dependencies allowed';
+    return [
+      {
+        id: constraintRuleId(this.category, 'project', description),
+        category: this.category,
+        description,
+        scope: 'project',
+      },
+    ];
+  }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const files = await findFiles('**/*.ts', rootDir);

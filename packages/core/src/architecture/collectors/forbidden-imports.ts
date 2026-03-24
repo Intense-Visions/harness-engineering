@@ -1,11 +1,23 @@
 import { relative } from 'node:path';
-import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
-import { violationId } from './hash';
+import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
+import { violationId, constraintRuleId } from './hash';
 import { validateDependencies } from '../../constraints/dependencies';
 import type { DependencyViolation } from '../../constraints/types';
 
 export class ForbiddenImportCollector implements Collector {
   readonly category = 'forbidden-imports' as const;
+
+  getRules(_config: ArchConfig, _rootDir: string): ConstraintRule[] {
+    const description = 'No forbidden imports allowed';
+    return [
+      {
+        id: constraintRuleId(this.category, 'project', description),
+        category: this.category,
+        description,
+        scope: 'project',
+      },
+    ];
+  }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const result = await validateDependencies({

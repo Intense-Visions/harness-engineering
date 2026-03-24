@@ -1,12 +1,24 @@
 import { relative } from 'node:path';
-import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
-import { violationId } from './hash';
+import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
+import { violationId, constraintRuleId } from './hash';
 import { detectCouplingViolations } from '../../entropy/detectors/coupling';
 import type { CodebaseSnapshot } from '../../entropy/types';
 import { findFiles } from '../../shared/fs-utils';
 
 export class CouplingCollector implements Collector {
   readonly category = 'coupling' as const;
+
+  getRules(_config: ArchConfig, _rootDir: string): ConstraintRule[] {
+    const description = 'Coupling metrics must stay within thresholds';
+    return [
+      {
+        id: constraintRuleId(this.category, 'project', description),
+        category: this.category,
+        description,
+        scope: 'project',
+      },
+    ];
+  }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const files = await findFiles('**/*.ts', rootDir);
@@ -50,9 +62,9 @@ export class CouplingCollector implements Collector {
 
     const violations: Violation[] = filtered.map((v) => {
       const relFile = relative(rootDir, v.file);
-      const detail = `${v.metric}=${v.value}`;
+      const idDetail = `${v.metric}`;
       return {
-        id: violationId(relFile, this.category, detail),
+        id: violationId(relFile, this.category, idDetail),
         file: relFile,
         detail: `${v.metric}=${v.value} (threshold: ${v.threshold})`,
         severity: v.severity as 'error' | 'warning',
