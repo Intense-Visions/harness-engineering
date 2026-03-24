@@ -235,4 +235,71 @@ describe('diff()', () => {
     expect(result.passed).toBe(true);
     expect(result.newViolations).toEqual([]);
   });
+
+  it('resolves all violations when category disappears from current', () => {
+    const baseline = makeBaseline({
+      'circular-deps': { value: 2, violationIds: ['cd-1', 'cd-2'] },
+      complexity: { value: 5, violationIds: ['cx-1'] },
+    });
+    // Only complexity in current, circular-deps entirely gone
+    const current: MetricResult[] = [
+      {
+        category: 'complexity',
+        scope: 'project',
+        value: 5,
+        violations: [{ id: 'cx-1', file: 'src/a.ts', detail: 'High', severity: 'warning' }],
+      },
+    ];
+
+    const result = diff(current, baseline);
+
+    expect(result.passed).toBe(true);
+    expect(result.resolvedViolations).toContain('cd-1');
+    expect(result.resolvedViolations).toContain('cd-2');
+    expect(result.preExisting).toEqual(['cx-1']);
+  });
+
+  it('passes with empty current and empty baseline', () => {
+    const baseline = makeBaseline({});
+    const current: MetricResult[] = [];
+
+    const result = diff(current, baseline);
+
+    expect(result.passed).toBe(true);
+    expect(result.newViolations).toEqual([]);
+    expect(result.resolvedViolations).toEqual([]);
+    expect(result.preExisting).toEqual([]);
+    expect(result.regressions).toEqual([]);
+  });
+
+  it('new violations contain full Violation objects not just IDs', () => {
+    const baseline = makeBaseline({
+      'forbidden-imports': { value: 0, violationIds: [] },
+    });
+    const current: MetricResult[] = [
+      {
+        category: 'forbidden-imports',
+        scope: 'project',
+        value: 1,
+        violations: [
+          {
+            id: 'fi-1',
+            file: 'src/api/handler.ts',
+            detail: 'Imports from src/internal',
+            severity: 'error',
+          },
+        ],
+      },
+    ];
+
+    const result = diff(current, baseline);
+
+    expect(result.passed).toBe(false);
+    expect(result.newViolations[0]).toEqual({
+      id: 'fi-1',
+      file: 'src/api/handler.ts',
+      detail: 'Imports from src/internal',
+      severity: 'error',
+    });
+  });
 });
