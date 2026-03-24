@@ -241,3 +241,27 @@ export interface Roadmap {
   /** Milestones in document order (including Backlog) */
   milestones: RoadmapMilestone[];
 }
+
+// --- Orchestrator Types ---
+export type {
+  TokenUsage,
+  BlockerRef,
+  Issue,
+  AgentErrorCategory,
+  AgentError,
+  SessionStartParams,
+  AgentSession,
+  TurnParams,
+  AgentEvent,
+  TurnResult,
+  AgentBackend,
+  IssueTrackerClient,
+  TrackerConfig,
+  PollingConfig,
+  WorkspaceConfig,
+  HooksConfig,
+  AgentConfig,
+  ServerConfig,
+  WorkflowConfig,
+  WorkflowDefinition,
+} from './orchestrator';
