@@ -1,4 +1,4 @@
-import type { Issue, TokenUsage, AgentSession } from '@harness-engineering/types';
+import type { Issue } from '@harness-engineering/types';
 
 /**
  * Run attempt lifecycle phases (internal to orchestrator).
