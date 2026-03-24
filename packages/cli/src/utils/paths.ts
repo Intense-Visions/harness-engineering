@@ -98,3 +98,55 @@ export function resolveGlobalSkillsDir(): string {
   }
   return path.join(__dirname, 'agents', 'skills', 'claude-code');
 }
+
+/**
+ * Resolve the community-installed skills directory.
+ * Community skills live under agents/skills/community/{platform}/.
+ */
+export function resolveCommunitySkillsDir(platform: string = 'claude-code'): string {
+  const agentsDir = findUpDir('agents', 'skills');
+  if (agentsDir) {
+    return path.join(agentsDir, 'skills', 'community', platform);
+  }
+  return path.join(__dirname, 'agents', 'skills', 'community', platform);
+}
+
+/**
+ * Resolve all skill directories in priority order:
+ * 1. Project-local (highest priority)
+ * 2. Community-installed
+ * 3. Bundled/global (fallback)
+ *
+ * Only directories that exist on disk are included.
+ * The existing resolveSkillsDir() is unchanged for backward compatibility.
+ */
+export function resolveAllSkillsDirs(platform: string = 'claude-code'): string[] {
+  const dirs: string[] = [];
+
+  // 1. Project-local (highest priority)
+  const projectDir = resolveProjectSkillsDir();
+  if (projectDir) {
+    const platformDir = projectDir.replace(/claude-code$/, platform);
+    if (fs.existsSync(platformDir)) {
+      dirs.push(platformDir);
+    }
+  }
+
+  // 2. Community-installed
+  const communityDir = resolveCommunitySkillsDir(platform);
+  if (fs.existsSync(communityDir)) {
+    dirs.push(communityDir);
+  }
+
+  // 3. Bundled/global (fallback)
+  const globalDir = resolveGlobalSkillsDir();
+  const globalPlatformDir = globalDir.replace(/claude-code$/, platform);
+  if (fs.existsSync(globalPlatformDir)) {
+    // Avoid duplicating project dir if they resolve to the same path
+    if (!dirs.some((d) => path.resolve(d) === path.resolve(globalPlatformDir))) {
+      dirs.push(globalPlatformDir);
+    }
+  }
+
+  return dirs;
+}
