@@ -16,28 +16,57 @@
 
 ## Process
 
-### Step 1: Identify Independent Problem Domains
+### Step 1: Verify Task Independence
 
-Before dispatching anything in parallel, rigorously verify independence:
+Before dispatching anything in parallel, verify independence using `check_task_independence`:
 
-1. **List the candidate tasks.** Pull from the plan, or identify from the current work.
+1. **List the candidate tasks.** Pull from the plan, or identify from the current work. For each task, identify the files it will read and write.
 
-2. **Check file overlap.** For each pair of tasks, compare the files they will read and write. Any overlap in WRITE targets means they are NOT independent. Overlap in READ targets is acceptable only if neither task writes to those files.
+2. **Call `check_task_independence`.** Pass the tasks with their file lists:
 
-3. **Check state overlap.** Do any tasks share database tables, configuration files, environment variables, or in-memory state? If yes, they are NOT independent.
+   ```json
+   {
+     "path": "<project-root>",
+     "tasks": [
+       { "id": "task-a", "files": ["src/module-a/index.ts", "src/module-a/index.test.ts"] },
+       { "id": "task-b", "files": ["src/module-b/index.ts", "src/module-b/index.test.ts"] }
+     ],
+     "depth": 1
+   }
+   ```
 
-4. **Check import graph overlap.** If Task A modifies module X and Task B imports module X, they are NOT independent — Task B's tests may be affected by Task A's changes.
+   The tool checks direct file overlap AND transitive dependency overlap (via the knowledge graph when available). It returns:
+   - **`pairs`**: Pairwise independence results with overlap details
+   - **`groups`**: Safe parallel dispatch groups (connected components of the conflict graph)
+   - **`verdict`**: Human-readable summary (e.g., "3 of 4 tasks can run in parallel in 2 groups")
+   - **`analysisLevel`**: `"graph-expanded"` (full analysis) or `"file-only"` (graph unavailable)
 
-5. **When in doubt, run serially.** The cost of a false parallel dispatch (merge conflicts, subtle bugs, wasted work) far exceeds the cost of running serially.
+3. **Act on the result.** If all tasks are in one group, dispatch them all in parallel. If tasks are split across groups, dispatch each group as a separate parallel wave. If tasks conflict, investigate the overlaps and consider restructuring.
+
+4. **When in doubt, run serially.** The cost of a false parallel dispatch (merge conflicts, subtle bugs, wasted work) far exceeds the cost of running serially.
+
+#### Manual Fallback (when MCP tool is unavailable)
+
+If `check_task_independence` is not available, verify independence manually:
+
+1. **Check file overlap.** For each pair of tasks, compare the files they will read and write. Any overlap in WRITE targets means they are NOT independent. Overlap in READ targets is acceptable only if neither task writes to those files.
+
+2. **Check state overlap.** Do any tasks share database tables, configuration files, environment variables, or in-memory state? If yes, they are NOT independent.
+
+3. **Check import graph overlap.** If Task A modifies module X and Task B imports module X, they are NOT independent — Task B's tests may be affected by Task A's changes.
+
+4. **When in doubt, run serially.** Same principle as above.
 
 ### Graph-Enhanced Context (when available)
 
-When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate independence verification:
+When a knowledge graph exists at `.harness/graph/`, `check_task_independence` automatically uses it for transitive dependency analysis (this is the `"graph-expanded"` analysis level). No manual graph queries are needed for independence checking.
 
-- `query_graph` — get the dependency subgraph per candidate task and check for node overlap between tasks
-- `get_impact` — verify tasks do not write to overlapping files or share transitive dependencies
+For custom queries beyond independence checking, these tools remain available:
 
-Automated graph-based independence verification replaces manual import grep and catches transitive overlaps that file-level checks miss. Fall back to file-based commands if no graph is available.
+- `query_graph` — get the dependency subgraph for a specific module or file
+- `get_impact` — assess the impact radius of changes to a specific module
+
+When no graph is available, `check_task_independence` falls back to file-only overlap detection and flags `analysisLevel: "file-only"` so you know transitive dependencies were not checked.
 
 ### Step 2: Create Focused Agent Tasks
 
@@ -101,7 +130,7 @@ For each independent task, write a focused agent brief:
 
 ## Success Criteria
 
-- Independence was verified before dispatch (file overlap, state overlap, import graph)
+- Independence was verified before dispatch via `check_task_independence` (or manual fallback if tool unavailable)
 - Each agent had a focused brief with explicit scope, goal, constraints, and expected output
 - All agents completed successfully (or blockers were reported)
 - Integration produced no merge conflicts (or conflicts were resolved)
@@ -117,16 +146,51 @@ For each independent task, write a focused agent brief:
 
 **Step 1: Verify independence**
 
-```
-Task 4 (UserService):      writes src/services/user/*, reads src/types/user.ts
-Task 5 (ProductService):   writes src/services/product/*, reads src/types/product.ts
-Task 6 (NotificationService): writes src/services/notification/*, reads src/types/notification.ts
+Call `check_task_independence`:
 
-File overlap: NONE (different directories, different type files)
-State overlap: NONE (different DB tables, no shared config)
-Import graph: NONE (no cross-service imports)
-Verdict: INDEPENDENT — safe to parallelize
+```json
+{
+  "path": ".",
+  "tasks": [
+    {
+      "id": "task-4-user",
+      "files": [
+        "src/services/user/service.ts",
+        "src/services/user/service.test.ts",
+        "src/types/user.ts"
+      ]
+    },
+    {
+      "id": "task-5-product",
+      "files": [
+        "src/services/product/service.ts",
+        "src/services/product/service.test.ts",
+        "src/types/product.ts"
+      ]
+    },
+    {
+      "id": "task-6-notification",
+      "files": [
+        "src/services/notification/service.ts",
+        "src/services/notification/service.test.ts",
+        "src/types/notification.ts"
+      ]
+    }
+  ]
+}
 ```
+
+Result:
+
+```json
+{
+  "analysisLevel": "graph-expanded",
+  "groups": [["task-4-user", "task-5-product", "task-6-notification"]],
+  "verdict": "3 of 3 tasks can run in parallel in 1 group"
+}
+```
+
+All tasks are independent — safe to parallelize.
 
 **Step 2: Create agent briefs**
 
