@@ -1,0 +1,32 @@
+{
+  "fromSkill": "harness-autopilot",
+  "phase": "DONE",
+  "timestamp": "2026-03-23T22:25:00Z",
+  "summary": "Completed 4 phases with 16 total tasks for Automatic Task Independence Detection",
+  "completed": [
+    "Phase 1: Core Analyzer — TaskIndependenceAnalyzer with file-only and graph-expanded analysis, union-find grouping",
+    "Phase 2: MCP Tool — check_task_independence registered as tool #42 with summary/detailed modes",
+    "Phase 3: Tests — 37 total tests (19 graph unit + 18 MCP integration)",
+    "Phase 4: Skill Integration — harness-parallel-agents SKILL.md updated with tool as primary method"
+  ],
+  "pending": [],
+  "concerns": [],
+  "decisions": [
+    "File-based task input (not plan-based)",
+    "Single-hop expansion default with configurable depth",
+    "Matrix output with parallel groupings",
+    "Graceful degradation without graph",
+    "Library in packages/graph/ + thin MCP tool",
+    "Distinguish direct vs transitive overlaps"
+  ],
+  "contextKeywords": [
+    "task-independence",
+    "parallel-dispatch",
+    "graph-reachability",
+    "conflict-matrix",
+    "pairwise-overlap",
+    "ContextQL",
+    "MCP-tool",
+    "import-chain"
+  ]
+}
