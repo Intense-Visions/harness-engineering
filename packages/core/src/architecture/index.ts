@@ -46,3 +46,4 @@ export type { StaleConstraint, DetectStaleResult } from './detect-stale';
 
 export { ArchBaselineManager } from './baseline-manager';
 export { diff } from './diff';
+export { resolveThresholds } from './config';
