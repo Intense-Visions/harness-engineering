@@ -29,6 +29,7 @@ import { createQueryCommand } from './commands/graph/query';
 import { createGraphCommand } from './commands/graph/index';
 import { createMcpCommand } from './commands/mcp';
 import { createImpactPreviewCommand } from './commands/impact-preview';
+import { createCheckArchCommand } from './commands/check-arch';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -72,6 +73,7 @@ export function createProgram(): Command {
   program.addCommand(createGraphCommand());
   program.addCommand(createMcpCommand());
   program.addCommand(createImpactPreviewCommand());
+  program.addCommand(createCheckArchCommand());
 
   return program;
 }
@@ -143,6 +145,10 @@ export { renderGeminiAgent } from './agent-definitions/render-gemini-cli';
 
 // Impact preview export
 export { runImpactPreview } from './commands/impact-preview';
+
+// Architecture assertion export
+export { runCheckArch } from './commands/check-arch';
+export type { CheckArchResult } from './commands/check-arch';
 
 // MCP server exports
 export { createHarnessServer, startServer, getToolDefinitions } from './mcp/index';
