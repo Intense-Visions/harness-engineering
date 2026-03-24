@@ -14,10 +14,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./architecture/matchers": {
+      "types": "./dist/architecture/matchers.d.ts",
+      "import": "./dist/architecture/matchers.mjs",
+      "require": "./dist/architecture/matchers.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
+    "build": "tsup src/index.ts src/architecture/matchers.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",

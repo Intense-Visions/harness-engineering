@@ -17,12 +17,12 @@ export interface ArchHandle {
   readonly kind: 'arch-handle';
   readonly scope: string; // 'project' or module path like 'src/services'
   readonly rootDir: string;
-  readonly config?: Partial<ArchConfig>;
+  readonly config?: Partial<ArchConfig> | undefined;
 }
 
 export interface ArchitectureOptions {
   rootDir?: string;
-  config?: Partial<ArchConfig>;
+  config?: Partial<ArchConfig> | undefined;
 }
 
 /**
