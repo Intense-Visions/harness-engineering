@@ -31,6 +31,7 @@ import { createMcpCommand } from './commands/mcp';
 import { createImpactPreviewCommand } from './commands/impact-preview';
 import { createCheckArchCommand } from './commands/check-arch';
 import { createBlueprintCommand } from './commands/blueprint';
+import { createShareCommand } from './commands/share';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -76,6 +77,7 @@ export function createProgram(): Command {
   program.addCommand(createImpactPreviewCommand());
   program.addCommand(createCheckArchCommand());
   program.addCommand(createBlueprintCommand());
+  program.addCommand(createShareCommand());
 
   return program;
 }
