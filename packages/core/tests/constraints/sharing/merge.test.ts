@@ -318,4 +318,105 @@ describe('deepMergeConstraints', () => {
       expect(result.conflicts[0].key).toBe('complexity');
     });
   });
+
+  describe('architecture modules merge', () => {
+    const makeArch = (
+      thresholds: Record<string, unknown>,
+      modules: Record<string, Record<string, unknown>>
+    ) => ({
+      architecture: {
+        enabled: true,
+        baselinePath: '.harness/arch/baselines.json',
+        thresholds,
+        modules,
+      },
+    });
+
+    it('should add new module overrides from bundle', () => {
+      const localConfig = makeArch({}, { 'src/api': { complexity: 5 } });
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: {},
+          modules: { 'src/lib': { complexity: 15 } },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const arch = result.config.architecture as {
+        modules: Record<string, Record<string, unknown>>;
+      };
+      expect(arch.modules['src/api']).toEqual({ complexity: 5 });
+      expect(arch.modules['src/lib']).toEqual({ complexity: 15 });
+      expect(result.contributions['architecture.modules']).toEqual(['src/lib:complexity']);
+    });
+
+    it('should add new categories to existing module', () => {
+      const localConfig = makeArch({}, { 'src/api': { complexity: 5 } });
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: {},
+          modules: { 'src/api': { coupling: 3 } },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const arch = result.config.architecture as {
+        modules: Record<string, Record<string, unknown>>;
+      };
+      expect(arch.modules['src/api']).toEqual({ complexity: 5, coupling: 3 });
+      expect(result.contributions['architecture.modules']).toEqual(['src/api:coupling']);
+    });
+
+    it('should report conflict for same module + same category with different value', () => {
+      const localConfig = makeArch({}, { 'src/api': { complexity: 5 } });
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: {},
+          modules: { 'src/api': { complexity: 20 } },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].section).toBe('architecture.modules');
+      expect(result.conflicts[0].key).toBe('src/api:complexity');
+      expect(result.conflicts[0].localValue).toBe(5);
+      expect(result.conflicts[0].packageValue).toBe(20);
+    });
+
+    it('should skip identical module + category values', () => {
+      const localConfig = makeArch({}, { 'src/api': { complexity: 5 } });
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: {},
+          modules: { 'src/api': { complexity: 5 } },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.contributions['architecture.modules']).toBeUndefined();
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('should handle modules when local has no architecture', () => {
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: {},
+          modules: { 'src/lib': { coupling: 3 } },
+        },
+      };
+      const result = deepMergeConstraints({}, bundle);
+      const arch = result.config.architecture as {
+        modules: Record<string, Record<string, unknown>>;
+      };
+      expect(arch.modules['src/lib']).toEqual({ coupling: 3 });
+      expect(result.contributions['architecture.modules']).toEqual(['src/lib:coupling']);
+    });
+  });
 });
