@@ -7,7 +7,7 @@ import { normalizeName } from './normalize-name';
 
 export interface SkillSource {
   dir: string;
-  source: 'project' | 'global';
+  source: 'project' | 'community' | 'global';
 }
 
 export function normalizeSkills(
@@ -15,7 +15,10 @@ export function normalizeSkills(
   platforms: Platform[]
 ): SlashCommandSpec[] {
   const specs: SlashCommandSpec[] = [];
-  const nameMap = new Map<string, { skillName: string; source: 'project' | 'global' }>();
+  const nameMap = new Map<
+    string,
+    { skillName: string; source: 'project' | 'community' | 'global' }
+  >();
 
   for (const { dir: skillsDir, source } of skillSources) {
     if (!fs.existsSync(skillsDir)) continue;
