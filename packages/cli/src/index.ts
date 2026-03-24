@@ -34,6 +34,7 @@ import { createBlueprintCommand } from './commands/blueprint';
 import { createShareCommand } from './commands/share';
 import { createInstallCommand } from './commands/install';
 import { createUninstallCommand } from './commands/uninstall';
+import { createOrchestratorCommand } from './commands/orchestrator';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -82,6 +83,7 @@ export function createProgram(): Command {
   program.addCommand(createShareCommand());
   program.addCommand(createInstallCommand());
   program.addCommand(createUninstallCommand());
+  program.addCommand(createOrchestratorCommand());
 
   return program;
 }
