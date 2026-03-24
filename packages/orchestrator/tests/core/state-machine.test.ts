@@ -177,3 +177,104 @@ describe('applyEvent - tick', () => {
     }
   });
 });
+
+describe('applyEvent - worker_exit', () => {
+  it('should schedule continuation retry (1000ms) on normal exit', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    const entry: RunningEntry = {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    };
+    state.running.set('id-1', entry);
+    state.claimed.add('id-1');
+
+    const event: OrchestratorEvent = {
+      type: 'worker_exit',
+      issueId: 'id-1',
+      reason: 'normal',
+      attempt: null,
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+
+    expect(nextState.running.has('id-1')).toBe(false);
+    expect(nextState.completed.has('id-1')).toBe(true);
+
+    const retry = effects.find((e) => e.type === 'scheduleRetry');
+    expect(retry).toBeDefined();
+    if (retry && retry.type === 'scheduleRetry') {
+      expect(retry.delayMs).toBe(1000);
+      expect(retry.attempt).toBe(1);
+      expect(retry.error).toBeNull();
+    }
+  });
+
+  it('should schedule exponential backoff retry on error exit', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: 2,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+    state.claimed.add('id-1');
+
+    const event: OrchestratorEvent = {
+      type: 'worker_exit',
+      issueId: 'id-1',
+      reason: 'error',
+      error: 'agent crashed',
+      attempt: 2,
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+
+    expect(nextState.running.has('id-1')).toBe(false);
+
+    const retry = effects.find((e) => e.type === 'scheduleRetry');
+    expect(retry).toBeDefined();
+    if (retry && retry.type === 'scheduleRetry') {
+      expect(retry.attempt).toBe(3);
+      expect(retry.delayMs).toBe(40000); // 10000 * 2^(3-1) = 40000
+      expect(retry.error).toBe('agent crashed');
+    }
+  });
+
+  it('should remove issue from running map on any exit', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'worker_exit',
+      issueId: 'id-1',
+      reason: 'error',
+      error: 'crash',
+      attempt: null,
+    };
+
+    const { nextState } = applyEvent(state, event, config);
+    expect(nextState.running.size).toBe(0);
+  });
+});
