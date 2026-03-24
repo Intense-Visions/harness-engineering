@@ -5,6 +5,7 @@ import { createValidateCommand } from './validate';
 import { createInfoCommand } from './info';
 import { createSearchCommand } from './search';
 import { createCreateCommand } from './create';
+import { createPublishCommand } from './publish';
 
 export function createSkillCommand(): Command {
   const command = new Command('skill').description('Skill management commands');
@@ -14,5 +15,6 @@ export function createSkillCommand(): Command {
   command.addCommand(createInfoCommand());
   command.addCommand(createSearchCommand());
   command.addCommand(createCreateCommand());
+  command.addCommand(createPublishCommand());
   return command;
 }
