@@ -113,6 +113,9 @@ importers:
       minimatch:
         specifier: ^10.2.4
         version: 10.2.4
+      semver:
+        specifier: ^7.7.4
+        version: 7.7.4
       yaml:
         specifier: ^2.3.0
         version: 2.8.2
@@ -126,6 +129,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.15
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.7.1
       '@vitest/coverage-v8':
         specifier: ^4.0.18
         version: 4.0.18(vitest@4.0.18)
@@ -1698,6 +1704,10 @@ packages:
     resolution: {integrity: sha512-F0R/h2+dsy5wJAUe3tAU6oqa2qbWY5TpNfL/RGmo1y38hiyO1w3x2jPtt76wmuaJI4DQnOBu21cNXQ2STIUUWg==}
     dependencies:
       undici-types: 6.21.0
+    dev: true
+
+  /@types/semver@7.7.1:
+    resolution: {integrity: sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA==}
     dev: true
 
   /@types/unist@3.0.3:
