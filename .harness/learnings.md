@@ -287,3 +287,8 @@
 - [skill:harness-execution] [outcome:success] All 5 tasks completed. 23 tests pass for ConflictPredictor covering validation, severity classification (high/medium/low), regrouping behavior, verdict/summary, and severity precedence.
 - [skill:harness-execution] [outcome:gotcha] In small graphs, the coupling adapter's P80 threshold equals shared.ts's coupling (fanIn=2 from the import edges that create transitive overlap), causing transitive overlaps to classify as medium instead of low. Fix: add a triangle cluster of 3 mutually-importing files (coupling=4 each) to push the P80 threshold above shared.ts's value of 2.
 - [skill:harness-execution] [outcome:gotcha] Hub-and-leaf patterns are inefficient for raising coupling P80: each hub adds 1 high-coupling file but N low-coupling leaves, diluting the percentile. Triangle/cycle patterns (3 files, 6 edges, zero new low-coupling nodes) are far more efficient.
+
+## 2026-03-24 — Constraint Sharing Merge Engine
+
+- [skill:harness-execution] [outcome:gotcha] Zod inferred types with optional fields produce `string | undefined` which conflicts with `exactOptionalPropertyTypes: true` in tsconfig. When pushing Zod-inferred objects into typed arrays, construct the entry explicitly and conditionally assign optional fields only when defined.
+- [skill:harness-execution] [outcome:success] All 8 tasks completed in a single session with no blockers. TDD rhythm worked smoothly — each section's tests caught the stub returning empty results, then implementation made them pass.

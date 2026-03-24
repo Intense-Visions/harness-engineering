@@ -104,7 +104,7 @@ describe('deepMergeConstraints', () => {
       const fi = result.config.forbiddenImports as Array<{ from: string }>;
       expect(fi).toHaveLength(3);
       expect(fi[2].from).toBe('src/infra/**');
-      expect(result.contributions.forbiddenImports).toEqual([2]); // index in merged array
+      expect(result.contributions.forbiddenImports).toEqual(['src/infra/**']);
       expect(result.conflicts).toEqual([]);
     });
 
@@ -136,7 +136,7 @@ describe('deepMergeConstraints', () => {
       const result = deepMergeConstraints({}, bundle);
       const fi = result.config.forbiddenImports as Array<{ from: string }>;
       expect(fi).toHaveLength(1);
-      expect(result.contributions.forbiddenImports).toEqual([0]);
+      expect(result.contributions.forbiddenImports).toEqual(['src/infra/**']);
     });
 
     it('should handle mixed: new, identical, and conflicting', () => {
@@ -150,7 +150,7 @@ describe('deepMergeConstraints', () => {
       const result = deepMergeConstraints(localConfig, bundle);
       const fi = result.config.forbiddenImports as Array<{ from: string }>;
       expect(fi).toHaveLength(3); // 2 local + 1 new
-      expect(result.contributions.forbiddenImports).toEqual([2]);
+      expect(result.contributions.forbiddenImports).toEqual(['src/new/**']);
       expect(result.conflicts).toHaveLength(1);
       expect(result.conflicts[0].key).toBe('src/domain/**');
     });
@@ -566,7 +566,7 @@ describe('deepMergeConstraints', () => {
       const fi = result.config.forbiddenImports as Array<{ from: string }>;
       expect(fi).toHaveLength(2);
       expect(fi[1].from).toBe('src/infra/**');
-      expect(result.contributions.forbiddenImports).toEqual([1]);
+      expect(result.contributions.forbiddenImports).toEqual(['src/infra/**']);
 
       // Boundaries
       const boundaries = result.config.boundaries as { requireSchema: string[] };
@@ -632,7 +632,7 @@ describe('deepMergeConstraints', () => {
       const result = deepMergeConstraints({}, bundle);
       expect(result.conflicts).toEqual([]);
       expect(result.contributions.layers).toEqual(['infra']);
-      expect(result.contributions.forbiddenImports).toEqual([0]);
+      expect(result.contributions.forbiddenImports).toEqual(['src/infra/**']);
       expect(result.contributions.boundaries).toEqual(['src/api/**']);
       expect(result.contributions['security.rules']).toEqual(['SEC-CRY-001']);
     });

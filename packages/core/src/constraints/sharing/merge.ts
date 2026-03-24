@@ -29,6 +29,11 @@ function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
   if (typeof a !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((val, i) => deepEqual(val, b[i]));
+  }
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
   const keysA = Object.keys(a as Record<string, unknown>);
   const keysB = Object.keys(b as Record<string, unknown>);
   if (keysA.length !== keysB.length) return false;
@@ -37,7 +42,8 @@ function deepEqual(a: unknown, b: unknown): boolean {
   );
 }
 
-function arraysEqual(a: unknown[], b: unknown[]): boolean {
+/** Order-insensitive equality for string arrays (e.g. allowedDependencies, disallow). */
+function stringArraysEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sortedA = [...a].sort();
   const sortedB = [...b].sort();
@@ -71,7 +77,7 @@ export function deepMergeConstraints(
       } else {
         const same =
           existing.pattern === bundleLayer.pattern &&
-          arraysEqual(existing.allowedDependencies, bundleLayer.allowedDependencies);
+          stringArraysEqual(existing.allowedDependencies, bundleLayer.allowedDependencies);
         if (!same) {
           conflicts.push({
             section: 'layers',
@@ -101,12 +107,11 @@ export function deepMergeConstraints(
       message?: string;
     }>;
     const mergedFI = [...localFI];
-    const contributedIndices: number[] = [];
+    const contributedFromKeys: string[] = [];
 
     for (const bundleRule of bundleConstraints.forbiddenImports) {
       const existing = localFI.find((r) => r.from === bundleRule.from);
       if (!existing) {
-        const newIndex = mergedFI.length;
         const entry: { from: string; disallow: string[]; message?: string } = {
           from: bundleRule.from,
           disallow: bundleRule.disallow,
@@ -115,9 +120,9 @@ export function deepMergeConstraints(
           entry.message = bundleRule.message;
         }
         mergedFI.push(entry);
-        contributedIndices.push(newIndex);
+        contributedFromKeys.push(bundleRule.from);
       } else {
-        const same = arraysEqual(existing.disallow, bundleRule.disallow);
+        const same = stringArraysEqual(existing.disallow, bundleRule.disallow);
         if (!same) {
           conflicts.push({
             section: 'forbiddenImports',
@@ -131,8 +136,8 @@ export function deepMergeConstraints(
     }
 
     config.forbiddenImports = mergedFI;
-    if (contributedIndices.length > 0) {
-      contributions.forbiddenImports = contributedIndices;
+    if (contributedFromKeys.length > 0) {
+      contributions.forbiddenImports = contributedFromKeys;
     }
   }
 

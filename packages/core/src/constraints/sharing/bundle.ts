@@ -1,7 +1,6 @@
 import { BundleSchema } from './types';
 import type { Manifest, Bundle, BundleConstraints } from './types';
-
-export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
+import type { Result } from '@harness-engineering/types';
 
 /**
  * Resolve a dot-path string against a nested object.

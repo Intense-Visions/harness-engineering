@@ -21,7 +21,7 @@ export function createShareCommand(): Command {
       if (!fs.existsSync(manifestPath)) {
         logger.error(
           `No ${MANIFEST_FILENAME} found at ${manifestPath}.\n` +
-            `Run "harness share --init" to create one.`
+            `Create a constraints.yaml in your project root to define what to share.`
         );
         process.exit(1);
       }
@@ -46,8 +46,8 @@ export function createShareCommand(): Command {
       }
       const manifest = manifestResult.value;
 
-      // Load harness config
-      const configResult = resolveConfig();
+      // Load harness config from the target project root
+      const configResult = resolveConfig(path.join(rootDir, 'harness.config.json'));
       if (!configResult.ok) {
         logger.error(configResult.error.message);
         process.exit(1);
@@ -61,6 +61,15 @@ export function createShareCommand(): Command {
         process.exit(1);
       }
       const bundle = bundleResult.value;
+
+      // Guard against empty bundles
+      if (Object.keys(bundle.constraints).length === 0) {
+        logger.error(
+          'No constraints found for the include paths in constraints.yaml.\n' +
+            'Check that your harness config contains the declared sections.'
+        );
+        process.exit(1);
+      }
 
       // Write bundle
       const outputDir = path.resolve(options.output);

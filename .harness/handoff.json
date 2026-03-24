@@ -1,12 +1,31 @@
 {
-  "timestamp": "2026-03-24T13:44:48.638Z",
-  "fromSkill": "emit_interaction",
-  "phase": "brainstorming",
-  "summary": "Spec approved and enhanced with design system integration. Ready for planning.",
-  "completed": ["brainstorming"],
-  "pending": ["planning"],
-  "concerns": [],
-  "decisions": [],
-  "blockers": [],
-  "contextKeywords": []
+  "timestamp": "2026-03-24T16:00:00.000Z",
+  "fromSkill": "harness-planning",
+  "phase": "VALIDATE",
+  "summary": "Phase 4 lockfile/provenance plan complete: 3 tasks covering readLockfile, writeLockfile, addProvenance, removeProvenance with full TDD coverage.",
+  "completed": [],
+  "pending": [
+    "Task 1: Write lockfile tests (red phase) -- 17 test cases across 4 describe blocks",
+    "Task 2: Implement lockfile functions (green phase) -- readLockfile, writeLockfile, addProvenance, removeProvenance",
+    "Task 3: Export lockfile functions from sharing barrel"
+  ],
+  "concerns": [
+    "readLockfile must distinguish ENOENT (ok, null) from other fs errors (error result)",
+    "All pure functions (addProvenance, removeProvenance) must be immutable -- do not mutate input lockfile"
+  ],
+  "decisions": [
+    "writeLockfile delegates to existing writeConfig for atomic writes -- no duplication",
+    "readLockfile uses Result<Lockfile | null, string> where null means file-not-found (not an error)",
+    "addProvenance replaces on conflict (upgrade semantics) rather than erroring",
+    "removeProvenance returns Contributions | null to let callers decide what to do when package not found"
+  ],
+  "contextKeywords": [
+    "constraint-sharing",
+    "lockfile",
+    "provenance",
+    "readLockfile",
+    "writeLockfile",
+    "addProvenance",
+    "removeProvenance"
+  ]
 }
