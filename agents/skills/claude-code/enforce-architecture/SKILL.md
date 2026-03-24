@@ -47,6 +47,8 @@ Graph queries show the complete violation scope (not just the first occurrence p
 
 1. **Run `harness check-deps`** to analyze all import statements against the constraint model. Capture the full JSON output.
 
+1b. **Optionally run `harness check-arch`** for comprehensive architecture analysis beyond dependency checking. This covers circular dependencies, complexity, coupling, module size, and dependency depth in addition to layer violations.
+
 2. **Parse the results.** Each violation includes:
    - The violating file and line number
    - The forbidden import target
@@ -162,6 +164,8 @@ Module A re-exports from Module B, and Module B imports from Module A. The circu
 - **`harness-design-system`** — Provides the design token source of truth (`tokens.json`) that constraints validate against.
 - **`harness-accessibility`** — Provides WCAG contrast validation used by DESIGN-003 constraints.
 - **Design constraint category** — Controlled by `design.strictness` in `harness.config.json`. Design violations surface alongside architectural violations in the same report.
+- **`harness check-arch`** — Architecture assertion framework. Runs all 7 metric collectors against baseline and thresholds. Use for comprehensive structural health checks beyond layer dependencies. Supports `--update-baseline` to capture current state and `--json` for machine-readable output.
+- **`harness check-arch --module <path>`** — Scoped architecture check for a single module. Use when validating a specific subsystem.
 
 ## Success Criteria
 
