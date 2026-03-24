@@ -87,4 +87,72 @@ describe('deepMergeConstraints', () => {
       expect(result.conflicts[0].key).toBe('api');
     });
   });
+
+  describe('forbiddenImports merge', () => {
+    const localConfig = {
+      forbiddenImports: [
+        { from: 'src/domain/**', disallow: ['src/api/**'], message: 'domain cannot import api' },
+        { from: 'src/types/**', disallow: ['src/core/**'] },
+      ],
+    };
+
+    it('should append new forbidden imports from bundle', () => {
+      const bundle: BundleConstraints = {
+        forbiddenImports: [{ from: 'src/infra/**', disallow: ['src/ui/**'] }],
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const fi = result.config.forbiddenImports as Array<{ from: string }>;
+      expect(fi).toHaveLength(3);
+      expect(fi[2].from).toBe('src/infra/**');
+      expect(result.contributions.forbiddenImports).toEqual([2]); // index in merged array
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('should skip identical forbidden imports', () => {
+      const bundle: BundleConstraints = {
+        forbiddenImports: [{ from: 'src/types/**', disallow: ['src/core/**'] }],
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const fi = result.config.forbiddenImports as Array<{ from: string }>;
+      expect(fi).toHaveLength(2);
+      expect(result.contributions.forbiddenImports).toBeUndefined();
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('should report conflict when same from has different disallow', () => {
+      const bundle: BundleConstraints = {
+        forbiddenImports: [{ from: 'src/domain/**', disallow: ['src/ui/**'] }],
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].section).toBe('forbiddenImports');
+      expect(result.conflicts[0].key).toBe('src/domain/**');
+    });
+
+    it('should handle bundle forbidden imports when local has none', () => {
+      const bundle: BundleConstraints = {
+        forbiddenImports: [{ from: 'src/infra/**', disallow: ['src/ui/**'] }],
+      };
+      const result = deepMergeConstraints({}, bundle);
+      const fi = result.config.forbiddenImports as Array<{ from: string }>;
+      expect(fi).toHaveLength(1);
+      expect(result.contributions.forbiddenImports).toEqual([0]);
+    });
+
+    it('should handle mixed: new, identical, and conflicting', () => {
+      const bundle: BundleConstraints = {
+        forbiddenImports: [
+          { from: 'src/types/**', disallow: ['src/core/**'] }, // identical
+          { from: 'src/domain/**', disallow: ['src/ui/**'] }, // conflict
+          { from: 'src/new/**', disallow: ['src/other/**'] }, // new
+        ],
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const fi = result.config.forbiddenImports as Array<{ from: string }>;
+      expect(fi).toHaveLength(3); // 2 local + 1 new
+      expect(result.contributions.forbiddenImports).toEqual([2]);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].key).toBe('src/domain/**');
+    });
+  });
 });
