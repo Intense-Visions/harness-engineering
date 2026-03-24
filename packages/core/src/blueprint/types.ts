@@ -1,12 +1,13 @@
 export interface Quiz {
-  question: string;
-  options: string[];
-  answer: number;
+  questions: {
+    question: string;
+    answer: string;
+  }[];
 }
 
 export interface Content {
   codeTranslation: string;
-  keyInsights: string[];
+  quiz: Quiz;
 }
 
 export interface BlueprintModule {
@@ -15,7 +16,6 @@ export interface BlueprintModule {
   description: string;
   files: string[];
   content?: Content;
-  quiz?: Quiz[];
 }
 
 export interface Hotspot {
