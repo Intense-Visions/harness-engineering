@@ -206,6 +206,8 @@ export class Orchestrator extends EventEmitter {
       running: Array.from(this.state.running.entries()),
       retryAttempts: Array.from(this.state.retryAttempts.entries()),
       claimed: Array.from(this.state.claimed),
+      tokenTotals: this.state.tokenTotals,
+      maxConcurrentAgents: this.state.maxConcurrentAgents,
     };
   }
 }
