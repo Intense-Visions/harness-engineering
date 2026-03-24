@@ -16,6 +16,7 @@ import { EntropyAnalyzer } from '../entropy/analyzer';
 import { SecurityScanner } from '../security/scanner';
 import { parseSecurityConfig } from '../security/config';
 import { TypeScriptParser } from '../shared/parsers';
+import { ArchConfigSchema, runAll as runArchCollectors } from '../architecture';
 
 export interface RunCIChecksInput {
   projectRoot: string;
@@ -32,6 +33,7 @@ const ALL_CHECKS: CICheckName[] = [
   'security',
   'perf',
   'phase-gate',
+  'arch',
 ];
 
 async function runSingleCheck(
@@ -236,6 +238,24 @@ async function runSingleCheck(
           message:
             'Phase gate is enabled but requires CLI context. Run `harness check-phase-gate` separately for full validation.',
         });
+        break;
+      }
+
+      case 'arch': {
+        const rawArchConfig = config.architecture as Record<string, unknown> | undefined;
+        const archConfig = ArchConfigSchema.parse(rawArchConfig ?? {});
+        if (!archConfig.enabled) break;
+
+        const results = await runArchCollectors(archConfig, projectRoot);
+        for (const result of results) {
+          for (const v of result.violations) {
+            issues.push({
+              severity: v.severity,
+              message: `[${result.category}] ${v.detail}`,
+              file: v.file,
+            });
+          }
+        }
         break;
       }
     }
