@@ -425,3 +425,22 @@ describe('module-scoped matchers', () => {
     });
   });
 });
+
+describe('exports', () => {
+  it('archMatchers contains all expected matcher keys', () => {
+    const expectedKeys = [
+      'toHaveNoCircularDeps',
+      'toHaveNoLayerViolations',
+      'toMatchBaseline',
+      'toHaveMaxComplexity',
+      'toHaveMaxCoupling',
+      'toHaveMaxFileCount',
+      'toNotDependOn',
+      'toHaveMaxDepDepth',
+    ];
+    for (const key of expectedKeys) {
+      expect(archMatchers).toHaveProperty(key);
+      expect(typeof (archMatchers as any)[key]).toBe('function');
+    }
+  });
+});
