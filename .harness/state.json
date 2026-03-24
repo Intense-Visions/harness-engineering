@@ -2,105 +2,20 @@
   "schemaVersion": 1,
   "position": {
     "phase": "complete",
-    "task": "Task 7"
+    "task": "Task 3"
   },
-  "decisions": [
-    {
-      "date": "2026-03-23T18:03:04.116Z",
-      "decision": "[transition:2aa21ed8-3797-4507-9f4a-22a2fe5ce05a] brainstorming -> planning",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-23T18:32:30.193Z",
-      "decision": "[question:41c300e4-2fd2-4bfc-940a-9cb3c51397a8] What should count as a 'constraint rule' for deprecation detection? The framework has two levels of granularity:",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-23T18:33:34.700Z",
-      "decision": "[question:f64296f5-cde9-43af-994f-ead62e2c1c6b] How should violation history be tracked to determine if a constraint has been 'quiet' for the configured window? The current system only stores point-in-time snapshots (ArchBaseline), not a time series.",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-23T18:34:30.722Z",
-      "decision": "[question:3360dee8-c280-469f-aed5-d39781ca9751] Where should the deprecation detection surface its results? The ADR says 'new MCP tool' but the scope of the output matters.",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-23T18:35:19.762Z",
-      "decision": "[question:788930bf-9bc4-472f-9934-574fe2b2f638] How should constraint rules get populated into the graph? Currently collectors produce violations but don't register the rules themselves as nodes.",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-23T18:35:53.841Z",
-      "decision": "[question:199d06e7-70b6-4c86-a815-847c46c30c0a] What should the default staleness window be, and how should it be configured?",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-23T18:40:54.741Z",
-      "decision": "[confirmation:05f14a1e-d4c9-49ac-91dd-2583ba4a22d1] Approve spec at docs/changes/constraint-deprecation-detection/proposal.md?",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-23T18:42:08.757Z",
-      "decision": "[transition:b62a8f7c-b326-4313-ade5-4c63949839ac] brainstorming -> planning",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T02:45:38.232Z",
-      "decision": "[confirmation:beaf3eaa-8308-4387-992a-893614faffa6] Review complete: Approve. Accept review?",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T02:45:58.741Z",
-      "decision": "[confirmation:4a75a5d9-bc7b-44df-b923-ca1c54fff9a1] Approve spec at docs/changes/conflict-prediction/proposal.md?",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T02:47:13.238Z",
-      "decision": "[transition:056a1b0f-8773-48a3-abcf-9f66cce4fe44] brainstorming -> planning",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T03:16:17.765Z",
-      "decision": "[transition:2ef95ec1-bb27-4995-90c6-2d365a4d43ce] brainstorming -> planning",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T13:14:57.299Z",
-      "decision": "[transition:bb924134-a75e-489d-b404-069ba132b407] brainstorming -> planning",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T13:42:09.932Z",
-      "decision": "[question:6f6db14f-971e-4b62-aa64-2fd2a379f6c4] Approve the specification for harness:blueprint?",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T13:42:27.682Z",
-      "decision": "[confirmation:f4bcaa6e-9abe-4fe8-b975-f504ba31de77] Approve spec at docs/changes/harness-blueprint/proposal.md?",
-      "context": "pending user response"
-    },
-    {
-      "date": "2026-03-24T13:44:48.640Z",
-      "decision": "[transition:24d1c5dd-f477-4a5e-8a2a-eb9fdc25a6ef] brainstorming -> planning",
-      "context": "pending user response"
-    }
-  ],
+  "decisions": [],
   "blockers": [],
   "progress": {
     "Task 1": "complete",
     "Task 2": "complete",
-    "Task 3": "complete",
-    "Task 4": "complete",
-    "Task 5": "complete",
-    "Task 6": "complete",
-    "Task 7": "complete"
+    "Task 3": "complete"
   },
   "lastSession": {
     "date": "2026-03-24",
-    "summary": "Constraint sharing bundle plan complete (6/6 tasks). parseManifest, extractBundle, barrel exports, share CLI command, CLI registration. 45 tests pass. Fixed pre-existing blueprint scanner/generator TS errors to unblock DTS build.",
+    "summary": "Constraint sharing lockfile plan complete (3/3 tasks). readLockfile, writeLockfile, addProvenance, removeProvenance implemented with 18 lockfile tests + 100 total sharing tests passing.",
     "lastSkill": "harness-execution",
     "pendingTasks": [],
-    "planCompleted": "docs/plans/2026-03-24-constraint-sharing-bundle-plan.md"
+    "planCompleted": "docs/plans/2026-03-24-constraint-sharing-lockfile-plan.md"
   }
 }

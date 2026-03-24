@@ -1,7 +1,6 @@
 import { ManifestSchema } from './types';
 import type { Manifest } from './types';
-
-export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
+import type { Result } from '@harness-engineering/types';
 
 /**
  * Parse and validate a manifest from a pre-parsed object.
