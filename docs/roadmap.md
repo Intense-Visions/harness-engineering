@@ -471,11 +471,11 @@ updated: 2026-03-23
 
 ### Natural Language Graph Queries
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/natural-language-graph-queries/proposal.md
 - **Summary:** English-to-ContextQL translation via scored multi-signal classifier enabling conversational codebase exploration. Ask 'what breaks if I change auth?' and get graph-backed answers with NL summaries. New MCP tool: ask_graph. No external LLM dependency — works on both Claude Code and Gemini CLI. [K7]
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-23-nlq-\*.md
 
 ### Architecture Assertion Framework
 
