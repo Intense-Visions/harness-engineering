@@ -278,3 +278,205 @@ describe('applyEvent - worker_exit', () => {
     expect(nextState.running.size).toBe(0);
   });
 });
+
+describe('applyEvent - retry_fired', () => {
+  it('should dispatch issue if found in candidates and slots available', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.claimed.add('id-1');
+    state.retryAttempts.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      attempt: 1,
+      dueAtMs: Date.now(),
+      error: null,
+    });
+
+    const candidates = [makeIssue({ id: 'id-1', identifier: 'TEST-1', state: 'Todo' })];
+    const event: OrchestratorEvent = {
+      type: 'retry_fired',
+      issueId: 'id-1',
+      candidates,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const dispatch = effects.find((e) => e.type === 'dispatch');
+    expect(dispatch).toBeDefined();
+    if (dispatch && dispatch.type === 'dispatch') {
+      expect(dispatch.issue.id).toBe('id-1');
+      expect(dispatch.attempt).toBe(1);
+    }
+  });
+
+  it('should release claim if issue not found in candidates', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.claimed.add('id-1');
+    state.retryAttempts.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      attempt: 1,
+      dueAtMs: Date.now(),
+      error: null,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'retry_fired',
+      issueId: 'id-1',
+      candidates: [], // not found
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+    expect(nextState.claimed.has('id-1')).toBe(false);
+    expect(effects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
+  });
+
+  it('should release claim if issue is no longer active', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.claimed.add('id-1');
+    state.retryAttempts.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      attempt: 1,
+      dueAtMs: Date.now(),
+      error: null,
+    });
+
+    const candidates = [makeIssue({ id: 'id-1', state: 'Backlog' })];
+    const event: OrchestratorEvent = {
+      type: 'retry_fired',
+      issueId: 'id-1',
+      candidates,
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+    expect(nextState.claimed.has('id-1')).toBe(false);
+    expect(effects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
+  });
+
+  it('should requeue with error when no slots available', () => {
+    const config = makeConfig({
+      agent: {
+        ...makeConfig().agent,
+        maxConcurrentAgents: 1,
+      },
+    });
+    const state = createEmptyState(config);
+    state.maxConcurrentAgents = 1;
+    state.claimed.add('id-1');
+    state.running.set('id-other', {
+      issueId: 'id-other',
+      identifier: 'OTHER-1',
+      issue: makeIssue({ id: 'id-other', identifier: 'OTHER-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/other',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+    state.retryAttempts.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      attempt: 1,
+      dueAtMs: Date.now(),
+      error: null,
+    });
+
+    const candidates = [makeIssue({ id: 'id-1', state: 'Todo' })];
+    const event: OrchestratorEvent = {
+      type: 'retry_fired',
+      issueId: 'id-1',
+      candidates,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const retry = effects.find((e) => e.type === 'scheduleRetry');
+    expect(retry).toBeDefined();
+    if (retry && retry.type === 'scheduleRetry') {
+      expect(retry.error).toBe('no available orchestrator slots');
+      expect(retry.attempt).toBe(2);
+    }
+  });
+
+  it('should do nothing if retry entry is missing', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+
+    const event: OrchestratorEvent = {
+      type: 'retry_fired',
+      issueId: 'id-1',
+      candidates: [],
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    expect(effects).toEqual([]);
+  });
+});
+
+describe('applyEvent - stall_detected', () => {
+  it('should stop the stalled issue and schedule retry', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: 2,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+    state.claimed.add('id-1');
+
+    const event: OrchestratorEvent = {
+      type: 'stall_detected',
+      issueId: 'id-1',
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+
+    expect(nextState.running.has('id-1')).toBe(false);
+
+    const stop = effects.find((e) => e.type === 'stop');
+    expect(stop).toBeDefined();
+    if (stop && stop.type === 'stop') {
+      expect(stop.reason).toBe('stall_detected');
+    }
+
+    const retry = effects.find((e) => e.type === 'scheduleRetry');
+    expect(retry).toBeDefined();
+    if (retry && retry.type === 'scheduleRetry') {
+      expect(retry.error).toBe('stall detected');
+      expect(retry.attempt).toBe(3); // previous attempt 2, so next = 3
+    }
+  });
+
+  it('should handle stall when issue has no previous attempt', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'stall_detected',
+      issueId: 'id-1',
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const retry = effects.find((e) => e.type === 'scheduleRetry');
+    expect(retry).toBeDefined();
+    if (retry && retry.type === 'scheduleRetry') {
+      expect(retry.attempt).toBe(1);
+    }
+  });
+});
