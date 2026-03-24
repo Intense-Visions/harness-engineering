@@ -32,6 +32,8 @@ import { createImpactPreviewCommand } from './commands/impact-preview';
 import { createCheckArchCommand } from './commands/check-arch';
 import { createBlueprintCommand } from './commands/blueprint';
 import { createShareCommand } from './commands/share';
+import { createInstallCommand } from './commands/install';
+import { createUninstallCommand } from './commands/uninstall';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -78,6 +80,8 @@ export function createProgram(): Command {
   program.addCommand(createCheckArchCommand());
   program.addCommand(createBlueprintCommand());
   program.addCommand(createShareCommand());
+  program.addCommand(createInstallCommand());
+  program.addCommand(createUninstallCommand());
 
   return program;
 }
@@ -156,3 +160,9 @@ export type { CheckArchResult } from './commands/check-arch';
 
 // MCP server exports
 export { createHarnessServer, startServer, getToolDefinitions } from './mcp/index';
+
+// Skill marketplace exports
+export { runInstall } from './commands/install';
+export type { InstallResult } from './commands/install';
+export { runUninstall } from './commands/uninstall';
+export type { UninstallResult } from './commands/uninstall';
