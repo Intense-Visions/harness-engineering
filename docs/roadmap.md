@@ -505,6 +505,14 @@ last_manual_edit: 2026-03-23
 
 ## v3.0 Viral Flywheel
 
+### harness:blueprint — Automated Architectural Learning
+
+- **Status:** planned
+- **Spec:** docs/changes/harness-blueprint/proposal.md
+- **Summary:** Generates interactive, offline-first HTML blueprints/courses of a codebase. Uses the Knowledge Graph for pedagogical ordering, impact-aware exercises, and code-to-English translations.
+- **Blockers:** none
+- **Plan:** none
+
 ### Skill Marketplace
 
 - **Status:** planned

@@ -25,3 +25,6 @@ export type {
   BoundaryValidation,
   GraphDependencyData,
 } from './types';
+
+// Constraint sharing (manifest, bundle, lockfile)
+export * from './sharing';
