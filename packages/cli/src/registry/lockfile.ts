@@ -42,14 +42,36 @@ function sortedStringify(obj: unknown): string {
 
 /**
  * Read a skills-lock.json file. Returns a default empty lockfile if the file
- * does not exist.
+ * does not exist. Validates the lockfile structure before returning.
  */
 export function readLockfile(filePath: string): SkillsLockfile {
   if (!fs.existsSync(filePath)) {
     return createEmptyLockfile();
   }
   const raw = fs.readFileSync(filePath, 'utf-8');
-  return JSON.parse(raw) as SkillsLockfile;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `Failed to parse lockfile at ${filePath}. The file may be corrupted. ` +
+        `Delete it and re-run harness install to regenerate.`
+    );
+  }
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    !('version' in parsed) ||
+    (parsed as Record<string, unknown>).version !== 1 ||
+    !('skills' in parsed) ||
+    typeof (parsed as Record<string, unknown>).skills !== 'object'
+  ) {
+    throw new Error(
+      `Invalid lockfile format at ${filePath}. Expected version 1 with a skills object. ` +
+        `Delete it and re-run harness install to regenerate.`
+    );
+  }
+  return parsed as SkillsLockfile;
 }
 
 /**
@@ -58,9 +80,7 @@ export function readLockfile(filePath: string): SkillsLockfile {
  */
 export function writeLockfile(filePath: string, lockfile: SkillsLockfile): void {
   const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(filePath, sortedStringify(lockfile) + '\n', 'utf-8');
 }
 
