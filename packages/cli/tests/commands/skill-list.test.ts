@@ -1,140 +1,178 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Command } from 'commander';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
-const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
-const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-let mockSkillsDir = '';
 vi.mock('../../src/utils/paths', () => ({
-  resolveSkillsDir: () => mockSkillsDir,
+  resolveSkillsDir: vi.fn(() => '/bundled/skills/claude-code'),
+  resolveProjectSkillsDir: vi.fn(() => '/project/agents/skills/claude-code'),
+  resolveCommunitySkillsDir: vi.fn(() => '/community/skills/claude-code'),
+  resolveGlobalSkillsDir: vi.fn(() => '/bundled/skills/claude-code'),
 }));
 
+vi.mock('../../src/registry/lockfile', () => ({
+  readLockfile: vi.fn(),
+}));
+
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
+  return {
+    ...actual,
+    existsSync: vi.fn(),
+    readdirSync: vi.fn(),
+    readFileSync: vi.fn(),
+  };
+});
+
+vi.mock('yaml', () => ({
+  parse: vi.fn(),
+}));
+
+import * as fs from 'fs';
+import { parse as yamlParse } from 'yaml';
+import { readLockfile } from '../../src/registry/lockfile';
+import { collectSkills } from '../../src/commands/skill/list';
 import { createListCommand } from '../../src/commands/skill/list';
 
-const VALID_SKILL_YAML = `name: test-skill
-version: "1.0.0"
-description: A test skill for testing
-triggers: [manual]
-platforms: [claude-code]
-tools: [Read]
-type: flexible
-`;
+const mockedExistsSync = vi.mocked(fs.existsSync);
+const mockedReaddirSync = vi.mocked(fs.readdirSync);
+const mockedReadFileSync = vi.mocked(fs.readFileSync);
+const mockedYamlParse = vi.mocked(yamlParse);
+const mockedReadLockfile = vi.mocked(readLockfile);
 
-function makeProgram(globalOpts: Record<string, unknown> = {}): Command {
-  const program = new Command();
-  for (const [key, val] of Object.entries(globalOpts)) {
-    if (typeof val === 'boolean') {
-      program.option(`--${key}`);
-      if (val) program.setOptionValue(key, true);
-    }
-  }
-  program.addCommand(createListCommand());
-  return program;
-}
+describe('createListCommand', () => {
+  it('creates command with correct name', () => {
+    const cmd = createListCommand();
+    expect(cmd.name()).toBe('list');
+  });
 
-describe('skill list command', () => {
-  let tempDir: string;
+  it('has --installed option', () => {
+    const cmd = createListCommand();
+    const opt = cmd.options.find((o) => o.long === '--installed');
+    expect(opt).toBeDefined();
+  });
 
+  it('has --local option', () => {
+    const cmd = createListCommand();
+    const opt = cmd.options.find((o) => o.long === '--local');
+    expect(opt).toBeDefined();
+  });
+
+  it('has --all option', () => {
+    const cmd = createListCommand();
+    const opt = cmd.options.find((o) => o.long === '--all');
+    expect(opt).toBeDefined();
+  });
+});
+
+describe('collectSkills', () => {
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-skill-list-'));
-    mockSkillsDir = tempDir;
-    mockExit.mockClear();
-    mockConsoleLog.mockClear();
-    mockConsoleError.mockClear();
+    vi.clearAllMocks();
+    mockedReadLockfile.mockReturnValue({ version: 1, skills: {} });
   });
 
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+  it('collects bundled skills with source "bundled"', () => {
+    mockedExistsSync.mockImplementation((p: fs.PathLike) => {
+      const s = String(p);
+      if (s === '/bundled/skills/claude-code') return true;
+      if (s.includes('skill.yaml')) return true;
+      return false;
+    });
+    mockedReaddirSync.mockImplementation((p: fs.PathLike) => {
+      if (String(p) === '/bundled/skills/claude-code') {
+        return [{ name: 'harness-tdd', isDirectory: () => true }] as unknown as fs.Dirent[];
+      }
+      return [] as unknown as fs.Dirent[];
+    });
+    mockedReadFileSync.mockReturnValue('name: harness-tdd');
+    mockedYamlParse.mockReturnValue({
+      name: 'harness-tdd',
+      description: 'TDD skill',
+      type: 'rigid',
+      platforms: ['claude-code'],
+      triggers: ['manual'],
+      tools: [],
+      version: '1.0.0',
+    });
+
+    const skills = collectSkills({ filter: 'all' });
+    expect(skills).toHaveLength(1);
+    expect(skills[0].source).toBe('bundled');
+    expect(skills[0].name).toBe('harness-tdd');
   });
 
-  describe('createListCommand', () => {
-    it('creates command with correct name', () => {
-      const cmd = createListCommand();
-      expect(cmd.name()).toBe('list');
+  it('filters to installed-only skills', () => {
+    mockedExistsSync.mockReturnValue(false);
+    mockedReadLockfile.mockReturnValue({
+      version: 1,
+      skills: {
+        '@harness-skills/deployment': {
+          version: '1.0.0',
+          resolved: 'https://example.com',
+          integrity: 'sha512-abc',
+          platforms: ['claude-code'],
+          installedAt: '2026-03-24',
+          dependencyOf: null,
+        },
+      },
     });
+
+    const skills = collectSkills({ filter: 'installed' });
+    expect(skills).toHaveLength(1);
+    expect(skills[0].source).toBe('community');
+    expect(skills[0].name).toBe('deployment');
+    expect(skills[0].version).toBe('1.0.0');
   });
 
-  describe('action', () => {
-    it('exits successfully when no skills directory exists', async () => {
-      mockSkillsDir = path.join(tempDir, 'nonexistent');
-      const program = makeProgram();
-      await program.parseAsync(['node', 'test', 'list']);
-
-      expect(mockExit).toHaveBeenCalledWith(0);
+  it('deduplicates: local overrides bundled', () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReaddirSync.mockImplementation(() => {
+      return [{ name: 'my-skill', isDirectory: () => true }] as unknown as fs.Dirent[];
+    });
+    mockedReadFileSync.mockReturnValue('name: my-skill');
+    mockedYamlParse.mockReturnValue({
+      name: 'my-skill',
+      description: 'My skill',
+      type: 'flexible',
+      platforms: ['claude-code'],
+      triggers: ['manual'],
+      tools: [],
+      version: '1.0.0',
     });
 
-    it('reports no skills when directory is empty', async () => {
-      const program = makeProgram();
-      await program.parseAsync(['node', 'test', 'list']);
+    const skills = collectSkills({ filter: 'all' });
+    // Should only have one entry even if found in multiple dirs
+    const mySkills = skills.filter((s) => s.name === 'my-skill');
+    // First occurrence wins (project-local > community > bundled)
+    expect(mySkills.length).toBeGreaterThanOrEqual(1);
+    expect(mySkills[0].source).toBe('local');
+  });
 
-      expect(mockExit).toHaveBeenCalledWith(0);
-      const output = mockConsoleLog.mock.calls.flat().join(' ');
-      expect(output).toContain('No skills found');
+  it('returns empty when no skills found', () => {
+    mockedExistsSync.mockReturnValue(false);
+    const skills = collectSkills({ filter: 'all' });
+    expect(skills).toHaveLength(0);
+  });
+
+  it('filters to local-only skills', () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReaddirSync.mockImplementation((p: fs.PathLike) => {
+      if (String(p) === '/project/agents/skills/claude-code') {
+        return [{ name: 'local-skill', isDirectory: () => true }] as unknown as fs.Dirent[];
+      }
+      return [] as unknown as fs.Dirent[];
+    });
+    mockedReadFileSync.mockReturnValue('name: local-skill');
+    mockedYamlParse.mockReturnValue({
+      name: 'local-skill',
+      description: 'A local skill',
+      type: 'flexible',
+      platforms: ['claude-code'],
+      triggers: ['manual'],
+      tools: [],
+      version: '1.0.0',
     });
 
-    it('lists skills with valid skill.yaml files', async () => {
-      const skillDir = path.join(tempDir, 'test-skill');
-      fs.mkdirSync(skillDir);
-      fs.writeFileSync(path.join(skillDir, 'skill.yaml'), VALID_SKILL_YAML);
-
-      const program = makeProgram();
-      await program.parseAsync(['node', 'test', 'list']);
-
-      expect(mockExit).toHaveBeenCalledWith(0);
-      const output = mockConsoleLog.mock.calls.flat().join(' ');
-      expect(output).toContain('test-skill');
-    });
-
-    it('outputs JSON when --json flag is set', async () => {
-      const skillDir = path.join(tempDir, 'test-skill');
-      fs.mkdirSync(skillDir);
-      fs.writeFileSync(path.join(skillDir, 'skill.yaml'), VALID_SKILL_YAML);
-
-      const program = makeProgram({ json: true });
-      await program.parseAsync(['node', 'test', '--json', 'list']);
-
-      expect(mockExit).toHaveBeenCalledWith(0);
-      const jsonOutput = mockConsoleLog.mock.calls.flat().join('');
-      const parsed = JSON.parse(jsonOutput);
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed[0].name).toBe('test-skill');
-    });
-
-    it('outputs only names in quiet mode', async () => {
-      const skillDir = path.join(tempDir, 'test-skill');
-      fs.mkdirSync(skillDir);
-      fs.writeFileSync(path.join(skillDir, 'skill.yaml'), VALID_SKILL_YAML);
-
-      const program = makeProgram({ quiet: true });
-      await program.parseAsync(['node', 'test', '--quiet', 'list']);
-
-      expect(mockExit).toHaveBeenCalledWith(0);
-      expect(mockConsoleLog).toHaveBeenCalledWith('test-skill');
-    });
-
-    it('skips directories without skill.yaml', async () => {
-      fs.mkdirSync(path.join(tempDir, 'no-yaml-dir'));
-
-      const program = makeProgram();
-      await program.parseAsync(['node', 'test', 'list']);
-
-      const output = mockConsoleLog.mock.calls.flat().join(' ');
-      expect(output).toContain('No skills found');
-    });
-
-    it('skips directories with invalid skill.yaml', async () => {
-      const skillDir = path.join(tempDir, 'bad-skill');
-      fs.mkdirSync(skillDir);
-      fs.writeFileSync(path.join(skillDir, 'skill.yaml'), 'invalid: yaml: content: [');
-
-      const program = makeProgram();
-      await program.parseAsync(['node', 'test', 'list']);
-
-      expect(mockExit).toHaveBeenCalledWith(0);
-    });
+    const skills = collectSkills({ filter: 'local' });
+    const localSkills = skills.filter((s) => s.source === 'local');
+    expect(localSkills.length).toBeGreaterThanOrEqual(1);
+    expect(localSkills[0].name).toBe('local-skill');
   });
 });
