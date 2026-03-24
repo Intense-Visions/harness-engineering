@@ -207,4 +207,115 @@ describe('deepMergeConstraints', () => {
       expect(result.contributions.boundaries).toBeUndefined();
     });
   });
+
+  describe('architecture thresholds merge', () => {
+    it('should add new threshold categories from bundle', () => {
+      const localConfig = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { 'circular-deps': 0 },
+          modules: {},
+        },
+      };
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { complexity: 10 },
+          modules: {},
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const arch = result.config.architecture as { thresholds: Record<string, unknown> };
+      expect(arch.thresholds['circular-deps']).toBe(0);
+      expect(arch.thresholds['complexity']).toBe(10);
+      expect(result.contributions['architecture.thresholds']).toEqual(['complexity']);
+    });
+
+    it('should skip identical threshold values', () => {
+      const localConfig = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { 'circular-deps': 0 },
+          modules: {},
+        },
+      };
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { 'circular-deps': 0 },
+          modules: {},
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.contributions['architecture.thresholds']).toBeUndefined();
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('should report conflict for same category with different value', () => {
+      const localConfig = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { 'circular-deps': 0 },
+          modules: {},
+        },
+      };
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { 'circular-deps': 5 },
+          modules: {},
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].section).toBe('architecture.thresholds');
+      expect(result.conflicts[0].key).toBe('circular-deps');
+      expect(result.conflicts[0].localValue).toBe(0);
+      expect(result.conflicts[0].packageValue).toBe(5);
+    });
+
+    it('should handle bundle architecture when local has none', () => {
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { complexity: 10 },
+          modules: {},
+        },
+      };
+      const result = deepMergeConstraints({}, bundle);
+      const arch = result.config.architecture as { thresholds: Record<string, unknown> };
+      expect(arch.thresholds['complexity']).toBe(10);
+      expect(result.contributions['architecture.thresholds']).toEqual(['complexity']);
+    });
+
+    it('should handle thresholds with nested record values (per-subcategory)', () => {
+      const localConfig = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { complexity: { 'src/api': 5 } },
+          modules: {},
+        },
+      };
+      const bundle: BundleConstraints = {
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { complexity: { 'src/api': 10 } },
+          modules: {},
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].section).toBe('architecture.thresholds');
+      expect(result.conflicts[0].key).toBe('complexity');
+    });
+  });
 });

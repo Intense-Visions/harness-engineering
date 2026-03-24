@@ -25,6 +25,18 @@ export interface MergeResult {
  * - Architecture modules: per-module per-category merge, same conflict strategy
  * - Security rules: per-rule-ID merge, conflict on different severity
  */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== 'object' || a === null || b === null) return false;
+  const keysA = Object.keys(a as Record<string, unknown>);
+  const keysB = Object.keys(b as Record<string, unknown>);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((key) =>
+    deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])
+  );
+}
+
 function arraysEqual(a: unknown[], b: unknown[]): boolean {
   if (a.length !== b.length) return false;
   const sortedA = [...a].sort();
@@ -139,6 +151,50 @@ export function deepMergeConstraints(
 
     if (newSchemas.length > 0) {
       contributions.boundaries = newSchemas;
+    }
+  }
+
+  // --- Architecture ---
+  if (bundleConstraints.architecture) {
+    const localArch = (localConfig.architecture ?? {
+      enabled: true,
+      baselinePath: '.harness/arch/baselines.json',
+      thresholds: {},
+      modules: {},
+    }) as {
+      enabled: boolean;
+      baselinePath: string;
+      thresholds: Record<string, unknown>;
+      modules: Record<string, Record<string, unknown>>;
+    };
+
+    const mergedThresholds = { ...localArch.thresholds };
+    const contributedThresholdKeys: string[] = [];
+
+    const bundleThresholds = bundleConstraints.architecture.thresholds ?? {};
+    for (const [category, value] of Object.entries(bundleThresholds)) {
+      if (!(category in mergedThresholds)) {
+        mergedThresholds[category] = value;
+        contributedThresholdKeys.push(category);
+      } else if (!deepEqual(mergedThresholds[category], value)) {
+        conflicts.push({
+          section: 'architecture.thresholds',
+          key: category,
+          localValue: mergedThresholds[category],
+          packageValue: value,
+          description: `Architecture threshold '${category}' already exists locally with a different value`,
+        });
+      }
+    }
+
+    config.architecture = {
+      ...localArch,
+      thresholds: mergedThresholds,
+      modules: localArch.modules, // updated in Task 6
+    };
+
+    if (contributedThresholdKeys.length > 0) {
+      contributions['architecture.thresholds'] = contributedThresholdKeys;
     }
   }
 
