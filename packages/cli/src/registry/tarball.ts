@@ -22,7 +22,8 @@ export function extractTarball(tarballBuffer: Buffer): string {
     // Clean up on failure
     cleanupTempDir(tmpDir);
     throw new Error(
-      `Failed to extract tarball: ${err instanceof Error ? err.message : String(err)}`
+      `Failed to extract tarball: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err }
     );
   }
 

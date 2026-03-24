@@ -78,6 +78,7 @@ export * from './interaction';
 export * from './blueprint/types';
 export { ProjectScanner } from './blueprint/scanner';
 export { BlueprintGenerator } from './blueprint/generator';
+export { ContentPipeline } from './blueprint/content-pipeline';
 
 // Update checker
 export {

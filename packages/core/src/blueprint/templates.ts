@@ -17,9 +17,24 @@ export const SHELL_TEMPLATE = `
             <section class="modules">
                 <% modules.forEach(module => { %>
                     <article class="module" id="<%= module.id %>">
-                        <h2><%= module.title %></h2>
-                        <p><%= module.description %></p>
+                    <h2><%= module.title %></h2>
+                    <p><%= module.description %></p>
+                    <div class="content">
+                        <h3>Code Translation</h3>
+                        <div class="translation"><%- module.content.codeTranslation %></div>
+                        <h3>Knowledge Check</h3>
+                        <div class="quiz">
+                            <% module.content.quiz.questions.forEach((q, i) => { %>
+                                <div class="question">
+                                    <p><%= q.question %></p>
+                                    <button onclick="reveal(this)">Reveal Answer</button>
+                                    <p class="answer" style="display:none;"><%= q.answer %></p>
+                                </div>
+                            <% }) %>
+                        </div>
+                    </div>
                     </article>
+
                 <% }) %>
             </section>
         </main>
@@ -37,5 +52,9 @@ header { border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10p
 `;
 
 export const SCRIPTS = `
+function reveal(btn) {
+    btn.nextElementSibling.style.display = 'block';
+    btn.style.display = 'none';
+}
 console.log('Blueprint player initialized.');
 `;
