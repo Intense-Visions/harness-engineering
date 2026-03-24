@@ -9,6 +9,7 @@ export * from './core/index';
 export * from './workflow/loader';
 export * from './workflow/config';
 export * from './tracker/adapters/roadmap';
+export * from './tracker/extensions/linear';
 export * from './workspace/manager';
 export * from './workspace/hooks';
 export * from './agent/backends/mock';
