@@ -50,7 +50,7 @@ export type CategoryBaseline = z.infer<typeof CategoryBaselineSchema>;
 
 export const ArchBaselineSchema = z.object({
   version: z.literal(1),
-  updatedAt: z.string(), // ISO 8601
+  updatedAt: z.string().datetime(), // ISO 8601
   updatedFrom: z.string(), // commit hash
   metrics: z.record(ArchMetricCategorySchema, CategoryBaselineSchema),
 });
@@ -83,7 +83,7 @@ export type ArchDiffResult = z.infer<typeof ArchDiffResultSchema>;
 // --- Threshold Config ---
 
 export const ThresholdConfigSchema = z.record(
-  z.string(),
+  ArchMetricCategorySchema,
   z.union([z.number(), z.record(z.string(), z.number())])
 );
 
@@ -100,6 +100,18 @@ export const ArchConfigSchema = z.object({
 
 export type ArchConfig = z.infer<typeof ArchConfigSchema>;
 
+// --- Constraint Rule ---
+
+export const ConstraintRuleSchema = z.object({
+  id: z.string(), // stable hash: sha256(category + ':' + scope + ':' + description)
+  category: ArchMetricCategorySchema,
+  description: z.string(), // e.g., "Layer 'services' must not import from 'ui'"
+  scope: z.string(), // e.g., 'src/services/', 'project'
+  targets: z.array(z.string()).optional(), // forward-compat for governs edges
+});
+
+export type ConstraintRule = z.infer<typeof ConstraintRuleSchema>;
+
 // --- Collector Interface ---
 
 /**
@@ -110,4 +122,5 @@ export type ArchConfig = z.infer<typeof ArchConfigSchema>;
 export interface Collector {
   category: ArchMetricCategory;
   collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]>;
+  getRules(config: ArchConfig, rootDir: string): ConstraintRule[];
 }

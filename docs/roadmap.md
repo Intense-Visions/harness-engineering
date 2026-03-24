@@ -455,11 +455,11 @@ updated: 2026-03-23
 
 ### Automatic Task Independence Detection
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/task-independence-detection/proposal.md
 - **Summary:** Pairwise file-overlap, import-chain, and call-graph reachability analysis to verify parallel tasks won't conflict. New MCP tool: check_task_independence. [F5]
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-23-phase1-core-analyzer-plan.md
 
 ### Conflict Prediction
 
@@ -495,9 +495,9 @@ updated: 2026-03-23
 
 ### Constraint Deprecation Detection
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Query graph for constraint rules with zero violations over a configurable time window. Surface stale constraints as candidates for removal or relaxation. [L2]
+- **Status:** done
+- **Spec:** docs/changes/constraint-deprecation-detection/proposal.md
+- **Summary:** First-class constraint rule nodes in the knowledge graph with lastViolatedAt timestamps, auto-populated from collectors via getRules(). New detect_stale_constraints MCP tool queries for constraints with no violations within a configurable window (default 30 days). [L2]
 - **Blockers:** none
 - **Plan:** none
 

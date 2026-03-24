@@ -25,9 +25,23 @@ export async function runAll(
   rootDir: string,
   collectors: Collector[] = defaultCollectors
 ): Promise<MetricResult[]> {
-  const promises = collectors.map((c) => c.collect(config, rootDir));
-  const nested = await Promise.all(promises);
-  return nested.flat();
+  const results = await Promise.allSettled(collectors.map((c) => c.collect(config, rootDir)));
+  const allResults: MetricResult[] = [];
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]!;
+    if (result.status === 'fulfilled') {
+      allResults.push(...result.value);
+    } else {
+      allResults.push({
+        category: collectors[i]!.category,
+        scope: 'project',
+        value: 0,
+        violations: [],
+        metadata: { error: String(result.reason) },
+      });
+    }
+  }
+  return allResults;
 }
 
 export { CircularDepsCollector } from './circular-deps';
@@ -37,4 +51,4 @@ export { CouplingCollector } from './coupling';
 export { ForbiddenImportCollector } from './forbidden-imports';
 export { ModuleSizeCollector } from './module-size';
 export { DepDepthCollector } from './dep-depth';
-export { violationId } from './hash';
+export { violationId, constraintRuleId } from './hash';

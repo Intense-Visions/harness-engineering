@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
-import { violationId } from './hash';
+import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
+import { violationId, constraintRuleId } from './hash';
 
 interface ModuleStats {
   modulePath: string;
@@ -72,6 +72,47 @@ async function discoverModules(rootDir: string): Promise<ModuleStats[]> {
 export class ModuleSizeCollector implements Collector {
   readonly category = 'module-size' as const;
 
+  getRules(config: ArchConfig, _rootDir: string): ConstraintRule[] {
+    const thresholds = config.thresholds['module-size'];
+    let maxLoc = Infinity;
+    let maxFiles = Infinity;
+    if (typeof thresholds === 'object' && thresholds !== null) {
+      const t = thresholds as Record<string, number>;
+      if (t.maxLoc !== undefined) maxLoc = t.maxLoc;
+      if (t.maxFiles !== undefined) maxFiles = t.maxFiles;
+    }
+
+    const rules: ConstraintRule[] = [];
+    if (maxLoc < Infinity) {
+      const desc = `Module LOC must not exceed ${maxLoc}`;
+      rules.push({
+        id: constraintRuleId(this.category, 'project', desc),
+        category: this.category,
+        description: desc,
+        scope: 'project',
+      });
+    }
+    if (maxFiles < Infinity) {
+      const desc = `Module file count must not exceed ${maxFiles}`;
+      rules.push({
+        id: constraintRuleId(this.category, 'project', desc),
+        category: this.category,
+        description: desc,
+        scope: 'project',
+      });
+    }
+    if (rules.length === 0) {
+      const desc = 'Module size must stay within thresholds';
+      rules.push({
+        id: constraintRuleId(this.category, 'project', desc),
+        category: this.category,
+        description: desc,
+        scope: 'project',
+      });
+    }
+    return rules;
+  }
+
   async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const modules = await discoverModules(rootDir);
 
@@ -89,7 +130,7 @@ export class ModuleSizeCollector implements Collector {
 
       if (mod.totalLoc > maxLoc) {
         violations.push({
-          id: violationId(mod.modulePath, this.category, `totalLoc=${mod.totalLoc}`),
+          id: violationId(mod.modulePath, this.category, 'totalLoc-exceeded'),
           file: mod.modulePath,
           detail: `Module has ${mod.totalLoc} lines of code (threshold: ${maxLoc})`,
           severity: 'warning',
@@ -98,7 +139,7 @@ export class ModuleSizeCollector implements Collector {
 
       if (mod.fileCount > maxFiles) {
         violations.push({
-          id: violationId(mod.modulePath, this.category, `fileCount=${mod.fileCount}`),
+          id: violationId(mod.modulePath, this.category, 'fileCount-exceeded'),
           file: mod.modulePath,
           detail: `Module has ${mod.fileCount} files (threshold: ${maxFiles})`,
           severity: 'warning',

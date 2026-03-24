@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, dirname, resolve } from 'node:path';
-import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
-import { violationId } from './hash';
+import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
+import { violationId, constraintRuleId } from './hash';
 
 /**
  * Extract relative import sources from a TypeScript file using regex.
@@ -85,6 +85,26 @@ function computeLongestChain(
 export class DepDepthCollector implements Collector {
   readonly category = 'dependency-depth' as const;
 
+  getRules(config: ArchConfig, _rootDir: string): ConstraintRule[] {
+    const threshold =
+      typeof config.thresholds['dependency-depth'] === 'number'
+        ? config.thresholds['dependency-depth']
+        : null;
+
+    const desc =
+      threshold !== null
+        ? `Dependency chain depth must not exceed ${threshold}`
+        : 'Dependency chain depth must stay within thresholds';
+    return [
+      {
+        id: constraintRuleId(this.category, 'project', desc),
+        category: this.category,
+        description: desc,
+        scope: 'project',
+      },
+    ];
+  }
+
   async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const allFiles = await collectTsFiles(rootDir);
 
@@ -130,7 +150,7 @@ export class DepDepthCollector implements Collector {
       const violations: Violation[] = [];
       if (longestChain > threshold) {
         violations.push({
-          id: violationId(modulePath, this.category, `depth=${longestChain}`),
+          id: violationId(modulePath, this.category, 'depth-exceeded'),
           file: modulePath,
           detail: `Import chain depth is ${longestChain} (threshold: ${threshold})`,
           severity: 'warning',

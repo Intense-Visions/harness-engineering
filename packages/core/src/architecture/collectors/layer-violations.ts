@@ -1,11 +1,23 @@
 import { relative } from 'node:path';
-import type { Collector, ArchConfig, MetricResult, Violation } from '../types';
-import { violationId } from './hash';
+import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
+import { violationId, constraintRuleId } from './hash';
 import { validateDependencies } from '../../constraints/dependencies';
 import type { DependencyViolation } from '../../constraints/types';
 
 export class LayerViolationCollector implements Collector {
   readonly category = 'layer-violations' as const;
+
+  getRules(_config: ArchConfig, _rootDir: string): ConstraintRule[] {
+    const description = 'No layer boundary violations allowed';
+    return [
+      {
+        id: constraintRuleId(this.category, 'project', description),
+        category: this.category,
+        description,
+        scope: 'project',
+      },
+    ];
+  }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     // LayerViolationCollector requires layer config to be passed through ArchConfig.

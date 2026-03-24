@@ -14,3 +14,12 @@ export function violationId(
   const input = `${path}:${category}:${normalizedDetail}`;
   return createHash('sha256').update(input).digest('hex');
 }
+
+/**
+ * Produce a stable constraint rule ID.
+ * Formula: sha256(category + ':' + scope + ':' + description)
+ */
+export function constraintRuleId(category: string, scope: string, description: string): string {
+  const input = `${category}:${scope}:${description}`;
+  return createHash('sha256').update(input).digest('hex');
+}

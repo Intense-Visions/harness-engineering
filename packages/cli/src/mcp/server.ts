@@ -109,6 +109,10 @@ import {
   checkTaskIndependenceDefinition,
   handleCheckTaskIndependence,
 } from './tools/task-independence.js';
+import {
+  detectStaleConstraintsDefinition,
+  handleDetectStaleConstraints,
+} from './tools/stale-constraints.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -158,6 +162,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   reviewChangesDefinition,
   detectAnomaliesDefinition,
   checkTaskIndependenceDefinition,
+  detectStaleConstraintsDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -202,6 +207,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   review_changes: handleReviewChanges as ToolHandler,
   detect_anomalies: handleDetectAnomalies as ToolHandler,
   check_task_independence: handleCheckTaskIndependence as ToolHandler,
+  detect_stale_constraints: handleDetectStaleConstraints as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
