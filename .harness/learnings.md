@@ -276,3 +276,14 @@
 - [skill:harness-execution] [outcome:gotcha] lint-staged stash/restore continues to absorb staged changes into unrelated commits. Same pattern as 5+ prior sessions. Commit boundaries are wrong but content lands correctly.
 
 - **2026-03-23 [skill:harness-debugging] [outcome:fixed CI failure on Windows due to stale cache hits in state-manager.]:** Manual cache invalidation on write is much more robust than relying on file system timestamps (mtimeMs), particularly for rapid operations or on systems with low timestamp resolution (Windows CI). Invalidate cache maps in all write-related functions (append, archive, save) rather than just relying on the load-time stat check.
+
+## 2026-03-23 — Phase 2: MCP Tool for Task Independence Detection
+
+- [skill:harness-execution] [outcome:success] All 4 tasks completed. check_task_independence tool registered as tool #42. 16 new tests, 325 total MCP tests pass across 38 files.
+- [skill:harness-execution] [outcome:gotcha] Both server.test.ts and server-integration.test.ts have hardcoded tool counts (41->42). Same pattern noted in prior learnings for roadmap tool addition.
+
+## 2026-03-23 — Phase 2: ConflictPredictor Unit Tests
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed. 23 tests pass for ConflictPredictor covering validation, severity classification (high/medium/low), regrouping behavior, verdict/summary, and severity precedence.
+- [skill:harness-execution] [outcome:gotcha] In small graphs, the coupling adapter's P80 threshold equals shared.ts's coupling (fanIn=2 from the import edges that create transitive overlap), causing transitive overlaps to classify as medium instead of low. Fix: add a triangle cluster of 3 mutually-importing files (coupling=4 each) to push the P80 threshold above shared.ts's value of 2.
+- [skill:harness-execution] [outcome:gotcha] Hub-and-leaf patterns are inefficient for raising coupling P80: each hub adds 1 high-coupling file but N low-coupling leaves, diluting the percentile. Triangle/cycle patterns (3 files, 6 edges, zero new low-coupling nodes) are far more efficient.

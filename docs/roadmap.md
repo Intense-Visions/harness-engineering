@@ -463,11 +463,11 @@ updated: 2026-03-23
 
 ### Conflict Prediction
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Status:** done
+- **Spec:** docs/changes/conflict-prediction/proposal.md
 - **Summary:** Returns conflict matrix with reasoning before parallel agent dispatch. Integrates into harness-parallel-agents skill. [F9]
-- **Blockers:** Automatic Task Independence Detection
-- **Plan:** none
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-23-conflict-predictor-core-plan.md, docs/plans/2026-03-23-conflict-predictor-tests-plan.md, docs/plans/2026-03-23-conflict-predictor-integration-plan.md
 
 ### Natural Language Graph Queries
 
@@ -514,8 +514,8 @@ updated: 2026-03-23
 ### Constraint Sharing
 
 - **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** harness share exports constraint subsets from harness.config.json as publishable npm packages. harness install-constraints imports and merges constraint sets into local config. [H3]
+- **Spec:** docs/changes/constraint-sharing/proposal.md
+- **Summary:** Export constraint subsets from harness.config.json as shareable bundles; import and merge with per-rule provenance tracking. [H3]
 - **Blockers:** none
 - **Plan:** none
 
