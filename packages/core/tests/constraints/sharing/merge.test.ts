@@ -519,4 +519,141 @@ describe('deepMergeConstraints', () => {
       expect(result.contributions['security.rules']).toEqual(['SEC-NEW-001']);
     });
   });
+
+  describe('cross-section integration', () => {
+    it('should merge all sections at once from a realistic bundle', () => {
+      const localConfig = {
+        layers: [{ name: 'domain', pattern: 'src/domain/**', allowedDependencies: [] }],
+        forbiddenImports: [{ from: 'src/domain/**', disallow: ['src/api/**'] }],
+        boundaries: { requireSchema: ['src/api/**'] },
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { 'circular-deps': 0 },
+          modules: {},
+        },
+        security: { rules: { 'SEC-CRY-001': 'error' } },
+      };
+
+      const bundle: BundleConstraints = {
+        layers: [{ name: 'infra', pattern: 'src/infra/**', allowedDependencies: ['domain'] }],
+        forbiddenImports: [
+          {
+            from: 'src/infra/**',
+            disallow: ['src/ui/**'],
+            message: 'infra cannot import ui',
+          },
+        ],
+        boundaries: { requireSchema: ['src/models/**'] },
+        architecture: {
+          enabled: true,
+          baselinePath: '.harness/arch/baselines.json',
+          thresholds: { complexity: 10 },
+          modules: { 'src/api': { coupling: 3 } },
+        },
+        security: { rules: { 'SEC-XSS-003': 'warning' } },
+      };
+
+      const result = deepMergeConstraints(localConfig, bundle);
+
+      // Layers
+      const layers = result.config.layers as Array<{ name: string }>;
+      expect(layers).toHaveLength(2);
+      expect(layers[1].name).toBe('infra');
+      expect(result.contributions.layers).toEqual(['infra']);
+
+      // Forbidden imports
+      const fi = result.config.forbiddenImports as Array<{ from: string }>;
+      expect(fi).toHaveLength(2);
+      expect(fi[1].from).toBe('src/infra/**');
+      expect(result.contributions.forbiddenImports).toEqual([1]);
+
+      // Boundaries
+      const boundaries = result.config.boundaries as { requireSchema: string[] };
+      expect(boundaries.requireSchema).toEqual(['src/api/**', 'src/models/**']);
+      expect(result.contributions.boundaries).toEqual(['src/models/**']);
+
+      // Architecture
+      const arch = result.config.architecture as {
+        thresholds: Record<string, unknown>;
+        modules: Record<string, Record<string, unknown>>;
+      };
+      expect(arch.thresholds['circular-deps']).toBe(0);
+      expect(arch.thresholds['complexity']).toBe(10);
+      expect(arch.modules['src/api']).toEqual({ coupling: 3 });
+      expect(result.contributions['architecture.thresholds']).toEqual(['complexity']);
+      expect(result.contributions['architecture.modules']).toEqual(['src/api:coupling']);
+
+      // Security
+      const security = result.config.security as { rules: Record<string, string> };
+      expect(security.rules['SEC-CRY-001']).toBe('error');
+      expect(security.rules['SEC-XSS-003']).toBe('warning');
+      expect(result.contributions['security.rules']).toEqual(['SEC-XSS-003']);
+
+      // No conflicts
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('should collect conflicts across multiple sections', () => {
+      const localConfig = {
+        layers: [{ name: 'domain', pattern: 'src/domain/**', allowedDependencies: [] }],
+        security: { rules: { 'SEC-CRY-001': 'error' } },
+      };
+      const bundle: BundleConstraints = {
+        layers: [{ name: 'domain', pattern: 'src/domain/**', allowedDependencies: ['utils'] }],
+        security: { rules: { 'SEC-CRY-001': 'off' } },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.conflicts).toHaveLength(2);
+      expect(result.conflicts.map((c) => c.section).sort()).toEqual(['layers', 'security.rules']);
+    });
+
+    it('should preserve non-constraint config keys untouched', () => {
+      const localConfig = {
+        projectName: 'my-project',
+        version: '1.0.0',
+        layers: [{ name: 'domain', pattern: 'src/domain/**', allowedDependencies: [] }],
+      };
+      const bundle: BundleConstraints = {
+        layers: [{ name: 'infra', pattern: 'src/infra/**', allowedDependencies: [] }],
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect((result.config as Record<string, unknown>).projectName).toBe('my-project');
+      expect((result.config as Record<string, unknown>).version).toBe('1.0.0');
+    });
+
+    it('should handle completely empty local config with a full bundle', () => {
+      const bundle: BundleConstraints = {
+        layers: [{ name: 'infra', pattern: 'src/infra/**', allowedDependencies: [] }],
+        forbiddenImports: [{ from: 'src/infra/**', disallow: ['src/ui/**'] }],
+        boundaries: { requireSchema: ['src/api/**'] },
+        security: { rules: { 'SEC-CRY-001': 'error' } },
+      };
+      const result = deepMergeConstraints({}, bundle);
+      expect(result.conflicts).toEqual([]);
+      expect(result.contributions.layers).toEqual(['infra']);
+      expect(result.contributions.forbiddenImports).toEqual([0]);
+      expect(result.contributions.boundaries).toEqual(['src/api/**']);
+      expect(result.contributions['security.rules']).toEqual(['SEC-CRY-001']);
+    });
+
+    it('should be idempotent: merging the same bundle twice yields no new contributions', () => {
+      const localConfig = {};
+      const bundle: BundleConstraints = {
+        layers: [{ name: 'infra', pattern: 'src/infra/**', allowedDependencies: [] }],
+        security: { rules: { 'SEC-CRY-001': 'error' } },
+      };
+
+      // First merge
+      const first = deepMergeConstraints(localConfig, bundle);
+      expect(first.contributions.layers).toEqual(['infra']);
+
+      // Second merge into the result of the first
+      const second = deepMergeConstraints(first.config, bundle);
+      expect(second.contributions.layers).toBeUndefined();
+      expect(second.contributions['security.rules']).toBeUndefined();
+      expect(second.conflicts).toEqual([]);
+      expect(second.config).toEqual(first.config);
+    });
+  });
 });
