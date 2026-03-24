@@ -187,14 +187,49 @@ export function deepMergeConstraints(
       }
     }
 
+    // --- Architecture Modules ---
+    const mergedModules = { ...localArch.modules };
+    const contributedModuleKeys: string[] = [];
+
+    const bundleModules = bundleConstraints.architecture.modules ?? {};
+    for (const [modulePath, bundleCategoryMap] of Object.entries(bundleModules)) {
+      if (!(modulePath in mergedModules)) {
+        mergedModules[modulePath] = bundleCategoryMap;
+        for (const cat of Object.keys(bundleCategoryMap)) {
+          contributedModuleKeys.push(`${modulePath}:${cat}`);
+        }
+      } else {
+        const localCategoryMap = mergedModules[modulePath];
+        const mergedCategoryMap = { ...localCategoryMap };
+        for (const [category, value] of Object.entries(bundleCategoryMap)) {
+          if (!(category in mergedCategoryMap)) {
+            mergedCategoryMap[category] = value;
+            contributedModuleKeys.push(`${modulePath}:${category}`);
+          } else if (!deepEqual(mergedCategoryMap[category], value)) {
+            conflicts.push({
+              section: 'architecture.modules',
+              key: `${modulePath}:${category}`,
+              localValue: mergedCategoryMap[category],
+              packageValue: value,
+              description: `Architecture module override '${modulePath}' category '${category}' already exists locally with a different value`,
+            });
+          }
+        }
+        mergedModules[modulePath] = mergedCategoryMap;
+      }
+    }
+
     config.architecture = {
       ...localArch,
       thresholds: mergedThresholds,
-      modules: localArch.modules, // updated in Task 6
+      modules: mergedModules,
     };
 
     if (contributedThresholdKeys.length > 0) {
       contributions['architecture.thresholds'] = contributedThresholdKeys;
+    }
+    if (contributedModuleKeys.length > 0) {
+      contributions['architecture.modules'] = contributedModuleKeys;
     }
   }
 
