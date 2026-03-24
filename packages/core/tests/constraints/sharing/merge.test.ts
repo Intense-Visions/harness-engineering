@@ -155,4 +155,56 @@ describe('deepMergeConstraints', () => {
       expect(result.conflicts[0].key).toBe('src/domain/**');
     });
   });
+
+  describe('boundaries merge', () => {
+    it('should union requireSchema arrays and deduplicate', () => {
+      const localConfig = {
+        boundaries: { requireSchema: ['src/api/**', 'src/types/**'] },
+      };
+      const bundle: BundleConstraints = {
+        boundaries: { requireSchema: ['src/types/**', 'src/models/**'] },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const boundaries = result.config.boundaries as { requireSchema: string[] };
+      expect(boundaries.requireSchema).toEqual(['src/api/**', 'src/types/**', 'src/models/**']);
+      expect(result.contributions.boundaries).toEqual(['src/models/**']);
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('should handle bundle boundaries when local has none', () => {
+      const bundle: BundleConstraints = {
+        boundaries: { requireSchema: ['src/api/**'] },
+      };
+      const result = deepMergeConstraints({}, bundle);
+      const boundaries = result.config.boundaries as { requireSchema: string[] };
+      expect(boundaries.requireSchema).toEqual(['src/api/**']);
+      expect(result.contributions.boundaries).toEqual(['src/api/**']);
+    });
+
+    it('should handle all duplicates (nothing new)', () => {
+      const localConfig = {
+        boundaries: { requireSchema: ['src/api/**'] },
+      };
+      const bundle: BundleConstraints = {
+        boundaries: { requireSchema: ['src/api/**'] },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const boundaries = result.config.boundaries as { requireSchema: string[] };
+      expect(boundaries.requireSchema).toEqual(['src/api/**']);
+      expect(result.contributions.boundaries).toBeUndefined();
+    });
+
+    it('should handle empty requireSchema in bundle', () => {
+      const localConfig = {
+        boundaries: { requireSchema: ['src/api/**'] },
+      };
+      const bundle: BundleConstraints = {
+        boundaries: { requireSchema: [] },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const boundaries = result.config.boundaries as { requireSchema: string[] };
+      expect(boundaries.requireSchema).toEqual(['src/api/**']);
+      expect(result.contributions.boundaries).toBeUndefined();
+    });
+  });
 });

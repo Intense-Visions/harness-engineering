@@ -117,5 +117,30 @@ export function deepMergeConstraints(
     }
   }
 
+  // --- Boundaries ---
+  if (bundleConstraints.boundaries) {
+    const localBoundaries = (localConfig.boundaries ?? { requireSchema: [] }) as {
+      requireSchema: string[];
+    };
+    const localSchemas = new Set(localBoundaries.requireSchema ?? []);
+    const bundleSchemas = bundleConstraints.boundaries.requireSchema ?? [];
+    const newSchemas: string[] = [];
+
+    for (const schema of bundleSchemas) {
+      if (!localSchemas.has(schema)) {
+        newSchemas.push(schema);
+        localSchemas.add(schema);
+      }
+    }
+
+    config.boundaries = {
+      requireSchema: [...(localBoundaries.requireSchema ?? []), ...newSchemas],
+    };
+
+    if (newSchemas.length > 0) {
+      contributions.boundaries = newSchemas;
+    }
+  }
+
   return { config, contributions, conflicts };
 }
