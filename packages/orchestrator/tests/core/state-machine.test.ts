@@ -480,3 +480,145 @@ describe('applyEvent - stall_detected', () => {
     }
   });
 });
+
+describe('applyEvent - agent_update', () => {
+  it('should update session token counters and emit updateTokens effect', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: {
+        sessionId: 'sess-1',
+        backendName: 'mock',
+        agentPid: null,
+        startedAt: '2026-01-01T00:00:00Z',
+        lastEvent: null,
+        lastTimestamp: null,
+        lastMessage: null,
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        lastReportedInputTokens: 0,
+        lastReportedOutputTokens: 0,
+        lastReportedTotalTokens: 0,
+        turnCount: 1,
+      },
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: {
+        type: 'assistant',
+        timestamp: '2026-01-01T00:01:00Z',
+        usage: { inputTokens: 200, outputTokens: 100, totalTokens: 300 },
+        sessionId: 'sess-1-updated',
+      },
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+
+    const entry = nextState.running.get('id-1');
+    expect(entry).toBeDefined();
+    expect(entry!.session!.inputTokens).toBe(300);
+    expect(entry!.session!.outputTokens).toBe(150);
+    expect(entry!.session!.totalTokens).toBe(450);
+    expect(entry!.session!.lastEvent).toBe('assistant');
+    expect(entry!.session!.lastTimestamp).toBe('2026-01-01T00:01:00Z');
+    expect(entry!.session!.sessionId).toBe('sess-1-updated');
+
+    const tokenEffect = effects.find((e) => e.type === 'updateTokens');
+    expect(tokenEffect).toBeDefined();
+  });
+
+  it('should be a no-op when issue is not in running map', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+
+    const event: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'nonexistent',
+      event: { type: 'assistant', timestamp: '2026-01-01T00:01:00Z' },
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+    expect(nextState.running.size).toBe(0);
+    expect(effects).toEqual([]);
+  });
+
+  it('should be a no-op when running entry has no session', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'LaunchingAgent',
+      session: null,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: {
+        type: 'assistant',
+        timestamp: '2026-01-01T00:01:00Z',
+        usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+      },
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    expect(effects).toEqual([]);
+  });
+
+  it('should update lastEvent without token effect when no usage present', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: {
+        sessionId: 'sess-1',
+        backendName: 'mock',
+        agentPid: null,
+        startedAt: '2026-01-01T00:00:00Z',
+        lastEvent: null,
+        lastTimestamp: null,
+        lastMessage: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        lastReportedInputTokens: 0,
+        lastReportedOutputTokens: 0,
+        lastReportedTotalTokens: 0,
+        turnCount: 1,
+      },
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: { type: 'system', timestamp: '2026-01-01T00:01:00Z' },
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+    const entry = nextState.running.get('id-1');
+    expect(entry!.session!.lastEvent).toBe('system');
+    expect(entry!.session!.lastTimestamp).toBe('2026-01-01T00:01:00Z');
+    expect(effects.filter((e) => e.type === 'updateTokens')).toHaveLength(0);
+  });
+});
