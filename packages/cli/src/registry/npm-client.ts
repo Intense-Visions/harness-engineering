@@ -2,6 +2,26 @@ const NPM_REGISTRY = 'https://registry.npmjs.org';
 const FETCH_TIMEOUT_MS = 30_000;
 const HARNESS_SKILLS_SCOPE = '@harness-skills/';
 
+export interface NpmSearchResult {
+  name: string;
+  version: string;
+  description: string;
+  keywords: string[];
+  date: string;
+}
+
+export interface NpmSearchResponse {
+  objects: Array<{
+    package: {
+      name: string;
+      version: string;
+      description: string;
+      keywords: string[];
+      date: string;
+    };
+  }>;
+}
+
 export interface NpmVersionDist {
   tarball: string;
   shasum: string;
@@ -98,4 +118,35 @@ export async function downloadTarball(tarballUrl: string): Promise<Buffer> {
   }
 
   throw new Error(`Download failed for ${tarballUrl}. Try again. (${lastError?.message})`);
+}
+
+/**
+ * Search the npm registry for @harness-skills packages.
+ * Uses the npm search API: /-/v1/search?text=scope:harness-skills+<query>&size=20
+ */
+export async function searchNpmRegistry(query: string): Promise<NpmSearchResult[]> {
+  const searchText = encodeURIComponent(`scope:harness-skills ${query}`);
+  const url = `${NPM_REGISTRY}/-/v1/search?text=${searchText}&size=20`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    throw new Error('Cannot reach npm registry. Check your network connection.');
+  }
+
+  if (!response.ok) {
+    throw new Error(`npm registry search returned ${response.status} ${response.statusText}.`);
+  }
+
+  const data = (await response.json()) as NpmSearchResponse;
+  return data.objects.map((obj) => ({
+    name: obj.package.name,
+    version: obj.package.version,
+    description: obj.package.description,
+    keywords: obj.package.keywords || [],
+    date: obj.package.date,
+  }));
 }

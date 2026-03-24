@@ -3,6 +3,7 @@ import {
   resolvePackageName,
   fetchPackageMetadata,
   downloadTarball,
+  searchNpmRegistry,
   type NpmPackageMetadata,
 } from '../../src/registry/npm-client';
 
@@ -130,5 +131,78 @@ describe('downloadTarball', () => {
     });
 
     await expect(downloadTarball('https://example.com/pkg.tgz')).rejects.toThrow('Download failed');
+  });
+});
+
+describe('searchNpmRegistry', () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it('searches npm registry with scope filter', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        objects: [
+          {
+            package: {
+              name: '@harness-skills/deployment',
+              version: '1.0.0',
+              description: 'Deployment skill',
+              keywords: ['claude-code', 'deployment'],
+              date: '2026-03-24',
+            },
+          },
+        ],
+      }),
+    });
+
+    const results = await searchNpmRegistry('deploy');
+    expect(results).toHaveLength(1);
+    expect(results[0].name).toBe('@harness-skills/deployment');
+    expect(results[0].version).toBe('1.0.0');
+    expect(results[0].description).toBe('Deployment skill');
+    // Verify the URL contains the scope filter
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('scope%3Aharness-skills'),
+      expect.any(Object)
+    );
+  });
+
+  it('returns empty array when no results', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ objects: [] }),
+    });
+
+    const results = await searchNpmRegistry('nonexistent');
+    expect(results).toHaveLength(0);
+  });
+
+  it('throws on network error', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+    await expect(searchNpmRegistry('deploy')).rejects.toThrow('Cannot reach npm registry');
+  });
+
+  it('handles missing keywords gracefully', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        objects: [
+          {
+            package: {
+              name: '@harness-skills/test',
+              version: '0.1.0',
+              description: 'Test',
+              date: '2026-03-24',
+            },
+          },
+        ],
+      }),
+    });
+
+    const results = await searchNpmRegistry('test');
+    expect(results[0].keywords).toEqual([]);
   });
 });
