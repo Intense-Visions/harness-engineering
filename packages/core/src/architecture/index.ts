@@ -8,6 +8,7 @@ export {
   ArchDiffResultSchema,
   ThresholdConfigSchema,
   ArchConfigSchema,
+  ConstraintRuleSchema,
 } from './types';
 
 export type {
@@ -20,6 +21,7 @@ export type {
   ArchDiffResult,
   ThresholdConfig,
   ArchConfig,
+  ConstraintRule,
   Collector,
 } from './types';
 
@@ -34,4 +36,13 @@ export {
   ModuleSizeCollector,
   DepDepthCollector,
   violationId,
+  constraintRuleId,
 } from './collectors/index';
+
+export { syncConstraintNodes } from './sync-constraints';
+export type { ConstraintNodeStore } from './sync-constraints';
+export { detectStaleConstraints } from './detect-stale';
+export type { StaleConstraint, DetectStaleResult } from './detect-stale';
+
+export { ArchBaselineManager } from './baseline-manager';
+export { diff } from './diff';
