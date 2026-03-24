@@ -111,6 +111,7 @@ import {
   checkTaskIndependenceDefinition,
   handleCheckTaskIndependence,
 } from './tools/task-independence.js';
+import { predictConflictsDefinition, handlePredictConflicts } from './tools/conflict-prediction.js';
 import {
   detectStaleConstraintsDefinition,
   handleDetectStaleConstraints,
@@ -165,6 +166,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   detectAnomaliesDefinition,
   askGraphDefinition,
   checkTaskIndependenceDefinition,
+  predictConflictsDefinition,
   detectStaleConstraintsDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
@@ -211,6 +213,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   detect_anomalies: handleDetectAnomalies as ToolHandler,
   ask_graph: handleAskGraph as ToolHandler,
   check_task_independence: handleCheckTaskIndependence as ToolHandler,
+  predict_conflicts: handlePredictConflicts as ToolHandler,
   detect_stale_constraints: handleDetectStaleConstraints as ToolHandler,
 };
 

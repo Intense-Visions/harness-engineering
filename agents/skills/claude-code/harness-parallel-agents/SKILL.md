@@ -18,7 +18,7 @@
 
 ### Step 1: Verify Task Independence
 
-Before dispatching anything in parallel, verify independence using `check_task_independence`:
+Before dispatching anything in parallel, predict conflicts using `predict_conflicts` (preferred) or `check_task_independence` (fallback):
 
 1. **List the candidate tasks.** Pull from the plan, or identify from the current work. For each task, identify the files it will read and write.
 
@@ -41,7 +41,28 @@ Before dispatching anything in parallel, verify independence using `check_task_i
    - **`verdict`**: Human-readable summary (e.g., "3 of 4 tasks can run in parallel in 2 groups")
    - **`analysisLevel`**: `"graph-expanded"` (full analysis) or `"file-only"` (graph unavailable)
 
-3. **Act on the result.** If all tasks are in one group, dispatch them all in parallel. If tasks are split across groups, dispatch each group as a separate parallel wave. If tasks conflict, investigate the overlaps and consider restructuring.
+   **Preferred: Use `predict_conflicts`** for severity-aware analysis with automatic regrouping:
+
+   ```json
+   {
+     "path": "<project-root>",
+     "tasks": [
+       { "id": "task-a", "files": ["src/module-a/index.ts", "src/module-a/index.test.ts"] },
+       { "id": "task-b", "files": ["src/module-b/index.ts", "src/module-b/index.test.ts"] }
+     ],
+     "depth": 1
+   }
+   ```
+
+   The `predict_conflicts` tool extends independence checking with:
+   - **`conflicts`**: Severity-classified conflict details with human-readable reasoning
+   - **`groups`**: Revised parallel dispatch groups (high-severity conflicts force serialization)
+   - **`summary`**: Conflict counts by severity and whether regrouping occurred
+   - **`verdict`**: Human-readable summary including severity breakdown
+
+   If `predict_conflicts` is unavailable, fall back to `check_task_independence`.
+
+3. **Act on the result.** Use the returned `groups` for dispatch. Flag any medium-severity conflicts to the coordinator. If high-severity conflicts forced regrouping (`summary.regrouped === true`), log which tasks were serialized and why. If all tasks are in one group, dispatch them all in parallel. If tasks are split across groups, dispatch each group as a separate parallel wave.
 
 4. **When in doubt, run serially.** The cost of a false parallel dispatch (merge conflicts, subtle bugs, wasted work) far exceeds the cost of running serially.
 
