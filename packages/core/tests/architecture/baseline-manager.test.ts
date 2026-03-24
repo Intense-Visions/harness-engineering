@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ArchBaselineManager } from '../../src/architecture/baseline-manager';
 import { ArchBaselineSchema } from '../../src/architecture/types';
 import type { MetricResult } from '../../src/architecture/types';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -98,6 +98,93 @@ describe('ArchBaselineManager', () => {
       const baseline = manager.capture([], 'hash2');
       expect(baseline.metrics).toEqual({});
       expect(baseline.version).toBe(1);
+    });
+  });
+
+  describe('load()', () => {
+    it('returns null when baselines file does not exist', () => {
+      expect(manager.load()).toBeNull();
+    });
+
+    it('loads a valid baselines file', () => {
+      const baseline = {
+        version: 1,
+        updatedAt: '2026-03-23T10:00:00.000Z',
+        updatedFrom: 'abc123',
+        metrics: {
+          'circular-deps': { value: 2, violationIds: ['cd-1', 'cd-2'] },
+        },
+      };
+      mkdirSync(join(tmpDir, '.harness', 'arch'), { recursive: true });
+      writeFileSync(join(tmpDir, '.harness', 'arch', 'baselines.json'), JSON.stringify(baseline));
+
+      const loaded = manager.load();
+      expect(loaded).toEqual(baseline);
+    });
+
+    it('returns null for invalid JSON', () => {
+      mkdirSync(join(tmpDir, '.harness', 'arch'), { recursive: true });
+      writeFileSync(join(tmpDir, '.harness', 'arch', 'baselines.json'), 'not-valid-json{{{');
+      expect(manager.load()).toBeNull();
+    });
+
+    it('returns null for JSON that fails schema validation', () => {
+      mkdirSync(join(tmpDir, '.harness', 'arch'), { recursive: true });
+      writeFileSync(
+        join(tmpDir, '.harness', 'arch', 'baselines.json'),
+        JSON.stringify({ version: 99, bad: true })
+      );
+      expect(manager.load()).toBeNull();
+    });
+  });
+
+  describe('save()', () => {
+    it('writes baseline to disk creating directories', () => {
+      const baseline = manager.capture(
+        [{ category: 'coupling', scope: 'project', value: 3, violations: [] }],
+        'save-hash'
+      );
+
+      manager.save(baseline);
+
+      const raw = readFileSync(join(tmpDir, '.harness', 'arch', 'baselines.json'), 'utf-8');
+      const written = JSON.parse(raw);
+      expect(written.version).toBe(1);
+      expect(written.updatedFrom).toBe('save-hash');
+      expect(written.metrics['coupling']).toEqual({ value: 3, violationIds: [] });
+    });
+
+    it('overwrites existing baseline file', () => {
+      const first = manager.capture(
+        [{ category: 'coupling', scope: 'project', value: 3, violations: [] }],
+        'first'
+      );
+      manager.save(first);
+
+      const second = manager.capture(
+        [{ category: 'coupling', scope: 'project', value: 5, violations: [] }],
+        'second'
+      );
+      manager.save(second);
+
+      const loaded = manager.load();
+      expect(loaded!.updatedFrom).toBe('second');
+      expect(loaded!.metrics['coupling']!.value).toBe(5);
+    });
+  });
+
+  describe('custom baselinePath', () => {
+    it('uses custom path when provided', () => {
+      const customManager = new ArchBaselineManager(tmpDir, 'custom/baselines.json');
+      const baseline = customManager.capture(
+        [{ category: 'complexity', scope: 'project', value: 1, violations: [] }],
+        'custom-hash'
+      );
+      customManager.save(baseline);
+
+      const loaded = customManager.load();
+      expect(loaded).not.toBeNull();
+      expect(loaded!.updatedFrom).toBe('custom-hash');
     });
   });
 });
