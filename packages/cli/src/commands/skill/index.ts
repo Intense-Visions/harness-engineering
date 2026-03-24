@@ -3,6 +3,7 @@ import { createListCommand } from './list';
 import { createRunCommand } from './run';
 import { createValidateCommand } from './validate';
 import { createInfoCommand } from './info';
+import { createSearchCommand } from './search';
 
 export function createSkillCommand(): Command {
   const command = new Command('skill').description('Skill management commands');
@@ -10,5 +11,6 @@ export function createSkillCommand(): Command {
   command.addCommand(createRunCommand());
   command.addCommand(createValidateCommand());
   command.addCommand(createInfoCommand());
+  command.addCommand(createSearchCommand());
   return command;
 }
