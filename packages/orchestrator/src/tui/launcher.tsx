@@ -1,4 +1,3 @@
-import React from 'react';
 import { render } from 'ink';
 import { Orchestrator } from '../orchestrator';
 import { Dashboard } from './app';

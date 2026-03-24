@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import Table from 'ink-table';
 import { RunningEntry } from '../../types/internal';
 
 export interface AgentsTableProps {
@@ -18,20 +17,45 @@ export const AgentsTable: React.FC<AgentsTableProps> = ({ agents }) => {
     );
   }
 
-  const data = agents.map((agent) => ({
-    Identifier: agent.identifier,
-    Phase: agent.phase,
-    Message: agent.session?.lastMessage?.slice(0, 50) || '-',
-    Tokens: agent.session?.totalTokens || 0,
-    Started: new Date(agent.startedAt).toLocaleTimeString(),
-  }));
-
   return (
     <Box flexDirection="column" marginY={1}>
       <Text bold underline>
         Active Agents
       </Text>
-      <Table data={data} />
+
+      {/* Header */}
+      <Box flexDirection="row" borderStyle="single" borderColor="gray">
+        <Box width={20}>
+          <Text bold>Identifier</Text>
+        </Box>
+        <Box width={20}>
+          <Text bold>Phase</Text>
+        </Box>
+        <Box width={10}>
+          <Text bold>Tokens</Text>
+        </Box>
+        <Box flexGrow={1}>
+          <Text bold>Message</Text>
+        </Box>
+      </Box>
+
+      {/* Rows */}
+      {agents.map((agent) => (
+        <Box key={agent.issueId} flexDirection="row">
+          <Box width={20}>
+            <Text>{agent.identifier}</Text>
+          </Box>
+          <Box width={20}>
+            <Text color="cyan">{agent.phase}</Text>
+          </Box>
+          <Box width={10}>
+            <Text color="yellow">{agent.session?.totalTokens || 0}</Text>
+          </Box>
+          <Box flexGrow={1}>
+            <Text wrap="truncate-end">{agent.session?.lastMessage || '-'}</Text>
+          </Box>
+        </Box>
+      ))}
     </Box>
   );
 };

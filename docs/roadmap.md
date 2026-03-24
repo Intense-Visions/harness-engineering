@@ -445,6 +445,14 @@ last_manual_edit: 2026-03-23
 - **Blockers:** none
 - **Plan:** none
 
+### Orchestrator Package Implementation
+
+- **Status:** in-progress
+- **Spec:** docs/changes/orchestrator/proposal.md
+- **Summary:** Long-running daemon that polls issue trackers, dispatches coding agents in isolated workspaces, with Ink TUI and HTTP API observability
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-24-orchestrator-foundation-plan.md
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection

@@ -69,6 +69,7 @@ describe('applyEvent - tick', () => {
       type: 'tick',
       candidates,
       runningStates: new Map(),
+      nowMs: 1706745600000,
     };
 
     const { nextState, effects } = applyEvent(state, event, config);
@@ -97,6 +98,7 @@ describe('applyEvent - tick', () => {
       type: 'tick',
       candidates,
       runningStates: new Map(),
+      nowMs: 1706745600000,
     };
 
     const { nextState, effects } = applyEvent(state, event, config);
@@ -127,6 +129,7 @@ describe('applyEvent - tick', () => {
       type: 'tick',
       candidates: [],
       runningStates,
+      nowMs: 1706745600000,
     };
 
     const { effects } = applyEvent(state, event, config);
@@ -145,6 +148,7 @@ describe('applyEvent - tick', () => {
       type: 'tick',
       candidates,
       runningStates: new Map(),
+      nowMs: 1706745600000,
     };
 
     const { effects } = applyEvent(state, event, config);
@@ -167,6 +171,7 @@ describe('applyEvent - tick', () => {
       type: 'tick',
       candidates,
       runningStates: new Map(),
+      nowMs: 1706745600000,
     };
 
     const { effects } = applyEvent(state, event, config);
@@ -288,7 +293,7 @@ describe('applyEvent - retry_fired', () => {
       issueId: 'id-1',
       identifier: 'TEST-1',
       attempt: 1,
-      dueAtMs: Date.now(),
+      dueAtMs: 1706745600000,
       error: null,
     });
 
@@ -297,6 +302,7 @@ describe('applyEvent - retry_fired', () => {
       type: 'retry_fired',
       issueId: 'id-1',
       candidates,
+      nowMs: 1706745600000,
     };
 
     const { effects } = applyEvent(state, event, config);
@@ -316,7 +322,7 @@ describe('applyEvent - retry_fired', () => {
       issueId: 'id-1',
       identifier: 'TEST-1',
       attempt: 1,
-      dueAtMs: Date.now(),
+      dueAtMs: 1706745600000,
       error: null,
     });
 
@@ -324,6 +330,7 @@ describe('applyEvent - retry_fired', () => {
       type: 'retry_fired',
       issueId: 'id-1',
       candidates: [], // not found
+      nowMs: 1706745600000,
     };
 
     const { nextState, effects } = applyEvent(state, event, config);
@@ -339,7 +346,7 @@ describe('applyEvent - retry_fired', () => {
       issueId: 'id-1',
       identifier: 'TEST-1',
       attempt: 1,
-      dueAtMs: Date.now(),
+      dueAtMs: 1706745600000,
       error: null,
     });
 
@@ -348,6 +355,7 @@ describe('applyEvent - retry_fired', () => {
       type: 'retry_fired',
       issueId: 'id-1',
       candidates,
+      nowMs: 1706745600000,
     };
 
     const { nextState, effects } = applyEvent(state, event, config);
@@ -379,7 +387,7 @@ describe('applyEvent - retry_fired', () => {
       issueId: 'id-1',
       identifier: 'TEST-1',
       attempt: 1,
-      dueAtMs: Date.now(),
+      dueAtMs: 1706745600000,
       error: null,
     });
 
@@ -388,6 +396,7 @@ describe('applyEvent - retry_fired', () => {
       type: 'retry_fired',
       issueId: 'id-1',
       candidates,
+      nowMs: 1706745600000,
     };
 
     const { effects } = applyEvent(state, event, config);
@@ -407,6 +416,7 @@ describe('applyEvent - retry_fired', () => {
       type: 'retry_fired',
       issueId: 'id-1',
       candidates: [],
+      nowMs: 1706745600000,
     };
 
     const { effects } = applyEvent(state, event, config);

@@ -22,7 +22,7 @@ export type {
 
   // Agent types
   AgentType,
-  AgentConfig,
+  FeedbackAgentConfig,
   AgentProcess,
   ReviewContext,
   PeerReview,

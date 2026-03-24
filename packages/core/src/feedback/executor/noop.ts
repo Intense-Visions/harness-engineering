@@ -2,7 +2,7 @@ import { Ok, Err } from '../../shared/result';
 import type {
   AgentExecutor,
   ExecutorHealth,
-  AgentConfig,
+  FeedbackAgentConfig,
   AgentProcess,
   PeerReview,
   FeedbackError,
@@ -18,7 +18,7 @@ export class NoOpExecutor implements AgentExecutor {
     return Ok({ available: true, message: 'NoOp executor - no real agent spawning' });
   }
 
-  async spawn(config: AgentConfig): Promise<Result<AgentProcess, FeedbackError>> {
+  async spawn(config: FeedbackAgentConfig): Promise<Result<AgentProcess, FeedbackError>> {
     const id = generateId();
     const process: AgentProcess = {
       id,

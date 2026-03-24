@@ -10,6 +10,11 @@ export type {
 
 export type {
   OrchestratorEvent,
+  TickEvent,
+  WorkerExitEvent,
+  AgentUpdateEvent,
+  RetryFiredEvent,
+  StallDetectedEvent,
   SideEffect,
   DispatchEffect,
   StopEffect,

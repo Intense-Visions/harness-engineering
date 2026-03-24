@@ -32,7 +32,8 @@ function handleTick(
   state: OrchestratorState,
   candidates: Issue[],
   runningStates: ReadonlyMap<string, Issue>,
-  config: WorkflowConfig
+  config: WorkflowConfig,
+  nowMs: number
 ): ApplyEventResult {
   const next = cloneState(state);
   const effects: SideEffect[] = [];
@@ -77,7 +78,7 @@ function handleTick(
       issue,
       attempt: null,
       workspacePath: '',
-      startedAt: new Date().toISOString(),
+      startedAt: new Date(nowMs).toISOString(),
       phase: 'PreparingWorkspace',
       session: null,
     });
@@ -172,7 +173,8 @@ function handleRetryFired(
   state: OrchestratorState,
   issueId: string,
   candidates: Issue[],
-  config: WorkflowConfig
+  config: WorkflowConfig,
+  nowMs: number
 ): ApplyEventResult {
   const next = cloneState(state);
   const effects: SideEffect[] = [];
@@ -211,7 +213,7 @@ function handleRetryFired(
       issueId,
       identifier: retryEntry.identifier,
       attempt: nextAttempt,
-      dueAtMs: Date.now() + delayMs,
+      dueAtMs: nowMs + delayMs,
       error: 'no available orchestrator slots',
     });
     effects.push({
@@ -281,7 +283,7 @@ export function applyEvent(
 ): ApplyEventResult {
   switch (event.type) {
     case 'tick':
-      return handleTick(state, event.candidates, event.runningStates, config);
+      return handleTick(state, event.candidates, event.runningStates, config, event.nowMs);
     case 'worker_exit':
       return handleWorkerExit(
         state,
@@ -294,7 +296,7 @@ export function applyEvent(
     case 'agent_update':
       return handleAgentUpdate(state, event.issueId, event.event);
     case 'retry_fired':
-      return handleRetryFired(state, event.issueId, event.candidates, config);
+      return handleRetryFired(state, event.issueId, event.candidates, config, event.nowMs);
     case 'stall_detected':
       return handleStallDetected(state, event.issueId, config);
   }

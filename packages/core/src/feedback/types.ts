@@ -112,7 +112,7 @@ export type AgentType =
   | 'entropy-cleaner'
   | 'custom';
 
-export interface AgentConfig {
+export interface FeedbackAgentConfig {
   type: AgentType;
   customType?: string;
   context: ReviewContext;
@@ -131,7 +131,7 @@ export interface AgentProcess {
   id: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
   startedAt: string;
-  config: AgentConfig;
+  config: FeedbackAgentConfig;
 }
 
 export interface PeerReview {
@@ -311,7 +311,7 @@ export interface AgentExecutor {
   readonly name: string;
   health(): Promise<import('../shared/result').Result<ExecutorHealth, FeedbackError>>;
   spawn(
-    config: AgentConfig
+    config: FeedbackAgentConfig
   ): Promise<import('../shared/result').Result<AgentProcess, FeedbackError>>;
   status(
     processId: string
