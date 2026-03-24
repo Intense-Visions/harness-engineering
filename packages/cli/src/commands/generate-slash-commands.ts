@@ -8,7 +8,11 @@ import type { SkillSource } from '../slash-commands/normalize';
 import { renderClaudeCode } from '../slash-commands/render-claude-code';
 import { renderGemini } from '../slash-commands/render-gemini';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
-import { resolveProjectSkillsDir, resolveGlobalSkillsDir } from '../utils/paths';
+import {
+  resolveProjectSkillsDir,
+  resolveGlobalSkillsDir,
+  resolveCommunitySkillsDir,
+} from '../utils/paths';
 import { CLIError, ExitCode, handleError } from '../utils/errors';
 import type { Platform, GenerateOptions } from '../slash-commands/types';
 import { VALID_PLATFORMS } from '../slash-commands/types';
@@ -62,6 +66,12 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
     if (projectDir) {
       skillSources.push({ dir: projectDir, source: 'project' });
     }
+    // Community skills — between project and global in priority
+    const communityDir = resolveCommunitySkillsDir();
+    if (fs.existsSync(communityDir)) {
+      skillSources.push({ dir: communityDir, source: 'community' });
+    }
+
     if (opts.includeGlobal || skillSources.length === 0) {
       // Include global if explicitly requested OR if no project found (backward compat)
       const globalDir = resolveGlobalSkillsDir();
