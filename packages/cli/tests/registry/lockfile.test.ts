@@ -2,7 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { readLockfile, writeLockfile, type SkillsLockfile } from '../../src/registry/lockfile';
+import {
+  readLockfile,
+  writeLockfile,
+  updateLockfileEntry,
+  removeLockfileEntry,
+  type SkillsLockfile,
+  type LockfileEntry,
+} from '../../src/registry/lockfile';
 
 describe('readLockfile', () => {
   let tmpDir: string;
@@ -100,5 +107,84 @@ describe('writeLockfile', () => {
     const lockPath = path.join(tmpDir, 'nested', 'dir', 'skills-lock.json');
     writeLockfile(lockPath, { version: 1, skills: {} });
     expect(fs.existsSync(lockPath)).toBe(true);
+  });
+});
+
+describe('updateLockfileEntry', () => {
+  const baseEntry: LockfileEntry = {
+    version: '1.0.0',
+    resolved: 'https://example.com/skill.tgz',
+    integrity: 'sha512-abc',
+    platforms: ['claude-code'],
+    installedAt: '2026-03-23T10:00:00Z',
+    dependencyOf: null,
+  };
+
+  it('adds a new entry to an empty lockfile', () => {
+    const lockfile: SkillsLockfile = { version: 1, skills: {} };
+    const result = updateLockfileEntry(lockfile, '@harness-skills/deploy', baseEntry);
+    expect(result.skills['@harness-skills/deploy']).toEqual(baseEntry);
+  });
+
+  it('replaces an existing entry', () => {
+    const lockfile: SkillsLockfile = {
+      version: 1,
+      skills: { '@harness-skills/deploy': baseEntry },
+    };
+    const updated = { ...baseEntry, version: '2.0.0' };
+    const result = updateLockfileEntry(lockfile, '@harness-skills/deploy', updated);
+    expect(result.skills['@harness-skills/deploy'].version).toBe('2.0.0');
+  });
+
+  it('does not mutate the input lockfile', () => {
+    const lockfile: SkillsLockfile = { version: 1, skills: {} };
+    const result = updateLockfileEntry(lockfile, '@harness-skills/deploy', baseEntry);
+    expect(lockfile.skills['@harness-skills/deploy']).toBeUndefined();
+    expect(result.skills['@harness-skills/deploy']).toBeDefined();
+  });
+});
+
+describe('removeLockfileEntry', () => {
+  it('removes an existing entry', () => {
+    const lockfile: SkillsLockfile = {
+      version: 1,
+      skills: {
+        '@harness-skills/deploy': {
+          version: '1.0.0',
+          resolved: 'https://example.com/deploy.tgz',
+          integrity: 'sha512-abc',
+          platforms: ['claude-code'],
+          installedAt: '2026-03-23T10:00:00Z',
+          dependencyOf: null,
+        },
+      },
+    };
+    const result = removeLockfileEntry(lockfile, '@harness-skills/deploy');
+    expect(result.skills['@harness-skills/deploy']).toBeUndefined();
+  });
+
+  it('returns unchanged lockfile when entry does not exist', () => {
+    const lockfile: SkillsLockfile = { version: 1, skills: {} };
+    const result = removeLockfileEntry(lockfile, '@harness-skills/nonexistent');
+    expect(result).toEqual(lockfile);
+  });
+
+  it('does not mutate the input lockfile', () => {
+    const lockfile: SkillsLockfile = {
+      version: 1,
+      skills: {
+        '@harness-skills/deploy': {
+          version: '1.0.0',
+          resolved: 'https://example.com/deploy.tgz',
+          integrity: 'sha512-abc',
+          platforms: ['claude-code'],
+          installedAt: '2026-03-23T10:00:00Z',
+          dependencyOf: null,
+        },
+      },
+    };
+    const result = removeLockfileEntry(lockfile, '@harness-skills/deploy');
+    expect(lockfile.skills['@harness-skills/deploy']).toBeDefined();
+    expect(result.skills['@harness-skills/deploy']).toBeUndefined();
   });
 });
