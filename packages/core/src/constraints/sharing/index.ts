@@ -26,3 +26,5 @@ export type {
 export { writeConfig } from './write-config';
 export { parseManifest } from './manifest';
 export { extractBundle } from './bundle';
+export { deepMergeConstraints } from './merge';
+export type { ConflictReport, MergeResult } from './merge';

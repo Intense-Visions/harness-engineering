@@ -107,7 +107,14 @@ export function deepMergeConstraints(
       const existing = localFI.find((r) => r.from === bundleRule.from);
       if (!existing) {
         const newIndex = mergedFI.length;
-        mergedFI.push(bundleRule);
+        const entry: { from: string; disallow: string[]; message?: string } = {
+          from: bundleRule.from,
+          disallow: bundleRule.disallow,
+        };
+        if (bundleRule.message !== undefined) {
+          entry.message = bundleRule.message;
+        }
+        mergedFI.push(entry);
         contributedIndices.push(newIndex);
       } else {
         const same = arraysEqual(existing.disallow, bundleRule.disallow);
