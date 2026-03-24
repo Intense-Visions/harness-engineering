@@ -88,6 +88,8 @@ import {
   handleIngestSource,
   detectAnomaliesDefinition,
   handleDetectAnomalies,
+  askGraphDefinition,
+  handleAskGraph,
 } from './tools/graph.js';
 import {
   getGraphResource,
@@ -161,6 +163,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   assessProjectDefinition,
   reviewChangesDefinition,
   detectAnomaliesDefinition,
+  askGraphDefinition,
   checkTaskIndependenceDefinition,
   detectStaleConstraintsDefinition,
 ];
@@ -206,6 +209,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   assess_project: handleAssessProject as ToolHandler,
   review_changes: handleReviewChanges as ToolHandler,
   detect_anomalies: handleDetectAnomalies as ToolHandler,
+  ask_graph: handleAskGraph as ToolHandler,
   check_task_independence: handleCheckTaskIndependence as ToolHandler,
   detect_stale_constraints: handleDetectStaleConstraints as ToolHandler,
 };

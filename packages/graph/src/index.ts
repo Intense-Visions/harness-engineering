@@ -31,6 +31,8 @@ export { saveGraph, loadGraph } from './store/Serializer.js';
 // Query
 export { ContextQL } from './query/ContextQL.js';
 export { project } from './query/Projection.js';
+export { groupNodesByImpact } from './query/groupImpact.js';
+export type { ImpactGroups } from './query/groupImpact.js';
 
 // Ingest
 export { CodeIngestor } from './ingest/CodeIngestor.js';
@@ -82,6 +84,17 @@ export type {
   ArticulationPoint,
   AnomalyReport,
 } from './entropy/GraphAnomalyAdapter.js';
+
+// NLQ
+export {
+  askGraph,
+  INTENTS,
+  IntentClassifier,
+  EntityExtractor,
+  EntityResolver,
+  ResponseFormatter,
+} from './nlq/index.js';
+export type { Intent, ClassificationResult, ResolvedEntity, AskGraphResult } from './nlq/index.js';
 
 // Context
 export { Assembler } from './context/Assembler.js';
