@@ -45,5 +45,75 @@ describe('check-arch command', () => {
         expect(result.error.exitCode).toBe(2);
       }
     });
+
+    it('emits warning in threshold-only mode when no baseline exists', async () => {
+      const result = await runCheckArch({
+        cwd: validProjectPath,
+        configPath: path.join(validProjectPath, 'harness.config.json'),
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // No baseline in valid-project fixture, so threshold-only mode
+        expect(result.value.mode).toBe('threshold-only');
+        expect(result.value.warning).toContain('--update-baseline');
+      }
+    });
+
+    it('returns passed=true when architecture defaults are used with no violations', async () => {
+      const result = await runCheckArch({
+        cwd: validProjectPath,
+        configPath: path.join(validProjectPath, 'harness.config.json'),
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.passed).toBe(true);
+        expect(result.value.thresholdViolations).toEqual([]);
+      }
+    });
+
+    it('filters results by module when --module is specified', async () => {
+      const result = await runCheckArch({
+        cwd: validProjectPath,
+        configPath: path.join(validProjectPath, 'harness.config.json'),
+        module: 'src/nonexistent',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // Filtering to a non-existent module should yield zero violations
+        expect(result.value.passed).toBe(true);
+        expect(result.value.totalViolations).toBe(0);
+      }
+    });
+
+    it('updates baseline when --update-baseline is set', async () => {
+      const fs = await import('node:fs');
+      const os = await import('node:os');
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-'));
+
+      // Create a minimal harness.config.json in temp dir
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+
+      const result = await runCheckArch({
+        cwd: tmpDir,
+        configPath: path.join(tmpDir, 'harness.config.json'),
+        updateBaseline: true,
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.baselineUpdated).toBe(true);
+        expect(result.value.passed).toBe(true);
+      }
+
+      // Verify baseline file was created
+      const baselinePath = path.join(tmpDir, '.harness', 'arch', 'baselines.json');
+      expect(fs.existsSync(baselinePath)).toBe(true);
+
+      // Clean up
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
   });
 });
