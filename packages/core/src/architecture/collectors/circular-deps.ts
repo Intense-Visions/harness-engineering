@@ -22,17 +22,22 @@ export class CircularDepsCollector implements Collector {
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const files = await findFiles('**/*.ts', rootDir);
-    const graphResult = await buildDependencyGraph(files, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring in Phase 4
+    const stubParser: any = {
       name: 'typescript',
       extensions: ['.ts', '.tsx'],
-      parseFile: async () =>
-        ({ ok: false, error: { code: 'PARSE_ERROR', message: 'not needed' } }) as any,
-      extractImports: () =>
-        ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }) as any,
-      extractExports: () =>
-        ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }) as any,
-      health: async () => ({ ok: true, value: { available: true } }) as any,
-    });
+      parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: 'not needed' } }),
+      extractImports: () => ({
+        ok: false,
+        error: { code: 'EXTRACT_ERROR', message: 'not needed' },
+      }),
+      extractExports: () => ({
+        ok: false,
+        error: { code: 'EXTRACT_ERROR', message: 'not needed' },
+      }),
+      health: async () => ({ ok: true, value: { available: true } }),
+    };
+    const graphResult = await buildDependencyGraph(files, stubParser);
 
     if (!graphResult.ok) {
       return [

@@ -24,17 +24,19 @@ export class LayerViolationCollector implements Collector {
     // For now, use an empty layer set — the real layer config will come from harness.config.json
     // wiring in Phase 4 (config schema). This collector is invoked with the right LayerConfig
     // at that point.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring deferred
+    const stubParser: any = {
+      name: 'typescript',
+      extensions: ['.ts', '.tsx'],
+      parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }),
+      extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
+      extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
+      health: async () => ({ ok: true, value: { available: true } }),
+    };
     const result = await validateDependencies({
       layers: [],
       rootDir,
-      parser: {
-        name: 'typescript',
-        extensions: ['.ts', '.tsx'],
-        parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }) as any,
-        extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
-        extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
-        health: async () => ({ ok: true, value: { available: true } }) as any,
-      },
+      parser: stubParser,
       fallbackBehavior: 'skip',
     });
 

@@ -11,6 +11,12 @@ import { ModuleSizeCollector } from './collectors/module-size';
 import { ForbiddenImportCollector } from './collectors/forbidden-imports';
 import { DepDepthCollector } from './collectors/dep-depth';
 
+// Vitest matcher context type — minimal interface to avoid direct vitest dependency in core
+interface MatcherContext {
+  isNot: boolean;
+  equals: (a: unknown, b: unknown) => boolean;
+}
+
 // --- Handle ---
 
 export interface ArchHandle {
@@ -80,7 +86,7 @@ function formatViolationList(violations: Violation[], limit = 10): string {
 // --- Project-wide matchers ---
 
 async function toHaveNoCircularDeps(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockResults?: MetricResult[] }
 ) {
   const results = await collectCategory(received, new CircularDepsCollector());
@@ -97,7 +103,7 @@ async function toHaveNoCircularDeps(
 }
 
 async function toHaveNoLayerViolations(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockResults?: MetricResult[] }
 ) {
   const results = await collectCategory(received, new LayerViolationCollector());
@@ -114,7 +120,7 @@ async function toHaveNoLayerViolations(
 }
 
 async function toMatchBaseline(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockDiff?: ArchDiffResult },
   options?: { tolerance?: number }
 ) {
@@ -175,7 +181,7 @@ function filterByScope(results: MetricResult[], scope: string): MetricResult[] {
 }
 
 async function toHaveMaxComplexity(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockResults?: MetricResult[] },
   maxComplexity: number
 ) {
@@ -195,11 +201,24 @@ async function toHaveMaxComplexity(
 }
 
 async function toHaveMaxCoupling(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockResults?: MetricResult[] },
   limits: { fanIn?: number; fanOut?: number }
 ) {
-  const results = await collectCategory(received, new CouplingCollector());
+  // Wire the provided limits into the config so the collector respects them
+  const config = resolveConfig(received);
+  if (limits.fanIn !== undefined || limits.fanOut !== undefined) {
+    config.thresholds.coupling = {
+      ...(typeof config.thresholds.coupling === 'object' ? config.thresholds.coupling : {}),
+      ...(limits.fanIn !== undefined ? { maxFanIn: limits.fanIn } : {}),
+      ...(limits.fanOut !== undefined ? { maxFanOut: limits.fanOut } : {}),
+    };
+  }
+  const collector = new CouplingCollector();
+  const results =
+    '_mockResults' in received && received._mockResults
+      ? received._mockResults
+      : await collector.collect(config, received.rootDir);
   const scoped = filterByScope(results, received.scope);
   const violations = scoped.flatMap((r) => r.violations);
   const pass = violations.length === 0;
@@ -209,19 +228,20 @@ async function toHaveMaxCoupling(
     message: () =>
       pass
         ? `Expected coupling violations in '${received.scope}' but found none`
-        : `Module '${received.scope}' has coupling violations (fanIn limit: ${limits.fanIn ?? 'none'}, fanOut limit: ${limits.fanOut ?? 'none'}):\n${formatViolationList(violations)}`,
+        : `Module '${received.scope}' has ${violations.length} coupling violation${violations.length === 1 ? '' : 's'} (fanIn limit: ${limits.fanIn ?? 'none'}, fanOut limit: ${limits.fanOut ?? 'none'}):\n${formatViolationList(violations)}`,
   };
 }
 
 async function toHaveMaxFileCount(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockResults?: MetricResult[] },
   maxFiles: number
 ) {
   const results = await collectCategory(received, new ModuleSizeCollector());
   const scoped = filterByScope(results, received.scope);
   const fileCount = scoped.reduce((max, r) => {
-    const fc = (r.metadata as any)?.fileCount ?? 0;
+    const meta = r.metadata as Record<string, unknown> | undefined;
+    const fc = typeof meta?.fileCount === 'number' ? meta.fileCount : 0;
     return fc > max ? fc : max;
   }, 0);
   const pass = fileCount <= maxFiles;
@@ -236,15 +256,19 @@ async function toHaveMaxFileCount(
 }
 
 async function toNotDependOn(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockResults?: MetricResult[] },
   forbiddenModule: string
 ) {
   const results = await collectCategory(received, new ForbiddenImportCollector());
   // Filter: violations in the source module that import from the forbidden module
   const allViolations = results.flatMap((r) => r.violations);
+  const scopePrefix = received.scope.replace(/\/+$/, '');
+  const forbiddenPrefix = forbiddenModule.replace(/\/+$/, '');
   const relevantViolations = allViolations.filter(
-    (v) => v.file.startsWith(received.scope) && v.detail.includes(forbiddenModule)
+    (v) =>
+      (v.file === scopePrefix || v.file.startsWith(scopePrefix + '/')) &&
+      (v.detail.includes(forbiddenPrefix + '/') || v.detail.endsWith(forbiddenPrefix))
   );
   const pass = relevantViolations.length === 0;
 
@@ -258,7 +282,7 @@ async function toNotDependOn(
 }
 
 async function toHaveMaxDepDepth(
-  this: any,
+  this: MatcherContext,
   received: ArchHandle & { _mockResults?: MetricResult[] },
   maxDepth: number
 ) {

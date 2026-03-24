@@ -11,6 +11,7 @@ import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
+import { execSync } from 'node:child_process';
 
 interface CheckArchOptions {
   cwd?: string;
@@ -40,15 +41,15 @@ export interface CheckArchResult {
 
 function getCommitHash(cwd: string): string {
   try {
-    const { execSync } = require('node:child_process');
-    return (execSync('git rev-parse --short HEAD', { cwd, encoding: 'utf-8' }) as string).trim();
+    return execSync('git rev-parse --short HEAD', { cwd, encoding: 'utf-8' }).toString().trim();
   } catch {
     return 'unknown';
   }
 }
 
 function filterByModule(results: MetricResult[], modulePath: string): MetricResult[] {
-  return results.filter((r) => r.scope === modulePath || r.scope.startsWith(modulePath + '/'));
+  const normalized = modulePath.replace(/\/+$/, '');
+  return results.filter((r) => r.scope === normalized || r.scope.startsWith(normalized + '/'));
 }
 
 /**
