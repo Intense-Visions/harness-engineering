@@ -419,4 +419,104 @@ describe('deepMergeConstraints', () => {
       expect(result.contributions['architecture.modules']).toEqual(['src/lib:coupling']);
     });
   });
+
+  describe('security rules merge', () => {
+    const localConfig = {
+      security: {
+        rules: {
+          'SEC-CRY-001': 'error' as const,
+          'SEC-INJ-002': 'warning' as const,
+        },
+      },
+    };
+
+    it('should add new security rules from bundle', () => {
+      const bundle: BundleConstraints = {
+        security: {
+          rules: { 'SEC-XSS-003': 'error' },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const security = result.config.security as { rules: Record<string, string> };
+      expect(security.rules['SEC-CRY-001']).toBe('error');
+      expect(security.rules['SEC-XSS-003']).toBe('error');
+      expect(result.contributions['security.rules']).toEqual(['SEC-XSS-003']);
+    });
+
+    it('should skip identical security rules', () => {
+      const bundle: BundleConstraints = {
+        security: {
+          rules: { 'SEC-CRY-001': 'error' },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.contributions['security.rules']).toBeUndefined();
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('should report conflict for same rule ID with different severity', () => {
+      const bundle: BundleConstraints = {
+        security: {
+          rules: { 'SEC-CRY-001': 'warning' },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].section).toBe('security.rules');
+      expect(result.conflicts[0].key).toBe('SEC-CRY-001');
+      expect(result.conflicts[0].localValue).toBe('error');
+      expect(result.conflicts[0].packageValue).toBe('warning');
+    });
+
+    it('should handle bundle security rules when local has none', () => {
+      const bundle: BundleConstraints = {
+        security: {
+          rules: { 'SEC-CRY-001': 'error' },
+        },
+      };
+      const result = deepMergeConstraints({}, bundle);
+      const security = result.config.security as { rules: Record<string, string> };
+      expect(security.rules['SEC-CRY-001']).toBe('error');
+      expect(result.contributions['security.rules']).toEqual(['SEC-CRY-001']);
+    });
+
+    it('should handle mixed: new, identical, and conflicting rules', () => {
+      const bundle: BundleConstraints = {
+        security: {
+          rules: {
+            'SEC-CRY-001': 'error', // identical
+            'SEC-INJ-002': 'error', // conflict (was warning)
+            'SEC-XSS-003': 'info', // new
+          },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const security = result.config.security as { rules: Record<string, string> };
+      expect(security.rules['SEC-XSS-003']).toBe('info');
+      expect(result.contributions['security.rules']).toEqual(['SEC-XSS-003']);
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].key).toBe('SEC-INJ-002');
+    });
+
+    it('should handle bundle security with undefined rules', () => {
+      const bundle: BundleConstraints = {
+        security: {},
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      expect(result.config).toEqual(localConfig);
+      expect(result.contributions['security.rules']).toBeUndefined();
+    });
+
+    it('should handle security rules with off severity', () => {
+      const bundle: BundleConstraints = {
+        security: {
+          rules: { 'SEC-NEW-001': 'off' },
+        },
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const security = result.config.security as { rules: Record<string, string> };
+      expect(security.rules['SEC-NEW-001']).toBe('off');
+      expect(result.contributions['security.rules']).toEqual(['SEC-NEW-001']);
+    });
+  });
 });
