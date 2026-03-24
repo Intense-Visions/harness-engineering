@@ -74,6 +74,11 @@ export * from './roadmap';
 // Interaction module
 export * from './interaction';
 
+// Blueprint module
+export * from './blueprint/types';
+export { ProjectScanner } from './blueprint/scanner';
+export { BlueprintGenerator } from './blueprint/generator';
+
 // Update checker
 export {
   isUpdateCheckEnabled,
