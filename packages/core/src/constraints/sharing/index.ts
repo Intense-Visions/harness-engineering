@@ -28,3 +28,6 @@ export { parseManifest } from './manifest';
 export { extractBundle } from './bundle';
 export { deepMergeConstraints } from './merge';
 export type { ConflictReport, MergeResult } from './merge';
+
+// Lockfile
+export { readLockfile, writeLockfile, addProvenance, removeProvenance } from './lockfile';
