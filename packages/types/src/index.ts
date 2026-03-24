@@ -117,7 +117,8 @@ export type CICheckName =
   | 'entropy'
   | 'security'
   | 'perf'
-  | 'phase-gate';
+  | 'phase-gate'
+  | 'arch';
 
 export type CICheckStatus = 'pass' | 'fail' | 'warn' | 'skip';
 
