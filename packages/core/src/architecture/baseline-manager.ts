@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { ArchBaselineSchema } from './types';
 import type { ArchBaseline, MetricResult, CategoryBaseline } from './types';
@@ -72,12 +73,15 @@ export class ArchBaselineManager {
   /**
    * Save an ArchBaseline to disk.
    * Creates parent directories if they do not exist.
+   * Uses atomic write (write to temp file, then rename) to prevent corruption.
    */
   save(baseline: ArchBaseline): void {
     const dir = dirname(this.baselinesPath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(this.baselinesPath, JSON.stringify(baseline, null, 2));
+    const tmp = this.baselinesPath + '.' + randomBytes(4).toString('hex') + '.tmp';
+    writeFileSync(tmp, JSON.stringify(baseline, null, 2));
+    renameSync(tmp, this.baselinesPath);
   }
 }

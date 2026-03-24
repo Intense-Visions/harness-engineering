@@ -6,7 +6,16 @@ import { Ok, Err } from '@harness-engineering/core';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 
-const ALL_CHECKS: CICheckName[] = ['validate', 'deps', 'docs', 'entropy', 'phase-gate', 'arch'];
+const ALL_CHECKS: CICheckName[] = [
+  'validate',
+  'deps',
+  'docs',
+  'entropy',
+  'security',
+  'perf',
+  'phase-gate',
+  'arch',
+];
 
 interface GenerateResult {
   filename: string;

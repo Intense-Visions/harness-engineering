@@ -1,4 +1,4 @@
-import type { ArchConfig, ThresholdConfig } from './types';
+import type { ArchConfig, ArchMetricCategory, ThresholdConfig } from './types';
 
 /**
  * Resolve effective thresholds for a given scope.
@@ -16,7 +16,11 @@ import type { ArchConfig, ThresholdConfig } from './types';
  * value entirely (no merge across scalar/object boundaries).
  */
 export function resolveThresholds(scope: string, config: ArchConfig): ThresholdConfig {
-  const projectThresholds = { ...config.thresholds };
+  const projectThresholds: ThresholdConfig = {};
+  for (const [key, val] of Object.entries(config.thresholds)) {
+    projectThresholds[key as ArchMetricCategory] =
+      typeof val === 'object' && val !== null && !Array.isArray(val) ? { ...val } : val;
+  }
 
   // 'project' scope or no module match — return project-wide thresholds
   if (scope === 'project') {

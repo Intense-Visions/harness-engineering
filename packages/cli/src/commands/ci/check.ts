@@ -11,7 +11,16 @@ import { OutputMode, type OutputModeType } from '../../output/formatter';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 
-const VALID_CHECKS: CICheckName[] = ['validate', 'deps', 'docs', 'entropy', 'phase-gate', 'arch'];
+const VALID_CHECKS: CICheckName[] = [
+  'validate',
+  'deps',
+  'docs',
+  'entropy',
+  'security',
+  'perf',
+  'phase-gate',
+  'arch',
+];
 
 export async function runCICheck(options: {
   configPath?: string;

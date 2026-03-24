@@ -20,17 +20,19 @@ export class ForbiddenImportCollector implements Collector {
   }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring deferred
+    const stubParser: any = {
+      name: 'typescript',
+      extensions: ['.ts', '.tsx'],
+      parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }),
+      extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
+      extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
+      health: async () => ({ ok: true, value: { available: true } }),
+    };
     const result = await validateDependencies({
       layers: [],
       rootDir,
-      parser: {
-        name: 'typescript',
-        extensions: ['.ts', '.tsx'],
-        parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }) as any,
-        extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
-        extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }) as any,
-        health: async () => ({ ok: true, value: { available: true } }) as any,
-      },
+      parser: stubParser,
       fallbackBehavior: 'skip',
     });
 

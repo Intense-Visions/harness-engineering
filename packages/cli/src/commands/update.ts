@@ -157,10 +157,10 @@ export function createUpdateCommand(): Command {
 
       // 6. Post-update: offer to regenerate slash commands + agent definitions
       console.log('');
-      const regenAnswer = await prompt('Regenerate slash commands and agent definitions? (y/N) ');
-      if (regenAnswer === 'y' || regenAnswer === 'yes') {
-        const scopeAnswer = await prompt('Generate for (g)lobal or (l)ocal project? (g/l) ');
-        const isGlobal = scopeAnswer === 'g' || scopeAnswer === 'global';
+      const regenAnswer = await prompt('Regenerate slash commands and agent definitions? (Y/n) ');
+      if (regenAnswer !== 'n' && regenAnswer !== 'no') {
+        const scopeAnswer = await prompt('Generate for (G)lobal or (l)ocal project? (G/l) ');
+        const isGlobal = scopeAnswer !== 'l' && scopeAnswer !== 'local';
         try {
           execFileSync('harness', ['generate', ...(isGlobal ? ['--global'] : [])], {
             stdio: 'inherit',

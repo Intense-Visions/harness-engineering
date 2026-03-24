@@ -16,8 +16,8 @@ interface AggregatedCategory {
 /**
  * Aggregate MetricResult[] by category, summing values and concatenating violations.
  */
-function aggregateByCategory(results: MetricResult[]): Map<string, AggregatedCategory> {
-  const map = new Map<string, AggregatedCategory>();
+function aggregateByCategory(results: MetricResult[]): Map<ArchMetricCategory, AggregatedCategory> {
+  const map = new Map<ArchMetricCategory, AggregatedCategory>();
   for (const result of results) {
     const existing = map.get(result.category);
     if (existing) {
@@ -60,8 +60,7 @@ export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffR
   for (const [category, agg] of aggregated) {
     visitedCategories.add(category);
 
-    const baselineCategory: CategoryBaseline | undefined =
-      baseline.metrics[category as keyof typeof baseline.metrics];
+    const baselineCategory: CategoryBaseline | undefined = baseline.metrics[category];
     const baselineViolationIds = new Set(baselineCategory?.violationIds ?? []);
     const baselineValue = baselineCategory?.value ?? 0;
 
@@ -84,10 +83,12 @@ export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffR
       }
     }
 
-    // Check for aggregate regression
+    // Check for aggregate regression.
+    // Only report regression for categories that existed in the baseline.
+    // New categories are caught via newViolations instead.
     if (baselineCategory && agg.value > baselineValue) {
       regressions.push({
-        category: category as ArchMetricCategory,
+        category,
         baselineValue,
         currentValue: agg.value,
         delta: agg.value - baselineValue,
