@@ -101,6 +101,9 @@ importers:
       commander:
         specifier: ^12.0.0
         version: 12.1.0
+      ejs:
+        specifier: ^3.1.10
+        version: 3.1.10
       glob:
         specifier: ^11.0.0
         version: 11.1.0
@@ -144,6 +147,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@harness-engineering/graph':
+        specifier: workspace:*
+        version: link:../graph
       '@harness-engineering/types':
         specifier: workspace:*
         version: link:../types

@@ -53,6 +53,7 @@
   },
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/core#readme",
   "dependencies": {
+    "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/types": "workspace:*",
     "@typescript-eslint/typescript-estree": "^7.0.0",
     "ejs": "^3.1.10",

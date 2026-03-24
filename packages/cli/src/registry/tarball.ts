@@ -9,9 +9,7 @@ import { execFileSync } from 'child_process';
  * Returns the path to the temp directory (caller must clean up).
  */
 export function extractTarball(tarballBuffer: Buffer): string {
-  const tmpDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'harness-skill-install-')
-  );
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-skill-install-'));
   const tarballPath = path.join(tmpDir, 'package.tgz');
 
   try {
