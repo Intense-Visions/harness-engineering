@@ -63,3 +63,37 @@ export function writeLockfile(filePath: string, lockfile: SkillsLockfile): void 
   }
   fs.writeFileSync(filePath, sortedStringify(lockfile) + '\n', 'utf-8');
 }
+
+/**
+ * Return a new lockfile with the given entry added or replaced.
+ * Pure function — does not mutate the input.
+ */
+export function updateLockfileEntry(
+  lockfile: SkillsLockfile,
+  name: string,
+  entry: LockfileEntry
+): SkillsLockfile {
+  return {
+    ...lockfile,
+    skills: {
+      ...lockfile.skills,
+      [name]: entry,
+    },
+  };
+}
+
+/**
+ * Return a new lockfile with the given entry removed.
+ * Pure function — does not mutate the input.
+ * Returns the lockfile unchanged if the entry does not exist.
+ */
+export function removeLockfileEntry(lockfile: SkillsLockfile, name: string): SkillsLockfile {
+  if (!(name in lockfile.skills)) {
+    return lockfile;
+  }
+  const { [name]: _removed, ...rest } = lockfile.skills;
+  return {
+    ...lockfile,
+    skills: rest,
+  };
+}
