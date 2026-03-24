@@ -20,7 +20,7 @@ export interface SlashCommandSpec {
   skillYamlName: string;
   sourceDir: string;
   skillsBaseDir: string;
-  source?: 'project' | 'global';
+  source?: 'project' | 'community' | 'global';
 
   prompt: {
     context: string;
