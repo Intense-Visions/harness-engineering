@@ -79,5 +79,43 @@ export function deepMergeConstraints(
     }
   }
 
+  // --- Forbidden Imports ---
+  if (bundleConstraints.forbiddenImports && bundleConstraints.forbiddenImports.length > 0) {
+    const localFI = (
+      Array.isArray(localConfig.forbiddenImports) ? localConfig.forbiddenImports : []
+    ) as Array<{
+      from: string;
+      disallow: string[];
+      message?: string;
+    }>;
+    const mergedFI = [...localFI];
+    const contributedIndices: number[] = [];
+
+    for (const bundleRule of bundleConstraints.forbiddenImports) {
+      const existing = localFI.find((r) => r.from === bundleRule.from);
+      if (!existing) {
+        const newIndex = mergedFI.length;
+        mergedFI.push(bundleRule);
+        contributedIndices.push(newIndex);
+      } else {
+        const same = arraysEqual(existing.disallow, bundleRule.disallow);
+        if (!same) {
+          conflicts.push({
+            section: 'forbiddenImports',
+            key: bundleRule.from,
+            localValue: existing,
+            packageValue: bundleRule,
+            description: `Forbidden import rule for '${bundleRule.from}' already exists locally with different disallow list`,
+          });
+        }
+      }
+    }
+
+    config.forbiddenImports = mergedFI;
+    if (contributedIndices.length > 0) {
+      contributions.forbiddenImports = contributedIndices;
+    }
+  }
+
   return { config, contributions, conflicts };
 }
