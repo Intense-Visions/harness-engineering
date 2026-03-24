@@ -5,6 +5,11 @@ import { LayerViolationCollector } from './collectors/layer-violations';
 import { ArchBaselineManager } from './baseline-manager';
 import { diff } from './diff';
 import { runAll } from './collectors/index';
+import { ComplexityCollector } from './collectors/complexity';
+import { CouplingCollector } from './collectors/coupling';
+import { ModuleSizeCollector } from './collectors/module-size';
+import { ForbiddenImportCollector } from './collectors/forbidden-imports';
+import { DepDepthCollector } from './collectors/dep-depth';
 
 // --- Handle ---
 
@@ -159,6 +164,118 @@ async function toMatchBaseline(
   };
 }
 
+// --- Module-scoped matchers ---
+
+function filterByScope(results: MetricResult[], scope: string): MetricResult[] {
+  // For module-scoped matchers, include results whose scope matches or starts with the module path.
+  // Also include project-scope results (some collectors only return project scope).
+  return results.filter(
+    (r) => r.scope === scope || r.scope.startsWith(scope + '/') || r.scope === 'project'
+  );
+}
+
+async function toHaveMaxComplexity(
+  this: any,
+  received: ArchHandle & { _mockResults?: MetricResult[] },
+  maxComplexity: number
+) {
+  const results = await collectCategory(received, new ComplexityCollector());
+  const scoped = filterByScope(results, received.scope);
+  const violations = scoped.flatMap((r) => r.violations);
+  const totalValue = scoped.reduce((sum, r) => sum + r.value, 0);
+  const pass = totalValue <= maxComplexity && violations.length === 0;
+
+  return {
+    pass,
+    message: () =>
+      pass
+        ? `Expected complexity to exceed ${maxComplexity} but it was within limits`
+        : `Module '${received.scope}' has complexity violations (${violations.length} violation${violations.length === 1 ? '' : 's'}):\n${formatViolationList(violations)}`,
+  };
+}
+
+async function toHaveMaxCoupling(
+  this: any,
+  received: ArchHandle & { _mockResults?: MetricResult[] },
+  limits: { fanIn?: number; fanOut?: number }
+) {
+  const results = await collectCategory(received, new CouplingCollector());
+  const scoped = filterByScope(results, received.scope);
+  const violations = scoped.flatMap((r) => r.violations);
+  const pass = violations.length === 0;
+
+  return {
+    pass,
+    message: () =>
+      pass
+        ? `Expected coupling violations in '${received.scope}' but found none`
+        : `Module '${received.scope}' has coupling violations (fanIn limit: ${limits.fanIn ?? 'none'}, fanOut limit: ${limits.fanOut ?? 'none'}):\n${formatViolationList(violations)}`,
+  };
+}
+
+async function toHaveMaxFileCount(
+  this: any,
+  received: ArchHandle & { _mockResults?: MetricResult[] },
+  maxFiles: number
+) {
+  const results = await collectCategory(received, new ModuleSizeCollector());
+  const scoped = filterByScope(results, received.scope);
+  const fileCount = scoped.reduce((max, r) => {
+    const fc = (r.metadata as any)?.fileCount ?? 0;
+    return fc > max ? fc : max;
+  }, 0);
+  const pass = fileCount <= maxFiles;
+
+  return {
+    pass,
+    message: () =>
+      pass
+        ? `Expected file count in '${received.scope}' to exceed ${maxFiles} but it was ${fileCount}`
+        : `Module '${received.scope}' has ${fileCount} files (limit: ${maxFiles})`,
+  };
+}
+
+async function toNotDependOn(
+  this: any,
+  received: ArchHandle & { _mockResults?: MetricResult[] },
+  forbiddenModule: string
+) {
+  const results = await collectCategory(received, new ForbiddenImportCollector());
+  // Filter: violations in the source module that import from the forbidden module
+  const allViolations = results.flatMap((r) => r.violations);
+  const relevantViolations = allViolations.filter(
+    (v) => v.file.startsWith(received.scope) && v.detail.includes(forbiddenModule)
+  );
+  const pass = relevantViolations.length === 0;
+
+  return {
+    pass,
+    message: () =>
+      pass
+        ? `Expected '${received.scope}' to depend on '${forbiddenModule}' but no such imports found`
+        : `Module '${received.scope}' depends on '${forbiddenModule}' (${relevantViolations.length} import${relevantViolations.length === 1 ? '' : 's'}):\n${formatViolationList(relevantViolations)}`,
+  };
+}
+
+async function toHaveMaxDepDepth(
+  this: any,
+  received: ArchHandle & { _mockResults?: MetricResult[] },
+  maxDepth: number
+) {
+  const results = await collectCategory(received, new DepDepthCollector());
+  const scoped = filterByScope(results, received.scope);
+  const maxActual = scoped.reduce((max, r) => (r.value > max ? r.value : max), 0);
+  const pass = maxActual <= maxDepth;
+
+  return {
+    pass,
+    message: () =>
+      pass
+        ? `Expected dependency depth in '${received.scope}' to exceed ${maxDepth} but it was ${maxActual}`
+        : `Module '${received.scope}' has dependency depth ${maxActual} (limit: ${maxDepth})`,
+  };
+}
+
 /**
  * Vitest custom matchers for architecture assertions.
  * Usage: expect.extend(archMatchers) in vitest.setup.ts
@@ -167,4 +284,9 @@ export const archMatchers = {
   toHaveNoCircularDeps,
   toHaveNoLayerViolations,
   toMatchBaseline,
+  toHaveMaxComplexity,
+  toHaveMaxCoupling,
+  toHaveMaxFileCount,
+  toNotDependOn,
+  toHaveMaxDepDepth,
 };
