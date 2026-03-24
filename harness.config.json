@@ -90,6 +90,20 @@
   "boundaries": {
     "requireSchema": ["packages/mcp-server/**"]
   },
+  "architecture": {
+    "enabled": true,
+    "baselinePath": ".harness/arch/baselines.json",
+    "thresholds": {
+      "circular-deps": { "max": 0 },
+      "layer-violations": { "max": 0 },
+      "complexity": { "max": 15 },
+      "coupling": { "maxFanIn": 10, "maxFanOut": 8 },
+      "forbidden-imports": { "max": 0 },
+      "module-size": { "maxFiles": 30, "maxLoc": 3000 },
+      "dependency-depth": { "max": 7 }
+    },
+    "modules": {}
+  },
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
   "agent": {
