@@ -133,4 +133,7 @@ export type {
   IndependenceResult,
 } from './independence/index.js';
 
+export { ConflictPredictor } from './independence/index.js';
+export type { ConflictSeverity, ConflictDetail, ConflictPrediction } from './independence/index.js';
+
 export const VERSION = '0.2.0';
