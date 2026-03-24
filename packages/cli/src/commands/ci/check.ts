@@ -11,7 +11,7 @@ import { OutputMode, type OutputModeType } from '../../output/formatter';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 
-const VALID_CHECKS: CICheckName[] = ['validate', 'deps', 'docs', 'entropy', 'phase-gate'];
+const VALID_CHECKS: CICheckName[] = ['validate', 'deps', 'docs', 'entropy', 'phase-gate', 'arch'];
 
 export async function runCICheck(options: {
   configPath?: string;
@@ -57,7 +57,7 @@ function parseFailOn(failOn?: string): CIFailOnSeverity {
 
 export function createCheckCommand(): Command {
   return new Command('check')
-    .description('Run all harness checks for CI (validate, deps, docs, entropy, phase-gate)')
+    .description('Run all harness checks for CI (validate, deps, docs, entropy, phase-gate, arch)')
     .option('--skip <checks>', 'Comma-separated checks to skip (e.g., entropy,docs)')
     .option('--fail-on <severity>', 'Fail on severity level: error (default) or warning', 'error')
     .action(async (opts, cmd) => {
