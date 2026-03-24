@@ -30,6 +30,7 @@ import { createGraphCommand } from './commands/graph/index';
 import { createMcpCommand } from './commands/mcp';
 import { createImpactPreviewCommand } from './commands/impact-preview';
 import { createCheckArchCommand } from './commands/check-arch';
+import { createBlueprintCommand } from './commands/blueprint';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -74,6 +75,7 @@ export function createProgram(): Command {
   program.addCommand(createMcpCommand());
   program.addCommand(createImpactPreviewCommand());
   program.addCommand(createCheckArchCommand());
+  program.addCommand(createBlueprintCommand());
 
   return program;
 }
