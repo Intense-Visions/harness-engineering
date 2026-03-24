@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import {
   WorkflowConfig,
   Issue,
@@ -14,7 +15,7 @@ import { MockBackend } from './agent/backends/mock';
 import { ClaudeBackend } from './agent/backends/claude';
 import { OrchestratorServer } from './server/http';
 
-export class Orchestrator {
+export class Orchestrator extends EventEmitter {
   private state: OrchestratorState;
   private config: WorkflowConfig;
   private tracker: IssueTrackerClient;
@@ -26,6 +27,7 @@ export class Orchestrator {
   private server?: OrchestratorServer;
 
   constructor(config: WorkflowConfig, promptTemplate: string) {
+    super();
     this.config = config;
     this.promptTemplate = promptTemplate;
     this.state = createEmptyState(config);
@@ -94,6 +96,8 @@ export class Orchestrator {
     for (const effect of effects) {
       await this.handleEffect(effect);
     }
+
+    this.emit('state_change', this.getSnapshot());
   }
 
   private async handleEffect(effect: any): Promise<void> {
@@ -144,9 +148,10 @@ export class Orchestrator {
     (async () => {
       try {
         const sessionGen = this.runner.runSession(issue, workspacePath, prompt);
-        for await (const _ of sessionGen) {
+        for await (const event of sessionGen) {
           // Normal events (thought, status, etc.) can be logged or emitted to state
           // this.handleAgentEvent(issue.id, event);
+          this.emit('agent_event', { issueId: issue.id, event });
         }
         // When finished, emit success to state machine
         this.emitWorkerExit(issue.id, 'normal', attempt);
@@ -176,6 +181,7 @@ export class Orchestrator {
     for (const effect of effects) {
       this.handleEffect(effect);
     }
+    this.emit('state_change', this.getSnapshot());
   }
 
   private async stopIssue(issueId: string): Promise<void> {
