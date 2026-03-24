@@ -93,7 +93,7 @@ export function removeProvenance(
       ...lockfile,
       packages: remaining,
     },
-    contributions: existing.contributions,
+    contributions: existing.contributions ?? null,
   };
 }
 

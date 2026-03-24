@@ -5,3 +5,5 @@ export { reconcile } from './reconciliation';
 export { applyEvent } from './state-machine';
 export type { ApplyEventResult } from './state-machine';
 export { createEmptyState } from './state-helpers';
+export type { OrchestratorState } from '../types/internal';
+export type { OrchestratorEvent } from '../types/events';

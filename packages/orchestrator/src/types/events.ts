@@ -15,13 +15,15 @@ export interface TickEvent {
   type: 'tick';
   candidates: Issue[];
   runningStates: Map<string, Issue>;
+  /** Caller-supplied wall clock (ms since epoch). Keeps state machine pure. */
+  nowMs: number;
 }
 
 export interface WorkerExitEvent {
   type: 'worker_exit';
   issueId: string;
   reason: 'normal' | 'error';
-  error?: string;
+  error?: string | undefined;
   attempt: number | null;
 }
 
@@ -35,6 +37,8 @@ export interface RetryFiredEvent {
   type: 'retry_fired';
   issueId: string;
   candidates: Issue[];
+  /** Caller-supplied wall clock (ms since epoch). Keeps state machine pure. */
+  nowMs: number;
 }
 
 export interface StallDetectedEvent {

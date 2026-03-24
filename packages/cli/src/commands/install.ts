@@ -163,7 +163,7 @@ export async function runInstall(
   const deps = skillYaml.depends_on ?? [];
   for (const dep of deps) {
     logger.info(`Installing dependency: ${dep}`);
-    await runInstall(dep, { version: undefined });
+    await runInstall(dep, {});
   }
 
   return result;

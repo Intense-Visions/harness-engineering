@@ -1,31 +1,24 @@
 {
-  "timestamp": "2026-03-24T16:00:00.000Z",
   "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Phase 4 lockfile/provenance plan complete: 3 tasks covering readLockfile, writeLockfile, addProvenance, removeProvenance with full TDD coverage.",
+  "summary": "Implementation plan for Orchestrator Phase 4 (Observability & CLI) including Ink TUI, HTTP API, and CLI command.",
   "completed": [],
   "pending": [
-    "Task 1: Write lockfile tests (red phase) -- 17 test cases across 4 describe blocks",
-    "Task 2: Implement lockfile functions (green phase) -- readLockfile, writeLockfile, addProvenance, removeProvenance",
-    "Task 3: Export lockfile functions from sharing barrel"
+    "Task 1: Setup Observability Dependencies",
+    "Task 2: Implement HTTP Server",
+    "Task 3: Add EventEmitter to Orchestrator",
+    "Task 4: Implement TUI Components",
+    "Task 5: Implement Main TUI App",
+    "Task 6: Implement CLI Command",
+    "Task 7: Define WORKFLOW.md Template",
+    "Task 8: Wire Linear GraphQL Interface (Stub)",
+    "Task 9: Final Validation & E2E"
   ],
-  "concerns": [
-    "readLockfile must distinguish ENOENT (ok, null) from other fs errors (error result)",
-    "All pure functions (addProvenance, removeProvenance) must be immutable -- do not mutate input lockfile"
-  ],
+  "concerns": [],
   "decisions": [
-    "writeLockfile delegates to existing writeConfig for atomic writes -- no duplication",
-    "readLockfile uses Result<Lockfile | null, string> where null means file-not-found (not an error)",
-    "addProvenance replaces on conflict (upgrade semantics) rather than erroring",
-    "removeProvenance returns Contributions | null to let callers decide what to do when package not found"
+    "Use Ink for TUI",
+    "Use Node built-in http for API",
+    "Extend EventEmitter in Orchestrator for TUI updates"
   ],
-  "contextKeywords": [
-    "constraint-sharing",
-    "lockfile",
-    "provenance",
-    "readLockfile",
-    "writeLockfile",
-    "addProvenance",
-    "removeProvenance"
-  ]
+  "contextKeywords": ["orchestrator", "observability", "cli", "ink", "tui"]
 }

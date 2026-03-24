@@ -9,7 +9,7 @@ export interface LinearGraphQLExtension {
 }
 
 export class LinearGraphQLStub implements LinearGraphQLExtension {
-  async query(query: string, variables?: Record<string, any>): Promise<Result<any, Error>> {
+  async query(query: string, _variables?: Record<string, any>): Promise<Result<any, Error>> {
     console.log('Linear GraphQL query (stub):', query);
     return Ok({ data: {} });
   }
