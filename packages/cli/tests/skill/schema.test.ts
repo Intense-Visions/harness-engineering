@@ -30,6 +30,10 @@ describe('SkillMetadataSchema', () => {
     expect(() => SkillMetadataSchema.parse({ ...validBase, repository: 123 })).toThrow();
   });
 
+  it('rejects repository field with invalid URL string', () => {
+    expect(() => SkillMetadataSchema.parse({ ...validBase, repository: 'not-a-url' })).toThrow();
+  });
+
   it('preserves backward compatibility with existing fields', () => {
     const result = SkillMetadataSchema.parse({
       ...validBase,

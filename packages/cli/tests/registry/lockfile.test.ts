@@ -27,6 +27,24 @@ describe('readLockfile', () => {
     expect(result).toEqual({ version: 1, skills: {} });
   });
 
+  it('throws on malformed JSON', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    fs.writeFileSync(lockPath, '{ invalid json');
+    expect(() => readLockfile(lockPath)).toThrow('Failed to parse lockfile');
+  });
+
+  it('throws on invalid lockfile schema (wrong version)', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    fs.writeFileSync(lockPath, JSON.stringify({ version: 99, skills: {} }));
+    expect(() => readLockfile(lockPath)).toThrow('Invalid lockfile format');
+  });
+
+  it('throws on invalid lockfile schema (missing skills)', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    fs.writeFileSync(lockPath, JSON.stringify({ version: 1 }));
+    expect(() => readLockfile(lockPath)).toThrow('Invalid lockfile format');
+  });
+
   it('reads and parses existing lockfile', () => {
     const lockPath = path.join(tmpDir, 'skills-lock.json');
     const data: SkillsLockfile = {
