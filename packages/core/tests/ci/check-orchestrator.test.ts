@@ -62,6 +62,18 @@ vi.mock('glob', () => ({
   glob: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock('../../src/architecture', () => ({
+  ArchConfigSchema: {
+    parse: vi.fn().mockReturnValue({
+      enabled: true,
+      baselinePath: '.harness/arch/baselines.json',
+      thresholds: {},
+      modules: {},
+    }),
+  },
+  runAll: vi.fn().mockResolvedValue([]),
+}));
+
 import { runCIChecks } from '../../src/ci/check-orchestrator';
 
 function minimalConfig(overrides: Record<string, unknown> = {}) {
@@ -90,7 +102,7 @@ describe('runCIChecks', () => {
 
     const report = result.value;
     expect(report.version).toBe(1);
-    expect(report.checks).toHaveLength(7);
+    expect(report.checks).toHaveLength(8);
     expect(report.checks.map((c) => c.name)).toEqual([
       'validate',
       'deps',
@@ -99,8 +111,9 @@ describe('runCIChecks', () => {
       'security',
       'perf',
       'phase-gate',
+      'arch',
     ]);
-    expect(report.summary.total).toBe(7);
+    expect(report.summary.total).toBe(8);
   });
 
   it('skips checks listed in skip option', async () => {
@@ -225,7 +238,7 @@ describe('runCIChecks', () => {
     expect(callOrder[0]).toBe('validate');
 
     // All checks still produce results
-    expect(result.value.checks).toHaveLength(7);
+    expect(result.value.checks).toHaveLength(8);
     expect(result.value.checks.map((c) => c.name)).toEqual([
       'validate',
       'deps',
@@ -234,7 +247,22 @@ describe('runCIChecks', () => {
       'security',
       'perf',
       'phase-gate',
+      'arch',
     ]);
+  });
+
+  it('includes arch check in results', async () => {
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: minimalConfig(),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const archCheck = result.value.checks.find((c) => c.name === 'arch');
+    expect(archCheck).toBeDefined();
+    expect(archCheck!.status).toBe('pass');
   });
 
   it('preserves check ordering in output even with parallel execution', async () => {
@@ -254,6 +282,7 @@ describe('runCIChecks', () => {
       'security',
       'perf',
       'phase-gate',
+      'arch',
     ]);
   });
 });
