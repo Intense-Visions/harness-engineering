@@ -233,5 +233,36 @@ export function deepMergeConstraints(
     }
   }
 
+  // --- Security Rules ---
+  if (bundleConstraints.security?.rules) {
+    const localSecurity = (localConfig.security ?? { rules: {} }) as {
+      rules?: Record<string, string>;
+    };
+    const localRules = localSecurity.rules ?? {};
+    const mergedRules = { ...localRules };
+    const contributedRuleIds: string[] = [];
+
+    for (const [ruleId, severity] of Object.entries(bundleConstraints.security.rules)) {
+      if (!(ruleId in mergedRules)) {
+        mergedRules[ruleId] = severity;
+        contributedRuleIds.push(ruleId);
+      } else if (mergedRules[ruleId] !== severity) {
+        conflicts.push({
+          section: 'security.rules',
+          key: ruleId,
+          localValue: mergedRules[ruleId],
+          packageValue: severity,
+          description: `Security rule '${ruleId}' already exists locally with severity '${mergedRules[ruleId]}', bundle has '${severity}'`,
+        });
+      }
+    }
+
+    config.security = { ...localSecurity, rules: mergedRules };
+
+    if (contributedRuleIds.length > 0) {
+      contributions['security.rules'] = contributedRuleIds;
+    }
+  }
+
   return { config, contributions, conflicts };
 }
