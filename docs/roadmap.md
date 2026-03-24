@@ -3,6 +3,8 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-03-23
+last_synced: 2026-03-23
+last_manual_edit: 2026-03-23
 ---
 
 # Roadmap
@@ -479,11 +481,11 @@ updated: 2026-03-23
 
 ### Architecture Assertion Framework
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Status:** done
+- **Spec:** docs/changes/architecture-assertion-framework/proposal.md
 - **Summary:** Assertion library for structural testing — assert module size, coupling limits, complexity ceilings. Compare against baselines and fail CI on architectural regression. [L3]
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-23-arch-assertion-\*.md, docs/plans/2026-03-24-arch-assertion-integration-plan.md
 
 ### Pre-Commit Impact Preview
 
