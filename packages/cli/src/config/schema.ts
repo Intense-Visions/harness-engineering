@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ArchConfigSchema } from '@harness-engineering/core';
 
 export const LayerSchema = z.object({
   name: z.string(),
@@ -139,6 +140,7 @@ export const HarnessConfigSchema = z.object({
   design: DesignConfigSchema.optional(),
   i18n: I18nConfigSchema.optional(),
   review: ReviewConfigSchema.optional(),
+  architecture: ArchConfigSchema.optional(),
   updateCheckInterval: z.number().int().min(0).optional(),
 });
 
@@ -148,3 +150,4 @@ export type I18nConfig = z.infer<typeof I18nConfigSchema>;
 export type Layer = z.infer<typeof LayerSchema>;
 export type ReviewConfig = z.infer<typeof ReviewConfigSchema>;
 export type ModelTierConfigZod = z.infer<typeof ModelTierConfigSchema>;
+export type ArchConfigZod = z.infer<typeof ArchConfigSchema>;
