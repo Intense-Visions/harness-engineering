@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--constraint-deprecation-detection--proposal",
+  "specPath": "docs/changes/constraint-deprecation-detection/proposal.md",
+  "currentState": "DONE",
+  "currentPhase": 5,
+  "phases": [
+    {
+      "name": "Types & Interface",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    },
+    {
+      "name": "Collector Implementations",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    },
+    {
+      "name": "Graph Sync",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    },
+    {
+      "name": "Staleness Query",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    },
+    {
+      "name": "MCP Tool",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    },
+    {
+      "name": "Tests",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    }
+  ],
+  "retryBudget": { "maxAttempts": 3, "currentTask": null },
+  "history": [
+    {
+      "phase": 0,
+      "name": "Types & Interface",
+      "status": "complete",
+      "tasksCompleted": 2,
+      "retriesUsed": 0
+    },
+    {
+      "phase": 1,
+      "name": "Collector Implementations",
+      "status": "complete",
+      "tasksCompleted": 8,
+      "retriesUsed": 0
+    },
+    {
+      "phase": 2,
+      "name": "Graph Sync",
+      "status": "complete",
+      "tasksCompleted": 1,
+      "retriesUsed": 0
+    },
+    {
+      "phase": 3,
+      "name": "Staleness Query",
+      "status": "complete",
+      "tasksCompleted": 1,
+      "retriesUsed": 0
+    },
+    { "phase": 4, "name": "MCP Tool", "status": "complete", "tasksCompleted": 2, "retriesUsed": 0 },
+    { "phase": 5, "name": "Tests", "status": "complete", "tasksCompleted": 4, "retriesUsed": 0 }
+  ]
+}

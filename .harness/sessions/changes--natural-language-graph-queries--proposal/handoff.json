@@ -1,0 +1,35 @@
+{
+  "fromSkill": "harness-execution",
+  "phase": "COMPLETE",
+  "summary": "Phase 7 MCP tool (ask_graph) fully implemented: added askGraphDefinition and handleAskGraph to graph tools, registered in MCP server, created handler tests. All 3 tasks complete. 10/10 handler tests pass, 13/13 server tests pass, TypeScript compiles cleanly.",
+  "completed": [
+    "Task 1: Added askGraphDefinition and handleAskGraph to packages/cli/src/mcp/tools/graph.ts",
+    "Task 2: Registered ask_graph in MCP server and updated server test tool count (42 -> 44, was already 43 before this change)",
+    "Task 3: Created handler tests at packages/cli/tests/mcp/tools/graph-ask.test.ts (10 tests)"
+  ],
+  "pending": [],
+  "concerns": [],
+  "decisions": [
+    "Handler follows exact same pattern as handleDetectAnomalies: sanitizePath, loadGraphStore, graphNotFoundError, dynamic import, try/catch",
+    "askGraph is imported dynamically from @harness-engineering/graph to match existing ESM pattern",
+    "Tool registered adjacent to detect_anomalies in both TOOL_DEFINITIONS and TOOL_HANDLERS",
+    "Tests go in separate file graph-ask.test.ts to keep graph.test.ts focused on existing tools",
+    "Server test tool count was already 43 (not 42 as plan assumed), updated to 44"
+  ],
+  "contextKeywords": [
+    "ask_graph",
+    "askGraph",
+    "MCP tool",
+    "handleAskGraph",
+    "askGraphDefinition",
+    "graph.ts",
+    "server.ts",
+    "natural language query"
+  ],
+  "artifacts": [
+    "packages/cli/src/mcp/tools/graph.ts",
+    "packages/cli/src/mcp/server.ts",
+    "packages/cli/tests/mcp/server.test.ts",
+    "packages/cli/tests/mcp/tools/graph-ask.test.ts"
+  ]
+}
