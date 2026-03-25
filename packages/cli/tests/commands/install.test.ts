@@ -9,6 +9,7 @@ vi.mock('../../src/registry/npm-client', () => ({
   extractSkillName: vi.fn((name: string) => name.replace('@harness-skills/', '')),
   fetchPackageMetadata: vi.fn(),
   downloadTarball: vi.fn(),
+  readNpmrcToken: vi.fn(() => null),
 }));
 
 vi.mock('../../src/registry/tarball', () => ({
@@ -46,6 +47,7 @@ vi.mock('fs', async (importOriginal) => {
     ...actual,
     existsSync: vi.fn(() => true),
     readFileSync: vi.fn(() => 'name: deployment\nversion: 1.0.0\n'),
+    statSync: vi.fn(() => ({ isDirectory: () => true })),
   };
 });
 
@@ -55,6 +57,7 @@ import { resolveVersion } from '../../src/registry/resolver';
 import { readLockfile, writeLockfile, updateLockfileEntry } from '../../src/registry/lockfile';
 import { getBundledSkillNames } from '../../src/registry/bundled-skills';
 import { parse as yamlParse } from 'yaml';
+import * as fs from 'fs';
 
 const mockedFetchMetadata = vi.mocked(fetchPackageMetadata);
 const mockedDownloadTarball = vi.mocked(downloadTarball);
@@ -67,6 +70,8 @@ const mockedWriteLockfile = vi.mocked(writeLockfile);
 const mockedUpdateLockfileEntry = vi.mocked(updateLockfileEntry);
 const mockedGetBundledNames = vi.mocked(getBundledSkillNames);
 const mockedYamlParse = vi.mocked(yamlParse);
+const mockedExistsSync = vi.mocked(fs.existsSync);
+const mockedStatSync = vi.mocked(fs.statSync);
 
 describe('createInstallCommand', () => {
   it('creates command with correct name', () => {
@@ -120,7 +125,11 @@ describe('runInstall', () => {
     mockedYamlParse.mockReturnValue({
       name: 'deployment',
       version: '1.0.0',
+      description: 'Deployment skill',
+      triggers: ['manual'],
       platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
       depends_on: [],
     });
 
@@ -219,7 +228,11 @@ describe('runInstall', () => {
     mockedYamlParse.mockReturnValue({
       name: 'deployment',
       version: '1.1.0',
+      description: 'Deployment skill',
+      triggers: ['manual'],
       platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
       depends_on: [],
     });
 
@@ -253,5 +266,83 @@ describe('runInstall', () => {
     await expect(runInstall('deployment', {})).rejects.toThrow('contains invalid skill.yaml');
     expect(mockedCleanup).toHaveBeenCalledWith('/tmp/extracted');
     expect(mockedPlaceContent).not.toHaveBeenCalled();
+  });
+});
+
+describe('createInstallCommand options', () => {
+  it('has --from option', () => {
+    const cmd = createInstallCommand();
+    const opt = cmd.options.find((o) => o.long === '--from');
+    expect(opt).toBeDefined();
+  });
+
+  it('has --registry option', () => {
+    const cmd = createInstallCommand();
+    const opt = cmd.options.find((o) => o.long === '--registry');
+    expect(opt).toBeDefined();
+  });
+});
+
+describe('local install (--from)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set(['harness-tdd', 'harness-planning']));
+    mockedReadLockfile.mockReturnValue({ version: 1, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+  });
+
+  it('rejects when --from and --registry are both set', async () => {
+    await expect(
+      runInstall('anything', { from: './path', registry: 'https://example.com' })
+    ).rejects.toThrow('--from and --registry cannot be used together');
+  });
+
+  it('installs from a local directory', async () => {
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedExistsSync.mockImplementation((p: fs.PathLike) => {
+      if (String(p).includes('skill.yaml')) return true;
+      return true;
+    });
+    mockedYamlParse.mockReturnValue({
+      name: 'local-skill',
+      version: '0.1.0',
+      description: 'A local skill',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+
+    const result = await runInstall('local-skill', { from: '/path/to/skill' });
+    expect(result.installed).toBe(true);
+    expect(result.name).toBe('@harness-skills/local-skill');
+    expect(result.version).toBe('0.1.0');
+    // Should NOT have called npm functions
+    expect(mockedFetchMetadata).not.toHaveBeenCalled();
+    expect(mockedDownloadTarball).not.toHaveBeenCalled();
+    // Should have called place and lockfile
+    expect(mockedPlaceContent).toHaveBeenCalled();
+    expect(mockedWriteLockfile).toHaveBeenCalled();
+  });
+
+  it('throws when --from path has no skill.yaml', async () => {
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedExistsSync.mockReturnValue(false);
+
+    await expect(runInstall('local-skill', { from: '/path/to/skill' })).rejects.toThrow(
+      'No skill.yaml found'
+    );
+  });
+
+  it('throws for unsupported file type', async () => {
+    mockedStatSync.mockReturnValue({ isDirectory: () => false } as fs.Stats);
+
+    await expect(runInstall('local-skill', { from: '/path/to/skill.zip' })).rejects.toThrow(
+      '--from path must be a directory or .tgz file'
+    );
   });
 });
