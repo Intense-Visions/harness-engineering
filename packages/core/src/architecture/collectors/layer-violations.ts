@@ -63,6 +63,7 @@ export class LayerViolationCollector implements Collector {
       return {
         id: violationId(relFile, this.category, detail),
         file: relFile,
+        category: this.category,
         detail,
         severity: 'error' as const,
       };

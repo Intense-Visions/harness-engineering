@@ -41,7 +41,22 @@ export class ComplexityCollector implements Collector {
       buildTime: 0,
     } as unknown as CodebaseSnapshot;
 
-    const result = await detectComplexityViolations(snapshot);
+    const complexityThreshold = _config.thresholds.complexity;
+    const maxComplexity =
+      typeof complexityThreshold === 'number'
+        ? complexityThreshold
+        : ((complexityThreshold as Record<string, number>)?.max ?? 15);
+
+    const complexityConfig = {
+      thresholds: {
+        cyclomaticComplexity: {
+          error: maxComplexity,
+          warn: Math.floor(maxComplexity * 0.7),
+        },
+      },
+    };
+
+    const result = await detectComplexityViolations(snapshot, complexityConfig);
     if (!result.ok) {
       return [
         {
@@ -67,6 +82,7 @@ export class ComplexityCollector implements Collector {
       return {
         id: violationId(relFile, this.category, idDetail),
         file: relFile,
+        category: this.category,
         detail: `${v.metric}=${v.value} in ${v.function} (threshold: ${v.threshold})`,
         severity: v.severity as 'error' | 'warning',
       };

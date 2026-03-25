@@ -19,6 +19,7 @@ export type ArchMetricCategory = z.infer<typeof ArchMetricCategorySchema>;
 export const ViolationSchema = z.object({
   id: z.string(), // stable hash: sha256(relativePath + ':' + category + ':' + normalizedDetail)
   file: z.string(), // relative to project root
+  category: ArchMetricCategorySchema.optional(), // context for baseline reporting
   detail: z.string(), // human-readable description
   severity: z.enum(['error', 'warning']),
 });
