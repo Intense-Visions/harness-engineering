@@ -6,6 +6,22 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+### Added
+
+- **Orchestrator Daemon** — New package `@harness-engineering/orchestrator` providing a long-lived daemon for agent lifecycle management.
+  - Ink-based TUI and HTTP API for real-time monitoring.
+  - Deterministic per-issue workspace management.
+  - Pure state-machine core for robust dispatch/reconciliation.
+- **Harness Docs Pipeline** — Orchestrated sequential documentation health check (drift, coverage, links).
+- **Source Map Reference** — Comprehensive index of all project source files in documentation.
+
+### Changed
+
+- Documentation coverage increased to **84%** across the monorepo.
+- Comprehensive JSDoc/TSDoc for core API packages.
+- Hardened `@harness-engineering/core` and `@harness-engineering/cli` with resolved lint and type errors.
+- Restricted orchestrator observability API to localhost for security.
+
 ## 0.4.0 — 2026-03-23
 
 ### Added

@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph), 49 skills (claude-code) / 50 skills (gemini-cli), 12 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph, orchestrator), 49 skills (claude-code) / 49 skills (gemini-cli), 12 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -31,10 +31,11 @@ harness-engineering/
 │   ├── eslint-plugin/        # ESLint rules for constraint enforcement
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
 │   ├── mcp-server/           # MCP server for AI agent integration
-│   └── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
+│   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
+│   └── orchestrator/         # Agent orchestration and multi-agent coordination
 ├── agents/                    # Agent configuration
 │   ├── skills/claude-code/   # 49 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 50 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
+│   ├── skills/gemini-cli/    # 49 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
 ├── examples/                  # Progressive tutorial examples
@@ -62,6 +63,7 @@ harness-engineering/
 - **types** → Shared type definitions (no dependencies)
 - **core** → Runtime library (depends on types)
 - **graph** → Knowledge graph for codebase relationships and entropy detection (depends on types)
+- **orchestrator** → Agent orchestration and multi-agent coordination (depends on core)
 - All packages follow strict dependency rules: no circular dependencies, no upward dependencies
 
 ## Architecture
@@ -574,6 +576,6 @@ This is the living documentation of our project - keep it accurate and comprehen
 
 ---
 
-**Last Updated**: 2026-03-21
+**Last Updated**: 2026-03-24
 **Version**: 1.1
 **Maintained By**: AI Agents and Engineering Team

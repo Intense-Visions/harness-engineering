@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/linter-gen",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Generate ESLint rules from YAML configuration",
   "type": "module",
   "main": "./dist/index.js",
