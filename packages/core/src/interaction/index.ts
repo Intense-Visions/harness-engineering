@@ -1,4 +1,6 @@
-// packages/core/src/interaction/index.ts
+/**
+ * Validation schemas for different types of agent-to-human interactions.
+ */
 export {
   InteractionTypeSchema,
   QuestionSchema,
@@ -6,6 +8,10 @@ export {
   TransitionSchema,
   EmitInteractionInputSchema,
 } from './types';
+
+/**
+ * Type definitions for interaction types, questions, confirmations, and transitions.
+ */
 export type {
   InteractionType,
   Question,

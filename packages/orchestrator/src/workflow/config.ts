@@ -1,13 +1,16 @@
 import { WorkflowConfig, Result, Ok, Err } from '@harness-engineering/types';
 
-export function validateWorkflowConfig(config: any): Result<WorkflowConfig, Error> {
-  if (!config) return Err(new Error('Config is missing'));
-  if (!config.tracker) return Err(new Error('Config is missing tracker section'));
-  if (!config.polling) return Err(new Error('Config is missing polling section'));
-  if (!config.workspace) return Err(new Error('Config is missing workspace section'));
-  if (!config.hooks) return Err(new Error('Config is missing hooks section'));
-  if (!config.agent) return Err(new Error('Config is missing agent section'));
-  if (!config.server) return Err(new Error('Config is missing server section'));
+export function validateWorkflowConfig(config: unknown): Result<WorkflowConfig, Error> {
+  if (!config || typeof config !== 'object')
+    return Err(new Error('Config is missing or not an object'));
+
+  const c = config as Record<string, unknown>;
+  if (!c.tracker) return Err(new Error('Config is missing tracker section'));
+  if (!c.polling) return Err(new Error('Config is missing polling section'));
+  if (!c.workspace) return Err(new Error('Config is missing workspace section'));
+  if (!c.hooks) return Err(new Error('Config is missing hooks section'));
+  if (!c.agent) return Err(new Error('Config is missing agent section'));
+  if (!c.server) return Err(new Error('Config is missing server section'));
 
   return Ok(config as WorkflowConfig);
 }

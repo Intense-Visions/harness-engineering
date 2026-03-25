@@ -9,4 +9,7 @@ try {
   resolved = '0.0.0';
 }
 
+/**
+ * The current version of the Harness CLI, read from package.json at runtime.
+ */
 export const CLI_VERSION: string = resolved;

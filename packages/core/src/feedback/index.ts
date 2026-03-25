@@ -1,15 +1,14 @@
-// packages/core/src/feedback/index.ts
-
-// Configuration
+/**
+ * Configuration and lifecycle management for the feedback module.
+ */
 export { configureFeedback, getFeedbackConfig, resetFeedbackConfig } from './config';
 export type { FeedbackConfig } from './config';
 
-// Types
+/**
+ * Type definitions for review processes, AI agents, telemetry, and logging.
+ */
 export type {
-  // Error
   FeedbackError,
-
-  // Review types
   ReviewItem,
   ReviewChecklist,
   CodeChanges,
@@ -19,16 +18,12 @@ export type {
   CustomRuleResult,
   ForbiddenPattern,
   PeerReviewOptions,
-
-  // Agent types
   AgentType,
   FeedbackAgentConfig,
   AgentProcess,
   ReviewContext,
   PeerReview,
   ReviewComment,
-
-  // Telemetry types
   TimeRange,
   Metric,
   Span,
@@ -38,12 +33,8 @@ export type {
   LogFilter,
   TelemetryHealth,
   TelemetryAdapter,
-
-  // Executor types
   ExecutorHealth,
   AgentExecutor,
-
-  // Logging types
   ActionType,
   AgentAction,
   ActionContext,
@@ -53,32 +44,48 @@ export type {
   ActionEventHandler,
   ActionSink,
   ActionTracker,
-
-  // Graph-enhanced types
   GraphImpactData,
   GraphHarnessCheckData,
 } from './types';
 
-// Self-review
+/**
+ * Self-review utilities for automated analysis of code changes.
+ */
 export { createSelfReview, ChecklistBuilder } from './review/self-review';
+
+/**
+ * Diff analysis and parsing for identifying impacted areas in the codebase.
+ */
 export { parseDiff, analyzeDiff } from './review/diff-analyzer';
 
-// Peer review
+/**
+ * Peer review orchestration for requesting feedback from other agents or humans.
+ */
 export { requestPeerReview, requestMultiplePeerReviews } from './review/peer-review';
 
-// Telemetry
+/**
+ * Telemetry adapters for capturing metrics and traces.
+ */
 export { NoOpTelemetryAdapter } from './telemetry/noop';
 
-// Executor
+/**
+ * Agent executors for running AI models or local scripts.
+ */
 export { NoOpExecutor } from './executor/noop';
 
-// Logging
+/**
+ * Logging and event tracking for agent actions and feedback loops.
+ */
 export {
   logAgentAction,
   trackAction,
   getActionEmitter,
   AgentActionEmitter,
 } from './logging/emitter';
+
+/**
+ * Standard output sinks for logging agent actions.
+ */
 export { ConsoleSink } from './logging/console-sink';
 export { FileSink } from './logging/file-sink';
 export { NoOpSink } from './logging/sink';

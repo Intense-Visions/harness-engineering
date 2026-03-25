@@ -2,6 +2,10 @@
  * @harness-engineering/orchestrator
  *
  * Orchestrator daemon for dispatching coding agents to issues.
+ *
+ * This package provides the core logic for the Harness Orchestrator,
+ * including state management, issue tracker adapters, agent runners,
+ * and a management server.
  */
 
 export * from './types/index';

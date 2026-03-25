@@ -23,7 +23,6 @@ export function detectPackageManager(): PackageManager {
       return 'pnpm';
     }
     if (normalizedBin.includes('.yarn/')) {
-      // eslint-disable-line @harness-engineering/no-hardcoded-path-separator -- platform-safe
       return 'yarn';
     }
   } catch {

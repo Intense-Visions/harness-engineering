@@ -3,6 +3,11 @@ import { runGraphStatus } from './status.js';
 import { runGraphExport } from './export.js';
 import * as path from 'path';
 
+/**
+ * Creates and configures the 'graph' command group for knowledge graph management.
+ *
+ * @returns A Commander instance for the 'graph' command.
+ */
 export function createGraphCommand(): Command {
   const graph = new Command('graph').description('Knowledge graph management');
 
@@ -57,9 +62,23 @@ export function createGraphCommand(): Command {
   return graph;
 }
 
-// Re-export run functions for direct use and testing
+/**
+ * Shows the current status and statistics of the knowledge graph.
+ */
 export { runGraphStatus } from './status.js';
+/**
+ * Exports the knowledge graph to a specified format (e.g. JSON, Mermaid).
+ */
 export { runGraphExport } from './export.js';
+/**
+ * Scans the codebase and updates the knowledge graph.
+ */
 export { runScan } from './scan.js';
+/**
+ * Executes a query against the knowledge graph.
+ */
 export { runQuery } from './query.js';
+/**
+ * Ingests external data or events into the knowledge graph.
+ */
 export { runIngest } from './ingest.js';

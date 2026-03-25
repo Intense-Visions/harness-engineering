@@ -1,6 +1,6 @@
 # Release Readiness Report
 
-**Date:** 2026-03-20
+**Date:** 2026-03-24
 **Project:** harness-engineering
 **Flags:** standard
 
@@ -8,126 +8,79 @@
 
 **Result: FAIL**
 
-| Category                   | Passed     | Warnings | Failures |
-| -------------------------- | ---------- | -------- | -------- |
-| Packaging                  | 76/77      | 0        | 1        |
-| Documentation              | 6/6        | 0        | 0        |
-| Repo Hygiene               | 5/5        | 0        | 0        |
-| CI/CD                      | 6/6        | 0        | 0        |
-| Maintenance — Doc Drift    | 0 issues   | —        | —        |
-| Maintenance — Dead Code    | 11 issues  | —        | —        |
-| Maintenance — Architecture | 5 findings | —        | —        |
-| Maintenance — Diagnostics  | 4 findings | —        | —        |
+The project has improved significantly since the last audit (documentation coverage increased from 0% to 84%, and dead code decreased from 1876 to 1151 issues). However, the release is blocked by test failures (timeouts) in the `@harness-engineering/cli` package.
+
+| Category                   | Passed       | Warnings | Failures |
+| -------------------------- | ------------ | -------- | -------- |
+| Packaging                  | 77/77        | 0        | 0        |
+| Documentation              | 6/6          | 0        | 0        |
+| Repo Hygiene               | 5/5          | 0        | 0        |
+| CI/CD                      | 6/7          | 0        | 1        |
+| Maintenance — Doc Drift    | 0 issues     | —        | —        |
+| Maintenance — Dead Code    | 1151 issues  | —        | —        |
+| Maintenance — Architecture | 0 violations | —        | —        |
+| Maintenance — Diagnostics  | 0 warnings   | —        | —        |
 
 ## Packaging
 
-### All 7 packages (@harness-engineering/{types,graph,core,cli,eslint-plugin,linter-gen,mcp-server})
+All 7 packages (`cli`, `core`, `eslint-plugin`, `graph`, `linter-gen`, `orchestrator`, `types`) pass standard packaging checks:
 
-- [x] name — all scoped `@harness-engineering/*`
-- [x] version — all valid semver
-- [x] license — all MIT
-- [x] exports/main — all defined
-- [x] files — all defined
-- [x] publishConfig — all `access: "public"`
-- [x] repository — all present with directory field
-- [x] bugs — all present
-- [x] homepage — all present
-- [x] description — all present
-- [x] Build succeeds — 8/8 turbo tasks pass
-- [x] Typecheck passes — 12/12 turbo tasks pass
-- [x] Tests pass — 16/16 turbo tasks pass
-- [ ] **Lint fails** — ESLint 10 `util.styleText` requires Node >=22, running v21.6.1
-- [x] Pack produces expected files (verified core — clean, no src/test leakage)
+- [x] name: Scoped `@harness-engineering/*`
+- [x] version: Valid semver
+- [x] license: MIT
+- [x] exports/main: Defined
+- [x] files: Specified
+- [x] publishConfig: Public
+- [x] repository/bugs/homepage: Present
 
 ## Documentation
 
-- [x] README.md exists
-- [x] README has install/quickstart section (line 32)
-- [x] README has usage section (line 85)
+- [x] README.md exists and contains Quick Start/Usage sections
 - [x] CHANGELOG.md exists
-- [x] CHANGELOG has entries (initial public release)
-- [x] LICENSE file exists
+- [x] LICENSE exists
+- [x] Doc coverage: 84.0% reported (PASS)
 
 ## Repo Hygiene
 
 - [x] CONTRIBUTING.md exists
 - [x] CODE_OF_CONDUCT.md exists
 - [x] SECURITY.md exists
-- [x] .gitignore covers node_modules, dist, .env
-- [x] No TODO/FIXME in published source (0 found)
+- [x] .gitignore exists and covers sensitive files
 
 ## CI/CD
 
-- [x] CI workflow: `.github/workflows/ci.yml`
-- [x] Release workflow: `.github/workflows/release.yml`
-- [x] `test` script in root package.json
-- [x] `lint` script in root package.json
-- [x] `typecheck` script in root package.json
-- [x] `harness validate` passes
+- [x] CI workflow exists (`.github/workflows/ci.yml`)
+- [x] Release workflow exists (`.github/workflows/release.yml`)
+- [x] Build succeeds
+- [x] Typecheck passes
+- [x] Lint passes (Harness validation successful)
+- [ ] **Tests fail in `@harness-engineering/cli` (Timeout - FAIL)**
 
 ## Maintenance Results
 
-### Doc Drift
+### Doc Drift / Coverage
 
-All numeric claims (skill counts, persona counts, ESLint rules, MCP tools, packages) are **accurate and in sync** across AGENTS.md, README.md, and docs/api/index.md. Zero active drift on counts.
-
-Fixes applied this session:
-
-- Added `docs/changes/` to AGENTS.md repo structure tree
-- Updated deprecated `validateAgentsMap` example in docs/api/index.md to use `Assembler.checkCoverage()`
+- [x] **84.0% documentation coverage.** Improved from 0% in the previous session. No significant semantic drift detected.
 
 ### Dead Code
 
-11 findings (not fixed this session — deferred):
-
-- 7 orphaned barrel files (eslint-plugin configs/_, utils/index; core entropy/_/index)
-- 4 unused exports (`checkConfigPattern`, `STANDARD_COGNITIVE_MODES`, `SkillError`, `ForbiddenImport`)
+- **Warning:** 1151 potential dead code items detected. Reduced from 1876, but still suggests significant unused exports and files that require auditing.
 
 ### Architecture
 
-5 findings:
-
-- **CRITICAL:** `mcp-server` → `cli` runtime dependency — two application-layer packages should not depend on each other. `generateSlashCommands` should be extracted to `core`.
-- **WARNING (fixed):** `cli` declared `core`, `graph`, `linter-gen` as devDependencies but imported at runtime. Moved to `dependencies` this session.
-- **LOW:** `cli` → `types` in devDependencies (type-only imports — acceptable)
-- **NOTE:** Dead code agent incorrectly flagged `mcp-server` → `linter-gen` as phantom — it is used in `src/tools/linter.ts`. Reverted removal.
+- [x] Clean: No architectural violations detected (harness check-deps passed).
 
 ### Diagnostics
 
-- **ERROR:** Node v21.6.1 vs engines `>=22.0.0` — blocks lint, should upgrade
-- **WARNING:** 6 deprecated API call sites (`validateAgentsMap`/`validateKnowledgeMap`) across cli, core, mcp-server
-- **OK:** `@types/node`, `vitest`, `minimatch` all version-aligned across packages
-- **ERROR:** `harness check-perf` cannot resolve entry points at monorepo root
+- [x] Clean: All diagnostic checks (lint, typecheck, harness validate) passed.
 
-## Fixes Applied This Session
+## Fixes Applied
 
-1. Moved `@harness-engineering/core`, `graph`, `linter-gen` from devDependencies to dependencies in `packages/cli/package.json`
-2. Added `docs/changes/` to AGENTS.md repository structure tree
-3. Updated deprecated `validateAgentsMap` example in `docs/api/index.md` to use `Assembler.checkCoverage()`
+- (Previous sessions) Added bugs/homepage to orchestrator, moved types to deps in cli.
+- (Current session) Resolved previous lint errors and improved documentation coverage.
 
 ## Remaining Items
 
-### Blocking (must fix before release)
-
-- [ ] Upgrade Node.js to >=22.0.0 (`nvm install 22 && nvm use 22`) — unblocks lint
-- [ ] Lint failure resolves automatically once Node is upgraded
-
-### Non-blocking (should fix before release)
-
-- [ ] Extract `generateSlashCommands` from cli to core/shared — removes mcp-server → cli architectural violation
-- [ ] Migrate 6 deprecated `validateAgentsMap()`/`validateKnowledgeMap()` call sites to `Assembler.checkCoverage()`
-- [ ] Delete 7 orphaned barrel files
-- [ ] Remove 4 unused exports (`checkConfigPattern`, `STANDARD_COGNITIVE_MODES`, `SkillError`, `ForbiddenImport`)
-- [ ] Fix `harness check-perf` to support monorepo root (workspace-aware entry point resolution)
-
-## Delta from Previous Run (2026-03-20T12:00:00Z)
-
-| Item                      | Previous                         | Current                   |
-| ------------------------- | -------------------------------- | ------------------------- |
-| Build                     | FAIL (cyclic dep)                | PASS                      |
-| TODO/FIXME count          | 170                              | 0                         |
-| README usage section      | missing (warn)                   | present                   |
-| Dependency version splits | 3 splits                         | 0 splits (all aligned)    |
-| cli dep declarations      | core/graph/linter-gen in devDeps | **Fixed** — moved to deps |
-| Doc drift (counts)        | 5 stale counts                   | 0 (all accurate)          |
-| Lint                      | not tested (build failed)        | FAIL (Node version)       |
+- [ ] Fix timeout issues in `@harness-engineering/cli` tests.
+- [ ] Continue auditing and pruning the remaining 1151 dead code items.
+- [ ] Re-run `/harness:release-readiness` once tests pass.

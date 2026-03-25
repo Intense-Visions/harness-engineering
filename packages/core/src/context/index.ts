@@ -1,24 +1,38 @@
-// AGENTS.md Validation
+/**
+ * Validation utilities for AGENTS.md and knowledge maps.
+ */
 export { validateAgentsMap, extractMarkdownLinks, extractSections } from './agents-map';
 
-// Documentation Coverage
+/**
+ * Documentation coverage analysis to ensure all critical code is documented.
+ */
 export { checkDocCoverage } from './doc-coverage';
 
-// Knowledge Map Integrity
+/**
+ * Integrity validation for knowledge maps, ensuring they accurately reflect the codebase.
+ */
 export { validateKnowledgeMap } from './knowledge-map';
 
-// AGENTS.md Generation
+/**
+ * Automated generation of AGENTS.md and knowledge maps from codebase structure.
+ */
 export { generateAgentsMap } from './generate';
 
-// Token Budget
+/**
+ * Token budget management for AI agent context windows.
+ */
 export { contextBudget } from './budget';
 export type { TokenBudget, TokenBudgetOverrides } from './budget.types';
 
-// Context Filter
+/**
+ * Context filtering to select relevant files and information for specific workflow phases.
+ */
 export { contextFilter, getPhaseCategories } from './filter';
 export type { WorkflowPhase, FileCategory, ContextFilterResult } from './filter.types';
 
-// Types
+/**
+ * Type definitions for agent context, knowledge maps, and documentation coverage.
+ */
 export type {
   AgentMapLink,
   AgentMapSection,
@@ -33,4 +47,7 @@ export type {
   AgentsMapConfig,
 } from './types';
 
+/**
+ * The set of required sections that must be present in a valid AGENTS.md file.
+ */
 export { REQUIRED_SECTIONS } from './types';

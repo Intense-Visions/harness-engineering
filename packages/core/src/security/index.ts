@@ -1,16 +1,30 @@
-// Scanner
+/**
+ * Security module for secret detection, vulnerability scanning, and security baseline management.
+ */
+
+/**
+ * Main scanner for security issues (secrets, injection, etc.) in the codebase.
+ */
 export { SecurityScanner } from './scanner';
 
-// Config
+/**
+ * Configuration and resolution for security rules and severity levels.
+ */
 export { SecurityConfigSchema, parseSecurityConfig, resolveRuleSeverity } from './config';
 
-// Registry
+/**
+ * Registry for managing security rules and their metadata.
+ */
 export { RuleRegistry } from './rules/registry';
 
-// Stack detection
+/**
+ * Utility for detecting the project stack (Node.js, React, Go, etc.) for targeted scanning.
+ */
 export { detectStack } from './stack-detector';
 
-// Built-in rules
+/**
+ * Built-in security rules for common vulnerability categories.
+ */
 export { secretRules } from './rules/secrets';
 export { injectionRules } from './rules/injection';
 export { xssRules } from './rules/xss';
@@ -19,13 +33,17 @@ export { pathTraversalRules } from './rules/path-traversal';
 export { networkRules } from './rules/network';
 export { deserializationRules } from './rules/deserialization';
 
-// Stack-specific rules
+/**
+ * Stack-specific security rules for specific frameworks and languages.
+ */
 export { nodeRules } from './rules/stack/node';
 export { expressRules } from './rules/stack/express';
 export { reactRules } from './rules/stack/react';
 export { goRules } from './rules/stack/go';
 
-// Types
+/**
+ * Comprehensive type definitions for security findings, rules, and configuration.
+ */
 export type {
   SecurityCategory,
   SecuritySeverity,
@@ -36,4 +54,8 @@ export type {
   SecurityConfig,
   RuleOverride,
 } from './types';
+
+/**
+ * Default configuration for security scanning.
+ */
 export { DEFAULT_SECURITY_CONFIG } from './types';

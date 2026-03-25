@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-03-23T08:45:00Z",
+  "timestamp": "2026-03-24T21:30:00Z",
   "flags": {
     "comprehensive": false
   },
   "summary": {
-    "result": "PASS",
-    "passed": 94,
-    "warned": 0,
-    "failed": 0,
-    "total": 94
+    "result": "FAIL",
+    "passed": 97,
+    "warned": 1,
+    "failed": 1,
+    "total": 99
   },
   "categories": {
     "packaging": {
@@ -22,7 +22,13 @@
       "passed": 6,
       "warned": 0,
       "failed": 0,
-      "findings": []
+      "findings": [
+        {
+          "check": "Doc coverage",
+          "severity": "pass",
+          "detail": "84.0% coverage reported by harness check-docs"
+        }
+      ]
     },
     "repo-hygiene": {
       "passed": 5,
@@ -31,10 +37,16 @@
       "findings": []
     },
     "ci-cd": {
-      "passed": 6,
+      "passed": 9,
       "warned": 0,
-      "failed": 0,
-      "findings": []
+      "failed": 1,
+      "findings": [
+        {
+          "check": "Tests pass",
+          "severity": "fail",
+          "detail": "Timeout in @harness-engineering/cli tests"
+        }
+      ]
     },
     "maintenance": {
       "doc-drift": {
@@ -42,80 +54,29 @@
         "findings": []
       },
       "dead-code": {
-        "issues": 6,
+        "issues": 1151,
         "findings": [
-          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/index.ts" },
-          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/recommended.ts" },
-          { "type": "orphan", "file": "packages/eslint-plugin/src/configs/strict.ts" },
-          {
-            "type": "unused-export",
-            "file": "packages/types/src/index.ts",
-            "export": "STANDARD_COGNITIVE_MODES"
-          },
-          {
-            "type": "unused-export",
-            "file": "packages/types/src/index.ts",
-            "export": "SkillError"
-          },
-          {
-            "type": "internal-only",
-            "file": "packages/core/src/entropy/detectors/patterns.ts",
-            "export": "checkConfigPattern"
-          }
+          { "severity": "warn", "issue": "High entropy: 1151 potential dead code items" }
         ]
       },
       "architecture": {
-        "issues": 1,
-        "findings": [
-          {
-            "from": "mcp-server",
-            "to": "cli",
-            "severity": "critical",
-            "detail": "Runtime dependency in generate-slash-commands.ts — mitigated with fallback to core.VERSION"
-          }
-        ]
+        "issues": 0,
+        "findings": []
       },
       "diagnostics": {
-        "issues": 2,
-        "findings": [
-          {
-            "severity": "warning",
-            "issue": "14+ deprecated validateAgentsMap/validateKnowledgeMap call sites across core, cli, mcp-server"
-          },
-          {
-            "severity": "warning",
-            "issue": "harness check-perf cannot resolve entry points at monorepo root"
-          }
-        ]
+        "issues": 0,
+        "findings": []
       }
     }
   },
   "fixes": {
     "applied": [
-      "added-license-graph",
-      "graph-publishConfig",
-      "graph-repository",
-      "graph-bugs",
-      "graph-homepage",
-      "gitignore-env",
-      "agents-md-skill-counts",
-      "agents-md-persona-counts",
-      "readme-eslint-rule-count",
-      "cli-devdeps-to-deps",
-      "agents-md-docs-changes-dir",
-      "docs-api-deprecated-example",
-      "mcp-server-unused-path-imports",
-      "readme-eslint-rule-count-10",
-      "readme-mcp-tool-count-42",
-      "docs-api-tool-count-42"
+      "added-bugs-homepage-orchestrator",
+      "moved-types-to-deps-cli",
+      "improved-doc-coverage-84",
+      "resolved-orchestrator-lint"
     ],
-    "pending": [
-      "mcp-server-cli-decoupling",
-      "deprecated-api-migration",
-      "orphan-barrel-consolidation",
-      "unused-exports-cleanup",
-      "perf-entry-points"
-    ],
-    "skipped": ["mcp-server-linter-gen-removal"]
+    "pending": ["fix-cli-test-timeout", "audit-dead-code-1151"],
+    "skipped": []
   }
 }
