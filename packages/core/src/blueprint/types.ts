@@ -1,13 +1,5 @@
-export interface Quiz {
-  questions: {
-    question: string;
-    answer: string;
-  }[];
-}
-
 export interface Content {
   codeTranslation: string;
-  quiz: Quiz;
 }
 
 export interface BlueprintModule {
