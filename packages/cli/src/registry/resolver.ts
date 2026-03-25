@@ -21,24 +21,26 @@ export function resolveVersion(
 
   if (!versionRange) {
     const latestTag = metadata['dist-tags'].latest;
-    const latestInfo = metadata.versions[latestTag];
-    if (latestInfo) return latestInfo;
+    if (latestTag) {
+      const latestInfo = metadata.versions[latestTag];
+      if (latestInfo) return latestInfo;
+    }
 
     // Fallback: pick highest version
     const highest = semver.maxSatisfying(versions, '*');
-    if (!highest) {
+    if (!highest || !metadata.versions[highest]) {
       throw new Error(`No versions available for ${metadata.name}.`);
     }
-    return metadata.versions[highest];
+    return metadata.versions[highest]!;
   }
 
   const matched = semver.maxSatisfying(versions, versionRange);
-  if (!matched) {
+  if (!matched || !metadata.versions[matched]) {
     throw new Error(
       `No version of ${metadata.name} matches range ${versionRange}. Available: ${versions.join(', ')}`
     );
   }
-  return metadata.versions[matched];
+  return metadata.versions[matched]!;
 }
 
 /**

@@ -27,6 +27,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ orchestrator }) => {
 
   useInput((input, key) => {
     if (input === 'q' || (key.ctrl && input === 'c')) {
+      orchestrator.stop();
       exit();
     }
   });
