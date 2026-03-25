@@ -45,7 +45,8 @@
     "vitest": "^4.0.18"
   },
   "lint-staged": {
-    "*.{ts,tsx,md,json}": "prettier --write"
+    "*.{ts,tsx,md,json}": "prettier --write",
+    "package.json": "scripts/sync-lockfile.sh"
   },
   "packageManager": "pnpm@8.15.4",
   "engines": {
