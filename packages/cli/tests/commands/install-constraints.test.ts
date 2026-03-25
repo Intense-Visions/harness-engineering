@@ -222,4 +222,68 @@ describe('runInstallConstraints', () => {
       expect(updatedConfig.security.rules['SEC-CRY-001']).toBe('error');
     });
   });
+
+  describe('dry-run mode', () => {
+    it('reports what would change without writing files', async () => {
+      const configBefore = await fs.readFile(configPath, 'utf-8');
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+        dryRun: true,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.dryRun).toBe(true);
+      expect(result.value.installed).toBe(false);
+      expect(result.value.contributionsCount).toBeGreaterThan(0);
+
+      // Config should be unchanged
+      const configAfter = await fs.readFile(configPath, 'utf-8');
+      expect(configAfter).toBe(configBefore);
+
+      // Lockfile should not exist
+      const lockfileExists = await fs
+        .access(lockfilePath)
+        .then(() => true)
+        .catch(() => false);
+      expect(lockfileExists).toBe(false);
+    });
+
+    it('reports conflicts in dry-run without requiring resolution flags', async () => {
+      const configWithLayer = {
+        version: 1,
+        name: 'test-project',
+        layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: [] }],
+      };
+      const conflictBundle = {
+        name: 'conflict-bundle',
+        version: '1.0.0',
+        manifest: {
+          name: 'conflict-bundle',
+          version: '1.0.0',
+          include: ['layers'],
+        },
+        constraints: {
+          layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: ['core'] }],
+        },
+      };
+      await fs.writeFile(configPath, JSON.stringify(configWithLayer, null, 2));
+      await fs.writeFile(bundlePath, JSON.stringify(conflictBundle, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+        dryRun: true,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.dryRun).toBe(true);
+      expect(result.value.conflicts).toHaveLength(1);
+    });
+  });
 });
