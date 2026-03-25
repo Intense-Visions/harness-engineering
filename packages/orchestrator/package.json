@@ -44,6 +44,10 @@
     "url": "https://github.com/Intense-Visions/harness-engineering.git",
     "directory": "packages/orchestrator"
   },
+  "bugs": {
+    "url": "https://github.com/Intense-Visions/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/orchestrator#readme",
   "dependencies": {
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/types": "workspace:*",
