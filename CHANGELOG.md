@@ -6,8 +6,16 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.5.0 — 2026-03-25
+
 ### Added
 
+- **Constraint Sharing** — Install and uninstall shared constraint bundles across projects.
+  - `harness install-constraints` with conflict detection, dry-run, `--force-local`/`--force-package`.
+  - `harness uninstall-constraints` with lockfile-driven rule removal.
+  - `removeContributions` function in `@harness-engineering/core` for programmatic rule cleanup.
+- **Private Registry Support** — `--registry` flag for `install`, `search`, and `publish` commands with `.npmrc` token reading.
+- **Local Install** — `harness install --from <path>` for installing skills from directories or tarballs.
 - **Orchestrator Daemon** — New package `@harness-engineering/orchestrator` providing a long-lived daemon for agent lifecycle management.
   - Ink-based TUI and HTTP API for real-time monitoring.
   - Deterministic per-issue workspace management.
@@ -21,6 +29,17 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 - Comprehensive JSDoc/TSDoc for core API packages.
 - Hardened `@harness-engineering/core` and `@harness-engineering/cli` with resolved lint and type errors.
 - Restricted orchestrator observability API to localhost for security.
+- Updated `harness.config.json` to reflect actual dependency structure (added orchestrator layer, removed stale mcp-server references).
+
+### Fixed
+
+- `exactOptionalPropertyTypes` violation in CLI install command.
+- Broken test imports in `core/test/blueprint/content-pipeline.test.ts`.
+- 13 documentation drift items: stale mcp-server references, outdated version numbers, missing ESLint rule docs, undocumented deprecations.
+
+### Deprecated
+
+- `validateAgentsMap()` and `validateKnowledgeMap()` in `@harness-engineering/core` — use `Assembler.checkCoverage()` from `@harness-engineering/graph` instead.
 
 ## 0.4.0 — 2026-03-23
 

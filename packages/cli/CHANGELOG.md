@@ -1,5 +1,23 @@
 # @harness-engineering/cli
 
+## 1.12.0
+
+### Minor Changes
+
+- Add constraint sharing commands and private registry support
+  - `harness install-constraints` — install shared constraint bundles with conflict detection, dry-run mode, and `--force-local`/`--force-package` resolution
+  - `harness uninstall-constraints` — remove contributed rules using lockfile-driven tracking
+  - `harness install --from` — install skills from local paths (directories or tarballs)
+  - `harness install --registry` / `harness search --registry` / `harness publish --registry` — private registry support with `.npmrc` token reading
+  - Upgrade detection in `install-constraints` (uninstall old version before installing new)
+  - Fix `exactOptionalPropertyTypes` violation in install command
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/core@0.12.0
+  - @harness-engineering/orchestrator@0.2.1
+
 ## 1.11.0
 
 ### Minor Changes
