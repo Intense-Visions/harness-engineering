@@ -1,12 +1,19 @@
 /**
  * @harness-engineering/core
  *
- * Core library for Harness Engineering toolkit
+ * Core library for Harness Engineering toolkit.
+ * This library provides the fundamental building blocks for codebase analysis,
+ * validation, entropy management, and agent-driven workflows.
  */
 
+/**
+ * Re-export all fundamental types from the types package.
+ */
 export * from '@harness-engineering/types';
 
-// Error types and helpers
+/**
+ * Error types and helper functions for standardized error handling across the toolkit.
+ */
 export type {
   BaseError,
   ValidationError,
@@ -17,28 +24,44 @@ export type {
 } from './shared/errors';
 export { createError } from './shared/errors';
 
-// Validation module
+/**
+ * Validation module for verifying project structure, configuration, and conventions.
+ */
 export * from './validation';
 
-// Context module
+/**
+ * Context module for managing AI agent context and knowledge maps.
+ */
 export * from './context';
 
-// Constraints module
+/**
+ * Constraints module for enforcing architectural boundaries and dependency rules.
+ */
 export * from './constraints';
 
-// Entropy module
+/**
+ * Entropy module for detecting and remediating codebase drift, dead code, and complexity.
+ */
 export * from './entropy';
 
-// Performance module
+/**
+ * Performance module for benchmarking and regression detection.
+ */
 export * from './performance';
 
-// Feedback module
+/**
+ * Feedback module for agent-driven code review and telemetry.
+ */
 export * from './feedback';
 
-// Architecture module
+/**
+ * Architecture module for analyzing and visualizing codebase structure.
+ */
 export * from './architecture';
 
-// Parsers
+/**
+ * Language parsers and AST utilities.
+ */
 export { TypeScriptParser } from './shared/parsers';
 export type {
   LanguageParser,
@@ -50,37 +73,57 @@ export type {
 } from './shared/parsers';
 export { createParseError } from './shared/parsers';
 
-// State module
+/**
+ * State management module for tracking project health, learnings, and transitions.
+ */
 export * from './state';
 
-// Workflow module
+/**
+ * Workflow module for executing multi-step tasks and agent chains.
+ */
 export * from './workflow';
 
-// Pipeline module
+/**
+ * Pipeline module for orchestrating skill execution and turn-based interactions.
+ */
 export * from './pipeline';
 
-// Security module
+/**
+ * Security module for secret detection and vulnerability scanning.
+ */
 export * from './security';
 
-// CI module
+/**
+ * CI module for integrating with continuous integration systems.
+ */
 export * from './ci';
 
-// Review pipeline module
+/**
+ * Review pipeline module for automated code review workflows.
+ */
 export * from './review';
 
-// Roadmap module
+/**
+ * Roadmap module for parsing, serializing, and syncing project roadmaps.
+ */
 export * from './roadmap';
 
-// Interaction module
+/**
+ * Interaction module for managing agent-to-human interactions.
+ */
 export * from './interaction';
 
-// Blueprint module
+/**
+ * Blueprint module for scanning projects and generating codebase blueprints.
+ */
 export * from './blueprint/types';
 export { ProjectScanner } from './blueprint/scanner';
 export { BlueprintGenerator } from './blueprint/generator';
 export { ContentPipeline } from './blueprint/content-pipeline';
 
-// Update checker
+/**
+ * Update checker utilities for checking for new versions of the toolkit.
+ */
 export {
   isUpdateCheckEnabled,
   shouldRunCheck,
@@ -91,6 +134,8 @@ export {
 export type { UpdateCheckState } from './update-checker';
 
 /**
+ * The current version of the Harness Engineering core library.
+ *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`
  * instead. This hardcoded constant drifts from the actual CLI version on each
  * release. Kept only as a fallback for consumers that cannot resolve the CLI

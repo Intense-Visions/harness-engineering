@@ -8,7 +8,11 @@ import { CLIError, ExitCode } from '../utils/errors';
 const CONFIG_FILENAMES = ['harness.config.json'];
 
 /**
- * Find config file starting from given directory
+ * Searches for a Harness configuration file starting from the given directory
+ * and moving up the directory tree until the root is reached.
+ *
+ * @param startDir - The directory to start searching from. Defaults to current working directory.
+ * @returns An Ok result containing the absolute path to the config file, or an Err with a CLIError if not found.
  */
 export function findConfigFile(startDir: string = process.cwd()): Result<string, CLIError> {
   let currentDir = path.resolve(startDir);
@@ -30,7 +34,10 @@ export function findConfigFile(startDir: string = process.cwd()): Result<string,
 }
 
 /**
- * Load and validate config from file
+ * Loads and validates a Harness configuration from a JSON file.
+ *
+ * @param configPath - The path to the configuration file.
+ * @returns An Ok result with the validated HarnessConfig, or an Err with a CLIError if loading or validation fails.
  */
 export function loadConfig(configPath: string): Result<HarnessConfig, CLIError> {
   // Check file exists
@@ -65,7 +72,11 @@ export function loadConfig(configPath: string): Result<HarnessConfig, CLIError> 
 }
 
 /**
- * Load config from default location or specified path
+ * Resolves the Harness configuration by either loading from a specified path
+ * or searching for the default config file in the current directory tree.
+ *
+ * @param configPath - Optional path to a specific configuration file.
+ * @returns An Ok result with the resolved configuration, or an Err with a CLIError.
  */
 export function resolveConfig(configPath?: string): Result<HarnessConfig, CLIError> {
   if (configPath) {

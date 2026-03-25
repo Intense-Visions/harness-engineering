@@ -10,12 +10,12 @@ export class PromptRenderer {
     });
   }
 
-  async render(template: string, context: Record<string, any>): Promise<string> {
+  async render(template: string, context: Record<string, unknown>): Promise<string> {
     try {
       return await this.engine.render(this.engine.parse(template), context);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Template rendering failed: ${error.message}`);
+        throw new Error(`Template rendering failed: ${error.message}`, { cause: error });
       }
       throw error;
     }

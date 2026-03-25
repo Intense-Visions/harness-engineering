@@ -55,3 +55,4 @@ harness validate
 - [Read the Standard](/standard/) - Understand the principles
 - [Follow the Guides](/guides/) - Learn how to implement
 - [Explore the API](/api/) - Technical reference
+- [Reference Index](/reference/source-map) - Map of source files

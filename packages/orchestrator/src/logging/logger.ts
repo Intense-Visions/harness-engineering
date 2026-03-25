@@ -35,10 +35,10 @@ export class StructuredLogger {
     return `${timestamp} ${entry.level.toUpperCase()}: ${entry.message}${contextStr}`;
   }
 
-  private safeStringify(obj: any): string {
+  private safeStringify(obj: unknown): string {
     try {
       return JSON.stringify(obj);
-    } catch (error) {
+    } catch {
       return '[Circular or Non-serializable]';
     }
   }

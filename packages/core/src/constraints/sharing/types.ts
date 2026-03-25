@@ -52,8 +52,8 @@ export const BundleConstraintsSchema = z.object({
     .optional(),
   architecture: z
     .object({
-      thresholds: z.record(z.any()).optional(),
-      modules: z.record(z.record(z.any())).optional(),
+      thresholds: z.record(z.unknown()).optional(),
+      modules: z.record(z.record(z.unknown())).optional(),
     })
     .optional(),
   security: z
@@ -70,14 +70,14 @@ export const BundleSchema = z.object({
   minHarnessVersion: z.string().optional(),
   manifest: ManifestSchema,
   constraints: BundleConstraintsSchema,
-  contributions: z.record(z.any()).optional(),
+  contributions: z.record(z.unknown()).optional(),
 });
 
-export const ContributionsSchema = z.record(z.any());
+export const ContributionsSchema = z.record(z.unknown());
 
 export type Bundle = z.infer<typeof BundleSchema>;
 export type BundleConstraints = z.infer<typeof BundleConstraintsSchema>;
-export type Contributions = Record<string, any>;
+export type Contributions = Record<string, unknown>;
 
 // --- Lockfile ---
 
@@ -85,7 +85,7 @@ export const LockfilePackageSchema = z.object({
   version: z.string(),
   source: z.string(),
   installedAt: z.string(),
-  contributions: z.record(z.any()).optional().nullable(),
+  contributions: z.record(z.unknown()).optional().nullable(),
   resolved: z.string().optional(),
   integrity: z.string().optional(),
   provenance: z.array(z.string()).optional(),
@@ -105,7 +105,7 @@ export type Lockfile = z.infer<typeof LockfileSchema>;
 export type LockfilePackage = z.infer<typeof LockfilePackageSchema>;
 
 // Shared Layer Schemas (referenced in index.ts)
-export const SharableLayerSchema = z.any();
-export const SharableForbiddenImportSchema = z.any();
-export const SharableBoundaryConfigSchema = z.any();
-export const SharableSecurityRulesSchema = z.any();
+export const SharableLayerSchema = z.unknown();
+export const SharableForbiddenImportSchema = z.unknown();
+export const SharableBoundaryConfigSchema = z.unknown();
+export const SharableSecurityRulesSchema = z.unknown();

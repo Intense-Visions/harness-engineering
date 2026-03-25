@@ -45,7 +45,14 @@ export async function runCheckDocs(
   const coverageResult = await checkDocCoverage('project', {
     docsDir,
     sourceDir,
-    excludePatterns: ['**/*.test.ts', '**/*.spec.ts', '**/node_modules/**'],
+    excludePatterns: [
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/.turbo/**',
+    ],
   });
 
   if (!coverageResult.ok) {

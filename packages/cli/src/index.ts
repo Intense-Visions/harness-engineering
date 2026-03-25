@@ -1,3 +1,13 @@
+/**
+ * @harness-engineering/cli
+ *
+ * Command-line interface for the Harness Engineering toolkit.
+ *
+ * This package provides a unified `harness` command with subcommands for
+ * validation, documentation management, dependency checking, and agent
+ * orchestration.
+ */
+
 import { Command } from 'commander';
 import { CLI_VERSION } from './version';
 import { createValidateCommand } from './commands/validate';
@@ -36,6 +46,11 @@ import { createInstallCommand } from './commands/install';
 import { createUninstallCommand } from './commands/uninstall';
 import { createOrchestratorCommand } from './commands/orchestrator';
 
+/**
+ * Creates and configures the main Harness CLI program.
+ *
+ * @returns A Commander instance with all subcommands registered.
+ */
 export function createProgram(): Command {
   const program = new Command();
 
@@ -88,15 +103,23 @@ export function createProgram(): Command {
   return program;
 }
 
-// Preamble builder export
+/**
+ * Preamble builder for skill generation.
+ */
 export { buildPreamble } from './commands/skill/preamble';
 
-// Command function exports (used by MCP server)
+/**
+ * Command-line functions for graph operations, used by both CLI and MCP.
+ */
 export { runScan } from './commands/graph/scan';
 export { runQuery } from './commands/graph/query';
 export { runIngest } from './commands/graph/ingest';
 export { runGraphStatus } from './commands/graph/status';
 export { runGraphExport } from './commands/graph/export';
+
+/**
+ * Core command implementations for validation and generation.
+ */
 export { runCheckPhaseGate } from './commands/check-phase-gate';
 export { runCrossCheck } from './commands/validate-cross-check';
 export { generateSkillFiles } from './commands/create-skill';
@@ -105,18 +128,33 @@ export { generateSlashCommands } from './commands/generate-slash-commands';
 export type { GenerateResult } from './commands/generate-slash-commands';
 export type { SkillSource } from './slash-commands/normalize';
 
-// Re-export utilities
+/**
+ * Error handling and logging utilities.
+ */
 export { CLIError, ExitCode, handleError } from './utils/errors';
+/**
+ * Formatting and output mode types.
+ */
 export { OutputFormatter, OutputMode } from './output/formatter';
+/**
+ * Global CLI logger.
+ */
 export { logger } from './output/logger';
+/**
+ * Configuration loading and resolution.
+ */
 export { loadConfig, findConfigFile, resolveConfig } from './config/loader';
 export type { HarnessConfig } from './config/schema';
 
-// Template engine exports
+/**
+ * Template engine for file generation.
+ */
 export { TemplateEngine } from './templates/engine';
 export type { TemplateContext, RenderedFiles } from './templates/engine';
 
-// Persona exports
+/**
+ * Persona and agent orchestration.
+ */
 export { loadPersona, listPersonas } from './persona/loader';
 export type { PersonaMetadata } from './persona/loader';
 export { generateRuntime } from './persona/generators/runtime';
@@ -137,7 +175,9 @@ export { ALLOWED_PERSONA_COMMANDS } from './persona/constants';
 export { detectTrigger } from './persona/trigger-detector';
 export type { HandoffContext, TriggerDetectionResult } from './persona/trigger-detector';
 
-// Agent definition exports
+/**
+ * Agent definition generators.
+ */
 export { generateAgentDefinitions } from './commands/generate-agent-definitions';
 export type {
   GenerateAgentDefsOptions,
@@ -153,17 +193,25 @@ export type { AgentDefinition } from './agent-definitions/generator';
 export { renderClaudeCodeAgent } from './agent-definitions/render-claude-code';
 export { renderGeminiAgent } from './agent-definitions/render-gemini-cli';
 
-// Impact preview export
+/**
+ * Impact preview analysis.
+ */
 export { runImpactPreview } from './commands/impact-preview';
 
-// Architecture assertion export
+/**
+ * Architecture assertion checks.
+ */
 export { runCheckArch } from './commands/check-arch';
 export type { CheckArchResult } from './commands/check-arch';
 
-// MCP server exports
+/**
+ * MCP server factory and tool definitions.
+ */
 export { createHarnessServer, startServer, getToolDefinitions } from './mcp/index';
 
-// Skill marketplace exports
+/**
+ * Skill installation and management.
+ */
 export { runInstall } from './commands/install';
 export type { InstallResult } from './commands/install';
 export { runUninstall } from './commands/uninstall';

@@ -9,11 +9,24 @@ import {
   IssueTrackerClient,
   TrackerConfig,
   BlockerRef,
+  RoadmapFeature,
 } from '@harness-engineering/types';
 
+/**
+ * Adapter for using a markdown roadmap file as an issue tracker.
+ *
+ * This adapter parses a standard Harness roadmap file, extracts features,
+ * and maps them to the internal Issue model using deterministic hashing
+ * for identifiers.
+ */
 export class RoadmapTrackerAdapter implements IssueTrackerClient {
   private config: TrackerConfig;
 
+  /**
+   * Creates a new RoadmapTrackerAdapter.
+   *
+   * @param config - The tracker configuration including the file path
+   */
   constructor(config: TrackerConfig) {
     this.config = config;
     if (!config.filePath) {
@@ -21,16 +34,24 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
     }
   }
 
+  /**
+   * Fetches all issues that are in an "active" state according to the config.
+   */
   async fetchCandidateIssues(): Promise<Result<Issue[], Error>> {
     return this.fetchIssuesByStates(this.config.activeStates);
   }
 
+  /**
+   * Fetches issues that match any of the given state names.
+   *
+   * @param stateNames - List of statuses to filter by
+   */
   async fetchIssuesByStates(stateNames: string[]): Promise<Result<Issue[], Error>> {
     try {
       if (!this.config.filePath) return Err(new Error('Missing filePath'));
       const content = await fs.readFile(this.config.filePath, 'utf-8');
       const roadmapResult = parseRoadmap(content);
-      if (!roadmapResult.ok) return roadmapResult as any; // Cast for Error
+      if (!roadmapResult.ok) return roadmapResult as unknown as Result<Issue[], Error>;
 
       const issues: Issue[] = [];
       for (const milestone of roadmapResult.value.milestones) {
@@ -47,12 +68,17 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
     }
   }
 
+  /**
+   * Fetches full issue details for a list of identifiers.
+   *
+   * @param issueIds - List of issue IDs to fetch
+   */
   async fetchIssueStatesByIds(issueIds: string[]): Promise<Result<Map<string, Issue>, Error>> {
     try {
       if (!this.config.filePath) return Err(new Error('Missing filePath'));
       const content = await fs.readFile(this.config.filePath, 'utf-8');
       const roadmapResult = parseRoadmap(content);
-      if (!roadmapResult.ok) return roadmapResult as any;
+      if (!roadmapResult.ok) return roadmapResult as unknown as Result<Map<string, Issue>, Error>;
 
       const issueMap = new Map<string, Issue>();
       for (const milestone of roadmapResult.value.milestones) {
@@ -70,7 +96,10 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
     }
   }
 
-  private mapFeatureToIssue(feature: any): Issue {
+  /**
+   * Maps a raw RoadmapFeature from the parser to the unified Issue model.
+   */
+  private mapFeatureToIssue(feature: RoadmapFeature): Issue {
     const id = this.generateId(feature.name);
     return {
       id,
@@ -92,6 +121,9 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
     };
   }
 
+  /**
+   * Generates a deterministic, URL-safe identifier for a feature name.
+   */
   private generateId(name: string): string {
     const hash = createHash('sha256').update(name).digest('hex').slice(0, 8);
     const sanitized = name

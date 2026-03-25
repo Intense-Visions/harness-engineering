@@ -1,31 +1,64 @@
 import chalk from 'chalk';
 
+/**
+ * Supported output modes for the CLI.
+ */
 export const OutputMode = {
+  /** Output as formatted JSON */
   JSON: 'json',
+  /** Output as human-readable text */
   TEXT: 'text',
+  /** Minimal output, only errors and successes */
   QUIET: 'quiet',
+  /** Full output with detailed context and suggestions */
   VERBOSE: 'verbose',
 } as const;
 
+/**
+ * Type representing one of the supported output modes.
+ */
 export type OutputModeType = (typeof OutputMode)[keyof typeof OutputMode];
 
+/**
+ * Represents a single issue discovered during validation.
+ */
 interface ValidationIssue {
+  /** The file where the issue was found */
   file?: string;
+  /** A human-readable description of the issue */
   message: string;
+  /** The line number where the issue occurs */
   line?: number;
+  /** A suggested fix or next step */
   suggestion?: string;
 }
 
+/**
+ * The result of a validation operation.
+ */
 interface ValidationResult {
+  /** Whether the validation passed overall */
   valid: boolean;
+  /** A list of issues found during validation */
   issues: ValidationIssue[];
 }
 
+/**
+ * Formats data and results for CLI output based on the selected mode.
+ */
 export class OutputFormatter {
+  /**
+   * Creates a new OutputFormatter.
+   *
+   * @param mode - The output mode to use. Defaults to TEXT.
+   */
   constructor(private mode: OutputModeType = OutputMode.TEXT) {}
 
   /**
-   * Format raw data (for JSON mode)
+   * Formats raw data for output.
+   *
+   * @param data - The data to format.
+   * @returns A string representation of the data based on the current mode.
    */
   format(data: unknown): string {
     if (this.mode === OutputMode.JSON) {
@@ -35,7 +68,10 @@ export class OutputFormatter {
   }
 
   /**
-   * Format validation result
+   * Formats a validation result into a user-friendly string.
+   *
+   * @param result - The validation result to format.
+   * @returns A formatted string containing the validation status and any issues.
    */
   formatValidation(result: ValidationResult): string {
     if (this.mode === OutputMode.JSON) {
@@ -73,7 +109,12 @@ export class OutputFormatter {
   }
 
   /**
-   * Format a summary line
+   * Formats a summary line with a success/failure icon and label.
+   *
+   * @param label - The name of the field to summarize.
+   * @param value - The value to display.
+   * @param success - Whether the summary represents a success or failure state.
+   * @returns A formatted summary string, or an empty string in JSON or QUIET modes.
    */
   formatSummary(label: string, value: string | number, success: boolean): string {
     if (this.mode === OutputMode.JSON || this.mode === OutputMode.QUIET) {
@@ -84,15 +125,23 @@ export class OutputFormatter {
   }
 }
 
+/**
+ * Represents a parsed entry from conventional markdown text.
+ */
 export interface ConventionalMarkdownEntry {
+  /** The bracketed type (e.g. CRITICAL, Phase 1/2) */
   type: string;
+  /** The text following the bracketed type */
   title: string;
 }
 
 /**
- * Parse conventional markdown patterns (**[TYPE]** Title) from text.
+ * Parses conventional markdown patterns (**[TYPE]** Title) from text.
  * Extracts structured data from display-only output using the harness
  * interaction surface conventions.
+ *
+ * @param text - The markdown text to parse.
+ * @returns An array of parsed markdown entries.
  */
 export function parseConventionalMarkdown(text: string): ConventionalMarkdownEntry[] {
   const pattern =
