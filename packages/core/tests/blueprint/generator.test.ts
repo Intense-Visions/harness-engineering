@@ -11,13 +11,11 @@ describe('BlueprintGenerator', () => {
     const data = {
       projectName: 'test-project',
       generatedAt: new Date().toISOString(),
-      modules: [
-        { id: 'm1', title: 'M1', description: 'Desc', files: [] }
-      ]
+      modules: [{ id: 'm1', title: 'M1', description: 'Desc', files: [] }],
     };
-    
+
     await generator.generate(data, { outputDir: tmpDir });
-    
+
     const indexHtml = await fs.readFile(path.join(tmpDir, 'index.html'), 'utf-8');
     expect(indexHtml).toContain('<title>Blueprint: test-project</title>');
     expect(indexHtml).toContain('<h2>M1</h2>');

@@ -9,16 +9,18 @@ export class BlueprintGenerator {
   private contentPipeline = new ContentPipeline();
 
   async generate(data: BlueprintData, options: BlueprintOptions): Promise<void> {
-    await Promise.all(data.modules.map(async (module) => {
-      module.content = await this.contentPipeline.generateModuleContent(module);
-    }));
+    await Promise.all(
+      data.modules.map(async (module) => {
+        module.content = await this.contentPipeline.generateModuleContent(module);
+      })
+    );
 
     const html = ejs.render(SHELL_TEMPLATE, {
       ...data,
       styles: STYLES,
       scripts: SCRIPTS,
     });
-    
+
     await fs.mkdir(options.outputDir, { recursive: true });
     await fs.writeFile(path.join(options.outputDir, 'index.html'), html);
   }

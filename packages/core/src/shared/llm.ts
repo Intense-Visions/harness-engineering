@@ -4,7 +4,7 @@ export interface LLMService {
 
 export class MockLLMService implements LLMService {
   async generate(prompt: string): Promise<string> {
-    return "This is a mock LLM response for: " + prompt;
+    return 'This is a mock LLM response for: ' + prompt;
   }
 }
 
