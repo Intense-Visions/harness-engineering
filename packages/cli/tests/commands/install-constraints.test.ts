@@ -378,4 +378,53 @@ describe('runInstallConstraints', () => {
       expect(result.error).toContain('no constraints');
     });
   });
+
+  describe('lockfile management', () => {
+    it('creates lockfile with version:1 when no lockfile exists', async () => {
+      // Ensure no lockfile exists
+      await fs.rm(lockfilePath, { force: true });
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(result.ok).toBe(true);
+
+      const lockfile = JSON.parse(await fs.readFile(lockfilePath, 'utf-8'));
+      expect(lockfile.version).toBe(1);
+      expect(lockfile.packages['test-bundle']).toBeDefined();
+      expect(lockfile.packages['test-bundle'].contributions).toBeDefined();
+    });
+
+    it('preserves existing lockfile entries when adding new package', async () => {
+      // Pre-populate lockfile with an existing entry
+      const existingLockfile = {
+        version: 1,
+        packages: {
+          'other-bundle': {
+            version: '2.0.0',
+            source: '/some/path.json',
+            installedAt: '2026-01-01T00:00:00Z',
+            contributions: { layers: ['other'] },
+          },
+        },
+      };
+      await fs.writeFile(lockfilePath, JSON.stringify(existingLockfile, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(result.ok).toBe(true);
+
+      const lockfile = JSON.parse(await fs.readFile(lockfilePath, 'utf-8'));
+      expect(lockfile.packages['other-bundle']).toBeDefined();
+      expect(lockfile.packages['other-bundle'].version).toBe('2.0.0');
+      expect(lockfile.packages['test-bundle']).toBeDefined();
+    });
+  });
 });
