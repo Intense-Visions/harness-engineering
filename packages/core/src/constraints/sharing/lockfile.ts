@@ -48,8 +48,11 @@ export async function readLockfile(lockfilePath: string): Promise<Result<Lockfil
 /**
  * Write a lockfile to disk using atomic write.
  */
-export async function writeLockfile(lockfilePath: string, lockfile: Lockfile): Promise<void> {
-  await writeConfig(lockfilePath, lockfile);
+export async function writeLockfile(
+  lockfilePath: string,
+  lockfile: Lockfile
+): Promise<Result<void, Error>> {
+  return writeConfig(lockfilePath, lockfile);
 }
 
 /**

@@ -75,10 +75,9 @@ export function createShareCommand(): Command {
       const outputDir = path.resolve(options.output);
       const outputPath = path.join(outputDir, `${manifest.name}.harness-constraints.json`);
 
-      try {
-        await writeConfig(outputPath, bundle);
-      } catch (err) {
-        logger.error(`Failed to write bundle: ${err instanceof Error ? err.message : String(err)}`);
+      const writeResult = await writeConfig(outputPath, bundle);
+      if (!writeResult.ok) {
+        logger.error(`Failed to write bundle: ${writeResult.error.message}`);
         process.exit(1);
       }
 

@@ -11,6 +11,7 @@ import {
 import type { Contributions } from '@harness-engineering/core';
 import { findConfigFile } from '../config/loader';
 import { logger } from '../output/logger';
+import type { Result } from '@harness-engineering/types';
 
 // --- Types ---
 
@@ -26,8 +27,6 @@ export interface UninstallConstraintsSuccess {
   version: string;
   sectionsRemoved: string[];
 }
-
-type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 // --- Core orchestration ---
 
@@ -85,7 +84,13 @@ export async function runUninstallConstraints(
   }
 
   // 7. Write updated lockfile
-  await writeLockfile(lockfilePath, updatedLockfile);
+  const lockfileWriteResult = await writeLockfile(lockfilePath, updatedLockfile);
+  if (!lockfileWriteResult.ok) {
+    return {
+      ok: false,
+      error: `Config was written but lockfile write failed: ${lockfileWriteResult.error.message}. Lockfile may be out of sync.`,
+    };
+  }
 
   return {
     ok: true,
