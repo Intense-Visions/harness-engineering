@@ -106,4 +106,63 @@ describe('runInstallConstraints', () => {
     if (result.ok) return;
     expect(result.error).toContain('schema');
   });
+
+  describe('conflict handling', () => {
+    const conflictBundle = {
+      name: 'conflict-bundle',
+      version: '1.0.0',
+      manifest: {
+        name: 'conflict-bundle',
+        version: '1.0.0',
+        include: ['layers'],
+      },
+      constraints: {
+        layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: ['core'] }],
+      },
+    };
+
+    const configWithExistingLayer = {
+      version: 1,
+      name: 'test-project',
+      layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: [] }],
+    };
+
+    it('returns error with conflict details when no resolution flag is provided', async () => {
+      await fs.writeFile(configPath, JSON.stringify(configWithExistingLayer, null, 2));
+      await fs.writeFile(bundlePath, JSON.stringify(conflictBundle, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error).toContain('conflict');
+      expect(result.error).toContain('shared');
+    });
+
+    it('resolves conflicts with --force-local by keeping local values', async () => {
+      await fs.writeFile(configPath, JSON.stringify(configWithExistingLayer, null, 2));
+      await fs.writeFile(bundlePath, JSON.stringify(conflictBundle, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+        forceLocal: true,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.installed).toBe(true);
+      expect(result.value.conflicts).toHaveLength(1);
+
+      // Config should keep local value (empty allowedDependencies)
+      const updatedConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      const sharedLayer = updatedConfig.layers.find((l: { name: string }) => l.name === 'shared');
+      expect(sharedLayer.allowedDependencies).toEqual([]);
+    });
+  });
 });
