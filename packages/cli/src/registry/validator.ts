@@ -27,7 +27,10 @@ export interface ValidationResult {
  * Run the pre-publish validation pipeline on a skill directory.
  * Returns a result with `valid` flag and array of error messages.
  */
-export async function validateForPublish(skillDir: string): Promise<ValidationResult> {
+export async function validateForPublish(
+  skillDir: string,
+  registryUrl?: string
+): Promise<ValidationResult> {
   const errors: string[] = [];
 
   // 1. Check skill.yaml exists
@@ -95,15 +98,19 @@ export async function validateForPublish(skillDir: string): Promise<ValidationRe
   // 8. Version bump — check against published version
   try {
     const packageName = resolvePackageName(skillMeta!.name);
-    const metadata = await fetchPackageMetadata(packageName);
+    const metadata = await fetchPackageMetadata(packageName, registryUrl);
     const publishedVersion = metadata['dist-tags']?.latest;
     if (publishedVersion && !semver.gt(skillMeta!.version, publishedVersion)) {
       errors.push(
         `Version ${skillMeta!.version} must be greater than published version ${publishedVersion}. Bump the version in skill.yaml.`
       );
     }
-  } catch {
-    // Package not found — first publish, skip version check
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Only swallow "not found" errors (first publish). Network errors should fail validation.
+    if (!msg.includes('not found')) {
+      errors.push(`Cannot verify version against npm registry: ${msg}`);
+    }
   }
 
   // 9. Dependency check — all depends_on exist
@@ -112,7 +119,7 @@ export async function validateForPublish(skillDir: string): Promise<ValidationRe
       if (bundledNames.has(dep)) continue; // Bundled skill
       try {
         const depPkg = resolvePackageName(dep);
-        await fetchPackageMetadata(depPkg);
+        await fetchPackageMetadata(depPkg, registryUrl);
       } catch {
         errors.push(
           `Dependency "${dep}" not found on npm or as a bundled skill. Publish it first or remove from depends_on.`
