@@ -1,14 +1,48 @@
 {
-  "fromSkill": "harness-verification",
+  "fromSkill": "harness-docs-pipeline",
   "phase": "COMPLETE",
-  "summary": "Full Orchestrator implementation verified and hardened. ADR-001 conformance confirmed (including workspace truncation and session resume). All mechanical and architectural checks pass.",
-  "artifacts": [
-    "packages/orchestrator/src/orchestrator.ts",
-    "packages/orchestrator/src/agent/backends/claude.ts",
-    "packages/orchestrator/src/workspace/manager.ts",
-    "packages/orchestrator/src/logging/logger.ts",
-    "packages/orchestrator/package.json"
-  ],
-  "verdict": "pass",
-  "gaps": []
+  "summary": "Documentation pipeline converged. Drift resolved, coverage at 84% (validated after fixing bug in doc-coverage.ts), and AGENTS.md updated.",
+  "context": {
+    "graphAvailable": true,
+    "agentsMdExists": true,
+    "bootstrapped": false,
+    "driftFindings": [],
+    "fixesApplied": [
+      {
+        "findingId": "AGENTS-SKILL-COUNT-DRIFT",
+        "file": "AGENTS.md",
+        "safety": "safe",
+        "verified": true
+      },
+      {
+        "findingId": "AGENTS-STRUCTURE-ORCHESTRATOR-MISSING",
+        "file": "AGENTS.md",
+        "safety": "safe",
+        "verified": true
+      },
+      {
+        "findingId": "CLI-DOCS-ORCHESTRATOR-MISSING",
+        "file": "docs/api/cli.md",
+        "safety": "safe",
+        "verified": true
+      },
+      {
+        "findingId": "AGENTS-PHASE-ORCHESTRATOR-MISSING",
+        "file": "AGENTS.md",
+        "safety": "safe",
+        "verified": true
+      }
+    ],
+    "gapFindings": [],
+    "fillsApplied": [
+      {
+        "findingId": "doc-coverage-pattern-matching-bug",
+        "file": "packages/core/src/context/doc-coverage.ts",
+        "safety": "safe",
+        "verified": true
+      }
+    ],
+    "verdict": "pass",
+    "summary": "Documentation health is excellent. 84% coverage achieved."
+  }
 }
