@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Read the bundled skills directory and return a Set of skill names.
@@ -14,7 +15,7 @@ export function getBundledSkillNames(bundledSkillsDir: string): Set<string> {
 
   for (const entry of entries) {
     try {
-      const stat = fs.statSync(`${bundledSkillsDir}/${entry}`);
+      const stat = fs.statSync(path.join(bundledSkillsDir, String(entry)));
       if (stat.isDirectory()) {
         names.add(String(entry));
       }

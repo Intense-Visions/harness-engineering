@@ -449,6 +449,142 @@ harness create-skill ./skills/review \
 
 ---
 
+## Skill Marketplace Commands
+
+### harness install
+
+Install a community skill from the `@harness-skills/*` npm registry.
+
+```
+harness install <skill> [options]
+```
+
+| Option              | Description                                               |
+| ------------------- | --------------------------------------------------------- |
+| `--version <range>` | Semver range or exact version (default: latest)           |
+| `--force`           | Force reinstall even if same version is already installed |
+
+Skills are placed in `agents/skills/community/{platform}/` and tracked in `skills-lock.json`. Dependencies listed in `depends_on` are auto-installed.
+
+#### Examples
+
+```bash
+# Install latest version
+harness install deployment
+
+# Install specific version range
+harness install deployment --version "^1.0.0"
+
+# Force reinstall
+harness install deployment --force
+```
+
+---
+
+### harness uninstall
+
+Remove a community-installed skill.
+
+```
+harness uninstall <skill> [options]
+```
+
+| Option    | Description                                    |
+| --------- | ---------------------------------------------- |
+| `--force` | Remove even if other skills depend on this one |
+
+#### Examples
+
+```bash
+# Uninstall a skill
+harness uninstall deployment
+
+# Force remove despite dependents
+harness uninstall docker-basics --force
+```
+
+---
+
+### harness skill search
+
+Search for community skills on the npm registry.
+
+```
+harness skill search <query> [options]
+```
+
+| Option                  | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| `--platform <platform>` | Filter by platform (e.g., claude-code, gemini-cli) |
+| `--trigger <trigger>`   | Filter by trigger type (e.g., manual, automatic)   |
+
+#### Examples
+
+```bash
+# Search for deployment skills
+harness skill search deploy
+
+# Filter by platform
+harness skill search auth --platform claude-code
+```
+
+---
+
+### harness skill create
+
+Scaffold a new community skill with `skill.yaml`, `SKILL.md`, and `README.md`.
+
+```
+harness skill create <name> [options]
+```
+
+| Option                 | Description                                       |
+| ---------------------- | ------------------------------------------------- |
+| `--description <desc>` | Skill description                                 |
+| `--type <type>`        | Skill type: rigid or flexible (default: flexible) |
+| `--platforms <list>`   | Comma-separated platforms (default: claude-code)  |
+| `--triggers <list>`    | Comma-separated triggers (default: manual)        |
+| `--output-dir <dir>`   | Output directory                                  |
+
+#### Examples
+
+```bash
+# Create a basic skill
+harness skill create my-deploy --description "Deploy to production"
+
+# Create with options
+harness skill create ci-helper --type rigid --platforms "claude-code,gemini-cli"
+```
+
+---
+
+### harness skill publish
+
+Validate and publish a skill to the `@harness-skills/*` namespace on npm.
+
+```
+harness skill publish [options]
+```
+
+| Option        | Description                                                 |
+| ------------- | ----------------------------------------------------------- |
+| `--dry-run`   | Run validation and generate package.json without publishing |
+| `--dir <dir>` | Skill directory (default: current directory)                |
+
+Runs a 6-check pre-publish validation pipeline: schema validation, required fields, SKILL.md sections, version bump, name guard, dependency check.
+
+#### Examples
+
+```bash
+# Dry run to check validation
+harness skill publish --dry-run
+
+# Publish from a specific directory
+harness skill publish --dir ./my-skill
+```
+
+---
+
 ## Linter Commands
 
 ### harness linter generate

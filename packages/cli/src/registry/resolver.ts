@@ -44,12 +44,25 @@ export function resolveVersion(
 }
 
 /**
- * Find all installed skills that require the target skill (i.e., skills that
- * the target was installed as a dependency of).
- * Returns an array of package names that require the target skill.
+ * Find all installed skills that depend on the target skill.
+ *
+ * The lockfile `dependencyOf` field records "who caused me to be installed" —
+ * so if docker-basics.dependencyOf === deployment, then deployment depends on
+ * docker-basics. To find who depends on X, we check:
+ * 1. X's own `dependencyOf` value (the parent that required X)
+ * 2. Any other entries whose `dependencyOf` === X (children X pulled in — for
+ *    cascade uninstall awareness)
+ *
+ * For the uninstall safety check, case 1 is the primary concern: "who needs me?"
  */
 export function findDependentsOf(lockfile: SkillsLockfile, targetPackageName: string): string[] {
-  const entry = lockfile.skills[targetPackageName];
-  if (!entry?.dependencyOf) return [];
-  return [entry.dependencyOf];
+  const dependents: string[] = [];
+
+  // The target's own dependencyOf tells us who required this package
+  const targetEntry = lockfile.skills[targetPackageName];
+  if (targetEntry?.dependencyOf) {
+    dependents.push(targetEntry.dependencyOf);
+  }
+
+  return dependents;
 }

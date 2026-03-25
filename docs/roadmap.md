@@ -523,11 +523,11 @@ last_manual_edit: 2026-03-23
 
 ### Skill Marketplace
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Community skill registry via @harness-skills/\* npm namespace. harness install with dependency resolution, semver version ranges, and harness skills search for discovery. Enables network effects — each published skill makes the ecosystem more valuable. [H1]
+- **Status:** done
+- **Spec:** docs/changes/skill-marketplace/proposal.md
+- **Summary:** Community skill registry via @harness-skills/\* npm namespace. harness install/uninstall with dependency resolution, semver version ranges, bundled skill collision prevention. harness skill search with platform/trigger filters, harness skill create with README generation, harness skill publish with 6-check validation pipeline. Community skills integrate into slash command generation (project > community > global priority). [H1]
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-24-skill-marketplace-install-plan.md
 
 ### Constraint Sharing
 

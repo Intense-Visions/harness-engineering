@@ -64,6 +64,9 @@ function validateSkillYaml(parsed: unknown): SkillYaml {
 
 async function runLocalInstall(fromPath: string, options: InstallOptions): Promise<InstallResult> {
   const resolvedPath = path.resolve(fromPath);
+  if (!fs.existsSync(resolvedPath)) {
+    throw new Error(`--from path does not exist: ${resolvedPath}`);
+  }
   const stat = fs.statSync(resolvedPath);
 
   let extractDir: string | null = null;
@@ -239,7 +242,7 @@ export async function runInstall(
   const deps = skillYaml.depends_on ?? [];
   for (const dep of deps) {
     logger.info(`Installing dependency: ${dep} (required by ${shortName})`);
-    await runInstall(dep, { _dependencyOf: packageName });
+    await runInstall(dep, { _dependencyOf: packageName, registry: options.registry });
   }
 
   return result;
