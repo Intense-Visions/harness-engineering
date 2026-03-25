@@ -427,4 +427,98 @@ describe('runInstallConstraints', () => {
       expect(lockfile.packages['test-bundle']).toBeDefined();
     });
   });
+
+  describe('upgrade detection', () => {
+    it('upgrades when same package name is installed at different version', async () => {
+      // First install v1
+      const v1Bundle = {
+        name: 'upgrade-bundle',
+        version: '1.0.0',
+        manifest: { name: 'upgrade-bundle', version: '1.0.0', include: ['layers'] },
+        constraints: {
+          layers: [{ name: 'old-layer', pattern: 'src/old/**', allowedDependencies: [] }],
+        },
+      };
+      const v1Path = path.join(tmpDir, 'v1-bundle.json');
+      await fs.writeFile(v1Path, JSON.stringify(v1Bundle, null, 2));
+
+      const firstResult = await runInstallConstraints({
+        source: v1Path,
+        configPath,
+        lockfilePath,
+      });
+      expect(firstResult.ok).toBe(true);
+
+      // Verify v1 was installed
+      let config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      expect(config.layers).toContainEqual(expect.objectContaining({ name: 'old-layer' }));
+
+      // Now install v2 with different layers
+      const v2Bundle = {
+        name: 'upgrade-bundle',
+        version: '2.0.0',
+        manifest: { name: 'upgrade-bundle', version: '2.0.0', include: ['layers'] },
+        constraints: {
+          layers: [{ name: 'new-layer', pattern: 'src/new/**', allowedDependencies: [] }],
+        },
+      };
+      const v2Path = path.join(tmpDir, 'v2-bundle.json');
+      await fs.writeFile(v2Path, JSON.stringify(v2Bundle, null, 2));
+
+      const upgradeResult = await runInstallConstraints({
+        source: v2Path,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(upgradeResult.ok).toBe(true);
+      if (!upgradeResult.ok) return;
+      expect(upgradeResult.value.installed).toBe(true);
+      expect(upgradeResult.value.version).toBe('2.0.0');
+
+      // Verify: old-layer removed, new-layer present
+      config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      const layerNames = (config.layers as Array<{ name: string }>).map((l) => l.name);
+      expect(layerNames).not.toContain('old-layer');
+      expect(layerNames).toContain('new-layer');
+
+      // Verify lockfile updated to v2
+      const lockfile = JSON.parse(await fs.readFile(lockfilePath, 'utf-8'));
+      expect(lockfile.packages['upgrade-bundle'].version).toBe('2.0.0');
+    });
+
+    it('upgrade removes old security rules and adds new ones', async () => {
+      // Install v1 with security rules
+      const v1Bundle = {
+        name: 'sec-upgrade',
+        version: '1.0.0',
+        manifest: { name: 'sec-upgrade', version: '1.0.0', include: ['security.rules'] },
+        constraints: {
+          security: { rules: { 'SEC-OLD-001': 'error' } },
+        },
+      };
+      const v1Path = path.join(tmpDir, 'sec-v1.json');
+      await fs.writeFile(v1Path, JSON.stringify(v1Bundle, null, 2));
+      await runInstallConstraints({ source: v1Path, configPath, lockfilePath });
+
+      // Install v2 with different security rules
+      const v2Bundle = {
+        name: 'sec-upgrade',
+        version: '2.0.0',
+        manifest: { name: 'sec-upgrade', version: '2.0.0', include: ['security.rules'] },
+        constraints: {
+          security: { rules: { 'SEC-NEW-001': 'warning' } },
+        },
+      };
+      const v2Path = path.join(tmpDir, 'sec-v2.json');
+      await fs.writeFile(v2Path, JSON.stringify(v2Bundle, null, 2));
+      const result = await runInstallConstraints({ source: v2Path, configPath, lockfilePath });
+
+      expect(result.ok).toBe(true);
+
+      const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      expect(config.security?.rules?.['SEC-OLD-001']).toBeUndefined();
+      expect(config.security?.rules?.['SEC-NEW-001']).toBe('warning');
+    });
+  });
 });
