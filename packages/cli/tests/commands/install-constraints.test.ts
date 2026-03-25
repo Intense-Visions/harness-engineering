@@ -286,4 +286,46 @@ describe('runInstallConstraints', () => {
       expect(result.value.conflicts).toHaveLength(1);
     });
   });
+
+  describe('version compatibility', () => {
+    it('rejects bundle requiring a higher harness version', async () => {
+      const futureBundle = {
+        name: 'future-bundle',
+        version: '1.0.0',
+        minHarnessVersion: '99.0.0',
+        manifest: {
+          name: 'future-bundle',
+          version: '1.0.0',
+          include: ['layers'],
+          minHarnessVersion: '99.0.0',
+        },
+        constraints: {
+          layers: [{ name: 'future', pattern: 'src/future/**', allowedDependencies: [] }],
+        },
+      };
+      await fs.writeFile(bundlePath, JSON.stringify(futureBundle, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error).toContain('version');
+      expect(result.error).toContain('99.0.0');
+    });
+
+    it('accepts bundle with no minHarnessVersion', async () => {
+      // minimalBundle has no minHarnessVersion -- should work fine
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(result.ok).toBe(true);
+    });
+  });
 });
