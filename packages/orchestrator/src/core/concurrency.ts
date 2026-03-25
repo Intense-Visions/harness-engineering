@@ -28,6 +28,18 @@ export function canDispatch(
   issueState: string,
   maxConcurrentAgentsByState: Record<string, number>
 ): boolean {
+  // Global cooldown check
+  if (state.globalCooldownUntilMs && Date.now() < state.globalCooldownUntilMs) {
+    return false;
+  }
+
+  // Rolling window request cap check
+  const now = Date.now();
+  const recentCount = state.recentRequestTimestamps.filter((ts) => now - ts < 60000).length;
+  if (recentCount >= state.maxRequestsPerMinute) {
+    return false;
+  }
+
   // Global slots check
   if (getAvailableSlots(state) <= 0) {
     return false;
