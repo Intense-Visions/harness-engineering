@@ -9,6 +9,7 @@ import {
   writeLockfile,
   addProvenance,
   writeConfig,
+  removeContributions,
 } from '@harness-engineering/core';
 import type { Bundle, Lockfile, LockfilePackage, Contributions } from '@harness-engineering/core';
 import type { ConflictReport } from '@harness-engineering/core';
@@ -122,7 +123,7 @@ export async function runInstallConstraints(
     packages: {},
   };
 
-  // 7. Check idempotency -- if same package+version already installed
+  // 7. Check idempotency or upgrade
   const existingEntry = existingLockfile.packages[bundle.name];
   if (existingEntry && existingEntry.version === bundle.version) {
     return {
@@ -136,6 +137,12 @@ export async function runInstallConstraints(
         alreadyInstalled: true,
       },
     };
+  }
+
+  // 7b. Upgrade: remove old contributions before merging new ones
+  if (existingEntry) {
+    const oldContributions = (existingEntry.contributions ?? {}) as Record<string, unknown>;
+    localConfig = removeContributions(localConfig, oldContributions);
   }
 
   // 8. Deep-merge constraints
@@ -240,8 +247,10 @@ function applyPackageValue(config: Record<string, unknown>, conflict: ConflictRe
   } else if (conflict.section === 'architecture.modules') {
     const arch = config.architecture as { modules: Record<string, Record<string, unknown>> };
     if (arch?.modules) {
-      const [modulePath, category] = conflict.key.split(':');
-      if (arch.modules[modulePath]) {
+      const parts = conflict.key.split(':');
+      const modulePath = parts[0];
+      const category = parts[1];
+      if (modulePath && category && arch.modules[modulePath]) {
         arch.modules[modulePath][category] = conflict.packageValue;
       }
     }
@@ -328,9 +337,9 @@ export function createInstallConstraintsCommand(): Command {
           source: resolvedSource,
           configPath,
           lockfilePath,
-          forceLocal: opts.forceLocal,
-          forcePackage: opts.forcePackage,
-          dryRun: opts.dryRun,
+          ...(opts.forceLocal && { forceLocal: true }),
+          ...(opts.forcePackage && { forcePackage: true }),
+          ...(opts.dryRun && { dryRun: true }),
         });
 
         if (!result.ok) {
