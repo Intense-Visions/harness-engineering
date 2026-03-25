@@ -16,6 +16,7 @@ import type { ConflictReport } from '@harness-engineering/core';
 import { findConfigFile } from '../config/loader';
 import { logger } from '../output/logger';
 import { CLI_VERSION } from '../version';
+import type { Result } from '@harness-engineering/types';
 
 // --- Types ---
 
@@ -37,8 +38,6 @@ export interface InstallConstraintsSuccess {
   alreadyInstalled?: boolean;
   dryRun?: boolean;
 }
-
-type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 // --- Core orchestration ---
 
@@ -202,7 +201,13 @@ export async function runInstallConstraints(
   };
   const updatedLockfile = addProvenance(existingLockfile, bundle.name, lockfileEntry);
 
-  await writeLockfile(lockfilePath, updatedLockfile);
+  const lockfileWriteResult = await writeLockfile(lockfilePath, updatedLockfile);
+  if (!lockfileWriteResult.ok) {
+    return {
+      ok: false,
+      error: `Config was written but lockfile write failed: ${lockfileWriteResult.error.message}. Lockfile may be out of sync.`,
+    };
+  }
 
   return {
     ok: true,

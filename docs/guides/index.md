@@ -49,6 +49,17 @@ Learn how to use the Harness Orchestrator to automate your agent workforce:
 
 **Best for:** Operators managing multiple concurrent agents
 
+### [Constraint Sharing](./constraint-sharing.md)
+
+Share architectural and security constraints across projects as portable bundles:
+
+- Creating constraint manifests and exporting bundles
+- Manual installation and private registry workflows
+- Merge semantics, conflict resolution, and upgrade flows
+- Lockfile provenance and uninstall
+
+**Best for:** Teams enforcing consistent architecture across multiple repositories
+
 ## How to Use These Guides
 
 1. **Start with Getting Started** if you're new to Harness Engineering

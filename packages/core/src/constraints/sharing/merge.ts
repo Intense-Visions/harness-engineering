@@ -169,15 +169,12 @@ export function deepMergeConstraints(
   // --- Architecture ---
   if (bundleConstraints.architecture) {
     const localArch = (localConfig.architecture ?? {
-      enabled: true,
-      baselinePath: '.harness/arch/baselines.json',
       thresholds: {},
       modules: {},
     }) as {
-      enabled: boolean;
-      baselinePath: string;
       thresholds: Record<string, unknown>;
       modules: Record<string, Record<string, unknown>>;
+      [key: string]: unknown;
     };
 
     const mergedThresholds = { ...localArch.thresholds };
