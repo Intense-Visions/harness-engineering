@@ -250,6 +250,10 @@ export interface HooksConfig {
  * Configuration for the agent runner.
  */
 export interface AgentConfig {
+  /** Global cooldown in milliseconds after a rate limit hit */
+  globalCooldownMs?: number;
+  /** Maximum number of requests allowed per minute */
+  maxRequestsPerMinute?: number;
   /** Backend type to use */
   backend: string;
   /** Command to launch the agent if applicable */

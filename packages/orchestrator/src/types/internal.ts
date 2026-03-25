@@ -88,6 +88,10 @@ export interface RateLimitSnapshot {
 export interface OrchestratorState {
   pollIntervalMs: number;
   maxConcurrentAgents: number;
+  globalCooldownUntilMs: number | null;
+  recentRequestTimestamps: number[];
+  globalCooldownMs: number;
+  maxRequestsPerMinute: number;
   running: Map<string, RunningEntry>;
   claimed: Set<string>;
   retryAttempts: Map<string, RetryEntry>;

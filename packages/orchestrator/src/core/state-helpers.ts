@@ -8,6 +8,10 @@ export function createEmptyState(config: WorkflowConfig): OrchestratorState {
   return {
     pollIntervalMs: config.polling.intervalMs,
     maxConcurrentAgents: config.agent.maxConcurrentAgents,
+    globalCooldownUntilMs: null,
+    recentRequestTimestamps: [],
+    globalCooldownMs: config.agent.globalCooldownMs ?? 60000,
+    maxRequestsPerMinute: config.agent.maxRequestsPerMinute ?? 50,
     running: new Map(),
     claimed: new Set(),
     retryAttempts: new Map(),
