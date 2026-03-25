@@ -52,6 +52,7 @@ The `harness` binary supports these global options:
 | `harness ingest`                     | Ingest external data into the knowledge graph |
 | `harness query`                      | Query the knowledge graph                     |
 | `harness graph`                      | Knowledge graph management                    |
+| `harness orchestrator`               | Agent orchestration and coordination          |
 
 ## Programmatic API
 
