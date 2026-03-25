@@ -328,4 +328,54 @@ describe('runInstallConstraints', () => {
       expect(result.ok).toBe(true);
     });
   });
+
+  describe('idempotency', () => {
+    it('reports already installed when same package+version exists in lockfile', async () => {
+      // First install
+      const first = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+      expect(first.ok).toBe(true);
+
+      // Second install -- same bundle
+      const second = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(second.ok).toBe(true);
+      if (!second.ok) return;
+      expect(second.value.alreadyInstalled).toBe(true);
+      expect(second.value.installed).toBe(false);
+    });
+  });
+
+  describe('empty bundle', () => {
+    it('rejects a bundle with empty constraints', async () => {
+      const emptyBundle = {
+        name: 'empty-bundle',
+        version: '1.0.0',
+        manifest: {
+          name: 'empty-bundle',
+          version: '1.0.0',
+          include: ['layers'],
+        },
+        constraints: {},
+      };
+      await fs.writeFile(bundlePath, JSON.stringify(emptyBundle, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error).toContain('no constraints');
+    });
+  });
 });
