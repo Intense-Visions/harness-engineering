@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0
+
+### Minor Changes
+
+- Add constraint sharing support and blueprint fixes
+  - `removeContributions` function for lockfile-driven rule removal during constraint uninstall
+  - Export `removeContributions` from sharing module index
+  - Fix blueprint quiz generation that failed with mock LLM service
+  - Fix content-pipeline test imports
+
 ## 0.11.0
 
 ### Minor Changes
