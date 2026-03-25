@@ -23,7 +23,7 @@ export class StructuredLogger {
       level,
       message,
       timestamp: new Date().toISOString(),
-      context,
+      ...(context ? { context } : {}),
     };
 
     console.log(this.formatLog(entry));

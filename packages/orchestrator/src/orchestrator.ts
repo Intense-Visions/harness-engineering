@@ -26,7 +26,7 @@ export class Orchestrator extends EventEmitter {
   private renderer: PromptRenderer;
   private promptTemplate: string;
   private server?: OrchestratorServer;
-  private interval?: NodeJS.Timeout;
+  private interval?: NodeJS.Timeout | undefined;
   private logger: StructuredLogger;
 
   constructor(
