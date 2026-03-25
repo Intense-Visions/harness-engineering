@@ -106,9 +106,18 @@ function handleWorkerExit(
   const entry = next.running.get(issueId);
   next.running.delete(issueId);
 
+  const nowMs = Date.now();
+
   if (reason === 'normal') {
     next.completed.add(issueId);
     const delayMs = calculateRetryDelay(1, 'continuation');
+    next.retryAttempts.set(issueId, {
+      issueId,
+      identifier: entry?.identifier ?? issueId,
+      attempt: 1,
+      dueAtMs: nowMs + delayMs,
+      error: null,
+    });
     effects.push({
       type: 'scheduleRetry',
       issueId,
@@ -120,6 +129,13 @@ function handleWorkerExit(
   } else {
     const nextAttempt = (attempt ?? 0) + 1;
     const delayMs = calculateRetryDelay(nextAttempt, 'failure', config.agent.maxRetryBackoffMs);
+    next.retryAttempts.set(issueId, {
+      issueId,
+      identifier: entry?.identifier ?? issueId,
+      attempt: nextAttempt,
+      dueAtMs: nowMs + delayMs,
+      error: error ?? 'unknown error',
+    });
     effects.push({
       type: 'scheduleRetry',
       issueId,
@@ -141,11 +157,35 @@ function handleAgentUpdate(
   const next = cloneState(state);
   const effects: SideEffect[] = [];
 
+  if (event.type === 'rate_limit') {
+    next.globalCooldownUntilMs = Date.now() + next.globalCooldownMs;
+  } else if (event.type === 'turn_start') {
+    const now = Date.now();
+    next.recentRequestTimestamps.push(now);
+    next.recentRequestTimestamps = next.recentRequestTimestamps.filter((ts) => now - ts < 60000);
+  }
+
   const entry = next.running.get(issueId);
   if (entry && entry.session) {
     const updatedSession = { ...entry.session };
     updatedSession.lastEvent = event.type;
     updatedSession.lastTimestamp = event.timestamp;
+
+    let nextPhase = entry.phase;
+
+    if (event.type === 'thought' || event.type === 'call') {
+      nextPhase = 'StreamingTurn';
+      updatedSession.lastMessage =
+        typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+    } else if (event.type === 'status') {
+      updatedSession.lastMessage =
+        typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+    } else if (event.type === 'result') {
+      updatedSession.lastMessage =
+        typeof event.content === 'string'
+          ? event.content
+          : (event.content as any)?.result || JSON.stringify(event.content);
+    }
 
     if (event.usage) {
       updatedSession.inputTokens += event.usage.inputTokens;
@@ -163,7 +203,7 @@ function handleAgentUpdate(
       updatedSession.sessionId = event.sessionId;
     }
 
-    next.running.set(issueId, { ...entry, session: updatedSession });
+    next.running.set(issueId, { ...entry, phase: nextPhase, session: updatedSession });
   }
 
   return { nextState: next, effects };
@@ -250,6 +290,15 @@ function handleStallDetected(
 
   const attempt = (entry?.attempt ?? 0) + 1;
   const delayMs = calculateRetryDelay(attempt, 'failure', config.agent.maxRetryBackoffMs);
+  const nowMs = Date.now();
+
+  next.retryAttempts.set(issueId, {
+    issueId,
+    identifier: entry?.identifier ?? issueId,
+    attempt,
+    dueAtMs: nowMs + delayMs,
+    error: 'stall detected',
+  });
 
   effects.push({
     type: 'stop',
