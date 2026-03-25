@@ -223,48 +223,49 @@ export async function runInstallConstraints(
 
 // --- Conflict helpers ---
 
-function applyPackageValue(config: Record<string, unknown>, conflict: ConflictReport): void {
-  if (conflict.section === 'layers') {
+type SectionApplier = (config: Record<string, unknown>, key: string, value: unknown) => void;
+
+const sectionAppliers: Record<string, SectionApplier> = {
+  layers(config, key, value) {
     const layers = config.layers as Array<{
       name: string;
       pattern: string;
       allowedDependencies: string[];
     }>;
-    const idx = layers.findIndex((l) => l.name === conflict.key);
-    if (idx >= 0) {
-      layers[idx] = conflict.packageValue as (typeof layers)[number];
-    }
-  } else if (conflict.section === 'forbiddenImports') {
+    const idx = layers.findIndex((l) => l.name === key);
+    if (idx >= 0) layers[idx] = value as (typeof layers)[number];
+  },
+  forbiddenImports(config, key, value) {
     const rules = config.forbiddenImports as Array<{
       from: string;
       disallow: string[];
       message?: string;
     }>;
-    const idx = rules.findIndex((r) => r.from === conflict.key);
-    if (idx >= 0) {
-      rules[idx] = conflict.packageValue as (typeof rules)[number];
+    const idx = rules.findIndex((r) => r.from === key);
+    if (idx >= 0) rules[idx] = value as (typeof rules)[number];
+  },
+  'architecture.thresholds'(config, key, value) {
+    const arch = config.architecture as { thresholds: Record<string, unknown> } | undefined;
+    if (arch?.thresholds) arch.thresholds[key] = value;
+  },
+  'architecture.modules'(config, key, value) {
+    const arch = config.architecture as
+      | { modules: Record<string, Record<string, unknown>> }
+      | undefined;
+    const [modulePath, category] = key.split(':');
+    if (arch?.modules && modulePath && category && arch.modules[modulePath]) {
+      arch.modules[modulePath][category] = value;
     }
-  } else if (conflict.section === 'architecture.thresholds') {
-    const arch = config.architecture as { thresholds: Record<string, unknown> };
-    if (arch?.thresholds) {
-      arch.thresholds[conflict.key] = conflict.packageValue;
-    }
-  } else if (conflict.section === 'architecture.modules') {
-    const arch = config.architecture as { modules: Record<string, Record<string, unknown>> };
-    if (arch?.modules) {
-      const parts = conflict.key.split(':');
-      const modulePath = parts[0];
-      const category = parts[1];
-      if (modulePath && category && arch.modules[modulePath]) {
-        arch.modules[modulePath][category] = conflict.packageValue;
-      }
-    }
-  } else if (conflict.section === 'security.rules') {
-    const security = config.security as { rules: Record<string, string> };
-    if (security?.rules) {
-      security.rules[conflict.key] = conflict.packageValue as string;
-    }
-  }
+  },
+  'security.rules'(config, key, value) {
+    const security = config.security as { rules: Record<string, string> } | undefined;
+    if (security?.rules) security.rules[key] = value as string;
+  },
+};
+
+function applyPackageValue(config: Record<string, unknown>, conflict: ConflictReport): void {
+  const applier = sectionAppliers[conflict.section];
+  if (applier) applier(config, conflict.key, conflict.packageValue);
 }
 
 function addConflictContribution(contributions: Contributions, conflict: ConflictReport): void {
@@ -294,6 +295,93 @@ function isNodeError(err: unknown): err is NodeJS.ErrnoException {
 
 // --- Commander command ---
 
+interface InstallConstraintsOpts {
+  forceLocal?: boolean;
+  forcePackage?: boolean;
+  dryRun?: boolean;
+  config?: string;
+}
+
+function resolveConfigPath(opts: InstallConstraintsOpts): string {
+  if (opts.config) return path.resolve(opts.config);
+  const found = findConfigFile();
+  if (!found.ok) {
+    logger.error(found.error.message);
+    process.exit(1);
+  }
+  return found.value;
+}
+
+function logInstallResult(
+  val: {
+    dryRun?: boolean;
+    alreadyInstalled?: boolean;
+    packageName: string;
+    version: string;
+    contributionsCount: number;
+    conflicts: ConflictReport[];
+  },
+  opts: InstallConstraintsOpts
+): void {
+  if (val.dryRun) {
+    logger.info(`[dry-run] Would install ${val.packageName}@${val.version}`);
+    logger.info(`[dry-run] ${val.contributionsCount} section(s) would be added`);
+    if (val.conflicts.length > 0) {
+      logger.warn(`[dry-run] ${val.conflicts.length} conflict(s) detected`);
+      for (const c of val.conflicts) {
+        logger.warn(`  [${c.section}] ${c.key}: ${c.description}`);
+      }
+    }
+    return;
+  }
+
+  if (val.alreadyInstalled) {
+    logger.info(`${val.packageName}@${val.version} is already installed. No changes made.`);
+    return;
+  }
+
+  logger.success(
+    `Installed ${val.packageName}@${val.version} (${val.contributionsCount} section(s) merged)`
+  );
+
+  if (val.conflicts.length > 0) {
+    logger.warn(
+      `${val.conflicts.length} conflict(s) resolved with ${opts.forceLocal ? '--force-local' : '--force-package'}`
+    );
+  }
+}
+
+async function handleInstallConstraints(
+  source: string,
+  opts: InstallConstraintsOpts
+): Promise<void> {
+  const configPath = resolveConfigPath(opts);
+  const projectRoot = path.dirname(configPath);
+  const lockfilePath = path.join(projectRoot, '.harness', 'constraints.lock.json');
+  const resolvedSource = path.resolve(source);
+
+  if (opts.forceLocal && opts.forcePackage) {
+    logger.error('Cannot use both --force-local and --force-package.');
+    process.exit(1);
+  }
+
+  const result = await runInstallConstraints({
+    source: resolvedSource,
+    configPath,
+    lockfilePath,
+    ...(opts.forceLocal && { forceLocal: true }),
+    ...(opts.forcePackage && { forcePackage: true }),
+    ...(opts.dryRun && { dryRun: true }),
+  });
+
+  if (!result.ok) {
+    logger.error(result.error);
+    process.exit(1);
+  }
+
+  logInstallResult(result.value, opts);
+}
+
 export function createInstallConstraintsCommand(): Command {
   const cmd = new Command('install-constraints');
   cmd
@@ -303,84 +391,6 @@ export function createInstallConstraintsCommand(): Command {
     .option('--force-package', 'Resolve all conflicts by using package values')
     .option('--dry-run', 'Show what would change without writing files')
     .option('-c, --config <path>', 'Path to harness.config.json')
-    .action(
-      async (
-        source: string,
-        opts: {
-          forceLocal?: boolean;
-          forcePackage?: boolean;
-          dryRun?: boolean;
-          config?: string;
-        }
-      ) => {
-        // Resolve config path
-        let configPath: string;
-        if (opts.config) {
-          configPath = path.resolve(opts.config);
-        } else {
-          const found = findConfigFile();
-          if (!found.ok) {
-            logger.error(found.error.message);
-            process.exit(1);
-          }
-          configPath = found.value;
-        }
-
-        // Derive lockfile path from config location
-        const projectRoot = path.dirname(configPath);
-        const lockfilePath = path.join(projectRoot, '.harness', 'constraints.lock.json');
-
-        // Resolve source path
-        const resolvedSource = path.resolve(source);
-
-        if (opts.forceLocal && opts.forcePackage) {
-          logger.error('Cannot use both --force-local and --force-package.');
-          process.exit(1);
-        }
-
-        const result = await runInstallConstraints({
-          source: resolvedSource,
-          configPath,
-          lockfilePath,
-          ...(opts.forceLocal && { forceLocal: true }),
-          ...(opts.forcePackage && { forcePackage: true }),
-          ...(opts.dryRun && { dryRun: true }),
-        });
-
-        if (!result.ok) {
-          logger.error(result.error);
-          process.exit(1);
-        }
-
-        const val = result.value;
-
-        if (val.dryRun) {
-          logger.info(`[dry-run] Would install ${val.packageName}@${val.version}`);
-          logger.info(`[dry-run] ${val.contributionsCount} section(s) would be added`);
-          if (val.conflicts.length > 0) {
-            logger.warn(`[dry-run] ${val.conflicts.length} conflict(s) detected`);
-            for (const c of val.conflicts) {
-              logger.warn(`  [${c.section}] ${c.key}: ${c.description}`);
-            }
-          }
-          return;
-        }
-
-        if (val.alreadyInstalled) {
-          logger.info(`${val.packageName}@${val.version} is already installed. No changes made.`);
-          return;
-        }
-
-        logger.success(
-          `Installed ${val.packageName}@${val.version} (${val.contributionsCount} section(s) merged)`
-        );
-
-        if (val.conflicts.length > 0) {
-          logger.warn(
-            `${val.conflicts.length} conflict(s) resolved with ${opts.forceLocal ? '--force-local' : '--force-package'}`
-          );
-        }
-      }
-    );
+    .action(handleInstallConstraints);
   return cmd;
 }
