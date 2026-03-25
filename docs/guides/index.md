@@ -38,6 +38,17 @@ Git workflow guidance for agent-driven development:
 
 **Best for:** Teams using agents to implement multi-task milestones
 
+### [Orchestrator Guide](./orchestrator.md)
+
+Learn how to use the Harness Orchestrator to automate your agent workforce:
+
+- Core concepts (Daemon, State Machine, Workflows)
+- Setting up `WORKFLOW.md`
+- Monitoring via TUI and HTTP API
+- Graceful shutdown and lifecycle management
+
+**Best for:** Operators managing multiple concurrent agents
+
 ## How to Use These Guides
 
 1. **Start with Getting Started** if you're new to Harness Engineering

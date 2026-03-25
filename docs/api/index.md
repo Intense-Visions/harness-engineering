@@ -5,6 +5,7 @@ Welcome to the Harness Engineering API documentation.
 ## Packages
 
 - **[@harness-engineering/types](types.md)** — Core TypeScript types and interfaces (`Result<T,E>`, workflow types, skill metadata)
+- **[@harness-engineering/orchestrator](orchestrator.md)** — Daemon core, state machine, agent runner, and TUI launcher
 - **[@harness-engineering/core](core.md)** — Runtime library (validation, constraints, entropy detection, context generation, feedback, state)
 - **[@harness-engineering/cli](cli.md)** — CLI tool and template engine (`harness validate`, `harness init`, skill/persona management)
 - **[@harness-engineering/eslint-plugin](eslint-plugin.md)** — ESLint rules for architectural constraint enforcement (8 rules)
