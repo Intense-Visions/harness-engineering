@@ -330,8 +330,12 @@ describe('local install (--from)', () => {
   });
 
   it('throws when --from path has no skill.yaml', async () => {
+    mockedExistsSync.mockImplementation((p: fs.PathLike) => {
+      // The --from path itself exists, but skill.yaml inside it does not
+      if (String(p).includes('skill.yaml')) return false;
+      return true;
+    });
     mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
-    mockedExistsSync.mockReturnValue(false);
 
     await expect(runInstall('local-skill', { from: '/path/to/skill' })).rejects.toThrow(
       'No skill.yaml found'
@@ -339,6 +343,7 @@ describe('local install (--from)', () => {
   });
 
   it('throws for unsupported file type', async () => {
+    mockedExistsSync.mockReturnValue(true);
     mockedStatSync.mockReturnValue({ isDirectory: () => false } as fs.Stats);
 
     await expect(runInstall('local-skill', { from: '/path/to/skill.zip' })).rejects.toThrow(

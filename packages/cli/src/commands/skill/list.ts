@@ -79,14 +79,28 @@ export function collectSkills(opts: CollectOptions): SkillListEntry[] {
     }
   }
 
-  // 2. Community-installed skills (from lockfile)
+  // 2. Community-installed skills (scan directory for full metadata, enrich version from lockfile)
   if (opts.filter === 'all' || opts.filter === 'installed') {
     const globalDir = resolveGlobalSkillsDir();
     const skillsDir = path.dirname(globalDir);
     const communityBase = path.join(skillsDir, 'community');
+    const communityPlatformDir = path.join(communityBase, 'claude-code');
     const lockfilePath = path.join(communityBase, 'skills-lock.json');
     const lockfile = readLockfile(lockfilePath);
 
+    // Scan community directory for full skill metadata
+    const communitySkills = scanDirectory(communityPlatformDir, 'community');
+    for (const skill of communitySkills) {
+      // Enrich with version from lockfile
+      const pkgName = `@harness-skills/${skill.name}`;
+      const lockEntry = lockfile.skills[pkgName];
+      if (lockEntry) {
+        skill.version = lockEntry.version;
+      }
+    }
+    addUnique(communitySkills);
+
+    // Also include lockfile-only entries (in case files were removed but lockfile remains)
     for (const [pkgName, entry] of Object.entries(lockfile.skills)) {
       const shortName = pkgName.replace('@harness-skills/', '');
       if (!seen.has(shortName)) {

@@ -251,6 +251,12 @@ Configuration example:
 
 The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, and 4 external connectors (Jira, Slack, Confluence, CI).
 
+### Community Skill Registry
+
+The `@harness-skills/*` npm namespace enables publishing, discovering, and installing community skills. Key commands: `harness install`, `harness uninstall`, `harness skill search`, `harness skill create`, `harness skill publish`. Supports local installs (`--from ./path`), private registries (`--registry <url>`), and `.npmrc` auth tokens. Skills are pure content packages (no runtime code). Discovery priority: project-local > community > bundled.
+
+Implementation in `packages/cli/src/registry/` and `packages/cli/src/commands/skill/`. See the [Skill Marketplace Guide](./docs/guides/skill-marketplace.md) for full usage, architecture, and examples.
+
 ### Monorepo Structure Benefits
 
 - **Shared Dependencies** - One pnpm-lock.yaml ensures consistency
