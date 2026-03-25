@@ -27,6 +27,12 @@ describe('createSearchCommand', () => {
     const opt = cmd.options.find((o) => o.long === '--trigger');
     expect(opt).toBeDefined();
   });
+
+  it('has --registry option', () => {
+    const cmd = createSearchCommand();
+    const opt = cmd.options.find((o) => o.long === '--registry');
+    expect(opt).toBeDefined();
+  });
 });
 
 describe('runSearch', () => {
@@ -107,5 +113,11 @@ describe('runSearch', () => {
     mockedSearch.mockResolvedValue([]);
     const results = await runSearch('nonexistent', {});
     expect(results).toHaveLength(0);
+  });
+
+  it('passes registry URL to searchNpmRegistry', async () => {
+    mockedSearch.mockResolvedValue([]);
+    await runSearch('deploy', { registry: 'https://private.example.com' });
+    expect(mockedSearch).toHaveBeenCalledWith('deploy', 'https://private.example.com');
   });
 });

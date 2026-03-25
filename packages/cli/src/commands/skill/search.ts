@@ -10,6 +10,7 @@ import {
 interface SearchOptions {
   platform?: string;
   trigger?: string;
+  registry?: string;
 }
 
 /**
@@ -17,7 +18,7 @@ interface SearchOptions {
  * Filters by platform and trigger keywords.
  */
 export async function runSearch(query: string, opts: SearchOptions): Promise<NpmSearchResult[]> {
-  const results = await searchNpmRegistry(query);
+  const results = await searchNpmRegistry(query, opts.registry);
 
   return results.filter((r) => {
     if (opts.platform && !r.keywords.includes(opts.platform)) {
@@ -36,6 +37,7 @@ export function createSearchCommand(): Command {
     .argument('<query>', 'Search query')
     .option('--platform <platform>', 'Filter by platform (e.g., claude-code)')
     .option('--trigger <trigger>', 'Filter by trigger type (e.g., manual, automatic)')
+    .option('--registry <url>', 'Use a custom npm registry URL')
     .action(async (query: string, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       try {

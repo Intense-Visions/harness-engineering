@@ -16,6 +16,7 @@ export interface PublishResult {
 
 interface PublishOptions {
   dryRun?: boolean;
+  registry?: string;
 }
 
 /**
@@ -23,7 +24,7 @@ interface PublishOptions {
  */
 export async function runPublish(skillDir: string, opts: PublishOptions): Promise<PublishResult> {
   // 1. Run validation
-  const validation = await validateForPublish(skillDir);
+  const validation = await validateForPublish(skillDir, opts.registry);
   if (!validation.valid) {
     const errorList = validation.errors.map((e) => `  - ${e}`).join('\n');
     throw new Error(`Pre-publish validation failed:\n${errorList}`);
@@ -55,7 +56,11 @@ export async function runPublish(skillDir: string, opts: PublishOptions): Promis
   }
 
   // 5. npm publish
-  execFileSync('npm', ['publish', '--access', 'public'], {
+  const publishArgs = ['publish', '--access', 'public'];
+  if (opts.registry) {
+    publishArgs.push('--registry', opts.registry);
+  }
+  execFileSync('npm', publishArgs, {
     cwd: skillDir,
     stdio: 'pipe',
     timeout: 60_000,
@@ -73,6 +78,7 @@ export function createPublishCommand(): Command {
     .description('Validate and publish a skill to @harness-skills on npm')
     .option('--dry-run', 'Run validation and generate package.json without publishing')
     .option('--dir <dir>', 'Skill directory (default: current directory)')
+    .option('--registry <url>', 'Use a custom npm registry URL')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const skillDir = opts.dir || process.cwd();
@@ -80,6 +86,7 @@ export function createPublishCommand(): Command {
       try {
         const result = await runPublish(skillDir, {
           dryRun: opts.dryRun,
+          registry: opts.registry,
         });
 
         if (globalOpts.json) {

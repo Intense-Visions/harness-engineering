@@ -44,6 +44,12 @@ describe('createPublishCommand', () => {
     const opt = cmd.options.find((o) => o.long === '--dry-run');
     expect(opt).toBeDefined();
   });
+
+  it('has --registry option', () => {
+    const cmd = createPublishCommand();
+    const opt = cmd.options.find((o) => o.long === '--registry');
+    expect(opt).toBeDefined();
+  });
 });
 
 describe('runPublish', () => {
@@ -95,6 +101,39 @@ describe('runPublish', () => {
 
     await expect(runPublish('/path/to/skill', {})).rejects.toThrow('Pre-publish validation failed');
     expect(mockedExecFileSync).not.toHaveBeenCalled();
+  });
+
+  it('passes --registry to npm publish', async () => {
+    mockedValidate.mockResolvedValue({
+      valid: true,
+      errors: [],
+      skillMeta: {
+        name: 'my-skill',
+        version: '1.0.0',
+        description: 'A skill',
+        platforms: ['claude-code'],
+        triggers: ['manual'],
+        type: 'flexible',
+        tools: [],
+        depends_on: [],
+      },
+    });
+    mockedDerivePackageJson.mockReturnValue({
+      name: '@harness-skills/my-skill',
+      version: '1.0.0',
+      description: 'A skill',
+      keywords: ['harness-skill', 'claude-code', 'manual'],
+      files: ['skill.yaml', 'SKILL.md', 'README.md'],
+      license: 'MIT',
+    });
+
+    const result = await runPublish('/path/to/skill', { registry: 'https://private.example.com' });
+    expect(result.published).toBe(true);
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      'npm',
+      ['publish', '--access', 'public', '--registry', 'https://private.example.com'],
+      expect.any(Object)
+    );
   });
 
   it('skips npm publish on --dry-run', async () => {
