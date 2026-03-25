@@ -1,12 +1,15 @@
 import * as http from 'node:http';
-import { Orchestrator } from '../orchestrator';
+
+export interface Snapshotable {
+  getSnapshot(): Record<string, unknown>;
+}
 
 export class OrchestratorServer {
   private server: http.Server;
-  private orchestrator: Orchestrator;
+  private orchestrator: Snapshotable;
   private port: number;
 
-  constructor(orchestrator: Orchestrator, port: number) {
+  constructor(orchestrator: Snapshotable, port: number) {
     this.orchestrator = orchestrator;
     this.port = port;
     this.server = http.createServer(this.handleRequest.bind(this));
