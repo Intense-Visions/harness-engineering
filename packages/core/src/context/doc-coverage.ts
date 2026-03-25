@@ -1,11 +1,10 @@
-import type { Result } from '../shared/result';
-import { Ok, Err } from '../shared/result';
-import type { ContextError } from '../shared/errors';
-import { createError } from '../shared/errors';
-import type { CoverageReport, CoverageOptions, DocumentationGap } from './types';
-import { findFiles, readFileContent } from '../shared/fs-utils';
+import { minimatch } from 'minimatch';
 import { basename, relative } from 'path';
+import { createError, type ContextError } from '../shared/errors';
+import { findFiles, readFileContent } from '../shared/fs-utils';
+import { Err, Ok, type Result } from '../shared/result';
 import { extractMarkdownLinks } from './agents-map';
+import type { CoverageOptions, CoverageReport, DocumentationGap } from './types';
 
 /**
  * Determine importance of a file being documented
@@ -51,7 +50,7 @@ export async function checkDocCoverage(
   domain: string,
   options: CoverageOptions = {}
 ): Promise<Result<CoverageReport, ContextError>> {
-  const { docsDir = './docs', sourceDir = './src', excludePatterns = [], graphCoverage } = options;
+  const { docsDir = './docs', sourceDir = '.', excludePatterns = [], graphCoverage } = options;
 
   // When graph coverage is provided, use pre-computed results
   if (graphCoverage) {
@@ -78,13 +77,9 @@ export async function checkDocCoverage(
     const filteredSourceFiles = sourceFiles.filter((file) => {
       const relativePath = relative(sourceDir, file);
       return !excludePatterns.some((pattern) => {
-        // Escape regex special chars, then convert glob patterns
-        const escaped = pattern
-          .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape regex special chars
-          .replace(/\*\*/g, '.*') // ** matches anything
-          .replace(/\*/g, '[^/]*'); // * matches non-slash chars
-        const regex = new RegExp('^' + escaped + '$');
-        return regex.test(relativePath) || regex.test(file);
+        return (
+          minimatch(relativePath, pattern, { dot: true }) || minimatch(file, pattern, { dot: true })
+        );
       });
     });
 
