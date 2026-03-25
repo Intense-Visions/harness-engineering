@@ -20,7 +20,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "clean": "node ../../scripts/clean.mjs dist"
+    "clean": "node ../../scripts/clean.mjs dist",
+    "validate": "harness validate",
+    "check-deps": "harness check-deps",
+    "check-docs": "harness check-docs"
   },
   "keywords": [
     "harness",

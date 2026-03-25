@@ -16,7 +16,8 @@ export class WorkspaceManager {
     return identifier
       .toLowerCase()
       .replace(/[^a-z0-9_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 64);
   }
 
   /**

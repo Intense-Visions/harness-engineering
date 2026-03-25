@@ -36,6 +36,11 @@ export class ClaudeBackend implements AgentBackend {
     params: TurnParams
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
     const args = ['-p', params.prompt, '--output-format', 'json'];
+
+    if (params.isContinuation) {
+      args.push('--resume', session.sessionId);
+    }
+
     const child = spawn(this.command, args, {
       cwd: session.workspacePath,
       env: process.env,
