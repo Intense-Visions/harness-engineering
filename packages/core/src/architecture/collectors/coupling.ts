@@ -66,6 +66,7 @@ export class CouplingCollector implements Collector {
       return {
         id: violationId(relFile, this.category, idDetail),
         file: relFile,
+        category: this.category,
         detail: `${v.metric}=${v.value} (threshold: ${v.threshold})`,
         severity: v.severity as 'error' | 'warning',
       };

@@ -1,4 +1,6 @@
 import * as path from 'node:path';
+import { ArchBaselineManager } from '../architecture/baseline-manager';
+import { diff } from '../architecture/diff';
 import type {
   CICheckName,
   CICheckResult,
@@ -105,7 +107,17 @@ async function runSingleCheck(
 
       case 'docs': {
         const docsDir = path.join(projectRoot, (config.docsDir as string) ?? 'docs');
-        const result = await checkDocCoverage('project', { docsDir });
+        const entropyConfig = (config.entropy as Record<string, unknown>) || {};
+        const result = await checkDocCoverage('project', {
+          docsDir,
+          sourceDir: projectRoot,
+          excludePatterns: (entropyConfig.excludePatterns as string[]) || [
+            '**/node_modules/**',
+            '**/dist/**',
+            '**/*.test.ts',
+            '**/fixtures/**',
+          ],
+        });
         if (!result.ok) {
           issues.push({ severity: 'warning', message: result.error.message });
         } else if (result.value.gaps.length > 0) {
@@ -188,11 +200,13 @@ async function runSingleCheck(
       }
 
       case 'perf': {
+        const perfConfig = (config.performance as Record<string, unknown>) || {};
         const perfAnalyzer = new EntropyAnalyzer({
           rootDir: projectRoot,
           analyze: {
-            complexity: true,
-            coupling: true,
+            complexity: perfConfig.complexity || true,
+            coupling: perfConfig.coupling || true,
+            sizeBudget: perfConfig.sizeBudget || false,
           },
         });
         const perfResult = await perfAnalyzer.analyze();
@@ -247,13 +261,38 @@ async function runSingleCheck(
         if (!archConfig.enabled) break;
 
         const results = await runArchCollectors(archConfig, projectRoot);
-        for (const result of results) {
-          for (const v of result.violations) {
-            issues.push({
-              severity: v.severity,
-              message: `[${result.category}] ${v.detail}`,
-              file: v.file,
-            });
+
+        // Load baseline and diff if available
+        const baselineManager = new ArchBaselineManager(projectRoot, archConfig.baselinePath);
+        const baseline = baselineManager.load();
+
+        if (baseline) {
+          const diffResult = diff(results, baseline);
+          if (!diffResult.passed) {
+            for (const v of diffResult.newViolations) {
+              issues.push({
+                severity: v.severity,
+                message: `[${v.category || 'arch'}] NEW: ${v.detail}`,
+                file: v.file,
+              });
+            }
+            for (const r of diffResult.regressions) {
+              issues.push({
+                severity: 'error',
+                message: `[${r.category}] REGRESSION: ${r.currentValue} > ${r.baselineValue} (delta: ${r.delta})`,
+              });
+            }
+          }
+        } else {
+          // No baseline, report all as warnings or errors based on config
+          for (const result of results) {
+            for (const v of result.violations) {
+              issues.push({
+                severity: v.severity,
+                message: `[${result.category}] ${v.detail}`,
+                file: v.file,
+              });
+            }
           }
         }
         break;

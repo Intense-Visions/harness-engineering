@@ -55,6 +55,7 @@ export class ArchBaselineManager {
    */
   load(): ArchBaseline | null {
     if (!existsSync(this.baselinesPath)) {
+      console.error(`Baseline file not found at: ${this.baselinesPath}`);
       return null;
     }
     try {
@@ -62,10 +63,15 @@ export class ArchBaselineManager {
       const data = JSON.parse(raw);
       const parsed = ArchBaselineSchema.safeParse(data);
       if (!parsed.success) {
+        console.error(
+          `Baseline validation failed for ${this.baselinesPath}:`,
+          parsed.error.format()
+        );
         return null;
       }
       return parsed.data;
-    } catch {
+    } catch (error) {
+      console.error(`Error loading baseline from ${this.baselinesPath}:`, error);
       return null;
     }
   }
