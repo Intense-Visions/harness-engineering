@@ -95,6 +95,7 @@ export function extractBundle(
     ...(manifest.description !== undefined && {
       description: manifest.description,
     }),
+    manifest,
     constraints: constraints as BundleConstraints,
   };
 

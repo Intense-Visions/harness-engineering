@@ -14,6 +14,7 @@ import { PromptRenderer } from './prompt/renderer';
 import { MockBackend } from './agent/backends/mock';
 import { ClaudeBackend } from './agent/backends/claude';
 import { OrchestratorServer } from './server/http';
+import { StructuredLogger } from './logging/logger';
 
 export class Orchestrator extends EventEmitter {
   private state: OrchestratorState;
@@ -25,19 +26,26 @@ export class Orchestrator extends EventEmitter {
   private renderer: PromptRenderer;
   private promptTemplate: string;
   private server?: OrchestratorServer;
+  private interval?: NodeJS.Timeout;
+  private logger: StructuredLogger;
 
-  constructor(config: WorkflowConfig, promptTemplate: string) {
+  constructor(
+    config: WorkflowConfig,
+    promptTemplate: string,
+    overrides?: { tracker?: IssueTrackerClient; backend?: AgentBackend }
+  ) {
     super();
     this.config = config;
     this.promptTemplate = promptTemplate;
     this.state = createEmptyState(config);
+    this.logger = new StructuredLogger();
 
-    // Initialize adapters based on config
-    this.tracker = this.createTracker();
+    // Initialize adapters based on config or overrides
+    this.tracker = overrides?.tracker || this.createTracker();
     this.workspace = new WorkspaceManager(config.workspace);
     this.hooks = new WorkspaceHooks(config.hooks);
     this.renderer = new PromptRenderer();
-    this.runner = new AgentRunner(this.createBackend(), {
+    this.runner = new AgentRunner(overrides?.backend || this.createBackend(), {
       maxTurns: config.agent.maxTurns,
     });
 
@@ -69,7 +77,9 @@ export class Orchestrator extends EventEmitter {
     // 1. Fetch candidates from tracker
     const candidatesResult = await this.tracker.fetchCandidateIssues();
     if (!candidatesResult.ok) {
-      console.error('Failed to fetch candidate issues:', candidatesResult.error);
+      this.logger.error('Failed to fetch candidate issues', {
+        error: String(candidatesResult.error),
+      });
       return;
     }
 
@@ -77,7 +87,9 @@ export class Orchestrator extends EventEmitter {
     const runningIds = Array.from(this.state.running.keys());
     const runningStatesResult = await this.tracker.fetchIssueStatesByIds(runningIds);
     if (!runningStatesResult.ok) {
-      console.error('Failed to fetch running issue states:', runningStatesResult.error);
+      this.logger.error('Failed to fetch running issue states', {
+        error: String(runningStatesResult.error),
+      });
       return;
     }
 
@@ -108,12 +120,25 @@ export class Orchestrator extends EventEmitter {
       case 'stop':
         await this.stopIssue(effect.issueId);
         break;
-      // Handle other effects...
+      case 'updateTokens':
+        // Pure state update
+        break;
+      case 'emitLog':
+        this.logger.log(effect.level, effect.message, effect.context);
+        break;
+      case 'releaseClaim':
+        // Pure state update
+        break;
+      case 'cleanWorkspace':
+        await this.workspace.removeWorkspace(effect.identifier);
+        break;
     }
   }
 
   private async dispatchIssue(issue: Issue, attempt: number | null): Promise<void> {
-    console.log(`Dispatching issue: ${issue.identifier} (attempt ${attempt})`);
+    this.logger.info(`Dispatching issue: ${issue.identifier} (attempt ${attempt})`, {
+      issueId: issue.id,
+    });
 
     try {
       // 1. Ensure workspace
@@ -134,8 +159,8 @@ export class Orchestrator extends EventEmitter {
       // 4. Start agent session (in background)
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt);
     } catch (error) {
-      console.error(`Dispatch failed for ${issue.identifier}:`, error);
-      this.emitWorkerExit(issue.id, 'error', attempt, String(error));
+      this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
+      await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
     }
   }
 
@@ -149,25 +174,24 @@ export class Orchestrator extends EventEmitter {
       try {
         const sessionGen = this.runner.runSession(issue, workspacePath, prompt);
         for await (const event of sessionGen) {
-          // Normal events (thought, status, etc.) can be logged or emitted to state
-          // this.handleAgentEvent(issue.id, event);
+          // Emit event for TUI/Observability
           this.emit('agent_event', { issueId: issue.id, event });
         }
         // When finished, emit success to state machine
-        this.emitWorkerExit(issue.id, 'normal', attempt);
+        await this.emitWorkerExit(issue.id, 'normal', attempt);
       } catch (error) {
-        console.error(`Agent runner failed for ${issue.identifier}:`, error);
-        this.emitWorkerExit(issue.id, 'error', attempt, String(error));
+        this.logger.error(`Agent runner failed for ${issue.identifier}`, { error: String(error) });
+        await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
       }
     })();
   }
 
-  private emitWorkerExit(
+  private async emitWorkerExit(
     issueId: string,
     reason: 'normal' | 'error',
     attempt: number | null,
     error?: string
-  ): void {
+  ): Promise<void> {
     const event: OrchestratorEvent = {
       type: 'worker_exit',
       issueId,
@@ -177,15 +201,16 @@ export class Orchestrator extends EventEmitter {
     };
     const { nextState, effects } = applyEvent(this.state, event, this.config);
     this.state = nextState;
-    // Process side effects immediately
+
+    // Process side effects immediately and await them
     for (const effect of effects) {
-      this.handleEffect(effect);
+      await this.handleEffect(effect);
     }
     this.emit('state_change', this.getSnapshot());
   }
 
   private async stopIssue(issueId: string): Promise<void> {
-    console.log(`Stopping issue: ${issueId}`);
+    this.logger.info(`Stopping issue: ${issueId}`);
     // Implementation for stopping active runs
   }
 
@@ -196,9 +221,23 @@ export class Orchestrator extends EventEmitter {
     if (this.server) {
       this.server.start();
     }
-    const interval = this.config.polling.intervalMs || 30000;
-    setInterval(() => this.tick(), interval);
+    const intervalMs = this.config.polling.intervalMs || 30000;
+    this.interval = setInterval(() => this.tick(), intervalMs);
     this.tick(); // Initial tick
+  }
+
+  /**
+   * Stops the orchestrator and all background tasks.
+   */
+  public async stop(): Promise<void> {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
+    }
+    if (this.server) {
+      this.server.stop();
+    }
+    this.logger.info('Orchestrator stopped.');
   }
 
   public getSnapshot(): any {

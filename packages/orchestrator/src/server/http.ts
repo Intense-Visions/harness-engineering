@@ -27,8 +27,8 @@ export class OrchestratorServer {
 
   public async start(): Promise<void> {
     return new Promise((resolve) => {
-      this.server.listen(this.port, () => {
-        console.log(`Orchestrator API listening on port ${this.port}`);
+      this.server.listen(this.port, '127.0.0.1', () => {
+        console.log(`Orchestrator API listening on localhost:${this.port}`);
         resolve();
       });
     });

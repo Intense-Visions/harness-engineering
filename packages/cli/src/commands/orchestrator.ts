@@ -1,11 +1,6 @@
 import { Command } from 'commander';
 import * as path from 'node:path';
-import {
-  Orchestrator,
-  WorkflowLoader,
-  launchTUI,
-  getDefaultConfig,
-} from '@harness-engineering/orchestrator';
+import { Orchestrator, WorkflowLoader, launchTUI } from '@harness-engineering/orchestrator';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 
@@ -29,6 +24,14 @@ export function createOrchestratorCommand(): Command {
 
       const { config, promptTemplate } = result.value;
       const daemon = new Orchestrator(config, promptTemplate);
+
+      const shutdown = () => {
+        daemon.stop();
+        process.exit(ExitCode.SUCCESS);
+      };
+
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
 
       daemon.start();
 

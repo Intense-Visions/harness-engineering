@@ -188,7 +188,7 @@
 ## 2026-03-21 — Review Pipeline Phase 6: Output + Inline Comments
 
 - [skill:harness-execution] [outcome:success] All 8 tasks completed in a single session with 6 atomic commits. 31 new tests (8 assessment + 10 terminal + 13 GitHub), 146 total review tests pass.
-- [skill:harness-execution] [outcome:gotcha] Plan test for severity ordering used `indexOf('Suggestion')` which matched `Suggestion:` in finding blocks (from formatFindingBlock output) before the `### Suggestion` section header. Fixed by searching for `### Suggestion` (with header prefix) to ensure correct ordering assertion.
+- [skill:harness-execution] [outcome:gotcha] Plan test for severity ordering used `indexOf('Suggestion')` which matched `Suggestion:` in finding blocks (formatFindingBlock output) before the `### Suggestion` section header. Fixed by searching for `### Suggestion` (with header prefix) to ensure correct ordering assertion.
 - [skill:harness-execution] [outcome:gotcha] State.json was corrupted from a previous session (showed all tasks complete but output/ directory did not exist). Always verify file/directory existence before trusting state — corrupted state can cause skipped work.
 
 ## 2026-03-21 — Review Pipeline Phase 7: Eligibility Gate + CI Mode
@@ -292,3 +292,12 @@
 
 - [skill:harness-execution] [outcome:gotcha] Zod inferred types with optional fields produce `string | undefined` which conflicts with `exactOptionalPropertyTypes: true` in tsconfig. When pushing Zod-inferred objects into typed arrays, construct the entry explicitly and conditionally assign optional fields only when defined.
 - [skill:harness-execution] [outcome:success] All 8 tasks completed in a single session with no blockers. TDD rhythm worked smoothly — each section's tests caught the stub returning empty results, then implementation made them pass.
+
+## 2026-03-24 — Orchestrator Phase 4: Observability & CLI
+
+- [skill:harness-execution] [outcome:gotcha] ink-table@3.1.0 has a require() conflict with ESM top-level await in Ink 4.4.1. Swapped for a custom Ink-primitive table in AgentsTable.tsx for better control and ESM compatibility.
+- [skill:harness-execution] [outcome:gotcha] exactOptionalPropertyTypes: true prevents passing { version: undefined } even if the property is optional. Use an empty object {} or omit the key entirely.
+- [skill:harness-execution] [outcome:decision] Extended Orchestrator with EventEmitter instead of using a separate observer pattern to keep the dependency graph flat and the TUI integration simple.
+- [skill:harness-execution] [outcome:success] Reconstructed missing core/sharing types and restored CLI exports, unblocking both the orchestrator and the community marketplace features.
+
+## 2026-03-24 [skill:harness-verification] [outcome:pass]: Verified Orchestrator Phase 3 (Wiring). 4 artifacts checked at all 3 levels. Side effects, daemon lifecycle, and multi-turn runner confirmed functional.

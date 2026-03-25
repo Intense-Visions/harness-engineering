@@ -124,6 +124,6 @@ export async function validateForPublish(skillDir: string): Promise<ValidationRe
   return {
     valid: errors.length === 0,
     errors,
-    skillMeta,
+    ...(skillMeta ? { skillMeta } : {}),
   };
 }

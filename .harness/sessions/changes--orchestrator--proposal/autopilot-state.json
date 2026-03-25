@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--orchestrator--proposal",
+  "specPath": "docs/changes/orchestrator/proposal.md",
+  "currentState": "APPROVE_PLAN",
+  "currentPhase": 1,
+  "phases": [
+    {
+      "name": "Foundation (types + pure core)",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-24-orchestrator-foundation-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "I/O Adapters (parallelizable tracks)",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-24-orchestrator-io-adapters-plan.md",
+      "status": "pending"
+    },
+    {
+      "name": "Wiring",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Observability & CLI",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [
+    {
+      "phase": 0,
+      "name": "Foundation (types + pure core)",
+      "startedAt": "2026-03-24T22:15:00.000Z",
+      "completedAt": "2026-03-24T22:52:00.000Z",
+      "tasksCompleted": 14,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 3 }
+    }
+  ],
+  "decisions": [
+    {
+      "phase": 0,
+      "decision": "Plan approved for execution",
+      "timestamp": "2026-03-24T22:15:00.000Z"
+    }
+  ]
+}

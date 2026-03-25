@@ -5,11 +5,15 @@ import { GraphStore } from '@harness-engineering/graph';
 describe('GraphScanner', () => {
   it('should scan modules and dependencies from graph store', async () => {
     const mockStore = {
-      query: vi.fn().mockImplementation((q) => {
-        if (q === 'nodes:module') return [{ id: 'm1', name: 'Core', description: 'Core' }];
-        if (q === 'edges:import') return [{ from: 'm1', to: 'm2' }];
+      findNodes: vi.fn().mockImplementation((q) => {
+        if (q.type === 'module')
+          return [{ id: 'm1', name: 'Core', metadata: { description: 'Core', files: [] } }];
         return [];
-      })
+      }),
+      getEdges: vi.fn().mockImplementation((q) => {
+        if (q.type === 'imports') return [{ from: 'm1', to: 'm2' }];
+        return [];
+      }),
     } as unknown as GraphStore;
 
     const scanner = new GraphScanner(mockStore);
