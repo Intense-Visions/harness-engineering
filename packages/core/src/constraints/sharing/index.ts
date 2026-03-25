@@ -31,3 +31,6 @@ export type { ConflictReport, MergeResult } from './merge';
 
 // Lockfile
 export { readLockfile, writeLockfile, addProvenance, removeProvenance } from './lockfile';
+
+// Removal
+export { removeContributions } from './remove';
