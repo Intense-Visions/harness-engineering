@@ -164,5 +164,62 @@ describe('runInstallConstraints', () => {
       const sharedLayer = updatedConfig.layers.find((l: { name: string }) => l.name === 'shared');
       expect(sharedLayer.allowedDependencies).toEqual([]);
     });
+
+    it('resolves conflicts with --force-package by using package values', async () => {
+      await fs.writeFile(configPath, JSON.stringify(configWithExistingLayer, null, 2));
+      await fs.writeFile(bundlePath, JSON.stringify(conflictBundle, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+        forcePackage: true,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.installed).toBe(true);
+      expect(result.value.conflicts).toHaveLength(1);
+
+      // Config should use package value (allowedDependencies: ['core'])
+      const updatedConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      const sharedLayer = updatedConfig.layers.find((l: { name: string }) => l.name === 'shared');
+      expect(sharedLayer.allowedDependencies).toEqual(['core']);
+    });
+
+    it('resolves security rule conflicts with --force-package', async () => {
+      const configWithRules = {
+        version: 1,
+        name: 'test-project',
+        security: { rules: { 'SEC-CRY-001': 'warning' } },
+      };
+      const bundleWithRules = {
+        name: 'sec-bundle',
+        version: '1.0.0',
+        manifest: {
+          name: 'sec-bundle',
+          version: '1.0.0',
+          include: ['security.rules'],
+        },
+        constraints: {
+          security: { rules: { 'SEC-CRY-001': 'error' } },
+        },
+      };
+      await fs.writeFile(configPath, JSON.stringify(configWithRules, null, 2));
+      await fs.writeFile(bundlePath, JSON.stringify(bundleWithRules, null, 2));
+
+      const result = await runInstallConstraints({
+        source: bundlePath,
+        configPath,
+        lockfilePath,
+        forcePackage: true,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const updatedConfig = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+      expect(updatedConfig.security.rules['SEC-CRY-001']).toBe('error');
+    });
   });
 });
