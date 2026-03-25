@@ -242,7 +242,10 @@ export async function runInstall(
   const deps = skillYaml.depends_on ?? [];
   for (const dep of deps) {
     logger.info(`Installing dependency: ${dep} (required by ${shortName})`);
-    await runInstall(dep, { _dependencyOf: packageName, registry: options.registry });
+    await runInstall(dep, {
+      _dependencyOf: packageName,
+      ...(options.registry !== undefined ? { registry: options.registry } : {}),
+    });
   }
 
   return result;

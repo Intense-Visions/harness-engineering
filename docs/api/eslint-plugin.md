@@ -1,8 +1,8 @@
 # @harness-engineering/eslint-plugin
 
-ESLint plugin for enforcing harness engineering architectural constraints. Provides 8 rules and 2 shared configurations.
+ESLint plugin for enforcing harness engineering architectural constraints. Provides 10 rules and 2 shared configurations.
 
-**Version:** 0.1.2
+**Version:** 0.2.1
 
 ## Installation
 
@@ -30,13 +30,15 @@ export default [
 
 Enables all rules. Architectural rules are set to `error`, documentation rules to `warn`.
 
-| Rule                      | Severity |
-| ------------------------- | -------- |
-| `no-layer-violation`      | error    |
-| `no-circular-deps`        | error    |
-| `no-forbidden-imports`    | error    |
-| `require-boundary-schema` | warn     |
-| `enforce-doc-exports`     | warn     |
+| Rule                          | Severity |
+| ----------------------------- | -------- |
+| `no-layer-violation`          | error    |
+| `no-circular-deps`            | error    |
+| `no-forbidden-imports`        | error    |
+| `require-boundary-schema`     | warn     |
+| `enforce-doc-exports`         | warn     |
+| `no-unix-shell-command`       | warn     |
+| `no-hardcoded-path-separator` | warn     |
 
 ### `strict`
 
@@ -75,6 +77,14 @@ Detects synchronous I/O calls (`readFileSync`, `writeFileSync`, etc.) inside asy
 ### `no-unbounded-array-chains`
 
 Flags method chains on arrays (`.map().filter().reduce()`) that operate on unbounded data without size guards.
+
+### `no-unix-shell-command`
+
+Detects Unix-specific shell commands (e.g., `rm -rf`, `chmod`, `grep`) that would fail on Windows. Suggests cross-platform alternatives.
+
+### `no-hardcoded-path-separator`
+
+Flags hardcoded path separators (`/` or `\\`) in string literals. Use `path.join()` or `path.sep` for cross-platform compatibility.
 
 ## Exports
 

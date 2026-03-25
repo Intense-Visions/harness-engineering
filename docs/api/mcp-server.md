@@ -20,14 +20,11 @@ npm install -g @harness-engineering/cli
 {
   "mcpServers": {
     "harness": {
-      "command": "harness",
-      "args": ["mcp"]
+      "command": "harness-mcp"
     }
   }
 }
 ```
-
-Or use `harness-mcp` directly (also provided by the CLI package).
 
 ## API Reference
 
