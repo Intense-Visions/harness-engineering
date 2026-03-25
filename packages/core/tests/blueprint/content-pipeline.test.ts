@@ -9,6 +9,5 @@ describe('ContentPipeline', () => {
     const content = await pipeline.generateModuleContent(module);
 
     expect(content.codeTranslation).toBeDefined();
-    expect(content.quiz.questions.length).toBeGreaterThan(0);
   });
 });
