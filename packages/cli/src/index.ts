@@ -43,6 +43,8 @@ import { createCheckArchCommand } from './commands/check-arch';
 import { createBlueprintCommand } from './commands/blueprint';
 import { createShareCommand } from './commands/share';
 import { createInstallCommand } from './commands/install';
+import { createInstallConstraintsCommand } from './commands/install-constraints';
+import { createUninstallConstraintsCommand } from './commands/uninstall-constraints';
 import { createUninstallCommand } from './commands/uninstall';
 import { createOrchestratorCommand } from './commands/orchestrator';
 
@@ -97,6 +99,8 @@ export function createProgram(): Command {
   program.addCommand(createBlueprintCommand());
   program.addCommand(createShareCommand());
   program.addCommand(createInstallCommand());
+  program.addCommand(createInstallConstraintsCommand());
+  program.addCommand(createUninstallConstraintsCommand());
   program.addCommand(createUninstallCommand());
   program.addCommand(createOrchestratorCommand());
 
@@ -214,5 +218,15 @@ export { createHarnessServer, startServer, getToolDefinitions } from './mcp/inde
  */
 export { runInstall } from './commands/install';
 export type { InstallResult } from './commands/install';
+export { runInstallConstraints } from './commands/install-constraints';
+export type {
+  InstallConstraintsOptions,
+  InstallConstraintsSuccess,
+} from './commands/install-constraints';
+export { runUninstallConstraints } from './commands/uninstall-constraints';
+export type {
+  UninstallConstraintsOptions,
+  UninstallConstraintsSuccess,
+} from './commands/uninstall-constraints';
 export { runUninstall } from './commands/uninstall';
 export type { UninstallResult } from './commands/uninstall';
