@@ -41,6 +41,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ orchestrator }) => {
         tokenTotals={state.tokenTotals}
         runningCount={state.running.length}
         maxConcurrency={state.maxConcurrentAgents}
+        globalCooldownUntilMs={state.globalCooldownUntilMs}
+        recentRequestTimestampsCount={state.recentRequestTimestampsCount}
+        maxRequestsPerMinute={state.maxRequestsPerMinute}
       />
       <AgentsTable agents={runningAgents} />
       <Box marginTop={1}>

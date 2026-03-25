@@ -12,6 +12,7 @@ import {
   SideEffect,
   applyEvent,
   createEmptyState,
+  LiveSession,
 } from './core/index';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
@@ -112,13 +113,9 @@ export class Orchestrator extends EventEmitter {
     throw new Error(`Unsupported agent backend: ${this.config.agent.backend}`);
   }
 
-  /**
-   * Run a single tick of the orchestrator loop.
-   *
-   * This method fetches the latest issue states, applies them to the state machine,
-   * and executes any resulting side effects (dispatching new agents, stopping agents, etc.).
-   */
-  public async tick(): Promise<void> {
+  public async asyncTick(): Promise<void> {
+    const nowMs = Date.now();
+
     // 1. Fetch candidates from tracker
     const candidatesResult = await this.tracker.fetchCandidateIssues();
     if (!candidatesResult.ok) {
@@ -143,18 +140,37 @@ export class Orchestrator extends EventEmitter {
       type: 'tick',
       candidates: candidatesResult.value,
       runningStates: runningStatesResult.value,
-      nowMs: Date.now(),
+      nowMs,
     };
 
-    const { nextState, effects } = applyEvent(this.state, tickEvent, this.config);
+    let { nextState, effects } = applyEvent(this.state, tickEvent, this.config);
     this.state = nextState;
 
-    // 4. Handle effects
+    // 4. Check for due retries
+    for (const [issueId, retry] of nextState.retryAttempts.entries()) {
+      if (nowMs >= retry.dueAtMs) {
+        const retryEvent: OrchestratorEvent = {
+          type: 'retry_fired',
+          issueId,
+          candidates: candidatesResult.value,
+          nowMs,
+        };
+        const result = applyEvent(this.state, retryEvent, this.config);
+        this.state = result.nextState;
+        effects.push(...result.effects);
+      }
+    }
+
+    // 5. Handle effects
     for (const effect of effects) {
       await this.handleEffect(effect);
     }
 
     this.emit('state_change', this.getSnapshot());
+  }
+
+  public async tick(): Promise<void> {
+    await this.asyncTick();
   }
 
   /**
@@ -260,6 +276,33 @@ export class Orchestrator extends EventEmitter {
       });
 
       // 5. Start agent session (in background)
+      const session: LiveSession = {
+        sessionId: `pending-${Date.now()}`,
+        backendName: this.config.agent.backend,
+        agentPid: null,
+        startedAt: new Date().toISOString(),
+        lastEvent: 'Dispatching',
+        lastTimestamp: new Date().toISOString(),
+        lastMessage: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        lastReportedInputTokens: 0,
+        lastReportedOutputTokens: 0,
+        lastReportedTotalTokens: 0,
+        turnCount: 0,
+      };
+
+      const entry = this.state.running.get(issue.id);
+      if (entry) {
+        this.state.running.set(issue.id, {
+          ...entry,
+          workspacePath,
+          phase: 'LaunchingAgent',
+          session,
+        });
+      }
+
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt);
     } catch (error) {
       this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
@@ -267,22 +310,38 @@ export class Orchestrator extends EventEmitter {
     }
   }
 
-  /**
-   * Runs an agent session in a background task to avoid blocking the main loop.
-   */
   private runAgentInBackgroundTask(
     issue: Issue,
     workspacePath: string,
     prompt: string,
     attempt: number | null
   ): void {
+    this.logger.info(`Starting background task for ${issue.identifier}`);
     (async () => {
       try {
+        this.logger.info(`Calling runner.runSession for ${issue.identifier}`);
         const sessionGen = this.runner.runSession(issue, workspacePath, prompt);
         for await (const event of sessionGen) {
-          // Emit event for TUI/Observability
+          this.logger.info(`Received event from ${issue.identifier}: ${event.type}`);
+          // 1. Update internal state machine
+          const updateEvent: OrchestratorEvent = {
+            type: 'agent_update',
+            issueId: issue.id,
+            event,
+          };
+          const { nextState, effects } = applyEvent(this.state, updateEvent, this.config);
+          this.state = nextState;
+
+          // 2. Handle side effects (like updating token totals)
+          for (const effect of effects) {
+            await this.handleEffect(effect);
+          }
+
+          // 3. Emit events for TUI/Observability
           this.emit('agent_event', { issueId: issue.id, event });
+          this.emit('state_change', this.getSnapshot());
         }
+        this.logger.info(`Session generator finished for ${issue.identifier}`);
         // When finished, emit success to state machine
         await this.emitWorkerExit(issue.id, 'normal', attempt);
       } catch (error) {
@@ -368,6 +427,9 @@ export class Orchestrator extends EventEmitter {
       claimed: Array.from(this.state.claimed),
       tokenTotals: this.state.tokenTotals,
       maxConcurrentAgents: this.state.maxConcurrentAgents,
+      globalCooldownUntilMs: this.state.globalCooldownUntilMs,
+      recentRequestTimestampsCount: this.state.recentRequestTimestamps.length,
+      maxRequestsPerMinute: this.state.maxRequestsPerMinute,
     };
   }
 }

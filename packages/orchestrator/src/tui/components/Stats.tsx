@@ -6,11 +6,36 @@ export interface StatsProps {
   tokenTotals: TokenTotals;
   runningCount: number;
   maxConcurrency: number;
+  globalCooldownUntilMs?: number | null;
+  recentRequestTimestampsCount?: number;
+  maxRequestsPerMinute?: number;
 }
 
-export const Stats: React.FC<StatsProps> = ({ tokenTotals, runningCount, maxConcurrency }) => {
+export const Stats: React.FC<StatsProps> = ({
+  tokenTotals,
+  runningCount,
+  maxConcurrency,
+  globalCooldownUntilMs,
+  recentRequestTimestampsCount,
+  maxRequestsPerMinute,
+}) => {
+  const isCooldown = globalCooldownUntilMs && Date.now() < globalCooldownUntilMs;
+
   return (
     <Box flexDirection="row" paddingX={1} gap={4}>
+      <Box flexDirection="column">
+        <Text bold>Rate Limits</Text>
+        <Text>
+          Status: <Text color={isCooldown ? 'red' : 'green'}>{isCooldown ? 'COOLDOWN' : 'OK'}</Text>
+        </Text>
+        <Text>
+          Req/Min:{' '}
+          <Text color="blue">
+            {recentRequestTimestampsCount || 0} / {maxRequestsPerMinute || 50}
+          </Text>
+        </Text>
+      </Box>
+
       <Box flexDirection="column">
         <Text bold>Concurrency</Text>
         <Text>
