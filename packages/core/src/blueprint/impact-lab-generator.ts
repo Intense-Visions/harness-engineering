@@ -11,4 +11,3 @@ export async function generateImpactData(store: GraphStore, file: string) {
     return { direct: [], transitive: [] };
   }
 }
-

@@ -110,14 +110,12 @@ Integrate `harness check-arch` into the CI pipeline, add default architecture co
    ```typescript
    vi.mock('../../src/architecture', () => ({
      ArchConfigSchema: {
-       parse: vi
-         .fn()
-         .mockReturnValue({
-           enabled: true,
-           baselinePath: '.harness/arch/baselines.json',
-           thresholds: {},
-           modules: {},
-         }),
+       parse: vi.fn().mockReturnValue({
+         enabled: true,
+         baselinePath: '.harness/arch/baselines.json',
+         thresholds: {},
+         modules: {},
+       }),
      },
      runAll: vi.fn().mockResolvedValue([]),
    }));
