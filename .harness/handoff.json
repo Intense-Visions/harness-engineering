@@ -1,48 +1,34 @@
 {
-  "fromSkill": "harness-docs-pipeline",
-  "phase": "COMPLETE",
-  "summary": "Documentation pipeline converged. Drift resolved, coverage at 84% (validated after fixing bug in doc-coverage.ts), and AGENTS.md updated.",
-  "context": {
-    "graphAvailable": true,
-    "agentsMdExists": true,
-    "bootstrapped": false,
-    "driftFindings": [],
-    "fixesApplied": [
-      {
-        "findingId": "AGENTS-SKILL-COUNT-DRIFT",
-        "file": "AGENTS.md",
-        "safety": "safe",
-        "verified": true
-      },
-      {
-        "findingId": "AGENTS-STRUCTURE-ORCHESTRATOR-MISSING",
-        "file": "AGENTS.md",
-        "safety": "safe",
-        "verified": true
-      },
-      {
-        "findingId": "CLI-DOCS-ORCHESTRATOR-MISSING",
-        "file": "docs/api/cli.md",
-        "safety": "safe",
-        "verified": true
-      },
-      {
-        "findingId": "AGENTS-PHASE-ORCHESTRATOR-MISSING",
-        "file": "AGENTS.md",
-        "safety": "safe",
-        "verified": true
-      }
-    ],
-    "gapFindings": [],
-    "fillsApplied": [
-      {
-        "findingId": "doc-coverage-pattern-matching-bug",
-        "file": "packages/core/src/context/doc-coverage.ts",
-        "safety": "safe",
-        "verified": true
-      }
-    ],
-    "verdict": "pass",
-    "summary": "Documentation health is excellent. 84% coverage achieved."
-  }
+  "fromSkill": "harness-planning",
+  "phase": "VALIDATE",
+  "summary": "Planned Phase 6 (Uninstall and Upgrade) of Constraint Sharing: 6 tasks covering removeContributions core function, uninstall-constraints CLI command, upgrade detection in install-constraints, and round-trip verification.",
+  "completed": [],
+  "pending": [
+    "Task 1: Create removeContributions core function (TDD)",
+    "Task 2: Export removeContributions from core sharing index",
+    "Task 3: Create uninstall-constraints CLI command (TDD)",
+    "Task 4: Register uninstall-constraints in CLI entry point",
+    "Task 5: Add upgrade detection to install-constraints (TDD)",
+    "Task 6: End-to-end round-trip verification"
+  ],
+  "concerns": [
+    "removeContributions does not handle edge case where config sections were manually edited after install -- relies on key-based matching, not value comparison",
+    "Upgrade path uses synchronous uninstall+install in one function call -- if write fails between steps, config could be in partial state"
+  ],
+  "decisions": [
+    "removeContributions is a pure function in core (no I/O) -- CLI handles read/write orchestration",
+    "Upgrade is implemented as inline detection in install-constraints (remove old contributions before merge) rather than a separate upgrade-constraints command",
+    "Empty module entries are cleaned up (deleted) when all categories are removed",
+    "Uninstall with null/empty contributions succeeds but removes nothing from config"
+  ],
+  "contextKeywords": [
+    "constraint-sharing",
+    "uninstall-constraints",
+    "removeContributions",
+    "upgrade",
+    "lockfile",
+    "provenance",
+    "contributions",
+    "round-trip"
+  ]
 }
