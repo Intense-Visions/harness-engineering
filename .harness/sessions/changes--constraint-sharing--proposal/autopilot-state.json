@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--constraint-sharing--proposal",
+  "specPath": "docs/changes/constraint-sharing/proposal.md",
+  "currentState": "ASSESS",
+  "currentPhase": 2,
+  "phases": [
+    {
+      "name": "Types and schemas",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-24-constraint-sharing-types-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Bundle extraction",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-24-constraint-sharing-bundle-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Merge engine",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Lockfile and provenance",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Install command",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Uninstall and upgrade",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [
+    {
+      "phase": 0,
+      "name": "Types and schemas",
+      "startedAt": "2026-03-24T13:15:00Z",
+      "completedAt": "2026-03-24T13:30:00Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "important": 2, "warning": 2, "note": 3 }
+    },
+    {
+      "phase": 1,
+      "name": "Bundle extraction",
+      "startedAt": "2026-03-24T14:00:00Z",
+      "completedAt": "2026-03-24T14:04:00Z",
+      "tasksCompleted": 6,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "important": 3, "warning": 2, "note": 2 }
+    }
+  ]
+}
