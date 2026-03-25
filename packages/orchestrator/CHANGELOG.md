@@ -1,8 +1,8 @@
-# @harness-engineering/linter-gen
+# @harness-engineering/orchestrator
 
-## 0.1.3
+## 0.2.0
 
-### Patch Changes
+### Minor Changes
 
 - # Orchestrator Release & Workspace Hardening
 
@@ -23,8 +23,8 @@
   - **Graceful Shutdown**: Added signal handling and centralized resource cleanup for the orchestrator daemon.
   - **Hardened Security**: Restricted orchestrator HTTP API to localhost.
 
-## 0.1.1
-
 ### Patch Changes
 
-- Align dependency versions across workspace: `vitest` ^4, `minimatch` ^10, `typescript` ^5.3.3
+- Updated dependencies
+  - @harness-engineering/core@0.11.0
+  - @harness-engineering/types@0.3.0
