@@ -2,7 +2,7 @@
 
 Core library for the Harness Engineering toolkit. Provides validation, constraint enforcement, entropy detection, context generation, feedback, state management, security scanning, CI orchestration, and more.
 
-**Version:** 0.8.0
+**Version:** 0.11.0
 
 ## Installation
 
@@ -23,7 +23,7 @@ import { validateFileStructure, Ok, Err } from '@harness-engineering/core';
 ### `VERSION`
 
 ```typescript
-const VERSION: string; // "0.8.0"
+const VERSION: string; // "0.11.0"
 ```
 
 ## Error Types
@@ -88,7 +88,9 @@ Validates a commit message against a format specification.
 
 ## Context Module
 
-### `validateAgentsMap(content)`
+### `validateAgentsMap(content)` _(deprecated)_
+
+> **Deprecated:** Use graph-based validation via `Assembler.checkCoverage()` from `@harness-engineering/graph` instead.
 
 Validates the structure of an AGENTS.md file.
 
@@ -104,7 +106,9 @@ Checks documentation coverage across a project.
 
 **Types:** `DocumentationGap`, `CoverageReport`, `CoverageOptions`, `GraphCoverageData`
 
-### `validateKnowledgeMap(rootDir)`
+### `validateKnowledgeMap(rootDir)` _(deprecated)_
+
+> **Deprecated:** Use graph-based validation via `Assembler.checkCoverage()` from `@harness-engineering/graph` instead.
 
 Validates the knowledge map integrity (broken links, missing references).
 

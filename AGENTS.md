@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, mcp-server, graph, orchestrator), 49 skills (claude-code) / 49 skills (gemini-cli), 12 personas, 5 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 49 skills (claude-code) / 49 skills (gemini-cli), 12 personas, 6 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -30,14 +30,13 @@ harness-engineering/
 │   ├── cli/                  # CLI tool (harness validate, check-deps, skill, state, etc.)
 │   ├── eslint-plugin/        # ESLint rules for constraint enforcement
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
-│   ├── mcp-server/           # MCP server for AI agent integration
 │   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
-│   └── orchestrator/         # Agent orchestration and multi-agent coordination
+│   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
 │   ├── skills/claude-code/   # 49 skills (skill.yaml + SKILL.md each)
 │   ├── skills/gemini-cli/    # 49 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
-├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs)
+├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs, orchestrator)
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level
 │   ├── task-api/             # Intermediate adoption level

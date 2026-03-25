@@ -15,7 +15,7 @@
     {
       "name": "core",
       "pattern": "packages/core/src/**",
-      "allowedDependencies": ["types"]
+      "allowedDependencies": ["types", "graph"]
     },
     {
       "name": "eslint-plugin",
@@ -28,14 +28,14 @@
       "allowedDependencies": ["types", "core"]
     },
     {
-      "name": "cli",
-      "pattern": "packages/cli/src/**",
-      "allowedDependencies": ["types", "core", "graph", "linter-gen"]
+      "name": "orchestrator",
+      "pattern": "packages/orchestrator/src/**",
+      "allowedDependencies": ["types", "core"]
     },
     {
-      "name": "mcp-server",
-      "pattern": "packages/mcp-server/src/**",
-      "allowedDependencies": ["types", "core", "graph", "cli", "linter-gen"]
+      "name": "cli",
+      "pattern": "packages/cli/src/**",
+      "allowedDependencies": ["types", "core", "graph", "linter-gen", "orchestrator"]
     }
   ],
   "forbiddenImports": [
@@ -46,49 +46,50 @@
         "packages/graph/src/**",
         "packages/eslint-plugin/src/**",
         "packages/linter-gen/src/**",
-        "packages/cli/src/**",
-        "packages/mcp-server/src/**"
+        "packages/orchestrator/src/**",
+        "packages/cli/src/**"
       ],
       "message": "Types layer cannot import from higher layers"
+    },
+    {
+      "from": "packages/graph/src/**",
+      "disallow": [
+        "packages/core/src/**",
+        "packages/eslint-plugin/src/**",
+        "packages/linter-gen/src/**",
+        "packages/orchestrator/src/**",
+        "packages/cli/src/**"
+      ],
+      "message": "Graph layer cannot import from higher layers"
     },
     {
       "from": "packages/core/src/**",
       "disallow": [
         "packages/eslint-plugin/src/**",
         "packages/linter-gen/src/**",
-        "packages/cli/src/**",
-        "packages/mcp-server/src/**"
+        "packages/orchestrator/src/**",
+        "packages/cli/src/**"
       ],
       "message": "Core layer cannot import from higher layers"
     },
     {
-      "from": "packages/graph/src/**",
-      "disallow": [
-        "packages/eslint-plugin/src/**",
-        "packages/linter-gen/src/**",
-        "packages/cli/src/**",
-        "packages/mcp-server/src/**"
-      ],
-      "message": "Graph layer cannot import from higher layers"
-    },
-    {
       "from": "packages/eslint-plugin/src/**",
-      "disallow": ["packages/cli/src/**", "packages/mcp-server/src/**"],
-      "message": "ESLint plugin cannot import from CLI or MCP server"
+      "disallow": ["packages/orchestrator/src/**", "packages/cli/src/**"],
+      "message": "ESLint plugin cannot import from orchestrator or CLI"
     },
     {
       "from": "packages/linter-gen/src/**",
-      "disallow": ["packages/cli/src/**", "packages/mcp-server/src/**"],
-      "message": "Linter gen cannot import from CLI or MCP server"
+      "disallow": ["packages/orchestrator/src/**", "packages/cli/src/**"],
+      "message": "Linter gen cannot import from orchestrator or CLI"
     },
     {
-      "from": "packages/cli/src/**",
-      "disallow": ["packages/mcp-server/src/**"],
-      "message": "CLI cannot import from MCP server"
+      "from": "packages/orchestrator/src/**",
+      "disallow": ["packages/cli/src/**"],
+      "message": "Orchestrator cannot import from CLI"
     }
   ],
   "boundaries": {
-    "requireSchema": ["packages/mcp-server/**"]
+    "requireSchema": ["packages/cli/src/mcp/**"]
   },
   "architecture": {
     "enabled": true,
@@ -138,8 +139,7 @@
       "packages/cli/src/bin/harness.ts",
       "packages/eslint-plugin/src/index.ts",
       "packages/linter-gen/src/index.ts",
-      "packages/mcp-server/src/index.ts",
-      "packages/mcp-server/bin/harness-mcp.ts"
+      "packages/orchestrator/src/index.ts"
     ],
     "complexity": {
       "enabled": true,

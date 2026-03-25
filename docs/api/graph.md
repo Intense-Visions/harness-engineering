@@ -2,7 +2,7 @@
 
 Knowledge graph for codebase relationships, context assembly, and entropy detection. Provides ingestion, querying, vector search, and adapter layers for constraints, entropy, and feedback.
 
-**Version:** 0.2.2
+**Version:** 0.3.2
 
 ## Installation
 
@@ -30,7 +30,7 @@ const result = query.run({ seed: 'src/index.ts', depth: 2 });
 ### `VERSION`
 
 ```typescript
-const VERSION: string; // "0.2.0"
+const VERSION: string; // "0.3.2"
 ```
 
 ### Schema Constants
