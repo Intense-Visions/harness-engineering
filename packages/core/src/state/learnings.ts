@@ -88,9 +88,45 @@ function scoreRelevance(entry: string, intent: string): number {
  * Entries look like: "- **2026-03-25 [skill:X]:** content"
  * or heading format: "## 2026-03-25 — Task 3: ..."
  */
-function parseDateFromEntry(entry: string): string | null {
+export function parseDateFromEntry(entry: string): string | null {
   const match = entry.match(/(\d{4}-\d{2}-\d{2})/);
   return match ? (match[1] ?? null) : null;
+}
+
+export interface LearningPattern {
+  tag: string;
+  count: number;
+  entries: string[];
+}
+
+/**
+ * Analyze learning entries for recurring patterns.
+ * Groups entries by [skill:X] and [outcome:Y] tags.
+ * Returns patterns where 3+ entries share the same tag.
+ */
+export function analyzeLearningPatterns(entries: string[]): LearningPattern[] {
+  const tagGroups = new Map<string, string[]>();
+
+  for (const entry of entries) {
+    const tagMatches = entry.matchAll(/\[(skill:[^\]]+)\]|\[(outcome:[^\]]+)\]/g);
+    for (const match of tagMatches) {
+      const tag = match[1] ?? match[2];
+      if (tag) {
+        const group = tagGroups.get(tag) ?? [];
+        group.push(entry);
+        tagGroups.set(tag, group);
+      }
+    }
+  }
+
+  const patterns: LearningPattern[] = [];
+  for (const [tag, groupEntries] of tagGroups) {
+    if (groupEntries.length >= 3) {
+      patterns.push({ tag, count: groupEntries.length, entries: groupEntries });
+    }
+  }
+
+  return patterns.sort((a, b) => b.count - a.count);
 }
 
 export interface BudgetedLearningsOptions {
