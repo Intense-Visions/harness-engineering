@@ -42,14 +42,20 @@ Deviating from the plan mid-execution introduces untested assumptions, breaks ta
 
    This returns `state` (current position — if null, this is a fresh start at Task 1), `learnings` (hard-won insights from previous sessions — do not ignore them), `handoff` (structured context from the previous skill), and `validation` (current project health). If any constituent fails, its field is null and the error is reported in `meta.errors`.
 
-3. **Check for known dead ends.** Review `learnings` entries tagged `[outcome:failure]`. If any match approaches in the current plan, surface warnings before proceeding.
+3. **Load session summary for cold start.** If resuming a session (session slug is known), read the session summary for quick orientation:
+   - Call `listActiveSessions()` to read the session index (~100 tokens).
+   - If the target session is known, call `loadSessionSummary()` for that session (~200 tokens).
+   - If ambiguous (multiple active sessions, no clear target), present the index to the user and ask which session to resume.
+   - The summary provides skill, phase, status, key context, and next step — enough to orient without re-reading full state + learnings + plan.
 
-4. **Verify prerequisites.** For the current task:
+4. **Check for known dead ends.** Review `learnings` entries tagged `[outcome:failure]`. If any match approaches in the current plan, surface warnings before proceeding.
+
+5. **Verify prerequisites.** For the current task:
    - Are dependency tasks marked complete in state?
    - Do the files referenced in the task exist as expected?
    - Does the test suite pass? Run `harness validate` to confirm a clean baseline.
 
-5. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
+6. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
 ### Graph-Enhanced Context (when available)
 
@@ -269,11 +275,29 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
    }
    ```
 
-5. **Sync roadmap (mandatory when present).** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true` to update linked feature statuses from the just-completed execution state. Do not use `force_sync: true` — the human-always-wins rule applies. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. If no roadmap exists, skip silently.
+5. **Write session summary.** Write/update the session summary for cold-start context restoration:
 
-6. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
+   ```json
+   writeSessionSummary(projectPath, sessionSlug, {
+     session: "<session-slug>",
+     lastActive: "<ISO timestamp>",
+     skill: "harness-execution",
+     phase: "<current phase of plan>",
+     status: "<e.g., Task 4/6 complete, paused at CHECKPOINT>",
+     spec: "<spec path if known>",
+     plan: "<plan path>",
+     keyContext: "<1-2 sentences: what was accomplished, key decisions made>",
+     nextStep: "<what to do next when resuming>"
+   })
+   ```
 
-7. **Auto-transition to verification.** When ALL tasks in the plan are complete (not when stopping mid-plan):
+   This overwrites any previous summary for this session. The index.md is updated automatically.
+
+6. **Sync roadmap (mandatory when present).** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true` to update linked feature statuses from the just-completed execution state. Do not use `force_sync: true` — the human-always-wins rule applies. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. If no roadmap exists, skip silently.
+
+7. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
+
+8. **Auto-transition to verification.** When ALL tasks in the plan are complete (not when stopping mid-plan):
 
    Call `emit_interaction`:
 
