@@ -109,14 +109,19 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
    This loads session-scoped learnings, handoff, state, and validation results in a single call. The `session` parameter ensures all reads come from the session directory (`.harness/sessions/<slug>/`), isolating this workstream from others. Note any relevant learnings or known dead ends for the current phase from the returned `learnings` array.
 
-6. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
+6. **Load session summary for cold start.** If resuming (existing `autopilot-state.json` found):
+   - Call `loadSessionSummary()` for the session slug to get quick orientation context (~200 tokens).
+   - The summary provides the last skill, phase, status, and next step — enough to understand where the autopilot left off without re-reading the full state machine.
+   - If no summary exists (first run), skip — the full INIT handles context loading.
+
+7. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
    - Current project priorities (which features are `in-progress`)
    - Blockers that may affect the upcoming phases
    - Overall project status and milestone progress
 
    This provides the autopilot with project-level context beyond the individual spec being executed. If the roadmap does not exist, skip this step — the autopilot operates normally without it.
 
-7. **Transition to ASSESS.**
+8. **Transition to ASSESS.**
 
 ---
 
@@ -354,7 +359,23 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 4. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true`. This reflects the just-completed phase in the roadmap (e.g., updating the feature from `planned` to `in-progress`). If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. Skip silently if no roadmap exists. Do not use `force_sync: true` — the human-always-wins rule applies.
 
-5. **Check for next phase:**
+5. **Write session summary.** Update the session summary to reflect the completed phase:
+
+   ```json
+   writeSessionSummary(projectPath, sessionSlug, {
+     session: "<session-slug>",
+     lastActive: "<ISO timestamp>",
+     skill: "harness-autopilot",
+     phase: "<completed phase number> of <total phases>",
+     status: "Phase <N> complete. <tasks completed>/<total> tasks.",
+     spec: "<spec path>",
+     plan: "<current plan path>",
+     keyContext: "<1-2 sentences: what this phase accomplished, key decisions>",
+     nextStep: "<e.g., Continue to Phase N+1: <name>, or DONE>"
+   })
+   ```
+
+6. **Check for next phase:**
    - If more phases remain: "Phase {N} complete. Next: Phase {N+1}: {name} (complexity: {level}). Continue? (yes / stop)"
      - **yes** — Increment `currentPhase`, reset `retryBudget`, transition to ASSESS.
      - **stop** — Save state and exit.
@@ -400,7 +421,21 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 5. **Update roadmap to done.** If `docs/roadmap.md` exists and the current spec maps to a roadmap feature, call `manage_roadmap` with action `update` to set the feature status to `done`. Derive the feature name from the spec title (H1 heading) or the session's `handoff.json` `summary` field. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `updateFeature()` from core. Skip silently if no roadmap exists or if the feature is not found. Do not use `force_sync: true`.
 
-6. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
+6. **Write final session summary.** Update the session summary to reflect completion:
+
+   ```json
+   writeSessionSummary(projectPath, sessionSlug, {
+     session: "<session-slug>",
+     lastActive: "<ISO timestamp>",
+     skill: "harness-autopilot",
+     status: "DONE. <total phases> phases, <total tasks> tasks complete.",
+     spec: "<spec path>",
+     keyContext: "<1-2 sentences: overall summary of what was built>",
+     nextStep: "All phases complete. Create PR or close session."
+   })
+   ```
+
+7. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
 
 ## Harness Integration
 
