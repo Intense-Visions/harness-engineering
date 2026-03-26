@@ -12,41 +12,45 @@ last_synced: 2026-03-21T14:30:00Z
 last_manual_edit: 2026-03-21T15:00:00Z
 ---
 
-# Project Roadmap
+# Roadmap
 
-## Milestone: MVP Release
+## MVP Release
 
-### Feature: Notification System
+### Notification System
+
 - **Status:** in-progress
 - **Spec:** docs/changes/notification-system/proposal.md
-- **Plans:** docs/plans/2026-03-14-notification-phase-1-plan.md, docs/plans/2026-03-15-notification-phase-2-plan.md
-- **Blocked by:** \u2014
 - **Summary:** Email and in-app notifications with polling
+- **Blockers:** \u2014
+- **Plan:** docs/plans/2026-03-14-notification-phase-1-plan.md, docs/plans/2026-03-15-notification-phase-2-plan.md
 
-### Feature: User Auth Revamp
+### User Auth Revamp
+
 - **Status:** planned
 - **Spec:** docs/changes/auth-revamp/proposal.md
-- **Plans:** \u2014
-- **Blocked by:** Notification System
 - **Summary:** OAuth2 migration for compliance requirements
+- **Blockers:** Notification System
+- **Plan:** \u2014
 
-## Milestone: Q3 Hardening
+## Q3 Hardening
 
-### Feature: Performance Baselines
+### Performance Baselines
+
 - **Status:** planned
 - **Spec:** \u2014
-- **Plans:** \u2014
-- **Blocked by:** \u2014
 - **Summary:** Establish and enforce perf budgets across critical paths
+- **Blockers:** \u2014
+- **Plan:** \u2014
 
 ## Backlog
 
-### Feature: Push Notifications
+### Push Notifications
+
 - **Status:** backlog
 - **Spec:** \u2014
-- **Plans:** \u2014
-- **Blocked by:** \u2014
 - **Summary:** Extend notification system with WebSocket push
+- **Blockers:** \u2014
+- **Plan:** \u2014
 `;
 
 /**
@@ -163,7 +167,7 @@ last_synced: 2026-01-01T00:00:00Z
 last_manual_edit: 2026-01-01T00:00:00Z
 ---
 
-# Project Roadmap
+# Roadmap
 
 ## Backlog
 `;

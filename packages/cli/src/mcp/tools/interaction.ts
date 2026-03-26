@@ -31,6 +31,11 @@ export const emitInteractionDefinition = {
         type: 'string',
         description: 'State stream for recording (auto-resolves from branch if omitted)',
       },
+      session: {
+        type: 'string',
+        description:
+          'Session slug for session-scoped handoff (takes priority over stream when provided)',
+      },
       question: {
         type: 'object',
         description: 'Question payload (required when type is question)',
@@ -316,7 +321,8 @@ export async function handleEmitInteraction(input: Record<string, any>) {
               blockers: [],
               contextKeywords: [],
             },
-            validInput.stream
+            validInput.stream,
+            validInput.session
           );
         } catch {
           // Handoff write failure is non-fatal
