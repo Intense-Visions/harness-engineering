@@ -95,8 +95,8 @@ export async function handleGatherContext(input: {
         core.loadBudgetedLearnings(projectPath, {
           intent: input.intent,
           tokenBudget: input.learningsBudget ?? 1000,
-          skill: input.skill,
-          session: input.session,
+          ...(input.skill !== undefined && { skill: input.skill }),
+          ...(input.session !== undefined && { session: input.session }),
         })
       )
     : Promise.resolve(null);
