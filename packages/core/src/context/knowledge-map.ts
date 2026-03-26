@@ -31,10 +31,6 @@ function suggestFix(path: string, existingFiles: string[]): string {
 export async function validateKnowledgeMap(
   rootDir: string = process.cwd()
 ): Promise<Result<IntegrityReport, ContextError>> {
-  console.warn(
-    '[harness] validateKnowledgeMap() is deprecated. Use graph-based validation via Assembler.checkCoverage() from @harness-engineering/graph'
-  );
-
   const agentsPath = join(rootDir, 'AGENTS.md');
 
   // Get validation from AGENTS.md
