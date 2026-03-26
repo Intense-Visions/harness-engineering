@@ -90,7 +90,7 @@ export function scoreRelevance(entry: string, intent: string): number {
  */
 function parseDateFromEntry(entry: string): string | null {
   const match = entry.match(/(\d{4}-\d{2}-\d{2})/);
-  return match ? match[1] : null;
+  return match ? (match[1] ?? null) : null;
 }
 
 export interface BudgetedLearningsOptions {

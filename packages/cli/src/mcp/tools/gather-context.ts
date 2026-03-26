@@ -35,6 +35,11 @@ export const gatherContextDefinition = {
         enum: ['summary', 'detailed'],
         description: 'Response density. Default: summary',
       },
+      learningsBudget: {
+        type: 'number',
+        description:
+          'Token budget for learnings slice (default 1000). Separate from graph tokenBudget.',
+      },
       session: {
         type: 'string',
         description:
@@ -52,6 +57,7 @@ export async function handleGatherContext(input: {
   tokenBudget?: number;
   include?: IncludeKey[];
   mode?: 'summary' | 'detailed';
+  learningsBudget?: number;
   session?: string;
 }) {
   const start = Date.now();
@@ -86,7 +92,12 @@ export async function handleGatherContext(input: {
 
   const learningsPromise = includeSet.has('learnings')
     ? import('@harness-engineering/core').then((core) =>
-        core.loadRelevantLearnings(projectPath, input.skill, undefined, input.session)
+        core.loadBudgetedLearnings(projectPath, {
+          intent: input.intent,
+          tokenBudget: input.learningsBudget ?? 1000,
+          skill: input.skill,
+          session: input.session,
+        })
       )
     : Promise.resolve(null);
 
