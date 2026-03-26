@@ -102,11 +102,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      path: "<project-root>",
      intent: "Autopilot phase execution for <spec name>",
      skill: "harness-autopilot",
+     session: "<session-slug>",
      include: ["state", "learnings", "handoff", "validation"]
    })
    ```
 
-   This loads learnings (including failure entries tagged `[outcome:failure]`), handoff context, state, and validation results in a single call. Note any relevant learnings or known dead ends for the current phase from the returned `learnings` array.
+   This loads session-scoped learnings, handoff, state, and validation results in a single call. The `session` parameter ensures all reads come from the session directory (`.harness/sessions/<slug>/`), isolating this workstream from others. Note any relevant learnings or known dead ends for the current phase from the returned `learnings` array.
 
 6. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
    - Current project priorities (which features are `in-progress`)
@@ -155,9 +156,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
        Spec: {specPath}
        Session directory: {sessionDir}
+       Session slug: {sessionSlug}
        Phase description: {phase description from spec}
-       Previous phase learnings (global): {relevant learnings from .harness/learnings.md}
-       Known failures to avoid (global): {relevant entries from .harness/failures.md}
 
        Follow the harness-planning skill process exactly. Write the plan to
        docs/plans/{date}-{phase-name}-plan.md. Write {sessionDir}/handoff.json when done.
@@ -221,9 +221,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
        Plan: {planPath}
        Session directory: {sessionDir}
+       Session slug: {sessionSlug}
        State: {sessionDir}/state.json
-       Learnings (global): .harness/learnings.md
-       Failures (global): .harness/failures.md
 
        Follow the harness-execution skill process exactly.
        Update {sessionDir}/state.json after each task.
