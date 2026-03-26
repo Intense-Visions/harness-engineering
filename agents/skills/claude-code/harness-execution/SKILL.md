@@ -33,9 +33,12 @@ Deviating from the plan mid-execution introduces untested assumptions, breaks ta
      path: "<project-root>",
      intent: "Execute plan tasks starting from current position",
      skill: "harness-execution",
+     session: "<session-slug-if-known>",
      include: ["state", "learnings", "handoff", "validation"]
    })
    ```
+
+   **Session resolution:** If a session directory is known (passed via autopilot dispatch or available from a previous handoff), include the `session` parameter. This scopes all state reads/writes to `.harness/sessions/<slug>/`. If no session is known, omit it — `gather_context` falls back to global files at `.harness/`.
 
    This returns `state` (current position — if null, this is a fresh start at Task 1), `learnings` (hard-won insights from previous sessions — do not ignore them), `handoff` (structured context from the previous skill), and `validation` (current project health). If any constituent fails, its field is null and the error is reported in `meta.errors`.
 
@@ -220,7 +223,7 @@ emit_interaction({
 
 Between tasks (especially between sessions):
 
-1. **Update `.harness/state.json`** with current position, progress, and `lastSession` context:
+1. **Update state (session-scoped `{sessionDir}/state.json` if session is known, otherwise `.harness/state.json`)** with current position, progress, and `lastSession` context:
 
    ```json
    {
@@ -241,7 +244,7 @@ harness scan [path]
 
 Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
 
-2. **Append tagged learnings to `.harness/learnings.md`.** Tag every entry with skill and outcome:
+2. **Append tagged learnings to the session-scoped learnings file (`{sessionDir}/learnings.md` if session is known, otherwise `.harness/learnings.md`).** Tag every entry with skill and outcome:
 
    ```markdown
    ## YYYY-MM-DD — Task N: <task name>
@@ -251,9 +254,9 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
    - [skill:harness-execution] [outcome:decision] What was decided and why
    ```
 
-3. **Record failures in `.harness/failures.md`** if any task was escalated after retry exhaustion (from Phase 2 Step 5). Include the approach attempted and why it failed, so future sessions avoid the same dead end.
+3. **Record failures in the session-scoped failures file (`{sessionDir}/failures.md` if session is known, otherwise `.harness/failures.md`)** if any task was escalated after retry exhaustion (from Phase 2 Step 5). Include the approach attempted and why it failed, so future sessions avoid the same dead end.
 
-4. **Write `.harness/handoff.json`** with structured context for the next skill or session:
+4. **Write the session-scoped handoff (`{sessionDir}/handoff.json` if session is known, otherwise `.harness/handoff.json`)** with structured context for the next skill or session:
 
    ```json
    {
@@ -325,8 +328,8 @@ These are non-negotiable. When any condition is met, stop immediately.
 - **`harness check-deps`** — Run when tasks add new imports or modules. Catches boundary violations early.
 - **`harness state show`** — View current execution position and progress.
 - **`harness state learn "<message>"`** — Append a learning from the command line.
-- **`.harness/state.json`** — Read at session start to resume position. Updated after every task.
-- **`.harness/learnings.md`** — Append-only knowledge capture. Read at session start for prior context.
+- **State file** — Session-scoped at `{sessionDir}/state.json` when session is known, otherwise `.harness/state.json`. Read at session start to resume position. Updated after every task.
+- **Learnings file** — Session-scoped at `{sessionDir}/learnings.md` when session is known, otherwise `.harness/learnings.md`. Append-only knowledge capture. Read at session start for prior context.
 - **Roadmap sync** — After completing plan execution, call `manage_roadmap` with action `sync` and `apply: true` to update roadmap status. Mandatory when `docs/roadmap.md` exists. Do not use `force_sync: true`. Falls back to `syncRoadmap()` from core if MCP tool is unavailable.
 - **`emit_interaction`** -- Call at plan completion to auto-transition to harness-verification. Uses auto-transition (proceeds immediately without user confirmation).
 
