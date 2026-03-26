@@ -453,6 +453,14 @@ last_manual_edit: 2026-03-23
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-24-orchestrator-foundation-plan.md
 
+### Efficient Context Pipeline
+
+- **Status:** planned
+- **Spec:** docs/changes/efficient-context-pipeline/proposal.md
+- **Summary:** Reduce token waste through session-scoped state, lean agent dispatch, token-budgeted learnings, session summaries, and a learnings-driven feedback loop
+- **Blockers:** none
+- **Plan:** none
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection

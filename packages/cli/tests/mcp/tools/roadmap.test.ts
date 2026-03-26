@@ -449,3 +449,138 @@ describe('manage_roadmap query action', () => {
     }
   });
 });
+
+// Roadmap format without "Milestone:" prefix or "Feature:" prefix — matches actual production format
+const REAL_WORLD_ROADMAP = `---
+project: harness-engineering
+version: 1
+created: 2026-03-21
+updated: 2026-03-23
+last_synced: 2026-03-23
+last_manual_edit: 2026-03-23
+---
+
+# Roadmap
+
+## v1.0 Foundation
+
+### Core Library Design & Modules
+
+- **Status:** done
+- **Spec:** docs/changes/core-library-design/proposal.md
+- **Summary:** Core library architecture
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-11-phase1-foundation-and-docs.md
+
+### CLI & Tooling
+
+- **Status:** done
+- **Spec:** docs/changes/cli-tooling/proposal.md
+- **Summary:** Command-line interface
+- **Blockers:** none
+- **Plan:** none
+
+## Current Work
+
+### Orchestrator Package Implementation
+
+- **Status:** in-progress
+- **Spec:** docs/changes/orchestrator/proposal.md
+- **Summary:** Long-running daemon
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-24-orchestrator-foundation-plan.md
+
+## Backlog
+
+### CI/CD Integration
+
+- **Status:** backlog
+- **Spec:** docs/changes/ci-cd/proposal.md
+- **Summary:** CI/CD pipeline integration
+- **Blockers:** none
+- **Plan:** none
+`;
+
+describe('manage_roadmap with real-world format (no Feature:/Milestone: prefixes)', () => {
+  let realDir: string;
+
+  beforeEach(() => {
+    realDir = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-real-'));
+    const docsDir = path.join(realDir, 'docs');
+    fs.mkdirSync(docsDir, { recursive: true });
+    fs.writeFileSync(path.join(docsDir, 'roadmap.md'), REAL_WORLD_ROADMAP, 'utf-8');
+  });
+
+  afterEach(() => {
+    fs.rmSync(realDir, { recursive: true, force: true });
+  });
+
+  it('parses features without Feature: prefix', async () => {
+    const response = await handleManageRoadmap({ path: realDir, action: 'show' });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const foundation = parsed.milestones.find(
+      (m: { name: string }) => m.name === 'v1.0 Foundation'
+    );
+    expect(foundation.features).toHaveLength(2);
+    expect(foundation.features[0].name).toBe('Core Library Design & Modules');
+    expect(foundation.features[1].name).toBe('CLI & Tooling');
+  });
+
+  it('parses milestones without Milestone: prefix', async () => {
+    const response = await handleManageRoadmap({ path: realDir, action: 'show' });
+    const parsed = JSON.parse(response.content[0].text);
+    const names = parsed.milestones.map((m: { name: string }) => m.name);
+    expect(names).toContain('v1.0 Foundation');
+    expect(names).toContain('Current Work');
+    expect(names).toContain('Backlog');
+  });
+
+  it('preserves created/updated frontmatter fields', async () => {
+    const response = await handleManageRoadmap({ path: realDir, action: 'show' });
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.frontmatter.created).toBe('2026-03-21');
+    expect(parsed.frontmatter.updated).toBe('2026-03-23');
+  });
+
+  it('add preserves existing features in roundtrip', async () => {
+    await handleManageRoadmap({
+      path: realDir,
+      action: 'add',
+      feature: 'New Feature',
+      milestone: 'Current Work',
+      status: 'planned',
+      summary: 'A new feature',
+    });
+    const response = await handleManageRoadmap({ path: realDir, action: 'show' });
+    const parsed = JSON.parse(response.content[0].text);
+
+    // Original features still present
+    const foundation = parsed.milestones.find(
+      (m: { name: string }) => m.name === 'v1.0 Foundation'
+    );
+    expect(foundation.features).toHaveLength(2);
+    expect(foundation.features[0].name).toBe('Core Library Design & Modules');
+
+    // New feature added
+    const current = parsed.milestones.find((m: { name: string }) => m.name === 'Current Work');
+    expect(current.features).toHaveLength(2);
+    expect(current.features[1].name).toBe('New Feature');
+
+    // Backlog preserved
+    const backlog = parsed.milestones.find((m: { name: string }) => m.name === 'Backlog');
+    expect(backlog.features).toHaveLength(1);
+    expect(backlog.features[0].name).toBe('CI/CD Integration');
+  });
+
+  it('accepts Plan: singular and Blockers: field names', async () => {
+    const response = await handleManageRoadmap({ path: realDir, action: 'show' });
+    const parsed = JSON.parse(response.content[0].text);
+    const foundation = parsed.milestones.find(
+      (m: { name: string }) => m.name === 'v1.0 Foundation'
+    );
+    const core = foundation.features[0];
+    expect(core.plans).toEqual(['docs/plans/2026-03-11-phase1-foundation-and-docs.md']);
+    expect(core.blockedBy).toEqual([]);
+  });
+});

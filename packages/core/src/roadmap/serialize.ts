@@ -13,11 +13,17 @@ export function serializeRoadmap(roadmap: Roadmap): string {
   lines.push('---');
   lines.push(`project: ${roadmap.frontmatter.project}`);
   lines.push(`version: ${roadmap.frontmatter.version}`);
+  if (roadmap.frontmatter.created) {
+    lines.push(`created: ${roadmap.frontmatter.created}`);
+  }
+  if (roadmap.frontmatter.updated) {
+    lines.push(`updated: ${roadmap.frontmatter.updated}`);
+  }
   lines.push(`last_synced: ${roadmap.frontmatter.lastSynced}`);
   lines.push(`last_manual_edit: ${roadmap.frontmatter.lastManualEdit}`);
   lines.push('---');
   lines.push('');
-  lines.push('# Project Roadmap');
+  lines.push('# Roadmap');
 
   for (const milestone of roadmap.milestones) {
     lines.push('');
@@ -33,7 +39,7 @@ export function serializeRoadmap(roadmap: Roadmap): string {
 }
 
 function serializeMilestoneHeading(milestone: RoadmapMilestone): string {
-  return milestone.isBacklog ? '## Backlog' : `## Milestone: ${milestone.name}`;
+  return milestone.isBacklog ? '## Backlog' : `## ${milestone.name}`;
 }
 
 function serializeFeature(feature: RoadmapFeature): string[] {
@@ -42,11 +48,12 @@ function serializeFeature(feature: RoadmapFeature): string[] {
   const blockedBy = feature.blockedBy.length > 0 ? feature.blockedBy.join(', ') : EM_DASH;
 
   return [
-    `### Feature: ${feature.name}`,
+    `### ${feature.name}`,
+    '',
     `- **Status:** ${feature.status}`,
     `- **Spec:** ${spec}`,
-    `- **Plans:** ${plans}`,
-    `- **Blocked by:** ${blockedBy}`,
     `- **Summary:** ${feature.summary}`,
+    `- **Blockers:** ${blockedBy}`,
+    `- **Plan:** ${plans}`,
   ];
 }
