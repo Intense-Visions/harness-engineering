@@ -35,6 +35,26 @@ The words "should", "probably", "seems to", and "I believe" are forbidden in ver
 
 ---
 
+### Context Loading
+
+Before running verification levels, load session context if a session slug was provided (e.g., by autopilot dispatch):
+
+```json
+gather_context({
+  path: "<project-root>",
+  intent: "Verify phase deliverables",
+  skill: "harness-verification",
+  session: "<session-slug-if-provided>",
+  include: ["state", "learnings", "validation"]
+})
+```
+
+**Session resolution:** If a session slug is known (passed via autopilot dispatch or available from a previous handoff), include the `session` parameter. This scopes all state reads to `.harness/sessions/<slug>/`. If no session is known, omit it — `gather_context` falls back to global files at `.harness/`.
+
+Use the returned learnings to check for known failures and dead ends relevant to the artifacts being verified.
+
+---
+
 ### Level 1: EXISTS — The Artifact Is Present
 
 For every artifact that was supposed to be created or modified:
@@ -338,6 +358,12 @@ Task: "Create UserService with create, read, update, delete operations."
 - **When tests pass but you suspect they are not testing real behavior:** Read the test assertions carefully. If tests only check "does not throw" or assert on mock return values without verifying real behavior, flag them as SUBSTANTIVE failures.
 - **When verification reveals the spec itself is incomplete:** Do not fill in the gaps yourself. Escalate to the human: "Verification found that the spec does not define behavior for [scenario]. How should this be handled?"
 - **When you cannot run harness checks:** If `harness validate` or `harness check-deps` cannot be run (missing configuration, broken tooling), this is a blocking issue. Do not skip verification — fix the tooling or escalate.
+
+## Harness Integration
+
+- **`gather_context`** — Used in Context Loading phase (before Level 1) to load session-scoped state, learnings, and validation in a single call. The `session` parameter scopes reads to the session directory when provided by autopilot dispatch.
+- **`harness validate`** — Run during Level 3 (WIRED) to verify artifact integration.
+- **`harness check-deps`** — Run during Level 3 (WIRED) to verify dependency boundaries.
 
 After verification completes, append a tagged learning:
 
