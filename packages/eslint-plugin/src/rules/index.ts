@@ -9,6 +9,7 @@ import noUnboundedArrayChains from './no-unbounded-array-chains';
 import requireBoundarySchema from './require-boundary-schema';
 import noUnixShellCommand from './no-unix-shell-command';
 import noHardcodedPathSeparator from './no-hardcoded-path-separator';
+import requirePathNormalization from './require-path-normalization';
 
 export const rules = {
   'enforce-doc-exports': enforceDocExports,
@@ -21,4 +22,5 @@ export const rules = {
   'no-unbounded-array-chains': noUnboundedArrayChains,
   'no-unix-shell-command': noUnixShellCommand,
   'require-boundary-schema': requireBoundarySchema,
+  'require-path-normalization': requirePathNormalization,
 };

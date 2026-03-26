@@ -16,9 +16,9 @@ import type {
 import type { AST, Export } from '../shared/parsers';
 import { TypeScriptParser } from '../shared/parsers';
 import { createEntropyError } from '../shared/errors';
-import { readFileContent, fileExists, findFiles } from '../shared/fs-utils';
+import { readFileContent, fileExists, findFiles, relativePosix } from '../shared/fs-utils';
 import { buildDependencyGraph } from '../constraints/dependencies';
-import { join, resolve, relative } from 'path';
+import { join, resolve } from 'path';
 import { minimatch } from 'minimatch';
 
 /**
@@ -393,7 +393,7 @@ export async function buildSnapshot(
 
   // Filter out excluded
   sourceFilePaths = sourceFilePaths.filter((f) => {
-    const rel = relative(rootDir, f);
+    const rel = relativePosix(rootDir, f);
     return !excludePatterns.some((p) => minimatch(rel, p));
   });
 

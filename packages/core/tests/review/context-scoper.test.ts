@@ -8,11 +8,15 @@ import type {
 } from '../../src/review/types';
 
 // Mock fs-utils for file reading
-vi.mock('../../src/shared/fs-utils', () => ({
-  readFileContent: vi.fn(),
-  fileExists: vi.fn(),
-  findFiles: vi.fn(),
-}));
+vi.mock('../../src/shared/fs-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/shared/fs-utils')>();
+  return {
+    readFileContent: vi.fn(),
+    fileExists: vi.fn(),
+    findFiles: vi.fn(),
+    relativePosix: actual.relativePosix,
+  };
+});
 
 import { scopeContext } from '../../src/review/context-scoper';
 import { readFileContent, fileExists, findFiles } from '../../src/shared/fs-utils';

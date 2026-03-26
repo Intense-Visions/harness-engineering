@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { readFileContent, fileExists, findFiles } from '../shared/fs-utils';
+import { readFileContent, fileExists, findFiles, relativePosix } from '../shared/fs-utils';
 import { detectChangeType } from './change-type';
 import type {
   ContextBundle,
@@ -52,7 +52,7 @@ async function readContextFile(
   const content = result.value;
   const lines = content.split('\n').length;
   // Normalize to project-relative path
-  const relPath = path.isAbsolute(filePath) ? path.relative(projectRoot, filePath) : filePath;
+  const relPath = path.isAbsolute(filePath) ? relativePosix(projectRoot, filePath) : filePath;
 
   return { path: relPath, content, reason, lines };
 }
@@ -90,7 +90,7 @@ async function resolveImportPath(
   const basePath = path.resolve(fromDir, importSource);
   // Prevent path traversal outside project root
   if (!isWithinProject(basePath, projectRoot)) return null;
-  const relBase = path.relative(projectRoot, basePath);
+  const relBase = relativePosix(projectRoot, basePath);
 
   const candidates = [
     relBase + '.ts',
@@ -116,7 +116,7 @@ async function findTestFiles(projectRoot: string, sourceFile: string): Promise<s
   const baseName = path.basename(sourceFile, path.extname(sourceFile));
   const pattern = `**/${baseName}.{test,spec}.{ts,tsx,mts}`;
   const results = await findFiles(pattern, projectRoot);
-  return results.map((f) => path.relative(projectRoot, f));
+  return results.map((f) => relativePosix(projectRoot, f));
 }
 
 /**

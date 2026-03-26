@@ -13,8 +13,8 @@ import type {
   GraphDependencyData,
 } from './types';
 import { resolveFileToLayer } from './layers';
-import { findFiles } from '../shared/fs-utils';
-import { dirname, resolve, relative } from 'path';
+import { findFiles, relativePosix } from '../shared/fs-utils';
+import { dirname, resolve } from 'path';
 
 export { defineLayer } from './layers';
 
@@ -112,8 +112,8 @@ function checkLayerViolations(
   const violations: DependencyViolation[] = [];
 
   for (const edge of graph.edges) {
-    const fromRelative = relative(rootDir, edge.from);
-    const toRelative = relative(rootDir, edge.to);
+    const fromRelative = relativePosix(rootDir, edge.from);
+    const toRelative = relativePosix(rootDir, edge.to);
 
     const fromLayer = resolveFileToLayer(fromRelative, layers);
     const toLayer = resolveFileToLayer(toRelative, layers);

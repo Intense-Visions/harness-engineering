@@ -1,8 +1,8 @@
-import { relative } from 'node:path';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
 import { validateDependencies } from '../../constraints/dependencies';
 import type { DependencyViolation } from '../../constraints/types';
+import { relativePosix } from '../../shared/fs-utils';
 
 export class LayerViolationCollector implements Collector {
   readonly category = 'layer-violations' as const;
@@ -57,8 +57,8 @@ export class LayerViolationCollector implements Collector {
     );
 
     const violations: Violation[] = layerViolations.map((v: DependencyViolation) => {
-      const relFile = relative(rootDir, v.file);
-      const relImport = relative(rootDir, v.imports);
+      const relFile = relativePosix(rootDir, v.file);
+      const relImport = relativePosix(rootDir, v.imports);
       const detail = `${v.fromLayer} -> ${v.toLayer}: ${relFile} imports ${relImport}`;
       return {
         id: violationId(relFile, this.category, detail),

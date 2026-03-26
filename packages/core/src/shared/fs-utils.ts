@@ -1,5 +1,6 @@
 import { access, constants, readFile } from 'fs';
 import { promisify } from 'util';
+import { relative } from 'node:path';
 import { glob } from 'glob';
 import type { Result } from './result';
 import { Ok, Err } from './result';
@@ -46,4 +47,15 @@ export async function readFileContent(path: string): Promise<Result<string, Erro
  */
 export async function findFiles(pattern: string, cwd: string = process.cwd()): Promise<string[]> {
   return glob(pattern, { cwd, absolute: true });
+}
+
+/**
+ * Returns a forward-slash-separated relative path, safe on all platforms.
+ *
+ * On Windows, `path.relative()` returns backslash-separated paths which break
+ * string comparisons, minimatch patterns, and serialised output. This utility
+ * normalises to POSIX separators unconditionally.
+ */
+export function relativePosix(from: string, to: string): string {
+  return relative(from, to).replaceAll('\\', '/');
 }

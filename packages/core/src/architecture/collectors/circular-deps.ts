@@ -1,9 +1,8 @@
-import { relative } from 'node:path';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
 import { buildDependencyGraph } from '../../constraints/dependencies';
 import { detectCircularDeps } from '../../constraints/circular-deps';
-import { findFiles } from '../../shared/fs-utils';
+import { findFiles, relativePosix } from '../../shared/fs-utils';
 
 export class CircularDepsCollector implements Collector {
   readonly category = 'circular-deps' as const;
@@ -66,8 +65,8 @@ export class CircularDepsCollector implements Collector {
 
     const { cycles, largestCycle } = result.value;
     const violations: Violation[] = cycles.map((cycle) => {
-      const cyclePath = cycle.cycle.map((f) => relative(rootDir, f)).join(' -> ');
-      const firstFile = relative(rootDir, cycle.cycle[0]!);
+      const cyclePath = cycle.cycle.map((f) => relativePosix(rootDir, f)).join(' -> ');
+      const firstFile = relativePosix(rootDir, cycle.cycle[0]!);
       return {
         id: violationId(firstFile, this.category, cyclePath),
         file: firstFile,

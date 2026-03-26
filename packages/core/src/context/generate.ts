@@ -3,8 +3,8 @@ import { Ok, Err } from '../shared/result';
 import type { ContextError } from '../shared/errors';
 import { createError } from '../shared/errors';
 import type { AgentsMapConfig, GenerationSection } from './types';
-import { findFiles } from '../shared/fs-utils';
-import { relative, basename, dirname } from 'path';
+import { findFiles, relativePosix } from '../shared/fs-utils';
+import { basename, dirname } from 'path';
 
 /**
  * Default template sections for AGENTS.md
@@ -29,7 +29,7 @@ function groupByDirectory(files: string[], rootDir: string): Map<string, string[
   const groups = new Map<string, string[]>();
 
   for (const file of files) {
-    const relativePath = relative(rootDir, file);
+    const relativePath = relativePosix(rootDir, file);
     const dir = dirname(relativePath);
 
     if (!groups.has(dir)) {
@@ -121,7 +121,7 @@ export async function generateAgentsMap(
 
       // Filter out excluded patterns
       const filteredFiles = allFiles.filter((file) => {
-        const relativePath = relative(rootDir, file);
+        const relativePath = relativePosix(rootDir, file);
         return !matchesExcludePattern(relativePath, excludePaths);
       });
 
@@ -155,12 +155,12 @@ export async function generateAgentsMap(
 
         const sectionFiles = await findFiles(section.pattern, rootDir);
         const filteredSectionFiles = sectionFiles.filter((file) => {
-          const relativePath = relative(rootDir, file);
+          const relativePath = relativePosix(rootDir, file);
           return !matchesExcludePattern(relativePath, excludePaths);
         });
 
         for (const file of filteredSectionFiles.slice(0, 20)) {
-          lines.push(formatFileLink(relative(rootDir, file)));
+          lines.push(formatFileLink(relativePosix(rootDir, file)));
         }
         if (filteredSectionFiles.length > 20) {
           lines.push(`- _... and ${filteredSectionFiles.length - 20} more files_`);
