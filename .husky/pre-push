@@ -1,1 +1,2 @@
+pnpm run typecheck
 node packages/cli/dist/bin/harness.js ci check
