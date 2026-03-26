@@ -299,6 +299,10 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        You are running harness-code-review for phase {N}: {name}.
 
        Session directory: {sessionDir}
+       Session slug: {sessionSlug}
+
+       On startup, call gather_context({ session: "{sessionSlug}" }) to load
+       session-scoped learnings, state, and validation context.
 
        Follow the harness-code-review skill process exactly.
        Report findings with severity (blocking / warning / note).
