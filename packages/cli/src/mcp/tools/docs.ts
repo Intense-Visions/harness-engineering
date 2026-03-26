@@ -2,6 +2,18 @@ import * as path from 'path';
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { findConfigFile, loadConfig } from '../../config/loader.js';
+
+function resolveDocsDir(projectPath: string): string {
+  const configResult = findConfigFile(projectPath);
+  if (configResult.ok) {
+    const config = loadConfig(configResult.value);
+    if (config.ok) {
+      return path.resolve(projectPath, config.value.docsDir);
+    }
+  }
+  return path.resolve(projectPath, 'docs');
+}
 
 export const checkDocsDefinition = {
   name: 'check_docs',
@@ -60,7 +72,7 @@ export async function handleCheckDocs(input: {
       const [coverageResult, integrityResult] = await Promise.allSettled([
         checkDocCoverage(domain, {
           sourceDir: path.resolve(projectPath, 'src'),
-          docsDir: path.resolve(projectPath, 'docs'),
+          docsDir: resolveDocsDir(projectPath),
           ...(graphCoverage !== undefined && { graphCoverage }),
         }),
         validateKnowledgeMap(projectPath),
@@ -105,7 +117,7 @@ export async function handleCheckDocs(input: {
 
     const result = await checkDocCoverage(domain, {
       sourceDir: path.resolve(projectPath, 'src'),
-      docsDir: path.resolve(projectPath, 'docs'),
+      docsDir: resolveDocsDir(projectPath),
       ...(graphCoverage !== undefined && { graphCoverage }),
     });
     return resultToMcpResponse(result);
