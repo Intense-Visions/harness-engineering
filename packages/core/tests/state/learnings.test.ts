@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { appendLearning, loadRelevantLearnings } from '../../src/state/state-manager';
+import {
+  appendLearning,
+  loadRelevantLearnings,
+  loadBudgetedLearnings,
+} from '../../src/state/state-manager';
 
 describe('appendLearning with tags', () => {
   let tmpDir: string;
@@ -107,6 +111,112 @@ describe('loadRelevantLearnings', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('loadBudgetedLearnings', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-budget-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should return empty array when no learnings exist', async () => {
+    const result = await loadBudgetedLearnings(tmpDir, { intent: 'test', tokenBudget: 1000 });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual([]);
+    }
+  });
+
+  it('should return all learnings when within budget', async () => {
+    await appendLearning(tmpDir, 'Short learning A', 'skill-a', 'success');
+    await appendLearning(tmpDir, 'Short learning B', 'skill-b', 'success');
+
+    const result = await loadBudgetedLearnings(tmpDir, { intent: 'test', tokenBudget: 1000 });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBe(2);
+    }
+  });
+
+  it('should truncate learnings when they exceed token budget', async () => {
+    // Each learning is ~30 chars = ~8 tokens. With budget of 20 tokens, only ~2 fit.
+    for (let i = 0; i < 10; i++) {
+      await appendLearning(
+        tmpDir,
+        `Learning entry number ${i} with some extra padding text here`,
+        'skill-a',
+        'success'
+      );
+    }
+
+    const result = await loadBudgetedLearnings(tmpDir, { intent: 'test', tokenBudget: 20 });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBeLessThan(10);
+      // Verify total chars fits within budget (20 tokens * 4 chars/token = 80 chars)
+      const totalChars = result.value.join('\n').length;
+      expect(totalChars).toBeLessThanOrEqual(20 * 4);
+    }
+  });
+
+  it('should sort by recency (newest first)', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '- **2026-01-01 [skill:a]:** Old learning',
+        '',
+        '- **2026-03-15 [skill:b]:** Middle learning',
+        '',
+        '- **2026-03-25 [skill:c]:** Recent learning',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadBudgetedLearnings(tmpDir, { intent: 'test', tokenBudget: 1000 });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]).toContain('Recent learning');
+      expect(result.value[1]).toContain('Middle learning');
+      expect(result.value[2]).toContain('Old learning');
+    }
+  });
+
+  it('should prioritize learnings matching intent keywords', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '- **2026-03-25 [skill:a]:** Database migration requires downtime',
+        '',
+        '- **2026-03-25 [skill:b]:** Token budgeting improves context efficiency',
+        '',
+        '- **2026-03-25 [skill:c]:** Always run linter before commit',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadBudgetedLearnings(tmpDir, {
+      intent: 'Implement token budget for learnings',
+      tokenBudget: 1000,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // The token/budget related learning should come first
+      expect(result.value[0]).toContain('Token budgeting');
     }
   });
 });
