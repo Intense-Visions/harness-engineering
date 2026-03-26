@@ -99,7 +99,8 @@ export async function runAdd(
       }
 
       case 'doc': {
-        const docsDir = path.join(cwd, 'docs');
+        const configDocsDir = configResult.ok ? configResult.value.docsDir : './docs';
+        const docsDir = path.resolve(cwd, configDocsDir);
         if (!fs.existsSync(docsDir)) {
           fs.mkdirSync(docsDir, { recursive: true });
         }
@@ -108,7 +109,7 @@ export async function runAdd(
           return Err(new CLIError(`Doc ${name} already exists`, ExitCode.ERROR));
         }
         fs.writeFileSync(docPath, DOC_TEMPLATE(name));
-        created.push(`docs/${name}.md`);
+        created.push(`${configDocsDir.replace(/^\.[\\/]/, '')}/${name}.md`);
         break;
       }
 
