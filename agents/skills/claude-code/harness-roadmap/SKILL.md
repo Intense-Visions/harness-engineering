@@ -395,6 +395,38 @@ Choice?
    harness validate: passed
    ```
 
+---
+
+### Command: `--query <filter>` -- Query Features by Filter
+
+#### Phase 1: SCAN -- Load Roadmap
+
+1. Check if `docs/roadmap.md` exists.
+   - If missing: error with clear message. "No roadmap found at docs/roadmap.md. Run `--create` first to bootstrap one."
+2. Parse the roadmap (via `manage_roadmap query` or direct read).
+
+#### Phase 2: FILTER -- Apply Query
+
+1. Accept filter patterns:
+   - **Status filter:** `backlog`, `planned`, `in-progress`, `done`, `blocked` -- returns all features with that status
+   - **Milestone filter:** `milestone:<name>` -- returns all features in the named milestone (partial match)
+
+2. Display matching features with their milestone context:
+
+   ```
+   QUERY: <filter>
+
+   Results (N matches):
+     - Feature A (Current Work) .................. in-progress
+     - Feature B (Backlog) ....................... planned
+
+   Total: N matches
+   ```
+
+3. No file writes. This is a read-only operation.
+
+---
+
 ## Harness Integration
 
 - **`manage_roadmap` MCP tool** -- Primary read/write interface for roadmap operations. Supports `show`, `add`, `update`, `remove`, and `query` actions. Use this when MCP is available for structured CRUD.
@@ -422,6 +454,8 @@ Choice?
 16. `--edit` updates `last_manual_edit` timestamp (since changes are human-driven)
 17. Output matches the roadmap markdown format exactly (frontmatter, H2 milestones, H3 features, 5 fields each)
 18. `harness validate` passes after all operations
+19. `--query` filters features by status or milestone and displays results with milestone context
+20. `--query` errors gracefully when no roadmap exists, directing the user to `--create`
 
 ## Examples
 

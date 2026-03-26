@@ -161,7 +161,7 @@ These keywords flow into the `handoff.json` `contextKeywords` field when the spe
    - Call `manage_roadmap` with action `add`, `status: "planned"`, `milestone: "Current Work"`, and the spec path. Include a one-line summary from the spec overview.
    - If the feature already exists in the roadmap (duplicate name), skip silently — the feature was likely added manually or by a prior brainstorming session.
    - Log: `"Added '<feature-name>' to roadmap as planned"` (informational, not a prompt).
-   - If `manage_roadmap` is unavailable, fall back to direct file manipulation using `addFeature()` from core.
+   - If `manage_roadmap` is unavailable, fall back to direct file manipulation using `parseRoadmap`/`serializeRoadmap` from core to read, modify, and write `docs/roadmap.md`.
    - If no roadmap exists, skip this step silently.
 
 7. **Write handoff and suggest transition.** After the human approves the spec:

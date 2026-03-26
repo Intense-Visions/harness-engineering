@@ -341,6 +341,8 @@ interface RoadmapMilestone {
 interface RoadmapFrontmatter {
   project: string;
   version: number;
+  created?: string;
+  updated?: string;
   lastSynced: string;
   lastManualEdit: string;
 }

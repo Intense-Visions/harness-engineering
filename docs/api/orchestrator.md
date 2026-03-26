@@ -68,3 +68,13 @@ Internal events that drive the core state machine.
 - `worker_exit`: Triggered when an agent process completes.
 - `agent_update`: Triggered when an agent sends a status message.
 - `retry_fired`: Triggered when a backoff timer expires.
+
+## Tracker Adapters
+
+Tracker adapters implement `IssueTrackerClient` to bridge external issue sources into the orchestrator's internal `Issue` model.
+
+### `RoadmapTrackerAdapter`
+
+**Source:** [roadmap.ts](../../packages/orchestrator/src/tracker/adapters/roadmap.ts)
+
+Uses `docs/roadmap.md` as an issue tracker. Parses the roadmap via `parseRoadmap` from `@harness-engineering/core`, extracts features, and maps them to `Issue` objects using deterministic hashing for identifiers. Feature statuses (`backlog`, `planned`, `in-progress`, `done`, `blocked`) map directly to issue states.
