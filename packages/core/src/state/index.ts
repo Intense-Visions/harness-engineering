@@ -76,3 +76,9 @@ export {
  * Session directory resolution and index management.
  */
 export { resolveSessionDir, updateSessionIndex } from './session-resolver';
+
+/**
+ * Session summary persistence for cold-start context restoration.
+ */
+export { writeSessionSummary, loadSessionSummary, listActiveSessions } from './session-summary';
+export type { SessionSummaryData } from './session-summary';
