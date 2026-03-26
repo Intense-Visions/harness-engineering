@@ -1,23 +1,25 @@
 {
-  "fromSkill": "harness-verification",
-  "phase": "COMPLETE",
-  "summary": "Phase 1 Universal Session-Scoped State verified at all 3 levels. 14 artifacts checked. EXISTS, SUBSTANTIVE, WIRED all passed. 84 state tests pass, 2 CLI tests pass, TypeScript compiles clean, harness validate passes.",
-  "artifacts": [
-    "packages/core/src/state/session-resolver.ts",
-    "packages/core/src/state/constants.ts",
-    "packages/core/src/state/state-shared.ts",
-    "packages/core/src/state/state-persistence.ts",
-    "packages/core/src/state/learnings.ts",
-    "packages/core/src/state/failures.ts",
-    "packages/core/src/state/handoff.ts",
-    "packages/core/src/state/index.ts",
-    "packages/core/src/state/state-manager.ts",
-    "packages/core/tests/state/session-resolution.test.ts",
-    "packages/cli/src/mcp/tools/gather-context.ts",
-    "packages/cli/tests/mcp/tools/gather-context-session.test.ts",
-    "agents/skills/claude-code/harness-execution/SKILL.md",
-    "agents/skills/claude-code/harness-autopilot/SKILL.md"
+  "fromSkill": "harness-brainstorming",
+  "phase": "VALIDATE",
+  "summary": "Remove premature deprecation warnings from validateAgentsMap() and validateKnowledgeMap() — they do distinct work from Assembler.checkCoverage() and should not be deprecated.",
+  "artifacts": ["docs/changes/remove-premature-deprecation-warnings/proposal.md"],
+  "decisions": [
+    {
+      "what": "Remove warnings rather than replace functions",
+      "why": "checkCoverage() checks graph documentation edges, while the core functions check AGENTS.md structural integrity — they are complementary, not replacements"
+    },
+    {
+      "what": "No graph integration in core validators",
+      "why": "CLI already handles graph-optional enrichment in docs.ts; lifting into core is YAGNI"
+    }
   ],
-  "verdict": "pass",
-  "gaps": []
+  "contextKeywords": [
+    "validation",
+    "deprecation",
+    "agents-map",
+    "knowledge-map",
+    "graph",
+    "console-warn",
+    "checkCoverage"
+  ]
 }

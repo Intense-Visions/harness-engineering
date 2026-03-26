@@ -1,0 +1,23 @@
+{
+  "fromSkill": "harness-planning",
+  "phase": "VALIDATE",
+  "summary": "Plan to remove 2 misleading console.warn deprecation notices from validateAgentsMap() and validateKnowledgeMap() -- 1 task, no test changes needed",
+  "completed": [],
+  "pending": [
+    "Task 1: Remove console.warn deprecation calls from agents-map.ts and knowledge-map.ts, verify all 36 tests pass and harness validate runs clean"
+  ],
+  "concerns": [],
+  "decisions": [
+    "No test modifications required -- reviewed all 5 test files and confirmed none assert on console.warn output",
+    "Combined into a single task since both edits are trivial deletions in the same subsystem"
+  ],
+  "contextKeywords": [
+    "deprecation",
+    "console.warn",
+    "validateAgentsMap",
+    "validateKnowledgeMap",
+    "agents-map",
+    "knowledge-map",
+    "context-validators"
+  ]
+}
