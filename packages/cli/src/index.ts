@@ -47,6 +47,7 @@ import { createInstallConstraintsCommand } from './commands/install-constraints'
 import { createUninstallConstraintsCommand } from './commands/uninstall-constraints';
 import { createUninstallCommand } from './commands/uninstall';
 import { createOrchestratorCommand } from './commands/orchestrator';
+import { createLearningsCommand } from './commands/learnings';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -81,6 +82,7 @@ export function createProgram(): Command {
   program.addCommand(createPersonaCommand());
   program.addCommand(createSkillCommand());
   program.addCommand(createStateCommand());
+  program.addCommand(createLearningsCommand());
   program.addCommand(createCheckPhaseGateCommand());
   program.addCommand(createCreateSkillCommand());
   program.addCommand(createSetupMcpCommand());
