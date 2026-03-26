@@ -193,22 +193,39 @@ When presenting the task breakdown, use progress markers:
    }
    ```
 
-9. **Request plan sign-off:**
+9. **Write session summary (if session is known).** If running within a session (autopilot dispatch or standalone with session context), write the session summary:
 
    ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "confirmation",
-     confirmation: {
-       text: "Approve plan at <plan-file-path>?",
-       context: "<task count> tasks, <estimated time> minutes. <one-sentence summary>",
-       impact: "Approving unlocks task-by-task execution. Plan defines exact file paths, code, and commands.",
-       risk: "low"
-     }
+   writeSessionSummary(projectPath, sessionSlug, {
+     session: "<session-slug>",
+     lastActive: "<ISO timestamp>",
+     skill: "harness-planning",
+     status: "Plan complete. <N> tasks defined.",
+     spec: "<spec path if known>",
+     plan: "<plan file path>",
+     keyContext: "<1-2 sentences: what was planned, key decisions>",
+     nextStep: "Approve plan and begin execution."
    })
    ```
 
-10. **Suggest transition to execution.** After the human approves the plan:
+   If no session slug is known (standalone invocation without session context), skip this step.
+
+10. **Request plan sign-off:**
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "confirmation",
+  confirmation: {
+    text: "Approve plan at <plan-file-path>?",
+    context: "<task count> tasks, <estimated time> minutes. <one-sentence summary>",
+    impact: "Approving unlocks task-by-task execution. Plan defines exact file paths, code, and commands.",
+    risk: "low"
+  }
+})
+```
+
+11. **Suggest transition to execution.** After the human approves the plan:
 
     Call `emit_interaction`:
 
