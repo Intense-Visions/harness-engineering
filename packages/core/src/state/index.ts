@@ -23,7 +23,13 @@ export { loadState, saveState } from './state-persistence';
 /**
  * Learning accumulation and retrieval.
  */
-export { clearLearningsCache, appendLearning, loadRelevantLearnings } from './learnings';
+export {
+  clearLearningsCache,
+  appendLearning,
+  loadRelevantLearnings,
+  loadBudgetedLearnings,
+} from './learnings';
+export type { BudgetedLearningsOptions } from './learnings';
 
 /**
  * Failure tracking, loading, and archival.
