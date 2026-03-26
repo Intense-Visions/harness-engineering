@@ -113,24 +113,14 @@ export function createProgram(): Command {
 export { buildPreamble } from './commands/skill/preamble';
 
 /**
- * Command-line functions for graph operations, used by both CLI and MCP.
+ * Graph operations (scan, query, ingest, status, export).
  */
-export { runScan } from './commands/graph/scan';
-export { runQuery } from './commands/graph/query';
-export { runIngest } from './commands/graph/ingest';
-export { runGraphStatus } from './commands/graph/status';
-export { runGraphExport } from './commands/graph/export';
+export * from './exports/graph';
 
 /**
- * Core command implementations for validation and generation.
+ * Core command implementations (validation, generation, impact, architecture).
  */
-export { runCheckPhaseGate } from './commands/check-phase-gate';
-export { runCrossCheck } from './commands/validate-cross-check';
-export { generateSkillFiles } from './commands/create-skill';
-export type { CreateSkillOptions } from './commands/create-skill';
-export { generateSlashCommands } from './commands/generate-slash-commands';
-export type { GenerateResult } from './commands/generate-slash-commands';
-export type { SkillSource } from './slash-commands/normalize';
+export * from './exports/commands';
 
 /**
  * Error handling and logging utilities.
@@ -157,56 +147,9 @@ export { TemplateEngine } from './templates/engine';
 export type { TemplateContext, RenderedFiles } from './templates/engine';
 
 /**
- * Persona and agent orchestration.
+ * Persona, agent orchestration, and agent definition generators.
  */
-export { loadPersona, listPersonas } from './persona/loader';
-export type { PersonaMetadata } from './persona/loader';
-export { generateRuntime } from './persona/generators/runtime';
-export { generateAgentsMd } from './persona/generators/agents-md';
-export { generateCIWorkflow } from './persona/generators/ci-workflow';
-export { runPersona } from './persona/runner';
-export type {
-  CommandExecutor,
-  SkillExecutor,
-  StepExecutionContext,
-  PersonaRunReport,
-  StepReport,
-} from './persona/runner';
-export { executeSkill } from './persona/skill-executor';
-export type { SkillExecutionContext, SkillExecutionResult } from './persona/skill-executor';
-export type { Persona, Step, CommandStep, SkillStep, TriggerContext } from './persona/schema';
-export { ALLOWED_PERSONA_COMMANDS } from './persona/constants';
-export { detectTrigger } from './persona/trigger-detector';
-export type { HandoffContext, TriggerDetectionResult } from './persona/trigger-detector';
-
-/**
- * Agent definition generators.
- */
-export { generateAgentDefinitions } from './commands/generate-agent-definitions';
-export type {
-  GenerateAgentDefsOptions,
-  GenerateAgentDefsResult,
-} from './commands/generate-agent-definitions';
-export {
-  generateAgentDefinition,
-  AGENT_DESCRIPTIONS,
-  DEFAULT_TOOLS,
-  GEMINI_TOOL_MAP,
-} from './agent-definitions/generator';
-export type { AgentDefinition } from './agent-definitions/generator';
-export { renderClaudeCodeAgent } from './agent-definitions/render-claude-code';
-export { renderGeminiAgent } from './agent-definitions/render-gemini-cli';
-
-/**
- * Impact preview analysis.
- */
-export { runImpactPreview } from './commands/impact-preview';
-
-/**
- * Architecture assertion checks.
- */
-export { runCheckArch } from './commands/check-arch';
-export type { CheckArchResult } from './commands/check-arch';
+export * from './exports/persona';
 
 /**
  * MCP server factory and tool definitions.
@@ -214,19 +157,6 @@ export type { CheckArchResult } from './commands/check-arch';
 export { createHarnessServer, startServer, getToolDefinitions } from './mcp/index';
 
 /**
- * Skill installation and management.
+ * Skill installation and management (install, uninstall, constraints).
  */
-export { runInstall } from './commands/install';
-export type { InstallResult } from './commands/install';
-export { runInstallConstraints } from './commands/install-constraints';
-export type {
-  InstallConstraintsOptions,
-  InstallConstraintsSuccess,
-} from './commands/install-constraints';
-export { runUninstallConstraints } from './commands/uninstall-constraints';
-export type {
-  UninstallConstraintsOptions,
-  UninstallConstraintsSuccess,
-} from './commands/uninstall-constraints';
-export { runUninstall } from './commands/uninstall';
-export type { UninstallResult } from './commands/uninstall';
+export * from './exports/registry';
