@@ -99,6 +99,7 @@ export const EmitInteractionInputSchema = z.object({
   path: z.string().min(1),
   type: InteractionTypeSchema,
   stream: z.string().optional(),
+  session: z.string().optional(),
   // Uses base schema here; refined validation (recommendation required with options)
   // is applied in the handler's question branch via InteractionQuestionWithOptionsSchema.
   // Refined schemas with .refine() cannot be nested inside z.object().optional() reliably.

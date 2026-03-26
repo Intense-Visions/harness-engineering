@@ -36,6 +36,11 @@ export const manageStateDefinition = {
         type: 'string',
         description: 'Stream name to target (auto-resolves from branch if omitted)',
       },
+      session: {
+        type: 'string',
+        description:
+          'Session slug for session-scoped state (takes priority over stream when provided)',
+      },
     },
     required: ['path', 'action'],
   },
@@ -59,6 +64,7 @@ export async function handleManageState(input: {
   failureType?: string;
   handoff?: unknown;
   stream?: string;
+  session?: string;
 }) {
   try {
     const {
@@ -75,7 +81,7 @@ export async function handleManageState(input: {
 
     switch (input.action) {
       case 'show': {
-        const result = await loadState(projectPath, input.stream);
+        const result = await loadState(projectPath, input.stream, input.session);
         return resultToMcpResponse(result);
       }
 
@@ -93,7 +99,8 @@ export async function handleManageState(input: {
           input.learning,
           input.skillName,
           input.outcome,
-          input.stream
+          input.stream,
+          input.session
         );
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ recorded: true }));
@@ -124,20 +131,26 @@ export async function handleManageState(input: {
           input.description,
           input.skillName ?? 'unknown',
           input.failureType,
-          input.stream
+          input.stream,
+          input.session
         );
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ recorded: true }));
       }
 
       case 'archive': {
-        const result = await archiveFailures(projectPath, input.stream);
+        const result = await archiveFailures(projectPath, input.stream, input.session);
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ archived: true }));
       }
 
       case 'reset': {
-        const result = await saveState(projectPath, { ...DEFAULT_STATE }, input.stream);
+        const result = await saveState(
+          projectPath,
+          { ...DEFAULT_STATE },
+          input.stream,
+          input.session
+        );
         if (!result.ok) return resultToMcpResponse(result);
         return resultToMcpResponse(Ok({ reset: true }));
       }
@@ -160,14 +173,15 @@ export async function handleManageState(input: {
         const result = await saveHandoff(
           projectPath,
           input.handoff as Parameters<typeof saveHandoff>[1],
-          input.stream
+          input.stream,
+          input.session
         );
         return resultToMcpResponse(result.ok ? Ok({ saved: true }) : result);
       }
 
       case 'load-handoff': {
         const { loadHandoff } = await import('@harness-engineering/core');
-        const result = await loadHandoff(projectPath, input.stream);
+        const result = await loadHandoff(projectPath, input.stream, input.session);
         return resultToMcpResponse(result);
       }
 

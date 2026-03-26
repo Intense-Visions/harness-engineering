@@ -23,7 +23,7 @@ describe('serializeRoadmap()', () => {
   it('uses em-dash for empty plans array', () => {
     const result = serializeRoadmap(VALID_ROADMAP);
     // User Auth Revamp has empty plans
-    expect(result).toContain('- **Plans:** \u2014');
+    expect(result).toContain('- **Plan:** \u2014');
   });
 
   it('round-trips: parse then serialize produces identical output', () => {

@@ -18,7 +18,7 @@ export function resolveSessionDir(
     return Err(new Error('Session slug must not be empty'));
   }
 
-  if (sessionSlug.includes('..') || sessionSlug.includes('/')) {
+  if (sessionSlug.includes('..') || sessionSlug.includes('/') || sessionSlug.includes('\\')) {
     return Err(
       new Error(`Invalid session slug '${sessionSlug}': must not contain path traversal characters`)
     );
