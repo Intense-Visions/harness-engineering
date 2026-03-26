@@ -308,22 +308,31 @@ Identifies critical execution paths.
 
 ### State Management
 
-| Function                                  | Description                                                                                                            |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `loadState(rootDir)`                      | Loads harness state from `.harness/state.json`                                                                         |
-| `saveState(rootDir, state)`               | Saves harness state                                                                                                    |
-| `appendLearning(rootDir, learning)`       | Appends a learning entry                                                                                               |
-| `loadRelevantLearnings(rootDir, query)`   | Loads learnings relevant to a query                                                                                    |
-| `loadBudgetedLearnings(rootDir, options)` | Loads learnings within a token budget with two-tier (session + global) loading, recency sorting, and relevance scoring |
-| `clearLearningsCache()`                   | Clears the in-memory learnings cache                                                                                   |
-| `appendFailure(rootDir, failure)`         | Records a failure entry                                                                                                |
-| `loadFailures(rootDir)`                   | Loads failure history                                                                                                  |
-| `archiveFailures(rootDir)`                | Archives old failures                                                                                                  |
-| `saveHandoff(rootDir, handoff)`           | Saves a handoff document                                                                                               |
-| `loadHandoff(rootDir)`                    | Loads the current handoff                                                                                              |
-| `runMechanicalGate(rootDir, config)`      | Runs a mechanical quality gate                                                                                         |
+| Function                                   | Description                                                                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `loadState(rootDir)`                       | Loads harness state from `.harness/state.json`                                                                         |
+| `saveState(rootDir, state)`                | Saves harness state                                                                                                    |
+| `appendLearning(rootDir, learning)`        | Appends a learning entry                                                                                               |
+| `loadRelevantLearnings(rootDir, query)`    | Loads learnings relevant to a query                                                                                    |
+| `loadBudgetedLearnings(rootDir, options)`  | Loads learnings within a token budget with two-tier (session + global) loading, recency sorting, and relevance scoring |
+| `clearLearningsCache()`                    | Clears the in-memory learnings cache                                                                                   |
+| `appendFailure(rootDir, failure)`          | Records a failure entry                                                                                                |
+| `loadFailures(rootDir)`                    | Loads failure history                                                                                                  |
+| `archiveFailures(rootDir)`                 | Archives old failures                                                                                                  |
+| `saveHandoff(rootDir, handoff)`            | Saves a handoff document                                                                                               |
+| `loadHandoff(rootDir)`                     | Loads the current handoff                                                                                              |
+| `runMechanicalGate(rootDir, config)`       | Runs a mechanical quality gate                                                                                         |
+| `parseDateFromEntry(entry)`                | Parses a YYYY-MM-DD date from a learning entry string                                                                  |
+| `analyzeLearningPatterns(entries)`         | Groups learning entries by `[skill:X]` and `[outcome:Y]` tags, returns patterns with 3+ occurrences                    |
+| `archiveLearnings(rootDir, entries)`       | Archives learning entries to `.harness/learnings-archive/{YYYY-MM}.md`                                                 |
+| `pruneLearnings(rootDir)`                  | Analyzes patterns, archives old entries, keeps 20 most recent in `learnings.md`                                        |
+| `resolveSessionDir(rootDir, slug)`         | Resolves session directory path under `.harness/sessions/<slug>/`                                                      |
+| `updateSessionIndex(rootDir, slug, desc)`  | Updates `.harness/sessions/index.md` with a session entry                                                              |
+| `writeSessionSummary(rootDir, slug, data)` | Writes session `summary.md` and updates session index                                                                  |
+| `loadSessionSummary(rootDir, slug)`        | Loads a session's `summary.md` contents, or null if missing                                                            |
+| `listActiveSessions(rootDir)`              | Reads `.harness/sessions/index.md` contents, or null if missing                                                        |
 
-**Types:** `HarnessState`, `FailureEntry`, `Handoff`, `GateResult`, `GateConfig`, `BudgetedLearningsOptions`
+**Types:** `HarnessState`, `FailureEntry`, `Handoff`, `GateResult`, `GateConfig`, `BudgetedLearningsOptions`, `LearningPattern`, `PruneResult`, `SessionSummaryData`
 
 **Schemas:** `HarnessStateSchema`, `FailureEntrySchema`, `HandoffSchema`, `GateResultSchema`, `GateConfigSchema`
 
