@@ -65,3 +65,8 @@ export {
   getStreamForBranch,
   touchStream,
 } from './stream-resolver';
+
+/**
+ * Session directory resolution and index management.
+ */
+export { resolveSessionDir, updateSessionIndex } from './session-resolver';

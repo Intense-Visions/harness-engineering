@@ -7,3 +7,4 @@ export { clearLearningsCache, appendLearning, loadRelevantLearnings } from './le
 export { clearFailuresCache, appendFailure, loadFailures, archiveFailures } from './failures';
 export { saveHandoff, loadHandoff } from './handoff';
 export { runMechanicalGate } from './mechanical-gate';
+export { resolveSessionDir, updateSessionIndex } from './session-resolver';
