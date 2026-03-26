@@ -62,7 +62,7 @@ export async function appendLearning(
 }
 
 /** Estimate token count from a string (chars / 4, ceiling). */
-export function estimateTokens(text: string): number {
+function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
@@ -71,7 +71,7 @@ export function estimateTokens(text: string): number {
  * Returns a number 0-1. Higher = more relevant.
  * Uses keyword overlap between intent words and entry text.
  */
-export function scoreRelevance(entry: string, intent: string): number {
+function scoreRelevance(entry: string, intent: string): number {
   if (!intent || intent.trim() === '') return 0;
   const intentWords = intent
     .toLowerCase()
@@ -115,7 +115,6 @@ export async function loadBudgetedLearnings(
   options: BudgetedLearningsOptions
 ): Promise<Result<string[], Error>> {
   const { intent, tokenBudget = 1000, skill, session, stream } = options;
-  const charBudget = tokenBudget * 4;
 
   const sortByRecencyAndRelevance = (entries: string[]): string[] => {
     return [...entries].sort((a, b) => {
@@ -147,12 +146,13 @@ export async function loadBudgetedLearnings(
 
   // Apply token budget: greedily add entries until budget exhausted
   const budgeted: string[] = [];
-  let totalChars = 0;
+  let totalTokens = 0;
   for (const entry of allEntries) {
-    const entryChars = entry.length + (budgeted.length > 0 ? 1 : 0); // +1 for newline separator
-    if (totalChars + entryChars > charBudget) break;
+    const separator = budgeted.length > 0 ? '\n' : '';
+    const entryCost = estimateTokens(entry + separator);
+    if (totalTokens + entryCost > tokenBudget) break;
     budgeted.push(entry);
-    totalChars += entryChars;
+    totalTokens += entryCost;
   }
 
   return Ok(budgeted);
