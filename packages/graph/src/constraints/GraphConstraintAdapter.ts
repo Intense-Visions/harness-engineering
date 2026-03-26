@@ -60,8 +60,8 @@ export class GraphConstraintAdapter {
     const violations: GraphLayerViolation[] = [];
 
     for (const edge of edges) {
-      const fromRelative = relative(rootDir, edge.from);
-      const toRelative = relative(rootDir, edge.to);
+      const fromRelative = relative(rootDir, edge.from).replaceAll('\\', '/');
+      const toRelative = relative(rootDir, edge.to).replaceAll('\\', '/');
 
       const fromLayer = this.resolveLayer(fromRelative, layers);
       const toLayer = this.resolveLayer(toRelative, layers);

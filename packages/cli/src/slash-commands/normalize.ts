@@ -69,14 +69,12 @@ export function normalizeSkills(
       const skillMdContent = fs.existsSync(skillMdPath)
         ? fs.readFileSync(skillMdPath, 'utf-8')
         : '';
-      const skillMdRelative = path.relative(
-        process.cwd(),
-        path.join(skillsDir, entry.name, 'SKILL.md')
-      );
-      const skillYamlRelative = path.relative(
-        process.cwd(),
-        path.join(skillsDir, entry.name, 'skill.yaml')
-      );
+      const skillMdRelative = path
+        .relative(process.cwd(), path.join(skillsDir, entry.name, 'SKILL.md'))
+        .replaceAll('\\', '/');
+      const skillYamlRelative = path
+        .relative(process.cwd(), path.join(skillsDir, entry.name, 'skill.yaml'))
+        .replaceAll('\\', '/');
 
       const args: SkillArg[] = (meta.cli?.args ?? []).map((a) => ({
         name: a.name,

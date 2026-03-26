@@ -54,7 +54,7 @@ export async function globFiles(rootDir: string, exclude?: string[]): Promise<st
 
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      const relativePath = path.relative(rootDir, fullPath);
+      const relativePath = path.relative(rootDir, fullPath).replaceAll('\\', '/');
 
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;

@@ -23,6 +23,7 @@ const plugin = {
         '@harness-engineering/enforce-doc-exports': 'warn',
         '@harness-engineering/no-unix-shell-command': 'warn',
         '@harness-engineering/no-hardcoded-path-separator': 'warn',
+        '@harness-engineering/require-path-normalization': 'warn',
       },
     },
     strict: {
@@ -39,6 +40,7 @@ const plugin = {
         '@harness-engineering/enforce-doc-exports': 'error',
         '@harness-engineering/no-unix-shell-command': 'error',
         '@harness-engineering/no-hardcoded-path-separator': 'error',
+        '@harness-engineering/require-path-normalization': 'error',
       },
     },
   },

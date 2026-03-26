@@ -31,8 +31,9 @@ describe('violationId', () => {
     expect(a).not.toBe(b);
   });
 
-  it('normalizes Windows backslash paths', () => {
-    const a = violationId('src\\a.ts', 'complexity', 'cyclomatic=18');
+  it('expects pre-normalized POSIX paths (callers use relativePosix)', () => {
+    // violationId no longer normalizes internally — callers must pass POSIX paths
+    const a = violationId('src/a.ts', 'complexity', 'cyclomatic=18');
     const b = violationId('src/a.ts', 'complexity', 'cyclomatic=18');
     expect(a).toBe(b);
   });

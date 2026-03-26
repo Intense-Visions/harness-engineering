@@ -1,7 +1,7 @@
 import { minimatch } from 'minimatch';
-import { basename, relative } from 'path';
+import { basename } from 'path';
 import { createError, type ContextError } from '../shared/errors';
-import { findFiles, readFileContent } from '../shared/fs-utils';
+import { findFiles, readFileContent, relativePosix } from '../shared/fs-utils';
 import { Err, Ok, type Result } from '../shared/result';
 import { extractMarkdownLinks } from './agents-map';
 import type { CoverageOptions, CoverageReport, DocumentationGap } from './types';
@@ -75,7 +75,7 @@ export async function checkDocCoverage(
 
     // Filter out excluded patterns
     const filteredSourceFiles = sourceFiles.filter((file) => {
-      const relativePath = relative(sourceDir, file);
+      const relativePath = relativePosix(sourceDir, file);
       return !excludePatterns.some((pattern) => {
         return (
           minimatch(relativePath, pattern, { dot: true }) || minimatch(file, pattern, { dot: true })
@@ -111,7 +111,7 @@ export async function checkDocCoverage(
     const gaps: DocumentationGap[] = [];
 
     for (const sourceFile of filteredSourceFiles) {
-      const relativePath = relative(sourceDir, sourceFile);
+      const relativePath = relativePosix(sourceDir, sourceFile);
       const fileName = basename(sourceFile);
 
       // Check if documented (by full path or filename)

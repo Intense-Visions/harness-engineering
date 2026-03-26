@@ -1,9 +1,8 @@
-import { relative } from 'node:path';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
 import { detectComplexityViolations } from '../../entropy/detectors/complexity';
 import type { CodebaseSnapshot } from '../../entropy/types';
-import { findFiles } from '../../shared/fs-utils';
+import { findFiles, relativePosix } from '../../shared/fs-utils';
 
 export class ComplexityCollector implements Collector {
   readonly category = 'complexity' as const;
@@ -77,7 +76,7 @@ export class ComplexityCollector implements Collector {
     );
 
     const violations: Violation[] = filtered.map((v) => {
-      const relFile = relative(rootDir, v.file);
+      const relFile = relativePosix(rootDir, v.file);
       const idDetail = `${v.metric}:${v.function}`;
       return {
         id: violationId(relFile, this.category, idDetail),

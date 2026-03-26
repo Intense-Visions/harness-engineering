@@ -4,26 +4,25 @@
 // anti-patterns that break cross-platform compatibility.
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'fs';
-import { resolve, dirname, sep } from 'path';
-import { fileURLToPath } from 'url';
-import { glob } from 'glob';
+import { readFileSync, existsSync, globSync } from 'node:fs';
+import { resolve, dirname, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
 const EXCLUDE_DIRS = ['node_modules', 'dist', 'coverage', '.harness', '.git', '.turbo'];
-const GLOB_IGNORE = EXCLUDE_DIRS.map((d) => `**/${d}/**`);
+const GLOB_EXCLUDE = EXCLUDE_DIRS.map((d) => `**/${d}/**`);
+
+function findFiles(pattern: string): string[] {
+  return globSync(pattern, { cwd: ROOT, exclude: GLOB_EXCLUDE }).map((f) => resolve(ROOT, f));
+}
 
 // -- Anti-pattern 1: Unix commands in package.json scripts --------------------
 describe('no unix commands in package.json scripts', () => {
   const UNIX_SCRIPT_PATTERNS = [/\brm -rf\b/, /\bcp -r\b/, /\bmv /, /\bmkdir -p\b/, /\bchmod\b/];
 
-  const packageJsonPaths = glob.sync('**/package.json', {
-    cwd: ROOT,
-    ignore: GLOB_IGNORE,
-    absolute: true,
-  });
+  const packageJsonPaths = findFiles('**/package.json');
 
   for (const pkgPath of packageJsonPaths) {
     const relative = pkgPath.replace(ROOT + sep, '');
@@ -52,11 +51,7 @@ describe('no unix commands in package.json scripts', () => {
 
 // -- Anti-pattern 2: .sh files without cross-platform equivalents -------------
 describe('shell scripts have cross-platform equivalents', () => {
-  const shFiles = glob.sync('**/*.sh', {
-    cwd: ROOT,
-    ignore: GLOB_IGNORE,
-    absolute: true,
-  });
+  const shFiles = findFiles('**/*.sh');
 
   if (shFiles.length === 0) {
     it('no .sh files found (nothing to check)', () => {
@@ -86,11 +81,7 @@ describe('no hardcoded path separators in source files', () => {
   const SEPARATOR_PATTERN =
     /\.(indexOf|includes|startsWith|endsWith)\s*\(\s*['"`][^'"`]*\/[a-zA-Z_][a-zA-Z0-9_-]*\/[^'"`]*['"`]\s*\)/g;
 
-  const tsFiles = glob.sync('packages/*/src/**/*.ts', {
-    cwd: ROOT,
-    ignore: GLOB_IGNORE,
-    absolute: true,
-  });
+  const tsFiles = findFiles('packages/*/src/**/*.ts');
 
   for (const tsFile of tsFiles) {
     const relative = tsFile.replace(ROOT + sep, '');
@@ -124,11 +115,7 @@ describe('no unguarded fs.chmodSync calls', () => {
   const CHMOD_PATTERN = /\.chmodSync\s*\(/g;
   const PLATFORM_GUARD = /process\.platform\s*(!==|===|!=|==)\s*['"]win32['"]/;
 
-  const tsFiles = glob.sync('packages/*/src/**/*.ts', {
-    cwd: ROOT,
-    ignore: GLOB_IGNORE,
-    absolute: true,
-  });
+  const tsFiles = findFiles('packages/*/src/**/*.ts');
 
   for (const tsFile of tsFiles) {
     const relative = tsFile.replace(ROOT + sep, '');
@@ -162,11 +149,7 @@ describe('no exec/execSync with unix shell commands', () => {
   const EXEC_PATTERN = /\b(exec|execSync)\s*\(\s*['"`]/g;
   const UNIX_COMMANDS = /['"`]\s*(?:rm|cp|mv|mkdir|chmod|chown)\b/;
 
-  const tsFiles = glob.sync('packages/*/src/**/*.ts', {
-    cwd: ROOT,
-    ignore: GLOB_IGNORE,
-    absolute: true,
-  });
+  const tsFiles = findFiles('packages/*/src/**/*.ts');
 
   for (const tsFile of tsFiles) {
     const relative = tsFile.replace(ROOT + sep, '');
@@ -187,6 +170,88 @@ describe('no exec/execSync with unix shell commands', () => {
       expect(
         violations,
         `exec/execSync with unix commands in ${relative}:\n${violations.join('\n')}`
+      ).toHaveLength(0);
+    });
+  }
+});
+
+// -- Anti-pattern 6: path.relative() without separator normalization ----------
+
+const RELATIVE_START = /\b(?:path\.)?relative\s*\(/g;
+const NORMALIZATION = /^\.(?:replaceAll|replace)\s*\(/;
+const POSIX_HELPER = /\brelativePosix\s*\(/;
+const STRING_RELATIVE = /['"`].*\brelative\b.*['"`]/;
+
+function shouldSkipLine(line: string): boolean {
+  const trimmed = line.trimStart();
+  if (trimmed.startsWith('//') || trimmed.startsWith('*')) return true;
+  if (line.includes("from 'node:path'") || line.includes("from 'path'")) return true;
+  if (POSIX_HELPER.test(line)) return true;
+  if (STRING_RELATIVE.test(line)) return true;
+  return false;
+}
+
+function findClosingParen(
+  lines: string[],
+  startLine: number,
+  startCol: number
+): { line: number; col: number } {
+  let depth = 1;
+  let searchLine = startLine;
+  let col = startCol;
+
+  while (depth > 0 && searchLine < lines.length) {
+    const currentLine = lines[searchLine]!;
+    while (col < currentLine.length && depth > 0) {
+      if (currentLine[col] === '(') depth++;
+      else if (currentLine[col] === ')') depth--;
+      col++;
+    }
+    if (depth > 0) {
+      searchLine++;
+      col = 0;
+    }
+  }
+
+  return { line: searchLine, col };
+}
+
+function findUnnormalizedRelativeCalls(content: string): string[] {
+  const lines = content.split('\n');
+  const violations: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (shouldSkipLine(line)) continue;
+
+    RELATIVE_START.lastIndex = 0;
+    let match;
+    while ((match = RELATIVE_START.exec(line)) !== null) {
+      const pos = match.index + match[0].length;
+      const closing = findClosingParen(lines, i, pos);
+      const afterParen = lines[closing.line]!.substring(closing.col).trimStart();
+      if (!NORMALIZATION.test(afterParen)) {
+        violations.push(`Line ${i + 1}: ${line.trim()}`);
+      }
+    }
+  }
+
+  return violations;
+}
+
+describe('relative() calls are normalized for cross-platform paths', () => {
+  const tsFiles = findFiles('packages/*/src/**/*.ts');
+
+  for (const tsFile of tsFiles) {
+    const relative = tsFile.replace(ROOT + sep, '');
+
+    it(`${relative} normalizes relative() results`, () => {
+      const content = readFileSync(tsFile, 'utf-8');
+      const violations = findUnnormalizedRelativeCalls(content);
+
+      expect(
+        violations,
+        `Un-normalized relative() calls in ${relative}. Use relativePosix() or add .replaceAll('\\\\', '/'):\n${violations.join('\n')}`
       ).toHaveLength(0);
     });
   }

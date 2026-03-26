@@ -3,8 +3,8 @@ import { Ok, Err } from '../shared/result';
 import type { ContextError } from '../shared/errors';
 import type { BrokenLink, IntegrityReport } from './types';
 import { validateAgentsMap } from './agents-map';
-import { findFiles } from '../shared/fs-utils';
-import { join, basename, relative } from 'path';
+import { findFiles, relativePosix } from '../shared/fs-utils';
+import { join, basename } from 'path';
 
 /**
  * Suggest a fix for a broken link
@@ -48,7 +48,7 @@ export async function validateKnowledgeMap(
 
   // Get all existing files in the project for suggestions
   const existingFiles = await findFiles('**/*', rootDir);
-  const relativeExistingFiles = existingFiles.map((f) => relative(rootDir, f));
+  const relativeExistingFiles = existingFiles.map((f) => relativePosix(rootDir, f));
 
   // Convert to BrokenLink format with suggestions
   const brokenLinks: BrokenLink[] = agentsBrokenLinks.map((link) => {

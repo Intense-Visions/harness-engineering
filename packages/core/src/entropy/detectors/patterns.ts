@@ -11,13 +11,13 @@ import type {
   SourceFile,
 } from '../types';
 import { minimatch } from 'minimatch';
-import { relative } from 'path';
+import { relativePosix } from '../../shared/fs-utils';
 
 /**
  * Check if a file matches a glob pattern
  */
 function fileMatchesPattern(filePath: string, pattern: string, rootDir: string): boolean {
-  const relativePath = relative(rootDir, filePath);
+  const relativePath = relativePosix(rootDir, filePath);
   return minimatch(relativePath, pattern);
 }
 

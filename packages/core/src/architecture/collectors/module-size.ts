@@ -1,7 +1,8 @@
 import { readFile, readdir } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
+import { relativePosix } from '../../shared/fs-utils';
 
 interface ModuleStats {
   modulePath: string;
@@ -53,10 +54,10 @@ async function discoverModules(rootDir: string): Promise<ModuleStats[]> {
         }
       }
       modules.push({
-        modulePath: relative(rootDir, dir),
+        modulePath: relativePosix(rootDir, dir),
         fileCount: tsFiles.length,
         totalLoc,
-        files: tsFiles.map((f) => relative(rootDir, f)),
+        files: tsFiles.map((f) => relativePosix(rootDir, f)),
       });
     }
 

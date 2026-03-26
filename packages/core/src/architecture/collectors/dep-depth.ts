@@ -1,7 +1,8 @@
 import { readFile, readdir } from 'node:fs/promises';
-import { join, relative, dirname, resolve } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
+import { relativePosix } from '../../shared/fs-utils';
 
 /**
  * Extract relative import sources from a TypeScript file using regex.
@@ -125,7 +126,7 @@ export class DepDepthCollector implements Collector {
     // Group files by module directory
     const moduleMap = new Map<string, string[]>();
     for (const file of allFiles) {
-      const relDir = relative(rootDir, dirname(file));
+      const relDir = relativePosix(rootDir, dirname(file));
       if (!moduleMap.has(relDir)) moduleMap.set(relDir, []);
       moduleMap.get(relDir)!.push(file);
     }
