@@ -355,6 +355,10 @@ export interface RoadmapFrontmatter {
   project: string;
   /** Schema version (currently 1) */
   version: number;
+  /** ISO date when roadmap was created */
+  created?: string;
+  /** ISO date when roadmap was last updated */
+  updated?: string;
   /** ISO timestamp of last automated sync */
   lastSynced: string;
   /** ISO timestamp of last manual edit */

@@ -58,6 +58,8 @@ function parseFrontmatter(raw: string): Result<RoadmapFrontmatter> {
   const versionStr = map.get('version');
   const lastSynced = map.get('last_synced');
   const lastManualEdit = map.get('last_manual_edit');
+  const created = map.get('created');
+  const updated = map.get('updated');
 
   if (!project || !versionStr || !lastSynced || !lastManualEdit) {
     return Err(
@@ -72,23 +74,26 @@ function parseFrontmatter(raw: string): Result<RoadmapFrontmatter> {
     return Err(new Error('Frontmatter version must be a number'));
   }
 
-  return Ok({ project, version, lastSynced, lastManualEdit });
+  const fm: RoadmapFrontmatter = { project, version, lastSynced, lastManualEdit };
+  if (created) fm.created = created;
+  if (updated) fm.updated = updated;
+  return Ok(fm);
 }
 
 function parseMilestones(body: string): Result<RoadmapMilestone[]> {
   const milestones: RoadmapMilestone[] = [];
   // Split on H2 headings
   const h2Pattern = /^## (.+)$/gm;
-  const h2Matches: Array<{ heading: string; startIndex: number }> = [];
+  const h2Matches: Array<{ heading: string; startIndex: number; fullMatch: string }> = [];
   let match: RegExpExecArray | null;
   while ((match = h2Pattern.exec(body)) !== null) {
-    h2Matches.push({ heading: match[1]!, startIndex: match.index });
+    h2Matches.push({ heading: match[1]!, startIndex: match.index, fullMatch: match[0] });
   }
 
   for (let i = 0; i < h2Matches.length; i++) {
     const h2 = h2Matches[i]!;
     const nextStart = i + 1 < h2Matches.length ? h2Matches[i + 1]!.startIndex : body.length;
-    const sectionBody = body.slice(h2.startIndex + h2.heading.length + 4, nextStart);
+    const sectionBody = body.slice(h2.startIndex + h2.fullMatch.length, nextStart);
 
     const isBacklog = h2.heading === 'Backlog';
     const milestoneName = isBacklog ? 'Backlog' : h2.heading.replace(/^Milestone:\s*/, '');
@@ -108,21 +113,18 @@ function parseMilestones(body: string): Result<RoadmapMilestone[]> {
 
 function parseFeatures(sectionBody: string): Result<RoadmapFeature[]> {
   const features: RoadmapFeature[] = [];
-  // Split on H3 headings
-  const h3Pattern = /^### Feature: (.+)$/gm;
-  const h3Matches: Array<{ name: string; startIndex: number }> = [];
+  // Split on H3 headings — accept both "### Feature: X" and "### X"
+  const h3Pattern = /^### (?:Feature: )?(.+)$/gm;
+  const h3Matches: Array<{ name: string; startIndex: number; fullMatch: string }> = [];
   let match: RegExpExecArray | null;
   while ((match = h3Pattern.exec(sectionBody)) !== null) {
-    h3Matches.push({ name: match[1]!, startIndex: match.index });
+    h3Matches.push({ name: match[1]!, startIndex: match.index, fullMatch: match[0] });
   }
 
   for (let i = 0; i < h3Matches.length; i++) {
     const h3 = h3Matches[i]!;
     const nextStart = i + 1 < h3Matches.length ? h3Matches[i + 1]!.startIndex : sectionBody.length;
-    const featureBody = sectionBody.slice(
-      h3.startIndex + `### Feature: ${h3.name}`.length,
-      nextStart
-    );
+    const featureBody = sectionBody.slice(h3.startIndex + h3.fullMatch.length, nextStart);
 
     const featureResult = parseFeatureFields(h3.name, featureBody);
     if (!featureResult.ok) return featureResult;
@@ -154,11 +156,17 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
   const specRaw = fieldMap.get('Spec') ?? EM_DASH;
   const spec = specRaw === EM_DASH ? null : specRaw;
 
-  const plansRaw = fieldMap.get('Plans') ?? EM_DASH;
-  const plans = plansRaw === EM_DASH ? [] : plansRaw.split(',').map((p) => p.trim());
+  // Accept both "Plans:" and "Plan:" field names
+  const plansRaw = fieldMap.get('Plans') ?? fieldMap.get('Plan') ?? EM_DASH;
+  const plans =
+    plansRaw === EM_DASH || plansRaw === 'none' ? [] : plansRaw.split(',').map((p) => p.trim());
 
-  const blockedByRaw = fieldMap.get('Blocked by') ?? EM_DASH;
-  const blockedBy = blockedByRaw === EM_DASH ? [] : blockedByRaw.split(',').map((b) => b.trim());
+  // Accept both "Blocked by:" and "Blockers:" field names
+  const blockedByRaw = fieldMap.get('Blocked by') ?? fieldMap.get('Blockers') ?? EM_DASH;
+  const blockedBy =
+    blockedByRaw === EM_DASH || blockedByRaw === 'none'
+      ? []
+      : blockedByRaw.split(',').map((b) => b.trim());
 
   const summary = fieldMap.get('Summary') ?? '';
 
