@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.3.1
+
+### Patch Changes
+
+- Add optional `created` and `updated` fields to `RoadmapFrontmatter` interface for roundtrip preservation
+
 ## 0.3.0
 
 ### Minor Changes

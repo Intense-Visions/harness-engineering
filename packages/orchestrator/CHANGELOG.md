@@ -1,5 +1,13 @@
 # @harness-engineering/orchestrator
 
+## 0.2.2
+
+### Patch Changes
+
+- Fix circular dependency between orchestrator and http server modules
+- Updated dependencies
+  - @harness-engineering/core@0.13.0
+
 ## 0.2.1
 
 ### Patch Changes
