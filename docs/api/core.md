@@ -308,20 +308,22 @@ Identifies critical execution paths.
 
 ### State Management
 
-| Function                                | Description                                    |
-| --------------------------------------- | ---------------------------------------------- |
-| `loadState(rootDir)`                    | Loads harness state from `.harness/state.json` |
-| `saveState(rootDir, state)`             | Saves harness state                            |
-| `appendLearning(rootDir, learning)`     | Appends a learning entry                       |
-| `loadRelevantLearnings(rootDir, query)` | Loads learnings relevant to a query            |
-| `appendFailure(rootDir, failure)`       | Records a failure entry                        |
-| `loadFailures(rootDir)`                 | Loads failure history                          |
-| `archiveFailures(rootDir)`              | Archives old failures                          |
-| `saveHandoff(rootDir, handoff)`         | Saves a handoff document                       |
-| `loadHandoff(rootDir)`                  | Loads the current handoff                      |
-| `runMechanicalGate(rootDir, config)`    | Runs a mechanical quality gate                 |
+| Function                                  | Description                                                                                                            |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `loadState(rootDir)`                      | Loads harness state from `.harness/state.json`                                                                         |
+| `saveState(rootDir, state)`               | Saves harness state                                                                                                    |
+| `appendLearning(rootDir, learning)`       | Appends a learning entry                                                                                               |
+| `loadRelevantLearnings(rootDir, query)`   | Loads learnings relevant to a query                                                                                    |
+| `loadBudgetedLearnings(rootDir, options)` | Loads learnings within a token budget with two-tier (session + global) loading, recency sorting, and relevance scoring |
+| `clearLearningsCache()`                   | Clears the in-memory learnings cache                                                                                   |
+| `appendFailure(rootDir, failure)`         | Records a failure entry                                                                                                |
+| `loadFailures(rootDir)`                   | Loads failure history                                                                                                  |
+| `archiveFailures(rootDir)`                | Archives old failures                                                                                                  |
+| `saveHandoff(rootDir, handoff)`           | Saves a handoff document                                                                                               |
+| `loadHandoff(rootDir)`                    | Loads the current handoff                                                                                              |
+| `runMechanicalGate(rootDir, config)`      | Runs a mechanical quality gate                                                                                         |
 
-**Types:** `HarnessState`, `FailureEntry`, `Handoff`, `GateResult`, `GateConfig`
+**Types:** `HarnessState`, `FailureEntry`, `Handoff`, `GateResult`, `GateConfig`, `BudgetedLearningsOptions`
 
 **Schemas:** `HarnessStateSchema`, `FailureEntrySchema`, `HandoffSchema`, `GateResultSchema`, `GateConfigSchema`
 
