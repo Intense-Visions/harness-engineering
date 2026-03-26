@@ -153,10 +153,6 @@ function resolveLinkPath(linkPath: string, baseDir: string): string {
 export async function validateAgentsMap(
   path: string = './AGENTS.md'
 ): Promise<Result<AgentMapValidation, ContextError>> {
-  console.warn(
-    '[harness] validateAgentsMap() is deprecated. Use graph-based validation via Assembler.checkCoverage() from @harness-engineering/graph'
-  );
-
   // Read the file
   const contentResult = await readFileContent(path);
   if (!contentResult.ok) {
