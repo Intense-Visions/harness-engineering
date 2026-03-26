@@ -6,3 +6,5 @@ export const FAILURES_FILE = 'failures.md';
 export const HANDOFF_FILE = 'handoff.json';
 export const GATE_CONFIG_FILE = 'gate.json';
 export const INDEX_FILE = 'index.json';
+export const SESSIONS_DIR = 'sessions';
+export const SESSION_INDEX_FILE = 'index.md';
