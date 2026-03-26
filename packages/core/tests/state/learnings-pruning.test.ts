@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { parseDateFromEntry, analyzeLearningPatterns } from '../../src/state/learnings';
+import {
+  parseDateFromEntry,
+  analyzeLearningPatterns,
+  archiveLearnings,
+  pruneLearnings,
+} from '../../src/state/learnings';
 
 describe('parseDateFromEntry', () => {
   it('should parse date from tagged bullet entry', () => {
@@ -77,5 +82,125 @@ describe('analyzeLearningPatterns', () => {
     ];
     const patterns = analyzeLearningPatterns(entries);
     expect(patterns.length).toBe(0);
+  });
+});
+
+describe('archiveLearnings', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-prune-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should move entries to archive file with YYYY-MM naming', async () => {
+    const entriesToArchive = [
+      '- **2026-02-01 [skill:a]:** Old learning one',
+      '- **2026-02-15 [skill:b]:** Old learning two',
+    ];
+
+    const result = await archiveLearnings(tmpDir, entriesToArchive);
+    expect(result.ok).toBe(true);
+
+    const archiveDir = path.join(tmpDir, '.harness', 'learnings-archive');
+    const files = fs.readdirSync(archiveDir);
+    expect(files.length).toBe(1);
+
+    const archiveContent = fs.readFileSync(path.join(archiveDir, files[0]), 'utf-8');
+    expect(archiveContent).toContain('Old learning one');
+    expect(archiveContent).toContain('Old learning two');
+    expect(archiveContent).toContain('[skill:a]');
+  });
+
+  it('should append to existing archive file for same month', async () => {
+    const harnessDir = path.join(tmpDir, '.harness', 'learnings-archive');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const archivePath = path.join(harnessDir, `${yearMonth}.md`);
+    fs.writeFileSync(archivePath, '# Learnings Archive\n\n- **2026-03-01 [skill:x]:** Existing\n');
+
+    const result = await archiveLearnings(tmpDir, ['- **2026-03-02 [skill:y]:** New entry']);
+    expect(result.ok).toBe(true);
+
+    const content = fs.readFileSync(archivePath, 'utf-8');
+    expect(content).toContain('Existing');
+    expect(content).toContain('New entry');
+  });
+});
+
+describe('pruneLearnings', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-prune-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should keep 20 most recent entries and archive the rest', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+
+    const entries = Array.from({ length: 35 }, (_, i) => {
+      const day = String((i % 28) + 1).padStart(2, '0');
+      const month = i < 28 ? '01' : '02';
+      return `- **2026-${month}-${day} [skill:harness-execution]:** Learning ${i}`;
+    });
+
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      `# Learnings\n\n${entries.join('\n\n')}\n`
+    );
+
+    const result = await pruneLearnings(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.kept).toBe(20);
+      expect(result.value.archived).toBe(15);
+      expect(result.value.patterns.length).toBeGreaterThan(0);
+    }
+
+    const remaining = fs.readFileSync(path.join(harnessDir, 'learnings.md'), 'utf-8');
+    const remainingEntries = remaining.match(/^- \*\*/gm);
+    expect(remainingEntries?.length).toBe(20);
+
+    const archiveDir = path.join(harnessDir, 'learnings-archive');
+    expect(fs.existsSync(archiveDir)).toBe(true);
+  });
+
+  it('should return nothing-to-prune when under threshold', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+
+    const today = new Date().toISOString().split('T')[0];
+    const entries = Array.from({ length: 15 }, (_, i) => `- **${today} [skill:a]:** Learning ${i}`);
+
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      `# Learnings\n\n${entries.join('\n\n')}\n`
+    );
+
+    const result = await pruneLearnings(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.kept).toBe(15);
+      expect(result.value.archived).toBe(0);
+      expect(result.value.patterns).toEqual([]);
+    }
+  });
+
+  it('should handle missing learnings file gracefully', async () => {
+    const result = await pruneLearnings(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.kept).toBe(0);
+      expect(result.value.archived).toBe(0);
+    }
   });
 });
