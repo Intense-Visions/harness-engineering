@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--efficient-context-pipeline--proposal",
+  "specPath": "docs/changes/efficient-context-pipeline/proposal.md",
+  "currentState": "PLAN",
+  "currentPhase": 4,
+  "phases": [
+    {
+      "name": "Universal Session-Scoped State",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-26-phase1-session-scoped-state-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Lean Agent Dispatch",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-26-phase2-lean-agent-dispatch-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Token-Budgeted Learnings",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-26-phase3-token-budgeted-learnings-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Session Summaries",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-26-phase4-session-summaries-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Learnings Pruning with Feedback Loop",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "in-progress"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "decisions": [
+    {
+      "phase": 0,
+      "state": "APPROVE_PLAN",
+      "decision": "approved",
+      "timestamp": "2026-03-26T13:35:00Z"
+    },
+    {
+      "phase": 1,
+      "state": "APPROVE_PLAN",
+      "decision": "approved",
+      "timestamp": "2026-03-26T14:50:00Z"
+    },
+    {
+      "phase": 2,
+      "state": "APPROVE_PLAN",
+      "decision": "approved",
+      "timestamp": "2026-03-26T15:20:00Z"
+    },
+    {
+      "phase": 3,
+      "state": "APPROVE_PLAN",
+      "decision": "approved",
+      "timestamp": "2026-03-26T16:00:00Z"
+    }
+  ],
+  "history": [
+    {
+      "phase": 0,
+      "name": "Universal Session-Scoped State",
+      "startedAt": "2026-03-26T13:35:00Z",
+      "completedAt": "2026-03-26T14:45:00Z",
+      "tasksCompleted": 9,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 2, "note": 2 }
+    },
+    {
+      "phase": 1,
+      "name": "Lean Agent Dispatch",
+      "startedAt": "2026-03-26T14:50:00Z",
+      "completedAt": "2026-03-26T15:10:00Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 2, "note": 3 }
+    },
+    {
+      "phase": 2,
+      "name": "Token-Budgeted Learnings",
+      "startedAt": "2026-03-26T15:20:00Z",
+      "completedAt": "2026-03-26T15:40:00Z",
+      "tasksCompleted": 4,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 3,
+      "name": "Session Summaries",
+      "startedAt": "2026-03-26T16:00:00Z",
+      "completedAt": "2026-03-26T16:40:00Z",
+      "tasksCompleted": 10,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    }
+  ]
+}
