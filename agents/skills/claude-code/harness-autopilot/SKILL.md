@@ -159,6 +159,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        Session slug: {sessionSlug}
        Phase description: {phase description from spec}
 
+       On startup, call gather_context({ session: "{sessionSlug}" }) to load
+       session-scoped learnings, state, and validation context.
+
        Follow the harness-planning skill process exactly. Write the plan to
        docs/plans/{date}-{phase-name}-plan.md. Write {sessionDir}/handoff.json when done.
    ```
@@ -223,6 +226,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        Session directory: {sessionDir}
        Session slug: {sessionSlug}
        State: {sessionDir}/state.json
+
+       On startup, call gather_context({ session: "{sessionSlug}" }) to load
+       session-scoped learnings, state, and validation context.
 
        Follow the harness-execution skill process exactly.
        Update {sessionDir}/state.json after each task.
