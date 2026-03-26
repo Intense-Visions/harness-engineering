@@ -8,10 +8,11 @@ import { getStateDir, STATE_FILE } from './state-shared';
 
 export async function loadState(
   projectPath: string,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<Result<HarnessState, Error>> {
   try {
-    const dirResult = await getStateDir(projectPath, stream);
+    const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult as Result<HarnessState, Error>;
     const stateDir = dirResult.value;
     const statePath = path.join(stateDir, STATE_FILE);
@@ -39,10 +40,11 @@ export async function loadState(
 export async function saveState(
   projectPath: string,
   state: HarnessState,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<Result<void, Error>> {
   try {
-    const dirResult = await getStateDir(projectPath, stream);
+    const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult;
     const stateDir = dirResult.value;
     const statePath = path.join(stateDir, STATE_FILE);

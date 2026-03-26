@@ -21,10 +21,11 @@ export async function appendLearning(
   learning: string,
   skillName?: string,
   outcome?: string,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<Result<void, Error>> {
   try {
-    const dirResult = await getStateDir(projectPath, stream);
+    const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult;
     const stateDir = dirResult.value;
     const learningsPath = path.join(stateDir, LEARNINGS_FILE);
@@ -63,10 +64,11 @@ export async function appendLearning(
 export async function loadRelevantLearnings(
   projectPath: string,
   skillName?: string,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<Result<string[], Error>> {
   try {
-    const dirResult = await getStateDir(projectPath, stream);
+    const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult;
     const stateDir = dirResult.value;
     const learningsPath = path.join(stateDir, LEARNINGS_FILE);
