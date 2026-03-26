@@ -219,4 +219,99 @@ describe('loadBudgetedLearnings', () => {
       expect(result.value[0]).toContain('Token budgeting');
     }
   });
+
+  it('should load session learnings before global learnings (two-tier)', async () => {
+    // Create global learnings
+    const globalDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(globalDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalDir, 'learnings.md'),
+      ['# Learnings', '', '- **2026-03-25 [skill:a]:** Global learning one', ''].join('\n')
+    );
+
+    // Create session learnings
+    const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(sessionDir, 'learnings.md'),
+      ['# Learnings', '', '- **2026-03-24 [skill:b]:** Session learning one', ''].join('\n')
+    );
+
+    const result = await loadBudgetedLearnings(tmpDir, {
+      intent: 'test',
+      tokenBudget: 1000,
+      session: 'test-session',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBe(2);
+      // Session learnings come first regardless of date
+      expect(result.value[0]).toContain('Session learning');
+      expect(result.value[1]).toContain('Global learning');
+    }
+  });
+
+  it('should fall back to global only when session is omitted', async () => {
+    // Create global learnings
+    const globalDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(globalDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalDir, 'learnings.md'),
+      ['# Learnings', '', '- **2026-03-25 [skill:a]:** Global only learning', ''].join('\n')
+    );
+
+    // Also create session learnings (should NOT be loaded)
+    const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(sessionDir, 'learnings.md'),
+      ['# Learnings', '', '- **2026-03-24 [skill:b]:** Session learning ignored', ''].join('\n')
+    );
+
+    const result = await loadBudgetedLearnings(tmpDir, {
+      intent: 'test',
+      tokenBudget: 1000,
+      // no session parameter
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBe(1);
+      expect(result.value[0]).toContain('Global only learning');
+    }
+  });
+
+  it('should respect budget across both tiers', async () => {
+    // Create global learnings (many entries)
+    const globalDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(globalDir, { recursive: true });
+    const globalEntries = Array.from(
+      { length: 5 },
+      (_, i) =>
+        `- **2026-03-${String(20 + i).padStart(2, '0')} [skill:a]:** Global learning ${i} with padding text`
+    ).join('\n\n');
+    fs.writeFileSync(path.join(globalDir, 'learnings.md'), `# Learnings\n\n${globalEntries}\n`);
+
+    // Create session learnings (many entries)
+    const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+    fs.mkdirSync(sessionDir, { recursive: true });
+    const sessionEntries = Array.from(
+      { length: 5 },
+      (_, i) =>
+        `- **2026-03-${String(20 + i).padStart(2, '0')} [skill:b]:** Session learning ${i} with padding text`
+    ).join('\n\n');
+    fs.writeFileSync(path.join(sessionDir, 'learnings.md'), `# Learnings\n\n${sessionEntries}\n`);
+
+    // Very tight budget: should only fit a few
+    const result = await loadBudgetedLearnings(tmpDir, {
+      intent: 'test',
+      tokenBudget: 50, // 200 chars
+      session: 'test-session',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBeLessThan(10);
+      const totalChars = result.value.join('\n').length;
+      expect(totalChars).toBeLessThanOrEqual(200);
+    }
+  });
 });
