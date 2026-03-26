@@ -264,3 +264,129 @@ export async function loadRelevantLearnings(
     );
   }
 }
+
+export interface PruneResult {
+  kept: number;
+  archived: number;
+  patterns: LearningPattern[];
+}
+
+/**
+ * Archive learning entries to .harness/learnings-archive/{YYYY-MM}.md.
+ * Appends to existing archive file if one exists for the current month.
+ */
+export async function archiveLearnings(
+  projectPath: string,
+  entries: string[],
+  stream?: string
+): Promise<Result<void, Error>> {
+  try {
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+
+    const archiveDir = path.join(stateDir, 'learnings-archive');
+    fs.mkdirSync(archiveDir, { recursive: true });
+
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const archivePath = path.join(archiveDir, `${yearMonth}.md`);
+
+    const archiveContent = entries.join('\n\n') + '\n';
+
+    if (fs.existsSync(archivePath)) {
+      fs.appendFileSync(archivePath, '\n' + archiveContent);
+    } else {
+      fs.writeFileSync(archivePath, `# Learnings Archive\n\n${archiveContent}`);
+    }
+
+    return Ok(undefined);
+  } catch (error) {
+    return Err(
+      new Error(
+        `Failed to archive learnings: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  }
+}
+
+/**
+ * Prune global learnings: analyze patterns, archive old entries, keep 20 most recent.
+ *
+ * Pruning triggers when:
+ * - Entry count exceeds 30, OR
+ * - Entries older than 14 days exist AND total count exceeds 20
+ *
+ * Returns the prune result with pattern analysis and counts.
+ */
+export async function pruneLearnings(
+  projectPath: string,
+  stream?: string
+): Promise<Result<PruneResult, Error>> {
+  try {
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const learningsPath = path.join(stateDir, LEARNINGS_FILE);
+
+    if (!fs.existsSync(learningsPath)) {
+      return Ok({ kept: 0, archived: 0, patterns: [] });
+    }
+
+    const loadResult = await loadRelevantLearnings(projectPath, undefined, stream);
+    if (!loadResult.ok) return loadResult;
+    const allEntries = loadResult.value;
+
+    if (allEntries.length <= 20) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 14);
+      const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+      const hasOld = allEntries.some((entry) => {
+        const date = parseDateFromEntry(entry);
+        return date !== null && date < cutoffStr!;
+      });
+
+      if (!hasOld) {
+        return Ok({ kept: allEntries.length, archived: 0, patterns: [] });
+      }
+    }
+
+    // Sort by date descending (newest first)
+    const sorted = [...allEntries].sort((a, b) => {
+      const dateA = parseDateFromEntry(a) ?? '0000-00-00';
+      const dateB = parseDateFromEntry(b) ?? '0000-00-00';
+      return dateB.localeCompare(dateA);
+    });
+
+    const toKeep = sorted.slice(0, 20);
+    const toArchive = sorted.slice(20);
+
+    // Analyze patterns in ALL entries before pruning
+    const patterns = analyzeLearningPatterns(allEntries);
+
+    if (toArchive.length > 0) {
+      const archiveResult = await archiveLearnings(projectPath, toArchive, stream);
+      if (!archiveResult.ok) return archiveResult;
+    }
+
+    // Rewrite learnings.md with only kept entries
+    const newContent = '# Learnings\n\n' + toKeep.join('\n\n') + '\n';
+    fs.writeFileSync(learningsPath, newContent);
+
+    // Invalidate cache
+    learningsCacheMap.delete(learningsPath);
+
+    return Ok({
+      kept: toKeep.length,
+      archived: toArchive.length,
+      patterns,
+    });
+  } catch (error) {
+    return Err(
+      new Error(
+        `Failed to prune learnings: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  }
+}
