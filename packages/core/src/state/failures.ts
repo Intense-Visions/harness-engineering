@@ -24,10 +24,11 @@ export async function appendFailure(
   description: string,
   skillName: string,
   type: string,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<Result<void, Error>> {
   try {
-    const dirResult = await getStateDir(projectPath, stream);
+    const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult;
     const stateDir = dirResult.value;
     const failuresPath = path.join(stateDir, FAILURES_FILE);
@@ -57,12 +58,13 @@ export async function appendFailure(
 
 export async function loadFailures(
   projectPath: string,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<
   Result<Array<{ date: string; skill: string; type: string; description: string }>, Error>
 > {
   try {
-    const dirResult = await getStateDir(projectPath, stream);
+    const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult;
     const stateDir = dirResult.value;
     const failuresPath = path.join(stateDir, FAILURES_FILE);
@@ -109,10 +111,11 @@ export async function loadFailures(
 
 export async function archiveFailures(
   projectPath: string,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<Result<void, Error>> {
   try {
-    const dirResult = await getStateDir(projectPath, stream);
+    const dirResult = await getStateDir(projectPath, stream, session);
     if (!dirResult.ok) return dirResult;
     const stateDir = dirResult.value;
     const failuresPath = path.join(stateDir, FAILURES_FILE);
