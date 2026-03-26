@@ -201,19 +201,41 @@ export async function detectPatternViolations(
     }
   }
 
+  // Check custom (code-level) patterns against each file
+  if (config?.customPatterns) {
+    for (const file of snapshot.files) {
+      for (const custom of config.customPatterns) {
+        const matches = custom.check(file, snapshot);
+        for (const match of matches) {
+          violations.push({
+            pattern: custom.name,
+            file: file.path,
+            line: match.line,
+            message: match.message,
+            suggestion: match.suggestion || 'Review and fix this pattern violation',
+            severity: custom.severity,
+          });
+        }
+      }
+    }
+  }
+
   // Group by severity
   const errorCount = violations.filter((v) => v.severity === 'error').length;
   const warningCount = violations.filter((v) => v.severity === 'warning').length;
 
   // Calculate pass rate
-  const totalChecks = snapshot.files.length * patterns.length;
-  const passRate = totalChecks > 0 ? (totalChecks - violations.length) / totalChecks : 1;
+  const customCount = config?.customPatterns?.length ?? 0;
+  const allPatternsCount = patterns.length + customCount;
+  const totalChecks = snapshot.files.length * allPatternsCount;
+  const passRate =
+    totalChecks > 0 ? Math.max(0, (totalChecks - violations.length) / totalChecks) : 1;
 
   return Ok({
     violations,
     stats: {
       filesChecked: snapshot.files.length,
-      patternsApplied: patterns.length,
+      patternsApplied: allPatternsCount,
       violationCount: violations.length,
       errorCount,
       warningCount,

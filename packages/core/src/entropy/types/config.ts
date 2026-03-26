@@ -3,7 +3,7 @@ import type { LanguageParser } from '../../shared/parsers';
 import type { ComplexityConfig } from './complexity';
 import type { CouplingConfig } from './coupling';
 import type { SizeBudgetConfig } from './size-budget';
-import type { PatternConfig } from './pattern';
+import type { PatternConfig } from './pattern-config';
 
 export interface DriftConfig {
   docPaths: string[];
