@@ -267,6 +267,10 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        You are running harness-verification for phase {N}: {name}.
 
        Session directory: {sessionDir}
+       Session slug: {sessionSlug}
+
+       On startup, call gather_context({ session: "{sessionSlug}" }) to load
+       session-scoped learnings, state, and validation context.
 
        Follow the harness-verification skill process exactly.
        Report pass/fail with findings.
