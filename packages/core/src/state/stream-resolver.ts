@@ -10,9 +10,9 @@ import {
   type StreamInfo,
 } from './stream-types';
 
-const HARNESS_DIR = '.harness';
+import { HARNESS_DIR, INDEX_FILE } from './constants';
+
 const STREAMS_DIR = 'streams';
-const INDEX_FILE = 'index.json';
 
 const STREAM_NAME_REGEX = /^[a-z0-9][a-z0-9._-]*$/;
 

@@ -16,20 +16,29 @@ export {
 export type { HarnessState, FailureEntry, Handoff, GateResult, GateConfig } from './types';
 
 /**
- * Core state manager for loading and saving project health, learnings, and handoffs.
+ * State persistence for loading and saving project health.
  */
-export {
-  loadState,
-  saveState,
-  appendLearning,
-  loadRelevantLearnings,
-  appendFailure,
-  loadFailures,
-  archiveFailures,
-  saveHandoff,
-  loadHandoff,
-  runMechanicalGate,
-} from './state-manager';
+export { loadState, saveState } from './state-persistence';
+
+/**
+ * Learning accumulation and retrieval.
+ */
+export { clearLearningsCache, appendLearning, loadRelevantLearnings } from './learnings';
+
+/**
+ * Failure tracking, loading, and archival.
+ */
+export { clearFailuresCache, appendFailure, loadFailures, archiveFailures } from './failures';
+
+/**
+ * Handoff persistence for session continuity.
+ */
+export { saveHandoff, loadHandoff } from './handoff';
+
+/**
+ * Mechanical gate for running project quality checks.
+ */
+export { runMechanicalGate } from './mechanical-gate';
 
 /**
  * Validation schemas and defaults for stream-based state management.
