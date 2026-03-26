@@ -221,6 +221,22 @@ Write `.harness/handoff.json`:
 }
 ```
 
+**Write session summary (if session is known).** If running within a session context, update the session summary:
+
+```json
+writeSessionSummary(projectPath, sessionSlug, {
+  session: "<session-slug>",
+  lastActive: "<ISO timestamp>",
+  skill: "harness-verification",
+  status: "Verification <PASS|FAIL|INCOMPLETE>. <N> artifacts checked, <N> gaps.",
+  spec: "<spec path if known>",
+  keyContext: "<1-2 sentences: verification outcome, any gaps found>",
+  nextStep: "<e.g., Proceed to code review / Resolve gaps>"
+})
+```
+
+If no session slug is known, skip this step.
+
 **If verdict is PASS (all levels passed, no gaps):**
 
 Call `emit_interaction`:
