@@ -1,34 +1,37 @@
 {
-  "fromSkill": "harness-planning",
+  "fromSkill": "harness-brainstorming",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 6 (Uninstall and Upgrade) of Constraint Sharing: 6 tasks covering removeContributions core function, uninstall-constraints CLI command, upgrade detection in install-constraints, and round-trip verification.",
-  "completed": [],
-  "pending": [
-    "Task 1: Create removeContributions core function (TDD)",
-    "Task 2: Export removeContributions from core sharing index",
-    "Task 3: Create uninstall-constraints CLI command (TDD)",
-    "Task 4: Register uninstall-constraints in CLI entry point",
-    "Task 5: Add upgrade detection to install-constraints (TDD)",
-    "Task 6: End-to-end round-trip verification"
-  ],
-  "concerns": [
-    "removeContributions does not handle edge case where config sections were manually edited after install -- relies on key-based matching, not value comparison",
-    "Upgrade path uses synchronous uninstall+install in one function call -- if write fails between steps, config could be in partial state"
-  ],
+  "summary": "Reduce token waste across harness workflow through session-scoped state, lean agent dispatch, token-budgeted learnings, session summaries, and learnings-driven feedback loop to roadmap",
+  "artifacts": ["docs/changes/efficient-context-pipeline/proposal.md"],
   "decisions": [
-    "removeContributions is a pure function in core (no I/O) -- CLI handles read/write orchestration",
-    "Upgrade is implemented as inline detection in install-constraints (remove old contributions before merge) rather than a separate upgrade-constraints command",
-    "Empty module entries are cleaned up (deleted) when all categories are removed",
-    "Uninstall with null/empty contributions succeeds but removes nothing from config"
+    {
+      "what": "All state is session-scoped",
+      "why": "Parallel Claude Code windows must not conflict"
+    },
+    {
+      "what": "Agents load their own context via gather_context()",
+      "why": "Eliminates duplicated learnings/failures text embedded in agent prompts"
+    },
+    {
+      "what": "Learnings pruning includes brainstorming step",
+      "why": "Turns maintenance into a process improvement feedback loop that feeds the roadmap"
+    },
+    { "what": "Soundness review stays mandatory", "why": "Quality gate, non-negotiable" },
+    {
+      "what": "No agent consolidation yet",
+      "why": "Measure impact of these changes first before structural changes"
+    }
   ],
   "contextKeywords": [
-    "constraint-sharing",
-    "uninstall-constraints",
-    "removeContributions",
-    "upgrade",
-    "lockfile",
-    "provenance",
-    "contributions",
-    "round-trip"
+    "learnings",
+    "context-budget",
+    "session-summary",
+    "agent-dispatch",
+    "gather-context",
+    "retention-policy",
+    "feedback-loop",
+    "cold-start",
+    "session-scoped",
+    "token-budget"
   ]
 }
