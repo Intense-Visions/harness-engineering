@@ -4,6 +4,7 @@ import * as path from 'path';
 import type { Result } from '../shared/result';
 import { Ok } from '../shared/result';
 import { resolveStreamPath } from './stream-resolver';
+import { resolveSessionDir } from './session-resolver';
 export {
   HARNESS_DIR,
   STATE_FILE,
@@ -36,8 +37,15 @@ export function evictIfNeeded<V>(map: Map<string, V>): void {
  */
 export async function getStateDir(
   projectPath: string,
-  stream?: string
+  stream?: string,
+  session?: string
 ): Promise<Result<string, Error>> {
+  // Session-scoped directory takes priority
+  if (session) {
+    const sessionResult = resolveSessionDir(projectPath, session, { create: true });
+    return sessionResult;
+  }
+
   const streamsIndexPath = path.join(projectPath, HARNESS_DIR, 'streams', INDEX_FILE);
   const hasStreams = fs.existsSync(streamsIndexPath);
 
