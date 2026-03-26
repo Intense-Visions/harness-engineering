@@ -28,8 +28,12 @@ export {
   appendLearning,
   loadRelevantLearnings,
   loadBudgetedLearnings,
+  parseDateFromEntry,
+  analyzeLearningPatterns,
+  archiveLearnings,
+  pruneLearnings,
 } from './learnings';
-export type { BudgetedLearningsOptions } from './learnings';
+export type { BudgetedLearningsOptions, LearningPattern, PruneResult } from './learnings';
 
 /**
  * Failure tracking, loading, and archival.

@@ -8,6 +8,10 @@ export {
   appendLearning,
   loadRelevantLearnings,
   loadBudgetedLearnings,
+  parseDateFromEntry,
+  analyzeLearningPatterns,
+  archiveLearnings,
+  pruneLearnings,
 } from './learnings';
 export { clearFailuresCache, appendFailure, loadFailures, archiveFailures } from './failures';
 export { saveHandoff, loadHandoff } from './handoff';
