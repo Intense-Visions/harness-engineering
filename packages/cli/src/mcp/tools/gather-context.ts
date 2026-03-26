@@ -35,6 +35,11 @@ export const gatherContextDefinition = {
         enum: ['summary', 'detailed'],
         description: 'Response density. Default: summary',
       },
+      session: {
+        type: 'string',
+        description:
+          'Session slug for session-scoped state. When provided, state/learnings/handoff/failures are read from .harness/sessions/<session>/ instead of .harness/. Omit for global fallback.',
+      },
     },
     required: ['path', 'intent'],
   },
@@ -47,6 +52,7 @@ export async function handleGatherContext(input: {
   tokenBudget?: number;
   include?: IncludeKey[];
   mode?: 'summary' | 'detailed';
+  session?: string;
 }) {
   const start = Date.now();
 
@@ -73,17 +79,21 @@ export async function handleGatherContext(input: {
 
   // Build constituent promises
   const statePromise = includeSet.has('state')
-    ? import('@harness-engineering/core').then((core) => core.loadState(projectPath))
+    ? import('@harness-engineering/core').then((core) =>
+        core.loadState(projectPath, undefined, input.session)
+      )
     : Promise.resolve(null);
 
   const learningsPromise = includeSet.has('learnings')
     ? import('@harness-engineering/core').then((core) =>
-        core.loadRelevantLearnings(projectPath, input.skill)
+        core.loadRelevantLearnings(projectPath, input.skill, undefined, input.session)
       )
     : Promise.resolve(null);
 
   const handoffPromise = includeSet.has('handoff')
-    ? import('@harness-engineering/core').then((core) => core.loadHandoff(projectPath))
+    ? import('@harness-engineering/core').then((core) =>
+        core.loadHandoff(projectPath, undefined, input.session)
+      )
     : Promise.resolve(null);
 
   const graphPromise = includeSet.has('graph')
@@ -261,6 +271,20 @@ export async function handleGatherContext(input: {
       errors,
     },
   };
+
+  // Update session index if session-scoped
+  if (input.session) {
+    try {
+      const core = await import('@harness-engineering/core');
+      core.updateSessionIndex(
+        projectPath,
+        input.session,
+        `${input.skill ?? 'unknown'} — ${input.intent}`
+      );
+    } catch {
+      // Index update is best-effort, do not fail the gather
+    }
+  }
 
   // Compute token estimate from final output (avoid double serialization)
   const outputText = JSON.stringify(output);
