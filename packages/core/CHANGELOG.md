@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.13.0
+
+### Minor Changes
+
+- Efficient Context Pipeline: session-scoped state, token-budgeted learnings, session summaries, and learnings pruning
+  - **Session-scoped state**: All state files (state.json, handoff.json, learnings.md, failures.md) can now be scoped to a session directory under `.harness/sessions/<slug>/`, enabling parallel Claude Code windows without conflicts
+  - **Session resolver**: `resolveSessionDir()` and `updateSessionIndex()` for session directory management with path traversal protection
+  - **Token-budgeted learnings**: `loadBudgetedLearnings()` with two-tier loading (session first, global second), recency sorting, relevance scoring, and configurable token budget
+  - **Session summaries**: `writeSessionSummary()`, `loadSessionSummary()`, `listActiveSessions()` for lightweight cold-start context (~200 tokens)
+  - **Learnings pruning**: `analyzeLearningPatterns()` groups entries by skill/outcome tags, `pruneLearnings()` archives old entries to `.harness/learnings-archive/{YYYY-MM}.md` keeping 20 most recent, `archiveLearnings()` for manual archival
+  - **Roadmap parser fix**: Parser now accepts both `### Feature: X` and `### X` format, serializer outputs format matching actual roadmap files
+  - All core state functions (`loadState`, `saveState`, `appendLearning`, `loadRelevantLearnings`, `appendFailure`, `loadFailures`, `saveHandoff`, `loadHandoff`) accept optional `session` parameter
+  - `gather_context` threads session parameter to all core calls
+
+### Patch Changes
+
+- Fix circular dependency in entropy types module
+- Fix `estimateTokens` usage in budget enforcement loop
+
 ## 0.12.0
 
 ### Minor Changes

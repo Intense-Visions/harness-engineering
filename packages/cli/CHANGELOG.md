@@ -1,5 +1,22 @@
 # @harness-engineering/cli
 
+## 1.13.0
+
+### Minor Changes
+
+- Efficient Context Pipeline: session support in MCP tools, learnings prune command, roadmap parser fix
+  - **`harness learnings prune`**: New CLI command that analyzes global learnings for recurring patterns, presents improvement proposals, and archives old entries keeping 20 most recent
+  - **`gather_context` session support**: Added `session` and `learningsBudget` parameters for session-scoped context loading with token-budgeted learnings
+  - **`manage_state` session support**: All 7 actions (show, learn, failure, archive, reset, save-handoff, load-handoff) now accept `session` parameter for session-scoped state
+  - **`emit_interaction` session support**: Handoff writes respect session scoping when `session` parameter is provided
+  - **Roadmap parser fix**: `manage_roadmap` no longer clobbers the roadmap file — parser accepts both `### Feature: X` and `### X` formats, serializer outputs format matching actual roadmap
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/core@0.13.0
+  - @harness-engineering/types@0.3.1
+
 ## 1.12.0
 
 ### Minor Changes

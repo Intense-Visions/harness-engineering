@@ -6,6 +6,30 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.6.0 — 2026-03-26
+
+### Added
+
+- **Efficient Context Pipeline** — Reduce token waste across the harness workflow while preserving quality.
+  - **Session-scoped state**: All state files isolated per session under `.harness/sessions/<slug>/`, enabling parallel Claude Code windows without conflicts.
+  - **Token-budgeted learnings**: `loadBudgetedLearnings()` with two-tier loading (session first, global second), recency sorting, relevance scoring, and configurable token budget.
+  - **Session summaries**: Lightweight cold-start context (~200 tokens) via `writeSessionSummary()`, `loadSessionSummary()`, `listActiveSessions()`.
+  - **Learnings pruning**: `harness learnings prune` command analyzes patterns, presents improvement proposals, and archives old entries.
+  - **Lean agent dispatch**: Autopilot agents load their own context via `gather_context()` instead of receiving embedded file content.
+- **Roadmap parser fix** — `manage_roadmap` no longer clobbers the roadmap file. Parser accepts both `### Feature: X` and `### X` formats.
+
+### Changed
+
+- All core state functions accept optional `session` parameter for session-scoped operation.
+- `gather_context`, `manage_state`, and `emit_interaction` MCP tools accept `session` parameter.
+- All 5 pipeline skill SKILL.md files updated with session summary write/read steps.
+- Roadmap serializer outputs format matching actual roadmap files (no `Feature:`/`Milestone:` prefixes).
+
+### Fixed
+
+- Circular dependency in entropy types module.
+- Roadmap parser/serializer format mismatch that caused `manage_roadmap add` to wipe all existing features.
+
 ## 0.5.0 — 2026-03-25
 
 ### Added
