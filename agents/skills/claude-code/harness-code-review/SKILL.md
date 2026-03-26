@@ -212,12 +212,13 @@ gather_context({
   path: "<project-root>",
   intent: "Code review of <change description>",
   skill: "harness-code-review",
+  session: "<session-slug-if-provided>",
   tokenBudget: 8000,
   include: ["graph", "learnings", "validation"]
 })
 ```
 
-This replaces manual `query_graph` + `get_impact` + `find_context_for` calls with a single composite call that assembles review context in parallel, ranked by relevance. Falls back gracefully when no graph is available (`meta.graphAvailable: false`).
+This replaces manual `query_graph` + `get_impact` + `find_context_for` calls with a single composite call that assembles review context in parallel, ranked by relevance. Falls back gracefully when no graph is available (`meta.graphAvailable: false`). When `session` is provided (e.g., via autopilot dispatch), learnings and state are scoped to the session directory. If no session is known, omit the parameter — `gather_context` falls back to global files.
 
 For domain-specific scoping (compliance, bug detection, security, architecture), supplement `gather_context` output with targeted `query_graph` calls as needed.
 
@@ -614,7 +615,7 @@ _This section is not part of the pipeline. It documents the process for respondi
 ## Harness Integration
 
 - **`assess_project`** — Used in Phase 2 (MECHANICAL) to run `validate`, `deps`, and `docs` checks in parallel. Must pass for the pipeline to continue to AI review. Failures are Critical issues that stop the pipeline.
-- **`gather_context`** — Used in Phase 3 (CONTEXT) for efficient parallel context assembly. Replaces separate graph query calls.
+- **`gather_context`** — Used in Phase 3 (CONTEXT) for efficient parallel context assembly. The `session` parameter scopes learnings and state to the session directory when provided by autopilot dispatch. Replaces separate graph query calls.
 - **`harness cleanup`** — Optional check during Phase 2 for entropy accumulation in changed files.
 - **Graph queries** — Used in Phase 3 (CONTEXT) for dependency-scoped context and in Phase 5 (VALIDATE) for reachability verification. Graceful fallback when no graph exists.
 - **`emit_interaction`** -- Call after review approval to suggest transitioning to merge/PR creation. Only emitted on APPROVE assessment. Uses confirmed transition (waits for user approval).
