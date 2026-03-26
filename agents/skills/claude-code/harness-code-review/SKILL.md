@@ -529,6 +529,22 @@ Write `.harness/handoff.json`:
 }
 ```
 
+**Write session summary (if session is known).** If running within a session context, update the session summary:
+
+```json
+writeSessionSummary(projectPath, sessionSlug, {
+  session: "<session-slug>",
+  lastActive: "<ISO timestamp>",
+  skill: "harness-code-review",
+  status: "Review complete. Assessment: <approve|request-changes|comment>. <N> findings.",
+  spec: "<spec path if known>",
+  keyContext: "<1-2 sentences: review outcome, key findings>",
+  nextStep: "<e.g., Address blocking findings / Ready to merge / Observations delivered>"
+})
+```
+
+If no session slug is known, skip this step.
+
 **If assessment is "approve":**
 
 Call `emit_interaction`:
