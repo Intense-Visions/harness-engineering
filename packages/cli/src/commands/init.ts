@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
-import { TemplateEngine } from '../templates/engine';
+import { TemplateEngine, type DetectedFramework } from '../templates/engine';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
@@ -22,6 +22,7 @@ interface InitOptions {
 interface InitResult {
   filesCreated: string[];
   skippedConfigs: string[];
+  detectedFrameworks?: DetectedFramework[];
 }
 
 export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
@@ -54,6 +55,20 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
           ExitCode.ERROR
         )
       );
+    }
+  }
+
+  // Auto-detect framework if no --framework and no --language specified
+  if (!options.framework && !options.language) {
+    const detectResult = engine.detectFramework(cwd);
+    if (detectResult.ok && detectResult.value.length > 0) {
+      // Return detection results for caller to confirm
+      // Do NOT scaffold yet -- caller should re-invoke with explicit --framework
+      return Ok({
+        filesCreated: [],
+        skippedConfigs: [],
+        detectedFrameworks: detectResult.value,
+      });
     }
   }
 
