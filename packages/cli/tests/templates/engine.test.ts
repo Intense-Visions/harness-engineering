@@ -443,5 +443,63 @@ describe('TemplateEngine', () => {
         expect(parsed.tooling).toBeDefined();
       }
     });
+
+    it('writes python-base to disk and produces expected files', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, undefined, 'python');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'disk-test',
+        language: 'python',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-py-'));
+      const writeResult = prodEngine.write(rendered.value, tmpDir, {
+        overwrite: false,
+        language: 'python',
+      });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      expect(fs.existsSync(path.join(tmpDir, 'pyproject.toml'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.python-version'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'ruff.toml'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'src', '__init__.py'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('skips pyproject.toml in existing Python project without --force', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, undefined, 'python');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'existing-py',
+        language: 'python',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-py-existing-'));
+      fs.writeFileSync(path.join(tmpDir, 'pyproject.toml'), '[project]\nname = "existing"\n');
+
+      const writeResult = prodEngine.write(rendered.value, tmpDir, {
+        overwrite: false,
+        language: 'python',
+      });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      expect(writeResult.value.skippedConfigs).toContain('pyproject.toml');
+      const content = fs.readFileSync(path.join(tmpDir, 'pyproject.toml'), 'utf-8');
+      expect(content).toContain('existing');
+      // Other files should still be written
+      expect(writeResult.value.written).toContain('AGENTS.md');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
   });
 });
