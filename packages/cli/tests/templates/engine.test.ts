@@ -502,4 +502,213 @@ describe('TemplateEngine', () => {
       fs.rmSync(tmpDir, { recursive: true });
     });
   });
+
+  describe('JS/TS framework overlay resolution (production templates)', () => {
+    const PROD_TEMPLATES = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+    let prodEngine: TemplateEngine;
+
+    beforeEach(() => {
+      prodEngine = new TemplateEngine(PROD_TEMPLATES);
+    });
+
+    const frameworks = ['react-vite', 'vue', 'express', 'nestjs'] as const;
+    const levels = ['basic', 'intermediate', 'advanced'] as const;
+
+    for (const fw of frameworks) {
+      it(`resolves ${fw} overlay with basic level`, () => {
+        const result = prodEngine.resolveTemplate('basic', fw);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const paths = result.value.files.map((f) => f.relativePath);
+        // Should include overlay package.json.hbs
+        expect(
+          paths.some((p) => p === 'package.json.hbs' || p === '__overlay__package.json.hbs')
+        ).toBe(true);
+      });
+
+      for (const level of levels) {
+        it(`renders ${fw} with ${level} level without errors`, () => {
+          const resolved = prodEngine.resolveTemplate(level, fw);
+          expect(resolved.ok).toBe(true);
+          if (!resolved.ok) return;
+
+          const rendered = prodEngine.render(resolved.value, {
+            projectName: 'test-app',
+            level,
+            framework: fw,
+          });
+          expect(rendered.ok).toBe(true);
+          if (!rendered.ok) return;
+
+          // Should produce a merged package.json
+          const pkg = rendered.value.files.find((f) => f.relativePath === 'package.json');
+          expect(pkg).toBeDefined();
+          const parsed = JSON.parse(pkg!.content);
+          expect(parsed.name).toBe('test-app');
+        });
+      }
+    }
+
+    it('react-vite overlay includes expected files', () => {
+      const resolved = prodEngine.resolveTemplate('basic', 'react-vite');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'test-app',
+        level: 'basic',
+        framework: 'react-vite',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('vite.config.ts');
+      expect(paths).toContain('index.html');
+      expect(paths).toContain('src/App.tsx');
+      expect(paths).toContain('src/main.tsx');
+    });
+
+    it('vue overlay includes expected files', () => {
+      const resolved = prodEngine.resolveTemplate('basic', 'vue');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'test-app',
+        level: 'basic',
+        framework: 'vue',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('vite.config.ts');
+      expect(paths).toContain('index.html');
+      expect(paths).toContain('src/App.vue');
+      expect(paths).toContain('src/main.ts');
+    });
+
+    it('express overlay includes expected files', () => {
+      const resolved = prodEngine.resolveTemplate('basic', 'express');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'test-app',
+        level: 'basic',
+        framework: 'express',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('src/app.ts');
+    });
+
+    it('nestjs overlay includes expected files', () => {
+      const resolved = prodEngine.resolveTemplate('basic', 'nestjs');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'test-app',
+        level: 'basic',
+        framework: 'nestjs',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('nest-cli.json');
+      expect(paths).toContain('src/app.module.ts');
+      expect(paths).toContain('src/main.ts');
+    });
+
+    it('nestjs package.json merges overlay deps into base', () => {
+      const resolved = prodEngine.resolveTemplate('basic', 'nestjs');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'test-app',
+        level: 'basic',
+        framework: 'nestjs',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+      const pkg = rendered.value.files.find((f) => f.relativePath === 'package.json');
+      const parsed = JSON.parse(pkg!.content);
+      expect(parsed.dependencies['@nestjs/core']).toBe('^10.0.0');
+      expect(parsed.dependencies['@nestjs/common']).toBe('^10.0.0');
+      expect(parsed.dependencies['@nestjs/platform-express']).toBe('^10.0.0');
+    });
+  });
+
+  describe('JS/TS framework auto-detection (production templates)', () => {
+    const PROD_TEMPLATES = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+    let prodEngine: TemplateEngine;
+
+    beforeEach(() => {
+      prodEngine = new TemplateEngine(PROD_TEMPLATES);
+    });
+
+    it('detects react-vite from vite.config.ts with plugin-react', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'vite.config.ts'),
+        'import react from "@vitejs/plugin-react";\nexport default defineConfig({ plugins: [react()] });'
+      );
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('react-vite');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects vue from package.json with vue dependency', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ dependencies: { vue: '^3.0.0' } })
+      );
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('vue');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects express from package.json with express dependency', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ dependencies: { express: '^4.0.0' } })
+      );
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('express');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects nestjs from package.json with @nestjs/core', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ dependencies: { '@nestjs/core': '^10.0.0' } })
+      );
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('nestjs');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('all four JS/TS overlay template.json files have valid language field', () => {
+      for (const fw of ['react-vite', 'vue', 'express', 'nestjs']) {
+        const templates = prodEngine.listTemplates();
+        expect(templates.ok).toBe(true);
+        if (!templates.ok) return;
+        const meta = templates.value.find((t) => t.framework === fw);
+        expect(meta).toBeDefined();
+        expect(meta!.language).toBe('typescript');
+        expect(meta!.detect).toBeDefined();
+        expect(meta!.detect!.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });
