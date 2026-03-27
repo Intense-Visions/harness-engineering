@@ -711,4 +711,200 @@ describe('TemplateEngine', () => {
       }
     });
   });
+
+  describe('Non-JS framework overlay resolution (production templates)', () => {
+    const PROD_TEMPLATES = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+    let prodEngine: TemplateEngine;
+
+    beforeEach(() => {
+      prodEngine = new TemplateEngine(PROD_TEMPLATES);
+    });
+
+    it('resolves and renders fastapi overlay with python-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'fastapi', 'python');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-api',
+        language: 'python',
+        framework: 'fastapi',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      // FastAPI overlay files
+      expect(paths).toContain('src/main.py');
+      expect(paths).toContain('requirements.txt');
+      // Python-base inherited files
+      expect(paths).toContain('pyproject.toml');
+      expect(paths).toContain('ruff.toml');
+      expect(paths).toContain('.python-version');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('harness.config.json');
+      expect(paths).toContain('.gitignore');
+
+      const mainPy = rendered.value.files.find((f) => f.relativePath === 'src/main.py');
+      expect(mainPy!.content).toContain('FastAPI');
+      expect(mainPy!.content).toContain('@app.get');
+
+      const reqs = rendered.value.files.find((f) => f.relativePath === 'requirements.txt');
+      expect(reqs!.content).toContain('fastapi');
+      expect(reqs!.content).toContain('uvicorn');
+    });
+
+    it('resolves and renders django overlay with python-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'django', 'python');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-site',
+        language: 'python',
+        framework: 'django',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('manage.py');
+      expect(paths).toContain('src/settings.py');
+      expect(paths).toContain('src/urls.py');
+      expect(paths).toContain('src/wsgi.py');
+      expect(paths).toContain('requirements.txt');
+      // Python-base inherited
+      expect(paths).toContain('pyproject.toml');
+      expect(paths).toContain('AGENTS.md');
+
+      const managePy = rendered.value.files.find((f) => f.relativePath === 'manage.py');
+      expect(managePy!.content).toContain('my-site');
+      expect(managePy!.content).toContain('DJANGO_SETTINGS_MODULE');
+
+      const settings = rendered.value.files.find((f) => f.relativePath === 'src/settings.py');
+      expect(settings!.content).toContain('my-site');
+    });
+
+    it('resolves and renders gin overlay with go-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'gin', 'go');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-server',
+        language: 'go',
+        framework: 'gin',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('main.go');
+      expect(paths).toContain('go.mod');
+      expect(paths).toContain('.golangci.yml');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('harness.config.json');
+
+      const mainGo = rendered.value.files.find((f) => f.relativePath === 'main.go');
+      expect(mainGo!.content).toContain('gin-gonic/gin');
+      expect(mainGo!.content).toContain('gin.Default');
+
+      const goMod = rendered.value.files.find((f) => f.relativePath === 'go.mod');
+      expect(goMod!.content).toContain('gin-gonic/gin');
+      expect(goMod!.content).toContain('github.com/example/my-server');
+    });
+
+    it('resolves and renders axum overlay with rust-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'axum', 'rust');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-service',
+        language: 'rust',
+        framework: 'axum',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('src/main.rs');
+      expect(paths).toContain('Cargo.toml');
+      expect(paths).toContain('clippy.toml');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('harness.config.json');
+
+      const mainRs = rendered.value.files.find((f) => f.relativePath === 'src/main.rs');
+      expect(mainRs!.content).toContain('axum');
+      expect(mainRs!.content).toContain('Router');
+      expect(mainRs!.content).toContain('tokio');
+
+      const cargo = rendered.value.files.find((f) => f.relativePath === 'Cargo.toml');
+      expect(cargo!.content).toContain('axum');
+      expect(cargo!.content).toContain('tokio');
+      expect(cargo!.content).toContain('name = "my-service"');
+    });
+
+    it('resolves and renders spring-boot overlay with java-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'spring-boot', 'java');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-app',
+        language: 'java',
+        framework: 'spring-boot',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('src/main/java/Application.java');
+      expect(paths).toContain('pom.xml');
+      expect(paths).toContain('checkstyle.xml');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('harness.config.json');
+
+      const app = rendered.value.files.find(
+        (f) => f.relativePath === 'src/main/java/Application.java'
+      );
+      expect(app!.content).toContain('@SpringBootApplication');
+      expect(app!.content).toContain('SpringApplication.run');
+
+      const pom = rendered.value.files.find((f) => f.relativePath === 'pom.xml');
+      expect(pom!.content).toContain('spring-boot-starter-web');
+      expect(pom!.content).toContain('spring-boot-starter-parent');
+      expect(pom!.content).toContain('<artifactId>my-app</artifactId>');
+    });
+
+    it('overlay metadata is set for non-JS frameworks', () => {
+      for (const [fw, lang] of [
+        ['fastapi', 'python'],
+        ['django', 'python'],
+        ['gin', 'go'],
+        ['axum', 'rust'],
+        ['spring-boot', 'java'],
+      ] as const) {
+        const resolved = prodEngine.resolveTemplate(undefined, fw, lang);
+        expect(resolved.ok).toBe(true);
+        if (!resolved.ok) return;
+        expect(resolved.value.overlayMetadata).toBeDefined();
+        expect(resolved.value.overlayMetadata!.framework).toBe(fw);
+        expect(resolved.value.overlayMetadata!.language).toBe(lang);
+      }
+    });
+
+    it('all five non-JS overlay template.json files have valid detect patterns', () => {
+      const templates = prodEngine.listTemplates();
+      expect(templates.ok).toBe(true);
+      if (!templates.ok) return;
+      for (const fw of ['fastapi', 'django', 'gin', 'axum', 'spring-boot']) {
+        const meta = templates.value.find((t) => t.framework === fw);
+        expect(meta).toBeDefined();
+        expect(meta!.detect).toBeDefined();
+        expect(meta!.detect!.length).toBeGreaterThan(0);
+        expect(meta!.extends).toBeDefined();
+      }
+    });
+  });
 });
