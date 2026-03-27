@@ -1,0 +1,35 @@
+# {{projectName}} Knowledge Map
+
+## About This Project
+
+{{projectName}} -- A Rust project managed with Harness Engineering practices.
+
+## Language & Tooling
+
+- **Language:** Rust (edition {{rustEdition}})
+- **Package manager:** Cargo
+- **Linter:** Clippy
+- **Formatter:** rustfmt
+- **Test runner:** cargo test
+
+## Directory Structure
+
+- `src/main.rs` -- Application entry point
+- `src/lib.rs` -- Library root (when applicable)
+- `Cargo.toml` -- Package manifest and dependencies
+- `tests/` -- Integration tests
+
+## Conventions
+
+- Follow Rust API guidelines
+- Use `rustfmt` for formatting
+- Run `cargo clippy` before committing
+- Tests: unit tests in `#[cfg(test)]` modules, integration tests in `tests/`
+- Error handling: use `Result<T, E>` and the `?` operator, avoid `.unwrap()` in production code
+
+## Harness Skills
+
+- Use `harness-brainstorming` for design exploration
+- Use `harness-planning` to break features into atomic tasks
+- Use `harness-execution` to implement tasks with TDD
+- Refer to `harness.config.json` for project tooling configuration
