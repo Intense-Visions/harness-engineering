@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveTemplatesDir } from '../../utils/paths.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
@@ -36,19 +37,65 @@ export async function handleInitProject(input: {
   language?: string;
 }) {
   try {
-    // Import TemplateEngine - ensure CLI exports it
     const { TemplateEngine } = await import('../../templates/engine.js');
     const templatesDir = resolveTemplatesDir();
     const engine = new TemplateEngine(templatesDir);
+    const safePath = sanitizePath(input.path);
 
-    const language = input.language;
+    // Auto-detect framework if neither framework nor language specified
+    if (!input.framework && !input.language && fs.existsSync(safePath)) {
+      const detectResult = engine.detectFramework(safePath);
+      if (detectResult.ok && detectResult.value.length > 0) {
+        const candidates = detectResult.value
+          .map((c) => `${c.framework} (${c.language}, score: ${c.score})`)
+          .join(', ');
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Detected frameworks: ${candidates}\n\nRe-invoke with --framework <name> to scaffold, or specify --language for a bare scaffold.`,
+            },
+          ],
+          isError: false,
+        };
+      }
+    }
+
+    // Validate framework/language conflict
+    if (input.framework && input.language) {
+      const templates = engine.listTemplates();
+      if (templates.ok) {
+        const fwTemplate = templates.value.find((t) => t.framework === input.framework);
+        if (fwTemplate?.language && fwTemplate.language !== input.language) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Framework "${input.framework}" is a ${fwTemplate.language} framework, but language "${input.language}" was specified. Use language "${fwTemplate.language}" instead.`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+    }
+
+    // Infer language from framework if not specified
+    let language = input.language;
+    if (!language && input.framework) {
+      const templates = engine.listTemplates();
+      if (templates.ok) {
+        const fwTemplate = templates.value.find((t) => t.framework === input.framework);
+        if (fwTemplate?.language) language = fwTemplate.language;
+      }
+    }
+
     const isNonJs = language && language !== 'typescript';
     const level = isNonJs ? undefined : (input.level ?? 'basic');
 
     const resolveResult = engine.resolveTemplate(level, input.framework, language);
     if (!resolveResult.ok) return resultToMcpResponse(resolveResult);
 
-    const safePath = sanitizePath(input.path);
     const renderResult = engine.render(resolveResult.value, {
       projectName: input.name ?? path.basename(safePath),
       level: level ?? '',

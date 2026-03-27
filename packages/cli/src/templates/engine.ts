@@ -267,7 +267,12 @@ export class TemplateEngine {
           const filePath = path.join(targetDir, pattern.file);
           if (!fs.existsSync(filePath)) continue;
           if (pattern.contains) {
-            const content = fs.readFileSync(filePath, 'utf-8');
+            // Read only first 64KB to avoid large file allocation (e.g., go.sum, package-lock.json)
+            const fd = fs.openSync(filePath, 'r');
+            const buf = Buffer.alloc(65536);
+            const bytesRead = fs.readSync(fd, buf, 0, 65536, 0);
+            fs.closeSync(fd);
+            const content = buf.toString('utf-8', 0, bytesRead);
             if (content.includes(pattern.contains)) score++;
           } else {
             score++;
