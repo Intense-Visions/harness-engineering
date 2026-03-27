@@ -126,6 +126,54 @@ describe('TemplateEngine', () => {
     });
   });
 
+  describe('language-aware resolution', () => {
+    it('resolves non-JS framework: language-base -> framework overlay', () => {
+      const result = engine.resolveTemplate(undefined, 'fastapi', 'python');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const paths = result.value.files.map((f) => f.relativePath);
+      // Should include python-base file
+      expect(paths).toContain('src/__init__.py');
+      // Should include fastapi overlay file
+      expect(paths).toContain('src/main.py');
+      // Should NOT include JS base files
+      expect(paths).not.toContain('shared.txt');
+    });
+
+    it('resolves bare language scaffold (language only, no framework)', () => {
+      const result = engine.resolveTemplate(undefined, undefined, 'python');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const paths = result.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('src/__init__.py');
+      // No framework overlay files
+      expect(paths).not.toContain('src/main.py');
+    });
+
+    it('existing JS/TS resolution is unchanged (level + framework)', () => {
+      const result = engine.resolveTemplate('basic', 'nextjs');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const paths = result.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('src/app/page.tsx');
+      expect(paths).toContain('src/index.ts');
+    });
+
+    it('existing JS/TS resolution is unchanged (level only)', () => {
+      const result = engine.resolveTemplate('basic');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const paths = result.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('shared.txt');
+      expect(paths).toContain('package.json.hbs');
+    });
+
+    it('returns error for unknown language-base template', () => {
+      const result = engine.resolveTemplate(undefined, undefined, 'rust');
+      expect(result.ok).toBe(false);
+    });
+  });
+
   describe('write', () => {
     it('writes rendered files to target directory', () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-test-'));

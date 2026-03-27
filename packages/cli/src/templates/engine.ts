@@ -8,8 +8,13 @@ import { deepMergeJson, mergePackageJson } from './merger';
 
 export interface TemplateContext {
   projectName: string;
-  level: string;
+  level?: string;
   framework?: string;
+  language?: string;
+  goModulePath?: string;
+  pythonMinVersion?: string;
+  javaGroupId?: string;
+  rustEdition?: string;
 }
 
 interface TemplateFile {
@@ -63,7 +68,21 @@ export class TemplateEngine {
     }
   }
 
-  resolveTemplate(level: string, framework?: string): Result<ResolvedTemplate, Error> {
+  resolveTemplate(
+    level?: string,
+    framework?: string,
+    language?: string
+  ): Result<ResolvedTemplate, Error> {
+    // Non-JS language path: language-base -> optional framework overlay
+    if (language && language !== 'typescript') {
+      return this.resolveLanguageTemplate(language, framework);
+    }
+
+    // Existing JS/TS path: requires level
+    if (!level) {
+      return Err(new Error('Level is required for TypeScript/JavaScript templates'));
+    }
+
     const levelDir = this.findTemplateDir(level, 'level');
     if (!levelDir) return Err(new Error(`Template not found for level: ${level}`));
 
@@ -182,7 +201,42 @@ export class TemplateEngine {
     }
   }
 
-  private findTemplateDir(name: string, type: 'level' | 'framework'): string | null {
+  private resolveLanguageTemplate(
+    language: string,
+    framework?: string
+  ): Result<ResolvedTemplate, Error> {
+    const baseName = `${language}-base`;
+    const baseDir = this.findTemplateDir(baseName, 'name');
+    if (!baseDir) return Err(new Error(`Language base template not found: ${baseName}`));
+
+    const metaPath = path.join(baseDir, 'template.json');
+    const metaRaw = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+    const metaResult = TemplateMetadataSchema.safeParse(metaRaw);
+    if (!metaResult.success)
+      return Err(new Error(`Invalid template.json in ${baseName}: ${metaResult.error.message}`));
+
+    const metadata = metaResult.data;
+    let files = this.collectFiles(baseDir, baseName);
+
+    let overlayMetadata: TemplateMetadata | undefined;
+    if (framework) {
+      const frameworkDir = this.findTemplateDir(framework, 'framework');
+      if (!frameworkDir) return Err(new Error(`Framework template not found: ${framework}`));
+      const fMetaPath = path.join(frameworkDir, 'template.json');
+      const fMetaRaw = JSON.parse(fs.readFileSync(fMetaPath, 'utf-8'));
+      const fMetaResult = TemplateMetadataSchema.safeParse(fMetaRaw);
+      if (fMetaResult.success) overlayMetadata = fMetaResult.data;
+      const frameworkFiles = this.collectFiles(frameworkDir, framework);
+      files = this.mergeFileLists(files, frameworkFiles);
+    }
+
+    files = files.filter((f) => f.relativePath !== 'template.json');
+    const resolved: ResolvedTemplate = { metadata, files };
+    if (overlayMetadata !== undefined) resolved.overlayMetadata = overlayMetadata;
+    return Ok(resolved);
+  }
+
+  private findTemplateDir(name: string, type: 'level' | 'framework' | 'name'): string | null {
     const entries = fs.readdirSync(this.templatesDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
@@ -194,6 +248,8 @@ export class TemplateEngine {
       if (type === 'level' && parsed.data.level === name)
         return path.join(this.templatesDir, entry.name);
       if (type === 'framework' && parsed.data.framework === name)
+        return path.join(this.templatesDir, entry.name);
+      if (type === 'name' && parsed.data.name === name)
         return path.join(this.templatesDir, entry.name);
       if (parsed.data.name === name) return path.join(this.templatesDir, entry.name);
     }
