@@ -80,4 +80,37 @@ describe('template snapshots', () => {
       expect(fileMap).toMatchSnapshot();
     });
   }
+
+  const nonJsOverlays = [
+    { framework: 'fastapi', language: 'python' as const, expectedFile: 'src/main.py' },
+    { framework: 'django', language: 'python' as const, expectedFile: 'manage.py' },
+    { framework: 'gin', language: 'go' as const, expectedFile: 'main.go' },
+    { framework: 'axum', language: 'rust' as const, expectedFile: 'src/main.rs' },
+    {
+      framework: 'spring-boot',
+      language: 'java' as const,
+      expectedFile: 'src/main/java/Application.java',
+    },
+  ] as const;
+
+  for (const { framework, language, expectedFile } of nonJsOverlays) {
+    it(`${framework} overlay with ${language}-base matches snapshot`, () => {
+      const resolved = engine.resolveTemplate(undefined, framework, language);
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = engine.render(resolved.value, {
+        projectName: 'snapshot-test',
+        language,
+        framework,
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const fileMap = Object.fromEntries(
+        rendered.value.files.map((f) => [f.relativePath, f.content])
+      );
+
+      expect(fileMap[expectedFile]).toBeDefined();
+      expect(fileMap).toMatchSnapshot();
+    });
+  }
 });
