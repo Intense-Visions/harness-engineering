@@ -268,6 +268,144 @@ See [architecture.md](./architecture.md) for architectural decisions.
 }
 `;
 
+exports[`template snapshots > express overlay with basic level matches snapshot 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test — A project using Harness Engineering practices (basic adoption level).
+
+## Documentation
+
+- Main docs: \`docs/\`
+- Architecture decisions: \`docs/architecture.md\`
+
+## Source Code
+
+- Entry point: \`src/index.ts\`
+
+## Architecture
+
+See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/index.md": "# snapshot-test Documentation
+
+Welcome to the snapshot-test documentation.
+
+## Getting Started
+
+1. Install dependencies: \`npm install\`
+2. Run checks: \`npx harness validate\`
+3. Start development
+
+## Architecture
+
+See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "layers": [
+    {
+      "name": "types",
+      "pattern": "src/types/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "domain",
+      "pattern": "src/domain/**",
+      "allowedDependencies": [
+        "types"
+      ]
+    },
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": [
+        "types",
+        "domain"
+      ]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": [
+        "types",
+        "domain",
+        "services"
+      ]
+    }
+  ],
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "level": "basic",
+    "version": 1
+  }
+}",
+  "package.json": "{
+  "name": "snapshot-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "harness:validate": "harness validate",
+    "harness:check-deps": "harness check-deps",
+    "dev": "tsx watch src/app.ts",
+    "start": "node dist/app.js"
+  },
+  "dependencies": {
+    "express": "^4.0.0"
+  },
+  "devDependencies": {
+    "@harness-engineering/cli": "^0.1.0",
+    "typescript": "^5.0.0",
+    "@types/express": "^4.0.0",
+    "tsx": "^4.0.0"
+  }
+}",
+  "src/app.ts": "import express from 'express';
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (_req, res) => {
+  res.json({ message: 'Welcome to your Harness Engineering project' });
+});
+
+app.listen(port, () => {
+  console.log(\`Server running on port \${port}\`);
+});
+",
+  "src/index.ts": "export {};
+",
+  "src/lib/.gitkeep": "",
+  "tsconfig.json": "{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": true
+  },
+  "include": ["src"]
+}
+",
+}
+`;
+
 exports[`template snapshots > go-base template output matches snapshot 1`] = `
 {
   ".gitignore": "# Binaries
@@ -673,6 +811,161 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
 }
 `;
 
+exports[`template snapshots > nestjs overlay with basic level matches snapshot 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test — A project using Harness Engineering practices (basic adoption level).
+
+## Documentation
+
+- Main docs: \`docs/\`
+- Architecture decisions: \`docs/architecture.md\`
+
+## Source Code
+
+- Entry point: \`src/index.ts\`
+
+## Architecture
+
+See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/index.md": "# snapshot-test Documentation
+
+Welcome to the snapshot-test documentation.
+
+## Getting Started
+
+1. Install dependencies: \`npm install\`
+2. Run checks: \`npx harness validate\`
+3. Start development
+
+## Architecture
+
+See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "layers": [
+    {
+      "name": "types",
+      "pattern": "src/types/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "domain",
+      "pattern": "src/domain/**",
+      "allowedDependencies": [
+        "types"
+      ]
+    },
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": [
+        "types",
+        "domain"
+      ]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": [
+        "types",
+        "domain",
+        "services"
+      ]
+    }
+  ],
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "level": "basic",
+    "version": 1
+  }
+}",
+  "nest-cli.json": "{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src"
+}
+",
+  "package.json": "{
+  "name": "snapshot-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "nest build",
+    "harness:validate": "harness validate",
+    "harness:check-deps": "harness check-deps",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/platform-express": "^10.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@harness-engineering/cli": "^0.1.0",
+    "typescript": "^5.0.0",
+    "@nestjs/cli": "^10.0.0"
+  }
+}",
+  "src/app.module.ts": "import { Module } from '@nestjs/common';
+
+@Module({
+  imports: [],
+  controllers: [],
+  providers: [],
+})
+export class AppModule {}
+",
+  "src/index.ts": "export {};
+",
+  "src/lib/.gitkeep": "",
+  "src/main.ts": "import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(\`Application running on port \${port}\`);
+}
+
+bootstrap();
+",
+  "tsconfig.json": "{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": true
+  },
+  "include": ["src"]
+}
+",
+}
+`;
+
 exports[`template snapshots > python-base template output matches snapshot 1`] = `
 {
   ".gitignore": "__pycache__/
@@ -771,6 +1064,172 @@ select = ["E", "F", "I", "N", "W", "UP"]
 }
 `;
 
+exports[`template snapshots > react-vite overlay with basic level matches snapshot 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test — A project using Harness Engineering practices (basic adoption level).
+
+## Documentation
+
+- Main docs: \`docs/\`
+- Architecture decisions: \`docs/architecture.md\`
+
+## Source Code
+
+- Entry point: \`src/index.ts\`
+
+## Architecture
+
+See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/index.md": "# snapshot-test Documentation
+
+Welcome to the snapshot-test documentation.
+
+## Getting Started
+
+1. Install dependencies: \`npm install\`
+2. Run checks: \`npx harness validate\`
+3. Start development
+
+## Architecture
+
+See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "layers": [
+    {
+      "name": "types",
+      "pattern": "src/types/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "domain",
+      "pattern": "src/domain/**",
+      "allowedDependencies": [
+        "types"
+      ]
+    },
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": [
+        "types",
+        "domain"
+      ]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": [
+        "types",
+        "domain",
+        "services"
+      ]
+    }
+  ],
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "level": "basic",
+    "version": 1
+  }
+}",
+  "index.html": "<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Harness Engineering App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+",
+  "package.json": "{
+  "name": "snapshot-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && vite build",
+    "harness:validate": "harness validate",
+    "harness:check-deps": "harness check-deps",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@harness-engineering/cli": "^0.1.0",
+    "typescript": "^5.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite": "^5.0.0"
+  }
+}",
+  "src/App.tsx": "export default function App() {
+  return (
+    <main>
+      <h1>Welcome to your Harness Engineering project</h1>
+    </main>
+  );
+}
+",
+  "src/index.ts": "export {};
+",
+  "src/lib/.gitkeep": "",
+  "src/main.tsx": "import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+",
+  "tsconfig.json": "{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": true
+  },
+  "include": ["src"]
+}
+",
+  "vite.config.ts": "import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+});
+",
+}
+`;
+
 exports[`template snapshots > rust-base template output matches snapshot 1`] = `
 {
   ".gitignore": "/target/
@@ -848,6 +1307,165 @@ too-many-arguments-threshold = 7
   "src/main.rs": "fn main() {
     println!("Hello, world!");
 }
+",
+}
+`;
+
+exports[`template snapshots > vue overlay with basic level matches snapshot 1`] = `
+{
+  ".gitignore": "node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test — A project using Harness Engineering practices (basic adoption level).
+
+## Documentation
+
+- Main docs: \`docs/\`
+- Architecture decisions: \`docs/architecture.md\`
+
+## Source Code
+
+- Entry point: \`src/index.ts\`
+
+## Architecture
+
+See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/index.md": "# snapshot-test Documentation
+
+Welcome to the snapshot-test documentation.
+
+## Getting Started
+
+1. Install dependencies: \`npm install\`
+2. Run checks: \`npx harness validate\`
+3. Start development
+
+## Architecture
+
+See [architecture.md](./architecture.md) for architectural decisions.
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "layers": [
+    {
+      "name": "types",
+      "pattern": "src/types/**",
+      "allowedDependencies": []
+    },
+    {
+      "name": "domain",
+      "pattern": "src/domain/**",
+      "allowedDependencies": [
+        "types"
+      ]
+    },
+    {
+      "name": "services",
+      "pattern": "src/services/**",
+      "allowedDependencies": [
+        "types",
+        "domain"
+      ]
+    },
+    {
+      "name": "api",
+      "pattern": "src/api/**",
+      "allowedDependencies": [
+        "types",
+        "domain",
+        "services"
+      ]
+    }
+  ],
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "level": "basic",
+    "version": 1
+  }
+}",
+  "index.html": "<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Harness Engineering App</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+",
+  "package.json": "{
+  "name": "snapshot-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "vue-tsc && vite build",
+    "harness:validate": "harness validate",
+    "harness:check-deps": "harness check-deps",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.0.0"
+  },
+  "devDependencies": {
+    "@harness-engineering/cli": "^0.1.0",
+    "typescript": "^5.0.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vue-tsc": "^2.0.0",
+    "vite": "^5.0.0"
+  }
+}",
+  "src/App.vue": "<template>
+  <main>
+    <h1>Welcome to your Harness Engineering project</h1>
+  </main>
+</template>
+
+<script setup lang="ts"></script>
+",
+  "src/index.ts": "export {};
+",
+  "src/lib/.gitkeep": "",
+  "src/main.ts": "import { createApp } from 'vue';
+import App from './App.vue';
+
+createApp(App).mount('#app');
+",
+  "tsconfig.json": "{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": true
+  },
+  "include": ["src"]
+}
+",
+  "vite.config.ts": "import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+
+export default defineConfig({
+  plugins: [vue()],
+});
 ",
 }
 `;
