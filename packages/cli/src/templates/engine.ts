@@ -39,6 +39,13 @@ export interface RenderedFiles {
   files: RenderedFile[];
 }
 
+export interface DetectedFramework {
+  framework: string;
+  language: string;
+  score: number;
+  templateName: string;
+}
+
 interface WriteOptions {
   overwrite: boolean;
 }
@@ -196,6 +203,50 @@ export class TemplateEngine {
       return Err(
         new Error(
           `Failed to write files: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
+    }
+  }
+
+  detectFramework(targetDir: string): Result<DetectedFramework[], Error> {
+    try {
+      const templatesResult = this.listTemplates();
+      if (!templatesResult.ok) return Err(templatesResult.error);
+
+      const candidates: DetectedFramework[] = [];
+
+      for (const meta of templatesResult.value) {
+        if (!meta.detect || meta.detect.length === 0) continue;
+        if (!meta.framework || !meta.language) continue;
+
+        let score = 0;
+        for (const pattern of meta.detect) {
+          const filePath = path.join(targetDir, pattern.file);
+          if (!fs.existsSync(filePath)) continue;
+          if (pattern.contains) {
+            const content = fs.readFileSync(filePath, 'utf-8');
+            if (content.includes(pattern.contains)) score++;
+          } else {
+            score++;
+          }
+        }
+
+        if (score > 0) {
+          candidates.push({
+            framework: meta.framework,
+            language: meta.language,
+            score,
+            templateName: meta.name,
+          });
+        }
+      }
+
+      candidates.sort((a, b) => b.score - a.score);
+      return Ok(candidates);
+    } catch (error) {
+      return Err(
+        new Error(
+          `Framework detection failed: ${error instanceof Error ? error.message : String(error)}`
         )
       );
     }

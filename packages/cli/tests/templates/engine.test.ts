@@ -174,6 +174,50 @@ describe('TemplateEngine', () => {
     });
   });
 
+  describe('detectFramework', () => {
+    it('detects fastapi from requirements.txt content', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(path.join(tmpDir, 'requirements.txt'), 'fastapi==0.100.0\nuvicorn\n');
+
+      const result = engine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.length).toBeGreaterThan(0);
+      expect(result.value[0].framework).toBe('fastapi');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('returns empty array when no frameworks detected', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+
+      const result = engine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('scores candidates by number of matching patterns', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(path.join(tmpDir, 'requirements.txt'), 'fastapi==0.100.0\n');
+      fs.writeFileSync(
+        path.join(tmpDir, 'pyproject.toml'),
+        '[project]\ndependencies = ["fastapi"]\n'
+      );
+
+      const result = engine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.length).toBeGreaterThan(0);
+      // Two patterns matched = score of 2
+      expect(result.value[0].score).toBe(2);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+  });
+
   describe('write', () => {
     it('writes rendered files to target directory', () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-test-'));
