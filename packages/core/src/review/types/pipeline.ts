@@ -1,6 +1,6 @@
 // --- Phase 8: Model Tiering Config types ---
 
-import type { MechanicalCheckResult } from './mechanical';
+import type { EvidenceCoverageReport, MechanicalCheckResult } from './mechanical';
 import type { ContextBundle, DiffInfo, GraphAdapter } from './context';
 import type { ReviewFinding } from './fan-out';
 import type { GitHubInlineComment, PrMetadata, ReviewAssessment, ReviewStrength } from './output';
@@ -72,6 +72,8 @@ export interface PipelineContext {
   checkDepsOutput?: string;
   /** Repository in owner/repo format (for --comment) */
   repo?: string;
+  /** Session slug for evidence checking (optional) */
+  sessionSlug?: string;
 
   // --- Phase 1: GATE output ---
   /** Whether the pipeline was skipped by the gate */
@@ -112,6 +114,8 @@ export interface PipelineContext {
   githubComments?: GitHubInlineComment[];
   /** Process exit code (0 = approve/comment, 1 = request-changes) */
   exitCode: number;
+  /** Evidence coverage report (when session evidence is available) */
+  evidenceCoverage?: EvidenceCoverageReport;
 }
 
 /**
@@ -138,4 +142,6 @@ export interface ReviewPipelineResult {
   exitCode: number;
   /** Mechanical check result (for reporting) */
   mechanicalResult?: MechanicalCheckResult;
+  /** Evidence coverage report (when session evidence is available) */
+  evidenceCoverage?: EvidenceCoverageReport;
 }

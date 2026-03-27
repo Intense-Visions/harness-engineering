@@ -51,3 +51,20 @@ export interface MechanicalCheckOptions {
   /** Only scan these files for security (e.g., changed files from a PR) */
   changedFiles?: string[];
 }
+
+/**
+ * Report on evidence coverage across review findings.
+ * Produced by the evidence gate and included in review output.
+ */
+export interface EvidenceCoverageReport {
+  /** Total evidence entries loaded from session state */
+  totalEntries: number;
+  /** Number of findings that have matching evidence entries */
+  findingsWithEvidence: number;
+  /** Number of findings without matching evidence (flagged [UNVERIFIED]) */
+  uncitedCount: number;
+  /** Titles of uncited findings (for reporting) */
+  uncitedFindings: string[];
+  /** Coverage percentage (findingsWithEvidence / total findings * 100) */
+  coveragePercentage: number;
+}

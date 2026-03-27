@@ -1,6 +1,7 @@
 // --- Phase 7: Output types ---
 
 import type { ReviewFinding } from './fan-out';
+import type { EvidenceCoverageReport } from './mechanical';
 
 /**
  * Assessment decision — determines exit code and PR review action.
@@ -29,6 +30,8 @@ export interface ReviewOutputOptions {
   prNumber?: number;
   /** Repository in owner/repo format (required for GitHub comments) */
   repo?: string;
+  /** Evidence coverage report to append to output (optional) */
+  evidenceCoverage?: EvidenceCoverageReport;
 }
 
 /**
