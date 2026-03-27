@@ -99,4 +99,136 @@ describe('manage_state tool', () => {
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain('handoff is required');
   });
+
+  it('has session section actions in enum', () => {
+    const actionProp = manageStateDefinition.inputSchema.properties.action as {
+      type: string;
+      enum: string[];
+    };
+    expect(actionProp.enum).toContain('append_entry');
+    expect(actionProp.enum).toContain('update_entry_status');
+    expect(actionProp.enum).toContain('read_section');
+    expect(actionProp.enum).toContain('read_sections');
+    expect(actionProp.enum).toContain('archive_session');
+  });
+
+  it('has session section input properties', () => {
+    const props = manageStateDefinition.inputSchema.properties;
+    expect(props.section).toBeDefined();
+    expect(props.authorSkill).toBeDefined();
+    expect(props.content).toBeDefined();
+    expect(props.entryId).toBeDefined();
+    expect(props.newStatus).toBeDefined();
+  });
+
+  it('append_entry returns error when session is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'append_entry',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('session is required');
+  });
+
+  it('append_entry returns error when section is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'append_entry',
+      session: 'test-session',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('section is required');
+  });
+
+  it('append_entry returns error when authorSkill is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'append_entry',
+      session: 'test-session',
+      section: 'decisions',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('authorSkill is required');
+  });
+
+  it('append_entry returns error when content is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'append_entry',
+      session: 'test-session',
+      section: 'decisions',
+      authorSkill: 'harness-planning',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('content is required');
+  });
+
+  it('update_entry_status returns error when session is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'update_entry_status',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('session is required');
+  });
+
+  it('update_entry_status returns error when entryId is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'update_entry_status',
+      session: 'test-session',
+      section: 'decisions',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('entryId is required');
+  });
+
+  it('update_entry_status returns error when newStatus is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'update_entry_status',
+      session: 'test-session',
+      section: 'decisions',
+      entryId: 'abc123',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('newStatus is required');
+  });
+
+  it('read_section returns error when session is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'read_section',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('session is required');
+  });
+
+  it('read_section returns error when section is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'read_section',
+      session: 'test-session',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('section is required');
+  });
+
+  it('read_sections returns error when session is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'read_sections',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('session is required');
+  });
+
+  it('archive_session returns error when session is missing', async () => {
+    const response = await handleManageState({
+      path: '/tmp/test-project',
+      action: 'archive_session',
+    });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain('session is required');
+  });
 });
