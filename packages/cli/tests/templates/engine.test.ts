@@ -421,7 +421,7 @@ describe('TemplateEngine', () => {
 
       const pom = rendered.value.files.find((f) => f.relativePath === 'pom.xml');
       expect(pom!.content).toContain('<artifactId>my-java-app</artifactId>');
-      expect(pom!.content).toContain('<groupId>com.example.my-java-app</groupId>');
+      expect(pom!.content).toContain('<groupId>com.example.myjavaapp</groupId>');
     });
 
     it('renders harness.config.json with valid JSON for all languages', () => {

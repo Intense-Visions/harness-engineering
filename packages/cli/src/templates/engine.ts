@@ -147,7 +147,9 @@ export class TemplateEngine {
           goModulePath: `github.com/example/${context.projectName}`,
         }),
       ...(context.language === 'java' &&
-        context.javaGroupId === undefined && { javaGroupId: `com.example.${context.projectName}` }),
+        context.javaGroupId === undefined && {
+          javaGroupId: `com.example.${context.projectName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
+        }),
       ...(context.language === 'rust' &&
         context.rustEdition === undefined && { rustEdition: '2021' }),
     };

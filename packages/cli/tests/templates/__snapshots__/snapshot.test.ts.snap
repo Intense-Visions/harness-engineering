@@ -366,6 +366,7 @@ go 1.21
     "packageManager": "go",
     "linter": "golangci-lint",
     "formatter": "gofmt",
+    "buildTool": "go",
     "testRunner": "go test"
   }
 }",
@@ -562,7 +563,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
 - **Build tool:** Maven
 - **Linter:** Checkstyle
 - **Test runner:** JUnit 5
-- **Group ID:** com.example.snapshot-test
+- **Group ID:** com.example.snapshottest
 
 ## Directory Structure
 
@@ -629,7 +630,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.example.snapshot-test</groupId>
+  <groupId>com.example.snapshottest</groupId>
   <artifactId>snapshot-test</artifactId>
   <version>0.1.0</version>
   <packaging>jar</packaging>
@@ -663,9 +664,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   </build>
 </project>
 ",
-  "src/main/java/App.java": "package com.example.snapshot-test;
-
-public class App {
+  "src/main/java/App.java": "public class App {
     public static void main(String[] args) {
         System.out.println("Hello, world!");
     }
@@ -775,7 +774,6 @@ select = ["E", "F", "I", "N", "W", "UP"]
 exports[`template snapshots > rust-base template output matches snapshot 1`] = `
 {
   ".gitignore": "/target/
-Cargo.lock
 .env
 .env.local
 *.log
@@ -843,6 +841,7 @@ too-many-arguments-threshold = 7
     "packageManager": "cargo",
     "linter": "clippy",
     "formatter": "rustfmt",
+    "buildTool": "cargo",
     "testRunner": "cargo test"
   }
 }",
