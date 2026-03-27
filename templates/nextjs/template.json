@@ -2,5 +2,19 @@
   "name": "nextjs",
   "description": "Next.js framework overlay",
   "framework": "nextjs",
-  "version": 1
+  "language": "typescript",
+  "version": 1,
+  "mergeStrategy": { "json": "deep-merge", "files": "overlay-wins" },
+  "tooling": {
+    "packageManager": "npm",
+    "linter": "eslint",
+    "formatter": "prettier",
+    "buildTool": "next",
+    "testRunner": "vitest"
+  },
+  "detect": [
+    { "file": "next.config.mjs", "contains": "" },
+    { "file": "next.config.js", "contains": "" },
+    { "file": "package.json", "contains": "next" }
+  ]
 }
