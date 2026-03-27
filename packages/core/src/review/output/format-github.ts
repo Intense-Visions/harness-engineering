@@ -1,4 +1,9 @@
-import type { ReviewFinding, ReviewStrength, GitHubInlineComment } from '../types';
+import type {
+  ReviewFinding,
+  ReviewStrength,
+  GitHubInlineComment,
+  EvidenceCoverageReport,
+} from '../types';
 import { determineAssessment } from './assessment';
 import { SEVERITY_ORDER, SEVERITY_LABELS } from '../constants';
 
@@ -69,6 +74,7 @@ export function formatGitHubComment(finding: ReviewFinding): GitHubInlineComment
 export function formatGitHubSummary(options: {
   findings: ReviewFinding[];
   strengths: ReviewStrength[];
+  evidenceCoverage?: EvidenceCoverageReport;
 }): string {
   const { findings, strengths } = options;
   const sections: string[] = [];
@@ -113,6 +119,19 @@ export function formatGitHubSummary(options: {
     assessment === 'approve' ? 'Approve' : assessment === 'comment' ? 'Comment' : 'Request Changes';
 
   sections.push(`## Assessment: ${assessmentLabel}`);
+
+  // --- Evidence Coverage ---
+  if (options.evidenceCoverage) {
+    const ec = options.evidenceCoverage;
+    sections.push('');
+    sections.push('## Evidence Coverage\n');
+    sections.push(`- Evidence entries: ${ec.totalEntries}`);
+    sections.push(
+      `- Findings with evidence: ${ec.findingsWithEvidence}/${ec.findingsWithEvidence + ec.uncitedCount}`
+    );
+    sections.push(`- Uncited findings: ${ec.uncitedCount} (flagged as \\[UNVERIFIED\\])`);
+    sections.push(`- Coverage: ${ec.coveragePercentage}%`);
+  }
 
   return sections.join('\n');
 }

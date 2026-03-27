@@ -36,6 +36,8 @@ export type {
   PipelineFlags,
   PipelineContext,
   ReviewPipelineResult,
+  // Evidence gate types
+  EvidenceCoverageReport,
 } from './types';
 
 // Mechanical checks
@@ -90,6 +92,9 @@ export {
   formatGitHubSummary,
   isSmallSuggestion,
 } from './output';
+
+// Evidence gate
+export { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
 
 // Pipeline orchestrator
 export { runReviewPipeline } from './pipeline-orchestrator';

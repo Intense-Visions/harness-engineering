@@ -1,4 +1,4 @@
-import type { ReviewFinding, ReviewStrength } from '../types';
+import type { ReviewFinding, ReviewStrength, EvidenceCoverageReport } from '../types';
 import { determineAssessment } from './assessment';
 import { SEVERITY_ORDER, SEVERITY_LABELS } from '../constants';
 
@@ -26,6 +26,7 @@ export function formatFindingBlock(finding: ReviewFinding): string {
 export function formatTerminalOutput(options: {
   findings: ReviewFinding[];
   strengths: ReviewStrength[];
+  evidenceCoverage?: EvidenceCoverageReport;
 }): string {
   const { findings, strengths } = options;
   const sections: string[] = [];
@@ -82,6 +83,19 @@ export function formatTerminalOutput(options: {
     if (importantCount > 0) parts.push(`${importantCount} important`);
     if (suggestionCount > 0) parts.push(`${suggestionCount} suggestion(s)`);
     sections.push(`  Found ${issueCount} issue(s): ${parts.join(', ')}.`);
+  }
+
+  // --- Evidence Coverage ---
+  if (options.evidenceCoverage) {
+    const ec = options.evidenceCoverage;
+    sections.push('');
+    sections.push('## Evidence Coverage\n');
+    sections.push(`  Evidence entries: ${ec.totalEntries}`);
+    sections.push(
+      `  Findings with evidence: ${ec.findingsWithEvidence}/${ec.findingsWithEvidence + ec.uncitedCount}`
+    );
+    sections.push(`  Uncited findings: ${ec.uncitedCount} (flagged as [UNVERIFIED])`);
+    sections.push(`  Coverage: ${ec.coveragePercentage}%`);
   }
 
   return sections.join('\n');
