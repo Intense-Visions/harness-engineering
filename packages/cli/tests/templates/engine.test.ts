@@ -241,4 +241,69 @@ describe('TemplateEngine', () => {
       fs.rmSync(tmpDir, { recursive: true });
     });
   });
+
+  describe('write with existing project skip logic', () => {
+    it('skips non-JSON package config files in existing projects', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-write-'));
+      // Pre-existing pyproject.toml
+      fs.writeFileSync(path.join(tmpDir, 'pyproject.toml'), '[project]\nname = "existing"\n');
+
+      const files = {
+        files: [
+          { relativePath: 'pyproject.toml', content: '[project]\nname = "new"\n' },
+          { relativePath: 'src/main.py', content: 'print("hello")' },
+        ],
+      };
+
+      const result = engine.write(files, tmpDir, { overwrite: false, language: 'python' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      // pyproject.toml should be skipped (not in written list)
+      expect(result.value.written).not.toContain('pyproject.toml');
+      // src/main.py should be written
+      expect(result.value.written).toContain('src/main.py');
+      // pyproject.toml content should be unchanged
+      const content = fs.readFileSync(path.join(tmpDir, 'pyproject.toml'), 'utf-8');
+      expect(content).toContain('existing');
+      // skippedConfigs should list pyproject.toml
+      expect(result.value.skippedConfigs).toContain('pyproject.toml');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('merges package.json for JS/TS in existing projects (existing behavior)', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-write-'));
+
+      const files = {
+        files: [
+          { relativePath: 'package.json', content: '{"name":"test","version":"1.0.0"}' },
+          { relativePath: 'src/index.ts', content: 'console.log("hi")' },
+        ],
+      };
+
+      const result = engine.write(files, tmpDir, { overwrite: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.written).toContain('package.json');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('does not skip non-JSON config files when overwrite is true', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-write-'));
+      fs.writeFileSync(path.join(tmpDir, 'pyproject.toml'), '[project]\nname = "existing"\n');
+
+      const files = {
+        files: [{ relativePath: 'pyproject.toml', content: '[project]\nname = "new"\n' }],
+      };
+
+      const result = engine.write(files, tmpDir, { overwrite: true, language: 'python' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.written).toContain('pyproject.toml');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+  });
 });
