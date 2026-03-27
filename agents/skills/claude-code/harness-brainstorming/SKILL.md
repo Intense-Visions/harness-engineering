@@ -263,18 +263,40 @@ Converge on a recommendation that addresses all concerns before presenting the d
 
 This skill reads and writes to the following session sections via `manage_state`:
 
-| Section       | Read | Write | Purpose                                               |
-| ------------- | ---- | ----- | ----------------------------------------------------- |
-| terminology   | yes  | yes   | Captures domain terms discovered during brainstorming |
-| decisions     | no   | yes   | Records design decisions made during exploration      |
-| constraints   | yes  | no    | Reads constraints to scope brainstorming              |
-| risks         | no   | yes   | Captures risks identified during brainstorming        |
-| openQuestions | yes  | yes   | Adds new questions, resolves answered ones            |
-| evidence      | no   | no    | Not used by this skill                                |
+| Section       | Read | Write | Purpose                                                           |
+| ------------- | ---- | ----- | ----------------------------------------------------------------- |
+| terminology   | yes  | yes   | Captures domain terms discovered during brainstorming             |
+| decisions     | no   | yes   | Records design decisions made during exploration                  |
+| constraints   | yes  | no    | Reads constraints to scope brainstorming                          |
+| risks         | no   | yes   | Captures risks identified during brainstorming                    |
+| openQuestions | yes  | yes   | Adds new questions, resolves answered ones                        |
+| evidence      | no   | yes   | Cites sources for design recommendations and prior art references |
 
 **When to write:** After each phase transition (EXPLORE -> EVALUATE -> PRIORITIZE -> VALIDATE), append relevant entries to the appropriate sections. This ensures downstream skills (planning, execution) inherit accumulated context without re-discovery.
 
 **When to read:** At the start of Phase 1 (EXPLORE), read `terminology` and `constraints` from the session to inherit context from prior skills or previous brainstorming sessions on the same feature.
+
+## Evidence Requirements
+
+When this skill makes claims about existing code behavior, architecture patterns, or technical tradeoffs, it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/services/auth.ts:42` -- "existing JWT middleware handles token refresh")
+2. **Prior art reference:** `file` format with description (e.g., `src/utils/email.ts` -- "email utility already exists, can be reused for notifications")
+3. **Documentation reference:** `docs/path` format (e.g., `docs/changes/user-auth/proposal.md` -- "prior spec established OAuth2 as the auth standard")
+4. **Session evidence:** Write to the `evidence` session section:
+   ```json
+   manage_state({
+     action: "append_entry",
+     session: "<current-session>",
+     section: "evidence",
+     authorSkill: "harness-brainstorming",
+     content: "src/services/auth.ts:42 -- existing JWT middleware supports refresh tokens"
+   })
+   ```
+
+**When to cite:** During Phase 1 (EXPLORE) when referencing existing code or patterns. During Phase 3 (PRIORITIZE) when justifying tradeoffs with concrete code references. During Phase 4 (VALIDATE) when spec references existing implementation details.
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with `[UNVERIFIED]`. Example: `[UNVERIFIED] The current auth middleware does not support refresh tokens`. Uncited claims are flagged during review (Wave 2.2).
 
 ## Harness Integration
 
