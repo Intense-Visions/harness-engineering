@@ -362,6 +362,33 @@ This skill reads and writes to the following session sections via `manage_state`
 
 **When to read:** During Phase 1 (PREPARE), read all sections via `gather_context` with `include: ["sessions"]` to inherit full accumulated context from brainstorming and planning.
 
+## Evidence Requirements
+
+When this skill makes claims about task completion, test results, or code behavior, it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/services/notification-service.ts:42` -- "create method implemented with validation")
+2. **Test output:** Include the actual test command and its output:
+   ```
+   $ npx vitest run src/services/notification-service.test.ts
+   PASS  src/services/notification-service.test.ts (8 tests)
+   ```
+3. **Diff evidence:** Before/after with file path for modifications to existing files
+4. **Harness output:** Include `harness validate` output as evidence of project health
+5. **Session evidence:** Write to the `evidence` session section after each task:
+   ```json
+   manage_state({
+     action: "append_entry",
+     session: "<current-session>",
+     section: "evidence",
+     authorSkill: "harness-execution",
+     content: "src/services/notification-service.ts:42 -- create method returns Notification with all required fields"
+   })
+   ```
+
+**When to cite:** After every task completion in Phase 2 (EXECUTE). Every commit message claim ("added X", "fixed Y") must be backed by test output or file reference. During Phase 4 (PERSIST) when writing learnings that reference specific code behavior.
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with `[UNVERIFIED]`. Example: `[UNVERIFIED] The notification service handles duplicate entries`. Uncited claims are flagged during review (Wave 2.2).
+
 ## Harness Integration
 
 - **`harness validate`** — Run after every task completion. Mandatory. No task is complete without a passing validation.
