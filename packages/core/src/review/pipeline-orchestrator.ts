@@ -10,6 +10,7 @@ import type {
   GitHubInlineComment,
   MechanicalCheckResult,
   CommitHistoryEntry,
+  EvidenceCoverageReport,
 } from './types';
 import { checkEligibility } from './eligibility-gate';
 import { runMechanicalChecks } from './mechanical-checks';
@@ -24,6 +25,8 @@ import {
   determineAssessment,
   getExitCode,
 } from './output';
+import { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
+import { readSessionSection } from '../state/session-sections';
 
 /**
  * Options for invoking the pipeline.
@@ -43,6 +46,8 @@ export interface RunPipelineOptions {
   config?: Record<string, unknown>;
   /** Pre-gathered commit history entries */
   commitHistory?: CommitHistoryEntry[];
+  /** Session slug for loading evidence entries (optional) */
+  sessionSlug?: string;
 }
 
 /**
@@ -70,6 +75,7 @@ export async function runReviewPipeline(
     checkDepsOutput,
     config = {},
     commitHistory,
+    sessionSlug,
   } = options;
 
   // --- Phase 1: GATE ---
@@ -189,6 +195,20 @@ export async function runReviewPipeline(
     fileContents,
   });
 
+  // --- Evidence Check (between Phase 5 and Phase 6) ---
+  let evidenceCoverage: EvidenceCoverageReport | undefined;
+  if (sessionSlug) {
+    try {
+      const evidenceResult = await readSessionSection(projectRoot, sessionSlug, 'evidence');
+      if (evidenceResult.ok) {
+        evidenceCoverage = checkEvidenceCoverage(validatedFindings, evidenceResult.value);
+        tagUncitedFindings(validatedFindings, evidenceResult.value);
+      }
+    } catch {
+      // Evidence checking is optional — continue without it
+    }
+  }
+
   // --- Phase 6: DEDUP+MERGE ---
   const dedupedFindings = deduplicateFindings({ findings: validatedFindings });
 
@@ -200,6 +220,7 @@ export async function runReviewPipeline(
   const terminalOutput = formatTerminalOutput({
     findings: dedupedFindings,
     strengths,
+    evidenceCoverage,
   });
 
   let githubComments: GitHubInlineComment[] = [];
@@ -217,5 +238,6 @@ export async function runReviewPipeline(
     githubComments,
     exitCode,
     ...(mechanicalResult !== undefined ? { mechanicalResult } : {}),
+    ...(evidenceCoverage !== undefined ? { evidenceCoverage } : {}),
   };
 }
