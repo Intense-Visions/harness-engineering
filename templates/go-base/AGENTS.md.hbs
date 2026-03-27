@@ -1,0 +1,35 @@
+# {{projectName}} Knowledge Map
+
+## About This Project
+
+{{projectName}} -- A Go project managed with Harness Engineering practices.
+
+## Language & Tooling
+
+- **Language:** Go
+- **Module:** {{goModulePath}}
+- **Linter:** golangci-lint
+- **Formatter:** gofmt
+- **Test runner:** go test
+
+## Directory Structure
+
+- `main.go` -- Application entry point
+- `go.mod` -- Module definition and dependencies
+- `internal/` -- Private application packages (by convention)
+- `pkg/` -- Public library packages (by convention)
+
+## Conventions
+
+- Follow Effective Go guidelines
+- Use `gofmt` for formatting (enforced by golangci-lint)
+- Tests live alongside source files as `_test.go` suffix
+- Error handling: always check returned errors, never discard
+- Package names are lowercase, single-word, no underscores
+
+## Harness Skills
+
+- Use `harness-brainstorming` for design exploration
+- Use `harness-planning` to break features into atomic tasks
+- Use `harness-execution` to implement tasks with TDD
+- Refer to `harness.config.json` for project tooling configuration
