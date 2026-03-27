@@ -114,6 +114,22 @@ describe('checkEvidenceCoverage()', () => {
     const report = checkEvidenceCoverage(findings, evidence);
     expect(report.findingsWithEvidence).toBe(1);
   });
+
+  it('matches evidence for scoped package paths', () => {
+    const findings = [
+      makeFinding({
+        id: 'bug-scoped-pkg',
+        file: 'packages/@scope/file.ts',
+        lineRange: [40, 45],
+        title: 'Scoped package issue',
+      }),
+    ];
+    const evidence = [makeEvidence('packages/@scope/file.ts:42 -- scoped package evidence')];
+    const report = checkEvidenceCoverage(findings, evidence);
+    expect(report.findingsWithEvidence).toBe(1);
+    expect(report.uncitedCount).toBe(0);
+    expect(report.coveragePercentage).toBe(100);
+  });
 });
 
 describe('tagUncitedFindings()', () => {
