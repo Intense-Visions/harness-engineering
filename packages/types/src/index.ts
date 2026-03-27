@@ -375,6 +375,15 @@ export interface Roadmap {
   milestones: RoadmapMilestone[];
 }
 
+// --- Session State Types ---
+export { SESSION_SECTION_NAMES } from './session-state';
+export type {
+  SessionSectionName,
+  SessionEntryStatus,
+  SessionEntry,
+  SessionSections,
+} from './session-state';
+
 // --- Orchestrator Types ---
 export type {
   TokenUsage,
