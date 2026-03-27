@@ -5,7 +5,7 @@ import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { TemplateEngine, type DetectedFramework } from '../templates/engine';
-import { appendFrameworkSection } from '../templates/agents-append';
+import { persistToolingConfig, appendFrameworkAgents } from '../templates/post-write';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
@@ -115,45 +115,9 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     }
   }
 
-  // Post-write: persist tooling and framework metadata into harness.config.json
-  const writtenConfigPath = path.join(cwd, 'harness.config.json');
-  if (fs.existsSync(writtenConfigPath)) {
-    const config = JSON.parse(fs.readFileSync(writtenConfigPath, 'utf-8'));
-    const overlayMeta = resolveResult.value.overlayMetadata;
-
-    // Add framework to template section
-    if (options.framework) {
-      config.template = config.template || {};
-      config.template.framework = options.framework;
-    }
-
-    // Add tooling from overlay metadata (framework takes precedence over base)
-    if (overlayMeta?.tooling) {
-      config.tooling = { ...config.tooling, ...overlayMeta.tooling };
-      // Remove lockFile from config (internal to template system)
-      delete config.tooling.lockFile;
-    } else if (resolveResult.value.metadata.tooling && !config.tooling) {
-      config.tooling = { ...resolveResult.value.metadata.tooling };
-      delete config.tooling.lockFile;
-    }
-
-    // Remove level:null for non-JS languages
-    if (config.template?.level === null || config.template?.level === undefined) {
-      delete config.template.level;
-    }
-
-    fs.writeFileSync(writtenConfigPath, JSON.stringify(config, null, 2) + '\n');
-  }
-
-  // Post-write: append framework conventions to AGENTS.md if it already existed
-  const agentsPath = path.join(cwd, 'AGENTS.md');
-  if (options.framework && fs.existsSync(agentsPath)) {
-    const existingAgents = fs.readFileSync(agentsPath, 'utf-8');
-    const updatedAgents = appendFrameworkSection(existingAgents, options.framework, language);
-    if (updatedAgents !== existingAgents) {
-      fs.writeFileSync(agentsPath, updatedAgents);
-    }
-  }
+  // Post-write: persist tooling/framework metadata and append AGENTS.md conventions
+  persistToolingConfig(cwd, resolveResult.value, options.framework);
+  appendFrameworkAgents(cwd, options.framework, language);
 
   return Ok({
     filesCreated: writeResult.value.written,
