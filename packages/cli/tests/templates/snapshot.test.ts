@@ -52,4 +52,32 @@ describe('template snapshots', () => {
       expect(fileMap).toMatchSnapshot();
     });
   }
+
+  const frameworkOverlays = [
+    { framework: 'react-vite', level: 'basic' as const, expectedFile: 'vite.config.ts' },
+    { framework: 'vue', level: 'basic' as const, expectedFile: 'src/App.vue' },
+    { framework: 'express', level: 'basic' as const, expectedFile: 'src/app.ts' },
+    { framework: 'nestjs', level: 'basic' as const, expectedFile: 'nest-cli.json' },
+  ] as const;
+
+  for (const { framework, level, expectedFile } of frameworkOverlays) {
+    it(`${framework} overlay with ${level} level matches snapshot`, () => {
+      const resolved = engine.resolveTemplate(level, framework);
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = engine.render(resolved.value, {
+        projectName: 'snapshot-test',
+        level,
+        framework,
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const fileMap = Object.fromEntries(
+        rendered.value.files.map((f) => [f.relativePath, f.content])
+      );
+
+      expect(fileMap[expectedFile]).toBeDefined();
+      expect(fileMap).toMatchSnapshot();
+    });
+  }
 });
