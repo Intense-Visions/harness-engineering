@@ -6,6 +6,37 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.7.0 — 2026-03-27
+
+### Added
+
+- **Three-tier skill system** — 79 skills organized into Tier 1 (11 workflow), Tier 2 (19 maintenance), Tier 3 (43 domain), plus 6 internal skills. Includes skill dispatcher with tier-based loading, index builder, and stack profile detection.
+- **30 new domain skills** — Tier 3 catalog covering API testing, chaos engineering, container security, data pipeline validation, DB migration safety, dependency license audit, feature flags, GraphQL schema review, incident response, infrastructure drift, ML ops, mobile testing, monorepo health, mutation testing, observability, OpenAPI validation, privacy compliance, queue health, rate limit design, real-time sync, schema evolution, search relevance, service mesh review, state machine verification, supply chain security, terraform review, visual regression, and WebSocket protocol testing.
+- **`search_skills` MCP tool** — Search and discover skills from the catalog (46 total MCP tools).
+- **`require-path-normalization` ESLint rule** — Requires path normalization for cross-platform compatibility.
+- **`toPosix()` utility** — New helper in `@harness-engineering/core` for consistent cross-platform path separators.
+- **`@harness-engineering/orchestrator` README** — Architecture diagram, quick start guide, core concepts, and API reference.
+
+### Changed
+
+- **Graph tools decomposition** — Split `graph.ts` (821 lines) into 9 focused modules under `tools/graph/`: `query-graph`, `search-similar`, `find-context-for`, `get-relationships`, `get-impact`, `ingest-source`, `detect-anomalies`, `ask-graph`, and shared utilities.
+- **Check orchestrator refactor** — Extracted 8 handler functions from `runSingleCheck` switch statement, reducing cyclomatic complexity from 63 to ~10 per function.
+- **Roadmap handler refactor** — Extracted 6 action handlers from `handleManageRoadmap` into standalone functions with shared `RoadmapDeps` interface.
+- **Cross-platform path normalization** — `path.relative()` outputs normalized to POSIX separators across architecture collectors, constraint validators, doc coverage, context generators, entropy detectors, review scoper, glob helper, and CLI path utilities.
+- Architecture baseline updated for pre-commit hook integration and refactored function signatures.
+- Pre-commit hook now runs `harness check-arch` for earlier failure detection.
+- Pre-push hook now runs `typecheck`.
+
+### Fixed
+
+- `check_docs` MCP tool and `harness add` command now honor the `docsDir` config field.
+- Resolved `exactOptionalPropertyTypes` error in gather-context tool.
+- Restored gemini-cli symlinks broken by tier classification.
+- Core `VERSION` constant updated from 0.11.0 to 0.13.0.
+- README tool count corrected (47→46), skill count corrected (49→79), ESLint rule count corrected (10→11).
+- AGENTS.md skill breakdown corrected ("49 core + 30 domain" → "36 core + 43 domain"), `docs/specs/` → `docs/changes/`, `docs/api/` description updated, module boundaries expanded to all 7 packages.
+- ESLint plugin README updated with 3 missing cross-platform rules.
+
 ## 0.6.0 — 2026-03-26
 
 ### Added

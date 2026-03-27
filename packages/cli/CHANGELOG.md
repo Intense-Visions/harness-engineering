@@ -1,5 +1,20 @@
 # @harness-engineering/cli
 
+## 1.13.1
+
+### Patch Changes
+
+- **Graph tools decomposition** — Split `graph.ts` (821 lines) into 9 focused modules under `tools/graph/`: `query-graph`, `search-similar`, `find-context-for`, `get-relationships`, `get-impact`, `ingest-source`, `detect-anomalies`, `ask-graph`, and shared utilities.
+- **Roadmap handler refactor** — Extracted 6 action handlers from `handleManageRoadmap` into standalone functions with shared `RoadmapDeps` interface.
+- **Three-tier skill loading** — New `search_skills` MCP tool (46 total). Skill dispatcher with tier-based loading, index builder, and stack profile detection.
+- **`check_docs` docsDir fix** — `check_docs` MCP tool and `harness add` command now honor the `docsDir` config field.
+- **Cross-platform path fix** — `path.relative()` outputs normalized to POSIX separators across glob helper and path utilities.
+- **Gather-context fix** — Resolved `exactOptionalPropertyTypes` error in gather-context tool.
+- MCP tool count test assertions updated from 45 to 46.
+- Updated dependencies
+  - @harness-engineering/core@0.13.1
+  - @harness-engineering/orchestrator@0.2.3
+
 ## 1.13.0
 
 ### Minor Changes
