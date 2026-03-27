@@ -114,6 +114,25 @@ Generates slash command definition files from skill metadata.
 
 **Types:** `GenerateResult`, `SkillSource`
 
+### Programmatic Exports
+
+| File                                                        | Description                                         |
+| ----------------------------------------------------------- | --------------------------------------------------- |
+| [`commands.ts`](../../packages/cli/src/exports/commands.ts) | Re-exports CLI command runners for programmatic use |
+
+### Constraint Management Commands
+
+| File                                                                                   | Description                                                                |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [`install-constraints.ts`](../../packages/cli/src/commands/install-constraints.ts)     | Installs shared constraint files (ESLint configs, tsconfig) into a project |
+| [`uninstall-constraints.ts`](../../packages/cli/src/commands/uninstall-constraints.ts) | Removes shared constraint files from a project                             |
+
+### Learnings Commands
+
+| File                                                             | Description                                                   |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`prune.ts`](../../packages/cli/src/commands/learnings/prune.ts) | Prunes old learnings, archives them, and keeps recent entries |
+
 ### Error Handling
 
 | Export               | Description                       |
@@ -172,6 +191,14 @@ Handlebars-based template engine for code generation.
 
 **Types:** `SkillExecutionContext`, `SkillExecutionResult`
 
+### Skill Infrastructure
+
+| File                                                                | Description                                                            |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`stack-profile.ts`](../../packages/cli/src/skill/stack-profile.ts) | Technology stack detection and profile generation for skill adaptation |
+| [`index-builder.ts`](../../packages/cli/src/skill/index-builder.ts) | Builds the skill index from skill directories                          |
+| [`dispatcher.ts`](../../packages/cli/src/skill/dispatcher.ts)       | Routes skill invocations to the correct handler                        |
+
 ### Agent Definitions
 
 | Function                                   | Description                                             |
@@ -184,3 +211,27 @@ Handlebars-based template engine for code generation.
 **Types:** `GenerateAgentDefsOptions`, `GenerateAgentDefsResult`, `AgentDefinition`
 
 **Constants:** `AGENT_DESCRIPTIONS`, `DEFAULT_TOOLS`, `GEMINI_TOOL_MAP`
+
+---
+
+## MCP Tools
+
+### Skill Search
+
+| File                                                                    | Description                                                          |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`search-skills.ts`](../../packages/cli/src/mcp/tools/search-skills.ts) | MCP tool for searching available skills by name, tag, or description |
+
+### Graph Tools
+
+| File                                                                                  | Description                                                               |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [`shared.ts`](../../packages/cli/src/mcp/tools/graph/shared.ts)                       | Shared utilities for graph MCP tools (store loading, response formatting) |
+| [`ask-graph.ts`](../../packages/cli/src/mcp/tools/graph/ask-graph.ts)                 | Natural language queries against the knowledge graph                      |
+| [`query-graph.ts`](../../packages/cli/src/mcp/tools/graph/query-graph.ts)             | Structured graph queries (node/edge lookups, traversals)                  |
+| [`search-similar.ts`](../../packages/cli/src/mcp/tools/graph/search-similar.ts)       | Semantic similarity search across graph nodes                             |
+| [`ingest-source.ts`](../../packages/cli/src/mcp/tools/graph/ingest-source.ts)         | Ingests source files into the knowledge graph                             |
+| [`get-relationships.ts`](../../packages/cli/src/mcp/tools/graph/get-relationships.ts) | Retrieves relationships for a given graph node                            |
+| [`get-impact.ts`](../../packages/cli/src/mcp/tools/graph/get-impact.ts)               | Impact analysis — determines what is affected by changing a node          |
+| [`find-context-for.ts`](../../packages/cli/src/mcp/tools/graph/find-context-for.ts)   | Finds relevant context for a given file or symbol                         |
+| [`detect-anomalies.ts`](../../packages/cli/src/mcp/tools/graph/detect-anomalies.ts)   | Detects structural anomalies in the knowledge graph                       |

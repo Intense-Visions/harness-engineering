@@ -136,11 +136,17 @@ async function runDocsCheck(
 
 async function runEntropyCheck(
   projectRoot: string,
-  _config: Record<string, unknown>
+  config: Record<string, unknown>
 ): Promise<CICheckIssue[]> {
   const issues: CICheckIssue[] = [];
+  const entropyConfig = (config.entropy as Record<string, unknown>) || {};
+  const perfConfig = (config.performance as Record<string, unknown>) || {};
+  // Fallback: use performance entry points if entropy section has none configured
+  const entryPoints =
+    (entropyConfig.entryPoints as string[]) ?? (perfConfig.entryPoints as string[]);
   const analyzer = new EntropyAnalyzer({
     rootDir: projectRoot,
+    ...(entryPoints ? { entryPoints } : {}),
     analyze: { drift: true, deadCode: true, patterns: false },
   });
   const result = await analyzer.analyze();
@@ -215,8 +221,10 @@ async function runPerfCheck(
 ): Promise<CICheckIssue[]> {
   const issues: CICheckIssue[] = [];
   const perfConfig = (config.performance as Record<string, unknown>) || {};
+  const entryPoints = perfConfig.entryPoints as string[] | undefined;
   const perfAnalyzer = new EntropyAnalyzer({
     rootDir: projectRoot,
+    ...(entryPoints ? { entryPoints } : {}),
     analyze: {
       complexity: perfConfig.complexity || true,
       coupling: perfConfig.coupling || true,
