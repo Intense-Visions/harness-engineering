@@ -114,6 +114,36 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     }
   }
 
+  // Post-write: persist tooling and framework metadata into harness.config.json
+  const writtenConfigPath = path.join(cwd, 'harness.config.json');
+  if (fs.existsSync(writtenConfigPath)) {
+    const config = JSON.parse(fs.readFileSync(writtenConfigPath, 'utf-8'));
+    const overlayMeta = resolveResult.value.overlayMetadata;
+
+    // Add framework to template section
+    if (options.framework) {
+      config.template = config.template || {};
+      config.template.framework = options.framework;
+    }
+
+    // Add tooling from overlay metadata (framework takes precedence over base)
+    if (overlayMeta?.tooling) {
+      config.tooling = { ...config.tooling, ...overlayMeta.tooling };
+      // Remove lockFile from config (internal to template system)
+      delete config.tooling.lockFile;
+    } else if (resolveResult.value.metadata.tooling && !config.tooling) {
+      config.tooling = { ...resolveResult.value.metadata.tooling };
+      delete config.tooling.lockFile;
+    }
+
+    // Remove level:null for non-JS languages
+    if (config.template?.level === null || config.template?.level === undefined) {
+      delete config.template.level;
+    }
+
+    fs.writeFileSync(writtenConfigPath, JSON.stringify(config, null, 2) + '\n');
+  }
+
   return Ok({
     filesCreated: writeResult.value.written,
     skippedConfigs: writeResult.value.skippedConfigs,
