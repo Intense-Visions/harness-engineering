@@ -71,6 +71,55 @@ describe('runInit', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
+  it('persists tooling metadata in harness.config.json for JS/TS framework overlay', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const result = await runInit({
+      cwd: tmpDir,
+      name: 'test',
+      level: 'basic',
+      framework: 'react-vite',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.template.framework).toBe('react-vite');
+    expect(config.tooling).toBeDefined();
+    expect(config.tooling.linter).toBe('eslint');
+    expect(config.tooling.buildTool).toBe('vite');
+    expect(config.tooling.testRunner).toBe('vitest');
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('persists tooling for non-JS framework in harness.config.json', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const result = await runInit({
+      cwd: tmpDir,
+      name: 'test',
+      framework: 'fastapi',
+      language: 'python',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.template.framework).toBe('fastapi');
+    expect(config.template.language).toBe('python');
+    expect(config.tooling.linter).toBe('ruff');
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not include level:null in config for non-JS languages', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const result = await runInit({ cwd: tmpDir, name: 'test', language: 'go' });
+    expect(result.ok).toBe(true);
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.template.level).toBeUndefined();
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
   it('rejects already initialized project without --force', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
