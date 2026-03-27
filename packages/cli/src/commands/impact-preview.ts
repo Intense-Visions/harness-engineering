@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import { handleGetImpact } from '../mcp/tools/graph';
+import { handleGetImpact } from '../mcp/tools/graph/index';
 
 interface ImpactGroup {
   code: Array<{ id: string; type: string }>;

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { handleAskGraph, askGraphDefinition } from '../../../src/mcp/tools/graph.js';
+import { handleAskGraph, askGraphDefinition } from '../../../src/mcp/tools/graph/index.js';
 
 let tmpDir: string;
 

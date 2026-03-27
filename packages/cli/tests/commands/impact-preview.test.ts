@@ -12,13 +12,13 @@ vi.mock('fs', () => ({
 }));
 
 // Mock handleGetImpact
-vi.mock('../../src/mcp/tools/graph', () => ({
+vi.mock('../../src/mcp/tools/graph/index', () => ({
   handleGetImpact: vi.fn(),
 }));
 
 import { execSync } from 'child_process';
 import * as fs from 'fs';
-import { handleGetImpact } from '../../src/mcp/tools/graph';
+import { handleGetImpact } from '../../src/mcp/tools/graph/index';
 
 const mockedExecSync = vi.mocked(execSync);
 const mockedExistsSync = vi.mocked(fs.existsSync);

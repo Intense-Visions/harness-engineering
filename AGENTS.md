@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 79 skills (49 core + 30 domain, claude-code and gemini-cli), 12 personas, 6 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 79 skills (36 core + 43 domain, claude-code and gemini-cli), 12 personas, 6 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -45,11 +45,10 @@ harness-engineering/
 │   ├── standard/            # Harness Engineering principles and standard
 │   ├── guides/              # How-to guides and tutorials
 │   ├── reference/           # Configuration and API reference
-│   ├── specs/               # Detailed technical specifications
+│   ├── changes/             # Design change proposals and technical specifications
 │   ├── plans/               # Implementation and execution plans
 │   ├── research/            # Framework research and analysis
-│   ├── conventions/          # Format conventions (markdown interaction patterns)
-│   └── changes/             # Design change proposals and deltas
+│   └── conventions/          # Format conventions (markdown interaction patterns)
 ├── package.json             # Root package metadata and scripts
 ├── tsconfig.json            # Root TypeScript configuration
 ├── pnpm-workspace.yaml      # pnpm workspace definition
@@ -98,8 +97,12 @@ Agents & External Interfaces (top layer)
 Each package has a clear responsibility:
 
 - **types**: Type definitions, interfaces, and constants used across packages
-- **core**: Runtime library with validation, utilities, and common functionality
-- See package.json files in each package for full dependency details.
+- **graph**: Knowledge graph store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search
+- **core**: Runtime library with validation, constraints, entropy detection, architecture checks (depends on types, graph)
+- **eslint-plugin**: ESLint rules for architectural constraint enforcement (depends on types, core)
+- **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
+- **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues (depends on types, core)
+- **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
 
 ## Development Workflow
 
@@ -310,7 +313,7 @@ This creates a permanent record that AI agents can access and understand.
   - CLI documentation
   - API reference
 
-- **[docs/api/](./docs/api/)** - API documentation (placeholder — currently contains only index.md)
+- **[docs/api/](./docs/api/)** - API documentation for all packages
 
 - **[docs/changes/](./docs/changes/)** - Detailed technical specifications for features
 - **[docs/plans/](./docs/plans/)** - Implementation and execution plans
