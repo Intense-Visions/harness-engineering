@@ -1,0 +1,16 @@
+{
+  "name": "express",
+  "description": "Express.js framework overlay",
+  "framework": "express",
+  "version": 1,
+  "language": "typescript",
+  "tooling": {
+    "packageManager": "npm",
+    "linter": "eslint",
+    "formatter": "prettier",
+    "buildTool": "tsc",
+    "testRunner": "vitest",
+    "lockFile": "package-lock.json"
+  },
+  "detect": [{ "file": "package.json", "contains": "express" }]
+}
