@@ -1,0 +1,19 @@
+{
+  "name": "gin",
+  "description": "Gin web framework scaffold",
+  "version": 1,
+  "language": "go",
+  "framework": "gin",
+  "extends": "go-base",
+  "tooling": {
+    "packageManager": "go",
+    "linter": "golangci-lint",
+    "formatter": "gofmt",
+    "buildTool": "go",
+    "testRunner": "go test"
+  },
+  "detect": [
+    { "file": "go.mod", "contains": "gin-gonic" },
+    { "file": "go.sum", "contains": "gin-gonic" }
+  ]
+}
