@@ -48,7 +48,15 @@ export interface DetectedFramework {
 
 interface WriteOptions {
   overwrite: boolean;
+  language?: string;
 }
+
+export interface WriteResult {
+  written: string[];
+  skippedConfigs: string[];
+}
+
+const NON_JSON_PACKAGE_CONFIGS = new Set(['pyproject.toml', 'go.mod', 'Cargo.toml', 'pom.xml']);
 
 export class TemplateEngine {
   constructor(private templatesDir: string) {}
@@ -187,18 +195,37 @@ export class TemplateEngine {
     return Ok({ files: rendered });
   }
 
-  write(files: RenderedFiles, targetDir: string, options: WriteOptions): Result<string[], Error> {
+  write(
+    files: RenderedFiles,
+    targetDir: string,
+    options: WriteOptions
+  ): Result<WriteResult, Error> {
     try {
       const written: string[] = [];
+      const skippedConfigs: string[] = [];
+      const isNonJsLanguage = options.language && options.language !== 'typescript';
+
       for (const file of files.files) {
         const targetPath = path.join(targetDir, file.relativePath);
         const dir = path.dirname(targetPath);
+
+        // Skip non-JSON package configs for non-JS languages when file already exists
+        if (
+          !options.overwrite &&
+          isNonJsLanguage &&
+          NON_JSON_PACKAGE_CONFIGS.has(file.relativePath) &&
+          fs.existsSync(targetPath)
+        ) {
+          skippedConfigs.push(file.relativePath);
+          continue;
+        }
+
         if (!options.overwrite && fs.existsSync(targetPath)) continue;
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(targetPath, file.content);
         written.push(file.relativePath);
       }
-      return Ok(written);
+      return Ok({ written, skippedConfigs });
     } catch (error) {
       return Err(
         new Error(

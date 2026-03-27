@@ -58,7 +58,7 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
   }
 
-  return Ok({ filesCreated: writeResult.value });
+  return Ok({ filesCreated: writeResult.value.written });
 }
 
 export function createInitCommand(): Command {
