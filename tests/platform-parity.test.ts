@@ -229,7 +229,10 @@ function findUnnormalizedRelativeCalls(content: string): string[] {
     while ((match = RELATIVE_START.exec(line)) !== null) {
       const pos = match.index + match[0].length;
       const closing = findClosingParen(lines, i, pos);
-      const afterParen = lines[closing.line]!.substring(closing.col).trimStart();
+      let afterParen = lines[closing.line]!.substring(closing.col).trimStart();
+      if (!afterParen && closing.line + 1 < lines.length) {
+        afterParen = lines[closing.line + 1]!.trimStart();
+      }
       if (!NORMALIZATION.test(afterParen)) {
         violations.push(`Line ${i + 1}: ${line.trim()}`);
       }
