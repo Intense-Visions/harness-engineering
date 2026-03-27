@@ -73,15 +73,15 @@ npm install && harness validate
 
 ## Packages
 
-| Package                                                          | Description                                                                                                                                                                                                                          |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`@harness-engineering/types`](./packages/types)                 | Shared TypeScript types and interfaces                                                                                                                                                                                               |
-| [`@harness-engineering/core`](./packages/core)                   | Validation, constraints, entropy detection, state management                                                                                                                                                                         |
-| [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                                                                                                                                                             |
-| [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 10 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports, no nested loops in critical paths, no sync IO in async, no unbounded array chains, no unix shell commands, no hardcoded path separators |
-| [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                                                                                                                                 |
-| [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                                                                                                                                                                     |
-| [`@harness-engineering/orchestrator`](./packages/orchestrator)   | Agent orchestration daemon for dispatching coding agents to issues                                                                                                                                                                   |
+| Package                                                          | Description                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@harness-engineering/types`](./packages/types)                 | Shared TypeScript types and interfaces                                                                                                                                                                                                                           |
+| [`@harness-engineering/core`](./packages/core)                   | Validation, constraints, entropy detection, state management                                                                                                                                                                                                     |
+| [`@harness-engineering/cli`](./packages/cli)                     | CLI: `validate`, `check-deps`, `skill run`, `state show`                                                                                                                                                                                                         |
+| [`@harness-engineering/eslint-plugin`](./packages/eslint-plugin) | 11 rules: layer violations, circular deps, forbidden imports, boundary schemas, doc exports, no nested loops in critical paths, no sync IO in async, no unbounded array chains, no unix shell commands, no hardcoded path separators, require path normalization |
+| [`@harness-engineering/linter-gen`](./packages/linter-gen)       | Generate custom ESLint rules from YAML configuration                                                                                                                                                                                                             |
+| [`@harness-engineering/graph`](./packages/graph)                 | Knowledge graph for codebase relationships and entropy detection                                                                                                                                                                                                 |
+| [`@harness-engineering/orchestrator`](./packages/orchestrator)   | Agent orchestration daemon for dispatching coding agents to issues                                                                                                                                                                                               |
 
 ## Usage
 
@@ -165,7 +165,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 47 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 46 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
 <details>
 <summary>Manual MCP setup</summary>
@@ -216,7 +216,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 | Component                              | Count | Description                                                                           |
 | -------------------------------------- | ----- | ------------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, graph, orchestrator, shared types |
-| [Skills](./agents/skills/claude-code/) | 49    | Agent workflows for TDD, execution, debugging, verification, planning, and more       |
+| [Skills](./agents/skills/claude-code/) | 79    | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog             |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more    |
 | [Templates](./templates/)              | 6     | Base, basic, intermediate, advanced, Next.js, and orchestrator scaffolds              |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                    |

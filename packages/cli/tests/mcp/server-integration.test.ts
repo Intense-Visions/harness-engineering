@@ -42,7 +42,8 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('detect_anomalies');
     expect(names).toContain('check_task_independence');
     expect(names).toContain('predict_conflicts');
-    expect(tools).toHaveLength(45);
+    expect(names).toContain('search_skills');
+    expect(tools).toHaveLength(46);
   });
 
   it('all tool definitions have inputSchema', () => {

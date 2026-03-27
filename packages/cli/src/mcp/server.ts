@@ -90,7 +90,7 @@ import {
   handleDetectAnomalies,
   askGraphDefinition,
   handleAskGraph,
-} from './tools/graph.js';
+} from './tools/graph/index.js';
 import {
   getGraphResource,
   getEntitiesResource,

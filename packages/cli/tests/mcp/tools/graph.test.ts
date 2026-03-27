@@ -13,7 +13,7 @@ import {
   searchSimilarDefinition,
   getRelationshipsDefinition,
   getImpactDefinition,
-} from '../../../src/mcp/tools/graph.js';
+} from '../../../src/mcp/tools/graph/index.js';
 
 // ── Test helper ─────────────────────────────────────────────────────
 

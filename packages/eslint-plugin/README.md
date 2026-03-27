@@ -89,6 +89,14 @@ Create `harness.config.json` in your project root:
 | `no-sync-io-in-async`         | Disallow synchronous I/O in async functions      | warn    |
 | `no-unbounded-array-chains`   | Disallow unbounded array method chains           | warn    |
 
+### Cross-Platform Rules
+
+| Rule                          | Description                                   | Default |
+| ----------------------------- | --------------------------------------------- | ------- |
+| `no-unix-shell-command`       | Disallow Unix-specific shell commands         | warn    |
+| `no-hardcoded-path-separator` | Disallow hardcoded path separators            | warn    |
+| `require-path-normalization`  | Require path normalization for cross-platform | warn    |
+
 ## Configs
 
 - **recommended**: Architecture rules as errors, others as warnings
