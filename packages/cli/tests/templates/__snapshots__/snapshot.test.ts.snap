@@ -268,6 +268,118 @@ See [architecture.md](./architecture.md) for architectural decisions.
 }
 `;
 
+exports[`template snapshots > go-base template output matches snapshot 1`] = `
+{
+  ".gitignore": "# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+/bin/
+/dist/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+
+# Go
+vendor/
+",
+  ".golangci.yml": "linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+  disable:
+    - depguard
+
+run:
+  timeout: 5m
+
+issues:
+  max-issues-per-linter: 50
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test -- A Go project managed with Harness Engineering practices.
+
+## Language & Tooling
+
+- **Language:** Go
+- **Module:** github.com/example/snapshot-test
+- **Linter:** golangci-lint
+- **Formatter:** gofmt
+- **Test runner:** go test
+
+## Directory Structure
+
+- \`main.go\` -- Application entry point
+- \`go.mod\` -- Module definition and dependencies
+- \`internal/\` -- Private application packages (by convention)
+- \`pkg/\` -- Public library packages (by convention)
+
+## Conventions
+
+- Follow Effective Go guidelines
+- Use \`gofmt\` for formatting (enforced by golangci-lint)
+- Tests live alongside source files as \`_test.go\` suffix
+- Error handling: always check returned errors, never discard
+- Package names are lowercase, single-word, no underscores
+
+## Harness Skills
+
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
+",
+  "go.mod": "module github.com/example/snapshot-test
+
+go 1.21
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "language": "go",
+    "version": 1
+  },
+  "tooling": {
+    "packageManager": "go",
+    "linter": "golangci-lint",
+    "formatter": "gofmt",
+    "testRunner": "go test"
+  }
+}",
+  "main.go": "package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello, world!")
+}
+",
+}
+`;
+
 exports[`template snapshots > intermediate template output matches snapshot 1`] = `
 {
   ".gitignore": "node_modules/
@@ -417,5 +529,326 @@ export default [
   "src/domain/.gitkeep": "",
   "src/services/.gitkeep": "",
   "src/types/.gitkeep": "",
+}
+`;
+
+exports[`template snapshots > java-base template output matches snapshot 1`] = `
+{
+  ".gitignore": "target/
+*.class
+*.jar
+*.war
+.env
+.env.local
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test -- A Java project managed with Harness Engineering practices.
+
+## Language & Tooling
+
+- **Language:** Java 17
+- **Build tool:** Maven
+- **Linter:** Checkstyle
+- **Test runner:** JUnit 5
+- **Group ID:** com.example.snapshot-test
+
+## Directory Structure
+
+- \`src/main/java/\` -- Application source code
+- \`src/test/java/\` -- Test files (JUnit 5)
+- \`pom.xml\` -- Maven project configuration
+- \`checkstyle.xml\` -- Code style rules
+
+## Conventions
+
+- Follow Google Java Style Guide (Checkstyle enforced)
+- Use Java 17 language features
+- Tests live in \`src/test/java/\` mirroring \`src/main/java/\` structure
+- Use JUnit 5 assertions and lifecycle annotations
+- Prefer dependency injection over static methods
+
+## Harness Skills
+
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
+",
+  "checkstyle.xml": "<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+  "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+  "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <module name="TreeWalker">
+    <module name="WhitespaceAround"/>
+    <module name="NeedBraces"/>
+    <module name="LeftCurly"/>
+    <module name="RightCurly"/>
+    <module name="EmptyBlock"/>
+    <module name="AvoidStarImport"/>
+    <module name="UnusedImports"/>
+  </module>
+  <module name="FileLength">
+    <property name="max" value="500"/>
+  </module>
+  <module name="NewlineAtEndOfFile"/>
+</module>
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "language": "java",
+    "version": 1
+  },
+  "tooling": {
+    "packageManager": "maven",
+    "linter": "checkstyle",
+    "buildTool": "maven",
+    "testRunner": "junit"
+  }
+}",
+  "pom.xml": "<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example.snapshot-test</groupId>
+  <artifactId>snapshot-test</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.0</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <configLocation>checkstyle.xml</configLocation>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+",
+  "src/main/java/App.java": "package com.example.snapshot-test;
+
+public class App {
+    public static void main(String[] args) {
+        System.out.println("Hello, world!");
+    }
+}
+",
+}
+`;
+
+exports[`template snapshots > python-base template output matches snapshot 1`] = `
+{
+  ".gitignore": "__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+.env.local
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.log
+",
+  ".python-version": "3.10
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test -- A Python project managed with Harness Engineering practices.
+
+## Language & Tooling
+
+- **Language:** Python (>=3.10)
+- **Linter/Formatter:** Ruff
+- **Test runner:** pytest
+- **Package manager:** pip
+
+## Directory Structure
+
+- \`src/\` -- Application source code
+- \`tests/\` -- Test files (pytest)
+- \`pyproject.toml\` -- Project metadata and dependencies
+
+## Conventions
+
+- Follow PEP 8 style (enforced by Ruff)
+- Use type hints for function signatures
+- Tests live in \`tests/\` and mirror \`src/\` structure
+- Import sorting managed by Ruff (isort rules)
+
+## Harness Skills
+
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "language": "python",
+    "version": 1
+  },
+  "tooling": {
+    "packageManager": "pip",
+    "linter": "ruff",
+    "formatter": "ruff",
+    "testRunner": "pytest"
+  }
+}",
+  "pyproject.toml": "[project]
+name = "snapshot-test"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "ruff>=0.4.0",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+",
+  "ruff.toml": "line-length = 88
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+",
+  "src/__init__.py": "",
+}
+`;
+
+exports[`template snapshots > rust-base template output matches snapshot 1`] = `
+{
+  ".gitignore": "/target/
+Cargo.lock
+.env
+.env.local
+*.log
+
+# IDE
+.idea/
+.vscode/
+",
+  "AGENTS.md": "# snapshot-test Knowledge Map
+
+## About This Project
+
+snapshot-test -- A Rust project managed with Harness Engineering practices.
+
+## Language & Tooling
+
+- **Language:** Rust (edition 2021)
+- **Package manager:** Cargo
+- **Linter:** Clippy
+- **Formatter:** rustfmt
+- **Test runner:** cargo test
+
+## Directory Structure
+
+- \`src/main.rs\` -- Application entry point
+- \`src/lib.rs\` -- Library root (when applicable)
+- \`Cargo.toml\` -- Package manifest and dependencies
+- \`tests/\` -- Integration tests
+
+## Conventions
+
+- Follow Rust API guidelines
+- Use \`rustfmt\` for formatting
+- Run \`cargo clippy\` before committing
+- Tests: unit tests in \`#[cfg(test)]\` modules, integration tests in \`tests/\`
+- Error handling: use \`Result<T, E>\` and the \`?\` operator, avoid \`.unwrap()\` in production code
+
+## Harness Skills
+
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
+",
+  "Cargo.toml": "[package]
+name = "snapshot-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+",
+  "clippy.toml": "cognitive-complexity-threshold = 25
+too-many-arguments-threshold = 7
+",
+  "harness.config.json": "{
+  "version": 1,
+  "name": "snapshot-test",
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "template": {
+    "language": "rust",
+    "version": 1
+  },
+  "tooling": {
+    "packageManager": "cargo",
+    "linter": "clippy",
+    "formatter": "rustfmt",
+    "testRunner": "cargo test"
+  }
+}",
+  "src/main.rs": "fn main() {
+    println!("Hello, world!");
+}
+",
 }
 `;
