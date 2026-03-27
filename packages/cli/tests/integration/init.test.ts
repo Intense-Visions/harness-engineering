@@ -157,4 +157,82 @@ describe('harness init integration', () => {
       });
     }
   });
+
+  describe('bare language scaffold init (e2e)', () => {
+    const languages = [
+      { language: 'python', expectFile: 'pyproject.toml', expectLinter: 'ruff.toml' },
+      { language: 'go', expectFile: 'go.mod', expectLinter: '.golangci.yml' },
+      { language: 'rust', expectFile: 'Cargo.toml', expectLinter: 'clippy.toml' },
+      { language: 'java', expectFile: 'pom.xml', expectLinter: 'checkstyle.xml' },
+      { language: 'typescript', expectFile: 'package.json', expectLinter: undefined },
+    ] as const;
+
+    for (const { language, expectFile, expectLinter } of languages) {
+      it(`scaffolds bare ${language} project with config and AGENTS.md`, async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `harness-e2e-${language}-`));
+        const opts: Record<string, unknown> = { cwd: tmpDir, name: `test-${language}` };
+        if (language === 'typescript') {
+          opts.level = 'basic';
+        } else {
+          opts.language = language;
+        }
+
+        const result = await runInit(opts as Parameters<typeof runInit>[0]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, expectFile))).toBe(true);
+        if (expectLinter) {
+          expect(fs.existsSync(path.join(tmpDir, expectLinter))).toBe(true);
+        }
+
+        const config = JSON.parse(
+          fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8')
+        );
+        if (language !== 'typescript') {
+          expect(config.template.language).toBe(language);
+          expect(config.template.level).toBeUndefined();
+          expect(config.tooling).toBeDefined();
+        }
+
+        fs.rmSync(tmpDir, { recursive: true });
+      });
+    }
+  });
+
+  describe('existing project overlay (e2e)', () => {
+    it('does not clobber existing files when overlaying fastapi on existing Python project', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-e2e-existing-'));
+      fs.writeFileSync(path.join(tmpDir, 'pyproject.toml'), '[project]\nname = "my-existing"\n');
+      fs.writeFileSync(
+        path.join(tmpDir, 'AGENTS.md'),
+        '# My Existing Project\n\nExisting content.\n'
+      );
+
+      const result = await runInit({
+        cwd: tmpDir,
+        name: 'my-existing',
+        framework: 'fastapi',
+        language: 'python',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      // Existing pyproject.toml preserved (skipped)
+      const pyproject = fs.readFileSync(path.join(tmpDir, 'pyproject.toml'), 'utf-8');
+      expect(pyproject).toContain('my-existing');
+
+      // AGENTS.md has framework section appended
+      const agents = fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf-8');
+      expect(agents).toContain('My Existing Project');
+      expect(agents).toContain('## FastAPI Conventions');
+
+      // harness.config.json written
+      expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+  });
 });
