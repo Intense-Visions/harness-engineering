@@ -1,0 +1,74 @@
+name: harness-api-design
+version: "1.0.0"
+description: REST, GraphQL, gRPC API design with OpenAPI specs and versioning strategies
+cognitive_mode: advisory-guide
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-api-design
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: style
+      description: "API style: rest, graphql, or grpc. Auto-detected when omitted."
+      required: false
+    - name: versioning
+      description: "Versioning strategy: url-path, header, or query-param. Defaults to url-path."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-api-design
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - API
+  - REST
+  - GraphQL
+  - gRPC
+  - OpenAPI
+  - swagger
+  - endpoint
+  - versioning
+  - schema
+  - protobuf
+stack_signals:
+  - "openapi.*"
+  - "swagger.*"
+  - "*.proto"
+  - "schema.graphql"
+  - "*.graphql"
+  - "src/**/routes/**"
+  - "src/**/controllers/**"
+  - "src/**/resolvers/**"
+phases:
+  - name: discover
+    description: Detect API style, existing endpoints, and technology stack
+    required: true
+  - name: design
+    description: Produce endpoint definitions, schemas, and versioning plan
+    required: true
+  - name: validate
+    description: Verify design against REST/GraphQL/gRPC best practices and consistency rules
+    required: true
+  - name: document
+    description: Generate or update OpenAPI spec, GraphQL schema, or proto definitions
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

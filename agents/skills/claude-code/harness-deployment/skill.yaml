@@ -1,0 +1,77 @@
+name: harness-deployment
+version: "1.0.0"
+description: CI/CD pipelines, blue-green, canary, and environment management
+cognitive_mode: advisory-guide
+tier: 3
+internal: false
+keywords:
+  - deployment
+  - CI/CD
+  - pipeline
+  - GitHub Actions
+  - GitLab CI
+  - Jenkins
+  - blue-green
+  - canary
+  - rolling
+  - environment
+  - staging
+  - production
+  - CD
+stack_signals:
+  - ".github/workflows/"
+  - ".gitlab-ci.yml"
+  - "Jenkinsfile"
+  - "deploy/"
+  - "infrastructure/"
+  - ".circleci/"
+  - "bitbucket-pipelines.yml"
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-deployment
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: strategy
+      description: Deployment strategy to evaluate (blue-green, canary, rolling)
+      required: false
+    - name: platform
+      description: Target CI/CD platform (github-actions, gitlab-ci, jenkins)
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-deployment
+    path: string
+type: rigid
+phases:
+  - name: detect
+    description: Identify existing CI/CD configuration and deployment targets
+    required: true
+  - name: analyze
+    description: Evaluate pipeline structure, stages, and environment separation
+    required: true
+  - name: design
+    description: Recommend deployment strategy improvements and missing stages
+    required: true
+  - name: validate
+    description: Verify pipeline correctness and environment isolation
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

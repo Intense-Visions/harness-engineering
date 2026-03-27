@@ -24,6 +24,7 @@ mcp:
     skill: align-documentation
     path: string
 type: flexible
+internal: true
 state:
   persistent: false
   files: []

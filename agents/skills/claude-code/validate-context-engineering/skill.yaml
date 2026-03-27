@@ -25,6 +25,7 @@ mcp:
     skill: validate-context-engineering
     path: string
 type: flexible
+internal: true
 state:
   persistent: false
   files: []

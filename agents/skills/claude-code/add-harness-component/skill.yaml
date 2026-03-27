@@ -25,6 +25,7 @@ mcp:
     skill: add-harness-component
     path: string
 type: flexible
+tier: 1
 state:
   persistent: false
   files: []

@@ -28,6 +28,7 @@ mcp:
     skill: harness-impact-analysis
     path: string
 type: rigid
+tier: 2
 phases:
   - name: identify
     description: Identify changed files from diff or input

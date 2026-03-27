@@ -39,6 +39,7 @@ mcp:
     skill: harness-code-review
     path: string
 type: rigid
+tier: 2
 state:
   persistent: false
   files: []

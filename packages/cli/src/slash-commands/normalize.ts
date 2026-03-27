@@ -50,6 +50,13 @@ export function normalizeSkills(
       const matchesPlatform = platforms.some((p) => meta.platforms.includes(p));
       if (!matchesPlatform) continue;
 
+      // Tier filtering: only Tier 1 and Tier 2 skills generate slash commands.
+      // Tier 3 (catalog-only) and internal (dependency-only) skills are excluded.
+      // Skills without a tier field are included for backward compatibility.
+      const tier = meta.tier;
+      const isInternal = meta.internal;
+      if (tier === 3 || isInternal) continue;
+
       const normalized = normalizeName(meta.name);
 
       const existing = nameMap.get(normalized);

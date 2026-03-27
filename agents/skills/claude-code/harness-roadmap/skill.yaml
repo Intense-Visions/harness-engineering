@@ -25,6 +25,7 @@ mcp:
   input:
     skill: harness-roadmap
 type: rigid
+tier: 2
 phases:
   - name: scan
     description: Discover specs, plans, and existing roadmap state

@@ -1,0 +1,79 @@
+name: harness-ml-ops
+version: "1.0.0"
+description: Model serving patterns, experiment tracking, prompt evaluation, and ML pipeline management
+cognitive_mode: advisory-guide
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-ml-ops
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: focus
+      description: "Audit focus: serving, tracking, evaluation, pipeline, all. Defaults to all."
+      required: false
+    - name: framework
+      description: "ML framework: mlflow, wandb, sagemaker, vertex-ai. Auto-detected when omitted."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-ml-ops
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - MLOps
+  - model serving
+  - experiment tracking
+  - MLflow
+  - Weights and Biases
+  - model registry
+  - feature store
+  - prompt evaluation
+  - LLM
+  - model deployment
+  - inference
+  - training pipeline
+stack_signals:
+  - "models/"
+  - "experiments/"
+  - "mlflow/"
+  - "wandb/"
+  - "src/**/ml/**"
+  - "src/**/models/**"
+  - "notebooks/"
+  - "*.ipynb"
+  - "prompts/"
+  - "evals/"
+phases:
+  - name: detect
+    description: Identify ML frameworks, model artifacts, experiment configs, and serving infrastructure
+    required: true
+  - name: analyze
+    description: Evaluate experiment tracking, model versioning, reproducibility, and serving patterns
+    required: true
+  - name: design
+    description: Recommend pipeline improvements, evaluation frameworks, and deployment strategies
+    required: true
+  - name: validate
+    description: Verify reproducibility, model registry hygiene, and evaluation coverage
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

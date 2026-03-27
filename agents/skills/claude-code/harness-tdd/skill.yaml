@@ -28,6 +28,7 @@ mcp:
     skill: harness-tdd
     path: string
 type: rigid
+tier: 1
 phases:
   - name: red
     description: Write failing test

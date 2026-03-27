@@ -1,0 +1,76 @@
+name: harness-resilience
+version: "1.0.0"
+description: Circuit breakers, rate limiting, bulkheads, retry patterns, and fault tolerance
+cognitive_mode: advisory-guide
+triggers:
+  - manual
+  - on_new_feature
+  - on_pr
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-resilience
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: pattern
+      description: "Resilience pattern to focus on: circuit-breaker, rate-limit, bulkhead, retry, or all. Defaults to all."
+      required: false
+    - name: scope
+      description: "Analysis scope: full or changed-only. Defaults to changed-only on PRs."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-resilience
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - circuit breaker
+  - rate limiting
+  - bulkhead
+  - retry
+  - exponential backoff
+  - timeout
+  - fault tolerance
+  - graceful degradation
+  - fallback
+  - resilience
+  - Polly
+  - cockatiel
+  - opossum
+stack_signals:
+  - "src/**/middleware/rate*"
+  - "src/**/*circuit*"
+  - "src/**/*retry*"
+  - "src/**/*resilience*"
+  - "src/**/middleware/timeout*"
+phases:
+  - name: detect
+    description: Identify external dependencies, failure points, and existing resilience patterns
+    required: true
+  - name: analyze
+    description: Evaluate failure modes, blast radius, and gaps in current fault tolerance
+    required: true
+  - name: design
+    description: Recommend resilience patterns with concrete configuration values
+    required: true
+  - name: validate
+    description: Verify patterns are correctly implemented, tested, and observable
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -28,6 +28,7 @@ mcp:
     skill: enforce-architecture
     path: string
 type: rigid
+tier: 2
 state:
   persistent: false
   files: []

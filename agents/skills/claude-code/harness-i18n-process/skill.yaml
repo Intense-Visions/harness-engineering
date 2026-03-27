@@ -27,6 +27,7 @@ mcp:
     skill: harness-i18n-process
     path: string
 type: flexible
+tier: 3
 phases:
   - name: check-config
     description: Read harness.config.json to determine mode — gate mode when i18n.enabled is true, prompt mode when unconfigured or disabled

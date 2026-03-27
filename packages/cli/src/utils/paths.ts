@@ -126,7 +126,7 @@ export function resolveAllSkillsDirs(platform: string = 'claude-code'): string[]
   // 1. Project-local (highest priority)
   const projectDir = resolveProjectSkillsDir();
   if (projectDir) {
-    const platformDir = projectDir.replace(/claude-code$/, platform);
+    const platformDir = path.join(path.dirname(projectDir), platform);
     if (fs.existsSync(platformDir)) {
       dirs.push(platformDir);
     }
@@ -140,7 +140,7 @@ export function resolveAllSkillsDirs(platform: string = 'claude-code'): string[]
 
   // 3. Bundled/global (fallback)
   const globalDir = resolveGlobalSkillsDir();
-  const globalPlatformDir = globalDir.replace(/claude-code$/, platform);
+  const globalPlatformDir = path.join(path.dirname(globalDir), platform);
   if (fs.existsSync(globalPlatformDir)) {
     // Avoid duplicating project dir if they resolve to the same path
     if (!dirs.some((d) => path.resolve(d) === path.resolve(globalPlatformDir))) {

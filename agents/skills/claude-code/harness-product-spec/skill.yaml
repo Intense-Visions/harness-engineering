@@ -1,0 +1,72 @@
+name: harness-product-spec
+version: "1.0.0"
+description: User story generation, EARS acceptance criteria, and PRD creation from issues
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-product-spec
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: source
+      description: "Input source: issue URL, feature description file, or inline text"
+      required: true
+    - name: format
+      description: "Output format: prd, user-stories, acceptance-criteria, all. Defaults to all."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-product-spec
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - product spec
+  - user story
+  - acceptance criteria
+  - EARS
+  - PRD
+  - requirements
+  - product requirements
+  - BDD
+  - given-when-then
+  - feature specification
+stack_signals:
+  - "docs/specs/"
+  - "docs/requirements/"
+  - "specs/"
+  - ".github/ISSUE_TEMPLATE/"
+  - "docs/prd/"
+phases:
+  - name: parse
+    description: Extract feature intent, stakeholders, and constraints from input source
+    required: true
+  - name: craft
+    description: Generate user stories with EARS acceptance criteria and edge cases
+    required: true
+  - name: generate
+    description: Produce PRD document with scope, requirements, and success metrics
+    required: true
+  - name: validate
+    description: Verify completeness, testability of acceptance criteria, and traceability to source
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

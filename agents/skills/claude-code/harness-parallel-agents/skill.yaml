@@ -27,6 +27,7 @@ mcp:
     skill: harness-parallel-agents
     path: string
 type: flexible
+internal: true
 state:
   persistent: false
   files: []

@@ -31,6 +31,7 @@ mcp:
     skill: harness-security-scan
     path: string
 type: rigid
+tier: 2
 phases:
   - name: scan
     description: Run SecurityScanner and filter by severity threshold

@@ -28,6 +28,7 @@ mcp:
     skill: harness-architecture-advisor
     path: string
 type: flexible
+tier: 2
 phases:
   - name: discover
     description: Ask questions about the problem space and constraints

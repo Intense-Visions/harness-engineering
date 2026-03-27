@@ -30,6 +30,7 @@ mcp:
     skill: harness-perf
     path: string
 type: rigid
+tier: 2
 phases:
   - name: analyze
     description: Run structural complexity and coupling checks

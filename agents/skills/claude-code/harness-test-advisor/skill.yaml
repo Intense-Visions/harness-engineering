@@ -28,6 +28,7 @@ mcp:
     skill: harness-test-advisor
     path: string
 type: flexible
+tier: 2
 phases:
   - name: parse
     description: Identify changed files from diff or input

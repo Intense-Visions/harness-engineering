@@ -5,6 +5,10 @@ import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
 import { resolveSkillsDir } from '../../utils/paths.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { isTier1Skill, suggest, formatSuggestions } from '../../skill/dispatcher.js';
+import { loadOrRebuildIndex } from '../../skill/index-builder.js';
+import { loadOrGenerateProfile } from '../../skill/stack-profile.js';
+import { resolveConfig } from '../../config/loader.js';
 
 export const runSkillDefinition = {
   name: 'run_skill',
@@ -61,6 +65,26 @@ export async function handleRunSkill(input: {
     if (fs.existsSync(stateFile)) {
       const stateContent = fs.readFileSync(stateFile, 'utf-8');
       content += `\n\n---\n## Project State\n\`\`\`json\n${stateContent}\n\`\`\`\n`;
+    }
+  }
+
+  // Dispatcher: inject domain skill suggestions for Tier 1 workflow skills
+  if (isTier1Skill(input.skill)) {
+    try {
+      const projectRoot = input.path ? sanitizePath(input.path) : process.cwd();
+      const platform = 'claude-code';
+      const configResult = resolveConfig();
+      const skillsConfig = configResult.ok ? configResult.value.skills : undefined;
+      const index = loadOrRebuildIndex(platform, projectRoot, skillsConfig?.tierOverrides);
+      const profile = loadOrGenerateProfile(projectRoot);
+      const taskDesc = [input.skill, input.phase].filter(Boolean).join(' ');
+      const suggestions = suggest(index, taskDesc, profile, [], skillsConfig);
+      const suggestionText = formatSuggestions(suggestions);
+      if (suggestionText) {
+        content += suggestionText;
+      }
+    } catch {
+      // Dispatcher failure must never block skill loading
     }
   }
 

@@ -1,0 +1,74 @@
+name: harness-visual-regression
+version: "1.0.0"
+description: Screenshot comparison, visual diff detection, and baseline management
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+  - on_pr
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-visual-regression
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: tool
+      description: "Visual testing tool: chromatic, percy, pixelmatch, or playwright. Auto-detected when omitted."
+      required: false
+    - name: update-baselines
+      description: "Update baseline screenshots instead of comparing. Defaults to false."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-visual-regression
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - visual regression
+  - screenshot
+  - visual diff
+  - Chromatic
+  - Percy
+  - Pixelmatch
+  - Storybook
+  - baseline
+  - snapshot
+  - visual testing
+  - CSS regression
+stack_signals:
+  - "visual-tests/"
+  - ".chromatic/"
+  - "percy.yml"
+  - ".storybook/"
+  - "tests/visual/"
+  - "screenshots/"
+phases:
+  - name: detect
+    description: Identify UI components, existing visual tests, and rendering infrastructure
+    required: true
+  - name: baseline
+    description: Capture or verify baseline screenshots for target components and viewports
+    required: true
+  - name: compare
+    description: Run visual diff against baselines and classify changes as intentional or regression
+    required: true
+  - name: report
+    description: Generate visual diff report with annotated screenshots and approval workflow
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

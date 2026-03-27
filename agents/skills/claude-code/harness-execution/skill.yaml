@@ -29,6 +29,7 @@ mcp:
     skill: harness-execution
     path: string
 type: rigid
+tier: 1
 phases:
   - name: prepare
     description: Load state and verify prerequisites

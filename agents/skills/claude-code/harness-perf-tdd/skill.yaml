@@ -26,6 +26,7 @@ mcp:
     skill: harness-perf-tdd
     path: string
 type: rigid
+tier: 3
 phases:
   - name: red
     description: Write failing test and benchmark assertion

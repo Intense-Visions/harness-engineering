@@ -33,6 +33,7 @@ mcp:
     skill: harness-security-review
     path: string
 type: rigid
+tier: 3
 phases:
   - name: scan
     description: Run mechanical security scanner (skipped in changed-files mode)

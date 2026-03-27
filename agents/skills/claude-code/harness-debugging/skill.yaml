@@ -27,6 +27,7 @@ mcp:
     skill: harness-debugging
     path: string
 type: rigid
+tier: 1
 phases:
   - name: investigate
     description: Entropy analysis and root cause search

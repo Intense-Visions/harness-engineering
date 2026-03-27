@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--domain-skill-tiers--proposal",
+  "specPath": "docs/changes/domain-skill-tiers/proposal.md",
+  "currentState": "EXECUTE",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "Tier Infrastructure",
+      "complexity": "high",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-27-tier-infrastructure-plan.md",
+      "status": "in-progress"
+    },
+    {
+      "name": "Install 30 Domain Skills",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": []
+}

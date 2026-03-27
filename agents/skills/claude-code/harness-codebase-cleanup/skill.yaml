@@ -39,6 +39,7 @@ mcp:
     skill: harness-codebase-cleanup
     path: string
 type: flexible
+tier: 2
 phases:
   - name: context
     description: Run hotspot detection, build churn map

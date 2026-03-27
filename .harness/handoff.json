@@ -1,25 +1,59 @@
 {
   "fromSkill": "harness-brainstorming",
   "phase": "VALIDATE",
-  "summary": "Remove premature deprecation warnings from validateAgentsMap() and validateKnowledgeMap() — they do distinct work from Assembler.checkCoverage() and should not be deprecated.",
-  "artifacts": ["docs/changes/remove-premature-deprecation-warnings/proposal.md"],
+  "summary": "Three-tier skill loading architecture with intelligent dispatcher and 30 new domain skills, reducing always-loaded slash commands from 49 to 23 while growing the total skill library to 68+.",
+  "artifacts": [
+    "docs/changes/domain-skill-tiers/proposal.md",
+    "docs/changes/domain-skill-tiers/skills/"
+  ],
   "decisions": [
     {
-      "what": "Remove warnings rather than replace functions",
-      "why": "checkCoverage() checks graph documentation edges, while the core functions check AGENTS.md structural integrity — they are complementary, not replacements"
+      "what": "Hybrid loading: auto-detect + manual override via harness.config.json",
+      "why": "Smart defaults with user control"
     },
     {
-      "what": "No graph integration in core validators",
-      "why": "CLI already handles graph-optional enrichment in docs.ts; lifting into core is YAGNI"
+      "what": "Two-tier registry: core slash commands + searchable catalog",
+      "why": "Mirrors existing deferred-tool pattern, minimal new infrastructure"
+    },
+    {
+      "what": "Merged index: bundled + community skills",
+      "why": "Unified discovery, local and fast, no network dependency"
+    },
+    {
+      "what": "Hash-based staleness check on every query",
+      "why": "Laziest correct approach — no watchers, no hooks, sub-100ms rebuild"
+    },
+    {
+      "what": "Three tiers + events + dependencies",
+      "why": "7 workflow + 16 maintenance always loaded, 44+ catalog discoverable, 6 dependency-only invisible"
+    },
+    {
+      "what": "Intelligent dispatcher at workflow start",
+      "why": "Proactive suggestions based on task + stack signals, top 3, confidence threshold 0.4"
+    },
+    {
+      "what": "30 new domain skills with full SKILL.md content",
+      "why": "Backend, infra, reliability, auth, compliance, testing, soft domains, data, ML/AI, mobile"
+    },
+    {
+      "what": "Cross-platform support (Claude Code + Gemini CLI)",
+      "why": "search_skills is MCP tool, platform differences handled at edges"
+    },
+    {
+      "what": "Five invocation patterns",
+      "why": "Workflow, maintenance, agent-discovered, event-triggered, dependency-only"
     }
   ],
   "contextKeywords": [
-    "validation",
-    "deprecation",
-    "agents-map",
-    "knowledge-map",
-    "graph",
-    "console-warn",
-    "checkCoverage"
+    "skill-tiers",
+    "catalog",
+    "dispatcher",
+    "context-preservation",
+    "search-skills",
+    "stack-detection",
+    "lazy-loading",
+    "skill-index",
+    "domain-skills",
+    "cross-platform"
   ]
 }

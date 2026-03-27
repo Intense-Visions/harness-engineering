@@ -25,6 +25,7 @@ mcp:
     skill: harness-git-workflow
     path: string
 type: flexible
+tier: 3
 state:
   persistent: false
   files: []
