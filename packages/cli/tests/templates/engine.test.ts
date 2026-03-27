@@ -1018,4 +1018,160 @@ describe('TemplateEngine', () => {
       fs.rmSync(tmpDir, { recursive: true });
     });
   });
+
+  describe('Non-JS framework write to disk (production templates)', () => {
+    const PROD_TEMPLATES = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+    let prodEngine: TemplateEngine;
+
+    beforeEach(() => {
+      prodEngine = new TemplateEngine(PROD_TEMPLATES);
+    });
+
+    it('writes fastapi overlay to new directory', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'fastapi', 'python');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'test-fastapi',
+        language: 'python',
+        framework: 'fastapi',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-fastapi-'));
+      const writeResult = prodEngine.write(rendered.value, tmpDir, {
+        overwrite: false,
+        language: 'python',
+      });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      expect(fs.existsSync(path.join(tmpDir, 'src', 'main.py'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'requirements.txt'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'pyproject.toml'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('skips requirements.txt in existing fastapi project', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'fastapi', 'python');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'existing-fastapi',
+        language: 'python',
+        framework: 'fastapi',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-fastapi-existing-'));
+      // Pre-existing requirements.txt
+      fs.writeFileSync(
+        path.join(tmpDir, 'requirements.txt'),
+        'fastapi==0.100.0\nuvicorn\ncustom-dep\n'
+      );
+
+      const writeResult = prodEngine.write(rendered.value, tmpDir, {
+        overwrite: false,
+        language: 'python',
+      });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      // requirements.txt should NOT be overwritten
+      const content = fs.readFileSync(path.join(tmpDir, 'requirements.txt'), 'utf-8');
+      expect(content).toContain('custom-dep');
+      // But other files should be written
+      expect(writeResult.value.written).toContain('src/main.py');
+      expect(writeResult.value.written).toContain('AGENTS.md');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('skips go.mod in existing gin project', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'gin', 'go');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'existing-gin',
+        language: 'go',
+        framework: 'gin',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-gin-existing-'));
+      fs.writeFileSync(path.join(tmpDir, 'go.mod'), 'module example.com/existing\n\ngo 1.21\n');
+
+      const writeResult = prodEngine.write(rendered.value, tmpDir, {
+        overwrite: false,
+        language: 'go',
+      });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      expect(writeResult.value.skippedConfigs).toContain('go.mod');
+      const content = fs.readFileSync(path.join(tmpDir, 'go.mod'), 'utf-8');
+      expect(content).toContain('example.com/existing');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('skips Cargo.toml in existing axum project', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'axum', 'rust');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'existing-axum',
+        language: 'rust',
+        framework: 'axum',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-axum-existing-'));
+      fs.writeFileSync(path.join(tmpDir, 'Cargo.toml'), '[package]\nname = "existing"\n');
+
+      const writeResult = prodEngine.write(rendered.value, tmpDir, {
+        overwrite: false,
+        language: 'rust',
+      });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      expect(writeResult.value.skippedConfigs).toContain('Cargo.toml');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('skips pom.xml in existing spring-boot project', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, 'spring-boot', 'java');
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'existing-spring',
+        language: 'java',
+        framework: 'spring-boot',
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-spring-existing-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'pom.xml'),
+        '<project><groupId>com.existing</groupId></project>'
+      );
+
+      const writeResult = prodEngine.write(rendered.value, tmpDir, {
+        overwrite: false,
+        language: 'java',
+      });
+      expect(writeResult.ok).toBe(true);
+      if (!writeResult.ok) return;
+
+      expect(writeResult.value.skippedConfigs).toContain('pom.xml');
+      const content = fs.readFileSync(path.join(tmpDir, 'pom.xml'), 'utf-8');
+      expect(content).toContain('com.existing');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+  });
 });
