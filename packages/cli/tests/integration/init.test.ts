@@ -61,4 +61,100 @@ describe('harness init integration', () => {
 
     fs.rmSync(tmpDir, { recursive: true });
   });
+
+  describe('multi-language framework init (e2e)', () => {
+    const jsFrameworks = [
+      { framework: 'nextjs', level: 'basic', expectFile: 'next.config.mjs' },
+      { framework: 'react-vite', level: 'basic', expectFile: 'vite.config.ts' },
+      { framework: 'vue', level: 'basic', expectFile: 'vite.config.ts' },
+      { framework: 'express', level: 'basic', expectFile: 'src/app.ts' },
+      { framework: 'nestjs', level: 'basic', expectFile: 'nest-cli.json' },
+    ];
+
+    for (const { framework, level, expectFile } of jsFrameworks) {
+      it(`scaffolds ${framework} with config, AGENTS.md, and framework files`, async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `harness-e2e-${framework}-`));
+        const result = await runInit({
+          cwd: tmpDir,
+          name: `test-${framework}`,
+          level,
+          framework,
+        });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        // Core files exist
+        expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, expectFile))).toBe(true);
+
+        // Config has framework and tooling
+        const config = JSON.parse(
+          fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8')
+        );
+        expect(config.template.framework).toBe(framework);
+        expect(config.tooling).toBeDefined();
+        expect(config.tooling.linter).toBeDefined();
+
+        fs.rmSync(tmpDir, { recursive: true });
+      });
+    }
+
+    const nonJsFrameworks = [
+      {
+        framework: 'fastapi',
+        language: 'python',
+        expectFile: 'src/main.py',
+        expectConfig: 'pyproject.toml',
+      },
+      {
+        framework: 'django',
+        language: 'python',
+        expectFile: 'manage.py',
+        expectConfig: 'pyproject.toml',
+      },
+      { framework: 'gin', language: 'go', expectFile: 'main.go', expectConfig: 'go.mod' },
+      {
+        framework: 'axum',
+        language: 'rust',
+        expectFile: 'src/main.rs',
+        expectConfig: 'Cargo.toml',
+      },
+      {
+        framework: 'spring-boot',
+        language: 'java',
+        expectFile: 'src/main/java/App.java',
+        expectConfig: 'pom.xml',
+      },
+    ];
+
+    for (const { framework, language, expectFile, expectConfig } of nonJsFrameworks) {
+      it(`scaffolds ${framework} (${language}) with config, AGENTS.md, and framework files`, async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `harness-e2e-${framework}-`));
+        const result = await runInit({
+          cwd: tmpDir,
+          name: `test-${framework}`,
+          framework,
+          language,
+        });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, expectFile))).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, expectConfig))).toBe(true);
+
+        const config = JSON.parse(
+          fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8')
+        );
+        expect(config.template.framework).toBe(framework);
+        expect(config.template.language).toBe(language);
+        expect(config.template.level).toBeUndefined();
+        expect(config.tooling).toBeDefined();
+
+        fs.rmSync(tmpDir, { recursive: true });
+      });
+    }
+  });
 });
