@@ -1,0 +1,15 @@
+{
+  "name": "spring-boot",
+  "description": "Spring Boot web framework scaffold",
+  "version": 1,
+  "language": "java",
+  "framework": "spring-boot",
+  "extends": "java-base",
+  "tooling": {
+    "packageManager": "maven",
+    "linter": "checkstyle",
+    "buildTool": "maven",
+    "testRunner": "junit"
+  },
+  "detect": [{ "file": "pom.xml", "contains": "spring-boot" }]
+}
