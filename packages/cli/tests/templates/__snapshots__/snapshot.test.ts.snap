@@ -235,7 +235,7 @@ async fn root() -> &'static str {
 #[tokio::main]
 async fn main() {
     let app = Router::new().route("/", get(root));
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 ",
@@ -479,11 +479,12 @@ select = ["E", "F", "I", "N", "W", "UP"]
   "src/__init__.py": "",
   "src/settings.py": """"Django settings for snapshot-test project."""
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "change-me-in-production"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key-change-in-production")
 
 DEBUG = True
 
@@ -528,13 +529,13 @@ urlpatterns = [
     path("admin/", admin.site.urls),
 ]
 ",
-  "src/wsgi.py": """"WSGI config."""
+  "src/wsgi.py": """"WSGI config for snapshot-test project."""
 
 import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "src.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "snapshot-test.settings")
 
 application = get_wsgi_application()
 ",
