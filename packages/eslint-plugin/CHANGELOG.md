@@ -1,5 +1,12 @@
 # @harness-engineering/eslint-plugin
 
+## 0.2.2
+
+### Patch Changes
+
+- **New rule: `require-path-normalization`** — Requires path normalization for cross-platform compatibility. Detects raw `path.join()` and `path.resolve()` outputs used directly in comparisons or object keys without normalization.
+- **README updated** — Added Cross-Platform Rules section documenting `no-unix-shell-command`, `no-hardcoded-path-separator`, and `require-path-normalization`.
+
 ## 0.2.1
 
 ### Patch Changes

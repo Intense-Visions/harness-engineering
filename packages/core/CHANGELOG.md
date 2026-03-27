@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.1
+
+### Patch Changes
+
+- **Check orchestrator refactor** — Extracted 8 handler functions (`runValidateCheck`, `runDepsCheck`, `runDocsCheck`, `runEntropyCheck`, `runSecurityCheck`, `runPerfCheck`, `runPhaseGateCheck`, `runArchCheck`) from `runSingleCheck` switch statement, reducing cyclomatic complexity from 63 to ~10 per function.
+- **VERSION constant fix** — Updated deprecated `VERSION` export from 0.11.0 to 0.13.0.
+- **Cross-platform path normalization** — `path.relative()` outputs in architecture collectors, constraint validators, doc coverage, context generators, entropy detectors, and review scoper normalized to POSIX separators. New `toPosix()` helper in `fs-utils`.
+- **`fs-utils` enhancement** — Added `toPosix()` for consistent cross-platform path separators.
+
 ## 0.13.0
 
 ### Minor Changes

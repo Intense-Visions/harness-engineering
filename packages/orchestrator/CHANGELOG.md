@@ -1,5 +1,14 @@
 # @harness-engineering/orchestrator
 
+## 0.2.3
+
+### Patch Changes
+
+- **README added** — Architecture diagram, quick start guide, core concepts (event-sourced state machine, candidate selection, agent backends, workspace management), and full API reference.
+- **Cross-platform path fix** — `GraphConstraintAdapter` path normalization for consistent separators.
+- Updated dependencies
+  - @harness-engineering/core@0.13.1
+
 ## 0.2.2
 
 ### Patch Changes
