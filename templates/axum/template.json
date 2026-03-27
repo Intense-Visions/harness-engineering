@@ -1,0 +1,16 @@
+{
+  "name": "axum",
+  "description": "Axum web framework scaffold",
+  "version": 1,
+  "language": "rust",
+  "framework": "axum",
+  "extends": "rust-base",
+  "tooling": {
+    "packageManager": "cargo",
+    "linter": "clippy",
+    "formatter": "rustfmt",
+    "buildTool": "cargo",
+    "testRunner": "cargo test"
+  },
+  "detect": [{ "file": "Cargo.toml", "contains": "axum" }]
+}
