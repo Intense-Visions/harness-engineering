@@ -323,11 +323,33 @@ This skill reads and writes to the following session sections via `manage_state`
 | constraints | yes | yes | Reads existing constraints; adds constraints discovered during decomposition |
 | risks | yes | yes | Reads existing risks; adds implementation risks identified during task design |
 | openQuestions | yes | yes | Reads unresolved questions; adds new questions, resolves answered ones |
-| evidence | no | no | Not used by this skill |
+| evidence | yes | yes | Reads prior evidence from brainstorming; writes file:line citations for task specifications |
 
 **When to write:** During Phase 1 (SCOPE) write newly discovered constraints and risks. During Phase 2 (DECOMPOSE) write decisions about task structure and sequencing. Mark resolved questions during Phase 4 (VALIDATE).
 
 **When to read:** At the start of Phase 1 (SCOPE), read all sections via `gather_context` with `include: ["sessions"]` to inherit context from brainstorming. Use terminology for consistent naming in task descriptions.
+
+## Evidence Requirements
+
+When this skill makes claims about existing code structure, file locations, or implementation patterns in task specifications, it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/services/index.ts:15` -- "barrel export exists, will add new export here")
+2. **Code pattern reference:** `file:line` format with pattern description (e.g., `src/services/user-service.ts:1-30` -- "existing service follows constructor injection pattern, new service will match")
+3. **Test output:** Include the command and its observed output when referencing current test state
+4. **Session evidence:** Write to the `evidence` session section:
+   ```json
+   manage_state({
+     action: "append_entry",
+     session: "<current-session>",
+     section: "evidence",
+     authorSkill: "harness-planning",
+     content: "src/services/index.ts:15 -- barrel export pattern confirmed for new service integration"
+   })
+   ```
+
+**When to cite:** During Phase 1 (SCOPE) when referencing existing files for observable truths. During Phase 2 (DECOMPOSE) when specifying exact file paths and code patterns in task instructions. When the file map references existing files for modification.
+
+**Uncited claims:** Technical assertions about existing code without citations MUST be prefixed with `[UNVERIFIED]`. Example: `[UNVERIFIED] The service barrel exports all services`. Uncited claims are flagged during review (Wave 2.2).
 
 ## Harness Integration
 
