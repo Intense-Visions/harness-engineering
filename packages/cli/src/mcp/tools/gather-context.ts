@@ -1,6 +1,6 @@
 import { sanitizePath } from '../utils/sanitize-path.js';
 
-type IncludeKey = 'state' | 'learnings' | 'handoff' | 'graph' | 'validation';
+type IncludeKey = 'state' | 'learnings' | 'handoff' | 'graph' | 'validation' | 'sessions';
 
 export const gatherContextDefinition = {
   name: 'gather_context',
@@ -26,7 +26,7 @@ export const gatherContextDefinition = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['state', 'learnings', 'handoff', 'graph', 'validation'],
+          enum: ['state', 'learnings', 'handoff', 'graph', 'validation', 'sessions'],
         },
         description: 'Which constituents to include (default: all)',
       },
@@ -156,6 +156,13 @@ export async function handleGatherContext(input: {
       })()
     : Promise.resolve(null);
 
+  const sessionsPromise =
+    includeSet.has('sessions') && input.session
+      ? import('@harness-engineering/core').then((core) =>
+          core.readSessionSections(projectPath, input.session!)
+        )
+      : Promise.resolve(null);
+
   const validationPromise = includeSet.has('validation')
     ? (async () => {
         const { handleValidateProject } = await import('./validate.js');
@@ -166,14 +173,21 @@ export async function handleGatherContext(input: {
     : Promise.resolve(null);
 
   // Execute all in parallel
-  const [stateResult, learningsResult, handoffResult, graphResult, validationResult] =
-    await Promise.allSettled([
-      statePromise,
-      learningsPromise,
-      handoffPromise,
-      graphPromise,
-      validationPromise,
-    ]);
+  const [
+    stateResult,
+    learningsResult,
+    handoffResult,
+    graphResult,
+    validationResult,
+    sessionsResult,
+  ] = await Promise.allSettled([
+    statePromise,
+    learningsPromise,
+    handoffPromise,
+    graphPromise,
+    validationPromise,
+    sessionsPromise,
+  ]);
 
   // Extract results, recording errors
   function extract<T>(settled: PromiseSettledResult<T | null>, name: string): T | null {
@@ -189,6 +203,7 @@ export async function handleGatherContext(input: {
   const handoffRaw = extract(handoffResult, 'handoff');
   const graphContextRaw = extract(graphResult, 'graph');
   const validationRaw = extract(validationResult, 'validation');
+  const sessionsRaw = extract(sessionsResult, 'sessions');
 
   // Unwrap Result types from core functions
   const state =
@@ -225,6 +240,18 @@ export async function handleGatherContext(input: {
 
   const graphContext = graphContextRaw;
   const validation = validationRaw;
+
+  const sessionSections =
+    sessionsRaw && typeof sessionsRaw === 'object' && 'ok' in sessionsRaw
+      ? (sessionsRaw as { ok: boolean; value?: unknown }).ok
+        ? (sessionsRaw as { value: unknown }).value
+        : (() => {
+            errors.push(
+              `sessions: ${(sessionsRaw as { error: { message: string } }).error.message}`
+            );
+            return null;
+          })()
+      : sessionsRaw;
 
   const assembledIn = Date.now() - start;
   const mode = input.mode ?? 'summary'; // default summary for composites
@@ -275,6 +302,7 @@ export async function handleGatherContext(input: {
     handoff: outputHandoff,
     graphContext: outputGraphContext,
     validation: outputValidation,
+    sessionSections: sessionSections ?? null,
     meta: {
       assembledIn,
       graphAvailable: graphContext !== null,

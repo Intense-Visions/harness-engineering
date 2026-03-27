@@ -34,6 +34,7 @@ describe('gather_context tool', () => {
         'handoff',
         'graph',
         'validation',
+        'sessions',
       ]);
     });
 
@@ -86,6 +87,26 @@ describe('gather_context tool', () => {
       // graphContext should be null (no graph dir)
       expect(parsed.graphContext).toBeNull();
       expect(parsed.meta.graphAvailable).toBe(false);
+    });
+
+    it('returns sessionSections as null when sessions not in include', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-test',
+        intent: 'test intent',
+        include: ['state'],
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.sessionSections).toBeNull();
+    });
+
+    it('returns sessionSections as null when sessions included but no session param', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-test',
+        intent: 'test intent',
+        include: ['sessions'],
+      });
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.sessionSections).toBeNull();
     });
 
     it('returns assembledIn > 0', async () => {
