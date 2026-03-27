@@ -15,17 +15,18 @@ interface InitOptions {
   name?: string;
   level?: string;
   framework?: string;
+  language?: string;
   force?: boolean;
 }
 
 interface InitResult {
   filesCreated: string[];
+  skippedConfigs: string[];
 }
 
 export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
   const cwd = options.cwd ?? process.cwd();
   const name = options.name ?? path.basename(cwd);
-  const level = options.level ?? 'basic';
   const force = options.force ?? false;
 
   const configPath = path.join(cwd, 'harness.config.json');
@@ -39,26 +40,68 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const templatesDir = resolveTemplatesDir();
   const engine = new TemplateEngine(templatesDir);
 
-  const resolveResult = engine.resolveTemplate(level, options.framework);
+  // Validate --framework / --language conflict
+  if (options.framework && options.language) {
+    const templates = engine.listTemplates();
+    if (templates.ok) {
+      const fwTemplate = templates.value.find((t) => t.framework === options.framework);
+      if (fwTemplate?.language && fwTemplate.language !== options.language) {
+        return Err(
+          new CLIError(
+            `Framework "${options.framework}" is a ${fwTemplate.language} framework, but --language ${options.language} was specified. Remove --language or use --language ${fwTemplate.language}.`,
+            ExitCode.ERROR
+          )
+        );
+      }
+    }
+  }
+
+  // Determine language: explicit, inferred from framework, or default typescript
+  let language = options.language;
+  if (!language && options.framework) {
+    const templates = engine.listTemplates();
+    if (templates.ok) {
+      const fwTemplate = templates.value.find((t) => t.framework === options.framework);
+      if (fwTemplate?.language) language = fwTemplate.language;
+    }
+  }
+
+  // Level is required for JS/TS, optional for other languages
+  const isNonJs = language && language !== 'typescript';
+  const level = isNonJs ? undefined : (options.level ?? 'basic');
+
+  const resolveResult = engine.resolveTemplate(level, options.framework, language);
   if (!resolveResult.ok) {
     return Err(new CLIError(resolveResult.error.message, ExitCode.ERROR));
   }
 
   const renderResult = engine.render(resolveResult.value, {
     projectName: name,
-    level,
+    level: level ?? '',
     ...(options.framework !== undefined && { framework: options.framework }),
+    ...(language !== undefined && { language }),
   });
   if (!renderResult.ok) {
     return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));
   }
 
-  const writeResult = engine.write(renderResult.value, cwd, { overwrite: force });
+  const writeResult = engine.write(renderResult.value, cwd, { overwrite: force, language });
   if (!writeResult.ok) {
     return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
   }
 
-  return Ok({ filesCreated: writeResult.value.written });
+  // Log skipped config files
+  if (writeResult.value.skippedConfigs.length > 0) {
+    logger.warn('Skipped existing package config files:');
+    for (const file of writeResult.value.skippedConfigs) {
+      logger.info(`  - ${file} (add harness dependencies manually)`);
+    }
+  }
+
+  return Ok({
+    filesCreated: writeResult.value.written,
+    skippedConfigs: writeResult.value.skippedConfigs,
+  });
 }
 
 export function createInitCommand(): Command {
@@ -67,6 +110,7 @@ export function createInitCommand(): Command {
     .option('-n, --name <name>', 'Project name')
     .option('-l, --level <level>', 'Adoption level (basic, intermediate, advanced)', 'basic')
     .option('--framework <framework>', 'Framework overlay (nextjs)')
+    .option('--language <language>', 'Target language (typescript, python, go, rust, java)')
     .option('-f, --force', 'Overwrite existing files')
     .option('-y, --yes', 'Use defaults without prompting')
     .action(async (opts, cmd) => {
@@ -76,6 +120,7 @@ export function createInitCommand(): Command {
         name: opts.name,
         level: opts.level,
         framework: opts.framework,
+        language: opts.language,
         force: opts.force,
       });
 
