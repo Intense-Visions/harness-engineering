@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveTemplatesDir } from '../../utils/paths.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
@@ -60,6 +61,37 @@ export async function handleInitProject(input: {
       overwrite: false,
       ...(language !== undefined && { language }),
     });
+
+    // Post-write: persist tooling and framework metadata into harness.config.json
+    if (writeResult.ok) {
+      const writtenConfigPath = path.join(safePath, 'harness.config.json');
+      if (fs.existsSync(writtenConfigPath)) {
+        const config = JSON.parse(fs.readFileSync(writtenConfigPath, 'utf-8'));
+        const overlayMeta = resolveResult.value.overlayMetadata;
+
+        // Add framework to template section
+        if (input.framework) {
+          config.template = config.template || {};
+          config.template.framework = input.framework;
+        }
+
+        // Add tooling from overlay metadata (framework takes precedence over base)
+        if (overlayMeta?.tooling) {
+          config.tooling = { ...config.tooling, ...overlayMeta.tooling };
+          delete config.tooling.lockFile;
+        } else if (resolveResult.value.metadata.tooling && !config.tooling) {
+          config.tooling = { ...resolveResult.value.metadata.tooling };
+          delete config.tooling.lockFile;
+        }
+
+        // Remove level:null for non-JS languages
+        if (config.template?.level === null || config.template?.level === undefined) {
+          delete config.template.level;
+        }
+
+        fs.writeFileSync(writtenConfigPath, JSON.stringify(config, null, 2) + '\n');
+      }
+    }
 
     if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
       const skippedMsg = writeResult.value.skippedConfigs.map((f: string) => `  - ${f}`).join('\n');

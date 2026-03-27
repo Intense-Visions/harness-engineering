@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import * as fs from 'fs';
+import * as os from 'os';
 import { initProjectDefinition, handleInitProject } from '../../../src/mcp/tools/init';
 
 describe('init_project tool', () => {
@@ -24,6 +26,24 @@ describe('init_project tool', () => {
     expect(level.enum).toContain('basic');
     expect(level.enum).toContain('intermediate');
     expect(level.enum).toContain('advanced');
+  });
+
+  it('persists tooling in harness.config.json for framework init', async () => {
+    const tmpDir = fs.mkdtempSync(join(os.tmpdir(), 'harness-mcp-init-'));
+    const result = await handleInitProject({
+      path: tmpDir,
+      name: 'test',
+      level: 'basic',
+      framework: 'react-vite',
+    });
+    expect(result.isError).toBeFalsy();
+
+    const config = JSON.parse(fs.readFileSync(join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.tooling).toBeDefined();
+    expect(config.tooling.buildTool).toBe('vite');
+    expect(config.template.framework).toBe('react-vite');
+
+    fs.rmSync(tmpDir, { recursive: true });
   });
 
   it('returns error for invalid path', async () => {
