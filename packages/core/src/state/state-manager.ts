@@ -17,3 +17,10 @@ export { clearFailuresCache, appendFailure, loadFailures, archiveFailures } from
 export { saveHandoff, loadHandoff } from './handoff';
 export { runMechanicalGate } from './mechanical-gate';
 export { resolveSessionDir, updateSessionIndex } from './session-resolver';
+export {
+  readSessionSections,
+  readSessionSection,
+  appendSessionEntry,
+  updateSessionEntryStatus,
+} from './session-sections';
+export { archiveSession } from './session-archive';
