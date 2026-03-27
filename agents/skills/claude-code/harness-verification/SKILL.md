@@ -291,6 +291,41 @@ When verifying a bug fix, apply this extended protocol:
 
 If step 4 passes (test does not fail without the fix), the test is not a valid regression test. It does not catch the bug. Rewrite it.
 
+## Evidence Requirements
+
+This skill is the primary evidence producer in the workflow. Every pass/fail assertion in the verification report MUST include concrete evidence. The words "should", "probably", and "seems to" are already forbidden by the Iron Law -- this section defines HOW to cite evidence.
+
+Every verification claim MUST use one of:
+
+1. **File reference:** `file:line` format with observed content (e.g., `src/services/user-service.ts:42` -- "create method validates email format before insert")
+2. **Test output:** Include the actual test command and its complete output:
+   ```
+   $ npx vitest run src/services/user-service.test.ts
+   PASS  src/services/user-service.test.ts
+     UserService
+       create (4 tests)
+       list (3 tests)
+       expiry (2 tests)
+   Tests: 9 passed, 9 total
+   ```
+3. **Harness output:** Include full `harness validate` and `harness check-deps` output
+4. **Anti-pattern scan output:** Include the actual grep/search command and results (or absence of results)
+5. **Import chain evidence:** Include the actual import statements found when verifying WIRED level
+6. **Session evidence:** Write to the `evidence` session section for each verification level:
+   ```json
+   manage_state({
+     action: "append_entry",
+     session: "<current-session>",
+     section: "evidence",
+     authorSkill: "harness-verification",
+     content: "[EXISTS:PASS] src/services/user-service.ts (189 lines) -- verified via direct file read"
+   })
+   ```
+
+**When to cite:** At every verification level. Level 1 (EXISTS) cites file reads. Level 2 (SUBSTANTIVE) cites specific line content. Level 3 (WIRED) cites import statements, test execution output, and harness check output. The verification report format already requires `[PASS]`/`[FAIL]` markers -- each marker must be accompanied by the evidence that produced it.
+
+**Uncited claims:** ANY verification assertion without direct evidence is a verification failure, not merely an uncited claim. This skill does not use `[UNVERIFIED]` -- if evidence cannot be produced, the verdict is FAIL or INCOMPLETE.
+
 ## Harness Integration
 
 - **`harness validate`** — Run in Level 3 WIRED check. Verifies project-wide health and constraint compliance.
