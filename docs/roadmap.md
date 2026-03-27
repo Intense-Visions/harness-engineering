@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-03-26
-last_synced: 2026-03-26
+updated: 2026-03-27
+last_synced: 2026-03-27
 last_manual_edit: 2026-03-23
 ---
 
@@ -735,11 +735,11 @@ last_manual_edit: 2026-03-23
 
 ### Domain Skill Tiers & Catalog System
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/domain-skill-tiers/proposal.md
-- **Summary:** Three-tier skill loading (23 always-loaded slash commands, 44+ catalog-only discoverable via search_skills, 6 dependency-only), intelligent dispatcher, and 30 new domain skills covering backend, infrastructure, reliability, auth, compliance, testing, soft domains, data engineering, ML/AI, and mobile. Cross-platform (Claude Code + Gemini CLI).
+- **Summary:** Three-tier skill loading (30 always-loaded slash commands, 43 catalog-only discoverable via search_skills, 6 dependency-only), intelligent dispatcher, and 30 new domain skills covering backend, infrastructure, reliability, auth, compliance, testing, soft domains, data engineering, ML/AI, and mobile. Cross-platform (Claude Code + Gemini CLI).
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-27-tier-infrastructure-plan.md
 
 ### Platform Expansion
 

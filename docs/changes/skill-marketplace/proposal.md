@@ -6,7 +6,7 @@
 
 ## Overview
 
-The harness framework ships 49+ skills bundled with the CLI. These skills are file-system based — discovered at runtime by scanning `agents/skills/{platform}/` directories. This works for first-party skills but creates a closed ecosystem: contributing a new skill means opening a PR against the monorepo.
+The harness framework ships 79 skills bundled with the CLI (49 core + 30 domain). These skills are file-system based — discovered at runtime by scanning `agents/skills/{platform}/` directories. This works for first-party skills but creates a closed ecosystem: contributing a new skill means opening a PR against the monorepo.
 
 The Community Skill Registry introduces:
 

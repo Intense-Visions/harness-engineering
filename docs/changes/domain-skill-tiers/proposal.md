@@ -289,87 +289,87 @@ The tier system and catalog are platform-agnostic. Both Claude Code and Gemini C
 
 ## New Skill Definitions
 
-30 new skills organized into 10 categories. Full skill.yaml + SKILL.md definitions are in `skills/` subdirectory.
+30 new skills organized into 10 categories. Full skill.yaml + SKILL.md definitions are in `agents/skills/claude-code/`.
 
 ### Backend & Data (5)
 
-| Skill                                                      | Description                                             | Cognitive Mode         | Type  |
-| ---------------------------------------------------------- | ------------------------------------------------------- | ---------------------- | ----- |
-| [harness-api-design](skills/harness-api-design/)           | REST, GraphQL, gRPC, OpenAPI specs, versioning          | advisory-guide         | rigid |
-| [harness-database](skills/harness-database/)               | Schema design, migrations, ORM patterns, safety checks  | advisory-guide         | rigid |
-| [harness-event-driven](skills/harness-event-driven/)       | Message queues, event sourcing, CQRS, sagas             | constructive-architect | rigid |
-| [harness-caching](skills/harness-caching/)                 | Cache strategies, invalidation, distributed caching     | advisory-guide         | rigid |
-| [harness-data-validation](skills/harness-data-validation/) | Schema validation, data contracts, boundary enforcement | meticulous-verifier    | rigid |
+| Skill                                                                                     | Description                                             | Cognitive Mode         | Type  |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------- | ---------------------- | ----- |
+| [harness-api-design](../../../../agents/skills/claude-code/harness-api-design/)           | REST, GraphQL, gRPC, OpenAPI specs, versioning          | advisory-guide         | rigid |
+| [harness-database](../../../../agents/skills/claude-code/harness-database/)               | Schema design, migrations, ORM patterns, safety checks  | advisory-guide         | rigid |
+| [harness-event-driven](../../../../agents/skills/claude-code/harness-event-driven/)       | Message queues, event sourcing, CQRS, sagas             | constructive-architect | rigid |
+| [harness-caching](../../../../agents/skills/claude-code/harness-caching/)                 | Cache strategies, invalidation, distributed caching     | advisory-guide         | rigid |
+| [harness-data-validation](../../../../agents/skills/claude-code/harness-data-validation/) | Schema validation, data contracts, boundary enforcement | meticulous-verifier    | rigid |
 
 ### Infrastructure & Ops (5)
 
-| Skill                                                                    | Description                                       | Cognitive Mode      | Type  |
-| ------------------------------------------------------------------------ | ------------------------------------------------- | ------------------- | ----- |
-| [harness-deployment](skills/harness-deployment/)                         | CI/CD pipelines, blue-green, canary, environments | advisory-guide      | rigid |
-| [harness-containerization](skills/harness-containerization/)             | Dockerfile review, K8s manifests, registries      | meticulous-verifier | rigid |
-| [harness-infrastructure-as-code](skills/harness-infrastructure-as-code/) | Terraform, CloudFormation, Pulumi patterns        | advisory-guide      | rigid |
-| [harness-observability](skills/harness-observability/)                   | Structured logging, metrics, tracing, alerting    | advisory-guide      | rigid |
-| [harness-secrets](skills/harness-secrets/)                               | Vault integration, rotation, env-var hygiene      | meticulous-verifier | rigid |
+| Skill                                                                                                   | Description                                       | Cognitive Mode      | Type  |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------- | ----- |
+| [harness-deployment](../../../../agents/skills/claude-code/harness-deployment/)                         | CI/CD pipelines, blue-green, canary, environments | advisory-guide      | rigid |
+| [harness-containerization](../../../../agents/skills/claude-code/harness-containerization/)             | Dockerfile review, K8s manifests, registries      | meticulous-verifier | rigid |
+| [harness-infrastructure-as-code](../../../../agents/skills/claude-code/harness-infrastructure-as-code/) | Terraform, CloudFormation, Pulumi patterns        | advisory-guide      | rigid |
+| [harness-observability](../../../../agents/skills/claude-code/harness-observability/)                   | Structured logging, metrics, tracing, alerting    | advisory-guide      | rigid |
+| [harness-secrets](../../../../agents/skills/claude-code/harness-secrets/)                               | Vault integration, rotation, env-var hygiene      | meticulous-verifier | rigid |
 
 ### Reliability (3)
 
-| Skill                                                          | Description                                         | Cognitive Mode          | Type  |
-| -------------------------------------------------------------- | --------------------------------------------------- | ----------------------- | ----- |
-| [harness-incident-response](skills/harness-incident-response/) | Runbooks, postmortems, SLO/SLA tracking             | diagnostic-investigator | rigid |
-| [harness-resilience](skills/harness-resilience/)               | Circuit breakers, rate limiting, bulkheads, retries | advisory-guide          | rigid |
-| [harness-load-testing](skills/harness-load-testing/)           | Stress testing, capacity planning, k6/Artillery     | meticulous-verifier     | rigid |
+| Skill                                                                                         | Description                                         | Cognitive Mode          | Type  |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------- | ----- |
+| [harness-incident-response](../../../../agents/skills/claude-code/harness-incident-response/) | Runbooks, postmortems, SLO/SLA tracking             | diagnostic-investigator | rigid |
+| [harness-resilience](../../../../agents/skills/claude-code/harness-resilience/)               | Circuit breakers, rate limiting, bulkheads, retries | advisory-guide          | rigid |
+| [harness-load-testing](../../../../agents/skills/claude-code/harness-load-testing/)           | Stress testing, capacity planning, k6/Artillery     | meticulous-verifier     | rigid |
 
 ### Auth & Compliance (2)
 
-| Skill                                            | Description                                | Cognitive Mode      | Type  |
-| ------------------------------------------------ | ------------------------------------------ | ------------------- | ----- |
-| [harness-auth](skills/harness-auth/)             | OAuth2, JWT, RBAC/ABAC, session management | advisory-guide      | rigid |
-| [harness-compliance](skills/harness-compliance/) | SOC2, HIPAA, GDPR, audit trails            | meticulous-verifier | rigid |
+| Skill                                                                           | Description                                | Cognitive Mode      | Type  |
+| ------------------------------------------------------------------------------- | ------------------------------------------ | ------------------- | ----- |
+| [harness-auth](../../../../agents/skills/claude-code/harness-auth/)             | OAuth2, JWT, RBAC/ABAC, session management | advisory-guide      | rigid |
+| [harness-compliance](../../../../agents/skills/claude-code/harness-compliance/) | SOC2, HIPAA, GDPR, audit trails            | meticulous-verifier | rigid |
 
 ### Feature Management (1)
 
-| Skill                                                  | Description                                   | Cognitive Mode | Type  |
-| ------------------------------------------------------ | --------------------------------------------- | -------------- | ----- |
-| [harness-feature-flags](skills/harness-feature-flags/) | Flag lifecycle, A/B testing, gradual rollouts | advisory-guide | rigid |
+| Skill                                                                                 | Description                                   | Cognitive Mode | Type  |
+| ------------------------------------------------------------------------------------- | --------------------------------------------- | -------------- | ----- |
+| [harness-feature-flags](../../../../agents/skills/claude-code/harness-feature-flags/) | Flag lifecycle, A/B testing, gradual rollouts | advisory-guide | rigid |
 
 ### Advanced Testing (7)
 
-| Skill                                                          | Description                                               | Cognitive Mode         | Type  |
-| -------------------------------------------------------------- | --------------------------------------------------------- | ---------------------- | ----- |
-| [harness-e2e](skills/harness-e2e/)                             | Playwright/Cypress/Selenium, page objects, flakiness      | meticulous-implementer | rigid |
-| [harness-integration-test](skills/harness-integration-test/)   | Service boundary testing, contract validation             | meticulous-verifier    | rigid |
-| [harness-test-data](skills/harness-test-data/)                 | Factories, fixtures, test DB lifecycle, isolation         | advisory-guide         | rigid |
-| [harness-visual-regression](skills/harness-visual-regression/) | Screenshot diffing, baseline management                   | meticulous-verifier    | rigid |
-| [harness-mutation-test](skills/harness-mutation-test/)         | Stryker, mutation scoring, test quality                   | adversarial-reviewer   | rigid |
-| [harness-property-test](skills/harness-property-test/)         | fast-check/hypothesis, generative testing, shrinking      | constructive-architect | rigid |
-| [harness-chaos](skills/harness-chaos/)                         | Fault injection, failure scenarios, resilience validation | adversarial-reviewer   | rigid |
+| Skill                                                                                         | Description                                               | Cognitive Mode         | Type  |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------- | ----- |
+| [harness-e2e](../../../../agents/skills/claude-code/harness-e2e/)                             | Playwright/Cypress/Selenium, page objects, flakiness      | meticulous-implementer | rigid |
+| [harness-integration-test](../../../../agents/skills/claude-code/harness-integration-test/)   | Service boundary testing, contract validation             | meticulous-verifier    | rigid |
+| [harness-test-data](../../../../agents/skills/claude-code/harness-test-data/)                 | Factories, fixtures, test DB lifecycle, isolation         | advisory-guide         | rigid |
+| [harness-visual-regression](../../../../agents/skills/claude-code/harness-visual-regression/) | Screenshot diffing, baseline management                   | meticulous-verifier    | rigid |
+| [harness-mutation-test](../../../../agents/skills/claude-code/harness-mutation-test/)         | Stryker, mutation scoring, test quality                   | adversarial-reviewer   | rigid |
+| [harness-property-test](../../../../agents/skills/claude-code/harness-property-test/)         | fast-check/hypothesis, generative testing, shrinking      | constructive-architect | rigid |
+| [harness-chaos](../../../../agents/skills/claude-code/harness-chaos/)                         | Fault injection, failure scenarios, resilience validation | adversarial-reviewer   | rigid |
 
 ### Soft Domains (3)
 
-| Skill                                                | Description                                           | Cognitive Mode         | Type  |
-| ---------------------------------------------------- | ----------------------------------------------------- | ---------------------- | ----- |
-| [harness-ux-copy](skills/harness-ux-copy/)           | Microcopy, error messages, voice/tone guides          | advisory-guide         | rigid |
-| [harness-dx](skills/harness-dx/)                     | README audits, API doc generation, example validation | advisory-guide         | rigid |
-| [harness-product-spec](skills/harness-product-spec/) | User stories, EARS acceptance criteria, PRD           | constructive-architect | rigid |
+| Skill                                                                               | Description                                           | Cognitive Mode         | Type  |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------- | ----- |
+| [harness-ux-copy](../../../../agents/skills/claude-code/harness-ux-copy/)           | Microcopy, error messages, voice/tone guides          | advisory-guide         | rigid |
+| [harness-dx](../../../../agents/skills/claude-code/harness-dx/)                     | README audits, API doc generation, example validation | advisory-guide         | rigid |
+| [harness-product-spec](../../../../agents/skills/claude-code/harness-product-spec/) | User stories, EARS acceptance criteria, PRD           | constructive-architect | rigid |
 
 ### Data Engineering (2)
 
-| Skill                                                  | Description                                             | Cognitive Mode       | Type  |
-| ------------------------------------------------------ | ------------------------------------------------------- | -------------------- | ----- |
-| [harness-data-pipeline](skills/harness-data-pipeline/) | ETL/ELT patterns, data quality checks, pipeline testing | meticulous-verifier  | rigid |
-| [harness-sql-review](skills/harness-sql-review/)       | Query optimization, index analysis, N+1 detection       | adversarial-reviewer | rigid |
+| Skill                                                                                 | Description                                             | Cognitive Mode       | Type  |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------- | ----- |
+| [harness-data-pipeline](../../../../agents/skills/claude-code/harness-data-pipeline/) | ETL/ELT patterns, data quality checks, pipeline testing | meticulous-verifier  | rigid |
+| [harness-sql-review](../../../../agents/skills/claude-code/harness-sql-review/)       | Query optimization, index analysis, N+1 detection       | adversarial-reviewer | rigid |
 
 ### ML/AI (1)
 
-| Skill                                    | Description                                                 | Cognitive Mode | Type  |
-| ---------------------------------------- | ----------------------------------------------------------- | -------------- | ----- |
-| [harness-ml-ops](skills/harness-ml-ops/) | Model serving, experiment config, prompt eval, ML pipelines | advisory-guide | rigid |
+| Skill                                                                   | Description                                                 | Cognitive Mode | Type  |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------- | -------------- | ----- |
+| [harness-ml-ops](../../../../agents/skills/claude-code/harness-ml-ops/) | Model serving, experiment config, prompt eval, ML pipelines | advisory-guide | rigid |
 
 ### Mobile (1)
 
-| Skill                                                      | Description                                                     | Cognitive Mode | Type  |
-| ---------------------------------------------------------- | --------------------------------------------------------------- | -------------- | ----- |
-| [harness-mobile-patterns](skills/harness-mobile-patterns/) | Platform lifecycle, permissions, deep linking, store submission | advisory-guide | rigid |
+| Skill                                                                                     | Description                                                     | Cognitive Mode | Type  |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------- | ----- |
+| [harness-mobile-patterns](../../../../agents/skills/claude-code/harness-mobile-patterns/) | Platform lifecycle, permissions, deep linking, store submission | advisory-guide | rigid |
 
 ## Existing Skill Reclassification
 
