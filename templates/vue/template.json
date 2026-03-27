@@ -1,0 +1,19 @@
+{
+  "name": "vue",
+  "description": "Vue + Vite framework overlay",
+  "framework": "vue",
+  "version": 1,
+  "language": "typescript",
+  "tooling": {
+    "packageManager": "npm",
+    "linter": "eslint",
+    "formatter": "prettier",
+    "buildTool": "vite",
+    "testRunner": "vitest",
+    "lockFile": "package-lock.json"
+  },
+  "detect": [
+    { "file": "package.json", "contains": "vue" },
+    { "file": "vite.config.ts", "contains": "@vitejs/plugin-vue" }
+  ]
+}
