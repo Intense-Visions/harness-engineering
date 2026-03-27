@@ -195,6 +195,32 @@ const QUOTED_RE = /["']([^"']+)["']/g;
  * Returns deduplicated raw strings. These are NOT resolved to graph nodes --
  * that is the responsibility of EntityResolver (Phase 4).
  */
+/** Check if a cleaned word token should be skipped in Strategy 4. */
+function isSkippableWord(cleaned: string, allConsumed: ReadonlySet<string>): boolean {
+  if (allConsumed.has(cleaned)) return true;
+  const lower = cleaned.toLowerCase();
+  if (STOP_WORDS.has(lower)) return true;
+  if (INTENT_KEYWORDS.has(lower)) return true;
+  // Skip ALL_CAPS tokens (acronyms like API, HTTP) — not entity mentions
+  if (cleaned === cleaned.toUpperCase() && /^[A-Z]+$/.test(cleaned)) return true;
+  return false;
+}
+
+/** Expand multi-word quoted strings into individual words and merge all consumed tokens. */
+function buildConsumedSet(
+  quotedConsumed: ReadonlySet<string>,
+  casingConsumed: ReadonlySet<string>,
+  pathConsumed: ReadonlySet<string>
+): Set<string> {
+  const quotedWords = new Set<string>();
+  for (const q of quotedConsumed) {
+    for (const w of q.split(/\s+/)) {
+      if (w.length > 0) quotedWords.add(w);
+    }
+  }
+  return new Set([...quotedConsumed, ...quotedWords, ...casingConsumed, ...pathConsumed]);
+}
+
 export class EntityExtractor {
   /**
    * Extract candidate entity mentions from a natural language query.
@@ -245,38 +271,13 @@ export class EntityExtractor {
     }
 
     // Strategy 4: Remaining significant nouns
-    // Expand multi-word quoted strings into individual words for consumption tracking
-    const quotedWords = new Set<string>();
-    for (const q of quotedConsumed) {
-      for (const w of q.split(/\s+/)) {
-        if (w.length > 0) quotedWords.add(w);
-      }
-    }
-    const allConsumed = new Set([
-      ...quotedConsumed,
-      ...quotedWords,
-      ...casingConsumed,
-      ...pathConsumed,
-    ]);
+    const allConsumed = buildConsumedSet(quotedConsumed, casingConsumed, pathConsumed);
     const words = trimmed.split(/\s+/);
 
     for (const raw of words) {
-      // Strip punctuation from edges
       const cleaned = raw.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
       if (cleaned.length === 0) continue;
-
-      const lower = cleaned.toLowerCase();
-
-      // Skip if already consumed by earlier strategies
-      if (allConsumed.has(cleaned)) continue;
-
-      // Skip stop words and intent keywords
-      if (STOP_WORDS.has(lower)) continue;
-      if (INTENT_KEYWORDS.has(lower)) continue;
-
-      // Skip ALL_CAPS tokens (acronyms like API, HTTP) — not entity mentions
-      if (cleaned === cleaned.toUpperCase() && /^[A-Z]+$/.test(cleaned)) continue;
-
+      if (isSkippableWord(cleaned, allConsumed)) continue;
       add(cleaned);
     }
 

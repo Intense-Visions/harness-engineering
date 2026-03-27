@@ -3,10 +3,7 @@ import * as path from 'path';
 import { BaselineManager, CriticalPathResolver } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 
-export function createPerfCommand(): Command {
-  const perf = new Command('perf').description('Performance benchmark and baseline management');
-
-  // harness perf bench [glob]
+function registerBenchCommand(perf: Command): void {
   perf
     .command('bench [glob]')
     .description('Run benchmarks via vitest bench')
@@ -17,7 +14,6 @@ export function createPerfCommand(): Command {
       const { BenchmarkRunner } = await import('@harness-engineering/core');
       const runner = new BenchmarkRunner();
 
-      // First check if any bench files exist
       const benchFiles = runner.discover(cwd, glob);
       if (benchFiles.length === 0) {
         if (globalOpts.json) {
@@ -28,57 +24,63 @@ export function createPerfCommand(): Command {
         return;
       }
 
-      if (globalOpts.json) {
-        logger.info(`Found ${benchFiles.length} benchmark file(s). Running...`);
-      } else {
-        logger.info(`Found ${benchFiles.length} benchmark file(s):`);
-        for (const f of benchFiles) {
-          logger.info(`  ${f}`);
-        }
-        logger.info('Running benchmarks...');
-      }
-
+      logBenchDiscovery(globalOpts.json, benchFiles);
       const result = await runner.run(glob ? { cwd, glob } : { cwd });
-
-      if (globalOpts.json) {
-        console.log(JSON.stringify({ results: result.results, success: result.success }));
-      } else {
-        if (result.success && result.results.length > 0) {
-          logger.info(`\nResults (${result.results.length} benchmarks):`);
-          for (const r of result.results) {
-            logger.info(
-              `  ${r.file}::${r.name}: ${r.opsPerSec} ops/s (mean: ${r.meanMs.toFixed(2)}ms)`
-            );
-          }
-          logger.info('\nTo save as baselines: harness perf baselines update');
-        } else {
-          logger.info('Benchmark run completed. Check output above for details.');
-          if (result.rawOutput) {
-            console.log(result.rawOutput);
-          }
-        }
-      }
+      outputBenchResults(globalOpts.json, result);
     });
+}
 
-  // harness perf baselines
+function logBenchDiscovery(json: boolean, benchFiles: string[]): void {
+  if (json) {
+    logger.info(`Found ${benchFiles.length} benchmark file(s). Running...`);
+  } else {
+    logger.info(`Found ${benchFiles.length} benchmark file(s):`);
+    for (const f of benchFiles) logger.info(`  ${f}`);
+    logger.info('Running benchmarks...');
+  }
+}
+
+function outputBenchResults(
+  json: boolean,
+  result: {
+    success: boolean;
+    results: Array<{ file: string; name: string; opsPerSec: number; meanMs: number }>;
+    rawOutput?: string;
+  }
+): void {
+  if (json) {
+    console.log(JSON.stringify({ results: result.results, success: result.success }));
+    return;
+  }
+  if (result.success && result.results.length > 0) {
+    logger.info(`\nResults (${result.results.length} benchmarks):`);
+    for (const r of result.results) {
+      logger.info(`  ${r.file}::${r.name}: ${r.opsPerSec} ops/s (mean: ${r.meanMs.toFixed(2)}ms)`);
+    }
+    logger.info('\nTo save as baselines: harness perf baselines update');
+  } else {
+    logger.info('Benchmark run completed. Check output above for details.');
+    if (result.rawOutput) console.log(result.rawOutput);
+  }
+}
+
+function registerBaselinesCommands(perf: Command): void {
   const baselines = perf.command('baselines').description('Manage performance baselines');
 
-  // harness perf baselines show
   baselines
     .command('show')
     .description('Display current baselines')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const cwd = process.cwd();
-      const manager = new BaselineManager(cwd);
+      const manager = new BaselineManager(process.cwd());
       const data = manager.load();
 
       if (!data) {
-        if (globalOpts.json) {
-          console.log(JSON.stringify({ baselines: null, message: 'No baselines file found' }));
-        } else {
-          logger.info('No baselines file found at .harness/perf/baselines.json');
-        }
+        console.log(
+          globalOpts.json
+            ? JSON.stringify({ baselines: null, message: 'No baselines file found' })
+            : 'No baselines file found at .harness/perf/baselines.json'
+        );
         return;
       }
 
@@ -94,7 +96,6 @@ export function createPerfCommand(): Command {
       }
     });
 
-  // harness perf baselines update
   baselines
     .command('update')
     .description('Update baselines from latest benchmark run')
@@ -116,15 +117,7 @@ export function createPerfCommand(): Command {
         return;
       }
 
-      // Get current commit hash
-      let commitHash = 'unknown';
-      try {
-        const { execSync } = await import('node:child_process');
-        commitHash = execSync('git rev-parse --short HEAD', { cwd, encoding: 'utf-8' }).trim();
-      } catch {
-        /* ignore */
-      }
-
+      const commitHash = await getCommitHash(cwd);
       manager.save(benchResult.results, commitHash);
 
       if (globalOpts.json) {
@@ -134,8 +127,18 @@ export function createPerfCommand(): Command {
         logger.info('Baselines saved to .harness/perf/baselines.json');
       }
     });
+}
 
-  // harness perf report
+async function getCommitHash(cwd: string): Promise<string> {
+  try {
+    const { execSync } = await import('node:child_process');
+    return execSync('git rev-parse --short HEAD', { cwd, encoding: 'utf-8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+function registerReportCommand(perf: Command): void {
   perf
     .command('report')
     .description('Full performance report with metrics, trends, and hotspots')
@@ -182,15 +185,15 @@ export function createPerfCommand(): Command {
         }
       }
     });
+}
 
-  // harness perf critical-paths
+function registerCriticalPathsCommand(perf: Command): void {
   perf
     .command('critical-paths')
     .description('Show resolved critical path set (annotations + graph inference)')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const cwd = process.cwd();
-      const resolver = new CriticalPathResolver(cwd);
+      const resolver = new CriticalPathResolver(process.cwd());
       const result = await resolver.resolve();
 
       if (globalOpts.json) {
@@ -206,6 +209,15 @@ export function createPerfCommand(): Command {
         }
       }
     });
+}
+
+export function createPerfCommand(): Command {
+  const perf = new Command('perf').description('Performance benchmark and baseline management');
+
+  registerBenchCommand(perf);
+  registerBaselinesCommands(perf);
+  registerReportCommand(perf);
+  registerCriticalPathsCommand(perf);
 
   return perf;
 }

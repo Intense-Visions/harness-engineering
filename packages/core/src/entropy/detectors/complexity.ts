@@ -32,6 +32,19 @@ interface FunctionInfo {
   body: string;
 }
 
+// Patterns for function-like declarations (module-level to avoid unbalanced
+// braces inside function bodies confusing the brace-counting detector).
+const FUNCTION_PATTERNS = [
+  // function declarations: function name(params) {
+  /^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)/,
+  // method declarations: name(params) {
+  /^\s*(?:async\s+)?(\w+)\s*\(([^)]*)\)\s*(?::\s*[^{]+)?\s*\{/,
+  // arrow functions assigned to const/let/var: const name = (params) =>
+  /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(([^)]*)\)\s*(?::\s*[^=]+)?\s*=>/,
+  // arrow functions assigned to const/let/var with single param: const name = param =>
+  /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(\w+)\s*=>/,
+];
+
 /**
  * Extract function boundaries from source code using regex.
  * Handles function declarations, methods, and arrow functions.
@@ -40,22 +53,10 @@ function extractFunctions(content: string): FunctionInfo[] {
   const functions: FunctionInfo[] = [];
   const lines = content.split('\n');
 
-  // Patterns for function-like declarations
-  const patterns = [
-    // function declarations: function name(params) {
-    /^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)/,
-    // method declarations: name(params) {
-    /^\s*(?:async\s+)?(\w+)\s*\(([^)]*)\)\s*(?::\s*[^{]+)?\s*\{/,
-    // arrow functions assigned to const/let/var: const name = (params) =>
-    /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(([^)]*)\)\s*(?::\s*[^=]+)?\s*=>/,
-    // arrow functions assigned to const/let/var with single param: const name = param =>
-    /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(\w+)\s*=>/,
-  ];
-
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
 
-    for (const pattern of patterns) {
+    for (const pattern of FUNCTION_PATTERNS) {
       const match = line.match(pattern);
       if (match) {
         const name = match[1] ?? 'anonymous';
@@ -172,6 +173,199 @@ function computeNestingDepth(body: string): number {
   return maxDepth;
 }
 
+interface ResolvedThresholds {
+  cyclomaticComplexity: { error: number; warn: number };
+  nestingDepth: { warn: number };
+  functionLength: { warn: number };
+  parameterCount: { warn: number };
+  fileLength: { info: number };
+}
+
+function resolveThresholds(config?: ComplexityConfig): ResolvedThresholds {
+  const userThresholds = config?.thresholds;
+  if (!userThresholds) return { ...DEFAULT_THRESHOLDS };
+
+  return {
+    cyclomaticComplexity: {
+      ...DEFAULT_THRESHOLDS.cyclomaticComplexity,
+      ...stripUndefined(userThresholds.cyclomaticComplexity),
+    },
+    nestingDepth: {
+      ...DEFAULT_THRESHOLDS.nestingDepth,
+      ...stripUndefined(userThresholds.nestingDepth),
+    },
+    functionLength: {
+      ...DEFAULT_THRESHOLDS.functionLength,
+      ...stripUndefined(userThresholds.functionLength),
+    },
+    parameterCount: {
+      ...DEFAULT_THRESHOLDS.parameterCount,
+      ...stripUndefined(userThresholds.parameterCount),
+    },
+    fileLength: { ...DEFAULT_THRESHOLDS.fileLength, ...stripUndefined(userThresholds.fileLength) },
+  };
+}
+
+function stripUndefined<T extends Record<string, unknown>>(obj?: Partial<T>): Partial<T> {
+  if (!obj) return {} as Partial<T>;
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) result[key] = val;
+  }
+  return result as Partial<T>;
+}
+
+function checkFileLengthViolation(
+  filePath: string,
+  lineCount: number,
+  threshold: number
+): ComplexityViolation | null {
+  if (lineCount <= threshold) return null;
+  return {
+    file: filePath,
+    function: '<file>',
+    line: 1,
+    metric: 'fileLength',
+    value: lineCount,
+    threshold,
+    tier: 3,
+    severity: 'info',
+    message: `File has ${lineCount} lines (threshold: ${threshold})`,
+  };
+}
+
+function checkCyclomaticComplexity(
+  filePath: string,
+  fn: FunctionInfo,
+  thresholds: { error: number; warn: number }
+): ComplexityViolation | null {
+  const complexity = computeCyclomaticComplexity(fn.body);
+  if (complexity > thresholds.error) {
+    return {
+      file: filePath,
+      function: fn.name,
+      line: fn.line,
+      metric: 'cyclomaticComplexity',
+      value: complexity,
+      threshold: thresholds.error,
+      tier: 1,
+      severity: 'error',
+      message: `Function "${fn.name}" has cyclomatic complexity of ${complexity} (error threshold: ${thresholds.error})`,
+    };
+  }
+  if (complexity > thresholds.warn) {
+    return {
+      file: filePath,
+      function: fn.name,
+      line: fn.line,
+      metric: 'cyclomaticComplexity',
+      value: complexity,
+      threshold: thresholds.warn,
+      tier: 2,
+      severity: 'warning',
+      message: `Function "${fn.name}" has cyclomatic complexity of ${complexity} (warning threshold: ${thresholds.warn})`,
+    };
+  }
+  return null;
+}
+
+function checkNestingDepth(
+  filePath: string,
+  fn: FunctionInfo,
+  threshold: number
+): ComplexityViolation | null {
+  const depth = computeNestingDepth(fn.body);
+  if (depth <= threshold) return null;
+  return {
+    file: filePath,
+    function: fn.name,
+    line: fn.line,
+    metric: 'nestingDepth',
+    value: depth,
+    threshold,
+    tier: 2,
+    severity: 'warning',
+    message: `Function "${fn.name}" has nesting depth of ${depth} (threshold: ${threshold})`,
+  };
+}
+
+function checkFunctionLength(
+  filePath: string,
+  fn: FunctionInfo,
+  threshold: number
+): ComplexityViolation | null {
+  const fnLength = fn.endLine - fn.startLine + 1;
+  if (fnLength <= threshold) return null;
+  return {
+    file: filePath,
+    function: fn.name,
+    line: fn.line,
+    metric: 'functionLength',
+    value: fnLength,
+    threshold,
+    tier: 2,
+    severity: 'warning',
+    message: `Function "${fn.name}" is ${fnLength} lines long (threshold: ${threshold})`,
+  };
+}
+
+function checkParameterCount(
+  filePath: string,
+  fn: FunctionInfo,
+  threshold: number
+): ComplexityViolation | null {
+  if (fn.params <= threshold) return null;
+  return {
+    file: filePath,
+    function: fn.name,
+    line: fn.line,
+    metric: 'parameterCount',
+    value: fn.params,
+    threshold,
+    tier: 2,
+    severity: 'warning',
+    message: `Function "${fn.name}" has ${fn.params} parameters (threshold: ${threshold})`,
+  };
+}
+
+function checkHotspot(
+  filePath: string,
+  fn: FunctionInfo,
+  graphData: GraphComplexityData
+): ComplexityViolation | null {
+  const hotspot = graphData.hotspots.find((h) => h.file === filePath && h.function === fn.name);
+  if (!hotspot || hotspot.hotspotScore <= graphData.percentile95Score) return null;
+  return {
+    file: filePath,
+    function: fn.name,
+    line: fn.line,
+    metric: 'hotspotScore',
+    value: hotspot.hotspotScore,
+    threshold: graphData.percentile95Score,
+    tier: 1,
+    severity: 'error',
+    message: `Function "${fn.name}" is a complexity hotspot (score: ${hotspot.hotspotScore}, p95: ${graphData.percentile95Score})`,
+  };
+}
+
+function collectFunctionViolations(
+  filePath: string,
+  fn: FunctionInfo,
+  thresholds: ResolvedThresholds,
+  graphData?: GraphComplexityData
+): ComplexityViolation[] {
+  const checks: Array<ComplexityViolation | null> = [
+    checkCyclomaticComplexity(filePath, fn, thresholds.cyclomaticComplexity),
+    checkNestingDepth(filePath, fn, thresholds.nestingDepth.warn),
+    checkFunctionLength(filePath, fn, thresholds.functionLength.warn),
+    checkParameterCount(filePath, fn, thresholds.parameterCount.warn),
+  ];
+  if (graphData) {
+    checks.push(checkHotspot(filePath, fn, graphData));
+  }
+  return checks.filter((v): v is ComplexityViolation => v !== null);
+}
+
 /**
  * Detect complexity violations across a codebase snapshot.
  */
@@ -181,29 +375,7 @@ export async function detectComplexityViolations(
   graphData?: GraphComplexityData
 ): Promise<Result<ComplexityReport, EntropyError>> {
   const violations: ComplexityViolation[] = [];
-  const thresholds = {
-    cyclomaticComplexity: {
-      error:
-        config?.thresholds?.cyclomaticComplexity?.error ??
-        DEFAULT_THRESHOLDS.cyclomaticComplexity.error,
-      warn:
-        config?.thresholds?.cyclomaticComplexity?.warn ??
-        DEFAULT_THRESHOLDS.cyclomaticComplexity.warn,
-    },
-    nestingDepth: {
-      warn: config?.thresholds?.nestingDepth?.warn ?? DEFAULT_THRESHOLDS.nestingDepth.warn,
-    },
-    functionLength: {
-      warn: config?.thresholds?.functionLength?.warn ?? DEFAULT_THRESHOLDS.functionLength.warn,
-    },
-    parameterCount: {
-      warn: config?.thresholds?.parameterCount?.warn ?? DEFAULT_THRESHOLDS.parameterCount.warn,
-    },
-    fileLength: {
-      info: config?.thresholds?.fileLength?.info ?? DEFAULT_THRESHOLDS.fileLength.info,
-    },
-  };
-
+  const thresholds = resolveThresholds(config);
   let totalFunctions = 0;
 
   for (const file of snapshot.files) {
@@ -211,125 +383,23 @@ export async function detectComplexityViolations(
     try {
       content = await readFile(file.path, 'utf-8');
     } catch {
-      continue; // Skip files that can't be read
+      continue;
     }
 
     const lines = content.split('\n');
 
-    // Check file length
-    if (lines.length > thresholds.fileLength.info) {
-      violations.push({
-        file: file.path,
-        function: '<file>',
-        line: 1,
-        metric: 'fileLength',
-        value: lines.length,
-        threshold: thresholds.fileLength.info,
-        tier: 3,
-        severity: 'info',
-        message: `File has ${lines.length} lines (threshold: ${thresholds.fileLength.info})`,
-      });
-    }
+    const fileLenViolation = checkFileLengthViolation(
+      file.path,
+      lines.length,
+      thresholds.fileLength.info
+    );
+    if (fileLenViolation) violations.push(fileLenViolation);
 
-    // Extract and analyze functions
     const functions = extractFunctions(content);
     totalFunctions += functions.length;
 
     for (const fn of functions) {
-      // Cyclomatic complexity
-      const complexity = computeCyclomaticComplexity(fn.body);
-      if (complexity > thresholds.cyclomaticComplexity.error) {
-        violations.push({
-          file: file.path,
-          function: fn.name,
-          line: fn.line,
-          metric: 'cyclomaticComplexity',
-          value: complexity,
-          threshold: thresholds.cyclomaticComplexity.error,
-          tier: 1,
-          severity: 'error',
-          message: `Function "${fn.name}" has cyclomatic complexity of ${complexity} (error threshold: ${thresholds.cyclomaticComplexity.error})`,
-        });
-      } else if (complexity > thresholds.cyclomaticComplexity.warn) {
-        violations.push({
-          file: file.path,
-          function: fn.name,
-          line: fn.line,
-          metric: 'cyclomaticComplexity',
-          value: complexity,
-          threshold: thresholds.cyclomaticComplexity.warn,
-          tier: 2,
-          severity: 'warning',
-          message: `Function "${fn.name}" has cyclomatic complexity of ${complexity} (warning threshold: ${thresholds.cyclomaticComplexity.warn})`,
-        });
-      }
-
-      // Nesting depth
-      const nestingDepth = computeNestingDepth(fn.body);
-      if (nestingDepth > thresholds.nestingDepth.warn) {
-        violations.push({
-          file: file.path,
-          function: fn.name,
-          line: fn.line,
-          metric: 'nestingDepth',
-          value: nestingDepth,
-          threshold: thresholds.nestingDepth.warn,
-          tier: 2,
-          severity: 'warning',
-          message: `Function "${fn.name}" has nesting depth of ${nestingDepth} (threshold: ${thresholds.nestingDepth.warn})`,
-        });
-      }
-
-      // Function length
-      const fnLength = fn.endLine - fn.startLine + 1;
-      if (fnLength > thresholds.functionLength.warn) {
-        violations.push({
-          file: file.path,
-          function: fn.name,
-          line: fn.line,
-          metric: 'functionLength',
-          value: fnLength,
-          threshold: thresholds.functionLength.warn,
-          tier: 2,
-          severity: 'warning',
-          message: `Function "${fn.name}" is ${fnLength} lines long (threshold: ${thresholds.functionLength.warn})`,
-        });
-      }
-
-      // Parameter count
-      if (fn.params > thresholds.parameterCount.warn) {
-        violations.push({
-          file: file.path,
-          function: fn.name,
-          line: fn.line,
-          metric: 'parameterCount',
-          value: fn.params,
-          threshold: thresholds.parameterCount.warn,
-          tier: 2,
-          severity: 'warning',
-          message: `Function "${fn.name}" has ${fn.params} parameters (threshold: ${thresholds.parameterCount.warn})`,
-        });
-      }
-
-      // Graph hotspot scoring
-      if (graphData) {
-        const hotspot = graphData.hotspots.find(
-          (h) => h.file === file.path && h.function === fn.name
-        );
-        if (hotspot && hotspot.hotspotScore > graphData.percentile95Score) {
-          violations.push({
-            file: file.path,
-            function: fn.name,
-            line: fn.line,
-            metric: 'hotspotScore',
-            value: hotspot.hotspotScore,
-            threshold: graphData.percentile95Score,
-            tier: 1,
-            severity: 'error',
-            message: `Function "${fn.name}" is a complexity hotspot (score: ${hotspot.hotspotScore}, p95: ${graphData.percentile95Score})`,
-          });
-        }
-      }
+      violations.push(...collectFunctionViolations(file.path, fn, thresholds, graphData));
     }
   }
 

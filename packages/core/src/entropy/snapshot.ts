@@ -21,6 +21,34 @@ import { buildDependencyGraph } from '../constraints/dependencies';
 import { join, resolve } from 'path';
 import { minimatch } from 'minimatch';
 
+/** Collect resolved paths from a string-or-object package.json field. */
+function collectFieldEntries(rootDir: string, field: unknown): string[] {
+  if (typeof field === 'string') return [resolve(rootDir, field)];
+  if (typeof field === 'object' && field !== null) {
+    return Object.values(field as Record<string, unknown>)
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => resolve(rootDir, v));
+  }
+  return [];
+}
+
+/** Extract entry points from a parsed package.json object. */
+function extractPackageEntries(rootDir: string, pkg: Record<string, unknown>): string[] {
+  const entries: string[] = [];
+
+  entries.push(...collectFieldEntries(rootDir, pkg['exports']));
+
+  if (entries.length === 0 && typeof pkg['main'] === 'string') {
+    entries.push(resolve(rootDir, pkg['main']));
+  }
+
+  if (pkg['bin']) {
+    entries.push(...collectFieldEntries(rootDir, pkg['bin']));
+  }
+
+  return entries;
+}
+
 /**
  * Resolve entry points for dead code analysis
  *
@@ -34,65 +62,24 @@ export async function resolveEntryPoints(
   rootDir: string,
   explicitEntries?: string[]
 ): Promise<Result<string[], EntropyError>> {
-  // 1. Use explicit entries if provided
   if (explicitEntries && explicitEntries.length > 0) {
-    const resolved = explicitEntries.map((e) => resolve(rootDir, e));
-    return Ok(resolved);
+    return Ok(explicitEntries.map((e) => resolve(rootDir, e)));
   }
 
-  // 2. Try package.json
   const pkgPath = join(rootDir, 'package.json');
   if (await fileExists(pkgPath)) {
     const pkgContent = await readFileContent(pkgPath);
     if (pkgContent.ok) {
       try {
         const pkg = JSON.parse(pkgContent.value) as Record<string, unknown>;
-        const entries: string[] = [];
-
-        // Check exports field
-        if (pkg['exports']) {
-          const exports = pkg['exports'];
-          if (typeof exports === 'string') {
-            entries.push(resolve(rootDir, exports));
-          } else if (typeof exports === 'object' && exports !== null) {
-            for (const value of Object.values(exports as Record<string, unknown>)) {
-              if (typeof value === 'string') {
-                entries.push(resolve(rootDir, value));
-              }
-            }
-          }
-        }
-
-        // Check main field
-        const main = pkg['main'];
-        if (typeof main === 'string' && entries.length === 0) {
-          entries.push(resolve(rootDir, main));
-        }
-
-        // Check bin field
-        const bin = pkg['bin'];
-        if (bin) {
-          if (typeof bin === 'string') {
-            entries.push(resolve(rootDir, bin));
-          } else if (typeof bin === 'object') {
-            for (const value of Object.values(bin as Record<string, unknown>)) {
-              if (typeof value === 'string') {
-                entries.push(resolve(rootDir, value));
-              }
-            }
-          }
-        }
-
-        if (entries.length > 0) {
-          return Ok(entries);
-        }
+        const entries = extractPackageEntries(rootDir, pkg);
+        if (entries.length > 0) return Ok(entries);
       } catch {
         // Invalid JSON, fall through to conventions
       }
     }
   }
 
-  // 3. Fall back to conventions
   const conventions = ['src/index.ts', 'src/main.ts', 'index.ts', 'main.ts'];
   for (const conv of conventions) {
     const convPath = join(rootDir, conv);
@@ -211,58 +198,50 @@ export async function parseDocumentationFile(
   });
 }
 
+interface ASTNode {
+  type: string;
+  id?: { name?: string };
+  declarations?: Array<{ id?: { name?: string } }>;
+  loc?: { start?: { line: number } };
+}
+
+function makeInternalSymbol(
+  name: string,
+  type: 'function' | 'variable' | 'class',
+  line: number
+): InternalSymbol {
+  return { name, type, line, references: 0, calledBy: [] };
+}
+
+function extractSymbolsFromNode(node: ASTNode): InternalSymbol[] {
+  const line = node.loc?.start?.line || 0;
+
+  if (node.type === 'FunctionDeclaration' && node.id?.name) {
+    return [makeInternalSymbol(node.id.name, 'function', line)];
+  }
+
+  if (node.type === 'VariableDeclaration') {
+    return (node.declarations || [])
+      .filter((decl) => decl.id?.name)
+      .map((decl) => makeInternalSymbol(decl.id!.name!, 'variable', line));
+  }
+
+  if (node.type === 'ClassDeclaration' && node.id?.name) {
+    return [makeInternalSymbol(node.id.name, 'class', line)];
+  }
+
+  return [];
+}
+
 /**
  * Extract internal (non-exported) symbols from AST
  */
 function extractInternalSymbols(ast: AST): InternalSymbol[] {
-  const symbols: InternalSymbol[] = [];
   const body = ast.body as { body?: unknown[] };
+  if (!body?.body) return [];
 
-  if (!body?.body) return symbols;
-
-  for (const node of body.body as Array<{
-    type: string;
-    id?: { name?: string };
-    declarations?: Array<{ id?: { name?: string } }>;
-    loc?: { start?: { line: number } };
-  }>) {
-    // Function declarations not exported
-    if (node.type === 'FunctionDeclaration' && node.id?.name) {
-      symbols.push({
-        name: node.id.name,
-        type: 'function',
-        line: node.loc?.start?.line || 0,
-        references: 0,
-        calledBy: [],
-      });
-    }
-    // Variable declarations not exported
-    if (node.type === 'VariableDeclaration') {
-      for (const decl of node.declarations || []) {
-        if (decl.id?.name) {
-          symbols.push({
-            name: decl.id.name,
-            type: 'variable',
-            line: node.loc?.start?.line || 0,
-            references: 0,
-            calledBy: [],
-          });
-        }
-      }
-    }
-    // Class declarations not exported
-    if (node.type === 'ClassDeclaration' && node.id?.name) {
-      symbols.push({
-        name: node.id.name,
-        type: 'class',
-        line: node.loc?.start?.line || 0,
-        references: 0,
-        calledBy: [],
-      });
-    }
-  }
-
-  return symbols;
+  const nodes = body.body as ASTNode[];
+  return nodes.flatMap(extractSymbolsFromNode);
 }
 
 /**

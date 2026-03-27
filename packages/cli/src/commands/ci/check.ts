@@ -7,7 +7,8 @@ import type {
 } from '@harness-engineering/core';
 import { runCIChecks } from '@harness-engineering/core';
 import { resolveConfig } from '../../config/loader';
-import { OutputMode, type OutputModeType } from '../../output/formatter';
+import { OutputMode } from '../../output/formatter';
+import { resolveOutputMode } from '../../utils/output';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 
@@ -71,13 +72,7 @@ export function createCheckCommand(): Command {
     .option('--fail-on <severity>', 'Fail on severity level: error (default) or warning', 'error')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
+      const mode = resolveOutputMode(globalOpts);
 
       const skip = parseSkip(opts.skip);
       const failOn = parseFailOn(opts.failOn);

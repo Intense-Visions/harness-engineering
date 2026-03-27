@@ -95,10 +95,7 @@ function writeRoadmapFile(projectRoot: string, content: string): void {
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
-type McpResponse = {
-  content: { type: 'text'; text: string }[];
-  isError?: boolean;
-};
+import { type McpResponse } from '../utils.js';
 
 interface RoadmapDeps {
   parseRoadmap: Awaited<typeof import('@harness-engineering/core')>['parseRoadmap'];

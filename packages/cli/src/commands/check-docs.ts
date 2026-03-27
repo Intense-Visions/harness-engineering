@@ -4,7 +4,8 @@ import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { checkDocCoverage, validateKnowledgeMap } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
-import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
+import { OutputFormatter, OutputMode } from '../output/formatter';
+import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 
@@ -94,14 +95,7 @@ export function createCheckDocsCommand(): Command {
     .option('--min-coverage <percent>', 'Minimum coverage percentage', '80')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
+      const mode = resolveOutputMode(globalOpts);
       const formatter = new OutputFormatter(mode);
 
       const result = await runCheckDocs({

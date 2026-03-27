@@ -9,47 +9,46 @@ import type {
   GraphImpactData,
 } from '../types';
 
+/**
+ * Determine the status of a file from a diff part.
+ */
+function detectFileStatus(part: string): ChangedFile['status'] {
+  if (/new file mode/.test(part)) return 'added';
+  if (/deleted file mode/.test(part)) return 'deleted';
+  if (part.includes('rename from')) return 'renamed';
+  return 'modified';
+}
+
+/**
+ * Parse a single diff part into a ChangedFile, or null if invalid.
+ */
+function parseDiffPart(part: string): ChangedFile | null {
+  if (!part.trim()) return null;
+
+  const headerMatch = /diff --git a\/(.+?) b\/(.+?)(?:\n|$)/.exec(part);
+  if (!headerMatch || !headerMatch[2]) return null;
+
+  const additionRegex = /^\+(?!\+\+)/gm;
+  const deletionRegex = /^-(?!--)/gm;
+
+  return {
+    path: headerMatch[2],
+    status: detectFileStatus(part),
+    additions: (part.match(additionRegex) || []).length,
+    deletions: (part.match(deletionRegex) || []).length,
+  };
+}
+
 export function parseDiff(diff: string): Result<CodeChanges, FeedbackError> {
   try {
     if (!diff.trim()) {
       return Ok({ diff, files: [] });
     }
 
-    const files: ChangedFile[] = [];
-    const newFileRegex = /new file mode/;
-    const deletedFileRegex = /deleted file mode/;
-    const additionRegex = /^\+(?!\+\+)/gm;
-    const deletionRegex = /^-(?!--)/gm;
-
-    const diffParts = diff.split(/(?=diff --git)/);
-
-    for (const part of diffParts) {
-      if (!part.trim()) continue;
-
-      const headerMatch = /diff --git a\/(.+?) b\/(.+?)(?:\n|$)/.exec(part);
-      if (!headerMatch || !headerMatch[2]) continue;
-
-      const filePath = headerMatch[2];
-
-      let status: ChangedFile['status'] = 'modified';
-      if (newFileRegex.test(part)) {
-        status = 'added';
-      } else if (deletedFileRegex.test(part)) {
-        status = 'deleted';
-      } else if (part.includes('rename from')) {
-        status = 'renamed';
-      }
-
-      const additions = (part.match(additionRegex) || []).length;
-      const deletions = (part.match(deletionRegex) || []).length;
-
-      files.push({
-        path: filePath,
-        status,
-        additions,
-        deletions,
-      });
-    }
+    const files = diff
+      .split(/(?=diff --git)/)
+      .map(parseDiffPart)
+      .filter((f): f is ChangedFile => f !== null);
 
     return Ok({ diff, files });
   } catch (error) {

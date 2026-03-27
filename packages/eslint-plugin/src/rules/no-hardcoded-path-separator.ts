@@ -90,46 +90,43 @@ function isImportOrRequire(node: TSESTree.Node): boolean {
   return false;
 }
 
+/**
+ * Check if a member expression matches object.method where object name is in
+ * the given name set and method name is in the given method set.
+ */
+function isMemberCall(
+  callee: TSESTree.MemberExpression,
+  objectNames: Set<string>,
+  methods: Set<string>
+): boolean {
+  return (
+    callee.object.type === 'Identifier' &&
+    objectNames.has(callee.object.name) &&
+    callee.property.type === 'Identifier' &&
+    methods.has(callee.property.name)
+  );
+}
+
+const PATH_OBJECTS = new Set(['path']);
+const FS_OBJECTS = new Set(['fs', 'fsp']);
+
 function isInFlaggedContext(node: TSESTree.Literal): boolean {
   const parent = node.parent;
   if (!parent) return false;
+  if (parent.type !== 'CallExpression') return false;
 
-  // Argument to a call expression
-  if (parent.type === 'CallExpression') {
-    const callee = parent.callee;
+  const callee = parent.callee;
+  if (callee.type !== 'MemberExpression') return false;
 
-    // path.join(...), path.resolve(...), etc.
-    if (
-      callee.type === 'MemberExpression' &&
-      callee.object.type === 'Identifier' &&
-      callee.object.name === 'path' &&
-      callee.property.type === 'Identifier' &&
-      PATH_METHODS.has(callee.property.name)
-    ) {
-      return true;
-    }
+  // path.join(...), path.resolve(...), etc.
+  if (isMemberCall(callee, PATH_OBJECTS, PATH_METHODS)) return true;
 
-    // fs.readFileSync(...), fs.writeFile(...), etc.
-    if (
-      callee.type === 'MemberExpression' &&
-      callee.object.type === 'Identifier' &&
-      (callee.object.name === 'fs' || callee.object.name === 'fsp') &&
-      callee.property.type === 'Identifier' &&
-      FS_METHODS.has(callee.property.name)
-    ) {
-      return true;
-    }
+  // fs.readFileSync(...), fs.writeFile(...), etc.
+  if (isMemberCall(callee, FS_OBJECTS, FS_METHODS)) return true;
 
-    // str.indexOf(...), str.includes(...), etc.
-    if (
-      callee.type === 'MemberExpression' &&
-      callee.property.type === 'Identifier' &&
-      STRING_METHODS.has(callee.property.name)
-    ) {
-      return true;
-    }
-
-    return false;
+  // str.indexOf(...), str.includes(...), etc.
+  if (callee.property.type === 'Identifier' && STRING_METHODS.has(callee.property.name)) {
+    return true;
   }
 
   return false;

@@ -15,6 +15,58 @@ const REQUIRED_SECTIONS = [
   '## Examples',
 ];
 
+function validateSkillMd(
+  name: string,
+  skillMdPath: string,
+  skillType: string,
+  errors: string[]
+): void {
+  if (!fs.existsSync(skillMdPath)) {
+    errors.push(`${name}: missing SKILL.md`);
+    return;
+  }
+
+  const mdContent = fs.readFileSync(skillMdPath, 'utf-8');
+  for (const section of REQUIRED_SECTIONS) {
+    if (!mdContent.includes(section)) {
+      errors.push(`${name}/SKILL.md: missing section "${section}"`);
+    }
+  }
+  if (!mdContent.trim().startsWith('# ')) {
+    errors.push(`${name}/SKILL.md: must start with an h1 heading`);
+  }
+  if (skillType === 'rigid') {
+    if (!mdContent.includes('## Gates'))
+      errors.push(`${name}/SKILL.md: rigid skill missing "## Gates" section`);
+    if (!mdContent.includes('## Escalation'))
+      errors.push(`${name}/SKILL.md: rigid skill missing "## Escalation" section`);
+  }
+}
+
+function validateSkillEntry(name: string, skillsDir: string, errors: string[]): boolean {
+  const skillDir = path.join(skillsDir, name);
+  const yamlPath = path.join(skillDir, 'skill.yaml');
+
+  if (!fs.existsSync(yamlPath)) {
+    errors.push(`${name}: missing skill.yaml`);
+    return false;
+  }
+
+  try {
+    const raw = fs.readFileSync(yamlPath, 'utf-8');
+    const result = SkillMetadataSchema.safeParse(parse(raw));
+    if (!result.success) {
+      errors.push(`${name}/skill.yaml: ${result.error.message}`);
+      return false;
+    }
+    validateSkillMd(name, path.join(skillDir, 'SKILL.md'), result.data.type, errors);
+    return true;
+  } catch (e) {
+    errors.push(`${name}: parse error — ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
+}
+
 export function createValidateCommand(): Command {
   return new Command('validate')
     .description('Validate all skill.yaml files and SKILL.md structure')
@@ -37,53 +89,7 @@ export function createValidateCommand(): Command {
       let validated = 0;
 
       for (const name of entries) {
-        const skillDir = path.join(skillsDir, name);
-        const yamlPath = path.join(skillDir, 'skill.yaml');
-        const skillMdPath = path.join(skillDir, 'SKILL.md');
-
-        if (!fs.existsSync(yamlPath)) {
-          errors.push(`${name}: missing skill.yaml`);
-          continue;
-        }
-
-        // Validate skill.yaml schema
-        try {
-          const raw = fs.readFileSync(yamlPath, 'utf-8');
-          const parsed = parse(raw);
-          const result = SkillMetadataSchema.safeParse(parsed);
-          if (!result.success) {
-            errors.push(`${name}/skill.yaml: ${result.error.message}`);
-            continue;
-          }
-
-          // Validate SKILL.md if it exists
-          if (fs.existsSync(skillMdPath)) {
-            const mdContent = fs.readFileSync(skillMdPath, 'utf-8');
-            for (const section of REQUIRED_SECTIONS) {
-              if (!mdContent.includes(section)) {
-                errors.push(`${name}/SKILL.md: missing section "${section}"`);
-              }
-            }
-            if (!mdContent.trim().startsWith('# ')) {
-              errors.push(`${name}/SKILL.md: must start with an h1 heading`);
-            }
-            // Rigid skills need Gates + Escalation
-            if (result.data.type === 'rigid') {
-              if (!mdContent.includes('## Gates')) {
-                errors.push(`${name}/SKILL.md: rigid skill missing "## Gates" section`);
-              }
-              if (!mdContent.includes('## Escalation')) {
-                errors.push(`${name}/SKILL.md: rigid skill missing "## Escalation" section`);
-              }
-            }
-          } else {
-            errors.push(`${name}: missing SKILL.md`);
-          }
-
-          validated++;
-        } catch (e) {
-          errors.push(`${name}: parse error — ${e instanceof Error ? e.message : String(e)}`);
-        }
+        if (validateSkillEntry(name, skillsDir, errors)) validated++;
       }
 
       if (globalOpts.json) {

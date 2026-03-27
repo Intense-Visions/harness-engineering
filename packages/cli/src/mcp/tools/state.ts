@@ -46,17 +46,11 @@ export const manageStateDefinition = {
   },
 };
 
-export async function handleManageState(input: {
+import { type McpResponse, mcpError } from '../utils.js';
+
+type StateInput = {
   path: string;
-  action:
-    | 'show'
-    | 'learn'
-    | 'failure'
-    | 'archive'
-    | 'reset'
-    | 'gate'
-    | 'save-handoff'
-    | 'load-handoff';
+  action: string;
   learning?: string;
   skillName?: string;
   outcome?: string;
@@ -65,143 +59,102 @@ export async function handleManageState(input: {
   handoff?: unknown;
   stream?: string;
   session?: string;
-}) {
+};
+
+async function handleShow(projectPath: string, input: StateInput) {
+  const { loadState } = await import('@harness-engineering/core');
+  return resultToMcpResponse(await loadState(projectPath, input.stream, input.session));
+}
+
+async function handleLearn(projectPath: string, input: StateInput) {
+  if (!input.learning) return mcpError('Error: learning is required for learn action');
+  const { appendLearning } = await import('@harness-engineering/core');
+  const result = await appendLearning(
+    projectPath,
+    input.learning,
+    input.skillName,
+    input.outcome,
+    input.stream,
+    input.session
+  );
+  if (!result.ok) return resultToMcpResponse(result);
+  return resultToMcpResponse(Ok({ recorded: true }));
+}
+
+async function handleFailure(projectPath: string, input: StateInput) {
+  if (!input.description) return mcpError('Error: description is required for failure action');
+  if (!input.failureType) return mcpError('Error: failureType is required for failure action');
+  const { appendFailure } = await import('@harness-engineering/core');
+  const result = await appendFailure(
+    projectPath,
+    input.description,
+    input.skillName ?? 'unknown',
+    input.failureType,
+    input.stream,
+    input.session
+  );
+  if (!result.ok) return resultToMcpResponse(result);
+  return resultToMcpResponse(Ok({ recorded: true }));
+}
+
+async function handleArchive(projectPath: string, input: StateInput) {
+  const { archiveFailures } = await import('@harness-engineering/core');
+  const result = await archiveFailures(projectPath, input.stream, input.session);
+  if (!result.ok) return resultToMcpResponse(result);
+  return resultToMcpResponse(Ok({ archived: true }));
+}
+
+async function handleReset(projectPath: string, input: StateInput) {
+  const { saveState, DEFAULT_STATE } = await import('@harness-engineering/core');
+  const result = await saveState(projectPath, { ...DEFAULT_STATE }, input.stream, input.session);
+  if (!result.ok) return resultToMcpResponse(result);
+  return resultToMcpResponse(Ok({ reset: true }));
+}
+
+async function handleGate(projectPath: string, _input: StateInput) {
+  const { runMechanicalGate } = await import('@harness-engineering/core');
+  return resultToMcpResponse(await runMechanicalGate(projectPath));
+}
+
+async function handleSaveHandoff(projectPath: string, input: StateInput) {
+  if (!input.handoff) return mcpError('Error: handoff is required for save-handoff action');
+  const { saveHandoff } = await import('@harness-engineering/core');
+  const result = await saveHandoff(
+    projectPath,
+    input.handoff as Parameters<typeof saveHandoff>[1],
+    input.stream,
+    input.session
+  );
+  return resultToMcpResponse(result.ok ? Ok({ saved: true }) : result);
+}
+
+async function handleLoadHandoff(projectPath: string, input: StateInput) {
+  const { loadHandoff } = await import('@harness-engineering/core');
+  return resultToMcpResponse(await loadHandoff(projectPath, input.stream, input.session));
+}
+
+const ACTION_HANDLERS: Record<
+  string,
+  (projectPath: string, input: StateInput) => Promise<McpResponse>
+> = {
+  show: handleShow,
+  learn: handleLearn,
+  failure: handleFailure,
+  archive: handleArchive,
+  reset: handleReset,
+  gate: handleGate,
+  'save-handoff': handleSaveHandoff,
+  'load-handoff': handleLoadHandoff,
+};
+
+export async function handleManageState(input: StateInput) {
   try {
-    const {
-      loadState,
-      saveState,
-      appendLearning,
-      appendFailure,
-      archiveFailures,
-      runMechanicalGate,
-      DEFAULT_STATE,
-    } = await import('@harness-engineering/core');
-
     const projectPath = sanitizePath(input.path);
-
-    switch (input.action) {
-      case 'show': {
-        const result = await loadState(projectPath, input.stream, input.session);
-        return resultToMcpResponse(result);
-      }
-
-      case 'learn': {
-        if (!input.learning) {
-          return {
-            content: [
-              { type: 'text' as const, text: 'Error: learning is required for learn action' },
-            ],
-            isError: true,
-          };
-        }
-        const result = await appendLearning(
-          projectPath,
-          input.learning,
-          input.skillName,
-          input.outcome,
-          input.stream,
-          input.session
-        );
-        if (!result.ok) return resultToMcpResponse(result);
-        return resultToMcpResponse(Ok({ recorded: true }));
-      }
-
-      case 'failure': {
-        if (!input.description) {
-          return {
-            content: [
-              { type: 'text' as const, text: 'Error: description is required for failure action' },
-            ],
-            isError: true,
-          };
-        }
-        if (!input.failureType) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Error: failureType is required for failure action',
-              },
-            ],
-            isError: true,
-          };
-        }
-        const result = await appendFailure(
-          projectPath,
-          input.description,
-          input.skillName ?? 'unknown',
-          input.failureType,
-          input.stream,
-          input.session
-        );
-        if (!result.ok) return resultToMcpResponse(result);
-        return resultToMcpResponse(Ok({ recorded: true }));
-      }
-
-      case 'archive': {
-        const result = await archiveFailures(projectPath, input.stream, input.session);
-        if (!result.ok) return resultToMcpResponse(result);
-        return resultToMcpResponse(Ok({ archived: true }));
-      }
-
-      case 'reset': {
-        const result = await saveState(
-          projectPath,
-          { ...DEFAULT_STATE },
-          input.stream,
-          input.session
-        );
-        if (!result.ok) return resultToMcpResponse(result);
-        return resultToMcpResponse(Ok({ reset: true }));
-      }
-
-      case 'gate': {
-        const result = await runMechanicalGate(projectPath);
-        return resultToMcpResponse(result);
-      }
-
-      case 'save-handoff': {
-        if (!input.handoff) {
-          return {
-            content: [
-              { type: 'text' as const, text: 'Error: handoff is required for save-handoff action' },
-            ],
-            isError: true,
-          };
-        }
-        const { saveHandoff } = await import('@harness-engineering/core');
-        const result = await saveHandoff(
-          projectPath,
-          input.handoff as Parameters<typeof saveHandoff>[1],
-          input.stream,
-          input.session
-        );
-        return resultToMcpResponse(result.ok ? Ok({ saved: true }) : result);
-      }
-
-      case 'load-handoff': {
-        const { loadHandoff } = await import('@harness-engineering/core');
-        const result = await loadHandoff(projectPath, input.stream, input.session);
-        return resultToMcpResponse(result);
-      }
-
-      default: {
-        return {
-          content: [{ type: 'text' as const, text: `Error: unknown action` }],
-          isError: true,
-        };
-      }
-    }
+    const handler = ACTION_HANDLERS[input.action];
+    if (!handler) return mcpError('Error: unknown action');
+    return await handler(projectPath, input);
   } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-      isError: true,
-    };
+    return mcpError(`Error: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

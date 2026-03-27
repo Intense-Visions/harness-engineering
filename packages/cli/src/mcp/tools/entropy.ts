@@ -81,6 +81,56 @@ export const detectEntropyDefinition = {
   },
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summarizeDrift(drift: any): { issueCount: number; topIssues: string[] } {
+  const driftIssues = (drift.drifts ?? []).map(
+    (d: { type: string; file?: string }) => `Drift: ${d.type}${d.file ? ` in ${d.file}` : ''}`
+  );
+  return { issueCount: driftIssues.length, topIssues: driftIssues.slice(0, 3) };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summarizeDeadCode(deadCode: any): { issueCount: number; topIssues: string[] } {
+  const deadIssues = [
+    ...(deadCode.unusedImports ?? []).map(
+      (i: { specifiers: string[]; source: string }) =>
+        `Unused import: ${i.specifiers.join(', ')} from ${i.source}`
+    ),
+    ...(deadCode.deadExports ?? []).map(
+      (e: { name: string; file: string }) => `Dead export: ${e.name} in ${e.file}`
+    ),
+    ...(deadCode.deadFiles ?? []).map((f: { path: string }) => `Dead file: ${f.path}`),
+  ];
+  return { issueCount: deadIssues.length, topIssues: deadIssues.slice(0, 3) };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summarizePatterns(patterns: any): { issueCount: number; topIssues: string[] } {
+  const patternIssues = (patterns.violations ?? []).map(
+    (v: { pattern: string; file: string }) => `${v.pattern}: ${v.file}`
+  );
+  return { issueCount: patternIssues.length, topIssues: patternIssues.slice(0, 3) };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildSummaryResponse(report: any) {
+  const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
+
+  if (report.drift) summary['drift'] = summarizeDrift(report.drift);
+  if (report.deadCode) summary['deadCode'] = summarizeDeadCode(report.deadCode);
+  if (report.patterns) summary['patterns'] = summarizePatterns(report.patterns);
+
+  const totalIssues = Object.values(summary).reduce((s, c) => s + c.issueCount, 0);
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify({ mode: 'summary', totalIssues, categories: summary }),
+      },
+    ],
+  };
+}
+
 export async function handleDetectEntropy(input: {
   path: string;
   type?: string;
@@ -107,52 +157,7 @@ export async function handleDetectEntropy(input: {
 
     // Response density control
     if (input.mode === 'summary' && result.ok && !input.autoFix) {
-      const report = result.value;
-      const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
-
-      if (report.drift) {
-        const driftIssues = (report.drift.drifts ?? []).map(
-          (d: { type: string; file?: string }) => `Drift: ${d.type}${d.file ? ` in ${d.file}` : ''}`
-        );
-        summary['drift'] = {
-          issueCount: driftIssues.length,
-          topIssues: driftIssues.slice(0, 3),
-        };
-      }
-
-      if (report.deadCode) {
-        const deadIssues = [
-          ...(report.deadCode.unusedImports ?? []).map(
-            (i) => `Unused import: ${i.specifiers.join(', ')} from ${i.source}`
-          ),
-          ...(report.deadCode.deadExports ?? []).map((e) => `Dead export: ${e.name} in ${e.file}`),
-          ...(report.deadCode.deadFiles ?? []).map((f) => `Dead file: ${f.path}`),
-        ];
-        summary['deadCode'] = {
-          issueCount: deadIssues.length,
-          topIssues: deadIssues.slice(0, 3),
-        };
-      }
-
-      if (report.patterns) {
-        const patternIssues = (report.patterns.violations ?? []).map(
-          (v) => `${v.pattern}: ${v.file}`
-        );
-        summary['patterns'] = {
-          issueCount: patternIssues.length,
-          topIssues: patternIssues.slice(0, 3),
-        };
-      }
-
-      const totalIssues = Object.values(summary).reduce((s, c) => s + c.issueCount, 0);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ mode: 'summary', totalIssues, categories: summary }),
-          },
-        ],
-      };
+      return buildSummaryResponse(result.value);
     }
 
     if (!input.autoFix) {

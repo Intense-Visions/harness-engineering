@@ -52,26 +52,81 @@ interface SectionData {
 }
 
 /**
+ * Check if a line terminates description extraction.
+ */
+function isDescriptionTerminator(trimmed: string): boolean {
+  return (
+    trimmed.startsWith('#') ||
+    trimmed.startsWith('-') ||
+    trimmed.startsWith('*') ||
+    trimmed.startsWith('```')
+  );
+}
+
+/**
+ * Extract the first paragraph description from a set of lines.
+ */
+function extractDescription(sectionLines: string[]): string | undefined {
+  const descriptionLines: string[] = [];
+  for (const line of sectionLines) {
+    const trimmed = line.trim();
+    if (trimmed === '') {
+      if (descriptionLines.length > 0) break;
+      continue;
+    }
+    if (isDescriptionTerminator(trimmed)) break;
+    descriptionLines.push(trimmed);
+  }
+  return descriptionLines.length > 0 ? descriptionLines.join(' ') : undefined;
+}
+
+/**
+ * Convert a SectionData into an AgentMapSection with links and description.
+ */
+function buildAgentMapSection(section: SectionData, lines: string[]): AgentMapSection {
+  const endIndex = section.endIndex ?? lines.length;
+  const sectionLines = lines.slice(section.startIndex + 1, endIndex);
+  const sectionContent = sectionLines.join('\n');
+
+  const links = extractMarkdownLinks(sectionContent).map((link) => ({
+    ...link,
+    line: link.line + section.startIndex + 1,
+    exists: false,
+  }));
+
+  const result: AgentMapSection = {
+    title: section.title,
+    level: section.level,
+    line: section.line,
+    links,
+  };
+
+  const description = extractDescription(sectionLines);
+  if (description) {
+    result.description = description;
+  }
+
+  return result;
+}
+
+/**
  * Extract sections from markdown content
  * Pattern: # Heading or ## Heading etc.
  */
 export function extractSections(content: string): AgentMapSection[] {
   const lines = content.split('\n');
   const sections: SectionData[] = [];
-
-  // Heading pattern: # Title or ## Title etc.
   const headingPattern = /^(#{1,6})\s+(.+)$/;
 
   // First pass: find all headings
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
     const match = line.match(headingPattern);
-
     if (match && match[1] && match[2]) {
       sections.push({
         title: match[2].trim(),
         level: match[1].length,
-        line: i + 1, // 1-indexed
+        line: i + 1,
         startIndex: i,
       });
     }
@@ -86,43 +141,8 @@ export function extractSections(content: string): AgentMapSection[] {
     }
   }
 
-  // Third pass: extract links and description for each section
-  return sections.map((section) => {
-    const endIndex = section.endIndex ?? lines.length;
-    const sectionLines = lines.slice(section.startIndex + 1, endIndex);
-    const sectionContent = sectionLines.join('\n');
-
-    const links = extractMarkdownLinks(sectionContent).map((link) => ({
-      ...link,
-      line: link.line + section.startIndex + 1, // Adjust line number
-      exists: false, // Will be set later by validateAgentsMap
-    }));
-
-    // Extract description (first paragraph after heading)
-    const descriptionLines: string[] = [];
-    for (const line of sectionLines) {
-      const trimmed = line.trim();
-      if (trimmed === '') {
-        if (descriptionLines.length > 0) break;
-        continue;
-      }
-      if (trimmed.startsWith('#')) break;
-      if (trimmed.startsWith('-') || trimmed.startsWith('*')) break;
-      if (trimmed.startsWith('```')) break;
-      descriptionLines.push(trimmed);
-    }
-
-    const result: AgentMapSection = {
-      title: section.title,
-      level: section.level,
-      line: section.line,
-      links,
-    };
-    if (descriptionLines.length > 0) {
-      result.description = descriptionLines.join(' ');
-    }
-    return result;
-  });
+  // Third pass: build AgentMapSections
+  return sections.map((section) => buildAgentMapSection(section, lines));
 }
 
 /**

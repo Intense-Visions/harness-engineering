@@ -46,17 +46,60 @@ function aggregateByCategory(results: MetricResult[]): Map<ArchMetricCategory, A
  * as having an empty baseline (value: 0, no known violations), so any
  * violations in those categories are considered new.
  */
+/**
+ * Classify violations in a category as new or pre-existing.
+ */
+function classifyViolations(
+  violations: Violation[],
+  baselineViolationIds: Set<string>
+): { newViolations: Violation[]; preExisting: string[] } {
+  const newViolations: Violation[] = [];
+  const preExisting: string[] = [];
+  for (const violation of violations) {
+    if (baselineViolationIds.has(violation.id)) {
+      preExisting.push(violation.id);
+    } else {
+      newViolations.push(violation);
+    }
+  }
+  return { newViolations, preExisting };
+}
+
+/**
+ * Find violations in baseline that are no longer in current.
+ */
+function findResolvedViolations(
+  baselineCategory: CategoryBaseline | undefined,
+  currentViolationIds: Set<string>
+): string[] {
+  if (!baselineCategory) return [];
+  return baselineCategory.violationIds.filter((id) => !currentViolationIds.has(id));
+}
+
+/**
+ * Collect resolved violations from baseline categories not present in current results.
+ */
+function collectOrphanedBaselineViolations(
+  baseline: ArchBaseline,
+  visitedCategories: Set<string>
+): string[] {
+  const resolved: string[] = [];
+  for (const [category, baselineCategory] of Object.entries(baseline.metrics)) {
+    if (!visitedCategories.has(category) && baselineCategory) {
+      resolved.push(...baselineCategory.violationIds);
+    }
+  }
+  return resolved;
+}
+
 export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffResult {
   const aggregated = aggregateByCategory(current);
   const newViolations: Violation[] = [];
   const resolvedViolations: string[] = [];
   const preExisting: string[] = [];
   const regressions: CategoryRegression[] = [];
-
-  // Track which baseline categories we have visited
   const visitedCategories = new Set<string>();
 
-  // Process each category in the current results
   for (const [category, agg] of aggregated) {
     visitedCategories.add(category);
 
@@ -64,28 +107,13 @@ export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffR
     const baselineViolationIds = new Set(baselineCategory?.violationIds ?? []);
     const baselineValue = baselineCategory?.value ?? 0;
 
-    // Classify violations
-    for (const violation of agg.violations) {
-      if (baselineViolationIds.has(violation.id)) {
-        preExisting.push(violation.id);
-      } else {
-        newViolations.push(violation);
-      }
-    }
+    const classified = classifyViolations(agg.violations, baselineViolationIds);
+    newViolations.push(...classified.newViolations);
+    preExisting.push(...classified.preExisting);
 
-    // Find resolved violations (in baseline but not in current)
     const currentViolationIds = new Set(agg.violations.map((v) => v.id));
-    if (baselineCategory) {
-      for (const id of baselineCategory.violationIds) {
-        if (!currentViolationIds.has(id)) {
-          resolvedViolations.push(id);
-        }
-      }
-    }
+    resolvedViolations.push(...findResolvedViolations(baselineCategory, currentViolationIds));
 
-    // Check for aggregate regression.
-    // Only report regression for categories that existed in the baseline.
-    // New categories are caught via newViolations instead.
     if (baselineCategory && agg.value > baselineValue) {
       regressions.push({
         category,
@@ -96,19 +124,10 @@ export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffR
     }
   }
 
-  // Process baseline categories not present in current results (all resolved)
-  for (const [category, baselineCategory] of Object.entries(baseline.metrics)) {
-    if (!visitedCategories.has(category) && baselineCategory) {
-      for (const id of baselineCategory.violationIds) {
-        resolvedViolations.push(id);
-      }
-    }
-  }
-
-  const passed = newViolations.length === 0 && regressions.length === 0;
+  resolvedViolations.push(...collectOrphanedBaselineViolations(baseline, visitedCategories));
 
   return {
-    passed,
+    passed: newViolations.length === 0 && regressions.length === 0,
     newViolations,
     resolvedViolations,
     preExisting,

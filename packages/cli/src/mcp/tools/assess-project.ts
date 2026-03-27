@@ -167,7 +167,7 @@ export async function handleAssessProject(input: {
             (parsed.patterns?.violations?.length ?? 0);
           return {
             name: 'entropy',
-            passed: !result.isError && issues === 0,
+            passed: !('isError' in result && result.isError) && issues === 0,
             issueCount: issues,
             ...(issues > 0
               ? { topIssue: 'Entropy detected -- run detect_entropy for details' }
@@ -232,7 +232,7 @@ export async function handleAssessProject(input: {
           const issues = parsed.violations?.length ?? parsed.issues?.length ?? 0;
           return {
             name: 'perf',
-            passed: !result.isError && issues === 0,
+            passed: !('isError' in result && result.isError) && issues === 0,
             issueCount: issues,
             ...(issues > 0 ? { topIssue: 'Performance issues detected' } : {}),
             ...(mode === 'detailed' ? { detailed: parsed } : {}),

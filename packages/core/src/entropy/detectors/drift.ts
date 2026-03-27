@@ -11,32 +11,50 @@ import { fileExists } from '../../shared/fs-utils';
 import { dirname, resolve } from 'path';
 
 /**
+ * Initialize the Levenshtein distance matrix with base cases.
+ */
+function initLevenshteinMatrix(aLen: number, bLen: number): number[][] {
+  const matrix: number[][] = [];
+  for (let i = 0; i <= bLen; i++) {
+    matrix[i] = [i];
+  }
+  const firstRow = matrix[0];
+  if (firstRow) {
+    for (let j = 0; j <= aLen; j++) {
+      firstRow[j] = j;
+    }
+  }
+  return matrix;
+}
+
+/**
+ * Compute a single cell in the Levenshtein matrix.
+ */
+function computeLevenshteinCell(
+  row: number[],
+  prevRow: number[],
+  j: number,
+  charsMatch: boolean
+): void {
+  if (charsMatch) {
+    row[j] = prevRow[j - 1] ?? 0;
+  } else {
+    row[j] = Math.min((prevRow[j - 1] ?? 0) + 1, (row[j - 1] ?? 0) + 1, (prevRow[j] ?? 0) + 1);
+  }
+}
+
+/**
  * Calculate Levenshtein distance between two strings
  */
 export function levenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = [];
-
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= a.length; j++) {
-    const row = matrix[0];
-    if (row) {
-      row[j] = j;
-    }
-  }
+  const matrix = initLevenshteinMatrix(a.length, b.length);
 
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
       const row = matrix[i];
       const prevRow = matrix[i - 1];
       if (!row || !prevRow) continue;
-
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        row[j] = prevRow[j - 1] ?? 0;
-      } else {
-        row[j] = Math.min((prevRow[j - 1] ?? 0) + 1, (row[j - 1] ?? 0) + 1, (prevRow[j] ?? 0) + 1);
-      }
+      computeLevenshteinCell(row, prevRow, j, b.charAt(i - 1) === a.charAt(j - 1));
     }
   }
 

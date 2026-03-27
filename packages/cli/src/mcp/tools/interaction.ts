@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import type { z } from 'zod';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import {
   EmitInteractionInputSchema,
@@ -169,250 +170,163 @@ export const emitInteractionDefinition = {
   },
 };
 
+import { type McpResponse, mcpError } from '../utils.js';
+
+function formatZodErrors(issues: Array<{ path: Array<string | number>; message: string }>): string {
+  return issues
+    .map((i) => (i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message))
+    .join('; ');
+}
+
+type ValidatedInput = z.infer<typeof EmitInteractionInputSchema>;
+
+async function handleQuestion(
+  validInput: ValidatedInput,
+  projectPath: string,
+  id: string
+): Promise<McpResponse> {
+  if (!validInput.question)
+    return mcpError('Error: question payload is required when type is question');
+
+  const questionResult = InteractionQuestionWithOptionsSchema.safeParse(validInput.question);
+  if (!questionResult.success)
+    return mcpError(`Error: ${formatZodErrors(questionResult.error.issues)}`);
+
+  const prompt = renderQuestion(questionResult.data);
+  await recordInteraction(projectPath, id, 'question', questionResult.data.text, validInput.stream);
+  return { content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }] };
+}
+
+async function handleConfirmation(
+  validInput: ValidatedInput,
+  projectPath: string,
+  id: string
+): Promise<McpResponse> {
+  if (!validInput.confirmation)
+    return mcpError('Error: confirmation payload is required when type is confirmation');
+
+  const confirmResult = InteractionConfirmationSchema.safeParse(validInput.confirmation);
+  if (!confirmResult.success)
+    return mcpError(
+      `Error: ${confirmResult.error.issues.map((i: { message: string }) => i.message).join('; ')}`
+    );
+
+  const prompt = renderConfirmation(confirmResult.data);
+  await recordInteraction(
+    projectPath,
+    id,
+    'confirmation',
+    confirmResult.data.text,
+    validInput.stream
+  );
+  return { content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }] };
+}
+
+async function handleTransition(
+  validInput: ValidatedInput,
+  projectPath: string,
+  id: string
+): Promise<McpResponse> {
+  if (!validInput.transition)
+    return mcpError('Error: transition payload is required when type is transition');
+
+  const transitionResult = InteractionTransitionSchema.safeParse(validInput.transition);
+  if (!transitionResult.success)
+    return mcpError(
+      `Error: ${transitionResult.error.issues.map((i: { message: string }) => i.message).join('; ')}`
+    );
+
+  const transition = transitionResult.data;
+  const prompt = renderTransition(transition);
+
+  try {
+    const { saveHandoff } = await import('@harness-engineering/core');
+    await saveHandoff(
+      projectPath,
+      {
+        timestamp: new Date().toISOString(),
+        fromSkill: 'emit_interaction',
+        phase: transition.completedPhase,
+        summary: transition.reason,
+        completed: [transition.completedPhase],
+        pending: [transition.suggestedNext],
+        concerns: [],
+        decisions: [],
+        blockers: [],
+        contextKeywords: [],
+      },
+      validInput.stream,
+      validInput.session
+    );
+  } catch {
+    /* Handoff write failure is non-fatal */
+  }
+
+  await recordInteraction(
+    projectPath,
+    id,
+    'transition',
+    `${transition.completedPhase} -> ${transition.suggestedNext}`,
+    validInput.stream
+  );
+
+  const responsePayload: Record<string, unknown> = { id, prompt, handoffWritten: true };
+  if (!transition.requiresConfirmation) {
+    responsePayload.autoTransition = true;
+    responsePayload.nextAction = `Invoke harness-${transition.suggestedNext} skill now`;
+  }
+
+  return { content: [{ type: 'text' as const, text: JSON.stringify(responsePayload) }] };
+}
+
+async function handleBatch(
+  validInput: ValidatedInput,
+  projectPath: string,
+  id: string
+): Promise<McpResponse> {
+  if (!validInput.batch) return mcpError('Error: batch payload is required when type is batch');
+
+  const batchResult = InteractionBatchSchema.safeParse(validInput.batch);
+  if (!batchResult.success)
+    return mcpError(
+      `Error: ${batchResult.error.issues.map((i: { message: string }) => i.message).join('; ')}`
+    );
+
+  const prompt = renderBatch(batchResult.data);
+  await recordInteraction(projectPath, id, 'batch', batchResult.data.text, validInput.stream);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt, batchMode: true }) }],
+  };
+}
+
+const INTERACTION_HANDLERS: Record<
+  string,
+  (validInput: ValidatedInput, projectPath: string, id: string) => Promise<McpResponse>
+> = {
+  question: handleQuestion,
+  confirmation: handleConfirmation,
+  transition: handleTransition,
+  batch: handleBatch,
+};
+
 // Accept broad input type from MCP server handler dispatch
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function handleEmitInteraction(input: Record<string, any>) {
   try {
-    // Validate top-level input with Zod
     const parseResult = EmitInteractionInputSchema.safeParse(input);
-    if (!parseResult.success) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Error: ${parseResult.error.issues.map((i) => (i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message)).join('; ')}`,
-          },
-        ],
-        isError: true,
-      };
-    }
+    if (!parseResult.success)
+      return mcpError(`Error: ${formatZodErrors(parseResult.error.issues)}`);
 
     const validInput = parseResult.data;
     const projectPath = sanitizePath(validInput.path);
     const id = randomUUID();
 
-    switch (validInput.type) {
-      case 'question': {
-        if (!validInput.question) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Error: question payload is required when type is question',
-              },
-            ],
-            isError: true,
-          };
-        }
+    const handler = INTERACTION_HANDLERS[validInput.type];
+    if (!handler) return mcpError(`Error: unknown interaction type: ${String(validInput.type)}`);
 
-        // Apply refined validation (recommendation required when options present,
-        // optionIndex bounds, default bounds). Top-level schema uses base schema
-        // because Zod refined schemas can't nest inside z.object().optional().
-        const questionResult = InteractionQuestionWithOptionsSchema.safeParse(validInput.question);
-        if (!questionResult.success) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Error: ${questionResult.error.issues.map((i) => (i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message)).join('; ')}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const prompt = renderQuestion(questionResult.data);
-        await recordInteraction(
-          projectPath,
-          id,
-          'question',
-          questionResult.data.text,
-          validInput.stream
-        );
-
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }],
-        };
-      }
-
-      case 'confirmation': {
-        if (!validInput.confirmation) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Error: confirmation payload is required when type is confirmation',
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const confirmResult = InteractionConfirmationSchema.safeParse(validInput.confirmation);
-        if (!confirmResult.success) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Error: ${confirmResult.error.issues.map((i) => i.message).join('; ')}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const prompt = renderConfirmation(confirmResult.data);
-        await recordInteraction(
-          projectPath,
-          id,
-          'confirmation',
-          confirmResult.data.text,
-          validInput.stream
-        );
-
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }],
-        };
-      }
-
-      case 'transition': {
-        if (!validInput.transition) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Error: transition payload is required when type is transition',
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const transitionResult = InteractionTransitionSchema.safeParse(validInput.transition);
-        if (!transitionResult.success) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Error: ${transitionResult.error.issues.map((i) => i.message).join('; ')}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const transition = transitionResult.data;
-        const prompt = renderTransition(transition);
-
-        // Write handoff
-        try {
-          const { saveHandoff } = await import('@harness-engineering/core');
-          await saveHandoff(
-            projectPath,
-            {
-              timestamp: new Date().toISOString(),
-              fromSkill: 'emit_interaction',
-              phase: transition.completedPhase,
-              summary: transition.reason,
-              completed: [transition.completedPhase],
-              pending: [transition.suggestedNext],
-              concerns: [],
-              decisions: [],
-              blockers: [],
-              contextKeywords: [],
-            },
-            validInput.stream,
-            validInput.session
-          );
-        } catch {
-          // Handoff write failure is non-fatal
-        }
-
-        await recordInteraction(
-          projectPath,
-          id,
-          'transition',
-          `${transition.completedPhase} -> ${transition.suggestedNext}`,
-          validInput.stream
-        );
-
-        const responsePayload: Record<string, unknown> = { id, prompt, handoffWritten: true };
-        if (!transition.requiresConfirmation) {
-          responsePayload.autoTransition = true;
-          responsePayload.nextAction = `Invoke harness-${transition.suggestedNext} skill now`;
-        }
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify(responsePayload),
-            },
-          ],
-        };
-      }
-
-      case 'batch': {
-        if (!validInput.batch) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: 'Error: batch payload is required when type is batch',
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const batchResult = InteractionBatchSchema.safeParse(validInput.batch);
-        if (!batchResult.success) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Error: ${batchResult.error.issues.map((i) => i.message).join('; ')}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const prompt = renderBatch(batchResult.data);
-        await recordInteraction(projectPath, id, 'batch', batchResult.data.text, validInput.stream);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({ id, prompt, batchMode: true }),
-            },
-          ],
-        };
-      }
-
-      default: {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Error: unknown interaction type: ${String(validInput.type)}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    }
+    return await handler(validInput, projectPath, id);
   } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-      isError: true,
-    };
+    return mcpError(`Error: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

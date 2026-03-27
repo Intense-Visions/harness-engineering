@@ -37,52 +37,62 @@ export function hasJSDocComment(node: TSESTree.Node, sourceCode: string): boolea
   return foundJSDoc;
 }
 
+// Keys to skip to avoid circular references during AST traversal
+const SKIP_KEYS = new Set(['parent', 'loc', 'range', 'tokens', 'comments']);
+
+// Zod validation method names
+const ZOD_PARSE_METHODS = new Set(['parse', 'safeParse']);
+
+/**
+ * Check if a node is a Zod .parse() or .safeParse() call
+ */
+function isZodParseCall(node: TSESTree.Node): boolean {
+  if ((node.type as AST_NODE_TYPES) !== AST_NODE_TYPES.CallExpression) return false;
+
+  const callee = (node as TSESTree.CallExpression).callee;
+  if ((callee.type as AST_NODE_TYPES) !== AST_NODE_TYPES.MemberExpression) return false;
+
+  const prop = (callee as TSESTree.MemberExpression).property;
+  if ((prop.type as AST_NODE_TYPES) !== AST_NODE_TYPES.Identifier) return false;
+
+  return ZOD_PARSE_METHODS.has((prop as TSESTree.Identifier).name);
+}
+
+/**
+ * Visit child properties of an AST node, calling visitor on each child node.
+ */
+function visitChildren(node: TSESTree.Node, visitor: (child: TSESTree.Node) => void): void {
+  for (const key of Object.keys(node)) {
+    if (SKIP_KEYS.has(key)) continue;
+
+    const value = (node as unknown as Record<string, unknown>)[key];
+    if (!value || typeof value !== 'object') continue;
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === 'object' && 'type' in item) {
+          visitor(item as TSESTree.Node);
+        }
+      }
+    } else if ('type' in value) {
+      visitor(value as TSESTree.Node);
+    }
+  }
+}
+
 /**
  * Check if a function body contains Zod validation (.parse or .safeParse)
  */
 export function hasZodValidation(body: TSESTree.BlockStatement): boolean {
   let found = false;
 
-  // Keys to skip to avoid circular references
-  const skipKeys = new Set(['parent', 'loc', 'range', 'tokens', 'comments']);
-
   function visit(node: TSESTree.Node): void {
     if (found) return;
-
-    if (
-      (node.type as AST_NODE_TYPES) === AST_NODE_TYPES.CallExpression &&
-      ((node as TSESTree.CallExpression).callee.type as AST_NODE_TYPES) ===
-        AST_NODE_TYPES.MemberExpression
-    ) {
-      const prop = ((node as TSESTree.CallExpression).callee as TSESTree.MemberExpression).property;
-      const propType = prop.type as AST_NODE_TYPES;
-      if (
-        propType === AST_NODE_TYPES.Identifier &&
-        ((prop as TSESTree.Identifier).name === 'parse' ||
-          (prop as TSESTree.Identifier).name === 'safeParse')
-      ) {
-        found = true;
-        return;
-      }
+    if (isZodParseCall(node)) {
+      found = true;
+      return;
     }
-
-    // Recursively visit children
-    for (const key of Object.keys(node)) {
-      if (skipKeys.has(key)) continue;
-
-      const value = (node as unknown as Record<string, unknown>)[key];
-      if (value && typeof value === 'object') {
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            if (item && typeof item === 'object' && 'type' in item) {
-              visit(item as TSESTree.Node);
-            }
-          }
-        } else if ('type' in value) {
-          visit(value as TSESTree.Node);
-        }
-      }
-    }
+    visitChildren(node, visit);
   }
 
   visit(body);

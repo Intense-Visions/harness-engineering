@@ -196,41 +196,40 @@ function findDeadExports(
 }
 
 /**
+ * Traverse an AST node and find the maximum line number.
+ */
+function findMaxLineInNode(node: unknown): number {
+  if (!node || typeof node !== 'object') return 0;
+
+  const n = node as { loc?: { end?: { line?: number } } };
+  let maxLine = n.loc?.end?.line ?? 0;
+
+  for (const key of Object.keys(node)) {
+    const value = (node as Record<string, unknown>)[key];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        maxLine = Math.max(maxLine, findMaxLineInNode(item));
+      }
+    } else if (value && typeof value === 'object') {
+      maxLine = Math.max(maxLine, findMaxLineInNode(value));
+    }
+  }
+
+  return maxLine;
+}
+
+/**
  * Estimate line count from AST.
  * Uses a simple heuristic based on AST body length.
  */
 function countLinesFromAST(ast: AST): number {
-  // A simple heuristic: count the number of statements in the body
-  // and estimate ~3 lines per statement on average
-  if (ast.body && Array.isArray(ast.body)) {
-    // Try to find the max line number from the AST
-    let maxLine = 0;
-    const traverse = (node: unknown): void => {
-      if (node && typeof node === 'object') {
-        const n = node as { loc?: { end?: { line?: number } } };
-        if (n.loc?.end?.line && n.loc.end.line > maxLine) {
-          maxLine = n.loc.end.line;
-        }
-        for (const key of Object.keys(node)) {
-          const value = (node as Record<string, unknown>)[key];
-          if (Array.isArray(value)) {
-            for (const item of value) {
-              traverse(item);
-            }
-          } else if (value && typeof value === 'object') {
-            traverse(value);
-          }
-        }
-      }
-    };
-    traverse(ast);
+  if (!ast.body || !Array.isArray(ast.body)) return 1;
 
-    if (maxLine > 0) return maxLine;
+  const maxLine = findMaxLineInNode(ast);
+  if (maxLine > 0) return maxLine;
 
-    // Fallback: estimate based on body length
-    return Math.max(ast.body.length * 3, 1);
-  }
-  return 1;
+  // Fallback: estimate based on body length
+  return Math.max(ast.body.length * 3, 1);
 }
 
 /**

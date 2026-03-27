@@ -4,7 +4,8 @@ import * as path from 'path';
 import type { Result, EntropyConfig } from '@harness-engineering/core';
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
-import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
+import { OutputFormatter, OutputMode } from '../output/formatter';
+import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 
@@ -105,20 +106,46 @@ export async function runCleanup(
   return Ok(result);
 }
 
+function printCleanupResult(value: CleanupResult, formatter: OutputFormatter): void {
+  console.log(
+    formatter.formatSummary('Entropy issues', value.totalIssues.toString(), value.totalIssues === 0)
+  );
+
+  if (value.driftIssues.length > 0) {
+    console.log('\nDocumentation drift:');
+    for (const issue of value.driftIssues) {
+      console.log(`  - ${issue.file}: ${issue.issue}`);
+    }
+  }
+
+  if (value.deadCode.length > 0) {
+    console.log('\nDead code:');
+    for (const item of value.deadCode.slice(0, 10)) {
+      console.log(`  - ${item.file}${item.symbol ? `: ${item.symbol}` : ''}`);
+    }
+    if (value.deadCode.length > 10) {
+      console.log(`  ... and ${value.deadCode.length - 10} more`);
+    }
+  }
+
+  if (value.patternViolations.length > 0) {
+    console.log('\nPattern violations:');
+    for (const violation of value.patternViolations.slice(0, 10)) {
+      console.log(`  - ${violation.file} [${violation.pattern}]: ${violation.message}`);
+    }
+    if (value.patternViolations.length > 10) {
+      console.log(`  ... and ${value.patternViolations.length - 10} more`);
+    }
+  }
+}
+
 export function createCleanupCommand(): Command {
   const command = new Command('cleanup')
     .description('Detect entropy issues (doc drift, dead code, patterns)')
     .option('-t, --type <type>', 'Issue type: drift, dead-code, patterns, all', 'all')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
+      const mode = resolveOutputMode(globalOpts);
       const formatter = new OutputFormatter(mode);
 
       const result = await runCleanup({
@@ -141,40 +168,7 @@ export function createCleanupCommand(): Command {
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(result.value, null, 2));
       } else if (mode !== OutputMode.QUIET || result.value.totalIssues > 0) {
-        console.log(
-          formatter.formatSummary(
-            'Entropy issues',
-            result.value.totalIssues.toString(),
-            result.value.totalIssues === 0
-          )
-        );
-
-        if (result.value.driftIssues.length > 0) {
-          console.log('\nDocumentation drift:');
-          for (const issue of result.value.driftIssues) {
-            console.log(`  - ${issue.file}: ${issue.issue}`);
-          }
-        }
-
-        if (result.value.deadCode.length > 0) {
-          console.log('\nDead code:');
-          for (const item of result.value.deadCode.slice(0, 10)) {
-            console.log(`  - ${item.file}${item.symbol ? `: ${item.symbol}` : ''}`);
-          }
-          if (result.value.deadCode.length > 10) {
-            console.log(`  ... and ${result.value.deadCode.length - 10} more`);
-          }
-        }
-
-        if (result.value.patternViolations.length > 0) {
-          console.log('\nPattern violations:');
-          for (const violation of result.value.patternViolations.slice(0, 10)) {
-            console.log(`  - ${violation.file} [${violation.pattern}]: ${violation.message}`);
-          }
-          if (result.value.patternViolations.length > 10) {
-            console.log(`  ... and ${result.value.patternViolations.length - 10} more`);
-          }
-        }
+        printCleanupResult(result.value, formatter);
       }
 
       process.exit(result.value.totalIssues === 0 ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);

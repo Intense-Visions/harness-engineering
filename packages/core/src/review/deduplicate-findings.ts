@@ -18,6 +18,44 @@ function rangesOverlap(a: [number, number], b: [number, number], gap: number): b
   return a[0] <= b[1] + gap && b[0] <= a[1] + gap;
 }
 
+/** Pick the longer of two optional strings, or whichever is defined. */
+function pickLongest(a: string | undefined, b: string | undefined): string | undefined {
+  if (a && b) return a.length >= b.length ? a : b;
+  return a ?? b;
+}
+
+/** Build a merged title from domains and the primary finding. */
+function buildMergedTitle(
+  a: ReviewFinding,
+  b: ReviewFinding,
+  domains: Set<ReviewDomain>
+): { title: string; primaryFinding: ReviewFinding } {
+  const primaryFinding = SEVERITY_RANK[a.severity] >= SEVERITY_RANK[b.severity] ? a : b;
+  const domainList = [...domains].sort().join(', ');
+  const cleanTitle = primaryFinding.title.replace(/^\[.*?\]\s*/, '');
+  return { title: `[${domainList}] ${cleanTitle}`, primaryFinding };
+}
+
+/** Merge security-specific optional fields onto the merged finding. */
+function mergeSecurityFields(
+  merged: ReviewFinding,
+  primary: ReviewFinding,
+  a: ReviewFinding,
+  b: ReviewFinding
+): void {
+  const cweId = primary.cweId ?? a.cweId ?? b.cweId;
+  const owaspCategory = primary.owaspCategory ?? a.owaspCategory ?? b.owaspCategory;
+  const confidence = primary.confidence ?? a.confidence ?? b.confidence;
+  const remediation = pickLongest(a.remediation, b.remediation);
+  const mergedRefs = [...new Set([...(a.references ?? []), ...(b.references ?? [])])];
+
+  if (cweId !== undefined) merged.cweId = cweId;
+  if (owaspCategory !== undefined) merged.owaspCategory = owaspCategory;
+  if (confidence !== undefined) merged.confidence = confidence;
+  if (remediation !== undefined) merged.remediation = remediation;
+  if (mergedRefs.length > 0) merged.references = mergedRefs;
+}
+
 /**
  * Merge two findings into one.
  * - Keeps highest severity
@@ -37,38 +75,19 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
       : b.validatedBy;
 
   const longestRationale = a.rationale.length >= b.rationale.length ? a.rationale : b.rationale;
-
-  // Combine evidence, dedup
   const evidenceSet = new Set([...a.evidence, ...b.evidence]);
-
-  // Expand line range
   const lineRange: [number, number] = [
     Math.min(a.lineRange[0], b.lineRange[0]),
     Math.max(a.lineRange[1], b.lineRange[1]),
   ];
 
-  // Collect unique domains
-  const domains = new Set<ReviewDomain>();
-  domains.add(a.domain);
-  domains.add(b.domain);
-
-  // Pick the best suggestion (longest, or either if one is undefined)
-  const suggestion =
-    a.suggestion && b.suggestion
-      ? a.suggestion.length >= b.suggestion.length
-        ? a.suggestion
-        : b.suggestion
-      : (a.suggestion ?? b.suggestion);
-
-  // Build title with domain info — strip existing domain prefix to prevent nesting
-  const primaryFinding = SEVERITY_RANK[a.severity] >= SEVERITY_RANK[b.severity] ? a : b;
-  const domainList = [...domains].sort().join(', ');
-  const cleanTitle = primaryFinding.title.replace(/^\[.*?\]\s*/, '');
-  const title = `[${domainList}] ${cleanTitle}`;
+  const domains = new Set<ReviewDomain>([a.domain, b.domain]);
+  const suggestion = pickLongest(a.suggestion, b.suggestion);
+  const { title, primaryFinding } = buildMergedTitle(a, b, domains);
 
   const merged: ReviewFinding = {
     id: primaryFinding.id,
-    file: a.file, // same file for all merged findings
+    file: a.file,
     lineRange,
     domain: primaryFinding.domain,
     severity: highestSeverity,
@@ -82,23 +101,7 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
     merged.suggestion = suggestion;
   }
 
-  // Preserve security-specific fields from the primary finding (or either)
-  const cweId = primaryFinding.cweId ?? a.cweId ?? b.cweId;
-  const owaspCategory = primaryFinding.owaspCategory ?? a.owaspCategory ?? b.owaspCategory;
-  const confidence = primaryFinding.confidence ?? a.confidence ?? b.confidence;
-  const remediation =
-    a.remediation && b.remediation
-      ? a.remediation.length >= b.remediation.length
-        ? a.remediation
-        : b.remediation
-      : (a.remediation ?? b.remediation);
-  const mergedRefs = [...new Set([...(a.references ?? []), ...(b.references ?? [])])];
-
-  if (cweId !== undefined) merged.cweId = cweId;
-  if (owaspCategory !== undefined) merged.owaspCategory = owaspCategory;
-  if (confidence !== undefined) merged.confidence = confidence;
-  if (remediation !== undefined) merged.remediation = remediation;
-  if (mergedRefs.length > 0) merged.references = mergedRefs;
+  mergeSecurityFields(merged, primaryFinding, a, b);
 
   return merged;
 }

@@ -84,6 +84,57 @@ const VALID_TRIGGERS = new Set([
   'auto',
 ]);
 
+function resolveTrigger(triggerOpt: string): TriggerContext | 'auto' {
+  if (triggerOpt === 'auto') return 'auto';
+  return VALID_TRIGGERS.has(triggerOpt) ? (triggerOpt as TriggerContext) : 'manual';
+}
+
+function createCommandExecutor(): CommandExecutor {
+  return async (command: string) => {
+    if (!ALLOWED_PERSONA_COMMANDS.has(command)) {
+      return Err(new Error(`Unknown harness command: ${command}`));
+    }
+    try {
+      childProcess.execFileSync('npx', ['harness', command], { stdio: 'inherit' });
+      return Ok(null);
+    } catch (error) {
+      return Err(new Error(error instanceof Error ? error.message : String(error)));
+    }
+  };
+}
+
+async function runPersonaMode(
+  opts: { persona: string; trigger: string },
+  quiet: boolean
+): Promise<void> {
+  const personasDir = resolvePersonasDir();
+  const filePath = path.join(personasDir, `${opts.persona}.yaml`);
+  const personaResult = loadPersona(filePath);
+  if (!personaResult.ok) {
+    logger.error(personaResult.error.message);
+    process.exit(ExitCode.ERROR);
+  }
+
+  const report = await runPersona(personaResult.value, {
+    trigger: resolveTrigger(opts.trigger),
+    commandExecutor: createCommandExecutor(),
+    skillExecutor: executeSkill,
+    projectPath: process.cwd(),
+  });
+
+  if (!quiet) {
+    logger.info(`Persona '${report.persona}' status: ${report.status}`);
+    for (const s of report.steps) {
+      const icon = s.status === 'pass' ? 'v' : s.status === 'fail' ? 'x' : '-';
+      const typeTag = s.type === 'skill' ? ' [skill]' : '';
+      console.log(`  [${icon}] ${s.name}${typeTag} (${s.durationMs}ms)`);
+      if (s.artifactPath) console.log(`      artifact: ${s.artifactPath}`);
+    }
+  }
+
+  process.exit(report.status === 'fail' ? ExitCode.ERROR : ExitCode.SUCCESS);
+}
+
 export function createRunCommand(): Command {
   return new Command('run')
     .description('Run an agent task')
@@ -95,56 +146,8 @@ export function createRunCommand(): Command {
       const globalOpts = cmd.optsWithGlobals();
 
       if (opts.persona) {
-        const personasDir = resolvePersonasDir();
-        const filePath = path.join(personasDir, `${opts.persona}.yaml`);
-        const personaResult = loadPersona(filePath);
-        if (!personaResult.ok) {
-          logger.error(personaResult.error.message);
-          process.exit(ExitCode.ERROR);
-        }
-        const persona = personaResult.value;
-
-        const projectPath = process.cwd();
-
-        const trigger: TriggerContext | 'auto' =
-          opts.trigger === 'auto'
-            ? 'auto'
-            : VALID_TRIGGERS.has(opts.trigger)
-              ? (opts.trigger as TriggerContext)
-              : 'manual';
-
-        const commandExecutor: CommandExecutor = async (command: string) => {
-          if (!ALLOWED_PERSONA_COMMANDS.has(command)) {
-            return Err(new Error(`Unknown harness command: ${command}`));
-          }
-          try {
-            childProcess.execFileSync('npx', ['harness', command], { stdio: 'inherit' });
-            return Ok(null);
-          } catch (error) {
-            return Err(new Error(error instanceof Error ? error.message : String(error)));
-          }
-        };
-
-        const report = await runPersona(persona, {
-          trigger,
-          commandExecutor,
-          skillExecutor: executeSkill,
-          projectPath,
-        });
-
-        if (!globalOpts.quiet) {
-          logger.info(`Persona '${report.persona}' status: ${report.status}`);
-          for (const s of report.steps) {
-            const icon = s.status === 'pass' ? 'v' : s.status === 'fail' ? 'x' : '-';
-            const typeTag = s.type === 'skill' ? ' [skill]' : '';
-            console.log(`  [${icon}] ${s.name}${typeTag} (${s.durationMs}ms)`);
-            if (s.artifactPath) {
-              console.log(`      artifact: ${s.artifactPath}`);
-            }
-          }
-        }
-
-        process.exit(report.status === 'fail' ? ExitCode.ERROR : ExitCode.SUCCESS);
+        await runPersonaMode(opts, globalOpts.quiet);
+        return;
       }
 
       if (!task) {

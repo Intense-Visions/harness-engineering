@@ -17,6 +17,96 @@ interface TarjanNode {
 }
 
 /**
+ * Build adjacency list from a dependency graph.
+ */
+function buildAdjacencyList(graph: DependencyGraph): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>();
+  const nodeSet = new Set(graph.nodes);
+  for (const node of graph.nodes) {
+    adjacency.set(node, []);
+  }
+  for (const edge of graph.edges) {
+    const neighbors = adjacency.get(edge.from);
+    if (neighbors && nodeSet.has(edge.to)) {
+      neighbors.push(edge.to);
+    }
+  }
+  return adjacency;
+}
+
+/**
+ * Check if an SCC represents an actual cycle (multi-node or self-referential).
+ */
+function isCyclicSCC(scc: string[], adjacency: Map<string, string[]>): boolean {
+  if (scc.length > 1) return true;
+  if (scc.length === 1) {
+    const selfNode = scc[0]!;
+    const selfNeighbors = adjacency.get(selfNode) ?? [];
+    return selfNeighbors.includes(selfNode);
+  }
+  return false;
+}
+
+/**
+ * Process neighbors of a node during Tarjan's algorithm.
+ */
+function processNeighbors(
+  node: string,
+  neighbors: string[],
+  nodeMap: Map<string, TarjanNode>,
+  stack: string[],
+  adjacency: Map<string, string[]>,
+  sccs: string[][],
+  indexRef: { value: number }
+): void {
+  for (const neighbor of neighbors) {
+    const neighborData = nodeMap.get(neighbor);
+    if (!neighborData) {
+      strongConnectImpl(neighbor, nodeMap, stack, adjacency, sccs, indexRef);
+      const nodeData = nodeMap.get(node)!;
+      const updatedNeighborData = nodeMap.get(neighbor)!;
+      nodeData.lowlink = Math.min(nodeData.lowlink, updatedNeighborData.lowlink);
+    } else if (neighborData.onStack) {
+      const nodeData = nodeMap.get(node)!;
+      nodeData.lowlink = Math.min(nodeData.lowlink, neighborData.index);
+    }
+  }
+}
+
+/**
+ * Core strongConnect implementation for Tarjan's algorithm.
+ */
+function strongConnectImpl(
+  node: string,
+  nodeMap: Map<string, TarjanNode>,
+  stack: string[],
+  adjacency: Map<string, string[]>,
+  sccs: string[][],
+  indexRef: { value: number }
+): void {
+  nodeMap.set(node, { index: indexRef.value, lowlink: indexRef.value, onStack: true });
+  indexRef.value++;
+  stack.push(node);
+
+  processNeighbors(node, adjacency.get(node) ?? [], nodeMap, stack, adjacency, sccs, indexRef);
+
+  const nodeData = nodeMap.get(node)!;
+  if (nodeData.lowlink === nodeData.index) {
+    const scc: string[] = [];
+    let w: string;
+    do {
+      w = stack.pop()!;
+      nodeMap.get(w)!.onStack = false;
+      scc.push(w);
+    } while (w !== node);
+
+    if (isCyclicSCC(scc, adjacency)) {
+      sccs.push(scc);
+    }
+  }
+}
+
+/**
  * Tarjan's Strongly Connected Components algorithm
  * Returns all SCCs with more than one node (cycles)
  */
@@ -24,75 +114,12 @@ function tarjanSCC(graph: DependencyGraph): string[][] {
   const nodeMap = new Map<string, TarjanNode>();
   const stack: string[] = [];
   const sccs: string[][] = [];
-  let index = 0;
+  const indexRef = { value: 0 };
+  const adjacency = buildAdjacencyList(graph);
 
-  // Build adjacency list
-  const adjacency = new Map<string, string[]>();
-  for (const node of graph.nodes) {
-    adjacency.set(node, []);
-  }
-  for (const edge of graph.edges) {
-    const neighbors = adjacency.get(edge.from);
-    if (neighbors && graph.nodes.includes(edge.to)) {
-      neighbors.push(edge.to);
-    }
-  }
-
-  function strongConnect(node: string): void {
-    nodeMap.set(node, {
-      index: index,
-      lowlink: index,
-      onStack: true,
-    });
-    index++;
-    stack.push(node);
-
-    const neighbors = adjacency.get(node) ?? [];
-    for (const neighbor of neighbors) {
-      const neighborData = nodeMap.get(neighbor);
-      if (!neighborData) {
-        // Neighbor not yet visited
-        strongConnect(neighbor);
-        const nodeData = nodeMap.get(node)!;
-        const updatedNeighborData = nodeMap.get(neighbor)!;
-        nodeData.lowlink = Math.min(nodeData.lowlink, updatedNeighborData.lowlink);
-      } else if (neighborData.onStack) {
-        // Neighbor is on stack, so it's in current SCC
-        const nodeData = nodeMap.get(node)!;
-        nodeData.lowlink = Math.min(nodeData.lowlink, neighborData.index);
-      }
-    }
-
-    // If node is root of SCC
-    const nodeData = nodeMap.get(node)!;
-    if (nodeData.lowlink === nodeData.index) {
-      const scc: string[] = [];
-      let w: string;
-      do {
-        w = stack.pop()!;
-        nodeMap.get(w)!.onStack = false;
-        scc.push(w);
-      } while (w !== node);
-
-      // Only include SCCs with more than one node (actual cycles)
-      // or self-referential cycles
-      if (scc.length > 1) {
-        sccs.push(scc);
-      } else if (scc.length === 1) {
-        // Check for self-reference
-        const selfNode = scc[0]!;
-        const selfNeighbors = adjacency.get(selfNode) ?? [];
-        if (selfNeighbors.includes(selfNode)) {
-          sccs.push(scc);
-        }
-      }
-    }
-  }
-
-  // Run algorithm for all nodes
   for (const node of graph.nodes) {
     if (!nodeMap.has(node)) {
-      strongConnect(node);
+      strongConnectImpl(node, nodeMap, stack, adjacency, sccs, indexRef);
     }
   }
 

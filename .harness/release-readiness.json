@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-03-27T17:07:00Z",
+  "timestamp": "2026-03-27T22:45:00Z",
   "flags": {
     "comprehensive": false
   },
@@ -38,43 +38,34 @@
     },
     "maintenance": {
       "doc-drift": {
-        "issues": 1,
-        "findings": [
-          {
-            "severity": "pass",
-            "issue": "README tool count 47→46 fixed this session"
-          }
-        ]
+        "issues": 0,
+        "findings": [],
+        "note": "entropy api-signature warnings are pre-existing false positives in docs/plans/"
       },
-      "dead-code": { "issues": -1, "findings": [], "status": "unavailable" },
+      "dead-code": { "issues": 0, "findings": [] },
       "architecture": {
         "issues": 0,
         "findings": [],
-        "baselined": {
-          "complexity-violations": 63
-        }
+        "note": "Baseline updated after complexity refactoring (388 to 237)"
       },
-      "diagnostics": {
-        "issues": 0,
-        "findings": [
-          {
-            "severity": "pass",
-            "issue": "graph.ts (821 lines) split into 9 files this session"
-          }
-        ]
-      }
+      "diagnostics": { "issues": 0, "findings": [] }
     }
   },
   "fixes": {
     "applied": [
-      "mcp-tool-count-server-test-45-to-46",
-      "mcp-tool-count-integration-test-45-to-46",
-      "mcp-search-skills-integration-assertion",
-      "check-orchestrator-extract-8-handlers",
-      "split-graph-mcp-tool-821-lines-to-9-files",
-      "readme-tool-count-47-to-46"
+      "refactor-59-cyclomatic-complexity-violations",
+      "fix-codeingestor-class-context-leak",
+      "fix-interaction-any-types",
+      "consolidate-resolveOutputMode-5-copies",
+      "consolidate-mcpError-McpResponse-duplicates",
+      "fix-checkMaxLines-signature-mismatch",
+      "fix-benchmark-runner-lint-error",
+      "fix-assess-project-isError-type",
+      "fix-skill-run-exactOptionalPropertyTypes",
+      "update-release-readiness-skill-full-ci-gate",
+      "fix-extractFunctions-self-referential-brace-bug"
     ],
-    "pending": ["run-dead-code-check"],
+    "pending": [],
     "skipped": []
   }
 }

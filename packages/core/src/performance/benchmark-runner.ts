@@ -85,47 +85,80 @@ export class BenchmarkRunner {
   }
 
   /**
+   * Extract a BenchmarkResult from a single assertion with benchmark data.
+   */
+  private parseBenchAssertion(
+    assertion: { benchmark?: Record<string, number>; fullName?: string; title?: string },
+    file: string
+  ): BenchmarkResult | null {
+    if (!assertion.benchmark) return null;
+    const bench = assertion.benchmark;
+    return {
+      name: assertion.fullName || assertion.title || 'unknown',
+      file: file.replace(process.cwd() + '/', ''),
+      opsPerSec: Math.round(bench.hz || 0),
+      meanMs: bench.mean ? bench.mean * 1000 : 0,
+      p99Ms: bench.p99 ? bench.p99 * 1000 : bench.mean ? bench.mean * 1000 * 1.5 : 0,
+      marginOfError: bench.rme ? bench.rme / 100 : 0.05,
+    };
+  }
+
+  /**
+   * Extract JSON from output that may contain non-JSON preamble.
+   */
+  private extractJson(output: string): unknown {
+    const jsonStart = output.indexOf('{');
+    const jsonEnd = output.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1) return null;
+    return JSON.parse(output.slice(jsonStart, jsonEnd + 1));
+  }
+
+  /**
    * Parse vitest bench JSON reporter output into BenchmarkResult[].
    * Vitest bench JSON output contains testResults with benchmark data.
    */
-  parseVitestBenchOutput(output: string): BenchmarkResult[] {
+  private collectAssertionResults(
+    testResults: Array<{
+      name?: string;
+      filepath?: string;
+      assertionResults?: Array<{
+        benchmark?: Record<string, number>;
+        fullName?: string;
+        title?: string;
+      }>;
+    }>
+  ): BenchmarkResult[] {
     const results: BenchmarkResult[] = [];
-
-    try {
-      // Try to find JSON in the output (vitest may include non-JSON preamble)
-      const jsonStart = output.indexOf('{');
-      const jsonEnd = output.lastIndexOf('}');
-      if (jsonStart === -1 || jsonEnd === -1) return results;
-
-      const jsonStr = output.slice(jsonStart, jsonEnd + 1);
-      const parsed = JSON.parse(jsonStr);
-
-      // Vitest bench JSON format has testResults[].assertionResults[].benchmark
-      if (parsed.testResults) {
-        for (const testResult of parsed.testResults) {
-          const file = testResult.name || testResult.filepath || '';
-          if (testResult.assertionResults) {
-            for (const assertion of testResult.assertionResults) {
-              if (assertion.benchmark) {
-                const bench = assertion.benchmark;
-                results.push({
-                  name: assertion.fullName || assertion.title || 'unknown',
-                  file: file.replace(process.cwd() + '/', ''),
-                  opsPerSec: Math.round(bench.hz || 0),
-                  meanMs: bench.mean ? bench.mean * 1000 : 0,
-                  // p99: use actual p99 if available, otherwise estimate as 1.5× mean
-                  p99Ms: bench.p99 ? bench.p99 * 1000 : bench.mean ? bench.mean * 1000 * 1.5 : 0,
-                  marginOfError: bench.rme ? bench.rme / 100 : 0.05,
-                });
-              }
-            }
-          }
-        }
+    for (const testResult of testResults) {
+      const file = testResult.name || testResult.filepath || '';
+      const assertions = testResult.assertionResults ?? [];
+      for (const assertion of assertions) {
+        const result = this.parseBenchAssertion(assertion, file);
+        if (result) results.push(result);
       }
-    } catch {
-      // JSON parsing failed — return empty results
     }
-
     return results;
+  }
+
+  parseVitestBenchOutput(output: string): BenchmarkResult[] {
+    try {
+      const parsed = this.extractJson(output) as Record<string, unknown> | null;
+      if (!parsed) return [];
+
+      const testResults = parsed.testResults as Array<{
+        name?: string;
+        filepath?: string;
+        assertionResults?: Array<{
+          benchmark?: Record<string, number>;
+          fullName?: string;
+          title?: string;
+        }>;
+      }>;
+      if (!testResults) return [];
+
+      return this.collectAssertionResults(testResults);
+    } catch {
+      return [];
+    }
   }
 }

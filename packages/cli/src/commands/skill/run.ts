@@ -9,6 +9,93 @@ import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 import { resolveSkillsDir } from '../../utils/paths';
 
+type SkillMetadata = ReturnType<typeof SkillMetadataSchema.parse>;
+
+function loadSkillMetadata(skillDir: string): SkillMetadata | null {
+  const yamlPath = path.join(skillDir, 'skill.yaml');
+  if (!fs.existsSync(yamlPath)) return null;
+  try {
+    const result = SkillMetadataSchema.safeParse(parse(fs.readFileSync(yamlPath, 'utf-8')));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveComplexity(
+  metadata: SkillMetadata | null,
+  requested: Complexity,
+  projectPath: string
+): 'light' | 'full' | undefined {
+  if (!metadata?.phases || metadata.phases.length === 0) return undefined;
+  if (requested === 'auto') return detectComplexity(projectPath);
+  return requested;
+}
+
+function loadPrinciples(projectPath: string): string | undefined {
+  const principlesPath = path.join(projectPath, 'docs', 'principles.md');
+  return fs.existsSync(principlesPath) ? fs.readFileSync(principlesPath, 'utf-8') : undefined;
+}
+
+function readMostRecentFileInDir(dirPath: string): string | undefined {
+  const files = fs
+    .readdirSync(dirPath)
+    .map((f) => ({ name: f, mtime: fs.statSync(path.join(dirPath, f)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime);
+  if (files.length > 0) return fs.readFileSync(path.join(dirPath, files[0]!.name), 'utf-8');
+  return undefined;
+}
+
+function loadPriorState(metadata: SkillMetadata | null, projectPath: string): string | undefined {
+  if (!metadata?.state.persistent || metadata.state.files.length === 0) return undefined;
+
+  for (const stateFilePath of metadata.state.files) {
+    const fullPath = path.join(projectPath, stateFilePath);
+    if (!fs.existsSync(fullPath)) continue;
+
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) return readMostRecentFileInDir(fullPath);
+    return fs.readFileSync(fullPath, 'utf-8');
+  }
+  return undefined;
+}
+
+function validatePhaseName(metadata: SkillMetadata | null, phase: string): boolean {
+  if (!metadata?.phases) return true;
+  return metadata.phases.map((p) => p.name).includes(phase);
+}
+
+function resolvePhaseState(
+  metadata: SkillMetadata | null,
+  projectPath: string,
+  phase: string
+): { priorState: string | undefined; stateWarning: string | undefined } | null {
+  if (!validatePhaseName(metadata, phase)) {
+    const validPhases = metadata!.phases!.map((p) => p.name);
+    logger.error(`Unknown phase: ${phase}. Valid phases: ${validPhases.join(', ')}`);
+    return null;
+  }
+  const priorState = loadPriorState(metadata, projectPath);
+  const stateWarning =
+    !priorState && metadata?.state.persistent
+      ? 'No prior phase data found. Earlier phases have not been completed. Proceed with caution.'
+      : undefined;
+  return { priorState, stateWarning };
+}
+
+function appendProjectState(
+  content: string,
+  metadata: SkillMetadata | null,
+  projectPath: string,
+  hasPathOpt: boolean
+): string {
+  if (!metadata?.state.persistent || !hasPathOpt) return content;
+  const stateFile = path.join(projectPath, '.harness', 'state.json');
+  if (!fs.existsSync(stateFile)) return content;
+  const stateContent = fs.readFileSync(stateFile, 'utf-8');
+  return content + `\n\n---\n## Project State\n\`\`\`json\n${stateContent}\n\`\`\`\n`;
+}
+
 export function createRunCommand(): Command {
   return new Command('run')
     .description('Run a skill (outputs SKILL.md content with context preamble)')
@@ -27,83 +114,27 @@ export function createRunCommand(): Command {
         return;
       }
 
-      // Load skill metadata
-      const yamlPath = path.join(skillDir, 'skill.yaml');
-      let metadata: ReturnType<typeof SkillMetadataSchema.parse> | null = null;
-      if (fs.existsSync(yamlPath)) {
-        try {
-          const raw = fs.readFileSync(yamlPath, 'utf-8');
-          const parsed = parse(raw);
-          const result = SkillMetadataSchema.safeParse(parsed);
-          if (result.success) metadata = result.data;
-        } catch {
-          /* ignore */
-        }
-      }
-
-      // Resolve complexity
-      let complexity: 'light' | 'full' | undefined;
-      if (metadata?.phases && metadata.phases.length > 0) {
-        const requested = (opts.complexity as Complexity) ?? 'auto';
-        if (requested === 'auto') {
-          const projectPath = opts.path ? path.resolve(opts.path) : process.cwd();
-          complexity = detectComplexity(projectPath);
-        } else {
-          complexity = requested;
-        }
-      }
-
-      // Load principles
-      let principles: string | undefined;
+      const metadata = loadSkillMetadata(skillDir);
       const projectPath = opts.path ? path.resolve(opts.path) : process.cwd();
-      const principlesPath = path.join(projectPath, 'docs', 'principles.md');
-      if (fs.existsSync(principlesPath)) {
-        principles = fs.readFileSync(principlesPath, 'utf-8');
-      }
+      const complexity = resolveComplexity(
+        metadata,
+        (opts.complexity as Complexity) ?? 'auto',
+        projectPath
+      );
+      const principles = loadPrinciples(projectPath);
 
-      // Handle phase re-entry
       let priorState: string | undefined;
       let stateWarning: string | undefined;
       if (opts.phase) {
-        // Validate phase name
-        if (metadata?.phases) {
-          const validPhases = metadata.phases.map((p) => p.name);
-          if (!validPhases.includes(opts.phase)) {
-            logger.error(`Unknown phase: ${opts.phase}. Valid phases: ${validPhases.join(', ')}`);
-            process.exit(ExitCode.ERROR);
-            return;
-          }
+        const phaseResult = resolvePhaseState(metadata, projectPath, opts.phase);
+        if (!phaseResult) {
+          process.exit(ExitCode.ERROR);
+          return;
         }
-
-        // Load state if persistent
-        if (metadata?.state.persistent && metadata.state.files.length > 0) {
-          for (const stateFilePath of metadata.state.files) {
-            const fullPath = path.join(projectPath, stateFilePath);
-            if (fs.existsSync(fullPath)) {
-              const stat = fs.statSync(fullPath);
-              if (stat.isDirectory()) {
-                // Find most recent file in directory
-                const files = fs
-                  .readdirSync(fullPath)
-                  .map((f) => ({ name: f, mtime: fs.statSync(path.join(fullPath, f)).mtimeMs }))
-                  .sort((a, b) => b.mtime - a.mtime);
-                if (files.length > 0) {
-                  priorState = fs.readFileSync(path.join(fullPath, files[0]!.name), 'utf-8');
-                }
-              } else {
-                priorState = fs.readFileSync(fullPath, 'utf-8');
-              }
-              break;
-            }
-          }
-          if (!priorState) {
-            stateWarning =
-              'No prior phase data found. Earlier phases have not been completed. Proceed with caution.';
-          }
-        }
+        priorState = phaseResult.priorState;
+        stateWarning = phaseResult.stateWarning;
       }
 
-      // Build preamble
       const preamble = buildPreamble({
         ...(complexity !== undefined && { complexity }),
         phases: metadata?.phases as Array<{ name: string; description: string; required: boolean }>,
@@ -114,7 +145,6 @@ export function createRunCommand(): Command {
         party: opts.party,
       });
 
-      // Load SKILL.md
       const skillMdPath = path.join(skillDir, 'SKILL.md');
       if (!fs.existsSync(skillMdPath)) {
         logger.error(`SKILL.md not found for skill: ${name}`);
@@ -122,18 +152,12 @@ export function createRunCommand(): Command {
         return;
       }
 
-      let content = fs.readFileSync(skillMdPath, 'utf-8');
-
-      // Inject project state for persistent skills (existing behavior)
-      if (metadata?.state.persistent && opts.path) {
-        const stateFile = path.join(projectPath, '.harness', 'state.json');
-        if (fs.existsSync(stateFile)) {
-          const stateContent = fs.readFileSync(stateFile, 'utf-8');
-          content += `\n\n---\n## Project State\n\`\`\`json\n${stateContent}\n\`\`\`\n`;
-        }
-      }
-
-      // Output: preamble + content
+      const content = appendProjectState(
+        fs.readFileSync(skillMdPath, 'utf-8'),
+        metadata,
+        projectPath,
+        !!opts.path
+      );
       process.stdout.write(preamble + content);
       process.exit(ExitCode.SUCCESS);
     });

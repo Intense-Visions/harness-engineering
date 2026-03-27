@@ -18,37 +18,48 @@ export const ARCHITECTURE_DESCRIPTOR: ReviewAgentDescriptor = {
 const LARGE_FILE_THRESHOLD = 300;
 
 /**
+ * Check if a line from check-deps output indicates a violation.
+ */
+function isViolationLine(line: string): boolean {
+  const lower = line.toLowerCase();
+  return lower.includes('violation') || lower.includes('layer');
+}
+
+/**
+ * Create a finding from a single violation line.
+ */
+function createLayerViolationFinding(line: string, fallbackPath: string): ReviewFinding {
+  const fileMatch = line.match(/(?:in\s+)?(\S+\.(?:ts|tsx|js|jsx))(?::(\d+))?/);
+  const file = fileMatch?.[1] ?? fallbackPath;
+  const lineNum = fileMatch?.[2] ? parseInt(fileMatch[2], 10) : 1;
+
+  return {
+    id: makeFindingId('arch', file, lineNum, 'layer violation'),
+    file,
+    lineRange: [lineNum, lineNum],
+    domain: 'architecture',
+    severity: 'critical',
+    title: 'Layer boundary violation detected by check-deps',
+    rationale: `Architectural layer violation: ${line.trim()}. Imports must flow in the correct direction per the project's layer definitions.`,
+    suggestion:
+      'Route the dependency through the correct intermediate layer (e.g., routes -> services -> db, not routes -> db).',
+    evidence: [line.trim()],
+    validatedBy: 'heuristic',
+  };
+}
+
+/**
  * Detect layer violations from check-deps output in context.
  */
 function detectLayerViolations(bundle: ContextBundle): ReviewFinding[] {
-  const findings: ReviewFinding[] = [];
   const checkDepsFile = bundle.contextFiles.find((f) => f.path === 'harness-check-deps-output');
-  if (!checkDepsFile) return findings;
+  if (!checkDepsFile) return [];
 
-  const lines = checkDepsFile.content.split('\n');
-  for (const line of lines) {
-    if (line.toLowerCase().includes('violation') || line.toLowerCase().includes('layer')) {
-      // Try to extract file reference from the violation message
-      const fileMatch = line.match(/(?:in\s+)?(\S+\.(?:ts|tsx|js|jsx))(?::(\d+))?/);
-      const file = fileMatch?.[1] ?? bundle.changedFiles[0]?.path ?? 'unknown';
-      const lineNum = fileMatch?.[2] ? parseInt(fileMatch[2], 10) : 1;
-
-      findings.push({
-        id: makeFindingId('arch', file, lineNum, 'layer violation'),
-        file,
-        lineRange: [lineNum, lineNum],
-        domain: 'architecture',
-        severity: 'critical',
-        title: 'Layer boundary violation detected by check-deps',
-        rationale: `Architectural layer violation: ${line.trim()}. Imports must flow in the correct direction per the project's layer definitions.`,
-        suggestion:
-          'Route the dependency through the correct intermediate layer (e.g., routes -> services -> db, not routes -> db).',
-        evidence: [line.trim()],
-        validatedBy: 'heuristic',
-      });
-    }
-  }
-  return findings;
+  const fallbackPath = bundle.changedFiles[0]?.path ?? 'unknown';
+  return checkDepsFile.content
+    .split('\n')
+    .filter(isViolationLine)
+    .map((line) => createLayerViolationFinding(line, fallbackPath));
 }
 
 /**
@@ -76,59 +87,85 @@ function detectLargeFiles(bundle: ContextBundle): ReviewFinding[] {
 }
 
 /**
+ * Extract relative import sources from file content, normalized to base names.
+ */
+function extractRelativeImports(content: string): Set<string> {
+  const importRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
+  let match: RegExpExecArray | null;
+  const imports = new Set<string>();
+  while ((match = importRegex.exec(content)) !== null) {
+    const source = match[1]!;
+    if (source.startsWith('.')) {
+      imports.add(source.replace(/^\.\//, '').replace(/^\.\.\//, ''));
+    }
+  }
+  return imports;
+}
+
+/**
+ * Extract the base name of a file path (without directory and extension).
+ */
+function fileBaseName(filePath: string): string {
+  return filePath.replace(/.*\//, '').replace(/\.(ts|tsx|js|jsx)$/, '');
+}
+
+/**
+ * Check if a context file creates a circular import back to any changed file.
+ */
+function findCircularImportInCtxFile(
+  ctxFile: { path: string; content: string },
+  changedFilePath: string,
+  changedPaths: Set<string>,
+  fileImports: Set<string>
+): ReviewFinding | null {
+  const ctxImportRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
+  let ctxMatch: RegExpExecArray | null;
+  while ((ctxMatch = ctxImportRegex.exec(ctxFile.content)) !== null) {
+    const ctxSource = ctxMatch[1]!;
+    if (!ctxSource.startsWith('.')) continue;
+
+    for (const changedPath of changedPaths) {
+      const baseName = fileBaseName(changedPath);
+      const ctxBaseName = fileBaseName(ctxFile.path);
+      if (ctxSource.includes(baseName) && fileImports.has(ctxBaseName)) {
+        return {
+          id: makeFindingId('arch', changedFilePath, 1, `circular ${ctxFile.path}`),
+          file: changedFilePath,
+          lineRange: [1, 1],
+          domain: 'architecture',
+          severity: 'important',
+          title: `Potential circular import between ${changedFilePath} and ${ctxFile.path}`,
+          rationale:
+            'Circular imports can cause runtime issues (undefined values at import time) and indicate tightly coupled modules that should be refactored.',
+          suggestion:
+            'Extract shared types/interfaces into a separate module that both files can import from.',
+          evidence: [
+            `${changedFilePath} imports from a module that also imports from ${changedFilePath}`,
+          ],
+          validatedBy: 'heuristic',
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Detect potential circular imports by checking if context files import from changed files.
  */
 function detectCircularImports(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   const changedPaths = new Set(bundle.changedFiles.map((f) => f.path));
+  const relevantCtxFiles = bundle.contextFiles.filter(
+    (f) => f.reason === 'import' || f.reason === 'graph-dependency'
+  );
 
   for (const cf of bundle.changedFiles) {
-    // Extract what this file imports
-    const importRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
-    let match: RegExpExecArray | null;
-    const imports = new Set<string>();
-    while ((match = importRegex.exec(cf.content)) !== null) {
-      const source = match[1]!;
-      if (source.startsWith('.')) {
-        // Normalize to approximate path
-        imports.add(source.replace(/^\.\//, '').replace(/^\.\.\//, ''));
-      }
-    }
+    const imports = extractRelativeImports(cf.content);
 
-    // Check if any context file imports back to a changed file
-    for (const ctxFile of bundle.contextFiles) {
-      if (ctxFile.reason !== 'import' && ctxFile.reason !== 'graph-dependency') continue;
-
-      const ctxImportRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
-      let ctxMatch: RegExpExecArray | null;
-      while ((ctxMatch = ctxImportRegex.exec(ctxFile.content)) !== null) {
-        const ctxSource = ctxMatch[1]!;
-        if (ctxSource.startsWith('.')) {
-          // Check if this import points back to a changed file
-          for (const changedPath of changedPaths) {
-            const baseName = changedPath.replace(/.*\//, '').replace(/\.(ts|tsx|js|jsx)$/, '');
-            if (
-              ctxSource.includes(baseName) &&
-              imports.has(ctxFile.path.replace(/.*\//, '').replace(/\.(ts|tsx|js|jsx)$/, ''))
-            ) {
-              findings.push({
-                id: makeFindingId('arch', cf.path, 1, `circular ${ctxFile.path}`),
-                file: cf.path,
-                lineRange: [1, 1],
-                domain: 'architecture',
-                severity: 'important',
-                title: `Potential circular import between ${cf.path} and ${ctxFile.path}`,
-                rationale:
-                  'Circular imports can cause runtime issues (undefined values at import time) and indicate tightly coupled modules that should be refactored.',
-                suggestion:
-                  'Extract shared types/interfaces into a separate module that both files can import from.',
-                evidence: [`${cf.path} imports from a module that also imports from ${cf.path}`],
-                validatedBy: 'heuristic',
-              });
-            }
-          }
-        }
-      }
+    for (const ctxFile of relevantCtxFiles) {
+      const finding = findCircularImportInCtxFile(ctxFile, cf.path, changedPaths, imports);
+      if (finding) findings.push(finding);
     }
   }
 

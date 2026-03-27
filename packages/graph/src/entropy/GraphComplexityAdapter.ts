@@ -42,42 +42,11 @@ export class GraphComplexityAdapter {
 
     for (const fnNode of functionNodes) {
       const complexity = (fnNode.metadata?.cyclomaticComplexity as number) ?? 1;
-
-      // Find the file that contains this function/method
-      // Look for a 'contains' edge pointing to this node from a file
-      const containsEdges = this.store.getEdges({ to: fnNode.id, type: 'contains' });
-      let fileId: string | undefined;
-      for (const edge of containsEdges) {
-        const sourceNode = this.store.getNode(edge.from);
-        if (sourceNode?.type === 'file') {
-          fileId = sourceNode.id;
-          break;
-        }
-        // For methods, the contains edge comes from a class node.
-        // Walk up to find the file.
-        if (sourceNode?.type === 'class') {
-          const classContainsEdges = this.store.getEdges({ to: sourceNode.id, type: 'contains' });
-          for (const classEdge of classContainsEdges) {
-            const parentNode = this.store.getNode(classEdge.from);
-            if (parentNode?.type === 'file') {
-              fileId = parentNode.id;
-              break;
-            }
-          }
-          if (fileId) break;
-        }
-      }
+      const fileId = this.findContainingFileId(fnNode.id);
 
       if (!fileId) continue;
 
-      // Count commits referencing this file
-      let changeFrequency = fileChangeFrequency.get(fileId);
-      if (changeFrequency === undefined) {
-        const referencesEdges = this.store.getEdges({ to: fileId, type: 'references' });
-        changeFrequency = referencesEdges.length;
-        fileChangeFrequency.set(fileId, changeFrequency);
-      }
-
+      const changeFrequency = this.getChangeFrequency(fileId, fileChangeFrequency);
       const hotspotScore = changeFrequency * complexity;
       const filePath = fnNode.path ?? fileId.replace(/^file:/, '');
 
@@ -100,6 +69,42 @@ export class GraphComplexityAdapter {
     );
 
     return { hotspots, percentile95Score };
+  }
+
+  /**
+   * Walk the 'contains' edges to find the file node that contains a given function/method.
+   * For methods, walks through the intermediate class node.
+   */
+  private findContainingFileId(nodeId: string): string | undefined {
+    const containsEdges = this.store.getEdges({ to: nodeId, type: 'contains' });
+    for (const edge of containsEdges) {
+      const sourceNode = this.store.getNode(edge.from);
+      if (sourceNode?.type === 'file') return sourceNode.id;
+      if (sourceNode?.type === 'class') {
+        const fileId = this.findParentFileOfClass(sourceNode.id);
+        if (fileId) return fileId;
+      }
+    }
+    return undefined;
+  }
+
+  private findParentFileOfClass(classNodeId: string): string | undefined {
+    const classContainsEdges = this.store.getEdges({ to: classNodeId, type: 'contains' });
+    for (const classEdge of classContainsEdges) {
+      const parentNode = this.store.getNode(classEdge.from);
+      if (parentNode?.type === 'file') return parentNode.id;
+    }
+    return undefined;
+  }
+
+  private getChangeFrequency(fileId: string, cache: Map<string, number>): number {
+    let freq = cache.get(fileId);
+    if (freq === undefined) {
+      const referencesEdges = this.store.getEdges({ to: fileId, type: 'references' });
+      freq = referencesEdges.length;
+      cache.set(fileId, freq);
+    }
+    return freq;
   }
 
   private computePercentile(descendingScores: number[], percentile: number): number {
