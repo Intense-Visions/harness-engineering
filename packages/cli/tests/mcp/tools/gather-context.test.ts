@@ -57,6 +57,7 @@ describe('gather_context tool', () => {
       expect(parsed).toHaveProperty('handoff');
       expect(parsed).toHaveProperty('graphContext');
       expect(parsed).toHaveProperty('validation');
+      expect(parsed).toHaveProperty('sessionSections');
       expect(parsed).toHaveProperty('meta');
       expect(parsed.meta).toHaveProperty('assembledIn');
       expect(parsed.meta).toHaveProperty('graphAvailable');
@@ -198,6 +199,39 @@ describe('gather_context tool', () => {
       const directValidation = JSON.parse(directResult.content[0].text);
 
       expect(compositeData.validation).toEqual(directValidation);
+    });
+
+    it('sessionSections field matches readSessionSections output when session exists', async () => {
+      const { appendSessionEntry, readSessionSections } = await import('@harness-engineering/core');
+
+      // Create a session with some data
+      const sessionSlug = 'test-gc-session';
+      const sessionDir = path.join(tmpDir, '.harness', 'sessions', sessionSlug);
+      fs.mkdirSync(sessionDir, { recursive: true });
+
+      await appendSessionEntry(
+        tmpDir,
+        sessionSlug,
+        'decisions',
+        'test-skill',
+        'Use approach A for auth'
+      );
+
+      const compositeResponse = await handleGatherContext({
+        path: tmpDir,
+        intent: 'parity test',
+        session: sessionSlug,
+        include: ['sessions'],
+      });
+      const compositeData = JSON.parse(compositeResponse.content[0].text);
+
+      const directResult = await readSessionSections(tmpDir, sessionSlug);
+      const directSections = directResult.ok ? directResult.value : null;
+
+      expect(compositeData.sessionSections).toEqual(directSections);
+      // Verify the appended entry is present
+      expect(compositeData.sessionSections.decisions).toHaveLength(1);
+      expect(compositeData.sessionSections.decisions[0].content).toBe('Use approach A for auth');
     });
   });
 
