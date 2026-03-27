@@ -20,6 +20,8 @@
 
 2. **For new projects:** Gather project context — language, framework, test runner, build tool. Ask the human if any of these are undecided. Do not assume defaults.
 
+2b. **For existing projects with detectable frameworks:** Run `harness init` without flags first. The command auto-detects frameworks (FastAPI, Django, Gin, Axum, Spring Boot, Next.js, React+Vite, Vue, Express, NestJS) by scanning project files. Present the detection result to the human and ask for confirmation before proceeding. If detection fails, ask the human to specify `--framework` manually.
+
 3. **For existing projects:** Run `harness validate` to see what is already configured and what is missing. Read `AGENTS.md` if it exists. Identify the current adoption level:
    - **Basic:** Has `AGENTS.md` and `harness.yaml` with project metadata. No layers, no skills, no dependency constraints.
    - **Intermediate:** Has layers defined, dependency constraints between layers, at least one custom skill. `harness check-deps` runs and passes.
@@ -30,10 +32,16 @@
 ### Phase 2: SCAFFOLD — Generate Project Structure
 
 1. **Run `harness init` with the appropriate flags:**
-   - New basic project: `harness init --level basic --framework <framework>`
-   - New intermediate project: `harness init --level intermediate --framework <framework>`
+   - New basic JS/TS project: `harness init --level basic`
+   - With framework: `harness init --level basic --framework <framework>`
+   - Non-JS language: `harness init --language <python|go|rust|java>`
+   - Non-JS with framework: `harness init --framework <fastapi|django|gin|axum|spring-boot>`
+   - Existing project (auto-detect): `harness init` (no flags -- auto-detection runs)
    - Migration to intermediate: `harness init --level intermediate --migrate`
    - Migration to advanced: `harness init --level advanced --migrate`
+
+   **Supported frameworks:** nextjs, react-vite, vue, express, nestjs, fastapi, django, gin, axum, spring-boot
+   **Supported languages:** typescript, python, go, rust, java
 
 2. **Review generated files.** `harness init` creates:
    - `harness.yaml` — Project configuration (name, stack, adoption level)
@@ -93,7 +101,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
 
 ## Harness Integration
 
-- **`harness init --level <level> --framework <framework>`** — Scaffold a new project at the specified adoption level.
+- **`harness init --level <level> [--framework <framework>] [--language <language>]`** — Scaffold a new project. `--framework` infers language automatically. `--language` without `--framework` gives a bare language scaffold. Running without flags on an existing project directory triggers auto-detection.
 - **`harness init --level <level> --migrate`** — Migrate an existing project to the next adoption level, preserving existing configuration.
 - **`harness persona generate`** — Generate persona definitions based on project stack and team structure.
 - **`harness validate`** — Verify the full project configuration is valid and complete.
