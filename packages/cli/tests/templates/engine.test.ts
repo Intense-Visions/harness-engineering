@@ -306,4 +306,142 @@ describe('TemplateEngine', () => {
       fs.rmSync(tmpDir, { recursive: true });
     });
   });
+
+  describe('language base render (production templates)', () => {
+    const PROD_TEMPLATES = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+    let prodEngine: TemplateEngine;
+
+    beforeEach(() => {
+      prodEngine = new TemplateEngine(PROD_TEMPLATES);
+    });
+
+    it('resolves and renders python-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, undefined, 'python');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-py-app',
+        language: 'python',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('pyproject.toml');
+      expect(paths).toContain('.python-version');
+      expect(paths).toContain('ruff.toml');
+      expect(paths).toContain('src/__init__.py');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('.gitignore');
+      expect(paths).toContain('harness.config.json');
+
+      const pyproject = rendered.value.files.find((f) => f.relativePath === 'pyproject.toml');
+      expect(pyproject!.content).toContain('name = "my-py-app"');
+      expect(pyproject!.content).toContain('requires-python = ">=3.10"');
+
+      const config = rendered.value.files.find((f) => f.relativePath === 'harness.config.json');
+      const parsed = JSON.parse(config!.content);
+      expect(parsed.template.language).toBe('python');
+      expect(parsed.tooling.linter).toBe('ruff');
+    });
+
+    it('resolves and renders go-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, undefined, 'go');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-go-app',
+        language: 'go',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('go.mod');
+      expect(paths).toContain('.golangci.yml');
+      expect(paths).toContain('main.go');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('.gitignore');
+      expect(paths).toContain('harness.config.json');
+
+      const gomod = rendered.value.files.find((f) => f.relativePath === 'go.mod');
+      expect(gomod!.content).toContain('module github.com/example/my-go-app');
+
+      const agents = rendered.value.files.find((f) => f.relativePath === 'AGENTS.md');
+      expect(agents!.content).toContain('Go project');
+      expect(agents!.content).toContain('golangci-lint');
+    });
+
+    it('resolves and renders rust-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, undefined, 'rust');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-rust-app',
+        language: 'rust',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('Cargo.toml');
+      expect(paths).toContain('clippy.toml');
+      expect(paths).toContain('src/main.rs');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('.gitignore');
+      expect(paths).toContain('harness.config.json');
+
+      const cargo = rendered.value.files.find((f) => f.relativePath === 'Cargo.toml');
+      expect(cargo!.content).toContain('name = "my-rust-app"');
+      expect(cargo!.content).toContain('edition = "2021"');
+    });
+
+    it('resolves and renders java-base', () => {
+      const resolved = prodEngine.resolveTemplate(undefined, undefined, 'java');
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+
+      const rendered = prodEngine.render(resolved.value, {
+        projectName: 'my-java-app',
+        language: 'java',
+      });
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) return;
+
+      const paths = rendered.value.files.map((f) => f.relativePath);
+      expect(paths).toContain('pom.xml');
+      expect(paths).toContain('checkstyle.xml');
+      expect(paths).toContain('src/main/java/App.java');
+      expect(paths).toContain('AGENTS.md');
+      expect(paths).toContain('.gitignore');
+      expect(paths).toContain('harness.config.json');
+
+      const pom = rendered.value.files.find((f) => f.relativePath === 'pom.xml');
+      expect(pom!.content).toContain('<artifactId>my-java-app</artifactId>');
+      expect(pom!.content).toContain('<groupId>com.example.my-java-app</groupId>');
+    });
+
+    it('renders harness.config.json with valid JSON for all languages', () => {
+      for (const lang of ['python', 'go', 'rust', 'java'] as const) {
+        const resolved = prodEngine.resolveTemplate(undefined, undefined, lang);
+        if (!resolved.ok) throw new Error(resolved.error.message);
+
+        const rendered = prodEngine.render(resolved.value, {
+          projectName: `test-${lang}`,
+          language: lang,
+        });
+        if (!rendered.ok) throw new Error(rendered.error.message);
+
+        const config = rendered.value.files.find((f) => f.relativePath === 'harness.config.json');
+        expect(config).toBeDefined();
+        const parsed = JSON.parse(config!.content);
+        expect(parsed.version).toBe(1);
+        expect(parsed.template.language).toBe(lang);
+        expect(parsed.tooling).toBeDefined();
+      }
+    });
+  });
 });
