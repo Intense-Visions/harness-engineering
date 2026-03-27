@@ -102,7 +102,7 @@ Utility functions for parsing markdown content.
 
 ### `checkDocCoverage(options)`
 
-Checks documentation coverage across a project.
+Checks documentation coverage across a project. Source: [`doc-coverage.ts`](../../packages/core/src/context/doc-coverage.ts)
 
 **Types:** `DocumentationGap`, `CoverageReport`, `CoverageOptions`, `GraphCoverageData`
 
@@ -161,6 +161,12 @@ Builds a dependency graph from source files.
 ### `resolveFileToLayer(filePath, layers)`
 
 Maps a file path to its architectural layer.
+
+### Constraint Sharing
+
+| Function                           | Description                                                                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `removeSharedConstraints(rootDir)` | Removes shared constraint symlinks/copies from a project. Source: [`remove.ts`](../../packages/core/src/constraints/sharing/remove.ts) |
 
 ### `detectCircularDeps(graph)` / `detectCircularDepsInFiles(files)`
 
@@ -221,6 +227,15 @@ Builds a codebase snapshot for entropy detection.
 | `validatePatternConfig(config)` | Validates pattern configuration |
 | `PatternConfigSchema`           | Zod schema for pattern config   |
 | `EntropyConfigSchema`           | Zod schema for entropy config   |
+
+#### Entropy Type Definitions
+
+| File                                                                           | Description                                                                   |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| [`report.ts`](../../packages/core/src/entropy/types/report.ts)                 | Entropy report types (`EntropyReport`, `DriftReport`, `DeadCodeReport`, etc.) |
+| [`pattern.ts`](../../packages/core/src/entropy/types/pattern.ts)               | Pattern violation types                                                       |
+| [`pattern-config.ts`](../../packages/core/src/entropy/types/pattern-config.ts) | Pattern configuration types and schema                                        |
+| [`fix.ts`](../../packages/core/src/entropy/types/fix.ts)                       | Fix types for entropy auto-remediation                                        |
 
 ### `parseSize(sizeStr)`
 
@@ -337,6 +352,18 @@ Identifies critical execution paths.
 **Schemas:** `HarnessStateSchema`, `FailureEntrySchema`, `HandoffSchema`, `GateResultSchema`, `GateConfigSchema`
 
 **Constants:** `DEFAULT_STATE`
+
+#### Source Files
+
+| File                                                                         | Description                                                     |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [`state-shared.ts`](../../packages/core/src/state/state-shared.ts)           | Shared utilities for state loading, saving, and path resolution |
+| [`state-persistence.ts`](../../packages/core/src/state/state-persistence.ts) | Persistence layer for durable state storage                     |
+| [`session-summary.ts`](../../packages/core/src/state/session-summary.ts)     | Session summary generation and management                       |
+| [`session-resolver.ts`](../../packages/core/src/state/session-resolver.ts)   | Session directory resolution and index management               |
+| [`mechanical-gate.ts`](../../packages/core/src/state/mechanical-gate.ts)     | Mechanical quality gate implementation                          |
+| [`handoff.ts`](../../packages/core/src/state/handoff.ts)                     | Handoff document save/load                                      |
+| [`failures.ts`](../../packages/core/src/state/failures.ts)                   | Failure recording and archival                                  |
 
 ### Streams
 
@@ -492,6 +519,15 @@ End-to-end code review pipeline: eligibility check, mechanical checks, fan-out t
 | `detectChangeType(diff)`                       | Classifies a diff as refactor, feature, bugfix, etc. |
 | `scopeContext(bundle, options?)`               | Scopes context to relevant files                     |
 | `resolveModelTier(config)`                     | Resolves which model tier to use                     |
+
+#### Review Type Definitions
+
+| File                                                                  | Description                                |
+| --------------------------------------------------------------------- | ------------------------------------------ |
+| [`pipeline.ts`](../../packages/core/src/review/types/pipeline.ts)     | Pipeline configuration and execution types |
+| [`output.ts`](../../packages/core/src/review/types/output.ts)         | Output formatting types                    |
+| [`mechanical.ts`](../../packages/core/src/review/types/mechanical.ts) | Mechanical check types                     |
+| [`context.ts`](../../packages/core/src/review/types/context.ts)       | Review context types                       |
 
 ---
 

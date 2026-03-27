@@ -86,6 +86,12 @@ Detects Unix-specific shell commands (e.g., `rm -rf`, `chmod`, `grep`) that woul
 
 Flags hardcoded path separators (`/` or `\\`) in string literals. Use `path.join()` or `path.sep` for cross-platform compatibility.
 
+### `require-path-normalization`
+
+Requires that file path arguments are normalized using `path.normalize()` or `path.resolve()` before being passed to filesystem APIs. Prevents path inconsistencies across platforms.
+
+Source: [`require-path-normalization.ts`](../../packages/eslint-plugin/src/rules/require-path-normalization.ts)
+
 ## Exports
 
 ### Default Export
