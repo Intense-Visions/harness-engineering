@@ -48,6 +48,7 @@ export const manageStateDefinition = {
       },
       section: {
         type: 'string',
+        enum: ['terminology', 'decisions', 'constraints', 'risks', 'openQuestions', 'evidence'],
         description:
           'Session section name (terminology, decisions, constraints, risks, openQuestions, evidence)',
       },
@@ -65,6 +66,7 @@ export const manageStateDefinition = {
       },
       newStatus: {
         type: 'string',
+        enum: ['active', 'resolved', 'superseded'],
         description:
           'New status for the entry: active, resolved, or superseded (required for update_entry_status)',
       },
