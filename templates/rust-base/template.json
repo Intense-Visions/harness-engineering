@@ -1,0 +1,14 @@
+{
+  "name": "rust-base",
+  "description": "Rust language base scaffold with Clippy linting",
+  "version": 1,
+  "language": "rust",
+  "tooling": {
+    "packageManager": "cargo",
+    "linter": "clippy",
+    "formatter": "rustfmt",
+    "buildTool": "cargo",
+    "testRunner": "cargo test"
+  },
+  "mergeStrategy": { "json": "deep-merge", "files": "overlay-wins" }
+}
