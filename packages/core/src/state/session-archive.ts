@@ -39,7 +39,22 @@ export async function archiveSession(
       counter++;
     }
 
-    fs.renameSync(sessionDir, path.join(archiveBase, archiveName));
+    const dest = path.join(archiveBase, archiveName);
+    try {
+      fs.renameSync(sessionDir, dest);
+    } catch (renameErr: unknown) {
+      if (
+        renameErr instanceof Error &&
+        'code' in renameErr &&
+        (renameErr as NodeJS.ErrnoException).code === 'EXDEV'
+      ) {
+        // Cross-device: fall back to copy + remove
+        fs.cpSync(sessionDir, dest, { recursive: true });
+        fs.rmSync(sessionDir, { recursive: true });
+      } else {
+        throw renameErr;
+      }
+    }
     return Ok(undefined);
   } catch (error) {
     return Err(
