@@ -5,6 +5,7 @@ import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { TemplateEngine, type DetectedFramework } from '../templates/engine';
+import { appendFrameworkSection } from '../templates/agents-append';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
@@ -142,6 +143,16 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     }
 
     fs.writeFileSync(writtenConfigPath, JSON.stringify(config, null, 2) + '\n');
+  }
+
+  // Post-write: append framework conventions to AGENTS.md if it already existed
+  const agentsPath = path.join(cwd, 'AGENTS.md');
+  if (options.framework && fs.existsSync(agentsPath)) {
+    const existingAgents = fs.readFileSync(agentsPath, 'utf-8');
+    const updatedAgents = appendFrameworkSection(existingAgents, options.framework, language);
+    if (updatedAgents !== existingAgents) {
+      fs.writeFileSync(agentsPath, updatedAgents);
+    }
   }
 
   return Ok({

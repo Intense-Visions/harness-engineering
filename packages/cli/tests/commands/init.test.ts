@@ -120,6 +120,49 @@ describe('runInit', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
+  it('appends framework section to existing AGENTS.md', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    fs.writeFileSync(path.join(tmpDir, 'AGENTS.md'), '# Existing Project\n\nSome content.\n');
+
+    const result = await runInit({
+      cwd: tmpDir,
+      name: 'test',
+      level: 'basic',
+      framework: 'express',
+      force: true,
+    });
+    expect(result.ok).toBe(true);
+
+    const agents = fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf-8');
+    expect(agents).toContain('## Express Conventions');
+    expect(agents).toContain('<!-- harness:framework-conventions:express -->');
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not duplicate framework section on re-init', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const existingContent =
+      '# Project\n\n<!-- harness:framework-conventions:express -->\n## Express Conventions\nstuff\n<!-- /harness:framework-conventions:express -->\n';
+    fs.writeFileSync(path.join(tmpDir, 'AGENTS.md'), existingContent);
+
+    const result = await runInit({
+      cwd: tmpDir,
+      name: 'test',
+      level: 'basic',
+      framework: 'express',
+      force: true,
+    });
+    expect(result.ok).toBe(true);
+
+    const agents = fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf-8');
+    const markerCount = (agents.match(/<!-- harness:framework-conventions:express -->/g) || [])
+      .length;
+    expect(markerCount).toBe(1);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
   it('rejects already initialized project without --force', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
