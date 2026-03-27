@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { manageStateDefinition, handleManageState } from '../../../src/mcp/tools/state';
 
 describe('manage_state tool', () => {
@@ -230,5 +233,125 @@ describe('manage_state tool', () => {
     });
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain('session is required');
+  });
+});
+
+describe('manage_state session section actions', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-tool-session-test-'));
+    const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+    fs.mkdirSync(sessionDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('read_sections returns empty sections for new session', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'read_sections',
+      session: 'test-session',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.terminology).toEqual([]);
+    expect(parsed.decisions).toEqual([]);
+    expect(parsed.constraints).toEqual([]);
+    expect(parsed.risks).toEqual([]);
+    expect(parsed.openQuestions).toEqual([]);
+    expect(parsed.evidence).toEqual([]);
+  });
+
+  it('append_entry creates entry and returns it', async () => {
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'append_entry',
+      session: 'test-session',
+      section: 'decisions',
+      authorSkill: 'harness-planning',
+      content: 'Chose TypeScript for implementation',
+    });
+    expect(response.isError).toBeFalsy();
+    const entry = JSON.parse(response.content[0].text);
+    expect(entry.id).toBeDefined();
+    expect(entry.timestamp).toBeDefined();
+    expect(entry.authorSkill).toBe('harness-planning');
+    expect(entry.content).toBe('Chose TypeScript for implementation');
+    expect(entry.status).toBe('active');
+  });
+
+  it('read_section returns entries after append', async () => {
+    await handleManageState({
+      path: tmpDir,
+      action: 'append_entry',
+      session: 'test-session',
+      section: 'risks',
+      authorSkill: 'harness-brainstorming',
+      content: 'Concurrent writes not protected',
+    });
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'read_section',
+      session: 'test-session',
+      section: 'risks',
+    });
+    expect(response.isError).toBeFalsy();
+    const entries = JSON.parse(response.content[0].text);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].content).toBe('Concurrent writes not protected');
+  });
+
+  it('update_entry_status changes entry status', async () => {
+    const appendResponse = await handleManageState({
+      path: tmpDir,
+      action: 'append_entry',
+      session: 'test-session',
+      section: 'openQuestions',
+      authorSkill: 'harness-brainstorming',
+      content: 'Should we use Redis?',
+    });
+    const appendedEntry = JSON.parse(appendResponse.content[0].text);
+
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'update_entry_status',
+      session: 'test-session',
+      section: 'openQuestions',
+      entryId: appendedEntry.id,
+      newStatus: 'resolved',
+    });
+    expect(response.isError).toBeFalsy();
+    const updated = JSON.parse(response.content[0].text);
+    expect(updated.id).toBe(appendedEntry.id);
+    expect(updated.status).toBe('resolved');
+  });
+
+  it('archive_session archives the session directory', async () => {
+    // Ensure session has content
+    await handleManageState({
+      path: tmpDir,
+      action: 'append_entry',
+      session: 'test-session',
+      section: 'terminology',
+      authorSkill: 'harness-brainstorming',
+      content: 'Widget: a UI component',
+    });
+    const response = await handleManageState({
+      path: tmpDir,
+      action: 'archive_session',
+      session: 'test-session',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.archived).toBe(true);
+    // Original session dir should no longer exist
+    const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+    expect(fs.existsSync(sessionDir)).toBe(false);
+    // Archive dir should exist
+    const archiveBase = path.join(tmpDir, '.harness', 'archive', 'sessions');
+    expect(fs.existsSync(archiveBase)).toBe(true);
   });
 });
