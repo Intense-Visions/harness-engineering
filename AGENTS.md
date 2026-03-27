@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 49 skills (claude-code) / 49 skills (gemini-cli), 12 personas, 6 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 79 skills (49 core + 30 domain, claude-code and gemini-cli), 12 personas, 6 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -33,8 +33,8 @@ harness-engineering/
 │   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 49 skills (skill.yaml + SKILL.md each)
-│   ├── skills/gemini-cli/    # 49 skills (adapted for Gemini CLI, includes sensitive-data-compliance)
+│   ├── skills/claude-code/   # 79 skills (49 core + 30 domain, skill.yaml + SKILL.md each)
+│   ├── skills/gemini-cli/    # 79 skills (symlinked to claude-code for platform parity)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs, orchestrator)
 ├── examples/                  # Progressive tutorial examples
@@ -249,6 +249,17 @@ Configuration example:
 ### Unified Knowledge Graph
 
 The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, and 4 external connectors (Jira, Slack, Confluence, CI).
+
+### Skill Tier System
+
+Skills are classified into three tiers to preserve context. Only Tier 1 and Tier 2 skills are registered as slash commands; Tier 3 skills are discoverable via the `search_skills` MCP tool.
+
+- **Tier 1 (Workflow, 11 skills):** Always-loaded slash commands for core workflow — brainstorming, planning, execution, autopilot, tdd, debugging, refactoring, skill-authoring, onboarding, initialize-project, add-component.
+- **Tier 2 (Maintenance, 19 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification.
+- **Tier 3 (Catalog, 43 skills):** Discoverable on demand via `search_skills`. Includes domain skills (API design, database, deployment, containerization, etc.), design skills, i18n, and specialized testing.
+- **Internal (6 skills):** Dependency-only, never surfaced. Invoked by other skills as part of pipelines.
+
+The `search_skills` MCP tool (`packages/cli/src/mcp/tools/search-skills.ts`) queries a merged index of bundled + community skills. The index uses hash-based staleness detection. An intelligent dispatcher (`packages/cli/src/skill/dispatcher.ts`) suggests relevant Tier 3 skills when Tier 1 workflow skills start. Stack profile detection (`packages/cli/src/skill/stack-profile.ts`) identifies project technologies to bias suggestions. Configuration overrides in `harness.config.json` support `skills.alwaysSuggest`, `skills.neverSuggest`, and `skills.tierOverrides`.
 
 ### Community Skill Registry
 
