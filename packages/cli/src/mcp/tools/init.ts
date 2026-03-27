@@ -58,7 +58,7 @@ export async function handleInitProject(input: {
 
     const writeResult = engine.write(renderResult.value, safePath, {
       overwrite: false,
-      language,
+      ...(language !== undefined && { language }),
     });
 
     if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
