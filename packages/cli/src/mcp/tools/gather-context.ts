@@ -5,7 +5,7 @@ type IncludeKey = 'state' | 'learnings' | 'handoff' | 'graph' | 'validation' | '
 export const gatherContextDefinition = {
   name: 'gather_context',
   description:
-    'Assemble all working context an agent needs in a single call: state, learnings, handoff, graph context, and project validation. Runs constituents in parallel.',
+    'Assemble all working context an agent needs in a single call: state, learnings, handoff, graph context, project validation, and session sections. Runs constituents in parallel.',
   inputSchema: {
     type: 'object' as const,
     properties: {
