@@ -243,12 +243,25 @@ export const HarnessConfigSchema = z.object({
   /** Project template settings (used by 'harness init') */
   template: z
     .object({
-      /** Complexity level of the template */
-      level: z.enum(['basic', 'intermediate', 'advanced']),
+      /** Complexity level of the template (JS/TS only) */
+      level: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+      /** Target language */
+      language: z.enum(['typescript', 'python', 'go', 'rust', 'java']).optional(),
       /** Primary technology framework */
       framework: z.string().optional(),
       /** Template version */
       version: z.number(),
+      /** Language-specific tooling configuration */
+      tooling: z
+        .object({
+          packageManager: z.string().optional(),
+          linter: z.string().optional(),
+          formatter: z.string().optional(),
+          buildTool: z.string().optional(),
+          testRunner: z.string().optional(),
+          lockFile: z.string().optional(),
+        })
+        .optional(),
     })
     .optional(),
   /** Phase gate and readiness check configuration */

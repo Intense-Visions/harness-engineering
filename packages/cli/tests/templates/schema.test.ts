@@ -145,4 +145,33 @@ describe('HarnessConfigSchema template field', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts config with language and tooling in template', () => {
+    const result = HarnessConfigSchema.safeParse({
+      version: 1,
+      template: {
+        level: 'basic',
+        language: 'python',
+        framework: 'fastapi',
+        version: 1,
+        tooling: {
+          packageManager: 'pip',
+          linter: 'ruff',
+        },
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts config with language but no level (non-JS template)', () => {
+    const result = HarnessConfigSchema.safeParse({
+      version: 1,
+      template: {
+        language: 'go',
+        framework: 'gin',
+        version: 1,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
 });
