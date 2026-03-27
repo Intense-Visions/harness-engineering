@@ -1,0 +1,21 @@
+{
+  "name": "django",
+  "description": "Django web framework scaffold",
+  "version": 1,
+  "language": "python",
+  "framework": "django",
+  "extends": "python-base",
+  "tooling": {
+    "packageManager": "pip",
+    "linter": "ruff",
+    "formatter": "ruff",
+    "buildTool": "setuptools",
+    "testRunner": "pytest",
+    "lockFile": "requirements.txt"
+  },
+  "detect": [
+    { "file": "requirements.txt", "contains": "django" },
+    { "file": "pyproject.toml", "contains": "django" },
+    { "file": "manage.py", "contains": "django" }
+  ]
+}
