@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkEvidenceCoverage } from '../../src/review/evidence-gate';
+import { checkEvidenceCoverage, tagUncitedFindings } from '../../src/review/evidence-gate';
 import type { ReviewFinding } from '../../src/review/types';
 import type { SessionEntry } from '@harness-engineering/types';
 
@@ -113,5 +113,38 @@ describe('checkEvidenceCoverage()', () => {
     const evidence = [makeEvidence('src/auth.ts:40-45 -- range match')];
     const report = checkEvidenceCoverage(findings, evidence);
     expect(report.findingsWithEvidence).toBe(1);
+  });
+});
+
+describe('tagUncitedFindings()', () => {
+  it('prefixes uncited findings with [UNVERIFIED]', () => {
+    const findings = [
+      makeFinding({ file: 'src/auth.ts', lineRange: [40, 45], title: 'Missing null check' }),
+    ];
+    const evidence: SessionEntry[] = [];
+    tagUncitedFindings(findings, evidence);
+    expect(findings[0]!.title).toBe('[UNVERIFIED] Missing null check');
+  });
+
+  it('does not prefix findings that have matching evidence', () => {
+    const findings = [
+      makeFinding({ file: 'src/auth.ts', lineRange: [40, 45], title: 'Missing null check' }),
+    ];
+    const evidence = [makeEvidence('src/auth.ts:42 -- null check issue')];
+    tagUncitedFindings(findings, evidence);
+    expect(findings[0]!.title).toBe('Missing null check');
+  });
+
+  it('does not double-prefix already tagged findings', () => {
+    const findings = [makeFinding({ title: '[UNVERIFIED] Already tagged' })];
+    tagUncitedFindings(findings, []);
+    expect(findings[0]!.title).toBe('[UNVERIFIED] Already tagged');
+  });
+
+  it('mutates findings in place and returns them', () => {
+    const findings = [makeFinding({ title: 'Test' })];
+    const result = tagUncitedFindings(findings, []);
+    expect(result).toBe(findings);
+    expect(result[0]!.title).toMatch(/^\[UNVERIFIED\]/);
   });
 });
