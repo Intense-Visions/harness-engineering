@@ -8,6 +8,11 @@ import type {
   ReviewFinding,
   ContextBundle,
 } from '../../src/review/types';
+import { readSessionSection } from '../../src/state/session-sections';
+
+vi.mock('../../src/state/session-sections', () => ({
+  readSessionSection: vi.fn(),
+}));
 
 const DEFAULT_FLAGS: PipelineFlags = {
   comment: false,
@@ -278,6 +283,64 @@ describe('runReviewPipeline()', () => {
       expect(typeof result.terminalOutput).toBe('string');
       expect(Array.isArray(result.githubComments)).toBe(true);
       expect(typeof result.exitCode).toBe('number');
+    });
+  });
+
+  describe('Evidence Gate integration', () => {
+    it('skips evidence checking when no sessionSlug provided', async () => {
+      const result = await runReviewPipeline({
+        projectRoot: '/tmp/test',
+        diff: MINIMAL_DIFF,
+        commitMessage: 'feat: test',
+        flags: { ...DEFAULT_FLAGS, noMechanical: true },
+      });
+      expect(result.evidenceCoverage).toBeUndefined();
+    });
+
+    it('includes evidence coverage when sessionSlug is provided and evidence exists', async () => {
+      const mockReadSection = vi.mocked(readSessionSection);
+      mockReadSection.mockResolvedValueOnce({
+        ok: true,
+        value: [
+          {
+            id: 'ev-1',
+            timestamp: '2026-03-27T14:30:00Z',
+            authorSkill: 'harness-execution',
+            content: 'src/foo.ts:5 -- test evidence',
+            status: 'active',
+          },
+        ],
+      } as any);
+
+      const result = await runReviewPipeline({
+        projectRoot: '/tmp/test',
+        diff: MINIMAL_DIFF,
+        commitMessage: 'feat: test',
+        flags: { ...DEFAULT_FLAGS, noMechanical: true },
+        sessionSlug: 'test-session',
+      });
+
+      expect(result.evidenceCoverage).toBeDefined();
+      expect(result.evidenceCoverage!.totalEntries).toBe(1);
+    });
+
+    it('continues gracefully when session read fails', async () => {
+      const mockReadSection = vi.mocked(readSessionSection);
+      mockReadSection.mockResolvedValueOnce({
+        ok: false,
+        error: new Error('session not found'),
+      } as any);
+
+      const result = await runReviewPipeline({
+        projectRoot: '/tmp/test',
+        diff: MINIMAL_DIFF,
+        commitMessage: 'feat: test',
+        flags: { ...DEFAULT_FLAGS, noMechanical: true },
+        sessionSlug: 'nonexistent-session',
+      });
+
+      expect(result.evidenceCoverage).toBeUndefined();
+      expect(result.skipped).toBe(false);
     });
   });
 });
