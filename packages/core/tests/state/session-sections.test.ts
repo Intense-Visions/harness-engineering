@@ -8,6 +8,7 @@ import {
   appendSessionEntry,
   updateSessionEntryStatus,
 } from '../../src/state/session-sections';
+import { loadState, saveState } from '../../src/state/state-persistence';
 import type { SessionSections } from '@harness-engineering/types';
 
 describe('readSessionSections', () => {
@@ -281,6 +282,54 @@ describe('updateSessionEntryStatus', () => {
     if (allResult.ok) {
       expect(allResult.value[0].status).toBe('active');
       expect(allResult.value[1].status).toBe('superseded');
+    }
+  });
+});
+
+describe('backward compatibility', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-compat-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('loadState and saveState work unchanged alongside session sections', async () => {
+    // Save traditional state
+    const state = {
+      schemaVersion: 1 as const,
+      position: { phase: 'planning' },
+      decisions: [],
+      blockers: [],
+      progress: { 'task-1': 'complete' as const },
+    };
+    const saveResult = await saveState(tmpDir, state, undefined, 'test-session');
+    expect(saveResult.ok).toBe(true);
+
+    // Append session section entry in the same session
+    await appendSessionEntry(
+      tmpDir,
+      'test-session',
+      'decisions',
+      'harness-planning',
+      'Session decision'
+    );
+
+    // Verify traditional state is untouched
+    const loadResult = await loadState(tmpDir, undefined, 'test-session');
+    expect(loadResult.ok).toBe(true);
+    if (loadResult.ok) {
+      expect(loadResult.value.progress['task-1']).toBe('complete');
+    }
+
+    // Verify session sections work independently
+    const sectionsResult = await readSessionSections(tmpDir, 'test-session');
+    expect(sectionsResult.ok).toBe(true);
+    if (sectionsResult.ok) {
+      expect(sectionsResult.value.decisions).toHaveLength(1);
     }
   });
 });
