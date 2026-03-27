@@ -24,4 +24,32 @@ describe('template snapshots', () => {
       expect(fileMap).toMatchSnapshot();
     });
   }
+
+  const languageBases = [
+    { language: 'python', expectedFile: 'pyproject.toml' },
+    { language: 'go', expectedFile: 'go.mod' },
+    { language: 'rust', expectedFile: 'Cargo.toml' },
+    { language: 'java', expectedFile: 'pom.xml' },
+  ] as const;
+
+  for (const { language, expectedFile } of languageBases) {
+    it(`${language}-base template output matches snapshot`, () => {
+      const resolved = engine.resolveTemplate(undefined, undefined, language);
+      if (!resolved.ok) throw new Error(resolved.error.message);
+
+      const rendered = engine.render(resolved.value, {
+        projectName: 'snapshot-test',
+        language,
+      });
+      if (!rendered.ok) throw new Error(rendered.error.message);
+
+      const fileMap = Object.fromEntries(
+        rendered.value.files.map((f) => [f.relativePath, f.content])
+      );
+
+      // Verify key file exists before snapshot
+      expect(fileMap[expectedFile]).toBeDefined();
+      expect(fileMap).toMatchSnapshot();
+    });
+  }
 });
