@@ -138,6 +138,24 @@ Run mechanical checks to establish an exclusion boundary. Any issue caught mecha
 
 **Output:** A set of mechanical findings (file, line, tool, message). This set becomes the exclusion list for Phase 5.
 
+#### Evidence Gate (session-aware)
+
+When a `sessionSlug` is available (e.g., via autopilot dispatch or `--session` flag), the pipeline loads evidence entries from the session state and cross-references them with review findings:
+
+1. Load evidence entries: `readSessionSection(projectRoot, sessionSlug, 'evidence')`
+2. For each finding, check if any active evidence entry references the same file:line location
+3. Findings without matching evidence are tagged with `[UNVERIFIED]` prefix in their title
+4. An evidence coverage report is appended to the review output:
+   ```
+   Evidence Coverage:
+     Evidence entries: 12
+     Findings with evidence: 8/10
+     Uncited findings: 2 (flagged as [UNVERIFIED])
+     Coverage: 80%
+   ```
+
+When no session is available, evidence checking is skipped silently. This is not an error -- evidence checking enhances reviews but does not gate them.
+
 **Exit:** If any mechanical check fails (harness validate, typecheck, or tests), report the mechanical failures in Strengths/Issues/Assessment format and stop the pipeline. The code has fundamental issues that must be fixed before AI review adds value. Lint warnings and security scan findings do not stop the pipeline — they are recorded for exclusion only.
 
 ---
