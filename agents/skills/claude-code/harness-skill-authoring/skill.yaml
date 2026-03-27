@@ -26,6 +26,7 @@ mcp:
     skill: harness-skill-authoring
     path: string
 type: flexible
+tier: 1
 state:
   persistent: false
   files: []

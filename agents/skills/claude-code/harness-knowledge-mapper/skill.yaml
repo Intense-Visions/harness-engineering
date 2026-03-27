@@ -30,6 +30,7 @@ mcp:
     skill: harness-knowledge-mapper
     path: string
 type: rigid
+internal: true
 phases:
   - name: survey
     description: Query graph for module structure and topology

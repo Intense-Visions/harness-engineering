@@ -25,6 +25,7 @@ mcp:
     skill: harness-dependency-health
     path: string
 type: rigid
+tier: 2
 phases:
   - name: metrics
     description: Compute graph structural metrics

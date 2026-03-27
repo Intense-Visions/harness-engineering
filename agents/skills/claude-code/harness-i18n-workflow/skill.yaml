@@ -33,6 +33,7 @@ mcp:
     skill: harness-i18n-workflow
     path: string
 type: flexible
+tier: 3
 phases:
   - name: configure
     description: Set up i18n config in harness.config.json with opinionated defaults or guided customization

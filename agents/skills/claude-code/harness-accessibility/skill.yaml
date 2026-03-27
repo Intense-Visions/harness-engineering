@@ -31,6 +31,7 @@ mcp:
     skill: harness-accessibility
     path: string
 type: rigid
+tier: 3
 phases:
   - name: scan
     description: Scan codebase for accessibility issues (WCAG AA baseline)

@@ -27,6 +27,7 @@ mcp:
     skill: cleanup-dead-code
     path: string
 type: flexible
+tier: 2
 state:
   persistent: false
   files: []

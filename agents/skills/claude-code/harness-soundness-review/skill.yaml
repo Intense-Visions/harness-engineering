@@ -29,6 +29,7 @@ mcp:
     skill: harness-soundness-review
     path: string
 type: rigid
+tier: 2
 phases:
   - name: check
     description: Run all checks for the current mode and classify findings

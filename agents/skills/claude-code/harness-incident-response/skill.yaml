@@ -1,0 +1,78 @@
+name: harness-incident-response
+version: "1.0.0"
+description: Runbook generation, postmortem analysis, and SLO/SLA tracking
+cognitive_mode: diagnostic-investigator
+triggers:
+  - manual
+  - on_bug_fix
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-incident-response
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: mode
+      description: "Operating mode: runbook, postmortem, or slo. Auto-detected when omitted."
+      required: false
+    - name: severity
+      description: "Incident severity: sev1, sev2, sev3, sev4. Defaults to sev3."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-incident-response
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - incident
+  - runbook
+  - postmortem
+  - SLO
+  - SLA
+  - SLI
+  - on-call
+  - alert
+  - severity
+  - MTTR
+  - MTTD
+  - error budget
+  - incident management
+  - PagerDuty
+  - OpsGenie
+stack_signals:
+  - "runbooks/"
+  - "docs/runbooks/"
+  - "docs/incidents/"
+  - "docs/postmortems/"
+  - "slo.yaml"
+  - ".pagerduty*"
+phases:
+  - name: assess
+    description: Determine incident scope, severity, and affected services from available evidence
+    required: true
+  - name: investigate
+    description: Trace root cause through logs, metrics, dependencies, and recent changes
+    required: true
+  - name: document
+    description: Generate runbooks, postmortem reports, and timeline reconstructions
+    required: true
+  - name: improve
+    description: Propose SLO adjustments, alerting improvements, and preventive action items
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

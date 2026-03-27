@@ -1,0 +1,74 @@
+name: harness-test-data
+version: "1.0.0"
+description: Test factories, fixtures, database seeding, and test data isolation
+cognitive_mode: advisory-guide
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-test-data
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: pattern
+      description: "Data pattern: factory, fixture, builder, or seed. Auto-detected when omitted."
+      required: false
+    - name: model
+      description: "Target model or entity name for focused factory generation."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-test-data
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - test data
+  - factory
+  - fixture
+  - seed
+  - faker
+  - test database
+  - isolation
+  - cleanup
+  - test container
+  - builder pattern
+  - mother object
+stack_signals:
+  - "tests/factories/"
+  - "tests/fixtures/"
+  - "src/**/factories/**"
+  - "seeds/"
+  - "test-data/"
+  - "src/**/__fixtures__/"
+phases:
+  - name: detect
+    description: Identify data models, existing test data patterns, and database schema
+    required: true
+  - name: design
+    description: Choose factory pattern, define builder interfaces, and plan data relationships
+    required: true
+  - name: scaffold
+    description: Generate factories, fixtures, seed scripts, and cleanup utilities
+    required: true
+  - name: validate
+    description: Verify data isolation, cleanup correctness, and factory composability
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

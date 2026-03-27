@@ -72,6 +72,10 @@ export const SkillMetadataSchema = z.object({
   state: SkillStateSchema.default({}),
   depends_on: z.array(z.string()).default([]),
   repository: z.string().url().optional(),
+  tier: z.number().int().min(1).max(3).optional(),
+  internal: z.boolean().default(false),
+  keywords: z.array(z.string()).default([]),
+  stack_signals: z.array(z.string()).default([]),
 });
 
 export type SkillMetadata = z.infer<typeof SkillMetadataSchema>;

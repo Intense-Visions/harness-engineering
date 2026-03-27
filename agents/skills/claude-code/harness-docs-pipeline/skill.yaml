@@ -39,6 +39,7 @@ mcp:
     skill: harness-docs-pipeline
     path: string
 type: rigid
+tier: 2
 phases:
   - name: freshen
     description: Check graph freshness, detect AGENTS.md, trigger bootstrap if needed

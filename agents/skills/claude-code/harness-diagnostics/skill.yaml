@@ -30,6 +30,7 @@ mcp:
     skill: harness-diagnostics
     path: string
 type: rigid
+tier: 3
 phases:
   - name: classify
     description: Categorize the error into one of 7 taxonomy categories

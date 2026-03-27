@@ -28,6 +28,7 @@ mcp:
     skill: harness-planning
     path: string
 type: rigid
+tier: 1
 phases:
   - name: scope
     description: Define goals and constraints

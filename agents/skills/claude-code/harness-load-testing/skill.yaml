@@ -1,0 +1,79 @@
+name: harness-load-testing
+version: "1.0.0"
+description: Stress testing, capacity planning, and performance benchmarking with k6/Artillery/Gatling
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+  - on_milestone
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-load-testing
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: tool
+      description: "Load testing tool: k6, artillery, or gatling. Auto-detected when omitted."
+      required: false
+    - name: profile
+      description: "Test profile: smoke, load, stress, spike, or soak. Defaults to load."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-load-testing
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - load test
+  - stress test
+  - performance test
+  - k6
+  - Artillery
+  - Gatling
+  - JMeter
+  - throughput
+  - latency
+  - p99
+  - capacity planning
+  - benchmark
+  - soak test
+  - spike test
+stack_signals:
+  - "load-tests/"
+  - "k6/"
+  - "artillery/"
+  - "*.k6.js"
+  - "artillery.yml"
+  - "gatling/"
+  - "src/**/load-test*"
+  - "perf/"
+phases:
+  - name: detect
+    description: Identify existing load tests, tooling, endpoints, and performance baselines
+    required: true
+  - name: design
+    description: Define test scenarios, virtual user profiles, thresholds, and ramp-up stages
+    required: true
+  - name: execute
+    description: Run load tests and collect metrics for throughput, latency, and error rates
+    required: true
+  - name: analyze
+    description: Compare results against thresholds, identify bottlenecks, and produce capacity report
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-03-23
-last_synced: 2026-03-23
+updated: 2026-03-26
+last_synced: 2026-03-26
 last_manual_edit: 2026-03-23
 ---
 
@@ -455,11 +455,11 @@ last_manual_edit: 2026-03-23
 
 ### Efficient Context Pipeline
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/efficient-context-pipeline/proposal.md
 - **Summary:** Reduce token waste through session-scoped state, lean agent dispatch, token-budgeted learnings, session summaries, and a learnings-driven feedback loop
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-26-phase1-session-scoped-state-plan.md
 
 ## v3.0 Graph Intelligence
 
@@ -523,7 +523,7 @@ last_manual_edit: 2026-03-23
 
 ### harness:blueprint — Automated Architectural Learning
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/harness-blueprint/proposal.md
 - **Summary:** Generates interactive, offline-first HTML blueprints/courses of a codebase. Uses the Knowledge Graph for pedagogical ordering, impact-aware exercises, and code-to-English translations.
 - **Blockers:** none
@@ -539,11 +539,11 @@ last_manual_edit: 2026-03-23
 
 ### Constraint Sharing
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/constraint-sharing/proposal.md
 - **Summary:** Export constraint subsets from harness.config.json as shareable bundles; import and merge with per-rule provenance tracking. [H3]
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-24-constraint-sharing-types-plan.md
 
 ### Architecture Decay Timeline
 
@@ -733,12 +733,12 @@ last_manual_edit: 2026-03-23
 - **Blockers:** none
 - **Plan:** none
 
-### Missing Skill Domains
+### Domain Skill Tiers & Catalog System
 
-- **Status:** backlog
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Community-driven skills for deployment, database/migration, API design, monitoring/observability, auth patterns, caching, load testing, feature flags, incident response, and containerization. Prioritized by marketplace demand signals. [G1-G16]
-- **Blockers:** Skill Marketplace
+- **Status:** planned
+- **Spec:** docs/changes/domain-skill-tiers/proposal.md
+- **Summary:** Three-tier skill loading (23 always-loaded slash commands, 44+ catalog-only discoverable via search_skills, 6 dependency-only), intelligent dispatcher, and 30 new domain skills covering backend, infrastructure, reliability, auth, compliance, testing, soft domains, data engineering, ML/AI, and mobile. Cross-platform (Claude Code + Gemini CLI).
+- **Blockers:** none
 - **Plan:** none
 
 ### Platform Expansion

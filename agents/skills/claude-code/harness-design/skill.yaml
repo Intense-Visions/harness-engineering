@@ -33,6 +33,7 @@ mcp:
     skill: harness-design
     path: string
 type: flexible
+tier: 3
 phases:
   - name: intent
     description: Capture aesthetic intent, style, tone, and differentiator

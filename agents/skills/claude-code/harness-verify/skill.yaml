@@ -23,6 +23,7 @@ mcp:
     skill: harness-verify
     path: string
 type: rigid
+tier: 2
 cognitive_mode: meticulous-verifier
 phases:
   - name: detect

@@ -24,6 +24,7 @@ mcp:
     skill: harness-onboarding
     path: string
 type: flexible
+tier: 1
 state:
   persistent: false
   files: []

@@ -25,6 +25,7 @@ mcp:
     skill: harness-state-management
     path: string
 type: flexible
+internal: true
 state:
   persistent: true
   files:

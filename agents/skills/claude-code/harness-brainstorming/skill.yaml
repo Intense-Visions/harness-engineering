@@ -28,6 +28,7 @@ mcp:
     skill: harness-brainstorming
     path: string
 type: rigid
+tier: 1
 phases:
   - name: explore
     description: Generate ideas and possibilities

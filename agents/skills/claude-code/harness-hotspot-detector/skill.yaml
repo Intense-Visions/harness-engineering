@@ -25,6 +25,7 @@ mcp:
     skill: harness-hotspot-detector
     path: string
 type: rigid
+tier: 2
 phases:
   - name: co-change
     description: Analyze co-change patterns from git history

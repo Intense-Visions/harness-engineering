@@ -31,6 +31,7 @@ mcp:
     skill: harness-release-readiness
     path: string
 type: rigid
+tier: 2
 phases:
   - name: audit
     description: Run release-specific checks (packaging, docs, repo hygiene, CI/CD)

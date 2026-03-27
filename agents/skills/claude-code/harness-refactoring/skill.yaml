@@ -27,6 +27,7 @@ mcp:
     skill: harness-refactoring
     path: string
 type: flexible
+tier: 1
 state:
   persistent: false
   files: []

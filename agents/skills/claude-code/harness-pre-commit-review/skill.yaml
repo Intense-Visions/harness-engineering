@@ -16,6 +16,7 @@ mcp:
     skill: harness-pre-commit-review
     path: string
 type: rigid
+tier: 3
 phases:
   - name: mechanical-checks
     description: Run deterministic checks (lint, typecheck, tests)

@@ -1,0 +1,73 @@
+name: harness-caching
+version: "1.0.0"
+description: Cache strategies, invalidation patterns, and distributed caching
+cognitive_mode: advisory-guide
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-caching
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: strategy
+      description: "Cache strategy: cache-aside, write-through, write-behind, read-through. All evaluated when omitted."
+      required: false
+    - name: backend
+      description: "Cache backend: redis, memcached, in-memory. Auto-detected when omitted."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-caching
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - cache
+  - Redis
+  - Memcached
+  - CDN
+  - invalidation
+  - TTL
+  - cache-aside
+  - write-through
+  - write-behind
+  - memoization
+  - HTTP cache
+  - ETag
+stack_signals:
+  - "redis.config.*"
+  - "src/**/cache/**"
+  - "src/**/*cache*"
+  - "docker-compose.*redis*"
+  - "docker-compose.*memcached*"
+phases:
+  - name: detect
+    description: Identify existing cache usage, backends, and access patterns
+    required: true
+  - name: analyze
+    description: Evaluate cache hit ratios, TTL policies, and invalidation correctness
+    required: true
+  - name: design
+    description: Recommend cache strategies, key schemas, and eviction policies
+    required: true
+  - name: validate
+    description: Verify cache consistency, thundering herd protection, and failure modes
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

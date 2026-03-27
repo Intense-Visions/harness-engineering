@@ -29,6 +29,7 @@ mcp:
     skill: harness-autopilot
     path: string
 type: rigid
+tier: 1
 phases:
   - name: init
     description: Load spec, identify phases, restore state if resuming

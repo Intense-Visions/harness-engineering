@@ -28,6 +28,7 @@ mcp:
     skill: harness-integrity
     path: string
 type: rigid
+tier: 2
 cognitive_mode: meticulous-verifier
 phases:
   - name: verify

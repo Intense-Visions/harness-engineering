@@ -1,0 +1,78 @@
+name: harness-compliance
+version: "1.0.0"
+description: SOC2, HIPAA, GDPR compliance checks, audit trails, and regulatory checklists
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+  - on_milestone
+  - on_pr
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-compliance
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: framework
+      description: "Compliance framework: soc2, hipaa, gdpr, pci-dss, or all. Defaults to all detected."
+      required: false
+    - name: scope
+      description: "Audit scope: full, changed-only, or data-flows. Defaults to full."
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-compliance
+    path: string
+type: rigid
+tier: 3
+internal: false
+keywords:
+  - compliance
+  - SOC2
+  - HIPAA
+  - GDPR
+  - PCI-DSS
+  - audit trail
+  - data retention
+  - privacy
+  - PII
+  - data classification
+  - right to deletion
+  - consent
+  - DPA
+stack_signals:
+  - "docs/compliance/"
+  - "audit/"
+  - "src/**/audit/**"
+  - "src/**/*gdpr*"
+  - "src/**/*privacy*"
+  - "SECURITY.md"
+  - "PRIVACY.md"
+phases:
+  - name: scan
+    description: Detect applicable compliance frameworks and inventory data handling patterns
+    required: true
+  - name: classify
+    description: Classify data by sensitivity, identify PII flows, and map regulatory scope
+    required: true
+  - name: audit
+    description: Check implementation against framework-specific control requirements
+    required: true
+  - name: report
+    description: Generate compliance gap analysis, remediation plan, and audit-ready documentation
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

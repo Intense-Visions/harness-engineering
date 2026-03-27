@@ -261,6 +261,17 @@ export const HarnessConfigSchema = z.object({
   review: ReviewConfigSchema.optional(),
   /** General architectural enforcement settings */
   architecture: ArchConfigSchema.optional(),
+  /** Skill loading, suggestion, and tier override settings */
+  skills: z
+    .object({
+      /** Skills to always suggest in the dispatcher, regardless of scoring */
+      alwaysSuggest: z.array(z.string()).default([]),
+      /** Skills to never suggest in the dispatcher, even if they score highly */
+      neverSuggest: z.array(z.string()).default([]),
+      /** Override the tier of specific skills (e.g., promote a Tier 3 skill to Tier 2) */
+      tierOverrides: z.record(z.string(), z.number().int().min(1).max(3)).default({}),
+    })
+    .optional(),
   /** How often (in ms) to check for CLI updates */
   updateCheckInterval: z.number().int().min(0).optional(),
 });

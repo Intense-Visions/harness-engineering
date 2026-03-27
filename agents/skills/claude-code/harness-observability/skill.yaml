@@ -1,0 +1,78 @@
+name: harness-observability
+version: "1.0.0"
+description: Structured logging, metrics, distributed tracing, and alerting strategies
+cognitive_mode: advisory-guide
+tier: 3
+internal: false
+keywords:
+  - logging
+  - metrics
+  - tracing
+  - observability
+  - OpenTelemetry
+  - Prometheus
+  - Grafana
+  - Datadog
+  - alerting
+  - SLI
+  - SLO
+  - structured logging
+  - correlation ID
+  - spans
+stack_signals:
+  - "src/**/logger*"
+  - "src/**/metrics*"
+  - "src/**/tracing*"
+  - "otel-collector*"
+  - "prometheus.yml"
+  - "grafana/"
+  - "datadog.yaml"
+triggers:
+  - manual
+  - on_new_feature
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-observability
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: pillar
+      description: Observability pillar to focus on (logging, metrics, tracing, all)
+      required: false
+    - name: provider
+      description: Observability provider context (otel, datadog, prometheus)
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-observability
+    path: string
+type: rigid
+phases:
+  - name: detect
+    description: Identify existing observability instrumentation and providers
+    required: true
+  - name: audit
+    description: Evaluate coverage gaps across logging, metrics, and tracing
+    required: true
+  - name: design
+    description: Recommend instrumentation strategy and SLI/SLO definitions
+    required: true
+  - name: validate
+    description: Verify instrumentation correctness and alerting configuration
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

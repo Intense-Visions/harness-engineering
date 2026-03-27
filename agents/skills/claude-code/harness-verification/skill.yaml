@@ -26,6 +26,7 @@ mcp:
     skill: harness-verification
     path: string
 type: rigid
+tier: 2
 phases:
   - name: check
     description: Run all harness validation commands

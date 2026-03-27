@@ -116,6 +116,7 @@ import {
   detectStaleConstraintsDefinition,
   handleDetectStaleConstraints,
 } from './tools/stale-constraints.js';
+import { searchSkillsDefinition, handleSearchSkills } from './tools/search-skills.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -168,6 +169,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   checkTaskIndependenceDefinition,
   predictConflictsDefinition,
   detectStaleConstraintsDefinition,
+  searchSkillsDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -215,6 +217,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   check_task_independence: handleCheckTaskIndependence as ToolHandler,
   predict_conflicts: handlePredictConflicts as ToolHandler,
   detect_stale_constraints: handleDetectStaleConstraints as ToolHandler,
+  search_skills: handleSearchSkills as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

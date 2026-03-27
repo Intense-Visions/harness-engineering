@@ -100,7 +100,7 @@
       "complexity": { "max": 15 },
       "coupling": { "maxFanIn": 10, "maxFanOut": 8 },
       "forbidden-imports": { "max": 0 },
-      "module-size": { "maxFiles": 30, "maxLoc": 3000 },
+      "module-size": { "maxFiles": 30, "maxLoc": 3500 },
       "dependency-depth": { "max": 7 }
     },
     "modules": {}

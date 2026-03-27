@@ -24,6 +24,7 @@ mcp:
     skill: check-mechanical-constraints
     path: string
 type: rigid
+internal: true
 state:
   persistent: false
   files: []

@@ -24,6 +24,7 @@ mcp:
     skill: detect-doc-drift
     path: string
 type: flexible
+tier: 2
 state:
   persistent: false
   files: []
