@@ -345,6 +345,23 @@ These are non-negotiable. When any condition is met, stop immediately.
 
 - **Three consecutive failures on the same task.** After 3 attempts, the task design is likely wrong. Stop. Report: "Task N has failed 3 times. Root cause: [analysis]. The plan may need revision."
 
+## Session State
+
+This skill reads and writes to the following session sections via `manage_state`:
+
+| Section       | Read | Write | Purpose                                                                               |
+| ------------- | ---- | ----- | ------------------------------------------------------------------------------------- |
+| terminology   | yes  | yes   | Reads domain terms for consistent naming; adds terms discovered during implementation |
+| decisions     | yes  | yes   | Reads planning decisions for context; records implementation decisions                |
+| constraints   | yes  | yes   | Reads constraints to respect boundaries; adds constraints discovered during coding    |
+| risks         | yes  | yes   | Reads risks for awareness; updates risk status as mitigated or realized               |
+| openQuestions | yes  | yes   | Reads questions for context; resolves questions answered by implementation            |
+| evidence      | yes  | yes   | Reads prior evidence; writes file:line citations, test outputs, and diff references   |
+
+**When to write:** After each task completion, append relevant entries. Evidence entries should be written for every significant technical assertion (test result, file reference, performance measurement). Mark openQuestions as resolved when implementation answers them.
+
+**When to read:** During Phase 1 (PREPARE), read all sections via `gather_context` with `include: ["sessions"]` to inherit full accumulated context from brainstorming and planning.
+
 ## Harness Integration
 
 - **`harness validate`** — Run after every task completion. Mandatory. No task is complete without a passing validation.
