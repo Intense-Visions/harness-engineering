@@ -44,6 +44,33 @@ describe('runInit', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
+  it('returns detected framework when no --framework or --language specified on existing project', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+    fs.writeFileSync(path.join(tmpDir, 'requirements.txt'), 'fastapi==0.100.0\nuvicorn\n');
+    fs.writeFileSync(
+      path.join(tmpDir, 'pyproject.toml'),
+      '[project]\ndependencies = ["fastapi"]\n'
+    );
+
+    const result = await runInit({ cwd: tmpDir, name: 'detect-test' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.detectedFrameworks).toBeDefined();
+    expect(result.value.detectedFrameworks!.length).toBeGreaterThan(0);
+    expect(result.value.detectedFrameworks![0].framework).toBe('fastapi');
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('does not run detection when --framework is specified', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const result = await runInit({ cwd: tmpDir, name: 'test', language: 'python' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.detectedFrameworks).toBeUndefined();
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
   it('rejects already initialized project without --force', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     fs.writeFileSync(path.join(tmpDir, 'harness.config.json'), '{}');
