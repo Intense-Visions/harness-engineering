@@ -218,7 +218,7 @@ Phase 1: SCAN
   Scanned: 86 files
   Findings: 4
 
-  CRITICAL: src/payments/stripe.ts:5 -- sk_live_4eC39HqLyjWDarjtT1zdp7dc
+  CRITICAL: src/payments/stripe.ts:5 -- sk_live_EXAMPLE_KEY_REDACTED_0000
   HIGH: docker-compose.yml:22 -- POSTGRES_PASSWORD=supersecret
   MEDIUM: src/config/jwt.ts:3 -- JWT_SECRET = "my-jwt-secret-key"
   LOW: tests/fixtures/auth.ts:8 -- fake-api-key-for-testing (false positive)
