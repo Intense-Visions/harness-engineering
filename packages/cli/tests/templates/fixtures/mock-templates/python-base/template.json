@@ -1,0 +1,11 @@
+{
+  "name": "python-base",
+  "description": "Python language base",
+  "version": 1,
+  "language": "python",
+  "tooling": {
+    "packageManager": "pip",
+    "linter": "ruff",
+    "testRunner": "pytest"
+  }
+}
