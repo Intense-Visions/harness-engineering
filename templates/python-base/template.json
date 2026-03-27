@@ -1,0 +1,13 @@
+{
+  "name": "python-base",
+  "description": "Python language base scaffold with Ruff linting and pytest",
+  "version": 1,
+  "language": "python",
+  "tooling": {
+    "packageManager": "pip",
+    "linter": "ruff",
+    "formatter": "ruff",
+    "testRunner": "pytest"
+  },
+  "mergeStrategy": { "json": "deep-merge", "files": "overlay-wins" }
+}
