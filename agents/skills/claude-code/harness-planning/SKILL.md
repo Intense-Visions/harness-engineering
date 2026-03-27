@@ -312,6 +312,23 @@ One sentence.
 
 ````
 
+## Session State
+
+This skill reads and writes to the following session sections via `manage_state`:
+
+| Section | Read | Write | Purpose |
+|---------|------|-------|---------|
+| terminology | yes | no | Reads domain terms to use consistent language in plan |
+| decisions | yes | yes | Reads brainstorming decisions; records planning-phase decisions |
+| constraints | yes | yes | Reads existing constraints; adds constraints discovered during decomposition |
+| risks | yes | yes | Reads existing risks; adds implementation risks identified during task design |
+| openQuestions | yes | yes | Reads unresolved questions; adds new questions, resolves answered ones |
+| evidence | no | no | Not used by this skill |
+
+**When to write:** During Phase 1 (SCOPE) write newly discovered constraints and risks. During Phase 2 (DECOMPOSE) write decisions about task structure and sequencing. Mark resolved questions during Phase 4 (VALIDATE).
+
+**When to read:** At the start of Phase 1 (SCOPE), read all sections via `gather_context` with `include: ["sessions"]` to inherit context from brainstorming. Use terminology for consistent naming in task descriptions.
+
 ## Harness Integration
 
 - **`harness validate`** — Run during Phase 4 (before writing the plan) and included as a step in every task.
