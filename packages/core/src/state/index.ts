@@ -86,3 +86,18 @@ export { resolveSessionDir, updateSessionIndex } from './session-resolver';
  */
 export { writeSessionSummary, loadSessionSummary, listActiveSessions } from './session-summary';
 export type { SessionSummaryData } from './session-summary';
+
+/**
+ * Session section persistence for accumulative cross-skill state.
+ */
+export {
+  readSessionSections,
+  readSessionSection,
+  appendSessionEntry,
+  updateSessionEntryStatus,
+} from './session-sections';
+
+/**
+ * Session archival for preserving previous session state.
+ */
+export { archiveSession } from './session-archive';
