@@ -628,6 +628,32 @@ _This section is not part of the pipeline. It documents the process for respondi
 
 ---
 
+## Evidence Requirements
+
+When this skill produces review findings, every finding MUST include evidence citations. The `ReviewFinding.evidence` array field already exists in the finding schema -- this section defines the citation standard for populating it.
+
+Every review finding MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/api/routes/users.ts:12-15` -- "direct import from db/queries.ts bypasses service layer")
+2. **Diff evidence:** Before/after code from the PR diff with file path and line numbers
+3. **Dependency chain:** Import path showing the violation (e.g., `routes/users.ts:3 imports db/queries.ts` -- "violates routes -> services -> db layer direction")
+4. **Test evidence:** Include test command and output when findings relate to missing or failing tests
+5. **Convention reference:** Cite the specific convention file and rule (e.g., `AGENTS.md:45` -- "convention requires services layer between routes and db")
+6. **Session evidence:** Write significant findings to the `evidence` session section:
+   ```json
+   manage_state({
+     action: "append_entry",
+     session: "<current-session>",
+     section: "evidence",
+     authorSkill: "harness-code-review",
+     content: "src/api/routes/users.ts:12-15 -- layer violation: direct import from db/queries.ts"
+   })
+   ```
+
+**When to cite:** In Phase 4 (FAN-OUT), each subagent populates the `evidence` array in every `ReviewFinding`. In Phase 5 (VALIDATE), evidence is used to verify reachability claims. In Phase 7 (OUTPUT), every issue in the review includes its file:line location and rationale backed by evidence.
+
+**Uncited claims:** Review findings without evidence in the `evidence` array are discarded during Phase 5 (VALIDATE). Observations that cannot be tied to specific file:line references MUST be prefixed with `[UNVERIFIED]` and downgraded to `severity: 'suggestion'`.
+
 ## Harness Integration
 
 - **`assess_project`** — Used in Phase 2 (MECHANICAL) to run `validate`, `deps`, and `docs` checks in parallel. Must pass for the pipeline to continue to AI review. Failures are Critical issues that stop the pipeline.
