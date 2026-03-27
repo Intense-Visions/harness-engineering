@@ -23,6 +23,11 @@ export const manageStateDefinition = {
           'gate',
           'save-handoff',
           'load-handoff',
+          'append_entry',
+          'update_entry_status',
+          'read_section',
+          'read_sections',
+          'archive_session',
         ],
         description: 'Action to perform',
       },
@@ -40,6 +45,28 @@ export const manageStateDefinition = {
         type: 'string',
         description:
           'Session slug for session-scoped state (takes priority over stream when provided)',
+      },
+      section: {
+        type: 'string',
+        description:
+          'Session section name (terminology, decisions, constraints, risks, openQuestions, evidence)',
+      },
+      authorSkill: {
+        type: 'string',
+        description: 'Name of the skill authoring the entry (required for append_entry)',
+      },
+      content: {
+        type: 'string',
+        description: 'Entry content text (required for append_entry)',
+      },
+      entryId: {
+        type: 'string',
+        description: 'ID of the entry to update (required for update_entry_status)',
+      },
+      newStatus: {
+        type: 'string',
+        description:
+          'New status for the entry: active, resolved, or superseded (required for update_entry_status)',
       },
     },
     required: ['path', 'action'],
@@ -59,6 +86,11 @@ type StateInput = {
   handoff?: unknown;
   stream?: string;
   session?: string;
+  section?: string;
+  authorSkill?: string;
+  content?: string;
+  entryId?: string;
+  newStatus?: string;
 };
 
 async function handleShow(projectPath: string, input: StateInput) {
