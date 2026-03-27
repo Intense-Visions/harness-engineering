@@ -137,6 +137,20 @@ export class TemplateEngine {
   }
 
   render(template: ResolvedTemplate, context: TemplateContext): Result<RenderedFiles, Error> {
+    // Provide language-specific defaults for optional Handlebars variables
+    const effectiveContext: TemplateContext = {
+      ...context,
+      ...(context.language === 'python' &&
+        context.pythonMinVersion === undefined && { pythonMinVersion: '3.10' }),
+      ...(context.language === 'go' &&
+        context.goModulePath === undefined && {
+          goModulePath: `github.com/example/${context.projectName}`,
+        }),
+      ...(context.language === 'java' &&
+        context.javaGroupId === undefined && { javaGroupId: `com.example.${context.projectName}` }),
+      ...(context.language === 'rust' &&
+        context.rustEdition === undefined && { rustEdition: '2021' }),
+    };
     const rendered: RenderedFile[] = [];
     const jsonBuffers = new Map<string, Record<string, unknown>[]>();
 
@@ -146,7 +160,7 @@ export class TemplateEngine {
         try {
           const raw = fs.readFileSync(file.absolutePath, 'utf-8');
           const compiled = Handlebars.compile(raw, { strict: true });
-          const content = compiled(context);
+          const content = compiled(effectiveContext);
           if (outputPath.endsWith('.json') && file.relativePath.endsWith('.json.hbs')) {
             if (!jsonBuffers.has(outputPath)) jsonBuffers.set(outputPath, []);
             jsonBuffers.get(outputPath)!.push(JSON.parse(content));
@@ -329,7 +343,6 @@ export class TemplateEngine {
         return path.join(this.templatesDir, entry.name);
       if (type === 'name' && parsed.data.name === name)
         return path.join(this.templatesDir, entry.name);
-      if (parsed.data.name === name) return path.join(this.templatesDir, entry.name);
     }
     return null;
   }

@@ -40,30 +40,28 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const templatesDir = resolveTemplatesDir();
   const engine = new TemplateEngine(templatesDir);
 
+  // Load template list once for conflict validation and language inference
+  const templates = engine.listTemplates();
+  const templateList = templates.ok ? templates.value : [];
+
   // Validate --framework / --language conflict
   if (options.framework && options.language) {
-    const templates = engine.listTemplates();
-    if (templates.ok) {
-      const fwTemplate = templates.value.find((t) => t.framework === options.framework);
-      if (fwTemplate?.language && fwTemplate.language !== options.language) {
-        return Err(
-          new CLIError(
-            `Framework "${options.framework}" is a ${fwTemplate.language} framework, but --language ${options.language} was specified. Remove --language or use --language ${fwTemplate.language}.`,
-            ExitCode.ERROR
-          )
-        );
-      }
+    const fwTemplate = templateList.find((t) => t.framework === options.framework);
+    if (fwTemplate?.language && fwTemplate.language !== options.language) {
+      return Err(
+        new CLIError(
+          `Framework "${options.framework}" is a ${fwTemplate.language} framework, but --language ${options.language} was specified. Remove --language or use --language ${fwTemplate.language}.`,
+          ExitCode.ERROR
+        )
+      );
     }
   }
 
   // Determine language: explicit, inferred from framework, or default typescript
   let language = options.language;
   if (!language && options.framework) {
-    const templates = engine.listTemplates();
-    if (templates.ok) {
-      const fwTemplate = templates.value.find((t) => t.framework === options.framework);
-      if (fwTemplate?.language) language = fwTemplate.language;
-    }
+    const fwTemplate = templateList.find((t) => t.framework === options.framework);
+    if (fwTemplate?.language) language = fwTemplate.language;
   }
 
   // Level is required for JS/TS, optional for other languages
@@ -85,7 +83,10 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));
   }
 
-  const writeResult = engine.write(renderResult.value, cwd, { overwrite: force, language });
+  const writeResult = engine.write(renderResult.value, cwd, {
+    overwrite: force,
+    ...(language !== undefined && { language }),
+  });
   if (!writeResult.ok) {
     return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
   }
