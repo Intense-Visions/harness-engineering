@@ -259,6 +259,23 @@ For each proposed approach, evaluate from each perspective:
 
 Converge on a recommendation that addresses all concerns before presenting the design.
 
+## Session State
+
+This skill reads and writes to the following session sections via `manage_state`:
+
+| Section       | Read | Write | Purpose                                               |
+| ------------- | ---- | ----- | ----------------------------------------------------- |
+| terminology   | yes  | yes   | Captures domain terms discovered during brainstorming |
+| decisions     | no   | yes   | Records design decisions made during exploration      |
+| constraints   | yes  | no    | Reads constraints to scope brainstorming              |
+| risks         | no   | yes   | Captures risks identified during brainstorming        |
+| openQuestions | yes  | yes   | Adds new questions, resolves answered ones            |
+| evidence      | no   | no    | Not used by this skill                                |
+
+**When to write:** After each phase transition (EXPLORE -> EVALUATE -> PRIORITIZE -> VALIDATE), append relevant entries to the appropriate sections. This ensures downstream skills (planning, execution) inherit accumulated context without re-discovery.
+
+**When to read:** At the start of Phase 1 (EXPLORE), read `terminology` and `constraints` from the session to inherit context from prior skills or previous brainstorming sessions on the same feature.
+
 ## Harness Integration
 
 - **`harness validate`** — Run after writing the spec to `docs/`. Verifies project health and that the new spec file is properly placed.
