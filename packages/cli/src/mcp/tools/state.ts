@@ -165,6 +165,66 @@ async function handleLoadHandoff(projectPath: string, input: StateInput) {
   return resultToMcpResponse(await loadHandoff(projectPath, input.stream, input.session));
 }
 
+async function handleAppendEntry(projectPath: string, input: StateInput) {
+  if (!input.session) return mcpError('Error: session is required for append_entry action');
+  if (!input.section) return mcpError('Error: section is required for append_entry action');
+  if (!input.authorSkill) return mcpError('Error: authorSkill is required for append_entry action');
+  if (!input.content) return mcpError('Error: content is required for append_entry action');
+  const { appendSessionEntry } = await import('@harness-engineering/core');
+  const result = await appendSessionEntry(
+    projectPath,
+    input.session,
+    input.section as import('@harness-engineering/types').SessionSectionName,
+    input.authorSkill,
+    input.content
+  );
+  return resultToMcpResponse(result);
+}
+
+async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
+  if (!input.session) return mcpError('Error: session is required for update_entry_status action');
+  if (!input.section) return mcpError('Error: section is required for update_entry_status action');
+  if (!input.entryId) return mcpError('Error: entryId is required for update_entry_status action');
+  if (!input.newStatus)
+    return mcpError('Error: newStatus is required for update_entry_status action');
+  const { updateSessionEntryStatus } = await import('@harness-engineering/core');
+  const result = await updateSessionEntryStatus(
+    projectPath,
+    input.session,
+    input.section as import('@harness-engineering/types').SessionSectionName,
+    input.entryId,
+    input.newStatus as import('@harness-engineering/types').SessionEntryStatus
+  );
+  return resultToMcpResponse(result);
+}
+
+async function handleReadSection(projectPath: string, input: StateInput) {
+  if (!input.session) return mcpError('Error: session is required for read_section action');
+  if (!input.section) return mcpError('Error: section is required for read_section action');
+  const { readSessionSection } = await import('@harness-engineering/core');
+  const result = await readSessionSection(
+    projectPath,
+    input.session,
+    input.section as import('@harness-engineering/types').SessionSectionName
+  );
+  return resultToMcpResponse(result);
+}
+
+async function handleReadSections(projectPath: string, input: StateInput) {
+  if (!input.session) return mcpError('Error: session is required for read_sections action');
+  const { readSessionSections } = await import('@harness-engineering/core');
+  const result = await readSessionSections(projectPath, input.session);
+  return resultToMcpResponse(result);
+}
+
+async function handleArchiveSession(projectPath: string, input: StateInput) {
+  if (!input.session) return mcpError('Error: session is required for archive_session action');
+  const { archiveSession } = await import('@harness-engineering/core');
+  const result = await archiveSession(projectPath, input.session);
+  if (!result.ok) return resultToMcpResponse(result);
+  return resultToMcpResponse(Ok({ archived: true }));
+}
+
 const ACTION_HANDLERS: Record<
   string,
   (projectPath: string, input: StateInput) => Promise<McpResponse>
@@ -177,6 +237,11 @@ const ACTION_HANDLERS: Record<
   gate: handleGate,
   'save-handoff': handleSaveHandoff,
   'load-handoff': handleLoadHandoff,
+  append_entry: handleAppendEntry,
+  update_entry_status: handleUpdateEntryStatus,
+  read_section: handleReadSection,
+  read_sections: handleReadSections,
+  archive_session: handleArchiveSession,
 };
 
 export async function handleManageState(input: StateInput) {
