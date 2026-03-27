@@ -907,4 +907,115 @@ describe('TemplateEngine', () => {
       }
     });
   });
+
+  describe('Non-JS framework auto-detection (production templates)', () => {
+    const PROD_TEMPLATES = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
+    let prodEngine: TemplateEngine;
+
+    beforeEach(() => {
+      prodEngine = new TemplateEngine(PROD_TEMPLATES);
+    });
+
+    it('detects fastapi from requirements.txt', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(path.join(tmpDir, 'requirements.txt'), 'fastapi==0.100.0\nuvicorn\n');
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('fastapi');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects django from requirements.txt', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(path.join(tmpDir, 'requirements.txt'), 'django>=4.2\n');
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('django');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects django from manage.py', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(path.join(tmpDir, 'manage.py'), '#!/usr/bin/env python\nimport django\n');
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('django');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects gin from go.mod', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'go.mod'),
+        'module example.com/app\n\ngo 1.21\n\nrequire github.com/gin-gonic/gin v1.9.1\n'
+      );
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('gin');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects axum from Cargo.toml', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'Cargo.toml'),
+        '[package]\nname = "test"\n\n[dependencies]\naxum = "0.7"\ntokio = "1"\n'
+      );
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('axum');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('detects spring-boot from pom.xml', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'pom.xml'),
+        '<project><parent><artifactId>spring-boot-starter-parent</artifactId></parent></project>'
+      );
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const names = result.value.map((c) => c.framework);
+      expect(names).toContain('spring-boot');
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+
+    it('scores django higher with multiple matching files', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-detect-'));
+      fs.writeFileSync(path.join(tmpDir, 'requirements.txt'), 'django>=4.2\n');
+      fs.writeFileSync(path.join(tmpDir, 'manage.py'), '#!/usr/bin/env python\nimport django\n');
+
+      const result = prodEngine.detectFramework(tmpDir);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const django = result.value.find((c) => c.framework === 'django');
+      expect(django).toBeDefined();
+      expect(django!.score).toBe(2);
+
+      fs.rmSync(tmpDir, { recursive: true });
+    });
+  });
 });
