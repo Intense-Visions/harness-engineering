@@ -84,6 +84,23 @@ function prompt(question: string): Promise<string> {
   });
 }
 
+async function offerRegeneration(): Promise<void> {
+  console.log('');
+  const regenAnswer = await prompt('Regenerate slash commands and agent definitions? (Y/n) ');
+  if (regenAnswer === 'n' || regenAnswer === 'no') return;
+
+  const scopeAnswer = await prompt('Generate for (G)lobal or (l)ocal project? (G/l) ');
+  const isGlobal = scopeAnswer !== 'l' && scopeAnswer !== 'local';
+  try {
+    execFileSync('harness', ['generate', ...(isGlobal ? ['--global'] : [])], {
+      stdio: 'inherit',
+    });
+  } catch {
+    logger.warn('Generation failed. Run manually:');
+    console.log(`  ${chalk.cyan(`harness generate${isGlobal ? ' --global' : ''}`)}`);
+  }
+}
+
 export function createUpdateCommand(): Command {
   return new Command('update')
     .description('Update all @harness-engineering packages to the latest version')
@@ -155,20 +172,7 @@ export function createUpdateCommand(): Command {
       }
 
       // 6. Post-update: offer to regenerate slash commands + agent definitions
-      console.log('');
-      const regenAnswer = await prompt('Regenerate slash commands and agent definitions? (Y/n) ');
-      if (regenAnswer !== 'n' && regenAnswer !== 'no') {
-        const scopeAnswer = await prompt('Generate for (G)lobal or (l)ocal project? (G/l) ');
-        const isGlobal = scopeAnswer !== 'l' && scopeAnswer !== 'local';
-        try {
-          execFileSync('harness', ['generate', ...(isGlobal ? ['--global'] : [])], {
-            stdio: 'inherit',
-          });
-        } catch {
-          logger.warn('Generation failed. Run manually:');
-          console.log(`  ${chalk.cyan(`harness generate${isGlobal ? ' --global' : ''}`)}`);
-        }
-      }
+      await offerRegeneration();
 
       process.exit(ExitCode.SUCCESS);
     });

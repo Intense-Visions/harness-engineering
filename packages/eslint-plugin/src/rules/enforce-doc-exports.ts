@@ -59,31 +59,39 @@ export default createRule<Options, MessageIds>({
       }
     }
 
+    function getExportInfo(decl: TSESTree.Node): Array<{ kind: string; name: string }> {
+      const declType = decl.type as AST_NODE_TYPES;
+
+      if (declType === AST_NODE_TYPES.FunctionDeclaration) {
+        const fn = decl as TSESTree.FunctionDeclaration;
+        return fn.id ? [{ kind: 'function', name: fn.id.name }] : [];
+      }
+      if (declType === AST_NODE_TYPES.ClassDeclaration) {
+        const cls = decl as TSESTree.ClassDeclaration;
+        return cls.id ? [{ kind: 'class', name: cls.id.name }] : [];
+      }
+      if (declType === AST_NODE_TYPES.VariableDeclaration) {
+        const varDecl = decl as TSESTree.VariableDeclaration;
+        return varDecl.declarations
+          .filter((d) => (d.id.type as AST_NODE_TYPES) === AST_NODE_TYPES.Identifier)
+          .map((d) => ({ kind: 'variable', name: (d.id as TSESTree.Identifier).name }));
+      }
+      if (declType === AST_NODE_TYPES.TSTypeAliasDeclaration && !options.ignoreTypes) {
+        return [{ kind: 'type', name: (decl as TSESTree.TSTypeAliasDeclaration).id.name }];
+      }
+      if (declType === AST_NODE_TYPES.TSInterfaceDeclaration && !options.ignoreTypes) {
+        return [{ kind: 'interface', name: (decl as TSESTree.TSInterfaceDeclaration).id.name }];
+      }
+      return [];
+    }
+
     return {
       ExportNamedDeclaration(node) {
         const decl = node.declaration;
         if (!decl) return;
 
-        const declType = decl.type as AST_NODE_TYPES;
-        if (declType === AST_NODE_TYPES.FunctionDeclaration) {
-          const fn = decl as TSESTree.FunctionDeclaration;
-          if (fn.id) checkExport(node, 'function', fn.id.name);
-        } else if (declType === AST_NODE_TYPES.ClassDeclaration) {
-          const cls = decl as TSESTree.ClassDeclaration;
-          if (cls.id) checkExport(node, 'class', cls.id.name);
-        } else if (declType === AST_NODE_TYPES.VariableDeclaration) {
-          const varDecl = decl as TSESTree.VariableDeclaration;
-          for (const declarator of varDecl.declarations) {
-            if ((declarator.id.type as AST_NODE_TYPES) === AST_NODE_TYPES.Identifier) {
-              checkExport(node, 'variable', (declarator.id as TSESTree.Identifier).name);
-            }
-          }
-        } else if (declType === AST_NODE_TYPES.TSTypeAliasDeclaration && !options.ignoreTypes) {
-          const typeAlias = decl as TSESTree.TSTypeAliasDeclaration;
-          checkExport(node, 'type', typeAlias.id.name);
-        } else if (declType === AST_NODE_TYPES.TSInterfaceDeclaration && !options.ignoreTypes) {
-          const iface = decl as TSESTree.TSInterfaceDeclaration;
-          checkExport(node, 'interface', iface.id.name);
+        for (const info of getExportInfo(decl)) {
+          checkExport(node, info.kind, info.name);
         }
       },
     };

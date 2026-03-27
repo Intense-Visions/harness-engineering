@@ -14,6 +14,7 @@ import {
 } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
+import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 
@@ -166,20 +167,53 @@ export async function runFixDrift(
   return Ok(result);
 }
 
+function printFixDriftResult(
+  value: FixDriftResult,
+  mode: OutputModeType,
+  formatter: OutputFormatter
+): void {
+  const statusMessage = value.dryRun ? '(dry-run)' : '';
+  console.log(
+    formatter.formatSummary(
+      `Fix drift ${statusMessage}`,
+      `${value.fixes.length} fixes, ${value.suggestions.length} suggestions`,
+      value.fixes.length === 0 && value.suggestions.length === 0
+    )
+  );
+
+  if (value.fixes.length > 0) {
+    console.log('\nFixes:');
+    for (const fix of value.fixes.slice(0, 10)) {
+      const status = fix.applied ? '[applied]' : '[pending]';
+      console.log(`  ${status} ${fix.action}: ${fix.file}`);
+    }
+    if (value.fixes.length > 10) {
+      console.log(`  ... and ${value.fixes.length - 10} more`);
+    }
+  }
+
+  if (value.suggestions.length > 0 && (mode === OutputMode.VERBOSE || value.fixes.length === 0)) {
+    console.log('\nSuggestions:');
+    for (const suggestion of value.suggestions.slice(0, 10)) {
+      console.log(`  - ${suggestion.file}: ${suggestion.suggestion}`);
+    }
+    if (value.suggestions.length > 10) {
+      console.log(`  ... and ${value.suggestions.length - 10} more`);
+    }
+  }
+
+  if (value.dryRun && value.fixes.length > 0) {
+    console.log('\nRun with --no-dry-run to apply fixes.');
+  }
+}
+
 export function createFixDriftCommand(): Command {
   const command = new Command('fix-drift')
     .description('Auto-fix entropy issues (doc drift, dead code)')
     .option('--no-dry-run', 'Actually apply fixes (default is dry-run mode)')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
+      const mode = resolveOutputMode(globalOpts);
       const formatter = new OutputFormatter(mode);
 
       const result = await runFixDrift({
@@ -206,44 +240,7 @@ export function createFixDriftCommand(): Command {
         result.value.fixes.length > 0 ||
         result.value.suggestions.length > 0
       ) {
-        const { value } = result;
-
-        const statusMessage = value.dryRun ? '(dry-run)' : '';
-        console.log(
-          formatter.formatSummary(
-            `Fix drift ${statusMessage}`,
-            `${value.fixes.length} fixes, ${value.suggestions.length} suggestions`,
-            value.fixes.length === 0 && value.suggestions.length === 0
-          )
-        );
-
-        if (value.fixes.length > 0) {
-          console.log('\nFixes:');
-          for (const fix of value.fixes.slice(0, 10)) {
-            const status = fix.applied ? '[applied]' : '[pending]';
-            console.log(`  ${status} ${fix.action}: ${fix.file}`);
-          }
-          if (value.fixes.length > 10) {
-            console.log(`  ... and ${value.fixes.length - 10} more`);
-          }
-        }
-
-        if (
-          value.suggestions.length > 0 &&
-          (mode === OutputMode.VERBOSE || value.fixes.length === 0)
-        ) {
-          console.log('\nSuggestions:');
-          for (const suggestion of value.suggestions.slice(0, 10)) {
-            console.log(`  - ${suggestion.file}: ${suggestion.suggestion}`);
-          }
-          if (value.suggestions.length > 10) {
-            console.log(`  ... and ${value.suggestions.length - 10} more`);
-          }
-        }
-
-        if (value.dryRun && value.fixes.length > 0) {
-          console.log('\nRun with --no-dry-run to apply fixes.');
-        }
+        printFixDriftResult(result.value, mode, formatter);
       }
 
       process.exit(ExitCode.SUCCESS);

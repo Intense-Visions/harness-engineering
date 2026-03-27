@@ -55,33 +55,34 @@ async function confirmDeletion(files: string[]): Promise<boolean> {
   });
 }
 
-export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
-  const skillSources: SkillSource[] = [];
-
+function resolveSkillSources(opts: GenerateOptions): SkillSource[] {
   if (opts.skillsDir) {
-    // Explicit --skills-dir overrides all discovery
-    skillSources.push({ dir: opts.skillsDir, source: 'project' });
-  } else {
-    const projectDir = resolveProjectSkillsDir();
-    if (projectDir) {
-      skillSources.push({ dir: projectDir, source: 'project' });
-    }
-    // Community skills — between project and global in priority
-    const communityDir = resolveCommunitySkillsDir();
-    if (fs.existsSync(communityDir)) {
-      skillSources.push({ dir: communityDir, source: 'community' });
-    }
+    return [{ dir: opts.skillsDir, source: 'project' }];
+  }
 
-    if (opts.includeGlobal || skillSources.length === 0) {
-      // Include global if explicitly requested OR if no project found (backward compat)
-      const globalDir = resolveGlobalSkillsDir();
-      // Avoid adding the same directory twice (e.g., running inside the harness-engineering repo)
-      if (!projectDir || path.resolve(globalDir) !== path.resolve(projectDir)) {
-        skillSources.push({ dir: globalDir, source: 'global' });
-      }
+  const sources: SkillSource[] = [];
+  const projectDir = resolveProjectSkillsDir();
+  if (projectDir) {
+    sources.push({ dir: projectDir, source: 'project' });
+  }
+
+  const communityDir = resolveCommunitySkillsDir();
+  if (fs.existsSync(communityDir)) {
+    sources.push({ dir: communityDir, source: 'community' });
+  }
+
+  if (opts.includeGlobal || sources.length === 0) {
+    const globalDir = resolveGlobalSkillsDir();
+    if (!projectDir || path.resolve(globalDir) !== path.resolve(projectDir)) {
+      sources.push({ dir: globalDir, source: 'global' });
     }
   }
 
+  return sources;
+}
+
+export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
+  const skillSources = resolveSkillSources(opts);
   const specs = normalizeSkills(skillSources, opts.platforms);
   const results: GenerateResult[] = [];
 

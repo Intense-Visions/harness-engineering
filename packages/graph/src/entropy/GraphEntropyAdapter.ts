@@ -104,28 +104,30 @@ export class GraphEntropyAdapter {
    * 3. Unreachable = code nodes NOT in visited set
    */
   computeDeadCodeData(): GraphDeadCodeData {
-    // Find entry points
-    const allFileNodes = this.store.findNodes({ type: 'file' });
+    const entryPoints = this.findEntryPoints();
+    const visited = this.bfsFromEntryPoints(entryPoints);
+    const unreachableNodes = this.collectUnreachableNodes(visited);
+
+    return { reachableNodeIds: visited, unreachableNodes, entryPoints };
+  }
+
+  private findEntryPoints(): string[] {
     const entryPoints: string[] = [];
 
-    for (const node of allFileNodes) {
-      if (node.name === 'index.ts' || node.metadata?.entryPoint === true) {
-        entryPoints.push(node.id);
-      }
-    }
-
-    // Also check non-file nodes with entryPoint metadata
     for (const nodeType of CODE_NODE_TYPES) {
-      if (nodeType === 'file') continue;
       const nodes = this.store.findNodes({ type: nodeType });
       for (const node of nodes) {
-        if (node.metadata?.entryPoint === true) {
+        const isIndexFile = nodeType === 'file' && node.name === 'index.ts';
+        if (isIndexFile || node.metadata?.entryPoint === true) {
           entryPoints.push(node.id);
         }
       }
     }
 
-    // BFS from entry points following imports and calls edges (outbound)
+    return entryPoints;
+  }
+
+  private bfsFromEntryPoints(entryPoints: string[]): Set<string> {
     const visited = new Set<string>();
     const queue: string[] = [...entryPoints];
     let head = 0;
@@ -135,32 +137,27 @@ export class GraphEntropyAdapter {
       if (visited.has(nodeId)) continue;
       visited.add(nodeId);
 
-      // Follow outbound imports edges
-      const importEdges = this.store.getEdges({ from: nodeId, type: 'imports' });
-      for (const edge of importEdges) {
-        if (!visited.has(edge.to)) {
-          queue.push(edge.to);
-        }
-      }
+      this.enqueueOutboundEdges(nodeId, visited, queue);
+    }
 
-      // Follow outbound calls edges
-      const callEdges = this.store.getEdges({ from: nodeId, type: 'calls' });
-      for (const edge of callEdges) {
-        if (!visited.has(edge.to)) {
-          queue.push(edge.to);
-        }
-      }
+    return visited;
+  }
 
-      // Follow outbound contains edges so that file -> function/class are reachable
-      const containsEdges = this.store.getEdges({ from: nodeId, type: 'contains' });
-      for (const edge of containsEdges) {
+  private enqueueOutboundEdges(nodeId: string, visited: Set<string>, queue: string[]): void {
+    const edgeTypes = ['imports', 'calls', 'contains'] as const;
+    for (const edgeType of edgeTypes) {
+      const edges = this.store.getEdges({ from: nodeId, type: edgeType });
+      for (const edge of edges) {
         if (!visited.has(edge.to)) {
           queue.push(edge.to);
         }
       }
     }
+  }
 
-    // Collect unreachable code nodes
+  private collectUnreachableNodes(
+    visited: ReadonlySet<string>
+  ): Array<{ id: string; type: string; name: string; path?: string | undefined }> {
     const unreachableNodes: Array<{
       id: string;
       type: string;
@@ -180,12 +177,7 @@ export class GraphEntropyAdapter {
         }
       }
     }
-
-    return {
-      reachableNodeIds: visited,
-      unreachableNodes,
-      entryPoints,
-    };
+    return unreachableNodes;
   }
 
   /**

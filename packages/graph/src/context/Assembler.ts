@@ -84,21 +84,36 @@ export class Assembler {
     const topResults = fusion.search(intent, 10);
 
     if (topResults.length === 0) {
-      return {
-        nodes: [],
-        edges: [],
-        tokenEstimate: 0,
-        intent,
-        truncated: false,
-      };
+      return { nodes: [], edges: [], tokenEstimate: 0, intent, truncated: false };
     }
 
+    const { nodeMap, collectedEdges, nodeScores } = this.expandSearchResults(topResults);
+
+    // Sort nodes by score (highest first) for truncation
+    const sortedNodes = Array.from(nodeMap.values()).sort((a, b) => {
+      return (nodeScores.get(b.id) ?? 0) - (nodeScores.get(a.id) ?? 0);
+    });
+
+    const { keptNodes, tokenEstimate, truncated } = this.truncateToFit(sortedNodes, tokenBudget);
+
+    // Filter edges to only include those between kept nodes
+    const keptNodeIds = new Set(keptNodes.map((n) => n.id));
+    const keptEdges = collectedEdges.filter(
+      (e) => keptNodeIds.has(e.from) && keptNodeIds.has(e.to)
+    );
+
+    return { nodes: keptNodes, edges: keptEdges, tokenEstimate, intent, truncated };
+  }
+
+  private expandSearchResults(topResults: Array<{ nodeId: string; score: number }>): {
+    nodeMap: Map<string, GraphNode>;
+    collectedEdges: GraphEdge[];
+    nodeScores: Map<string, number>;
+  } {
     const contextQL = new ContextQL(this.store);
     const nodeMap = new Map<string, GraphNode>();
     const edgeSet = new Set<string>();
     const collectedEdges: GraphEdge[] = [];
-
-    // Track fusion scores for priority-based truncation
     const nodeScores = new Map<string, number>();
 
     for (const result of topResults) {
@@ -112,7 +127,6 @@ export class Assembler {
       for (const node of expanded.nodes) {
         if (!nodeMap.has(node.id)) {
           nodeMap.set(node.id, node);
-          // Expanded nodes get a fraction of the root's score
           if (!nodeScores.has(node.id)) {
             nodeScores.set(node.id, result.score * 0.5);
           }
@@ -128,12 +142,13 @@ export class Assembler {
       }
     }
 
-    // Sort nodes by score (highest first) for truncation
-    const sortedNodes = Array.from(nodeMap.values()).sort((a, b) => {
-      return (nodeScores.get(b.id) ?? 0) - (nodeScores.get(a.id) ?? 0);
-    });
+    return { nodeMap, collectedEdges, nodeScores };
+  }
 
-    // Estimate tokens and truncate if over budget
+  private truncateToFit(
+    sortedNodes: GraphNode[],
+    tokenBudget: number
+  ): { keptNodes: GraphNode[]; tokenEstimate: number; truncated: boolean } {
     let tokenEstimate = 0;
     const keptNodes: GraphNode[] = [];
     let truncated = false;
@@ -148,19 +163,7 @@ export class Assembler {
       keptNodes.push(node);
     }
 
-    // Filter edges to only include those between kept nodes
-    const keptNodeIds = new Set(keptNodes.map((n) => n.id));
-    const keptEdges = collectedEdges.filter(
-      (e) => keptNodeIds.has(e.from) && keptNodeIds.has(e.to)
-    );
-
-    return {
-      nodes: keptNodes,
-      edges: keptEdges,
-      tokenEstimate,
-      intent,
-      truncated,
-    };
+    return { keptNodes, tokenEstimate, truncated };
   }
 
   /**

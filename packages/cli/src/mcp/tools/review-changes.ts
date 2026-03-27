@@ -107,93 +107,8 @@ export async function handleReviewChanges(input: {
   }
 
   try {
-    if (effectiveDepth === 'quick') {
-      // analyze_diff only
-      const { handleAnalyzeDiff } = await import('./feedback.js');
-      const result = await handleAnalyzeDiff({ diff, path: projectPath });
-      const firstContent = result.content[0];
-      if (!firstContent) throw new Error('Empty analyze_diff response');
-      const parsed = JSON.parse(firstContent.text);
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              depth: 'quick',
-              downgraded,
-              findings: parsed.findings ?? parsed.warnings ?? [],
-              fileCount: parsed.summary?.filesChanged ?? parsed.files?.length ?? 0,
-              lineCount: diffLines,
-              ...(result.isError ? { error: parsed } : {}),
-            }),
-          },
-        ],
-      };
-    }
-
-    if (effectiveDepth === 'standard') {
-      // analyze_diff + create_self_review
-      const { handleAnalyzeDiff, handleCreateSelfReview } = await import('./feedback.js');
-
-      const [diffResult, reviewResult] = await Promise.all([
-        handleAnalyzeDiff({ diff, path: projectPath }),
-        handleCreateSelfReview({ path: projectPath, diff }),
-      ]);
-
-      const diffContent = diffResult.content[0];
-      const reviewContent = reviewResult.content[0];
-      if (!diffContent || !reviewContent) throw new Error('Empty review response');
-      const diffParsed = JSON.parse(diffContent.text);
-      const reviewParsed = JSON.parse(reviewContent.text);
-
-      // Merge findings
-      const findings = [
-        ...(diffParsed.findings ?? diffParsed.warnings ?? []),
-        ...(reviewParsed.findings ?? reviewParsed.items ?? []),
-      ];
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              depth: 'standard',
-              downgraded,
-              findings,
-              diffAnalysis: diffParsed,
-              selfReview: reviewParsed,
-              fileCount: diffParsed.summary?.filesChanged ?? diffParsed.files?.length ?? 0,
-              lineCount: diffLines,
-            }),
-          },
-        ],
-      };
-    }
-
-    // deep -- full pipeline
-    const { handleRunCodeReview } = await import('./review-pipeline.js');
-    const result = await handleRunCodeReview({ path: projectPath, diff });
-    const deepContent = result.content[0];
-    if (!deepContent) throw new Error('Empty code review response');
-    const parsed = JSON.parse(deepContent.text);
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify({
-            depth: 'deep',
-            downgraded: false,
-            findings: parsed.findings ?? [],
-            assessment: parsed.assessment,
-            findingCount: parsed.findingCount,
-            lineCount: diffLines,
-            pipeline: parsed,
-          }),
-        },
-      ],
-    };
+    const reviewFn = DEPTH_HANDLERS[effectiveDepth];
+    return await reviewFn(projectPath, diff, diffLines, downgraded);
   } catch (error) {
     return {
       content: [
@@ -206,3 +121,131 @@ export async function handleReviewChanges(input: {
     };
   }
 }
+
+async function runQuickReview(
+  projectPath: string,
+  diff: string,
+  diffLines: number,
+  downgraded: boolean
+) {
+  const { handleAnalyzeDiff } = await import('./feedback.js');
+  const result = await handleAnalyzeDiff({ diff, path: projectPath });
+  const firstContent = result.content[0];
+  if (!firstContent) throw new Error('Empty analyze_diff response');
+  const parsed = JSON.parse(firstContent.text);
+
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify({
+          depth: 'quick',
+          downgraded,
+          findings: parsed.findings ?? parsed.warnings ?? [],
+          fileCount: parsed.summary?.filesChanged ?? parsed.files?.length ?? 0,
+          lineCount: diffLines,
+          ...(result.isError ? { error: parsed } : {}),
+        }),
+      },
+    ],
+  };
+}
+
+function extractFindings(
+  parsed: Record<string, unknown>,
+  primaryKey: string,
+  fallbackKey: string
+): unknown[] {
+  return (parsed[primaryKey] ?? parsed[fallbackKey] ?? []) as unknown[];
+}
+
+function extractFileCount(diffParsed: Record<string, unknown>): number {
+  const summary = diffParsed.summary as Record<string, number> | undefined;
+  if (summary?.filesChanged !== undefined) return summary.filesChanged;
+  const files = diffParsed.files as unknown[] | undefined;
+  return files?.length ?? 0;
+}
+
+async function runStandardReview(
+  projectPath: string,
+  diff: string,
+  diffLines: number,
+  downgraded: boolean
+) {
+  const { handleAnalyzeDiff, handleCreateSelfReview } = await import('./feedback.js');
+  const [diffResult, reviewResult] = await Promise.all([
+    handleAnalyzeDiff({ diff, path: projectPath }),
+    handleCreateSelfReview({ path: projectPath, diff }),
+  ]);
+
+  const diffContent = diffResult.content[0];
+  const reviewContent = reviewResult.content[0];
+  if (!diffContent || !reviewContent) throw new Error('Empty review response');
+  const diffParsed = JSON.parse(diffContent.text);
+  const reviewParsed = JSON.parse(reviewContent.text);
+
+  const findings = [
+    ...extractFindings(diffParsed, 'findings', 'warnings'),
+    ...extractFindings(reviewParsed, 'findings', 'items'),
+  ];
+
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify({
+          depth: 'standard',
+          downgraded,
+          findings,
+          diffAnalysis: diffParsed,
+          selfReview: reviewParsed,
+          fileCount: extractFileCount(diffParsed),
+          lineCount: diffLines,
+        }),
+      },
+    ],
+  };
+}
+
+async function runDeepReview(
+  projectPath: string,
+  diff: string,
+  diffLines: number,
+  _downgraded: boolean
+) {
+  const { handleRunCodeReview } = await import('./review-pipeline.js');
+  const result = await handleRunCodeReview({ path: projectPath, diff });
+  const deepContent = result.content[0];
+  if (!deepContent) throw new Error('Empty code review response');
+  const parsed = JSON.parse(deepContent.text);
+
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify({
+          depth: 'deep',
+          downgraded: false,
+          findings: parsed.findings ?? [],
+          assessment: parsed.assessment,
+          findingCount: parsed.findingCount,
+          lineCount: diffLines,
+          pipeline: parsed,
+        }),
+      },
+    ],
+  };
+}
+
+type ReviewHandler = (
+  projectPath: string,
+  diff: string,
+  diffLines: number,
+  downgraded: boolean
+) => Promise<{ content: Array<{ type: 'text'; text: string }> }>;
+
+const DEPTH_HANDLERS: Record<Depth, ReviewHandler> = {
+  quick: runQuickReview,
+  standard: runStandardReview,
+  deep: runDeepReview,
+};

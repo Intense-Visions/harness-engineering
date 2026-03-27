@@ -3,6 +3,24 @@ import * as path from 'node:path';
 import type { GraphStore } from '../store/GraphStore.js';
 import type { GraphNode, GraphEdge, IngestResult } from '../types.js';
 
+interface ClassContext {
+  className: string | null;
+  classId: string | null;
+  insideClass: boolean;
+  braceDepth: number;
+}
+
+const SKIP_METHOD_NAMES = new Set(['constructor', 'if', 'for', 'while', 'switch']);
+
+function countBraces(line: string): number {
+  let net = 0;
+  for (const ch of line) {
+    if (ch === '{') net++;
+    else if (ch === '}') net--;
+  }
+  return net;
+}
+
 /**
  * Ingests TypeScript/JavaScript files into the graph via regex-based parsing.
  * Future: upgrade to tree-sitter for full AST parsing.
@@ -24,50 +42,9 @@ export class CodeIngestor {
 
     for (const filePath of files) {
       try {
-        const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
-        const content = await fs.readFile(filePath, 'utf-8');
-        const stat = await fs.stat(filePath);
-        const fileId = `file:${relativePath}`;
-
-        fileContents.set(relativePath, content);
-
-        // Add file node
-        const fileNode: GraphNode = {
-          id: fileId,
-          type: 'file',
-          name: path.basename(filePath),
-          path: relativePath,
-          metadata: { language: this.detectLanguage(filePath) },
-          lastModified: stat.mtime.toISOString(),
-        };
-        this.store.addNode(fileNode);
-        nodesAdded++;
-
-        // Extract symbols (functions, classes, interfaces, methods, variables)
-        const symbols = this.extractSymbols(content, fileId, relativePath);
-        for (const { node, edge } of symbols) {
-          this.store.addNode(node);
-          this.store.addEdge(edge);
-          nodesAdded++;
-          edgesAdded++;
-
-          // Track callables for the calls-edge pass
-          if (node.type === 'function' || node.type === 'method') {
-            let files = nameToFiles.get(node.name);
-            if (!files) {
-              files = new Set<string>();
-              nameToFiles.set(node.name, files);
-            }
-            files.add(relativePath);
-          }
-        }
-
-        // Extract imports
-        const imports = await this.extractImports(content, fileId, relativePath, rootDir);
-        for (const edge of imports) {
-          this.store.addEdge(edge);
-          edgesAdded++;
-        }
+        const result = await this.processFile(filePath, rootDir, nameToFiles, fileContents);
+        nodesAdded += result.nodesAdded;
+        edgesAdded += result.edgesAdded;
       } catch (err) {
         errors.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -88,6 +65,68 @@ export class CodeIngestor {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  private async processFile(
+    filePath: string,
+    rootDir: string,
+    nameToFiles: Map<string, Set<string>>,
+    fileContents: Map<string, string>
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+
+    const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
+    const content = await fs.readFile(filePath, 'utf-8');
+    const stat = await fs.stat(filePath);
+    const fileId = `file:${relativePath}`;
+
+    fileContents.set(relativePath, content);
+
+    // Add file node
+    const fileNode: GraphNode = {
+      id: fileId,
+      type: 'file',
+      name: path.basename(filePath),
+      path: relativePath,
+      metadata: { language: this.detectLanguage(filePath) },
+      lastModified: stat.mtime.toISOString(),
+    };
+    this.store.addNode(fileNode);
+    nodesAdded++;
+
+    // Extract symbols and track callables
+    const symbols = this.extractSymbols(content, fileId, relativePath);
+    for (const { node, edge } of symbols) {
+      this.store.addNode(node);
+      this.store.addEdge(edge);
+      nodesAdded++;
+      edgesAdded++;
+      this.trackCallable(node, relativePath, nameToFiles);
+    }
+
+    // Extract imports
+    const imports = await this.extractImports(content, fileId, relativePath, rootDir);
+    for (const edge of imports) {
+      this.store.addEdge(edge);
+      edgesAdded++;
+    }
+
+    return { nodesAdded, edgesAdded };
+  }
+
+  private trackCallable(
+    node: GraphNode,
+    relativePath: string,
+    nameToFiles: Map<string, Set<string>>
+  ): void {
+    if (node.type !== 'function' && node.type !== 'method') return;
+    let files = nameToFiles.get(node.name);
+    if (!files) {
+      files = new Set<string>();
+      nameToFiles.set(node.name, files);
+    }
+    files.add(relativePath);
   }
 
   private async findSourceFiles(dir: string): Promise<string[]> {
@@ -115,175 +154,198 @@ export class CodeIngestor {
   ): Array<{ node: GraphNode; edge: GraphEdge }> {
     const results: Array<{ node: GraphNode; edge: GraphEdge }> = [];
     const lines = content.split('\n');
-
-    // Track class context for method extraction
-    let currentClassName: string | null = null;
-    let currentClassId: string | null = null;
-    let braceDepth = 0;
-    let insideClass = false;
+    const ctx: ClassContext = { className: null, classId: null, insideClass: false, braceDepth: 0 };
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
 
-      // Functions: export function name(
-      const fnMatch = line.match(/(?:export\s+)?(?:async\s+)?function\s+(\w+)/);
-      if (fnMatch) {
-        const name = fnMatch[1]!;
-        const id = `function:${relativePath}:${name}`;
-        const endLine = this.findClosingBrace(lines, i);
-        results.push({
-          node: {
-            id,
-            type: 'function',
-            name,
-            path: relativePath,
-            location: { fileId, startLine: i + 1, endLine },
-            metadata: {
-              exported: line.includes('export'),
-              cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
-              nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
-              lineCount: endLine - i,
-              parameterCount: this.countParameters(line),
-            },
-          },
-          edge: { from: fileId, to: id, type: 'contains' },
-        });
-        // A top-level function resets class context
-        if (!insideClass) {
-          currentClassName = null;
-          currentClassId = null;
-        }
-        continue;
-      }
-
-      // Classes: export class Name
-      const classMatch = line.match(/(?:export\s+)?class\s+(\w+)/);
-      if (classMatch) {
-        const name = classMatch[1]!;
-        const id = `class:${relativePath}:${name}`;
-        const endLine = this.findClosingBrace(lines, i);
-        results.push({
-          node: {
-            id,
-            type: 'class',
-            name,
-            path: relativePath,
-            location: { fileId, startLine: i + 1, endLine },
-            metadata: { exported: line.includes('export') },
-          },
-          edge: { from: fileId, to: id, type: 'contains' },
-        });
-        // Enter class context
-        currentClassName = name;
-        currentClassId = id;
-        insideClass = true;
-        braceDepth = 0;
-        // Count braces on the class declaration line itself
-        for (const ch of line) {
-          if (ch === '{') braceDepth++;
-          if (ch === '}') braceDepth--;
-        }
-        continue;
-      }
-
-      // Interfaces: export interface Name
-      const ifaceMatch = line.match(/(?:export\s+)?interface\s+(\w+)/);
-      if (ifaceMatch) {
-        const name = ifaceMatch[1]!;
-        const id = `interface:${relativePath}:${name}`;
-        const endLine = this.findClosingBrace(lines, i);
-        results.push({
-          node: {
-            id,
-            type: 'interface',
-            name,
-            path: relativePath,
-            location: { fileId, startLine: i + 1, endLine },
-            metadata: { exported: line.includes('export') },
-          },
-          edge: { from: fileId, to: id, type: 'contains' },
-        });
-        // An interface resets class context
-        currentClassName = null;
-        currentClassId = null;
-        insideClass = false;
-        continue;
-      }
-
-      // Track brace depth for class context
-      if (insideClass) {
-        for (const ch of line) {
-          if (ch === '{') braceDepth++;
-          if (ch === '}') braceDepth--;
-        }
-        if (braceDepth <= 0) {
-          currentClassName = null;
-          currentClassId = null;
-          insideClass = false;
-          continue;
-        }
-      }
-
-      // Methods: indented lines inside a class that look like method declarations
-      if (insideClass && currentClassName && currentClassId) {
-        const methodMatch = line.match(
-          /^\s+(?:(?:public|private|protected|readonly|static|abstract)\s+)*(?:async\s+)?(\w+)\s*\(/
-        );
-        if (methodMatch) {
-          const methodName = methodMatch[1]!;
-          // Skip constructor and common non-method patterns
-          if (
-            methodName === 'constructor' ||
-            methodName === 'if' ||
-            methodName === 'for' ||
-            methodName === 'while' ||
-            methodName === 'switch'
-          )
-            continue;
-          const id = `method:${relativePath}:${currentClassName}.${methodName}`;
-          const endLine = this.findClosingBrace(lines, i);
-          results.push({
-            node: {
-              id,
-              type: 'method',
-              name: methodName,
-              path: relativePath,
-              location: { fileId, startLine: i + 1, endLine },
-              metadata: {
-                className: currentClassName,
-                exported: false,
-                cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
-                nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
-                lineCount: endLine - i,
-                parameterCount: this.countParameters(line),
-              },
-            },
-            edge: { from: currentClassId, to: id, type: 'contains' },
-          });
-        }
-        continue;
-      }
-
-      // Variables: exported constants/variables at the top level
-      const varMatch = line.match(/(?:export\s+)?(?:const|let|var)\s+(\w+)/);
-      if (varMatch) {
-        const name = varMatch[1]!;
-        const id = `variable:${relativePath}:${name}`;
-        results.push({
-          node: {
-            id,
-            type: 'variable',
-            name,
-            path: relativePath,
-            location: { fileId, startLine: i + 1, endLine: i + 1 },
-            metadata: { exported: line.includes('export') },
-          },
-          edge: { from: fileId, to: id, type: 'contains' },
-        });
-      }
+      if (this.tryExtractFunction(line, lines, i, fileId, relativePath, ctx, results)) continue;
+      if (this.tryExtractClass(line, lines, i, fileId, relativePath, ctx, results)) continue;
+      if (this.tryExtractInterface(line, lines, i, fileId, relativePath, ctx, results)) continue;
+      if (this.updateClassContext(line, ctx)) continue;
+      if (this.tryExtractMethod(line, lines, i, fileId, relativePath, ctx, results)) continue;
+      if (ctx.insideClass) continue;
+      this.tryExtractVariable(line, i, fileId, relativePath, results);
     }
 
     return results;
+  }
+
+  private tryExtractFunction(
+    line: string,
+    lines: string[],
+    i: number,
+    fileId: string,
+    relativePath: string,
+    ctx: ClassContext,
+    results: Array<{ node: GraphNode; edge: GraphEdge }>
+  ): boolean {
+    const fnMatch = line.match(/(?:export\s+)?(?:async\s+)?function\s+(\w+)/);
+    if (!fnMatch) return false;
+    const name = fnMatch[1]!;
+    const id = `function:${relativePath}:${name}`;
+    const endLine = this.findClosingBrace(lines, i);
+    results.push({
+      node: {
+        id,
+        type: 'function',
+        name,
+        path: relativePath,
+        location: { fileId, startLine: i + 1, endLine },
+        metadata: {
+          exported: line.includes('export'),
+          cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
+          nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
+          lineCount: endLine - i,
+          parameterCount: this.countParameters(line),
+        },
+      },
+      edge: { from: fileId, to: id, type: 'contains' },
+    });
+    if (!ctx.insideClass) {
+      ctx.className = null;
+      ctx.classId = null;
+    }
+    return true;
+  }
+
+  private tryExtractClass(
+    line: string,
+    lines: string[],
+    i: number,
+    fileId: string,
+    relativePath: string,
+    ctx: ClassContext,
+    results: Array<{ node: GraphNode; edge: GraphEdge }>
+  ): boolean {
+    const classMatch = line.match(/(?:export\s+)?class\s+(\w+)/);
+    if (!classMatch) return false;
+    const name = classMatch[1]!;
+    const id = `class:${relativePath}:${name}`;
+    const endLine = this.findClosingBrace(lines, i);
+    results.push({
+      node: {
+        id,
+        type: 'class',
+        name,
+        path: relativePath,
+        location: { fileId, startLine: i + 1, endLine },
+        metadata: { exported: line.includes('export') },
+      },
+      edge: { from: fileId, to: id, type: 'contains' },
+    });
+    ctx.className = name;
+    ctx.classId = id;
+    ctx.insideClass = true;
+    ctx.braceDepth = countBraces(line);
+    return true;
+  }
+
+  private tryExtractInterface(
+    line: string,
+    lines: string[],
+    i: number,
+    fileId: string,
+    relativePath: string,
+    ctx: ClassContext,
+    results: Array<{ node: GraphNode; edge: GraphEdge }>
+  ): boolean {
+    const ifaceMatch = line.match(/(?:export\s+)?interface\s+(\w+)/);
+    if (!ifaceMatch) return false;
+    const name = ifaceMatch[1]!;
+    const id = `interface:${relativePath}:${name}`;
+    const endLine = this.findClosingBrace(lines, i);
+    results.push({
+      node: {
+        id,
+        type: 'interface',
+        name,
+        path: relativePath,
+        location: { fileId, startLine: i + 1, endLine },
+        metadata: { exported: line.includes('export') },
+      },
+      edge: { from: fileId, to: id, type: 'contains' },
+    });
+    ctx.className = null;
+    ctx.classId = null;
+    ctx.insideClass = false;
+    return true;
+  }
+
+  /** Update brace tracking; returns true when line is consumed (class ended or tracked). */
+  private updateClassContext(line: string, ctx: ClassContext): boolean {
+    if (!ctx.insideClass) return false;
+    ctx.braceDepth += countBraces(line);
+    if (ctx.braceDepth <= 0) {
+      ctx.className = null;
+      ctx.classId = null;
+      ctx.insideClass = false;
+      return true;
+    }
+    return false;
+  }
+
+  private tryExtractMethod(
+    line: string,
+    lines: string[],
+    i: number,
+    fileId: string,
+    relativePath: string,
+    ctx: ClassContext,
+    results: Array<{ node: GraphNode; edge: GraphEdge }>
+  ): boolean {
+    if (!ctx.insideClass || !ctx.className || !ctx.classId) return false;
+    const methodMatch = line.match(
+      /^\s+(?:(?:public|private|protected|readonly|static|abstract)\s+)*(?:async\s+)?(\w+)\s*\(/
+    );
+    if (!methodMatch) return false;
+    const methodName = methodMatch[1]!;
+    if (SKIP_METHOD_NAMES.has(methodName)) return false;
+    const id = `method:${relativePath}:${ctx.className}.${methodName}`;
+    const endLine = this.findClosingBrace(lines, i);
+    results.push({
+      node: {
+        id,
+        type: 'method',
+        name: methodName,
+        path: relativePath,
+        location: { fileId, startLine: i + 1, endLine },
+        metadata: {
+          className: ctx.className,
+          exported: false,
+          cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
+          nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
+          lineCount: endLine - i,
+          parameterCount: this.countParameters(line),
+        },
+      },
+      edge: { from: ctx.classId, to: id, type: 'contains' },
+    });
+    return true;
+  }
+
+  private tryExtractVariable(
+    line: string,
+    i: number,
+    fileId: string,
+    relativePath: string,
+    results: Array<{ node: GraphNode; edge: GraphEdge }>
+  ): void {
+    const varMatch = line.match(/(?:export\s+)?(?:const|let|var)\s+(\w+)/);
+    if (!varMatch) return;
+    const name = varMatch[1]!;
+    const id = `variable:${relativePath}:${name}`;
+    results.push({
+      node: {
+        id,
+        type: 'variable',
+        name,
+        path: relativePath,
+        location: { fileId, startLine: i + 1, endLine: i + 1 },
+        metadata: { exported: line.includes('export') },
+      },
+      edge: { from: fileId, to: id, type: 'contains' },
+    });
   }
 
   /**

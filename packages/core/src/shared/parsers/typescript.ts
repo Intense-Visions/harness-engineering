@@ -20,6 +20,98 @@ function walk(node: unknown, visitor: (node: TSESTree.Node) => void): void {
   }
 }
 
+function makeLocation(node: { loc?: { start: { line: number; column: number } } }): {
+  file: string;
+  line: number;
+  column: number;
+} {
+  return {
+    file: '',
+    line: node.loc?.start.line ?? 0,
+    column: node.loc?.start.column ?? 0,
+  };
+}
+
+function processImportSpecifiers(importDecl: TSESTree.ImportDeclaration, imp: Import): void {
+  for (const spec of importDecl.specifiers) {
+    if (spec.type === 'ImportDefaultSpecifier') {
+      imp.default = spec.local.name;
+    } else if (spec.type === 'ImportNamespaceSpecifier') {
+      imp.namespace = spec.local.name;
+    } else if (spec.type === 'ImportSpecifier') {
+      imp.specifiers.push(spec.local.name);
+      if (spec.importKind === 'type') {
+        imp.kind = 'type';
+      }
+    }
+  }
+}
+
+function getExportedName(exported: TSESTree.Identifier | TSESTree.Literal): string {
+  return exported.type === 'Identifier'
+    ? exported.name
+    : String((exported as unknown as TSESTree.Literal).value);
+}
+
+function processReExportSpecifiers(
+  exportDecl: TSESTree.ExportNamedDeclaration,
+  exports: Export[]
+): void {
+  for (const spec of exportDecl.specifiers) {
+    if (spec.type !== 'ExportSpecifier') continue;
+    exports.push({
+      name: getExportedName(spec.exported),
+      type: 'named',
+      location: makeLocation(exportDecl),
+      isReExport: true,
+      source: exportDecl.source!.value as string,
+    });
+  }
+}
+
+function processExportDeclaration(
+  exportDecl: TSESTree.ExportNamedDeclaration,
+  exports: Export[]
+): void {
+  const decl = exportDecl.declaration;
+  if (!decl) return;
+
+  if (decl.type === 'VariableDeclaration') {
+    for (const declarator of decl.declarations) {
+      if (declarator.id.type === 'Identifier') {
+        exports.push({
+          name: declarator.id.name,
+          type: 'named',
+          location: makeLocation(decl),
+          isReExport: false,
+        });
+      }
+    }
+  } else if ((decl.type === 'FunctionDeclaration' || decl.type === 'ClassDeclaration') && decl.id) {
+    exports.push({
+      name: decl.id.name,
+      type: 'named',
+      location: makeLocation(decl),
+      isReExport: false,
+    });
+  }
+}
+
+function processExportListSpecifiers(
+  exportDecl: TSESTree.ExportNamedDeclaration,
+  exports: Export[]
+): void {
+  for (const spec of exportDecl.specifiers) {
+    if (spec.type !== 'ExportSpecifier') continue;
+    exports.push({
+      name: getExportedName(spec.exported),
+      type: 'named',
+      location: makeLocation(exportDecl),
+      isReExport: false,
+    });
+  }
+}
+
 export class TypeScriptParser implements LanguageParser {
   name = 'typescript';
   extensions = ['.ts', '.tsx', '.mts', '.cts'];
@@ -69,43 +161,21 @@ export class TypeScriptParser implements LanguageParser {
         const imp: Import = {
           source: importDecl.source.value as string,
           specifiers: [],
-          location: {
-            file: '',
-            line: importDecl.loc?.start.line ?? 0,
-            column: importDecl.loc?.start.column ?? 0,
-          },
+          location: makeLocation(importDecl),
           kind: importDecl.importKind === 'type' ? 'type' : 'value',
         };
-
-        for (const spec of importDecl.specifiers) {
-          if (spec.type === 'ImportDefaultSpecifier') {
-            imp.default = spec.local.name;
-          } else if (spec.type === 'ImportNamespaceSpecifier') {
-            imp.namespace = spec.local.name;
-          } else if (spec.type === 'ImportSpecifier') {
-            imp.specifiers.push(spec.local.name);
-            // Check if this specific import is type-only
-            if (spec.importKind === 'type') {
-              imp.kind = 'type';
-            }
-          }
-        }
-
+        processImportSpecifiers(importDecl, imp);
         imports.push(imp);
+        return;
       }
 
-      // Handle dynamic imports
       if (node.type === 'ImportExpression') {
         const importExpr = node as TSESTree.ImportExpression;
         if (importExpr.source.type === 'Literal' && typeof importExpr.source.value === 'string') {
           imports.push({
             source: importExpr.source.value,
             specifiers: [],
-            location: {
-              file: '',
-              line: importExpr.loc?.start.line ?? 0,
-              column: importExpr.loc?.start.column ?? 0,
-            },
+            location: makeLocation(importExpr),
             kind: 'value',
           });
         }
@@ -120,117 +190,36 @@ export class TypeScriptParser implements LanguageParser {
     const program = ast.body as TSESTree.Program;
 
     walk(program, (node) => {
-      // Named export declarations: export const x = ...
       if (node.type === 'ExportNamedDeclaration') {
         const exportDecl = node as TSESTree.ExportNamedDeclaration;
 
-        // Re-export: export { a, b } from 'source'
         if (exportDecl.source) {
-          for (const spec of exportDecl.specifiers) {
-            if (spec.type === 'ExportSpecifier') {
-              const exported = spec.exported;
-              const name =
-                exported.type === 'Identifier'
-                  ? exported.name
-                  : String((exported as unknown as TSESTree.Literal).value);
-              exports.push({
-                name,
-                type: 'named',
-                location: {
-                  file: '',
-                  line: exportDecl.loc?.start.line ?? 0,
-                  column: exportDecl.loc?.start.column ?? 0,
-                },
-                isReExport: true,
-                source: exportDecl.source.value as string,
-              });
-            }
-          }
+          processReExportSpecifiers(exportDecl, exports);
           return;
         }
 
-        // Direct declaration: export const x = ...
-        if (exportDecl.declaration) {
-          const decl = exportDecl.declaration;
-          if (decl.type === 'VariableDeclaration') {
-            for (const declarator of decl.declarations) {
-              if (declarator.id.type === 'Identifier') {
-                exports.push({
-                  name: declarator.id.name,
-                  type: 'named',
-                  location: {
-                    file: '',
-                    line: decl.loc?.start.line ?? 0,
-                    column: decl.loc?.start.column ?? 0,
-                  },
-                  isReExport: false,
-                });
-              }
-            }
-          } else if (decl.type === 'FunctionDeclaration' || decl.type === 'ClassDeclaration') {
-            if (decl.id) {
-              exports.push({
-                name: decl.id.name,
-                type: 'named',
-                location: {
-                  file: '',
-                  line: decl.loc?.start.line ?? 0,
-                  column: decl.loc?.start.column ?? 0,
-                },
-                isReExport: false,
-              });
-            }
-          }
-        }
-
-        // Export list: export { a, b }
-        for (const spec of exportDecl.specifiers) {
-          if (spec.type === 'ExportSpecifier') {
-            const exported = spec.exported;
-            const name =
-              exported.type === 'Identifier'
-                ? exported.name
-                : String((exported as unknown as TSESTree.Literal).value);
-            exports.push({
-              name,
-              type: 'named',
-              location: {
-                file: '',
-                line: exportDecl.loc?.start.line ?? 0,
-                column: exportDecl.loc?.start.column ?? 0,
-              },
-              isReExport: false,
-            });
-          }
-        }
+        processExportDeclaration(exportDecl, exports);
+        processExportListSpecifiers(exportDecl, exports);
+        return;
       }
 
-      // Default export: export default ...
       if (node.type === 'ExportDefaultDeclaration') {
         const exportDecl = node as TSESTree.ExportDefaultDeclaration;
         exports.push({
           name: 'default',
           type: 'default',
-          location: {
-            file: '',
-            line: exportDecl.loc?.start.line ?? 0,
-            column: exportDecl.loc?.start.column ?? 0,
-          },
+          location: makeLocation(exportDecl),
           isReExport: false,
         });
+        return;
       }
 
-      // Namespace re-export: export * from 'source' or export * as name from 'source'
       if (node.type === 'ExportAllDeclaration') {
         const exportDecl = node as TSESTree.ExportAllDeclaration;
         exports.push({
           name: exportDecl.exported?.name ?? '*',
           type: 'namespace',
-          location: {
-            file: '',
-            line: exportDecl.loc?.start.line ?? 0,
-            column: exportDecl.loc?.start.column ?? 0,
-          },
+          location: makeLocation(exportDecl),
           isReExport: true,
           source: exportDecl.source.value as string,
         });

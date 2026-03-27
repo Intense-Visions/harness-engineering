@@ -19,6 +19,86 @@ const ALWAYS_UNSAFE_TYPES = new Set([
 
 let idCounter = 0;
 
+interface SafetyClassification {
+  safety: SafetyLevel;
+  safetyReason: string;
+  fixAction?: string;
+  suggestion: string;
+}
+
+/** Fix actions for safe dead-code types. */
+const DEAD_CODE_FIX_ACTIONS: Record<string, string> = {
+  'dead-export': 'Remove export keyword',
+  'dead-file': 'Delete file',
+  'commented-code': 'Delete commented block',
+  'unused-import': 'Remove import',
+};
+
+/**
+ * Classify dead-code findings by type and public API status.
+ */
+function classifyDeadCode(input: FindingInput): SafetyClassification {
+  if (input.isPublicApi) {
+    return {
+      safety: 'unsafe',
+      safetyReason: 'Public API export may have external consumers',
+      suggestion: 'Deprecate before removing',
+    };
+  }
+
+  const fixAction = DEAD_CODE_FIX_ACTIONS[input.type];
+  if (fixAction) {
+    return {
+      safety: 'safe',
+      safetyReason: 'zero importers, non-public',
+      fixAction,
+      suggestion: fixAction,
+    };
+  }
+
+  if (input.type === 'orphaned-dep') {
+    return {
+      safety: 'probably-safe',
+      safetyReason: 'No imports found, but needs install+test verification',
+      fixAction: 'Remove from package.json',
+      suggestion: 'Remove from package.json',
+    };
+  }
+
+  return {
+    safety: 'unsafe',
+    safetyReason: 'Unknown dead code type',
+    suggestion: 'Manual review required',
+  };
+}
+
+/**
+ * Classify architecture findings by type.
+ */
+function classifyArchitecture(input: FindingInput): SafetyClassification {
+  if (input.type === 'import-ordering') {
+    return {
+      safety: 'safe',
+      safetyReason: 'Mechanical reorder, no semantic change',
+      fixAction: 'Reorder imports',
+      suggestion: 'Reorder imports',
+    };
+  }
+  if (input.type === 'forbidden-import' && input.hasAlternative) {
+    return {
+      safety: 'probably-safe',
+      safetyReason: 'Alternative configured, needs typecheck+test',
+      fixAction: 'Replace with configured alternative',
+      suggestion: 'Replace with configured alternative',
+    };
+  }
+  return {
+    safety: 'unsafe',
+    safetyReason: `${input.type} requires structural changes`,
+    suggestion: 'Restructure code to fix violation',
+  };
+}
+
 /**
  * Classify a raw finding into a CleanupFinding with safety level
  */
@@ -26,64 +106,17 @@ export function classifyFinding(input: FindingInput): CleanupFinding {
   idCounter++;
   const id = `${input.concern === 'dead-code' ? 'dc' : 'arch'}-${idCounter}`;
 
-  let safety: SafetyLevel;
-  let safetyReason: string;
-  let fixAction: string | undefined;
-  let suggestion: string;
-
+  let classification: SafetyClassification;
   if (ALWAYS_UNSAFE_TYPES.has(input.type)) {
-    safety = 'unsafe';
-    safetyReason = `${input.type} requires human judgment`;
-    suggestion = 'Review and refactor manually';
+    classification = {
+      safety: 'unsafe',
+      safetyReason: `${input.type} requires human judgment`,
+      suggestion: 'Review and refactor manually',
+    };
   } else if (input.concern === 'dead-code') {
-    if (input.isPublicApi) {
-      safety = 'unsafe';
-      safetyReason = 'Public API export may have external consumers';
-      suggestion = 'Deprecate before removing';
-    } else if (
-      input.type === 'dead-export' ||
-      input.type === 'unused-import' ||
-      input.type === 'commented-code' ||
-      input.type === 'dead-file'
-    ) {
-      safety = 'safe';
-      safetyReason = 'zero importers, non-public';
-      fixAction =
-        input.type === 'dead-export'
-          ? 'Remove export keyword'
-          : input.type === 'dead-file'
-            ? 'Delete file'
-            : input.type === 'commented-code'
-              ? 'Delete commented block'
-              : 'Remove import';
-      suggestion = fixAction;
-    } else if (input.type === 'orphaned-dep') {
-      safety = 'probably-safe';
-      safetyReason = 'No imports found, but needs install+test verification';
-      fixAction = 'Remove from package.json';
-      suggestion = fixAction;
-    } else {
-      safety = 'unsafe';
-      safetyReason = 'Unknown dead code type';
-      suggestion = 'Manual review required';
-    }
+    classification = classifyDeadCode(input);
   } else {
-    // architecture
-    if (input.type === 'import-ordering') {
-      safety = 'safe';
-      safetyReason = 'Mechanical reorder, no semantic change';
-      fixAction = 'Reorder imports';
-      suggestion = fixAction;
-    } else if (input.type === 'forbidden-import' && input.hasAlternative) {
-      safety = 'probably-safe';
-      safetyReason = 'Alternative configured, needs typecheck+test';
-      fixAction = 'Replace with configured alternative';
-      suggestion = fixAction;
-    } else {
-      safety = 'unsafe';
-      safetyReason = `${input.type} requires structural changes`;
-      suggestion = 'Restructure code to fix violation';
-    }
+    classification = classifyArchitecture(input);
   }
 
   return {
@@ -93,11 +126,11 @@ export function classifyFinding(input: FindingInput): CleanupFinding {
     ...(input.line !== undefined ? { line: input.line } : {}),
     type: input.type,
     description: input.description,
-    safety,
-    safetyReason,
+    safety: classification.safety,
+    safetyReason: classification.safetyReason,
     hotspotDowngraded: false,
-    ...(fixAction !== undefined ? { fixAction } : {}),
-    suggestion,
+    ...(classification.fixAction !== undefined ? { fixAction: classification.fixAction } : {}),
+    suggestion: classification.suggestion,
   };
 }
 

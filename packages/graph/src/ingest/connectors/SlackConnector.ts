@@ -51,50 +51,10 @@ export class SlackConnector implements GraphConnector {
 
     for (const channel of channels) {
       try {
-        let url = `https://slack.com/api/conversations.history?channel=${encodeURIComponent(channel)}`;
-        if (oldest) {
-          url += `&oldest=${oldest}`;
-        }
-        const response = await this.httpClient(url, {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          errors.push(`Slack API request failed for channel ${channel}`);
-          continue;
-        }
-
-        const data = (await response.json()) as SlackResponse;
-        if (!data.ok) {
-          errors.push(`Slack API error for channel ${channel}`);
-          continue;
-        }
-
-        for (const message of data.messages) {
-          const nodeId = `conversation:slack:${channel}:${message.ts}`;
-          const sanitizedText = sanitizeExternalText(message.text);
-          const snippet = sanitizedText.length > 100 ? sanitizedText.slice(0, 100) : sanitizedText;
-
-          store.addNode({
-            id: nodeId,
-            type: 'conversation',
-            name: snippet,
-            metadata: {
-              author: message.user,
-              channel,
-              timestamp: message.ts,
-            },
-          });
-          nodesAdded++;
-
-          // Link to code nodes via shared utility (with path matching)
-          edgesAdded += linkToCode(store, sanitizedText, nodeId, 'references', {
-            checkPaths: true,
-          });
-        }
+        const result = await this.processChannel(store, channel, apiKey, oldest);
+        nodesAdded += result.nodesAdded;
+        edgesAdded += result.edgesAdded;
+        errors.push(...result.errors);
       } catch (err) {
         errors.push(
           `Slack API error for channel ${channel}: ${err instanceof Error ? err.message : String(err)}`
@@ -110,5 +70,64 @@ export class SlackConnector implements GraphConnector {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  private async processChannel(
+    store: GraphStore,
+    channel: string,
+    apiKey: string,
+    oldest: string | undefined
+  ): Promise<{ nodesAdded: number; edgesAdded: number; errors: string[] }> {
+    const errors: string[] = [];
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+
+    let url = `https://slack.com/api/conversations.history?channel=${encodeURIComponent(channel)}`;
+    if (oldest) {
+      url += `&oldest=${oldest}`;
+    }
+    const response = await this.httpClient(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        nodesAdded: 0,
+        edgesAdded: 0,
+        errors: [`Slack API request failed for channel ${channel}`],
+      };
+    }
+
+    const data = (await response.json()) as SlackResponse;
+    if (!data.ok) {
+      return { nodesAdded: 0, edgesAdded: 0, errors: [`Slack API error for channel ${channel}`] };
+    }
+
+    for (const message of data.messages) {
+      const nodeId = `conversation:slack:${channel}:${message.ts}`;
+      const sanitizedText = sanitizeExternalText(message.text);
+      const snippet = sanitizedText.length > 100 ? sanitizedText.slice(0, 100) : sanitizedText;
+
+      store.addNode({
+        id: nodeId,
+        type: 'conversation',
+        name: snippet,
+        metadata: {
+          author: message.user,
+          channel,
+          timestamp: message.ts,
+        },
+      });
+      nodesAdded++;
+
+      edgesAdded += linkToCode(store, sanitizedText, nodeId, 'references', {
+        checkPaths: true,
+      });
+    }
+
+    return { nodesAdded, edgesAdded, errors };
   }
 }

@@ -134,13 +134,32 @@ function parseFeatures(sectionBody: string): Result<RoadmapFeature[]> {
   return Ok(features);
 }
 
-function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> {
+function extractFieldMap(body: string): Map<string, string> {
   const fieldMap = new Map<string, string>();
   const fieldPattern = /^- \*\*(.+?):\*\* (.+)$/gm;
   let match: RegExpExecArray | null;
   while ((match = fieldPattern.exec(body)) !== null) {
     fieldMap.set(match[1]!, match[2]!);
   }
+  return fieldMap;
+}
+
+/** Parse a comma-separated field, returning [] for empty/dash/none values. */
+function parseListField(fieldMap: Map<string, string>, ...keys: string[]): string[] {
+  let raw = EM_DASH;
+  for (const key of keys) {
+    const val = fieldMap.get(key);
+    if (val !== undefined) {
+      raw = val;
+      break;
+    }
+  }
+  if (raw === EM_DASH || raw === 'none') return [];
+  return raw.split(',').map((s) => s.trim());
+}
+
+function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> {
+  const fieldMap = extractFieldMap(body);
 
   const statusRaw = fieldMap.get('Status');
   if (!statusRaw || !VALID_STATUSES.has(statusRaw)) {
@@ -151,24 +170,17 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
       )
     );
   }
-  const status = statusRaw as FeatureStatus;
 
   const specRaw = fieldMap.get('Spec') ?? EM_DASH;
-  const spec = specRaw === EM_DASH ? null : specRaw;
+  const plans = parseListField(fieldMap, 'Plans', 'Plan');
+  const blockedBy = parseListField(fieldMap, 'Blocked by', 'Blockers');
 
-  // Accept both "Plans:" and "Plan:" field names
-  const plansRaw = fieldMap.get('Plans') ?? fieldMap.get('Plan') ?? EM_DASH;
-  const plans =
-    plansRaw === EM_DASH || plansRaw === 'none' ? [] : plansRaw.split(',').map((p) => p.trim());
-
-  // Accept both "Blocked by:" and "Blockers:" field names
-  const blockedByRaw = fieldMap.get('Blocked by') ?? fieldMap.get('Blockers') ?? EM_DASH;
-  const blockedBy =
-    blockedByRaw === EM_DASH || blockedByRaw === 'none'
-      ? []
-      : blockedByRaw.split(',').map((b) => b.trim());
-
-  const summary = fieldMap.get('Summary') ?? '';
-
-  return Ok({ name, status, spec, plans, blockedBy, summary });
+  return Ok({
+    name,
+    status: statusRaw as FeatureStatus,
+    spec: specRaw === EM_DASH ? null : specRaw,
+    plans,
+    blockedBy,
+    summary: fieldMap.get('Summary') ?? '',
+  });
 }

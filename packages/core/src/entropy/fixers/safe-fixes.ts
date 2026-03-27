@@ -49,25 +49,56 @@ function createUnusedImportFixes(deadCodeReport: DeadCodeReport): Fix[] {
 }
 
 /**
+ * Map export type to its keyword for code generation.
+ */
+const EXPORT_TYPE_KEYWORD: Record<string, string> = {
+  class: 'class',
+  function: 'function',
+  variable: 'const',
+  type: 'type',
+  interface: 'interface',
+  enum: 'enum',
+};
+
+/**
+ * Get the declaration keyword for a named export type.
+ */
+function getExportKeyword(exportType: string): string {
+  return EXPORT_TYPE_KEYWORD[exportType] ?? 'enum';
+}
+
+/**
+ * Get the declaration keyword for a default export type.
+ */
+function getDefaultExportKeyword(exportType: string): string {
+  if (exportType === 'class' || exportType === 'function') return exportType;
+  return '';
+}
+
+/**
  * Create fixes for dead exports (non-public, zero importers)
  */
 function createDeadExportFixes(deadCodeReport: DeadCodeReport): Fix[] {
   return deadCodeReport.deadExports
     .filter((exp) => exp.reason === 'NO_IMPORTERS')
-    .map((exp) => ({
-      type: 'dead-exports' as FixType,
-      file: exp.file,
-      description: `Remove export keyword from ${exp.name} (${exp.reason})`,
-      action: 'replace' as const,
-      oldContent: exp.isDefault
-        ? `export default ${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : ''} ${exp.name}`
-        : `export ${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : exp.type === 'variable' ? 'const' : exp.type === 'type' ? 'type' : exp.type === 'interface' ? 'interface' : 'enum'} ${exp.name}`,
-      newContent: exp.isDefault
-        ? `${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : ''} ${exp.name}`
-        : `${exp.type === 'class' ? 'class' : exp.type === 'function' ? 'function' : exp.type === 'variable' ? 'const' : exp.type === 'type' ? 'type' : exp.type === 'interface' ? 'interface' : 'enum'} ${exp.name}`,
-      safe: true as const,
-      reversible: true,
-    }));
+    .map((exp) => {
+      const keyword = exp.isDefault
+        ? getDefaultExportKeyword(exp.type)
+        : getExportKeyword(exp.type);
+
+      return {
+        type: 'dead-exports' as FixType,
+        file: exp.file,
+        description: `Remove export keyword from ${exp.name} (${exp.reason})`,
+        action: 'replace' as const,
+        oldContent: exp.isDefault
+          ? `export default ${keyword} ${exp.name}`
+          : `export ${keyword} ${exp.name}`,
+        newContent: `${keyword} ${exp.name}`,
+        safe: true as const,
+        reversible: true,
+      };
+    });
 }
 
 export interface CommentedCodeBlock {

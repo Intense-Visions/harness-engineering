@@ -293,6 +293,54 @@ export function getResourceDefinitions(): typeof RESOURCE_DEFINITIONS {
   return RESOURCE_DEFINITIONS;
 }
 
+function readConfigInterval(resolvedRoot: string): number | undefined {
+  try {
+    const configResult = resolveProjectConfig(resolvedRoot);
+    if (configResult.ok) {
+      const raw = configResult.value.updateCheckInterval;
+      if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 0) {
+        return raw;
+      }
+    }
+  } catch {
+    // Config read failure is non-fatal for update checks
+  }
+  return undefined;
+}
+
+async function appendUpdateNotification(
+  result: { content: Array<{ type: string; text: string }> },
+  resolvedRoot: string
+): Promise<void> {
+  try {
+    const {
+      getUpdateNotification,
+      isUpdateCheckEnabled,
+      shouldRunCheck,
+      readCheckState,
+      spawnBackgroundCheck,
+    } = await import('@harness-engineering/core');
+
+    const { CLI_VERSION } = await import('../version.js');
+    const configInterval = readConfigInterval(resolvedRoot);
+    const DEFAULT_INTERVAL = 86_400_000; // 24 hours
+
+    if (!isUpdateCheckEnabled(configInterval)) return;
+
+    const state = readCheckState();
+    if (shouldRunCheck(state, configInterval ?? DEFAULT_INTERVAL)) {
+      spawnBackgroundCheck(CLI_VERSION);
+    }
+
+    const notification = getUpdateNotification(CLI_VERSION);
+    if (notification) {
+      result.content.push({ type: 'text', text: `\n---\n${notification}` });
+    }
+  } catch {
+    // Graceful degradation — update check failures must never break tool responses
+  }
+}
+
 export function createHarnessServer(projectRoot?: string): Server {
   const resolvedRoot = projectRoot ?? process.cwd();
   let sessionChecked = false;
@@ -318,48 +366,7 @@ export function createHarnessServer(projectRoot?: string): Server {
     // On first tool invocation per session, check for updates
     if (!sessionChecked) {
       sessionChecked = true;
-      try {
-        const {
-          getUpdateNotification,
-          isUpdateCheckEnabled,
-          shouldRunCheck,
-          readCheckState,
-          spawnBackgroundCheck,
-        } = await import('@harness-engineering/core');
-
-        const { CLI_VERSION: version } = await import('../version.js');
-        let CLI_VERSION = version;
-
-        // Read updateCheckInterval from project config (if available)
-        let configInterval: number | undefined;
-        try {
-          const configResult = resolveProjectConfig(resolvedRoot);
-          if (configResult.ok) {
-            const raw = configResult.value.updateCheckInterval;
-            if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 0) {
-              configInterval = raw;
-            }
-          }
-        } catch {
-          // Config read failure is non-fatal for update checks
-        }
-
-        const DEFAULT_INTERVAL = 86_400_000; // 24 hours
-
-        if (isUpdateCheckEnabled(configInterval)) {
-          const state = readCheckState();
-          if (shouldRunCheck(state, configInterval ?? DEFAULT_INTERVAL)) {
-            spawnBackgroundCheck(CLI_VERSION);
-          }
-
-          const notification = getUpdateNotification(CLI_VERSION);
-          if (notification) {
-            result.content.push({ type: 'text', text: `\n---\n${notification}` });
-          }
-        }
-      } catch {
-        // Graceful degradation — update check failures must never break tool responses
-      }
+      await appendUpdateNotification(result, resolvedRoot);
     }
 
     return result as unknown as Promise<never>;
