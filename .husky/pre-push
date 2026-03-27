@@ -1,2 +1,3 @@
+export PATH="/opt/homebrew/bin:$PATH"
 pnpm run typecheck
 node packages/cli/dist/bin/harness.js ci check
