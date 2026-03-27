@@ -1,0 +1,20 @@
+{
+  "name": "fastapi",
+  "description": "FastAPI web framework scaffold",
+  "version": 1,
+  "language": "python",
+  "framework": "fastapi",
+  "extends": "python-base",
+  "tooling": {
+    "packageManager": "pip",
+    "linter": "ruff",
+    "formatter": "ruff",
+    "buildTool": "setuptools",
+    "testRunner": "pytest",
+    "lockFile": "requirements.txt"
+  },
+  "detect": [
+    { "file": "requirements.txt", "contains": "fastapi" },
+    { "file": "pyproject.toml", "contains": "fastapi" }
+  ]
+}
