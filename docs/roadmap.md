@@ -511,11 +511,11 @@ last_manual_edit: 2026-03-28
 
 ### Onboarding Funnel
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** 5-minute quickstart, interactive harness init prompts, shell completion (bash/zsh/fish), harness doctor diagnostic command, troubleshooting guide, starter templates for Express/NestJS/FastAPI/Go, and post-init smoke test. [A1-A14]
+- **Status:** done
+- **Spec:** docs/changes/onboarding-funnel/proposal.md
+- **Summary:** `harness setup` single-command environment configuration, `harness doctor` lightweight diagnostics, and first-run welcome message bridging the install-to-productivity gap for new users
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-28-first-run-detection-plan.md
 
 ### Security Rule Test Coverage
 
