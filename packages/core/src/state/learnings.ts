@@ -455,18 +455,26 @@ export async function promoteSessionLearnings(
       return Ok({ promoted: 0, skipped });
     }
 
-    // Append promoted entries to global learnings
+    // Append promoted entries to global learnings (with dedup for idempotency)
     const dirResult = await getStateDir(projectPath, stream);
     if (!dirResult.ok) return dirResult;
     const stateDir = dirResult.value;
     const globalPath = path.join(stateDir, LEARNINGS_FILE);
 
-    const promotedContent = toPromote.join('\n\n') + '\n';
+    // Load existing global entries for duplicate detection
+    const existingGlobal = fs.existsSync(globalPath) ? fs.readFileSync(globalPath, 'utf-8') : '';
+    const newEntries = toPromote.filter((entry) => !existingGlobal.includes(entry.trim()));
 
-    if (!fs.existsSync(globalPath)) {
+    if (newEntries.length === 0) {
+      return Ok({ promoted: 0, skipped: skipped + toPromote.length });
+    }
+
+    const promotedContent = newEntries.join('\n\n') + '\n';
+
+    if (!existingGlobal) {
       fs.writeFileSync(globalPath, `# Learnings\n\n${promotedContent}`);
     } else {
-      fs.appendFileSync(globalPath, '\n' + promotedContent);
+      fs.appendFileSync(globalPath, '\n\n' + promotedContent);
     }
 
     // Invalidate cache

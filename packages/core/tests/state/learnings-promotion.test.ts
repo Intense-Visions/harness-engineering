@@ -109,6 +109,32 @@ describe('promoteSessionLearnings', () => {
     }
   });
 
+  it('should be idempotent — calling twice does not duplicate entries', async () => {
+    const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(sessionDir, 'learnings.md'),
+      '# Learnings\n\n- **2026-03-25 [skill:harness-execution] [outcome:gotcha]:** Always check null before access\n'
+    );
+
+    const result1 = await promoteSessionLearnings(tmpDir, 'test-session');
+    expect(result1.ok).toBe(true);
+    if (result1.ok) {
+      expect(result1.value.promoted).toBe(1);
+    }
+
+    const result2 = await promoteSessionLearnings(tmpDir, 'test-session');
+    expect(result2.ok).toBe(true);
+    if (result2.ok) {
+      expect(result2.value.promoted).toBe(0);
+    }
+
+    // Verify entry appears only once in global
+    const globalContent = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const matches = globalContent.match(/Always check null before access/g);
+    expect(matches).toHaveLength(1);
+  });
+
   it('should skip entries with no outcome tag (treat as task-specific)', async () => {
     const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
     fs.mkdirSync(sessionDir, { recursive: true });
