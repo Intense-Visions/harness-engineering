@@ -11,8 +11,10 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'tests/',
+        'benchmarks/',
         '**/*.test.ts',
         '**/*.spec.ts',
+        '**/*.bench.ts',
         'src/index.ts', // Re-exports
       ],
       thresholds: {
