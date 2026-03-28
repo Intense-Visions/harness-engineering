@@ -394,15 +394,49 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 > Runs automatically after the last phase completes. Reviews the cumulative diff (`startingCommit..HEAD`) across all phases to catch cross-phase issues before the PR offer.
 
-**Behavior:** Placeholder — full behavior added in Phase 2. This state dispatches `harness-code-reviewer` with the full diff range and per-phase findings as context. Blocking findings gate the transition to DONE.
-
 1. **Update state** with `currentState: "FINAL_REVIEW"` and save.
 
-**Transitions:**
+2. **Update `finalReview` tracking** in `autopilot-state.json`: set `finalReview.status` to `"in_progress"`.
 
-- No blocking findings (or overridden) → DONE
-- Blocking findings with fix → re-run FINAL_REVIEW (retry budget: 3)
-- User stops → save state and exit (resumable)
+3. **Gather per-phase review findings.** Read from `{sessionDir}/` — each phase's review output is stored alongside the phase handoff. Collect all review findings across phases into a single context block.
+
+4. **Dispatch review agent using the Agent tool:**
+
+   ```
+   Agent tool parameters:
+     subagent_type: "harness-code-reviewer"
+     description: "Final review: cross-phase coherence check"
+     prompt: |
+       You are running harness-code-review as a final project-wide review.
+
+       Diff scope: startingCommit..HEAD (use `git diff {startingCommit}..HEAD`)
+       Starting commit: {startingCommit}
+       Session directory: {sessionDir}
+       Session slug: {sessionSlug}
+
+       On startup, call gather_context({ session: "{sessionSlug}" }) to load
+       session-scoped learnings, state, and validation context.
+
+       ## Per-Phase Review Findings
+
+       {collected per-phase findings}
+
+       These were found and addressed during per-phase reviews. Don't assume
+       they're resolved — verify. Focus extra attention on cross-phase coherence:
+       naming consistency, duplicated utilities, architectural drift across phases.
+
+       Review the FULL diff (startingCommit..HEAD), not just the last phase.
+       Report findings with severity (blocking / warning / note).
+   ```
+
+5. **When the agent returns:**
+   - **No blocking findings:** Update `finalReview.status` to `"passed"`, report summary, transition to DONE.
+   - **Blocking findings:** Store findings in `finalReview.findings`. Surface to user. Ask: "Address blocking findings before completing? (fix / override / stop)"
+     - **fix** — Increment `finalReview.retryCount`. If `retryCount < 3`: dispatch fixes via `harness-task-executor`, then re-run FINAL_REVIEW from step 4. If `retryCount >= 3`: stop — present all attempts to user, record in `.harness/failures.md`, ask: "How should we proceed? (fix manually and continue / stop)"
+     - **override** — Record override decision (rationale from user) in state `decisions` array. Update `finalReview.status` to `"overridden"`. Transition to DONE.
+     - **stop** — Save state and exit. Resumable from FINAL_REVIEW.
+
+6. **Update state** and save after each step.
 
 ---
 
