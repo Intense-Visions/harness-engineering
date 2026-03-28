@@ -329,8 +329,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 2. **When the agent returns:**
    - **No blocking findings:** Report summary, transition to PHASE_COMPLETE.
-   - **Blocking findings:** Surface to user. Ask: "Address blocking findings before completing this phase? (yes / override / stop)"
-     - **yes** — Re-enter EXECUTE with review fixes.
+   - **Blocking findings:** Surface to user. Ask: "Address blocking findings before completing this phase? (fix / override / stop)"
+     - **fix** — Re-enter EXECUTE with review fixes.
      - **override** — Record override decision, transition to PHASE_COMPLETE.
      - **stop** — Save state and exit.
 
@@ -607,6 +607,13 @@ Next: Phase 3: CLI Integration (complexity: low). Continue? (yes / stop)
 ```
 
 **Phase 3 — [auto-plans, executes, completes]**
+
+**FINAL_REVIEW:**
+
+```
+[harness-code-reviewer runs cross-phase review on startingCommit..HEAD]
+Final review: 0 blocking, 1 warning. Passed.
+```
 
 **DONE:**
 
