@@ -1,0 +1,30 @@
+[
+  {
+    "severity": "warning",
+    "file": "packages/core/src/state/learnings.ts",
+    "line": 428,
+    "title": "No duplicate detection on re-promotion (FIXED)",
+    "detail": "promoteSessionLearnings lacked idempotency guard. Fixed by adding dedup check against existing global content before appending."
+  },
+  {
+    "severity": "note",
+    "file": "agents/skills/gemini-cli/harness-autopilot/SKILL.md",
+    "line": 506,
+    "title": "Gemini-cli SKILL.md parity (FALSE POSITIVE)",
+    "detail": "Reviewer claimed gemini-cli SKILL.md was missing promotion steps, but grep confirms steps 5-6 are present at lines 506-508."
+  },
+  {
+    "severity": "note",
+    "file": "packages/core/src/state/learnings.ts",
+    "line": 464,
+    "title": "Cosmetic newline spacing in append",
+    "detail": "Fixed as part of idempotency change — now uses \\n\\n consistently."
+  },
+  {
+    "severity": "note",
+    "file": "packages/core/src/state/learnings.ts",
+    "line": 489,
+    "title": "countLearningEntries silently returns 0 on error",
+    "detail": "Acceptable for threshold-check use case. Consistent with convenience function pattern."
+  }
+]
