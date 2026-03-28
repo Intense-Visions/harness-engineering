@@ -5,6 +5,7 @@ import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { TemplateEngine, type DetectedFramework } from '../templates/engine';
+import type { TemplateMetadata } from '../templates/schema';
 import { persistToolingConfig, appendFrameworkAgents } from '../templates/post-write';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -54,7 +55,7 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
 
 function validateFrameworkLanguage(
   options: InitOptions,
-  templateList: { framework?: string; language?: string }[]
+  templateList: TemplateMetadata[]
 ): CLIError | null {
   if (!options.framework || !options.language) return null;
   const fwTemplate = templateList.find((t) => t.framework === options.framework);
@@ -82,7 +83,7 @@ function tryAutoDetect(
 
 function resolveLanguage(
   options: InitOptions,
-  templateList: { framework?: string; language?: string }[]
+  templateList: TemplateMetadata[]
 ): string | undefined {
   if (options.language) return options.language;
   if (options.framework) {

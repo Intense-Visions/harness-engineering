@@ -4,6 +4,7 @@ import { resultToMcpResponse, type McpToolResponse } from '../utils/result-adapt
 import { resolveTemplatesDir } from '../../utils/paths.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { persistToolingConfig, appendFrameworkAgents } from '../../templates/post-write.js';
+import type { TemplateMetadata } from '../../templates/schema.js';
 
 export const initProjectDefinition = {
   name: 'init_project',
@@ -41,24 +42,22 @@ function mcpText(text: string, isError = false): McpToolResponse {
   return { content: [{ type: 'text' as const, text }], isError };
 }
 
-function findFrameworkLanguage(
-  engine: {
-    listTemplates: () => { ok: boolean; value?: { framework?: string; language?: string }[] };
-  },
-  framework: string
-): string | undefined {
+interface InitEngine {
+  listTemplates: () => { ok: boolean; value?: TemplateMetadata[] };
+  detectFramework: (dir: string) => {
+    ok: boolean;
+    value?: { framework: string; language: string; score: number }[];
+  };
+}
+
+function findFrameworkLanguage(engine: InitEngine, framework: string): string | undefined {
   const templates = engine.listTemplates();
   if (!templates.ok || !templates.value) return undefined;
   return templates.value.find((t) => t.framework === framework)?.language;
 }
 
 function tryDetectFramework(
-  engine: {
-    detectFramework: (dir: string) => {
-      ok: boolean;
-      value?: { framework: string; language: string; score: number }[];
-    };
-  },
+  engine: InitEngine,
   safePath: string,
   input: InitInput
 ): McpToolResponse | null {
@@ -74,9 +73,7 @@ function tryDetectFramework(
 }
 
 function checkFrameworkLanguageConflict(
-  engine: {
-    listTemplates: () => { ok: boolean; value?: { framework?: string; language?: string }[] };
-  },
+  engine: InitEngine,
   input: InitInput
 ): McpToolResponse | null {
   if (!input.framework || !input.language) return null;
@@ -90,12 +87,7 @@ function checkFrameworkLanguageConflict(
   return null;
 }
 
-function inferLanguage(
-  engine: {
-    listTemplates: () => { ok: boolean; value?: { framework?: string; language?: string }[] };
-  },
-  input: InitInput
-): string | undefined {
+function inferLanguage(engine: InitEngine, input: InitInput): string | undefined {
   if (input.language) return input.language;
   if (!input.framework) return undefined;
   return findFrameworkLanguage(engine, input.framework);
