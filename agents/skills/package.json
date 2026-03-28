@@ -9,6 +9,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
     "glob": "^10.3.0",
     "vitest": "^4.0.18",
     "yaml": "^2.3.0",
