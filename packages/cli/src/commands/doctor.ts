@@ -35,9 +35,15 @@ function checkNodeVersion(): CheckResult {
   };
 }
 
-function checkSlashCommands(): CheckResult[] {
-  const results: CheckResult[] = [];
+function countCommandFiles(dir: string, ext: string): number {
+  try {
+    return fs.readdirSync(dir).filter((f) => f.endsWith(ext)).length;
+  } catch {
+    return 0;
+  }
+}
 
+function checkSlashCommands(): CheckResult[] {
   const platforms: Array<{ name: string; dir: string; ext: string; client: string }> = [
     {
       name: 'Claude Code',
@@ -53,34 +59,22 @@ function checkSlashCommands(): CheckResult[] {
     },
   ];
 
-  for (const { name, dir, ext, client } of platforms) {
-    try {
-      const files = fs.readdirSync(dir).filter((f) => f.endsWith(ext));
-      if (files.length > 0) {
-        results.push({
-          name: `slash-commands-${client}`,
-          status: 'pass',
-          message: `Slash commands installed -> ${dir} (${files.length} commands)`,
-        });
-      } else {
-        results.push({
-          name: `slash-commands-${client}`,
-          status: 'fail',
-          message: `No slash commands found for ${name}`,
-          fix: 'Run: harness setup',
-        });
-      }
-    } catch {
-      results.push({
+  return platforms.map(({ name, dir, ext, client }) => {
+    const count = countCommandFiles(dir, ext);
+    if (count > 0) {
+      return {
         name: `slash-commands-${client}`,
-        status: 'fail',
-        message: `No slash commands found for ${name}`,
-        fix: 'Run: harness setup',
-      });
+        status: 'pass' as const,
+        message: `Slash commands installed -> ${dir} (${count} commands)`,
+      };
     }
-  }
-
-  return results;
+    return {
+      name: `slash-commands-${client}`,
+      status: 'fail' as const,
+      message: `No slash commands found for ${name}`,
+      fix: 'Run: harness setup',
+    };
+  });
 }
 
 function readJsonSafe<T>(filePath: string): T | null {

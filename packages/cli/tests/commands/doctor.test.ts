@@ -21,33 +21,32 @@ const mockExistsSync = vi.mocked(fs.existsSync);
 const mockReaddirSync = vi.mocked(fs.readdirSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
+const mcpJson = JSON.stringify({ mcpServers: { harness: { command: 'harness-mcp' } } });
+const claudeDir = path.join(os.homedir(), '.claude', 'commands', 'harness');
+const geminiDir = path.join(os.homedir(), '.gemini', 'commands', 'harness');
+const geminiSettings = path.join(os.homedir(), '.gemini', 'settings.json');
+
+function buildExistsMap(cwd: string): Record<string, boolean> {
+  return { [path.join(cwd, '.mcp.json')]: true, [geminiSettings]: true };
+}
+
+const readdirMap: Record<string, string[]> = {
+  [claudeDir]: ['init.md', 'validate.md'],
+  [geminiDir]: ['init.toml'],
+};
+
 function mockAllHealthy(cwd: string) {
-  mockExistsSync.mockImplementation((p: fs.PathLike) => {
-    const s = String(p);
-    if (s === path.join(cwd, '.mcp.json')) return true;
-    if (s === path.join(os.homedir(), '.gemini', 'settings.json')) return true;
-    return false;
-  });
+  const existsMap = buildExistsMap(cwd);
+  mockExistsSync.mockImplementation((p: fs.PathLike) => existsMap[String(p)] ?? false);
+  mockReaddirSync.mockImplementation(
+    (p: fs.PathOrFileDescriptor) => (readdirMap[String(p)] ?? []) as unknown as fs.Dirent[]
+  );
 
-  mockReaddirSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
-    const s = String(p);
-    const claudeDir = path.join(os.homedir(), '.claude', 'commands', 'harness');
-    const geminiDir = path.join(os.homedir(), '.gemini', 'commands', 'harness');
-    if (s === claudeDir) return ['init.md', 'validate.md'] as unknown as fs.Dirent[];
-    if (s === geminiDir) return ['init.toml'] as unknown as fs.Dirent[];
-    return [] as unknown as fs.Dirent[];
-  });
-
-  mockReadFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
-    const s = String(p);
-    if (s === path.join(cwd, '.mcp.json')) {
-      return JSON.stringify({ mcpServers: { harness: { command: 'harness-mcp' } } });
-    }
-    if (s === path.join(os.homedir(), '.gemini', 'settings.json')) {
-      return JSON.stringify({ mcpServers: { harness: { command: 'harness-mcp' } } });
-    }
-    return '{}';
-  });
+  const readMap: Record<string, string> = {
+    [path.join(cwd, '.mcp.json')]: mcpJson,
+    [geminiSettings]: mcpJson,
+  };
+  mockReadFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}');
 }
 
 describe('runDoctor', () => {
