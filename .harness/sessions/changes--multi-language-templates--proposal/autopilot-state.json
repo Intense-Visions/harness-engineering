@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--multi-language-templates--proposal",
+  "specPath": "docs/changes/multi-language-templates/proposal.md",
+  "currentState": "DONE",
+  "currentPhase": 4,
+  "autoApprove": true,
+  "phases": [
+    {
+      "name": "Engine Foundation",
+      "complexity": "medium",
+      "planPath": "docs/plans/2026-03-27-phase1-engine-foundation-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Language Base Templates",
+      "complexity": "low",
+      "planPath": "docs/plans/2026-03-27-phase2-language-base-templates-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "JS/TS Framework Overlays",
+      "complexity": "low",
+      "planPath": "docs/plans/2026-03-27-phase3-jsts-framework-overlays-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Non-JS Framework Overlays",
+      "complexity": "low",
+      "planPath": "docs/plans/2026-03-27-phase4-non-js-framework-overlays-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Integration and Polish",
+      "complexity": "medium",
+      "planPath": "docs/plans/2026-03-27-phase5-integration-polish-plan.md",
+      "status": "complete"
+    }
+  ],
+  "history": [
+    {
+      "phase": 0,
+      "name": "Engine Foundation",
+      "tasksCompleted": 8,
+      "retriesUsed": 0,
+      "verificationPassed": true
+    },
+    {
+      "phase": 1,
+      "name": "Language Base Templates",
+      "tasksCompleted": 10,
+      "retriesUsed": 0,
+      "verificationPassed": true
+    },
+    {
+      "phase": 2,
+      "name": "JS/TS Framework Overlays",
+      "tasksCompleted": 7,
+      "retriesUsed": 0,
+      "verificationPassed": true
+    },
+    {
+      "phase": 3,
+      "name": "Non-JS Framework Overlays",
+      "tasksCompleted": 9,
+      "retriesUsed": 0,
+      "verificationPassed": true
+    },
+    {
+      "phase": 4,
+      "name": "Integration and Polish",
+      "tasksCompleted": 9,
+      "retriesUsed": 0,
+      "verificationPassed": true
+    }
+  ]
+}

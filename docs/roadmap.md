@@ -461,6 +461,22 @@ last_manual_edit: 2026-03-23
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-26-phase1-session-scoped-state-plan.md
 
+### Multi-Language Framework Templates
+
+- **Status:** done
+- **Spec:** docs/changes/multi-language-templates/proposal.md
+- **Summary:** Extend template system to support 10 frameworks across 5 languages (TS/JS, Python, Go, Rust, Java) with auto-detection, existing project overlay, and language manifest
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-27-phase1-engine-foundation-plan.md
+
+### AI Foundations Integration: Session Memory & Evidence Enforcement
+
+- **Status:** planned
+- **Spec:** docs/changes/ai-foundations-integration/proposal.md
+- **Summary:** Upgrade manage_state with accumulative session-scoped sections and establish evidence-based claims standard across all skills with review gate verification
+- **Blockers:** none
+- **Plan:** none
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
