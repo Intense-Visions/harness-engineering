@@ -174,10 +174,12 @@ export async function loadBudgetedLearnings(
     }
   }
 
-  // Tier 2: Global learnings (secondary)
+  // Tier 2: Global learnings (secondary, deduplicated against session entries)
   const globalResult = await loadRelevantLearnings(projectPath, skill, stream);
   if (globalResult.ok) {
-    allEntries.push(...sortByRecencyAndRelevance(globalResult.value));
+    const sessionSet = new Set(allEntries.map((e) => e.trim()));
+    const uniqueGlobal = globalResult.value.filter((e) => !sessionSet.has(e.trim()));
+    allEntries.push(...sortByRecencyAndRelevance(uniqueGlobal));
   }
 
   // Apply token budget: greedily add entries until budget exhausted
@@ -480,7 +482,10 @@ export async function promoteSessionLearnings(
     // Invalidate cache
     learningsCacheMap.delete(globalPath);
 
-    return Ok({ promoted: toPromote.length, skipped });
+    return Ok({
+      promoted: newEntries.length,
+      skipped: skipped + (toPromote.length - newEntries.length),
+    });
   } catch (error) {
     return Err(
       new Error(
