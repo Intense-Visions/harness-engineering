@@ -58,6 +58,71 @@ export interface WriteResult {
 
 const NON_JSON_PACKAGE_CONFIGS = new Set(['pyproject.toml', 'go.mod', 'Cargo.toml', 'pom.xml']);
 
+function scoreDetectPatterns(
+  targetDir: string,
+  patterns: readonly { file: string; contains?: string | undefined }[]
+): number {
+  let score = 0;
+  for (const pattern of patterns) {
+    const filePath = path.join(targetDir, pattern.file);
+    if (!fs.existsSync(filePath)) continue;
+    if (!pattern.contains) {
+      score++;
+      continue;
+    }
+    const fd = fs.openSync(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(65536);
+      const bytesRead = fs.readSync(fd, buf, 0, 65536, 0);
+      const content = buf.toString('utf-8', 0, bytesRead);
+      if (content.includes(pattern.contains)) score++;
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+  return score;
+}
+
+function applyLanguageDefaults(context: TemplateContext): TemplateContext {
+  return {
+    ...context,
+    ...(context.language === 'python' &&
+      context.pythonMinVersion === undefined && { pythonMinVersion: '3.10' }),
+    ...(context.language === 'go' &&
+      context.goModulePath === undefined && {
+        goModulePath: `github.com/example/${context.projectName}`,
+      }),
+    ...(context.language === 'java' &&
+      context.javaGroupId === undefined && {
+        javaGroupId: `com.example.${context.projectName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
+      }),
+    ...(context.language === 'rust' &&
+      context.rustEdition === undefined && { rustEdition: '2021' }),
+  };
+}
+
+function mergeJsonBuffers(
+  jsonBuffers: Map<string, Record<string, unknown>[]>
+): Result<RenderedFile[], Error> {
+  try {
+    const results: RenderedFile[] = [];
+    for (const [outputPath, jsons] of jsonBuffers) {
+      let merged: Record<string, unknown> = {};
+      for (const json of jsons) {
+        merged =
+          outputPath === 'package.json'
+            ? mergePackageJson(merged, json)
+            : deepMergeJson(merged, json);
+      }
+      results.push({ relativePath: outputPath, content: JSON.stringify(merged, null, 2) });
+    }
+    return Ok(results);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return Err(new Error(`JSON merge failed: ${msg}`));
+  }
+}
+
 export class TemplateEngine {
   constructor(private templatesDir: string) {}
 
@@ -137,78 +202,49 @@ export class TemplateEngine {
   }
 
   render(template: ResolvedTemplate, context: TemplateContext): Result<RenderedFiles, Error> {
-    // Provide language-specific defaults for optional Handlebars variables
-    const effectiveContext: TemplateContext = {
-      ...context,
-      ...(context.language === 'python' &&
-        context.pythonMinVersion === undefined && { pythonMinVersion: '3.10' }),
-      ...(context.language === 'go' &&
-        context.goModulePath === undefined && {
-          goModulePath: `github.com/example/${context.projectName}`,
-        }),
-      ...(context.language === 'java' &&
-        context.javaGroupId === undefined && {
-          javaGroupId: `com.example.${context.projectName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
-        }),
-      ...(context.language === 'rust' &&
-        context.rustEdition === undefined && { rustEdition: '2021' }),
-    };
+    const effectiveContext = applyLanguageDefaults(context);
     const rendered: RenderedFile[] = [];
     const jsonBuffers = new Map<string, Record<string, unknown>[]>();
 
     for (const file of template.files) {
-      const outputPath = file.relativePath.replace(/\.hbs$/, '');
-      if (file.isHandlebars) {
-        try {
-          const raw = fs.readFileSync(file.absolutePath, 'utf-8');
-          const compiled = Handlebars.compile(raw, { strict: true });
-          const content = compiled(effectiveContext);
-          if (outputPath.endsWith('.json') && file.relativePath.endsWith('.json.hbs')) {
-            if (!jsonBuffers.has(outputPath)) jsonBuffers.set(outputPath, []);
-            jsonBuffers.get(outputPath)!.push(JSON.parse(content));
-          } else {
-            rendered.push({ relativePath: outputPath, content });
-          }
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          return Err(
-            new Error(
-              `Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`
-            )
-          );
-        }
-      } else {
-        try {
-          const content = fs.readFileSync(file.absolutePath, 'utf-8');
-          rendered.push({ relativePath: file.relativePath, content });
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          return Err(
-            new Error(
-              `Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`
-            )
-          );
-        }
-      }
+      const result = this.renderFile(file, effectiveContext, jsonBuffers);
+      if (!result.ok) return result;
+      if (result.value) rendered.push(result.value);
     }
 
-    try {
-      for (const [outputPath, jsons] of jsonBuffers) {
-        let merged: Record<string, unknown> = {};
-        for (const json of jsons) {
-          merged =
-            outputPath === 'package.json'
-              ? mergePackageJson(merged, json)
-              : deepMergeJson(merged, json);
-        }
-        rendered.push({ relativePath: outputPath, content: JSON.stringify(merged, null, 2) });
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return Err(new Error(`JSON merge failed: ${msg}`));
-    }
+    const mergeResult = mergeJsonBuffers(jsonBuffers);
+    if (!mergeResult.ok) return mergeResult;
+    rendered.push(...mergeResult.value);
 
     return Ok({ files: rendered });
+  }
+
+  private renderFile(
+    file: TemplateFile,
+    context: TemplateContext,
+    jsonBuffers: Map<string, Record<string, unknown>[]>
+  ): Result<RenderedFile | null, Error> {
+    const outputPath = file.relativePath.replace(/\.hbs$/, '');
+    try {
+      if (file.isHandlebars) {
+        const raw = fs.readFileSync(file.absolutePath, 'utf-8');
+        const compiled = Handlebars.compile(raw, { strict: true });
+        const content = compiled(context);
+        if (outputPath.endsWith('.json') && file.relativePath.endsWith('.json.hbs')) {
+          if (!jsonBuffers.has(outputPath)) jsonBuffers.set(outputPath, []);
+          jsonBuffers.get(outputPath)!.push(JSON.parse(content));
+          return Ok(null);
+        }
+        return Ok({ relativePath: outputPath, content });
+      }
+      const content = fs.readFileSync(file.absolutePath, 'utf-8');
+      return Ok({ relativePath: file.relativePath, content });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return Err(
+        new Error(`Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`)
+      );
+    }
   }
 
   write(
@@ -257,31 +293,11 @@ export class TemplateEngine {
       if (!templatesResult.ok) return Err(templatesResult.error);
 
       const candidates: DetectedFramework[] = [];
-
       for (const meta of templatesResult.value) {
         if (!meta.detect || meta.detect.length === 0) continue;
         if (!meta.framework || !meta.language) continue;
 
-        let score = 0;
-        for (const pattern of meta.detect) {
-          const filePath = path.join(targetDir, pattern.file);
-          if (!fs.existsSync(filePath)) continue;
-          if (pattern.contains) {
-            // Read only first 64KB to avoid large file allocation (e.g., go.sum, package-lock.json)
-            const fd = fs.openSync(filePath, 'r');
-            try {
-              const buf = Buffer.alloc(65536);
-              const bytesRead = fs.readSync(fd, buf, 0, 65536, 0);
-              const content = buf.toString('utf-8', 0, bytesRead);
-              if (content.includes(pattern.contains)) score++;
-            } finally {
-              fs.closeSync(fd);
-            }
-          } else {
-            score++;
-          }
-        }
-
+        const score = scoreDetectPatterns(targetDir, meta.detect);
         if (score > 0) {
           candidates.push({
             framework: meta.framework,

@@ -32,62 +32,82 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const force = options.force ?? false;
 
   const configPath = path.join(cwd, 'harness.config.json');
-
   if (!force && fs.existsSync(configPath)) {
     return Err(
       new CLIError('Project already initialized. Use --force to overwrite.', ExitCode.ERROR)
     );
   }
 
-  const templatesDir = resolveTemplatesDir();
-  const engine = new TemplateEngine(templatesDir);
-
-  // Load template list once for conflict validation and language inference
+  const engine = new TemplateEngine(resolveTemplatesDir());
   const templates = engine.listTemplates();
   const templateList = templates.ok ? templates.value : [];
 
-  // Validate --framework / --language conflict
-  if (options.framework && options.language) {
+  const validationError = validateFrameworkLanguage(options, templateList);
+  if (validationError) return Err(validationError);
+
+  const detected = tryAutoDetect(engine, cwd, options);
+  if (detected) return Ok(detected);
+
+  const language = resolveLanguage(options, templateList);
+  return scaffoldProject(engine, { cwd, name, force, language, options });
+}
+
+function validateFrameworkLanguage(
+  options: InitOptions,
+  templateList: { framework?: string; language?: string }[]
+): CLIError | null {
+  if (!options.framework || !options.language) return null;
+  const fwTemplate = templateList.find((t) => t.framework === options.framework);
+  if (fwTemplate?.language && fwTemplate.language !== options.language) {
+    return new CLIError(
+      `Framework "${options.framework}" is a ${fwTemplate.language} framework, but --language ${options.language} was specified. Remove --language or use --language ${fwTemplate.language}.`,
+      ExitCode.ERROR
+    );
+  }
+  return null;
+}
+
+function tryAutoDetect(
+  engine: TemplateEngine,
+  cwd: string,
+  options: InitOptions
+): InitResult | null {
+  if (options.framework || options.language) return null;
+  const detectResult = engine.detectFramework(cwd);
+  if (detectResult.ok && detectResult.value.length > 0) {
+    return { filesCreated: [], skippedConfigs: [], detectedFrameworks: detectResult.value };
+  }
+  return null;
+}
+
+function resolveLanguage(
+  options: InitOptions,
+  templateList: { framework?: string; language?: string }[]
+): string | undefined {
+  if (options.language) return options.language;
+  if (options.framework) {
     const fwTemplate = templateList.find((t) => t.framework === options.framework);
-    if (fwTemplate?.language && fwTemplate.language !== options.language) {
-      return Err(
-        new CLIError(
-          `Framework "${options.framework}" is a ${fwTemplate.language} framework, but --language ${options.language} was specified. Remove --language or use --language ${fwTemplate.language}.`,
-          ExitCode.ERROR
-        )
-      );
-    }
+    if (fwTemplate?.language) return fwTemplate.language;
   }
+  return undefined;
+}
 
-  // Auto-detect framework if no --framework and no --language specified
-  if (!options.framework && !options.language) {
-    const detectResult = engine.detectFramework(cwd);
-    if (detectResult.ok && detectResult.value.length > 0) {
-      // Return detection results for caller to confirm
-      // Do NOT scaffold yet -- caller should re-invoke with explicit --framework
-      return Ok({
-        filesCreated: [],
-        skippedConfigs: [],
-        detectedFrameworks: detectResult.value,
-      });
-    }
+function scaffoldProject(
+  engine: TemplateEngine,
+  ctx: {
+    cwd: string;
+    name: string;
+    force: boolean;
+    language: string | undefined;
+    options: InitOptions;
   }
-
-  // Determine language: explicit, inferred from framework, or default typescript
-  let language = options.language;
-  if (!language && options.framework) {
-    const fwTemplate = templateList.find((t) => t.framework === options.framework);
-    if (fwTemplate?.language) language = fwTemplate.language;
-  }
-
-  // Level is required for JS/TS, optional for other languages
+): Result<InitResult, CLIError> {
+  const { cwd, name, force, language, options } = ctx;
   const isNonJs = language && language !== 'typescript';
   const level = isNonJs ? undefined : (options.level ?? 'basic');
 
   const resolveResult = engine.resolveTemplate(level, options.framework, language);
-  if (!resolveResult.ok) {
-    return Err(new CLIError(resolveResult.error.message, ExitCode.ERROR));
-  }
+  if (!resolveResult.ok) return Err(new CLIError(resolveResult.error.message, ExitCode.ERROR));
 
   const renderResult = engine.render(resolveResult.value, {
     projectName: name,
@@ -95,19 +115,14 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     ...(options.framework !== undefined && { framework: options.framework }),
     ...(language !== undefined && { language }),
   });
-  if (!renderResult.ok) {
-    return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));
-  }
+  if (!renderResult.ok) return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));
 
   const writeResult = engine.write(renderResult.value, cwd, {
     overwrite: force,
     ...(language !== undefined && { language }),
   });
-  if (!writeResult.ok) {
-    return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
-  }
+  if (!writeResult.ok) return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
 
-  // Log skipped config files
   if (writeResult.value.skippedConfigs.length > 0) {
     logger.warn('Skipped existing package config files:');
     for (const file of writeResult.value.skippedConfigs) {
@@ -115,7 +130,6 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     }
   }
 
-  // Post-write: persist tooling/framework metadata and append AGENTS.md conventions
   persistToolingConfig(cwd, resolveResult.value, options.framework);
   appendFrameworkAgents(cwd, options.framework, language);
 
