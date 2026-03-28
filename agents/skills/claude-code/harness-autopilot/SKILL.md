@@ -431,8 +431,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    ```
 
 5. **When the agent returns:**
-   - **No blocking findings:** Update `finalReview.status` to `"passed"`, report summary, transition to DONE.
-   - **Blocking findings:** Store findings in `finalReview.findings`. Surface to user. Ask: "Address blocking findings before completing? (fix / override / stop)"
+   - **No blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Update `finalReview.status` to `"passed"`, report summary, transition to DONE.
+   - **Blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Surface blocking findings to user. Ask: "Address blocking findings before completing? (fix / override / stop)"
      - **fix** — Increment `finalReview.retryCount`. If `retryCount < 3`: dispatch fixes via `harness-task-executor`, then re-run FINAL_REVIEW from step 4. If `retryCount >= 3`: stop — present all attempts to user, record in `.harness/failures.md`, ask: "How should we proceed? (fix manually and continue / stop)"
      - **override** — Record override decision (rationale from user) in state `decisions` array. Update `finalReview.status` to `"overridden"`. Transition to DONE.
      - **stop** — Save state and exit. Resumable from FINAL_REVIEW.
@@ -620,6 +620,7 @@ Final review: 0 blocking, 1 warning. Passed.
 ```
 All phases complete.
 Total: 3 phases, 30 tasks, 1 retry
+Final review: passed (0 blocking, 1 warning)
 Create a PR? (yes / no)
 → User: "yes"
 ```
