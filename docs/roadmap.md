@@ -455,7 +455,7 @@ last_manual_edit: 2026-03-28
 
 ### Efficient Context Pipeline
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/efficient-context-pipeline/proposal.md
 - **Summary:** Reduce token waste through session-scoped state, lean agent dispatch, token-budgeted learnings, session summaries, and a learnings-driven feedback loop
 - **Blockers:** none
@@ -496,8 +496,8 @@ last_manual_edit: 2026-03-28
 ### CI Pipeline Hardening
 
 - **Status:** planned
-- **Spec:** none
-- **Summary:** Coverage dashboards, benchmark regression gates in CI, post-publish smoke tests, and provenance attestation — practice the standards harness enforces on others
+- **Spec:** docs/changes/ci-pipeline-hardening/proposal.md
+- **Summary:** Codecov integration, ratchet-only coverage baselines for all packages, Vitest benchmarks with 10% regression gates for core and graph, and post-publish smoke test — practice the standards harness enforces on others
 - **Blockers:** none
 - **Plan:** none
 
