@@ -70,12 +70,14 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - For each phase heading (`### Phase N: Name`), extract:
      - Phase name
      - Complexity annotation (`<!-- complexity: low|medium|high -->`, default: `medium`)
+   - Capture the starting commit: run `git rev-parse HEAD` and store the result as `startingCommit`.
    - Create `{sessionDir}/autopilot-state.json`:
      ```json
      {
        "schemaVersion": 2,
        "sessionDir": ".harness/sessions/<slug>",
        "specPath": "<path to spec>",
+       "startingCommit": "<git rev-parse HEAD output>",
        "currentState": "ASSESS",
        "currentPhase": 0,
        "phases": [
