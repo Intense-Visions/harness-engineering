@@ -6,6 +6,34 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.8.0 — 2026-03-27
+
+### Added
+
+- **Multi-language template system** — 5 language bases (Python, Go, Rust, Java, TypeScript) and 10 framework overlays (FastAPI, Django, Gin, Axum, Spring Boot, Next.js, React Vite, Express, NestJS, and existing Next.js). Language-aware resolution in `TemplateEngine` with `detectFramework()` auto-detection.
+- **`--language` flag for `harness init`** — Explicit language selection with conflict validation. MCP `init_project` tool also accepts `language` parameter.
+- **Framework conventions in AGENTS.md** — `harness init` appends framework-specific conventions to existing AGENTS.md files and persists tooling/framework metadata in `harness.config.json`.
+- **Session sections in `manage_state`** — New actions for session-scoped accumulative state: read, append, status update, and archive operations with read-before-write safety.
+- **Session section retrieval in `gather_context`** — New `sessions` include key for loading session section data.
+- **Evidence gate for code review** — Coverage checking and uncited finding tagging in the review pipeline. `EvidenceCoverageReport` type, `tagUncitedFindings()`, and pipeline orchestrator integration with coverage reporting in output formatters.
+
+### Changed
+
+- Reduced cyclomatic complexity across all packages via function extraction and handler decomposition.
+- Template schema expanded with `language`, `tooling`, and `detect` fields.
+- `HarnessConfigSchema` template field extended with `language` and `tooling`.
+- Package config skip logic added for non-JS existing projects.
+
+### Fixed
+
+- `detectFramework` file descriptor leak — wrapped in try/finally to prevent fd exhaustion.
+- Evidence gate regex now supports `@` in scoped package paths (e.g., `@org/package`).
+- `exactOptionalPropertyTypes` compliance in review conditional spread.
+- Cross-device session archive with copy+remove fallback when `fs.rename` fails across filesystems.
+- Enum constraints added to session section and status MCP schema properties.
+- CI check warnings for entry points and doc coverage resolved.
+- Platform-parity test normalization for cross-platform compatibility.
+
 ## 0.7.0 — 2026-03-27
 
 ### Added

@@ -1,5 +1,25 @@
 # @harness-engineering/cli
 
+## 1.14.0
+
+### Minor Changes
+
+- **Multi-language template system** — 5 language bases (Python, Go, Rust, Java, TypeScript) and 10 framework overlays (FastAPI, Django, Gin, Axum, Spring Boot, Next.js, React Vite, Express, NestJS). Language-aware resolution in `TemplateEngine` with `detectFramework()` auto-detection.
+- **`--language` flag** — Explicit language selection for `harness init` with conflict validation against detected framework.
+- **Framework conventions** — `harness init` appends framework-specific conventions to existing AGENTS.md and persists tooling/framework metadata in `harness.config.json`.
+- **Session sections in `manage_state`** — New session section actions (read, append, status update) with schema-validated definitions.
+- **Session section retrieval in `gather_context`** — New `sessions` include key for loading session section data.
+- **MCP `init_project` enhancements** — Accepts `language` parameter and persists tooling metadata.
+
+### Patch Changes
+
+- Fix `detectFramework` file descriptor leak with try/finally guard
+- Fix enum constraints on session section and status MCP schema properties
+- Reduce cyclomatic complexity across template and tool modules
+- Updated dependencies
+  - @harness-engineering/core@0.14.0
+  - @harness-engineering/types@0.4.0
+
 ## 1.13.1
 
 ### Patch Changes

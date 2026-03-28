@@ -213,13 +213,13 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 
 ## What's Included
 
-| Component                              | Count | Description                                                                           |
-| -------------------------------------- | ----- | ------------------------------------------------------------------------------------- |
-| [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, graph, orchestrator, shared types |
-| [Skills](./agents/skills/claude-code/) | 79    | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog             |
-| [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more    |
-| [Templates](./templates/)              | 6     | Base, basic, intermediate, advanced, Next.js, and orchestrator scaffolds              |
-| [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                    |
+| Component                              | Count | Description                                                                                             |
+| -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
+| [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, graph, orchestrator, shared types                   |
+| [Skills](./agents/skills/claude-code/) | 79    | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                               |
+| [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                      |
+| [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more) |
+| [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                      |
 
 ## Examples
 

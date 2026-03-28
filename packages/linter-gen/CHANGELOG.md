@@ -1,5 +1,11 @@
 # @harness-engineering/linter-gen
 
+## 0.1.4
+
+### Patch Changes
+
+- Reduce cyclomatic complexity in generator orchestrator
+
 ## 0.1.3
 
 ### Patch Changes

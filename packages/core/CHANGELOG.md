@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.14.0
+
+### Minor Changes
+
+- **Evidence gate for code review** — Coverage checking and uncited finding tagging in the review pipeline.
+  - `tagUncitedFindings()` tags review findings lacking file:line evidence citations
+  - `EvidenceCoverageReport` type with per-finding citation status
+  - Coverage reporting integrated into output formatters
+  - Pipeline orchestrator wired to run evidence gate after validation phase
+- **Session section state management** — Read, append, status update, and archive operations for session-scoped accumulative state sections.
+  - `readSessionSection()`, `appendSessionSection()`, `updateSessionSectionStatus()`
+  - Session archival with date-suffixed directory move
+  - Session state file and archive directory constants
+  - Barrel file exports for session section and archive functions
+
+### Patch Changes
+
+- Fix evidence gate regex to support `@` in scoped package paths (e.g., `@org/package`)
+- Fix `exactOptionalPropertyTypes` compliance in review conditional spread
+- Fix cross-device session archive with copy+remove fallback
+- Reduce cyclomatic complexity across check orchestrator and tool modules
+- Fix CI check warnings for entry points and doc coverage
+- Updated dependencies
+  - @harness-engineering/types@0.4.0
+
 ## 0.13.1
 
 ### Patch Changes
