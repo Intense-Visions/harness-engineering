@@ -42,7 +42,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
                                                                          ↓
                                                                    [next phase?]
                                                                     ↓         ↓
-                                                                 ASSESS      DONE
+                                                                 ASSESS   FINAL_REVIEW → DONE
 ```
 
 ---
@@ -381,7 +381,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - If more phases remain: "Phase {N} complete. Next: Phase {N+1}: {name} (complexity: {level}). Continue? (yes / stop)"
      - **yes** — Increment `currentPhase`, reset `retryBudget`, transition to ASSESS.
      - **stop** — Save state and exit.
-   - If no more phases: Transition to DONE.
+   - If no more phases: Transition to FINAL_REVIEW.
 
 ---
 
