@@ -390,3 +390,104 @@ export async function pruneLearnings(
     );
   }
 }
+
+export interface PromoteResult {
+  promoted: number;
+  skipped: number;
+}
+
+/**
+ * Outcomes considered generalizable (applicable beyond the current session).
+ * Entries with these tags get promoted to global learnings.
+ * Task-completion entries ([outcome:success] with no broader insight,
+ * or entries with no outcome tag) stay in the session.
+ */
+const PROMOTABLE_OUTCOMES = ['gotcha', 'decision', 'observation'];
+
+/**
+ * Check if a learning entry is generalizable (should be promoted to global).
+ * Generalizable = has an outcome tag that indicates a reusable insight.
+ */
+function isGeneralizable(entry: string): boolean {
+  for (const outcome of PROMOTABLE_OUTCOMES) {
+    if (entry.includes(`[outcome:${outcome}]`)) return true;
+  }
+  return false;
+}
+
+/**
+ * Promote generalizable session learnings to global learnings.md.
+ *
+ * Generalizable entries are those tagged with [outcome:gotcha],
+ * [outcome:decision], or [outcome:observation]. These represent
+ * reusable insights that apply beyond the current session.
+ *
+ * Task-specific entries (e.g., [outcome:success] completion summaries,
+ * or entries without outcome tags) stay in the session directory.
+ */
+export async function promoteSessionLearnings(
+  projectPath: string,
+  sessionSlug: string,
+  stream?: string
+): Promise<Result<PromoteResult, Error>> {
+  try {
+    // Load session learnings
+    const sessionResult = await loadRelevantLearnings(projectPath, undefined, stream, sessionSlug);
+    if (!sessionResult.ok) return sessionResult;
+    const sessionEntries = sessionResult.value;
+
+    if (sessionEntries.length === 0) {
+      return Ok({ promoted: 0, skipped: 0 });
+    }
+
+    const toPromote: string[] = [];
+    let skipped = 0;
+
+    for (const entry of sessionEntries) {
+      if (isGeneralizable(entry)) {
+        toPromote.push(entry);
+      } else {
+        skipped++;
+      }
+    }
+
+    if (toPromote.length === 0) {
+      return Ok({ promoted: 0, skipped });
+    }
+
+    // Append promoted entries to global learnings
+    const dirResult = await getStateDir(projectPath, stream);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const globalPath = path.join(stateDir, LEARNINGS_FILE);
+
+    const promotedContent = toPromote.join('\n\n') + '\n';
+
+    if (!fs.existsSync(globalPath)) {
+      fs.writeFileSync(globalPath, `# Learnings\n\n${promotedContent}`);
+    } else {
+      fs.appendFileSync(globalPath, '\n' + promotedContent);
+    }
+
+    // Invalidate cache
+    learningsCacheMap.delete(globalPath);
+
+    return Ok({ promoted: toPromote.length, skipped });
+  } catch (error) {
+    return Err(
+      new Error(
+        `Failed to promote session learnings: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  }
+}
+
+/**
+ * Count the number of learning entries in the global learnings.md file.
+ * Useful for checking if pruning should be suggested (threshold: 30).
+ */
+export async function countLearningEntries(projectPath: string, stream?: string): Promise<number> {
+  const loadResult = await loadRelevantLearnings(projectPath, undefined, stream);
+  if (!loadResult.ok) return 0;
+  return loadResult.value.length;
+}
