@@ -32,8 +32,15 @@ export {
   analyzeLearningPatterns,
   archiveLearnings,
   pruneLearnings,
+  promoteSessionLearnings,
+  countLearningEntries,
 } from './learnings';
-export type { BudgetedLearningsOptions, LearningPattern, PruneResult } from './learnings';
+export type {
+  BudgetedLearningsOptions,
+  LearningPattern,
+  PruneResult,
+  PromoteResult,
+} from './learnings';
 
 /**
  * Failure tracking, loading, and archival.

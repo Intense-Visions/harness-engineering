@@ -12,6 +12,8 @@ export {
   analyzeLearningPatterns,
   archiveLearnings,
   pruneLearnings,
+  promoteSessionLearnings,
+  countLearningEntries,
 } from './learnings';
 export { clearFailuresCache, appendFailure, loadFailures, archiveFailures } from './failures';
 export { saveHandoff, loadHandoff } from './handoff';
