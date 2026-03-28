@@ -269,11 +269,14 @@ export class TemplateEngine {
           if (pattern.contains) {
             // Read only first 64KB to avoid large file allocation (e.g., go.sum, package-lock.json)
             const fd = fs.openSync(filePath, 'r');
-            const buf = Buffer.alloc(65536);
-            const bytesRead = fs.readSync(fd, buf, 0, 65536, 0);
-            fs.closeSync(fd);
-            const content = buf.toString('utf-8', 0, bytesRead);
-            if (content.includes(pattern.contains)) score++;
+            try {
+              const buf = Buffer.alloc(65536);
+              const bytesRead = fs.readSync(fd, buf, 0, 65536, 0);
+              const content = buf.toString('utf-8', 0, bytesRead);
+              if (content.includes(pattern.contains)) score++;
+            } finally {
+              fs.closeSync(fd);
+            }
           } else {
             score++;
           }
