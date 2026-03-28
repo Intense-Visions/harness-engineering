@@ -25,7 +25,8 @@
     "clean": "node ../../scripts/clean.mjs dist",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "bench": "vitest bench"
   },
   "dependencies": {
     "@harness-engineering/types": "workspace:*",
