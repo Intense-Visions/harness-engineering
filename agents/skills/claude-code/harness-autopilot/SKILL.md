@@ -389,7 +389,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 > Runs automatically after the last phase completes. Reviews the cumulative diff (`startingCommit..HEAD`) across all phases to catch cross-phase issues before the PR offer.
 
-**Behavior:** Defined in Phase 2 of the autopilot-final-review-gate spec. This state dispatches `harness-code-reviewer` with the full diff range and per-phase findings as context. Blocking findings gate the transition to DONE.
+**Behavior:** Placeholder — full behavior added in Phase 2. This state dispatches `harness-code-reviewer` with the full diff range and per-phase findings as context. Blocking findings gate the transition to DONE.
+
+1. **Update state** with `currentState: "FINAL_REVIEW"` and save.
 
 **Transitions:**
 
