@@ -1,34 +1,11 @@
 {
-  "fromSkill": "harness-planning",
-  "phase": "VALIDATE",
-  "summary": "Phase 5 (Learnings Pruning with Feedback Loop) planned. 5 tasks covering core pruning logic (analyzeLearningPatterns, archiveLearnings, pruneLearnings), barrel exports, CLI command (harness learnings prune), and integration tests.",
-  "completed": [],
-  "pending": [
-    "Task 1: Export parseDateFromEntry and add analyzeLearningPatterns (TDD)",
-    "Task 2: Add archiveLearnings and pruneLearnings core functions (TDD)",
-    "Task 3: Export new functions from core barrel files",
-    "Task 4: Create CLI harness learnings prune command",
-    "Task 5: Add CLI integration tests for learnings prune command"
-  ],
-  "concerns": [
-    "manage_roadmap add action has a known bug (fixed in this project but flagged for caution) -- the CLI prune command intentionally does NOT call manage_roadmap directly; it prints proposals for the human to act on",
-    "parseDateFromEntry is currently module-private and needs to be exported (Task 1)"
-  ],
-  "decisions": [
-    "CLI prints proposals to stdout rather than interactively calling manage_roadmap -- keeps it simple and human-in-the-loop",
-    "Pattern detection uses simple tag grouping ([skill:X], [outcome:Y]) with 3+ threshold per spec",
-    "Archive naming uses YYYY-MM.md and appends to existing files for the same month",
-    "Prune triggers when count exceeds 20 with old entries OR count exceeds 30 (aligns with spec thresholds)",
-    "Command registered as 'harness learnings prune' (new command group, not under 'harness state')"
-  ],
-  "contextKeywords": [
-    "learnings-pruning",
-    "pattern-detection",
-    "archive",
-    "feedback-loop",
-    "roadmap-proposal",
-    "parseDateFromEntry",
-    "analyzeLearningPatterns",
-    "pruneLearnings"
+  "fromSkill": "harness-execution",
+  "timestamp": "2026-03-28T18:13:00Z",
+  "summary": "Phase 5 complete. Added promoteSessionLearnings and countLearningEntries to core, exported from barrel files, updated claude-code autopilot DONE section with promotion and prune suggestion steps. gemini-cli already had changes from a prior session.",
+  "pendingTasks": [],
+  "blockers": [],
+  "learnings": [
+    "gemini-cli SKILL.md already had Phase 5 changes applied from a prior session -- no modification needed",
+    "module-size baseline needed updating twice (once for implementation, once for exports)"
   ]
 }

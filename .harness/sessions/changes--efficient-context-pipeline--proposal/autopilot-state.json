@@ -1,8 +1,9 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "sessionDir": ".harness/sessions/changes--efficient-context-pipeline--proposal",
   "specPath": "docs/changes/efficient-context-pipeline/proposal.md",
-  "currentState": "PLAN",
+  "startingCommit": "2e3d71b",
+  "currentState": "DONE",
   "currentPhase": 4,
   "phases": [
     {
@@ -37,8 +38,8 @@
       "name": "Learnings Pruning with Feedback Loop",
       "complexity": "medium",
       "complexityOverride": null,
-      "planPath": null,
-      "status": "in-progress"
+      "planPath": "docs/plans/2026-03-28-phase5-learnings-pruning-plan.md",
+      "status": "complete"
     }
   ],
   "retryBudget": {
@@ -69,6 +70,12 @@
       "state": "APPROVE_PLAN",
       "decision": "approved",
       "timestamp": "2026-03-26T16:00:00Z"
+    },
+    {
+      "phase": 4,
+      "state": "APPROVE_PLAN",
+      "decision": "auto-approved",
+      "timestamp": "2026-03-28T17:00:00Z"
     }
   ],
   "history": [
@@ -111,6 +118,58 @@
       "retriesUsed": 0,
       "verificationPassed": true,
       "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 4,
+      "name": "Learnings Pruning with Feedback Loop",
+      "startedAt": "2026-03-28T17:00:00Z",
+      "completedAt": "2026-03-28T17:25:00Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 1, "note": 3 }
     }
-  ]
+  ],
+  "finalReview": {
+    "status": "passed",
+    "findings": [
+      {
+        "severity": "warning",
+        "file": "packages/core/src/state/learnings.ts",
+        "line": 483,
+        "title": "Incorrect promoted count on partial dedup (FIXED)"
+      },
+      {
+        "severity": "warning",
+        "file": "packages/core/src/state/learnings.ts",
+        "line": 167,
+        "title": "No dedup between session/global tiers in loadBudgetedLearnings (FIXED)"
+      },
+      {
+        "severity": "note",
+        "file": "packages/core/src/state/session-sections.ts",
+        "line": 21,
+        "title": "Async functions with sync bodies"
+      },
+      {
+        "severity": "note",
+        "file": "packages/cli/src/mcp/tools/state.ts",
+        "line": 179,
+        "title": "Section name cast without runtime validation"
+      },
+      {
+        "severity": "note",
+        "file": "packages/core/src/state/learnings.ts",
+        "line": 321,
+        "title": "Docstring/code misalignment on prune threshold"
+      },
+      {
+        "severity": "note",
+        "file": "packages/core/src/state/session-sections.ts",
+        "line": 104,
+        "title": "No file locking on appendSessionEntry"
+      }
+    ],
+    "retryCount": 0
+  }
 }
