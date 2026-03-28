@@ -28,6 +28,8 @@ import { createStateCommand } from './commands/state';
 import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
 import { createCreateSkillCommand } from './commands/create-skill';
 import { createSetupMcpCommand } from './commands/setup-mcp';
+import { createSetupCommand } from './commands/setup';
+import { createDoctorCommand } from './commands/doctor';
 import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
 import { createCICommand } from './commands/ci';
 import { createUpdateCommand } from './commands/update';
@@ -86,6 +88,8 @@ export function createProgram(): Command {
   program.addCommand(createCheckPhaseGateCommand());
   program.addCommand(createCreateSkillCommand());
   program.addCommand(createSetupMcpCommand());
+  program.addCommand(createSetupCommand());
+  program.addCommand(createDoctorCommand());
   program.addCommand(createGenerateSlashCommandsCommand());
   program.addCommand(createGenerateAgentDefinitionsCommand());
   program.addCommand(createGenerateCommand());
