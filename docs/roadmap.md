@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-03-27
-last_synced: 2026-03-27
-last_manual_edit: 2026-03-23
+updated: 2026-03-28
+last_synced: 2026-03-28
+last_manual_edit: 2026-03-28
 ---
 
 # Roadmap
@@ -471,9 +471,57 @@ last_manual_edit: 2026-03-23
 
 ### AI Foundations Integration: Session Memory & Evidence Enforcement
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/ai-foundations-integration/proposal.md
 - **Summary:** Upgrade manage_state with accumulative session-scoped sections and establish evidence-based claims standard across all skills with review gate verification
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-27-wave1-1-schema-types-plan.md
+
+### Autopilot Final Review Gate
+
+- **Status:** in-progress
+- **Spec:** docs/changes/autopilot-final-review-gate/proposal.md
+- **Summary:** FINAL_REVIEW state in autopilot state machine — holistic code review of all cumulative changes before PR creation, catching cross-phase issues and cumulative scope concerns
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-28-state-machine-plumbing-plan.md
+
+### Force-Multiplier Integrations (Tier 1)
+
+- **Status:** planned
+- **Spec:** .harness/architecture/force-multiplier-integrations/ADR-001.md
+- **Summary:** Zero-config MCP peer integrations (Context7, Sequential Thinking) and high-value connectors (Perplexity, Playwright, E2B) via Bidirectional Knowledge Bridge architecture
+- **Blockers:** none
+- **Plan:** none
+
+### CI Pipeline Hardening
+
+- **Status:** planned
+- **Spec:** none
+- **Summary:** Coverage dashboards, benchmark regression gates in CI, post-publish smoke tests, and provenance attestation — practice the standards harness enforces on others
+- **Blockers:** none
+- **Plan:** none
+
+### Migration Toolkit
+
+- **Status:** planned
+- **Spec:** none
+- **Summary:** Config version codemods, breaking-change detection, and upgrade scripts for users moving between harness versions
+- **Blockers:** none
+- **Plan:** none
+
+### Onboarding Funnel
+
+- **Status:** planned
+- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** 5-minute quickstart, interactive harness init prompts, shell completion (bash/zsh/fish), harness doctor diagnostic command, troubleshooting guide, starter templates for Express/NestJS/FastAPI/Go, and post-init smoke test. [A1-A14]
+- **Blockers:** none
+- **Plan:** none
+
+### Security Rule Test Coverage
+
+- **Status:** planned
+- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Summary:** Unit tests for 8+ untested security rule implementations (crypto, XSS, path traversal, deserialization, network, stack-specific). Enforce coverage thresholds in CI as blockers, not warnings. [E9/E10]
 - **Blockers:** none
 - **Plan:** none
 
@@ -725,14 +773,6 @@ last_manual_edit: 2026-03-23
 
 ## v3.0 Supporting Work
 
-### Onboarding Funnel
-
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** 5-minute quickstart, interactive harness init prompts, shell completion (bash/zsh/fish), harness doctor diagnostic command, troubleshooting guide, starter templates for Express/NestJS/FastAPI/Go, and post-init smoke test. [A1-A14]
-- **Blockers:** none
-- **Plan:** none
-
 ### Community Infrastructure
 
 - **Status:** planned
@@ -741,17 +781,9 @@ last_manual_edit: 2026-03-23
 - **Blockers:** none
 - **Plan:** none
 
-### Security Rule Test Coverage
-
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Unit tests for 8+ untested security rule implementations (crypto, XSS, path traversal, deserialization, network, stack-specific). Enforce coverage thresholds in CI as blockers, not warnings. [E9/E10]
-- **Blockers:** none
-- **Plan:** none
-
 ### Domain Skill Tiers & Catalog System
 
-- **Status:** done
+- **Status:** in-progress
 - **Spec:** docs/changes/domain-skill-tiers/proposal.md
 - **Summary:** Three-tier skill loading (30 always-loaded slash commands, 43 catalog-only discoverable via search_skills, 6 dependency-only), intelligent dispatcher, and 30 new domain skills covering backend, infrastructure, reliability, auth, compliance, testing, soft domains, data engineering, ML/AI, and mobile. Cross-platform (Claude Code + Gemini CLI).
 - **Blockers:** none
