@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--autopilot-final-review-gate--proposal",
+  "specPath": "docs/changes/autopilot-final-review-gate/proposal.md",
+  "startingCommit": "239eeda4e767a626443d8ac07f4f641812172598",
+  "currentState": "ASSESS",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "State machine plumbing",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "FINAL_REVIEW logic",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "DONE state update",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [],
+  "decisions": ["User requested auto-approve for all plans"]
+}
