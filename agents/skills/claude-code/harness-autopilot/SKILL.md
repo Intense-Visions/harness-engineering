@@ -448,7 +448,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Total tasks across all phases
    - Total retries used
    - Total time (first phase start to last phase completion)
-   - Any overridden review findings
+   - Final review result: `finalReview.status` (passed / overridden) and total findings count from `finalReview.findings`
+   - Any overridden review findings (per-phase and final)
 
 2. **Offer next steps:**
    - "Create a PR? (yes / no)"
@@ -465,7 +466,11 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      "pending": [],
      "concerns": [],
      "decisions": ["<all decisions from all phases>"],
-     "contextKeywords": ["<merged from spec>"]
+     "contextKeywords": ["<merged from spec>"],
+     "finalReview": {
+       "status": "<passed | overridden>",
+       "findingsCount": "<number of findings from final review>"
+     }
    }
    ```
 
