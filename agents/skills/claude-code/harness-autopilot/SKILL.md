@@ -94,6 +94,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
          "currentTask": null
        },
        "history": [],
+       "decisions": [],
        "finalReview": {
          "status": "pending",
          "findings": [],
