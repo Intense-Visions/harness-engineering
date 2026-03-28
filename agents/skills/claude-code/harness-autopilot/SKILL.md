@@ -61,6 +61,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Create the session directory if it does not exist
 
 3. **Check for existing state.** Read `{sessionDir}/autopilot-state.json`. If it exists and `currentState` is not `DONE`:
+   - **Schema migration:** If `schemaVersion < 3`, backfill missing fields: set `startingCommit` to the earliest commit in `history` (or current HEAD if no history), set `decisions` to `[]`, set `finalReview` to `{ "status": "pending", "findings": [], "retryCount": 0 }`. Update `schemaVersion` to `3` and save.
    - Report: "Resuming autopilot from state `{currentState}`, phase {currentPhase}: {phaseName}."
    - Skip to the recorded `currentState` and continue from there.
 
@@ -74,7 +75,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Create `{sessionDir}/autopilot-state.json`:
      ```json
      {
-       "schemaVersion": 2,
+       "schemaVersion": 3,
        "sessionDir": ".harness/sessions/<slug>",
        "specPath": "<path to spec>",
        "startingCommit": "<git rev-parse HEAD output>",
@@ -328,6 +329,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    ```
 
 2. **When the agent returns:**
+   - **Persist review findings:** Write the review findings to `{sessionDir}/phase-{N}-review.json` (array of findings with severity, file, line, title). This file is consumed by FINAL_REVIEW step 3.
    - **No blocking findings:** Report summary, transition to PHASE_COMPLETE.
    - **Blocking findings:** Surface to user. Ask: "Address blocking findings before completing this phase? (fix / override / stop)"
      - **fix** — Re-enter EXECUTE with review fixes.
@@ -433,7 +435,26 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 5. **When the agent returns:**
    - **No blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Update `finalReview.status` to `"passed"`, report summary, transition to DONE.
    - **Blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Surface blocking findings to user. Ask: "Address blocking findings before completing? (fix / override / stop)"
-     - **fix** — Increment `finalReview.retryCount`. If `retryCount < 3`: dispatch `harness-task-executor` with the blocking findings as inline task descriptions (one task per finding, include file path, line, and finding detail). Then re-run FINAL_REVIEW from step 4. If `retryCount >= 3`: stop — present all attempts to user, record in `.harness/failures.md`, ask: "How should we proceed? (fix manually and continue / stop)"
+     - **fix** — Increment `finalReview.retryCount`. If `retryCount <= 3`: dispatch fixes using the Agent tool, then run `harness validate` to verify the fix, then re-run FINAL_REVIEW from step 2 (re-sets status to `in_progress`, re-gathers per-phase findings for fresh context). If `retryCount > 3`: stop — present all attempts to user, record in `.harness/failures.md`, ask: "How should we proceed? (fix manually and continue / stop)"
+
+       Fix dispatch:
+
+       ```
+       Agent tool parameters:
+         subagent_type: "harness-task-executor"
+         description: "Fix final review findings"
+         prompt: |
+           Fix the following blocking review findings. One task per finding.
+
+           {blocking findings with file, line, title, and rationale}
+
+           Session directory: {sessionDir}
+           Session slug: {sessionSlug}
+
+           Follow the harness-execution skill process. Commit each fix atomically.
+           Write {sessionDir}/handoff.json when done.
+       ```
+
      - **override** — Record override decision (rationale from user) in state `decisions` array. Update `finalReview.status` to `"overridden"`. Transition to DONE.
      - **stop** — Save state and exit. Resumable from FINAL_REVIEW.
 
