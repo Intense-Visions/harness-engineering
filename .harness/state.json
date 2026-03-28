@@ -1,6 +1,22 @@
 {
   "schemaVersion": 1,
-  "position": { "phase": "execute", "task": "Task 1" },
+  "position": {
+    "phase": "execute",
+    "task": "Task 1"
+  },
+  "decisions": [
+    {
+      "date": "2026-03-27T19:41:42.192Z",
+      "decision": "[confirmation:01fe661d-4b46-4c99-95b4-1bf0747ca822] Approve spec at docs/changes/ai-foundations-integration/proposal.md?",
+      "context": "pending user response"
+    },
+    {
+      "date": "2026-03-27T19:42:55.514Z",
+      "decision": "[transition:b60bcc6e-b85e-4e41-84ed-dd3ac8fa6d4e] brainstorming -> planning",
+      "context": "pending user response"
+    }
+  ],
+  "blockers": [],
   "progress": {
     "Task 1": "pending",
     "Task 2": "pending",
@@ -8,5 +24,8 @@
     "Task 4": "pending",
     "Task 5": "pending"
   },
-  "lastSession": { "date": "2026-03-24", "summary": "Starting Orchestrator Phase 3: Wiring" }
+  "lastSession": {
+    "date": "2026-03-24",
+    "summary": "Starting Orchestrator Phase 3: Wiring"
+  }
 }

@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "sessionDir": ".harness/sessions/changes--ai-foundations-integration--proposal",
+  "specPath": "docs/changes/ai-foundations-integration/proposal.md",
+  "currentState": "DONE",
+  "currentPhase": 5,
+  "phases": [
+    {
+      "name": "Wave 1.1 — Schema & Types",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-27-wave1-1-schema-types-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Wave 1.2 — Core State Engine",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-27-wave1-2-core-state-engine-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Wave 1.3 — MCP Tool Upgrade",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-27-wave1-3-mcp-tool-upgrade-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Wave 1.4 — Skill Integration",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-27-wave1-4-skill-integration-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Wave 2.1 — Skill Instructions",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-27-wave2-1-skill-instructions-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Wave 2.2 — Review Gate",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-27-wave2-2-review-gate-plan.md",
+      "status": "complete"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "decisions": [
+    {
+      "phase": 0,
+      "decision": "approved",
+      "timestamp": "2026-03-27T00:00:00Z",
+      "note": "User approved Phase 1 plan and granted blanket approval for all remaining phase plans"
+    }
+  ],
+  "history": [
+    {
+      "phase": 0,
+      "name": "Wave 1.1 — Schema & Types",
+      "startedAt": "2026-03-27T00:00:00Z",
+      "completedAt": "2026-03-27T00:10:00Z",
+      "tasksCompleted": 3,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 1 }
+    },
+    {
+      "phase": 1,
+      "name": "Wave 1.2 — Core State Engine",
+      "startedAt": "2026-03-27T00:10:00Z",
+      "completedAt": "2026-03-27T00:35:00Z",
+      "tasksCompleted": 7,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 3 }
+    },
+    {
+      "phase": 2,
+      "name": "Wave 1.3 — MCP Tool Upgrade",
+      "startedAt": "2026-03-27T00:35:00Z",
+      "completedAt": "2026-03-27T00:55:00Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 2 }
+    },
+    {
+      "phase": 3,
+      "name": "Wave 1.4 — Skill Integration",
+      "startedAt": "2026-03-27T00:55:00Z",
+      "completedAt": "2026-03-27T01:15:00Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 2 }
+    },
+    {
+      "phase": 4,
+      "name": "Wave 2.1 — Skill Instructions",
+      "startedAt": "2026-03-27T01:15:00Z",
+      "completedAt": "2026-03-27T01:30:00Z",
+      "tasksCompleted": 5,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 2 }
+    },
+    {
+      "phase": 5,
+      "name": "Wave 2.2 — Review Gate",
+      "startedAt": "2026-03-27T01:30:00Z",
+      "completedAt": "2026-03-27T01:55:00Z",
+      "tasksCompleted": 7,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 3 }
+    }
+  ]
+}

@@ -1,59 +1,20 @@
 {
-  "fromSkill": "harness-brainstorming",
-  "phase": "VALIDATE",
-  "summary": "Three-tier skill loading architecture with intelligent dispatcher and 30 new domain skills, reducing always-loaded slash commands from 49 to 23 while growing the total skill library to 68+.",
+  "fromSkill": "harness-verification",
+  "phase": "COMPLETE",
+  "summary": "Wave 2.2 Review Gate (Evidence Checking): all 11 artifacts verified at EXISTS, SUBSTANTIVE, WIRED levels. 10/10 observable truths confirmed. 32 tests pass (13 evidence-gate + 19 pipeline-orchestrator), harness validate passes.",
   "artifacts": [
-    "docs/changes/domain-skill-tiers/proposal.md",
-    "docs/changes/domain-skill-tiers/skills/"
+    "packages/core/src/review/types/mechanical.ts",
+    "packages/core/src/review/types/pipeline.ts",
+    "packages/core/src/review/types/output.ts",
+    "packages/core/src/review/evidence-gate.ts",
+    "packages/core/tests/review/evidence-gate.test.ts",
+    "packages/core/src/review/index.ts",
+    "packages/core/src/review/output/format-terminal.ts",
+    "packages/core/src/review/output/format-github.ts",
+    "packages/core/src/review/pipeline-orchestrator.ts",
+    "packages/core/tests/review/pipeline-orchestrator.test.ts",
+    "agents/skills/claude-code/harness-code-review/SKILL.md"
   ],
-  "decisions": [
-    {
-      "what": "Hybrid loading: auto-detect + manual override via harness.config.json",
-      "why": "Smart defaults with user control"
-    },
-    {
-      "what": "Two-tier registry: core slash commands + searchable catalog",
-      "why": "Mirrors existing deferred-tool pattern, minimal new infrastructure"
-    },
-    {
-      "what": "Merged index: bundled + community skills",
-      "why": "Unified discovery, local and fast, no network dependency"
-    },
-    {
-      "what": "Hash-based staleness check on every query",
-      "why": "Laziest correct approach — no watchers, no hooks, sub-100ms rebuild"
-    },
-    {
-      "what": "Three tiers + events + dependencies",
-      "why": "7 workflow + 16 maintenance always loaded, 44+ catalog discoverable, 6 dependency-only invisible"
-    },
-    {
-      "what": "Intelligent dispatcher at workflow start",
-      "why": "Proactive suggestions based on task + stack signals, top 3, confidence threshold 0.4"
-    },
-    {
-      "what": "30 new domain skills with full SKILL.md content",
-      "why": "Backend, infra, reliability, auth, compliance, testing, soft domains, data, ML/AI, mobile"
-    },
-    {
-      "what": "Cross-platform support (Claude Code + Gemini CLI)",
-      "why": "search_skills is MCP tool, platform differences handled at edges"
-    },
-    {
-      "what": "Five invocation patterns",
-      "why": "Workflow, maintenance, agent-discovered, event-triggered, dependency-only"
-    }
-  ],
-  "contextKeywords": [
-    "skill-tiers",
-    "catalog",
-    "dispatcher",
-    "context-preservation",
-    "search-skills",
-    "stack-detection",
-    "lazy-loading",
-    "skill-index",
-    "domain-skills",
-    "cross-platform"
-  ]
+  "verdict": "pass",
+  "gaps": []
 }
