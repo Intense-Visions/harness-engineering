@@ -220,7 +220,7 @@ export async function runReviewPipeline(
   const terminalOutput = formatTerminalOutput({
     findings: dedupedFindings,
     strengths,
-    evidenceCoverage,
+    ...(evidenceCoverage != null ? { evidenceCoverage } : {}),
   });
 
   let githubComments: GitHubInlineComment[] = [];
@@ -237,7 +237,7 @@ export async function runReviewPipeline(
     terminalOutput,
     githubComments,
     exitCode,
-    ...(mechanicalResult !== undefined ? { mechanicalResult } : {}),
-    ...(evidenceCoverage !== undefined ? { evidenceCoverage } : {}),
+    ...(mechanicalResult != null ? { mechanicalResult } : {}),
+    ...(evidenceCoverage != null ? { evidenceCoverage } : {}),
   };
 }
