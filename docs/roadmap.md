@@ -637,10 +637,10 @@ last_manual_edit: 2026-03-23
 
 ### Cross-Project Knowledge Federation
 
-- **Status:** backlog
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Project registry at ~/.harness/projects/. Node ID scoping with projectId metadata. Graph merger via ProjectConnector following existing connector pattern. Federation-aware FusionLayer for cross-project semantic search enabling learnings to transfer between projects. [D2]
-- **Blockers:** none
+- **Status:** deferred (Q3 2026)
+- **Spec:** docs/changes/cross-project-knowledge-federation/proposal.md
+- **Summary:** Decentralized knowledge sharing via package-native federation. PackageResolver interface for language-agnostic discovery. Four knowledge types (learnings, constraints, patterns, structural summaries) with visibility tags. Background sync via hooks + optional cron. [D2]
+- **Blockers:** Constraint sharing must ship first (proves cross-project sharing patterns); needs 5+ active harness-managed projects for adoption density
 - **Plan:** none
 
 ### Spec-to-Code Semantic Verification
