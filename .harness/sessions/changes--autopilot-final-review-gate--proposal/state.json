@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "position": { "phase": "complete", "task": "Phase 3 Task 2" },
+  "progress": {
+    "Phase 2 Task 1": "complete",
+    "Phase 2 Task 2": "complete",
+    "Phase 3 Task 1": "complete",
+    "Phase 3 Task 2": "complete"
+  },
+  "lastSession": {
+    "date": "2026-03-28",
+    "summary": "Phase 3 complete: updated DONE summary/handoff with finalReview fields (Task 1), aligned REVIEW option labels to fix/override/stop and added FINAL_REVIEW to example (Task 2)."
+  }
+}

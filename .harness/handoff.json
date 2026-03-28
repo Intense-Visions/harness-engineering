@@ -1,20 +1,38 @@
 {
-  "fromSkill": "harness-verification",
-  "phase": "COMPLETE",
-  "summary": "Wave 2.2 Review Gate (Evidence Checking): all 11 artifacts verified at EXISTS, SUBSTANTIVE, WIRED levels. 10/10 observable truths confirmed. 32 tests pass (13 evidence-gate + 19 pipeline-orchestrator), harness validate passes.",
-  "artifacts": [
-    "packages/core/src/review/types/mechanical.ts",
-    "packages/core/src/review/types/pipeline.ts",
-    "packages/core/src/review/types/output.ts",
-    "packages/core/src/review/evidence-gate.ts",
-    "packages/core/tests/review/evidence-gate.test.ts",
-    "packages/core/src/review/index.ts",
-    "packages/core/src/review/output/format-terminal.ts",
-    "packages/core/src/review/output/format-github.ts",
-    "packages/core/src/review/pipeline-orchestrator.ts",
-    "packages/core/tests/review/pipeline-orchestrator.test.ts",
-    "agents/skills/claude-code/harness-code-review/SKILL.md"
+  "fromSkill": "harness-brainstorming",
+  "phase": "VALIDATE",
+  "summary": "Spec for adding FINAL_REVIEW state to autopilot — holistic code review after all phases, gating PR creation",
+  "artifacts": ["docs/changes/autopilot-final-review-gate/proposal.md"],
+  "decisions": [
+    {
+      "what": "Always automatic — no prompt",
+      "why": "User always runs review manually today; automating removes a manual step"
+    },
+    {
+      "what": "Gates PR creation",
+      "why": "Review should pass before a PR exists, matching current manual workflow"
+    },
+    {
+      "what": "Hybrid context — informed but independent",
+      "why": "Avoids re-flagging resolved issues while not blindly trusting prior reviews"
+    },
+    {
+      "what": "Diff against starting commit recorded at INIT",
+      "why": "Precise scope of exactly what autopilot changed"
+    },
+    {
+      "what": "New FINAL_REVIEW state in state machine",
+      "why": "Follows established pattern; single-responsibility, resumable, visible in state files"
+    }
   ],
-  "verdict": "pass",
-  "gaps": []
+  "contextKeywords": [
+    "autopilot",
+    "code-review",
+    "final-review",
+    "state-machine",
+    "cross-phase",
+    "diff-scope",
+    "startingCommit",
+    "FINAL_REVIEW"
+  ]
 }
