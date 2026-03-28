@@ -363,12 +363,8 @@ export class TemplateEngine {
       const raw = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
       const parsed = TemplateMetadataSchema.safeParse(raw);
       if (!parsed.success) continue;
-      if (type === 'level' && parsed.data.level === name)
-        return path.join(this.templatesDir, entry.name);
-      if (type === 'framework' && parsed.data.framework === name)
-        return path.join(this.templatesDir, entry.name);
-      if (type === 'name' && parsed.data.name === name)
-        return path.join(this.templatesDir, entry.name);
+      const fieldValue = parsed.data[type];
+      if (fieldValue === name) return path.join(this.templatesDir, entry.name);
     }
     return null;
   }

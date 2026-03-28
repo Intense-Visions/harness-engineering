@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { resultToMcpResponse } from '../utils/result-adapter.js';
+import { resultToMcpResponse, type McpToolResponse } from '../utils/result-adapter.js';
 import { resolveTemplatesDir } from '../../utils/paths.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { persistToolingConfig, appendFrameworkAgents } from '../../templates/post-write.js';
@@ -29,115 +29,133 @@ export const initProjectDefinition = {
   },
 };
 
-export async function handleInitProject(input: {
+interface InitInput {
   path: string;
   name?: string;
   level?: string;
   framework?: string;
   language?: string;
-}) {
+}
+
+function mcpText(text: string, isError = false): McpToolResponse {
+  return { content: [{ type: 'text' as const, text }], isError };
+}
+
+function findFrameworkLanguage(
+  engine: {
+    listTemplates: () => { ok: boolean; value?: { framework?: string; language?: string }[] };
+  },
+  framework: string
+): string | undefined {
+  const templates = engine.listTemplates();
+  if (!templates.ok || !templates.value) return undefined;
+  return templates.value.find((t) => t.framework === framework)?.language;
+}
+
+function tryDetectFramework(
+  engine: {
+    detectFramework: (dir: string) => {
+      ok: boolean;
+      value?: { framework: string; language: string; score: number }[];
+    };
+  },
+  safePath: string,
+  input: InitInput
+): McpToolResponse | null {
+  if (input.framework || input.language || !fs.existsSync(safePath)) return null;
+  const result = engine.detectFramework(safePath);
+  if (!result.ok || !result.value || result.value.length === 0) return null;
+  const candidates = result.value
+    .map((c) => `${c.framework} (${c.language}, score: ${c.score})`)
+    .join(', ');
+  return mcpText(
+    `Detected frameworks: ${candidates}\n\nRe-invoke with --framework <name> to scaffold, or specify --language for a bare scaffold.`
+  );
+}
+
+function checkFrameworkLanguageConflict(
+  engine: {
+    listTemplates: () => { ok: boolean; value?: { framework?: string; language?: string }[] };
+  },
+  input: InitInput
+): McpToolResponse | null {
+  if (!input.framework || !input.language) return null;
+  const fwLang = findFrameworkLanguage(engine, input.framework);
+  if (fwLang && fwLang !== input.language) {
+    return mcpText(
+      `Framework "${input.framework}" is a ${fwLang} framework, but language "${input.language}" was specified. Use language "${fwLang}" instead.`,
+      true
+    );
+  }
+  return null;
+}
+
+function inferLanguage(
+  engine: {
+    listTemplates: () => { ok: boolean; value?: { framework?: string; language?: string }[] };
+  },
+  input: InitInput
+): string | undefined {
+  if (input.language) return input.language;
+  if (!input.framework) return undefined;
+  return findFrameworkLanguage(engine, input.framework);
+}
+
+function scaffoldMcp(
+  engine: InstanceType<typeof import('../../templates/engine.js').TemplateEngine>,
+  safePath: string,
+  i: InitInput,
+  language: string | undefined
+): McpToolResponse {
+  const isNonJs = language && language !== 'typescript';
+  const level = isNonJs ? undefined : (i.level ?? 'basic');
+
+  const resolveResult = engine.resolveTemplate(level, i.framework, language);
+  if (!resolveResult.ok) return resultToMcpResponse(resolveResult);
+
+  const renderResult = engine.render(resolveResult.value, {
+    projectName: i.name ?? path.basename(safePath),
+    level: level ?? '',
+    ...(i.framework !== undefined && { framework: i.framework }),
+    ...(language !== undefined && { language }),
+  });
+  if (!renderResult.ok) return resultToMcpResponse(renderResult);
+
+  const writeResult = engine.write(renderResult.value, safePath, {
+    overwrite: false,
+    ...(language !== undefined && { language }),
+  });
+
+  if (writeResult.ok) {
+    persistToolingConfig(safePath, resolveResult.value, i.framework);
+    appendFrameworkAgents(safePath, i.framework, language);
+  }
+
+  if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
+    const skippedMsg = writeResult.value.skippedConfigs.map((f: string) => `  - ${f}`).join('\n');
+    return mcpText(
+      `Files written: ${writeResult.value.written.join(', ')}\n\nSkipped existing config files (add harness dependencies manually):\n${skippedMsg}`
+    );
+  }
+
+  return resultToMcpResponse(writeResult);
+}
+
+export async function handleInitProject(input: Record<string, unknown>): Promise<McpToolResponse> {
+  const i = input as unknown as InitInput;
   try {
     const { TemplateEngine } = await import('../../templates/engine.js');
-    const templatesDir = resolveTemplatesDir();
-    const engine = new TemplateEngine(templatesDir);
-    const safePath = sanitizePath(input.path);
+    const engine = new TemplateEngine(resolveTemplatesDir());
+    const safePath = sanitizePath(i.path);
 
-    // Auto-detect framework if neither framework nor language specified
-    if (!input.framework && !input.language && fs.existsSync(safePath)) {
-      const detectResult = engine.detectFramework(safePath);
-      if (detectResult.ok && detectResult.value.length > 0) {
-        const candidates = detectResult.value
-          .map((c) => `${c.framework} (${c.language}, score: ${c.score})`)
-          .join(', ');
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Detected frameworks: ${candidates}\n\nRe-invoke with --framework <name> to scaffold, or specify --language for a bare scaffold.`,
-            },
-          ],
-          isError: false,
-        };
-      }
-    }
+    const detected = tryDetectFramework(engine, safePath, i);
+    if (detected) return detected;
 
-    // Validate framework/language conflict
-    if (input.framework && input.language) {
-      const templates = engine.listTemplates();
-      if (templates.ok) {
-        const fwTemplate = templates.value.find((t) => t.framework === input.framework);
-        if (fwTemplate?.language && fwTemplate.language !== input.language) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Framework "${input.framework}" is a ${fwTemplate.language} framework, but language "${input.language}" was specified. Use language "${fwTemplate.language}" instead.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      }
-    }
+    const conflict = checkFrameworkLanguageConflict(engine, i);
+    if (conflict) return conflict;
 
-    // Infer language from framework if not specified
-    let language = input.language;
-    if (!language && input.framework) {
-      const templates = engine.listTemplates();
-      if (templates.ok) {
-        const fwTemplate = templates.value.find((t) => t.framework === input.framework);
-        if (fwTemplate?.language) language = fwTemplate.language;
-      }
-    }
-
-    const isNonJs = language && language !== 'typescript';
-    const level = isNonJs ? undefined : (input.level ?? 'basic');
-
-    const resolveResult = engine.resolveTemplate(level, input.framework, language);
-    if (!resolveResult.ok) return resultToMcpResponse(resolveResult);
-
-    const renderResult = engine.render(resolveResult.value, {
-      projectName: input.name ?? path.basename(safePath),
-      level: level ?? '',
-      ...(input.framework !== undefined && { framework: input.framework }),
-      ...(language !== undefined && { language }),
-    });
-    if (!renderResult.ok) return resultToMcpResponse(renderResult);
-
-    const writeResult = engine.write(renderResult.value, safePath, {
-      overwrite: false,
-      ...(language !== undefined && { language }),
-    });
-
-    // Post-write: persist tooling/framework metadata and append AGENTS.md conventions
-    if (writeResult.ok) {
-      persistToolingConfig(safePath, resolveResult.value, input.framework);
-      appendFrameworkAgents(safePath, input.framework, language);
-    }
-
-    if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
-      const skippedMsg = writeResult.value.skippedConfigs.map((f: string) => `  - ${f}`).join('\n');
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Files written: ${writeResult.value.written.join(', ')}\n\nSkipped existing config files (add harness dependencies manually):\n${skippedMsg}`,
-          },
-        ],
-        isError: false,
-      };
-    }
-
-    return resultToMcpResponse(writeResult);
+    return scaffoldMcp(engine, safePath, i, inferLanguage(engine, i));
   } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Init failed: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-      isError: true,
-    };
+    return mcpText(`Init failed: ${error instanceof Error ? error.message : String(error)}`, true);
   }
 }
