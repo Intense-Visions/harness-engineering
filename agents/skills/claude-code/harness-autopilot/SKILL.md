@@ -503,9 +503,13 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - [skill:harness-autopilot] [outcome:observation] {any notable patterns from the run}
    ```
 
-5. **Update roadmap to done.** If `docs/roadmap.md` exists and the current spec maps to a roadmap feature, call `manage_roadmap` with action `update` to set the feature status to `done`. Derive the feature name from the spec title (H1 heading) or the session's `handoff.json` `summary` field. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `updateFeature()` from core. Skip silently if no roadmap exists or if the feature is not found. Do not use `force_sync: true`.
+5. **Promote session learnings to global.** Call `promoteSessionLearnings(projectPath, sessionSlug)` to move generalizable session learnings (tagged `[outcome:gotcha]`, `[outcome:decision]`, `[outcome:observation]`) to the global `learnings.md`. Report: "Promoted {N} learnings to global, {M} session-specific entries kept in session."
 
-6. **Write final session summary.** Update the session summary to reflect completion:
+6. **Check if pruning is needed.** Call `countLearningEntries(projectPath)`. If the count exceeds 30, suggest: "Global learnings.md has {count} entries (threshold: 30). Run `harness learnings prune` to analyze patterns and archive old entries."
+
+7. **Update roadmap to done.** If `docs/roadmap.md` exists and the current spec maps to a roadmap feature, call `manage_roadmap` with action `update` to set the feature status to `done`. Derive the feature name from the spec title (H1 heading) or the session's `handoff.json` `summary` field. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `updateFeature()` from core. Skip silently if no roadmap exists or if the feature is not found. Do not use `force_sync: true`.
+
+8. **Write final session summary.** Update the session summary to reflect completion:
 
    ```json
    writeSessionSummary(projectPath, sessionSlug, {
@@ -519,7 +523,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    })
    ```
 
-7. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
+9. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
 
 ## Harness Integration
 
@@ -528,7 +532,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 - **`harness check-deps`** — Delegated to harness-execution (included in task steps).
 - **State file** — `.harness/sessions/<slug>/autopilot-state.json` tracks the orchestration state machine. `.harness/sessions/<slug>/state.json` tracks task-level execution state (managed by harness-execution). The slug is derived from the spec path during INIT.
 - **Handoff** — `.harness/sessions/<slug>/handoff.json` is written by each delegated skill and read by the next. Autopilot writes a final handoff on DONE.
-- **Learnings** — `.harness/learnings.md` (global) is appended by both delegated skills and autopilot itself.
+- **Learnings** — `.harness/learnings.md` (global) is appended by both delegated skills and autopilot itself. On DONE, session learnings with generalizable outcomes are promoted to global via `promoteSessionLearnings`. If global count exceeds 30, autopilot suggests running `harness learnings prune`.
 - **Roadmap context** — During INIT, reads `docs/roadmap.md` (if present) for project-level priorities, blockers, and milestone status. Provides broader context for phase execution decisions.
 - **Roadmap sync** — During PHASE_COMPLETE, calls `manage_roadmap` with `sync` and `apply: true` to reflect phase progress. During DONE, calls `manage_roadmap` with `update` to set feature status to `done`. Both skip silently when no roadmap exists. Neither uses `force_sync: true`.
 
