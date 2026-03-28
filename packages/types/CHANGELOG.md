@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.4.0
+
+### Minor Changes
+
+- **Session-scoped accumulative state types** — New types for session section state management: `SessionSection`, `SessionSectionEntry`, `SessionSectionStatus`, and related interfaces. Re-exported from package index.
+
 ## 0.3.1
 
 ### Patch Changes

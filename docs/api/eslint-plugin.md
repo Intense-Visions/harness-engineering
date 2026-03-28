@@ -1,8 +1,8 @@
 # @harness-engineering/eslint-plugin
 
-ESLint plugin for enforcing harness engineering architectural constraints. Provides 10 rules and 2 shared configurations.
+ESLint plugin for enforcing harness engineering architectural constraints. Provides 11 rules and 2 shared configurations.
 
-**Version:** 0.2.1
+**Version:** 0.2.2
 
 ## Installation
 

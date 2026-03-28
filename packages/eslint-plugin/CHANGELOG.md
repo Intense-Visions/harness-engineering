@@ -1,5 +1,11 @@
 # @harness-engineering/eslint-plugin
 
+## 0.2.3
+
+### Patch Changes
+
+- Reduce cyclomatic complexity across rule implementations
+
 ## 0.2.2
 
 ### Patch Changes

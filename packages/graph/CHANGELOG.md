@@ -1,5 +1,11 @@
 # @harness-engineering/graph
 
+## 0.3.3
+
+### Patch Changes
+
+- Reduce cyclomatic complexity across graph modules
+
 ## 0.3.2
 
 ### Patch Changes

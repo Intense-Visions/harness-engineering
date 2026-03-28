@@ -8,7 +8,7 @@ Welcome to the Harness Engineering API documentation.
 - **[@harness-engineering/orchestrator](orchestrator.md)** — Daemon core, state machine, agent runner, and TUI launcher
 - **[@harness-engineering/core](core.md)** — Runtime library (validation, constraints, entropy detection, context generation, feedback, state)
 - **[@harness-engineering/cli](cli.md)** — CLI tool and template engine (`harness validate`, `harness init`, skill/persona management)
-- **[@harness-engineering/eslint-plugin](eslint-plugin.md)** — ESLint rules for architectural constraint enforcement (8 rules)
+- **[@harness-engineering/eslint-plugin](eslint-plugin.md)** — ESLint rules for architectural constraint enforcement (11 rules)
 - **[@harness-engineering/linter-gen](linter-gen.md)** — Generate custom ESLint rules from YAML configuration
 - **[@harness-engineering/graph](graph.md)** — Knowledge graph for codebase relationships, context assembly, and entropy detection
 - **[@harness-engineering/mcp-server](mcp-server.md)** — _(Deprecated)_ MCP server now included in `@harness-engineering/cli`

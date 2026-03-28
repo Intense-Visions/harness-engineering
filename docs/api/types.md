@@ -4,7 +4,7 @@ TypeScript types and interfaces for the Harness Engineering toolkit.
 
 **Source:** [index.ts](../../packages/types/src/index.ts), [orchestrator.ts](../../packages/types/src/orchestrator.ts)
 
-**Version:** 0.3.0
+**Version:** 0.3.1
 
 ## Installation
 
