@@ -385,6 +385,20 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ---
 
+### FINAL_REVIEW — Project-Wide Code Review
+
+> Runs automatically after the last phase completes. Reviews the cumulative diff (`startingCommit..HEAD`) across all phases to catch cross-phase issues before the PR offer.
+
+**Behavior:** Defined in Phase 2 of the autopilot-final-review-gate spec. This state dispatches `harness-code-reviewer` with the full diff range and per-phase findings as context. Blocking findings gate the transition to DONE.
+
+**Transitions:**
+
+- No blocking findings (or overridden) → DONE
+- Blocking findings with fix → re-run FINAL_REVIEW (retry budget: 3)
+- User stops → save state and exit (resumable)
+
+---
+
 ### DONE — Final Summary
 
 1. **Present project summary:**
