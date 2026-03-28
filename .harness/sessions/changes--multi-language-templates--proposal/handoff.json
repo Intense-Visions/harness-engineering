@@ -1,0 +1,35 @@
+{
+  "fromSkill": "harness-execution",
+  "timestamp": "2026-03-27T18:54:00Z",
+  "summary": "Phase 5 (Integration and Polish) complete. All 9 tasks executed across 8 atomic commits. Created AGENTS.md append helper with section markers, wired detectFramework() into runInit auto-detection flow, persisted tooling/framework metadata in harness.config.json (both CLI and MCP), updated initialize-project SKILL.md documentation, and added comprehensive e2e tests for all 10 frameworks + 5 bare language scaffolds + existing project overlay. Test count grew from 129 to 171 with zero regressions.",
+  "pendingTasks": [],
+  "blockers": [],
+  "learnings": [
+    "buildFrameworkSection needs framework key in output for test assertions (titles like 'Next.js' don't contain 'nextjs')",
+    "MCP resultToMcpResponse omits isError on success -- use toBeFalsy() not toBe(false)",
+    "Existing project overlay tests must not use force:true or AGENTS.md gets overwritten before append logic runs",
+    "Post-write config patching works identically in CLI and MCP handlers -- both read harness.config.json, patch tooling/framework, strip level:null, write back"
+  ],
+  "artifacts": {
+    "created": [
+      "packages/cli/src/templates/agents-append.ts",
+      "packages/cli/tests/templates/agents-append.test.ts"
+    ],
+    "modified": [
+      "packages/cli/src/commands/init.ts",
+      "packages/cli/src/mcp/tools/init.ts",
+      "packages/cli/tests/commands/init.test.ts",
+      "packages/cli/tests/integration/init.test.ts",
+      "packages/cli/tests/mcp/tools/init.test.ts",
+      "agents/skills/claude-code/initialize-harness-project/SKILL.md"
+    ]
+  },
+  "testSummary": {
+    "templates": "135 passed (129 original + 6 agents-append)",
+    "initCommands": "11 passed (4 original + 7 new)",
+    "integration": "20 passed (4 original + 16 new)",
+    "mcpInit": "5 passed (4 original + 1 new)",
+    "total": 171,
+    "regressions": 0
+  }
+}
