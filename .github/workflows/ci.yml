@@ -39,6 +39,11 @@ jobs:
 
       - run: pnpm format:check
 
-      - run: pnpm test
+      - name: Test (with coverage on ubuntu)
+        run: ${{ matrix.os == 'ubuntu-latest' && 'pnpm test:ci' || 'pnpm test' }}
+
+      - name: Coverage ratchet check
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/coverage-ratchet.mjs
 
       - run: pnpm test:platform-parity
