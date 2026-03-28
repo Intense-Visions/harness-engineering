@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-03-28
-last_synced: 2026-03-28
+last_synced: 2026-03-28T22:45:00Z
 last_manual_edit: 2026-03-28
 ---
 
@@ -479,7 +479,7 @@ last_manual_edit: 2026-03-28
 
 ### Autopilot Final Review Gate
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/autopilot-final-review-gate/proposal.md
 - **Summary:** FINAL_REVIEW state in autopilot state machine — holistic code review of all cumulative changes before PR creation, catching cross-phase issues and cumulative scope concerns
 - **Blockers:** none
@@ -495,7 +495,7 @@ last_manual_edit: 2026-03-28
 
 ### CI Pipeline Hardening
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/ci-pipeline-hardening/proposal.md
 - **Summary:** Codecov integration, ratchet-only coverage baselines for all packages, Vitest benchmarks with 10% regression gates for core and graph, and post-publish smoke test — practice the standards harness enforces on others
 - **Blockers:** none
@@ -603,7 +603,7 @@ last_manual_edit: 2026-03-28
 
 ### Constraint Sharing
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/constraint-sharing/proposal.md
 - **Summary:** Export constraint subsets from harness.config.json as shareable bundles; import and merge with per-rule provenance tracking. [H3]
 - **Blockers:** none
@@ -783,7 +783,7 @@ last_manual_edit: 2026-03-28
 
 ### Domain Skill Tiers & Catalog System
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/domain-skill-tiers/proposal.md
 - **Summary:** Three-tier skill loading (30 always-loaded slash commands, 43 catalog-only discoverable via search_skills, 6 dependency-only), intelligent dispatcher, and 30 new domain skills covering backend, infrastructure, reliability, auth, compliance, testing, soft domains, data engineering, ML/AI, and mobile. Cross-platform (Claude Code + Gemini CLI).
 - **Blockers:** none

@@ -1,37 +1,73 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "sessionDir": ".harness/sessions/changes--autopilot-final-review-gate--proposal",
   "specPath": "docs/changes/autopilot-final-review-gate/proposal.md",
   "startingCommit": "239eeda4e767a626443d8ac07f4f641812172598",
-  "currentState": "ASSESS",
-  "currentPhase": 0,
+  "currentState": "DONE",
+  "currentPhase": 2,
   "phases": [
     {
       "name": "State machine plumbing",
       "complexity": "low",
       "complexityOverride": null,
-      "planPath": null,
-      "status": "pending"
+      "planPath": "docs/plans/2026-03-28-state-machine-plumbing-plan.md",
+      "status": "complete"
     },
     {
       "name": "FINAL_REVIEW logic",
       "complexity": "low",
       "complexityOverride": null,
       "planPath": null,
-      "status": "pending"
+      "status": "complete"
     },
     {
       "name": "DONE state update",
       "complexity": "low",
       "complexityOverride": null,
       "planPath": null,
-      "status": "pending"
+      "status": "complete"
     }
   ],
   "retryBudget": {
     "maxAttempts": 3,
     "currentTask": null
   },
-  "history": [],
-  "decisions": ["User requested auto-approve for all plans"]
+  "history": [
+    {
+      "phase": 0,
+      "name": "State machine plumbing",
+      "completedAt": "2026-03-28T00:00:00Z",
+      "tasksCompleted": 3,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 1,
+      "name": "FINAL_REVIEW logic",
+      "completedAt": "2026-03-28T00:00:00Z",
+      "tasksCompleted": 0,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    },
+    {
+      "phase": 2,
+      "name": "DONE state update",
+      "completedAt": "2026-03-28T00:00:00Z",
+      "tasksCompleted": 0,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "warning": 0, "note": 0 }
+    }
+  ],
+  "decisions": [
+    "User requested auto-approve for all plans",
+    "All 3 phases already implemented in prior sessions — state reconciled to DONE"
+  ],
+  "finalReview": {
+    "status": "passed",
+    "findings": [],
+    "retryCount": 0
+  }
 }
