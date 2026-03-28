@@ -93,7 +93,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
          "maxAttempts": 3,
          "currentTask": null
        },
-       "history": []
+       "history": [],
+       "finalReview": {
+         "status": "pending",
+         "findings": [],
+         "retryCount": 0
+       }
      }
      ```
 
