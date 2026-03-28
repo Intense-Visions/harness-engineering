@@ -15,9 +15,9 @@ interface EvidenceRef {
   lineEnd?: number;
 }
 
-const FILE_LINE_RANGE_PATTERN = /^([\w.\/@-]+\.\w+):(\d+)-(\d+)/;
-const FILE_LINE_PATTERN = /^([\w.\/@-]+\.\w+):(\d+)/;
-const FILE_ONLY_PATTERN = /^([\w.\/@-]+\.\w+)\s/;
+const FILE_LINE_RANGE_PATTERN = /^([\w./@-]+\.\w+):(\d+)-(\d+)/;
+const FILE_LINE_PATTERN = /^([\w./@-]+\.\w+):(\d+)/;
+const FILE_ONLY_PATTERN = /^([\w./@-]+\.\w+)\s/;
 
 function parseEvidenceRef(content: string): EvidenceRef | null {
   const trimmed = content.trim();
