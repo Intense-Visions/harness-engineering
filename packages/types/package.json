@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "node ../../scripts/clean.mjs dist"
+    "clean": "node ../../scripts/clean.mjs dist",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "harness",
@@ -46,6 +47,7 @@
   },
   "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/types#readme",
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
     "tsup": "^8.0.0",
     "vitest": "^4.0.18"
   }
