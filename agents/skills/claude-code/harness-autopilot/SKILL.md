@@ -297,9 +297,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 2. **When the agent returns:**
    - **All checks pass:** Transition to REVIEW.
-   - **Failures found:** Surface findings to the user. Ask: "Fix these issues before review? (yes / skip verification / stop)"
-     - **yes** — Re-enter EXECUTE with targeted fixes (retry budget resets for verification fixes).
-     - **skip** — Proceed to REVIEW with verification warnings noted.
+   - **Failures found:** Surface findings to the user. Ask: "Fix these issues before review? (fix / skip verification / stop)"
+     - **fix** — Re-enter EXECUTE with targeted fixes (retry budget resets for verification fixes).
+     - **skip** — Record skip decision in `decisions` array. Proceed to REVIEW with verification warnings noted.
      - **stop** — Save state and exit.
 
 3. **Update state** with `currentState: "REVIEW"` and save.
@@ -433,7 +433,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 5. **When the agent returns:**
    - **No blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Update `finalReview.status` to `"passed"`, report summary, transition to DONE.
    - **Blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Surface blocking findings to user. Ask: "Address blocking findings before completing? (fix / override / stop)"
-     - **fix** — Increment `finalReview.retryCount`. If `retryCount < 3`: dispatch fixes via `harness-task-executor`, then re-run FINAL_REVIEW from step 4. If `retryCount >= 3`: stop — present all attempts to user, record in `.harness/failures.md`, ask: "How should we proceed? (fix manually and continue / stop)"
+     - **fix** — Increment `finalReview.retryCount`. If `retryCount < 3`: dispatch `harness-task-executor` with the blocking findings as inline task descriptions (one task per finding, include file path, line, and finding detail). Then re-run FINAL_REVIEW from step 4. If `retryCount >= 3`: stop — present all attempts to user, record in `.harness/failures.md`, ask: "How should we proceed? (fix manually and continue / stop)"
      - **override** — Record override decision (rationale from user) in state `decisions` array. Update `finalReview.status` to `"overridden"`. Transition to DONE.
      - **stop** — Save state and exit. Resumable from FINAL_REVIEW.
 
