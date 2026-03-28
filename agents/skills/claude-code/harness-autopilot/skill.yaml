@@ -37,6 +37,9 @@ phases:
   - name: loop
     description: Execute state machine — assess, plan, execute, verify, review per phase
     required: true
+  - name: final_review
+    description: Project-wide code review of cumulative changes before PR offer
+    required: true
   - name: complete
     description: Final summary and PR offering
     required: true
