@@ -634,7 +634,8 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 - Planning override bumps complexity upward when task signals disagree
 - Retry budget (3 attempts) with escalating context before surfacing failures
 - Existing skills (planning, execution, verification, review) are unchanged
-- Human approves every plan before execution begins
+- Plans auto-approve when no concern signals fire; plans pause for human review when any signal fires
+- `--review-plans` flag forces human review for all plans in a session
 - Phase completion summary shown between every phase
 
 ## Examples
@@ -779,7 +780,7 @@ How should we proceed? (fix manually and continue / revise plan / stop)
 ## Gates
 
 - **No reimplementing delegated skills.** Autopilot orchestrates. If you are writing planning logic, execution logic, verification logic, or review logic, STOP. Delegate to the appropriate persona agent via `subagent_type`.
-- **No executing without plan approval.** Every plan must be explicitly approved by the human before execution begins. No exceptions, regardless of complexity level.
+- **No executing without plan approval.** Every plan passes through the APPROVE_PLAN gate. When no concern signals fire, the plan is auto-approved with a structured report. When any signal fires, the plan pauses for human review. The `--review-plans` flag forces all plans to pause. No plan reaches EXECUTE without passing this gate.
 - **No skipping VERIFY or REVIEW.** Every phase goes through verification and review. The human can override findings, but the steps cannot be skipped.
 - **No infinite retries.** The retry budget is 3 attempts. If exhausted, STOP and surface to the human. Do not extend the budget without explicit human instruction.
 - **No modifying session state files manually.** The session state files are managed by the skill. If the state appears corrupted, start fresh rather than patching it.
