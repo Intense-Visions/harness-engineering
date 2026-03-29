@@ -63,6 +63,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 3. **Check for existing state.** Read `{sessionDir}/autopilot-state.json`. If it exists and `currentState` is not `DONE`:
    - **Schema migration:** If `schemaVersion < 3`, backfill missing fields: set `startingCommit` to the earliest commit in `history` (or current HEAD if no history), set `decisions` to `[]`, set `finalReview` to `{ "status": "pending", "findings": [], "retryCount": 0 }`. If `schemaVersion < 4`, set `reviewPlans` to `false`. Update `schemaVersion` to `4` and save.
    - Report: "Resuming autopilot from state `{currentState}`, phase {currentPhase}: {phaseName}."
+   - Skip steps 4 and 5 (initial state creation and flag parsing) — these only apply to fresh starts.
    - Skip to the recorded `currentState` and continue from there.
 
 4. **If no existing state (fresh start):**
@@ -212,17 +213,17 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Checkpoint count
    - Estimated time (task count x 3 minutes)
    - Effective complexity (original + any override)
-   - Concerns array from the planning handoff (`{sessionDir}/handoff.json` field `concerns`)
+   - Concerns array from the planning handoff (`{sessionDir}/handoff.json` field `concerns`, default: `[]` if field is absent)
 
 2. **Evaluate `shouldPauseForReview`.** Check the following signals in order. If **any** signal is true, pause for human review. If **all** are false, auto-approve.
 
-   | #   | Signal               | Condition                             | Description                                                                                         |
-   | --- | -------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
-   | 1   | `reviewPlans`        | `state.reviewPlans === true`          | Session-level flag set by `--review-plans` CLI arg                                                  |
-   | 2   | `highComplexity`     | `phase.complexity === "high"`         | Phase is marked as high complexity in the spec (reachable when resuming after interactive planning) |
-   | 3   | `complexityOverride` | `phase.complexityOverride !== null`   | Planner produced more tasks than expected for the spec complexity                                   |
-   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty | Planner flagged specific risks or uncertainties                                                     |
-   | 5   | `taskCount`          | Plan contains > 15 tasks              | Plan is large enough to warrant human review                                                        |
+   | #   | Signal               | Condition                             | Description                                                                                                                                                                                  |
+   | --- | -------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | 1   | `reviewPlans`        | `state.reviewPlans === true`          | Session-level flag set by `--review-plans` CLI arg                                                                                                                                           |
+   | 2   | `highComplexity`     | `phase.complexity === "high"`         | Phase is marked as high complexity in the spec (reachable when resuming after interactive planning; confirms the plan is ready for automated execution even though the human drove planning) |
+   | 3   | `complexityOverride` | `phase.complexityOverride !== null`   | Planner produced more tasks than expected for the spec complexity                                                                                                                            |
+   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty | Planner flagged specific risks or uncertainties                                                                                                                                              |
+   | 5   | `taskCount`          | Plan contains > 15 tasks (i.e., 16+)  | Plan is large enough to warrant human review                                                                                                                                                 |
 
 3. **Build the signal evaluation result** for reporting and recording:
 
