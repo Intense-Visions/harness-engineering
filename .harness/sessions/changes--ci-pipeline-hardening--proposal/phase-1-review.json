@@ -1,0 +1,58 @@
+[
+  {
+    "severity": "warning",
+    "file": "packages/core/vitest.config.mts",
+    "line": 21,
+    "title": "Branch coverage threshold lowered from 80% to 74%",
+    "detail": "The core package branch threshold was dropped 6 points (80 -> 74) in commit a4d7d57. The commit message says 'to match reality', but there is no evidence the underlying coverage gap was triaged. If branch coverage is genuinely below 80%, the right fix is to add tests (or at minimum open a tracking issue). Lowering the threshold silently in a CI-hardening PR risks normalizing ratchet-down behavior."
+  },
+  {
+    "severity": "warning",
+    "file": "packages/cli/vitest.config.mts",
+    "line": 8,
+    "title": "CLI coverage config uses exclude-only strategy; inconsistent with other packages",
+    "detail": "CLI uses `exclude: ['tests/**', 'dist/**']` without an `include` array, while 5 other packages (eslint-plugin, linter-gen, orchestrator, types, skills) use `include: ['src/**/*.ts']`. Without an explicit include, CLI coverage may pick up config files, scripts, or generated artifacts outside src/. The exclude-only approach also differs from core and graph which use exclude lists that reference node_modules/, tests/, and index.ts. Recommend adding `include: ['src/**/*.ts']` for consistency."
+  },
+  {
+    "severity": "warning",
+    "file": "packages/core/vitest.config.mts",
+    "line": 11,
+    "title": "Core coverage config uses exclude-only strategy; inconsistent with newer packages",
+    "detail": "Core uses `exclude: [...]` without an `include` array, same issue as CLI. The 5 newly-configured packages all use `include: ['src/**/*.ts']` which is the clearer pattern. Core and graph are the two legacy configs that were only patched to add json-summary but not normalized to the include pattern."
+  },
+  {
+    "severity": "warning",
+    "file": "packages/graph/vitest.config.mts",
+    "line": 11,
+    "title": "Graph coverage config uses exclude-only strategy; inconsistent with newer packages",
+    "detail": "Graph uses `exclude: ['node_modules/', 'tests/', '**/*.test.ts', 'src/index.ts']` without an `include` array. Same inconsistency as core and CLI. The exclude list also redundantly includes both 'tests/' and '**/*.test.ts'."
+  },
+  {
+    "severity": "note",
+    "file": "packages/orchestrator/vitest.config.mts",
+    "line": 4,
+    "title": "Orchestrator missing `globals: true` setting",
+    "detail": "All 7 other packages set `globals: true` in their vitest config. Orchestrator does not. This means test files in orchestrator must import describe/it/expect from vitest explicitly. Not blocking if tests already import them, but inconsistent with the rest of the monorepo."
+  },
+  {
+    "severity": "note",
+    "file": "agents/skills/vitest.config.mts",
+    "line": 8,
+    "title": "Skills coverage config has no exclude list",
+    "detail": "The skills package has `include: ['src/**/*.ts']` but no `exclude` array. Most other packages exclude at least `src/index.ts` (re-export barrel). If skills has a barrel index, it will inflate coverage numbers. Minor inconsistency."
+  },
+  {
+    "severity": "note",
+    "file": "turbo.json",
+    "line": 9,
+    "title": "Turbo pipeline has both 'test' and 'test:coverage' with identical config",
+    "detail": "Both `test` and `test:coverage` have `dependsOn: ['build']` and `outputs: ['coverage/**']`. The `test` pipeline outputs `coverage/**` but the default `test` script (vitest run) does not produce coverage output. This is not harmful but is misleading -- `test` should probably have `outputs: []` or no coverage output, since coverage is only produced by `test:coverage`."
+  },
+  {
+    "severity": "note",
+    "file": "packages/eslint-plugin/vitest.config.mts",
+    "line": 13,
+    "title": "No coverage thresholds on 5 of 8 packages",
+    "detail": "Only core and graph have coverage thresholds defined. The 5 newly-configured packages (eslint-plugin, linter-gen, orchestrator, types, skills) and CLI have no thresholds. Coverage will be reported but not enforced. This is acceptable for Phase 1 (establishing baselines) but thresholds should be added in Phase 2 once baseline numbers are known."
+  }
+]

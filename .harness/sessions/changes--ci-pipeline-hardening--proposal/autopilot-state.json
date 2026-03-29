@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 3,
+  "sessionDir": ".harness/sessions/changes--ci-pipeline-hardening--proposal",
+  "specPath": "docs/changes/ci-pipeline-hardening/proposal.md",
+  "startingCommit": "8f9f538b0a0a02f9338293d4276e5343599728fd",
+  "currentState": "ASSESS",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "Coverage output for all packages",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Coverage ratchet",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Codecov integration",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Benchmark infrastructure",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Post-publish smoke test",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [],
+  "decisions": [
+    {
+      "phase": "all",
+      "decision": "Auto-approve all phase plans per user instruction"
+    }
+  ],
+  "finalReview": {
+    "status": "pending",
+    "findings": [],
+    "retryCount": 0
+  }
+}
