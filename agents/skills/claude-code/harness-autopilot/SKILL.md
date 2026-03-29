@@ -61,7 +61,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Create the session directory if it does not exist
 
 3. **Check for existing state.** Read `{sessionDir}/autopilot-state.json`. If it exists and `currentState` is not `DONE`:
-   - **Schema migration:** If `schemaVersion < 3`, backfill missing fields: set `startingCommit` to the earliest commit in `history` (or current HEAD if no history), set `decisions` to `[]`, set `finalReview` to `{ "status": "pending", "findings": [], "retryCount": 0 }`. Update `schemaVersion` to `3` and save.
+   - **Schema migration:** If `schemaVersion < 3`, backfill missing fields: set `startingCommit` to the earliest commit in `history` (or current HEAD if no history), set `decisions` to `[]`, set `finalReview` to `{ "status": "pending", "findings": [], "retryCount": 0 }`. If `schemaVersion < 4`, set `reviewPlans` to `false`. Update `schemaVersion` to `4` and save.
    - Report: "Resuming autopilot from state `{currentState}`, phase {currentPhase}: {phaseName}."
    - Skip to the recorded `currentState` and continue from there.
 
@@ -75,10 +75,11 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Create `{sessionDir}/autopilot-state.json`:
      ```json
      {
-       "schemaVersion": 3,
+       "schemaVersion": 4,
        "sessionDir": ".harness/sessions/<slug>",
        "specPath": "<path to spec>",
        "startingCommit": "<git rev-parse HEAD output>",
+       "reviewPlans": false,
        "currentState": "ASSESS",
        "currentPhase": 0,
        "phases": [
@@ -104,7 +105,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      }
      ```
 
-5. **Load context via gather_context.** Use the `gather_context` MCP tool to load all working context efficiently:
+5. **Parse session flags.** Check CLI arguments for `--review-plans`. If present, set `state.reviewPlans: true` in the state file. This flag persists for the entire session — resuming a session preserves the setting from when it was started (the flag is only read on fresh start, not on resume).
+
+6. **Load context via gather_context.** Use the `gather_context` MCP tool to load all working context efficiently:
 
    ```json
    gather_context({
@@ -118,19 +121,19 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
    This loads session-scoped learnings, handoff, state, and validation results in a single call. The `session` parameter ensures all reads come from the session directory (`.harness/sessions/<slug>/`), isolating this workstream from others. Note any relevant learnings or known dead ends for the current phase from the returned `learnings` array.
 
-6. **Load session summary for cold start.** If resuming (existing `autopilot-state.json` found):
+7. **Load session summary for cold start.** If resuming (existing `autopilot-state.json` found):
    - Call `loadSessionSummary()` for the session slug to get quick orientation context (~200 tokens).
    - The summary provides the last skill, phase, status, and next step — enough to understand where the autopilot left off without re-reading the full state machine.
    - If no summary exists (first run), skip — the full INIT handles context loading.
 
-7. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
+8. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
    - Current project priorities (which features are `in-progress`)
    - Blockers that may affect the upcoming phases
    - Overall project status and milestone progress
 
    This provides the autopilot with project-level context beyond the individual spec being executed. If the roadmap does not exist, skip this step — the autopilot operates normally without it.
 
-8. **Transition to ASSESS.**
+9. **Transition to ASSESS.**
 
 ---
 
