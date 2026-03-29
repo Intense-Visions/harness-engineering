@@ -11,7 +11,7 @@ export { serializeRoadmap } from './serialize';
 /**
  * Synchronizes the project roadmap with the current state of the codebase and issues.
  */
-export { syncRoadmap } from './sync';
+export { syncRoadmap, applySyncChanges } from './sync';
 
 /**
  * Type definitions for roadmap synchronization and changes.

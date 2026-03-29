@@ -1,6 +1,7 @@
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { autoSyncRoadmap } from './roadmap-auto-sync.js';
 
 // ── manage_state ──────────────────────────────────────────────────────
 
@@ -159,7 +160,12 @@ async function handleSaveHandoff(projectPath: string, input: StateInput) {
     input.stream,
     input.session
   );
-  return resultToMcpResponse(result.ok ? Ok({ saved: true }) : result);
+  if (!result.ok) return resultToMcpResponse(result);
+
+  // Auto-sync roadmap after saving handoff (mechanical enforcement)
+  await autoSyncRoadmap(projectPath);
+
+  return resultToMcpResponse(Ok({ saved: true }));
 }
 
 async function handleLoadHandoff(projectPath: string, input: StateInput) {
@@ -224,6 +230,10 @@ async function handleArchiveSession(projectPath: string, input: StateInput) {
   const { archiveSession } = await import('@harness-engineering/core');
   const result = await archiveSession(projectPath, input.session);
   if (!result.ok) return resultToMcpResponse(result);
+
+  // Auto-sync roadmap after archiving session (mechanical enforcement)
+  await autoSyncRoadmap(projectPath);
+
   return resultToMcpResponse(Ok({ archived: true }));
 }
 

@@ -143,27 +143,45 @@ function inferStatus(
 }
 
 /**
+ * Status rank for directional protection.
+ * Sync may only advance status forward (higher rank) unless forceSync is set.
+ * This replaces the old global timestamp guard which created a deadlock:
+ * once any manual edit occurred, sync was permanently blocked for ALL features.
+ */
+const STATUS_RANK = {
+  backlog: 0,
+  planned: 1,
+  blocked: 1, // lateral to planned — sync can move to/from blocked freely
+  'in-progress': 2,
+  done: 3,
+} satisfies Record<FeatureStatus, number>;
+
+function isRegression(from: FeatureStatus, to: FeatureStatus): boolean {
+  return STATUS_RANK[to] < STATUS_RANK[from];
+}
+
+/**
  * Scan execution state files and infer status changes for roadmap features.
  * Returns proposed changes without modifying the roadmap.
+ *
+ * Human-always-wins rule (directional): sync never regresses a feature's
+ * status (e.g. done → in-progress) unless forceSync is set. Forward
+ * progression (planned → in-progress → done) is always allowed regardless
+ * of manual edits.
  */
 export function syncRoadmap(options: SyncOptions): Result<SyncChange[]> {
   const { projectPath, roadmap, forceSync } = options;
-
-  // Human-always-wins: if last_manual_edit > last_synced and not force, skip
-  const isManuallyEdited =
-    new Date(roadmap.frontmatter.lastManualEdit) > new Date(roadmap.frontmatter.lastSynced);
-  const skipOverride = isManuallyEdited && !forceSync;
 
   const allFeatures = roadmap.milestones.flatMap((m) => m.features);
   const changes: SyncChange[] = [];
 
   for (const feature of allFeatures) {
-    // If human-always-wins is active, skip this feature
-    if (skipOverride) continue;
-
     const inferred = inferStatus(feature, projectPath, allFeatures);
     if (inferred === null) continue;
     if (inferred === feature.status) continue;
+
+    // Directional guard: block regressions unless forced
+    if (!forceSync && isRegression(feature.status, inferred)) continue;
 
     changes.push({
       feature: feature.name,
@@ -173,4 +191,21 @@ export function syncRoadmap(options: SyncOptions): Result<SyncChange[]> {
   }
 
   return Ok(changes);
+}
+
+/**
+ * Apply sync changes to a roadmap in-place and update lastSynced.
+ * Shared by manage_roadmap sync action and autoSyncRoadmap.
+ */
+export function applySyncChanges(roadmap: Roadmap, changes: SyncChange[]): void {
+  for (const change of changes) {
+    for (const m of roadmap.milestones) {
+      const feature = m.features.find((f) => f.name.toLowerCase() === change.feature.toLowerCase());
+      if (feature) {
+        feature.status = change.to;
+        break;
+      }
+    }
+  }
+  roadmap.frontmatter.lastSynced = new Date().toISOString();
 }
