@@ -31,7 +31,7 @@ Autopilot orchestrates these persona agents — it never reimplements their logi
 - **Claude Code:** Use the Agent tool with `subagent_type` set to the persona name.
 - **Gemini CLI:** Use the `run_agent` tool targeting the persona by name, or dispatch via `harness persona run <name>`.
 
-**Human always approves plans.** No plan executes without explicit human sign-off, regardless of complexity level. The difference is whether autopilot generates the plan automatically or asks the human to drive planning interactively.
+**Plans are gated by concern signals.** When no concern signals fire (low complexity, no planner concerns, task count within threshold), plans are auto-approved with a structured report and execution proceeds immediately. When any signal fires, the plan pauses for human review with the standard yes/revise/skip/stop flow. The `--review-plans` session flag forces all plans to pause regardless of signals.
 
 ## Process
 
