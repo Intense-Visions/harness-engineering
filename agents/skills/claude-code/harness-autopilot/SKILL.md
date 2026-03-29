@@ -216,20 +216,20 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 2. **Evaluate `shouldPauseForReview`.** Check the following signals in order. If **any** signal is true, pause for human review. If **all** are false, auto-approve.
 
-   | #   | Signal               | Condition                                                              | Description                                                       |
-   | --- | -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
-   | 1   | `reviewPlans`        | `state.reviewPlans === true`                                           | Session-level flag set by `--review-plans` CLI arg                |
-   | 2   | `highComplexity`     | `phase.complexity === "high"` OR `phase.complexityOverride === "high"` | Phase is marked or overridden as high complexity                  |
-   | 3   | `complexityOverride` | `phase.complexityOverride !== null`                                    | Planner produced more tasks than expected for the spec complexity |
-   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty                                  | Planner flagged specific risks or uncertainties                   |
-   | 5   | `taskCount`          | Plan contains > 15 tasks                                               | Plan is large enough to warrant human review                      |
+   | #   | Signal               | Condition                             | Description                                                       |
+   | --- | -------------------- | ------------------------------------- | ----------------------------------------------------------------- |
+   | 1   | `reviewPlans`        | `state.reviewPlans === true`          | Session-level flag set by `--review-plans` CLI arg                |
+   | 2   | `highComplexity`     | `phase.complexity === "high"`         | Phase is marked as high complexity in the spec                    |
+   | 3   | `complexityOverride` | `phase.complexityOverride !== null`   | Planner produced more tasks than expected for the spec complexity |
+   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty | Planner flagged specific risks or uncertainties                   |
+   | 5   | `taskCount`          | Plan contains > 15 tasks              | Plan is large enough to warrant human review                      |
 
 3. **Build the signal evaluation result** for reporting and recording:
 
    ```json
    {
      "reviewPlans": false,
-     "highComplexity": false,
+     "highComplexity": "low",
      "complexityOverride": null,
      "plannerConcerns": [],
      "taskCount": 8,
@@ -258,7 +258,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      "timestamp": "ISO-8601",
      "signals": {
        "reviewPlans": false,
-       "highComplexity": false,
+       "highComplexity": "low",
        "complexityOverride": null,
        "plannerConcerns": [],
        "taskCount": 8,
@@ -300,7 +300,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      "timestamp": "ISO-8601",
      "signals": {
        "reviewPlans": true,
-       "highComplexity": false,
+       "highComplexity": "low",
        "complexityOverride": "medium",
        "plannerConcerns": ["concern text"],
        "taskCount": 12,
