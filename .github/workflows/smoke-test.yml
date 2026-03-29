@@ -1,0 +1,28 @@
+name: Post-Publish Smoke Test
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for npm CDN propagation
+        run: sleep 30
+      - name: Install published CLI
+        run: npm install -g @harness-engineering/cli
+      - name: Verify CLI runs
+        run: harness --version
+      - name: Verify core exports
+        run: |
+          mkdir /tmp/smoke && cd /tmp/smoke
+          npm init -y
+          npm install @harness-engineering/core @harness-engineering/types
+          node -e "const c = require('@harness-engineering/core'); console.log('core OK:', typeof c.validateConfig)"
+          node -e "const t = require('@harness-engineering/types'); console.log('types OK:', Object.keys(t).length > 0)"
