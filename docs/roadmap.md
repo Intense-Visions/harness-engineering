@@ -495,11 +495,11 @@ last_manual_edit: 2026-03-28
 
 ### CI Pipeline Hardening
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/ci-pipeline-hardening/proposal.md
 - **Summary:** Codecov integration, ratchet-only coverage baselines for all packages, Vitest benchmarks with 10% regression gates for core and graph, and post-publish smoke test — practice the standards harness enforces on others
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-28-phase1-coverage-output-plan.md
 
 ### Migration Toolkit
 

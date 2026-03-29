@@ -1,0 +1,72 @@
+{
+  "phase": 3,
+  "title": "Codecov Integration",
+  "reviewedCommits": [
+    "69d2702 ci(codecov): add codecov.yml configuration",
+    "84311d6 ci(codecov): add coverage upload step to CI workflow"
+  ],
+  "filesReviewed": [".github/workflows/ci.yml", "codecov.yml"],
+  "assessment": "approve",
+  "strengths": [
+    "All 7 packages are listed in the files: field, matching the monorepo exactly (core, graph, cli, eslint-plugin, linter-gen, orchestrator, types)",
+    "Upload step is correctly gated to ubuntu-latest only, consistent with the test:ci coverage guard",
+    "Step ordering is correct: test:ci -> coverage-ratchet -> codecov upload -> test:platform-parity. Coverage files exist before upload reads them",
+    "CODECOV_TOKEN is properly referenced via secrets -- no hardcoded tokens, no leaks in any workflow or env files",
+    "codecov.yml project target: auto with 1% threshold is a pragmatic baseline that prevents regressions without blocking on noise",
+    "Patch target of 80% is a reasonable bar for new code",
+    "flags.unittests.paths scoped to packages/ correctly limits coverage to workspace source"
+  ],
+  "findings": [
+    {
+      "id": "phase3-001",
+      "file": ".github/workflows/ci.yml",
+      "lineRange": [51, 51],
+      "domain": "security",
+      "severity": "note",
+      "title": "codecov-action pinned to major tag, not SHA",
+      "rationale": "uses: codecov/codecov-action@v4 pins to a mutable major version tag. A compromised tag could inject malicious code into CI. Pinning to a full commit SHA (e.g., codecov/codecov-action@<sha>) with a version comment is the supply-chain-hardened approach. This is low risk given Codecov's prevalence but worth noting for defense-in-depth.",
+      "suggestion": "Pin to a specific SHA: uses: codecov/codecov-action@<sha> # v4.x.x. The SHA can be found from the Codecov action releases page.",
+      "evidence": ["Line 51: uses: codecov/codecov-action@v4"],
+      "validatedBy": "heuristic"
+    },
+    {
+      "id": "phase3-002",
+      "file": ".github/workflows/ci.yml",
+      "lineRange": [55, 55],
+      "domain": "compliance",
+      "severity": "note",
+      "title": "fail_ci_if_error: false means Codecov failures are silent",
+      "rationale": "With fail_ci_if_error: false, a misconfigured token, network error, or Codecov outage will not surface in CI. This is a reasonable default to avoid blocking PRs on a third-party service, but the team should be aware that upload failures will be invisible unless Codecov dashboards are monitored.",
+      "suggestion": "No change needed if this is intentional. Consider setting to true once the integration is stable and the CODECOV_TOKEN secret is confirmed provisioned.",
+      "evidence": ["Line 55: fail_ci_if_error: false"],
+      "validatedBy": "heuristic"
+    },
+    {
+      "id": "phase3-003",
+      "file": "codecov.yml",
+      "lineRange": [1, 13],
+      "domain": "compliance",
+      "severity": "note",
+      "title": "No explicit PR comment configuration in codecov.yml",
+      "rationale": "The codecov.yml does not include a comment: section. Codecov defaults to posting PR comments with coverage diffs. This is usually desirable but if the team wants to suppress or customize PR comment behavior, it should be configured explicitly.",
+      "suggestion": "If PR comments are desired (likely), no action needed. To customize: add a comment: section with layout, behavior, and require_changes_to_be_covered options.",
+      "evidence": ["codecov.yml has coverage.status and coverage.flags but no comment: block"],
+      "validatedBy": "heuristic"
+    }
+  ],
+  "findingSummary": {
+    "critical": 0,
+    "important": 0,
+    "warning": 0,
+    "note": 3
+  },
+  "verificationChecklist": {
+    "allPackagesListed": true,
+    "packageCount": 7,
+    "packages": ["core", "graph", "cli", "eslint-plugin", "linter-gen", "orchestrator", "types"],
+    "stepOrderingCorrect": true,
+    "secretsHandledProperly": true,
+    "noHardcodedTokens": true,
+    "codecovConfigValid": true
+  }
+}
