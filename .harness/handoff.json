@@ -1,38 +1,11 @@
 {
-  "fromSkill": "harness-brainstorming",
-  "phase": "VALIDATE",
-  "summary": "Spec for adding FINAL_REVIEW state to autopilot — holistic code review after all phases, gating PR creation",
-  "artifacts": ["docs/changes/autopilot-final-review-gate/proposal.md"],
-  "decisions": [
-    {
-      "what": "Always automatic — no prompt",
-      "why": "User always runs review manually today; automating removes a manual step"
-    },
-    {
-      "what": "Gates PR creation",
-      "why": "Review should pass before a PR exists, matching current manual workflow"
-    },
-    {
-      "what": "Hybrid context — informed but independent",
-      "why": "Avoids re-flagging resolved issues while not blindly trusting prior reviews"
-    },
-    {
-      "what": "Diff against starting commit recorded at INIT",
-      "why": "Precise scope of exactly what autopilot changed"
-    },
-    {
-      "what": "New FINAL_REVIEW state in state machine",
-      "why": "Follows established pattern; single-responsibility, resumable, visible in state files"
-    }
-  ],
-  "contextKeywords": [
-    "autopilot",
-    "code-review",
-    "final-review",
-    "state-machine",
-    "cross-phase",
-    "diff-scope",
-    "startingCommit",
-    "FINAL_REVIEW"
+  "fromSkill": "harness-execution",
+  "timestamp": "2026-03-28T00:00:00Z",
+  "summary": "Completed all 5 tasks of Phase 2 Coverage Ratchet plan. coverage-ratchet.mjs script created, initial baselines captured, CI workflow wired, regression detection verified, --update mode verified.",
+  "pendingTasks": [],
+  "blockers": [],
+  "learnings": [
+    "coverage-ratchet.mjs uses import.meta.dirname (Node 21+) -- works fine in project's Node version",
+    "CI ternary expression in GitHub Actions selects test:ci on ubuntu and plain test on other OSes"
   ]
 }

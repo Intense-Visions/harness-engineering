@@ -116,3 +116,8 @@
 - [skill:harness-execution] [outcome:gotcha] Tasks 2-8 (incremental SKILL.md construction) cannot be committed individually because structure tests require ## Process, ## Examples, ## Gates, and ## Escalation sections. Must combine into a single file write.
 - [skill:harness-execution] [outcome:gotcha] 3 of 4 sub-skill SKILL.md files (detect-doc-drift, align-documentation, validate-context-engineering) are hardlinked between claude-code and gemini-cli. harness-knowledge-mapper is NOT hardlinked and needs manual copy for parity.
 - [skill:harness-execution] [outcome:gotcha] lint-staged stash/restore absorbed SKILL.md changes into unrelated commits (75769db, 9a1955d, b67c367). Same recurring pattern. Content was correct but commit boundaries and messages were wrong.
+
+## 2026-03-28 — Phase 2: Coverage Ratchet
+
+- [skill:harness-execution] [outcome:success] All 5 tasks completed. coverage-ratchet.mjs script, initial baselines, and CI workflow wiring all in place. Regression detection and --update mode both verified.
+- [skill:harness-execution] [outcome:success] Task 5 was verification-only (no file changes to commit). The --update flag correctly captures current coverage and the check mode correctly passes against matching baselines.
