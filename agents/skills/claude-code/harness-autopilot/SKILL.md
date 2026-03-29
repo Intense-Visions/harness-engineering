@@ -669,10 +669,11 @@ Plan generated: docs/plans/2026-03-19-core-scanner-plan.md (8 tasks, ~24 min)
 **Phase 1 — APPROVE_PLAN:**
 
 ```
-Phase 1: Core Scanner
-Tasks: 8 | Checkpoints: 1 | Est. time: 24 min | Complexity: low
-Approve this plan and begin execution? (yes / revise / skip / stop)
-→ User: "yes"
+Auto-approved Phase 1: Core Scanner
+  Review mode: auto
+  Complexity: low (no override)
+  Planner concerns: none
+  Tasks: 8 (threshold: 15)
 ```
 
 **Phase 1 — EXECUTE → VERIFY → REVIEW:**
