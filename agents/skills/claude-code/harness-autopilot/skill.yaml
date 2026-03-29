@@ -23,6 +23,9 @@ cli:
     - name: path
       description: Project root path
       required: false
+    - name: review-plans
+      description: Force human review of all plans (overrides auto-approve)
+      required: false
 mcp:
   tool: run_skill
   input:
