@@ -101,6 +101,7 @@ interface RoadmapDeps {
   parseRoadmap: Awaited<typeof import('@harness-engineering/core')>['parseRoadmap'];
   serializeRoadmap: Awaited<typeof import('@harness-engineering/core')>['serializeRoadmap'];
   syncRoadmap: Awaited<typeof import('@harness-engineering/core')>['syncRoadmap'];
+  applySyncChanges: Awaited<typeof import('@harness-engineering/core')>['applySyncChanges'];
   Ok: Awaited<typeof import('@harness-engineering/types')>['Ok'];
 }
 
@@ -379,19 +380,7 @@ function handleSync(
   }
 
   if (input.apply) {
-    // Apply changes to roadmap
-    for (const change of changes) {
-      for (const m of roadmap.milestones) {
-        const feature = m.features.find(
-          (f) => f.name.toLowerCase() === change.feature.toLowerCase()
-        );
-        if (feature) {
-          feature.status = change.to;
-          break;
-        }
-      }
-    }
-    roadmap.frontmatter.lastSynced = new Date().toISOString();
+    deps.applySyncChanges(roadmap, changes);
     writeRoadmapFile(projectPath, serializeRoadmap(roadmap));
     return resultToMcpResponse(Ok({ changes, applied: true, roadmap }));
   }
@@ -401,12 +390,12 @@ function handleSync(
 
 export async function handleManageRoadmap(input: ManageRoadmapInput) {
   try {
-    const { parseRoadmap, serializeRoadmap, syncRoadmap } =
+    const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges } =
       await import('@harness-engineering/core');
     const { Ok } = await import('@harness-engineering/types');
 
     const projectPath = sanitizePath(input.path);
-    const deps: RoadmapDeps = { parseRoadmap, serializeRoadmap, syncRoadmap, Ok };
+    const deps: RoadmapDeps = { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok };
 
     switch (input.action) {
       case 'show':

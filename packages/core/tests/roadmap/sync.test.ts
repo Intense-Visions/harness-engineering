@@ -270,8 +270,8 @@ describe('syncRoadmap()', () => {
     });
   });
 
-  describe('human-always-wins', () => {
-    it('skips changes when last_manual_edit > last_synced', () => {
+  describe('directional guard (human-always-wins)', () => {
+    it('allows forward progression even after manual edits', () => {
       writeJson(path.join(tmpDir, '.harness', 'state.json'), {
         schemaVersion: 1,
         position: { phase: 'complete' },
@@ -286,34 +286,78 @@ describe('syncRoadmap()', () => {
           project: 'test',
           version: 1,
           lastSynced: '2026-03-21T09:00:00Z',
-          lastManualEdit: '2026-03-21T10:00:00Z', // newer
+          lastManualEdit: '2026-03-21T10:00:00Z', // newer — no longer blocks
         },
       });
 
       const result = syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value).toEqual([]); // no changes — human wins
+      expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'done' }]);
     });
 
-    it('overrides when forceSync is true even with manual edit', () => {
+    it('blocks regression (done -> in-progress) without forceSync', () => {
       writeJson(path.join(tmpDir, '.harness', 'state.json'), {
         schemaVersion: 1,
-        position: { phase: 'complete' },
-        progress: { 'Task 1': 'complete' },
+        position: {},
+        progress: { 'Task 1': 'in_progress' },
       });
       const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
       fs.mkdirSync(path.dirname(planPath), { recursive: true });
       fs.writeFileSync(planPath, '# Plan\n');
 
-      const roadmap = baseRoadmap({
-        frontmatter: {
-          project: 'test',
-          version: 1,
-          lastSynced: '2026-03-21T09:00:00Z',
-          lastManualEdit: '2026-03-21T10:00:00Z',
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features[0]!.status = 'done';
+
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]); // regression blocked
+    });
+
+    it('allows blocked → planned (lateral, not a regression)', () => {
+      // No state files — inferStatus returns null, but if a blocker resolves
+      // and inferStatus returns 'planned', the lateral move should be allowed
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features = [
+        {
+          name: 'Feature A',
+          status: 'done',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Dep',
         },
+        {
+          name: 'Feature B',
+          status: 'blocked',
+          spec: null,
+          plans: [],
+          blockedBy: ['Feature A'],
+          summary: 'Was blocked, blocker now done',
+        },
+      ];
+      // Feature A is done, so Feature B's blocker is resolved — no blocked inference
+      const result = syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // No state files for Feature B, so inferStatus returns null — no change proposed
+      // This documents that blocked → planned requires state data or manual update
+      expect(result.value).toEqual([]);
+    });
+
+    it('allows regression when forceSync is true', () => {
+      writeJson(path.join(tmpDir, '.harness', 'state.json'), {
+        schemaVersion: 1,
+        position: {},
+        progress: { 'Task 1': 'in_progress' },
       });
+      const planPath = path.join(tmpDir, 'docs', 'plans', 'feature-a-plan.md');
+      fs.mkdirSync(path.dirname(planPath), { recursive: true });
+      fs.writeFileSync(planPath, '# Plan\n');
+
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features[0]!.status = 'done';
 
       const result = syncRoadmap({
         projectPath: tmpDir,
@@ -322,7 +366,7 @@ describe('syncRoadmap()', () => {
       });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value).toEqual([{ feature: 'Feature A', from: 'planned', to: 'done' }]);
+      expect(result.value).toEqual([{ feature: 'Feature A', from: 'done', to: 'in-progress' }]);
     });
   });
 
