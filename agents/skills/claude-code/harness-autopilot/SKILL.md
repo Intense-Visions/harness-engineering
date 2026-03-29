@@ -204,27 +204,114 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ---
 
-### APPROVE_PLAN — Human Review Gate
+### APPROVE_PLAN — Conditional Review Gate
 
-**This state always pauses for human input.**
-
-1. **Present the plan summary:**
+1. **Gather plan metadata:**
    - Phase name and number
-   - Task count
+   - Task count (from the plan file)
    - Checkpoint count
-   - Estimated time (task count × 3 minutes)
+   - Estimated time (task count x 3 minutes)
    - Effective complexity (original + any override)
-   - Any concerns from the planning handoff
+   - Concerns array from the planning handoff (`{sessionDir}/handoff.json` field `concerns`)
 
-2. **Ask:** "Approve this plan and begin execution? (yes / revise / skip phase / stop)"
+2. **Evaluate `shouldPauseForReview`.** Check the following signals in order. If **any** signal is true, pause for human review. If **all** are false, auto-approve.
+
+   | #   | Signal               | Condition                                                              | Description                                                       |
+   | --- | -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
+   | 1   | `reviewPlans`        | `state.reviewPlans === true`                                           | Session-level flag set by `--review-plans` CLI arg                |
+   | 2   | `highComplexity`     | `phase.complexity === "high"` OR `phase.complexityOverride === "high"` | Phase is marked or overridden as high complexity                  |
+   | 3   | `complexityOverride` | `phase.complexityOverride !== null`                                    | Planner produced more tasks than expected for the spec complexity |
+   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty                                  | Planner flagged specific risks or uncertainties                   |
+   | 5   | `taskCount`          | Plan contains > 15 tasks                                               | Plan is large enough to warrant human review                      |
+
+3. **Build the signal evaluation result** for reporting and recording:
+
+   ```json
+   {
+     "reviewPlans": false,
+     "highComplexity": false,
+     "complexityOverride": null,
+     "plannerConcerns": [],
+     "taskCount": 8,
+     "taskThreshold": 15
+   }
+   ```
+
+4. **If auto-approving (no signals fired):**
+
+   a. **Emit structured auto-approve report:**
+
+   ```
+   Auto-approved Phase 1: Setup Infrastructure
+     Review mode: auto
+     Complexity: low (no override)
+     Planner concerns: none
+     Tasks: 8 (threshold: 15)
+   ```
+
+   b. **Record the decision** in state `decisions` array:
+
+   ```json
+   {
+     "phase": 0,
+     "decision": "auto_approved_plan",
+     "timestamp": "ISO-8601",
+     "signals": {
+       "reviewPlans": false,
+       "highComplexity": false,
+       "complexityOverride": null,
+       "plannerConcerns": [],
+       "taskCount": 8,
+       "taskThreshold": 15
+     }
+   }
+   ```
+
+   c. **Transition to EXECUTE** — no human interaction needed.
+
+5. **If pausing for review (one or more signals fired):**
+
+   a. **Emit structured pause report** showing which signal(s) triggered:
+
+   ```
+   Pausing for review -- Phase 2: Auth Middleware
+     Review mode: manual (--review-plans flag set)
+     Complexity override: low -> medium (triggered)
+     Planner concerns: 2 concern(s)
+     Tasks: 12 (threshold: 15)
+   ```
+
+   Mark triggered signals explicitly. Non-triggered signals display their normal value without "(triggered)".
+
+   b. **Present the plan summary:** task count, checkpoint count, estimated time, effective complexity, and any concerns from the planning handoff.
+
+   c. **Ask:** "Approve this plan and begin execution? (yes / revise / skip phase / stop)"
    - **yes** — Transition to EXECUTE.
-   - **revise** — Tell user to edit the plan file directly, then re-present.
+   - **revise** — Tell user to edit the plan file directly, then re-present from step 1.
    - **skip phase** — Mark phase as `skipped` in state, transition to PHASE_COMPLETE.
    - **stop** — Save state and exit. User can resume later.
 
-3. **Record the decision** in state: `decisions` array.
+   d. **Record the decision** in state `decisions` array:
 
-4. **Update state** with `currentState: "EXECUTE"` and save.
+   ```json
+   {
+     "phase": 0,
+     "decision": "approved_plan",
+     "timestamp": "ISO-8601",
+     "signals": {
+       "reviewPlans": true,
+       "highComplexity": false,
+       "complexityOverride": "medium",
+       "plannerConcerns": ["concern text"],
+       "taskCount": 12,
+       "taskThreshold": 15
+     }
+   }
+   ```
+
+   Use the actual decision value: `approved_plan`, `revised_plan`, `skipped_phase`, or `stopped`.
+
+6. **Update state** with `currentState: "EXECUTE"` (or appropriate state for skip/stop) and save.
 
 ---
 
