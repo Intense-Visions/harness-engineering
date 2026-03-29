@@ -73,9 +73,12 @@ const sharedGraph = buildMediumGraph();
 // --- Benchmarks ---
 
 describe('GraphStore', () => {
+  // Use a dedicated store for addNode to avoid polluting sharedGraph
+  // (which findNodes and groupNodesByImpact benchmarks depend on)
+  const addNodeStore = new GraphStore();
+
   bench('addNode - single node', () => {
-    const g = buildMediumGraph();
-    g.store.addNode(mkNode(`bench:temp:${Math.random()}`, 'file', 'temp.ts'));
+    addNodeStore.addNode(mkNode(`bench:temp:${Math.random()}`, 'file', 'temp.ts'));
   });
 
   bench('findNodes - by type', () => {
