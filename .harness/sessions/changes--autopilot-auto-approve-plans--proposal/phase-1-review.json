@@ -1,0 +1,44 @@
+[
+  {
+    "severity": "critical",
+    "file": "agents/skills/claude-code/harness-autopilot/SKILL.md",
+    "line": [34, 782],
+    "title": "Iron Law, Success Criteria, and Gates contradict auto-approve behavior",
+    "rationale": "Three sections still assert mandatory human approval with no exceptions. Deferred to Phase 3 which is scoped to update these sections."
+  },
+  {
+    "severity": "important",
+    "file": "agents/skills/claude-code/harness-autopilot/SKILL.md",
+    "line": [219, 223],
+    "title": "Signal #2 and #3 overlap on high complexity overrides",
+    "rationale": "highComplexity fires on complexityOverride === high, and complexityOverride fires on !== null. Both fire for high overrides. Signal #2 should check phase.complexity === high only (no OR clause) to make signals distinct."
+  },
+  {
+    "severity": "important",
+    "file": "agents/skills/claude-code/harness-autopilot/SKILL.md",
+    "line": [229, 237],
+    "title": "Asymmetric signal value types in JSON schema",
+    "rationale": "highComplexity stores boolean result, complexityOverride stores actual value. Asymmetry could confuse implementors."
+  },
+  {
+    "severity": "note",
+    "file": "agents/skills/claude-code/harness-autopilot/SKILL.md",
+    "line": [245, 672],
+    "title": "Different phase names in auto-approve report examples",
+    "rationale": "Procedure example says 'Setup Infrastructure', Examples section says 'Core Scanner'. Independent but may confuse."
+  },
+  {
+    "severity": "note",
+    "file": "agents/skills/claude-code/harness-autopilot/SKILL.md",
+    "line": [225, 265],
+    "title": "Task threshold 15 hardcoded in 4 places",
+    "rationale": "If threshold changes, 4 locations need updating. Minor since spec explicitly says hardcoded for now."
+  },
+  {
+    "severity": "note",
+    "file": "agents/skills/claude-code/harness-autopilot/SKILL.md",
+    "line": [244, 277],
+    "title": "Asymmetric report formats between auto-approve and pause paths",
+    "rationale": "Different complexity line formats. Fine for readability, decision record JSON is the machine artifact."
+  }
+]

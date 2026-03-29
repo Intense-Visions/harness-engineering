@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 3,
+  "sessionDir": ".harness/sessions/changes--autopilot-auto-approve-plans--proposal",
+  "specPath": "docs/changes/autopilot-auto-approve-plans/proposal.md",
+  "startingCommit": "a83ee82a87bc2587cc1ab8218833f82753540b27",
+  "currentState": "ASSESS",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "State and Flag Plumbing",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Pause Signal Evaluation",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    },
+    {
+      "name": "Update Iron Law Documentation",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "pending"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [],
+  "decisions": [],
+  "finalReview": {
+    "status": "pending",
+    "findings": [],
+    "retryCount": 0
+  }
+}
