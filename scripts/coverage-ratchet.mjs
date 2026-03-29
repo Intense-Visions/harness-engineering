@@ -71,6 +71,10 @@ function check() {
 
     const actual = readCoverage(pkgKey);
     if (!actual) {
+      console.error(
+        `  FAIL: ${pkgKey} has baseline but no coverage data (missing or unreadable coverage-summary.json)`
+      );
+      failures++;
       continue;
     }
 
