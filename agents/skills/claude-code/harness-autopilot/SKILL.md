@@ -216,13 +216,13 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 2. **Evaluate `shouldPauseForReview`.** Check the following signals in order. If **any** signal is true, pause for human review. If **all** are false, auto-approve.
 
-   | #   | Signal               | Condition                             | Description                                                       |
-   | --- | -------------------- | ------------------------------------- | ----------------------------------------------------------------- |
-   | 1   | `reviewPlans`        | `state.reviewPlans === true`          | Session-level flag set by `--review-plans` CLI arg                |
-   | 2   | `highComplexity`     | `phase.complexity === "high"`         | Phase is marked as high complexity in the spec                    |
-   | 3   | `complexityOverride` | `phase.complexityOverride !== null`   | Planner produced more tasks than expected for the spec complexity |
-   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty | Planner flagged specific risks or uncertainties                   |
-   | 5   | `taskCount`          | Plan contains > 15 tasks              | Plan is large enough to warrant human review                      |
+   | #   | Signal               | Condition                             | Description                                                                                         |
+   | --- | -------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+   | 1   | `reviewPlans`        | `state.reviewPlans === true`          | Session-level flag set by `--review-plans` CLI arg                                                  |
+   | 2   | `highComplexity`     | `phase.complexity === "high"`         | Phase is marked as high complexity in the spec (reachable when resuming after interactive planning) |
+   | 3   | `complexityOverride` | `phase.complexityOverride !== null`   | Planner produced more tasks than expected for the spec complexity                                   |
+   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty | Planner flagged specific risks or uncertainties                                                     |
+   | 5   | `taskCount`          | Plan contains > 15 tasks              | Plan is large enough to warrant human review                                                        |
 
 3. **Build the signal evaluation result** for reporting and recording:
 
@@ -713,10 +713,22 @@ Resuming autopilot from state PLAN, phase 2: Rule Engine.
 Found plan: docs/plans/2026-03-19-rule-engine-plan.md
 ```
 
-**Phase 2 — APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE**
+**Phase 2 — APPROVE_PLAN:**
 
 ```
-[Same flow as Phase 1, with checkpoint pauses as needed]
+Pausing for review -- Phase 2: Rule Engine
+  Review mode: auto
+  Complexity: high (triggered)
+  Planner concerns: none
+  Tasks: 14 (threshold: 15)
+Approve this plan and begin execution? (yes / revise / skip / stop)
+→ User: "yes"
+```
+
+**Phase 2 — EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE**
+
+```
+[Execution with checkpoint pauses as needed]
 Phase 2: Rule Engine — COMPLETE
 Tasks: 14/14 | Retries: 1 | Verification: pass | Review: 0 blocking
 Next: Phase 3: CLI Integration (complexity: low). Continue? (yes / stop)
