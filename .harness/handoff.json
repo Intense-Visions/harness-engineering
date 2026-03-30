@@ -1,11 +1,44 @@
 {
-  "fromSkill": "harness-execution",
-  "timestamp": "2026-03-28T00:00:00Z",
-  "summary": "Completed all 5 tasks of Phase 2 Coverage Ratchet plan. coverage-ratchet.mjs script created, initial baselines captured, CI workflow wired, regression detection verified, --update mode verified.",
-  "pendingTasks": [],
-  "blockers": [],
-  "learnings": [
-    "coverage-ratchet.mjs uses import.meta.dirname (Node 21+) -- works fine in project's Node version",
-    "CI ternary expression in GitHub Actions selects test:ci on ubuntu and plain test on other OSes"
+  "fromSkill": "harness-brainstorming",
+  "phase": "VALIDATE",
+  "summary": "Runtime enforcement extensions — harness hooks CLI with profile-based activation and 18 new security scanner rules for agent config and MCP auditing",
+  "artifacts": ["docs/changes/runtime-enforcement-extensions/proposal.md"],
+  "decisions": [
+    {
+      "what": "CLI command (harness hooks init) over template-only",
+      "why": "Works for both new and existing projects"
+    },
+    {
+      "what": "Add rules to existing SecurityScanner registry, not refactor SecurityAgent",
+      "why": "Scanner already has modular registry; review agent serves different purpose (diff analysis)"
+    },
+    {
+      "what": "No external scanner dependencies",
+      "why": "Avoids coupling to external maintenance cadence"
+    },
+    {
+      "what": "Profile-based hook activation (minimal/standard/strict)",
+      "why": "Lets users control safety/speed tradeoff"
+    },
+    {
+      "what": "Agent config and MCP as new security categories",
+      "why": "Unique to AI-assisted development; not covered by traditional scanners"
+    },
+    {
+      "what": "Security rules are the stronger bet; hooks are nice-to-have at current scope",
+      "why": "Agent config auditing is differentiated capability; hooks are convenience over existing permission system"
+    }
+  ],
+  "contextKeywords": [
+    "hooks",
+    "PreToolUse",
+    "security-scanner",
+    "RuleRegistry",
+    "SecurityCategory",
+    "agent-config",
+    "mcp-security",
+    "CLAUDE.md",
+    "settings.json",
+    "profiles"
   ]
 }
