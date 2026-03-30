@@ -33,10 +33,10 @@ harness-engineering/
 │   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 79 skills (49 core + 30 domain, skill.yaml + SKILL.md each)
+│   ├── skills/claude-code/   # 79 skills (36 core + 43 domain, skill.yaml + SKILL.md each)
 │   ├── skills/gemini-cli/    # 79 skills (symlinked to claude-code for platform parity)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
-├── templates/                 # Project scaffolding templates (base, basic, intermediate, advanced, nextjs, orchestrator)
+├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more)
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level
 │   ├── task-api/             # Intermediate adoption level
