@@ -31,3 +31,12 @@ export {
   updateSessionEntryStatus,
 } from './session-sections';
 export { archiveSession } from './session-archive';
+export { emitEvent, loadEvents, formatEventTimeline, SkillEventSchema } from './events';
+export type {
+  SkillEvent,
+  EventType,
+  EmitEventInput,
+  EmitEventOptions,
+  EmitEventResult,
+  LoadEventsOptions,
+} from './events';

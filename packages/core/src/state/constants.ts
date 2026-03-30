@@ -12,3 +12,4 @@ export const SUMMARY_FILE = 'summary.md';
 export const SESSION_STATE_FILE = 'session-state.json';
 export const ARCHIVE_DIR = 'archive';
 export const CONTENT_HASHES_FILE = 'content-hashes.json';
+export const EVENTS_FILE = 'events.jsonl';
