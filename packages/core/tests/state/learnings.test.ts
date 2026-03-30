@@ -411,3 +411,65 @@ describe('appendLearning with frontmatter', () => {
     expect(fmLines.length).toBe(2);
   });
 });
+
+describe('loadRelevantLearnings with frontmatter entries', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-fm-load-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should parse entries that have frontmatter comments (not treat them as separate entries)', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '<!-- hash:a1b2c3d4 tags:harness-tdd,gotcha -->',
+        '- **2026-03-25 [skill:harness-tdd] [outcome:gotcha]:** Token refresh fails silently',
+        '',
+        '<!-- hash:e5f6a7b8 tags:harness-execution,success -->',
+        '- **2026-03-24 [skill:harness-execution] [outcome:success]:** Middleware setup works',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadRelevantLearnings(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBe(2);
+      // Entries should NOT include the frontmatter comment line
+      expect(result.value[0]).not.toContain('<!-- hash:');
+      expect(result.value[0]).toContain('Token refresh fails silently');
+    }
+  });
+
+  it('should handle mixed entries (some with frontmatter, some without)', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '<!-- hash:a1b2c3d4 tags:skill-a -->',
+        '- **2026-03-25 [skill:skill-a]:** With frontmatter',
+        '',
+        '- **2026-03-24 [skill:skill-b]:** Without frontmatter',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadRelevantLearnings(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBe(2);
+    }
+  });
+});
