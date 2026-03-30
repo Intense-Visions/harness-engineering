@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises';
+import { minimatch } from 'minimatch';
 import { RuleRegistry } from './rules/registry';
 import { resolveRuleSeverity } from './config';
 import { detectStack } from './stack-detector';
@@ -104,7 +105,68 @@ export class SecurityScanner {
   async scanFile(filePath: string): Promise<SecurityFinding[]> {
     if (!this.config.enabled) return [];
     const content = await fs.readFile(filePath, 'utf-8');
-    return this.scanContent(content, filePath, 1);
+    return this.scanContentForFile(content, filePath, 1);
+  }
+
+  private scanContentForFile(
+    content: string,
+    filePath: string,
+    startLine: number = 1
+  ): SecurityFinding[] {
+    if (!this.config.enabled) return [];
+
+    const findings: SecurityFinding[] = [];
+    const lines = content.split('\n');
+
+    // Filter rules by fileGlob when scanning a specific file
+    const applicableRules = this.activeRules.filter((rule) => {
+      if (!rule.fileGlob) return true;
+      // fileGlob can be comma-separated patterns
+      const globs = rule.fileGlob.split(',').map((g) => g.trim());
+      return globs.some((glob) => minimatch(filePath, glob, { dot: true }));
+    });
+
+    for (const rule of applicableRules) {
+      const resolved = resolveRuleSeverity(
+        rule.id,
+        rule.severity,
+        this.config.rules ?? {},
+        this.config.strict
+      );
+
+      if (resolved === 'off') continue;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i] ?? '';
+
+        // Support inline suppression: // harness-ignore SEC-XXX-NNN
+        if (line.includes('harness-ignore') && line.includes(rule.id)) continue;
+
+        for (const pattern of rule.patterns) {
+          // Reset regex lastIndex for global/sticky patterns
+          pattern.lastIndex = 0;
+          if (pattern.test(line)) {
+            findings.push({
+              ruleId: rule.id,
+              ruleName: rule.name,
+              category: rule.category,
+              severity: resolved as SecurityFinding['severity'],
+              confidence: rule.confidence,
+              file: filePath,
+              line: startLine + i,
+              match: line.trim(),
+              context: line,
+              message: rule.message,
+              remediation: rule.remediation,
+              ...(rule.references ? { references: rule.references } : {}),
+            });
+            break; // One finding per rule per line
+          }
+        }
+      }
+    }
+
+    return findings;
   }
 
   async scanFiles(filePaths: string[]): Promise<ScanResult> {
