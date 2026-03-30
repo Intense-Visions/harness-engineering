@@ -10,6 +10,29 @@ pnpm add @harness-engineering/core
 
 ## Modules
 
+### Modules Overview
+
+| Module           | Description                                                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **validation**   | Cross-cutting validation for file structure, configuration, and commit messages                                                                     |
+| **context**      | AGENTS.md knowledge maps, documentation coverage analysis, token budgets, and context filtering                                                     |
+| **constraints**  | Architectural layer enforcement, circular dependency detection, and boundary validation                                                             |
+| **entropy**      | Documentation drift, dead code detection, pattern violations, and auto-fix                                                                          |
+| **architecture** | Metric collection via multiple collectors (circular deps, layer violations, complexity, coupling, forbidden imports, module size, dependency depth) |
+| **review**       | Code review pipeline with mechanical checks, fan-out agents (compliance, bugs, security, architecture), and deduplication                           |
+| **feedback**     | Agent feedback loops with self-review, peer review, telemetry, logging, and action tracking                                                         |
+| **performance**  | Benchmarking, baseline management, regression detection, and critical path analysis                                                                 |
+| **security**     | Security scanning with secret detection, injection detection, XSS, crypto, path traversal, and stack-specific rules (Node.js, Express, React, Go)   |
+| **ci**           | CI/CD check orchestration for running automated checks in continuous integration pipelines                                                          |
+| **code-nav**     | Code navigation: file parsing, symbol extraction/outlines, symbol search, and code range unfolding by language                                      |
+| **state**        | State persistence including learnings, failures, handoffs, gates, streams, sessions, and event logging                                              |
+| **roadmap**      | Roadmap parsing, serialization, and synchronization with codebase and issue tracking                                                                |
+| **pipeline**     | Skill pipeline orchestration for sequential and multi-turn skill execution                                                                          |
+| **workflow**     | Workflow execution engine for structured multi-step workflows                                                                                       |
+| **interaction**  | Types and schemas for agent-to-human interactions (questions, confirmations, transitions)                                                           |
+| **blueprint**    | HTML documentation generation from module data using EJS templates                                                                                  |
+| **shared**       | Error types, Result pattern for error handling, file system utilities, and language parsers                                                         |
+
 ### Validation Module
 
 Cross-cutting validation utilities used by all other modules.
