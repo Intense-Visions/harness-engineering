@@ -172,8 +172,8 @@ importers:
         specifier: ^0.1.13
         version: 0.1.13
       web-tree-sitter:
-        specifier: ^0.26.7
-        version: 0.26.7
+        specifier: ^0.24.7
+        version: 0.24.7
       zod:
         specifier: ^3.22.0
         version: 3.25.76
@@ -5626,8 +5626,8 @@ packages:
       typescript: 5.9.3
     dev: true
 
-  /web-tree-sitter@0.26.7:
-    resolution: {integrity: sha512-KiZhelTvBA/ziUHEO7Emb75cGVAq8iGZNabYaZm53Zpy50NsXyOW+xSHlwHt5CVg/TRPZBfeVLTTobF0LjFJ1w==}
+  /web-tree-sitter@0.24.7:
+    resolution: {integrity: sha512-CdC/TqVFbXqR+C51v38hv6wOPatKEUGxa39scAeFSm98wIhZxAYonhRQPSMmfZ2w7JDI0zQDdzdmgtNk06/krQ==}
     dev: false
 
   /which@2.0.2:
