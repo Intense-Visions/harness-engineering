@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.5.0
+
+### Patch Changes
+
+- No public API changes — version bump to align with downstream consumers
+
 ## 0.4.0
 
 ### Minor Changes

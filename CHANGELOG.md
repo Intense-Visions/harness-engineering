@@ -6,6 +6,34 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.9.0 — 2026-03-30
+
+### Added
+
+- **Code navigation module** — AST-powered outline extraction, cross-file symbol search, and bounded unfold with tree-sitter parser cache. 3 new MCP tools: `code_outline`, `code_search`, `code_unfold` (49 total).
+- **Hooks system** — 6 hook scripts (`block-no-verify`, `cost-tracker`, `pre-compact-state`, `protect-config`, `quality-gate`, `profiles`) with minimal/standard/strict profile tiers. CLI commands `hooks init`, `hooks list`, `hooks remove` for managing Claude Code hooks.
+- **Structured event log** — JSONL append-only event timeline with content-hash deduplication, integrated into `gather_context`.
+- **Extended security scanner** — 18 new rules: 7 agent-config (SEC-AGT-001–007), 5 MCP (SEC-MCP-001–005), 6 secret detection (SEC-SEC-006–011). New `agent-config` and `mcp` security categories with `fileGlob` filtering.
+- **Learnings enhancements** — Hash-based content deduplication, frontmatter annotations, progressive disclosure with depth parameter, index entry extraction, and session learning promotion.
+- **Onboarding funnel** — `harness setup` command, `doctor` health check, and first-run welcome experience.
+- **CI pipeline hardening** — Coverage ratchet, benchmark regression gate, codecov integration, and post-publish smoke test workflow.
+
+### Changed
+
+- Progressive disclosure in `gather_context` via new `depth` parameter for layered context retrieval.
+- Autopilot DONE state now promotes session learnings and suggests global learnings pruning.
+- Autopilot APPROVE_PLAN replaced mandatory pause with conditional signal-based gate.
+- Autopilot FINAL_REVIEW dispatch and findings handling integrated into phase lifecycle.
+
+### Fixed
+
+- Shell injection and `-n` flag bypass in hook scripts.
+- `execFileSync` consistency and MCP-003 wildcard handling in security/hooks.
+- O(1) dedup and redundant I/O in events and learnings modules.
+- Roadmap sync guard replaced with directional protection and auto-sync.
+- `promoteSessionLearnings` idempotency guard and budgeted learnings deduplication.
+- `scanContent` docs, AGT-007 confidence, and regex precision in security scanner.
+
 ## 0.8.0 — 2026-03-27
 
 ### Added
