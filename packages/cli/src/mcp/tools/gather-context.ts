@@ -45,6 +45,12 @@ export const gatherContextDefinition = {
         description:
           'Session slug for session-scoped state. When provided, state/learnings/handoff/failures are read from .harness/sessions/<session>/ instead of .harness/. Omit for global fallback.',
       },
+      depth: {
+        type: 'string',
+        enum: ['index', 'summary', 'full'],
+        description:
+          'Retrieval depth for learnings. "index" returns one-line summaries, "summary" (default) returns full entries, "full" returns entries with linked context.',
+      },
     },
     required: ['path', 'intent'],
   },
@@ -59,6 +65,7 @@ export async function handleGatherContext(input: {
   mode?: 'summary' | 'detailed';
   learningsBudget?: number;
   session?: string;
+  depth?: 'index' | 'summary' | 'full';
 }) {
   const start = Date.now();
 
@@ -97,6 +104,7 @@ export async function handleGatherContext(input: {
           tokenBudget: input.learningsBudget ?? 1000,
           ...(input.skill !== undefined && { skill: input.skill }),
           ...(input.session !== undefined && { session: input.session }),
+          ...(input.depth !== undefined && { depth: input.depth }),
         })
       )
     : Promise.resolve(null);
