@@ -235,6 +235,32 @@ describe('gather_context tool', () => {
     });
   });
 
+  describe('depth parameter', () => {
+    it('definition includes depth property with enum values', () => {
+      const props = gatherContextDefinition.inputSchema.properties;
+      expect(props).toHaveProperty('depth');
+      expect((props as Record<string, { enum?: string[] }>).depth.enum).toEqual([
+        'index',
+        'summary',
+        'full',
+      ]);
+    });
+
+    it('passes depth through to learnings loading', async () => {
+      // Integration test: verify depth parameter is accepted without error
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-depth-test',
+        intent: 'test depth parameter',
+        include: ['learnings'],
+        depth: 'index',
+      });
+      expect(response.isError).toBeUndefined();
+      const output = JSON.parse(response.content[0]!.text);
+      // Should not error — learnings returns empty for nonexistent path
+      expect(Array.isArray(output.learnings)).toBe(true);
+    });
+  });
+
   describe('gather_context performance', () => {
     it('reports assembledIn timing in meta', async () => {
       const response = await handleGatherContext({
