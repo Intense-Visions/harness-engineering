@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { getStateDir, LEARNINGS_FILE, evictIfNeeded } from './state-shared';
+import { CONTENT_HASHES_FILE } from './constants';
 
 export interface LearningsFrontmatter {
   hash: string;
@@ -30,6 +31,99 @@ export function parseFrontmatter(line: string): LearningsFrontmatter | null {
 /** Compute an 8-char hex hash of the entry text. */
 function computeEntryHash(text: string): string {
   return crypto.createHash('sha256').update(text).digest('hex').slice(0, 8);
+}
+
+// --- Content Deduplication ---
+
+/**
+ * Normalize learning content for deduplication.
+ * Strips date prefixes, skill/outcome tags, list markers, bold markers;
+ * lowercases; collapses whitespace; trims.
+ */
+export function normalizeLearningContent(text: string): string {
+  let normalized = text;
+  // Strip date prefix (YYYY-MM-DD)
+  normalized = normalized.replace(/\d{4}-\d{2}-\d{2}/g, '');
+  // Strip skill/outcome tags
+  normalized = normalized.replace(/\[skill:[^\]]*\]/g, '');
+  normalized = normalized.replace(/\[outcome:[^\]]*\]/g, '');
+  // Strip list markers (- or *)
+  normalized = normalized.replace(/^[\s]*[-*]\s+/gm, '');
+  // Strip bold markers
+  normalized = normalized.replace(/\*\*/g, '');
+  // Strip colons left after tag removal (e.g., ":]" -> "")
+  normalized = normalized.replace(/:\s*/g, ' ');
+  // Lowercase
+  normalized = normalized.toLowerCase();
+  // Collapse whitespace
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+  return normalized;
+}
+
+/**
+ * Compute a 16-char hex SHA-256 hash of normalized content.
+ */
+export function computeContentHash(text: string): string {
+  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+}
+
+/** Content hash index: maps content hash -> metadata */
+export interface ContentHashEntry {
+  date: string;
+  line: number;
+}
+
+export type ContentHashIndex = Record<string, ContentHashEntry>;
+
+/** Load content hash index from sidecar file. Returns empty object on missing/corrupt. */
+function loadContentHashes(stateDir: string): ContentHashIndex {
+  const hashesPath = path.join(stateDir, CONTENT_HASHES_FILE);
+  if (!fs.existsSync(hashesPath)) return {};
+  try {
+    const raw = fs.readFileSync(hashesPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    return parsed as ContentHashIndex;
+  } catch {
+    return {};
+  }
+}
+
+/** Save content hash index to sidecar file. */
+function saveContentHashes(stateDir: string, index: ContentHashIndex): void {
+  const hashesPath = path.join(stateDir, CONTENT_HASHES_FILE);
+  fs.writeFileSync(hashesPath, JSON.stringify(index, null, 2) + '\n');
+}
+
+/**
+ * Rebuild content hash index from learnings.md.
+ * Used for self-healing when sidecar is missing or corrupted.
+ */
+function rebuildContentHashes(stateDir: string): ContentHashIndex {
+  const learningsPath = path.join(stateDir, LEARNINGS_FILE);
+  if (!fs.existsSync(learningsPath)) return {};
+
+  const content = fs.readFileSync(learningsPath, 'utf-8');
+  const lines = content.split('\n');
+  const index: ContentHashIndex = {};
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const isDatedBullet = /^- \*\*\d{4}-\d{2}-\d{2}/.test(line);
+    if (isDatedBullet) {
+      // Extract the raw learning text from the bullet line
+      const learningMatch = line.match(/:\*\*\s*(.+)$/);
+      if (learningMatch?.[1]) {
+        const normalized = normalizeLearningContent(learningMatch[1]);
+        const hash = computeContentHash(normalized);
+        const dateMatch = line.match(/(\d{4}-\d{2}-\d{2})/);
+        index[hash] = { date: dateMatch?.[1] ?? '', line: i + 1 };
+      }
+    }
+  }
+
+  saveContentHashes(stateDir, index);
+  return index;
 }
 
 /**
@@ -79,6 +173,28 @@ export async function appendLearning(
     const learningsPath = path.join(stateDir, LEARNINGS_FILE);
 
     fs.mkdirSync(stateDir, { recursive: true });
+
+    // Content deduplication: check if this learning already exists
+    const normalizedContent = normalizeLearningContent(learning);
+    const contentHash = computeContentHash(normalizedContent);
+
+    // Load or rebuild content hash index (self-healing)
+    const hashesPath = path.join(stateDir, CONTENT_HASHES_FILE);
+    let contentHashes: ContentHashIndex;
+    if (fs.existsSync(hashesPath)) {
+      contentHashes = loadContentHashes(stateDir);
+    } else if (fs.existsSync(learningsPath)) {
+      // Sidecar missing but learnings exist — rebuild (self-healing)
+      contentHashes = rebuildContentHashes(stateDir);
+    } else {
+      contentHashes = {};
+    }
+
+    // Skip duplicate
+    if (contentHashes[contentHash]) {
+      return Ok(undefined);
+    }
+
     const timestamp = new Date().toISOString().split('T')[0];
 
     // Build tags list for frontmatter
@@ -105,6 +221,11 @@ export async function appendLearning(
     } else {
       fs.appendFileSync(learningsPath, entry);
     }
+
+    // Update content hash index
+    const lineCount = fs.readFileSync(learningsPath, 'utf-8').split('\n').length;
+    contentHashes[contentHash] = { date: timestamp ?? '', line: lineCount };
+    saveContentHashes(stateDir, contentHashes);
 
     // Invalidate cache on write
     learningsCacheMap.delete(learningsPath);

@@ -9,6 +9,8 @@ import {
   parseFrontmatter,
   extractIndexEntry,
   loadIndexEntries,
+  normalizeLearningContent,
+  computeContentHash,
 } from '../../src/state/state-manager';
 
 describe('appendLearning with tags', () => {
@@ -669,5 +671,118 @@ describe('loadBudgetedLearnings with depth', () => {
     if (resultDefault.ok && resultExplicit.ok) {
       expect(resultDefault.value).toEqual(resultExplicit.value);
     }
+  });
+});
+
+describe('normalizeLearningContent', () => {
+  it('should strip date prefix', () => {
+    const result = normalizeLearningContent('2026-03-25 UTC normalization needed');
+    expect(result).not.toContain('2026-03-25');
+    expect(result).toContain('utc normalization needed');
+  });
+
+  it('should strip skill and outcome tags', () => {
+    const result = normalizeLearningContent('[skill:harness-tdd] [outcome:gotcha] Some insight');
+    expect(result).not.toContain('[skill:');
+    expect(result).not.toContain('[outcome:');
+    expect(result).toContain('some insight');
+  });
+
+  it('should strip list markers and bold markers', () => {
+    const result = normalizeLearningContent('- **2026-03-25 [skill:a]:** My learning');
+    expect(result).not.toContain('- ');
+    expect(result).not.toContain('**');
+    expect(result).toContain('my learning');
+  });
+
+  it('should collapse whitespace and lowercase', () => {
+    const result = normalizeLearningContent('  Multiple   Spaces   Here  ');
+    expect(result).toBe('multiple spaces here');
+  });
+
+  it('should produce same output for semantically identical content', () => {
+    const a = normalizeLearningContent(
+      '- **2026-03-25 [skill:harness-tdd] [outcome:gotcha]:** UTC normalization needed'
+    );
+    const b = normalizeLearningContent(
+      '- **2026-03-28 [skill:harness-execution] [outcome:success]:** UTC normalization needed'
+    );
+    expect(a).toBe(b);
+  });
+});
+
+describe('computeContentHash', () => {
+  it('should return a 16-char hex string', () => {
+    const hash = computeContentHash('some content');
+    expect(hash).toMatch(/^[a-f0-9]{16}$/);
+  });
+
+  it('should return same hash for same input', () => {
+    expect(computeContentHash('hello')).toBe(computeContentHash('hello'));
+  });
+
+  it('should return different hash for different input', () => {
+    expect(computeContentHash('hello')).not.toBe(computeContentHash('world'));
+  });
+});
+
+describe('content deduplication in appendLearning', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-dedup-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should write only one entry when identical learning appended twice', async () => {
+    await appendLearning(tmpDir, 'UTC normalization needed', 'harness-tdd', 'gotcha');
+    await appendLearning(tmpDir, 'UTC normalization needed', 'harness-tdd', 'gotcha');
+
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const matches = content.match(/UTC normalization needed/g);
+    expect(matches?.length).toBe(1);
+  });
+
+  it('should deduplicate same content with different dates/tags', async () => {
+    await appendLearning(tmpDir, 'UTC normalization needed', 'harness-tdd', 'gotcha');
+    await appendLearning(tmpDir, 'UTC normalization needed', 'harness-execution', 'success');
+
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const matches = content.match(/UTC normalization needed/g);
+    expect(matches?.length).toBe(1);
+  });
+
+  it('should write both entries when content differs', async () => {
+    await appendLearning(tmpDir, 'First unique learning', 'skill-a', 'success');
+    await appendLearning(tmpDir, 'Second unique learning', 'skill-b', 'gotcha');
+
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    expect(content).toContain('First unique learning');
+    expect(content).toContain('Second unique learning');
+  });
+
+  it('should create content-hashes.json sidecar file', async () => {
+    await appendLearning(tmpDir, 'A learning', 'skill-a', 'success');
+
+    const hashesPath = path.join(tmpDir, '.harness', 'content-hashes.json');
+    expect(fs.existsSync(hashesPath)).toBe(true);
+    const hashes = JSON.parse(fs.readFileSync(hashesPath, 'utf-8'));
+    expect(Object.keys(hashes).length).toBe(1);
+  });
+
+  it('should maintain independent hash indexes per session', async () => {
+    await appendLearning(tmpDir, 'Session learning', 'skill-a', 'success', undefined, 'session-1');
+    await appendLearning(tmpDir, 'Session learning', 'skill-a', 'success', undefined, 'session-2');
+
+    // Both sessions should have the entry (different hash indexes)
+    const session1Dir = path.join(tmpDir, '.harness', 'sessions', 'session-1');
+    const session2Dir = path.join(tmpDir, '.harness', 'sessions', 'session-2');
+    const content1 = fs.readFileSync(path.join(session1Dir, 'learnings.md'), 'utf-8');
+    const content2 = fs.readFileSync(path.join(session2Dir, 'learnings.md'), 'utf-8');
+    expect(content1).toContain('Session learning');
+    expect(content2).toContain('Session learning');
   });
 });
