@@ -6,7 +6,16 @@ export type SupportedLanguage = 'typescript' | 'javascript' | 'python';
 /**
  * Kind of code symbol extracted from AST.
  */
-export type SymbolKind = 'function' | 'class' | 'interface' | 'type' | 'variable' | 'method' | 'property' | 'export' | 'import';
+export type SymbolKind =
+  | 'function'
+  | 'class'
+  | 'interface'
+  | 'type'
+  | 'variable'
+  | 'method'
+  | 'property'
+  | 'export'
+  | 'import';
 
 /**
  * A code symbol with its location and metadata.
@@ -60,7 +69,7 @@ export interface UnfoldResult {
   content: string;
   language: SupportedLanguage | 'unknown';
   fallback: boolean; // true when raw content was returned
-  warning?: string;  // '[fallback: raw content]' when in fallback mode
+  warning?: string; // '[fallback: raw content]' when in fallback mode
 }
 
 /**
