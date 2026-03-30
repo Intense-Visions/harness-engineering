@@ -786,3 +786,78 @@ describe('content deduplication in appendLearning', () => {
     expect(content2).toContain('Session learning');
   });
 });
+
+describe('self-healing content hash index', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-heal-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should rebuild index when content-hashes.json is deleted and new entry appended', async () => {
+    await appendLearning(tmpDir, 'First learning', 'skill-a', 'success');
+    const hashesPath = path.join(tmpDir, '.harness', 'content-hashes.json');
+    expect(fs.existsSync(hashesPath)).toBe(true);
+
+    // Delete the sidecar
+    fs.unlinkSync(hashesPath);
+    expect(fs.existsSync(hashesPath)).toBe(false);
+
+    // Append a NEW (different) learning — should rebuild index and write
+    await appendLearning(tmpDir, 'Second learning', 'skill-b', 'gotcha');
+
+    // Index should be rebuilt with both entries
+    expect(fs.existsSync(hashesPath)).toBe(true);
+    const hashes = JSON.parse(fs.readFileSync(hashesPath, 'utf-8'));
+    expect(Object.keys(hashes).length).toBe(2);
+  });
+
+  it('should deduplicate after index rebuild when content-hashes.json is deleted', async () => {
+    await appendLearning(tmpDir, 'Duplicate me', 'skill-a', 'success');
+    const hashesPath = path.join(tmpDir, '.harness', 'content-hashes.json');
+
+    // Delete the sidecar
+    fs.unlinkSync(hashesPath);
+
+    // Append the SAME learning — should rebuild, detect duplicate, and skip
+    await appendLearning(tmpDir, 'Duplicate me', 'skill-a', 'success');
+
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const matches = content.match(/Duplicate me/g);
+    expect(matches?.length).toBe(1);
+  });
+
+  it('should rebuild when content-hashes.json contains corrupted JSON', async () => {
+    await appendLearning(tmpDir, 'Valid learning', 'skill-a', 'success');
+    const hashesPath = path.join(tmpDir, '.harness', 'content-hashes.json');
+
+    // Corrupt the sidecar
+    fs.writeFileSync(hashesPath, '{corrupted json!!!');
+
+    // Append a new learning — should handle corruption gracefully
+    await appendLearning(tmpDir, 'After corruption', 'skill-b', 'gotcha');
+
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    expect(content).toContain('Valid learning');
+    expect(content).toContain('After corruption');
+  });
+
+  it('should deduplicate after corruption when same content appended', async () => {
+    await appendLearning(tmpDir, 'Corrupted dedup test', 'skill-a', 'success');
+    const hashesPath = path.join(tmpDir, '.harness', 'content-hashes.json');
+
+    // Corrupt the sidecar
+    fs.writeFileSync(hashesPath, '{corrupted json!!!');
+
+    // Append the SAME learning — should rebuild from learnings.md and skip
+    await appendLearning(tmpDir, 'Corrupted dedup test', 'skill-a', 'success');
+
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const matches = content.match(/Corrupted dedup test/g);
+    expect(matches?.length).toBe(1);
+  });
+});

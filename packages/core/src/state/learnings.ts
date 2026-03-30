@@ -183,6 +183,10 @@ export async function appendLearning(
     let contentHashes: ContentHashIndex;
     if (fs.existsSync(hashesPath)) {
       contentHashes = loadContentHashes(stateDir);
+      // If loaded index is empty but learnings exist, sidecar may be corrupted — rebuild
+      if (Object.keys(contentHashes).length === 0 && fs.existsSync(learningsPath)) {
+        contentHashes = rebuildContentHashes(stateDir);
+      }
     } else if (fs.existsSync(learningsPath)) {
       // Sidecar missing but learnings exist — rebuild (self-healing)
       contentHashes = rebuildContentHashes(stateDir);
