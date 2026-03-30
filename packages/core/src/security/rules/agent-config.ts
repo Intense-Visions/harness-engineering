@@ -7,7 +7,7 @@ export const agentConfigRules: SecurityRule[] = [
     category: 'agent-config',
     severity: 'error',
     confidence: 'high',
-    patterns: [/[\u200B\u200C\u200D\uFEFF\u2060]/],
+    patterns: [/\u200B|\u200C|\u200D|\uFEFF|\u2060/],
     fileGlob: '**/CLAUDE.md,**/AGENTS.md,**/*.yaml',
     message: 'Hidden zero-width Unicode characters detected in agent configuration',
     remediation: 'Remove invisible Unicode characters; they may hide malicious instructions',
