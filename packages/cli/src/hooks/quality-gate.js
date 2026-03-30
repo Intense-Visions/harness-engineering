@@ -7,6 +7,7 @@
 import { readFileSync, accessSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 
 // Detection order: first match wins
 const DETECTORS = [

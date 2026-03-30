@@ -6,6 +6,7 @@
 
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import process from 'node:process';
 
 // Protected config file patterns
 const PROTECTED_PATTERNS = [
@@ -33,7 +34,7 @@ function block(reason) {
 }
 
 function main() {
-  let raw = '';
+  let raw;
   try {
     raw = readFileSync(0, 'utf-8');
   } catch {

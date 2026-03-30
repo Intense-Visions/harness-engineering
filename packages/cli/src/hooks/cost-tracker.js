@@ -5,6 +5,7 @@
 
 import { readFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
+import process from 'node:process';
 
 function main() {
   let raw = '';

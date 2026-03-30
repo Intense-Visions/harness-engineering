@@ -120,7 +120,8 @@ export function initHooks(options: { profile: HookProfile; projectDir: string })
     } catch (e) {
       throw new Error(
         `Malformed .claude/settings.json — fix the JSON syntax before running hooks init. ` +
-          `Parse error: ${e instanceof Error ? e.message : String(e)}`
+          `Parse error: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e }
       );
     }
   }
