@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 4,
+  "sessionDir": ".harness/sessions/changes--runtime-enforcement-extensions--proposal",
+  "specPath": "docs/changes/runtime-enforcement-extensions/proposal.md",
+  "startingCommit": "7a69b183a5a559bc3acc8ab1d328123ec865df4a",
+  "reviewPlans": false,
+  "currentState": "COMPLETE",
+  "currentPhase": 2,
+  "phases": [
+    {
+      "name": "New security rule categories",
+      "complexity": "medium",
+      "planPath": "docs/plans/2026-03-30-phase1-security-rule-categories-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Hook scripts",
+      "complexity": "low",
+      "planPath": "docs/plans/2026-03-30-phase2-hook-scripts-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "harness hooks CLI command",
+      "complexity": "medium",
+      "planPath": "docs/plans/2026-03-30-phase3-hooks-cli-command-plan.md",
+      "status": "complete"
+    }
+  ],
+  "history": [
+    {
+      "phase": 0,
+      "name": "New security rule categories",
+      "tasksCompleted": 8,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "important": 3, "warning": 3, "note": 3 }
+    },
+    {
+      "phase": 1,
+      "name": "Hook scripts",
+      "tasksCompleted": 8,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "important": 3, "warning": 4, "note": 3 }
+    },
+    {
+      "phase": 2,
+      "name": "harness hooks CLI command",
+      "tasksCompleted": 7,
+      "retriesUsed": 0,
+      "verificationPassed": true,
+      "reviewFindings": { "blocking": 0, "important": 2, "warning": 2, "note": 3 }
+    }
+  ],
+  "finalReview": {
+    "status": "complete",
+    "findings": [
+      {
+        "severity": "important",
+        "title": "quality-gate.js execSync inconsistency",
+        "status": "fixed"
+      },
+      {
+        "severity": "important",
+        "title": "SEC-MCP-003 missing wildcard pattern",
+        "status": "fixed"
+      }
+    ],
+    "retryCount": 0
+  }
+}

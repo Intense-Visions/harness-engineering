@@ -43,7 +43,7 @@
    ```
 
 5. **Load project context.** Scan the project for existing specs, user stories, or PRDs to maintain consistency in format and terminology:
-   - Check `docs/specs/`, `docs/requirements/`, `docs/prd/` for existing documents
+   - Check `docs/changes/`, `docs/requirements/`, `docs/prd/` for existing documents
    - Check `.github/ISSUE_TEMPLATE/` for the project's preferred issue format
    - Identify domain terminology used in existing specs
 
@@ -133,7 +133,7 @@
    REQ-003 -> US-004, US-005 (could-have)
    ```
 
-5. **Write the PRD to file.** Save to the project's spec directory (detected in Phase 1 or defaulting to `docs/specs/`). Use a filename pattern: `YYYY-MM-DD-feature-name-prd.md`.
+5. **Write the PRD to file.** Save to the project's spec directory (detected in Phase 1 or defaulting to `docs/changes/`). Use a filename pattern: `YYYY-MM-DD-feature-name-prd.md`.
 
 ---
 
@@ -171,7 +171,7 @@
    Coverage: all actors covered, all constraints addressed
    Open questions: N remaining
 
-   Generated: docs/specs/2026-03-27-notifications-prd.md
+   Generated: docs/changes/2026-03-27-notifications-prd.md
    ```
 
 ---
@@ -227,7 +227,7 @@ Phase 2: CRAFT
               And their other preferences remain unchanged.
 
 Phase 3: GENERATE
-  Written: docs/specs/2026-03-27-team-notifications-prd.md
+  Written: docs/changes/2026-03-27-team-notifications-prd.md
   Sections: problem statement, 4 user stories, 12 acceptance criteria, 8 BDD scenarios
   Traceability: REQ-001 -> US-001, US-002 | REQ-002 -> US-003, US-004
 
@@ -260,7 +260,7 @@ Phase 2: CRAFT
             return 400 and log a security warning.
 
 Phase 3: GENERATE
-  Written: docs/specs/2026-03-27-stripe-webhooks-prd.md
+  Written: docs/changes/2026-03-27-stripe-webhooks-prd.md
   Technical constraints section includes: idempotency keys, signature verification,
     5-second response SLA, Stripe retry behavior documentation
 

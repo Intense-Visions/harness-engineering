@@ -1060,6 +1060,83 @@ harness graph export --format mermaid
 
 ---
 
+## Hooks Commands
+
+### harness hooks init
+
+Install Claude Code hook configurations into the current project. Copies hook scripts to `.harness/hooks/` and merges hook entries into `.claude/settings.json`.
+
+```
+harness hooks init [options]
+```
+
+**Options:**
+
+```
+--profile <profile>      Hook profile: minimal, standard, or strict (default: standard)
+```
+
+**Profiles:**
+
+- **minimal** — Lightweight set of hooks for basic enforcement
+- **standard** — Balanced set of hooks for typical projects (default)
+- **strict** — Full enforcement with all available hook scripts
+
+**Examples:**
+
+```bash
+# Install with default (standard) profile
+harness hooks init
+
+# Install strict profile
+harness hooks init --profile strict
+
+# Output as JSON
+harness hooks init --json
+```
+
+---
+
+### harness hooks list
+
+Show installed hooks and the active profile.
+
+```
+harness hooks list
+```
+
+**Examples:**
+
+```bash
+# List installed hooks
+harness hooks list
+
+# List as JSON
+harness hooks list --json
+```
+
+---
+
+### harness hooks remove
+
+Remove all harness-managed hooks from the current project. Deletes `.harness/hooks/` and cleans hook entries from `.claude/settings.json`.
+
+```
+harness hooks remove
+```
+
+**Examples:**
+
+```bash
+# Remove all harness hooks
+harness hooks remove
+
+# Remove and get JSON output
+harness hooks remove --json
+```
+
+---
+
 ## Exit Codes
 
 The CLI uses the following exit codes:
@@ -1107,4 +1184,4 @@ harness validate --config=/path/to/harness.config.json
 
 ---
 
-_Last Updated: 2026-03-19_
+_Last Updated: 2026-03-30_
