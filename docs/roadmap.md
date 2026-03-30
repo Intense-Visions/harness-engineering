@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-03-28
+updated: 2026-03-30
 last_synced: 2026-03-28T22:45:00Z
-last_manual_edit: 2026-03-28
+last_manual_edit: 2026-03-30
 ---
 
 # Roadmap
@@ -517,6 +517,14 @@ last_manual_edit: 2026-03-28
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-28-first-run-detection-plan.md
 
+### Runtime Enforcement Extensions
+
+- **Status:** planned
+- **Spec:** docs/changes/runtime-enforcement-extensions/proposal.md
+- **Summary:** `harness hooks` CLI command with profile-based hook activation (minimal/standard/strict), plus 18 new security scanner rules for agent config auditing and MCP server security
+- **Blockers:** none
+- **Plan:** none
+
 ### Security Rule Test Coverage
 
 - **Status:** planned
@@ -806,3 +814,91 @@ last_manual_edit: 2026-03-28
 - **Summary:** Automated CI/CD pipeline and issue tracker integration for harness workflows
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-17-ci-cd-issue-tracker-integration-plan.md
+
+### Skill Discipline Upgrades
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** Add Rationalizations to Reject, Iron Laws, Red Flags, review-never-fixes, read-only research, TDD skill authoring, rubric compression, uncertainty surfacing, and comment replacement guards across 8+ discipline-enforcing skills. Inspired by Trail of Bits and Superpowers patterns. [ACE-Batch1]
+- **Blockers:** none
+- **Plan:** none
+
+### Prompt Injection Defense
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** Document parry-guard hook installation for orchestrator users processing untrusted external input (issues, PRs, Slack). Implement session taint model with 30-minute auto-expire. Add CLAUDE.md scanning for cloned repos before orchestrator plan execution. [ACE-A1/A9]
+- **Blockers:** none
+- **Plan:** none
+
+### Context Efficiency Pipeline
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** --fast/--thorough flags for autopilot, planning, and code-review skills. Scratchpad delegation (agent reasoning to .harness/scratchpad/ instead of conversation context). Learnings integration in code review with >0.7 relevance gating. Confidence-first gating for planning. Commands-over-skills context audit. Incremental milestone commits in autopilot. Inspired by Context Engineering Kit and Compound Engineering. [ACE-Batch3]
+- **Blockers:** none
+- **Plan:** none
+
+### Usage & Cost Tracking
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** Extend TokenUsage type with cacheCreationTokens, cacheReadTokens, model, costUSD. Read Claude Code JSONL sessions from ~/.claude/projects/\*_/_.jsonl. LiteLLM pricing database with 24h cache and static fallback. CLI commands: harness usage daily, harness usage session, harness usage current (live burn rate). Focus on orchestrator/team aggregation. Inspired by ccflare and ccusage. [ACE-B1]
+- **Blockers:** none
+- **Plan:** none
+
+### Agent Config Validation
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** harness validate --agent-configs with agnix hybrid approach — shell out to agnix binary when available (385 rules), fall back to ~20 highest-value TypeScript rules (broken agents, invalid hooks, unreachable skills, oversized CLAUDE.md). Ship .agnix.toml template in harness init. [ACE-B2]
+- **Blockers:** none
+- **Plan:** none
+
+### Security Skill Deepening
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** FP verification gate requiring justification for harness-ignore suppressions. Insecure defaults / fail-open detection in SecurityScanner. New harness:supply-chain-audit skill with 6-factor dependency risk evaluation. API footgun / sharp-edges checks narrowed to known dangerous patterns (deprecated crypto, unsafe deserialization, TOCTOU). Adapted from Trail of Bits security skills. [ACE-Batch4]
+- **Blockers:** none
+- **Plan:** none
+
+### Hook Authoring & TDD Guard
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** harness generate hooks command with opinionated presets: --preset tdd (AST test counting via @ast-grep/napi, hook-based Red-Green-Refactor enforcement), --preset security (parry integration, file guard), --preset checkpoint (git stash auto-save on Stop), --preset audit (session logging). Node.js target for broad compatibility. Inspired by claude-hooks and TDD Guard. [ACE-B3/B4]
+- **Blockers:** none
+- **Plan:** none
+
+### Container Sandboxing
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** Start with Docker --read-only + --user flags for simple orchestrator sandboxing. Evaluate Container Use (Dagger) MCP client as upgrade path — 13 MCP tools, immutable container state, git-branch isolation. Implement ContainerBackend interface alongside existing ClaudeBackend. Secret backends via 1Password, Vault, env vars. [ACE-A2]
+- **Blockers:** Orchestrator Package Implementation
+- **Plan:** none
+
+### Session Search & DX Tooling
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** harness sessions search with SQLite FTS5 indexing — searchable by phase, persona, skill, plan_id, content. Phrase boosting with recency-weighted ranking. Desktop notification hooks via node-notifier for autopilot/orchestrator completion. Git stash auto-checkpoint hook preset (non-destructive, max 10 with cleanup). Inspired by recall and CC Notify. [ACE-B5/B6/B7]
+- **Blockers:** none
+- **Plan:** none
+
+### Structured Learnings Enhancement
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** Optional root_cause and tried_and_failed fields for learning entries. Semantic overlap check (5-dimension scoring) before creating new entries — prevents near-duplicate learnings with different wording. Active staleness detection auditing learnings against current code state. Learnings-researcher as always-on reviewer in code review pipeline. Inspired by Compound Engineering Plugin. [ACE-C5/C6]
+- **Blockers:** none
+- **Plan:** none
+
+### Advanced Review Pipeline
+
+- **Status:** planned
+- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Summary:** Meta-judge pre-generation for --thorough review mode (task-specific rubric before seeing implementation). Two-stage isolated review splitting spec-compliance from code-quality with separate context. findParallelGroups algorithm for automatic parallelization from dependency graphs. Tiered MCP tool loading (core/standard/full, measure first). Triage routing for orchestrator dispatch. Inspired by Context Engineering Kit, Superpowers, sudocode, and Claude Task Master. [ACE-Batch6]
+- **Blockers:** none
+- **Plan:** none
