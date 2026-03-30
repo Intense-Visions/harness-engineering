@@ -1,9 +1,57 @@
 // packages/core/src/state/learnings.ts
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { getStateDir, LEARNINGS_FILE, evictIfNeeded } from './state-shared';
+
+export interface LearningsFrontmatter {
+  hash: string;
+  tags: string[];
+}
+
+export interface LearningsIndexEntry {
+  hash: string;
+  tags: string[];
+  summary: string;
+  fullText: string;
+}
+
+/** Parse a frontmatter comment line: <!-- hash:XXXX tags:a,b --> */
+export function parseFrontmatter(line: string): LearningsFrontmatter | null {
+  const match = line.match(/^<!--\s+hash:([a-f0-9]+)(?:\s+tags:([^\s]+))?\s+-->/);
+  if (!match) return null;
+  const hash = match[1]!;
+  const tags = match[2] ? match[2].split(',').filter(Boolean) : [];
+  return { hash, tags };
+}
+
+/** Compute an 8-char hex hash of the entry text. */
+function computeEntryHash(text: string): string {
+  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 8);
+}
+
+/**
+ * Extract a lightweight index entry from a full learning entry.
+ * Summary = first line only. Tags extracted from [skill:X] and [outcome:Y] markers.
+ * Hash computed from full entry text.
+ */
+export function extractIndexEntry(entry: string): LearningsIndexEntry {
+  const lines = entry.split('\n');
+  const summary = lines[0] ?? entry;
+  const tags: string[] = [];
+  const skillMatch = entry.match(/\[skill:([^\]]+)\]/);
+  if (skillMatch?.[1]) tags.push(skillMatch[1]);
+  const outcomeMatch = entry.match(/\[outcome:([^\]]+)\]/);
+  if (outcomeMatch?.[1]) tags.push(outcomeMatch[1]);
+  return {
+    hash: computeEntryHash(entry),
+    tags,
+    summary,
+    fullText: entry,
+  };
+}
 
 interface LearningsCache {
   mtimeMs: number;

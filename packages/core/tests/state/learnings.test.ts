@@ -6,6 +6,8 @@ import {
   appendLearning,
   loadRelevantLearnings,
   loadBudgetedLearnings,
+  parseFrontmatter,
+  extractIndexEntry,
 } from '../../src/state/state-manager';
 
 describe('appendLearning with tags', () => {
@@ -313,5 +315,51 @@ describe('loadBudgetedLearnings', () => {
       const totalChars = result.value.join('\n').length;
       expect(totalChars).toBeLessThanOrEqual(200);
     }
+  });
+});
+
+describe('parseFrontmatter', () => {
+  it('should extract hash and tags from frontmatter comment', () => {
+    const result = parseFrontmatter('<!-- hash:a1b2c3d4 tags:auth,middleware -->');
+    expect(result).toEqual({ hash: 'a1b2c3d4', tags: ['auth', 'middleware'] });
+  });
+
+  it('should return null for line without frontmatter', () => {
+    const result = parseFrontmatter('- **2026-03-15 [skill:a]:** Some learning');
+    expect(result).toBeNull();
+  });
+
+  it('should handle hash-only frontmatter (no tags)', () => {
+    const result = parseFrontmatter('<!-- hash:a1b2c3d4 -->');
+    expect(result).toEqual({ hash: 'a1b2c3d4', tags: [] });
+  });
+});
+
+describe('extractIndexEntry', () => {
+  it('should extract first line of a multi-line entry as summary', () => {
+    const entry =
+      '- **2026-03-15 [skill:harness-execution] [outcome:success]:** JWT middleware handles refresh tokens correctly when the token is expired\n  Additional detail here about the implementation';
+    const result = extractIndexEntry(entry);
+    expect(result.summary).toContain('JWT middleware handles refresh tokens');
+    expect(result.summary).not.toContain('Additional detail');
+  });
+
+  it('should use full entry when entry is single line', () => {
+    const entry = '- **2026-03-15 [skill:a]:** Short learning';
+    const result = extractIndexEntry(entry);
+    expect(result.summary).toBe(entry);
+  });
+
+  it('should extract tags from skill and outcome markers', () => {
+    const entry = '- **2026-03-15 [skill:harness-tdd] [outcome:gotcha]:** Something';
+    const result = extractIndexEntry(entry);
+    expect(result.tags).toContain('harness-tdd');
+    expect(result.tags).toContain('gotcha');
+  });
+
+  it('should compute hash from entry content', () => {
+    const entry = '- **2026-03-15 [skill:a]:** Some learning';
+    const result = extractIndexEntry(entry);
+    expect(result.hash).toMatch(/^[a-f0-9]{8}$/);
   });
 });
