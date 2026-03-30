@@ -13,6 +13,7 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: cwd ?? process.cwd(),
+      timeout: 4000,
     });
     return { exitCode: 0, stderr: '' };
   } catch (err: any) {
