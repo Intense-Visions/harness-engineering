@@ -34,12 +34,16 @@ export {
   pruneLearnings,
   promoteSessionLearnings,
   countLearningEntries,
+  parseFrontmatter,
+  extractIndexEntry,
 } from './learnings';
 export type {
   BudgetedLearningsOptions,
   LearningPattern,
   PruneResult,
   PromoteResult,
+  LearningsFrontmatter,
+  LearningsIndexEntry,
 } from './learnings';
 
 /**

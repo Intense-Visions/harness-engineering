@@ -12,3 +12,4 @@ agents/commands/**
 
 # Intentional syntax-error test fixtures
 packages/core/tests/fixtures/typescript-samples/syntax-error.ts
+packages/core/tests/fixtures/code-nav/syntax-error.ts
