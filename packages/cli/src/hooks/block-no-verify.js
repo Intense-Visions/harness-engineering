@@ -32,7 +32,7 @@ function main() {
       process.exit(0);
     }
 
-    if (/--no-verify/.test(command)) {
+    if (/--no-verify/.test(command) || /\bgit\b.*\bcommit\b.*\s-n\b/.test(command)) {
       process.stderr.write(
         'BLOCKED: --no-verify flag detected. Hooks must not be bypassed.\n'
       );

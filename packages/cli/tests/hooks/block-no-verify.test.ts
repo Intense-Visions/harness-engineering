@@ -55,6 +55,24 @@ describe('block-no-verify', () => {
     expect(exitCode).toBe(0);
   });
 
+  it('blocks git commit -n (short form of --no-verify)', () => {
+    const input = JSON.stringify({
+      tool_name: 'Bash',
+      tool_input: { command: 'git commit -n -m "skip hooks"' },
+    });
+    const { exitCode } = runHook(input);
+    expect(exitCode).toBe(2);
+  });
+
+  it('does not block echo -n (non-git context)', () => {
+    const input = JSON.stringify({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo -n "hello"' },
+    });
+    const { exitCode } = runHook(input);
+    expect(exitCode).toBe(0);
+  });
+
   it('fails open on malformed JSON', () => {
     const { exitCode } = runHook('not json at all');
     expect(exitCode).toBe(0);
