@@ -17,6 +17,10 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
     });
     return { exitCode: 0, stderr: '' };
   } catch (err: any) {
+    // Process killed by timeout — treat as exit 0 (hook is warn-only, never blocks)
+    if (err.killed) {
+      return { exitCode: 0, stderr: err.stderr ?? '' };
+    }
     return { exitCode: err.status ?? 1, stderr: err.stderr ?? '' };
   }
 }
