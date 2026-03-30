@@ -4,6 +4,7 @@
 // Exit codes: 0 = allow, 2 = block
 
 import { readFileSync } from 'node:fs';
+import process from 'node:process';
 
 function main() {
   let raw = '';
