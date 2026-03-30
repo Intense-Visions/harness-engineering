@@ -220,15 +220,21 @@ export async function appendLearning(
     const frontmatter = `<!-- hash:${hash}${tagsStr} -->`;
     const entry = `\n${frontmatter}\n${bulletLine}\n`;
 
+    let existingLineCount: number;
     if (!fs.existsSync(learningsPath)) {
       fs.writeFileSync(learningsPath, `# Learnings\n${entry}`);
+      existingLineCount = 1; // "# Learnings" header
     } else {
+      // Count lines from the existing file content already known to be present
+      const existingContent = fs.readFileSync(learningsPath, 'utf-8');
+      existingLineCount = existingContent.split('\n').length;
       fs.appendFileSync(learningsPath, entry);
     }
 
-    // Update content hash index
-    const lineCount = fs.readFileSync(learningsPath, 'utf-8').split('\n').length;
-    contentHashes[contentHash] = { date: timestamp ?? '', line: lineCount };
+    // Update content hash index — line number is the bullet line within the appended entry
+    // entry = "\n{frontmatter}\n{bulletLine}\n" → bullet is 2 lines after the append start
+    const bulletLine_lineNum = existingLineCount + 2;
+    contentHashes[contentHash] = { date: timestamp ?? '', line: bulletLine_lineNum };
     saveContentHashes(stateDir, contentHashes);
 
     // Invalidate cache on write

@@ -63,12 +63,46 @@ function computeEventHash(event: EmitEventInput, session?: string): string {
   return computeContentHash(identity);
 }
 
+// In-memory cache of known event hashes per events file path.
+// Avoids re-reading the entire JSONL file on every emitEvent call.
+const knownHashesCache = new Map<string, Set<string>>();
+
+/** Load the set of content hashes from an events file, using the in-memory cache. */
+function loadKnownHashes(eventsPath: string): Set<string> {
+  const cached = knownHashesCache.get(eventsPath);
+  if (cached) return cached;
+
+  const hashes = new Set<string>();
+  if (fs.existsSync(eventsPath)) {
+    const content = fs.readFileSync(eventsPath, 'utf-8');
+    const lines = content.split('\n').filter((line) => line.trim() !== '');
+    for (const line of lines) {
+      try {
+        const existing = JSON.parse(line) as SkillEvent;
+        if (existing.contentHash) {
+          hashes.add(existing.contentHash);
+        }
+      } catch {
+        // Skip malformed lines
+      }
+    }
+  }
+  knownHashesCache.set(eventsPath, hashes);
+  return hashes;
+}
+
+/** Clear the known-hashes cache (for testing). */
+export function clearEventHashCache(): void {
+  knownHashesCache.clear();
+}
+
 /**
  * Emit a structured event to the JSONL event log.
  *
  * - Appends one JSON line to events.jsonl (crash-safe via appendFileSync)
  * - Born-deduplicated: same {skill, type, summary, session} tuple writes only once
  * - Session-scoped when options.session is provided
+ * - Uses in-memory hash set for O(1) dedup checks after initial file load
  */
 export async function emitEvent(
   projectPath: string,
@@ -86,20 +120,10 @@ export async function emitEvent(
     // Compute content hash for dedup
     const contentHash = computeEventHash(event, options?.session);
 
-    // Check for duplicates by scanning existing events
-    if (fs.existsSync(eventsPath)) {
-      const content = fs.readFileSync(eventsPath, 'utf-8');
-      const lines = content.split('\n').filter((line) => line.trim() !== '');
-      for (const line of lines) {
-        try {
-          const existing = JSON.parse(line) as SkillEvent;
-          if (existing.contentHash === contentHash) {
-            return Ok({ written: false, reason: 'duplicate' });
-          }
-        } catch {
-          // Skip malformed lines
-        }
-      }
+    // O(1) duplicate check via in-memory hash set (loaded once per events file)
+    const knownHashes = loadKnownHashes(eventsPath);
+    if (knownHashes.has(contentHash)) {
+      return Ok({ written: false, reason: 'duplicate' });
     }
 
     // Build the full event
@@ -114,6 +138,9 @@ export async function emitEvent(
 
     // Append as JSONL (one line, crash-safe)
     fs.appendFileSync(eventsPath, JSON.stringify(fullEvent) + '\n');
+
+    // Update the in-memory cache
+    knownHashes.add(contentHash);
 
     return Ok({ written: true });
   } catch (error) {
