@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 4,
+  "sessionDir": ".harness/sessions/changes--claude-mem-patterns--proposal",
+  "specPath": "docs/changes/claude-mem-patterns/proposal.md",
+  "startingCommit": "c7270ccd6c14ced8fa8f0bdcb889d3334edbae3b",
+  "reviewPlans": false,
+  "currentState": "FINAL_REVIEW",
+  "currentPhase": 3,
+  "phases": [
+    {
+      "name": "Progressive Disclosure + AST Navigation",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-29-progressive-disclosure-plan.md,docs/plans/2026-03-29-ast-code-navigation-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Content Deduplication",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-30-content-deduplication-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Structured Event Log",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/plans/2026-03-30-structured-event-log-plan.md",
+      "status": "complete"
+    },
+    {
+      "name": "Storage Conventions",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": null,
+      "status": "complete"
+    }
+  ],
+  "retryBudget": {
+    "maxAttempts": 3,
+    "currentTask": null
+  },
+  "history": [
+    {
+      "phase": 0,
+      "state": "EXECUTE",
+      "timestamp": "2026-03-29T16:15:00.000Z",
+      "result": "complete"
+    },
+    {
+      "phase": 1,
+      "state": "EXECUTE",
+      "timestamp": "2026-03-30T16:20:00.000Z",
+      "result": "complete"
+    },
+    {
+      "phase": 2,
+      "state": "EXECUTE",
+      "timestamp": "2026-03-30T16:25:00.000Z",
+      "result": "complete"
+    },
+    {
+      "phase": 3,
+      "state": "EXECUTE",
+      "timestamp": "2026-03-30T16:30:00.000Z",
+      "result": "complete"
+    }
+  ],
+  "decisions": [
+    {
+      "phase": 0,
+      "decision": "auto_approved_plan",
+      "timestamp": "2026-03-29T16:15:00.000Z",
+      "signals": {
+        "reviewPlans": false,
+        "highComplexity": "medium",
+        "complexityOverride": null,
+        "plannerConcerns": [
+          "harness validate CLI not installed — use vitest + tsc instead",
+          "tree-sitter WASM loading may need runtime adjustments",
+          "tree-sitter-wasms package layout may differ from assumed paths"
+        ],
+        "taskCount": 20,
+        "taskThreshold": 15
+      },
+      "note": "User requested auto-approve all plans"
+    }
+  ],
+  "finalReview": {
+    "status": "pending",
+    "findings": [],
+    "retryCount": 0
+  }
+}
