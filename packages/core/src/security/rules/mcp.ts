@@ -6,7 +6,7 @@ export const mcpRules: SecurityRule[] = [
     name: 'Hardcoded MCP Secrets',
     category: 'mcp',
     severity: 'error',
-    confidence: 'high',
+    confidence: 'medium',
     patterns: [/(?:API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)\s*["']?\s*:\s*["'][^"']{8,}["']/i],
     fileGlob: '**/.mcp.json',
     message: 'Hardcoded secret detected in MCP server configuration',

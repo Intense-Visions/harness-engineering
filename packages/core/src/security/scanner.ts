@@ -53,6 +53,12 @@ export class SecurityScanner {
     this.activeRules = this.registry.getForStacks(stacks.length > 0 ? stacks : []);
   }
 
+  /**
+   * Scan raw content against all active rules. Note: this method does NOT apply
+   * fileGlob filtering — every active rule is evaluated regardless of filePath.
+   * If you are scanning a specific file and want fileGlob-based rule filtering,
+   * use {@link scanFile} instead.
+   */
   scanContent(content: string, filePath: string, startLine: number = 1): SecurityFinding[] {
     if (!this.config.enabled) return [];
 
