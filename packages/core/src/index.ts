@@ -134,6 +134,11 @@ export {
 export type { UpdateCheckState } from './update-checker';
 
 /**
+ * Code navigation module for AST-based exploration (outline, search, unfold).
+ */
+export * from './code-nav';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`

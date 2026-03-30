@@ -140,8 +140,8 @@ function processExportStatement(
     (c) => c.type !== 'export' && c.type !== 'default' && c.type !== ';' && c.type !== 'comment'
   );
 
-  if (declaration && topLevelTypes[declaration.type]) {
-    const kind = topLevelTypes[declaration.type];
+  const kind = declaration ? topLevelTypes[declaration.type] : undefined;
+  if (declaration && kind) {
     const sym = nodeToSymbol(child, kind, source, filePath);
     sym.name = getNodeName(declaration, source);
     if (kind === 'class') {
