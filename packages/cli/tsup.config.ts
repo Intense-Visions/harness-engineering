@@ -10,7 +10,7 @@ export default defineConfig([
     format: ['esm'],
     dts: true,
     outDir: 'dist',
-    external: ['@modelcontextprotocol/sdk'],
+    external: ['@modelcontextprotocol/sdk', 'web-tree-sitter'],
     // Bundle workspace packages into the CLI dist so the CLI works
     // when installed globally without needing sibling packages.
     noExternal: [

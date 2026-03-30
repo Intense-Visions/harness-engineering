@@ -222,15 +222,15 @@ Existing secret rules already cover AWS keys (SEC-SEC-001), generic API keys (SE
 
 **Agent config rules (7 rules) — new file `rules/agent-config.ts`:**
 
-| ID          | Name                      | Pattern                                                             | fileGlob                                  | References |
-| ----------- | ------------------------- | ------------------------------------------------------------------- | ----------------------------------------- | ---------- |
-| SEC-AGT-001 | Hidden Unicode            | Zero-width characters (U+200B, U+200C, U+200D, U+FEFF, U+2060)      | `**/CLAUDE.md,**/AGENTS.md,**/*.yaml`     | CWE-116    |
-| SEC-AGT-002 | URL execution directives  | `curl`, `wget`, `fetch(` instructions in agent config               | `**/CLAUDE.md,**/AGENTS.md`               | CWE-94     |
-| SEC-AGT-003 | Wildcard tool permissions | `Bash(*)`, `Write(*)`, `Edit(*)` in settings                        | `**/.claude/**,**/settings*.json`         | CWE-250    |
-| SEC-AGT-004 | Auto-approve patterns     | `autoApprove`, `auto_approve` in config                             | `**/.claude/**,**/.mcp.json`              | CWE-862    |
-| SEC-AGT-005 | Prompt injection surface  | `${`, `{{`, template interpolation in skill YAML description fields | `**/skill.yaml`                           | CWE-94     |
-| SEC-AGT-006 | Permission bypass flags   | `--dangerously-skip-permissions`, `--no-verify`                     | `**/CLAUDE.md,**/AGENTS.md,**/.claude/**` | CWE-863    |
-| SEC-AGT-007 | Hook injection surface    | `$()`, backticks, `&&`, `\|\|` in hook command values               | `**/settings*.json,**/hooks.json`         | CWE-78     |
+| ID          | Name                      | Pattern                                                                       | fileGlob                                  | References |
+| ----------- | ------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------- | ---------- |
+| SEC-AGT-001 | Hidden Unicode            | Zero-width characters (U+200B, U+200C, U+200D, U+FEFF, U+2060)                | `**/CLAUDE.md,**/AGENTS.md,**/*.yaml`     | CWE-116    |
+| SEC-AGT-002 | URL execution directives  | `curl`, `wget`, `fetch(` instructions in agent config                         | `**/CLAUDE.md,**/AGENTS.md`               | CWE-94     |
+| SEC-AGT-003 | Wildcard tool permissions | `Bash(*)`, `Write(*)`, `Edit(*)` in settings                                  | `**/.claude/**,**/settings*.json`         | CWE-250    |
+| SEC-AGT-004 | Auto-approve patterns     | `autoApprove`, `auto_approve` in config                                       | `**/.claude/**,**/.mcp.json`              | CWE-862    |
+| SEC-AGT-005 | Prompt injection surface  | `${`, `&#123;&#123;`, template interpolation in skill YAML description fields | `**/skill.yaml`                           | CWE-94     |
+| SEC-AGT-006 | Permission bypass flags   | `--dangerously-skip-permissions`, `--no-verify`                               | `**/CLAUDE.md,**/AGENTS.md,**/.claude/**` | CWE-863    |
+| SEC-AGT-007 | Hook injection surface    | `$()`, backticks, `&&`, `\|\|` in hook command values                         | `**/settings*.json,**/hooks.json`         | CWE-78     |
 
 **MCP security rules (5 rules) — new file `rules/mcp.ts`:**
 
