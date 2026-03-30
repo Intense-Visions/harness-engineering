@@ -1,5 +1,6 @@
 import type { BaseError } from '../errors';
 import type { Result } from '../result';
+import type { OutlineResult, UnfoldResult } from '../../code-nav/types';
 
 /**
  * Abstract Syntax Tree representation
@@ -75,6 +76,10 @@ export interface LanguageParser {
   extractImports(ast: AST): Result<Import[], ParseError>;
   extractExports(ast: AST): Result<Export[], ParseError>;
   health(): Promise<Result<HealthCheckResult, ParseError>>;
+  /** Extract structural outline from a parsed AST. Optional — code-nav parsers implement this. */
+  outline?(filePath: string, ast: AST): OutlineResult;
+  /** Extract a specific symbol's full implementation. Optional — code-nav parsers implement this. */
+  unfold?(filePath: string, ast: AST, symbolName: string): UnfoldResult | null;
 }
 
 /**
