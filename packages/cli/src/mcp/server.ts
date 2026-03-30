@@ -117,6 +117,14 @@ import {
   handleDetectStaleConstraints,
 } from './tools/stale-constraints.js';
 import { searchSkillsDefinition, handleSearchSkills } from './tools/search-skills.js';
+import {
+  codeOutlineDefinition,
+  handleCodeOutline,
+  codeSearchDefinition,
+  handleCodeSearch,
+  codeUnfoldDefinition,
+  handleCodeUnfold,
+} from './tools/code-nav.js';
 
 type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
 type ToolHandler = (
@@ -170,6 +178,9 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   predictConflictsDefinition,
   detectStaleConstraintsDefinition,
   searchSkillsDefinition,
+  codeOutlineDefinition,
+  codeSearchDefinition,
+  codeUnfoldDefinition,
 ];
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -218,6 +229,9 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   predict_conflicts: handlePredictConflicts as ToolHandler,
   detect_stale_constraints: handleDetectStaleConstraints as ToolHandler,
   search_skills: handleSearchSkills as ToolHandler,
+  code_outline: handleCodeOutline as ToolHandler,
+  code_search: handleCodeSearch as ToolHandler,
+  code_unfold: handleCodeUnfold as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
