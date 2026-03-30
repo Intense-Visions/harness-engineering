@@ -5,7 +5,9 @@ export type SecurityCategory =
   | 'crypto'
   | 'network'
   | 'deserialization'
-  | 'path-traversal';
+  | 'path-traversal'
+  | 'agent-config'
+  | 'mcp';
 
 export type SecuritySeverity = 'error' | 'warning' | 'info';
 export type SecurityConfidence = 'high' | 'medium' | 'low';
