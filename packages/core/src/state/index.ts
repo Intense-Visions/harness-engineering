@@ -117,7 +117,13 @@ export { archiveSession } from './session-archive';
 /**
  * Structured event log for skill lifecycle moments.
  */
-export { emitEvent, loadEvents, formatEventTimeline, SkillEventSchema } from './events';
+export {
+  emitEvent,
+  loadEvents,
+  formatEventTimeline,
+  SkillEventSchema,
+  clearEventHashCache,
+} from './events';
 export type {
   SkillEvent,
   EventType,
