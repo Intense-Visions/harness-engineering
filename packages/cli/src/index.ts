@@ -32,6 +32,7 @@ import { createSetupCommand } from './commands/setup';
 import { createDoctorCommand } from './commands/doctor';
 import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
 import { createCICommand } from './commands/ci';
+import { createHooksCommand } from './commands/hooks';
 import { createUpdateCommand } from './commands/update';
 import { createGenerateAgentDefinitionsCommand } from './commands/generate-agent-definitions';
 import { createGenerateCommand } from './commands/generate';
@@ -94,6 +95,7 @@ export function createProgram(): Command {
   program.addCommand(createGenerateAgentDefinitionsCommand());
   program.addCommand(createGenerateCommand());
   program.addCommand(createCICommand());
+  program.addCommand(createHooksCommand());
   program.addCommand(createUpdateCommand());
   program.addCommand(createScanCommand());
   program.addCommand(createIngestCommand());
