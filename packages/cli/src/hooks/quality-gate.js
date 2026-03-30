@@ -6,13 +6,14 @@
 
 import { readFileSync, accessSync } from 'node:fs';
 import { join } from 'node:path';
-import { execSync, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 // Detection order: first match wins
 const DETECTORS = [
   {
     configs: ['biome.json', 'biome.jsonc'],
-    command: 'npx biome check',
+    cmd: 'npx',
+    args: ['biome', 'check'],
     name: 'Biome',
   },
   {
@@ -28,12 +29,14 @@ const DETECTORS = [
       'prettier.config.cjs',
       'prettier.config.mjs',
     ],
-    command: 'npx prettier --check',
+    cmd: 'npx',
+    args: ['prettier', '--check'],
     name: 'Prettier',
   },
   {
     configs: ['.ruff.toml', 'ruff.toml'],
-    command: 'ruff check',
+    cmd: 'ruff',
+    args: ['check'],
     name: 'Ruff',
   },
 ];
@@ -102,7 +105,7 @@ function main() {
     }
 
     try {
-      execSync(detector.command, {
+      execFileSync(detector.cmd, detector.args, {
         encoding: 'utf-8',
         cwd,
         timeout: 30000,
