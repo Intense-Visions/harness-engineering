@@ -1,0 +1,72 @@
+import { describe, it, expect, beforeAll } from 'vitest';
+import { getParser, parseFile, resetParserCache } from '../../src/code-nav/parser';
+import * as path from 'path';
+
+const FIXTURES = path.resolve(__dirname, '../fixtures/code-nav');
+
+describe('code-nav parser', () => {
+  beforeAll(() => {
+    resetParserCache();
+  });
+
+  describe('getParser', () => {
+    it('should return a parser for typescript', async () => {
+      const parser = await getParser('typescript');
+      expect(parser).toBeDefined();
+    });
+
+    it('should return a parser for javascript', async () => {
+      const parser = await getParser('javascript');
+      expect(parser).toBeDefined();
+    });
+
+    it('should return a parser for python', async () => {
+      const parser = await getParser('python');
+      expect(parser).toBeDefined();
+    });
+
+    it('should cache parser instances', async () => {
+      const p1 = await getParser('typescript');
+      const p2 = await getParser('typescript');
+      expect(p1).toBe(p2);
+    });
+  });
+
+  describe('parseFile', () => {
+    it('should parse a TypeScript file', async () => {
+      const result = await parseFile(path.join(FIXTURES, 'sample.ts'));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.tree).toBeDefined();
+        expect(result.value.language).toBe('typescript');
+        expect(result.value.source).toContain('class AuthMiddleware');
+      }
+    });
+
+    it('should parse a JavaScript file', async () => {
+      const result = await parseFile(path.join(FIXTURES, 'sample.js'));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.language).toBe('javascript');
+      }
+    });
+
+    it('should parse a Python file', async () => {
+      const result = await parseFile(path.join(FIXTURES, 'sample.py'));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.language).toBe('python');
+      }
+    });
+
+    it('should return error for unsupported extension', async () => {
+      const result = await parseFile('/tmp/test.rs');
+      expect(result.ok).toBe(false);
+    });
+
+    it('should return error for non-existent file', async () => {
+      const result = await parseFile('/tmp/nonexistent.ts');
+      expect(result.ok).toBe(false);
+    });
+  });
+});
