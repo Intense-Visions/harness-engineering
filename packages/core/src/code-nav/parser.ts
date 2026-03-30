@@ -41,8 +41,8 @@ async function resolveWasmPath(grammarName: string): Promise<string> {
   const require = createRequire(import.meta.url ?? __filename);
   const pkgPath = require.resolve('tree-sitter-wasms/package.json');
   const pkgDir = pkgPath.replace('/package.json', '');
-  const { join } = await import('path');
-  return join(pkgDir, 'out', `${grammarName}.wasm`);
+  const path = await import('path');
+  return path.join(pkgDir, 'out', `${grammarName}.wasm`);
 }
 
 async function loadLanguage(lang: SupportedLanguage): Promise<Parser.Language> {
