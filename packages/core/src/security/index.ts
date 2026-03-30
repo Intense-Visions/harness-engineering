@@ -32,6 +32,8 @@ export { cryptoRules } from './rules/crypto';
 export { pathTraversalRules } from './rules/path-traversal';
 export { networkRules } from './rules/network';
 export { deserializationRules } from './rules/deserialization';
+export { agentConfigRules } from './rules/agent-config';
+export { mcpRules } from './rules/mcp';
 
 /**
  * Stack-specific security rules for specific frameworks and languages.

@@ -9,6 +9,8 @@ import { cryptoRules } from './rules/crypto';
 import { pathTraversalRules } from './rules/path-traversal';
 import { networkRules } from './rules/network';
 import { deserializationRules } from './rules/deserialization';
+import { agentConfigRules } from './rules/agent-config';
+import { mcpRules } from './rules/mcp';
 import { nodeRules } from './rules/stack/node';
 import { expressRules } from './rules/stack/express';
 import { reactRules } from './rules/stack/react';
@@ -34,6 +36,8 @@ export class SecurityScanner {
       ...pathTraversalRules,
       ...networkRules,
       ...deserializationRules,
+      ...agentConfigRules,
+      ...mcpRules,
     ]);
 
     // Register stack-specific rules
