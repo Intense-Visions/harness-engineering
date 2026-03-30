@@ -79,7 +79,7 @@ export const agentConfigRules: SecurityRule[] = [
     name: 'Hook Injection Surface',
     category: 'agent-config',
     severity: 'error',
-    confidence: 'medium',
+    confidence: 'low',
     patterns: [/\$\(/, /`[^`]+`/, /\s&&\s/, /\s\|\|\s/],
     fileGlob: '**/settings*.json,**/hooks.json',
     message: 'Shell metacharacters in hook commands may enable command injection',
