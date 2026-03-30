@@ -81,14 +81,24 @@ export async function appendLearning(
     fs.mkdirSync(stateDir, { recursive: true });
     const timestamp = new Date().toISOString().split('T')[0];
 
-    let entry: string;
+    // Build tags list for frontmatter
+    const fmTags: string[] = [];
+    if (skillName) fmTags.push(skillName);
+    if (outcome) fmTags.push(outcome);
+
+    let bulletLine: string;
     if (skillName && outcome) {
-      entry = `\n- **${timestamp} [skill:${skillName}] [outcome:${outcome}]:** ${learning}\n`;
+      bulletLine = `- **${timestamp} [skill:${skillName}] [outcome:${outcome}]:** ${learning}`;
     } else if (skillName) {
-      entry = `\n- **${timestamp} [skill:${skillName}]:** ${learning}\n`;
+      bulletLine = `- **${timestamp} [skill:${skillName}]:** ${learning}`;
     } else {
-      entry = `\n- **${timestamp}:** ${learning}\n`;
+      bulletLine = `- **${timestamp}:** ${learning}`;
     }
+
+    const hash = crypto.createHash('sha256').update(bulletLine).digest('hex').slice(0, 8);
+    const tagsStr = fmTags.length > 0 ? ` tags:${fmTags.join(',')}` : '';
+    const frontmatter = `<!-- hash:${hash}${tagsStr} -->`;
+    const entry = `\n${frontmatter}\n${bulletLine}\n`;
 
     if (!fs.existsSync(learningsPath)) {
       fs.writeFileSync(learningsPath, `# Learnings\n${entry}`);
