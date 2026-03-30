@@ -2,17 +2,18 @@ import { findFiles } from '../shared/fs-utils';
 import { getOutline } from './outline';
 import { detectLanguage, EXTENSION_MAP } from './types';
 import type { SearchResult, SearchMatch, CodeSymbol } from './types';
-import * as path from 'path';
 
 /**
  * Build a glob pattern for supported languages.
  */
 function buildGlob(directory: string, fileGlob?: string): string {
+  // Use forward slashes — glob treats backslashes as escape characters on Windows
+  const dir = directory.replaceAll('\\', '/');
   if (fileGlob) {
-    return path.join(directory, '**', fileGlob);
+    return `${dir}/**/${fileGlob}`;
   }
   const exts = Object.keys(EXTENSION_MAP).map((e) => e.slice(1)); // remove dot
-  return path.join(directory, '**', `*.{${exts.join(',')}}`);
+  return `${dir}/**/*.{${exts.join(',')}}`;
 }
 
 function matchesQuery(name: string, query: string): boolean {
