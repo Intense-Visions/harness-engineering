@@ -1,6 +1,13 @@
 import { sanitizePath } from '../utils/sanitize-path.js';
 
-type IncludeKey = 'state' | 'learnings' | 'handoff' | 'graph' | 'validation' | 'sessions';
+type IncludeKey =
+  | 'state'
+  | 'learnings'
+  | 'handoff'
+  | 'graph'
+  | 'validation'
+  | 'sessions'
+  | 'events';
 
 export const gatherContextDefinition = {
   name: 'gather_context',
@@ -26,9 +33,14 @@ export const gatherContextDefinition = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['state', 'learnings', 'handoff', 'graph', 'validation', 'sessions'],
+          enum: ['state', 'learnings', 'handoff', 'graph', 'validation', 'sessions', 'events'],
         },
         description: 'Which constituents to include (default: all)',
+      },
+      includeEvents: {
+        type: 'boolean',
+        description:
+          'Include recent events timeline. Default: true when session is provided, false otherwise. Can also be controlled via include array.',
       },
       mode: {
         type: 'string',
@@ -62,6 +74,7 @@ export async function handleGatherContext(input: {
   skill?: string;
   tokenBudget?: number;
   include?: IncludeKey[];
+  includeEvents?: boolean;
   mode?: 'summary' | 'detailed';
   learningsBudget?: number;
   session?: string;
@@ -171,6 +184,22 @@ export async function handleGatherContext(input: {
         )
       : Promise.resolve(null);
 
+  // Events: default true for session-scoped, false for global (unless explicitly set)
+  const shouldIncludeEvents =
+    input.includeEvents !== undefined
+      ? input.includeEvents
+      : includeSet.has('events') || (!!input.session && !input.include);
+
+  const eventsPromise = shouldIncludeEvents
+    ? import('@harness-engineering/core').then(async (core) => {
+        const result = await core.loadEvents(projectPath, {
+          session: input.session,
+        });
+        if (!result.ok) return null;
+        return core.formatEventTimeline(result.value);
+      })
+    : Promise.resolve(null);
+
   const validationPromise = includeSet.has('validation')
     ? (async () => {
         const { handleValidateProject } = await import('./validate.js');
@@ -188,6 +217,7 @@ export async function handleGatherContext(input: {
     graphResult,
     validationResult,
     sessionsResult,
+    eventsResult,
   ] = await Promise.allSettled([
     statePromise,
     learningsPromise,
@@ -195,6 +225,7 @@ export async function handleGatherContext(input: {
     graphPromise,
     validationPromise,
     sessionsPromise,
+    eventsPromise,
   ]);
 
   // Extract results, recording errors
@@ -212,6 +243,7 @@ export async function handleGatherContext(input: {
   const graphContextRaw = extract(graphResult, 'graph');
   const validationRaw = extract(validationResult, 'validation');
   const sessionsRaw = extract(sessionsResult, 'sessions');
+  const eventsTimeline = extract(eventsResult, 'events');
 
   // Unwrap Result types from core functions
   const state =
@@ -311,6 +343,7 @@ export async function handleGatherContext(input: {
     graphContext: outputGraphContext,
     validation: outputValidation,
     sessionSections: sessionSections ?? null,
+    events: eventsTimeline || null,
     meta: {
       assembledIn,
       graphAvailable: graphContext !== null,
