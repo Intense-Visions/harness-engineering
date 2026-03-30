@@ -363,3 +363,51 @@ describe('extractIndexEntry', () => {
     expect(result.hash).toMatch(/^[a-f0-9]{8}$/);
   });
 });
+
+describe('appendLearning with frontmatter', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-fm-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should write frontmatter comment before tagged entry', async () => {
+    await appendLearning(tmpDir, 'Auth tokens expire silently', 'harness-tdd', 'gotcha');
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const lines = content.split('\n');
+    // Find the frontmatter line
+    const fmLine = lines.find((l) => l.startsWith('<!-- hash:'));
+    expect(fmLine).toBeDefined();
+    expect(fmLine).toMatch(/^<!-- hash:[a-f0-9]{8} tags:harness-tdd,gotcha -->/);
+  });
+
+  it('should write frontmatter with skill-only tag when no outcome', async () => {
+    await appendLearning(tmpDir, 'Use strict mode', 'harness-execution');
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const fmLine = content.split('\n').find((l) => l.startsWith('<!-- hash:'));
+    expect(fmLine).toBeDefined();
+    expect(fmLine).toMatch(/tags:harness-execution -->/);
+  });
+
+  it('should write frontmatter with no tags when no skill/outcome', async () => {
+    await appendLearning(tmpDir, 'Simple learning');
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const fmLine = content.split('\n').find((l) => l.startsWith('<!-- hash:'));
+    expect(fmLine).toBeDefined();
+    expect(fmLine).toMatch(/^<!-- hash:[a-f0-9]{8} -->/);
+  });
+
+  it('should preserve existing entries when appending new one', async () => {
+    await appendLearning(tmpDir, 'First learning', 'skill-a', 'success');
+    await appendLearning(tmpDir, 'Second learning', 'skill-b', 'gotcha');
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    expect(content).toContain('First learning');
+    expect(content).toContain('Second learning');
+    const fmLines = content.split('\n').filter((l) => l.startsWith('<!-- hash:'));
+    expect(fmLines.length).toBe(2);
+  });
+});
