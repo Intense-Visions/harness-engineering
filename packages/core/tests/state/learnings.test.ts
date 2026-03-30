@@ -8,6 +8,7 @@ import {
   loadBudgetedLearnings,
   parseFrontmatter,
   extractIndexEntry,
+  loadIndexEntries,
 } from '../../src/state/state-manager';
 
 describe('appendLearning with tags', () => {
@@ -470,6 +471,102 @@ describe('loadRelevantLearnings with frontmatter entries', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBe(2);
+    }
+  });
+});
+
+describe('loadIndexEntries', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-index-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should return empty array when no learnings file', async () => {
+    const result = await loadIndexEntries(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual([]);
+    }
+  });
+
+  it('should return index entries with summaries (first line only)', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '<!-- hash:a1b2c3d4 tags:skill-a,gotcha -->',
+        '- **2026-03-25 [skill:skill-a] [outcome:gotcha]:** Auth tokens expire silently',
+        '  More detail about the auth token issue that is not needed for index',
+        '',
+        '- **2026-03-24 [skill:skill-b]:** Simple one-liner',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadIndexEntries(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBe(2);
+      // First entry: has frontmatter, should use it
+      expect(result.value[0]!.hash).toBe('a1b2c3d4');
+      expect(result.value[0]!.tags).toEqual(['skill-a', 'gotcha']);
+      expect(result.value[0]!.summary).toContain('Auth tokens expire silently');
+      expect(result.value[0]!.summary).not.toContain('More detail');
+      // Second entry: no frontmatter, hash computed on read
+      expect(result.value[1]!.hash).toMatch(/^[a-f0-9]{8}$/);
+      expect(result.value[1]!.summary).toContain('Simple one-liner');
+    }
+  });
+
+  it('should use frontmatter tags when available', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '<!-- hash:abcd1234 tags:auth,middleware -->',
+        '- **2026-03-25 [skill:auth] [outcome:decision]:** Use middleware pattern',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadIndexEntries(tmpDir);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]!.tags).toEqual(['auth', 'middleware']);
+    }
+  });
+
+  it('should consume fewer tokens than loading full entries', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    const entries = Array.from({ length: 10 }, (_, i) =>
+      [
+        `<!-- hash:${String(i).padStart(8, '0')} tags:skill-${i} -->`,
+        `- **2026-03-${String(20 + (i % 10)).padStart(2, '0')} [skill:skill-${i}]:** Learning ${i} short summary`,
+        `  This is a much longer detailed explanation that spans multiple words and provides context about learning ${i}. It includes technical details, code references, and implementation notes that are not needed for the index scan layer.`,
+      ].join('\n')
+    ).join('\n\n');
+    fs.writeFileSync(path.join(harnessDir, 'learnings.md'), `# Learnings\n\n${entries}\n`);
+
+    const indexResult = await loadIndexEntries(tmpDir);
+    const fullResult = await loadRelevantLearnings(tmpDir);
+    expect(indexResult.ok).toBe(true);
+    expect(fullResult.ok).toBe(true);
+    if (indexResult.ok && fullResult.ok) {
+      const indexTokens = Math.ceil(indexResult.value.map((e) => e.summary).join('\n').length / 4);
+      const fullTokens = Math.ceil(fullResult.value.join('\n').length / 4);
+      expect(indexTokens).toBeLessThan(fullTokens * 0.5);
     }
   });
 });

@@ -254,6 +254,89 @@ export async function loadBudgetedLearnings(
   return Ok(budgeted);
 }
 
+/**
+ * Load lightweight index entries from a learnings file.
+ * Returns summaries (first line) with hash and tags for each entry.
+ * Uses frontmatter when available; computes hash and extracts tags on-the-fly when not.
+ *
+ * This is Layer 1 of the progressive disclosure pipeline.
+ */
+export async function loadIndexEntries(
+  projectPath: string,
+  skillName?: string,
+  stream?: string,
+  session?: string
+): Promise<Result<LearningsIndexEntry[], Error>> {
+  try {
+    const dirResult = await getStateDir(projectPath, stream, session);
+    if (!dirResult.ok) return dirResult;
+    const stateDir = dirResult.value;
+    const learningsPath = path.join(stateDir, LEARNINGS_FILE);
+
+    if (!fs.existsSync(learningsPath)) {
+      return Ok([]);
+    }
+
+    const content = fs.readFileSync(learningsPath, 'utf-8');
+    const lines = content.split('\n');
+    const indexEntries: LearningsIndexEntry[] = [];
+    let pendingFrontmatter: LearningsFrontmatter | null = null;
+    let currentBlock: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith('# ')) continue;
+
+      const fm = parseFrontmatter(line);
+      if (fm) {
+        pendingFrontmatter = fm;
+        continue;
+      }
+
+      const isDatedBullet = /^- \*\*\d{4}-\d{2}-\d{2}/.test(line);
+      const isHeading = /^## \d{4}-\d{2}-\d{2}/.test(line);
+
+      if (isDatedBullet || isHeading) {
+        // Start new entry
+        if (pendingFrontmatter) {
+          indexEntries.push({
+            hash: pendingFrontmatter.hash,
+            tags: pendingFrontmatter.tags,
+            summary: line,
+            fullText: '', // Placeholder — full text not loaded in index mode
+          });
+          pendingFrontmatter = null;
+        } else {
+          const idx = extractIndexEntry(line);
+          indexEntries.push({
+            hash: idx.hash,
+            tags: idx.tags,
+            summary: line,
+            fullText: '',
+          });
+        }
+        currentBlock = [line];
+      } else if (line.trim() !== '' && currentBlock.length > 0) {
+        currentBlock.push(line);
+      }
+    }
+
+    if (skillName) {
+      const filtered = indexEntries.filter(
+        (e) => e.tags.includes(skillName) || e.summary.includes(`[skill:${skillName}]`)
+      );
+      return Ok(filtered);
+    }
+
+    return Ok(indexEntries);
+  } catch (error) {
+    return Err(
+      new Error(
+        `Failed to load index entries: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  }
+}
+
 export async function loadRelevantLearnings(
   projectPath: string,
   skillName?: string,
