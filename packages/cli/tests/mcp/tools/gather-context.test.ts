@@ -35,6 +35,7 @@ describe('gather_context tool', () => {
         'graph',
         'validation',
         'sessions',
+        'events',
       ]);
     });
 
