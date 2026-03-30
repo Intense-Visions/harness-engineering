@@ -8,6 +8,7 @@ export interface ListResult {
   installed: boolean;
   profile: HookProfile | null;
   hooks: Array<{ name: string; event: string; matcher: string; scriptPath: string }>;
+  warning?: string;
 }
 
 /**
@@ -22,13 +23,14 @@ export function listHooks(projectDir: string): ListResult {
   }
 
   let profile: HookProfile = 'standard';
+  let warning: string | undefined;
   try {
     const data = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
     if (data.profile && ['minimal', 'standard', 'strict'].includes(data.profile)) {
       profile = data.profile;
     }
   } catch {
-    // Malformed profile.json -- assume standard
+    warning = 'Malformed profile.json — defaulting to standard profile';
   }
 
   const activeNames = PROFILES[profile];
@@ -39,7 +41,11 @@ export function listHooks(projectDir: string): ListResult {
     scriptPath: path.join('.harness', 'hooks', `${h.name}.js`),
   }));
 
-  return { installed: true, profile, hooks };
+  const result: ListResult = { installed: true, profile, hooks };
+  if (warning) {
+    result.warning = warning;
+  }
+  return result;
 }
 
 export function createListCommand(): Command {
