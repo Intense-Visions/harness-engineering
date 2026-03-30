@@ -113,3 +113,16 @@ export {
  * Session archival for preserving previous session state.
  */
 export { archiveSession } from './session-archive';
+
+/**
+ * Structured event log for skill lifecycle moments.
+ */
+export { emitEvent, loadEvents, formatEventTimeline, SkillEventSchema } from './events';
+export type {
+  SkillEvent,
+  EventType,
+  EmitEventInput,
+  EmitEventOptions,
+  EmitEventResult,
+  LoadEventsOptions,
+} from './events';
