@@ -36,6 +36,7 @@ export {
   countLearningEntries,
   parseFrontmatter,
   extractIndexEntry,
+  loadIndexEntries,
 } from './learnings';
 export type {
   BudgetedLearningsOptions,
