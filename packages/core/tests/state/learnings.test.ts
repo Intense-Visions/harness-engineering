@@ -861,3 +861,29 @@ describe('self-healing content hash index', () => {
     expect(matches?.length).toBe(1);
   });
 });
+
+describe('appendLearning performance', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-perf-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should append 100 unique learnings in under 2 seconds', async () => {
+    const start = performance.now();
+    for (let i = 0; i < 100; i++) {
+      await appendLearning(tmpDir, `Unique learning number ${i}`, 'skill-perf', 'success');
+    }
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(2000);
+
+    // Verify all 100 were written
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
+    const matches = content.match(/Unique learning number/g);
+    expect(matches?.length).toBe(100);
+  });
+});
