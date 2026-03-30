@@ -124,8 +124,8 @@ export async function emitEvent(
 }
 
 export interface LoadEventsOptions {
-  session?: string;
-  stream?: string;
+  session?: string | undefined;
+  stream?: string | undefined;
 }
 
 /**
