@@ -85,6 +85,17 @@ describe('quality-gate', () => {
     expect(exitCode).toBe(0);
   });
 
+  it('detects .go file and exits 0', () => {
+    const input = JSON.stringify({
+      tool_name: 'Edit',
+      tool_input: { file_path: 'main.go' },
+      tool_output: 'edited file',
+    });
+    // gofmt likely not installed in test env, but should still exit 0 (fail-open)
+    const { exitCode } = runHook(input, tmpDir);
+    expect(exitCode).toBe(0);
+  });
+
   it('never exits with code 2 (warn-only hook)', () => {
     writeFileSync(join(tmpDir, 'biome.json'), '{}');
     const input = JSON.stringify({

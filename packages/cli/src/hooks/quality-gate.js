@@ -6,7 +6,7 @@
 
 import { readFileSync, accessSync } from 'node:fs';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 
 // Detection order: first match wins
 const DETECTORS = [
@@ -78,7 +78,7 @@ function main() {
     // Special case: .go files use gofmt
     if (typeof filePath === 'string' && filePath.endsWith('.go')) {
       try {
-        const result = execSync(`gofmt -l ${JSON.stringify(filePath)}`, {
+        const result = execFileSync('gofmt', ['-l', filePath], {
           encoding: 'utf-8',
           cwd,
           timeout: 10000,
