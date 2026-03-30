@@ -146,4 +146,4 @@ export * from './code-nav';
  * release. Kept only as a fallback for consumers that cannot resolve the CLI
  * package at runtime.
  */
-export const VERSION = '0.14.0';
+export const VERSION = '0.15.0';

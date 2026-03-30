@@ -1,5 +1,26 @@
 # @harness-engineering/cli
 
+## 1.15.0
+
+### Minor Changes
+
+- **Hooks system** — 6 hook scripts (`block-no-verify`, `cost-tracker`, `pre-compact-state`, `protect-config`, `quality-gate`, `profiles`) with profile tiers (minimal/standard/strict). CLI commands `hooks init`, `hooks list`, `hooks remove` for managing Claude Code hooks via `settings.json` merge.
+- **Code navigation MCP tools** — Register `code_outline`, `code_search`, and `code_unfold` tools in the MCP server, powered by the new core code-nav module.
+- **Event timeline in `gather_context`** — Structured event log integration for richer context assembly.
+- **Learnings progressive disclosure** — Depth parameter in `gather_context` and `loadBudgetedLearnings` for layered context retrieval. Frontmatter annotations and index entry extraction.
+- **Onboarding funnel** — `harness setup` command, `doctor` health check, and first-run welcome experience.
+- **Session learning promotion** — Autopilot DONE state promotes session learnings and suggests pruning.
+
+### Patch Changes
+
+- Fix shell injection and `-n` flag bypass in hook scripts
+- Fix `execFileSync` consistency and MCP-003 wildcard in security/hooks
+- Fix stale scripts, malformed settings, and fallback error in hooks CLI
+- Fix roadmap sync guard with directional protection
+- Updated dependencies
+  - @harness-engineering/core@0.15.0
+  - @harness-engineering/types@0.5.0
+
 ## 1.14.0
 
 ### Minor Changes

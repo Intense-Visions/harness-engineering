@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.15.0
+
+### Minor Changes
+
+- **Code navigation module** — AST-powered outline extraction, cross-file symbol search, and bounded unfold with tree-sitter parser cache. New `code_outline`, `code_search`, and `code_unfold` MCP tools.
+- **Structured event log** — JSONL append-only event timeline with content-hash deduplication, integrated into `gather_context`.
+- **Learnings enhancements** — Hash-based content deduplication for `appendLearning`, frontmatter annotations with hash and tags, progressive disclosure via `loadIndexEntries` and depth parameter, session learning promotion with `promoteSessionLearnings` and `countLearningEntries`.
+- **Extended security scanner** — 18 new rules: 7 agent-config rules (SEC-AGT-001–007), 5 MCP rules (SEC-MCP-001–005), 6 secret detection rules (SEC-SEC-006–011). New `agent-config` and `mcp` security categories. `fileGlob` filtering for targeted rule application in `scanFile`.
+- **Progressive disclosure in `gather_context`** — New `depth` parameter for layered context retrieval.
+
+### Patch Changes
+
+- Fix O(1) dedup and remove redundant I/O in events and learnings
+- Fix `scanContent` docs, AGT-007 confidence, and regex precision in security scanner
+- Fix promoted count and deduplicate budgeted learnings
+- Add idempotency guard to `promoteSessionLearnings`
+- Fix roadmap sync guard with directional protection and auto-sync
+- Updated dependencies
+  - @harness-engineering/types@0.5.0
+
 ## 0.14.0
 
 ### Minor Changes
