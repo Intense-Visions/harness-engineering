@@ -47,6 +47,8 @@
     "lokijs": "^1.5.12",
     "minimatch": "^10.2.4",
     "semver": "^7.7.4",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "^0.24.7",
     "yaml": "^2.3.0",
     "zod": "^3.22.0"
   },
