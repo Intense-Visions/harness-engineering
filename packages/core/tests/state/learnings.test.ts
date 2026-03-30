@@ -570,3 +570,104 @@ describe('loadIndexEntries', () => {
     }
   });
 });
+
+describe('loadBudgetedLearnings with depth', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-learnings-depth-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('should return summaries only when depth is "index"', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '<!-- hash:a1b2c3d4 tags:skill-a -->',
+        '- **2026-03-25 [skill:skill-a]:** Auth token handling summary',
+        '  Detailed explanation of auth token issue with code examples and edge cases that spans many words',
+        '',
+        '<!-- hash:e5f6a7b8 tags:skill-b -->',
+        '- **2026-03-24 [skill:skill-b]:** Middleware ordering matters',
+        '  Long explanation of middleware order dependencies and how they affect request processing pipeline',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadBudgetedLearnings(tmpDir, {
+      intent: 'auth tokens',
+      tokenBudget: 1000,
+      depth: 'index',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.length).toBe(2);
+      // Summaries should not contain the detail lines
+      result.value.forEach((entry) => {
+        expect(entry).not.toContain('Detailed explanation');
+        expect(entry).not.toContain('Long explanation');
+      });
+    }
+  });
+
+  it('should return full entries when depth is "summary" (default behavior)', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '- **2026-03-25 [skill:a]:** Learning with detail',
+        '  Extra detail line',
+        '',
+      ].join('\n')
+    );
+
+    const result = await loadBudgetedLearnings(tmpDir, {
+      intent: 'test',
+      tokenBudget: 1000,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]).toContain('Extra detail line');
+    }
+  });
+
+  it('should default to "summary" depth when not specified', async () => {
+    const harnessDir = path.join(tmpDir, '.harness');
+    fs.mkdirSync(harnessDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(harnessDir, 'learnings.md'),
+      [
+        '# Learnings',
+        '',
+        '- **2026-03-25 [skill:a]:** Full entry with detail',
+        '  Detail preserved',
+        '',
+      ].join('\n')
+    );
+
+    const resultDefault = await loadBudgetedLearnings(tmpDir, {
+      intent: 'test',
+      tokenBudget: 1000,
+    });
+    const resultExplicit = await loadBudgetedLearnings(tmpDir, {
+      intent: 'test',
+      tokenBudget: 1000,
+      depth: 'summary',
+    });
+    expect(resultDefault.ok).toBe(true);
+    expect(resultExplicit.ok).toBe(true);
+    if (resultDefault.ok && resultExplicit.ok) {
+      expect(resultDefault.value).toEqual(resultExplicit.value);
+    }
+  });
+});

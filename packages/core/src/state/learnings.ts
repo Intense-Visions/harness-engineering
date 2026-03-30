@@ -193,6 +193,7 @@ export interface BudgetedLearningsOptions {
   skill?: string;
   session?: string;
   stream?: string;
+  depth?: 'index' | 'summary' | 'full';
 }
 
 /**
@@ -208,8 +209,39 @@ export async function loadBudgetedLearnings(
   projectPath: string,
   options: BudgetedLearningsOptions
 ): Promise<Result<string[], Error>> {
-  const { intent, tokenBudget = 1000, skill, session, stream } = options;
+  const { intent, tokenBudget = 1000, skill, session, stream, depth = 'summary' } = options;
 
+  // Layer 1: Index-only mode — return summaries, skip full text loading
+  if (depth === 'index') {
+    const indexEntries: LearningsIndexEntry[] = [];
+
+    if (session) {
+      const sessionResult = await loadIndexEntries(projectPath, skill, stream, session);
+      if (sessionResult.ok) indexEntries.push(...sessionResult.value);
+    }
+
+    const globalResult = await loadIndexEntries(projectPath, skill, stream);
+    if (globalResult.ok) {
+      const sessionHashes = new Set(indexEntries.map((e) => e.hash));
+      const uniqueGlobal = globalResult.value.filter((e) => !sessionHashes.has(e.hash));
+      indexEntries.push(...uniqueGlobal);
+    }
+
+    // Apply token budget to summaries
+    const budgeted: string[] = [];
+    let totalTokens = 0;
+    for (const entry of indexEntries) {
+      const separator = budgeted.length > 0 ? '\n' : '';
+      const entryCost = estimateTokens(entry.summary + separator);
+      if (totalTokens + entryCost > tokenBudget) break;
+      budgeted.push(entry.summary);
+      totalTokens += entryCost;
+    }
+
+    return Ok(budgeted);
+  }
+
+  // Layer 2 ("summary") and Layer 3 ("full"): existing full-text behavior
   const sortByRecencyAndRelevance = (entries: string[]): string[] => {
     return [...entries].sort((a, b) => {
       const dateA = parseDateFromEntry(a) ?? '0000-00-00';
