@@ -112,6 +112,27 @@ describe('initHooks', () => {
     const second = fs.readFileSync(path.join(tmpDir, '.claude', 'settings.json'), 'utf-8');
     expect(second).toBe(first);
   });
+
+  it('throws on malformed settings.json', () => {
+    const claudeDir = path.join(tmpDir, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(path.join(claudeDir, 'settings.json'), '{ broken json');
+    expect(() => initHooks({ profile: 'minimal', projectDir: tmpDir })).toThrow(
+      /Malformed .claude\/settings.json/
+    );
+  });
+
+  it('cleans stale scripts on profile downgrade', () => {
+    initHooks({ profile: 'strict', projectDir: tmpDir });
+    const hooksDir = path.join(tmpDir, '.harness', 'hooks');
+    // strict has 5 scripts
+    const strictFiles = fs.readdirSync(hooksDir).filter((f) => f.endsWith('.js'));
+    expect(strictFiles.length).toBeGreaterThan(1);
+
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    const minimalFiles = fs.readdirSync(hooksDir).filter((f) => f.endsWith('.js'));
+    expect(minimalFiles).toEqual(['block-no-verify.js']);
+  });
 });
 
 describe('listHooks', () => {

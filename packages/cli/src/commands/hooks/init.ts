@@ -22,8 +22,7 @@ function resolveHookSourceDir(): string {
   if (fs.existsSync(candidate)) {
     return candidate;
   }
-  // Fallback: from cwd (should not happen in practice)
-  return path.join(process.cwd(), 'packages', 'cli', 'src', 'hooks');
+  throw new Error(`Cannot locate hook scripts directory. Expected at: ${candidate}`);
 }
 
 /**
@@ -77,14 +76,26 @@ export function initHooks(options: { profile: HookProfile; projectDir: string })
 } {
   const { profile, projectDir } = options;
 
-  // 1. Copy all hook scripts to .harness/hooks/
+  // 1. Copy active hook scripts to .harness/hooks/
   const hooksDestDir = path.join(projectDir, '.harness', 'hooks');
   fs.mkdirSync(hooksDestDir, { recursive: true });
+
+  // Clean stale scripts before copying (handles profile downgrade)
+  if (fs.existsSync(hooksDestDir)) {
+    for (const entry of fs.readdirSync(hooksDestDir)) {
+      if (entry.endsWith('.js')) {
+        fs.unlinkSync(path.join(hooksDestDir, entry));
+      }
+    }
+  }
 
   const sourceDir = resolveHookSourceDir();
   const copiedScripts: string[] = [];
 
-  for (const script of HOOK_SCRIPTS) {
+  const activeNames = PROFILES[profile];
+  const activeScripts = HOOK_SCRIPTS.filter((h) => activeNames.includes(h.name));
+
+  for (const script of activeScripts) {
     const srcFile = path.join(sourceDir, `${script.name}.js`);
     const destFile = path.join(hooksDestDir, `${script.name}.js`);
     if (fs.existsSync(srcFile)) {
@@ -106,9 +117,11 @@ export function initHooks(options: { profile: HookProfile; projectDir: string })
   if (fs.existsSync(settingsPath)) {
     try {
       existing = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    } catch {
-      // Malformed settings.json -- start fresh but warn
-      existing = {};
+    } catch (e) {
+      throw new Error(
+        `Malformed .claude/settings.json — fix the JSON syntax before running hooks init. ` +
+          `Parse error: ${e instanceof Error ? e.message : String(e)}`
+      );
     }
   }
 
