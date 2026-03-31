@@ -6,10 +6,10 @@ describe('detectComplexity', () => {
   it('returns full as default when no git context', () => {
     // Non-git directory
     const result = detectComplexity('/tmp/not-a-repo');
-    expect(result).toBe('full');
+    expect(result).toBe('thorough');
   });
 
-  it('returns light|full based on signal detection', () => {
+  it('returns fast|thorough based on signal detection', () => {
     expect(
       evaluateSignals({
         fileCount: 1,
@@ -18,7 +18,7 @@ describe('detectComplexity', () => {
         newDir: false,
         newDep: false,
       })
-    ).toBe('light');
+    ).toBe('fast');
     expect(
       evaluateSignals({
         fileCount: 5,
@@ -27,7 +27,7 @@ describe('detectComplexity', () => {
         newDir: false,
         newDep: false,
       })
-    ).toBe('full');
+    ).toBe('thorough');
     expect(
       evaluateSignals({
         fileCount: 1,
@@ -36,7 +36,7 @@ describe('detectComplexity', () => {
         newDir: false,
         newDep: false,
       })
-    ).toBe('light');
+    ).toBe('fast');
     expect(
       evaluateSignals({
         fileCount: 1,
@@ -45,7 +45,7 @@ describe('detectComplexity', () => {
         newDir: true,
         newDep: false,
       })
-    ).toBe('full');
+    ).toBe('thorough');
     expect(
       evaluateSignals({
         fileCount: 1,
@@ -54,6 +54,6 @@ describe('detectComplexity', () => {
         newDir: false,
         newDep: true,
       })
-    ).toBe('full');
+    ).toBe('thorough');
   });
 });

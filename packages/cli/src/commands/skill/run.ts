@@ -26,9 +26,9 @@ function resolveComplexity(
   metadata: SkillMetadata | null,
   requested: Complexity,
   projectPath: string
-): 'light' | 'full' | undefined {
+): 'fast' | 'thorough' | undefined {
   if (!metadata?.phases || metadata.phases.length === 0) return undefined;
-  if (requested === 'auto') return detectComplexity(projectPath);
+  if (requested === 'standard') return detectComplexity(projectPath);
   return requested;
 }
 
@@ -101,7 +101,7 @@ export function createRunCommand(): Command {
     .description('Run a skill (outputs SKILL.md content with context preamble)')
     .argument('<name>', 'Skill name (e.g., harness-tdd)')
     .option('--path <path>', 'Project root path for context injection')
-    .option('--complexity <level>', 'Complexity: auto, light, full', 'auto')
+    .option('--complexity <level>', 'Rigor level: fast, standard, thorough', 'standard')
     .option('--phase <name>', 'Start at a specific phase (for re-entry)')
     .option('--party', 'Enable multi-perspective evaluation')
     .action(async (name, opts, _cmd) => {
@@ -118,7 +118,7 @@ export function createRunCommand(): Command {
       const projectPath = opts.path ? path.resolve(opts.path) : process.cwd();
       const complexity = resolveComplexity(
         metadata,
-        (opts.complexity as Complexity) ?? 'auto',
+        (opts.complexity as Complexity) ?? 'standard',
         projectPath
       );
       const principles = loadPrinciples(projectPath);

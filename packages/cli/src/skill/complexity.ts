@@ -1,7 +1,7 @@
 // packages/cli/src/skill/complexity.ts
 import { execFileSync } from 'child_process';
 
-export type Complexity = 'light' | 'full' | 'auto';
+export type Complexity = 'fast' | 'thorough' | 'standard';
 
 interface Signals {
   fileCount: number;
@@ -11,21 +11,21 @@ interface Signals {
   newDep: boolean;
 }
 
-export function evaluateSignals(signals: Signals): 'light' | 'full' {
-  // Full if any "full" signal is present
-  if (signals.fileCount >= 3) return 'full';
-  if (signals.newDir) return 'full';
-  if (signals.newDep) return 'full';
+export function evaluateSignals(signals: Signals): 'fast' | 'thorough' {
+  // Thorough if any "thorough" signal is present
+  if (signals.fileCount >= 3) return 'thorough';
+  if (signals.newDir) return 'thorough';
+  if (signals.newDep) return 'thorough';
 
-  // Light if single file or test/docs only
-  if (signals.fileCount <= 1) return 'light';
-  if (signals.testOnly) return 'light';
-  if (signals.docsOnly) return 'light';
+  // Fast if single file or test/docs only
+  if (signals.fileCount <= 1) return 'fast';
+  if (signals.testOnly) return 'fast';
+  if (signals.docsOnly) return 'fast';
 
-  return 'full';
+  return 'thorough';
 }
 
-export function detectComplexity(projectPath: string): 'light' | 'full' {
+export function detectComplexity(projectPath: string): 'fast' | 'thorough' {
   try {
     // Find base commit
     const base = execFileSync('git', ['merge-base', 'HEAD', 'main'], {
@@ -66,7 +66,7 @@ export function detectComplexity(projectPath: string): 'light' | 'full' {
 
     return evaluateSignals(signals);
   } catch {
-    // No git context → default to full
-    return 'full';
+    // No git context → default to thorough
+    return 'thorough';
   }
 }

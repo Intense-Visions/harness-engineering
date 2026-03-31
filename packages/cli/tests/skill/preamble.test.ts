@@ -5,7 +5,7 @@ import { buildPreamble } from '../../src/commands/skill/preamble';
 describe('buildPreamble', () => {
   it('includes complexity section when phases exist', () => {
     const preamble = buildPreamble({
-      complexity: 'light',
+      complexity: 'fast',
       phases: [
         { name: 'red', description: 'Write test', required: true },
         { name: 'refactor', description: 'Clean up', required: false },
@@ -13,12 +13,12 @@ describe('buildPreamble', () => {
     });
     expect(preamble).toContain('## Active Phases');
     expect(preamble).toContain('RED (required)');
-    expect(preamble).toContain('~~REFACTOR~~ (skipped in light mode)');
+    expect(preamble).toContain('~~REFACTOR~~ (skipped in fast mode)');
   });
 
   it('shows all phases in full mode', () => {
     const preamble = buildPreamble({
-      complexity: 'full',
+      complexity: 'thorough',
       phases: [
         { name: 'red', description: 'Write test', required: true },
         { name: 'refactor', description: 'Clean up', required: false },

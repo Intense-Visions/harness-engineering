@@ -18,9 +18,9 @@ describe('run_skill tool', () => {
       type: string;
       enum: string[];
     };
-    expect(complexity.enum).toContain('auto');
-    expect(complexity.enum).toContain('light');
-    expect(complexity.enum).toContain('full');
+    expect(complexity.enum).toContain('fast');
+    expect(complexity.enum).toContain('standard');
+    expect(complexity.enum).toContain('thorough');
   });
 });
 
