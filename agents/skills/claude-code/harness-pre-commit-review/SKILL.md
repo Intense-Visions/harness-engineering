@@ -150,7 +150,7 @@ Run the built-in security scanner against staged files. This is a mechanical che
 git diff --cached --name-only --diff-filter=d | grep -E '\.(ts|tsx|js|jsx|go|py)$'
 ```
 
-Use the `run_security_scan` MCP tool or invoke the scanner on the staged files. Report any findings:
+Run `harness check-security --changed-only` on the staged files. Report any findings:
 
 - **Error findings (blocking):** Hardcoded secrets, eval/injection, weak crypto — these block the commit just like lint failures.
 - **Warning/info findings (advisory):** CORS wildcards, HTTP URLs, disabled TLS — reported but do not block.

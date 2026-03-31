@@ -26,7 +26,7 @@
 
 ### Phase 1: CONTEXT -- Build Hotspot Map
 
-1. **Run hotspot detection** via `harness skill run harness-hotspot-detector` or equivalent git log analysis:
+1. **Run hotspot detection** via git log analysis:
    ```bash
    git log --format=format: --name-only --since="6 months ago" | sort | uniq -c | sort -rn | head -50
    ```
@@ -38,7 +38,6 @@
 
 1. **Dead code detection** (skip if `--architecture-only`):
    - Run `harness cleanup --type dead-code --json`
-   - Or use the `detect_entropy` MCP tool with `type: 'dead-code'`
    - Captures: dead files, dead exports, unused imports, dead internals, commented-out code blocks, orphaned dependencies
 
 2. **Architecture detection** (skip if `--dead-code-only`):
@@ -204,8 +203,7 @@ After removing the `legacy-auth` module:
 
 - **`harness cleanup --type dead-code --json`** -- Dead code detection input
 - **`harness check-deps --json`** -- Architecture violation detection input
-- **`harness skill run harness-hotspot-detector`** -- Hotspot context for safety classification
-- **`detect_entropy` MCP tool with `autoFix: true`** -- Detects entropy and applies safe fixes via the MCP server
+- **`git log` analysis** -- Hotspot context for safety classification (inline command, no skill invocation needed)
 - **`harness validate`** -- Final validation after all fixes
 - **`harness check-deps`** -- Final architecture check after all fixes
 

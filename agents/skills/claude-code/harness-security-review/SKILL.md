@@ -55,15 +55,13 @@ This skill follows the Deterministic-vs-LLM Responsibility Split principle. The 
 
 Run the built-in security scanner against the project.
 
-1. **Run the scanner.** Use the `run_security_scan` MCP tool or invoke `SecurityScanner` directly:
+1. **Run the scanner.** Use the `harness check-security` CLI command:
 
    ```bash
-   # Via MCP
-   harness scan --security
-
-   # Via CLI
-   npx vitest run packages/core/tests/security/
+   harness check-security
    ```
+
+   For machine-readable output, add `--json`. For scanning only changed files, add `--changed-only`.
 
 2. **Review findings.** Categorize by severity:
    - **Error (blocking):** Must fix before merge — secrets, injection, eval, weak crypto
@@ -149,7 +147,7 @@ Threat Model:
 
 ## Harness Integration
 
-- **`run_security_scan` MCP tool** — Run the mechanical scanner programmatically
+- **`harness check-security`** — Run the mechanical scanner via CLI. Use `--json` for machine-readable output.
 - **`harness validate`** — Standard project health check
 - **`query_graph` / `get_relationships`** — Used in threat modeling phase for data flow tracing
 - **`get_impact`** — Understand blast radius of security-sensitive changes
