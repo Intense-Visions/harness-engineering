@@ -32,6 +32,7 @@ export {
 } from './session-sections';
 export { archiveSession } from './session-archive';
 export { writeScratchpad, readScratchpad, clearScratchpad } from './scratchpad';
+export { tokenize, scoreLearningRelevance, filterByRelevance } from './learnings-relevance';
 export { emitEvent, loadEvents, formatEventTimeline, SkillEventSchema } from './events';
 export type {
   SkillEvent,
