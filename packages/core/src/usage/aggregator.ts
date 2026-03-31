@@ -98,14 +98,14 @@ export function aggregateBySession(records: UsageRecord[]): SessionUsage[] {
 
     const session: SessionUsage = {
       sessionId,
-      firstTimestamp: timestamps[0],
-      lastTimestamp: timestamps[timestamps.length - 1],
+      firstTimestamp: timestamps[0] ?? '',
+      lastTimestamp: timestamps[timestamps.length - 1] ?? '',
       tokens,
-      model,
       costMicroUSD,
       source,
     };
 
+    if (model) session.model = model;
     if (cacheCreation != null) session.cacheCreationTokens = cacheCreation;
     if (cacheRead != null) session.cacheReadTokens = cacheRead;
 

@@ -376,7 +376,7 @@ export interface Roadmap {
 }
 
 // --- Usage & Cost Tracking Types ---
-export type { UsageRecord, ModelPricing } from './usage';
+export type { UsageRecord, ModelPricing, DailyUsage, SessionUsage } from './usage';
 
 // --- Session State Types ---
 export { SESSION_SECTION_NAMES } from './session-state';
