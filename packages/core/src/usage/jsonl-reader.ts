@@ -36,11 +36,11 @@ function parseLine(line: string, lineNumber: number): UsageRecord | null {
     },
   };
 
-  if (entry.cacheCreationTokens != null) {
-    record.cacheCreationTokens = entry.cacheCreationTokens as number;
+  if (entry.cache_creation_tokens != null) {
+    record.cacheCreationTokens = entry.cache_creation_tokens as number;
   }
-  if (entry.cacheReadTokens != null) {
-    record.cacheReadTokens = entry.cacheReadTokens as number;
+  if (entry.cache_read_tokens != null) {
+    record.cacheReadTokens = entry.cache_read_tokens as number;
   }
   if (entry.model != null) {
     record.model = entry.model as string;
