@@ -278,4 +278,101 @@ describe('harness usage', () => {
       expect(Array.isArray(output)).toBe(true);
     });
   });
+
+  describe('--include-claude-sessions', () => {
+    const ccHome = path.join(tmpDir, '__cc-home__');
+    const ccProjectDir = path.join(ccHome, '.claude', 'projects', '-test-project');
+    let savedHome: string | undefined;
+
+    function makeCCAssistantLine(opts: {
+      sessionId: string;
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      timestamp: string;
+    }): string {
+      return JSON.stringify({
+        type: 'assistant',
+        sessionId: opts.sessionId,
+        timestamp: opts.timestamp,
+        message: {
+          model: opts.model,
+          role: 'assistant',
+          usage: {
+            input_tokens: opts.inputTokens,
+            output_tokens: opts.outputTokens,
+          },
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: 'response' }],
+        },
+      });
+    }
+
+    beforeEach(() => {
+      savedHome = process.env.HOME;
+      process.env.HOME = ccHome;
+      fs.mkdirSync(ccProjectDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(ccProjectDir, 'cc-session.jsonl'),
+        makeCCAssistantLine({
+          sessionId: 'cc-only-sess',
+          model: 'claude-opus-4-20250514',
+          inputTokens: 5000,
+          outputTokens: 2000,
+          timestamp: '2026-03-31T12:00:00.000Z',
+        }) + '\n'
+      );
+    });
+
+    afterEach(() => {
+      process.env.HOME = savedHome;
+    });
+
+    it('merges CC records into sessions output', async () => {
+      const program = createProgram();
+      await program.parseAsync([
+        'node',
+        'harness',
+        'usage',
+        '--include-claude-sessions',
+        'sessions',
+        '--json',
+      ]);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(Array.isArray(output)).toBe(true);
+      // Should include both harness sessions (3) and CC session (1)
+      const ccSession = output.find((s: any) => s.sessionId === 'cc-only-sess');
+      expect(ccSession).toBeDefined();
+      expect(ccSession.source).toBe('claude-code');
+      expect(ccSession.model).toBe('claude-opus-4-20250514');
+    });
+
+    it('merges CC data into daily output', async () => {
+      const program = createProgram();
+      await program.parseAsync([
+        'node',
+        'harness',
+        'usage',
+        '--include-claude-sessions',
+        'daily',
+        '--json',
+      ]);
+
+      const output = JSON.parse(logOutput.join(''));
+      // 2026-03-31 should now have 2 sessions (harness sess-bbb-222 + CC cc-only-sess)
+      const march31 = output.find((d: any) => d.date === '2026-03-31');
+      expect(march31).toBeDefined();
+      expect(march31.sessionCount).toBe(2);
+    });
+
+    it('does not include CC data when flag is not passed', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'sessions', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      const ccSession = output.find((s: any) => s.sessionId === 'cc-only-sess');
+      expect(ccSession).toBeUndefined();
+    });
+  });
 });
