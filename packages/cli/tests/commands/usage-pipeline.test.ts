@@ -11,6 +11,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { Command } from 'commander';
 import { createUsageCommand } from '../../src/commands/usage';
@@ -23,7 +24,7 @@ function createProgram(): Command {
 }
 
 describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
-  const tmpDir = path.join(__dirname, '__pipeline-e2e-tmp__');
+  const tmpDir = path.join(os.tmpdir(), `harness-pipeline-e2e-${process.pid}`);
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
   let logOutput: string[];
   let originalCwd: string;
@@ -109,7 +110,7 @@ describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
 });
 
 describe('Offline fallback: fetch fails, fallback.json provides pricing', () => {
-  const tmpDir = path.join(__dirname, '__offline-test-tmp__');
+  const tmpDir = path.join(os.tmpdir(), `harness-offline-${process.pid}`);
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
   let logOutput: string[];
@@ -174,14 +175,130 @@ describe('Offline fallback: fetch fails, fallback.json provides pricing', () => 
     const program = createProgram();
     await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
 
+    // Command must succeed and produce valid priced output (confirms fallback path ran)
+    const output = JSON.parse(logOutput[logOutput.length - 1]!);
+    expect(output.sessionId).toBe('offline-sess-001');
+    expect(output.costMicroUSD).toBeGreaterThan(0);
+
     // The staleness warning must appear in console.warn output
-    const stalePrinted = warnOutput.some((line) => line.toLowerCase().includes('stale'));
-    expect(stalePrinted).toBe(true);
+    expect(warnOutput.length).toBeGreaterThan(0);
+    expect(warnOutput.some((line) => line.includes('stale'))).toBe(true);
+  });
+});
+
+describe('Spec criterion 9: unknown model emits warning and returns null cost', () => {
+  const tmpDir = path.join(os.tmpdir(), `harness-unknown-model-${process.pid}`);
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let logOutput: string[];
+  let warnOutput: string[];
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    fs.mkdirSync(path.join(tmpDir, '.harness', 'metrics'), { recursive: true });
+    process.chdir(tmpDir);
+    logOutput = [];
+    warnOutput = [];
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
+      logOutput.push(args.join(' '));
+    });
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation((...args) => {
+      warnOutput.push(args.join(' '));
+    });
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('model with no pricing data produces null cost and logs a warning', async () => {
+    const entry = JSON.stringify({
+      timestamp: '2026-03-31T10:00:00.000Z',
+      session_id: 'unknown-model-sess',
+      token_usage: { input_tokens: 1000, output_tokens: 500 },
+      model: 'claude-future-unknown-model-9999',
+    });
+    fs.writeFileSync(path.join(tmpDir, '.harness', 'metrics', 'costs.jsonl'), entry + '\n');
+
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+
+    const output = JSON.parse(logOutput[logOutput.length - 1]!);
+    expect(output.sessionId).toBe('unknown-model-sess');
+    // Unknown model → cost must be null
+    expect(output.costMicroUSD).toBeNull();
+    // Pricing module must warn about the unknown model
+    expect(warnOutput.some((line) => line.toLowerCase().includes('no pricing'))).toBe(true);
+  });
+});
+
+describe('Spec criterion 6: successful network fetch writes pricing cache to disk', () => {
+  const tmpDir = path.join(os.tmpdir(), `harness-cache-write-${process.pid}`);
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let logOutput: string[];
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    fs.mkdirSync(path.join(tmpDir, '.harness', 'metrics'), { recursive: true });
+    const entry = JSON.stringify({
+      timestamp: '2026-03-31T10:00:00.000Z',
+      session_id: 'cache-write-sess',
+      token_usage: { input_tokens: 100, output_tokens: 50 },
+      model: 'claude-sonnet-4-20250514',
+    });
+    fs.writeFileSync(path.join(tmpDir, '.harness', 'metrics', 'costs.jsonl'), entry + '\n');
+    process.chdir(tmpDir);
+    logOutput = [];
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
+      logOutput.push(args.join(' '));
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Stub fetch to return minimal valid LiteLLM JSON so the cache write path is exercised
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            'claude-sonnet-4-20250514': {
+              mode: 'chat',
+              input_cost_per_token: 0.000003,
+              output_cost_per_token: 0.000015,
+            },
+          }),
+      })
+    );
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('writes pricing.json to .harness/cache after a successful network fetch', async () => {
+    const cachePath = path.join(tmpDir, '.harness', 'cache', 'pricing.json');
+    expect(fs.existsSync(cachePath)).toBe(false);
+
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+
+    // Cache file must now exist
+    expect(fs.existsSync(cachePath)).toBe(true);
+    const cached = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+    expect(typeof cached.fetchedAt).toBe('string');
+    expect(typeof cached.data).toBe('object');
   });
 });
 
 describe('--json schema shape validation', () => {
-  const tmpDir = path.join(__dirname, '__schema-test-tmp__');
+  const tmpDir = path.join(os.tmpdir(), `harness-schema-${process.pid}`);
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
   let logOutput: string[];
   let originalCwd: string;
@@ -297,7 +414,8 @@ describe('--json schema shape validation', () => {
     expect(output.sessionId).toBe('schema-sess-alpha');
     expect(typeof output.tokens).toBe('object');
     expect(typeof output.tokens.inputTokens).toBe('number');
-    expect(output.costMicroUSD === null || typeof output.costMicroUSD === 'number').toBe(true);
+    // schema-sess-alpha has a known model — cost must be positive, not null
+    expect(output.costMicroUSD).toBeGreaterThan(0);
     expect(output.source).toBe('harness');
     expect(typeof output.firstTimestamp).toBe('string');
     expect(typeof output.lastTimestamp).toBe('string');
