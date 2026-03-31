@@ -133,4 +133,47 @@ describe('syncConstraintNodes', () => {
     expect(node.category).toBe('circular-deps');
     expect(node.scope).toBe('project');
   });
+
+  it('matches scoped rules when violation file starts with rule scope', () => {
+    const scopedRule: ConstraintRule = {
+      id: 'rule-scoped',
+      category: 'complexity',
+      description: 'Scoped complexity check',
+      scope: 'src/api',
+    };
+    const violations: MetricResult[] = [
+      {
+        category: 'complexity',
+        scope: 'project',
+        value: 1,
+        violations: [
+          { id: 'v1', file: 'src/api/handler.ts', detail: 'too complex', severity: 'error' },
+        ],
+      },
+    ];
+    syncConstraintNodes(store, [scopedRule], violations);
+    expect(store.nodes.get('rule-scoped')!.lastViolatedAt).toBeDefined();
+    expect(typeof store.nodes.get('rule-scoped')!.lastViolatedAt).toBe('string');
+  });
+
+  it('does not match scoped rules when no violation file matches scope', () => {
+    const scopedRule: ConstraintRule = {
+      id: 'rule-scoped-miss',
+      category: 'complexity',
+      description: 'Scoped complexity check',
+      scope: 'src/api',
+    };
+    const violations: MetricResult[] = [
+      {
+        category: 'complexity',
+        scope: 'project',
+        value: 1,
+        violations: [
+          { id: 'v1', file: 'src/lib/util.ts', detail: 'too complex', severity: 'error' },
+        ],
+      },
+    ];
+    syncConstraintNodes(store, [scopedRule], violations);
+    expect(store.nodes.get('rule-scoped-miss')!.lastViolatedAt).toBeNull();
+  });
 });

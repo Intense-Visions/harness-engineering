@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { FileSink } from '../../../src/feedback/logging/file-sink';
 import { existsSync, unlinkSync, readFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
@@ -69,5 +69,24 @@ describe('FileSink', () => {
     await sink.flush?.();
 
     expect(existsSync(testFile)).toBe(true);
+  });
+
+  it('should set up flush interval and auto-flush', async () => {
+    vi.useFakeTimers();
+    const sink = new FileSink(testFile, { bufferSize: 100, flushInterval: 50 });
+
+    await sink.write(testAction);
+    // File should not exist yet because bufferSize is 100
+    expect(existsSync(testFile)).toBe(false);
+
+    // Advance timer to trigger the interval flush
+    vi.advanceTimersByTime(50);
+
+    expect(existsSync(testFile)).toBe(true);
+    const content = readFileSync(testFile, 'utf-8');
+    expect(content.trim()).toContain('test-id');
+
+    await sink.close?.();
+    vi.useRealTimers();
   });
 });

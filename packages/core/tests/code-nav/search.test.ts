@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { searchSymbols } from '../../src/code-nav/search';
 import * as path from 'path';
 
@@ -49,5 +49,43 @@ describe('code_search', () => {
     result.matches.forEach((m) => {
       expect(m.symbol.file).toMatch(/\.ts$/);
     });
+  });
+
+  it('should return empty matches when findFiles throws', async () => {
+    const fsUtils = await import('../../src/shared/fs-utils');
+    const spy = vi.spyOn(fsUtils, 'findFiles').mockRejectedValueOnce(new Error('glob failed'));
+    const result = await searchSymbols('anything', '/nonexistent/dir');
+    expect(result.matches).toHaveLength(0);
+    expect(result.skipped).toHaveLength(0);
+    spy.mockRestore();
+  });
+
+  it('should skip files with unsupported extensions returned by findFiles', async () => {
+    const fsUtils = await import('../../src/shared/fs-utils');
+    const spy = vi
+      .spyOn(fsUtils, 'findFiles')
+      .mockResolvedValueOnce(['/fake/dir/file.rs', '/fake/dir/file.go']);
+    const result = await searchSymbols('anything', '/fake/dir');
+    expect(result.skipped).toEqual(['/fake/dir/file.rs', '/fake/dir/file.go']);
+    expect(result.matches).toHaveLength(0);
+    spy.mockRestore();
+  });
+
+  it('should skip files when getOutline returns an error', async () => {
+    const fsUtils = await import('../../src/shared/fs-utils');
+    const outline = await import('../../src/code-nav/outline');
+    const findSpy = vi.spyOn(fsUtils, 'findFiles').mockResolvedValueOnce(['/fake/dir/broken.ts']);
+    const outlineSpy = vi.spyOn(outline, 'getOutline').mockResolvedValueOnce({
+      file: '/fake/dir/broken.ts',
+      language: 'typescript',
+      totalLines: 0,
+      symbols: [],
+      error: '[parse-failed]',
+    });
+    const result = await searchSymbols('anything', '/fake/dir');
+    expect(result.skipped).toEqual(['/fake/dir/broken.ts']);
+    expect(result.matches).toHaveLength(0);
+    findSpy.mockRestore();
+    outlineSpy.mockRestore();
   });
 });

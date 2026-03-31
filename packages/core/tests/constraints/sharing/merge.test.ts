@@ -47,6 +47,17 @@ describe('deepMergeConstraints', () => {
       expect(result.conflicts).toEqual([]);
     });
 
+    it('should skip layers with identical non-empty allowedDependencies', () => {
+      const bundle: BundleConstraints = {
+        layers: [{ name: 'api', pattern: 'src/api/**', allowedDependencies: ['domain'] }],
+      };
+      const result = deepMergeConstraints(localConfig, bundle);
+      const layers = result.config.layers as Array<{ name: string }>;
+      expect(layers).toHaveLength(2);
+      expect(result.contributions.layers).toBeUndefined();
+      expect(result.conflicts).toEqual([]);
+    });
+
     it('should report conflict when same name has different config', () => {
       const bundle: BundleConstraints = {
         layers: [{ name: 'domain', pattern: 'src/domain/**', allowedDependencies: ['utils'] }],
