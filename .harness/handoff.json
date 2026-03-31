@@ -1,44 +1,31 @@
 {
-  "fromSkill": "harness-brainstorming",
+  "fromSkill": "harness-planning",
   "phase": "VALIDATE",
-  "summary": "Runtime enforcement extensions — harness hooks CLI with profile-based activation and 18 new security scanner rules for agent config and MCP auditing",
-  "artifacts": ["docs/changes/runtime-enforcement-extensions/proposal.md"],
+  "summary": "Planned Phase 1 (Registry + Types) of force-multiplier integrations: 4 tasks defining IntegrationDef/IntegrationsConfig types, 5-entry static registry, and Zod schema addition.",
+  "completed": [],
+  "pending": [
+    "Task 1: Define IntegrationDef and IntegrationsConfig types (TDD)",
+    "Task 2: Create static integration registry with 5 entries (TDD)",
+    "Task 3: Add IntegrationsConfigSchema to Zod config schema (TDD)",
+    "Task 4: Verify full test suite and validate"
+  ],
+  "concerns": [
+    "Exact npm package names for perplexity-mcp and augment-code MCP servers need verification before release -- marked with TODO comments in registry.ts"
+  ],
   "decisions": [
-    {
-      "what": "CLI command (harness hooks init) over template-only",
-      "why": "Works for both new and existing projects"
-    },
-    {
-      "what": "Add rules to existing SecurityScanner registry, not refactor SecurityAgent",
-      "why": "Scanner already has modular registry; review agent serves different purpose (diff analysis)"
-    },
-    {
-      "what": "No external scanner dependencies",
-      "why": "Avoids coupling to external maintenance cadence"
-    },
-    {
-      "what": "Profile-based hook activation (minimal/standard/strict)",
-      "why": "Lets users control safety/speed tradeoff"
-    },
-    {
-      "what": "Agent config and MCP as new security categories",
-      "why": "Unique to AI-assisted development; not covered by traditional scanners"
-    },
-    {
-      "what": "Security rules are the stronger bet; hooks are nice-to-have at current scope",
-      "why": "Agent config auditing is differentiated capability; hooks are convenience over existing permission system"
-    }
+    "Types live in packages/cli/src/integrations/types.ts (CLI-specific, not shared types package)",
+    "Registry uses 'as const satisfies readonly IntegrationDef[]' for type safety and immutability",
+    "IntegrationsConfigSchema is exported from schema.ts for reuse by future config read/write utilities",
+    "Zod schema uses .default([]) for both enabled and dismissed arrays so empty objects parse cleanly"
   ],
   "contextKeywords": [
-    "hooks",
-    "PreToolUse",
-    "security-scanner",
-    "RuleRegistry",
-    "SecurityCategory",
-    "agent-config",
-    "mcp-security",
-    "CLAUDE.md",
-    "settings.json",
-    "profiles"
+    "integrations",
+    "MCP",
+    "registry",
+    "IntegrationDef",
+    "Zod",
+    "config-schema",
+    "tier-0",
+    "tier-1"
   ]
 }
