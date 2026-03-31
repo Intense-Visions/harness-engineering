@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scanForInjection } from './injection-patterns';
+import { scanForInjection, getInjectionPatterns } from './injection-patterns';
 import type { InjectionFinding } from './injection-patterns';
 
 describe('scanForInjection', () => {
@@ -263,6 +263,28 @@ describe('scanForInjection', () => {
 
       expect(elapsed).toBeLessThan(100);
       expect(findings.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('getInjectionPatterns', () => {
+    it('returns all registered patterns', () => {
+      const patterns = getInjectionPatterns();
+      // 2 unicode + 3 re-roling + 3 permission + 2 encoded + 3 indirect + 4 context + 3 social + 3 suspicious = 23
+      expect(patterns.length).toBeGreaterThanOrEqual(20);
+      // Verify all severity levels are represented
+      const severities = new Set(patterns.map((p: any) => p.severity));
+      expect(severities.has('high')).toBe(true);
+      expect(severities.has('medium')).toBe(true);
+      expect(severities.has('low')).toBe(true);
+    });
+  });
+
+  describe('clean input produces no findings', () => {
+    it('returns empty array for benign text', () => {
+      const findings = scanForInjection(
+        'This is a normal code review comment.\nThe function looks good.\nPlease fix the typo on line 42.'
+      );
+      expect(findings).toHaveLength(0);
     });
   });
 });
