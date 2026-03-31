@@ -192,4 +192,102 @@ describe('SecurityScanner', () => {
       expect(warning!.confidence).toBe('high');
     });
   });
+
+  describe('SEC-DEF-* insecure defaults rules', () => {
+    it('SEC-DEF-001: flags security-sensitive || fallback to hardcoded string', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent(
+        'const secret = process.env.SECRET || "default-secret"',
+        'src/config.ts'
+      );
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-001')).toBe(true);
+    });
+
+    it('SEC-DEF-001: flags JWT_SECRET ?? fallback', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent(
+        'const jwtSecret = process.env.JWT_SECRET ?? "fallback"',
+        'src/auth.ts'
+      );
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-001')).toBe(true);
+    });
+
+    it('SEC-DEF-001: does NOT flag non-security fallbacks', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const color = config.theme ?? "blue"', 'src/ui.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-001')).toBe(false);
+    });
+
+    it('SEC-DEF-002: flags TLS disabled by default', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const tls = false', 'src/server.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-002')).toBe(true);
+    });
+
+    it('SEC-DEF-004: flags CORS wildcard fallback', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const origin = config.corsOrigin ?? "*"', 'src/app.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-004')).toBe(true);
+    });
+  });
+
+  describe('SEC-EDGE-* sharp-edges rules', () => {
+    it('SEC-EDGE-001: flags deprecated createCipher', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent(
+        'const cipher = crypto.createCipher("aes-128-cbc", key)',
+        'src/crypto.ts'
+      );
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-001')).toBe(true);
+    });
+
+    it('SEC-EDGE-002: flags deprecated createDecipher', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent(
+        'const decipher = crypto.createDecipher("aes-128-cbc", key)',
+        'src/crypto.ts'
+      );
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-002')).toBe(true);
+    });
+
+    it('SEC-EDGE-003: flags ECB mode string', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const algo = "aes-128-ecb"', 'src/crypto.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-003')).toBe(true);
+    });
+
+    it('SEC-EDGE-006: flags sync TOCTOU pattern on same line', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent(
+        'if (existsSync(path)) readFileSync(path)',
+        'src/files.ts'
+      );
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-006')).toBe(true);
+    });
+
+    it('SEC-EDGE-008: flags JWT algorithm none', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('algorithms: ["none"]', 'src/auth.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-008')).toBe(true);
+    });
+
+    it('SEC-EDGE-009: flags RC4 algorithm string', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const algo = "rc4"', 'src/crypto.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-009')).toBe(true);
+    });
+
+    it('SEC-EDGE-*: rule categories are toggleable via config', () => {
+      const scanner = new SecurityScanner({
+        enabled: true,
+        rules: { 'SEC-DEF-*': 'off', 'SEC-EDGE-*': 'off' },
+      });
+      const findings = scanner.scanContent(
+        'const secret = process.env.SECRET || "default"\nconst cipher = crypto.createCipher("aes-128-cbc", key)',
+        'src/config.ts'
+      );
+      expect(findings.some((f) => f.ruleId.startsWith('SEC-DEF-'))).toBe(false);
+      expect(findings.some((f) => f.ruleId.startsWith('SEC-EDGE-'))).toBe(false);
+    });
+  });
 });
