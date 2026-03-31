@@ -58,24 +58,68 @@ const reRolingPatterns: InjectionPattern[] = [
     severity: 'high',
     category: 'explicit-re-roling',
     description: 'Attempt to reassign the AI role',
-    pattern:
-      /you\s+are\s+now\s+(?:a\s+)?(?:new\s+)?(?:helpful\s+)?(?:an?\s+)?/i,
+    pattern: /you\s+are\s+now\s+(?:a\s+)?(?:new\s+)?(?:helpful\s+)?(?:an?\s+)?/i,
   },
   {
     ruleId: 'INJ-REROL-003',
     severity: 'high',
     category: 'explicit-re-roling',
     description: 'Direct instruction override attempt',
-    pattern:
-      /(?:new\s+)?(?:system\s+)?(?:instruction|directive|role|persona)\s*[:=]\s*/i,
+    pattern: /(?:new\s+)?(?:system\s+)?(?:instruction|directive|role|persona)\s*[:=]\s*/i,
   },
 ];
 
-// Placeholder: patterns for Task 2 and Task 3 will be added here
+const permissionEscalationPatterns: InjectionPattern[] = [
+  {
+    ruleId: 'INJ-PERM-001',
+    severity: 'high',
+    category: 'permission-escalation',
+    description: 'Attempt to enable all tools or disable restrictions',
+    pattern: /(?:allow|enable|grant)\s+(?:all\s+)?(?:tools?|permissions?|access)/i,
+  },
+  {
+    ruleId: 'INJ-PERM-002',
+    severity: 'high',
+    category: 'permission-escalation',
+    description: 'Attempt to disable safety or security features',
+    pattern:
+      /(?:disable|turn\s+off|remove|bypass)\s+(?:all\s+)?(?:safety|security|restrictions?|guardrails?|protections?|checks?)/i,
+  },
+  {
+    ruleId: 'INJ-PERM-003',
+    severity: 'high',
+    category: 'permission-escalation',
+    description: 'Auto-approve directive that bypasses human review',
+    pattern: /(?:auto[- ]?approve|--no-verify|--dangerously-skip-permissions)/i,
+  },
+];
+
+const encodedPayloadPatterns: InjectionPattern[] = [
+  {
+    ruleId: 'INJ-ENC-001',
+    severity: 'high',
+    category: 'encoded-payloads',
+    description: 'Base64-encoded string long enough to contain instructions (>=20 chars)',
+    // Match base64 strings of 20+ chars that are not part of URLs or common tokens
+    pattern:
+      /(?<![A-Za-z0-9/])(?:[A-Za-z0-9+/]{4}){5,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9/])/,
+  },
+  {
+    ruleId: 'INJ-ENC-002',
+    severity: 'high',
+    category: 'encoded-payloads',
+    description: 'Hex-encoded string long enough to contain directives (>=20 hex chars)',
+    pattern: /(?<![A-Fa-f0-9])(?:[0-9a-fA-F]{2}){10,}(?![A-Fa-f0-9])/,
+  },
+];
+
+// Placeholder: patterns for Task 3 will be added here
 
 const ALL_PATTERNS: InjectionPattern[] = [
   ...hiddenUnicodePatterns,
   ...reRolingPatterns,
+  ...permissionEscalationPatterns,
+  ...encodedPayloadPatterns,
 ];
 
 /**
