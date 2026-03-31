@@ -108,7 +108,7 @@ function main() {
     process.stderr.write('[pre-compact-state] Saved pre-compact summary\n');
     process.exit(0);
   } catch (err) {
-    process.stderr.write(`[pre-compact-state] Failed to save summary: ${err.message}\n`);
+    process.stderr.write(`[pre-compact-state] Failed to save summary: ${String(err?.message ?? err)}\n`);
     process.exit(0);
   }
 }
