@@ -1,0 +1,11 @@
+{
+  "fromSkill": "harness-execution",
+  "timestamp": "2026-03-31T00:00:00Z",
+  "summary": "Completed Phase 5: Commands-Over-Skills Audit. Created docs/guidelines/mcp-vs-cli.md with decision rules and quick reference table. Fixed 4 offenders: removed detect_entropy MCP and harness skill run harness-hotspot-detector from codebase-cleanup, replaced run_security_scan MCP with harness check-security CLI in pre-commit-review and security-review.",
+  "pendingTasks": [],
+  "blockers": [],
+  "learnings": [
+    "The run_security_scan reference in harness-security-review line 31 describes when to SKIP the scan (changed-files mode scope adaptation), not when to invoke it -- this is not an offender",
+    "Prettier reformatted the guideline table to use consistent column widths -- plan content was correct but formatting was auto-adjusted"
+  ]
+}
