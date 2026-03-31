@@ -33,6 +33,12 @@ cli:
     - name: --ci
       description: Enable eligibility gate, non-interactive output
       required: false
+    - name: --fast
+      description: Reduced rigor — skip learnings integration, fast-tier agents only
+      required: false
+    - name: --thorough
+      description: Maximum rigor — always load learnings, full agent roster + meta-judge
+      required: false
 mcp:
   tool: run_skill
   input:
