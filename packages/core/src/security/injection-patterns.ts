@@ -113,13 +113,101 @@ const encodedPayloadPatterns: InjectionPattern[] = [
   },
 ];
 
-// Placeholder: patterns for Task 3 will be added here
+// --- MEDIUM severity patterns ---
+
+const indirectInjectionPatterns: InjectionPattern[] = [
+  {
+    ruleId: 'INJ-IND-001',
+    severity: 'medium',
+    category: 'indirect-injection',
+    description: 'Instruction to influence future responses',
+    pattern:
+      /(?:when\s+the\s+user\s+asks|if\s+(?:the\s+user|someone|anyone)\s+asks)\s*,?\s*(?:say|respond|reply|answer|tell)/i,
+  },
+  {
+    ruleId: 'INJ-IND-002',
+    severity: 'medium',
+    category: 'indirect-injection',
+    description: 'Directive to include content in responses',
+    pattern:
+      /(?:include|insert|add|embed|put)\s+(?:this|the\s+following)\s+(?:in|into|to)\s+(?:your|the)\s+(?:response|output|reply|answer)/i,
+  },
+  {
+    ruleId: 'INJ-IND-003',
+    severity: 'medium',
+    category: 'indirect-injection',
+    description: 'Standing instruction to always respond a certain way',
+    pattern: /always\s+(?:respond|reply|answer|say|output)\s+(?:with|that|by)/i,
+  },
+];
+
+const contextManipulationPatterns: InjectionPattern[] = [
+  {
+    ruleId: 'INJ-CTX-001',
+    severity: 'medium',
+    category: 'context-manipulation',
+    description: 'Claim about system prompt content',
+    pattern:
+      /(?:the\s+)?(?:system\s+prompt|system\s+message|hidden\s+instructions?)\s+(?:says?|tells?|instructs?|contains?|is)/i,
+  },
+  {
+    ruleId: 'INJ-CTX-002',
+    severity: 'medium',
+    category: 'context-manipulation',
+    description: 'Claim about AI instructions',
+    pattern: /your\s+(?:instructions?|directives?|guidelines?|rules?)\s+(?:are|say|tell|state)/i,
+  },
+  {
+    ruleId: 'INJ-CTX-003',
+    severity: 'medium',
+    category: 'context-manipulation',
+    description: 'Fake XML/HTML system or instruction tags',
+    pattern:
+      /<\/?(?:system|instruction|prompt|role|context|tool_call|function_call|assistant|human|user)[^>]*>/i,
+  },
+  {
+    ruleId: 'INJ-CTX-004',
+    severity: 'medium',
+    category: 'context-manipulation',
+    description: 'Fake JSON role assignment mimicking chat format',
+    pattern: /[{,]\s*"role"\s*:\s*"(?:system|assistant|function)"/i,
+  },
+];
+
+const socialEngineeringPatterns: InjectionPattern[] = [
+  {
+    ruleId: 'INJ-SOC-001',
+    severity: 'medium',
+    category: 'social-engineering',
+    description: 'Urgency pressure to bypass checks',
+    pattern:
+      /(?:this\s+is\s+(?:very\s+)?urgent|emergency|critical\s+priority|do\s+(?:this|it)\s+(?:now|immediately))\b/i,
+  },
+  {
+    ruleId: 'INJ-SOC-002',
+    severity: 'medium',
+    category: 'social-engineering',
+    description: 'False authority claim',
+    pattern:
+      /(?:the\s+)?(?:admin|administrator|manager|CEO|CTO|owner|supervisor)\s+(?:authorized|approved|said|told|confirmed|requested)/i,
+  },
+  {
+    ruleId: 'INJ-SOC-003',
+    severity: 'medium',
+    category: 'social-engineering',
+    description: 'Testing pretext to bypass safety',
+    pattern: /(?:for\s+testing\s+purposes?|this\s+is\s+(?:just\s+)?a\s+test|in\s+test\s+mode)\b/i,
+  },
+];
 
 const ALL_PATTERNS: InjectionPattern[] = [
   ...hiddenUnicodePatterns,
   ...reRolingPatterns,
   ...permissionEscalationPatterns,
   ...encodedPayloadPatterns,
+  ...indirectInjectionPatterns,
+  ...contextManipulationPatterns,
+  ...socialEngineeringPatterns,
 ];
 
 /**
@@ -137,8 +225,6 @@ export function scanForInjection(text: string): InjectionFinding[] {
   for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
     const line = lines[lineIdx]!;
     for (const rule of ALL_PATTERNS) {
-      // Reset lastIndex for safety with reused RegExp objects
-      rule.pattern.lastIndex = 0;
       if (rule.pattern.test(line)) {
         findings.push({
           severity: rule.severity,
