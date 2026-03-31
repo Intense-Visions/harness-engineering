@@ -215,4 +215,63 @@ describe('harness usage', () => {
       expect(output).toHaveProperty('error');
     });
   });
+
+  describe('edge cases', () => {
+    it('handles malformed JSONL lines without crashing', async () => {
+      fs.writeFileSync(
+        costsFile,
+        'bad line\n' +
+          makeSampleJSONL([
+            {
+              timestamp: '2026-03-31T10:00:00.000Z',
+              session_id: 'sess-ok',
+              input_tokens: 100,
+              output_tokens: 50,
+            },
+          ])
+      );
+
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'sessions', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output).toHaveLength(1);
+      expect(output[0].sessionId).toBe('sess-ok');
+    });
+
+    it('handles legacy entries without model as unknown cost', async () => {
+      fs.writeFileSync(
+        costsFile,
+        makeSampleJSONL([
+          {
+            timestamp: '2026-03-31T10:00:00.000Z',
+            session_id: 'sess-legacy',
+            input_tokens: 1000,
+            output_tokens: 500,
+          },
+        ])
+      );
+
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-legacy', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output.costMicroUSD).toBeNull();
+    });
+
+    it('accepts --include-claude-sessions flag without error', async () => {
+      const program = createProgram();
+      await program.parseAsync([
+        'node',
+        'harness',
+        'usage',
+        '--include-claude-sessions',
+        'daily',
+        '--json',
+      ]);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(Array.isArray(output)).toBe(true);
+    });
+  });
 });
