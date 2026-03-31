@@ -31,6 +31,7 @@ export {
   updateSessionEntryStatus,
 } from './session-sections';
 export { archiveSession } from './session-archive';
+export { writeScratchpad, readScratchpad, clearScratchpad } from './scratchpad';
 export { emitEvent, loadEvents, formatEventTimeline, SkillEventSchema } from './events';
 export type {
   SkillEvent,
