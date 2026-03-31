@@ -24,12 +24,12 @@ export function calculateCost(record: UsageRecord, dataset: PricingDataset): num
   costUSD += (record.tokens.outputTokens / TOKENS_PER_MILLION) * pricing.outputPer1M;
 
   // Cache read cost
-  if (record.cacheReadTokens && pricing.cacheReadPer1M) {
+  if (record.cacheReadTokens != null && pricing.cacheReadPer1M != null) {
     costUSD += (record.cacheReadTokens / TOKENS_PER_MILLION) * pricing.cacheReadPer1M;
   }
 
   // Cache creation/write cost
-  if (record.cacheCreationTokens && pricing.cacheWritePer1M) {
+  if (record.cacheCreationTokens != null && pricing.cacheWritePer1M != null) {
     costUSD += (record.cacheCreationTokens / TOKENS_PER_MILLION) * pricing.cacheWritePer1M;
   }
 
