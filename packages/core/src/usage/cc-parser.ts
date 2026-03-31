@@ -31,11 +31,6 @@ function extractUsage(entry: Record<string, unknown>): Record<string, number> | 
   return usage && typeof usage === 'object' ? usage : null;
 }
 
-/** Returns the value if it is a positive number, otherwise undefined. */
-function positiveOrUndef(val: number | undefined): number | undefined {
-  return val && val > 0 ? val : undefined;
-}
-
 /**
  * Builds a TaggedRecord from a validated CC JSONL entry and its usage data.
  */
@@ -48,11 +43,16 @@ function buildRecord(entry: Record<string, unknown>, usage: Record<string, numbe
     sessionId: (entry.sessionId as string) ?? 'unknown',
     timestamp: (entry.timestamp as string) ?? new Date().toISOString(),
     tokens: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
-    model: (message.model as string) || undefined,
-    cacheCreationTokens: positiveOrUndef(usage.cache_creation_input_tokens),
-    cacheReadTokens: positiveOrUndef(usage.cache_read_input_tokens),
     _source: 'claude-code',
   };
+
+  const model = message.model as string | undefined;
+  if (model) record.model = model;
+
+  const cacheCreate = usage.cache_creation_input_tokens as number | undefined;
+  const cacheRead = usage.cache_read_input_tokens as number | undefined;
+  if (typeof cacheCreate === 'number' && cacheCreate > 0) record.cacheCreationTokens = cacheCreate;
+  if (typeof cacheRead === 'number' && cacheRead > 0) record.cacheReadTokens = cacheRead;
 
   return record;
 }

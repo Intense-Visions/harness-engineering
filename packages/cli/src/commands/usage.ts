@@ -2,11 +2,21 @@ import { Command } from 'commander';
 import type { UsageRecord } from '@harness-engineering/types';
 import { logger } from '../output/logger';
 
-async function loadAndPriceRecords(cwd: string): Promise<UsageRecord[]> {
+async function loadAndPriceRecords(
+  cwd: string,
+  includeClaudeSessions = false
+): Promise<UsageRecord[]> {
   const { readCostRecords, loadPricingData, calculateCost } =
     await import('@harness-engineering/core');
 
   const records = readCostRecords(cwd);
+
+  if (includeClaudeSessions) {
+    const { parseCCRecords } = await import('@harness-engineering/core');
+    const ccRecords = parseCCRecords();
+    records.push(...ccRecords);
+  }
+
   if (records.length === 0) return records;
 
   const pricingData = await loadPricingData(cwd);
@@ -46,7 +56,7 @@ function registerDailyCommand(usage: Command): void {
       const days = Math.min(Math.max(parseInt(opts.days, 10) || 7, 1), 90);
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd);
+      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify([]));
@@ -95,7 +105,7 @@ function registerSessionsCommand(usage: Command): void {
       const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 10, 1), 100);
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd);
+      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify([]));
@@ -144,7 +154,7 @@ function registerSessionCommand(usage: Command): void {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd);
+      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
 
       const { aggregateBySession } = await import('@harness-engineering/core');
       const sessionData = aggregateBySession(records);
@@ -213,7 +223,7 @@ function registerLatestCommand(usage: Command): void {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd);
+      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify({ error: 'No usage data found' }));
@@ -258,13 +268,8 @@ export function createUsageCommand(): Command {
 
   usage.option(
     '--include-claude-sessions',
-    'Include Claude Code session data (not yet implemented)'
+    'Include Claude Code session data from ~/.claude/projects/'
   );
-  usage.hook('preAction', (thisCommand) => {
-    if (thisCommand.opts().includeClaudeSessions) {
-      logger.warn('--include-claude-sessions is not yet implemented. Showing harness data only.');
-    }
-  });
 
   registerDailyCommand(usage);
   registerSessionsCommand(usage);
