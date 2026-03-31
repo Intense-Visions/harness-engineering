@@ -61,6 +61,7 @@ export type {
   ScanResult,
   SecurityConfig,
   RuleOverride,
+  SuppressionRecord,
 } from './types';
 
 /**

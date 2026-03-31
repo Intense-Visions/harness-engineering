@@ -50,6 +50,13 @@ export interface ScanResult {
   coverage: 'baseline' | 'enhanced';
 }
 
+export interface SuppressionRecord {
+  ruleId: string;
+  file: string;
+  line: number;
+  justification: string | null;
+}
+
 export type RuleOverride = 'off' | SecuritySeverity;
 
 export interface SecurityConfig {
