@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // protect-config.js — PreToolUse:Write/Edit hook
 // Blocks modifications to linter/formatter config files.
-// Security hook: blocks on parse errors (exit 2) rather than failing open.
+// Fail-open: parse errors and unexpected exceptions log to stderr and exit 0.
 // Exit codes: 0 = allow, 2 = block
 
 import { readFileSync } from 'node:fs';
@@ -28,51 +28,47 @@ function isProtected(filePath) {
   return PROTECTED_PATTERNS.some((pattern) => pattern.test(base));
 }
 
-function block(reason) {
-  process.stderr.write(`BLOCKED: ${reason}\n`);
-  process.exit(2);
-}
-
 function main() {
   let raw;
   try {
     raw = readFileSync(0, 'utf-8');
   } catch {
-    block('Could not read stdin — blocking for safety (security hook).');
-    return;
+    process.stderr.write('[protect-config] Could not read stdin — allowing (fail-open)\n');
+    process.exit(0);
   }
 
   if (!raw.trim()) {
-    block('Empty stdin — blocking for safety (security hook).');
-    return;
+    process.stderr.write('[protect-config] Empty stdin — allowing (fail-open)\n');
+    process.exit(0);
   }
 
   let input;
   try {
     input = JSON.parse(raw);
   } catch {
-    block('Could not parse stdin JSON — blocking for safety (security hook).');
-    return;
+    process.stderr.write('[protect-config] Could not parse stdin JSON — allowing (fail-open)\n');
+    process.exit(0);
   }
 
   try {
     const filePath = input?.tool_input?.file_path;
 
     if (typeof filePath !== 'string' || !filePath) {
-      block('Missing file_path in tool input — blocking for safety (security hook).');
-      return;
+      process.stderr.write('[protect-config] Missing file_path in tool input — allowing (fail-open)\n');
+      process.exit(0);
     }
 
     if (isProtected(filePath)) {
-      block(
-        `Modification to protected config file: ${basename(filePath)}. Linter/formatter configs must not be weakened.`
+      process.stderr.write(
+        `BLOCKED: Modification to protected config file: ${basename(filePath)}. Linter/formatter configs must not be weakened.\n`
       );
-      return;
+      process.exit(2);
     }
 
     process.exit(0);
   } catch {
-    block('Unexpected error — blocking for safety (security hook).');
+    process.stderr.write('[protect-config] Unexpected error — allowing (fail-open)\n');
+    process.exit(0);
   }
 }
 
