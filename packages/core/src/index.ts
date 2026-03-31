@@ -139,6 +139,11 @@ export type { UpdateCheckState } from './update-checker';
 export * from './code-nav';
 
 /**
+ * Pricing module for model cost lookup and calculation.
+ */
+export * from './pricing';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`

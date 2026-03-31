@@ -7,6 +7,6 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
   "references": [{ "path": "../types" }],
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/**/*.json"],
   "exclude": ["node_modules", "dist", "tests"]
 }

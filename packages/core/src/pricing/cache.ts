@@ -1,6 +1,5 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type { ModelPricing } from '@harness-engineering/types';
 import type { PricingCacheFile, PricingDataset, FallbackPricingFile } from './types';
 import { parseLiteLLMData } from './pricing';
 import fallbackData from './fallback.json';
@@ -42,7 +41,7 @@ async function fetchFromNetwork(): Promise<PricingCacheFile | null> {
   try {
     const response = await fetch(LITELLM_PRICING_URL);
     if (!response.ok) return null;
-    const data = await response.json();
+    const data = (await response.json()) as import('./types').LiteLLMPricingData;
     return {
       fetchedAt: new Date().toISOString(),
       data,
