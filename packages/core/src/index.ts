@@ -144,6 +144,11 @@ export * from './code-nav';
 export * from './pricing';
 
 /**
+ * Usage module for aggregating token usage and cost data.
+ */
+export * from './usage';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`
