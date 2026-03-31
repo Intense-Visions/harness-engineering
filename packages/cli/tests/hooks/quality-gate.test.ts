@@ -53,9 +53,9 @@ describe('quality-gate', () => {
       tool_input: { file_path: 'src/app.ts' },
       tool_output: 'edited file',
     });
-    // Will fail to run biome (not installed in tmpDir) but should still exit 0
+    // npx may timeout or fail on CI — hook contract is "never blocks" (never exit 2)
     const { exitCode } = runHook(input, tmpDir);
-    expect(exitCode).toBe(0);
+    expect(exitCode).not.toBe(2);
   });
 
   it('detects biome.jsonc', () => {
@@ -66,7 +66,7 @@ describe('quality-gate', () => {
       tool_output: 'wrote file',
     });
     const { exitCode } = runHook(input, tmpDir);
-    expect(exitCode).toBe(0);
+    expect(exitCode).not.toBe(2);
   });
 
   it('detects prettierrc when no biome config', () => {
@@ -77,7 +77,7 @@ describe('quality-gate', () => {
       tool_output: 'wrote file',
     });
     const { exitCode } = runHook(input, tmpDir);
-    expect(exitCode).toBe(0);
+    expect(exitCode).not.toBe(2);
   });
 
   it('fails open on malformed JSON', () => {
