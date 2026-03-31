@@ -19,6 +19,23 @@ import { goRules } from './rules/stack/go';
 import type { SecurityConfig, SecurityFinding, SecurityRule, ScanResult } from './types';
 import { DEFAULT_SECURITY_CONFIG } from './types';
 
+interface SuppressionMatch {
+  ruleId: string;
+  justification: string | null;
+}
+
+export function parseHarnessIgnore(line: string, ruleId: string): SuppressionMatch | null {
+  if (!line.includes('harness-ignore')) return null;
+
+  // Match: // harness-ignore SEC-XXX-NNN: justification text
+  // Also: # harness-ignore SEC-XXX-NNN: justification text (for non-JS files)
+  const match = line.match(/(?:\/\/|#)\s*harness-ignore\s+(SEC-[A-Z]+-\d+)(?::\s*(.+))?/);
+  if (match?.[1] !== ruleId) return null;
+
+  const text = match[2]?.trim();
+  return { ruleId, justification: text || null };
+}
+
 export class SecurityScanner {
   private registry: RuleRegistry;
   private config: SecurityConfig;
