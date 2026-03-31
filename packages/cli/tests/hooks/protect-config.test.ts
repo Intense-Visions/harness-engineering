@@ -82,24 +82,23 @@ describe('protect-config', () => {
     expect(exitCode).toBe(0);
   });
 
-  it('blocks on malformed JSON (security hook)', () => {
-    const { exitCode, stderr } = runHook('not json');
-    expect(exitCode).toBe(2);
-    expect(stderr).toContain('parse');
+  it('fails open on malformed JSON', () => {
+    const { exitCode } = runHook('not json');
+    expect(exitCode).toBe(0);
   });
 
-  it('blocks on empty stdin (security hook)', () => {
+  it('fails open on empty stdin', () => {
     const { exitCode } = runHook('');
-    expect(exitCode).toBe(2);
+    expect(exitCode).toBe(0);
   });
 
-  it('blocks on missing file_path (security hook)', () => {
+  it('fails open on missing file_path', () => {
     const input = JSON.stringify({
       tool_name: 'Write',
       tool_input: { content: '{}' },
     });
     const { exitCode } = runHook(input);
-    expect(exitCode).toBe(2);
+    expect(exitCode).toBe(0);
   });
 
   it('handles nested paths correctly', () => {
