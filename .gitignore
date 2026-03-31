@@ -45,6 +45,7 @@ temp/
 # Harness runtime artifacts
 .harness/graph/
 .harness/debug/
+.harness/sessions/
 
 .vitepress
 *.tsbuildinfo
