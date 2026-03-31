@@ -63,6 +63,26 @@ Type guard to check if Result is Ok.
 
 Type guard to check if Result is Err.
 
+### `UsageRecord`
+
+Extended token usage entry for cost tracking. Composes `TokenUsage` with session metadata, cache token counts, model identifier, and cost in integer microdollars.
+
+```typescript
+import type { UsageRecord } from '@harness-engineering/types';
+```
+
+### `ModelPricing`
+
+Per-model pricing rates in USD per 1 million tokens. Includes input, output, and optional cache read/write rates.
+
+```typescript
+import type { ModelPricing } from '@harness-engineering/types';
+```
+
+### `DailyUsage` / `SessionUsage`
+
+Aggregated usage views for daily trends and per-session breakdowns. Used by `harness usage` CLI commands.
+
 ## License
 
 MIT

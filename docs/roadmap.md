@@ -527,7 +527,7 @@ last_manual_edit: 2026-03-30
 
 ### Usage & Cost Tracking
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/usage-cost-tracking/proposal.md
 - **Summary:** Token spend visibility via `harness usage` CLI commands (daily, sessions, session, latest). LiteLLM pricing with static fallback, cost-at-read-time calculation, opt-in Claude Code session parsing. [ACE-B1]
 - **Blockers:** none
@@ -855,11 +855,11 @@ last_manual_edit: 2026-03-30
 - **Blockers:** none
 - **Plan:** docs/plans/2026-03-30-context-efficiency-foundation-plan.md
 
-### Usage & Cost Tracking
+### Usage & Cost Tracking: Orchestrator Aggregation
 
 - **Status:** planned
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
-- **Summary:** Extend TokenUsage type with cacheCreationTokens, cacheReadTokens, model, costUSD. Read Claude Code JSONL sessions from ~/.claude/projects/\*_/_.jsonl. LiteLLM pricing database with 24h cache and static fallback. CLI commands: harness usage daily, harness usage session, harness usage current (live burn rate). Focus on orchestrator/team aggregation. Inspired by ccflare and ccusage. [ACE-B1]
+- **Summary:** Orchestrator and team-level cost aggregation, cross-project spend comparison, and dashboard export. Builds on the core Usage & Cost Tracking feature (Current Work section). [ACE-B1 phase 2]
 - **Blockers:** none
 - **Plan:** none
 
