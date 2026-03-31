@@ -41,10 +41,12 @@ async function fetchFromNetwork(): Promise<PricingCacheFile | null> {
   try {
     const response = await fetch(LITELLM_PRICING_URL);
     if (!response.ok) return null;
-    const data = (await response.json()) as import('./types').LiteLLMPricingData;
+    const data: unknown = await response.json();
+    // Runtime shape guard: reject non-object responses (HTML error pages, arrays, etc.)
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) return null;
     return {
       fetchedAt: new Date().toISOString(),
-      data,
+      data: data as import('./types').LiteLLMPricingData,
     };
   } catch {
     return null;
