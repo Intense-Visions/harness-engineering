@@ -51,6 +51,7 @@ import { createUninstallConstraintsCommand } from './commands/uninstall-constrai
 import { createUninstallCommand } from './commands/uninstall';
 import { createOrchestratorCommand } from './commands/orchestrator';
 import { createLearningsCommand } from './commands/learnings';
+import { createIntegrationsCommand } from './commands/integrations/index';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -111,6 +112,7 @@ export function createProgram(): Command {
   program.addCommand(createUninstallConstraintsCommand());
   program.addCommand(createUninstallCommand());
   program.addCommand(createOrchestratorCommand());
+  program.addCommand(createIntegrationsCommand());
 
   return program;
 }
