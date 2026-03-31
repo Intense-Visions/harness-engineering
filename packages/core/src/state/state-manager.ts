@@ -33,6 +33,8 @@ export {
 export { archiveSession } from './session-archive';
 export { writeScratchpad, readScratchpad, clearScratchpad } from './scratchpad';
 export { tokenize, scoreLearningRelevance, filterByRelevance } from './learnings-relevance';
+export { commitAtCheckpoint } from './checkpoint-commit';
+export type { CheckpointCommitOptions, CommitResult } from './checkpoint-commit';
 export { emitEvent, loadEvents, formatEventTimeline, SkillEventSchema } from './events';
 export type {
   SkillEvent,
