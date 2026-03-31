@@ -71,7 +71,7 @@ export function readCostRecords(projectRoot: string): UsageRecord[] {
   const lines = raw.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const line = lines[i]?.trim();
     if (!line) continue;
 
     const record = parseLine(line, i + 1);
