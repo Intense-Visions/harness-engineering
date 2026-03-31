@@ -1,14 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import type { IntegrationsConfig } from '../config/schema';
 
-interface McpConfig {
+export interface McpConfig {
   mcpServers?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
   [key: string]: unknown;
-}
-
-interface IntegrationsSection {
-  enabled: string[];
-  dismissed: string[];
 }
 
 function readJsonSafe<T>(filePath: string): T | null {
@@ -71,10 +67,10 @@ export function removeMcpEntry(filePath: string, name: string): void {
  * Read the integrations section from harness.config.json.
  * Returns defaults if the file or section is missing.
  */
-export function readIntegrationsConfig(configPath: string): IntegrationsSection {
+export function readIntegrationsConfig(configPath: string): IntegrationsConfig {
   const raw = readJsonSafe<Record<string, unknown>>(configPath);
   if (!raw || !raw.integrations) return { enabled: [], dismissed: [] };
-  const integ = raw.integrations as Partial<IntegrationsSection>;
+  const integ = raw.integrations as Partial<IntegrationsConfig>;
   return {
     enabled: Array.isArray(integ.enabled) ? integ.enabled : [],
     dismissed: Array.isArray(integ.dismissed) ? integ.dismissed : [],
@@ -87,7 +83,7 @@ export function readIntegrationsConfig(configPath: string): IntegrationsSection 
  */
 export function writeIntegrationsConfig(
   configPath: string,
-  integrations: IntegrationsSection
+  integrations: IntegrationsConfig
 ): void {
   const raw = readJsonSafe<Record<string, unknown>>(configPath) ?? {};
   raw.integrations = integrations;

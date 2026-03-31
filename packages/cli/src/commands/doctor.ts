@@ -79,27 +79,12 @@ function checkSlashCommands(): CheckResult[] {
   });
 }
 
-function readJsonSafe<T>(filePath: string): T | null {
-  try {
-    if (!fs.existsSync(filePath)) return null;
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T;
-  } catch {
-    return null;
-  }
-}
-
-interface McpConfig {
-  mcpServers?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
 function checkMcpConfig(cwd: string): CheckResult[] {
   const results: CheckResult[] = [];
 
   // Claude Code: check cwd/.mcp.json
-  const claudeConfigPath = path.join(cwd, '.mcp.json');
-  const claudeConfig = readJsonSafe<McpConfig>(claudeConfigPath);
-  if (claudeConfig?.mcpServers?.['harness']) {
+  const claudeConfig = readMcpConfig(path.join(cwd, '.mcp.json'));
+  if (claudeConfig.mcpServers?.['harness']) {
     results.push({
       name: 'mcp-claude',
       status: 'pass',
@@ -115,9 +100,8 @@ function checkMcpConfig(cwd: string): CheckResult[] {
   }
 
   // Gemini CLI: check cwd/.gemini/settings.json (where setup-mcp writes it)
-  const geminiConfigPath = path.join(cwd, '.gemini', 'settings.json');
-  const geminiConfig = readJsonSafe<McpConfig>(geminiConfigPath);
-  if (geminiConfig?.mcpServers?.['harness']) {
+  const geminiConfig = readMcpConfig(path.join(cwd, '.gemini', 'settings.json'));
+  if (geminiConfig.mcpServers?.['harness']) {
     results.push({
       name: 'mcp-gemini',
       status: 'pass',
@@ -203,7 +187,7 @@ function checkIntegrations(cwd: string): CheckResult[] {
         name: `integration-${def.name}-env`,
         status: 'warn',
         message: `${def.displayName} enabled but ${def.envVar} not set.`,
-        fix: def.installHint,
+        ...(def.installHint !== undefined && { fix: def.installHint }),
       });
     } else if (!enabled && !dismissed) {
       results.push({
