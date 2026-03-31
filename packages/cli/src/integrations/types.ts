@@ -26,7 +26,11 @@ export interface IntegrationDef {
     command: string;
     /** Command arguments, e.g. ['-y', '@upstash/context7-mcp'] */
     args: string[];
-    /** Environment variables to pass to the MCP server process */
+    /**
+     * Environment variables to pass to the MCP server process.
+     * Values use shell-style interpolation templates (e.g. '${PERPLEXITY_API_KEY}').
+     * The launcher MUST resolve these against process.env before spawning.
+     */
     env?: Record<string, string>;
   };
   /** Hint shown when the required env var is missing */
@@ -38,10 +42,6 @@ export interface IntegrationDef {
 /**
  * Configuration for the integrations section of harness.config.json.
  *
- * - `enabled`: Tier 1 integrations the user has explicitly added
- * - `dismissed`: Integrations the user does not want doctor to suggest
+ * Canonical type: import { IntegrationsConfig } from '../config/schema'.
+ * Do not duplicate here — the Zod-inferred type is the single source of truth.
  */
-export interface IntegrationsConfig {
-  enabled: string[];
-  dismissed: string[];
-}

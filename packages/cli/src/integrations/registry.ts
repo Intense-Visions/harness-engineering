@@ -6,8 +6,7 @@ import type { IntegrationDef } from './types';
  * To add a new integration, append an object to this array.
  * No plugin system — this is intentionally a flat, inspectable list.
  *
- * NOTE: Exact npm package names should be verified before release.
- * Some packages below use best-known names with TODO markers where uncertain.
+ * Package names verified against npm registry as of 2026-03-30.
  */
 export const INTEGRATION_REGISTRY: readonly IntegrationDef[] = [
   // --- Tier 0: zero-config (free, no API key) ---
@@ -40,7 +39,7 @@ export const INTEGRATION_REGISTRY: readonly IntegrationDef[] = [
     tier: 0,
     mcpConfig: {
       command: 'npx',
-      args: ['-y', '@playwright/mcp@latest'],
+      args: ['-y', '@playwright/mcp'],
     },
     platforms: ['claude-code', 'gemini-cli'],
   },
@@ -54,10 +53,10 @@ export const INTEGRATION_REGISTRY: readonly IntegrationDef[] = [
     envVar: 'PERPLEXITY_API_KEY',
     mcpConfig: {
       command: 'npx',
-      args: ['-y', '@anthropic/perplexity-mcp'], // TODO: verify exact package name
+      args: ['-y', 'perplexity-mcp'],
       env: { PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}' },
     },
-    installHint: 'Get an API key at https://perplexity.ai',
+    installHint: 'Get an API key at https://perplexity.ai/settings/api',
     platforms: ['claude-code', 'gemini-cli'],
   },
   {
@@ -65,13 +64,13 @@ export const INTEGRATION_REGISTRY: readonly IntegrationDef[] = [
     displayName: 'Augment Code',
     description: 'Semantic code search across codebase',
     tier: 1,
-    envVar: 'AUGMENT_API_KEY',
+    envVar: 'AUGMENT_SESSION_AUTH',
     mcpConfig: {
-      command: 'npx',
-      args: ['-y', '@augmentcode/mcp-server'], // TODO: verify exact package name
-      env: { AUGMENT_API_KEY: '${AUGMENT_API_KEY}' },
+      command: 'auggie',
+      args: ['--mcp', '--mcp-auto-workspace'],
+      env: { AUGMENT_SESSION_AUTH: '${AUGMENT_SESSION_AUTH}' },
     },
-    installHint: 'Get an API key at https://augmentcode.com',
+    installHint: 'Install auggie CLI: npm i -g @augmentcode/auggie@latest && auggie login',
     platforms: ['claude-code', 'gemini-cli'],
   },
 ] as const satisfies readonly IntegrationDef[];

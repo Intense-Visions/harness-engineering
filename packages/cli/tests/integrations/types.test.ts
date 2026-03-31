@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { IntegrationDef, IntegrationsConfig } from '../../src/integrations/types';
+import type { IntegrationDef } from '../../src/integrations/types';
+import type { IntegrationsConfig } from '../../src/config/schema';
 
 describe('IntegrationDef type', () => {
   it('accepts a valid Tier 0 integration definition', () => {
@@ -28,10 +29,10 @@ describe('IntegrationDef type', () => {
       envVar: 'PERPLEXITY_API_KEY',
       mcpConfig: {
         command: 'npx',
-        args: ['-y', '@anthropic/perplexity-mcp'],
+        args: ['-y', 'perplexity-mcp'],
         env: { PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}' },
       },
-      installHint: 'Get an API key at https://perplexity.ai',
+      installHint: 'Get an API key at https://perplexity.ai/settings/api',
       platforms: ['claude-code', 'gemini-cli'],
     };
     expect(def.envVar).toBe('PERPLEXITY_API_KEY');
