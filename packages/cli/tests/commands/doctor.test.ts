@@ -21,13 +21,33 @@ const mockExistsSync = vi.mocked(fs.existsSync);
 const mockReaddirSync = vi.mocked(fs.readdirSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
-const mcpJson = JSON.stringify({ mcpServers: { harness: { command: 'harness-mcp' } } });
+// MCP config with harness + all Tier 0 integrations configured
+const mcpJsonFull = JSON.stringify({
+  mcpServers: {
+    harness: { command: 'harness-mcp' },
+    context7: { command: 'npx', args: ['-y', '@upstash/context7-mcp'] },
+    'sequential-thinking': {
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
+    },
+    playwright: { command: 'npx', args: ['-y', '@playwright/mcp'] },
+  },
+});
+// Harness config with Tier 1 integrations dismissed (so no info suggestions)
+const harnessConfigDismissed = JSON.stringify({
+  integrations: { enabled: [], dismissed: ['perplexity', 'augment-code'] },
+});
 const claudeDir = path.join(os.homedir(), '.claude', 'commands', 'harness');
 const geminiDir = path.join(os.homedir(), '.gemini', 'commands', 'harness');
-const geminiSettings = path.join(os.homedir(), '.gemini', 'settings.json');
+// Note: checkMcpConfig checks cwd/.gemini/settings.json (project-local), not $HOME/.gemini/settings.json
+const geminiSettingsForCwd = (cwd: string) => path.join(cwd, '.gemini', 'settings.json');
 
 function buildExistsMap(cwd: string): Record<string, boolean> {
-  return { [path.join(cwd, '.mcp.json')]: true, [geminiSettings]: true };
+  return {
+    [path.join(cwd, '.mcp.json')]: true,
+    [geminiSettingsForCwd(cwd)]: true,
+    [path.join(cwd, 'harness.config.json')]: true,
+  };
 }
 
 const readdirMap: Record<string, string[]> = {
@@ -43,8 +63,9 @@ function mockAllHealthy(cwd: string) {
   );
 
   const readMap: Record<string, string> = {
-    [path.join(cwd, '.mcp.json')]: mcpJson,
-    [geminiSettings]: mcpJson,
+    [path.join(cwd, '.mcp.json')]: mcpJsonFull,
+    [geminiSettingsForCwd(cwd)]: mcpJsonFull,
+    [path.join(cwd, 'harness.config.json')]: harnessConfigDismissed,
   };
   mockReadFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}');
 }
@@ -151,8 +172,9 @@ describe('runDoctor', () => {
 
     const result = runDoctor('/tmp/project');
 
-    // node + 2 slash command platforms + 2 MCP platforms = 5 checks
-    expect(result.checks).toHaveLength(5);
+    // node + 2 slash command platforms + 2 MCP platforms + 3 Tier 0 integrations = 8 checks
+    // (Tier 1 dismissed, so no info checks)
+    expect(result.checks).toHaveLength(8);
   });
 
   it('is read-only — does not call writeFileSync or mkdirSync', () => {
@@ -176,5 +198,173 @@ describe('runDoctor', () => {
     expect(result.allPassed).toBe(false);
     const failCount = result.checks.filter((c) => c.status === 'fail').length;
     expect(failCount).toBeGreaterThan(0);
+  });
+
+  describe('integration checks', () => {
+    it('fails when a Tier 0 integration is missing from .mcp.json', () => {
+      const cwd = '/tmp/project';
+      // MCP config with harness but WITHOUT context7
+      const mcpNoContext7 = JSON.stringify({
+        mcpServers: {
+          harness: { command: 'harness-mcp' },
+          'sequential-thinking': {
+            command: 'npx',
+            args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
+          },
+          playwright: { command: 'npx', args: ['-y', '@playwright/mcp'] },
+        },
+      });
+      const existsMap: Record<string, boolean> = {
+        [path.join(cwd, '.mcp.json')]: true,
+        [geminiSettingsForCwd(cwd)]: true,
+        [path.join(cwd, 'harness.config.json')]: true,
+      };
+      mockExistsSync.mockImplementation((p: fs.PathLike) => existsMap[String(p)] ?? false);
+      mockReaddirSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => (readdirMap[String(p)] ?? []) as unknown as fs.Dirent[]
+      );
+      const readMap: Record<string, string> = {
+        [path.join(cwd, '.mcp.json')]: mcpNoContext7,
+        [geminiSettingsForCwd(cwd)]: mcpNoContext7,
+        [path.join(cwd, 'harness.config.json')]: harnessConfigDismissed,
+      };
+      mockReadFileSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}'
+      );
+
+      const result = runDoctor(cwd);
+      const context7Check = result.checks.find((c) => c.name === 'integration-context7');
+
+      expect(context7Check).toBeDefined();
+      expect(context7Check!.status).toBe('fail');
+      expect(context7Check!.message).toContain('Context7');
+      expect(context7Check!.message).toContain('harness setup');
+      expect(result.allPassed).toBe(false);
+    });
+
+    it('passes when all Tier 0 integrations are in .mcp.json', () => {
+      mockAllHealthy('/tmp/project');
+
+      const result = runDoctor('/tmp/project');
+      const tier0Checks = result.checks.filter(
+        (c) => c.name.startsWith('integration-') && !c.name.endsWith('-env')
+      );
+
+      const tier0Pass = tier0Checks.filter((c) => c.status === 'pass');
+      expect(tier0Pass).toHaveLength(3); // context7, sequential-thinking, playwright
+    });
+
+    it('shows info suggestions for non-enabled, non-dismissed Tier 1 integrations', () => {
+      const cwd = '/tmp/project';
+      // No dismissed integrations — Tier 1 should show as info
+      const harnessConfigEmpty = JSON.stringify({
+        integrations: { enabled: [], dismissed: [] },
+      });
+      const existsMap: Record<string, boolean> = {
+        [path.join(cwd, '.mcp.json')]: true,
+        [geminiSettingsForCwd(cwd)]: true,
+        [path.join(cwd, 'harness.config.json')]: true,
+      };
+      mockExistsSync.mockImplementation((p: fs.PathLike) => existsMap[String(p)] ?? false);
+      mockReaddirSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => (readdirMap[String(p)] ?? []) as unknown as fs.Dirent[]
+      );
+      const readMap: Record<string, string> = {
+        [path.join(cwd, '.mcp.json')]: mcpJsonFull,
+        [geminiSettingsForCwd(cwd)]: mcpJsonFull,
+        [path.join(cwd, 'harness.config.json')]: harnessConfigEmpty,
+      };
+      mockReadFileSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}'
+      );
+
+      const result = runDoctor(cwd);
+      const perplexityCheck = result.checks.find((c) => c.name === 'integration-perplexity');
+
+      expect(perplexityCheck).toBeDefined();
+      expect(perplexityCheck!.status).toBe('info');
+      expect(perplexityCheck!.message).toContain('Perplexity');
+      expect(perplexityCheck!.message).toContain('harness integrations add perplexity');
+    });
+
+    it('info status does not cause allPassed to be false', () => {
+      const cwd = '/tmp/project';
+      const harnessConfigEmpty = JSON.stringify({
+        integrations: { enabled: [], dismissed: [] },
+      });
+      const existsMap: Record<string, boolean> = {
+        [path.join(cwd, '.mcp.json')]: true,
+        [geminiSettingsForCwd(cwd)]: true,
+        [path.join(cwd, 'harness.config.json')]: true,
+      };
+      mockExistsSync.mockImplementation((p: fs.PathLike) => existsMap[String(p)] ?? false);
+      mockReaddirSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => (readdirMap[String(p)] ?? []) as unknown as fs.Dirent[]
+      );
+      const readMap: Record<string, string> = {
+        [path.join(cwd, '.mcp.json')]: mcpJsonFull,
+        [geminiSettingsForCwd(cwd)]: mcpJsonFull,
+        [path.join(cwd, 'harness.config.json')]: harnessConfigEmpty,
+      };
+      mockReadFileSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}'
+      );
+
+      const result = runDoctor(cwd);
+      const infoChecks = result.checks.filter((c) => c.status === 'info');
+
+      expect(infoChecks.length).toBeGreaterThan(0);
+      expect(result.allPassed).toBe(true);
+    });
+
+    it('does not suggest dismissed Tier 1 integrations', () => {
+      mockAllHealthy('/tmp/project');
+
+      const result = runDoctor('/tmp/project');
+      const perplexityCheck = result.checks.find((c) => c.name === 'integration-perplexity');
+
+      // perplexity is dismissed in mockAllHealthy, so no check should exist
+      expect(perplexityCheck).toBeUndefined();
+    });
+
+    it('warns when enabled Tier 1 integration has missing env var', () => {
+      const cwd = '/tmp/project';
+      const harnessConfigEnabled = JSON.stringify({
+        integrations: { enabled: ['perplexity'], dismissed: [] },
+      });
+      const existsMap: Record<string, boolean> = {
+        [path.join(cwd, '.mcp.json')]: true,
+        [geminiSettingsForCwd(cwd)]: true,
+        [path.join(cwd, 'harness.config.json')]: true,
+      };
+      mockExistsSync.mockImplementation((p: fs.PathLike) => existsMap[String(p)] ?? false);
+      mockReaddirSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => (readdirMap[String(p)] ?? []) as unknown as fs.Dirent[]
+      );
+      const readMap: Record<string, string> = {
+        [path.join(cwd, '.mcp.json')]: mcpJsonFull,
+        [geminiSettingsForCwd(cwd)]: mcpJsonFull,
+        [path.join(cwd, 'harness.config.json')]: harnessConfigEnabled,
+      };
+      mockReadFileSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}'
+      );
+      // Ensure PERPLEXITY_API_KEY is not set
+      const origEnv = process.env.PERPLEXITY_API_KEY;
+      delete process.env.PERPLEXITY_API_KEY;
+
+      const result = runDoctor(cwd);
+      const envCheck = result.checks.find((c) => c.name === 'integration-perplexity-env');
+
+      expect(envCheck).toBeDefined();
+      expect(envCheck!.status).toBe('warn');
+      expect(envCheck!.message).toContain('PERPLEXITY_API_KEY');
+      expect(envCheck!.message).toContain('Perplexity');
+      // warn should not cause allPassed to be false
+      expect(result.allPassed).toBe(true);
+
+      // Restore
+      if (origEnv !== undefined) process.env.PERPLEXITY_API_KEY = origEnv;
+    });
   });
 });
