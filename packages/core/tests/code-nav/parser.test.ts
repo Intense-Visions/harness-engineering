@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { getParser, parseFile, resetParserCache } from '../../src/code-nav/parser';
 import * as path from 'path';
 
@@ -67,6 +67,21 @@ describe('code-nav parser', () => {
     it('should return error for non-existent file', async () => {
       const result = await parseFile('/tmp/nonexistent.ts');
       expect(result.ok).toBe(false);
+    });
+
+    it('should return PARSE_FAILED error when parser.parse throws', async () => {
+      // Get a real parser, then make its parse method throw
+      const parser = await getParser('typescript');
+      const parseSpy = vi.spyOn(parser, 'parse').mockImplementationOnce(() => {
+        throw new Error('wasm parse exploded');
+      });
+      const result = await parseFile(path.join(FIXTURES, 'sample.ts'));
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('PARSE_FAILED');
+        expect(result.error.message).toContain('wasm parse exploded');
+      }
+      parseSpy.mockRestore();
     });
   });
 });

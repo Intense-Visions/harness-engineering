@@ -169,6 +169,25 @@ describe('listHooks', () => {
     expect(result.hooks[0].event).toBe('PreToolUse');
     expect(result.hooks[0].matcher).toBe('Bash');
   });
+
+  it('returns warning and defaults to standard on malformed profile.json', () => {
+    const hooksDir = path.join(tmpDir, '.harness', 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(hooksDir, 'profile.json'), '{ broken json');
+    const result = listHooks(tmpDir);
+    expect(result.installed).toBe(true);
+    expect(result.profile).toBe('standard');
+    expect(result.warning).toContain('Malformed profile.json');
+  });
+
+  it('defaults to standard when profile value is invalid', () => {
+    const hooksDir = path.join(tmpDir, '.harness', 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(hooksDir, 'profile.json'), JSON.stringify({ profile: 'unknown' }));
+    const result = listHooks(tmpDir);
+    expect(result.installed).toBe(true);
+    expect(result.profile).toBe('standard');
+  });
 });
 
 describe('removeHooks', () => {

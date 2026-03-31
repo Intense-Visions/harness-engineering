@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getOutline } from '../../src/code-nav/outline';
+import { getOutline, formatOutline } from '../../src/code-nav/outline';
+import type { OutlineResult } from '../../src/code-nav/types';
 import * as path from 'path';
 
 const FIXTURES = path.resolve(__dirname, '../fixtures/code-nav');
@@ -57,5 +58,66 @@ describe('code_outline', () => {
   it('should return parse-failed for unsupported files', async () => {
     const result = await getOutline('/tmp/test.rs');
     expect(result.error).toBe('[parse-failed]');
+  });
+
+  it('should return parse-failed for non-existent file', async () => {
+    const result = await getOutline('/tmp/nonexistent-file-12345.ts');
+    expect(result.error).toBe('[parse-failed]');
+    expect(result.language).toBe('typescript');
+  });
+
+  describe('formatOutline', () => {
+    it('should format error result as file + error marker', () => {
+      const errorResult: OutlineResult = {
+        file: '/tmp/test.rs',
+        language: 'unknown',
+        totalLines: 0,
+        symbols: [],
+        error: '[parse-failed]',
+      };
+      expect(formatOutline(errorResult)).toBe('/tmp/test.rs [parse-failed]');
+    });
+
+    it('should format outline with symbols and line numbers', async () => {
+      const result = await getOutline(path.join(FIXTURES, 'sample.ts'));
+      const formatted = formatOutline(result);
+      expect(formatted).toContain('sample.ts');
+      expect(formatted).toContain('lines)');
+      // Should contain tree-style prefixes
+      expect(formatted).toMatch(/[├└]──/);
+      // Should contain line numbers
+      expect(formatted).toMatch(/:\d+/);
+    });
+
+    it('should format outline with class methods as nested children', async () => {
+      const result = await getOutline(path.join(FIXTURES, 'sample.ts'));
+      const formatted = formatOutline(result);
+      // Methods should appear indented under the class
+      const lines = formatted.split('\n');
+      // Find a line with a method (indented with │ or space prefix)
+      const methodLines = lines.filter((l) => l.match(/^[│ ]\s+[├└]──/));
+      expect(methodLines.length).toBeGreaterThan(0);
+    });
+
+    it('should format outline with no symbols', () => {
+      const result: OutlineResult = {
+        file: '/tmp/empty.ts',
+        language: 'typescript',
+        totalLines: 1,
+        symbols: [],
+      };
+      const formatted = formatOutline(result);
+      expect(formatted).toBe('/tmp/empty.ts (1 lines)');
+    });
+
+    it('should use └── for last symbol', async () => {
+      const result = await getOutline(path.join(FIXTURES, 'sample.ts'));
+      const formatted = formatOutline(result);
+      const lines = formatted.split('\n');
+      // Find root-level symbol lines (start with ├── or └──)
+      const rootSymbols = lines.filter((l) => l.match(/^[├└]──/));
+      // Last root symbol should use └──
+      expect(rootSymbols[rootSymbols.length - 1]).toMatch(/^└──/);
+    });
   });
 });

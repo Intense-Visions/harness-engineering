@@ -7,6 +7,7 @@ import {
   emitEvent,
   loadEvents,
   formatEventTimeline,
+  clearEventHashCache,
 } from '../../src/state/events';
 import type { SkillEvent } from '../../src/state/events';
 
@@ -328,5 +329,16 @@ describe('formatEventTimeline', () => {
     const timeline = formatEventTimeline(events);
     const lines = timeline.split('\n');
     expect(lines.length).toBe(20);
+  });
+});
+
+describe('clearEventHashCache', () => {
+  it('should clear the internal cache without throwing', () => {
+    expect(() => clearEventHashCache()).not.toThrow();
+  });
+
+  it('should be callable multiple times', () => {
+    clearEventHashCache();
+    clearEventHashCache();
   });
 });
