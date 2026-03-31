@@ -22,6 +22,12 @@ cli:
     - name: path
       description: Project root path
       required: false
+    - name: fast
+      description: Skip skeleton pass — produce full plan directly
+      required: false
+    - name: thorough
+      description: Always produce skeleton for approval before full expansion
+      required: false
 mcp:
   tool: run_skill
   input:

@@ -22,6 +22,21 @@ A plan with vague tasks like "add validation" or "implement the service" is not 
 
 ---
 
+### Rigor Levels
+
+The `rigorLevel` is passed to the planner by autopilot (or set via `--fast`/`--thorough` flags in standalone invocation). Default is `standard`.
+
+| Phase     | `fast`                                                           | `standard` (default)                                      | `thorough`                                                                      |
+| --------- | ---------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| SCOPE     | No change — always derive observable truths.                     | No change.                                                | No change.                                                                      |
+| DECOMPOSE | Skip skeleton pass. Produce full tasks directly after file map.  | Skeleton if estimated task count >= 8. Full tasks if < 8. | Always produce skeleton. Require human approval before expanding to full tasks. |
+| SEQUENCE  | No change — always order by dependency.                          | No change.                                                | No change.                                                                      |
+| VALIDATE  | No change — always run harness validate and verify completeness. | No change.                                                | No change.                                                                      |
+
+The skeleton pass is the primary rigor lever for planning. Fast mode trusts the direction and goes straight to full detail. Thorough mode always validates direction before investing tokens in full task expansion.
+
+---
+
 ### Phase 1: SCOPE — Derive Must-Haves from Goals
 
 Work backward from the goal. Do not start with "what should we build?" Start with "what must be true when we are done?"
@@ -129,21 +144,63 @@ When presenting the task breakdown, use progress markers:
    MODIFY src/api/routes/users.ts (add notification trigger)
    ```
 
-2. **Decompose into atomic tasks.** Each task must:
+2. **Skeleton pass (rigor-gated).** Before writing full task details, produce a lightweight skeleton that validates direction. The skeleton is ~200 tokens and catches structural errors before investing in full expansion.
+
+   **Gating logic:**
+   - `rigorLevel == "fast"`: Skip this step entirely. Proceed directly to full task decomposition.
+   - `rigorLevel == "standard"`: Estimate the task count from the file map. If >= 8 tasks, produce the skeleton and present for approval. If < 8 tasks, skip the skeleton and proceed to full decomposition.
+   - `rigorLevel == "thorough"`: Always produce the skeleton and require human approval before expanding.
+
+   **Skeleton format:**
+
+   ```
+   ## Skeleton
+
+   1. Foundation types and interfaces (~3 tasks, ~10 min)
+   2. Core scoring module with TDD (~2 tasks, ~8 min)
+   3. CLI integration and flag parsing (~4 tasks, ~15 min)
+   4. Integration tests and validation (~3 tasks, ~10 min)
+
+   **Estimated total:** 12 tasks, ~43 minutes
+   ```
+
+   Each line is a logical group of tasks with an estimated count and time. The skeleton does NOT contain file paths, code, or detailed instructions — those come in the expansion step.
+
+   **Approval gate:**
+
+   When the skeleton is produced, present it to the human:
+
+   ```json
+   emit_interaction({
+     path: "<project-root>",
+     type: "confirmation",
+     confirmation: {
+       text: "Approve skeleton direction?",
+       context: "<estimated task count> tasks across <group count> groups. <one-sentence summary of approach>",
+       impact: "Approving proceeds to full task expansion. Rejecting allows direction change before detail investment.",
+       risk: "low"
+     }
+   })
+   ```
+
+   - **If approved:** Proceed to full task decomposition (step 3).
+   - **If rejected:** Ask what should change. Revise the skeleton. Re-present for approval. Do not expand until approved.
+
+3. **Decompose into atomic tasks.** Each task must:
    - Be completable in 2-5 minutes
    - Fit in a single context window
    - Have a clear, testable outcome
    - Follow TDD: write test, fail, implement, pass, commit
    - Produce one atomic commit
 
-3. **Write complete instructions for each task.** Not summaries — complete executable instructions:
+4. **Write complete instructions for each task.** Not summaries — complete executable instructions:
    - **Exact file paths** to create or modify
    - **Exact code** to write (not "add validation logic" — write the actual validation code)
    - **Exact test commands** to run (e.g., `npx vitest run src/services/notification-service.test.ts`)
    - **Exact commit message** to use
    - **`harness validate`** as the final step
 
-4. **Include checkpoints.** Mark tasks that require human verification, decisions, or actions:
+5. **Include checkpoints.** Mark tasks that require human verification, decisions, or actions:
    - `[checkpoint:human-verify]` — Pause, show result, wait for confirmation
    - `[checkpoint:decision]` — Pause, present options, wait for choice
    - `[checkpoint:human-action]` — Pause, instruct human on what they need to do
@@ -281,6 +338,15 @@ One sentence.
 - CREATE path/to/file.ts
 - MODIFY path/to/other-file.ts
 
+## Skeleton (if produced)
+
+1. <group name> (~N tasks, ~N min)
+2. <group name> (~N tasks, ~N min)
+
+**Estimated total:** N tasks, ~N minutes
+
+_Skeleton approved: yes/no. If no, note the revision._
+
 ## Tasks
 
 ### Task 1: <descriptive name>
@@ -359,6 +425,8 @@ When this skill makes claims about existing code structure, file locations, or i
 - **Handoff to harness-execution** — Once the plan is approved, invoke harness-execution to begin task-by-task implementation.
 - **Task commands** — Every task includes exact harness CLI commands to run (e.g., `harness validate`, `harness check-deps`).
 - **`emit_interaction`** -- Call at the end of Phase 4 to suggest transitioning to harness-execution. Uses confirmed transition (waits for user approval).
+- **Rigor levels** — `--fast` / `--thorough` flags control the skeleton pass in DECOMPOSE. Fast skips skeleton entirely. Standard produces skeleton for plans with >= 8 tasks. Thorough always produces skeleton and requires approval. See the Rigor Levels table for details.
+- **Two-pass planning** — Skeleton pass produces a ~200-token outline before full task expansion. Catches directional errors early. Gated by rigor level and estimated task count.
 
 ## Change Specifications
 
@@ -394,6 +462,11 @@ When `docs/changes/` exists in the project, produce `docs/changes/<feature>/delt
 - `harness validate` passes before the plan is written
 - `harness validate` is included as a step in every task
 - The human has reviewed and approved the plan
+- When `rigorLevel` is `fast`, the skeleton pass is skipped and full tasks are produced directly
+- When `rigorLevel` is `thorough`, a skeleton is always produced and requires human approval before expansion
+- When `rigorLevel` is `standard` and task count >= 8, a skeleton is produced for approval
+- When `rigorLevel` is `standard` and task count < 8, the skeleton is skipped
+- The skeleton format is lightweight (~200 tokens): numbered groups with task count and time estimates
 
 ## Examples
 
@@ -419,6 +492,10 @@ MODIFY src/services/index.ts
 MODIFY src/api/routes/users.ts
 MODIFY src/api/routes/users.test.ts
 ```
+
+**Skeleton (standard mode, 6 tasks — skeleton skipped because < 8 tasks)**
+
+_Skeleton not produced — task count (6) below threshold (8)._
 
 **Task 1: Define notification types**
 
@@ -462,6 +539,25 @@ Files: src/services/notification-service.ts, src/services/notification-service.t
 5. Run: harness validate, harness check-deps
 6. Commit: "feat(notifications): add list and expiry to NotificationService"
 ```
+
+### Example: Planning with Skeleton (thorough mode)
+
+**Goal:** Add rate limiting to all API endpoints.
+
+**Skeleton (thorough mode — always produced):**
+
+```
+## Skeleton
+
+1. Rate limit types and configuration (~2 tasks, ~7 min)
+2. Rate limit middleware with Redis backend (~3 tasks, ~12 min)
+3. Route integration and per-endpoint config (~4 tasks, ~15 min)
+4. Integration tests and load verification (~3 tasks, ~10 min)
+
+**Estimated total:** 12 tasks, ~44 minutes
+```
+
+_Presented for approval. User approved. Expanded to full tasks._
 
 ## Gates
 
