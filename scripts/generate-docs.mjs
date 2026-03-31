@@ -16,9 +16,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
-import { createRequire } from 'node:module';
-const require = createRequire(join(resolve(import.meta.dirname, '..'), 'packages', 'cli', 'package.json'));
-const { parse: parseYaml } = require('yaml');
+import { parse as parseYaml } from 'yaml';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const REFERENCE_DIR = join(ROOT, 'docs', 'reference');
