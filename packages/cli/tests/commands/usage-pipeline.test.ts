@@ -179,3 +179,147 @@ describe('Offline fallback: fetch fails, fallback.json provides pricing', () => 
     expect(stalePrinted).toBe(true);
   });
 });
+
+describe('--json schema shape validation', () => {
+  const tmpDir = path.join(__dirname, '__schema-test-tmp__');
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let logOutput: string[];
+  let originalCwd: string;
+
+  const costsFile = path.join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
+
+  // Two sessions across two days, one with model (priced), one legacy (no model)
+  const schemaFixture =
+    [
+      JSON.stringify({
+        timestamp: '2026-03-30T10:00:00.000Z',
+        session_id: 'schema-sess-alpha',
+        token_usage: { input_tokens: 2000, output_tokens: 1000 },
+        model: 'claude-sonnet-4-20250514',
+        cache_creation_tokens: 100,
+        cache_read_tokens: 50,
+      }),
+      JSON.stringify({
+        timestamp: '2026-03-31T11:00:00.000Z',
+        session_id: 'schema-sess-beta',
+        token_usage: { input_tokens: 500, output_tokens: 250 },
+        // No model — legacy entry
+      }),
+    ].join('\n') + '\n';
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    fs.mkdirSync(path.dirname(costsFile), { recursive: true });
+    fs.writeFileSync(costsFile, schemaFixture);
+    process.chdir(tmpDir);
+    logOutput = [];
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
+      logOutput.push(args.join(' '));
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    consoleLogSpy.mockRestore();
+    vi.restoreAllMocks();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('daily --json: each item has required fields with correct types', async () => {
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'daily', '--json']);
+
+    const output = JSON.parse(logOutput.join(''));
+    expect(Array.isArray(output)).toBe(true);
+    expect(output.length).toBeGreaterThanOrEqual(1);
+
+    for (const item of output) {
+      expect(typeof item.date).toBe('string');
+      expect(item.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(typeof item.sessionCount).toBe('number');
+      expect(typeof item.tokens).toBe('object');
+      expect(typeof item.tokens.inputTokens).toBe('number');
+      expect(typeof item.tokens.outputTokens).toBe('number');
+      expect(typeof item.tokens.totalTokens).toBe('number');
+      // costMicroUSD is number or null
+      expect(item.costMicroUSD === null || typeof item.costMicroUSD === 'number').toBe(true);
+      expect(Array.isArray(item.models)).toBe(true);
+    }
+  });
+
+  it('sessions --json: each item has required fields with correct types', async () => {
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'sessions', '--json']);
+
+    const output = JSON.parse(logOutput.join(''));
+    expect(Array.isArray(output)).toBe(true);
+    expect(output).toHaveLength(2);
+
+    for (const item of output) {
+      expect(typeof item.sessionId).toBe('string');
+      expect(typeof item.firstTimestamp).toBe('string');
+      expect(typeof item.lastTimestamp).toBe('string');
+      expect(typeof item.tokens).toBe('object');
+      expect(typeof item.tokens.inputTokens).toBe('number');
+      expect(typeof item.tokens.outputTokens).toBe('number');
+      expect(typeof item.tokens.totalTokens).toBe('number');
+      expect(item.costMicroUSD === null || typeof item.costMicroUSD === 'number').toBe(true);
+      expect(['harness', 'claude-code', 'merged']).toContain(item.source);
+    }
+  });
+
+  it('sessions --json: legacy entry has null costMicroUSD and source harness', async () => {
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'sessions', '--json']);
+
+    const output = JSON.parse(logOutput.join(''));
+    const beta = output.find((s: { sessionId: string }) => s.sessionId === 'schema-sess-beta');
+    expect(beta).toBeDefined();
+    expect(beta.costMicroUSD).toBeNull();
+    expect(beta.source).toBe('harness');
+    // model field must be absent (not present in JSONL)
+    expect(beta.model).toBeUndefined();
+  });
+
+  it('session <id> --json: priced session has non-null costMicroUSD with cache fields', async () => {
+    const program = createProgram();
+    await program.parseAsync([
+      'node',
+      'harness',
+      'usage',
+      'session',
+      'schema-sess-alpha',
+      '--json',
+    ]);
+
+    const output = JSON.parse(logOutput.join(''));
+    expect(output.sessionId).toBe('schema-sess-alpha');
+    expect(typeof output.tokens).toBe('object');
+    expect(typeof output.tokens.inputTokens).toBe('number');
+    expect(output.costMicroUSD === null || typeof output.costMicroUSD === 'number').toBe(true);
+    expect(output.source).toBe('harness');
+    expect(typeof output.firstTimestamp).toBe('string');
+    expect(typeof output.lastTimestamp).toBe('string');
+    // Cache tokens from JSONL fixture
+    expect(output.cacheCreationTokens).toBe(100);
+    expect(output.cacheReadTokens).toBe(50);
+  });
+
+  it('latest --json: returns single SessionUsage object, not an array', async () => {
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+
+    const output = JSON.parse(logOutput.join(''));
+    // Must be an object, not an array
+    expect(Array.isArray(output)).toBe(false);
+    expect(typeof output).toBe('object');
+    // Most recent session by timestamp is schema-sess-beta (2026-03-31)
+    expect(output.sessionId).toBe('schema-sess-beta');
+    expect(typeof output.firstTimestamp).toBe('string');
+    expect(typeof output.lastTimestamp).toBe('string');
+    expect(typeof output.tokens).toBe('object');
+    expect(output.costMicroUSD === null || typeof output.costMicroUSD === 'number').toBe(true);
+    expect(['harness', 'claude-code', 'merged']).toContain(output.source);
+  });
+});
