@@ -107,3 +107,75 @@ describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
     expect(output.costMicroUSD).toBeNull();
   });
 });
+
+describe('Offline fallback: fetch fails, fallback.json provides pricing', () => {
+  const tmpDir = path.join(__dirname, '__offline-test-tmp__');
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let logOutput: string[];
+  let warnOutput: string[];
+  let originalCwd: string;
+
+  const costsFile = path.join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
+
+  const fixtureEntry = JSON.stringify({
+    timestamp: '2026-03-31T10:00:00.000Z',
+    session_id: 'offline-sess-001',
+    token_usage: { input_tokens: 1000, output_tokens: 500 },
+    model: 'claude-sonnet-4-20250514',
+  });
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    fs.mkdirSync(path.dirname(costsFile), { recursive: true });
+    fs.writeFileSync(costsFile, fixtureEntry + '\n');
+    process.chdir(tmpDir);
+    logOutput = [];
+    warnOutput = [];
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
+      logOutput.push(args.join(' '));
+    });
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation((...args) => {
+      warnOutput.push(args.join(' '));
+    });
+    // Mock fetch to fail (simulate offline)
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('network unavailable')));
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('uses fallback.json when network fetch fails and no disk cache exists', async () => {
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+
+    const output = JSON.parse(logOutput.join(''));
+    // Session should be found
+    expect(output.sessionId).toBe('offline-sess-001');
+    // Cost should be non-null — fallback.json has pricing for claude-sonnet-4-20250514
+    expect(typeof output.costMicroUSD).toBe('number');
+    expect(output.costMicroUSD).toBeGreaterThan(0);
+  });
+
+  it('emits staleness warning when fallback has been used for more than 7 days', async () => {
+    // Write a staleness marker dated 10 days ago
+    const markerDir = path.join(tmpDir, '.harness', 'cache');
+    fs.mkdirSync(markerDir, { recursive: true });
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    fs.writeFileSync(
+      path.join(markerDir, 'staleness-marker.json'),
+      JSON.stringify({ firstFallbackUse: tenDaysAgo })
+    );
+
+    const program = createProgram();
+    await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+
+    // The staleness warning must appear in console.warn output
+    const stalePrinted = warnOutput.some((line) => line.toLowerCase().includes('stale'));
+    expect(stalePrinted).toBe(true);
+  });
+});
