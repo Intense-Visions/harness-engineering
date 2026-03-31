@@ -25,7 +25,7 @@ describe('readCostRecords', () => {
 
     const records = readCostRecords(tmpDir);
     expect(records).toHaveLength(1);
-    expect(records[0]).toEqual({
+    expect(records[0]!).toEqual({
       sessionId: 'sess-1',
       timestamp: '2026-03-31T10:00:00.000Z',
       tokens: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
@@ -37,14 +37,14 @@ describe('readCostRecords', () => {
       timestamp: '2026-03-31T10:00:00.000Z',
       session_id: 'sess-2',
       token_usage: { input_tokens: 200, output_tokens: 100 },
-      cacheCreationTokens: 50,
-      cacheReadTokens: 30,
+      cache_creation_tokens: 50,
+      cache_read_tokens: 30,
     });
     fs.writeFileSync(costsFile, line + '\n');
 
     const records = readCostRecords(tmpDir);
-    expect(records[0].cacheCreationTokens).toBe(50);
-    expect(records[0].cacheReadTokens).toBe(30);
+    expect(records[0]!.cacheCreationTokens).toBe(50);
+    expect(records[0]!.cacheReadTokens).toBe(30);
   });
 
   it('skips malformed lines with warning', () => {
@@ -58,7 +58,7 @@ describe('readCostRecords', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const records = readCostRecords(tmpDir);
     expect(records).toHaveLength(1);
-    expect(records[0].sessionId).toBe('sess-3');
+    expect(records[0]!.sessionId).toBe('sess-3');
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping malformed'));
     warnSpy.mockRestore();
   });
@@ -72,9 +72,9 @@ describe('readCostRecords', () => {
     fs.writeFileSync(costsFile, line + '\n');
 
     const records = readCostRecords(tmpDir);
-    expect(records[0].model).toBeUndefined();
-    expect(records[0].cacheCreationTokens).toBeUndefined();
-    expect(records[0].cacheReadTokens).toBeUndefined();
+    expect(records[0]!.model).toBeUndefined();
+    expect(records[0]!.cacheCreationTokens).toBeUndefined();
+    expect(records[0]!.cacheReadTokens).toBeUndefined();
   });
 
   it('returns empty array when file does not exist', () => {

@@ -23,8 +23,10 @@ function makeSampleJSONL(
           session_id: e.session_id,
           token_usage: { input_tokens: e.input_tokens, output_tokens: e.output_tokens },
           ...(e.model != null ? { model: e.model } : {}),
-          ...(e.cacheCreationTokens != null ? { cacheCreationTokens: e.cacheCreationTokens } : {}),
-          ...(e.cacheReadTokens != null ? { cacheReadTokens: e.cacheReadTokens } : {}),
+          ...(e.cacheCreationTokens != null
+            ? { cache_creation_tokens: e.cacheCreationTokens }
+            : {}),
+          ...(e.cacheReadTokens != null ? { cache_read_tokens: e.cacheReadTokens } : {}),
         })
       )
       .join('\n') + '\n'
@@ -270,7 +272,9 @@ describe('harness usage', () => {
         '--json',
       ]);
 
-      const output = JSON.parse(logOutput.join(''));
+      // Filter out warning lines to find the JSON output
+      const jsonLine = logOutput.find((line) => line.startsWith('['));
+      const output = JSON.parse(jsonLine ?? '[]');
       expect(Array.isArray(output)).toBe(true);
     });
   });

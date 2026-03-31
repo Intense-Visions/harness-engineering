@@ -3,8 +3,8 @@ import type { UsageRecord } from '@harness-engineering/types';
 import { logger } from '../output/logger';
 
 async function loadAndPriceRecords(cwd: string): Promise<UsageRecord[]> {
-  const { readCostRecords } = await import('@harness-engineering/core');
-  const { loadPricingData, calculateCost } = await import('@harness-engineering/core');
+  const { readCostRecords, loadPricingData, calculateCost } =
+    await import('@harness-engineering/core');
 
   const records = readCostRecords(cwd);
   if (records.length === 0) return records;
@@ -12,7 +12,8 @@ async function loadAndPriceRecords(cwd: string): Promise<UsageRecord[]> {
   const pricingData = await loadPricingData(cwd);
   for (const record of records) {
     if (record.model && record.costMicroUSD == null) {
-      record.costMicroUSD = calculateCost(record, pricingData);
+      const cost = calculateCost(record, pricingData);
+      if (cost != null) record.costMicroUSD = cost;
     }
   }
   return records;
@@ -31,8 +32,8 @@ function formatTokenCount(count: number): string {
 
 function formatModels(models: string[]): string {
   if (models.length === 0) return 'unknown';
-  if (models.length === 1) return models[0];
-  return `${models[0]} and ${models.length - 1} other${models.length - 1 > 1 ? 's' : ''}`;
+  if (models.length === 1) return models[0] ?? 'unknown';
+  return `${models[0] ?? 'unknown'} and ${models.length - 1} other${models.length - 1 > 1 ? 's' : ''}`;
 }
 
 function registerDailyCommand(usage: Command): void {
@@ -226,6 +227,15 @@ function registerLatestCommand(usage: Command): void {
       const sessionData = aggregateBySession(records);
       // Already sorted descending by firstTimestamp
       const latest = sessionData[0];
+
+      if (!latest) {
+        if (globalOpts.json) {
+          console.log(JSON.stringify({ error: 'No session data found' }));
+        } else {
+          logger.info('No session data found.');
+        }
+        return;
+      }
 
       if (globalOpts.json) {
         console.log(JSON.stringify(latest, null, 2));
