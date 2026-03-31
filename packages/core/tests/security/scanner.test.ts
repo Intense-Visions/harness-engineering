@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SecurityScanner } from '../../src/security/scanner';
+import { parseHarnessIgnore } from '../../src/security/scanner';
 
 vi.mock('node:fs/promises', async () => ({
   readFile: vi.fn(),
@@ -77,5 +78,118 @@ describe('SecurityScanner', () => {
     expect(result.scannedFiles).toBe(2);
     expect(result.findings.length).toBeGreaterThanOrEqual(2);
     expect(result.coverage).toBe('baseline');
+  });
+
+  describe('parseHarnessIgnore', () => {
+    it('returns null for lines without harness-ignore', () => {
+      expect(parseHarnessIgnore('const x = 1;', 'SEC-INJ-001')).toBeNull();
+    });
+
+    it('matches JS comment with justification', () => {
+      const result = parseHarnessIgnore(
+        '// harness-ignore SEC-INJ-001: false positive in test fixture',
+        'SEC-INJ-001'
+      );
+      expect(result).toEqual({
+        ruleId: 'SEC-INJ-001',
+        justification: 'false positive in test fixture',
+      });
+    });
+
+    it('matches JS comment without justification', () => {
+      const result = parseHarnessIgnore('// harness-ignore SEC-INJ-001', 'SEC-INJ-001');
+      expect(result).toEqual({
+        ruleId: 'SEC-INJ-001',
+        justification: null,
+      });
+    });
+
+    it('matches hash comment style', () => {
+      const result = parseHarnessIgnore(
+        '# harness-ignore SEC-INJ-001: used in shell script',
+        'SEC-INJ-001'
+      );
+      expect(result).toEqual({
+        ruleId: 'SEC-INJ-001',
+        justification: 'used in shell script',
+      });
+    });
+
+    it('returns null when ruleId does not match', () => {
+      expect(parseHarnessIgnore('// harness-ignore SEC-INJ-002', 'SEC-INJ-001')).toBeNull();
+    });
+
+    it('treats colon with no text as unjustified', () => {
+      const result = parseHarnessIgnore('// harness-ignore SEC-INJ-001:', 'SEC-INJ-001');
+      expect(result).toEqual({
+        ruleId: 'SEC-INJ-001',
+        justification: null,
+      });
+    });
+  });
+
+  describe('FP verification gate', () => {
+    it('unjustified suppression emits warning and suppresses original rule', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const code = 'eval(userInput) // harness-ignore SEC-INJ-001';
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      // Original rule (SEC-INJ-001 eval) should be suppressed
+      const evalFindings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && f.message.includes('eval')
+      );
+      expect(evalFindings).toHaveLength(0);
+
+      // But a warning about missing justification should appear
+      const suppressionWarnings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && f.message.includes('requires justification')
+      );
+      expect(suppressionWarnings).toHaveLength(1);
+      expect(suppressionWarnings[0].severity).toBe('warning');
+    });
+
+    it('justified suppression produces no findings', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const code = 'eval(userInput) // harness-ignore SEC-INJ-001: false positive in test fixture';
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      const injFindings = findings.filter((f) => f.ruleId === 'SEC-INJ-001');
+      expect(injFindings).toHaveLength(0);
+    });
+
+    it('strict mode promotes unjustified suppression to error', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: true });
+      const code = 'eval(userInput) // harness-ignore SEC-INJ-001';
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      const suppressionFindings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && f.message.includes('requires justification')
+      );
+      expect(suppressionFindings).toHaveLength(1);
+      expect(suppressionFindings[0].severity).toBe('error');
+    });
+
+    it('existing suppression format still suppresses original rule', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      // Old format: no colon, no justification — should still suppress the eval finding
+      const code = 'eval(userInput) // harness-ignore SEC-INJ-001';
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      const evalFindings = findings.filter(
+        (f) => f.ruleId === 'SEC-INJ-001' && !f.message.includes('requires justification')
+      );
+      expect(evalFindings).toHaveLength(0);
+    });
+
+    it('suppression warning includes remediation guidance', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const code = 'eval(userInput) // harness-ignore SEC-INJ-001';
+      const findings = scanner.scanContent(code, 'src/util.ts');
+
+      const warning = findings.find((f) => f.message.includes('requires justification'));
+      expect(warning).toBeDefined();
+      expect(warning!.remediation).toContain('Add justification after colon');
+      expect(warning!.confidence).toBe('high');
+    });
   });
 });
