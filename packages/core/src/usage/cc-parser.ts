@@ -28,15 +28,15 @@ function extractUsage(entry: Record<string, unknown>): Record<string, number> | 
   if (!message || typeof message !== 'object') return null;
 
   const usage = message.usage as Record<string, number> | null | undefined;
-  return usage && typeof usage === 'object' ? usage : null;
+  return usage && typeof usage === 'object' && !Array.isArray(usage) ? usage : null;
 }
 
 /**
  * Builds a TaggedRecord from a validated CC JSONL entry and its usage data.
  */
 function buildRecord(entry: Record<string, unknown>, usage: Record<string, number>): TaggedRecord {
-  const inputTokens = usage.input_tokens ?? 0;
-  const outputTokens = usage.output_tokens ?? 0;
+  const inputTokens = Number(usage.input_tokens) || 0;
+  const outputTokens = Number(usage.output_tokens) || 0;
   const message = entry.message as Record<string, unknown>;
 
   const record: TaggedRecord = {
