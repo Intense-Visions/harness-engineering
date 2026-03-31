@@ -1,0 +1,44 @@
+{
+  "_generatedAt": "2026-03-31",
+  "_source": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+  "models": {
+    "claude-opus-4-20250514": {
+      "inputPer1M": 15.0,
+      "outputPer1M": 75.0,
+      "cacheReadPer1M": 1.5,
+      "cacheWritePer1M": 18.75
+    },
+    "claude-sonnet-4-20250514": {
+      "inputPer1M": 3.0,
+      "outputPer1M": 15.0,
+      "cacheReadPer1M": 0.3,
+      "cacheWritePer1M": 3.75
+    },
+    "claude-3-5-haiku-20241022": {
+      "inputPer1M": 0.8,
+      "outputPer1M": 4.0,
+      "cacheReadPer1M": 0.08,
+      "cacheWritePer1M": 1.0
+    },
+    "gpt-4o": {
+      "inputPer1M": 2.5,
+      "outputPer1M": 10.0,
+      "cacheReadPer1M": 1.25
+    },
+    "gpt-4o-mini": {
+      "inputPer1M": 0.15,
+      "outputPer1M": 0.6,
+      "cacheReadPer1M": 0.075
+    },
+    "gemini-2.0-flash": {
+      "inputPer1M": 0.1,
+      "outputPer1M": 0.4,
+      "cacheReadPer1M": 0.025
+    },
+    "gemini-2.5-pro": {
+      "inputPer1M": 1.25,
+      "outputPer1M": 10.0,
+      "cacheReadPer1M": 0.3125
+    }
+  }
+}
