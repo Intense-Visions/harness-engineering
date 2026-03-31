@@ -35,6 +35,7 @@ harness-engineering/
 ├── agents/                    # Agent configuration
 │   ├── skills/claude-code/   # 79 skills (36 core + 43 domain, skill.yaml + SKILL.md each)
 │   ├── skills/gemini-cli/    # 79 skills (symlinked to claude-code for platform parity)
+│   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
 ├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more)
 ├── examples/                  # Progressive tutorial examples
@@ -98,11 +99,15 @@ Each package has a clear responsibility:
 
 - **types**: Type definitions, interfaces, and constants used across packages
 - **graph**: Knowledge graph store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search
-- **core**: Runtime library with validation, constraints, entropy detection, architecture checks (depends on types, graph)
+- **core**: Runtime library with validation, constraints, entropy detection, architecture checks, and pricing/cost calculation (depends on types, graph)
 - **eslint-plugin**: ESLint rules for architectural constraint enforcement (depends on types, core)
 - **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
 - **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues (depends on types, core)
 - **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
+
+### Notable Core Modules
+
+- **pricing** (`packages/core/src/pricing/`): LiteLLM-based model pricing lookup. Fetches pricing data from LiteLLM's GitHub JSON with a 24h disk cache at `.harness/cache/pricing.json`, falling back to a bundled `fallback.json` for offline/CI use. Public API: `getModelPrice(model)` returns per-1M-token rates, `calculateCost(record)` returns integer microdollars (USD \* 1,000,000) to avoid floating-point drift. Supports Claude, GPT-4, and Gemini model families.
 
 ## Development Workflow
 

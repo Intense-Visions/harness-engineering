@@ -31,6 +31,7 @@ pnpm add @harness-engineering/core
 | **workflow**     | Workflow execution engine for structured multi-step workflows                                                                                       |
 | **interaction**  | Types and schemas for agent-to-human interactions (questions, confirmations, transitions)                                                           |
 | **blueprint**    | HTML documentation generation from module data using EJS templates                                                                                  |
+| **pricing**      | LiteLLM-based model pricing lookup, disk cache with 24h TTL, bundled fallback, and microdollar cost calculation                                     |
 | **shared**       | Error types, Result pattern for error handling, file system utilities, and language parsers                                                         |
 
 ### Validation Module
