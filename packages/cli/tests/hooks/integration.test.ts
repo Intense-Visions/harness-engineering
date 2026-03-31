@@ -24,11 +24,15 @@ describe('hook scripts integration', () => {
     }
   });
 
-  it('all hook scripts exit 0 on empty stdin (fail-open or security-block)', () => {
-    // block-no-verify: fail-open (exit 0)
-    // protect-config: security hook (exit 2 on empty)
-    // quality-gate, pre-compact-state, cost-tracker: fail-open (exit 0)
-    const failOpenHooks = ['block-no-verify', 'quality-gate', 'pre-compact-state', 'cost-tracker'];
+  it('all hook scripts exit 0 on empty stdin (fail-open)', () => {
+    // All hooks fail-open on empty stdin (exit 0)
+    const failOpenHooks = [
+      'block-no-verify',
+      'protect-config',
+      'quality-gate',
+      'pre-compact-state',
+      'cost-tracker',
+    ];
     for (const hookName of failOpenHooks) {
       const hookPath = join(HOOKS_DIR, `${hookName}.js`);
       try {
@@ -40,20 +44,6 @@ describe('hook scripts integration', () => {
       } catch (err: any) {
         throw new Error(`${hookName} should exit 0 on empty stdin but exited ${err.status}`);
       }
-    }
-  });
-
-  it('protect-config blocks on empty stdin (security hook)', () => {
-    const hookPath = join(HOOKS_DIR, 'protect-config.js');
-    try {
-      execFileSync('node', [hookPath], {
-        input: '',
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      throw new Error('protect-config should have exited with code 2');
-    } catch (err: any) {
-      expect(err.status).toBe(2);
     }
   });
 

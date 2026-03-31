@@ -7,7 +7,7 @@
 // Exit codes: 0 = allow (always, log-only hook)
 
 import { readFileSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import process from 'node:process';
 
 function readJsonSafe(filePath) {
