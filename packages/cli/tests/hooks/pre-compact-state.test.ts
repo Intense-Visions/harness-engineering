@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
-import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/pre-compact-state.js');
@@ -20,6 +20,11 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
   }
 }
 
+function readSummary(tmpDir: string): any {
+  const summaryPath = join(tmpDir, '.harness', 'state', 'pre-compact-summary.json');
+  return JSON.parse(readFileSync(summaryPath, 'utf-8'));
+}
+
 describe('pre-compact-state', () => {
   let tmpDir: string;
 
@@ -31,47 +36,115 @@ describe('pre-compact-state', () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('creates .harness/compact-snapshots/ directory and writes snapshot', () => {
-    const input = JSON.stringify({
-      hook_type: 'PreCompact',
-      session_id: 'test-session-123',
-    });
+  it('creates .harness/state/ directory and writes summary', () => {
+    const input = JSON.stringify({ hook_type: 'PreCompact' });
     const { exitCode } = runHook(input, tmpDir);
     expect(exitCode).toBe(0);
 
-    const snapshotsDir = join(tmpDir, '.harness', 'compact-snapshots');
-    expect(existsSync(snapshotsDir)).toBe(true);
-
-    // Should have created a snapshot file
-    const files = require('fs').readdirSync(snapshotsDir);
-    expect(files.length).toBeGreaterThan(0);
-    expect(files[0]).toMatch(/\.json$/);
+    const summaryPath = join(tmpDir, '.harness', 'state', 'pre-compact-summary.json');
+    expect(existsSync(summaryPath)).toBe(true);
   });
 
-  it('snapshot contains timestamp and input data', () => {
-    const input = JSON.stringify({
-      hook_type: 'PreCompact',
-      session_id: 'test-session-456',
-    });
+  it('summary contains all required fields', () => {
+    const input = JSON.stringify({ hook_type: 'PreCompact' });
     runHook(input, tmpDir);
 
-    const snapshotsDir = join(tmpDir, '.harness', 'compact-snapshots');
-    const files = require('fs').readdirSync(snapshotsDir);
-    const snapshot = JSON.parse(readFileSync(join(snapshotsDir, files[0]), 'utf-8'));
+    const summary = readSummary(tmpDir);
+    expect(summary).toHaveProperty('timestamp');
+    expect(summary).toHaveProperty('sessionId');
+    expect(summary).toHaveProperty('activeStream');
+    expect(summary).toHaveProperty('recentDecisions');
+    expect(summary).toHaveProperty('openQuestions');
+    expect(summary).toHaveProperty('currentPhase');
+    expect(Array.isArray(summary.recentDecisions)).toBe(true);
+    expect(Array.isArray(summary.openQuestions)).toBe(true);
+  });
 
-    expect(snapshot).toHaveProperty('timestamp');
-    expect(snapshot).toHaveProperty('hookInput');
-    expect(snapshot.hookInput.session_id).toBe('test-session-456');
+  it('reads decisions from .harness/state.json when present', () => {
+    mkdirSync(join(tmpDir, '.harness'), { recursive: true });
+    writeFileSync(
+      join(tmpDir, '.harness', 'state.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        decisions: [
+          { decision: 'decision-1' },
+          { decision: 'decision-2' },
+          { decision: 'decision-3' },
+        ],
+        blockers: ['unresolved-question-1'],
+        position: { phase: 'execute', task: 'Task 2' },
+      })
+    );
+
+    const input = JSON.stringify({ hook_type: 'PreCompact' });
+    runHook(input, tmpDir);
+
+    const summary = readSummary(tmpDir);
+    expect(summary.recentDecisions).toEqual(['decision-1', 'decision-2', 'decision-3']);
+    expect(summary.openQuestions).toEqual(['unresolved-question-1']);
+    expect(summary.currentPhase).toBe('execute');
+  });
+
+  it('limits recentDecisions to last 5', () => {
+    mkdirSync(join(tmpDir, '.harness'), { recursive: true });
+    writeFileSync(
+      join(tmpDir, '.harness', 'state.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        decisions: [
+          { decision: 'd1' },
+          { decision: 'd2' },
+          { decision: 'd3' },
+          { decision: 'd4' },
+          { decision: 'd5' },
+          { decision: 'd6' },
+          { decision: 'd7' },
+        ],
+        blockers: [],
+      })
+    );
+
+    const input = JSON.stringify({ hook_type: 'PreCompact' });
+    runHook(input, tmpDir);
+
+    const summary = readSummary(tmpDir);
+    expect(summary.recentDecisions).toHaveLength(5);
+    expect(summary.recentDecisions[0]).toBe('d3');
+    expect(summary.recentDecisions[4]).toBe('d7');
+  });
+
+  it('works without .harness/state.json (defaults to empty)', () => {
+    const input = JSON.stringify({ hook_type: 'PreCompact' });
+    const { exitCode } = runHook(input, tmpDir);
+    expect(exitCode).toBe(0);
+
+    const summary = readSummary(tmpDir);
+    expect(summary.recentDecisions).toEqual([]);
+    expect(summary.openQuestions).toEqual([]);
+    expect(summary.currentPhase).toBeNull();
   });
 
   it('preserves existing .harness directory', () => {
     mkdirSync(join(tmpDir, '.harness'), { recursive: true });
-    require('fs').writeFileSync(join(tmpDir, '.harness', 'existing.txt'), 'keep me');
+    writeFileSync(join(tmpDir, '.harness', 'existing.txt'), 'keep me');
 
     const input = JSON.stringify({ hook_type: 'PreCompact' });
     runHook(input, tmpDir);
 
     expect(existsSync(join(tmpDir, '.harness', 'existing.txt'))).toBe(true);
+  });
+
+  it('overwrites previous summary on each run', () => {
+    const input = JSON.stringify({ hook_type: 'PreCompact' });
+    runHook(input, tmpDir);
+    const summary1 = readSummary(tmpDir);
+
+    runHook(input, tmpDir);
+    const summary2 = readSummary(tmpDir);
+
+    // Timestamps should differ (or at least file was overwritten)
+    expect(summary2).toHaveProperty('timestamp');
+    expect(summary2.timestamp).not.toBe(summary1.timestamp);
   });
 
   it('fails open on malformed JSON', () => {
