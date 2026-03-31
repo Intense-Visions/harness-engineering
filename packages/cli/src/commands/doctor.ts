@@ -112,8 +112,8 @@ function checkMcpConfig(cwd: string): CheckResult[] {
     });
   }
 
-  // Gemini CLI: check ~/.gemini/settings.json
-  const geminiConfigPath = path.join(os.homedir(), '.gemini', 'settings.json');
+  // Gemini CLI: check cwd/.gemini/settings.json (where setup-mcp writes it)
+  const geminiConfigPath = path.join(cwd, '.gemini', 'settings.json');
   const geminiConfig = readJsonSafe<McpConfig>(geminiConfigPath);
   if (geminiConfig?.mcpServers?.['harness']) {
     results.push({
