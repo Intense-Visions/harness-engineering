@@ -8,6 +8,8 @@ import { setupMcp } from './setup-mcp';
 import { markSetupComplete } from '../utils/first-run';
 import { checkNodeVersion as checkNode } from '../utils/node-version';
 import { ExitCode } from '../utils/errors';
+import { readMcpConfig, writeMcpEntry } from '../integrations/config';
+import { INTEGRATION_REGISTRY } from '../integrations/registry';
 
 export interface StepResult {
   status: 'pass' | 'warn' | 'fail';
@@ -90,6 +92,33 @@ function formatStep(result: StepResult): string {
   return `  ${icon} ${result.message}`;
 }
 
+export function configureTier0Integrations(cwd: string): StepResult {
+  try {
+    const mcpPath = path.join(cwd, '.mcp.json');
+    const config = readMcpConfig(mcpPath);
+    const tier0 = INTEGRATION_REGISTRY.filter((i) => i.tier === 0);
+    const added: string[] = [];
+
+    for (const integration of tier0) {
+      if (config.mcpServers![integration.name]) continue;
+      writeMcpEntry(mcpPath, integration.name, integration.mcpConfig);
+      added.push(integration.displayName);
+    }
+
+    if (added.length === 0) {
+      return { status: 'pass', message: 'Tier 0 MCP integrations already configured' };
+    }
+
+    return {
+      status: 'pass',
+      message: `Configured ${added.length} MCP integrations: ${added.join(', ')}`,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { status: 'fail', message: `Tier 0 integration configuration failed — ${msg}` };
+  }
+}
+
 export function runSetup(cwd: string): { steps: StepResult[]; success: boolean } {
   const steps: StepResult[] = [];
 
@@ -107,6 +136,10 @@ export function runSetup(cwd: string): { steps: StepResult[]; success: boolean }
   // Step 3: MCP setup for detected clients
   const mcpResults = runMcpSetup(cwd);
   steps.push(...mcpResults);
+
+  // Step 4: Configure Tier 0 integrations
+  const tier0Result = configureTier0Integrations(cwd);
+  steps.push(tier0Result);
 
   // Determine success: no 'fail' status in any step
   const success = steps.every((s) => s.status !== 'fail');
