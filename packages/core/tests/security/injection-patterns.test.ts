@@ -286,4 +286,55 @@ describe('scanForInjection', () => {
       expect(findings).toHaveLength(0);
     });
   });
+
+  describe('false positives', () => {
+    it('"you are now ready to deploy" does NOT trigger INJ-REROL', () => {
+      const findings = scanForInjection('you are now ready to deploy');
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-REROL'))).toBe(false);
+    });
+
+    it('"you are now connected to the server" does NOT trigger INJ-REROL', () => {
+      const findings = scanForInjection('you are now connected to the server');
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-REROL'))).toBe(false);
+    });
+
+    it('"enable access to the database" does NOT trigger INJ-PERM', () => {
+      const findings = scanForInjection('enable access to the database');
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-PERM'))).toBe(false);
+    });
+
+    it('"The feature will enable tool access for developers" does NOT trigger INJ-PERM', () => {
+      const findings = scanForInjection('The feature will enable tool access for developers');
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-PERM'))).toBe(false);
+    });
+
+    it('JWT token does NOT trigger INJ-ENC', () => {
+      const findings = scanForInjection(
+        'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'
+      );
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-ENC'))).toBe(false);
+    });
+
+    it('SHA-256 hash does NOT trigger INJ-ENC', () => {
+      const findings = scanForInjection(
+        'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      );
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-ENC'))).toBe(false);
+    });
+
+    it('"fix: critical priority bug in auth" does NOT trigger INJ-SOC', () => {
+      const findings = scanForInjection('fix: critical priority bug in auth');
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-SOC'))).toBe(false);
+    });
+
+    it('standard indented code (12 spaces) does NOT trigger INJ-SUS', () => {
+      const findings = scanForInjection('            const x = 42;');
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-SUS'))).toBe(false);
+    });
+
+    it('"<User name=\'John\' />" does NOT trigger INJ-CTX', () => {
+      const findings = scanForInjection('<User name="John" />');
+      expect(findings.some((f) => f.ruleId.startsWith('INJ-CTX'))).toBe(false);
+    });
+  });
 });
