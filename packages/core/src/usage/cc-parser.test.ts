@@ -203,4 +203,51 @@ describe('parseCCRecords', () => {
     expect(records[0]!.cacheCreationTokens).toBeUndefined();
     expect(records[0]!.cacheReadTokens).toBeUndefined();
   });
+
+  it('handles empty JSONL files gracefully', () => {
+    fs.writeFileSync(path.join(projectDir, 'empty.jsonl'), '');
+
+    const records = parseCCRecords();
+    expect(records).toEqual([]);
+  });
+
+  it('handles JSONL with only non-assistant entries', () => {
+    const lines =
+      [
+        JSON.stringify({
+          type: 'user',
+          sessionId: 's1',
+          timestamp: '2026-03-31T10:00:00Z',
+          message: { role: 'user', content: 'hi' },
+        }),
+        JSON.stringify({
+          type: 'system',
+          sessionId: 's1',
+          timestamp: '2026-03-31T10:01:00Z',
+          content: 'system msg',
+        }),
+        JSON.stringify({
+          type: 'progress',
+          sessionId: 's1',
+          timestamp: '2026-03-31T10:02:00Z',
+          data: {},
+        }),
+      ].join('\n') + '\n';
+    fs.writeFileSync(path.join(projectDir, 'session1.jsonl'), lines);
+
+    const records = parseCCRecords();
+    expect(records).toEqual([]);
+  });
+
+  it('handles file read permission errors gracefully', () => {
+    fs.writeFileSync(path.join(projectDir, 'locked.jsonl'), makeCCLine() + '\n');
+    fs.chmodSync(path.join(projectDir, 'locked.jsonl'), 0o000);
+
+    const records = parseCCRecords();
+    // Should not throw, just skip the unreadable file
+    expect(Array.isArray(records)).toBe(true);
+
+    // Restore permissions for cleanup
+    fs.chmodSync(path.join(projectDir, 'locked.jsonl'), 0o644);
+  });
 });
