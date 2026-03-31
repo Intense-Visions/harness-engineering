@@ -58,6 +58,20 @@ interface ReviewFinding {
 | `--deep`          | Pass `--deep` to `harness-security-review` for threat modeling in the security fan-out slot |
 | `--no-mechanical` | Skip mechanical checks (useful if already run in CI)                                        |
 | `--ci`            | Enable eligibility gate, non-interactive output                                             |
+| `--fast`          | Reduced rigor: skip learnings integration, fast-tier agents for all fan-out slots           |
+| `--thorough`      | Maximum rigor: always load learnings, full agent roster + meta-judge, learnings in output   |
+
+### Rigor Levels
+
+The `rigorLevel` is set via `--fast` or `--thorough` flags (or passed by autopilot). Default is `standard`. Rigor controls learnings integration, agent tier selection, and output verbosity.
+
+| Phase      | `fast`                                                            | `standard` (default)                                                                               | `thorough`                                                                                                      |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 3. CONTEXT | Skip learnings integration entirely. No `filterByRelevance` call. | Load learnings if `.harness/review-learnings.md` exists. Score and filter via `filterByRelevance`. | Always load learnings. Score and filter via `filterByRelevance`. Fail loudly if learnings file is missing.      |
+| 4. FAN-OUT | All agents run at fast tier. Reduced focus areas.                 | Default tier assignments (see Model Tiers table).                                                  | Full agent roster at default tiers + meta-judge pass that cross-validates findings across domains.              |
+| 7. OUTPUT  | Standard output format.                                           | Standard output format.                                                                            | Include a "Learnings Applied" section listing which learnings influenced the review and their relevance scores. |
+
+When `rigorLevel` is `fast`, the pipeline optimizes for speed: learnings are skipped entirely and all fan-out agents run at fast tier. When `rigorLevel` is `thorough`, the pipeline optimizes for depth: learnings are always scored and included, the full agent roster runs, a meta-judge validates cross-domain findings, and the output includes which learnings were applied.
 
 ### Model Tiers
 
@@ -71,19 +85,39 @@ Tiers are abstract labels resolved at runtime from project config. If no config 
 
 ### Review Learnings Calibration
 
-Before starting the pipeline, check for a project-specific calibration file:
+Before starting the pipeline, check for a project-specific calibration file. Learnings integration is gated by rigor level:
+
+- **`fast`:** Skip this section entirely. Do not read or score learnings.
+- **`standard`:** Read learnings if the file exists. Score and filter. If the file does not exist, proceed with default focus areas.
+- **`thorough`:** Always read learnings. If `.harness/review-learnings.md` does not exist, log a warning: "No review-learnings.md found -- thorough mode expects calibration data."
 
 ```bash
 cat .harness/review-learnings.md 2>/dev/null
 ```
 
-If `.harness/review-learnings.md` exists:
+If `.harness/review-learnings.md` exists (and rigor is not `fast`):
 
 1. **Read the Useful Findings section.** Prioritize these categories during review — they have historically caught real issues in this project.
 2. **Read the Noise / False Positives section.** De-prioritize or skip these categories — flagging them wastes the author's time and erodes trust in the review process.
 3. **Read the Calibration Notes section.** Apply these project-specific overrides to your review judgment. These represent deliberate team decisions, not oversights.
 
-If the file does not exist, proceed with default review focus areas. After completing the review, consider suggesting that the team create `.harness/review-learnings.md` if you notice patterns that would benefit from calibration.
+#### Learnings Relevance Scoring
+
+When learnings are loaded (standard or thorough mode), score them against the diff context before applying:
+
+1. **Build the diff context string.** Concatenate: changed file paths (one per line) + diff summary (commit message or PR description).
+2. **Score each learning** using `filterByRelevance(learnings, diffContext, 0.7, 1000)` from `packages/core/src/state/learnings-relevance.ts`.
+   - Each learning is scored against the diff context via Jaccard similarity.
+   - Only learnings scoring >= 0.7 are retained.
+   - Results are sorted by score descending.
+   - Results are truncated to fit within the 1000-token budget.
+3. **Apply filtered learnings** to the review focus areas:
+   - Useful Findings entries that pass the filter: boost priority for those categories.
+   - Noise/False Positive entries that pass the filter: actively suppress those patterns.
+   - Calibration Notes entries that pass the filter: apply as overrides.
+4. **If no learnings pass the 0.7 threshold,** proceed with default focus areas. Do not fall back to unscored inclusion.
+
+If the file does not exist and rigor is `standard`, proceed with default review focus areas. After completing the review, consider suggesting that the team create `.harness/review-learnings.md` if you notice patterns that would benefit from calibration.
 
 ## Pipeline Phases
 
@@ -284,6 +318,12 @@ Use commit history to answer:
 
 **Tier:** mixed (see per-agent tiers below)
 **Purpose:** Run four parallel review subagents, each with domain-scoped context from Phase 3. Each agent produces findings in the `ReviewFinding` schema.
+
+**Rigor overrides:**
+
+- **`fast`:** All four agents run at **fast tier** (haiku-class). Focus areas are unchanged but agents operate with reduced reasoning depth.
+- **`standard`:** Default tier assignments as listed per agent below.
+- **`thorough`:** Default tier assignments + a **meta-judge pass** after all agents return. The meta-judge (strong tier) cross-validates findings across domains: confirms findings cited by multiple agents, flags contradictions, and surfaces cross-cutting concerns that individual agents missed.
 
 #### Compliance Agent (standard tier)
 
@@ -493,6 +533,16 @@ For each issue, provide:
 - **Request Changes** — Critical or important issues must be addressed.
 - **Comment** — Observations only, no blocking issues.
 
+**Learnings Applied (thorough mode only):** When `rigorLevel` is `thorough`, append a "Learnings Applied" section after the Assessment:
+
+```
+**Learnings Applied:**
+- [0.85] "Useful Finding: Missing error handling in service layer" — boosted priority for error handling checks
+- [0.72] "Noise: Style-only import ordering" — suppressed import order findings
+```
+
+Each entry shows the Jaccard relevance score and how the learning influenced the review. This section is omitted in `fast` and `standard` modes.
+
 **Exit code:** 0 for Approve/Comment, 1 for Request Changes.
 
 #### Inline GitHub Comments (`--comment` flag)
@@ -679,6 +729,8 @@ Every review finding MUST cite evidence using one of:
 - **`harness cleanup`** — Optional check during Phase 2 for entropy accumulation in changed files.
 - **Graph queries** — Used in Phase 3 (CONTEXT) for dependency-scoped context and in Phase 5 (VALIDATE) for reachability verification. Graceful fallback when no graph exists.
 - **`emit_interaction`** -- Call after review approval to suggest transitioning to merge/PR creation. Only emitted on APPROVE assessment. Uses confirmed transition (waits for user approval).
+- **Rigor levels** — `--fast` / `--thorough` flags control learnings integration and agent tiers. Fast skips learnings and runs all agents at fast tier. Standard includes learnings if available. Thorough always loads learnings, runs a meta-judge pass, and includes a "Learnings Applied" section in output. See the Rigor Levels table for details.
+- **`filterByRelevance`** — Used in the Review Learnings Calibration section (Phase 3) to score learnings against diff context. Threshold 0.7, token budget 1000. From `packages/core/src/state/learnings-relevance.ts`.
 
 ## Success Criteria
 
@@ -696,6 +748,10 @@ Every review finding MUST cite evidence using one of:
 - No code merges with failing harness checks
 - Response to feedback (Role C) is verified before implementation
 - Pushback on incorrect feedback is evidence-based
+- When `rigorLevel` is `fast`, learnings integration is skipped and all fan-out agents run at fast tier
+- When `rigorLevel` is `thorough`, learnings are always loaded and scored, a meta-judge validates cross-domain findings, and a "Learnings Applied" section appears in the output
+- When `rigorLevel` is `standard`, learnings are included if `.harness/review-learnings.md` exists, scored via `filterByRelevance` at 0.7 threshold
+- When all learnings score below 0.7 threshold, zero learnings are included (no fallback to unscored inclusion)
 
 ## Examples
 
