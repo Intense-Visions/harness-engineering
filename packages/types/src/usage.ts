@@ -37,3 +37,47 @@ export interface ModelPricing {
   /** Cache write/creation cost per 1M tokens */
   cacheWritePer1M?: number;
 }
+
+/**
+ * Aggregated usage for a single calendar day.
+ */
+export interface DailyUsage {
+  /** ISO 8601 date string (YYYY-MM-DD) */
+  date: string;
+  /** Number of distinct sessions that had activity on this day */
+  sessionCount: number;
+  /** Summed token counts across all sessions */
+  tokens: TokenUsage;
+  /** Summed cache creation tokens (omitted if no cache data) */
+  cacheCreationTokens?: number;
+  /** Summed cache read tokens (omitted if no cache data) */
+  cacheReadTokens?: number;
+  /** Total cost in integer microdollars, null if any session has unknown pricing */
+  costMicroUSD: number | null;
+  /** Distinct model identifiers seen on this day */
+  models: string[];
+}
+
+/**
+ * Aggregated usage for a single session across all its turns.
+ */
+export interface SessionUsage {
+  /** Harness session identifier */
+  sessionId: string;
+  /** ISO 8601 timestamp of the first event in this session */
+  firstTimestamp: string;
+  /** ISO 8601 timestamp of the last event in this session */
+  lastTimestamp: string;
+  /** Summed token counts across all turns */
+  tokens: TokenUsage;
+  /** Summed cache creation tokens (omitted if no cache data) */
+  cacheCreationTokens?: number;
+  /** Summed cache read tokens (omitted if no cache data) */
+  cacheReadTokens?: number;
+  /** Model identifier (may be populated from CC data) */
+  model?: string;
+  /** Total cost in integer microdollars, null if pricing unavailable */
+  costMicroUSD: number | null;
+  /** Data source: 'harness', 'claude-code', or 'merged' */
+  source: 'harness' | 'claude-code' | 'merged';
+}
