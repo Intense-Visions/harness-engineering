@@ -58,6 +58,58 @@
 - **`harness.config.json`** — Security section configures severity threshold and file exclusions.
 - **codebase-health-analyst persona** — Invokes this skill as part of its sweep.
 
+## Evidence Requirements
+
+When this skill makes claims about existing code, architecture, or behavior,
+it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/auth.ts:42`)
+2. **Code pattern reference:** `file` with description (e.g., `src/utils/hash.ts` —
+   "existing bcrypt wrapper")
+3. **Test/command output:** Inline or referenced output from a test run or CLI command
+4. **Session evidence:** Write to the `evidence` session section via `manage_state`
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with
+`[UNVERIFIED]`. Example: `[UNVERIFIED] The auth middleware supports refresh tokens`.
+
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"This finding is in test code, so it's not a real issue"** — Stop. Test code can leak secrets, establish bad patterns, and be copy-pasted to production.
+- **"This dependency is widely used, so it's safe"** — Stop. Popularity is not a security guarantee. Check CVE databases and advisory feeds.
+- **"This is a low-severity finding, skipping"** — Stop. Low-severity findings compound. Document why you are deprioritizing, do not silently skip.
+- **"The scanner didn't flag it, so it's clean"** — Stop. Scanners have false negatives. A clean scan is not proof of security — it is absence of evidence.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"No attacker would find this"** — Security by obscurity. If the code is wrong, flag it regardless of discoverability.
+- **"We're behind a firewall"** — Network boundaries change. Code should be secure at every layer regardless of deployment topology.
+- **"The framework handles this for us"** — Verify the framework's actual behavior. Misuse of a secure framework is still insecure.
+
 ## Escalation
 
 - **When error-severity findings are disputed:** The scanner is mechanical — it may flag false positives. If a finding is a false positive, add a `// harness-ignore SEC-XXX` comment on the line and document the rationale. Do not suppress without explanation.

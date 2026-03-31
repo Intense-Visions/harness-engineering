@@ -809,6 +809,44 @@ Every review finding MUST cite evidence using one of:
 - **Never agree performatively.** "Sure, I'll change that" without understanding why is forbidden. Every change must be understood.
 - **Never skip the YAGNI check.** Every suggestion must answer: "Does this serve a current, concrete need?" Speculative improvements are rejected.
 
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"The change looks reasonable, approving"** — Stop. Have you read every changed file? Approval without full review is rubber-stamping.
+- **"Let me fix this issue I found"** — Stop. Review identifies issues; it does not fix them. Suggest the fix, do not apply it.
+- **"This is a minor style issue"** — Stop. Is it a style issue or a readability/maintainability concern? Classify accurately before dismissing.
+- **"The author probably meant to..."** — Stop. Do not infer intent. If the code is ambiguous, flag it as a question for the author.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"The tests pass, so the logic must be correct"** — Tests can be incomplete. Review the logic independently of test results.
+- **"This is how it was done elsewhere in the codebase"** — Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent.
+- **"It's just a refactor, low risk"** — Refactors change behavior surfaces. Review them with the same rigor as feature changes.
+
 ## Escalation
 
 - **When reviewers disagree:** If two reviewers give contradictory feedback, escalate to the human or tech lead.

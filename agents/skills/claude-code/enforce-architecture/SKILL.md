@@ -236,6 +236,58 @@ These are hard stops. Architecture violations are not warnings — they are erro
 - **No "temporary" violations.** There is no TODO for architecture. Either the code respects the constraints or it does not ship.
 - **No suppressing violations without team approval.** If a violation needs to be allowed, the constraint in `harness.config.json` must be explicitly updated with a comment explaining why.
 
+## Evidence Requirements
+
+When this skill makes claims about existing code, architecture, or behavior,
+it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/auth.ts:42`)
+2. **Code pattern reference:** `file` with description (e.g., `src/utils/hash.ts` —
+   "existing bcrypt wrapper")
+3. **Test/command output:** Inline or referenced output from a test run or CLI command
+4. **Session evidence:** Write to the `evidence` session section via `manage_state`
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with
+`[UNVERIFIED]`. Example: `[UNVERIFIED] The auth middleware supports refresh tokens`.
+
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"Auto-fixing this import to use the correct layer"** without verifying the replacement module exists — Stop. Verify the target exists and exports the needed symbol before rewriting an import.
+- **"This file is in a test directory, skipping violation"** — Stop. Test directories have architectural rules too. Check the constraint definition before assuming tests are exempt.
+- **"Removing this circular dependency by moving the import"** without tracing downstream effects — Stop. Moving imports can break consumers. Trace the dependency chain first.
+- **"This violation is from generated code, ignoring"** — Stop. Generated files can still violate architecture if the generator is misconfigured. Check the source template.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"The violation is minor — just one import"** — One violation sets a precedent. Enforce the constraint or document an explicit exception with rationale.
+- **"It works, so the architecture must be fine"** — Working code with bad architecture is technical debt with compound interest. Correct function does not excuse structural violations.
+- **"This is a legacy module, different rules apply"** — Legacy does not mean exempt. Either the constraint applies or it needs an explicit documented exception.
+
 ## Escalation
 
 - **When a violation seems impossible to fix within the current architecture:** The architecture may need to evolve. Escalate to the human with a clear explanation of the constraint, the use case, and why they conflict. Propose options: update the constraint, restructure the code, or add a new layer.

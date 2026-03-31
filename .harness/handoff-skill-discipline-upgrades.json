@@ -1,0 +1,43 @@
+{
+  "fromSkill": "harness-brainstorming",
+  "phase": "VALIDATE",
+  "summary": "Skill Discipline Upgrades — Evidence Requirements, Red Flags, and Rationalizations to Reject for 8 high-traffic skills via shared discipline template",
+  "artifacts": ["docs/changes/skill-discipline-upgrades/proposal.md"],
+  "decisions": [
+    {
+      "what": "Evidence Requirements + Red Flags + Rationalizations to Reject",
+      "why": "Evidence forces citation; Red Flags catch dangerous output; Rationalizations block reasoning traps"
+    },
+    {
+      "what": "Shared template + domain overrides",
+      "why": "3 universal patterns ensure consistency; domain layer captures what's actually dangerous per area"
+    },
+    {
+      "what": "8 skills: 4 workflow + 4 domain",
+      "why": "Mix of frequency (most-run) and severity (highest-risk wrong output)"
+    },
+    {
+      "what": "SKILL.md content only, no code changes",
+      "why": "Maximum leverage per effort; discipline is prompt engineering"
+    },
+    {
+      "what": "Red Flags must contain quoted agent phrase",
+      "why": "Makes 'concrete' mechanically testable, not subjective"
+    },
+    {
+      "what": "Workflow skills first, then domain",
+      "why": "Calibrate the pattern before applying to higher-risk domain skills"
+    }
+  ],
+  "contextKeywords": [
+    "discipline",
+    "evidence",
+    "red-flags",
+    "rationalizations",
+    "skills",
+    "SKILL.md",
+    "template",
+    "citations",
+    "safety"
+  ]
+}

@@ -250,6 +250,58 @@ CREATE POLICY tenant_isolation ON users
 - **Migration files must include rollback logic.** Every `up` function must have a corresponding `down` function. WHERE a migration is irreversible (data loss on rollback), THEN it must be explicitly marked as such with a comment explaining why.
 - **No migrations that lock large tables without warning.** WHERE a migration performs an ALTER TABLE that acquires an ACCESS EXCLUSIVE lock on a table estimated to have more than 10,000 rows, THEN the skill must flag the lock risk and suggest a non-locking alternative.
 
+## Evidence Requirements
+
+When this skill makes claims about existing code, architecture, or behavior,
+it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/auth.ts:42`)
+2. **Code pattern reference:** `file` with description (e.g., `src/utils/hash.ts` —
+   "existing bcrypt wrapper")
+3. **Test/command output:** Inline or referenced output from a test run or CLI command
+4. **Session evidence:** Write to the `evidence` session section via `manage_state`
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with
+`[UNVERIFIED]`. Example: `[UNVERIFIED] The auth middleware supports refresh tokens`.
+
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"Running this migration in production"** without a rollback plan — Stop. Every migration must have a tested reverse migration before it touches production data.
+- **"Adding an index to speed up this query"** without checking write patterns — Stop. Indexes speed reads but slow writes. Check both access patterns before recommending.
+- **"Dropping this column, it's unused"** — Stop. Verify no application code references it — including ORMs, background jobs, analytics queries, and reporting systems.
+- **"Let's denormalize this for performance"** — Stop. Denormalization decisions are hard to reverse. Cite the specific query performance problem with evidence before recommending.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"The table is small, we don't need an index"** — Tables grow. Plan for the steady state, not the current row count.
+- **"The ORM handles this for us"** — ORMs generate SQL that may not match your performance expectations. Review the generated queries for correctness and efficiency.
+- **"We can always add a migration later"** — Schema changes in production have operational cost. Design the schema thoughtfully now rather than migrating repeatedly.
+
 ## Escalation
 
 - **Production data at risk:** When a migration would delete or overwrite existing data (DROP COLUMN, column type change that truncates), report: "This migration will permanently delete data in column `X`. Provide a data backup confirmation or approve a non-destructive alternative (add new column, backfill, drop old) before proceeding."
