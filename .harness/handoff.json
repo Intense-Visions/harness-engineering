@@ -1,31 +1,51 @@
 {
-  "fromSkill": "harness-planning",
+  "fromSkill": "harness-brainstorming",
   "phase": "VALIDATE",
-  "summary": "Planned Phase 1 (Registry + Types) of force-multiplier integrations: 4 tasks defining IntegrationDef/IntegrationsConfig types, 5-entry static registry, and Zod schema addition.",
-  "completed": [],
-  "pending": [
-    "Task 1: Define IntegrationDef and IntegrationsConfig types (TDD)",
-    "Task 2: Create static integration registry with 5 entries (TDD)",
-    "Task 3: Add IntegrationsConfigSchema to Zod config schema (TDD)",
-    "Task 4: Verify full test suite and validate"
-  ],
-  "concerns": [
-    "Exact npm package names for perplexity-mcp and augment-code MCP servers need verification before release -- marked with TODO comments in registry.ts"
-  ],
+  "summary": "Context Efficiency Pipeline spec approved — rigor controls, scratchpad, Jaccard-scored learnings, two-pass planning, commands-over-skills audit, checkpoint commits across 5 implementation phases.",
+  "artifacts": ["docs/changes/context-efficiency-pipeline/proposal.md"],
   "decisions": [
-    "Types live in packages/cli/src/integrations/types.ts (CLI-specific, not shared types package)",
-    "Registry uses 'as const satisfies readonly IntegrationDef[]' for type safety and immutability",
-    "IntegrationsConfigSchema is exported from schema.ts for reuse by future config read/write utilities",
-    "Zod schema uses .default([]) for both enabled and dismissed arrays so empty objects parse cleanly"
+    {
+      "what": "Full scope — all 6 capabilities",
+      "why": "All address token waste from different angles"
+    },
+    {
+      "what": "fast|standard|thorough replaces auto|light|full",
+      "why": "Last clean window to rename unused vocabulary"
+    },
+    {
+      "what": "Scratchpad is ephemeral research only",
+      "why": "Reasoning already has structured homes in session state"
+    },
+    {
+      "what": "Jaccard keyword scoring for learnings relevance",
+      "why": "Numeric scores enable threshold filtering; tags too coarse; graph requires new node type"
+    },
+    {
+      "what": "Two-pass planning with --fast skip",
+      "why": "Skeleton catches directional errors before 2000+ tokens of detail"
+    },
+    {
+      "what": "Skill-vs-command audit + MCP-vs-CLI guideline",
+      "why": "Narrow audit is actionable; guideline covers broader pattern"
+    },
+    {
+      "what": "Checkpoint commits + recovery commit on failure",
+      "why": "Checkpoints are stable boundaries; recovery prevents work loss"
+    },
+    {
+      "what": "Foundation-then-fan-out delivery",
+      "why": "Shared modules tested before integration; fan-out parallelizable"
+    }
   ],
   "contextKeywords": [
-    "integrations",
-    "MCP",
-    "registry",
-    "IntegrationDef",
-    "Zod",
-    "config-schema",
-    "tier-0",
-    "tier-1"
+    "context-efficiency",
+    "token-budget",
+    "scratchpad",
+    "learnings-relevance",
+    "fast-thorough",
+    "two-pass-planning",
+    "checkpoint-commits",
+    "jaccard-scoring",
+    "rigor-levels"
   ]
 }

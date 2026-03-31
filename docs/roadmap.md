@@ -488,8 +488,8 @@ last_manual_edit: 2026-03-30
 ### Force-Multiplier Integrations (Tier 1)
 
 - **Status:** planned
-- **Spec:** .harness/architecture/force-multiplier-integrations/ADR-001.md
-- **Summary:** Zero-config MCP peer integrations (Context7, Sequential Thinking) and high-value connectors (Perplexity, Playwright, E2B) via Bidirectional Knowledge Bridge architecture
+- **Spec:** docs/changes/force-multiplier-integrations/proposal.md
+- **Summary:** Zero-config MCP peer integrations (Context7, Sequential Thinking, Playwright) and API-key integrations (Perplexity, Augment Code) with new `harness integrations` CLI command, `harness setup` auto-config, and `harness doctor` discovery
 - **Blockers:** none
 - **Plan:** none
 
@@ -833,11 +833,11 @@ last_manual_edit: 2026-03-30
 
 ### Context Efficiency Pipeline
 
-- **Status:** planned
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
-- **Summary:** --fast/--thorough flags for autopilot, planning, and code-review skills. Scratchpad delegation (agent reasoning to .harness/scratchpad/ instead of conversation context). Learnings integration in code review with >0.7 relevance gating. Confidence-first gating for planning. Commands-over-skills context audit. Incremental milestone commits in autopilot. Inspired by Context Engineering Kit and Compound Engineering. [ACE-Batch3]
+- **Status:** done
+- **Spec:** docs/changes/context-efficiency-pipeline/proposal.md
+- **Summary:** Rigor-level controls (--fast/--thorough), ephemeral scratchpad offloading, Jaccard-scored learnings in code review (>=0.7 threshold), two-pass planning with skeleton approval, commands-over-skills audit, and checkpoint commits in autopilot. Foundation-then-fan-out delivery across 5 phases. [ACE-Batch3]
 - **Blockers:** none
-- **Plan:** none
+- **Plan:** docs/plans/2026-03-30-context-efficiency-foundation-plan.md
 
 ### Usage & Cost Tracking
 
