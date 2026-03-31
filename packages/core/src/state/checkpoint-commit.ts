@@ -22,9 +22,13 @@ export interface CommitResult {
  * 3. git commit with message: "[autopilot] <checkpointLabel>"
  *    Recovery commits: "[autopilot][recovery] <checkpointLabel>"
  *
+ * Note: `git add -A` stages all changes in the project path. In concurrent
+ * multi-agent scenarios, this may stage another agent's in-progress work.
+ * For single-agent autopilot runs (the primary use case), this is safe.
+ *
  * Returns { committed: boolean, sha?: string, message: string }
  */
-export async function commitAtCheckpoint(opts: CheckpointCommitOptions): Promise<CommitResult> {
+export function commitAtCheckpoint(opts: CheckpointCommitOptions): CommitResult {
   const { projectPath, checkpointLabel, isRecovery } = opts;
   const execOpts = { cwd: projectPath, encoding: 'utf-8' as const };
 

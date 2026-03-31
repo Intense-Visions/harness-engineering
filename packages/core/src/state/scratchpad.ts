@@ -21,6 +21,17 @@ function scratchpadDir(opts: ScratchpadOptions): string {
 }
 
 /**
+ * Validate that a filename/phase does not escape the scratchpad directory.
+ * Rejects path traversal attempts (e.g., '../../etc/passwd').
+ */
+function assertSafePath(base: string, relativePart: string, label: string): void {
+  const resolved = path.resolve(base, relativePart);
+  if (!resolved.startsWith(base)) {
+    throw new Error(`${label} must not escape scratchpad directory: ${relativePart}`);
+  }
+}
+
+/**
  * Write content to the session scratchpad.
  * Creates directories as needed. Returns the absolute path to the written file.
  */
@@ -30,6 +41,7 @@ export function writeScratchpad(
   content: string
 ): string {
   const dir = scratchpadDir(opts);
+  assertSafePath(dir, filename, 'filename');
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, content);
@@ -41,7 +53,9 @@ export function writeScratchpad(
  * Returns null if the file does not exist.
  */
 export function readScratchpad(opts: ScratchpadOptions, filename: string): string | null {
-  const filePath = path.join(scratchpadDir(opts), filename);
+  const dir = scratchpadDir(opts);
+  assertSafePath(dir, filename, 'filename');
+  const filePath = path.join(dir, filename);
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, 'utf-8');
 }

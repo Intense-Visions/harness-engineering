@@ -24,9 +24,9 @@ describe('commitAtCheckpoint', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it('commits staged changes with checkpoint label', async () => {
+  it('commits staged changes with checkpoint label', () => {
     fs.writeFileSync(path.join(tmpDir, 'file.ts'), 'content');
-    const result = await commitAtCheckpoint({
+    const result = commitAtCheckpoint({
       projectPath: tmpDir,
       session: 'test-session',
       checkpointLabel: 'Checkpoint 1: types defined',
@@ -46,8 +46,8 @@ describe('commitAtCheckpoint', () => {
     expect(log).toContain('[autopilot] Checkpoint 1: types defined');
   });
 
-  it('skips commit when nothing to commit', async () => {
-    const result = await commitAtCheckpoint({
+  it('skips commit when nothing to commit', () => {
+    const result = commitAtCheckpoint({
       projectPath: tmpDir,
       session: 'test-session',
       checkpointLabel: 'Checkpoint 2: no changes',
@@ -57,9 +57,9 @@ describe('commitAtCheckpoint', () => {
     expect(result.sha).toBeUndefined();
   });
 
-  it('uses recovery prefix when isRecovery is true', async () => {
+  it('uses recovery prefix when isRecovery is true', () => {
     fs.writeFileSync(path.join(tmpDir, 'recovery.ts'), 'recovery content');
-    const result = await commitAtCheckpoint({
+    const result = commitAtCheckpoint({
       projectPath: tmpDir,
       session: 'test-session',
       checkpointLabel: 'Checkpoint 3: partial work',
@@ -77,13 +77,13 @@ describe('commitAtCheckpoint', () => {
     expect(log).toContain('[autopilot][recovery]');
   });
 
-  it('handles multiple files in a single checkpoint', async () => {
+  it('handles multiple files in a single checkpoint', () => {
     fs.writeFileSync(path.join(tmpDir, 'a.ts'), 'a');
     fs.writeFileSync(path.join(tmpDir, 'b.ts'), 'b');
     fs.mkdirSync(path.join(tmpDir, 'sub'));
     fs.writeFileSync(path.join(tmpDir, 'sub', 'c.ts'), 'c');
 
-    const result = await commitAtCheckpoint({
+    const result = commitAtCheckpoint({
       projectPath: tmpDir,
       session: 'test-session',
       checkpointLabel: 'Checkpoint 4: multiple files',
