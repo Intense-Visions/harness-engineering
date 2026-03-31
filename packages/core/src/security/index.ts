@@ -36,6 +36,12 @@ export { agentConfigRules } from './rules/agent-config';
 export { mcpRules } from './rules/mcp';
 
 /**
+ * Sentinel injection pattern engine for runtime prompt injection detection.
+ */
+export { scanForInjection, getInjectionPatterns } from './injection-patterns';
+export type { InjectionFinding, InjectionSeverity, InjectionPattern } from './injection-patterns';
+
+/**
  * Stack-specific security rules for specific frameworks and languages.
  */
 export { nodeRules } from './rules/stack/node';
