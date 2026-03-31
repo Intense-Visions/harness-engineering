@@ -46,6 +46,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: node scripts/coverage-ratchet.mjs
 
+      - name: Verify generated docs are fresh
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run generate-docs --check
+
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v4
