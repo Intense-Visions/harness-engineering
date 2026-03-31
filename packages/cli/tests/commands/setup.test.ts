@@ -228,6 +228,35 @@ describe('configureTier0Integrations', () => {
     expect(mockWriteMcpEntry).not.toHaveBeenCalled();
   });
 
+  it('also writes Tier 0 to .gemini/settings.json when .gemini dir exists', () => {
+    mockExistsSync.mockImplementation((p: fs.PathLike) => {
+      const s = String(p);
+      if (s === path.join('/tmp/test', '.gemini')) return true;
+      if (s === path.join(os.homedir(), '.claude')) return true;
+      if (s === path.join(os.homedir(), '.gemini')) return true;
+      return false;
+    });
+
+    configureTier0Integrations('/tmp/test');
+
+    // Should write to both .mcp.json and .gemini/settings.json
+    const geminiCalls = mockWriteMcpEntry.mock.calls.filter(
+      (call) => String(call[0]) === path.join('/tmp/test', '.gemini', 'settings.json')
+    );
+    expect(geminiCalls.length).toBe(3); // All 3 Tier 0 integrations
+  });
+
+  it('does not write to .gemini/settings.json when .gemini dir is absent', () => {
+    mockExistsSync.mockReturnValue(false);
+
+    configureTier0Integrations('/tmp/test');
+
+    const geminiCalls = mockWriteMcpEntry.mock.calls.filter((call) =>
+      String(call[0]).includes('.gemini')
+    );
+    expect(geminiCalls.length).toBe(0);
+  });
+
   it('does not add Tier 1 integrations', () => {
     const result = configureTier0Integrations('/tmp/test');
 

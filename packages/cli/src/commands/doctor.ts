@@ -135,29 +135,62 @@ function checkMcpConfig(cwd: string): CheckResult[] {
   return results;
 }
 
+interface McpPresence {
+  mcpConfig: ReturnType<typeof readMcpConfig>;
+  geminiConfig: ReturnType<typeof readMcpConfig> | null;
+  hasGemini: boolean;
+}
+
+function loadMcpPresence(cwd: string): McpPresence {
+  const mcpPath = path.join(cwd, '.mcp.json');
+  const geminiDir = path.join(cwd, '.gemini');
+  const hasGemini = fs.existsSync(geminiDir);
+  return {
+    mcpConfig: readMcpConfig(mcpPath),
+    geminiConfig: hasGemini ? readMcpConfig(path.join(geminiDir, 'settings.json')) : null,
+    hasGemini,
+  };
+}
+
+function checkTier0Presence(
+  def: (typeof INTEGRATION_REGISTRY)[number],
+  presence: McpPresence
+): CheckResult {
+  const inClaude = !!presence.mcpConfig.mcpServers?.[def.name];
+  const inGemini = !!presence.geminiConfig?.mcpServers?.[def.name];
+
+  if (!inClaude) {
+    return {
+      name: `integration-${def.name}`,
+      status: 'fail',
+      message: `${def.displayName} not configured. Run \`harness setup\` to fix.`,
+      fix: 'Run: harness setup',
+    };
+  }
+  if (presence.hasGemini && !inGemini) {
+    return {
+      name: `integration-${def.name}`,
+      status: 'warn',
+      message: `${def.displayName} missing from Gemini CLI config. Run \`harness setup\` to fix.`,
+      fix: 'Run: harness setup',
+    };
+  }
+  return {
+    name: `integration-${def.name}`,
+    status: 'pass',
+    message: `${def.displayName} configured`,
+  };
+}
+
 function checkIntegrations(cwd: string): CheckResult[] {
   const results: CheckResult[] = [];
-  const mcpPath = path.join(cwd, '.mcp.json');
-  const mcpConfig = readMcpConfig(mcpPath);
+  const presence = loadMcpPresence(cwd);
   const configPath = path.join(cwd, 'harness.config.json');
   const integrationsConfig = readIntegrationsConfig(configPath);
 
   // Tier 0: presence check — fail if not configured
   for (const def of INTEGRATION_REGISTRY.filter((d) => d.tier === 0)) {
-    if (mcpConfig.mcpServers?.[def.name]) {
-      results.push({
-        name: `integration-${def.name}`,
-        status: 'pass',
-        message: `${def.displayName} configured`,
-      });
-    } else {
-      results.push({
-        name: `integration-${def.name}`,
-        status: 'fail',
-        message: `${def.displayName} not configured. Run \`harness setup\` to fix.`,
-        fix: 'Run: harness setup',
-      });
-    }
+    results.push(checkTier0Presence(def, presence));
   }
 
   // Tier 1: suggestions for non-enabled, non-dismissed integrations
@@ -165,17 +198,14 @@ function checkIntegrations(cwd: string): CheckResult[] {
     const enabled = integrationsConfig.enabled.includes(def.name);
     const dismissed = integrationsConfig.dismissed.includes(def.name);
 
-    if (enabled) {
-      // Check env var if required
-      if (def.envVar && !process.env[def.envVar]) {
-        results.push({
-          name: `integration-${def.name}-env`,
-          status: 'warn',
-          message: `${def.displayName} enabled but ${def.envVar} not set.`,
-          fix: def.installHint,
-        });
-      }
-    } else if (!dismissed) {
+    if (enabled && def.envVar && !process.env[def.envVar]) {
+      results.push({
+        name: `integration-${def.name}-env`,
+        status: 'warn',
+        message: `${def.displayName} enabled but ${def.envVar} not set.`,
+        fix: def.installHint,
+      });
+    } else if (!enabled && !dismissed) {
       results.push({
         name: `integration-${def.name}`,
         status: 'info',
