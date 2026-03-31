@@ -271,6 +271,58 @@ Phase 4: VALIDATE
 - **No plaintext or weakly hashed passwords.** MD5, SHA-1, or unsalted SHA-256 for password storage is a blocking finding. Passwords must use bcrypt (cost 12+), scrypt, or argon2id.
 - **No authorization checks skipped at the API layer.** UI-only authorization is not authorization. Every API endpoint that serves user-specific or role-restricted data must enforce permissions server-side.
 
+## Evidence Requirements
+
+When this skill makes claims about existing code, architecture, or behavior,
+it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/auth.ts:42`)
+2. **Code pattern reference:** `file` with description (e.g., `src/utils/hash.ts` —
+   "existing bcrypt wrapper")
+3. **Test/command output:** Inline or referenced output from a test run or CLI command
+4. **Session evidence:** Write to the `evidence` session section via `manage_state`
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with
+`[UNVERIFIED]`. Example: `[UNVERIFIED] The auth middleware supports refresh tokens`.
+
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"Let's store the token in localStorage for convenience"** — Stop. localStorage is accessible to XSS. Use httpOnly cookies or secure server-side storage.
+- **"We can use a simple hash for passwords"** — Stop. Passwords require slow hashing (bcrypt, scrypt, argon2id). Fast hashes like MD5/SHA are crackable in seconds.
+- **"Let's implement our own JWT validation"** — Stop. Use a vetted library. Custom crypto is a known source of vulnerabilities.
+- **"The session expiry is just a UX concern"** — Stop. Session management is a security control. Timeout values are security-relevant configuration.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"No one would guess this token format"** — Security by obscurity. Tokens must be cryptographically secure regardless of format predictability.
+- **"This is an internal service, auth is less critical"** — Internal services are lateral movement targets. Authenticate all service boundaries.
+- **"The frontend validates permissions, so the backend doesn't need to"** — Client-side checks are bypassable. Server-side authorization is the only real enforcement.
+
 ## Escalation
 
 - **When the auth architecture requires a fundamental redesign:** Report: "The current auth implementation has [N] high-severity findings that require architectural changes (e.g., switching from localStorage tokens to httpOnly cookies). This is not a patch — recommend a dedicated auth migration sprint with a rollback plan."

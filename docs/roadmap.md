@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-03-30
-last_synced: 2026-03-28T22:45:00Z
+updated: 2026-03-31
+last_synced: 2026-03-31T17:30:00Z
 last_manual_edit: 2026-03-30
 ---
 
@@ -487,7 +487,7 @@ last_manual_edit: 2026-03-30
 
 ### Force-Multiplier Integrations (Tier 1)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/force-multiplier-integrations/proposal.md
 - **Summary:** Zero-config MCP peer integrations (Context7, Sequential Thinking, Playwright) and API-key integrations (Perplexity, Augment Code) with new `harness integrations` CLI command, `harness setup` auto-config, and `harness doctor` discovery
 - **Blockers:** none
@@ -519,9 +519,25 @@ last_manual_edit: 2026-03-30
 
 ### Runtime Enforcement Extensions
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/runtime-enforcement-extensions/proposal.md
 - **Summary:** `harness hooks` CLI command with profile-based hook activation (minimal/standard/strict), plus 18 new security scanner rules for agent config auditing and MCP server security
+- **Blockers:** none
+- **Plan:** none
+
+### Usage & Cost Tracking
+
+- **Status:** planned
+- **Spec:** docs/changes/usage-cost-tracking/proposal.md
+- **Summary:** Token spend visibility via `harness usage` CLI commands (daily, sessions, session, latest). LiteLLM pricing with static fallback, cost-at-read-time calculation, opt-in Claude Code session parsing. [ACE-B1]
+- **Blockers:** none
+- **Plan:** none
+
+### Skill Discipline Upgrades
+
+- **Status:** done
+- **Spec:** docs/changes/skill-discipline-upgrades/proposal.md
+- **Summary:** Evidence Requirements, Red Flags, and Rationalizations to Reject sections for 8 high-traffic skills (code-review, security-scan, architecture-advisor, enforce-architecture, auth, api-design, database, deployment) via shared discipline template. [ACE-Batch1]
 - **Blockers:** none
 - **Plan:** none
 

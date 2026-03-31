@@ -273,6 +273,58 @@ Also link from the project's ADR index if one exists.
 - **No implementation in this skill.** If you write production code, you have broken the advisory boundary. Stop and return to presenting options.
 - **Trade-offs must be honest.** Every option has downsides. If you cannot articulate the cons of an option, you do not understand it well enough to recommend it.
 
+## Evidence Requirements
+
+When this skill makes claims about existing code, architecture, or behavior,
+it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/auth.ts:42`)
+2. **Code pattern reference:** `file` with description (e.g., `src/utils/hash.ts` —
+   "existing bcrypt wrapper")
+3. **Test/command output:** Inline or referenced output from a test run or CLI command
+4. **Session evidence:** Write to the `evidence` session section via `manage_state`
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with
+`[UNVERIFIED]`. Example: `[UNVERIFIED] The auth middleware supports refresh tokens`.
+
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"You should introduce an abstraction layer here"** without checking duplication metrics — Stop. Abstractions are justified by measured duplication or coupling, not intuition.
+- **"This module is getting too large"** without checking line counts or complexity scores — Stop. "Too large" needs a number. Query the graph or count lines before asserting.
+- **"Consider migrating to [technology]"** without a cost-benefit analysis — Stop. Migration advice without concrete tradeoffs is harmful.
+- **"The architecture would be cleaner if..."** — Stop. "Cleaner" is subjective. State the specific quality attribute that improves (testability, deployability, coupling) and cite evidence.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"This will be easier to maintain"** — Easier for whom, and compared to what? Cite the maintenance burden with evidence from the codebase.
+- **"It's the modern approach"** — Modernity is not a design criterion. Fitness for purpose is. State the specific benefit.
+- **"Other teams do it this way"** — Other teams have different constraints. Evaluate the option on this codebase's specific merits.
+
 ## Escalation
 
 - **Human cannot choose between options:** Help narrow by asking which constraint matters most. If two options are genuinely equivalent, say so — flip a coin on equivalent options rather than agonizing.

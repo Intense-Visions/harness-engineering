@@ -296,6 +296,58 @@ enum NotificationType {
 - **Generated specs must be valid.** The OpenAPI spec must pass structural validation. The GraphQL schema must parse without errors. Proto files must compile with `protoc`. An invalid spec is worse than no spec.
 - **Naming conventions must be consistent.** WHERE the project uses a naming convention (detected in phase 1), THEN all new endpoints must follow it. A single inconsistent name pollutes the entire API surface.
 
+## Evidence Requirements
+
+When this skill makes claims about existing code, architecture, or behavior,
+it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/auth.ts:42`)
+2. **Code pattern reference:** `file` with description (e.g., `src/utils/hash.ts` —
+   "existing bcrypt wrapper")
+3. **Test/command output:** Inline or referenced output from a test run or CLI command
+4. **Session evidence:** Write to the `evidence` session section via `manage_state`
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with
+`[UNVERIFIED]`. Example: `[UNVERIFIED] The auth middleware supports refresh tokens`.
+
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"Adding this required field to the existing endpoint"** — Stop. Adding required fields to existing endpoints breaks all current consumers. Make it optional or version the endpoint.
+- **"Changing the response shape to be cleaner"** — Stop. Changing response shape without versioning is a breaking change. Existing consumers depend on the current structure.
+- **"Returning the full object for convenience"** — Stop. Over-fetching exposes unnecessary data and increases payload size. Return only what the consumer needs.
+- **"We don't need pagination for this endpoint"** — Stop. Lists without pagination become production incidents at scale. Add pagination from the start.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"It's an internal API, breaking changes are fine"** — Internal consumers break too. Version the change or coordinate the migration explicitly.
+- **"The field name is obvious enough"** — API field names are a public contract. Follow existing naming conventions and document the semantics.
+- **"Nobody uses that endpoint anyway"** — Verify with access logs or usage data. Assumptions about usage without evidence lead to silent breakages.
+
 ## Escalation
 
 - **No existing conventions detected:** When the project has no existing API endpoints and no spec file, the skill cannot infer conventions. Report: "No existing API conventions found. Provide a style guide or approve the defaults (plural nouns, kebab-case paths, RFC 7807 errors, cursor pagination) before proceeding."

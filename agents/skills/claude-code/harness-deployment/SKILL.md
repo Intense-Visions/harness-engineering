@@ -247,6 +247,58 @@ Phase 4: VALIDATE
 - **No deploy without rollback.** Every deployment target must have a documented or automated rollback mechanism. Missing rollback is a blocking warning.
 - **No skipping pipeline lint.** Pipeline configuration must pass syntax validation before recommendations are made.
 
+## Evidence Requirements
+
+When this skill makes claims about existing code, architecture, or behavior,
+it MUST cite evidence using one of:
+
+1. **File reference:** `file:line` format (e.g., `src/auth.ts:42`)
+2. **Code pattern reference:** `file` with description (e.g., `src/utils/hash.ts` —
+   "existing bcrypt wrapper")
+3. **Test/command output:** Inline or referenced output from a test run or CLI command
+4. **Session evidence:** Write to the `evidence` session section via `manage_state`
+
+**Uncited claims:** Technical assertions without citations MUST be prefixed with
+`[UNVERIFIED]`. Example: `[UNVERIFIED] The auth middleware supports refresh tokens`.
+
+## Red Flags
+
+### Universal
+
+These apply to ALL skills. If you catch yourself doing any of these, STOP.
+
+- **"I believe the codebase does X"** — Stop. Read the code and cite a file:line
+  reference. Belief is not evidence.
+- **"Let me recommend [pattern] for this"** without checking existing patterns — Stop.
+  Search the codebase first. The project may already have a convention.
+- **"While we're here, we should also [unrelated improvement]"** — Stop. Flag the idea
+  but do not expand scope beyond the stated task.
+
+### Domain-Specific
+
+- **"Deploying without a health check endpoint"** — Stop. Without health checks, the orchestrator cannot detect failed deployments. Add health checks before deploying.
+- **"Skipping canary deployment, it's a small change"** — Stop. Small changes cause outages too. Follow the deployment policy regardless of change size.
+- **"Rolling back manually if something goes wrong"** — Stop. Manual rollback under incident pressure fails. Automate rollback before deploying.
+- **"We can update the runbook after the deploy"** — Stop. If the deployment changes operational behavior, update the runbook first. Stale runbooks during incidents cause escalations.
+
+## Rationalizations to Reject
+
+### Universal
+
+These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
+
+- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
+- **"This is best practice"** — Best practice in what context? Cite the source and
+  confirm it applies to this codebase.
+- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
+  with a concrete follow-up plan.
+
+### Domain-Specific
+
+- **"It's just a config change, not a code change"** — Config changes cause outages at the same rate as code changes. Deploy them with the same rigor and rollback strategy.
+- **"We tested this in staging"** — Staging is not production. Traffic patterns, data volume, and edge cases differ. Staging success does not guarantee production safety.
+- **"Downtime will be brief"** — Brief is not zero. Quantify the expected impact and communicate it to stakeholders before deploying.
+
 ## Escalation
 
 - **When the CI/CD platform is unsupported:** Report which platform was detected and that analysis is limited to general best practices. Recommend the user provide platform-specific documentation for deeper analysis.

@@ -1,0 +1,44 @@
+{
+  "fromSkill": "harness-brainstorming",
+  "phase": "VALIDATE",
+  "summary": "Usage & Cost Tracking — token spend visibility via harness usage CLI commands with LiteLLM pricing, cost-at-read-time calculation, and opt-in Claude Code session parsing",
+  "artifacts": ["docs/changes/usage-cost-tracking/proposal.md"],
+  "decisions": [
+    {
+      "what": "Cost calculated at read time, not write time",
+      "why": "Stop hook payload is not under our control; calculating at display time uses best available pricing data"
+    },
+    {
+      "what": "New UsageRecord type instead of extending TokenUsage",
+      "why": "TokenUsage stays a pure token counter; model and cost are identity/derived fields"
+    },
+    {
+      "what": "LiteLLM pricing with 24h cache + static fallback",
+      "why": "Always current online; graceful offline degradation; no npm dependency"
+    },
+    {
+      "what": "CC JSONL parsing opt-in via --include-claude-sessions",
+      "why": "CC format is undocumented/unstable; opt-in contains blast radius"
+    },
+    {
+      "what": "harness usage latest instead of current (live burn rate)",
+      "why": "Live tracking requires per-turn hook that CC may not support; latest shows most recent completed session"
+    },
+    {
+      "what": "Integer microdollars for cost precision",
+      "why": "Avoids IEEE 754 floating-point drift across accumulated turns"
+    }
+  ],
+  "contextKeywords": [
+    "tokens",
+    "pricing",
+    "cost",
+    "sessions",
+    "JSONL",
+    "LiteLLM",
+    "CLI",
+    "burn-rate",
+    "aggregation",
+    "model"
+  ]
+}
