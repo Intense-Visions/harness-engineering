@@ -101,6 +101,28 @@ After the OWASP baseline, add stack-specific checks:
 - **React:** XSS via `dangerouslySetInnerHTML`, sensitive data in client state, insecure `postMessage` listeners
 - **Go:** Race conditions in concurrent handlers, `unsafe.Pointer` usage, format string injection
 
+#### Insecure Defaults Analysis
+
+For each configuration variable that controls a security feature (auth, encryption, TLS, CORS, rate limiting), verify:
+
+- Does the feature **fail-closed** (error/deny) when configuration is missing?
+- Or does it **fail-open** (degrade to permissive/disabled)?
+- Trace fallback chains: `config.x ?? env.Y ?? default` — is the final default secure?
+
+Patterns the mechanical `SEC-DEF-*` rules cannot catch (focus here):
+
+- Multi-line fallback chains where the insecure default is not adjacent to the security variable name
+- Conditional logic that enables security features only in specific environments (e.g., `if (isProd) enableTLS()`)
+- Error handlers that swallow failures in auth, session, or token validation code (multi-line `catch` blocks)
+- Silent type coercions that convert truthy env vars to falsy values
+
+**Rationalizations to reject** (adapted from Trail of Bits):
+
+- "The default is only used in development" — production deployments inherit defaults when config is missing
+- "The env var will always be set" — missing env vars are the #1 cause of fail-open in production
+- "The catch block will be filled in later" — empty auth catch blocks ship to production
+- "It's behind a feature flag" — feature flags can be inadvertently enabled or disabled
+
 ### Phase 3: THREAT-MODEL (optional, `--deep` flag; full mode or explicit `--deep` in pipeline)
 
 When invoked with `--deep`, build a lightweight threat model:
