@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scanForInjection, getInjectionPatterns } from './injection-patterns';
-import type { InjectionFinding } from './injection-patterns';
+import { scanForInjection, getInjectionPatterns } from '../../src/security/injection-patterns';
 
 describe('scanForInjection', () => {
   describe('HIGH: Hidden Unicode (INJ-UNI)', () => {
@@ -234,8 +233,8 @@ describe('scanForInjection', () => {
       // Verify ordering
       for (let i = 1; i < findings.length; i++) {
         const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
-        expect(order[findings[i]!.severity]).toBeGreaterThanOrEqual(
-          order[findings[i - 1]!.severity]
+        expect(order[findings[i]!.severity]!).toBeGreaterThanOrEqual(
+          order[findings[i - 1]!.severity]!
         );
       }
     });
