@@ -95,8 +95,26 @@ export class SecurityScanner {
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i] ?? '';
 
-        // Support inline suppression: // harness-ignore SEC-XXX-NNN
-        if (line.includes('harness-ignore') && line.includes(rule.id)) continue;
+        // FP verification gate: suppression requires justification
+        const suppressionMatch = parseHarnessIgnore(line, rule.id);
+        if (suppressionMatch) {
+          if (!suppressionMatch.justification) {
+            findings.push({
+              ruleId: rule.id,
+              ruleName: rule.name,
+              category: rule.category,
+              severity: this.config.strict ? 'error' : 'warning',
+              confidence: 'high',
+              file: filePath,
+              line: startLine + i,
+              match: line.trim(),
+              context: line,
+              message: `Suppression of ${rule.id} requires justification: // harness-ignore ${rule.id}: <reason>`,
+              remediation: `Add justification after colon: // harness-ignore ${rule.id}: false positive because ...`,
+            });
+          }
+          continue;
+        }
 
         for (const pattern of rule.patterns) {
           // Reset regex lastIndex for global/sticky patterns
@@ -162,8 +180,26 @@ export class SecurityScanner {
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i] ?? '';
 
-        // Support inline suppression: // harness-ignore SEC-XXX-NNN
-        if (line.includes('harness-ignore') && line.includes(rule.id)) continue;
+        // FP verification gate: suppression requires justification
+        const suppressionMatch = parseHarnessIgnore(line, rule.id);
+        if (suppressionMatch) {
+          if (!suppressionMatch.justification) {
+            findings.push({
+              ruleId: rule.id,
+              ruleName: rule.name,
+              category: rule.category,
+              severity: this.config.strict ? 'error' : 'warning',
+              confidence: 'high',
+              file: filePath,
+              line: startLine + i,
+              match: line.trim(),
+              context: line,
+              message: `Suppression of ${rule.id} requires justification: // harness-ignore ${rule.id}: <reason>`,
+              remediation: `Add justification after colon: // harness-ignore ${rule.id}: false positive because ...`,
+            });
+          }
+          continue;
+        }
 
         for (const pattern of rule.patterns) {
           // Reset regex lastIndex for global/sticky patterns
