@@ -25,7 +25,10 @@ function writeJson(filePath: string, data: unknown): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
+  // Atomic write: write to temp then rename to avoid corruption on interrupt
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n');
+  fs.renameSync(tmp, filePath);
 }
 
 /**

@@ -28,6 +28,9 @@ export function dismissIntegration(cwd: string, name: string): Result<string, CL
     integConfig.dismissed.push(def.name);
   }
 
+  // Remove from enabled — dismiss implies the user doesn't want this integration
+  integConfig.enabled = integConfig.enabled.filter((e) => e !== def.name);
+
   writeIntegrationsConfig(configPath, integConfig);
 
   return Ok(def.displayName);
