@@ -149,4 +149,70 @@ describe('harness usage', () => {
       expect(output).toHaveLength(2);
     });
   });
+
+  describe('session <id>', () => {
+    it('outputs JSON detail for a valid session', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-bbb-222', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output.sessionId).toBe('sess-bbb-222');
+      expect(output.tokens.inputTokens).toBe(500);
+      expect(output.tokens.outputTokens).toBe(200);
+    });
+
+    it('returns error with suggestions for invalid session', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-aaa', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output).toHaveProperty('error');
+      expect(output.suggestions).toContain('sess-aaa-111');
+    });
+
+    it('returns error with empty suggestions for completely unknown id', async () => {
+      const program = createProgram();
+      await program.parseAsync([
+        'node',
+        'harness',
+        'usage',
+        'session',
+        'nonexistent-xyz',
+        '--json',
+      ]);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output.error).toContain('not found');
+      expect(output.suggestions).toEqual([]);
+    });
+
+    it('includes cache tokens in detail view', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-ccc-333', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output.cacheReadTokens).toBe(100);
+      expect(output.cacheCreationTokens).toBe(50);
+    });
+  });
+
+  describe('latest', () => {
+    it('outputs JSON for the most recent session', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      // Most recent by timestamp should be sess-bbb-222 (2026-03-31)
+      expect(output.sessionId).toBe('sess-bbb-222');
+    });
+
+    it('returns error when no data exists', async () => {
+      fs.unlinkSync(costsFile);
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output).toHaveProperty('error');
+    });
+  });
 });
