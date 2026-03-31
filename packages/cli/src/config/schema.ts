@@ -213,6 +213,16 @@ export const ReviewConfigSchema = z.object({
 });
 
 /**
+ * Schema for MCP integration enablement and dismissal tracking.
+ */
+export const IntegrationsConfigSchema = z.object({
+  /** Tier 1 integrations explicitly enabled by the user */
+  enabled: z.array(z.string()).default([]),
+  /** Integrations the user does not want doctor to suggest */
+  dismissed: z.array(z.string()).default([]),
+});
+
+/**
  * The main Harness configuration schema.
  */
 export const HarnessConfigSchema = z.object({
@@ -272,6 +282,8 @@ export const HarnessConfigSchema = z.object({
   i18n: I18nConfigSchema.optional(),
   /** Code review settings */
   review: ReviewConfigSchema.optional(),
+  /** MCP peer integration enablement and dismissal */
+  integrations: IntegrationsConfigSchema.optional(),
   /** General architectural enforcement settings */
   architecture: ArchConfigSchema.optional(),
   /** Skill loading, suggestion, and tier override settings */
@@ -323,3 +335,8 @@ export type ModelTierConfigZod = z.infer<typeof ModelTierConfigSchema>;
  * Type for base architecture enforcement configuration.
  */
 export type ArchConfigZod = z.infer<typeof ArchConfigSchema>;
+
+/**
+ * Type for integrations-specific configuration.
+ */
+export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>;
