@@ -7,7 +7,7 @@ interface Phase {
 }
 
 interface PreambleOptions {
-  complexity?: 'light' | 'full';
+  complexity?: 'fast' | 'thorough';
   phases?: Phase[];
   principles?: string;
   phase?: string; // re-entry phase name
@@ -23,8 +23,8 @@ export function buildPreamble(options: PreambleOptions): string {
   if (options.complexity && options.phases && options.phases.length > 0) {
     const lines = [`## Active Phases (complexity: ${options.complexity})`];
     for (const phase of options.phases) {
-      if (options.complexity === 'light' && !phase.required) {
-        lines.push(`- ~~${phase.name.toUpperCase()}~~ (skipped in light mode)`);
+      if (options.complexity === 'fast' && !phase.required) {
+        lines.push(`- ~~${phase.name.toUpperCase()}~~ (skipped in fast mode)`);
       } else {
         lines.push(`- ${phase.name.toUpperCase()} (${phase.required ? 'required' : 'optional'})`);
       }
