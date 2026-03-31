@@ -73,8 +73,8 @@ export function addIntegration(cwd: string, name: string): Result<AddResult, CLI
     name: def.name,
     displayName: def.displayName,
     envVarMissing,
-    envVar: def.envVar,
-    installHint: def.installHint,
+    ...(def.envVar !== undefined && { envVar: def.envVar }),
+    ...(def.installHint !== undefined && { installHint: def.installHint }),
   });
 }
 
