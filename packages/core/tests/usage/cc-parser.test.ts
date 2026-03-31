@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { parseCCRecords } from './cc-parser';
+import { parseCCRecords } from '../../src/usage/cc-parser';
 
 function makeCCLine(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({

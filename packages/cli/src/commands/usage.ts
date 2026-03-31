@@ -6,13 +6,12 @@ async function loadAndPriceRecords(
   cwd: string,
   includeClaudeSessions = false
 ): Promise<UsageRecord[]> {
-  const { readCostRecords, loadPricingData, calculateCost } =
+  const { readCostRecords, loadPricingData, calculateCost, parseCCRecords } =
     await import('@harness-engineering/core');
 
   const records = readCostRecords(cwd);
 
   if (includeClaudeSessions) {
-    const { parseCCRecords } = await import('@harness-engineering/core');
     const ccRecords = parseCCRecords();
     records.push(...ccRecords);
   }
