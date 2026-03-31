@@ -93,4 +93,20 @@ describe('scratchpad', () => {
       expect(fs.existsSync(phase2Dir)).toBe(true);
     });
   });
+
+  describe('path traversal protection', () => {
+    it('rejects filenames with path traversal', () => {
+      const opts = { session, phase, projectPath: tmpDir };
+      expect(() => writeScratchpad(opts, '../../etc/passwd', 'malicious')).toThrow(
+        'must not escape scratchpad directory'
+      );
+    });
+
+    it('rejects filenames with path traversal on read', () => {
+      const opts = { session, phase, projectPath: tmpDir };
+      expect(() => readScratchpad(opts, '../../../.env')).toThrow(
+        'must not escape scratchpad directory'
+      );
+    });
+  });
 });

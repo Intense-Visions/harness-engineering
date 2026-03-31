@@ -100,20 +100,24 @@ function checkMcpConfig(cwd: string): CheckResult[] {
   }
 
   // Gemini CLI: check cwd/.gemini/settings.json (where setup-mcp writes it)
-  const geminiConfig = readMcpConfig(path.join(cwd, '.gemini', 'settings.json'));
-  if (geminiConfig.mcpServers?.['harness']) {
-    results.push({
-      name: 'mcp-gemini',
-      status: 'pass',
-      message: 'MCP configured for Gemini CLI',
-    });
-  } else {
-    results.push({
-      name: 'mcp-gemini',
-      status: 'fail',
-      message: 'MCP not configured for Gemini CLI',
-      fix: 'Run: harness setup-mcp --client gemini',
-    });
+  // Only check if .gemini directory exists — skip for projects not using Gemini CLI
+  const geminiDir = path.join(cwd, '.gemini');
+  if (fs.existsSync(geminiDir)) {
+    const geminiConfig = readMcpConfig(path.join(geminiDir, 'settings.json'));
+    if (geminiConfig.mcpServers?.['harness']) {
+      results.push({
+        name: 'mcp-gemini',
+        status: 'pass',
+        message: 'MCP configured for Gemini CLI',
+      });
+    } else {
+      results.push({
+        name: 'mcp-gemini',
+        status: 'fail',
+        message: 'MCP not configured for Gemini CLI',
+        fix: 'Run: harness setup-mcp --client gemini',
+      });
+    }
   }
 
   return results;
