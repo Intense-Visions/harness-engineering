@@ -26,6 +26,12 @@ cli:
     - name: review-plans
       description: Force human review of all plans (overrides auto-approve)
       required: false
+    - name: fast
+      description: Run with reduced rigor — skip skeleton approval, skip scratchpad, minimal verification
+      required: false
+    - name: thorough
+      description: Run with maximum rigor — require skeleton approval, verbose scratchpad, full verification
+      required: false
 mcp:
   tool: run_skill
   input:

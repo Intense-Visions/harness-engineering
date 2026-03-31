@@ -33,6 +33,20 @@ Autopilot orchestrates these persona agents — it never reimplements their logi
 
 **Plans are gated by concern signals.** When no concern signals fire (low complexity, no planner concerns, task count within threshold), plans are auto-approved with a structured report and execution proceeds immediately. When any signal fires, the plan pauses for human review with the standard yes/revise/skip/stop flow. The `--review-plans` session flag forces all plans to pause regardless of signals.
 
+## Rigor Levels
+
+The `rigorLevel` is set during INIT via `--fast` or `--thorough` flags and persists for the entire session. Default is `standard`.
+
+| State          | `fast`                                                                                 | `standard` (default)                                                    | `thorough`                                                                                                                 |
+| -------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| PLAN           | Pass `rigorLevel: fast` to planner. Planner skips skeleton pass.                       | Default planner behavior.                                               | Pass `rigorLevel: thorough` to planner. Planner always produces skeleton for approval.                                     |
+| APPROVE_PLAN   | Auto-approve all plans regardless of concern signals. Skip human review.               | Default signal-based approval logic.                                    | Force human review of all plans (equivalent to `--review-plans`).                                                          |
+| EXECUTE        | Skip scratchpad — agents keep research in conversation. Checkpoint commits still fire. | Agents use scratchpad for research >500 words. Checkpoint commits fire. | Verbose scratchpad — agents write all research, reasoning, and intermediate output to scratchpad. Checkpoint commits fire. |
+| VERIFY         | Minimal verification — run `harness validate` only. Skip detailed verification agent.  | Default verification pipeline.                                          | Full verification — run verification agent with expanded checks.                                                           |
+| PHASE_COMPLETE | Scratchpad clear is a no-op (nothing written).                                         | Clear scratchpad for completed phase.                                   | Clear scratchpad for completed phase.                                                                                      |
+
+When `rigorLevel` is `fast`, the APPROVE_PLAN concern signal evaluation is bypassed entirely — plans always auto-approve. When `rigorLevel` is `thorough`, it implicitly sets `reviewPlans: true` for the APPROVE_PLAN gate.
+
 ## Process
 
 ### State Machine
@@ -61,7 +75,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Create the session directory if it does not exist
 
 3. **Check for existing state.** Read `{sessionDir}/autopilot-state.json`. If it exists and `currentState` is not `DONE`:
-   - **Schema migration:** If `schemaVersion < 3`, backfill missing fields: set `startingCommit` to the earliest commit in `history` (or current HEAD if no history), set `decisions` to `[]`, set `finalReview` to `{ "status": "pending", "findings": [], "retryCount": 0 }`. If `schemaVersion < 4`, set `reviewPlans` to `false`. Update `schemaVersion` to `4` and save.
+   - **Schema migration:** If `schemaVersion < 3`, backfill missing fields: set `startingCommit` to the earliest commit in `history` (or current HEAD if no history), set `decisions` to `[]`, set `finalReview` to `{ "status": "pending", "findings": [], "retryCount": 0 }`. If `schemaVersion < 4`, set `reviewPlans` to `false`. Update `schemaVersion` to `4` and save. If `schemaVersion < 5`, set `rigorLevel` to `"standard"`. Update `schemaVersion` to `5` and save.
    - Report: "Resuming autopilot from state `{currentState}`, phase {currentPhase}: {phaseName}."
    - Skip steps 4 and 5 (initial state creation and flag parsing) — these only apply to fresh starts.
    - Skip to the recorded `currentState` and continue from there.
@@ -76,11 +90,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Create `{sessionDir}/autopilot-state.json`:
      ```json
      {
-       "schemaVersion": 4,
+       "schemaVersion": 5,
        "sessionDir": ".harness/sessions/<slug>",
        "specPath": "<path to spec>",
        "startingCommit": "<git rev-parse HEAD output>",
        "reviewPlans": false,
+       "rigorLevel": "standard",
        "currentState": "ASSESS",
        "currentPhase": 0,
        "phases": [
@@ -106,7 +121,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      }
      ```
 
-5. **Parse session flags.** Check CLI arguments for `--review-plans`. If present, set `state.reviewPlans: true` in the state file. This flag persists for the entire session — resuming a session preserves the setting from when it was started (the flag is only read on fresh start, not on resume).
+5. **Parse session flags.** Check CLI arguments for session-level flags. These persist for the entire session -- resuming a session preserves the settings from when it was started (flags are only read on fresh start, not on resume).
+   - `--review-plans`: Set `state.reviewPlans: true`.
+   - `--fast`: Set `state.rigorLevel: "fast"`. Reduces rigor across all phases: skip skeleton approval, skip scratchpad, minimal verification.
+   - `--thorough`: Set `state.rigorLevel: "thorough"`. Increases rigor across all phases: require skeleton approval, verbose scratchpad, full verification.
+   - If neither `--fast` nor `--thorough` is passed, `rigorLevel` defaults to `"standard"`.
+   - If both `--fast` and `--thorough` are passed, reject with error: "Cannot use --fast and --thorough together. Choose one."
 
 6. **Load context via gather_context.** Use the `gather_context` MCP tool to load all working context efficiently:
 
@@ -176,9 +196,22 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        Session directory: {sessionDir}
        Session slug: {sessionSlug}
        Phase description: {phase description from spec}
+       Rigor level: {rigorLevel}
 
        On startup, call gather_context({ session: "{sessionSlug}" }) to load
        session-scoped learnings, state, and validation context.
+
+       ## Scratchpad (if rigorLevel is not "fast")
+
+       For bulky research output (spec analysis, codebase exploration notes,
+       dependency analysis — anything >500 words), write to scratchpad instead
+       of keeping in conversation:
+
+         writeScratchpad({ session: "{sessionSlug}", phase: "{phaseName}", projectPath: "{projectPath}" }, "research-{topic}.md", content)
+
+       Reference the scratchpad file path in your conversation instead of
+       inlining the content. This keeps the planning context focused on
+       decisions and task structure.
 
        Follow the harness-planning skill process exactly. Write the plan to
        docs/plans/{date}-{phase-name}-plan.md. Write {sessionDir}/handoff.json when done.
@@ -215,7 +248,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    - Effective complexity (original + any override)
    - Concerns array from the planning handoff (`{sessionDir}/handoff.json` field `concerns`, default: `[]` if field is absent)
 
-2. **Evaluate `shouldPauseForReview`.** Check the following signals in order. If **any** signal is true, pause for human review. If **all** are false, auto-approve.
+2. **Rigor-level override:**
+   - If `rigorLevel` is `"fast"`: Skip the signal evaluation entirely. Auto-approve the plan. Record decision as `"auto_approved_plan_fast"`. Transition directly to EXECUTE.
+   - If `rigorLevel` is `"thorough"`: Force `shouldPauseForReview = true` regardless of other signals (equivalent to `--review-plans`).
+   - If `rigorLevel` is `"standard"`: Proceed with normal signal evaluation below.
+
+3. **Evaluate `shouldPauseForReview`.** Check the following signals in order. If **any** signal is true, pause for human review. If **all** are false, auto-approve.
 
    | #   | Signal               | Condition                             | Description                                                                                                                                                                                  |
    | --- | -------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -225,7 +263,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty | Planner flagged specific risks or uncertainties                                                                                                                                              |
    | 5   | `taskCount`          | Plan contains > 15 tasks (i.e., 16+)  | Plan is large enough to warrant human review                                                                                                                                                 |
 
-3. **Build the signal evaluation result** for reporting and recording:
+4. **Build the signal evaluation result** for reporting and recording:
 
    ```json
    {
@@ -238,7 +276,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    }
    ```
 
-4. **If auto-approving (no signals fired):**
+5. **If auto-approving (no signals fired):**
 
    a. **Emit structured auto-approve report:**
 
@@ -270,7 +308,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
    c. **Transition to EXECUTE** — no human interaction needed.
 
-5. **If pausing for review (one or more signals fired):**
+6. **If pausing for review (one or more signals fired):**
 
    a. **Emit structured pause report** showing which signal(s) triggered:
 
@@ -312,7 +350,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
    Use the actual decision value: `approved_plan`, `revised_plan`, `skipped_phase`, or `stopped`.
 
-6. **Update state** with `currentState: "EXECUTE"` (or appropriate state for skip/stop) and save.
+7. **Update state** with `currentState: "EXECUTE"` (or appropriate state for skip/stop) and save.
 
 ---
 
@@ -331,9 +369,19 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        Session directory: {sessionDir}
        Session slug: {sessionSlug}
        State: {sessionDir}/state.json
+       Rigor level: {rigorLevel}
 
        On startup, call gather_context({ session: "{sessionSlug}" }) to load
        session-scoped learnings, state, and validation context.
+
+       ## Scratchpad (if rigorLevel is not "fast")
+
+       For bulky intermediate output (test output analysis, error investigation
+       notes, dependency trees — anything >500 words), write to scratchpad:
+
+         writeScratchpad({ session: "{sessionSlug}", phase: "{phaseName}", projectPath: "{projectPath}" }, "task-{N}-{topic}.md", content)
+
+       Reference the scratchpad file path instead of inlining the content.
 
        Follow the harness-execution skill process exactly.
        Update {sessionDir}/state.json after each task.
@@ -341,6 +389,15 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    ```
 
 2. **When the agent returns, check the outcome:**
+   - **After each checkpoint verification passes**, commit the work:
+     ```
+     commitAtCheckpoint({
+       projectPath: "{projectPath}",
+       session: "{sessionSlug}",
+       checkpointLabel: "Checkpoint {N}: {checkpoint description}"
+     })
+     ```
+     If the commit result shows `committed: false`, no changes existed — continue silently.
    - **All tasks complete:** Transition to VERIFY.
    - **Checkpoint reached:** Surface the checkpoint to the user in the main conversation. Handle the checkpoint type:
      - `[checkpoint:human-verify]` — Show output, ask for confirmation, then resume execution agent.
@@ -357,6 +414,16 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      - **Attempt 2:** Expand context — read related files, check `learnings.md` for similar failures, re-dispatch with additional context.
      - **Attempt 3:** Full context gather — read test output, imports, plan instructions for ambiguity. Re-dispatch with maximum context.
    - If budget exhausted:
+     - **Recovery commit:** Before stopping, commit any passing work:
+       ```
+       commitAtCheckpoint({
+         projectPath: "{projectPath}",
+         session: "{sessionSlug}",
+         checkpointLabel: "Phase {N}: {name} — recovery at task {taskNumber}",
+         isRecovery: true
+       })
+       ```
+       This preserves all work completed before the failure. The `[autopilot][recovery]` prefix in the commit message distinguishes recovery commits from normal checkpoint commits.
      - **Stop.** Present all 3 attempts with full context to the user.
      - Record failure in `.harness/failures.md`.
      - Ask: "How should we proceed? (fix manually and continue / revise plan / stop)"
@@ -368,7 +435,11 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ### VERIFY — Post-Execution Validation
 
-1. **Dispatch verification agent using the Agent tool:**
+1. **Rigor-level branching:**
+   - If `rigorLevel` is `"fast"`: Skip the verification agent entirely. Run only `harness validate`. If it passes, transition to REVIEW. If it fails, surface to user.
+   - If `rigorLevel` is `"thorough"` or `"standard"`: Dispatch the verification agent as below.
+
+2. **Dispatch verification agent using the Agent tool:**
 
    ```
    Agent tool parameters:
@@ -387,14 +458,14 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
        Report pass/fail with findings.
    ```
 
-2. **When the agent returns:**
+3. **When the agent returns:**
    - **All checks pass:** Transition to REVIEW.
    - **Failures found:** Surface findings to the user. Ask: "Fix these issues before review? (fix / skip verification / stop)"
      - **fix** — Re-enter EXECUTE with targeted fixes (retry budget resets for verification fixes).
      - **skip** — Record skip decision in `decisions` array. Proceed to REVIEW with verification warnings noted.
      - **stop** — Save state and exit.
 
-3. **Update state** with `currentState: "REVIEW"` and save.
+4. **Update state** with `currentState: "REVIEW"` and save.
 
 ---
 
@@ -458,9 +529,11 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 3. **Mark phase as `complete`** in state.
 
-4. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true`. This reflects the just-completed phase in the roadmap (e.g., updating the feature from `planned` to `in-progress`). If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. Skip silently if no roadmap exists. Do not use `force_sync: true` — the human-always-wins rule applies.
+4. **Clear scratchpad for this phase.** Call `clearScratchpad({ session: sessionSlug, phase: phaseName, projectPath: projectPath })` to delete ephemeral research files for the completed phase. This frees disk space and prevents stale scratchpad data from leaking into future phases.
 
-5. **Write session summary.** Update the session summary to reflect the completed phase:
+5. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true`. This reflects the just-completed phase in the roadmap (e.g., updating the feature from `planned` to `in-progress`). If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. Skip silently if no roadmap exists. Do not use `force_sync: true` — the human-always-wins rule applies.
+
+6. **Write session summary.** Update the session summary to reflect the completed phase:
 
    ```json
    writeSessionSummary(projectPath, sessionSlug, {
@@ -476,7 +549,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    })
    ```
 
-6. **Check for next phase:**
+7. **Check for next phase:**
    - If more phases remain: "Phase {N} complete. Next: Phase {N+1}: {name} (complexity: {level}). Continue? (yes / stop)"
      - **yes** — Increment `currentPhase`, reset `retryBudget`, transition to ASSESS.
      - **stop** — Save state and exit.
@@ -626,6 +699,9 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 - **Learnings** — `.harness/learnings.md` (global) is appended by both delegated skills and autopilot itself. On DONE, session learnings with generalizable outcomes are promoted to global via `promoteSessionLearnings`. If global count exceeds 30, autopilot suggests running `harness learnings prune`.
 - **Roadmap context** — During INIT, reads `docs/roadmap.md` (if present) for project-level priorities, blockers, and milestone status. Provides broader context for phase execution decisions.
 - **Roadmap sync** — During PHASE_COMPLETE, calls `manage_roadmap` with `sync` and `apply: true` to reflect phase progress. During DONE, calls `manage_roadmap` with `update` to set feature status to `done`. Both skip silently when no roadmap exists. Neither uses `force_sync: true`.
+- **Scratchpad** — Agents write bulky research output (>500 words) to `.harness/sessions/<slug>/scratchpad/<phase>/` via `writeScratchpad()` instead of keeping it in conversation context. Cleared automatically at phase transitions via `clearScratchpad()` in PHASE_COMPLETE. Skipped entirely when `rigorLevel` is `"fast"`.
+- **Checkpoint commits** — After each checkpoint verification passes in EXECUTE, `commitAtCheckpoint()` creates a commit with message `[autopilot] <label>`. On failure with retry budget exhausted, a recovery commit is created with `[autopilot][recovery] <label>`. Skipped silently when no changes exist.
+- **Rigor levels** — `--fast` / `--thorough` flags set `rigorLevel` in state during INIT. Persists for the entire session. Affects PLAN (skeleton skip/require), APPROVE_PLAN (auto-approve/force-review), EXECUTE (scratchpad usage), and VERIFY (minimal/full). See the Rigor Behavior Table for details.
 
 ## Success Criteria
 
@@ -638,12 +714,45 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 - Plans auto-approve when no concern signals fire; plans pause for human review when any signal fires
 - `--review-plans` flag forces human review for all plans in a session
 - Phase completion summary shown between every phase
+- `--fast` skips skeleton approval, skips scratchpad, auto-approves plans, and runs minimal verification
+- `--thorough` requires skeleton approval, uses verbose scratchpad, forces plan review, and runs full verification
+- Scratchpad is cleared automatically at every phase transition (PHASE_COMPLETE)
+- Checkpoint commits fire after every passing checkpoint; recovery commits fire on retry budget exhaustion
+- Rigor level persists across session resume — set once during INIT, never changed mid-session
 
 ## Examples
 
 ### Example: 3-Phase Security Scanner
 
 **User invokes:** `/harness:autopilot docs/changes/security-scanner/proposal.md`
+
+**Or with rigor flag:** `/harness:autopilot docs/changes/security-scanner/proposal.md --fast`
+
+**INIT (with --fast):**
+
+```
+Read spec — found 3 phases:
+  Phase 1: Core Scanner (complexity: low)
+  Phase 2: Rule Engine (complexity: high)
+  Phase 3: CLI Integration (complexity: low)
+Rigor level: fast
+Created .harness/sessions/changes--security-scanner--proposal/autopilot-state.json. Starting Phase 1.
+```
+
+**Phase 1 — APPROVE_PLAN (fast mode):**
+
+```
+Auto-approved Phase 1: Core Scanner (fast mode — signal evaluation skipped)
+```
+
+**Phase 1 — EXECUTE (checkpoint commit):**
+
+```
+[harness-task-executor executes 8 tasks]
+Checkpoint 1: types and interfaces — committed (abc1234)
+Checkpoint 2: core implementation — committed (def5678)
+Checkpoint 3: tests and validation — nothing to commit (skipped)
+```
 
 **INIT:**
 
