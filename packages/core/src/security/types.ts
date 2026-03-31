@@ -7,7 +7,9 @@ export type SecurityCategory =
   | 'deserialization'
   | 'path-traversal'
   | 'agent-config'
-  | 'mcp';
+  | 'mcp'
+  | 'insecure-defaults'
+  | 'sharp-edges';
 
 export type SecuritySeverity = 'error' | 'warning' | 'info';
 export type SecurityConfidence = 'high' | 'medium' | 'low';

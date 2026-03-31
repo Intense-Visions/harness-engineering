@@ -5,7 +5,7 @@
 /**
  * Main scanner for security issues (secrets, injection, etc.) in the codebase.
  */
-export { SecurityScanner } from './scanner';
+export { SecurityScanner, parseHarnessIgnore } from './scanner';
 
 /**
  * Configuration and resolution for security rules and severity levels.
@@ -34,6 +34,8 @@ export { networkRules } from './rules/network';
 export { deserializationRules } from './rules/deserialization';
 export { agentConfigRules } from './rules/agent-config';
 export { mcpRules } from './rules/mcp';
+export { insecureDefaultsRules } from './rules/insecure-defaults';
+export { sharpEdgesRules } from './rules/sharp-edges';
 
 /**
  * Sentinel injection pattern engine for runtime prompt injection detection.

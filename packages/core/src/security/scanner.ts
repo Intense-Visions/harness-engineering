@@ -12,6 +12,8 @@ import { networkRules } from './rules/network';
 import { deserializationRules } from './rules/deserialization';
 import { agentConfigRules } from './rules/agent-config';
 import { mcpRules } from './rules/mcp';
+import { insecureDefaultsRules } from './rules/insecure-defaults';
+import { sharpEdgesRules } from './rules/sharp-edges';
 import { nodeRules } from './rules/stack/node';
 import { expressRules } from './rules/stack/express';
 import { reactRules } from './rules/stack/react';
@@ -56,6 +58,8 @@ export class SecurityScanner {
       ...deserializationRules,
       ...agentConfigRules,
       ...mcpRules,
+      ...insecureDefaultsRules,
+      ...sharpEdgesRules,
     ]);
 
     // Register stack-specific rules
