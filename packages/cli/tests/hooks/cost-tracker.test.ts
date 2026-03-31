@@ -87,4 +87,66 @@ describe('cost-tracker', () => {
     const { exitCode } = runHook(input, tmpDir);
     expect(exitCode).toBe(0);
   });
+
+  it('should include cache fields when present in input', () => {
+    const input = JSON.stringify({
+      session_id: 'abc-123',
+      token_usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+      cacheCreationTokens: 500,
+      cacheReadTokens: 200,
+    });
+
+    runHook(input, tmpDir);
+
+    const costsFile = join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
+    const entry = JSON.parse(readFileSync(costsFile, 'utf-8').trim());
+    expect(entry.cacheCreationTokens).toBe(500);
+    expect(entry.cacheReadTokens).toBe(200);
+  });
+
+  it('should omit cache fields when not present in input', () => {
+    const input = JSON.stringify({
+      session_id: 'abc-123',
+      token_usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+    });
+
+    runHook(input, tmpDir);
+
+    const costsFile = join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
+    const entry = JSON.parse(readFileSync(costsFile, 'utf-8').trim());
+    expect(entry).not.toHaveProperty('cacheCreationTokens');
+    expect(entry).not.toHaveProperty('cacheReadTokens');
+  });
+
+  it('should omit cache fields when they are null', () => {
+    const input = JSON.stringify({
+      session_id: 'abc-123',
+      token_usage: null,
+      cacheCreationTokens: null,
+      cacheReadTokens: null,
+    });
+
+    runHook(input, tmpDir);
+
+    const costsFile = join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
+    const entry = JSON.parse(readFileSync(costsFile, 'utf-8').trim());
+    expect(entry).not.toHaveProperty('cacheCreationTokens');
+    expect(entry).not.toHaveProperty('cacheReadTokens');
+  });
+
+  it('should handle zero-value cache fields (valid — include them)', () => {
+    const input = JSON.stringify({
+      session_id: 'abc-123',
+      token_usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+    });
+
+    runHook(input, tmpDir);
+
+    const costsFile = join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
+    const entry = JSON.parse(readFileSync(costsFile, 'utf-8').trim());
+    expect(entry.cacheCreationTokens).toBe(0);
+    expect(entry.cacheReadTokens).toBe(0);
+  });
 });

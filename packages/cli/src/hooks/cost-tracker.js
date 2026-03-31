@@ -39,6 +39,14 @@ function main() {
       token_usage: input.token_usage ?? null,
     };
 
+    // Pass through cache token fields if present (no assumptions about upstream)
+    if (input.cacheCreationTokens != null) {
+      entry.cacheCreationTokens = input.cacheCreationTokens;
+    }
+    if (input.cacheReadTokens != null) {
+      entry.cacheReadTokens = input.cacheReadTokens;
+    }
+
     const costsFile = join(metricsDir, 'costs.jsonl');
     appendFileSync(costsFile, JSON.stringify(entry) + '\n');
 
