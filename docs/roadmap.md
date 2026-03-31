@@ -543,7 +543,7 @@ last_manual_edit: 2026-03-30
 
 ### Documentation Auto-Generation
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/docs-auto-generation/proposal.md
 - **Summary:** Build script generating CLI Command Reference (76+ commands), MCP Tools Reference (54 tools), and Skills Catalog (79 skills) from code metadata. CI freshness check ensures generated docs never drift.
 - **Blockers:** none
