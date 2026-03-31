@@ -163,6 +163,78 @@ describe('integrations commands', () => {
     });
   });
 
+  describe('add (Gemini parity)', () => {
+    it('writes to .gemini/settings.json when .gemini dir exists', async () => {
+      // Create .gemini directory to trigger Gemini detection
+      fs.mkdirSync(path.join(tempDir, '.gemini'));
+      const { addIntegration } = await import('../../src/commands/integrations/add');
+      const result = addIntegration(tempDir, 'perplexity');
+      expect(result.ok).toBe(true);
+
+      const geminiConfig = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.gemini', 'settings.json'), 'utf-8')
+      );
+      expect(geminiConfig.mcpServers.perplexity).toBeDefined();
+      expect(geminiConfig.mcpServers.perplexity.command).toBe('npx');
+    });
+
+    it('does not write to .gemini/settings.json when .gemini dir does not exist', async () => {
+      const { addIntegration } = await import('../../src/commands/integrations/add');
+      addIntegration(tempDir, 'perplexity');
+
+      expect(fs.existsSync(path.join(tempDir, '.gemini', 'settings.json'))).toBe(false);
+    });
+  });
+
+  describe('remove (Gemini parity)', () => {
+    it('removes from .gemini/settings.json when .gemini dir exists', async () => {
+      // Set up: .gemini dir with perplexity entry
+      fs.mkdirSync(path.join(tempDir, '.gemini'));
+      fs.writeFileSync(
+        path.join(tempDir, '.gemini', 'settings.json'),
+        JSON.stringify({
+          mcpServers: { perplexity: { command: 'npx', args: ['-y', 'perplexity-mcp'] } },
+        })
+      );
+      fs.writeFileSync(
+        path.join(tempDir, '.mcp.json'),
+        JSON.stringify({
+          mcpServers: { perplexity: { command: 'npx', args: ['-y', 'perplexity-mcp'] } },
+        })
+      );
+      fs.writeFileSync(
+        path.join(tempDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, integrations: { enabled: ['perplexity'], dismissed: [] } })
+      );
+
+      const { removeIntegration } = await import('../../src/commands/integrations/remove');
+      const result = removeIntegration(tempDir, 'perplexity');
+      expect(result.ok).toBe(true);
+
+      const geminiConfig = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.gemini', 'settings.json'), 'utf-8')
+      );
+      expect(geminiConfig.mcpServers.perplexity).toBeUndefined();
+    });
+
+    it('does not error when .gemini dir does not exist', async () => {
+      fs.writeFileSync(
+        path.join(tempDir, '.mcp.json'),
+        JSON.stringify({
+          mcpServers: { perplexity: { command: 'npx', args: ['-y', 'perplexity-mcp'] } },
+        })
+      );
+      fs.writeFileSync(
+        path.join(tempDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, integrations: { enabled: ['perplexity'], dismissed: [] } })
+      );
+
+      const { removeIntegration } = await import('../../src/commands/integrations/remove');
+      const result = removeIntegration(tempDir, 'perplexity');
+      expect(result.ok).toBe(true);
+    });
+  });
+
   describe('dismiss', () => {
     it('adds integration to dismissed array', async () => {
       const { dismissIntegration } = await import('../../src/commands/integrations/dismiss');

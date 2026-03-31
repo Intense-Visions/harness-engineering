@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
@@ -28,6 +29,13 @@ export function removeIntegration(cwd: string, name: string): Result<string, CLI
   // Remove MCP entry from .mcp.json
   const mcpPath = path.join(cwd, '.mcp.json');
   removeMcpEntry(mcpPath, def.name);
+
+  // Gemini CLI parity: also remove from .gemini/settings.json if detected
+  const geminiDir = path.join(cwd, '.gemini');
+  if (fs.existsSync(geminiDir)) {
+    const geminiPath = path.join(geminiDir, 'settings.json');
+    removeMcpEntry(geminiPath, def.name);
+  }
 
   // Update harness.config.json
   const configPath = path.join(cwd, 'harness.config.json');

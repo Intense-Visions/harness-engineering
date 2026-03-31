@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import type { Result } from '@harness-engineering/core';
@@ -51,6 +52,13 @@ export function addIntegration(cwd: string, name: string): Result<AddResult, CLI
   if (def.mcpConfig.args.length > 0) mcpEntry.args = def.mcpConfig.args;
   if (def.mcpConfig.env) mcpEntry.env = def.mcpConfig.env;
   writeMcpEntry(mcpPath, def.name, mcpEntry);
+
+  // Gemini CLI parity: also write to .gemini/settings.json if detected
+  const geminiDir = path.join(cwd, '.gemini');
+  if (fs.existsSync(geminiDir)) {
+    const geminiPath = path.join(geminiDir, 'settings.json');
+    writeMcpEntry(geminiPath, def.name, mcpEntry);
+  }
 
   // Update harness.config.json
   const configPath = path.join(cwd, 'harness.config.json');

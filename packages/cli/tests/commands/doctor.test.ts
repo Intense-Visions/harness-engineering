@@ -45,6 +45,7 @@ const geminiSettingsForCwd = (cwd: string) => path.join(cwd, '.gemini', 'setting
 function buildExistsMap(cwd: string): Record<string, boolean> {
   return {
     [path.join(cwd, '.mcp.json')]: true,
+    [path.join(cwd, '.gemini')]: true,
     [geminiSettingsForCwd(cwd)]: true,
     [path.join(cwd, 'harness.config.json')]: true,
   };
@@ -314,6 +315,48 @@ describe('runDoctor', () => {
       const infoChecks = result.checks.filter((c) => c.status === 'info');
 
       expect(infoChecks.length).toBeGreaterThan(0);
+      expect(result.allPassed).toBe(true);
+    });
+
+    it('warns when Tier 0 integration in Claude but missing from Gemini', () => {
+      const cwd = '/tmp/project';
+      // Gemini config missing context7
+      const geminiNoContext7 = JSON.stringify({
+        mcpServers: {
+          harness: { command: 'harness-mcp' },
+          'sequential-thinking': {
+            command: 'npx',
+            args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
+          },
+          playwright: { command: 'npx', args: ['-y', '@playwright/mcp'] },
+        },
+      });
+      const existsMap: Record<string, boolean> = {
+        [path.join(cwd, '.mcp.json')]: true,
+        [geminiSettingsForCwd(cwd)]: true,
+        [path.join(cwd, '.gemini')]: true,
+        [path.join(cwd, 'harness.config.json')]: true,
+      };
+      mockExistsSync.mockImplementation((p: fs.PathLike) => existsMap[String(p)] ?? false);
+      mockReaddirSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => (readdirMap[String(p)] ?? []) as unknown as fs.Dirent[]
+      );
+      const readMap: Record<string, string> = {
+        [path.join(cwd, '.mcp.json')]: mcpJsonFull,
+        [geminiSettingsForCwd(cwd)]: geminiNoContext7,
+        [path.join(cwd, 'harness.config.json')]: harnessConfigDismissed,
+      };
+      mockReadFileSync.mockImplementation(
+        (p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}'
+      );
+
+      const result = runDoctor(cwd);
+      const context7Check = result.checks.find((c) => c.name === 'integration-context7');
+
+      expect(context7Check).toBeDefined();
+      expect(context7Check!.status).toBe('warn');
+      expect(context7Check!.message).toContain('Gemini CLI');
+      // warn should not fail allPassed
       expect(result.allPassed).toBe(true);
     });
 

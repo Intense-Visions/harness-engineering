@@ -105,6 +105,18 @@ export function configureTier0Integrations(cwd: string): StepResult {
       added.push(integration.displayName);
     }
 
+    // Gemini CLI parity: also write Tier 0 integrations to .gemini/settings.json
+    const geminiDir = path.join(cwd, '.gemini');
+    if (fs.existsSync(geminiDir)) {
+      const geminiPath = path.join(geminiDir, 'settings.json');
+      const geminiConfig = readMcpConfig(geminiPath);
+      for (const integration of tier0) {
+        if (!geminiConfig.mcpServers![integration.name]) {
+          writeMcpEntry(geminiPath, integration.name, integration.mcpConfig);
+        }
+      }
+    }
+
     if (added.length === 0) {
       return { status: 'pass', message: 'Tier 0 MCP integrations already configured' };
     }
