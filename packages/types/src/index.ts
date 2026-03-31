@@ -375,6 +375,9 @@ export interface Roadmap {
   milestones: RoadmapMilestone[];
 }
 
+// --- Usage & Cost Tracking Types ---
+export type { UsageRecord, ModelPricing } from './usage';
+
 // --- Session State Types ---
 export { SESSION_SECTION_NAMES } from './session-state';
 export type {
