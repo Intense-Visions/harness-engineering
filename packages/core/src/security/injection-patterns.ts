@@ -58,7 +58,8 @@ const reRolingPatterns: InjectionPattern[] = [
     severity: 'high',
     category: 'explicit-re-roling',
     description: 'Attempt to reassign the AI role',
-    pattern: /you\s+are\s+now\s+(?:a\s+)?(?:new\s+)?(?:helpful\s+)?(?:an?\s+)?/i,
+    pattern:
+      /you\s+are\s+now\s+(?:a\s+|an\s+)?(?:new\s+)?(?:helpful\s+)?(?:my\s+)?(?:\w+\s+)?(?:assistant|agent|AI|bot|chatbot|system|persona)\b/i,
   },
   {
     ruleId: 'INJ-REROL-003',
@@ -74,8 +75,8 @@ const permissionEscalationPatterns: InjectionPattern[] = [
     ruleId: 'INJ-PERM-001',
     severity: 'high',
     category: 'permission-escalation',
-    description: 'Attempt to enable all tools or disable restrictions',
-    pattern: /(?:allow|enable|grant)\s+(?:all\s+)?(?:tools?|permissions?|access)/i,
+    description: 'Attempt to enable all tools or grant unrestricted access',
+    pattern: /(?:allow|enable|grant)\s+all\s+(?:tools?|permissions?|access)/i,
   },
   {
     ruleId: 'INJ-PERM-002',
@@ -99,17 +100,19 @@ const encodedPayloadPatterns: InjectionPattern[] = [
     ruleId: 'INJ-ENC-001',
     severity: 'high',
     category: 'encoded-payloads',
-    description: 'Base64-encoded string long enough to contain instructions (>=20 chars)',
-    // Match base64 strings of 20+ chars that are not part of URLs or common tokens
+    description: 'Base64-encoded string long enough to contain instructions (>=28 chars)',
+    // Match base64 strings of 28+ chars (7+ groups of 4).
+    // Excludes JWT tokens (eyJ prefix) and Bearer-prefixed tokens.
     pattern:
-      /(?<![A-Za-z0-9/])(?:[A-Za-z0-9+/]{4}){5,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9/])/,
+      /(?<!Bearer\s)(?<![:])(?<![A-Za-z0-9/])(?!eyJ)(?:[A-Za-z0-9+/]{4}){7,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9/])/,
   },
   {
     ruleId: 'INJ-ENC-002',
     severity: 'high',
     category: 'encoded-payloads',
     description: 'Hex-encoded string long enough to contain directives (>=20 hex chars)',
-    pattern: /(?<![A-Fa-f0-9])(?:[0-9a-fA-F]{2}){10,}(?![A-Fa-f0-9])/,
+    // Excludes hash-prefixed hex (sha256:, sha512:, md5:, etc.) and hex preceded by 0x
+    pattern: /(?<![:x])(?<![A-Fa-f0-9])(?:[0-9a-fA-F]{2}){10,}(?![A-Fa-f0-9])/,
   },
 ];
 
@@ -162,8 +165,10 @@ const contextManipulationPatterns: InjectionPattern[] = [
     severity: 'medium',
     category: 'context-manipulation',
     description: 'Fake XML/HTML system or instruction tags',
+    // Case-sensitive: only match lowercase tags to avoid false positives on
+    // React components like <User>, <Context>, <Role> etc.
     pattern:
-      /<\/?(?:system|instruction|prompt|role|context|tool_call|function_call|assistant|human|user)[^>]*>/i,
+      /<\/?(?:system|instruction|prompt|role|context|tool_call|function_call|assistant|human|user)[^>]*>/,
   },
   {
     ruleId: 'INJ-CTX-004',
@@ -181,7 +186,7 @@ const socialEngineeringPatterns: InjectionPattern[] = [
     category: 'social-engineering',
     description: 'Urgency pressure to bypass checks',
     pattern:
-      /(?:this\s+is\s+(?:very\s+)?urgent|emergency|critical\s+priority|do\s+(?:this|it)\s+(?:now|immediately))\b/i,
+      /(?:this\s+is\s+(?:very\s+)?urgent|this\s+is\s+(?:an?\s+)?emergency|do\s+(?:this|it)\s+(?:now|immediately))\b/i,
   },
   {
     ruleId: 'INJ-SOC-002',
@@ -207,8 +212,9 @@ const suspiciousPatterns: InjectionPattern[] = [
     ruleId: 'INJ-SUS-001',
     severity: 'low',
     category: 'suspicious-patterns',
-    description: 'Excessive consecutive whitespace (>10 chars) that may hide content',
-    pattern: /\s{11,}/,
+    description: 'Excessive consecutive whitespace (>10 chars) mid-line that may hide content',
+    // Only match whitespace runs not at the start of a line (indentation is normal)
+    pattern: /\S\s{11,}/,
   },
   {
     ruleId: 'INJ-SUS-002',
