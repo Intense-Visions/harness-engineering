@@ -1,5 +1,22 @@
 import { Command } from 'commander';
+import type { UsageRecord } from '@harness-engineering/types';
 import { logger } from '../output/logger';
+
+async function loadAndPriceRecords(cwd: string): Promise<UsageRecord[]> {
+  const { readCostRecords } = await import('@harness-engineering/core');
+  const { loadPricingData, calculateCost } = await import('@harness-engineering/core');
+
+  const records = readCostRecords(cwd);
+  if (records.length === 0) return records;
+
+  const pricingData = await loadPricingData(cwd);
+  for (const record of records) {
+    if (record.model && record.costMicroUSD == null) {
+      record.costMicroUSD = calculateCost(record, pricingData);
+    }
+  }
+  return records;
+}
 
 function formatMicroUSD(microUSD: number | null): string {
   if (microUSD == null) return 'N/A';
@@ -28,10 +45,7 @@ function registerDailyCommand(usage: Command): void {
       const days = Math.min(Math.max(parseInt(opts.days, 10) || 7, 1), 90);
       const cwd = process.cwd();
 
-      const { readCostRecords, aggregateByDay } = await import('@harness-engineering/core');
-      const { loadPricingData, calculateCost } = await import('@harness-engineering/core');
-
-      const records = readCostRecords(cwd);
+      const records = await loadAndPriceRecords(cwd);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify([]));
@@ -41,14 +55,7 @@ function registerDailyCommand(usage: Command): void {
         return;
       }
 
-      // Calculate costs at read time
-      const pricingData = await loadPricingData(cwd);
-      for (const record of records) {
-        if (record.model && record.costMicroUSD == null) {
-          record.costMicroUSD = calculateCost(record, pricingData);
-        }
-      }
-
+      const { aggregateByDay } = await import('@harness-engineering/core');
       const dailyData = aggregateByDay(records);
       const limited = dailyData.slice(0, days);
 
@@ -87,10 +94,7 @@ function registerSessionsCommand(usage: Command): void {
       const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 10, 1), 100);
       const cwd = process.cwd();
 
-      const { readCostRecords, aggregateBySession } = await import('@harness-engineering/core');
-      const { loadPricingData, calculateCost } = await import('@harness-engineering/core');
-
-      const records = readCostRecords(cwd);
+      const records = await loadAndPriceRecords(cwd);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify([]));
@@ -100,13 +104,7 @@ function registerSessionsCommand(usage: Command): void {
         return;
       }
 
-      const pricingData = await loadPricingData(cwd);
-      for (const record of records) {
-        if (record.model && record.costMicroUSD == null) {
-          record.costMicroUSD = calculateCost(record, pricingData);
-        }
-      }
-
+      const { aggregateBySession } = await import('@harness-engineering/core');
       const sessionData = aggregateBySession(records);
       const limited = sessionData.slice(0, limit);
 
@@ -145,17 +143,9 @@ function registerSessionCommand(usage: Command): void {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const { readCostRecords, aggregateBySession } = await import('@harness-engineering/core');
-      const { loadPricingData, calculateCost } = await import('@harness-engineering/core');
+      const records = await loadAndPriceRecords(cwd);
 
-      const records = readCostRecords(cwd);
-      const pricingData = await loadPricingData(cwd);
-      for (const record of records) {
-        if (record.model && record.costMicroUSD == null) {
-          record.costMicroUSD = calculateCost(record, pricingData);
-        }
-      }
-
+      const { aggregateBySession } = await import('@harness-engineering/core');
       const sessionData = aggregateBySession(records);
       const match = sessionData.find((s) => s.sessionId === id);
 
@@ -222,10 +212,7 @@ function registerLatestCommand(usage: Command): void {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const { readCostRecords, aggregateBySession } = await import('@harness-engineering/core');
-      const { loadPricingData, calculateCost } = await import('@harness-engineering/core');
-
-      const records = readCostRecords(cwd);
+      const records = await loadAndPriceRecords(cwd);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify({ error: 'No usage data found' }));
@@ -235,13 +222,7 @@ function registerLatestCommand(usage: Command): void {
         return;
       }
 
-      const pricingData = await loadPricingData(cwd);
-      for (const record of records) {
-        if (record.model && record.costMicroUSD == null) {
-          record.costMicroUSD = calculateCost(record, pricingData);
-        }
-      }
-
+      const { aggregateBySession } = await import('@harness-engineering/core');
       const sessionData = aggregateBySession(records);
       // Already sorted descending by firstTimestamp
       const latest = sessionData[0];
@@ -265,8 +246,15 @@ function registerLatestCommand(usage: Command): void {
 export function createUsageCommand(): Command {
   const usage = new Command('usage').description('Token usage and cost tracking');
 
-  // Stub flag for Phase 4 CC parser integration
-  usage.option('--include-claude-sessions', 'Include Claude Code session data (requires Phase 4)');
+  usage.option(
+    '--include-claude-sessions',
+    'Include Claude Code session data (not yet implemented)'
+  );
+  usage.hook('preAction', (thisCommand) => {
+    if (thisCommand.opts().includeClaudeSessions) {
+      logger.warn('--include-claude-sessions is not yet implemented. Showing harness data only.');
+    }
+  });
 
   registerDailyCommand(usage);
   registerSessionsCommand(usage);
