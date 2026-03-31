@@ -5,10 +5,12 @@ import * as path from 'path';
 import chalk from 'chalk';
 import { checkNodeVersion as checkNode } from '../utils/node-version';
 import { ExitCode } from '../utils/errors';
+import { INTEGRATION_REGISTRY } from '../integrations/registry';
+import { readMcpConfig, readIntegrationsConfig } from '../integrations/config';
 
 export interface CheckResult {
   name: string;
-  status: 'pass' | 'fail';
+  status: 'pass' | 'fail' | 'info' | 'warn';
   message: string;
   fix?: string;
 }
@@ -133,22 +135,81 @@ function checkMcpConfig(cwd: string): CheckResult[] {
   return results;
 }
 
+function checkIntegrations(cwd: string): CheckResult[] {
+  const results: CheckResult[] = [];
+  const mcpPath = path.join(cwd, '.mcp.json');
+  const mcpConfig = readMcpConfig(mcpPath);
+  const configPath = path.join(cwd, 'harness.config.json');
+  const integrationsConfig = readIntegrationsConfig(configPath);
+
+  // Tier 0: presence check — fail if not configured
+  for (const def of INTEGRATION_REGISTRY.filter((d) => d.tier === 0)) {
+    if (mcpConfig.mcpServers?.[def.name]) {
+      results.push({
+        name: `integration-${def.name}`,
+        status: 'pass',
+        message: `${def.displayName} configured`,
+      });
+    } else {
+      results.push({
+        name: `integration-${def.name}`,
+        status: 'fail',
+        message: `${def.displayName} not configured. Run \`harness setup\` to fix.`,
+        fix: 'Run: harness setup',
+      });
+    }
+  }
+
+  // Tier 1: suggestions for non-enabled, non-dismissed integrations
+  for (const def of INTEGRATION_REGISTRY.filter((d) => d.tier === 1)) {
+    const enabled = integrationsConfig.enabled.includes(def.name);
+    const dismissed = integrationsConfig.dismissed.includes(def.name);
+
+    if (enabled) {
+      // Check env var if required
+      if (def.envVar && !process.env[def.envVar]) {
+        results.push({
+          name: `integration-${def.name}-env`,
+          status: 'warn',
+          message: `${def.displayName} enabled but ${def.envVar} not set.`,
+          fix: def.installHint,
+        });
+      }
+    } else if (!dismissed) {
+      results.push({
+        name: `integration-${def.name}`,
+        status: 'info',
+        message: `${def.displayName} enables ${def.description.toLowerCase()}. Run \`harness integrations add ${def.name}\`.`,
+      });
+    }
+  }
+
+  return results;
+}
+
 export function runDoctor(cwd: string): DoctorResult {
   const checks: CheckResult[] = [];
 
   checks.push(checkNodeVersion());
   checks.push(...checkSlashCommands());
   checks.push(...checkMcpConfig(cwd));
+  checks.push(...checkIntegrations(cwd));
 
-  const allPassed = checks.every((c) => c.status === 'pass');
+  const allPassed = checks.every((c) => c.status !== 'fail');
 
   return { checks, allPassed };
 }
 
 function formatCheck(check: CheckResult): string {
-  const icon = check.status === 'pass' ? chalk.green('✓') : chalk.red('✗');
+  const icons: Record<CheckResult['status'], string> = {
+    pass: chalk.green('✓'),
+    fail: chalk.red('✗'),
+    warn: chalk.yellow('!'),
+    info: chalk.blue('ℹ'),
+  };
+  const icon = icons[check.status];
   let line = `  ${icon} ${check.message}`;
-  if (check.status === 'fail' && check.fix) {
+  if ((check.status === 'fail' || check.status === 'warn') && check.fix) {
     line += `\n    -> ${check.fix}`;
   }
   return line;
