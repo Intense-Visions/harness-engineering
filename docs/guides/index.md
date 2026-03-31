@@ -4,6 +4,12 @@ Welcome to the Harness Engineering Guides section. These guides provide practica
 
 ## Available Guides
 
+### [Features Overview](./features-overview.md)
+
+What can harness do? A complete map of every capability — commands, skills, personas, and tools — organized by what you're trying to accomplish. Start here if you want the full picture.
+
+**Best for:** Understanding the full scope of what harness provides
+
 ### [Getting Started](./getting-started.md)
 
 New to Harness Engineering? Start here. This guide walks you through:

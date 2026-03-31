@@ -541,6 +541,14 @@ last_manual_edit: 2026-03-30
 - **Blockers:** none
 - **Plan:** none
 
+### Documentation Auto-Generation
+
+- **Status:** planned
+- **Spec:** docs/changes/docs-auto-generation/proposal.md
+- **Summary:** Build script generating CLI Command Reference (76+ commands), MCP Tools Reference (54 tools), and Skills Catalog (79 skills) from code metadata. CI freshness check ensures generated docs never drift.
+- **Blockers:** none
+- **Plan:** none
+
 ### Security Rule Test Coverage
 
 - **Status:** planned
@@ -839,11 +847,11 @@ last_manual_edit: 2026-03-30
 - **Blockers:** none
 - **Plan:** none
 
-### Prompt Injection Defense
+### Sentinel: Prompt Injection Defense
 
 - **Status:** planned
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
-- **Summary:** Document parry-guard hook installation for orchestrator users processing untrusted external input (issues, PRs, Slack). Implement session taint model with 30-minute auto-expire. Add CLAUDE.md scanning for cloned repos before orchestrator plan execution. [ACE-A1/A9]
+- **Spec:** docs/changes/sentinel-prompt-injection-defense/proposal.md
+- **Summary:** Multi-layered prompt injection defense — sentinel hooks (Claude Code) + MCP middleware (Gemini CLI) for runtime scanning, session-scoped restrictive taint model with 30-min expiry, and CLAUDE.md config scanning on clone with tiered response. [ACE-A1/A9]
 - **Blockers:** none
 - **Plan:** none
 
