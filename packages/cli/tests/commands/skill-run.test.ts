@@ -59,11 +59,11 @@ describe('skill run command', () => {
       expect(opt).toBeDefined();
     });
 
-    it('has --complexity option with default auto', () => {
+    it('has --complexity option with default standard', () => {
       const cmd = createRunCommand();
       const opt = cmd.options.find((o) => o.long === '--complexity');
       expect(opt).toBeDefined();
-      expect(opt!.defaultValue).toBe('auto');
+      expect(opt!.defaultValue).toBe('standard');
     });
 
     it('has --phase option', () => {
