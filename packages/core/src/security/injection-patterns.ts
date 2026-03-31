@@ -200,6 +200,33 @@ const socialEngineeringPatterns: InjectionPattern[] = [
   },
 ];
 
+// --- LOW severity patterns ---
+
+const suspiciousPatterns: InjectionPattern[] = [
+  {
+    ruleId: 'INJ-SUS-001',
+    severity: 'low',
+    category: 'suspicious-patterns',
+    description: 'Excessive consecutive whitespace (>10 chars) that may hide content',
+    pattern: /\s{11,}/,
+  },
+  {
+    ruleId: 'INJ-SUS-002',
+    severity: 'low',
+    category: 'suspicious-patterns',
+    description: 'Repeated delimiters (>5) that may indicate obfuscation',
+    pattern: /([|;,=\-_~`])\1{5,}/,
+  },
+  {
+    ruleId: 'INJ-SUS-003',
+    severity: 'low',
+    category: 'suspicious-patterns',
+    description: 'Mathematical alphanumeric symbols used as Latin character substitutes',
+    // Mathematical bold/italic/script Unicode ranges (U+1D400-U+1D7FF)
+    pattern: /[\uD835][\uDC00-\uDFFF]/,
+  },
+];
+
 const ALL_PATTERNS: InjectionPattern[] = [
   ...hiddenUnicodePatterns,
   ...reRolingPatterns,
@@ -208,6 +235,7 @@ const ALL_PATTERNS: InjectionPattern[] = [
   ...indirectInjectionPatterns,
   ...contextManipulationPatterns,
   ...socialEngineeringPatterns,
+  ...suspiciousPatterns,
 ];
 
 /**
