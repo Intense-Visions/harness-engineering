@@ -44,6 +44,19 @@ export { scanForInjection, getInjectionPatterns } from './injection-patterns';
 export type { InjectionFinding, InjectionSeverity, InjectionPattern } from './injection-patterns';
 
 /**
+ * Sentinel taint state management — session-scoped taint lifecycle.
+ */
+export {
+  readTaint,
+  checkTaint,
+  writeTaint,
+  clearTaint,
+  listTaintedSessions,
+  getTaintFilePath,
+} from './taint';
+export type { TaintState, TaintFinding, TaintCheckResult } from './taint';
+
+/**
  * Stack-specific security rules for specific frameworks and languages.
  */
 export { nodeRules } from './rules/stack/node';
