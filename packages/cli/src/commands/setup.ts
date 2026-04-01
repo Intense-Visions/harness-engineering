@@ -28,7 +28,7 @@ function runSlashCommandGeneration(): StepResult {
   try {
     const results = generateSlashCommands({
       global: true,
-      platforms: ['claude-code', 'gemini-cli'],
+      platforms: ['claude-code', 'gemini-cli', 'codex', 'cursor'],
       yes: true,
       includeGlobal: false,
       skillsDir: '',
@@ -46,7 +46,7 @@ function detectClient(dirName: string): boolean {
   return fs.existsSync(path.join(os.homedir(), dirName));
 }
 
-function runMcpSetup(cwd: string): StepResult[] {
+async function runMcpSetup(cwd: string): Promise<StepResult[]> {
   const results: StepResult[] = [];
 
   const clients: Array<{ name: string; dir: string; client: string; configTarget: string }> = [
@@ -57,6 +57,8 @@ function runMcpSetup(cwd: string): StepResult[] {
       client: 'gemini',
       configTarget: '.gemini/settings.json',
     },
+    { name: 'Codex CLI', dir: '.codex', client: 'codex', configTarget: '.codex/config.toml' },
+    { name: 'Cursor', dir: '.cursor', client: 'cursor', configTarget: '.cursor/mcp.json' },
   ];
 
   for (const { name, dir, client, configTarget } of clients) {
@@ -131,7 +133,7 @@ export function configureTier0Integrations(cwd: string): StepResult {
   }
 }
 
-export function runSetup(cwd: string): { steps: StepResult[]; success: boolean } {
+export async function runSetup(cwd: string): Promise<{ steps: StepResult[]; success: boolean }> {
   const steps: StepResult[] = [];
 
   // Step 1: Node version check
@@ -146,7 +148,7 @@ export function runSetup(cwd: string): { steps: StepResult[]; success: boolean }
   steps.push(slashResult);
 
   // Step 3: MCP setup for detected clients
-  const mcpResults = runMcpSetup(cwd);
+  const mcpResults = await runMcpSetup(cwd);
   steps.push(...mcpResults);
 
   // Step 4: Configure Tier 0 integrations
@@ -166,14 +168,14 @@ export function runSetup(cwd: string): { steps: StepResult[]; success: boolean }
 export function createSetupCommand(): Command {
   return new Command('setup')
     .description('Configure harness environment: slash commands, MCP, and more')
-    .action(() => {
+    .action(async () => {
       const cwd = process.cwd();
 
       console.log('');
       console.log(`  ${chalk.bold('harness setup')}`);
       console.log('');
 
-      const { steps, success } = runSetup(cwd);
+      const { steps, success } = await runSetup(cwd);
 
       for (const step of steps) {
         console.log(formatStep(step));
