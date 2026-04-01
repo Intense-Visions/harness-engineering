@@ -50,7 +50,7 @@ export const CURSOR_CURATED_TOOLS: string[] = [
   'detect_anomalies',
 ];
 
-const ALL_MCP_TOOLS: string[] = [
+export const ALL_MCP_TOOLS: string[] = [
   'validate_project',
   'check_dependencies',
   'check_docs',
