@@ -9,6 +9,7 @@
  * - Fail-open: middleware errors pass through to the original handler
  */
 
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   scanForInjection,
@@ -20,7 +21,10 @@ import {
 type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
 type ToolHandler = (input: Record<string, unknown>) => Promise<ToolResult>;
 
-/** Bash command patterns that are blocked during taint. */
+/**
+ * Bash command patterns that are blocked during taint.
+ * Keep in sync with DESTRUCTIVE_BASH in packages/cli/src/hooks/sentinel-pre.js.
+ */
 const DESTRUCTIVE_BASH = [/\bgit\s+push\b/, /\bgit\s+commit\b/, /\brm\s+-rf?\b/, /\brm\s+-r\b/];
 
 function isDestructiveBash(command: string): boolean {
@@ -30,7 +34,14 @@ function isDestructiveBash(command: string): boolean {
 function isOutsideWorkspace(filePath: string, workspaceRoot: string): boolean {
   if (!filePath || !workspaceRoot) return false;
   const resolved = resolve(workspaceRoot, filePath);
-  return !resolved.startsWith(workspaceRoot);
+  // Resolve symlinks to prevent bypass via symlink pointing outside workspace
+  let realResolved = resolved;
+  try {
+    realResolved = realpathSync(resolved);
+  } catch {
+    /* path doesn't exist yet — use resolved */
+  }
+  return !realResolved.startsWith(workspaceRoot);
 }
 
 /** Per-tool input field extractors. */

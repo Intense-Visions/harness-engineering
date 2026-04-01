@@ -147,7 +147,7 @@ function applyFix(
   if (linesStripped > 0) {
     writeFileSync(filePath, cleaned);
     logger.info(
-      `scan-config --fix: stripped ${linesStripped} high-severity line(s) from ${relative(targetDir, filePath)}`
+      `scan-config --fix: stripped ${linesStripped} high-severity line(s) from ${relative(targetDir, filePath).replaceAll('\\', '/')}`
     );
   }
 }
@@ -179,7 +179,7 @@ function scanSingleFile(
   }
 
   return {
-    file: relative(targetDir, filePath),
+    file: relative(targetDir, filePath).replaceAll('\\', '/'),
     findings,
     overallSeverity: computeOverallSeverity(findings),
   };
