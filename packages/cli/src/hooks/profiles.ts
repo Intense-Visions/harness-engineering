@@ -4,7 +4,7 @@
  * Profiles are additive: each higher tier includes all hooks from lower tiers.
  * - minimal: safety floor (block-no-verify only)
  * - standard: + protect-config, quality-gate, pre-compact-state (default)
- * - strict: + cost-tracker
+ * - strict: + cost-tracker, sentinel-pre, sentinel-post
  */
 
 export type HookProfile = 'minimal' | 'standard' | 'strict';
@@ -26,6 +26,8 @@ export const HOOK_SCRIPTS: HookScript[] = [
   { name: 'quality-gate', event: 'PostToolUse', matcher: 'Edit|Write', minProfile: 'standard' },
   { name: 'pre-compact-state', event: 'PreCompact', matcher: '*', minProfile: 'standard' },
   { name: 'cost-tracker', event: 'Stop', matcher: '*', minProfile: 'strict' },
+  { name: 'sentinel-pre', event: 'PreToolUse', matcher: '*', minProfile: 'strict' },
+  { name: 'sentinel-post', event: 'PostToolUse', matcher: '*', minProfile: 'strict' },
 ];
 
 const PROFILE_ORDER: HookProfile[] = ['minimal', 'standard', 'strict'];
