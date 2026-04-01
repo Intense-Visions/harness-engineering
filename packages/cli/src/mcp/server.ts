@@ -7,6 +7,7 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { resolveProjectConfig } from './utils/config-resolver.js';
+import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
@@ -368,9 +369,11 @@ export function createHarnessServer(projectRoot?: string): Server {
     tools: TOOL_DEFINITIONS,
   }));
 
+  const guardedHandlers = applyInjectionGuard(TOOL_HANDLERS, { projectRoot: resolvedRoot });
+
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    const handler = TOOL_HANDLERS[name];
+    const handler = guardedHandlers[name];
     if (!handler) {
       return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
     }
