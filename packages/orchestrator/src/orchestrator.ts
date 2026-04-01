@@ -215,7 +215,7 @@ export class Orchestrator extends EventEmitter {
               ruleId: f.ruleId,
               severity: f.severity as 'high' | 'medium' | 'low',
               match: f.match,
-              line: f.line,
+              ...(f.line !== undefined ? { line: f.line } : {}),
             }))
         );
         writeTaint(
