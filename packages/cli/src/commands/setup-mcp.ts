@@ -291,7 +291,7 @@ function printMcpResult(configured: string[], skipped: string[], trustedFolder: 
   console.log('');
   console.log(chalk.bold('The harness MCP server provides:'));
   console.log(
-    '  - 31 tools for validation, entropy detection, skill execution, graph querying, and more'
+    `  - ${ALL_MCP_TOOLS.length} tools for validation, entropy detection, skill execution, graph querying, and more`
   );
   console.log(
     '  - 8 resources for project context, skills, rules, learnings, state, and graph data'
