@@ -26,8 +26,12 @@ interface SuppressionMatch {
   justification: string | null;
 }
 
+// Limitation: only supports line comments (// and #). Block comments (/* */ in
+// CSS/HTML) are not recognized as suppressions. This is acceptable because most
+// security rules target JS/TS/Go/Python files that use line comments.
 export function parseHarnessIgnore(line: string, ruleId: string): SuppressionMatch | null {
   if (!line.includes('harness-ignore')) return null;
+  if (!line.includes(ruleId)) return null;
 
   // Match: // harness-ignore SEC-XXX-NNN: justification text
   // Also: # harness-ignore SEC-XXX-NNN: justification text (for non-JS files)
@@ -82,69 +86,8 @@ export class SecurityScanner {
    */
   scanContent(content: string, filePath: string, startLine: number = 1): SecurityFinding[] {
     if (!this.config.enabled) return [];
-
-    const findings: SecurityFinding[] = [];
     const lines = content.split('\n');
-
-    for (const rule of this.activeRules) {
-      const resolved = resolveRuleSeverity(
-        rule.id,
-        rule.severity,
-        this.config.rules ?? {},
-        this.config.strict
-      );
-
-      if (resolved === 'off') continue;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i] ?? '';
-
-        // FP verification gate: suppression requires justification
-        const suppressionMatch = parseHarnessIgnore(line, rule.id);
-        if (suppressionMatch) {
-          if (!suppressionMatch.justification) {
-            findings.push({
-              ruleId: rule.id,
-              ruleName: rule.name,
-              category: rule.category,
-              severity: this.config.strict ? 'error' : 'warning',
-              confidence: 'high',
-              file: filePath,
-              line: startLine + i,
-              match: line.trim(),
-              context: line,
-              message: `Suppression of ${rule.id} requires justification: // harness-ignore ${rule.id}: <reason>`,
-              remediation: `Add justification after colon: // harness-ignore ${rule.id}: false positive because ...`,
-            });
-          }
-          continue;
-        }
-
-        for (const pattern of rule.patterns) {
-          // Reset regex lastIndex for global/sticky patterns
-          pattern.lastIndex = 0;
-          if (pattern.test(line)) {
-            findings.push({
-              ruleId: rule.id,
-              ruleName: rule.name,
-              category: rule.category,
-              severity: resolved as SecurityFinding['severity'],
-              confidence: rule.confidence,
-              file: filePath,
-              line: startLine + i,
-              match: line.trim(),
-              context: line,
-              message: rule.message,
-              remediation: rule.remediation,
-              ...(rule.references ? { references: rule.references } : {}),
-            });
-            break; // One finding per rule per line
-          }
-        }
-      }
-    }
-
-    return findings;
+    return this.scanLinesWithRules(lines, this.activeRules, filePath, startLine);
   }
 
   async scanFile(filePath: string): Promise<SecurityFinding[]> {
@@ -159,8 +102,6 @@ export class SecurityScanner {
     startLine: number = 1
   ): SecurityFinding[] {
     if (!this.config.enabled) return [];
-
-    const findings: SecurityFinding[] = [];
     const lines = content.split('\n');
 
     // Filter rules by fileGlob when scanning a specific file
@@ -171,7 +112,23 @@ export class SecurityScanner {
       return globs.some((glob) => minimatch(filePath, glob, { dot: true }));
     });
 
-    for (const rule of applicableRules) {
+    return this.scanLinesWithRules(lines, applicableRules, filePath, startLine);
+  }
+
+  /**
+   * Core scanning loop shared by scanContent and scanContentForFile.
+   * Evaluates each rule against each line, handling suppression (FP gate)
+   * and pattern matching uniformly.
+   */
+  private scanLinesWithRules(
+    lines: string[],
+    rules: SecurityRule[],
+    filePath: string,
+    startLine: number
+  ): SecurityFinding[] {
+    const findings: SecurityFinding[] = [];
+
+    for (const rule of rules) {
       const resolved = resolveRuleSeverity(
         rule.id,
         rule.severity,

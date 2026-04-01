@@ -48,10 +48,8 @@ describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
   });
 
   it('hook-written entry is readable by CLI and priced correctly via fallback', async () => {
-    // Write a JSONL fixture matching the hook output format that jsonl-reader.ts can parse.
-    // The hook writes cacheCreationTokens/cacheReadTokens (camelCase) but jsonl-reader reads
-    // cache_creation_tokens/cache_read_tokens (snake_case). Use snake_case here so the
-    // full read → normalise → price pipeline is exercised end-to-end.
+    // Write a JSONL fixture matching the hook output format (snake_case for all fields:
+    // session_id, token_usage, cache_creation_tokens, cache_read_tokens, model).
     // claude-sonnet-4-20250514 exists in fallback.json with known pricing.
     const hookOutputEntry = JSON.stringify({
       timestamp: new Date().toISOString(),

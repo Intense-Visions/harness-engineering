@@ -37,14 +37,19 @@ function main() {
       timestamp: new Date().toISOString(),
       session_id: input.session_id ?? null,
       token_usage: input.token_usage ?? null,
+      model: input.model ?? null,
     };
 
-    // Pass through cache token fields if present (no assumptions about upstream)
-    if (input.cacheCreationTokens != null) {
-      entry.cacheCreationTokens = input.cacheCreationTokens;
+    // Pass through cache token fields in snake_case (matching token_usage/session_id convention)
+    if (input.cache_creation_tokens != null) {
+      entry.cache_creation_tokens = input.cache_creation_tokens;
+    } else if (input.cacheCreationTokens != null) {
+      entry.cache_creation_tokens = input.cacheCreationTokens;
     }
-    if (input.cacheReadTokens != null) {
-      entry.cacheReadTokens = input.cacheReadTokens;
+    if (input.cache_read_tokens != null) {
+      entry.cache_read_tokens = input.cache_read_tokens;
+    } else if (input.cacheReadTokens != null) {
+      entry.cache_read_tokens = input.cacheReadTokens;
     }
 
     const costsFile = join(metricsDir, 'costs.jsonl');
