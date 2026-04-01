@@ -411,6 +411,13 @@ async function main() {
 
   console.log('\nDone.');
 
+  // Normalize generated files through prettier so the check is stable across environments.
+  try {
+    execSync('npx prettier --write docs/reference/*.md', { cwd: ROOT, stdio: 'pipe' });
+  } catch {
+    // prettier unavailable — skip normalization
+  }
+
   if (isCheck) {
     try {
       execSync('git diff --exit-code docs/reference/', { cwd: ROOT, stdio: 'pipe' });
