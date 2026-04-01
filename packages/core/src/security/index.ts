@@ -40,7 +40,7 @@ export { sharpEdgesRules } from './rules/sharp-edges';
 /**
  * Sentinel injection pattern engine for runtime prompt injection detection.
  */
-export { scanForInjection, getInjectionPatterns } from './injection-patterns';
+export { scanForInjection, getInjectionPatterns, DESTRUCTIVE_BASH } from './injection-patterns';
 export type { InjectionFinding, InjectionSeverity, InjectionPattern } from './injection-patterns';
 
 /**
@@ -83,3 +83,20 @@ export type {
  * Default configuration for security scanning.
  */
 export { DEFAULT_SECURITY_CONFIG } from './types';
+
+/**
+ * Shared scan-config types and utilities for CLI and orchestrator.
+ */
+export {
+  mapSecuritySeverity,
+  computeOverallSeverity,
+  computeScanExitCode,
+  mapInjectionFindings,
+  isDuplicateFinding,
+  mapSecurityFindings,
+} from './scan-config-shared';
+export type {
+  ScanConfigFinding,
+  ScanConfigFileResult,
+  ScanConfigResult,
+} from './scan-config-shared';

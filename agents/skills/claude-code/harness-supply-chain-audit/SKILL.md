@@ -214,6 +214,43 @@ Do not assert risk scores without citing the specific data point that generated 
 - API failures produce "unknown" scores with a note, not errors that stop the audit
 - All findings are framed as flags for human review, not automated verdicts
 
+## Escalation
+
+- **If a critical CVE is found:** Surface immediately — do not bury it in the table. Recommend blocking the dependency update or requiring an immediate patch before merge.
+- **If all maintainers are unresponsive:** Flag the package as abandoned and recommend finding an alternative. Include download counts to help the user assess how widely adopted the package is.
+- **If an install script has unknown behavior:** Do not guess. State that the script requires manual review and link to the script source.
+- **If the npm or GitHub API is unavailable:** Note which factors were skipped with "unknown" scores. Do not fail the audit — partial results are better than none.
+- **If the user asks for a verdict ("is this safe?"):** Decline to give a binary answer. Supply chain risk is probabilistic. Present the risk signals and let the human decide.
+
+## Examples
+
+```
+Supply Chain Audit: my-project
+Date: 2026-03-31
+Packages evaluated: 24 direct + 3 deep transitives (depth > 5)
+
+CRITICAL (1):
+  lodash@4.17.20 — CVE-2021-23337 (high severity, unpatched)
+
+HIGH (2):
+  abandoned-util@0.9.1 — sole maintainer, last publish 22 months ago
+  sketchy-helper@2.1.0 — sole maintainer, postinstall script detected
+
+MEDIUM (3):
+  small-lib@1.0.0 — 800 weekly downloads (low popularity signal)
+  ...
+
+LOW (18): no significant risk signals
+
+INSTALL SCRIPTS:
+  node-gyp@9.4.0 — postinstall (native compilation, likely legitimate)
+  sketchy-helper@2.1.0 — postinstall (REVIEW: contents unknown)
+
+RESULT: 1 Critical, 2 High, 3 Medium, 18 Low
+Next steps: Update lodash to patch CVE. Review sketchy-helper postinstall script.
+Consider alternatives to abandoned-util.
+```
+
 ## Example Output
 
 ```

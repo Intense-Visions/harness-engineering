@@ -15,6 +15,7 @@ import {
   scanForInjection,
   writeTaint,
   checkTaint,
+  DESTRUCTIVE_BASH,
   type InjectionFinding,
 } from '@harness-engineering/core';
 
@@ -22,11 +23,8 @@ type ToolResult = { content: Array<{ type: string; text: string }>; isError?: bo
 type ToolHandler = (input: Record<string, unknown>) => Promise<ToolResult>;
 
 /**
- * Bash command patterns that are blocked during taint.
- * Keep in sync with DESTRUCTIVE_BASH in packages/cli/src/hooks/sentinel-pre.js.
+ * Source of truth for DESTRUCTIVE_BASH is @harness-engineering/core injection-patterns.ts.
  */
-const DESTRUCTIVE_BASH = [/\bgit\s+push\b/, /\bgit\s+commit\b/, /\brm\s+-rf?\b/, /\brm\s+-r\b/];
-
 function isDestructiveBash(command: string): boolean {
   return DESTRUCTIVE_BASH.some((p) => p.test(command));
 }
