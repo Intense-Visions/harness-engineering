@@ -21,6 +21,8 @@ import { MockBackend } from './agent/backends/mock';
 import { ClaudeBackend } from './agent/backends/claude';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
+import { scanWorkspaceConfig } from './workspace/config-scanner';
+import { writeTaint } from '@harness-engineering/core';
 
 /**
  * The central orchestrator that manages the lifecycle of coding agents.
@@ -182,17 +184,64 @@ export class Orchestrator extends EventEmitter {
       if (!workspaceResult.ok) throw workspaceResult.error;
       const workspacePath = workspaceResult.value;
 
-      // 2. Run hooks
+      // 2. Scan workspace config files for injection patterns
+      const scanResult = await scanWorkspaceConfig(workspacePath);
+
+      if (scanResult.exitCode === 2) {
+        // High-severity findings — abort dispatch
+        const findingSummary = scanResult.results
+          .flatMap((r) => r.findings.filter((f) => f.severity === 'high'))
+          .map((f) => `${f.ruleId}: ${f.message}`)
+          .join('; ');
+        this.logger.error(
+          `Config scan blocked dispatch for ${issue.identifier}: ${findingSummary}`,
+          { issueId: issue.id }
+        );
+        await this.emitWorkerExit(
+          issue.id,
+          'error',
+          attempt,
+          `Config scan found high-severity injection patterns: ${findingSummary}`
+        );
+        return;
+      }
+
+      if (scanResult.exitCode === 1) {
+        // Medium-severity findings — taint session, continue
+        const findings = scanResult.results.flatMap((r) =>
+          r.findings
+            .filter((f) => f.severity === 'medium')
+            .map((f) => ({
+              ruleId: f.ruleId,
+              severity: f.severity as 'high' | 'medium' | 'low',
+              match: f.match,
+              line: f.line,
+            }))
+        );
+        writeTaint(
+          workspacePath,
+          issue.id,
+          'Medium-severity injection patterns found in workspace config files',
+          findings,
+          'orchestrator:scan-config'
+        );
+        this.logger.warn(
+          `Config scan found medium-severity patterns for ${issue.identifier}. Session tainted.`,
+          { issueId: issue.id }
+        );
+      }
+
+      // 3. Run hooks
       const hookResult = await this.hooks.beforeRun(workspacePath);
       if (!hookResult.ok) throw hookResult.error;
 
-      // 3. Render prompt
+      // 4. Render prompt
       const prompt = await this.renderer.render(this.promptTemplate, {
         issue,
         attempt: attempt || 1,
       });
 
-      // 4. Start agent session (in background)
+      // 5. Start agent session (in background)
       this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt);
     } catch (error) {
       this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
