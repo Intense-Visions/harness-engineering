@@ -356,9 +356,19 @@ async function appendUpdateNotification(
   }
 }
 
-export function createHarnessServer(projectRoot?: string): Server {
+export function createHarnessServer(projectRoot?: string, toolFilter?: string[]): Server {
   const resolvedRoot = projectRoot ?? process.cwd();
   let sessionChecked = false;
+
+  const filteredDefinitions = toolFilter
+    ? TOOL_DEFINITIONS.filter((t) => toolFilter.includes(t.name))
+    : TOOL_DEFINITIONS;
+
+  const filteredHandlers = toolFilter
+    ? Object.fromEntries(
+        Object.entries(TOOL_HANDLERS).filter(([name]) => toolFilter.includes(name))
+      )
+    : TOOL_HANDLERS;
 
   const server = new Server(
     { name: 'harness-engineering', version: '0.1.0' },
@@ -366,10 +376,10 @@ export function createHarnessServer(projectRoot?: string): Server {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: TOOL_DEFINITIONS,
+    tools: filteredDefinitions,
   }));
 
-  const guardedHandlers = applyInjectionGuard(TOOL_HANDLERS, { projectRoot: resolvedRoot });
+  const guardedHandlers = applyInjectionGuard(filteredHandlers, { projectRoot: resolvedRoot });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
@@ -410,8 +420,8 @@ export function createHarnessServer(projectRoot?: string): Server {
   return server;
 }
 
-export async function startServer() {
-  const server = createHarnessServer();
+export async function startServer(toolFilter?: string[]) {
+  const server = createHarnessServer(undefined, toolFilter);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
