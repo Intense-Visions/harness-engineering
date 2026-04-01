@@ -53,6 +53,7 @@ import { createOrchestratorCommand } from './commands/orchestrator';
 import { createLearningsCommand } from './commands/learnings';
 import { createIntegrationsCommand } from './commands/integrations/index';
 import { createUsageCommand } from './commands/usage';
+import { createTaintCommand } from './commands/taint';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -115,6 +116,7 @@ export function createProgram(): Command {
   program.addCommand(createOrchestratorCommand());
   program.addCommand(createIntegrationsCommand());
   program.addCommand(createUsageCommand());
+  program.addCommand(createTaintCommand());
 
   return program;
 }
