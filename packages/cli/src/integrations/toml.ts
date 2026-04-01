@@ -70,14 +70,14 @@ function replaceTomlBlock(content: string, blockHeader: string, newBlock: string
   // Find where the block ends: next top-level [section] or end of file
   let endIdx = lines.length;
   for (let i = startIdx + 1; i < lines.length; i++) {
-    if (lines[i].match(/^\[(?!\[)/)) {
+    if (lines[i]?.match(/^\[(?!\[)/)) {
       endIdx = i;
       break;
     }
   }
 
   // Drop any trailing blank lines before the next section
-  while (endIdx > startIdx + 1 && lines[endIdx - 1].trim() === '') {
+  while (endIdx > startIdx + 1 && lines[endIdx - 1]?.trim() === '') {
     endIdx--;
   }
 

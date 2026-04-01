@@ -111,7 +111,9 @@ const encodedPayloadPatterns: InjectionPattern[] = [
     severity: 'high',
     category: 'encoded-payloads',
     description: 'Hex-encoded string long enough to contain directives (>=20 hex chars)',
-    // Excludes hash-prefixed hex (sha256:, sha512:, md5:, etc.) and hex preceded by 0x
+    // Excludes hash-prefixed hex (sha256:, sha512:, md5:, etc.) and hex preceded by 0x.
+    // Note: 40-char git SHA hashes (e.g. in `git log` output) may match — downstream
+    // callers should filter matches of exactly 40 hex chars if scanning git output.
     pattern: /(?<![:x])(?<![A-Fa-f0-9])(?:[0-9a-fA-F]{2}){10,}(?![A-Fa-f0-9])/,
   },
 ];
@@ -288,3 +290,15 @@ export function scanForInjection(text: string): InjectionFinding[] {
 export function getInjectionPatterns(): ReadonlyArray<InjectionPattern> {
   return ALL_PATTERNS;
 }
+
+/**
+ * Bash command patterns that are blocked during tainted sessions.
+ * Used by sentinel hooks and MCP middleware — kept in one place to prevent drift.
+ * Hooks that cannot import from core at startup define their own inline copy with a sync comment.
+ */
+export const DESTRUCTIVE_BASH: ReadonlyArray<RegExp> = [
+  /\bgit\s+push\b/,
+  /\bgit\s+commit\b/,
+  /\brm\s+-rf?\b/,
+  /\brm\s+-r\b/,
+];

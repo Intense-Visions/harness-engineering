@@ -8,7 +8,10 @@ import { readFileSync, writeFileSync, mkdirSync, unlinkSync, realpathSync } from
 import { resolve, dirname } from 'node:path';
 import process from 'node:process';
 
-// Destructive tool patterns blocked during taint
+// Destructive tool patterns blocked during taint.
+// These are intentionally inline — this check runs before the @harness-engineering/core
+// import attempt to ensure enforcement even when core is unavailable.
+// Keep in sync with DESTRUCTIVE_BASH exported from @harness-engineering/core injection-patterns.ts.
 const DESTRUCTIVE_BASH = [
   /\bgit\s+push\b/,
   /\bgit\s+commit\b/,

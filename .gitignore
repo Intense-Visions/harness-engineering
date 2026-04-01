@@ -46,6 +46,7 @@ temp/
 .harness/graph/
 .harness/debug/
 .harness/sessions/
+.harness/session-taint-*.json
 
 .vitepress
 *.tsbuildinfo
