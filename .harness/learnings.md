@@ -121,3 +121,11 @@
 
 - [skill:harness-execution] [outcome:success] All 5 tasks completed. coverage-ratchet.mjs script, initial baselines, and CI workflow wiring all in place. Regression detection and --update mode both verified.
 - [skill:harness-execution] [outcome:success] Task 5 was verification-only (no file changes to commit). The --update flag correctly captures current coverage and the check mode correctly passes against matching baselines.
+
+## 2026-04-01 — Autopilot: Harness Multi-Platform Expansion (Codex CLI + Cursor)
+
+- [skill:harness-autopilot] [outcome:complete] Executed 1 phase, 9 tasks, 0 retries
+- [skill:harness-autopilot] [outcome:observation] Directory-based platform output (codex) cannot use the existing flat-file sync plan — needed a dedicated sync-codex.ts. Final review caught this as a warning and the fix was applied in the same run.
+- [skill:harness-autopilot] [outcome:observation] Derived platform mapping (DERIVED_FROM_CLAUDE_CODE) is more maintainable than requiring every skill.yaml to list new platforms — avoids N-file bulk edits when adding platforms
+- [skill:harness-autopilot] [outcome:gotcha] SkillCursor from Zod schema has alwaysApply as required boolean (from zod .default(false)), not optional — when importing the type for renderer signatures, be aware of this distinction
+- [skill:harness-autopilot] [outcome:observation] Final review cycle (review → fix → re-review) added 2 commits but caught real architectural issues that would have compounded in Phase B
