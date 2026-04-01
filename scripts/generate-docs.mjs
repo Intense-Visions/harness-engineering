@@ -353,7 +353,7 @@ function generateSkillsCatalog() {
     'See the [Features Overview](../guides/features-overview.md) for narrative documentation.\n\n',
   ];
 
-  for (const [tierNum, tier] of Object.entries(tiers)) {
+  for (const [_tierNum, tier] of Object.entries(tiers)) {
     lines.push(`## ${tier.label} (${tier.skills.length} skills)\n\n`);
 
     for (const skill of tier.skills) {
