@@ -305,7 +305,7 @@ export function createSetupMcpCommand(): Command {
   return new Command('setup-mcp')
     .description('Configure MCP server for AI agent integration')
     .option('--client <client>', 'Client to configure (claude, gemini, codex, cursor, all)', 'all')
-    .option('--pick', 'Launch interactive tool picker (Cursor only; no-op in Phase 1)')
+    .option('--pick', 'Launch interactive tool picker (Cursor only)')
     .option('--yes', 'Bypass interactive picker and use curated 25-tool set (Cursor only)')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
