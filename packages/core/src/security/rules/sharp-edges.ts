@@ -54,7 +54,7 @@ export const sharpEdgesRules: SecurityRule[] = [
     fileGlob: '**/*.py',
     message: 'yaml.load() executes arbitrary Python objects — use yaml.safe_load() instead',
     remediation:
-      'Replace yaml.load() with yaml.safe_load() or yaml.load(data, Loader=SafeLoader). Note: this rule will flag yaml.load(data, Loader=SafeLoader) — suppress with // harness-ignore SEC-EDGE-004: safe usage with SafeLoader',
+      'Replace yaml.load() with yaml.safe_load() or yaml.load(data, Loader=SafeLoader). Note: this rule will flag yaml.load(data, Loader=SafeLoader) — suppress with # harness-ignore SEC-EDGE-004: safe usage with SafeLoader',
     references: ['CWE-502'],
   },
   {
@@ -77,8 +77,9 @@ export const sharpEdgesRules: SecurityRule[] = [
     category: 'sharp-edges',
     severity: 'warning',
     confidence: 'medium',
+    // Patterns use .{0,N} since scanner matches single lines only (no multiline mode)
     patterns: [
-      /(?:existsSync|accessSync|statSync)\s*\([^)]+\)[\s\S]{0,50}(?:readFileSync|writeFileSync|unlinkSync|mkdirSync)\s*\(/,
+      /(?:existsSync|accessSync|statSync)\s*\([^)]+\).{0,50}(?:readFileSync|writeFileSync|unlinkSync|mkdirSync)\s*\(/,
     ],
     fileGlob: '**/*.{ts,js,mjs,cjs}',
     message: 'Check-then-act pattern on filesystem is vulnerable to TOCTOU race conditions',
@@ -92,7 +93,8 @@ export const sharpEdgesRules: SecurityRule[] = [
     category: 'sharp-edges',
     severity: 'warning',
     confidence: 'medium',
-    patterns: [/(?:access|stat)\s*\([^)]+\)[\s\S]{0,80}(?:readFile|writeFile|unlink|mkdir)\s*\(/],
+    // Uses .{0,N} since scanner matches single lines only (no multiline mode)
+    patterns: [/(?:access|stat)\s*\([^)]+\).{0,80}(?:readFile|writeFile|unlink|mkdir)\s*\(/],
     fileGlob: '**/*.{ts,js,mjs,cjs}',
     message: 'Async check-then-act pattern on filesystem is vulnerable to TOCTOU race conditions',
     remediation: 'Use the operation directly with try/catch instead of checking existence first',

@@ -34,9 +34,9 @@
    - Build a list: `{ name, version, isDev }`
 
 4. **Parse transitive depth** from lockfile:
-   - For `package-lock.json`: read `packages` keys to extract the dependency tree
-   - For `pnpm-lock.yaml`: read `importers` and `packages` sections
-   - For `yarn.lock`: parse block entries to map resolved versions
+   - For `package-lock.json`: read `packages` keys to extract the dependency tree. Nesting depth of `node_modules/` segments in keys indicates transitive depth.
+   - For `pnpm-lock.yaml`: read `importers` section for direct dependencies (keyed by workspace path, e.g., `.` for root). Each importer lists `dependencies` and `devDependencies` with version specifiers. Read `packages` section for resolved versions — keys are package identifiers (e.g., `/@scope/pkg@1.2.3`) with `resolution` (tarball URL + integrity hash) and `dependencies` sub-map for transitives.
+   - For `yarn.lock`: parse block-format entries. Each block header is `"pkg@version-range":` followed by indented fields: `version` (resolved), `resolved` (tarball URL), `integrity` (hash), and `dependencies` sub-block listing transitive deps as `"name" "version-range"` pairs.
    - Assign each package a depth (0 = direct, 1 = first-level transitive, etc.)
    - Flag packages with depth > 5 for transitive risk evaluation
 

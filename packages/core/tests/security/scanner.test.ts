@@ -224,6 +224,27 @@ describe('SecurityScanner', () => {
       expect(findings.some((f) => f.ruleId === 'SEC-DEF-002')).toBe(true);
     });
 
+    it('SEC-DEF-002: does NOT flag TLS enabled', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const tls = true', 'src/server.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-002')).toBe(false);
+    });
+
+    it('SEC-DEF-003: does NOT flag non-empty catch in auth code', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('catch(e) { logger.error(e); throw e; }', 'src/auth.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-003')).toBe(false);
+    });
+
+    it('SEC-DEF-005: does NOT flag rate limit with numeric fallback', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent(
+        'const rateLimit = config.rateLimiting ?? 100',
+        'src/server.ts'
+      );
+      expect(findings.some((f) => f.ruleId === 'SEC-DEF-005')).toBe(false);
+    });
+
     it('SEC-DEF-004: flags CORS wildcard fallback', () => {
       const scanner = new SecurityScanner({ enabled: true });
       const findings = scanner.scanContent('const origin = config.corsOrigin ?? "*"', 'src/app.ts');
@@ -271,9 +292,27 @@ describe('SecurityScanner', () => {
       expect(findings.some((f) => f.ruleId === 'SEC-EDGE-008')).toBe(true);
     });
 
+    it('SEC-EDGE-007: flags async TOCTOU pattern', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('access(path, () => readFile(path))', 'src/files.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-007')).toBe(true);
+    });
+
     it('SEC-EDGE-009: flags RC4 algorithm string', () => {
       const scanner = new SecurityScanner({ enabled: true });
       const findings = scanner.scanContent('const algo = "rc4"', 'src/crypto.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-009')).toBe(true);
+    });
+
+    it('SEC-EDGE-009: flags DES algorithm string', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const algo = "des"', 'src/crypto.ts');
+      expect(findings.some((f) => f.ruleId === 'SEC-EDGE-009')).toBe(true);
+    });
+
+    it('SEC-EDGE-009: flags Blowfish algorithm string', () => {
+      const scanner = new SecurityScanner({ enabled: true });
+      const findings = scanner.scanContent('const algo = "blowfish"', 'src/crypto.ts');
       expect(findings.some((f) => f.ruleId === 'SEC-EDGE-009')).toBe(true);
     });
 
