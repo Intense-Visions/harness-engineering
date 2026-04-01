@@ -43,4 +43,54 @@ describe('SkillMetadataSchema', () => {
     expect(result.depends_on).toEqual(['other-skill']);
     expect(result.cognitive_mode).toBe('adversarial-reviewer');
   });
+
+  it('accepts cursor block with alwaysApply and globs', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      cursor: { globs: ['src/**/*.ts'], alwaysApply: true },
+    });
+    expect(result.cursor?.alwaysApply).toBe(true);
+    expect(result.cursor?.globs).toEqual(['src/**/*.ts']);
+  });
+
+  it('accepts cursor block with defaults', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      cursor: {},
+    });
+    expect(result.cursor?.alwaysApply).toBe(false);
+  });
+
+  it('accepts codex block with instructions_override', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      codex: { instructions_override: 'Custom instructions here' },
+    });
+    expect(result.codex?.instructions_override).toBe('Custom instructions here');
+  });
+
+  it('accepts codex block without instructions_override', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      codex: {},
+    });
+    expect(result.codex).toBeDefined();
+    expect(result.codex?.instructions_override).toBeUndefined();
+  });
+
+  it('accepts skill with codex platform in platforms array', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      platforms: ['claude-code', 'codex'],
+    });
+    expect(result.platforms).toContain('codex');
+  });
+
+  it('accepts skill with cursor platform in platforms array', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      platforms: ['claude-code', 'cursor'],
+    });
+    expect(result.platforms).toContain('cursor');
+  });
 });
