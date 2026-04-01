@@ -882,8 +882,8 @@ last_manual_edit: 2026-03-30
 ### Security Skill Deepening
 
 - **Status:** planned
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
-- **Summary:** FP verification gate requiring justification for harness-ignore suppressions. Insecure defaults / fail-open detection in SecurityScanner. New harness:supply-chain-audit skill with 6-factor dependency risk evaluation. API footgun / sharp-edges checks narrowed to known dangerous patterns (deprecated crypto, unsafe deserialization, TOCTOU). Adapted from Trail of Bits security skills. [ACE-Batch4]
+- **Spec:** docs/changes/security-skill-deepening/proposal.md
+- **Summary:** FP verification gate requiring justification for harness-ignore suppressions. Insecure defaults / fail-open detection (SEC-DEF-_ rules + AI review). New harness:supply-chain-audit skill with 6-factor dependency risk evaluation. Sharp-edges checks (SEC-EDGE-_) for deprecated crypto, unsafe deserialization, TOCTOU, stringly-typed security. Adapted from Trail of Bits security skills. [ACE-Batch4]
 - **Blockers:** none
 - **Plan:** none
 

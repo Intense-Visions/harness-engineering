@@ -1,0 +1,45 @@
+{
+  "fromSkill": "harness-brainstorming",
+  "phase": "VALIDATE",
+  "summary": "Security Skill Deepening: FP verification gate for harness-ignore suppressions, SEC-DEF-* insecure defaults rules + AI review guidance, SEC-EDGE-* sharp-edges rules (deprecated crypto, unsafe deser, TOCTOU, stringly-typed security), and harness:supply-chain-audit skill with 6-factor dependency risk evaluation.",
+  "artifacts": ["docs/changes/security-skill-deepening/proposal.md"],
+  "decisions": [
+    {
+      "what": "FP gate uses inline comment-parsing with required justification",
+      "why": "Simplest approach; skeptical analysis confirmed one-line justification suffices"
+    },
+    {
+      "what": "Insecure defaults uses layered detection (mechanical + AI)",
+      "why": "Follows existing Principle 7 split — machine first, AI second"
+    },
+    {
+      "what": "Supply-chain audit uses Trail of Bits 6-factor model",
+      "why": "Battle-tested factors, all mechanically checkable via npm registry + GitHub API"
+    },
+    {
+      "what": "Sharp-edges cover 4 categories only",
+      "why": "Roadmap says narrowed to known dangerous patterns; timing-safe and redirects deferred to AI"
+    },
+    {
+      "what": "Sharp-edges rules get dedicated SEC-EDGE-* category",
+      "why": "Conceptually distinct from vulnerability categories — these are API misuse patterns"
+    },
+    {
+      "what": "Scanner-first, skill-second delivery order",
+      "why": "Scanner enhancements are low-risk high-value; supply-chain has external API dependencies needing focused attention"
+    }
+  ],
+  "contextKeywords": [
+    "security",
+    "scanner",
+    "false-positive",
+    "suppression",
+    "insecure-defaults",
+    "fail-open",
+    "supply-chain",
+    "dependency-audit",
+    "sharp-edges",
+    "TOCTOU",
+    "Trail-of-Bits"
+  ]
+}
