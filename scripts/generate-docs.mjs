@@ -136,8 +136,9 @@ async function generateMcpReference() {
   const lines = [
     HEADER,
     '# MCP Tools Reference\n\n',
-    'Complete reference for all harness MCP (Model Context Protocol) tools.\n',
-    'These tools are available to AI agents via the harness MCP server.\n\n',
+    'Complete reference for all harness MCP (Model Context Protocol) tools. ',
+    'These tools are available to AI agents via the harness MCP server. ',
+    'See the [Features Overview](../guides/features-overview.md) for narrative documentation.\n\n',
   ];
 
   // Group tools by category (inferred from name prefix)

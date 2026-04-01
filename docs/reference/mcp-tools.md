@@ -2,8 +2,7 @@
 
 # MCP Tools Reference
 
-Complete reference for all harness MCP (Model Context Protocol) tools.
-These tools are available to AI agents via the harness MCP server.
+Complete reference for all harness MCP (Model Context Protocol) tools. These tools are available to AI agents via the harness MCP server. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Checkers & Validators
 
