@@ -318,7 +318,8 @@ function generateSkillsCatalog() {
     '# Skills Catalog\n\n',
     `${skills.length} skills across 3 tiers. `,
     'Tier 1 and 2 skills are registered as slash commands. ',
-    'Tier 3 skills are discoverable via the `search_skills` MCP tool.\n\n',
+    'Tier 3 skills are discoverable via the `search_skills` MCP tool. ',
+    'See the [Features Overview](../guides/features-overview.md) for narrative documentation.\n\n',
   ];
 
   for (const [tierNum, tier] of Object.entries(tiers)) {
