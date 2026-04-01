@@ -50,13 +50,6 @@ function resolveOutputDir(platform: Platform, opts: { global: boolean; output?: 
   return path.join('agents', 'commands', 'codex', 'harness');
 }
 
-function fileExtension(platform: Platform): string {
-  if (platform === 'claude-code') return '.md';
-  if (platform === 'gemini-cli') return '.toml';
-  if (platform === 'cursor') return '.mdc';
-  return ''; // codex uses directories — handled separately
-}
-
 async function confirmDeletion(files: string[]): Promise<boolean> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
