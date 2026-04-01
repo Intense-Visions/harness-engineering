@@ -9,12 +9,9 @@ import type { SkillSource } from '../slash-commands/normalize';
 import { renderClaudeCode } from '../slash-commands/render-claude-code';
 import { renderGemini } from '../slash-commands/render-gemini';
 import { renderCursor } from '../slash-commands/render-cursor';
-import {
-  renderCodexSkill,
-  renderCodexOpenaiYaml,
-  renderCodexAgentsMd,
-} from '../slash-commands/render-codex';
+import { renderCodexAgentsMd } from '../slash-commands/render-codex';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
+import { computeCodexSync } from '../slash-commands/sync-codex';
 import {
   resolveProjectSkillsDir,
   resolveGlobalSkillsDir,
@@ -98,40 +95,16 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
     const rendered = new Map<string, string>();
 
     if (platform === 'codex') {
-      // Codex uses a directory layout; collect per-skill files and write them directly.
-      // AGENTS.md is written to the parent dir (one level up from outputDir).
-      const allSpecs: (typeof specs)[number][] = [];
-      for (const spec of specs) {
-        const mdPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'SKILL.md');
-        const skillMd = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf-8') : '';
-        const skillDir = path.join(outputDir, spec.skillYamlName);
-        const agentsSubDir = path.join(skillDir, 'agents');
-        if (!opts.dryRun) {
-          fs.mkdirSync(agentsSubDir, { recursive: true });
-          fs.writeFileSync(path.join(skillDir, 'SKILL.md'), renderCodexSkill(skillMd), 'utf-8');
-          fs.writeFileSync(
-            path.join(agentsSubDir, 'openai.yaml'),
-            renderCodexOpenaiYaml(spec),
-            'utf-8'
-          );
-        }
-        allSpecs.push(spec);
-      }
+      const codexSync = computeCodexSync(outputDir, specs, opts.dryRun);
+
       // Write top-level AGENTS.md one directory above outputDir
       const codexRoot = path.dirname(outputDir);
       if (!opts.dryRun) {
         fs.mkdirSync(codexRoot, { recursive: true });
-        fs.writeFileSync(path.join(codexRoot, 'AGENTS.md'), renderCodexAgentsMd(allSpecs), 'utf-8');
+        fs.writeFileSync(path.join(codexRoot, 'AGENTS.md'), renderCodexAgentsMd(specs), 'utf-8');
       }
-      // Return early — codex doesn't use the sync plan mechanism
-      results.push({
-        platform,
-        added: specs.map((s) => s.skillYamlName),
-        updated: [],
-        removed: [],
-        unchanged: [],
-        outputDir,
-      });
+
+      results.push({ platform, ...codexSync, outputDir });
       continue;
     }
 
@@ -217,7 +190,12 @@ export async function handleOrphanDeletion(
       for (const filename of result.removed) {
         const filePath = path.join(result.outputDir, filename);
         if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+          const stat = fs.statSync(filePath);
+          if (stat.isDirectory()) {
+            fs.rmSync(filePath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(filePath);
+          }
         }
       }
     }
