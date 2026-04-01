@@ -91,7 +91,10 @@ function formatCommand(cmd, prefix) {
     lines.push('**Options:**\n\n');
     for (const opt of options) {
       const flags = opt.short ? `\`${opt.short}, ${opt.long}\`` : `\`${opt.long}\``;
-      lines.push(`- ${flags} — ${opt.description}\n`);
+      const defaultStr = opt.defaultValue !== undefined && opt.defaultValue !== false
+        ? ` (default: ${JSON.stringify(opt.defaultValue)})`
+        : '';
+      lines.push(`- ${flags} — ${opt.description}${defaultStr}\n`);
     }
     lines.push('\n');
   }
