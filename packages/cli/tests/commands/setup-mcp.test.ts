@@ -1,8 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { setupMcp, createSetupMcpCommand } from '../../src/commands/setup-mcp';
+import * as clack from '@clack/prompts';
+import {
+  setupMcp,
+  createSetupMcpCommand,
+  CURSOR_CURATED_TOOLS,
+  runCursorToolPicker,
+} from '../../src/commands/setup-mcp';
+
+vi.mock('@clack/prompts', () => ({
+  multiselect: vi.fn(),
+  isCancel: vi.fn().mockReturnValue(false),
+}));
 
 describe('setup-mcp command', () => {
   let tempDir: string;
@@ -170,5 +181,71 @@ describe('setup-mcp command', () => {
       const opt = cmd.options.find((o) => o.long === '--pick');
       expect(opt).toBeDefined();
     });
+  });
+});
+
+describe('CURSOR_CURATED_TOOLS', () => {
+  it('has exactly 25 entries', () => {
+    expect(CURSOR_CURATED_TOOLS).toHaveLength(25);
+  });
+
+  it('contains expected core tools', () => {
+    expect(CURSOR_CURATED_TOOLS).toContain('run_skill');
+    expect(CURSOR_CURATED_TOOLS).toContain('emit_interaction');
+    expect(CURSOR_CURATED_TOOLS).toContain('gather_context');
+  });
+});
+
+describe('runCursorToolPicker', () => {
+  const mockMultiselect = clack.multiselect as MockedFunction<typeof clack.multiselect>;
+  const mockIsCancel = clack.isCancel as MockedFunction<typeof clack.isCancel>;
+
+  beforeEach(() => {
+    mockMultiselect.mockReset();
+    (mockIsCancel as ReturnType<typeof vi.fn>).mockReturnValue(false);
+  });
+
+  it('returns selected tools when user makes a selection', async () => {
+    const selectedTools = ['run_skill', 'validate_project', 'gather_context'];
+    mockMultiselect.mockResolvedValue(selectedTools as never);
+
+    const result = await runCursorToolPicker();
+    expect(result).toEqual(selectedTools);
+  });
+
+  it('falls back to CURSOR_CURATED_TOOLS when picker is cancelled', async () => {
+    const cancelSymbol = Symbol('cancel');
+    mockMultiselect.mockResolvedValue(cancelSymbol as never);
+    (mockIsCancel as ReturnType<typeof vi.fn>).mockReturnValue(true);
+
+    const result = await runCursorToolPicker();
+    expect(result).toEqual(CURSOR_CURATED_TOOLS);
+  });
+
+  it('falls back to CURSOR_CURATED_TOOLS when picker throws (non-TTY)', async () => {
+    mockMultiselect.mockRejectedValue(new Error('not a tty'));
+
+    const result = await runCursorToolPicker();
+    expect(result).toEqual(CURSOR_CURATED_TOOLS);
+  });
+
+  it('passes CURSOR_CURATED_TOOLS as initialValues to multiselect', async () => {
+    mockMultiselect.mockResolvedValue(CURSOR_CURATED_TOOLS as never);
+
+    await runCursorToolPicker();
+
+    expect(mockMultiselect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialValues: CURSOR_CURATED_TOOLS,
+      })
+    );
+  });
+});
+
+describe('--yes flag', () => {
+  it('createSetupMcpCommand has --yes option', () => {
+    const cmd = createSetupMcpCommand();
+    const opt = cmd.options.find((o) => o.long === '--yes');
+    expect(opt).toBeDefined();
   });
 });
