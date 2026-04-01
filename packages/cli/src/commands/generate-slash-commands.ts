@@ -3,10 +3,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
+import { parse as parseYaml } from 'yaml';
 import { normalizeSkills } from '../slash-commands/normalize';
 import type { SkillSource } from '../slash-commands/normalize';
 import { renderClaudeCode } from '../slash-commands/render-claude-code';
 import { renderGemini } from '../slash-commands/render-gemini';
+import { renderCursor } from '../slash-commands/render-cursor';
+import {
+  renderCodexSkill,
+  renderCodexOpenaiYaml,
+  renderCodexAgentsMd,
+} from '../slash-commands/render-codex';
 import { computeSyncPlan, applySyncPlan } from '../slash-commands/sync';
 import {
   resolveProjectSkillsDir,
@@ -32,17 +39,22 @@ function resolveOutputDir(platform: Platform, opts: { global: boolean; output?: 
   }
   if (opts.global) {
     const home = os.homedir();
-    return platform === 'claude-code'
-      ? path.join(home, '.claude', 'commands', 'harness')
-      : path.join(home, '.gemini', 'commands', 'harness');
+    if (platform === 'claude-code') return path.join(home, '.claude', 'commands', 'harness');
+    if (platform === 'gemini-cli') return path.join(home, '.gemini', 'commands', 'harness');
+    if (platform === 'cursor') return path.join(home, '.cursor', 'rules', 'harness');
+    return path.join(home, '.codex', 'harness');
   }
-  return platform === 'claude-code'
-    ? path.join('agents', 'commands', 'claude-code', 'harness')
-    : path.join('agents', 'commands', 'gemini-cli', 'harness');
+  if (platform === 'claude-code') return path.join('agents', 'commands', 'claude-code', 'harness');
+  if (platform === 'gemini-cli') return path.join('agents', 'commands', 'gemini-cli', 'harness');
+  if (platform === 'cursor') return path.join('agents', 'commands', 'cursor', 'harness');
+  return path.join('agents', 'commands', 'codex', 'harness');
 }
 
 function fileExtension(platform: Platform): string {
-  return platform === 'claude-code' ? '.md' : '.toml';
+  if (platform === 'claude-code') return '.md';
+  if (platform === 'gemini-cli') return '.toml';
+  if (platform === 'cursor') return '.mdc';
+  return ''; // codex uses directories — handled separately
 }
 
 async function confirmDeletion(files: string[]): Promise<boolean> {
@@ -88,14 +100,67 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
 
   for (const platform of opts.platforms) {
     const outputDir = resolveOutputDir(platform, opts);
-    const ext = fileExtension(platform);
     const useAbsolutePaths = opts.global;
 
     const rendered = new Map<string, string>();
-    for (const spec of specs) {
-      const filename = `${spec.name}${ext}`;
 
-      if (platform === 'claude-code') {
+    if (platform === 'codex') {
+      // Codex uses a directory layout; collect per-skill files and write them directly.
+      // AGENTS.md is written to the parent dir (one level up from outputDir).
+      const allSpecs: (typeof specs)[number][] = [];
+      for (const spec of specs) {
+        const mdPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'SKILL.md');
+        const skillMd = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf-8') : '';
+        const skillDir = path.join(outputDir, spec.skillYamlName);
+        const agentsSubDir = path.join(skillDir, 'agents');
+        if (!opts.dryRun) {
+          fs.mkdirSync(agentsSubDir, { recursive: true });
+          fs.writeFileSync(path.join(skillDir, 'SKILL.md'), renderCodexSkill(skillMd), 'utf-8');
+          fs.writeFileSync(
+            path.join(agentsSubDir, 'openai.yaml'),
+            renderCodexOpenaiYaml(spec),
+            'utf-8'
+          );
+        }
+        allSpecs.push(spec);
+      }
+      // Write top-level AGENTS.md one directory above outputDir
+      const codexRoot = path.dirname(outputDir);
+      if (!opts.dryRun) {
+        fs.mkdirSync(codexRoot, { recursive: true });
+        fs.writeFileSync(path.join(codexRoot, 'AGENTS.md'), renderCodexAgentsMd(allSpecs), 'utf-8');
+      }
+      // Return early — codex doesn't use the sync plan mechanism
+      results.push({
+        platform,
+        added: specs.map((s) => s.skillYamlName),
+        updated: [],
+        removed: [],
+        unchanged: [],
+        outputDir,
+      });
+      continue;
+    }
+
+    for (const spec of specs) {
+      if (platform === 'cursor') {
+        const filename = `${spec.skillYamlName}.mdc`;
+        const mdPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'SKILL.md');
+        const yamlPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'skill.yaml');
+        const skillMd = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf-8') : '';
+        const cursorConfig = (() => {
+          if (!fs.existsSync(yamlPath)) return undefined;
+          try {
+            const raw = fs.readFileSync(yamlPath, 'utf-8');
+            const meta = parseYaml(raw) as { cursor?: { globs?: string[]; alwaysApply?: boolean } };
+            return meta.cursor;
+          } catch {
+            return undefined;
+          }
+        })();
+        rendered.set(filename, renderCursor(spec, skillMd, cursorConfig));
+      } else if (platform === 'claude-code') {
+        const filename = `${spec.name}.md`;
         const renderSpec = useAbsolutePaths
           ? {
               ...spec,
@@ -116,6 +181,8 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
           : spec;
         rendered.set(filename, renderClaudeCode(renderSpec));
       } else {
+        // gemini-cli
+        const filename = `${spec.name}.toml`;
         const mdPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'SKILL.md');
         const yamlPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'skill.yaml');
         const mdContent = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf-8') : '';
@@ -167,7 +234,7 @@ export async function handleOrphanDeletion(
 export function createGenerateSlashCommandsCommand(): Command {
   return new Command('generate-slash-commands')
     .description(
-      'Generate native slash commands for Claude Code and Gemini CLI from skill metadata'
+      'Generate native commands for Claude Code, Gemini CLI, Codex CLI, and Cursor from skill metadata'
     )
     .option('--platforms <list>', 'Target platforms (comma-separated)', 'claude-code,gemini-cli')
     .option('--global', 'Write to global config directories', false)
