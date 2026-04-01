@@ -20,6 +20,22 @@ vi.mock('../../src/commands/generate-slash-commands', () => ({
       unchanged: [],
       outputDir: '/home/.gemini/commands/harness',
     },
+    {
+      platform: 'codex',
+      added: [],
+      updated: [],
+      removed: [],
+      unchanged: [],
+      outputDir: '/home/.codex/agents/harness',
+    },
+    {
+      platform: 'cursor',
+      added: [],
+      updated: [],
+      removed: [],
+      unchanged: [],
+      outputDir: '/home/.cursor/rules/harness',
+    },
   ]),
 }));
 
@@ -57,11 +73,13 @@ import { readMcpConfig, writeMcpEntry } from '../../src/integrations/config';
 
 const mockExistsSync = vi.mocked(fs.existsSync);
 
-function mockBothClientsExist() {
+function mockAllClientsExist() {
   mockExistsSync.mockImplementation((p: fs.PathLike) => {
     const s = String(p);
     if (s === path.join(os.homedir(), '.claude')) return true;
     if (s === path.join(os.homedir(), '.gemini')) return true;
+    if (s === path.join(os.homedir(), '.codex')) return true;
+    if (s === path.join(os.homedir(), '.cursor')) return true;
     return false;
   });
 }
@@ -71,34 +89,38 @@ describe('runSetup', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockBothClientsExist();
+    mockAllClientsExist();
     Object.defineProperty(process, 'version', { value: originalVersion, writable: true });
   });
 
-  it('passes all steps when Node >= 22 and both clients detected', () => {
+  it('passes all steps when Node >= 22 and all clients detected', async () => {
     Object.defineProperty(process, 'version', { value: 'v22.4.0', writable: true });
 
-    const { steps, success } = runSetup('/tmp/test');
+    const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(5);
+    expect(steps).toHaveLength(7);
     expect(steps[0].status).toBe('pass');
     expect(steps[0].message).toContain('Node.js');
     expect(steps[1].status).toBe('pass');
     expect(steps[1].message).toContain('slash commands');
     expect(generateSlashCommands).toHaveBeenCalledWith(
-      expect.objectContaining({ global: true, platforms: ['claude-code', 'gemini-cli'], yes: true })
+      expect.objectContaining({
+        global: true,
+        platforms: ['claude-code', 'gemini-cli', 'codex', 'cursor'],
+        yes: true,
+      })
     );
-    expect(setupMcp).toHaveBeenCalledTimes(2);
-    expect(steps[4].status).toBe('pass');
-    expect(steps[4].message).toContain('MCP integrations');
+    expect(setupMcp).toHaveBeenCalledTimes(4);
+    expect(steps[6].status).toBe('pass');
+    expect(steps[6].message).toContain('MCP integrations');
     expect(markSetupComplete).toHaveBeenCalled();
   });
 
-  it('fails immediately when Node < 22', () => {
+  it('fails immediately when Node < 22', async () => {
     Object.defineProperty(process, 'version', { value: 'v20.11.0', writable: true });
 
-    const { steps, success } = runSetup('/tmp/test');
+    const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(false);
     expect(steps).toHaveLength(1);
@@ -108,7 +130,7 @@ describe('runSetup', () => {
     expect(markSetupComplete).not.toHaveBeenCalled();
   });
 
-  it('warns when a client directory is not detected', () => {
+  it('warns when a client directory is not detected', async () => {
     Object.defineProperty(process, 'version', { value: 'v22.4.0', writable: true });
     mockExistsSync.mockImplementation((p: fs.PathLike) => {
       const s = String(p);
@@ -117,38 +139,44 @@ describe('runSetup', () => {
       return false;
     });
 
-    const { steps, success } = runSetup('/tmp/test');
+    const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(5);
+    expect(steps).toHaveLength(7);
     const geminiStep = steps[3];
     expect(geminiStep.status).toBe('warn');
     expect(geminiStep.message).toContain('Gemini CLI not detected');
+    const codexStep = steps[4];
+    expect(codexStep.status).toBe('warn');
+    expect(codexStep.message).toContain('Codex CLI not detected');
+    const cursorStep = steps[5];
+    expect(cursorStep.status).toBe('warn');
+    expect(cursorStep.message).toContain('Cursor not detected');
     expect(setupMcp).toHaveBeenCalledTimes(1);
     expect(setupMcp).toHaveBeenCalledWith('/tmp/test', 'claude');
     expect(markSetupComplete).toHaveBeenCalled();
   });
 
-  it('warns when no clients are detected', () => {
+  it('warns when no clients are detected', async () => {
     Object.defineProperty(process, 'version', { value: 'v22.4.0', writable: true });
     mockExistsSync.mockReturnValue(false);
 
-    const { steps, success } = runSetup('/tmp/test');
+    const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
     expect(setupMcp).not.toHaveBeenCalled();
     const mcpSteps = steps.filter((s) => s.message.includes('not detected'));
-    expect(mcpSteps).toHaveLength(2);
+    expect(mcpSteps).toHaveLength(4);
     expect(markSetupComplete).toHaveBeenCalled();
   });
 
-  it('does not call markSetupComplete when slash generation fails', () => {
+  it('does not call markSetupComplete when slash generation fails', async () => {
     Object.defineProperty(process, 'version', { value: 'v22.4.0', writable: true });
     (generateSlashCommands as ReturnType<typeof vi.fn>).mockImplementation(() => {
       throw new Error('skills dir missing');
     });
 
-    const { steps, success } = runSetup('/tmp/test');
+    const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(false);
     expect(steps[1].status).toBe('fail');
@@ -156,13 +184,13 @@ describe('runSetup', () => {
     expect(markSetupComplete).not.toHaveBeenCalled();
   });
 
-  it('is idempotent — produces same results on second run', () => {
+  it('is idempotent — produces same results on second run', async () => {
     Object.defineProperty(process, 'version', { value: 'v22.4.0', writable: true });
 
-    const first = runSetup('/tmp/test');
+    const first = await runSetup('/tmp/test');
     vi.clearAllMocks();
-    mockBothClientsExist();
-    const second = runSetup('/tmp/test');
+    mockAllClientsExist();
+    const second = await runSetup('/tmp/test');
 
     expect(first.success).toBe(second.success);
     expect(first.steps.length).toBe(second.steps.length);
