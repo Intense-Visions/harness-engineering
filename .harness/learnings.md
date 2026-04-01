@@ -129,3 +129,10 @@
 - [skill:harness-autopilot] [outcome:observation] Derived platform mapping (DERIVED_FROM_CLAUDE_CODE) is more maintainable than requiring every skill.yaml to list new platforms — avoids N-file bulk edits when adding platforms
 - [skill:harness-autopilot] [outcome:gotcha] SkillCursor from Zod schema has alwaysApply as required boolean (from zod .default(false)), not optional — when importing the type for renderer signatures, be aware of this distinction
 - [skill:harness-autopilot] [outcome:observation] Final review cycle (review → fix → re-review) added 2 commits but caught real architectural issues that would have compounded in Phase B
+
+## 2026-04-01 — Autopilot: MCP Integration — Codex CLI + Cursor
+
+- [skill:harness-autopilot] [outcome:complete] Executed 4 phases, 13 tasks, 0 retries. 63 target tests pass.
+- [skill:harness-autopilot] [outcome:observation] Phase 2 review caught a critical bug: --tools args written to .cursor/mcp.json but harness mcp command didn't accept --tools. The picker feature was entirely non-functional at runtime. Review-then-fix cycle prevented a broken feature from shipping.
+- [skill:harness-autopilot] [outcome:observation] ALL_MCP_TOOLS sync guard test (Phase 4) validates that the manually-maintained tool list matches TOOL_DEFINITIONS at test time — mitigates the maintenance hazard of a static array without introducing a runtime import coupling.
+- [skill:harness-autopilot] [outcome:gotcha] @clack/prompts ^0.9.0 resolves to 0.9.1 — semver 0.x range means minor versions can have breaking changes. Pin or verify API shape in CI.
