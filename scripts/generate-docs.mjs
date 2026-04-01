@@ -231,8 +231,21 @@ function parseToolDefinitionsFromSource() {
 
   if (!existsSync(toolsDir)) return tools;
 
-  for (const file of readdirSync(toolsDir).filter(f => f.endsWith('.ts'))) {
-    const content = readFileSync(join(toolsDir, file), 'utf-8');
+  // Collect all .ts files including subdirectories (e.g., graph/)
+  const tsFiles = [];
+  function collectTsFiles(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        collectTsFiles(join(dir, entry.name));
+      } else if (entry.name.endsWith('.ts')) {
+        tsFiles.push(join(dir, entry.name));
+      }
+    }
+  }
+  collectTsFiles(toolsDir);
+
+  for (const filePath of tsFiles) {
+    const content = readFileSync(filePath, 'utf-8');
 
     // Match exported definition objects
     const defRegex = /export\s+const\s+(\w+Definition)\s*(?::\s*\w+\s*)?=\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs;
