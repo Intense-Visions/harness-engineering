@@ -243,9 +243,48 @@ describe('runCursorToolPicker', () => {
 });
 
 describe('--yes flag', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-yes-flag-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
   it('createSetupMcpCommand has --yes option', () => {
     const cmd = createSetupMcpCommand();
     const opt = cmd.options.find((o) => o.long === '--yes');
     expect(opt).toBeDefined();
+  });
+
+  it('--yes --client cursor writes .cursor/mcp.json with --tools args matching CURSOR_CURATED_TOOLS', async () => {
+    const cmd = createSetupMcpCommand();
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      await cmd.parseAsync(['--client', 'cursor', '--yes'], { from: 'user' });
+    } catch (e: unknown) {
+      // Expected: process.exit mock throws
+      if (!(e instanceof Error) || e.message !== 'process.exit') throw e;
+    } finally {
+      cwdSpy.mockRestore();
+      exitSpy.mockRestore();
+      consoleSpy.mockRestore();
+    }
+
+    const configPath = path.join(tempDir, '.cursor', 'mcp.json');
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const entry = config.mcpServers?.harness;
+    expect(entry).toBeDefined();
+    expect(entry.command).toBe('harness');
+    expect(entry.args).toEqual(['mcp', '--tools', ...CURSOR_CURATED_TOOLS]);
   });
 });
