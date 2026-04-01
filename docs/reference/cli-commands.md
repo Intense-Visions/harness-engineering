@@ -2,7 +2,7 @@
 
 # CLI Command Reference
 
-Complete reference for all `harness` CLI commands and subcommands.
+Complete reference for all `harness` CLI commands and subcommands. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Top-Level Commands
 
@@ -10,13 +10,22 @@ Complete reference for all `harness` CLI commands and subcommands.
 
 Add a component to the project
 
+**Arguments:**
+
+- `type` (required) — Component type (layer, module, doc, skill, persona)
+- `name` (required) — Component name
+
 ### `harness blueprint [path]`
 
 Generate a self-contained, interactive blueprint of the codebase
 
+**Arguments:**
+
+- `path` (optional) — Path to the project root
+
 **Options:**
 
-- `-o, --output` — Output directory
+- `-o, --output` — Output directory (default: "docs/blueprint")
 
 ### `harness check-arch`
 
@@ -37,7 +46,7 @@ Check documentation coverage
 
 **Options:**
 
-- `--min-coverage` — Minimum coverage percentage
+- `--min-coverage` — Minimum coverage percentage (default: "80")
 
 ### `harness check-perf`
 
@@ -59,7 +68,7 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 
 **Options:**
 
-- `--severity` — Minimum severity threshold
+- `--severity` — Minimum severity threshold (default: "warning")
 - `--changed-only` — Only scan git-changed files
 
 ### `harness cleanup`
@@ -68,7 +77,7 @@ Detect entropy issues (doc drift, dead code, patterns)
 
 **Options:**
 
-- `-t, --type` — Issue type: drift, dead-code, patterns, all
+- `-t, --type` — Issue type: drift, dead-code, patterns, all (default: "all")
 
 ### `harness create-skill`
 
@@ -78,7 +87,7 @@ Scaffold a new skill with skill.yaml and SKILL.md
 
 - `--name` — Skill name (kebab-case)
 - `--description` — Skill description
-- `--cognitive-mode` — Cognitive mode (adversarial-reviewer, constructive-architect, meticulous-implementer, diagnostic-investigator, advisory-guide, meticulous-verifier)
+- `--cognitive-mode` — Cognitive mode (adversarial-reviewer, constructive-architect, meticulous-implementer, diagnostic-investigator, advisory-guide, meticulous-verifier) (default: "constructive-architect")
 - `--reads` — File patterns the skill reads
 - `--produces` — What the skill produces
 - `--pre-checks` — Pre-check commands
@@ -102,7 +111,7 @@ Generate all platform integrations (slash commands + agent definitions)
 
 **Options:**
 
-- `--platforms` — Target platforms (comma-separated)
+- `--platforms` — Target platforms (comma-separated) (default: "claude-code,gemini-cli")
 - `--global` — Write to global directories
 - `--include-global` — Include built-in global skills
 - `--output` — Custom output directory
@@ -115,7 +124,7 @@ Generate agent definition files from personas for Claude Code and Gemini CLI
 
 **Options:**
 
-- `--platforms` — Target platforms (comma-separated)
+- `--platforms` — Target platforms (comma-separated) (default: "claude-code,gemini-cli")
 - `--global` — Write to global agent directories
 - `--output` — Custom output directory
 - `--dry-run` — Show what would change without writing
@@ -126,7 +135,7 @@ Generate native slash commands for Claude Code and Gemini CLI from skill metadat
 
 **Options:**
 
-- `--platforms` — Target platforms (comma-separated)
+- `--platforms` — Target platforms (comma-separated) (default: "claude-code,gemini-cli")
 - `--global` — Write to global config directories
 - `--include-global` — Include built-in global skills alongside project skills
 - `--output` — Custom output directory
@@ -161,7 +170,7 @@ Initialize a new harness-engineering project
 **Options:**
 
 - `-n, --name` — Project name
-- `-l, --level` — Adoption level (basic, intermediate, advanced)
+- `-l, --level` — Adoption level (basic, intermediate, advanced) (default: "basic")
 - `--framework` — Framework overlay (nextjs)
 - `--language` — Target language (typescript, python, go, rust, java)
 - `-f, --force` — Overwrite existing files
@@ -170,6 +179,10 @@ Initialize a new harness-engineering project
 ### `harness install <skill>`
 
 Install a community skill from the @harness-skills registry
+
+**Arguments:**
+
+- `skill` (required) — Skill name or @harness-skills/scoped package name
 
 **Options:**
 
@@ -180,6 +193,10 @@ Install a community skill from the @harness-skills registry
 ### `harness install-constraints <source>`
 
 Install a constraints bundle into the local harness config
+
+**Arguments:**
+
+- `source` (required) — Path to a .harness-constraints.json bundle file
 
 **Options:**
 
@@ -196,9 +213,13 @@ Start the MCP (Model Context Protocol) server on stdio
 
 Query the knowledge graph
 
+**Arguments:**
+
+- `rootNodeId` (required) — Starting node ID
+
 **Options:**
 
-- `--depth` — Max traversal depth
+- `--depth` — Max traversal depth (default: "3")
 - `--types` — Comma-separated node types to include
 - `--edges` — Comma-separated edge types to include
 - `--bidirectional` — Traverse both directions
@@ -206,6 +227,10 @@ Query the knowledge graph
 ### `harness scan [path]`
 
 Scan project and build knowledge graph
+
+**Arguments:**
+
+- `path` (optional) — Project root path
 
 ### `harness setup`
 
@@ -217,19 +242,27 @@ Configure MCP server for AI agent integration
 
 **Options:**
 
-- `--client` — Client to configure (claude, gemini, all)
+- `--client` — Client to configure (claude, gemini, all) (default: "all")
 
 ### `harness share [path]`
 
 Extract and publish a constraints bundle from constraints.yaml
 
+**Arguments:**
+
+- `path` (optional) — Path to the project root
+
 **Options:**
 
-- `-o, --output` — Output directory for the bundle
+- `-o, --output` — Output directory for the bundle (default: ".")
 
 ### `harness uninstall <skill>`
 
 Uninstall a community skill
+
+**Arguments:**
+
+- `skill` (required) — Skill name or @harness-skills/scoped package name
 
 **Options:**
 
@@ -238,6 +271,10 @@ Uninstall a community skill
 ### `harness uninstall-constraints <name>`
 
 Remove a previously installed constraints package
+
+**Arguments:**
+
+- `name` (required) — Name of the constraint package to uninstall
 
 **Options:**
 
@@ -274,11 +311,15 @@ Run unified code review pipeline on current changes
 
 Run an agent task
 
+**Arguments:**
+
+- `task` (optional) — Task to run (review, doc-review, test-review)
+
 **Options:**
 
-- `--timeout` — Timeout in milliseconds
+- `--timeout` — Timeout in milliseconds (default: "300000")
 - `--persona` — Run a persona by name
-- `--trigger` — Trigger context (auto, on_pr, on_commit, manual)
+- `--trigger` — Trigger context (auto, on_pr, on_commit, manual) (default: "auto")
 
 ## Ci Commands
 
@@ -291,7 +332,7 @@ Run all harness checks for CI (validate, deps, docs, entropy, phase-gate, arch)
 **Options:**
 
 - `--skip` — Comma-separated checks to skip (e.g., entropy,docs)
-- `--fail-on` — Fail on severity level: error (default) or warning
+- `--fail-on` — Fail on severity level: error (default) or warning (default: "error")
 
 ### `harness ci init`
 
@@ -328,7 +369,7 @@ Install Claude Code hook configurations into the current project
 
 **Options:**
 
-- `--profile` — Hook profile: minimal, standard, or strict
+- `--profile` — Hook profile: minimal, standard, or strict (default: "standard")
 
 ### `harness hooks list`
 
@@ -346,9 +387,17 @@ Manage MCP peer integrations (add, list, remove, dismiss)
 
 Enable an MCP integration
 
+**Arguments:**
+
+- `name` (required) — Integration name (e.g. perplexity, augment-code)
+
 ### `harness integrations dismiss <name>`
 
 Suppress doctor recommendations for an integration
+
+**Arguments:**
+
+- `name` (required) — Integration name (e.g. perplexity, augment-code)
 
 ### `harness integrations list`
 
@@ -357,6 +406,10 @@ Show all MCP integrations with status
 ### `harness integrations remove <name>`
 
 Remove an MCP integration
+
+**Arguments:**
+
+- `name` (required) — Integration name (e.g. perplexity, augment-code)
 
 ## Learnings Commands
 
@@ -368,7 +421,7 @@ Analyze global learnings for patterns, present improvement proposals, and archiv
 
 **Options:**
 
-- `--path` — Project root path
+- `--path` — Project root path (default: ".")
 - `--stream` — Target a specific stream
 
 ## Linter Commands
@@ -381,7 +434,7 @@ Generate ESLint rules from harness-linter.yml
 
 **Options:**
 
-- `-c, --config` — Path to harness-linter.yml
+- `-c, --config` — Path to harness-linter.yml (default: "./harness-linter.yml")
 - `-o, --output` — Override output directory
 - `--clean` — Remove existing files before generating
 - `--dry-run` — Preview without writing files
@@ -394,7 +447,7 @@ Validate harness-linter.yml config
 
 **Options:**
 
-- `-c, --config` — Path to harness-linter.yml
+- `-c, --config` — Path to harness-linter.yml (default: "./harness-linter.yml")
 - `--json` — Output as JSON
 
 ## Orchestrator Commands
@@ -405,7 +458,7 @@ Run the orchestrator daemon
 
 **Options:**
 
-- `-w, --workflow` — Path to WORKFLOW.md
+- `-w, --workflow` — Path to WORKFLOW.md (default: "WORKFLOW.md")
 
 ## Perf Commands
 
@@ -435,9 +488,13 @@ Agent persona management commands
 
 Generate artifacts from a persona config
 
+**Arguments:**
+
+- `name` (required) — Persona name (e.g., architecture-enforcer)
+
 **Options:**
 
-- `--output-dir` — Output directory
+- `--output-dir` — Output directory (default: ".")
 - `--only` — Generate only: ci, agents-md, runtime
 
 ### `harness persona list`
@@ -452,10 +509,14 @@ Skill management commands
 
 Scaffold a new community skill
 
+**Arguments:**
+
+- `name` (required) — Skill name (kebab-case)
+
 **Options:**
 
 - `--description` — Skill description
-- `--type` — Skill type: rigid or flexible
+- `--type` — Skill type: rigid or flexible (default: "flexible")
 - `--platforms` — Comma-separated platforms (default: claude-code)
 - `--triggers` — Comma-separated triggers (default: manual)
 - `--output-dir` — Output directory (default: agents/skills/claude-code/)
@@ -463,6 +524,10 @@ Scaffold a new community skill
 ### `harness skill info <name>`
 
 Show metadata for a skill
+
+**Arguments:**
+
+- `name` (required) — Skill name (e.g., harness-tdd)
 
 ### `harness skill list`
 
@@ -488,16 +553,24 @@ Validate and publish a skill to @harness-skills on npm
 
 Run a skill (outputs SKILL.md content with context preamble)
 
+**Arguments:**
+
+- `name` (required) — Skill name (e.g., harness-tdd)
+
 **Options:**
 
 - `--path` — Project root path for context injection
-- `--complexity` — Rigor level: fast, standard, thorough
+- `--complexity` — Rigor level: fast, standard, thorough (default: "standard")
 - `--phase` — Start at a specific phase (for re-entry)
 - `--party` — Enable multi-perspective evaluation
 
 ### `harness skill search <query>`
 
 Search for community skills on the @harness-skills registry
+
+**Arguments:**
+
+- `query` (required) — Search query
 
 **Options:**
 
@@ -517,9 +590,13 @@ Project state management commands
 
 Append a learning to .harness/learnings.md
 
+**Arguments:**
+
+- `message` (required) — The learning to record
+
 **Options:**
 
-- `--path` — Project root path
+- `--path` — Project root path (default: ".")
 - `--stream` — Target a specific stream
 
 ### `harness state reset`
@@ -528,7 +605,7 @@ Reset project state (deletes .harness/state.json)
 
 **Options:**
 
-- `--path` — Project root path
+- `--path` — Project root path (default: ".")
 - `--stream` — Target a specific stream
 - `--yes` — Skip confirmation prompt
 
@@ -538,7 +615,7 @@ Show current project state
 
 **Options:**
 
-- `--path` — Project root path
+- `--path` — Project root path (default: ".")
 - `--stream` — Target a specific stream
 
 ### `harness state streams`

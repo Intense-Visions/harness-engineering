@@ -47,7 +47,7 @@ Run performance checks: structural complexity, coupling metrics, and size budget
 - `path` (string, required) — Path to project root
 - `type` (string, optional) — Type of performance check (default: all)
 
-**CLI equivalent:** [`harness perf check`](cli-commands.md#harness-perf-check)
+**CLI equivalent:** [`harness check-perf`](cli-commands.md#harness-check-perf)
 
 ### `check_phase_gate`
 
@@ -143,7 +143,7 @@ Add a component (layer, doc, or component type) to the project using the harness
 - `type` (string, required) — Type of component to add
 - `name` (string, required) — Name of the component to add
 
-**CLI equivalent:** [`harness add`](cli-commands.md#harness-add)
+**CLI equivalent:** [`harness add`](cli-commands.md#harness-add-type-name)
 
 ### `ingest_source`
 
@@ -154,7 +154,7 @@ Ingest sources into the project knowledge graph. Supports code analysis, knowled
 - `path` (string, required) — Path to project root
 - `source` (string, required) — Type of source to ingest
 
-**CLI equivalent:** [`harness graph ingest`](cli-commands.md#harness-graph-ingest)
+**CLI equivalent:** [`harness ingest`](cli-commands.md#harness-ingest)
 
 ### `update_perf_baselines`
 
@@ -166,7 +166,7 @@ Update performance baselines from benchmark results. Run benchmarks first via CL
 - `commitHash` (string, required) — Current commit hash for baseline tracking
 - `results` (array, required) — Array of benchmark results to save as baselines
 
-**CLI equivalent:** [`harness perf update-baselines`](cli-commands.md#harness-perf-update-baselines)
+**CLI equivalent:** [`harness perf baselines`](cli-commands.md#harness-perf-baselines)
 
 ## Detection & Prediction
 
@@ -193,7 +193,7 @@ Detect documentation drift, dead code, and pattern violations. Optionally auto-f
 - `fixTypes` (array, optional) — Specific fix types to apply (default: all safe types). Only used when autoFix is true.
 - `mode` (string, optional) — Response density: summary returns issue counts and top issues per category, detailed returns full findings. Default: detailed
 
-**CLI equivalent:** [`harness check-entropy`](cli-commands.md#harness-check-entropy)
+**CLI equivalent:** [`harness cleanup`](cli-commands.md#harness-cleanup)
 
 ### `detect_stale_constraints`
 
@@ -242,7 +242,7 @@ Scaffold a new harness skill with skill.yaml and SKILL.md
 - `description` (string, required) — Skill description
 - `cognitiveMode` (string, optional) — Cognitive mode (default: constructive-architect)
 
-**CLI equivalent:** [`harness skill create`](cli-commands.md#harness-skill-create)
+**CLI equivalent:** [`harness skill create`](cli-commands.md#harness-skill-create-name)
 
 ### `generate_agent_definitions`
 
@@ -254,7 +254,7 @@ Generate agent definition files from personas for Claude Code and Gemini CLI
 - `platform` (string, optional) — Target platform (default: all)
 - `dryRun` (boolean, optional) — Preview without writing
 
-**CLI equivalent:** [`harness agent generate-definitions`](cli-commands.md#harness-agent-generate-definitions)
+**CLI equivalent:** [`harness generate-agent-definitions`](cli-commands.md#harness-generate-agent-definitions)
 
 ### `generate_linter`
 
@@ -276,7 +276,7 @@ Generate runtime config, AGENTS.md fragment, and CI workflow from a persona
 - `name` (string, required) — Persona name (e.g., architecture-enforcer)
 - `only` (string, optional) — Generate only a specific artifact type
 
-**CLI equivalent:** [`harness persona generate`](cli-commands.md#harness-persona-generate)
+**CLI equivalent:** [`harness persona generate`](cli-commands.md#harness-persona-generate-name)
 
 ### `generate_slash_commands`
 
@@ -291,7 +291,7 @@ Generate native slash commands for Claude Code and Gemini CLI from harness skill
 - `includeGlobal` (boolean, optional) — Include built-in global skills alongside project skills
 - `dryRun` (boolean, optional) — Show what would change without writing files
 
-**CLI equivalent:** [`harness skill generate-commands`](cli-commands.md#harness-skill-generate-commands)
+**CLI equivalent:** [`harness generate-slash-commands`](cli-commands.md#harness-generate-slash-commands)
 
 ## Other
 
@@ -429,7 +429,7 @@ Query the project knowledge graph using ContextQL. Traverses from root nodes out
 - `pruneObservability` (boolean, optional) — Prune observability nodes like spans/metrics/logs (default true)
 - `mode` (string, optional) — Response density: summary returns node/edge counts by type + top 10 nodes by connectivity, detailed returns full arrays. Default: detailed
 
-**CLI equivalent:** [`harness graph query`](cli-commands.md#harness-graph-query)
+**CLI equivalent:** [`harness query`](cli-commands.md#harness-query-rootnodeid)
 
 ### `search_similar`
 
@@ -475,7 +475,7 @@ Run an agent task using the harness CLI
 - `path` (string, optional) — Path to project root directory
 - `timeout` (number, optional) — Timeout in milliseconds
 
-**CLI equivalent:** [`harness agent run`](cli-commands.md#harness-agent-run)
+**CLI equivalent:** [`harness agent run`](cli-commands.md#harness-agent-run-task)
 
 ### `run_code_review`
 
@@ -504,8 +504,6 @@ Execute all steps defined in a persona and return aggregated results
 - `trigger` (string, optional) — Trigger context for step filtering (default: auto)
 - `dryRun` (boolean, optional) — Preview without side effects
 
-**CLI equivalent:** [`harness persona run`](cli-commands.md#harness-persona-run)
-
 ### `run_security_scan`
 
 Run the built-in security scanner on a project or specific files. Detects secrets, injection, XSS, weak crypto, and other vulnerabilities.
@@ -530,7 +528,7 @@ Load and return the content of a skill (SKILL.md), optionally with project state
 - `phase` (string, optional) — Start at a specific phase (re-entry)
 - `party` (boolean, optional) — Enable multi-perspective evaluation
 
-**CLI equivalent:** [`harness skill run`](cli-commands.md#harness-skill-run)
+**CLI equivalent:** [`harness skill run`](cli-commands.md#harness-skill-run-name)
 
 ## State & Management
 
@@ -563,7 +561,7 @@ List known state streams with branch associations and last-active timestamps
 
 - `path` (string, required) — Path to project root
 
-**CLI equivalent:** [`harness state list-streams`](cli-commands.md#harness-state-list-streams)
+**CLI equivalent:** [`harness state streams`](cli-commands.md#harness-state-streams)
 
 ### `manage_roadmap`
 
@@ -606,4 +604,4 @@ Manage harness project state: show current state, record learnings/failures, arc
 - `entryId` (string, optional) — ID of the entry to update (required for update_entry_status)
 - `newStatus` (string, optional) — New status for the entry: active, resolved, or superseded (required for update_entry_status)
 
-**CLI equivalent:** [`harness state`](cli-commands.md#harness-state)
+**CLI equivalent:** [`harness state show`](cli-commands.md#harness-state-show)

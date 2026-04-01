@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-79 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool.
+80 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (11 skills)
 
@@ -111,7 +111,7 @@ Scaffold a new harness-compliant project
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
 
-## Tier 2 — Maintenance (19 skills)
+## Tier 2 — Maintenance (20 skills)
 
 ### cleanup-dead-code
 
@@ -261,6 +261,16 @@ Deep soundness analysis of specs and plans with auto-fix and convergence loop
 - **Platforms:** claude-code, gemini-cli
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
+
+### harness-supply-chain-audit
+
+6-factor dependency risk evaluation for supply chain security
+
+- **Triggers:** manual, on_milestone
+- **Platforms:** claude-code, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** meticulous-implementer
+- **Depends on:** harness-security-scan
 
 ### harness-test-advisor
 
