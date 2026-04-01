@@ -131,7 +131,7 @@ Generate agent definition files from personas for Claude Code and Gemini CLI
 
 ### `harness generate-slash-commands`
 
-Generate native slash commands for Claude Code and Gemini CLI from skill metadata
+Generate native commands for Claude Code, Gemini CLI, Codex CLI, and Cursor from skill metadata
 
 **Options:**
 
@@ -231,6 +231,15 @@ Scan project and build knowledge graph
 **Arguments:**
 
 - `path` (optional) — Project root path
+
+### `harness scan-config`
+
+Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt injection patterns
+
+**Options:**
+
+- `--path` — Target directory to scan (default: "/Users/cwarner/Projects/harness-engineering")
+- `--fix` — Strip high-severity patterns from files in-place
 
 ### `harness setup`
 
@@ -362,6 +371,14 @@ Show graph statistics
 ## Hooks Commands
 
 Manage Claude Code hook configurations
+
+### `harness hooks add <hook-name>`
+
+Add a hook without changing the profile
+
+**Arguments:**
+
+- `hook-name` (required) — Hook name or alias (e.g., sentinel)
 
 ### `harness hooks init`
 
@@ -621,3 +638,43 @@ Show current project state
 ### `harness state streams`
 
 Manage state streams
+
+## Taint Commands
+
+Manage sentinel session taint state
+
+### `harness taint clear [sessionId]`
+
+Clear session taint — removes taint file(s) and re-enables destructive operations
+
+### `harness taint status [sessionId]`
+
+Show current taint status for a session or all sessions
+
+## Usage Commands
+
+Token usage and cost tracking
+
+### `harness usage daily`
+
+Show per-day token usage and cost
+
+**Options:**
+
+- `--days` — Number of days to show (default: 7, max: 90) (default: "7")
+
+### `harness usage latest`
+
+Show the most recently completed session cost summary
+
+### `harness usage session <id>`
+
+Show detailed token breakdown for a specific session
+
+### `harness usage sessions`
+
+List recent sessions with token usage and cost
+
+**Options:**
+
+- `--limit` — Number of sessions to show (default: 10, max: 100) (default: "10")
