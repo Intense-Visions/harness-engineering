@@ -43,7 +43,7 @@ const ALLOWED_TRIGGERS = [
   'on_doc_check',
 ] as const;
 
-const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
+const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli', 'codex', 'cursor'] as const;
 
 export const ALLOWED_COGNITIVE_MODES = [
   'adversarial-reviewer',
@@ -53,6 +53,15 @@ export const ALLOWED_COGNITIVE_MODES = [
   'advisory-guide',
   'meticulous-verifier',
 ] as const;
+
+const SkillCursorSchema = z.object({
+  globs: z.array(z.string()).optional(),
+  alwaysApply: z.boolean().default(false),
+});
+
+const SkillCodexSchema = z.object({
+  instructions_override: z.string().optional(),
+});
 
 export const SkillMetadataSchema = z.object({
   name: z.string().regex(/^[a-z][a-z0-9-]*$/, 'Name must be lowercase with hyphens'),
@@ -76,11 +85,15 @@ export const SkillMetadataSchema = z.object({
   internal: z.boolean().default(false),
   keywords: z.array(z.string()).default([]),
   stack_signals: z.array(z.string()).default([]),
+  cursor: SkillCursorSchema.optional(),
+  codex: SkillCodexSchema.optional(),
 });
 
 export type SkillMetadata = z.infer<typeof SkillMetadataSchema>;
 export type SkillPhase = z.infer<typeof SkillPhaseSchema>;
 export type SkillCli = z.infer<typeof SkillCliSchema>;
 export type SkillState = z.infer<typeof SkillStateSchema>;
+export type SkillCursor = z.infer<typeof SkillCursorSchema>;
+export type SkillCodex = z.infer<typeof SkillCodexSchema>;
 
 export { ALLOWED_TRIGGERS, ALLOWED_PLATFORMS };
