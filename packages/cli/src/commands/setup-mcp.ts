@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import chalk from 'chalk';
+import * as clack from '@clack/prompts';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 import { writeMcpEntry } from '../integrations/config';
@@ -20,6 +21,127 @@ interface TrustedFolders {
 const HARNESS_MCP_ENTRY = {
   command: 'harness-mcp',
 };
+
+export const CURSOR_CURATED_TOOLS: string[] = [
+  'run_skill',
+  'validate_project',
+  'emit_interaction',
+  'check_docs',
+  'manage_roadmap',
+  'run_code_review',
+  'check_phase_gate',
+  'gather_context',
+  'find_context_for',
+  'get_impact',
+  'detect_entropy',
+  'run_security_scan',
+  'assess_project',
+  'manage_state',
+  'create_self_review',
+  'analyze_diff',
+  'request_peer_review',
+  'review_changes',
+  'check_dependencies',
+  'search_skills',
+  'code_search',
+  'code_outline',
+  'ask_graph',
+  'query_graph',
+  'detect_anomalies',
+];
+
+const ALL_MCP_TOOLS: string[] = [
+  'validate_project',
+  'check_dependencies',
+  'check_docs',
+  'detect_entropy',
+  'generate_linter',
+  'validate_linter_config',
+  'init_project',
+  'list_personas',
+  'generate_persona_artifacts',
+  'run_persona',
+  'add_component',
+  'run_agent_task',
+  'run_skill',
+  'manage_state',
+  'create_self_review',
+  'analyze_diff',
+  'request_peer_review',
+  'check_phase_gate',
+  'validate_cross_check',
+  'create_skill',
+  'generate_slash_commands',
+  'query_graph',
+  'search_similar',
+  'find_context_for',
+  'get_relationships',
+  'get_impact',
+  'ingest_source',
+  'generate_agent_definitions',
+  'run_security_scan',
+  'check_performance',
+  'get_perf_baselines',
+  'update_perf_baselines',
+  'get_critical_paths',
+  'list_streams',
+  'manage_roadmap',
+  'emit_interaction',
+  'run_code_review',
+  'gather_context',
+  'assess_project',
+  'review_changes',
+  'detect_anomalies',
+  'ask_graph',
+  'check_task_independence',
+  'predict_conflicts',
+  'detect_stale_constraints',
+  'search_skills',
+  'code_outline',
+  'code_search',
+  'code_unfold',
+];
+
+/**
+ * Launch an interactive multi-select picker for Cursor tool selection.
+ * Shows all MCP tools with CURSOR_CURATED_TOOLS pre-selected.
+ * Falls back to CURSOR_CURATED_TOOLS on non-TTY / cancel / error.
+ */
+export async function runCursorToolPicker(): Promise<string[]> {
+  try {
+    const selected = await clack.multiselect({
+      message:
+        'Select tools to register for Cursor (25 recommended; Cursor supports ~40 across all servers)',
+      options: ALL_MCP_TOOLS.map((tool) => {
+        const opt: { value: string; label: string; hint?: string } = { value: tool, label: tool };
+        if (CURSOR_CURATED_TOOLS.includes(tool)) opt.hint = 'recommended';
+        return opt;
+      }),
+      initialValues: CURSOR_CURATED_TOOLS,
+    });
+
+    if (clack.isCancel(selected)) {
+      // User pressed Ctrl+C or non-TTY cancel — fall back to curated set
+      return CURSOR_CURATED_TOOLS;
+    }
+
+    return selected as string[];
+  } catch {
+    // @clack/prompts throws in non-TTY environments — fall back gracefully
+    return CURSOR_CURATED_TOOLS;
+  }
+}
+
+/**
+ * Write Cursor MCP entry scoped to a specific tool list.
+ * Passes selected tools as --tools args to the harness MCP server.
+ */
+function writeCursorMcpEntryWithTools(configPath: string, tools: string[]): void {
+  writeMcpEntry(configPath, 'harness', {
+    command: 'harness',
+    args: ['mcp', '--tools', ...tools],
+  });
+}
 
 function readJsonFile<T>(filePath: string): T | null {
   if (!fs.existsSync(filePath)) return null;
@@ -128,48 +250,81 @@ export function setupMcp(
   return { configured, skipped, trustedFolder };
 }
 
+async function resolveCursorWithPicker(
+  cwd: string,
+  pick: boolean
+): Promise<{ configured: string[]; skipped: string[] }> {
+  const configured: string[] = [];
+  const skipped: string[] = [];
+  const cursorConfigPath = path.join(cwd, '.cursor', 'mcp.json');
+  const existing = readJsonFile<McpConfig>(cursorConfigPath);
+  if (existing?.mcpServers?.['harness'] && !pick) {
+    skipped.push('Cursor');
+  } else {
+    const tools = pick ? await runCursorToolPicker() : CURSOR_CURATED_TOOLS;
+    writeCursorMcpEntryWithTools(cursorConfigPath, tools);
+    configured.push('Cursor');
+  }
+  return { configured, skipped };
+}
+
+function printMcpResult(configured: string[], skipped: string[], trustedFolder: boolean): void {
+  console.log('');
+  if (configured.length > 0) {
+    logger.success('MCP server configured!');
+    console.log('');
+    for (const name of configured) {
+      console.log(`  ${chalk.green('+')} ${name}`);
+    }
+  }
+  if (trustedFolder) {
+    console.log('');
+    logger.info('Added project to Gemini trusted folders (~/.gemini/trustedFolders.json)');
+  }
+  if (skipped.length > 0) {
+    console.log('');
+    logger.info('Already configured:');
+    for (const name of skipped) {
+      console.log(`  ${chalk.dim('-')} ${name}`);
+    }
+  }
+  console.log('');
+  console.log(chalk.bold('The harness MCP server provides:'));
+  console.log(
+    '  - 31 tools for validation, entropy detection, skill execution, graph querying, and more'
+  );
+  console.log(
+    '  - 8 resources for project context, skills, rules, learnings, state, and graph data'
+  );
+  console.log('');
+  console.log(`Run ${chalk.cyan('harness skill list')} to see available skills.`);
+  console.log('');
+}
+
 export function createSetupMcpCommand(): Command {
   return new Command('setup-mcp')
     .description('Configure MCP server for AI agent integration')
     .option('--client <client>', 'Client to configure (claude, gemini, codex, cursor, all)', 'all')
     .option('--pick', 'Launch interactive tool picker (Cursor only; no-op in Phase 1)')
+    .option('--yes', 'Bypass interactive picker and use curated 25-tool set (Cursor only)')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const { configured, skipped, trustedFolder } = setupMcp(cwd, opts.client);
+      let configured: string[];
+      let skipped: string[];
+      let trustedFolder = false;
+
+      // Cursor with --pick or --yes: handle async tool selection separately
+      if (opts.client === 'cursor' && (opts.pick || opts.yes)) {
+        ({ configured, skipped } = await resolveCursorWithPicker(cwd, opts.pick));
+      } else {
+        // Standard path: synchronous setupMcp handles all clients
+        ({ configured, skipped, trustedFolder } = setupMcp(cwd, opts.client));
+      }
 
       if (!globalOpts.quiet) {
-        console.log('');
-        if (configured.length > 0) {
-          logger.success('MCP server configured!');
-          console.log('');
-          for (const name of configured) {
-            console.log(`  ${chalk.green('+')} ${name}`);
-          }
-        }
-        if (trustedFolder) {
-          console.log('');
-          logger.info('Added project to Gemini trusted folders (~/.gemini/trustedFolders.json)');
-        }
-        if (skipped.length > 0) {
-          console.log('');
-          logger.info('Already configured:');
-          for (const name of skipped) {
-            console.log(`  ${chalk.dim('-')} ${name}`);
-          }
-        }
-        console.log('');
-        console.log(chalk.bold('The harness MCP server provides:'));
-        console.log(
-          '  - 31 tools for validation, entropy detection, skill execution, graph querying, and more'
-        );
-        console.log(
-          '  - 8 resources for project context, skills, rules, learnings, state, and graph data'
-        );
-        console.log('');
-        console.log(`Run ${chalk.cyan('harness skill list')} to see available skills.`);
-        console.log('');
+        printMcpResult(configured, skipped, trustedFolder);
       }
 
       process.exit(ExitCode.SUCCESS);
