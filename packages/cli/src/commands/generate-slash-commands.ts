@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
-import { parse as parseYaml } from 'yaml';
 import { normalizeSkills } from '../slash-commands/normalize';
 import type { SkillSource } from '../slash-commands/normalize';
 import { renderClaudeCode } from '../slash-commands/render-claude-code';
@@ -112,19 +111,8 @@ export function generateSlashCommands(opts: GenerateOptions): GenerateResult[] {
       if (platform === 'cursor') {
         const filename = `${spec.skillYamlName}.mdc`;
         const mdPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'SKILL.md');
-        const yamlPath = path.join(spec.skillsBaseDir, spec.sourceDir, 'skill.yaml');
         const skillMd = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf-8') : '';
-        const cursorConfig = (() => {
-          if (!fs.existsSync(yamlPath)) return undefined;
-          try {
-            const raw = fs.readFileSync(yamlPath, 'utf-8');
-            const meta = parseYaml(raw) as { cursor?: { globs?: string[]; alwaysApply?: boolean } };
-            return meta.cursor;
-          } catch {
-            return undefined;
-          }
-        })();
-        rendered.set(filename, renderCursor(spec, skillMd, cursorConfig));
+        rendered.set(filename, renderCursor(spec, skillMd, spec.cursor));
       } else if (platform === 'claude-code') {
         const filename = `${spec.name}.md`;
         const renderSpec = useAbsolutePaths
