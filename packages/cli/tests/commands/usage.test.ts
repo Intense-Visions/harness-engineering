@@ -70,6 +70,8 @@ describe('harness usage', () => {
     },
   ]);
 
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     originalCwd = process.cwd();
     fs.mkdirSync(path.dirname(costsFile), { recursive: true });
@@ -81,11 +83,14 @@ describe('harness usage', () => {
     });
     // Suppress logger info (chalk-decorated) from polluting test output
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Prevent real network requests to LiteLLM pricing endpoint (avoids timeouts)
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 503 }));
   });
 
   afterEach(() => {
     process.chdir(originalCwd);
     consoleLogSpy.mockRestore();
+    fetchSpy.mockRestore();
     vi.restoreAllMocks();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
@@ -261,7 +266,7 @@ describe('harness usage', () => {
       expect(output.costMicroUSD).toBeNull();
     });
 
-    it('accepts --include-claude-sessions flag without error', async () => {
+    it('accepts --include-claude-sessions flag without error', { timeout: 15_000 }, async () => {
       const program = createProgram();
       await program.parseAsync([
         'node',
@@ -339,7 +344,9 @@ describe('harness usage', () => {
         '--json',
       ]);
 
-      const output = JSON.parse(logOutput.join(''));
+      // Filter for the JSON array line to avoid non-JSON logger output
+      const jsonLine = logOutput.find((line) => line.startsWith('['));
+      const output = JSON.parse(jsonLine ?? '[]');
       expect(Array.isArray(output)).toBe(true);
       // Should include both harness sessions (3) and CC session (1)
       const ccSession = output.find((s: any) => s.sessionId === 'cc-only-sess');
@@ -359,7 +366,8 @@ describe('harness usage', () => {
         '--json',
       ]);
 
-      const output = JSON.parse(logOutput.join(''));
+      const jsonLine = logOutput.find((line) => line.startsWith('['));
+      const output = JSON.parse(jsonLine ?? '[]');
       // 2026-03-31 should now have 2 sessions (harness sess-bbb-222 + CC cc-only-sess)
       const march31 = output.find((d: any) => d.date === '2026-03-31');
       expect(march31).toBeDefined();

@@ -38,7 +38,7 @@ describe('profiles', () => {
   });
 
   it('HOOK_SCRIPTS defines event, matcher, and profile for each hook', () => {
-    expect(HOOK_SCRIPTS).toHaveLength(5);
+    expect(HOOK_SCRIPTS).toHaveLength(7);
     const blockNoVerify = HOOK_SCRIPTS.find((h) => h.name === 'block-no-verify');
     expect(blockNoVerify).toBeDefined();
     expect(blockNoVerify!.event).toBe('PreToolUse');

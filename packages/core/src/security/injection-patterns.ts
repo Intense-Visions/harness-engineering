@@ -33,6 +33,7 @@ const hiddenUnicodePatterns: InjectionPattern[] = [
     severity: 'high',
     category: 'hidden-unicode',
     description: 'Zero-width characters that can hide malicious instructions',
+    // eslint-disable-next-line no-misleading-character-class -- intentional: regex detects zero-width chars for security scanning
     pattern: /[\u200B\u200C\u200D\uFEFF\u2060]/,
   },
   {

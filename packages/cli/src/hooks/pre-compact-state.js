@@ -57,9 +57,8 @@ function main() {
     process.exit(0);
   }
 
-  let input;
   try {
-    input = JSON.parse(raw);
+    JSON.parse(raw); // validate stdin is JSON
   } catch {
     process.stderr.write('[pre-compact-state] Could not parse stdin — allowing (fail-open)\n');
     process.exit(0);

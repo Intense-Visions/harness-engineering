@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+/* global console */
 // sentinel-post.js — PostToolUse:* hook
 // Sentinel prompt injection defense — scans tool outputs for injection patterns.
 // Exit codes: always 0 (PostToolUse cannot block)
 
-import { readFileSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import process from 'node:process';
 
@@ -17,6 +18,7 @@ function inlineScan(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // HIGH: INJ-UNI-001 — Zero-width characters
+    // eslint-disable-next-line no-misleading-character-class -- intentional: detects zero-width chars for security
     if (/[\u200B\u200C\u200D\uFEFF\u2060]/.test(line)) {
       findings.push({ severity: 'high', ruleId: 'INJ-UNI-001', match: line.trim(), line: i + 1 });
     }

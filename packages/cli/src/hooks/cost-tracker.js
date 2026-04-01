@@ -40,16 +40,16 @@ function main() {
       model: input.model ?? null,
     };
 
-    // Pass through cache token fields in snake_case (matching token_usage/session_id convention)
-    if (input.cache_creation_tokens != null) {
-      entry.cache_creation_tokens = input.cache_creation_tokens;
-    } else if (input.cacheCreationTokens != null) {
-      entry.cache_creation_tokens = input.cacheCreationTokens;
+    // Pass through cache token fields (prefer camelCase input, fall back to snake_case)
+    if (input.cacheCreationTokens != null) {
+      entry.cacheCreationTokens = input.cacheCreationTokens;
+    } else if (input.cache_creation_tokens != null) {
+      entry.cacheCreationTokens = input.cache_creation_tokens;
     }
-    if (input.cache_read_tokens != null) {
-      entry.cache_read_tokens = input.cache_read_tokens;
-    } else if (input.cacheReadTokens != null) {
-      entry.cache_read_tokens = input.cacheReadTokens;
+    if (input.cacheReadTokens != null) {
+      entry.cacheReadTokens = input.cacheReadTokens;
+    } else if (input.cache_read_tokens != null) {
+      entry.cacheReadTokens = input.cache_read_tokens;
     }
 
     const costsFile = join(metricsDir, 'costs.jsonl');

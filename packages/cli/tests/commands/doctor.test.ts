@@ -154,11 +154,14 @@ describe('runDoctor', () => {
   });
 
   it('fails MCP check with fix suggestion when not configured', () => {
+    const cwd = '/tmp/project';
+    // .gemini dir must exist so doctor emits an mcp-gemini check
+    mockExistsSync.mockImplementation((p: fs.PathLike) => String(p) === path.join(cwd, '.gemini'));
     mockReaddirSync.mockImplementation(() => {
       throw new Error('ENOENT');
     });
 
-    const result = runDoctor('/tmp/project');
+    const result = runDoctor(cwd);
     const mcpClaude = result.checks.find((c) => c.name === 'mcp-claude');
     const mcpGemini = result.checks.find((c) => c.name === 'mcp-gemini');
 

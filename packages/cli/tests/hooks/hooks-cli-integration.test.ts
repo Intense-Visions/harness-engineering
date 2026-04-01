@@ -76,7 +76,7 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
     initHooks({ profile: 'strict', projectDir: tmpDir });
     const strictList = listHooks(tmpDir);
     expect(strictList.profile).toBe('strict');
-    expect(strictList.hooks).toHaveLength(5);
+    expect(strictList.hooks).toHaveLength(7);
 
     // Verify settings.json reflects strict
     const settings = JSON.parse(
