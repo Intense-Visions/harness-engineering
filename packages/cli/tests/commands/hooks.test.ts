@@ -6,6 +6,7 @@ import { createHooksCommand } from '../../src/commands/hooks/index';
 import { initHooks, buildSettingsHooks, mergeSettings } from '../../src/commands/hooks/init';
 import { listHooks } from '../../src/commands/hooks/list';
 import { removeHooks } from '../../src/commands/hooks/remove';
+import { addHooks } from '../../src/commands/hooks/add';
 
 describe('createHooksCommand', () => {
   it('creates hooks command with init, list, remove subcommands', () => {
@@ -15,6 +16,7 @@ describe('createHooksCommand', () => {
     expect(subcommands).toContain('init');
     expect(subcommands).toContain('list');
     expect(subcommands).toContain('remove');
+    expect(subcommands).toContain('add');
   });
 });
 
@@ -238,5 +240,84 @@ describe('removeHooks', () => {
     const result = removeHooks(tmpDir);
     expect(result.settingsCleaned).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(false);
+  });
+});
+
+describe('addHooks', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-hooks-add-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('adds sentinel alias (both sentinel-pre and sentinel-post)', () => {
+    const result = addHooks('sentinel', tmpDir);
+    expect(result.added).toContain('sentinel-pre');
+    expect(result.added).toContain('sentinel-post');
+    expect(result.notFound).toHaveLength(0);
+
+    // Verify scripts copied
+    expect(fs.existsSync(path.join(tmpDir, '.harness', 'hooks', 'sentinel-pre.js'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.harness', 'hooks', 'sentinel-post.js'))).toBe(true);
+
+    // Verify settings.json registration
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.claude', 'settings.json'), 'utf-8')
+    );
+    expect(settings.hooks.PreToolUse).toBeDefined();
+    expect(settings.hooks.PostToolUse).toBeDefined();
+    const preCommands = settings.hooks.PreToolUse.flatMap((e: any) =>
+      e.hooks.map((h: any) => h.command)
+    );
+    expect(preCommands).toContain('node .harness/hooks/sentinel-pre.js');
+  });
+
+  it('adds a single hook by name', () => {
+    const result = addHooks('cost-tracker', tmpDir);
+    expect(result.added).toContain('cost-tracker');
+    expect(result.notFound).toHaveLength(0);
+  });
+
+  it('returns notFound for unknown hook name', () => {
+    const result = addHooks('nonexistent-hook', tmpDir);
+    expect(result.notFound).toContain('nonexistent-hook');
+    expect(result.added).toHaveLength(0);
+  });
+
+  it('reports already-installed on second run', () => {
+    addHooks('sentinel', tmpDir);
+    const result = addHooks('sentinel', tmpDir);
+    expect(result.alreadyInstalled).toContain('sentinel-pre');
+    expect(result.alreadyInstalled).toContain('sentinel-post');
+    expect(result.added).toHaveLength(0);
+  });
+
+  it('is idempotent in settings.json — no duplicate entries', () => {
+    addHooks('sentinel', tmpDir);
+    addHooks('sentinel', tmpDir);
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.claude', 'settings.json'), 'utf-8')
+    );
+    const preEntries = settings.hooks.PreToolUse.filter((e: any) =>
+      e.hooks.some((h: any) => h.command.includes('sentinel-pre'))
+    );
+    expect(preEntries).toHaveLength(1);
+  });
+
+  it('preserves existing settings.json content', () => {
+    const claudeDir = path.join(tmpDir, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(claudeDir, 'settings.json'),
+      JSON.stringify({ permissions: { allow: ['Read'] } })
+    );
+    addHooks('sentinel', tmpDir);
+    const settings = JSON.parse(fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf-8'));
+    expect(settings.permissions).toEqual({ allow: ['Read'] });
+    expect(settings.hooks).toBeDefined();
   });
 });
