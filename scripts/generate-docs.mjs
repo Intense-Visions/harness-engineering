@@ -141,6 +141,35 @@ async function generateMcpReference() {
     'See the [Features Overview](../guides/features-overview.md) for narrative documentation.\n\n',
   ];
 
+  // Map MCP tool names to corresponding CLI commands
+  const toolToCliCommand = {
+    validate_project: 'harness validate',
+    check_dependencies: 'harness check-deps',
+    check_docs: 'harness check-docs',
+    detect_entropy: 'harness check-entropy',
+    generate_linter: 'harness linter generate',
+    validate_linter_config: 'harness linter validate',
+    init_project: 'harness init',
+    list_personas: 'harness persona list',
+    generate_persona_artifacts: 'harness persona generate',
+    run_persona: 'harness persona run',
+    add_component: 'harness add',
+    run_agent_task: 'harness agent run',
+    run_skill: 'harness skill run',
+    manage_state: 'harness state',
+    create_skill: 'harness skill create',
+    generate_slash_commands: 'harness skill generate-commands',
+    generate_agent_definitions: 'harness agent generate-definitions',
+    run_security_scan: 'harness check-security',
+    check_performance: 'harness perf check',
+    get_perf_baselines: 'harness perf baselines',
+    update_perf_baselines: 'harness perf update-baselines',
+    get_critical_paths: 'harness perf critical-paths',
+    list_streams: 'harness state list-streams',
+    query_graph: 'harness graph query',
+    ingest_source: 'harness graph ingest',
+  };
+
   // Group tools by category (inferred from name prefix)
   const categories = new Map();
   for (const tool of toolDefinitions) {
@@ -171,6 +200,11 @@ async function generateMcpReference() {
           }
           lines.push('\n');
         }
+      }
+
+      const cliCmd = toolToCliCommand[tool.name];
+      if (cliCmd) {
+        lines.push(`**CLI equivalent:** [\`${cliCmd}\`](cli-commands.md#${cliCmd.replace(/\s+/g, '-')})\n\n`);
       }
     }
   }
