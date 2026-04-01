@@ -322,8 +322,8 @@ function generateSkillsCatalog() {
         cognitiveMode: skill.cognitive_mode || '',
         dependsOn: skill.depends_on || [],
       });
-    } catch {
-      // Skip unparseable files
+    } catch (err) {
+      console.warn(`  ⚠ Skipping malformed skill.yaml: ${yamlPath} (${err.message})`);
     }
   }
 
