@@ -122,11 +122,10 @@ async function generateMcpReference() {
   // Read tool definitions by importing the server module
   let toolDefinitions;
   try {
-    const serverModule = await import(join(ROOT, 'packages', 'cli', 'dist', 'mcp', 'server.js'));
-    // Try to access exported tool definitions
-    toolDefinitions = serverModule.TOOL_DEFINITIONS || serverModule.toolDefinitions;
+    const cliModule = await import(join(ROOT, 'packages', 'cli', 'dist', 'index.js'));
+    toolDefinitions = cliModule.getToolDefinitions?.() || cliModule.TOOL_DEFINITIONS;
   } catch {
-    // Fallback: parse the source file for tool metadata
+    // Fallback: parse the source files for tool metadata
     toolDefinitions = parseToolDefinitionsFromSource();
   }
 
