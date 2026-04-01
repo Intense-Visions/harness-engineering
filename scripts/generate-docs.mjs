@@ -85,6 +85,19 @@ function formatCommand(cmd, prefix) {
     lines.push(`${cmd.description()}\n\n`);
   }
 
+  // Arguments with descriptions
+  if (args.length > 0) {
+    const describedArgs = args.filter(a => a.description);
+    if (describedArgs.length > 0) {
+      lines.push('**Arguments:**\n\n');
+      for (const a of describedArgs) {
+        const req = a.required ? 'required' : 'optional';
+        lines.push(`- \`${a.name()}\` (${req}) — ${a.description}\n`);
+      }
+      lines.push('\n');
+    }
+  }
+
   // Options (excluding inherited --help)
   const options = cmd.options.filter(o => o.long !== '--help' && o.long !== '--version');
   if (options.length > 0) {
