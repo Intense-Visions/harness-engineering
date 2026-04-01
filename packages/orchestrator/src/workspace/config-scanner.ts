@@ -56,7 +56,7 @@ function mapInjectionFindings(injectionFindings: InjectionFinding[]): ScanConfig
     severity: f.severity,
     message: `Injection pattern detected: ${f.ruleId}`,
     match: f.match,
-    line: f.line,
+    ...(f.line !== undefined ? { line: f.line } : {}),
   }));
 }
 
