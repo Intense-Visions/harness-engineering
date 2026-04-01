@@ -22,11 +22,19 @@ function readSkillYaml(yamlPath: string): ReturnType<typeof SkillMetadataSchema.
   return SkillMetadataSchema.safeParse(parse(raw));
 }
 
+// Cursor and codex are derived platforms — a skill that supports claude-code
+// is implicitly available to cursor and codex, since their skill directories
+// are symlinks into agents/skills/claude-code/.
+const DERIVED_FROM_CLAUDE_CODE: Platform[] = ['cursor', 'codex'];
+
 function shouldSkipSkill(
   meta: { platforms: string[]; tier?: number | undefined; internal?: boolean | undefined },
   platforms: Platform[]
 ): boolean {
-  const matchesPlatform = platforms.some((p) => meta.platforms.includes(p));
+  const effectivePlatforms = platforms.map((p) =>
+    DERIVED_FROM_CLAUDE_CODE.includes(p) ? 'claude-code' : p
+  );
+  const matchesPlatform = effectivePlatforms.some((p) => meta.platforms.includes(p));
   if (!matchesPlatform) return true;
   if (meta.tier === 3 || meta.internal) return true;
   return false;
