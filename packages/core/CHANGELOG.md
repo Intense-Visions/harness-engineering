@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.16.0
+
+### Minor Changes
+
+- Multi-platform MCP expansion, security hardening, and release readiness fixes
+
+  **@harness-engineering/cli (minor):**
+  - Multi-platform MCP support: add Codex CLI and Cursor to `harness setup-mcp`, `harness setup`, and slash command generation
+  - Cursor tool picker with `--pick` and `--yes` flags using `@clack/prompts` for interactive tool selection
+  - TOML MCP entry writer for Codex `.codex/config.toml` integration
+  - Sentinel prompt injection defense hooks (`sentinel-pre`, `sentinel-post`) added to hook profiles
+  - `--tools` variadic option for `harness mcp` command
+  - Fix lint errors in hooks (no-misleading-character-class, unused imports, `any` types)
+  - Fix cost-tracker hook field naming (snake_case → camelCase alignment)
+  - Fix test gaps: doctor MCP mock, usage fetch mock, profiles/integration hook counts
+
+  **@harness-engineering/core (minor):**
+  - Usage module: Claude Code JSONL parser (`parseCCRecords`), daily and session aggregation
+  - Security scanner: session-scoped taint state management, `SEC-DEF-*` insecure-defaults rules, `SEC-EDGE-*` sharp-edges rules
+  - Security: false-positive verification gate replacing suppression checks, `parseHarnessIgnore` helper
+  - Fix lint: eslint-disable for intentional zero-width character regex in injection patterns
+
+  **@harness-engineering/types (minor):**
+  - Add `DailyUsage`, `SessionUsage`, `UsageRecord`, and `ModelPricing` types for cost tracking
+  - Export aggregate types from types barrel
+
+  **@harness-engineering/orchestrator (patch):**
+  - Integrate sentinel config scanning into dispatch pipeline
+  - Fix conditional spread for optional line property
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/types@0.6.0
+  - @harness-engineering/graph@0.3.4
+
 ## 0.15.0
 
 ### Minor Changes
