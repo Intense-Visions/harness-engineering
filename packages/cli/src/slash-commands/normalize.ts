@@ -147,6 +147,7 @@ function buildSpec(
     sourceDir: entry.name,
     skillsBaseDir: skillsDir,
     source,
+    ...(meta.cursor ? { cursor: meta.cursor } : {}),
     prompt: {
       context: buildContextLines(meta).join('\n'),
       objective: buildObjectiveLines(meta).join('\n'),

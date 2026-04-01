@@ -1,15 +1,11 @@
+import type { SkillCursor } from '../skill/schema';
 import type { SlashCommandSpec } from './types';
 import { GENERATED_HEADER_CURSOR } from './types';
-
-export interface CursorConfig {
-  globs?: string[];
-  alwaysApply?: boolean;
-}
 
 export function renderCursor(
   spec: SlashCommandSpec,
   skillMdContent: string,
-  cursorConfig?: CursorConfig
+  cursorConfig?: SkillCursor
 ): string {
   const lines: string[] = ['---'];
   lines.push(`description: ${spec.description}`);

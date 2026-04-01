@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { renderCursor } from '../../src/slash-commands/render-cursor';
 import { GENERATED_HEADER_CURSOR } from '../../src/slash-commands/types';
 import type { SlashCommandSpec } from '../../src/slash-commands/types';
+import type { SkillCursor } from '../../src/skill/schema';
 
 const baseSpec: SlashCommandSpec = {
   name: 'brainstorming',
@@ -50,7 +51,8 @@ describe('renderCursor', () => {
   });
 
   it('includes globs in frontmatter when cursor.globs is provided', () => {
-    const output = renderCursor(baseSpec, skillMdContent, { globs: ['src/**/*.ts'] });
+    const config: SkillCursor = { globs: ['src/**/*.ts'], alwaysApply: false };
+    const output = renderCursor(baseSpec, skillMdContent, config);
     expect(output).toContain('globs:');
     expect(output).toContain('src/**/*.ts');
   });

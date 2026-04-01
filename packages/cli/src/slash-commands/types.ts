@@ -1,3 +1,5 @@
+import type { SkillCursor } from '../skill/schema';
+
 export type Platform = 'claude-code' | 'gemini-cli' | 'codex' | 'cursor';
 
 export const VALID_PLATFORMS: Platform[] = ['claude-code', 'gemini-cli', 'codex', 'cursor'];
@@ -21,6 +23,7 @@ export interface SlashCommandSpec {
   sourceDir: string;
   skillsBaseDir: string;
   source?: 'project' | 'community' | 'global';
+  cursor?: SkillCursor;
 
   prompt: {
     context: string;
