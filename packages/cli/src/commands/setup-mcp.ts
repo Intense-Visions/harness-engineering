@@ -5,6 +5,8 @@ import * as os from 'os';
 import chalk from 'chalk';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
+import { writeMcpEntry } from '../integrations/config';
+import { writeTomlMcpEntry } from '../integrations/toml';
 
 interface McpConfig {
   mcpServers?: Record<string, { command: string; args?: string[] }>;
@@ -93,13 +95,44 @@ export function setupMcp(
     trustedFolder = addGeminiTrustedFolder(cwd);
   }
 
+  if (client === 'all' || client === 'codex') {
+    const configPath = path.join(cwd, '.codex', 'config.toml');
+    const alreadyConfigured = (() => {
+      if (!fs.existsSync(configPath)) return false;
+      const content = fs.readFileSync(configPath, 'utf-8');
+      return content.includes('[mcp_servers.harness]');
+    })();
+    if (alreadyConfigured) {
+      skipped.push('Codex CLI');
+    } else {
+      writeTomlMcpEntry(configPath, 'harness', {
+        command: 'harness',
+        args: ['mcp'],
+        enabled: true,
+      });
+      configured.push('Codex CLI');
+    }
+  }
+
+  if (client === 'all' || client === 'cursor') {
+    const configPath = path.join(cwd, '.cursor', 'mcp.json');
+    const existing = readJsonFile<McpConfig>(configPath);
+    if (existing?.mcpServers?.['harness']) {
+      skipped.push('Cursor');
+    } else {
+      writeMcpEntry(configPath, 'harness', { command: 'harness', args: ['mcp'] });
+      configured.push('Cursor');
+    }
+  }
+
   return { configured, skipped, trustedFolder };
 }
 
 export function createSetupMcpCommand(): Command {
   return new Command('setup-mcp')
     .description('Configure MCP server for AI agent integration')
-    .option('--client <client>', 'Client to configure (claude, gemini, all)', 'all')
+    .option('--client <client>', 'Client to configure (claude, gemini, codex, cursor, all)', 'all')
+    .option('--pick', 'Launch interactive tool picker (Cursor only; no-op in Phase 1)')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();

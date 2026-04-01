@@ -111,5 +111,64 @@ describe('setup-mcp command', () => {
       const result = setupMcp(tempDir, 'claude');
       expect(result.trustedFolder).toBe(false);
     });
+
+    it('configures Codex CLI MCP server', () => {
+      const result = setupMcp(tempDir, 'codex');
+      expect(result.configured).toContain('Codex CLI');
+      expect(result.skipped).not.toContain('Codex CLI');
+
+      const configPath = path.join(tempDir, '.codex', 'config.toml');
+      expect(fs.existsSync(configPath)).toBe(true);
+      const content = fs.readFileSync(configPath, 'utf-8');
+      expect(content).toContain('[mcp_servers.harness]');
+      expect(content).toContain('command = "harness"');
+    });
+
+    it('configures Cursor MCP server', () => {
+      const result = setupMcp(tempDir, 'cursor');
+      expect(result.configured).toContain('Cursor');
+      expect(result.skipped).not.toContain('Cursor');
+
+      const configPath = path.join(tempDir, '.cursor', 'mcp.json');
+      expect(fs.existsSync(configPath)).toBe(true);
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      expect(config.mcpServers.harness).toBeDefined();
+      expect(config.mcpServers.harness.command).toBe('harness');
+    });
+
+    it('configures all four clients when client is all', () => {
+      const result = setupMcp(tempDir, 'all');
+      expect(result.configured).toContain('Claude Code');
+      expect(result.configured).toContain('Gemini CLI');
+      expect(result.configured).toContain('Codex CLI');
+      expect(result.configured).toContain('Cursor');
+    });
+
+    it('skips Codex CLI if already configured', () => {
+      setupMcp(tempDir, 'codex');
+      const result = setupMcp(tempDir, 'codex');
+      expect(result.skipped).toContain('Codex CLI');
+      expect(result.configured).not.toContain('Codex CLI');
+    });
+
+    it('skips Cursor if already configured', () => {
+      setupMcp(tempDir, 'cursor');
+      const result = setupMcp(tempDir, 'cursor');
+      expect(result.skipped).toContain('Cursor');
+      expect(result.configured).not.toContain('Cursor');
+    });
+
+    it('does not set trustedFolder for codex-only', () => {
+      const result = setupMcp(tempDir, 'codex');
+      expect(result.trustedFolder).toBe(false);
+    });
+  });
+
+  describe('--pick flag stub', () => {
+    it('createSetupMcpCommand accepts --pick flag without error', () => {
+      const cmd = createSetupMcpCommand();
+      const opt = cmd.options.find((o) => o.long === '--pick');
+      expect(opt).toBeDefined();
+    });
   });
 });
