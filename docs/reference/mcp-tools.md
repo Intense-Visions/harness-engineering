@@ -24,6 +24,8 @@ Validate layer boundaries and detect circular dependencies
 
 - `path` (string, required) — Path to project root
 
+**CLI equivalent:** [`harness check-deps`](cli-commands.md#harness-check-deps)
+
 ### `check_docs`
 
 Analyze documentation coverage and/or validate knowledge map integrity
@@ -34,6 +36,8 @@ Analyze documentation coverage and/or validate knowledge map integrity
 - `domain` (string, optional) — Domain/module to check
 - `scope` (string, optional) — Scope of check: 'coverage' (doc coverage), 'integrity' (knowledge map validation), 'all' (both). Default: 'coverage'
 
+**CLI equivalent:** [`harness check-docs`](cli-commands.md#harness-check-docs)
+
 ### `check_performance`
 
 Run performance checks: structural complexity, coupling metrics, and size budgets
@@ -42,6 +46,8 @@ Run performance checks: structural complexity, coupling metrics, and size budget
 
 - `path` (string, required) — Path to project root
 - `type` (string, optional) — Type of performance check (default: all)
+
+**CLI equivalent:** [`harness perf check`](cli-commands.md#harness-perf-check)
 
 ### `check_phase_gate`
 
@@ -81,6 +87,8 @@ Validate a harness-linter.yml configuration file
 
 - `configPath` (string, required) — Path to harness-linter.yml
 
+**CLI equivalent:** [`harness linter validate`](cli-commands.md#harness-linter-validate)
+
 ### `validate_project`
 
 Run all validation checks on a harness engineering project
@@ -88,6 +96,8 @@ Run all validation checks on a harness engineering project
 **Parameters:**
 
 - `path` (string, required) — Path to project root directory
+
+**CLI equivalent:** [`harness validate`](cli-commands.md#harness-validate)
 
 ## Code Navigation
 
@@ -133,6 +143,8 @@ Add a component (layer, doc, or component type) to the project using the harness
 - `type` (string, required) — Type of component to add
 - `name` (string, required) — Name of the component to add
 
+**CLI equivalent:** [`harness add`](cli-commands.md#harness-add)
+
 ### `ingest_source`
 
 Ingest sources into the project knowledge graph. Supports code analysis, knowledge documents, git history, or all at once.
@@ -141,6 +153,8 @@ Ingest sources into the project knowledge graph. Supports code analysis, knowled
 
 - `path` (string, required) — Path to project root
 - `source` (string, required) — Type of source to ingest
+
+**CLI equivalent:** [`harness graph ingest`](cli-commands.md#harness-graph-ingest)
 
 ### `update_perf_baselines`
 
@@ -151,6 +165,8 @@ Update performance baselines from benchmark results. Run benchmarks first via CL
 - `path` (string, required) — Path to project root
 - `commitHash` (string, required) — Current commit hash for baseline tracking
 - `results` (array, required) — Array of benchmark results to save as baselines
+
+**CLI equivalent:** [`harness perf update-baselines`](cli-commands.md#harness-perf-update-baselines)
 
 ## Detection & Prediction
 
@@ -176,6 +192,8 @@ Detect documentation drift, dead code, and pattern violations. Optionally auto-f
 - `dryRun` (boolean, optional) — Preview fixes without applying (only used when autoFix is true)
 - `fixTypes` (array, optional) — Specific fix types to apply (default: all safe types). Only used when autoFix is true.
 - `mode` (string, optional) — Response density: summary returns issue counts and top issues per category, detailed returns full findings. Default: detailed
+
+**CLI equivalent:** [`harness check-entropy`](cli-commands.md#harness-check-entropy)
 
 ### `detect_stale_constraints`
 
@@ -224,6 +242,8 @@ Scaffold a new harness skill with skill.yaml and SKILL.md
 - `description` (string, required) — Skill description
 - `cognitiveMode` (string, optional) — Cognitive mode (default: constructive-architect)
 
+**CLI equivalent:** [`harness skill create`](cli-commands.md#harness-skill-create)
+
 ### `generate_agent_definitions`
 
 Generate agent definition files from personas for Claude Code and Gemini CLI
@@ -234,6 +254,8 @@ Generate agent definition files from personas for Claude Code and Gemini CLI
 - `platform` (string, optional) — Target platform (default: all)
 - `dryRun` (boolean, optional) — Preview without writing
 
+**CLI equivalent:** [`harness agent generate-definitions`](cli-commands.md#harness-agent-generate-definitions)
+
 ### `generate_linter`
 
 Generate an ESLint rule from YAML configuration
@@ -243,6 +265,8 @@ Generate an ESLint rule from YAML configuration
 - `configPath` (string, required) — Path to harness-linter.yml
 - `outputDir` (string, optional) — Output directory for generated rule
 
+**CLI equivalent:** [`harness linter generate`](cli-commands.md#harness-linter-generate)
+
 ### `generate_persona_artifacts`
 
 Generate runtime config, AGENTS.md fragment, and CI workflow from a persona
@@ -251,6 +275,8 @@ Generate runtime config, AGENTS.md fragment, and CI workflow from a persona
 
 - `name` (string, required) — Persona name (e.g., architecture-enforcer)
 - `only` (string, optional) — Generate only a specific artifact type
+
+**CLI equivalent:** [`harness persona generate`](cli-commands.md#harness-persona-generate)
 
 ### `generate_slash_commands`
 
@@ -264,6 +290,8 @@ Generate native slash commands for Claude Code and Gemini CLI from harness skill
 - `skillsDir` (string, optional) — Skills directory to scan
 - `includeGlobal` (boolean, optional) — Include built-in global skills alongside project skills
 - `dryRun` (boolean, optional) — Show what would change without writing files
+
+**CLI equivalent:** [`harness skill generate-commands`](cli-commands.md#harness-skill-generate-commands)
 
 ## Other
 
@@ -308,6 +336,8 @@ Scaffold a new harness engineering project from a template
 - `framework` (string, optional) — Framework overlay (e.g., nextjs, fastapi, gin)
 - `language` (string, optional) — Target language
 
+**CLI equivalent:** [`harness init`](cli-commands.md#harness-init)
+
 ### `request_peer_review`
 
 Spawn an agent subprocess to perform code review. Returns structured feedback with approval status. Timeout: 120 seconds.
@@ -348,6 +378,8 @@ List performance-critical functions from @perf-critical annotations and graph in
 
 - `path` (string, required) — Path to project root
 
+**CLI equivalent:** [`harness perf critical-paths`](cli-commands.md#harness-perf-critical-paths)
+
 ### `get_impact`
 
 Analyze the impact of changing a node or file. Returns affected tests, docs, code, and other nodes grouped by type.
@@ -366,6 +398,8 @@ Read current performance baselines from .harness/perf/baselines.json
 **Parameters:**
 
 - `path` (string, required) — Path to project root
+
+**CLI equivalent:** [`harness perf baselines`](cli-commands.md#harness-perf-baselines)
 
 ### `get_relationships`
 
@@ -394,6 +428,8 @@ Query the project knowledge graph using ContextQL. Traverses from root nodes out
 - `bidirectional` (boolean, optional) — Traverse edges in both directions (default false)
 - `pruneObservability` (boolean, optional) — Prune observability nodes like spans/metrics/logs (default true)
 - `mode` (string, optional) — Response density: summary returns node/edge counts by type + top 10 nodes by connectivity, detailed returns full arrays. Default: detailed
+
+**CLI equivalent:** [`harness graph query`](cli-commands.md#harness-graph-query)
 
 ### `search_similar`
 
@@ -439,6 +475,8 @@ Run an agent task using the harness CLI
 - `path` (string, optional) — Path to project root directory
 - `timeout` (number, optional) — Timeout in milliseconds
 
+**CLI equivalent:** [`harness agent run`](cli-commands.md#harness-agent-run)
+
 ### `run_code_review`
 
 Run the unified 7-phase code review pipeline: gate, mechanical checks, context scoping, parallel agents, validation, deduplication, and output.
@@ -466,6 +504,8 @@ Execute all steps defined in a persona and return aggregated results
 - `trigger` (string, optional) — Trigger context for step filtering (default: auto)
 - `dryRun` (boolean, optional) — Preview without side effects
 
+**CLI equivalent:** [`harness persona run`](cli-commands.md#harness-persona-run)
+
 ### `run_security_scan`
 
 Run the built-in security scanner on a project or specific files. Detects secrets, injection, XSS, weak crypto, and other vulnerabilities.
@@ -475,6 +515,8 @@ Run the built-in security scanner on a project or specific files. Detects secret
 - `path` (string, required) — Path to project root
 - `files` (array, optional) — Optional list of specific files to scan. If omitted, scans all source files.
 - `strict` (boolean, optional) — Override strict mode — promotes all warnings to errors
+
+**CLI equivalent:** [`harness check-security`](cli-commands.md#harness-check-security)
 
 ### `run_skill`
 
@@ -487,6 +529,8 @@ Load and return the content of a skill (SKILL.md), optionally with project state
 - `complexity` (string, optional) — Rigor level: fast (minimal), standard (default), thorough (full)
 - `phase` (string, optional) — Start at a specific phase (re-entry)
 - `party` (boolean, optional) — Enable multi-perspective evaluation
+
+**CLI equivalent:** [`harness skill run`](cli-commands.md#harness-skill-run)
 
 ## State & Management
 
@@ -509,6 +553,8 @@ Emit a structured interaction (question, confirmation, phase transition, or batc
 
 List available agent personas
 
+**CLI equivalent:** [`harness persona list`](cli-commands.md#harness-persona-list)
+
 ### `list_streams`
 
 List known state streams with branch associations and last-active timestamps
@@ -516,6 +562,8 @@ List known state streams with branch associations and last-active timestamps
 **Parameters:**
 
 - `path` (string, required) — Path to project root
+
+**CLI equivalent:** [`harness state list-streams`](cli-commands.md#harness-state-list-streams)
 
 ### `manage_roadmap`
 
@@ -557,3 +605,5 @@ Manage harness project state: show current state, record learnings/failures, arc
 - `content` (string, optional) — Entry content text (required for append_entry)
 - `entryId` (string, optional) — ID of the entry to update (required for update_entry_status)
 - `newStatus` (string, optional) — New status for the entry: active, resolved, or superseded (required for update_entry_status)
+
+**CLI equivalent:** [`harness state`](cli-commands.md#harness-state)
