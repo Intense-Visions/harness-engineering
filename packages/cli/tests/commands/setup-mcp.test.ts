@@ -8,7 +8,9 @@ import {
   createSetupMcpCommand,
   CURSOR_CURATED_TOOLS,
   runCursorToolPicker,
+  ALL_MCP_TOOLS,
 } from '../../src/commands/setup-mcp';
+import { getToolDefinitions } from '../../src/mcp/server';
 
 vi.mock('@clack/prompts', () => ({
   multiselect: vi.fn(),
@@ -286,5 +288,15 @@ describe('--yes flag', () => {
     expect(entry).toBeDefined();
     expect(entry.command).toBe('harness');
     expect(entry.args).toEqual(['mcp', '--tools', ...CURSOR_CURATED_TOOLS]);
+  });
+});
+
+describe('ALL_MCP_TOOLS sync', () => {
+  it('matches TOOL_DEFINITIONS names from server.ts', () => {
+    const serverToolNames = getToolDefinitions()
+      .map((t) => t.name)
+      .sort();
+    const setupToolNames = [...ALL_MCP_TOOLS].sort();
+    expect(setupToolNames).toEqual(serverToolNames);
   });
 });
