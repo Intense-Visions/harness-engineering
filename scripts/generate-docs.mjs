@@ -118,7 +118,7 @@ function formatCommand(cmd, prefix) {
 
 // ─── MCP Tools Reference ─────────────────────────────────────────────────────
 
-async function generateMcpReference() {
+async function generateMcpReference(cliAnchorLookup = new Map()) {
   // Read tool definitions by importing the server module
   let toolDefinitions;
   try {
@@ -204,12 +204,43 @@ async function generateMcpReference() {
 
       const cliCmd = toolToCliCommand[tool.name];
       if (cliCmd) {
-        lines.push(`**CLI equivalent:** [\`${cliCmd}\`](cli-commands.md#${cliCmd.replace(/\s+/g, '-')})\n\n`);
+        const anchor = cliAnchorLookup.get(cliCmd) || githubAnchor(cliCmd);
+        lines.push(`**CLI equivalent:** [\`${cliCmd}\`](cli-commands.md#${anchor})\n\n`);
       }
     }
   }
 
   return lines.join('');
+}
+
+/**
+ * Convert heading text to a GitHub-style anchor: lowercase, strip anything
+ * that isn't alphanumeric, space, or hyphen, then replace spaces with hyphens.
+ */
+function githubAnchor(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9 -]/g, '')
+    .replace(/\s+/g, '-');
+}
+
+/**
+ * Build a map from CLI command prefix (e.g. "harness cleanup") to its actual
+ * GitHub anchor, derived from the generated CLI markdown headings.
+ */
+function buildCliAnchorLookup(cliMarkdown) {
+  const lookup = new Map();
+  if (!cliMarkdown) return lookup;
+  const headingRegex = /^### `(.+)`$/gm;
+  let match;
+  while ((match = headingRegex.exec(cliMarkdown)) !== null) {
+    const headingText = match[1]; // e.g. "harness add <type> <name>"
+    const anchor = githubAnchor(match[0].replace(/^### /, ''));
+    // Map both the full heading command and just the command prefix (without args)
+    const prefix = headingText.replace(/ [<\[].*/, '').trim();
+    lookup.set(prefix, anchor);
+  }
+  return lookup;
 }
 
 function categorizeToolName(name) {
@@ -369,9 +400,10 @@ async function main() {
   }
 
   // MCP tools reference (requires built CLI or falls back to source parsing)
+  const cliAnchorLookup = buildCliAnchorLookup(cliContent);
   try {
     console.log('  MCP tools reference...');
-    const mcpContent = await generateMcpReference();
+    const mcpContent = await generateMcpReference(cliAnchorLookup);
     writeFileSync(join(REFERENCE_DIR, 'mcp-tools.md'), mcpContent);
     console.log('    ✓ docs/reference/mcp-tools.md');
   } catch (err) {
