@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global console */
 // sentinel-pre.js — PreToolUse:* hook
 // Sentinel prompt injection defense — scans tool inputs for injection patterns
 // and blocks destructive operations during tainted sessions.
@@ -42,6 +43,7 @@ function inlineScan(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // HIGH: INJ-UNI-001 — Zero-width characters
+    // eslint-disable-next-line no-misleading-character-class -- intentional: detects zero-width chars for security
     if (/[\u200B\u200C\u200D\uFEFF\u2060]/.test(line)) {
       findings.push({ severity: 'high', ruleId: 'INJ-UNI-001', match: line.trim(), line: i + 1 });
     }

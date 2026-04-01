@@ -23,14 +23,17 @@ export interface AddResult {
   notFound: string[];
 }
 
-function readJson(p: string): Record<string, any> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON settings structure
+type JsonObject = Record<string, any>;
+
+function readJson(p: string): JsonObject {
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf-8')) : {};
 }
 
-function registerHook(s: Record<string, any>, ev: string, matcher: string, name: string): void {
+function registerHook(s: JsonObject, ev: string, matcher: string, name: string): void {
   if (!s.hooks[ev]) s.hooks[ev] = [];
   const cmd = `node .harness/hooks/${name}.js`;
-  if (!s.hooks[ev].some((e: any) => e.hooks?.some((h: any) => h.command === cmd))) {
+  if (!s.hooks[ev].some((e: JsonObject) => e.hooks?.some((h: JsonObject) => h.command === cmd))) {
     s.hooks[ev].push({ matcher, hooks: [{ type: 'command', command: cmd }] });
   }
 }
@@ -77,7 +80,7 @@ export function createAddCommand(): Command {
   return new Command('add')
     .argument('<hook-name>', 'Hook name or alias (e.g., sentinel)')
     .description('Add a hook without changing the profile')
-    .action(async (hookName: string, _opts: any, cmd: any) => {
+    .action(async (hookName: string, _opts: unknown, cmd: Command) => {
       const projectDir = process.cwd();
       try {
         const res = addHooks(hookName, projectDir);
