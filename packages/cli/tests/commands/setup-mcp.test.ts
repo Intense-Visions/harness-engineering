@@ -296,6 +296,80 @@ describe('--yes flag', () => {
   });
 });
 
+describe('--pick flag integration', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-pick-flag-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('--pick --client cursor invokes runCursorToolPicker and writes selected tools', async () => {
+    const selectedTools = ['run_skill', 'validate_project'];
+    (clack.multiselect as MockedFunction<typeof clack.multiselect>).mockResolvedValue(
+      selectedTools as never
+    );
+
+    const cmd = createSetupMcpCommand();
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      await cmd.parseAsync(['--client', 'cursor', '--pick'], { from: 'user' });
+    } catch (e: unknown) {
+      if (!(e instanceof Error) || e.message !== 'process.exit') throw e;
+    } finally {
+      cwdSpy.mockRestore();
+      exitSpy.mockRestore();
+      consoleSpy.mockRestore();
+    }
+
+    expect(clack.multiselect).toHaveBeenCalled();
+
+    const configPath = path.join(tempDir, '.cursor', 'mcp.json');
+    expect(fs.existsSync(configPath)).toBe(true);
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(config.mcpServers.harness.args).toEqual(['mcp', '--tools', ...selectedTools]);
+  });
+
+  it('--yes --pick --client cursor: --pick takes precedence and launches picker', async () => {
+    const selectedTools = ['gather_context', 'emit_interaction'];
+    (clack.multiselect as MockedFunction<typeof clack.multiselect>).mockResolvedValue(
+      selectedTools as never
+    );
+
+    const cmd = createSetupMcpCommand();
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      await cmd.parseAsync(['--client', 'cursor', '--yes', '--pick'], { from: 'user' });
+    } catch (e: unknown) {
+      if (!(e instanceof Error) || e.message !== 'process.exit') throw e;
+    } finally {
+      cwdSpy.mockRestore();
+      exitSpy.mockRestore();
+      consoleSpy.mockRestore();
+    }
+
+    // --pick should win: multiselect should be called
+    expect(clack.multiselect).toHaveBeenCalled();
+
+    const configPath = path.join(tempDir, '.cursor', 'mcp.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    expect(config.mcpServers.harness.args).toEqual(['mcp', '--tools', ...selectedTools]);
+  });
+});
+
 describe('ALL_MCP_TOOLS sync', () => {
   it('matches TOOL_DEFINITIONS names from server.ts', () => {
     const serverToolNames = getToolDefinitions()
