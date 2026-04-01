@@ -3,7 +3,8 @@
 // Sentinel prompt injection defense — scans tool outputs for injection patterns.
 // Exit codes: always 0 (PostToolUse cannot block)
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import process from 'node:process';
 
 // Minimal inline patterns for when @harness-engineering/core isn't available
@@ -17,6 +18,9 @@ function inlineScan(text) {
     }
     if (/(?:ignore|disregard|forget)\s+(?:all\s+)?(?:previous|prior)\s+(?:instructions?|prompts?|context)/i.test(line)) {
       findings.push({ severity: 'high', ruleId: 'INJ-REROL-001', match: line.trim(), line: i + 1 });
+    }
+    if (/(?:the\s+)?(?:system\s+prompt|system\s+message|hidden\s+instructions?)\s+(?:says?|tells?|instructs?|contains?|is)/i.test(line)) {
+      findings.push({ severity: 'medium', ruleId: 'INJ-CTX-001', match: line.trim(), line: i + 1 });
     }
   }
   return findings;
@@ -72,7 +76,26 @@ async function main() {
           `PostToolUse:${toolName}`
         );
       } catch {
-        // Can't write taint — log but continue
+        // Fallback inline taint writer
+        try {
+          const id = sessionId || 'default';
+          const taintPath = resolve(workspaceRoot, '.harness', `session-taint-${id}.json`);
+          mkdirSync(dirname(taintPath), { recursive: true });
+          const now = new Date().toISOString();
+          const maxSev = actionable.some((f) => f.severity === 'high') ? 'high' : 'medium';
+          const state = {
+            sessionId: id,
+            taintedAt: now,
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            reason: `Injection pattern detected in PostToolUse:${toolName} result`,
+            severity: maxSev,
+            findings: actionable.map((f) => ({
+              ruleId: f.ruleId, severity: f.severity, match: f.match,
+              source: `PostToolUse:${toolName}`, detectedAt: now,
+            })),
+          };
+          writeFileSync(taintPath, JSON.stringify(state, null, 2) + '\n');
+        } catch { /* best-effort */ }
       }
 
       for (const f of actionable) {
