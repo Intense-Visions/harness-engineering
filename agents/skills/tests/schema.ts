@@ -43,7 +43,7 @@ const ALLOWED_TRIGGERS = [
   'on_task_complete',
 ] as const;
 
-const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli'] as const;
+const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli', 'codex', 'cursor'] as const;
 
 export const SkillMetadataSchema = z.object({
   name: z.string().regex(/^[a-z][a-z0-9-]*$/, 'Name must be lowercase with hyphens'),
