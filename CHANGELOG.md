@@ -6,6 +6,26 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.10.0 — 2026-04-01
+
+### Added
+
+- **Multi-platform MCP support** — Codex CLI and Cursor join Claude Code as supported AI agent platforms. `harness setup-mcp` auto-detects and configures each platform. Slash command generation now produces platform-specific output for all three.
+- **Cursor tool picker** — Interactive `--pick` flag with `@clack/prompts` for selecting which MCP tools to expose to Cursor. `--yes` flag for non-interactive CI usage with curated defaults.
+- **Codex TOML integration** — `writeTomlMcpEntry` utility for writing MCP server config to `.codex/config.toml`.
+- **Sentinel prompt injection defense** — `sentinel-pre` and `sentinel-post` hook scripts scan tool inputs/outputs for injection patterns, block destructive operations during tainted sessions. Added to strict hook profile.
+- **Usage analytics** — Claude Code JSONL parser (`parseCCRecords`), daily and session aggregation types, `--include-claude-sessions` flag for `harness usage`.
+- **Security scanner hardening** — Session-scoped taint state management, `SEC-DEF-*` insecure-defaults rules, `SEC-EDGE-*` sharp-edges rules, false-positive verification gate with `parseHarnessIgnore` helper.
+- **Cost tracking types** — `DailyUsage`, `SessionUsage`, `UsageRecord`, and `ModelPricing` types in `@harness-engineering/types`.
+- **Orchestrator sentinel integration** — Sentinel config scanning wired into the dispatch pipeline.
+
+### Fixed
+
+- Lint errors in hook scripts (no-misleading-character-class, unused imports, `any` types)
+- Cost-tracker hook field naming alignment (snake_case → camelCase)
+- Test gaps: doctor MCP mock, usage fetch mock, profiles/integration hook counts, gate test timeout
+- Doc drift: version numbers, tool counts, and skill counts synchronized across docs
+
 ## 0.9.0 — 2026-03-30
 
 ### Added
