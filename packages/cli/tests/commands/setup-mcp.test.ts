@@ -196,6 +196,11 @@ describe('CURSOR_CURATED_TOOLS', () => {
     expect(CURSOR_CURATED_TOOLS).toContain('emit_interaction');
     expect(CURSOR_CURATED_TOOLS).toContain('gather_context');
   });
+
+  it('is a subset of ALL_MCP_TOOLS', () => {
+    const missing = CURSOR_CURATED_TOOLS.filter((t) => !ALL_MCP_TOOLS.includes(t));
+    expect(missing).toEqual([]);
+  });
 });
 
 describe('runCursorToolPicker', () => {
