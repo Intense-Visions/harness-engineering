@@ -6,7 +6,7 @@ import type { InjectionFinding, SecurityFinding } from '@harness-engineering/cor
 /** Files to scan for injection patterns and SEC-AGT rule violations. */
 const CONFIG_FILES = ['CLAUDE.md', 'AGENTS.md', '.gemini/settings.json', 'skill.yaml'];
 
-export interface ConfigScanFinding {
+export interface ScanConfigFinding {
   ruleId: string;
   severity: 'high' | 'medium' | 'low';
   message: string;
@@ -14,15 +14,15 @@ export interface ConfigScanFinding {
   line?: number;
 }
 
-export interface ConfigScanFileResult {
+export interface ScanConfigFileResult {
   file: string;
-  findings: ConfigScanFinding[];
+  findings: ScanConfigFinding[];
   overallSeverity: 'high' | 'medium' | 'low' | 'clean';
 }
 
-export interface ConfigScanResult {
+export interface ScanConfigResult {
   exitCode: number;
-  results: ConfigScanFileResult[];
+  results: ScanConfigFileResult[];
 }
 
 function mapSecuritySeverity(severity: string): 'high' | 'medium' | 'low' {
@@ -32,7 +32,7 @@ function mapSecuritySeverity(severity: string): 'high' | 'medium' | 'low' {
 }
 
 function computeOverallSeverity(
-  findings: ConfigScanFinding[]
+  findings: ScanConfigFinding[]
 ): 'high' | 'medium' | 'low' | 'clean' {
   if (findings.length === 0) return 'clean';
   if (findings.some((f) => f.severity === 'high')) return 'high';
@@ -40,7 +40,7 @@ function computeOverallSeverity(
   return 'low';
 }
 
-function computeExitCode(results: ConfigScanFileResult[]): number {
+function computeExitCode(results: ScanConfigFileResult[]): number {
   for (const r of results) {
     if (r.overallSeverity === 'high') return 2;
   }
@@ -50,7 +50,7 @@ function computeExitCode(results: ConfigScanFileResult[]): number {
   return 0;
 }
 
-function mapInjectionFindings(injectionFindings: InjectionFinding[]): ConfigScanFinding[] {
+function mapInjectionFindings(injectionFindings: InjectionFinding[]): ScanConfigFinding[] {
   return injectionFindings.map((f) => ({
     ruleId: f.ruleId,
     severity: f.severity,
@@ -60,7 +60,7 @@ function mapInjectionFindings(injectionFindings: InjectionFinding[]): ConfigScan
   }));
 }
 
-function isDuplicateFinding(existing: ConfigScanFinding[], secFinding: SecurityFinding): boolean {
+function isDuplicateFinding(existing: ScanConfigFinding[], secFinding: SecurityFinding): boolean {
   return existing.some(
     (e) =>
       e.line === secFinding.line &&
@@ -71,9 +71,9 @@ function isDuplicateFinding(existing: ConfigScanFinding[], secFinding: SecurityF
 
 function mapSecurityFindings(
   secFindings: SecurityFinding[],
-  existing: ConfigScanFinding[]
-): ConfigScanFinding[] {
-  const result: ConfigScanFinding[] = [];
+  existing: ScanConfigFinding[]
+): ScanConfigFinding[] {
+  const result: ScanConfigFinding[] = [];
   for (const f of secFindings) {
     if (!isDuplicateFinding(existing, f)) {
       result.push({
@@ -92,7 +92,7 @@ function scanSingleFile(
   filePath: string,
   targetDir: string,
   scanner: SecurityScanner
-): ConfigScanFileResult | null {
+): ScanConfigFileResult | null {
   if (!existsSync(filePath)) return null;
 
   let content: string;
@@ -109,7 +109,7 @@ function scanSingleFile(
   findings.push(...mapSecurityFindings(secFindings, findings));
 
   return {
-    file: relative(targetDir, filePath),
+    file: relative(targetDir, filePath).replaceAll('\\', '/'),
     findings,
     overallSeverity: computeOverallSeverity(findings),
   };
@@ -124,9 +124,9 @@ function scanSingleFile(
  *   1 = medium-severity findings
  *   2 = high-severity findings
  */
-export async function scanWorkspaceConfig(workspacePath: string): Promise<ConfigScanResult> {
+export async function scanWorkspaceConfig(workspacePath: string): Promise<ScanConfigResult> {
   const scanner = new SecurityScanner(parseSecurityConfig({}));
-  const results: ConfigScanFileResult[] = [];
+  const results: ScanConfigFileResult[] = [];
 
   for (const configFile of CONFIG_FILES) {
     const result = scanSingleFile(join(workspacePath, configFile), workspacePath, scanner);
