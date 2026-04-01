@@ -37,7 +37,8 @@ async function generateCliReference() {
   const lines = [
     HEADER,
     '# CLI Command Reference\n\n',
-    'Complete reference for all `harness` CLI commands and subcommands.\n\n',
+    'Complete reference for all `harness` CLI commands and subcommands. ',
+    'See the [Features Overview](../guides/features-overview.md) for narrative documentation.\n\n',
   ];
 
   // Collect commands grouped by parent
