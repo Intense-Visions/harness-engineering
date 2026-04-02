@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   scoreRoadmapCandidates,
+  assignFeature,
   type ScoredCandidate,
   type PilotScoringOptions,
 } from '../../src/roadmap/pilot-scoring';
@@ -328,5 +329,55 @@ describe('scoreRoadmapCandidates()', () => {
       const candidates = scoreRoadmapCandidates(roadmap);
       expect(candidates[0]!.affinityScore).toBe(0);
     });
+  });
+});
+
+describe('assignFeature()', () => {
+  it('sets assignee and appends assigned record for unassigned feature', () => {
+    const feature = makeFeature({ name: 'My Feature', assignee: null });
+    const roadmap = makeRoadmap([{ name: 'M1', isBacklog: false, features: [feature] }]);
+
+    assignFeature(roadmap, feature, '@cwarner', '2026-04-02');
+
+    expect(feature.assignee).toBe('@cwarner');
+    expect(roadmap.assignmentHistory).toHaveLength(1);
+    expect(roadmap.assignmentHistory[0]).toEqual({
+      feature: 'My Feature',
+      assignee: '@cwarner',
+      action: 'assigned',
+      date: '2026-04-02',
+    });
+  });
+
+  it('produces unassigned + assigned records on reassignment', () => {
+    const feature = makeFeature({ name: 'My Feature', assignee: '@alice' });
+    const roadmap = makeRoadmap([{ name: 'M1', isBacklog: false, features: [feature] }]);
+
+    assignFeature(roadmap, feature, '@bob', '2026-04-02');
+
+    expect(feature.assignee).toBe('@bob');
+    expect(roadmap.assignmentHistory).toHaveLength(2);
+    expect(roadmap.assignmentHistory[0]).toEqual({
+      feature: 'My Feature',
+      assignee: '@alice',
+      action: 'unassigned',
+      date: '2026-04-02',
+    });
+    expect(roadmap.assignmentHistory[1]).toEqual({
+      feature: 'My Feature',
+      assignee: '@bob',
+      action: 'assigned',
+      date: '2026-04-02',
+    });
+  });
+
+  it('is a no-op when assigning to the current assignee', () => {
+    const feature = makeFeature({ name: 'My Feature', assignee: '@cwarner' });
+    const roadmap = makeRoadmap([{ name: 'M1', isBacklog: false, features: [feature] }]);
+
+    assignFeature(roadmap, feature, '@cwarner', '2026-04-02');
+
+    expect(feature.assignee).toBe('@cwarner');
+    expect(roadmap.assignmentHistory).toHaveLength(0);
   });
 });
