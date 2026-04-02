@@ -238,8 +238,9 @@ async function runPerfCheck(
     const perfReport = perfResult.value;
     if (perfReport.complexity) {
       for (const v of perfReport.complexity.violations) {
+        // Complexity violations are baselined by the arch check — report as warnings here to avoid double-gating
         issues.push({
-          severity: v.severity === 'info' ? 'warning' : v.severity,
+          severity: 'warning',
           message: `[Tier ${v.tier}] ${v.metric}: ${v.function} in ${v.file} (${v.value} > ${v.threshold})`,
           file: v.file,
           line: v.line,
