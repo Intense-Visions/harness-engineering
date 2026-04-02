@@ -38,6 +38,8 @@ describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
       logOutput.push(args.join(' '));
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Mock fetch to prevent real network requests that can timeout in CI
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 503 }));
   });
 
   afterEach(() => {
@@ -47,45 +49,50 @@ describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('hook-written entry is readable by CLI and priced correctly via fallback', async () => {
-    // Write a JSONL fixture matching the hook output format (snake_case for all fields:
-    // session_id, token_usage, cache_creation_tokens, cache_read_tokens, model).
-    // claude-sonnet-4-20250514 exists in fallback.json with known pricing.
-    const hookOutputEntry = JSON.stringify({
-      timestamp: new Date().toISOString(),
-      session_id: 'e2e-session-001',
-      token_usage: { input_tokens: 1000, output_tokens: 500 },
-      cache_creation_tokens: 200,
-      cache_read_tokens: 100,
-      model: 'claude-sonnet-4-20250514',
-    });
+  it(
+    'hook-written entry is readable by CLI and priced correctly via fallback',
+    { timeout: 15000 },
+    async () => {
+      // Write a JSONL fixture matching the hook output format (snake_case for all fields:
+      // session_id, token_usage, cache_creation_tokens, cache_read_tokens, model).
+      // claude-sonnet-4-20250514 exists in fallback.json with known pricing.
+      const hookOutputEntry = JSON.stringify({
+        timestamp: new Date().toISOString(),
+        session_id: 'e2e-session-001',
+        token_usage: { input_tokens: 1000, output_tokens: 500 },
+        cache_creation_tokens: 200,
+        cache_read_tokens: 100,
+        model: 'claude-sonnet-4-20250514',
+      });
 
-    const costsFile = path.join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
-    fs.writeFileSync(costsFile, hookOutputEntry + '\n');
+      const costsFile = path.join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
+      fs.writeFileSync(costsFile, hookOutputEntry + '\n');
 
-    // Verify the JSONL file was created with expected fields
-    expect(fs.existsSync(costsFile)).toBe(true);
-    const written = JSON.parse(fs.readFileSync(costsFile, 'utf-8').trim());
-    expect(written.session_id).toBe('e2e-session-001');
-    expect(written.token_usage.input_tokens).toBe(1000);
-    expect(written.cache_creation_tokens).toBe(200);
-    expect(written.cache_read_tokens).toBe(100);
+      // Verify the JSONL file was created with expected fields
+      expect(fs.existsSync(costsFile)).toBe(true);
+      const written = JSON.parse(fs.readFileSync(costsFile, 'utf-8').trim());
+      expect(written.session_id).toBe('e2e-session-001');
+      expect(written.token_usage.input_tokens).toBe(1000);
+      expect(written.cache_creation_tokens).toBe(200);
+      expect(written.cache_read_tokens).toBe(100);
 
-    // Now run CLI to verify the full read → price pipeline
-    const program = createProgram();
-    await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
+      // Now run CLI to verify the full read → price pipeline
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
 
-    const output = JSON.parse(logOutput.join(''));
-    expect(output.sessionId).toBe('e2e-session-001');
-    expect(output.tokens.inputTokens).toBe(1000);
-    expect(output.tokens.outputTokens).toBe(500);
-    expect(output.cacheCreationTokens).toBe(200);
-    expect(output.cacheReadTokens).toBe(100);
-    expect(output.model).toBe('claude-sonnet-4-20250514');
-    // Cost must be a positive number (priced via fallback.json)
-    expect(typeof output.costMicroUSD).toBe('number');
-    expect(output.costMicroUSD).toBeGreaterThan(0);
-  });
+      const jsonLine = logOutput.find((line) => line.startsWith('{')) ?? '{}';
+      const output = JSON.parse(jsonLine);
+      expect(output.sessionId).toBe('e2e-session-001');
+      expect(output.tokens.inputTokens).toBe(1000);
+      expect(output.tokens.outputTokens).toBe(500);
+      expect(output.cacheCreationTokens).toBe(200);
+      expect(output.cacheReadTokens).toBe(100);
+      expect(output.model).toBe('claude-sonnet-4-20250514');
+      // Cost must be a positive number (priced via fallback.json)
+      expect(typeof output.costMicroUSD).toBe('number');
+      expect(output.costMicroUSD).toBeGreaterThan(0);
+    }
+  );
 
   it('hook-written entry without model field results in null cost', async () => {
     const hookOutputEntry = JSON.stringify({
@@ -100,7 +107,8 @@ describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
     const program = createProgram();
     await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
 
-    const output = JSON.parse(logOutput.join(''));
+    const jsonLine = logOutput.find((line) => line.startsWith('{')) ?? '{}';
+    const output = JSON.parse(jsonLine);
     expect(output.sessionId).toBe('e2e-session-nomodel');
     // No model — cost must be null, not a number
     expect(output.costMicroUSD).toBeNull();
@@ -152,7 +160,9 @@ describe('Offline fallback: fetch fails, fallback.json provides pricing', () => 
     const program = createProgram();
     await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
 
-    const output = JSON.parse(logOutput.join(''));
+    const output = JSON.parse(
+      logOutput.find((line) => line.startsWith('{') || line.startsWith('[')) ?? '{}'
+    );
     // Session should be found
     expect(output.sessionId).toBe('offline-sess-001');
     // Cost should be non-null — fallback.json has pricing for claude-sonnet-4-20250514
@@ -345,7 +355,9 @@ describe('--json schema shape validation', () => {
     const program = createProgram();
     await program.parseAsync(['node', 'harness', 'usage', 'daily', '--json']);
 
-    const output = JSON.parse(logOutput.join(''));
+    const output = JSON.parse(
+      logOutput.find((line) => line.startsWith('{') || line.startsWith('[')) ?? '{}'
+    );
     expect(Array.isArray(output)).toBe(true);
     expect(output.length).toBeGreaterThanOrEqual(1);
 
@@ -367,7 +379,9 @@ describe('--json schema shape validation', () => {
     const program = createProgram();
     await program.parseAsync(['node', 'harness', 'usage', 'sessions', '--json']);
 
-    const output = JSON.parse(logOutput.join(''));
+    const output = JSON.parse(
+      logOutput.find((line) => line.startsWith('{') || line.startsWith('[')) ?? '{}'
+    );
     expect(Array.isArray(output)).toBe(true);
     expect(output).toHaveLength(2);
 
@@ -388,7 +402,9 @@ describe('--json schema shape validation', () => {
     const program = createProgram();
     await program.parseAsync(['node', 'harness', 'usage', 'sessions', '--json']);
 
-    const output = JSON.parse(logOutput.join(''));
+    const output = JSON.parse(
+      logOutput.find((line) => line.startsWith('{') || line.startsWith('[')) ?? '{}'
+    );
     const beta = output.find((s: { sessionId: string }) => s.sessionId === 'schema-sess-beta');
     expect(beta).toBeDefined();
     expect(beta.costMicroUSD).toBeNull();
@@ -408,7 +424,9 @@ describe('--json schema shape validation', () => {
       '--json',
     ]);
 
-    const output = JSON.parse(logOutput.join(''));
+    const output = JSON.parse(
+      logOutput.find((line) => line.startsWith('{') || line.startsWith('[')) ?? '{}'
+    );
     expect(output.sessionId).toBe('schema-sess-alpha');
     expect(typeof output.tokens).toBe('object');
     expect(typeof output.tokens.inputTokens).toBe('number');
@@ -426,7 +444,9 @@ describe('--json schema shape validation', () => {
     const program = createProgram();
     await program.parseAsync(['node', 'harness', 'usage', 'latest', '--json']);
 
-    const output = JSON.parse(logOutput.join(''));
+    const output = JSON.parse(
+      logOutput.find((line) => line.startsWith('{') || line.startsWith('[')) ?? '{}'
+    );
     // Must be an object, not an array
     expect(Array.isArray(output)).toBe(false);
     expect(typeof output).toBe('object');

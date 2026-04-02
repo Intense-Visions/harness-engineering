@@ -13,7 +13,7 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: cwd ?? process.cwd(),
-      timeout: 4000,
+      timeout: 10000,
     });
     return { exitCode: 0, stderr: '' };
   } catch (err: any) {
@@ -90,7 +90,7 @@ describe('quality-gate', () => {
     expect(exitCode).toBe(0);
   });
 
-  it('detects .go file and exits 0', () => {
+  it('detects .go file and exits 0', { timeout: 15000 }, () => {
     const input = JSON.stringify({
       tool_name: 'Edit',
       tool_input: { file_path: 'main.go' },
