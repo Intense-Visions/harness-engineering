@@ -1,29 +1,33 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/pre-compact-state.js');
 
-function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: string } {
-  try {
-    execFileSync('node', [HOOK_PATH], {
-      input: stdinData,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: cwd ?? process.cwd(),
-      timeout: 15000,
-    });
-    return { exitCode: 0, stderr: '' };
-  } catch (err: any) {
-    if (err.killed) return { exitCode: 0, stderr: err.stderr ?? '' };
-    return { exitCode: err.status ?? 1, stderr: err.stderr ?? '' };
-  }
+function runHook(
+  stdinData: string,
+  cwd?: string
+): { exitCode: number; stdout: string; stderr: string } {
+  const result = spawnSync('node', [HOOK_PATH], {
+    input: stdinData,
+    encoding: 'utf-8',
+    cwd: cwd ?? process.cwd(),
+    timeout: 15000,
+  });
+  return {
+    exitCode: result.status ?? (result.signal ? 0 : 1),
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
 }
 
 function readSummary(tmpDir: string): any {
   const summaryPath = join(tmpDir, '.harness', 'state', 'pre-compact-summary.json');
+  expect(existsSync(summaryPath), 'Summary file not created — hook may have failed silently').toBe(
+    true
+  );
   return JSON.parse(readFileSync(summaryPath, 'utf-8'));
 }
 
@@ -51,8 +55,11 @@ describe('pre-compact-state', { timeout: 30000 }, () => {
 
   it('summary contains all required fields', () => {
     const input = JSON.stringify({ hook_type: 'PreCompact' });
-    runHook(input, tmpDir);
-
+    const result = runHook(input, tmpDir);
+    // If the hook didn't write the file, surface its stderr for diagnosis
+    if (!existsSync(join(tmpDir, '.harness', 'state', 'pre-compact-summary.json'))) {
+      expect.fail(`Hook did not write summary (exit=${result.exitCode}, stderr=${result.stderr})`);
+    }
     const summary = readSummary(tmpDir);
     expect(summary).toHaveProperty('timestamp');
     expect(summary).toHaveProperty('sessionId');
