@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/cost-tracker.js');
@@ -27,6 +27,8 @@ describe('cost-tracker', { timeout: 30000 }, () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'cost-tracker-'));
+    // ESM hooks require "type": "module" to be resolvable from cwd
+    writeFileSync(join(tmpDir, 'package.json'), '{"type":"module"}\n');
   });
 
   afterEach(() => {
