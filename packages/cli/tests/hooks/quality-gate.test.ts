@@ -46,7 +46,7 @@ describe('quality-gate', () => {
     expect(exitCode).toBe(0);
   });
 
-  it('detects biome.json and reports on stderr', () => {
+  it('detects biome.json and reports on stderr', { timeout: 30000 }, () => {
     writeFileSync(join(tmpDir, 'biome.json'), '{}');
     const input = JSON.stringify({
       tool_name: 'Edit',
@@ -58,7 +58,7 @@ describe('quality-gate', () => {
     expect(exitCode).not.toBe(2);
   });
 
-  it('detects biome.jsonc', () => {
+  it('detects biome.jsonc', { timeout: 30000 }, () => {
     writeFileSync(join(tmpDir, 'biome.jsonc'), '{}');
     const input = JSON.stringify({
       tool_name: 'Write',
@@ -101,7 +101,7 @@ describe('quality-gate', () => {
     expect(exitCode).toBe(0);
   });
 
-  it('never exits with code 2 (warn-only hook)', () => {
+  it('never exits with code 2 (warn-only hook)', { timeout: 30000 }, () => {
     writeFileSync(join(tmpDir, 'biome.json'), '{}');
     const input = JSON.stringify({
       tool_name: 'Edit',

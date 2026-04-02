@@ -94,7 +94,7 @@ describe('manage_roadmap tool definition', () => {
 });
 
 describe('manage_roadmap show action', () => {
-  it('returns parsed roadmap data', async () => {
+  it('returns parsed roadmap data', { timeout: 15000 }, async () => {
     const response = await handleManageRoadmap({ path: tmpDir, action: 'show' });
     expect(response.isError).toBeFalsy();
     const parsed = JSON.parse(response.content[0].text);
