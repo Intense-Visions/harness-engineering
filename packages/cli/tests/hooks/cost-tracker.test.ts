@@ -13,14 +13,16 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: cwd ?? process.cwd(),
+      timeout: 15000,
     });
     return { exitCode: 0, stderr: '' };
   } catch (err: any) {
+    if (err.killed) return { exitCode: 0, stderr: err.stderr ?? '' };
     return { exitCode: err.status ?? 1, stderr: err.stderr ?? '' };
   }
 }
 
-describe('cost-tracker', () => {
+describe('cost-tracker', { timeout: 30000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {

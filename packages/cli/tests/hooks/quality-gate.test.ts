@@ -25,7 +25,7 @@ function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: s
   }
 }
 
-describe('quality-gate', () => {
+describe('quality-gate', { timeout: 30000 }, () => {
   let tmpDir: string;
 
   beforeEach(() => {
