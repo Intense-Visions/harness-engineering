@@ -317,6 +317,12 @@ export interface SkillLifecycleHooks {
 export type FeatureStatus = 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
 
 /**
+ * Priority override levels for roadmap features.
+ * When present, priority replaces positional ordering as the primary sort key.
+ */
+export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
+
+/**
  * A feature entry in the project roadmap.
  */
 export interface RoadmapFeature {
@@ -332,6 +338,12 @@ export interface RoadmapFeature {
   blockedBy: string[];
   /** One-line summary */
   summary: string;
+  /** GitHub username, email, or display name — null if unassigned */
+  assignee: string | null;
+  /** Optional priority override — null uses positional ordering */
+  priority: Priority | null;
+  /** External tracker ID (e.g., "github:owner/repo#42") — null if not synced */
+  externalId: string | null;
 }
 
 /**
@@ -345,6 +357,21 @@ export interface RoadmapMilestone {
   isBacklog: boolean;
   /** Features in this milestone, in document order */
   features: RoadmapFeature[];
+}
+
+/**
+ * A single record in the assignment history log.
+ * Reassignment produces two records: 'unassigned' for previous, 'assigned' for new.
+ */
+export interface AssignmentRecord {
+  /** Feature name */
+  feature: string;
+  /** Assignee identifier (username, email, or display name) */
+  assignee: string;
+  /** What happened */
+  action: 'assigned' | 'completed' | 'unassigned';
+  /** ISO date string (YYYY-MM-DD) */
+  date: string;
 }
 
 /**
@@ -373,6 +400,8 @@ export interface Roadmap {
   frontmatter: RoadmapFrontmatter;
   /** Milestones in document order (including Backlog) */
   milestones: RoadmapMilestone[];
+  /** Assignment history records, in document order */
+  assignmentHistory: AssignmentRecord[];
 }
 
 // --- Usage & Cost Tracking Types ---
