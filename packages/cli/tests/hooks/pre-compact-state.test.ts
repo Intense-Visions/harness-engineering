@@ -32,6 +32,8 @@ describe('pre-compact-state', { timeout: 30000 }, () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'pre-compact-'));
+    // ESM hooks require "type": "module" to be resolvable from cwd
+    writeFileSync(join(tmpDir, 'package.json'), '{"type":"module"}\n');
   });
 
   afterEach(() => {

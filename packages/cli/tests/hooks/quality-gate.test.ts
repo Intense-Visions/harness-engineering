@@ -30,6 +30,8 @@ describe('quality-gate', { timeout: 30000 }, () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'quality-gate-'));
+    // ESM hooks require "type": "module" to be resolvable from cwd
+    writeFileSync(join(tmpDir, 'package.json'), '{"type":"module"}\n');
   });
 
   afterEach(() => {
