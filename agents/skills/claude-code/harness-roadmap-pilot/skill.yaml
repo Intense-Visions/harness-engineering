@@ -1,0 +1,52 @@
+name: harness-roadmap-pilot
+version: "1.0.0"
+description: AI-assisted selection of the next highest-impact roadmap item with scoring, assignment, and skill transition
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - emit_interaction
+cli:
+  command: harness skill run harness-roadmap-pilot
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: user
+      description: "Current user identifier (e.g., @cwarner) for affinity matching"
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-roadmap-pilot
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: scan
+    description: Parse roadmap, filter unblocked candidates, compute scores
+    required: true
+  - name: recommend
+    description: AI reads top candidates specs and provides recommendation
+    required: true
+  - name: confirm
+    description: Present recommendation to human for approval
+    required: true
+  - name: assign
+    description: Update assignee, history, sync external, transition to next skill
+    required: true
+state:
+  persistent: false
+depends_on:
+  - harness-brainstorming
+  - harness-autopilot
+  - harness-roadmap
