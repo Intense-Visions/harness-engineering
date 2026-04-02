@@ -4,6 +4,8 @@ import type {
   RoadmapMilestone,
   RoadmapFeature,
   FeatureStatus,
+  Priority,
+  AssignmentRecord,
   Result,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
@@ -17,6 +19,8 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 const EM_DASH = '\u2014';
+
+const VALID_PRIORITIES: ReadonlySet<string> = new Set(['P0', 'P1', 'P2', 'P3']);
 
 /**
  * Parse a roadmap markdown string into a structured Roadmap object.
@@ -37,10 +41,13 @@ export function parseRoadmap(markdown: string): Result<Roadmap> {
   const milestonesResult = parseMilestones(body);
   if (!milestonesResult.ok) return milestonesResult;
 
+  const historyResult = parseAssignmentHistory(body);
+  if (!historyResult.ok) return historyResult;
+
   return Ok({
     frontmatter: fmResult.value,
     milestones: milestonesResult.value,
-    assignmentHistory: [],
+    assignmentHistory: historyResult.value,
   });
 }
 
@@ -83,17 +90,21 @@ function parseFrontmatter(raw: string): Result<RoadmapFrontmatter> {
 
 function parseMilestones(body: string): Result<RoadmapMilestone[]> {
   const milestones: RoadmapMilestone[] = [];
-  // Split on H2 headings
   const h2Pattern = /^## (.+)$/gm;
   const h2Matches: Array<{ heading: string; startIndex: number; fullMatch: string }> = [];
   let match: RegExpExecArray | null;
+  let bodyEnd = body.length;
   while ((match = h2Pattern.exec(body)) !== null) {
+    if (match[1] === 'Assignment History') {
+      bodyEnd = match.index;
+      break;
+    }
     h2Matches.push({ heading: match[1]!, startIndex: match.index, fullMatch: match[0] });
   }
 
   for (let i = 0; i < h2Matches.length; i++) {
     const h2 = h2Matches[i]!;
-    const nextStart = i + 1 < h2Matches.length ? h2Matches[i + 1]!.startIndex : body.length;
+    const nextStart = i + 1 < h2Matches.length ? h2Matches[i + 1]!.startIndex : bodyEnd;
     const sectionBody = body.slice(h2.startIndex + h2.fullMatch.length, nextStart);
 
     const isBacklog = h2.heading === 'Backlog';
@@ -176,6 +187,21 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
   const plans = parseListField(fieldMap, 'Plans', 'Plan');
   const blockedBy = parseListField(fieldMap, 'Blocked by', 'Blockers');
 
+  // New extended fields
+  const assigneeRaw = fieldMap.get('Assignee') ?? EM_DASH;
+  const priorityRaw = fieldMap.get('Priority') ?? EM_DASH;
+  const externalIdRaw = fieldMap.get('External-ID') ?? EM_DASH;
+
+  // Validate priority if present
+  if (priorityRaw !== EM_DASH && !VALID_PRIORITIES.has(priorityRaw)) {
+    return Err(
+      new Error(
+        `Feature "${name}" has invalid priority: "${priorityRaw}". ` +
+          `Valid priorities: ${[...VALID_PRIORITIES].join(', ')}`
+      )
+    );
+  }
+
   return Ok({
     name,
     status: statusRaw as FeatureStatus,
@@ -183,8 +209,50 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
     plans,
     blockedBy,
     summary: fieldMap.get('Summary') ?? '',
-    assignee: null,
-    priority: null,
-    externalId: null,
+    assignee: assigneeRaw === EM_DASH ? null : assigneeRaw,
+    priority: priorityRaw === EM_DASH ? null : (priorityRaw as Priority),
+    externalId: externalIdRaw === EM_DASH ? null : externalIdRaw,
   });
+}
+
+function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
+  const historyMatch = body.match(/^## Assignment History\s*\n/m);
+  if (!historyMatch || historyMatch.index === undefined) return Ok([]);
+
+  const historyStart = historyMatch.index + historyMatch[0].length;
+  const historyBody = body.slice(historyStart);
+
+  const records: AssignmentRecord[] = [];
+  // Parse markdown table rows (skip header and separator)
+  const lines = historyBody.split('\n');
+  let pastHeader = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('|')) continue;
+    // Skip header row and separator row
+    if (!pastHeader) {
+      if (trimmed.match(/^\|[-\s|]+\|$/)) {
+        pastHeader = true;
+      }
+      continue;
+    }
+    // Parse data row: | Feature | Assignee | Action | Date |
+    const cells = trimmed
+      .split('|')
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0);
+    if (cells.length < 4) continue;
+
+    const action = cells[2] as AssignmentRecord['action'];
+    if (!['assigned', 'completed', 'unassigned'].includes(action)) continue;
+
+    records.push({
+      feature: cells[0]!,
+      assignee: cells[1]!,
+      action,
+      date: cells[3]!,
+    });
+  }
+
+  return Ok(records);
 }
