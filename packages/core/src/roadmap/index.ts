@@ -38,3 +38,9 @@ export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
  * Sync engine for bidirectional sync between roadmap and external trackers.
  */
 export { syncToExternal, syncFromExternal, fullSync } from './sync-engine';
+
+/**
+ * Pilot scoring algorithm for auto-pick feature selection.
+ */
+export { scoreRoadmapCandidates, assignFeature } from './pilot-scoring';
+export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
