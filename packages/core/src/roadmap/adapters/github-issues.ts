@@ -7,8 +7,6 @@ import type {
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerSyncAdapter } from '../tracker-sync';
-// Re-export for backward compatibility — canonical home is now tracker-sync.ts
-export { resolveReverseStatus } from '../tracker-sync';
 
 /**
  * Parse "github:owner/repo#42" into { owner, repo, number }.

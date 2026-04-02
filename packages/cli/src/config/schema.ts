@@ -236,7 +236,7 @@ export const TrackerConfigSchema = z.object({
   /** Labels auto-applied to synced issues for filtering */
   labels: z.array(z.string()).optional(),
   /** Maps roadmap status -> external status */
-  statusMap: z.record(z.string(), z.string()),
+  statusMap: z.record(z.enum(['backlog', 'planned', 'in-progress', 'done', 'blocked']), z.string()),
   /** Maps external status (optionally with label) -> roadmap status */
   reverseStatusMap: z.record(z.string(), z.string()).optional(),
 });

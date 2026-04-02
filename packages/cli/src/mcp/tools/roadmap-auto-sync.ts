@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { TrackerSyncConfig } from '@harness-engineering/types';
+import { TrackerConfigSchema } from '../../config/schema';
 
 /**
  * Automatically sync the roadmap after state transitions.
@@ -58,8 +59,7 @@ async function triggerExternalSync(projectPath: string, roadmapFile: string): Pr
     const token = process.env.GITHUB_TOKEN;
     if (!token) return; // No token — cannot sync
 
-    const { fullSync } = await import('@harness-engineering/core');
-    const { GitHubIssuesSyncAdapter } = await import('@harness-engineering/core');
+    const { fullSync, GitHubIssuesSyncAdapter } = await import('@harness-engineering/core');
 
     const adapter = new GitHubIssuesSyncAdapter({
       token,
@@ -99,7 +99,6 @@ export function loadTrackerConfig(projectPath: string): TrackerSyncConfig | null
     if (!trackerRaw) return null;
 
     // Validate against schema to reject malformed config early
-    const { TrackerConfigSchema } = require('../../config/schema');
     const parsed = TrackerConfigSchema.safeParse(trackerRaw);
     if (!parsed.success) return null;
 
