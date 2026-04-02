@@ -201,3 +201,181 @@ export const EMPTY_BACKLOG: Roadmap = {
   ],
   assignmentHistory: [],
 };
+
+/**
+ * Roadmap markdown with extended fields (assignee, priority, external-id).
+ */
+export const EXTENDED_FIELDS_MD = `---
+project: harness-engineering
+version: 1
+last_synced: 2026-04-01T10:00:00Z
+last_manual_edit: 2026-04-01T09:00:00Z
+---
+
+# Roadmap
+
+## MVP Release
+
+### Core Library Design
+
+- **Status:** in-progress
+- **Spec:** docs/changes/core-library-design/proposal.md
+- **Summary:** Design and implement core module structure
+- **Blockers:** \u2014
+- **Plan:** docs/plans/2026-03-01-core-library-plan.md
+- **Assignee:** @cwarner
+- **Priority:** P1
+- **External-ID:** github:harness-eng/harness#42
+
+### Graph Connector
+
+- **Status:** planned
+- **Spec:** docs/changes/graph-connector/proposal.md
+- **Summary:** Graph-based code navigation
+- **Blockers:** Core Library Design
+- **Plan:** \u2014
+- **Assignee:** \u2014
+- **Priority:** P2
+- **External-ID:** \u2014
+
+## Backlog
+
+### Future Item
+
+- **Status:** backlog
+- **Spec:** \u2014
+- **Summary:** Something for later
+- **Blockers:** \u2014
+- **Plan:** \u2014
+`;
+
+export const EXTENDED_FIELDS_ROADMAP: Roadmap = {
+  frontmatter: {
+    project: 'harness-engineering',
+    version: 1,
+    lastSynced: '2026-04-01T10:00:00Z',
+    lastManualEdit: '2026-04-01T09:00:00Z',
+  },
+  milestones: [
+    {
+      name: 'MVP Release',
+      isBacklog: false,
+      features: [
+        {
+          name: 'Core Library Design',
+          status: 'in-progress',
+          spec: 'docs/changes/core-library-design/proposal.md',
+          plans: ['docs/plans/2026-03-01-core-library-plan.md'],
+          blockedBy: [],
+          summary: 'Design and implement core module structure',
+          assignee: '@cwarner',
+          priority: 'P1',
+          externalId: 'github:harness-eng/harness#42',
+        },
+        {
+          name: 'Graph Connector',
+          status: 'planned',
+          spec: 'docs/changes/graph-connector/proposal.md',
+          plans: [],
+          blockedBy: ['Core Library Design'],
+          summary: 'Graph-based code navigation',
+          assignee: null,
+          priority: 'P2',
+          externalId: null,
+        },
+      ],
+    },
+    {
+      name: 'Backlog',
+      isBacklog: true,
+      features: [
+        {
+          name: 'Future Item',
+          status: 'backlog',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Something for later',
+          assignee: null,
+          priority: null,
+          externalId: null,
+        },
+      ],
+    },
+  ],
+  assignmentHistory: [],
+};
+
+/**
+ * Roadmap markdown with assignment history section.
+ */
+export const HISTORY_MD = `---
+project: harness-engineering
+version: 1
+last_synced: 2026-04-01T10:00:00Z
+last_manual_edit: 2026-04-01T09:00:00Z
+---
+
+# Roadmap
+
+## MVP Release
+
+### Core Library Design
+
+- **Status:** done
+- **Spec:** docs/changes/core-library-design/proposal.md
+- **Summary:** Core module structure
+- **Blockers:** \u2014
+- **Plan:** docs/plans/2026-03-01-core-library-plan.md
+- **Assignee:** @cwarner
+- **Priority:** P0
+- **External-ID:** github:harness-eng/harness#42
+
+## Assignment History
+| Feature | Assignee | Action | Date |
+|---------|----------|--------|------|
+| Core Library Design | @cwarner | assigned | 2026-03-15 |
+| Core Library Design | @cwarner | completed | 2026-04-01 |
+`;
+
+export const HISTORY_ROADMAP: Roadmap = {
+  frontmatter: {
+    project: 'harness-engineering',
+    version: 1,
+    lastSynced: '2026-04-01T10:00:00Z',
+    lastManualEdit: '2026-04-01T09:00:00Z',
+  },
+  milestones: [
+    {
+      name: 'MVP Release',
+      isBacklog: false,
+      features: [
+        {
+          name: 'Core Library Design',
+          status: 'done',
+          spec: 'docs/changes/core-library-design/proposal.md',
+          plans: ['docs/plans/2026-03-01-core-library-plan.md'],
+          blockedBy: [],
+          summary: 'Core module structure',
+          assignee: '@cwarner',
+          priority: 'P0',
+          externalId: 'github:harness-eng/harness#42',
+        },
+      ],
+    },
+  ],
+  assignmentHistory: [
+    {
+      feature: 'Core Library Design',
+      assignee: '@cwarner',
+      action: 'assigned',
+      date: '2026-03-15',
+    },
+    {
+      feature: 'Core Library Design',
+      assignee: '@cwarner',
+      action: 'completed',
+      date: '2026-04-01',
+    },
+  ],
+};
