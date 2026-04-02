@@ -1,9 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  GitHubIssuesSyncAdapter,
-  parseExternalId,
-  resolveReverseStatus,
-} from '../../src/roadmap/adapters/github-issues';
+import { GitHubIssuesSyncAdapter, parseExternalId } from '../../src/roadmap/adapters/github-issues';
+import { resolveReverseStatus } from '../../src/roadmap/tracker-sync';
 import type { TrackerSyncConfig, RoadmapFeature } from '@harness-engineering/types';
 
 const DEFAULT_CONFIG: TrackerSyncConfig = {
