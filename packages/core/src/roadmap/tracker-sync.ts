@@ -3,7 +3,6 @@ import type {
   Result,
   ExternalTicket,
   ExternalTicketState,
-  TrackerSyncConfig,
 } from '@harness-engineering/types';
 
 /**
