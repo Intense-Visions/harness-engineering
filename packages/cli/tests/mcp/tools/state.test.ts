@@ -234,6 +234,69 @@ describe('manage_state tool', () => {
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain('session is required');
   });
+
+  it('has task and phase lifecycle actions in enum', () => {
+    const actionProp = manageStateDefinition.inputSchema.properties.action as {
+      type: string;
+      enum: string[];
+    };
+    expect(actionProp.enum).toContain('task-start');
+    expect(actionProp.enum).toContain('task-complete');
+    expect(actionProp.enum).toContain('phase-start');
+    expect(actionProp.enum).toContain('phase-complete');
+  });
+
+  it('task-start action returns synced response', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
+    try {
+      const response = await handleManageState({ path: tmpDir, action: 'task-start' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.synced).toBe(true);
+      expect(parsed.trigger).toBe('task-start');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('task-complete action returns synced response', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
+    try {
+      const response = await handleManageState({ path: tmpDir, action: 'task-complete' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.synced).toBe(true);
+      expect(parsed.trigger).toBe('task-complete');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('phase-start action returns synced response', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
+    try {
+      const response = await handleManageState({ path: tmpDir, action: 'phase-start' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.synced).toBe(true);
+      expect(parsed.trigger).toBe('phase-start');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('phase-complete action returns synced response', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-test-'));
+    try {
+      const response = await handleManageState({ path: tmpDir, action: 'phase-complete' });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.synced).toBe(true);
+      expect(parsed.trigger).toBe('phase-complete');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('manage_state session section actions', () => {
