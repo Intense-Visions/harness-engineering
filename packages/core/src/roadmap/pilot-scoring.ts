@@ -177,3 +177,39 @@ export function scoreRoadmapCandidates(
 
   return candidates;
 }
+
+/**
+ * Assign a feature to a user, updating the feature's assignee field
+ * and appending records to the assignment history.
+ *
+ * - New assignment: appends one 'assigned' record.
+ * - Reassignment: appends 'unassigned' for previous + 'assigned' for new.
+ * - Same assignee: no-op.
+ *
+ * Mutates roadmap in-place.
+ */
+export function assignFeature(
+  roadmap: Roadmap,
+  feature: RoadmapFeature,
+  assignee: string,
+  date: string
+): void {
+  if (feature.assignee === assignee) return;
+
+  if (feature.assignee !== null) {
+    roadmap.assignmentHistory.push({
+      feature: feature.name,
+      assignee: feature.assignee,
+      action: 'unassigned',
+      date,
+    });
+  }
+
+  feature.assignee = assignee;
+  roadmap.assignmentHistory.push({
+    feature: feature.name,
+    assignee,
+    action: 'assigned',
+    date,
+  });
+}
