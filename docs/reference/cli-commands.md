@@ -242,7 +242,7 @@ Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt inje
 
 **Options:**
 
-- `--path` — Target directory to scan (default: "/Users/cwarner/Projects/harness-engineering")
+- `--path` — Target directory to scan (default: cwd)
 - `--fix` — Strip high-severity patterns from files in-place
 
 ### `harness setup`
