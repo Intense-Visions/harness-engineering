@@ -227,12 +227,29 @@ export async function handleAssessProject(input: {
         try {
           const { handleCheckPerformance } = await import('./performance.js');
           const result = await handleCheckPerformance({ path: projectPath });
+          if ('isError' in result && result.isError) {
+            const msg = result.content[0]?.text ?? 'Performance check failed';
+            return { name: 'perf', passed: false, issueCount: 1, topIssue: msg };
+          }
           const first = result.content[0];
-          const parsed = first ? JSON.parse(first.text) : {};
-          const issues = parsed.violations?.length ?? parsed.issues?.length ?? 0;
+          let parsed: Record<string, unknown> = {};
+          try {
+            parsed = first ? JSON.parse(first.text) : {};
+          } catch {
+            return {
+              name: 'perf',
+              passed: false,
+              issueCount: 1,
+              topIssue: first?.text ?? 'Invalid perf output',
+            };
+          }
+          const issues =
+            (parsed.violations as unknown[] | undefined)?.length ??
+            (parsed.issues as unknown[] | undefined)?.length ??
+            0;
           return {
             name: 'perf',
-            passed: !('isError' in result && result.isError) && issues === 0,
+            passed: issues === 0,
             issueCount: issues,
             ...(issues > 0 ? { topIssue: 'Performance issues detected' } : {}),
             ...(mode === 'detailed' ? { detailed: parsed } : {}),

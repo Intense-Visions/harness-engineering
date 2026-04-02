@@ -1,6 +1,7 @@
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { findConfigFile, loadConfig } from '../../config/loader.js';
 
 export const checkPerformanceDefinition = {
   name: 'check_performance',
@@ -25,8 +26,21 @@ export async function handleCheckPerformance(input: { path: string; type?: strin
     const typeFilter = input.type ?? 'all';
 
     const projectPath = sanitizePath(input.path);
+
+    // Read entryPoints from harness.config.json if available
+    let entryPoints: string[] | undefined;
+    const configFileResult = findConfigFile(projectPath);
+    if (configFileResult.ok) {
+      const configResult = loadConfig(configFileResult.value);
+      if (configResult.ok) {
+        const perfConfig = configResult.value.performance as { entryPoints?: string[] } | undefined;
+        entryPoints = perfConfig?.entryPoints;
+      }
+    }
+
     const analyzer = new EntropyAnalyzer({
       rootDir: projectPath,
+      ...(entryPoints ? { entryPoints } : {}),
       analyze: {
         complexity: typeFilter === 'all' || typeFilter === 'structural',
         coupling: typeFilter === 'all' || typeFilter === 'coupling',

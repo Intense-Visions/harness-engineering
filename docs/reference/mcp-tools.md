@@ -321,7 +321,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
 - `includeEvents` (boolean, optional) — Include recent events timeline. Default: true when session is provided, false otherwise. Can also be controlled via include array.
 - `mode` (string, optional) — Response density. Default: summary
 - `learningsBudget` (number, optional) — Token budget for learnings slice (default 1000). Separate from graph tokenBudget.
-- `session` (string, optional) — Session slug for session-scoped state. When provided, state/learnings/handoff/failures are read from .harness/sessions/<session>/ instead of .harness/. Omit for global fallback.
+- `session` (string, optional) — Session slug for session-scoped state. When provided, state/learnings/handoff/failures are read from `.harness/sessions/<session>/` instead of `.harness/`. Omit for global fallback.
 - `depth` (string, optional) — Retrieval depth for learnings. "index" returns one-line summaries, "summary" (default) returns full entries, "full" returns entries with linked context.
 
 ### `init_project`
@@ -578,7 +578,7 @@ Manage the project roadmap: show, add, update, remove, sync features, or query b
 - `spec` (string, optional) — Spec file path (optional for add/update)
 - `plans` (array, optional) — Plan file paths (optional for add/update)
 - `blocked_by` (array, optional) — Blocking feature names (optional for add/update)
-- `filter` (string, optional) — Query filter: "blocked", "in-progress", "done", "planned", "backlog", or "milestone:<name>" (required for query)
+- `filter` (string, optional) — Query filter: "blocked", "in-progress", "done", "planned", "backlog", or `milestone:<name>` (required for query)
 - `apply` (boolean, optional) — For sync action: apply proposed changes (default: false, preview only)
 - `force_sync` (boolean, optional) — For sync action: override human-always-wins rule
 
