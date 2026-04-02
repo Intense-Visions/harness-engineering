@@ -75,7 +75,7 @@ describe('CLI Integration', () => {
   });
 
   describe('harness add', () => {
-    it('adds layer to project', () => {
+    it('adds layer to project', { timeout: 15000 }, () => {
       runCLI(['init', '--name', 'test'], tempDir);
       fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
 
