@@ -1,51 +1,14 @@
 {
-  "fromSkill": "harness-brainstorming",
-  "phase": "VALIDATE",
-  "summary": "Context Efficiency Pipeline spec approved — rigor controls, scratchpad, Jaccard-scored learnings, two-pass planning, commands-over-skills audit, checkpoint commits across 5 implementation phases.",
-  "artifacts": ["docs/changes/context-efficiency-pipeline/proposal.md"],
-  "decisions": [
-    {
-      "what": "Full scope — all 6 capabilities",
-      "why": "All address token waste from different angles"
-    },
-    {
-      "what": "fast|standard|thorough replaces auto|light|full",
-      "why": "Last clean window to rename unused vocabulary"
-    },
-    {
-      "what": "Scratchpad is ephemeral research only",
-      "why": "Reasoning already has structured homes in session state"
-    },
-    {
-      "what": "Jaccard keyword scoring for learnings relevance",
-      "why": "Numeric scores enable threshold filtering; tags too coarse; graph requires new node type"
-    },
-    {
-      "what": "Two-pass planning with --fast skip",
-      "why": "Skeleton catches directional errors before 2000+ tokens of detail"
-    },
-    {
-      "what": "Skill-vs-command audit + MCP-vs-CLI guideline",
-      "why": "Narrow audit is actionable; guideline covers broader pattern"
-    },
-    {
-      "what": "Checkpoint commits + recovery commit on failure",
-      "why": "Checkpoints are stable boundaries; recovery prevents work loss"
-    },
-    {
-      "what": "Foundation-then-fan-out delivery",
-      "why": "Shared modules tested before integration; fan-out parallelizable"
-    }
+  "fromSkill": "harness-verification",
+  "phase": "COMPLETE",
+  "summary": "Phase 4 Roadmap Pilot Skill verification PASSED. 5 artifacts verified at all 3 levels (EXISTS, SUBSTANTIVE, WIRED). All 5 success criteria (SC9, SC10, SC11, SC12, SC15) verified with evidence. 18 pilot-scoring tests pass, 1593 total tests pass across 170 files. harness validate and check-deps pass. No anti-patterns found.",
+  "artifacts": [
+    "packages/core/src/roadmap/pilot-scoring.ts",
+    "packages/core/tests/roadmap/pilot-scoring.test.ts",
+    "packages/core/src/roadmap/index.ts",
+    "agents/skills/claude-code/harness-roadmap-pilot/skill.yaml",
+    "agents/skills/claude-code/harness-roadmap-pilot/SKILL.md"
   ],
-  "contextKeywords": [
-    "context-efficiency",
-    "token-budget",
-    "scratchpad",
-    "learnings-relevance",
-    "fast-thorough",
-    "two-pass-planning",
-    "checkpoint-commits",
-    "jaccard-scoring",
-    "rigor-levels"
-  ]
+  "verdict": "pass",
+  "gaps": []
 }
