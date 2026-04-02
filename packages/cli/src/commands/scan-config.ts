@@ -161,7 +161,7 @@ export function createScanConfigCommand(): Command {
     .description(
       'Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt injection patterns'
     )
-    .option('--path <dir>', 'Target directory to scan', process.cwd())
+    .option('--path <dir>', 'Target directory to scan (default: cwd)')
     .option('--fix', 'Strip high-severity patterns from files in-place')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
@@ -171,7 +171,7 @@ export function createScanConfigCommand(): Command {
           ? OutputMode.QUIET
           : OutputMode.TEXT;
 
-      const result = await runScanConfig(opts.path, { fix: opts.fix });
+      const result = await runScanConfig(opts.path ?? process.cwd(), { fix: opts.fix });
 
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(result, null, 2));
