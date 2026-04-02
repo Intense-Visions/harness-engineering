@@ -10,11 +10,6 @@ import { readFileSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'n
 import { join } from 'node:path';
 import process from 'node:process';
 
-/** Read all of stdin synchronously. Uses /dev/stdin on Unix for reliable pipe reading. */
-function readStdinSync() {
-  return readFileSync(process.platform === 'win32' ? 0 : '/dev/stdin', 'utf-8');
-}
-
 function readJsonSafe(filePath) {
   try {
     return JSON.parse(readFileSync(filePath, 'utf-8'));
@@ -51,7 +46,7 @@ function findActiveSession(sessionsDir) {
 function main() {
   let raw = '';
   try {
-    raw = readStdinSync();
+    raw = readFileSync(0, 'utf-8');
   } catch {
     process.stderr.write('[pre-compact-state] Could not read stdin — allowing (fail-open)\n');
     process.exit(0);

@@ -10,12 +10,21 @@ function runHook(
   stdinData: string,
   cwd?: string
 ): { exitCode: number; stdout: string; stderr: string } {
-  const result = spawnSync('node', [HOOK_PATH], {
-    input: stdinData,
+  const dir = cwd ?? process.cwd();
+  // Write stdin to a temp file and pipe via shell — readFileSync(0) is unreliable
+  // with spawnSync's input option on macOS CI
+  const stdinFile = join(dir, '.stdin-data.json');
+  writeFileSync(stdinFile, stdinData);
+  const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
-    cwd: cwd ?? process.cwd(),
+    cwd: dir,
     timeout: 15000,
   });
+  try {
+    rmSync(stdinFile, { force: true });
+  } catch {
+    /* ignore */
+  }
   return {
     exitCode: result.status ?? (result.signal ? 0 : 1),
     stdout: result.stdout ?? '',
