@@ -4,7 +4,6 @@ import type {
   RoadmapFeature,
   FeatureStatus,
   SyncResult,
-  ExternalTicket,
   TrackerSyncConfig,
 } from '@harness-engineering/types';
 import { parseRoadmap } from './parse';
