@@ -209,6 +209,10 @@ Install a constraints bundle into the local harness config
 
 Start the MCP (Model Context Protocol) server on stdio
 
+**Options:**
+
+- `--tools` — Only register the specified tools (used by Cursor integration)
+
 ### `harness query <rootNodeId>`
 
 Query the knowledge graph
@@ -251,7 +255,9 @@ Configure MCP server for AI agent integration
 
 **Options:**
 
-- `--client` — Client to configure (claude, gemini, all) (default: "all")
+- `--client` — Client to configure (claude, gemini, codex, cursor, all) (default: "all")
+- `--pick` — Launch interactive tool picker (Cursor only)
+- `--yes` — Bypass interactive picker and use curated 25-tool set (Cursor only)
 
 ### `harness share [path]`
 
