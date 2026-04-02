@@ -29,6 +29,10 @@ export const manageStateDefinition = {
           'read_section',
           'read_sections',
           'archive_session',
+          'task-start',
+          'task-complete',
+          'phase-start',
+          'phase-complete',
         ],
         description: 'Action to perform',
       },
@@ -237,6 +241,26 @@ async function handleArchiveSession(projectPath: string, input: StateInput) {
   return resultToMcpResponse(Ok({ archived: true }));
 }
 
+async function handleTaskStart(projectPath: string, _input: StateInput) {
+  await autoSyncRoadmap(projectPath);
+  return resultToMcpResponse(Ok({ synced: true, trigger: 'task-start' }));
+}
+
+async function handleTaskComplete(projectPath: string, _input: StateInput) {
+  await autoSyncRoadmap(projectPath);
+  return resultToMcpResponse(Ok({ synced: true, trigger: 'task-complete' }));
+}
+
+async function handlePhaseStart(projectPath: string, _input: StateInput) {
+  await autoSyncRoadmap(projectPath);
+  return resultToMcpResponse(Ok({ synced: true, trigger: 'phase-start' }));
+}
+
+async function handlePhaseComplete(projectPath: string, _input: StateInput) {
+  await autoSyncRoadmap(projectPath);
+  return resultToMcpResponse(Ok({ synced: true, trigger: 'phase-complete' }));
+}
+
 const ACTION_HANDLERS: Record<
   string,
   (projectPath: string, input: StateInput) => Promise<McpResponse>
@@ -254,6 +278,10 @@ const ACTION_HANDLERS: Record<
   read_section: handleReadSection,
   read_sections: handleReadSections,
   archive_session: handleArchiveSession,
+  'task-start': handleTaskStart,
+  'task-complete': handleTaskComplete,
+  'phase-start': handlePhaseStart,
+  'phase-complete': handlePhaseComplete,
 };
 
 export async function handleManageState(input: StateInput) {
