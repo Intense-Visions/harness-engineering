@@ -1,10 +1,4 @@
-import type {
-  Roadmap,
-  RoadmapFeature,
-  RoadmapMilestone,
-  Priority,
-  AssignmentRecord,
-} from '@harness-engineering/types';
+import type { Roadmap, RoadmapFeature, Priority } from '@harness-engineering/types';
 
 /**
  * A candidate feature with computed scores for the pilot selection algorithm.
