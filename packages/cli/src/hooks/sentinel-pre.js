@@ -9,6 +9,10 @@ import { readFileSync, writeFileSync, mkdirSync, unlinkSync, realpathSync } from
 import { resolve, dirname } from 'node:path';
 import process from 'node:process';
 
+function readStdinSync() {
+  return readFileSync(process.platform === 'win32' ? 0 : '/dev/stdin', 'utf-8');
+}
+
 // Destructive tool patterns blocked during taint.
 // These are intentionally inline — this check runs before the @harness-engineering/core
 // import attempt to ensure enforcement even when core is unavailable.
@@ -102,7 +106,7 @@ function extractText(toolName, toolInput) {
 async function main() {
   let raw = '';
   try {
-    raw = readFileSync(0, 'utf-8');
+    raw = readStdinSync();
   } catch {
     process.exit(0);
   }

@@ -8,6 +8,10 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import process from 'node:process';
 
+function readStdinSync() {
+  return readFileSync(process.platform === 'win32' ? 0 : '/dev/stdin', 'utf-8');
+}
+
 // Protected config file patterns
 const PROTECTED_PATTERNS = [
   /^\.eslintrc/,
@@ -31,7 +35,7 @@ function isProtected(filePath) {
 function main() {
   let raw;
   try {
-    raw = readFileSync(0, 'utf-8');
+    raw = readStdinSync();
   } catch {
     process.stderr.write('[protect-config] Could not read stdin — allowing (fail-open)\n');
     process.exit(0);

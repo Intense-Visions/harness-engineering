@@ -6,10 +6,14 @@
 import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
+function readStdinSync() {
+  return readFileSync(process.platform === 'win32' ? 0 : '/dev/stdin', 'utf-8');
+}
+
 function main() {
   let raw = '';
   try {
-    raw = readFileSync(0, 'utf-8');
+    raw = readStdinSync();
   } catch {
     // No stdin or read error — fail open
     process.exit(0);
