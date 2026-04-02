@@ -49,9 +49,12 @@ export function resolveReverseStatus(
   labels: string[],
   config: TrackerSyncConfig
 ): string | null {
+  const reverseMap = config.reverseStatusMap;
+  if (!reverseMap) return null;
+
   // Direct match first (e.g., "closed" -> "done")
-  if (config.reverseStatusMap[externalStatus]) {
-    return config.reverseStatusMap[externalStatus]!;
+  if (reverseMap[externalStatus]) {
+    return reverseMap[externalStatus]!;
   }
 
   // Compound key match: "open:label"
@@ -60,8 +63,8 @@ export function resolveReverseStatus(
 
   if (matchingLabels.length === 1) {
     const compoundKey = `${externalStatus}:${matchingLabels[0]}`;
-    if (config.reverseStatusMap[compoundKey]) {
-      return config.reverseStatusMap[compoundKey]!;
+    if (reverseMap[compoundKey]) {
+      return reverseMap[compoundKey]!;
     }
   }
 
