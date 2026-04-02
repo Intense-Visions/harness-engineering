@@ -51,17 +51,17 @@
   "dependencies": {
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/types": "workspace:*",
-    "liquidjs": "^10.10.0",
-    "yaml": "^2.3.4",
-    "chokidar": "^3.5.3",
+    "chokidar": "^3.6.0",
     "ink": "^4.4.1",
-    "react": "^18.2.0"
+    "liquidjs": "^10.25.2",
+    "react": "^18.3.1",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/react": "^18.2.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "tsup": "^8.0.0",
-    "vitest": "^4.0.18"
+    "@types/node": "^22.19.15",
+    "@types/react": "^18.3.28",
+    "@vitest/coverage-v8": "^4.1.2",
+    "tsup": "^8.5.1",
+    "vitest": "^4.1.2"
   }
 }

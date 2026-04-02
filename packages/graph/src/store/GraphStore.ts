@@ -1,4 +1,3 @@
-import loki, { type Collection } from 'lokijs';
 import type { GraphNode, GraphEdge, NodeType, EdgeType } from '../types.js';
 import { saveGraph, loadGraph } from './Serializer.js';
 
@@ -14,8 +13,6 @@ export interface EdgeQuery {
   readonly type?: EdgeType;
 }
 
-type LokiDoc<T> = T & { $loki: number; meta: Record<string, unknown> };
-
 const POISONED_KEYS = new Set(['__proto__', 'constructor', 'prototype']); // harness-ignore SEC-NODE-001
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,34 +24,42 @@ function safeMerge(target: any, source: any): void {
   }
 }
 
-export class GraphStore {
-  private readonly db: loki;
-  private nodes: Collection<GraphNode>;
-  private edges: Collection<GraphEdge>;
+function edgeKey(from: string, to: string, type: string): string {
+  return `${from}\0${to}\0${type}`;
+}
 
-  constructor() {
-    this.db = new loki('graph.db');
-
-    this.nodes = this.db.addCollection<GraphNode>('nodes', {
-      unique: ['id'],
-      indices: ['type', 'name'],
-    });
-
-    this.edges = this.db.addCollection<GraphEdge>('edges', {
-      indices: ['from', 'to', 'type'],
-    });
+function addToIndex(index: Map<string, GraphEdge[]>, key: string, edge: GraphEdge): void {
+  const list = index.get(key);
+  if (list) {
+    list.push(edge);
+  } else {
+    index.set(key, [edge]);
   }
+}
+
+function removeFromIndex(index: Map<string, GraphEdge[]>, key: string, edge: GraphEdge): void {
+  const list = index.get(key);
+  if (!list) return;
+  const idx = list.indexOf(edge);
+  if (idx !== -1) list.splice(idx, 1);
+  if (list.length === 0) index.delete(key);
+}
+
+export class GraphStore {
+  private nodeMap: Map<string, GraphNode> = new Map();
+  private edgeMap: Map<string, GraphEdge> = new Map(); // keyed by from\0to\0type
+  private edgesByFrom: Map<string, GraphEdge[]> = new Map();
+  private edgesByTo: Map<string, GraphEdge[]> = new Map();
+  private edgesByType: Map<string, GraphEdge[]> = new Map();
 
   // --- Node operations ---
 
   addNode(node: GraphNode): void {
-    const existing = this.nodes.by('id', node.id);
+    const existing = this.nodeMap.get(node.id);
     if (existing) {
-      // Update: merge properties safely (prevent prototype pollution)
       safeMerge(existing, node);
-      this.nodes.update(existing);
     } else {
-      this.nodes.insert({ ...node });
+      this.nodeMap.set(node.id, { ...node });
     }
   }
 
@@ -65,52 +70,50 @@ export class GraphStore {
   }
 
   getNode(id: string): GraphNode | null {
-    const doc = this.nodes.by('id', id);
-    if (!doc) return null;
-    return this.stripLokiMeta(doc);
+    const node = this.nodeMap.get(id);
+    if (!node) return null;
+    return { ...node };
   }
 
   findNodes(query: NodeQuery): GraphNode[] {
-    const lokiQuery: Record<string, unknown> = {};
-    if (query.type !== undefined) lokiQuery['type'] = query.type;
-    if (query.name !== undefined) lokiQuery['name'] = query.name;
-    if (query.path !== undefined) lokiQuery['path'] = query.path;
-
-    return this.nodes.find(lokiQuery).map((doc) => this.stripLokiMeta(doc));
+    const results: GraphNode[] = [];
+    for (const node of this.nodeMap.values()) {
+      if (query.type !== undefined && node.type !== query.type) continue;
+      if (query.name !== undefined && node.name !== query.name) continue;
+      if (query.path !== undefined && node.path !== query.path) continue;
+      results.push({ ...node });
+    }
+    return results;
   }
 
   removeNode(id: string): void {
-    const doc = this.nodes.by('id', id);
-    if (doc) {
-      this.nodes.remove(doc);
-    }
+    this.nodeMap.delete(id);
     // Remove all edges referencing this node
-    const edgesToRemove = this.edges.find({
-      $or: [{ from: id }, { to: id }],
-    });
+    const fromEdges = this.edgesByFrom.get(id) ?? [];
+    const toEdges = this.edgesByTo.get(id) ?? [];
+    // Collect unique edges to remove (avoid double-removal for self-edges)
+    const edgesToRemove = new Set([...fromEdges, ...toEdges]);
     for (const edge of edgesToRemove) {
-      this.edges.remove(edge);
+      this.removeEdgeInternal(edge);
     }
   }
 
   // --- Edge operations ---
 
   addEdge(edge: GraphEdge): void {
-    // Check for existing edge with same from/to/type to prevent duplicates
-    const existing = this.edges.findOne({
-      from: edge.from,
-      to: edge.to,
-      type: edge.type,
-    });
+    const key = edgeKey(edge.from, edge.to, edge.type);
+    const existing = this.edgeMap.get(key);
     if (existing) {
-      // Update metadata if provided (prevent prototype pollution)
       if (edge.metadata) {
         safeMerge(existing, edge);
-        this.edges.update(existing);
       }
       return;
     }
-    this.edges.insert({ ...edge });
+    const copy = { ...edge };
+    this.edgeMap.set(key, copy);
+    addToIndex(this.edgesByFrom, edge.from, copy);
+    addToIndex(this.edgesByTo, edge.to, copy);
+    addToIndex(this.edgesByType, edge.type, copy);
   }
 
   batchAddEdges(edges: readonly GraphEdge[]): void {
@@ -120,26 +123,43 @@ export class GraphStore {
   }
 
   getEdges(query: EdgeQuery): GraphEdge[] {
-    const lokiQuery: Record<string, unknown> = {};
-    if (query.from !== undefined) lokiQuery['from'] = query.from;
-    if (query.to !== undefined) lokiQuery['to'] = query.to;
-    if (query.type !== undefined) lokiQuery['type'] = query.type;
+    // Pick the most selective index to start from
+    let candidates: Iterable<GraphEdge>;
+    if (query.from !== undefined && query.to !== undefined && query.type !== undefined) {
+      const edge = this.edgeMap.get(edgeKey(query.from, query.to, query.type));
+      return edge ? [{ ...edge }] : [];
+    } else if (query.from !== undefined) {
+      candidates = this.edgesByFrom.get(query.from) ?? [];
+    } else if (query.to !== undefined) {
+      candidates = this.edgesByTo.get(query.to) ?? [];
+    } else if (query.type !== undefined) {
+      candidates = this.edgesByType.get(query.type) ?? [];
+    } else {
+      candidates = this.edgeMap.values();
+    }
 
-    return this.edges.find(lokiQuery).map((doc) => this.stripLokiMeta(doc));
+    const results: GraphEdge[] = [];
+    for (const edge of candidates) {
+      if (query.from !== undefined && edge.from !== query.from) continue;
+      if (query.to !== undefined && edge.to !== query.to) continue;
+      if (query.type !== undefined && edge.type !== query.type) continue;
+      results.push({ ...edge });
+    }
+    return results;
   }
 
   getNeighbors(nodeId: string, direction: 'outbound' | 'inbound' | 'both' = 'both'): GraphNode[] {
     const neighborIds = new Set<string>();
 
     if (direction === 'outbound' || direction === 'both') {
-      const outEdges = this.edges.find({ from: nodeId });
+      const outEdges = this.edgesByFrom.get(nodeId) ?? [];
       for (const edge of outEdges) {
         neighborIds.add(edge.to);
       }
     }
 
     if (direction === 'inbound' || direction === 'both') {
-      const inEdges = this.edges.find({ to: nodeId });
+      const inEdges = this.edgesByTo.get(nodeId) ?? [];
       for (const edge of inEdges) {
         neighborIds.add(edge.from);
       }
@@ -156,25 +176,28 @@ export class GraphStore {
   // --- Counts ---
 
   get nodeCount(): number {
-    return this.nodes.count();
+    return this.nodeMap.size;
   }
 
   get edgeCount(): number {
-    return this.edges.count();
+    return this.edgeMap.size;
   }
 
   // --- Clear ---
 
   clear(): void {
-    this.nodes.clear();
-    this.edges.clear();
+    this.nodeMap.clear();
+    this.edgeMap.clear();
+    this.edgesByFrom.clear();
+    this.edgesByTo.clear();
+    this.edgesByType.clear();
   }
 
   // --- Persistence ---
 
   async save(dirPath: string): Promise<void> {
-    const allNodes = this.nodes.find().map((doc) => this.stripLokiMeta(doc));
-    const allEdges = this.edges.find().map((doc) => this.stripLokiMeta(doc));
+    const allNodes = Array.from(this.nodeMap.values()).map((n) => ({ ...n }));
+    const allEdges = Array.from(this.edgeMap.values()).map((e) => ({ ...e }));
     await saveGraph(dirPath, allNodes, allEdges);
   }
 
@@ -184,18 +207,26 @@ export class GraphStore {
 
     this.clear();
     for (const node of data.nodes) {
-      this.nodes.insert({ ...node });
+      this.nodeMap.set(node.id, { ...node });
     }
     for (const edge of data.edges) {
-      this.edges.insert({ ...edge });
+      const copy = { ...edge };
+      const key = edgeKey(edge.from, edge.to, edge.type);
+      this.edgeMap.set(key, copy);
+      addToIndex(this.edgesByFrom, edge.from, copy);
+      addToIndex(this.edgesByTo, edge.to, copy);
+      addToIndex(this.edgesByType, edge.type, copy);
     }
     return true;
   }
 
   // --- Internal ---
 
-  private stripLokiMeta<T>(doc: T): T {
-    const { $loki: _, meta: _meta, ...rest } = doc as LokiDoc<T>;
-    return rest as T;
+  private removeEdgeInternal(edge: GraphEdge): void {
+    const key = edgeKey(edge.from, edge.to, edge.type);
+    this.edgeMap.delete(key);
+    removeFromIndex(this.edgesByFrom, edge.from, edge);
+    removeFromIndex(this.edgesByTo, edge.to, edge);
+    removeFromIndex(this.edgesByType, edge.type, edge);
   }
 }
