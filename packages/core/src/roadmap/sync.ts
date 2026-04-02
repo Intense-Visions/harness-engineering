@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Roadmap, RoadmapFeature, FeatureStatus, Result } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
+import { isRegression } from './status-rank';
 
 /**
  * A proposed status change from the sync engine.
@@ -142,23 +143,7 @@ function inferStatus(
   return null;
 }
 
-/**
- * Status rank for directional protection.
- * Sync may only advance status forward (higher rank) unless forceSync is set.
- * This replaces the old global timestamp guard which created a deadlock:
- * once any manual edit occurred, sync was permanently blocked for ALL features.
- */
-const STATUS_RANK = {
-  backlog: 0,
-  planned: 1,
-  blocked: 1, // lateral to planned — sync can move to/from blocked freely
-  'in-progress': 2,
-  done: 3,
-} satisfies Record<FeatureStatus, number>;
-
-function isRegression(from: FeatureStatus, to: FeatureStatus): boolean {
-  return STATUS_RANK[to] < STATUS_RANK[from];
-}
+// STATUS_RANK and isRegression are now shared via status-rank.ts
 
 /**
  * Scan execution state files and infer status changes for roadmap features.

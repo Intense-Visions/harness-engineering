@@ -7,6 +7,8 @@ import type {
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerSyncAdapter } from '../tracker-sync';
+// Re-export for backward compatibility — canonical home is now tracker-sync.ts
+export { resolveReverseStatus } from '../tracker-sync';
 
 /**
  * Parse "github:owner/repo#42" into { owner, repo, number }.
@@ -39,35 +41,6 @@ function labelsForStatus(status: string, config: TrackerSyncConfig): string[] {
     return [...base, status];
   }
   return [...base];
-}
-
-/**
- * Resolve an external ticket's status + labels to a roadmap FeatureStatus
- * using the reverseStatusMap config. Returns null if ambiguous or unmapped.
- */
-export function resolveReverseStatus(
-  externalStatus: string,
-  labels: string[],
-  config: TrackerSyncConfig
-): string | null {
-  // Direct match first (e.g., "closed" -> "done")
-  if (config.reverseStatusMap[externalStatus]) {
-    return config.reverseStatusMap[externalStatus]!;
-  }
-
-  // Compound key match: "open:label"
-  const statusLabels = ['in-progress', 'blocked', 'planned'];
-  const matchingLabels = labels.filter((l) => statusLabels.includes(l));
-
-  if (matchingLabels.length === 1) {
-    const compoundKey = `${externalStatus}:${matchingLabels[0]}`;
-    if (config.reverseStatusMap[compoundKey]) {
-      return config.reverseStatusMap[compoundKey]!;
-    }
-  }
-
-  // Ambiguous (multiple status labels) or no match -> null (preserve current)
-  return null;
 }
 
 export interface GitHubAdapterOptions {

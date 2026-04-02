@@ -9,24 +9,8 @@ import type {
 import { parseRoadmap } from './parse';
 import { serializeRoadmap } from './serialize';
 import type { TrackerSyncAdapter, ExternalSyncOptions } from './tracker-sync';
-import { resolveReverseStatus } from './adapters/github-issues';
-
-/**
- * Status rank for directional protection.
- * Mirrors the ranking in sync.ts. Sync may only advance status forward
- * (higher rank) unless forceSync is set.
- */
-const STATUS_RANK: Record<FeatureStatus, number> = {
-  backlog: 0,
-  planned: 1,
-  blocked: 1,
-  'in-progress': 2,
-  done: 3,
-};
-
-function isRegression(from: FeatureStatus, to: FeatureStatus): boolean {
-  return STATUS_RANK[to] < STATUS_RANK[from];
-}
+import { resolveReverseStatus } from './tracker-sync';
+import { isRegression } from './status-rank';
 
 function emptySyncResult(): SyncResult {
   return { created: [], updated: [], assignmentChanges: [], errors: [] };
