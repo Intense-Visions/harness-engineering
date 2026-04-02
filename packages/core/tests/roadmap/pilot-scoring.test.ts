@@ -381,3 +381,86 @@ describe('assignFeature()', () => {
     expect(roadmap.assignmentHistory).toHaveLength(0);
   });
 });
+
+describe('integration: pick -> assign -> transition decision', () => {
+  it('full flow: score, pick top, assign, determine transition target', () => {
+    const roadmap: Roadmap = {
+      frontmatter: {
+        project: 'test',
+        version: 1,
+        lastSynced: '2026-04-01T00:00:00Z',
+        lastManualEdit: '2026-04-01T00:00:00Z',
+      },
+      milestones: [
+        {
+          name: 'MVP',
+          isBacklog: false,
+          features: [
+            makeFeature({ name: 'Foundation', status: 'done' }),
+            makeFeature({
+              name: 'WithSpec',
+              status: 'planned',
+              priority: 'P1',
+              spec: 'docs/changes/with-spec/proposal.md',
+              blockedBy: ['Foundation'],
+            }),
+            makeFeature({
+              name: 'NoSpec',
+              status: 'planned',
+              priority: 'P2',
+              spec: null,
+            }),
+          ],
+        },
+      ],
+      assignmentHistory: [
+        { feature: 'Foundation', assignee: '@cwarner', action: 'completed', date: '2026-03-15' },
+      ],
+    };
+
+    // Step 1: Score candidates
+    const candidates = scoreRoadmapCandidates(roadmap, { currentUser: '@cwarner' });
+    expect(candidates.length).toBe(2);
+
+    // Step 2: Top pick should be WithSpec (P1 > P2, plus affinity for completed blocker)
+    const topPick = candidates[0]!;
+    expect(topPick.feature.name).toBe('WithSpec');
+    expect(topPick.affinityScore).toBe(1.0); // completed blocker
+
+    // Step 3: Assign
+    assignFeature(roadmap, topPick.feature, '@cwarner', '2026-04-02');
+    expect(topPick.feature.assignee).toBe('@cwarner');
+    expect(roadmap.assignmentHistory).toHaveLength(2); // original completed + new assigned
+
+    // Step 4: Determine transition target
+    const transitionTarget = topPick.feature.spec ? 'harness:autopilot' : 'harness:brainstorming';
+    expect(transitionTarget).toBe('harness:autopilot');
+  });
+
+  it('routes to brainstorming when feature has no spec', () => {
+    const roadmap: Roadmap = {
+      frontmatter: {
+        project: 'test',
+        version: 1,
+        lastSynced: '2026-04-01T00:00:00Z',
+        lastManualEdit: '2026-04-01T00:00:00Z',
+      },
+      milestones: [
+        {
+          name: 'Backlog',
+          isBacklog: true,
+          features: [makeFeature({ name: 'NoSpec', status: 'backlog', spec: null })],
+        },
+      ],
+      assignmentHistory: [],
+    };
+
+    const candidates = scoreRoadmapCandidates(roadmap);
+    expect(candidates).toHaveLength(1);
+
+    assignFeature(roadmap, candidates[0]!.feature, '@user', '2026-04-02');
+
+    const target = candidates[0]!.feature.spec ? 'harness:autopilot' : 'harness:brainstorming';
+    expect(target).toBe('harness:brainstorming');
+  });
+});
