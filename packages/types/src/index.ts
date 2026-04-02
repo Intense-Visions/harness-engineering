@@ -404,6 +404,14 @@ export interface Roadmap {
   assignmentHistory: AssignmentRecord[];
 }
 
+// --- Tracker Sync Types ---
+export type {
+  ExternalTicket,
+  ExternalTicketState,
+  SyncResult,
+  TrackerSyncConfig,
+} from './tracker-sync';
+
 // --- Usage & Cost Tracking Types ---
 export type { UsageRecord, ModelPricing, DailyUsage, SessionUsage } from './usage';
 
