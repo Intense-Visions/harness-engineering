@@ -225,6 +225,30 @@ export const IntegrationsConfigSchema = z.object({
 /**
  * The main Harness configuration schema.
  */
+/**
+ * Schema for external tracker sync configuration.
+ */
+export const TrackerConfigSchema = z.object({
+  /** Tracker kind — currently only 'github' is supported */
+  kind: z.literal('github'),
+  /** Repository in "owner/repo" format */
+  repo: z.string().optional(),
+  /** Labels auto-applied to synced issues for filtering */
+  labels: z.array(z.string()).optional(),
+  /** Maps roadmap status -> external status */
+  statusMap: z.record(z.string(), z.string()),
+  /** Maps external status (optionally with label) -> roadmap status */
+  reverseStatusMap: z.record(z.string(), z.string()).optional(),
+});
+
+/**
+ * Schema for roadmap configuration.
+ */
+export const RoadmapConfigSchema = z.object({
+  /** External tracker sync settings */
+  tracker: TrackerConfigSchema.optional(),
+});
+
 export const HarnessConfigSchema = z.object({
   /** Configuration schema version */
   version: z.literal(1),
@@ -297,6 +321,8 @@ export const HarnessConfigSchema = z.object({
       tierOverrides: z.record(z.string(), z.number().int().min(1).max(3)).default({}),
     })
     .optional(),
+  /** Roadmap sync and tracker integration settings */
+  roadmap: RoadmapConfigSchema.optional(),
   /** How often (in ms) to check for CLI updates */
   updateCheckInterval: z.number().int().min(0).optional(),
 });
