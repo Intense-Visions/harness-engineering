@@ -17,3 +17,18 @@ export { syncRoadmap, applySyncChanges } from './sync';
  * Type definitions for roadmap synchronization and changes.
  */
 export type { SyncChange, SyncOptions } from './sync';
+
+/**
+ * Tracker sync adapter interface for external issue trackers.
+ */
+export type { TrackerSyncAdapter } from './tracker-sync';
+
+/**
+ * GitHub Issues adapter for the TrackerSyncAdapter interface.
+ */
+export { GitHubIssuesSyncAdapter, resolveReverseStatus } from './adapters/github-issues';
+
+/**
+ * Sync engine for bidirectional sync between roadmap and external trackers.
+ */
+export { syncToExternal, syncFromExternal, fullSync } from './sync-engine';
