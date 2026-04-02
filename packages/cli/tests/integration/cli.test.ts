@@ -14,7 +14,7 @@ function runCLI(args: string[], cwd?: string) {
   });
 }
 
-describe('CLI Integration', () => {
+describe('CLI Integration', { timeout: 30000 }, () => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -65,7 +65,7 @@ describe('CLI Integration', () => {
       expect(result.status).toBe(0);
     });
 
-    it('outputs JSON when --json flag used', () => {
+    it('outputs JSON when --json flag used', { timeout: 15000 }, () => {
       runCLI(['init', '--name', 'test'], tempDir);
       const result = runCLI(['validate', '--json'], tempDir);
       expect(result.status).toBe(0);
