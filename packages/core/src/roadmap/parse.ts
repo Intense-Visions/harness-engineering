@@ -40,6 +40,7 @@ export function parseRoadmap(markdown: string): Result<Roadmap> {
   return Ok({
     frontmatter: fmResult.value,
     milestones: milestonesResult.value,
+    assignmentHistory: [],
   });
 }
 
@@ -182,5 +183,8 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
     plans,
     blockedBy,
     summary: fieldMap.get('Summary') ?? '',
+    assignee: null,
+    priority: null,
+    externalId: null,
   });
 }
