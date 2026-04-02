@@ -1,4 +1,9 @@
-import type { Roadmap, RoadmapMilestone, RoadmapFeature } from '@harness-engineering/types';
+import type {
+  Roadmap,
+  RoadmapMilestone,
+  RoadmapFeature,
+  AssignmentRecord,
+} from '@harness-engineering/types';
 
 const EM_DASH = '\u2014';
 
@@ -34,6 +39,12 @@ export function serializeRoadmap(roadmap: Roadmap): string {
     }
   }
 
+  // Assignment history section (omit if empty)
+  if (roadmap.assignmentHistory && roadmap.assignmentHistory.length > 0) {
+    lines.push('');
+    lines.push(...serializeAssignmentHistory(roadmap.assignmentHistory));
+  }
+
   lines.push('');
   return lines.join('\n');
 }
@@ -47,7 +58,7 @@ function serializeFeature(feature: RoadmapFeature): string[] {
   const plans = feature.plans.length > 0 ? feature.plans.join(', ') : EM_DASH;
   const blockedBy = feature.blockedBy.length > 0 ? feature.blockedBy.join(', ') : EM_DASH;
 
-  return [
+  const lines = [
     `### ${feature.name}`,
     '',
     `- **Status:** ${feature.status}`,
@@ -56,4 +67,27 @@ function serializeFeature(feature: RoadmapFeature): string[] {
     `- **Blockers:** ${blockedBy}`,
     `- **Plan:** ${plans}`,
   ];
+
+  // Emit extended fields only when at least one is non-null
+  const hasExtended =
+    feature.assignee !== null || feature.priority !== null || feature.externalId !== null;
+  if (hasExtended) {
+    lines.push(`- **Assignee:** ${feature.assignee ?? EM_DASH}`);
+    lines.push(`- **Priority:** ${feature.priority ?? EM_DASH}`);
+    lines.push(`- **External-ID:** ${feature.externalId ?? EM_DASH}`);
+  }
+
+  return lines;
+}
+
+function serializeAssignmentHistory(records: AssignmentRecord[]): string[] {
+  const lines = [
+    '## Assignment History',
+    '| Feature | Assignee | Action | Date |',
+    '|---------|----------|--------|------|',
+  ];
+  for (const record of records) {
+    lines.push(`| ${record.feature} | ${record.assignee} | ${record.action} | ${record.date} |`);
+  }
+  return lines;
 }
