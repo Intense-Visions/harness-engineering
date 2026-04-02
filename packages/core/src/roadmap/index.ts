@@ -19,14 +19,20 @@ export { syncRoadmap, applySyncChanges } from './sync';
 export type { SyncChange, SyncOptions } from './sync';
 
 /**
- * Tracker sync adapter interface for external issue trackers.
+ * Tracker sync adapter interface and shared utilities for external issue trackers.
  */
 export type { TrackerSyncAdapter } from './tracker-sync';
+export { resolveReverseStatus } from './tracker-sync';
+
+/**
+ * Shared status ranking for directional sync protection.
+ */
+export { STATUS_RANK, isRegression } from './status-rank';
 
 /**
  * GitHub Issues adapter for the TrackerSyncAdapter interface.
  */
-export { GitHubIssuesSyncAdapter, resolveReverseStatus } from './adapters/github-issues';
+export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
 
 /**
  * Sync engine for bidirectional sync between roadmap and external trackers.
