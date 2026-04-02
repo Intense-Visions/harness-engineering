@@ -22,6 +22,11 @@ const ROOT = resolve(import.meta.dirname, '..');
 const REFERENCE_DIR = join(ROOT, 'docs', 'reference');
 const HEADER = '<!-- AUTO-GENERATED — do not edit. Run `pnpm run generate-docs` to regenerate. -->\n\n';
 
+/** Escape angle brackets so VitePress doesn't parse them as Vue/HTML tags. */
+function escapeVitePress(text) {
+  return text.replace(/<([a-zA-Z])/g, '&lt;$1').replace(/(<\/[a-zA-Z])/g, (m) => '&lt;' + m.slice(2));
+}
+
 // Ensure output directory exists
 if (!existsSync(REFERENCE_DIR)) {
   mkdirSync(REFERENCE_DIR, { recursive: true });
@@ -194,7 +199,7 @@ async function generateMcpReference(cliAnchorLookup = new Map()) {
           for (const [pName, pSchema] of paramEntries) {
             const req = required.has(pName) ? 'required' : 'optional';
             const type = pSchema.type || 'any';
-            const desc = pSchema.description || '';
+            const desc = escapeVitePress(pSchema.description || '');
             lines.push(`- \`${pName}\` (${type}, ${req})${desc ? ` — ${desc}` : ''}\n`);
           }
           lines.push('\n');
