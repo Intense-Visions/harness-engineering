@@ -56,6 +56,7 @@ export function scoreRoadmapCandidates(
   options?: PilotScoringOptions
 ): ScoredCandidate[] {
   const allFeatures = roadmap.milestones.flatMap((m) => m.features);
+  const allFeatureNames = new Set(allFeatures.map((f) => f.name.toLowerCase()));
   const doneFeatures = new Set(
     allFeatures.filter((f) => f.status === 'done').map((f) => f.name.toLowerCase())
   );
@@ -109,13 +110,17 @@ export function scoreRoadmapCandidates(
       // Filter: only planned or backlog
       if (feature.status !== 'planned' && feature.status !== 'backlog') continue;
 
-      // Filter: must be unblocked (all blockers done or unknown)
-      const isBlocked = feature.blockedBy.some(
-        (blocker) => !doneFeatures.has(blocker.toLowerCase())
-      );
+      // Filter: must be unblocked. A blocker is resolved if it is done OR if
+      // it refers to a feature not tracked in this roadmap (external dependency).
+      const isBlocked = feature.blockedBy.some((blocker) => {
+        const key = blocker.toLowerCase();
+        return allFeatureNames.has(key) && !doneFeatures.has(key);
+      });
       if (isBlocked) continue;
 
-      // Position score: earlier = higher (1.0 for first, approaching 0 for last)
+      // Position score: earlier in the full feature list = higher (1.0 for first,
+      // approaching 0 for last). Uses document order including non-candidates (done,
+      // in-progress, blocked) to preserve the original roadmap ordering signal.
       const positionScore = 1 - (globalPosition - 1) / totalPositions;
 
       // Dependents score: more downstream = higher
