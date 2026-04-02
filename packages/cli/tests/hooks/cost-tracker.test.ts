@@ -7,12 +7,19 @@ import { tmpdir } from 'node:os';
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/cost-tracker.js');
 
 function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: string } {
-  const result = spawnSync('node', [HOOK_PATH], {
-    input: stdinData,
+  const dir = cwd ?? process.cwd();
+  const stdinFile = join(dir, '.stdin-data.json');
+  writeFileSync(stdinFile, stdinData);
+  const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
     encoding: 'utf-8',
-    cwd: cwd ?? process.cwd(),
+    cwd: dir,
     timeout: 15000,
   });
+  try {
+    rmSync(stdinFile, { force: true });
+  } catch {
+    /* ignore */
+  }
   return {
     exitCode: result.status ?? (result.signal ? 0 : 1),
     stderr: result.stderr ?? '',

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,22 +7,23 @@ import { tmpdir } from 'node:os';
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/quality-gate.js');
 
 function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: string } {
+  const dir = cwd ?? process.cwd();
+  const stdinFile = join(dir, '.stdin-data.json');
+  writeFileSync(stdinFile, stdinData);
+  const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
+    encoding: 'utf-8',
+    cwd: dir,
+    timeout: 30000,
+  });
   try {
-    const result = execFileSync('node', [HOOK_PATH], {
-      input: stdinData,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: cwd ?? process.cwd(),
-      timeout: 10000,
-    });
-    return { exitCode: 0, stderr: '' };
-  } catch (err: any) {
-    // Process killed by timeout — treat as exit 0 (hook is warn-only, never blocks)
-    if (err.killed) {
-      return { exitCode: 0, stderr: err.stderr ?? '' };
-    }
-    return { exitCode: err.status ?? 1, stderr: err.stderr ?? '' };
+    rmSync(stdinFile, { force: true });
+  } catch {
+    /* ignore */
   }
+  return {
+    exitCode: result.signal ? 0 : (result.status ?? 1),
+    stderr: result.stderr ?? '',
+  };
 }
 
 describe('quality-gate', { timeout: 30000 }, () => {

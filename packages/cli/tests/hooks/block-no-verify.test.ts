@@ -1,20 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { resolve, join } from 'node:path';
+import { writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/block-no-verify.js');
 
 function runHook(stdinData: string): { exitCode: number; stderr: string } {
+  const stdinFile = join(mkdtempSync(join(tmpdir(), 'bnv-')), 'stdin.json');
+  writeFileSync(stdinFile, stdinData);
+  const result = spawnSync('sh', ['-c', `cat "${stdinFile}" | node "${HOOK_PATH}"`], {
+    encoding: 'utf-8',
+    timeout: 15000,
+  });
   try {
-    const result = execFileSync('node', [HOOK_PATH], {
-      input: stdinData,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return { exitCode: 0, stderr: '' };
-  } catch (err: any) {
-    return { exitCode: err.status ?? 1, stderr: err.stderr ?? '' };
+    rmSync(stdinFile, { force: true });
+  } catch {
+    /* ignore */
   }
+  return {
+    exitCode: result.status ?? 1,
+    stderr: result.stderr ?? '',
+  };
 }
 
 describe('block-no-verify', () => {

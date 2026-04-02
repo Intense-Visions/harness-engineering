@@ -8,10 +8,6 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import process from 'node:process';
 
-function readStdinSync() {
-  return readFileSync(process.platform === 'win32' ? 0 : '/dev/stdin', 'utf-8');
-}
-
 // Minimal inline patterns for when @harness-engineering/core isn't available.
 // Keep in sync with @harness-engineering/core injection-patterns.ts ALL_PATTERNS.
 // Covers all HIGH-severity patterns and key MEDIUM patterns for degraded-mode safety.
@@ -69,7 +65,7 @@ function inlineScan(text) {
 async function main() {
   let raw = '';
   try {
-    raw = readStdinSync();
+    raw = readFileSync(0, 'utf-8');
   } catch {
     process.exit(0);
   }
