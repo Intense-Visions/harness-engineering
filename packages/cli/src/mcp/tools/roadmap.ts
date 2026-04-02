@@ -212,6 +212,9 @@ function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: Roadmap
     plans: input.plans ?? [],
     blockedBy: input.blocked_by ?? [],
     summary: input.summary,
+    assignee: null,
+    priority: null,
+    externalId: null,
   });
 
   // Update last_manual_edit timestamp
