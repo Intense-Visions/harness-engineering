@@ -78,6 +78,9 @@ export const VALID_ROADMAP: Roadmap = {
           ],
           blockedBy: [],
           summary: 'Email and in-app notifications with polling',
+          assignee: null,
+          priority: null,
+          externalId: null,
         },
         {
           name: 'User Auth Revamp',
@@ -86,6 +89,9 @@ export const VALID_ROADMAP: Roadmap = {
           plans: [],
           blockedBy: ['Notification System'],
           summary: 'OAuth2 migration for compliance requirements',
+          assignee: null,
+          priority: null,
+          externalId: null,
         },
       ],
     },
@@ -100,6 +106,9 @@ export const VALID_ROADMAP: Roadmap = {
           plans: [],
           blockedBy: [],
           summary: 'Establish and enforce perf budgets across critical paths',
+          assignee: null,
+          priority: null,
+          externalId: null,
         },
       ],
     },
@@ -114,10 +123,14 @@ export const VALID_ROADMAP: Roadmap = {
           plans: [],
           blockedBy: [],
           summary: 'Extend notification system with WebSocket push',
+          assignee: null,
+          priority: null,
+          externalId: null,
         },
       ],
     },
   ],
+  assignmentHistory: [],
 };
 
 /**
@@ -186,4 +199,5 @@ export const EMPTY_BACKLOG: Roadmap = {
       features: [],
     },
   ],
+  assignmentHistory: [],
 };
