@@ -236,4 +236,97 @@ describe('scoreRoadmapCandidates()', () => {
       expect(enabler.dependentsScore).toBeGreaterThan(leaf.dependentsScore);
     });
   });
+
+  describe('affinity scoring', () => {
+    it('gives bonus when user completed a blocker of the candidate', () => {
+      const roadmap: Roadmap = {
+        frontmatter: {
+          project: 'test',
+          version: 1,
+          lastSynced: '2026-04-01T00:00:00Z',
+          lastManualEdit: '2026-04-01T00:00:00Z',
+        },
+        milestones: [
+          {
+            name: 'M1',
+            isBacklog: false,
+            features: [
+              makeFeature({ name: 'Foundation', status: 'done' }),
+              makeFeature({ name: 'Extension', status: 'planned', blockedBy: ['Foundation'] }),
+              makeFeature({ name: 'Unrelated', status: 'planned' }),
+            ],
+          },
+        ],
+        assignmentHistory: [
+          { feature: 'Foundation', assignee: '@cwarner', action: 'completed', date: '2026-03-15' },
+        ],
+      };
+
+      const candidates = scoreRoadmapCandidates(roadmap, { currentUser: '@cwarner' });
+      const extension = candidates.find((c) => c.feature.name === 'Extension')!;
+      const unrelated = candidates.find((c) => c.feature.name === 'Unrelated')!;
+      expect(extension.affinityScore).toBe(1.0);
+      // Unrelated is in the same milestone as Foundation (completed by user), so gets sibling bonus
+      expect(unrelated.affinityScore).toBe(0.5);
+    });
+
+    it('gives partial bonus for milestone siblings completed by user', () => {
+      const roadmap: Roadmap = {
+        frontmatter: {
+          project: 'test',
+          version: 1,
+          lastSynced: '2026-04-01T00:00:00Z',
+          lastManualEdit: '2026-04-01T00:00:00Z',
+        },
+        milestones: [
+          {
+            name: 'M1',
+            isBacklog: false,
+            features: [
+              makeFeature({ name: 'Sibling', status: 'done' }),
+              makeFeature({ name: 'Candidate', status: 'planned' }),
+            ],
+          },
+          {
+            name: 'M2',
+            isBacklog: false,
+            features: [makeFeature({ name: 'OtherMS', status: 'planned' })],
+          },
+        ],
+        assignmentHistory: [
+          { feature: 'Sibling', assignee: '@cwarner', action: 'completed', date: '2026-03-15' },
+        ],
+      };
+
+      const candidates = scoreRoadmapCandidates(roadmap, { currentUser: '@cwarner' });
+      const candidate = candidates.find((c) => c.feature.name === 'Candidate')!;
+      const otherMs = candidates.find((c) => c.feature.name === 'OtherMS')!;
+      expect(candidate.affinityScore).toBe(0.5);
+      expect(otherMs.affinityScore).toBe(0);
+    });
+
+    it('gives no affinity when no currentUser is provided', () => {
+      const roadmap: Roadmap = {
+        frontmatter: {
+          project: 'test',
+          version: 1,
+          lastSynced: '2026-04-01T00:00:00Z',
+          lastManualEdit: '2026-04-01T00:00:00Z',
+        },
+        milestones: [
+          {
+            name: 'M1',
+            isBacklog: false,
+            features: [makeFeature({ name: 'Feature', status: 'planned' })],
+          },
+        ],
+        assignmentHistory: [
+          { feature: 'Something', assignee: '@cwarner', action: 'completed', date: '2026-03-15' },
+        ],
+      };
+
+      const candidates = scoreRoadmapCandidates(roadmap);
+      expect(candidates[0]!.affinityScore).toBe(0);
+    });
+  });
 });
