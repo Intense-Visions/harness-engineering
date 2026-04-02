@@ -1,4 +1,5 @@
 export PATH="/opt/homebrew/bin:$PATH"
 pnpm run typecheck
+pnpm run docs:build
 node packages/cli/dist/bin/harness.js ci check
 pnpm run generate-docs --check
