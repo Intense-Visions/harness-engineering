@@ -9,6 +9,10 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 
+function readStdinSync() {
+  return readFileSync(process.platform === 'win32' ? 0 : '/dev/stdin', 'utf-8');
+}
+
 // Detection order: first match wins
 const DETECTORS = [
   {
@@ -59,7 +63,7 @@ function detectFormatter(cwd) {
 function main() {
   let raw = '';
   try {
-    raw = readFileSync(0, 'utf-8');
+    raw = readStdinSync();
   } catch {
     process.exit(0);
   }
