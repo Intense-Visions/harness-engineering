@@ -220,16 +220,20 @@ function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
   if (!historyMatch || historyMatch.index === undefined) return Ok([]);
 
   const historyStart = historyMatch.index + historyMatch[0].length;
-  const historyBody = body.slice(historyStart);
+  const rawHistoryBody = body.slice(historyStart);
+  // Bound to next H2 heading so future sections after history are not consumed
+  const nextH2 = rawHistoryBody.search(/^## /m);
+  const historyBody = nextH2 === -1 ? rawHistoryBody : rawHistoryBody.slice(0, nextH2);
 
   const records: AssignmentRecord[] = [];
-  // Parse markdown table rows (skip header and separator)
+  // Parse markdown table rows. Rows before the separator (|---|...|) are
+  // skipped (header). If no separator exists the table is treated as empty —
+  // this is intentional tolerance for malformed tables.
   const lines = historyBody.split('\n');
   let pastHeader = false;
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('|')) continue;
-    // Skip header row and separator row
     if (!pastHeader) {
       if (trimmed.match(/^\|[-\s|]+\|$/)) {
         pastHeader = true;
