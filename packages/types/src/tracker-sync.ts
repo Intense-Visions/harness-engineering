@@ -54,6 +54,7 @@ export interface TrackerSyncConfig {
   /**
    * Maps external status (+ optional label) -> roadmap status.
    * Compound keys like "open:in-progress" express state + label.
+   * Optional — when absent, syncFromExternal preserves current roadmap status.
    */
-  reverseStatusMap: Record<string, FeatureStatus>;
+  reverseStatusMap?: Record<string, FeatureStatus>;
 }
