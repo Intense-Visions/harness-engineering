@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,19 +7,16 @@ import { tmpdir } from 'node:os';
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/cost-tracker.js');
 
 function runHook(stdinData: string, cwd?: string): { exitCode: number; stderr: string } {
-  try {
-    execFileSync('node', [HOOK_PATH], {
-      input: stdinData,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: cwd ?? process.cwd(),
-      timeout: 15000,
-    });
-    return { exitCode: 0, stderr: '' };
-  } catch (err: any) {
-    if (err.killed) return { exitCode: 0, stderr: err.stderr ?? '' };
-    return { exitCode: err.status ?? 1, stderr: err.stderr ?? '' };
-  }
+  const result = spawnSync('node', [HOOK_PATH], {
+    input: stdinData,
+    encoding: 'utf-8',
+    cwd: cwd ?? process.cwd(),
+    timeout: 15000,
+  });
+  return {
+    exitCode: result.status ?? (result.signal ? 0 : 1),
+    stderr: result.stderr ?? '',
+  };
 }
 
 describe('cost-tracker', { timeout: 30000 }, () => {
@@ -40,11 +37,13 @@ describe('cost-tracker', { timeout: 30000 }, () => {
       session_id: 'session-001',
       token_usage: { input_tokens: 1000, output_tokens: 500 },
     });
-    const { exitCode } = runHook(input, tmpDir);
-    expect(exitCode).toBe(0);
+    const result = runHook(input, tmpDir);
+    expect(result.exitCode).toBe(0);
 
     const costsFile = join(tmpDir, '.harness', 'metrics', 'costs.jsonl');
-    expect(existsSync(costsFile)).toBe(true);
+    if (!existsSync(costsFile)) {
+      expect.fail(`costs.jsonl not created (exit=${result.exitCode}, stderr=${result.stderr})`);
+    }
 
     const line = readFileSync(costsFile, 'utf-8').trim();
     const entry = JSON.parse(line);
