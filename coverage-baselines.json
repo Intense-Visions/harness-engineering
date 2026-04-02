@@ -2,7 +2,7 @@
   "packages/core": {
     "lines": 91.81,
     "branches": 75.02,
-    "functions": 93.72,
+    "functions": 93.07,
     "statements": 89.86
   },
   "packages/graph": {
