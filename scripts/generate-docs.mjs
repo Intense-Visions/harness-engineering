@@ -427,7 +427,12 @@ async function main() {
     try {
       execSync('git diff --exit-code docs/reference/', { cwd: ROOT, stdio: 'pipe' });
       console.log('\n✓ All reference docs are fresh.');
-    } catch {
+    } catch (err) {
+      // Show the actual diff so CI logs reveal what changed
+      try {
+        const diff = execSync('git diff docs/reference/', { cwd: ROOT, encoding: 'utf-8' });
+        console.error('\nDiff:\n' + diff.slice(0, 2000));
+      } catch { /* ignore */ }
       console.error('\n✗ Reference docs are stale. Run `pnpm run generate-docs` to update.');
       process.exit(1);
     }
