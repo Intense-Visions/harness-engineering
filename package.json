@@ -52,6 +52,10 @@
     "package.json": "scripts/sync-lockfile.sh"
   },
   "packageManager": "pnpm@8.15.4",
+  "pnpm": {
+    "autoInstallPeers": true,
+    "strictPeerDependencies": false
+  },
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=8.0.0"
