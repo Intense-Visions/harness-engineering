@@ -54,7 +54,7 @@ export const INTEGRATION_REGISTRY: readonly IntegrationDef[] = [
     mcpConfig: {
       command: 'npx',
       args: ['-y', 'perplexity-mcp'],
-      env: { PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}' },
+      env: { PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}' }, // harness-ignore SEC-SEC-002: env var placeholder, not a hardcoded secret
     },
     installHint: 'Get an API key at https://perplexity.ai/settings/api',
     platforms: ['claude-code', 'gemini-cli'],

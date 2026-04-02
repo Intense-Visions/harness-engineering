@@ -149,16 +149,16 @@ MCP Integrations:
   Run 'harness integrations add <name>' to enable a Tier 1 integration.
 ```
 
-#### `harness integrations add <name>` Flow
+#### `harness integrations add &lt;name&gt;` Flow
 
 1. Look up `name` in registry. Error if not found.
 2. If Tier 0: "Already configured by `harness setup`. Run `harness setup` if missing."
 3. Write MCP entry to `.mcp.json` (and `.gemini/settings.json` if detected).
 4. Add to `enabled` in `harness.config.json`.
 5. Remove from `dismissed` if present.
-6. If `envVar` defined: check if set. If not, print: "Set `PERPLEXITY_API_KEY` in your environment to activate. See: <install hint>".
+6. If `envVar` defined: check if set. If not, print: "Set `PERPLEXITY_API_KEY` in your environment to activate. See: &lt;install hint&gt;".
 
-#### `harness integrations remove <name>` Flow
+#### `harness integrations remove &lt;name&gt;` Flow
 
 1. Remove MCP entry from `.mcp.json` (and `.gemini/settings.json`).
 2. Remove from `enabled` in `harness.config.json`.
@@ -198,9 +198,9 @@ All commands that write to `.mcp.json` also write to `.gemini/settings.json` whe
 1. When `harness setup` runs, `.mcp.json` contains entries for Context7, Sequential Thinking, and Playwright. Same for `.gemini/settings.json` if Gemini CLI is detected.
 2. When `harness integrations add perplexity` runs, the MCP entry is added to `.mcp.json`, enablement is recorded in `harness.config.json`, and the user is told to set `PERPLEXITY_API_KEY`.
 3. When `harness integrations list` runs, all 5 integrations are shown with correct status (configured / available / dismissed).
-4. When `harness integrations remove <name>` runs, the MCP entry and enablement record are cleanly removed.
+4. When `harness integrations remove &lt;name&gt;` runs, the MCP entry and enablement record are cleanly removed.
 5. When `harness doctor` runs for the first time, unconfigured Tier 1 integrations are recommended.
-6. When `harness integrations dismiss <name>` runs, subsequent `harness doctor` runs no longer suggest that integration.
+6. When `harness integrations dismiss &lt;name&gt;` runs, subsequent `harness doctor` runs no longer suggest that integration.
 7. When a Tier 1 integration is enabled but its env var is not set, `harness doctor` warns.
 8. When Tier 0 entries are missing from `.mcp.json`, `harness doctor` detects and suggests `harness setup`.
 9. Existing `.mcp.json` entries are never clobbered by setup or integrations commands.

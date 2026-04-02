@@ -123,7 +123,8 @@
       "**/*.test.ts",
       "**/tests/fixtures/**",
       "**/coverage/**",
-      "**/security/rules/**"
+      "**/security/rules/**",
+      "**/.vitepress/cache/**"
     ]
   },
   "entropy": {

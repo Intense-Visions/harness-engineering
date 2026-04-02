@@ -4,7 +4,7 @@ export default defineConfig({
   title: 'Harness Engineering',
   description: 'AI Harness Engineering & Agent-First Development',
   ignoreDeadLinks: true,
-  srcExclude: ['plans/**'],
+  srcExclude: ['plans/**', 'changes/**', 'research/**'],
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
