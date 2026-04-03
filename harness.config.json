@@ -183,6 +183,24 @@
       "budgets": {}
     }
   },
+  "roadmap": {
+    "tracker": {
+      "kind": "github",
+      "repo": "Intense-Visions/harness-engineering",
+      "labels": ["roadmap"],
+      "statusMap": {
+        "backlog": "open",
+        "planned": "open",
+        "in-progress": "open",
+        "done": "closed",
+        "blocked": "open"
+      },
+      "reverseStatusMap": {
+        "open": "planned",
+        "closed": "done"
+      }
+    }
+  },
   "template": {
     "level": "advanced",
     "version": 1

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.1
+
+### Patch Changes
+
+- GitHub Issues sync adapter improvements
+  - **Rate limit retry** — All API calls now retry up to 5 times with exponential backoff and jitter on 403 (secondary rate limit) and 429 (primary rate limit) responses. Respects `Retry-After` header when present.
+  - **Close done issues on create** — Issues created for features with `done` status are now automatically closed via a follow-up PATCH, since the GitHub Issues API does not accept `state` on creation.
+  - **Configurable retry** — New `maxRetries` and `baseDelayMs` options on `GitHubAdapterOptions` for tuning retry behavior.
+
 ## 0.17.0
 
 ### Minor Changes

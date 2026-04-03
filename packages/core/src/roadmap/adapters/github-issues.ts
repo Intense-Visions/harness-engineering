@@ -41,6 +41,48 @@ function labelsForStatus(status: string, config: TrackerSyncConfig): string[] {
   return [...base];
 }
 
+/** Default retry settings for rate-limited requests. */
+const RETRY_DEFAULTS = { maxRetries: 5, baseDelayMs: 1000 };
+
+/**
+ * Sleep helper that can be overridden in tests.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Wrap a fetch call with retry logic for GitHub rate limits (403 secondary, 429 primary).
+ * Respects the Retry-After header when present, otherwise uses exponential backoff with jitter.
+ */
+async function fetchWithRetry(
+  fetchFn: typeof fetch,
+  input: string,
+  init: RequestInit,
+  opts: { maxRetries: number; baseDelayMs: number } = RETRY_DEFAULTS
+): Promise<Response> {
+  let lastResponse: Response | undefined;
+  for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
+    const response = await fetchFn(input, init);
+    if (response.status !== 403 && response.status !== 429) return response;
+
+    lastResponse = response;
+    if (attempt === opts.maxRetries) break;
+
+    // Determine delay: prefer Retry-After header, else exponential backoff + jitter
+    const retryAfter = response.headers.get('Retry-After');
+    let delayMs: number;
+    if (retryAfter) {
+      const seconds = parseInt(retryAfter, 10);
+      delayMs = isNaN(seconds) ? opts.baseDelayMs : seconds * 1000;
+    } else {
+      delayMs = opts.baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+    }
+    await sleep(delayMs);
+  }
+  return lastResponse!;
+}
+
 export interface GitHubAdapterOptions {
   /** GitHub API token */
   token: string;
@@ -50,6 +92,10 @@ export interface GitHubAdapterOptions {
   fetchFn?: typeof fetch;
   /** Override API base URL (for GitHub Enterprise) */
   apiBase?: string;
+  /** Max retries on rate limit (default: 5) */
+  maxRetries?: number;
+  /** Base delay in ms for exponential backoff (default: 1000) */
+  baseDelayMs?: number;
 }
 
 export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
@@ -59,12 +105,17 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
   private readonly apiBase: string;
   private readonly owner: string;
   private readonly repo: string;
+  private readonly retryOpts: { maxRetries: number; baseDelayMs: number };
 
   constructor(options: GitHubAdapterOptions) {
     this.token = options.token;
     this.config = options.config;
     this.fetchFn = options.fetchFn ?? globalThis.fetch;
     this.apiBase = options.apiBase ?? 'https://api.github.com';
+    this.retryOpts = {
+      maxRetries: options.maxRetries ?? RETRY_DEFAULTS.maxRetries,
+      baseDelayMs: options.baseDelayMs ?? RETRY_DEFAULTS.baseDelayMs,
+    };
 
     const repoParts = (options.config.repo ?? '').split('/');
     if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
@@ -83,6 +134,22 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     };
   }
 
+  /**
+   * Close an issue if the feature status maps to 'closed'.
+   * GitHub Issues API doesn't accept state on POST — requires a follow-up PATCH.
+   */
+  private async closeIfDone(issueNumber: number, featureStatus: string): Promise<void> {
+    const externalStatus =
+      this.config.statusMap[featureStatus as keyof typeof this.config.statusMap];
+    if (externalStatus !== 'closed') return;
+    await fetchWithRetry(
+      this.fetchFn,
+      `${this.apiBase}/repos/${this.owner}/${this.repo}/issues/${issueNumber}`,
+      { method: 'PATCH', headers: this.headers(), body: JSON.stringify({ state: 'closed' }) },
+      this.retryOpts
+    );
+  }
+
   async createTicket(feature: RoadmapFeature, milestone: string): Promise<Result<ExternalTicket>> {
     try {
       const labels = labelsForStatus(feature.status, this.config);
@@ -95,17 +162,15 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         .filter(Boolean)
         .join('\n');
 
-      const response = await this.fetchFn(
+      const response = await fetchWithRetry(
+        this.fetchFn,
         `${this.apiBase}/repos/${this.owner}/${this.repo}/issues`,
         {
           method: 'POST',
           headers: this.headers(),
-          body: JSON.stringify({
-            title: feature.name,
-            body,
-            labels,
-          }),
-        }
+          body: JSON.stringify({ title: feature.name, body, labels }),
+        },
+        this.retryOpts
       );
 
       if (!response.ok) {
@@ -115,7 +180,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
       const data = (await response.json()) as { number: number; html_url: string };
       const externalId = buildExternalId(this.owner, this.repo, data.number);
-
+      await this.closeIfDone(data.number, feature.status);
       return Ok({ externalId, url: data.html_url });
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
@@ -145,13 +210,15 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         patch.labels = labelsForStatus(changes.status, this.config);
       }
 
-      const response = await this.fetchFn(
+      const response = await fetchWithRetry(
+        this.fetchFn,
         `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
         {
           method: 'PATCH',
           headers: this.headers(),
           body: JSON.stringify(patch),
-        }
+        },
+        this.retryOpts
       );
 
       if (!response.ok) {
@@ -171,12 +238,14 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
 
-      const response = await this.fetchFn(
+      const response = await fetchWithRetry(
+        this.fetchFn,
         `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
         {
           method: 'GET',
           headers: this.headers(),
-        }
+        },
+        this.retryOpts
       );
 
       if (!response.ok) {
@@ -211,12 +280,14 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       const perPage = 100;
 
       while (true) {
-        const response = await this.fetchFn(
+        const response = await fetchWithRetry(
+          this.fetchFn,
           `${this.apiBase}/repos/${this.owner}/${this.repo}/issues?state=all&per_page=${perPage}&page=${page}${labelsParam}`,
           {
             method: 'GET',
             headers: this.headers(),
-          }
+          },
+          this.retryOpts
         );
 
         if (!response.ok) {
@@ -262,13 +333,15 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       // Strip leading @ from assignee
       const login = assignee.startsWith('@') ? assignee.slice(1) : assignee;
 
-      const response = await this.fetchFn(
+      const response = await fetchWithRetry(
+        this.fetchFn,
         `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/assignees`,
         {
           method: 'POST',
           headers: this.headers(),
           body: JSON.stringify({ assignees: [login] }),
-        }
+        },
+        this.retryOpts
       );
 
       if (!response.ok) {
