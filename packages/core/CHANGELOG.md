@@ -1,13 +1,16 @@
 # Changelog
 
-## 0.17.1
+## 0.18.0
 
-### Patch Changes
+### Minor Changes
 
-- GitHub Issues sync adapter improvements
-  - **Rate limit retry** — All API calls now retry up to 5 times with exponential backoff and jitter on 403 (secondary rate limit) and 429 (primary rate limit) responses. Respects `Retry-After` header when present.
-  - **Close done issues on create** — Issues created for features with `done` status are now automatically closed via a follow-up PATCH, since the GitHub Issues API does not accept `state` on creation.
-  - **Configurable retry** — New `maxRetries` and `baseDelayMs` options on `GitHubAdapterOptions` for tuning retry behavior.
+- GitHub Issues sync adapter: milestones, type labels, and rate limit handling
+  - **GitHub milestones** — Roadmap milestones are now created as GitHub milestones. Issues are assigned to their corresponding milestone on both create and update. Milestones are cached per adapter instance to minimize API calls.
+  - **Feature type labels** — All synced issues receive a `feature` label on create and update, enabling filtering by issue type.
+  - **Milestone on update** — `TrackerSyncAdapter.updateTicket` interface extended with optional `milestone` parameter. Sync engine passes milestone name through on updates.
+  - **Rate limit retry** — All API calls retry up to 5 times with exponential backoff and jitter on 403/429 responses. Respects `Retry-After` header when present.
+  - **Close done issues on create** — Issues created for `done` features are automatically closed via follow-up PATCH.
+  - **Configurable retry** — New `maxRetries` and `baseDelayMs` options on `GitHubAdapterOptions`.
 
 ## 0.17.0
 

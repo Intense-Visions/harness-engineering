@@ -106,6 +106,8 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
   private readonly owner: string;
   private readonly repo: string;
   private readonly retryOpts: { maxRetries: number; baseDelayMs: number };
+  /** Cached GitHub milestone name -> ID mapping */
+  private milestoneCache: Map<string, number> | null = null;
 
   constructor(options: GitHubAdapterOptions) {
     this.token = options.token;
@@ -123,6 +125,49 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     }
     this.owner = repoParts[0];
     this.repo = repoParts[1];
+  }
+
+  /**
+   * Fetch all GitHub milestones and build the name -> ID cache.
+   */
+  private async loadMilestones(): Promise<Map<string, number>> {
+    if (this.milestoneCache) return this.milestoneCache;
+    this.milestoneCache = new Map();
+
+    const response = await fetchWithRetry(
+      this.fetchFn,
+      `${this.apiBase}/repos/${this.owner}/${this.repo}/milestones?state=all&per_page=100`,
+      { method: 'GET', headers: this.headers() },
+      this.retryOpts
+    );
+
+    if (response.ok) {
+      const data = (await response.json()) as Array<{ number: number; title: string }>;
+      for (const m of data) {
+        this.milestoneCache.set(m.title, m.number);
+      }
+    }
+    return this.milestoneCache;
+  }
+
+  /**
+   * Get or create a GitHub milestone by name. Returns the milestone number.
+   */
+  private async ensureMilestone(name: string): Promise<number | null> {
+    const cache = await this.loadMilestones();
+    if (cache.has(name)) return cache.get(name)!;
+
+    const response = await fetchWithRetry(
+      this.fetchFn,
+      `${this.apiBase}/repos/${this.owner}/${this.repo}/milestones`,
+      { method: 'POST', headers: this.headers(), body: JSON.stringify({ title: name }) },
+      this.retryOpts
+    );
+
+    if (!response.ok) return null;
+    const data = (await response.json()) as { number: number };
+    cache.set(name, data.number);
+    return data.number;
   }
 
   private headers(): Record<string, string> {
@@ -152,24 +197,19 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
   async createTicket(feature: RoadmapFeature, milestone: string): Promise<Result<ExternalTicket>> {
     try {
-      const labels = labelsForStatus(feature.status, this.config);
-      const body = [
-        feature.summary,
-        '',
-        `**Milestone:** ${milestone}`,
-        feature.spec ? `**Spec:** ${feature.spec}` : '',
-      ]
+      const labels = [...labelsForStatus(feature.status, this.config), 'feature'];
+      const body = [feature.summary, '', feature.spec ? `**Spec:** ${feature.spec}` : '']
         .filter(Boolean)
         .join('\n');
+
+      const milestoneId = await this.ensureMilestone(milestone);
+      const issuePayload: Record<string, unknown> = { title: feature.name, body, labels };
+      if (milestoneId) issuePayload.milestone = milestoneId;
 
       const response = await fetchWithRetry(
         this.fetchFn,
         `${this.apiBase}/repos/${this.owner}/${this.repo}/issues`,
-        {
-          method: 'POST',
-          headers: this.headers(),
-          body: JSON.stringify({ title: feature.name, body, labels }),
-        },
+        { method: 'POST', headers: this.headers(), body: JSON.stringify(issuePayload) },
         this.retryOpts
       );
 
@@ -189,7 +229,8 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
   async updateTicket(
     externalId: string,
-    changes: Partial<RoadmapFeature>
+    changes: Partial<RoadmapFeature>,
+    milestone?: string
   ): Promise<Result<ExternalTicket>> {
     try {
       const parsed = parseExternalId(externalId);
@@ -206,8 +247,12 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       if (changes.status !== undefined) {
         const externalStatus = this.config.statusMap[changes.status];
         patch.state = externalStatus;
-        // Update labels for status disambiguation
-        patch.labels = labelsForStatus(changes.status, this.config);
+        // Update labels for status disambiguation, preserving the type label
+        patch.labels = [...labelsForStatus(changes.status, this.config), 'feature'];
+      }
+      if (milestone) {
+        const milestoneId = await this.ensureMilestone(milestone);
+        if (milestoneId) patch.milestone = milestoneId;
       }
 
       const response = await fetchWithRetry(
