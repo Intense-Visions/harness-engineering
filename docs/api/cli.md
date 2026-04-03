@@ -2,7 +2,7 @@
 
 CLI for the Harness Engineering toolkit. Provides the `harness` command with subcommands for validation, initialization, skill management, persona execution, graph operations, and more.
 
-**Version:** 1.13.1
+**Version:** 1.17.0
 
 ## Installation
 
@@ -235,3 +235,67 @@ Handlebars-based template engine for code generation.
 | [`get-impact.ts`](../../packages/cli/src/mcp/tools/graph/get-impact.ts)               | Impact analysis — determines what is affected by changing a node          |
 | [`find-context-for.ts`](../../packages/cli/src/mcp/tools/graph/find-context-for.ts)   | Finds relevant context for a given file or symbol                         |
 | [`detect-anomalies.ts`](../../packages/cli/src/mcp/tools/graph/detect-anomalies.ts)   | Detects structural anomalies in the knowledge graph                       |
+
+### Roadmap & State Tools
+
+| File                                                                            | Description                                                                |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [`roadmap.ts`](../../packages/cli/src/mcp/tools/roadmap.ts)                     | `manage_roadmap` — CRUD operations for `docs/roadmap.md`                   |
+| [`roadmap-auto-sync.ts`](../../packages/cli/src/mcp/tools/roadmap-auto-sync.ts) | Auto-sync engine — local sync + external tracker sync on state transitions |
+| [`state.ts`](../../packages/cli/src/mcp/tools/state.ts)                         | `manage_state` — session lifecycle actions with auto-sync triggers         |
+
+#### `manage_state` Actions
+
+| Action            | Description                                                         |
+| ----------------- | ------------------------------------------------------------------- |
+| `save-handoff`    | Save session handoff (existing). Triggers `autoSyncRoadmap`.        |
+| `archive_session` | Archive a completed session (existing). Triggers `autoSyncRoadmap`. |
+| `task-start`      | Signal a task has started. Triggers `autoSyncRoadmap`.              |
+| `task-complete`   | Signal a task has completed. Triggers `autoSyncRoadmap`.            |
+| `phase-start`     | Signal a phase has started. Triggers `autoSyncRoadmap`.             |
+| `phase-complete`  | Signal a phase has completed. Triggers `autoSyncRoadmap`.           |
+
+All 6 actions fire `autoSyncRoadmap` which performs local roadmap sync, then (if tracker config is present) fires `fullSync` to push/pull from the external tracker.
+
+#### `autoSyncRoadmap(projectPath)`
+
+Best-effort roadmap sync. Reads `docs/roadmap.md`, runs local sync, writes back. If `roadmap.tracker` config exists in `harness.config.json`, calls `triggerExternalSync` to push planning fields and pull execution fields from the external tracker. Errors are swallowed — sync never blocks state operations.
+
+#### `loadTrackerConfig(projectPath)`
+
+Reads `harness.config.json`, validates the `roadmap.tracker` section via `TrackerConfigSchema.safeParse`, and returns a `TrackerSyncConfig` or `null`.
+
+### Config Schema
+
+| File                                                   | Description                           |
+| ------------------------------------------------------ | ------------------------------------- |
+| [`schema.ts`](../../packages/cli/src/config/schema.ts) | Zod schemas for `harness.config.json` |
+
+#### `TrackerConfigSchema`
+
+Validates the `roadmap.tracker` block in `harness.config.json`:
+
+```typescript
+{
+  kind: 'github',           // Only 'github' supported currently
+  repo: 'owner/repo',       // Optional — defaults to git remote
+  labels: ['harness-managed'], // Labels auto-applied to synced issues
+  statusMap: {               // Maps roadmap status → GitHub state
+    backlog: 'open',
+    planned: 'open',
+    'in-progress': 'open',
+    done: 'closed',
+    blocked: 'open'
+  },
+  reverseStatusMap: {        // Maps GitHub state+label → roadmap status
+    closed: 'done',
+    'open:in-progress': 'in-progress',
+    'open:blocked': 'blocked',
+    'open:planned': 'planned'
+  }
+}
+```
+
+#### `RoadmapConfigSchema`
+
+Wraps `TrackerConfigSchema` as the `roadmap` field on `HarnessConfigSchema`.
