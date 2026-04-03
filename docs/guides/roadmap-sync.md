@@ -219,6 +219,56 @@ The `reverseStatusMap` uses compound keys like `"open:in-progress"` to express s
 
 The adapter reads `GITHUB_TOKEN` from your environment. If the token is absent, external sync is silently skipped.
 
+#### Required Permissions
+
+The token needs read/write access to issues and labels. The exact scopes depend on whether you use a classic token or a fine-grained token.
+
+**Classic personal access token:**
+
+| Scope  | Why                                            |
+| ------ | ---------------------------------------------- |
+| `repo` | Read/write access to issues, labels, and state |
+
+For public-only repos, `public_repo` is sufficient instead of `repo`.
+
+**Fine-grained personal access token (recommended):**
+
+| Permission | Access     | Why                                     |
+| ---------- | ---------- | --------------------------------------- |
+| `Issues`   | Read/Write | Create, update, and close synced issues |
+| `Metadata` | Read       | Required for all fine-grained tokens    |
+
+Set **Repository access** to "Only select repositories" and choose the repo(s) your roadmap syncs with.
+
+#### Creating a Token for Personal Repos
+
+1. Go to **Settings → Developer settings → Personal access tokens**
+2. Choose **Fine-grained tokens** (or **Tokens (classic)** for a classic token)
+3. Click **Generate new token**
+4. For fine-grained tokens:
+   - Set a descriptive name (e.g., `harness-roadmap-sync`)
+   - Set an expiration
+   - Under **Repository access**, select "Only select repositories" and pick your repo
+   - Under **Permissions → Repository permissions**, grant `Issues: Read and write` and `Metadata: Read`
+5. For classic tokens:
+   - Set a descriptive name and expiration
+   - Check the `repo` scope (or `public_repo` for public repos only)
+6. Click **Generate token** and copy the value
+
+#### Creating a Token for Organization Repos
+
+Organization repos may require additional steps depending on the org's security policies.
+
+1. **Check org token policy** — Org admins can restrict which token types are allowed under **Organization settings → Personal access tokens**. Some orgs require fine-grained tokens; others block them entirely. Confirm with your admin if unsure.
+2. **Create the token** — Follow the same steps as for personal repos above, selecting the org repo under repository access.
+3. **Authorize for SSO (classic tokens only)** — If the org uses SAML SSO, you must authorize the token after creation:
+   - Go to **Settings → Developer settings → Personal access tokens → Tokens (classic)**
+   - Find your token and click **Configure SSO**
+   - Click **Authorize** next to the organization name
+4. **Request admin approval (fine-grained tokens)** — If the org requires approval for fine-grained tokens, your token will be in a "pending" state after creation. An org admin must approve it before it will work.
+
+#### Providing the Token
+
 ```bash
 # Option 1: Export in your shell profile
 export GITHUB_TOKEN=ghp_your_token_here
@@ -227,7 +277,7 @@ export GITHUB_TOKEN=ghp_your_token_here
 echo "GITHUB_TOKEN=ghp_your_token_here" >> .env
 ```
 
-The token needs `repo` scope for read/write access to issues.
+> **Tip:** If you use the GitHub CLI (`gh`), you can reuse its token: `export GITHUB_TOKEN=$(gh auth token)`
 
 ## How Sync Works
 
