@@ -6,6 +6,29 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.11.0 — 2026-04-03
+
+### Added
+
+- **External tracker sync** — Bidirectional sync between `roadmap.md` and GitHub Issues via `TrackerSyncAdapter` interface. Split authority model: roadmap owns planning fields, external service owns execution/assignment. Sync fires automatically on all 6 state transitions.
+- **GitHub Issues adapter** — Full `GitHubIssuesSyncAdapter` implementation with label-based status disambiguation, pagination, and error collection. Configurable via `roadmap.tracker` in `harness.config.json`.
+- **Sync engine** — `syncToExternal` (push), `syncFromExternal` (pull with directional guard), `fullSync` (mutex-serialized read-push-pull-write cycle). External assignee wins; status regressions blocked unless `forceSync`.
+- **Roadmap pilot skill** — AI-assisted next-item selection via `harness-roadmap-pilot`. Two-tier scoring: explicit priority first (P0–P3), then weighted position (0.5) / dependents (0.3) / affinity (0.2). Routes to brainstorming or autopilot based on spec existence.
+- **Assignment with affinity** — `Assignee`, `Priority`, and `External-ID` fields on roadmap features. Assignment history section in `roadmap.md` with affinity-based routing. Reassignment produces two-record audit trail.
+- **New types** — `Priority`, `AssignmentRecord`, `ExternalTicket`, `ExternalTicketState`, `SyncResult`, `TrackerSyncConfig` in `@harness-engineering/types`.
+- **Config schema** — `TrackerConfigSchema` and `RoadmapConfigSchema` with Zod validation for tracker configuration.
+- **Shared status ranking** — Extracted `STATUS_RANK` and `isRegression` to `status-rank.ts`, shared by local and external sync paths.
+- **State transition hooks** — 4 new lifecycle actions (`task-start`, `task-complete`, `phase-start`, `phase-complete`) in `manage_state`, each triggering `autoSyncRoadmap` with optional external sync.
+
+### Fixed
+
+- `parseAssignmentHistory` now bounds to next H2 heading, preventing content bleed
+- `resolveReverseStatus` moved from GitHub adapter to adapter-agnostic `tracker-sync.ts`
+- `reverseStatusMap` optionality aligned between TypeScript type and Zod schema
+- `loadTrackerConfig` validates via `TrackerConfigSchema.safeParse` instead of raw assertion
+- Unknown blockers in pilot scoring treated as resolved (external dependencies)
+- Feature construction in `roadmap.ts` includes new required fields
+
 ## 0.10.0 — 2026-04-01
 
 ### Added
