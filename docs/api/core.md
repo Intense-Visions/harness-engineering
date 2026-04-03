@@ -2,7 +2,7 @@
 
 Core library for the Harness Engineering toolkit. Provides validation, constraint enforcement, entropy detection, context generation, feedback, state management, security scanning, CI orchestration, and more.
 
-**Version:** 0.15.0
+**Version:** 0.17.0
 
 ## Installation
 

@@ -2,7 +2,7 @@
 
 ESLint plugin for enforcing harness engineering architectural constraints. Provides 11 rules and 2 shared configurations.
 
-**Version:** 0.2.2
+**Version:** 0.2.3
 
 ## Installation
 

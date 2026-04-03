@@ -66,6 +66,17 @@ Share architectural and security constraints across projects as portable bundles
 
 **Best for:** Teams enforcing consistent architecture across multiple repositories
 
+### [Roadmap Sync & Auto-Pick](./roadmap-sync.md)
+
+Bidirectional sync between your project roadmap and GitHub Issues, plus AI-assisted next-item selection:
+
+- Configuring GitHub Issues as the sync adapter
+- Status mapping with label-based disambiguation
+- Assignment history and affinity-based routing
+- Auto-pick pilot for selecting the next work item
+
+**Best for:** Teams using roadmap.md who want GitHub Issues integration and automated task selection
+
 ## How to Use These Guides
 
 1. **Start with Getting Started** if you're new to Harness Engineering
