@@ -16,7 +16,7 @@ This is the single source of truth for AI agents working on the Harness Engineer
 
 ### Current Phase
 
-**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 79 skills (36 core + 43 domain, claude-code and gemini-cli), 12 personas, 6 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
+**Complete** — All core packages (types, core, cli, eslint-plugin, linter-gen, graph, orchestrator), 81 skills (36 core + 45 domain, claude-code and gemini-cli), 12 personas, 6 templates, and 3 progressive examples are implemented. The project is in adoption and refinement mode. See `examples/` for progressive tutorials.
 
 ## Repository Structure
 
@@ -33,7 +33,7 @@ harness-engineering/
 │   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 │   └── orchestrator/         # Agent orchestration daemon for dispatching coding agents to issues
 ├── agents/                    # Agent configuration
-│   ├── skills/claude-code/   # 79 skills (36 core + 43 domain, skill.yaml + SKILL.md each)
+│   ├── skills/claude-code/   # 81 skills (36 core + 45 domain, skill.yaml + SKILL.md each)
 │   ├── skills/gemini-cli/    # 79 skills (symlinked to claude-code for platform parity)
 │   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
 │   └── personas/             # 12 personas (architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, graph-maintainer, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, verifier)
@@ -263,7 +263,7 @@ The `packages/graph` package provides a graph-based context system that unifies 
 Skills are classified into three tiers to preserve context. Only Tier 1 and Tier 2 skills are registered as slash commands; Tier 3 skills are discoverable via the `search_skills` MCP tool.
 
 - **Tier 1 (Workflow, 11 skills):** Always-loaded slash commands for core workflow — brainstorming, planning, execution, autopilot, tdd, debugging, refactoring, skill-authoring, onboarding, initialize-project, add-component.
-- **Tier 2 (Maintenance, 19 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification.
+- **Tier 2 (Maintenance, 21 skills):** Always-loaded slash commands for project health — integrity, verify, code-review, release-readiness, docs-pipeline, codebase-cleanup, enforce-architecture, detect-doc-drift, cleanup-dead-code, dependency-health, hotspot-detector, security-scan, perf, impact-analysis, test-advisor, soundness-review, architecture-advisor, roadmap, verification, supply-chain-audit, roadmap-pilot.
 - **Tier 3 (Catalog, 43 skills):** Discoverable on demand via `search_skills`. Includes domain skills (API design, database, deployment, containerization, etc.), design skills, i18n, and specialized testing.
 - **Internal (6 skills):** Dependency-only, never surfaced. Invoked by other skills as part of pipelines.
 
@@ -278,6 +278,10 @@ Implementation in `packages/cli/src/registry/` and `packages/cli/src/commands/sk
 ### Project Roadmap
 
 The project roadmap lives at `docs/roadmap.md` and tracks features across milestones with statuses (`backlog`, `planned`, `in-progress`, `done`, `blocked`). Core implementation in `packages/core/src/roadmap/` provides `parseRoadmap`, `serializeRoadmap`, and `syncRoadmap`. The `manage_roadmap` MCP tool (`packages/cli/src/mcp/tools/roadmap.ts`) exposes CRUD operations: `show`, `add`, `update`, `remove`, `query`, `sync`. The `harness-roadmap` skill provides interactive workflows: `--create`, `--add`, `--sync`, `--edit`, `--query`. Roadmap sync respects a "human-always-wins" rule — manually edited statuses are preserved unless `force_sync` is set. The orchestrator adapter (`packages/orchestrator/src/tracker/adapters/roadmap.ts`) maps roadmap features to the internal Issue model for agent orchestration.
+
+**External tracker sync** — Bidirectional sync between `roadmap.md` and GitHub Issues via `TrackerSyncAdapter` (`packages/core/src/roadmap/tracker-sync.ts`). The `GitHubIssuesSyncAdapter` (`packages/core/src/roadmap/adapters/github-issues.ts`) uses label-based status disambiguation for the open/closed limitation. The sync engine (`packages/core/src/roadmap/sync-engine.ts`) provides `syncToExternal` (push planning fields), `syncFromExternal` (pull execution fields with directional guard via `status-rank.ts`), and `fullSync` (mutex-serialized read-push-pull-write cycle). Configuration via `roadmap.tracker` in `harness.config.json` (validated by `TrackerConfigSchema` in `packages/cli/src/config/schema.ts`). Auto-sync fires on 6 state transitions via `triggerExternalSync` in `packages/cli/src/mcp/tools/roadmap-auto-sync.ts`.
+
+**Auto-pick pilot** — The `harness-roadmap-pilot` skill (`agents/skills/claude-code/harness-roadmap-pilot/`) selects the next highest-impact unblocked item using a two-tier sort: explicit priority first (P0–P3), then weighted score (position 0.5, dependents 0.3, affinity 0.2). Scoring algorithm and `assignFeature` function in `packages/core/src/roadmap/pilot-scoring.ts`. Routes to `harness:brainstorming` (no spec) or `harness:autopilot` (spec exists). Assignment updates the feature's `Assignee` field, appends to the `## Assignment History` section, and syncs to the external tracker.
 
 ### Monorepo Structure Benefits
 

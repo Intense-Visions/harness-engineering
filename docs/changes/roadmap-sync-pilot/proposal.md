@@ -316,7 +316,8 @@ packages/core/src/roadmap/
   index.ts              # EXTEND — export new modules
 
 packages/types/src/
-  index.ts              # EXTEND — new fields on RoadmapFeature, new types
+  tracker-sync.ts       # NEW — ExternalTicket, ExternalTicketState, SyncResult, TrackerSyncConfig
+  index.ts              # EXTEND — new fields on RoadmapFeature, re-export tracker-sync types
 
 packages/cli/src/mcp/tools/
   roadmap.ts            # EXTEND — manage_roadmap gets sync action

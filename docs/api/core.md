@@ -535,17 +535,67 @@ End-to-end code review pipeline: eligibility check, mechanical checks, fan-out t
 
 ### `parseRoadmap(content)`
 
-Parses a roadmap markdown file into a structured `Roadmap` object.
+Parses a roadmap markdown file into a structured `Roadmap` object. Supports extended fields: `Assignee`, `Priority` (P0–P3), `External-ID`. Parses `## Assignment History` section as a sentinel-bounded table into `AssignmentRecord[]`.
 
 ### `serializeRoadmap(roadmap)`
 
-Serializes a `Roadmap` back to markdown.
+Serializes a `Roadmap` back to markdown. Extended fields (`Assignee`, `Priority`, `External-ID`) are conditionally emitted only when at least one is non-null on a feature, preserving round-trip fidelity for legacy roadmaps.
 
 ### `syncRoadmap(roadmap, options)`
 
 Synchronizes a roadmap with the current state of specs and plans on disk.
 
 **Types:** `SyncChange`, `SyncOptions`
+
+### External Tracker Sync
+
+#### `TrackerSyncAdapter` (interface)
+
+Abstract interface for syncing roadmap features with external issue trackers. Methods: `createTicket`, `updateTicket`, `fetchTicketState`, `fetchAllTickets`, `assignTicket`.
+
+#### `GitHubIssuesSyncAdapter`
+
+GitHub Issues implementation of `TrackerSyncAdapter`. Uses native `fetch` with injectable `fetchFn` for testing. Label-based status disambiguation resolves the open/closed limitation.
+
+#### `resolveReverseStatus(externalStatus, labels, config)`
+
+Resolves an external ticket's status + labels to a roadmap `FeatureStatus` using `reverseStatusMap` config. Returns `null` if ambiguous or unmapped.
+
+#### `syncToExternal(roadmap, adapter, config)`
+
+Pushes planning fields to external service. Creates tickets for features without `externalId`, updates existing ones. Mutates roadmap in-place (stores new externalIds). Never throws.
+
+#### `syncFromExternal(roadmap, adapter, config, options?)`
+
+Pulls execution fields (assignee, status) from external service. External assignee wins. Status changes subject to directional guard — no regression unless `forceSync: true`.
+
+#### `fullSync(roadmapPath, adapter, config, options?)`
+
+Full bidirectional sync: read roadmap from disk, push, pull, write back. Serialized by in-process mutex to prevent concurrent write races.
+
+**Types:** `ExternalSyncOptions`, `ExternalTicket`, `ExternalTicketState`, `SyncResult`, `TrackerSyncConfig`
+
+### Pilot Scoring
+
+#### `scoreRoadmapCandidates(roadmap, options?)`
+
+Scores unblocked `planned`/`backlog` items using a two-tier sort: explicit priority first (P0 > P1 > P2 > P3), then weighted score (position 0.5, dependents 0.3, affinity 0.2). Returns `ScoredCandidate[]` sorted by rank.
+
+#### `assignFeature(roadmap, featureName, assignee, date)`
+
+Assigns a feature and appends to assignment history. No-op if already assigned to the same person. Reassignment produces two records: `unassigned` for the previous assignee, then `assigned` for the new one.
+
+**Types:** `ScoredCandidate`, `PilotScoringOptions`
+
+### Shared Utilities
+
+#### `STATUS_RANK`
+
+Record mapping `FeatureStatus` to numeric rank for directional sync protection. Shared between local sync and external tracker sync.
+
+#### `isRegression(from, to)`
+
+Returns `true` if transitioning from `from` to `to` would regress the status (lower rank).
 
 ---
 
