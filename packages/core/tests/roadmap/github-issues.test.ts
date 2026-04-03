@@ -26,6 +26,7 @@ function mockFetch(status: number, body: unknown): typeof fetch {
   return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
+    headers: new Headers(),
     text: async () => JSON.stringify(body),
     json: async () => body,
   });
@@ -130,6 +131,7 @@ describe('GitHubIssuesSyncAdapter', () => {
         token: 'tok',
         config: DEFAULT_CONFIG,
         fetchFn,
+        maxRetries: 0,
       });
 
       const result = await adapter.createTicket(makeFeature(), 'MVP');
