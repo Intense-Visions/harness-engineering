@@ -1,5 +1,12 @@
 # @harness-engineering/cli
 
+## 1.19.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/core@0.18.0 — GitHub milestone sync, feature type labels, rate limit retry
+
 ## 1.18.0
 
 ### Minor Changes
