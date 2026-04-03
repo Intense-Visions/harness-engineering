@@ -43,7 +43,11 @@ export async function syncToExternal(
         }
       } else {
         // Update existing ticket
-        const updateResult = await adapter.updateTicket(feature.externalId, feature);
+        const updateResult = await adapter.updateTicket(
+          feature.externalId,
+          feature,
+          milestone.name
+        );
         if (updateResult.ok) {
           result.updated.push(feature.externalId);
         } else {

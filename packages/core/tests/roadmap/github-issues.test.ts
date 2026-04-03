@@ -22,14 +22,27 @@ const DEFAULT_CONFIG: TrackerSyncConfig = {
   },
 };
 
-function mockFetch(status: number, body: unknown): typeof fetch {
-  return vi.fn().mockResolvedValue({
+function mockResponse(status: number, body: unknown) {
+  return {
     ok: status >= 200 && status < 300,
     status,
     headers: new Headers(),
     text: async () => JSON.stringify(body),
     json: async () => body,
-  });
+  };
+}
+
+function mockFetch(status: number, body: unknown): typeof fetch {
+  return vi.fn().mockResolvedValue(mockResponse(status, body));
+}
+
+/** Returns a fetch mock that responds differently per call in sequence. */
+function mockFetchSequence(...responses: Array<{ status: number; body: unknown }>): typeof fetch {
+  const fn = vi.fn();
+  for (const r of responses) {
+    fn.mockResolvedValueOnce(mockResponse(r.status, r.body));
+  }
+  return fn as unknown as typeof fetch;
 }
 
 function makeFeature(overrides?: Partial<RoadmapFeature>): RoadmapFeature {
@@ -98,11 +111,15 @@ describe('GitHubIssuesSyncAdapter', () => {
   });
 
   describe('createTicket', () => {
-    it('creates an issue and returns externalId', async () => {
-      const fetchFn = mockFetch(201, {
-        number: 42,
-        html_url: 'https://github.com/owner/repo/issues/42',
-      });
+    it('creates an issue with milestone and feature label', async () => {
+      const fetchFn = mockFetchSequence(
+        // 1. loadMilestones GET — return empty array (no existing milestones)
+        { status: 200, body: [] },
+        // 2. ensureMilestone POST — create "MVP" milestone
+        { status: 201, body: { number: 1 } },
+        // 3. createTicket POST — create the issue
+        { status: 201, body: { number: 42, html_url: 'https://github.com/owner/repo/issues/42' } }
+      );
       const adapter = new GitHubIssuesSyncAdapter({
         token: 'tok',
         config: DEFAULT_CONFIG,
@@ -115,18 +132,48 @@ describe('GitHubIssuesSyncAdapter', () => {
       expect(result.value.externalId).toBe('github:owner/repo#42');
       expect(result.value.url).toBe('https://github.com/owner/repo/issues/42');
 
-      expect(fetchFn).toHaveBeenCalledOnce();
-      const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      expect(fetchFn).toHaveBeenCalledTimes(3);
+      // Check the issue creation call (3rd call)
+      const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[2]!;
       expect(url).toBe('https://api.github.com/repos/owner/repo/issues');
       expect(opts.method).toBe('POST');
       const body = JSON.parse(opts.body as string);
       expect(body.title).toBe('Test Feature');
       expect(body.labels).toContain('harness-managed');
       expect(body.labels).toContain('planned');
+      expect(body.labels).toContain('feature');
+      expect(body.milestone).toBe(1);
+    });
+
+    it('reuses cached milestone on second create', async () => {
+      const fetchFn = mockFetchSequence(
+        // 1. loadMilestones GET — return existing "MVP" milestone
+        { status: 200, body: [{ number: 5, title: 'MVP' }] },
+        // 2. createTicket POST (no ensureMilestone needed — cached)
+        { status: 201, body: { number: 43, html_url: 'https://github.com/owner/repo/issues/43' } }
+      );
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.createTicket(makeFeature(), 'MVP');
+      expect(result.ok).toBe(true);
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+      const body = JSON.parse((fetchFn as ReturnType<typeof vi.fn>).mock.calls[1]![1].body);
+      expect(body.milestone).toBe(5);
     });
 
     it('returns Err on API failure', async () => {
-      const fetchFn = mockFetch(403, { message: 'Forbidden' });
+      const fetchFn = mockFetchSequence(
+        // loadMilestones
+        { status: 200, body: [] },
+        // ensureMilestone
+        { status: 201, body: { number: 1 } },
+        // createTicket — fails
+        { status: 403, body: { message: 'Forbidden' } }
+      );
       const adapter = new GitHubIssuesSyncAdapter({
         token: 'tok',
         config: DEFAULT_CONFIG,

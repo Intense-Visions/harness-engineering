@@ -17,7 +17,8 @@ export interface TrackerSyncAdapter {
   /** Update planning fields on an existing ticket */
   updateTicket(
     externalId: string,
-    changes: Partial<RoadmapFeature>
+    changes: Partial<RoadmapFeature>,
+    milestone?: string
   ): Promise<Result<ExternalTicket>>;
 
   /** Pull current assignment + status from external service */
