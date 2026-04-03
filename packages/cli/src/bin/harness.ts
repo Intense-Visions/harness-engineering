@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import { createProgram, handleError } from '../index';
 import { runUpdateCheckAtStartup, printUpdateNotification } from './update-check-hooks';
 import { printFirstRunWelcome } from '../utils/first-run';
