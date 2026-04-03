@@ -17,8 +17,8 @@ out/
 # Misc
 .DS_Store
 *.pem
-.env
-.env*.local
+.env*
+!.env.example
 
 # Debug
 npm-debug.log*

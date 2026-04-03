@@ -1,5 +1,14 @@
 # @harness-engineering/cli
 
+## 1.18.0
+
+### Minor Changes
+
+- Environment configuration via `.env` file
+  - **dotenv support** — Added `dotenv` as a runtime dependency. Both CLI entry points (`harness`, `harness-mcp`) now load `.env` from the working directory at startup via `import 'dotenv/config'`.
+  - **`.env.example`** — New file at repo root documenting all known environment variables: API keys (GITHUB_TOKEN, CONFLUENCE_API_KEY, CONFLUENCE_BASE_URL, JIRA_API_KEY, JIRA_BASE_URL, SLACK_API_KEY), integrations (PERPLEXITY_API_KEY), feature flags (HARNESS_NO_UPDATE_CHECK, CI), and server config (PORT).
+  - **`.gitignore` hardening** — Broadened env file patterns from `.env` / `.env*.local` to `.env*` with `!.env.example` exception, catching all variants (`.env.production`, `.env.staging`, etc.).
+
 ## 1.17.0
 
 ### Minor Changes
