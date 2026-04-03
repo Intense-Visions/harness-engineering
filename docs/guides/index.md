@@ -66,16 +66,16 @@ Share architectural and security constraints across projects as portable bundles
 
 **Best for:** Teams enforcing consistent architecture across multiple repositories
 
-### [Roadmap Sync & Auto-Pick](./roadmap-sync.md)
+### [Roadmap Guide](./roadmap-sync.md)
 
-Bidirectional sync between your project roadmap and GitHub Issues, plus AI-assisted next-item selection:
+Complete guide to the harness roadmap system — structure, management, sync, and auto-pick:
 
-- Configuring GitHub Issues as the sync adapter
-- Status mapping with label-based disambiguation
-- Assignment history and affinity-based routing
-- Auto-pick pilot for selecting the next work item
+- Roadmap file structure, feature fields, statuses, and milestones
+- Managing features via slash commands and MCP tools
+- Configuring GitHub Issues as a bidirectional sync adapter
+- Assignment history, affinity scoring, and the auto-pick pilot
 
-**Best for:** Teams using roadmap.md who want GitHub Issues integration and automated task selection
+**Best for:** Teams using `docs/roadmap.md` for project tracking and planning
 
 ## How to Use These Guides
 

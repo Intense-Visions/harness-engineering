@@ -1,23 +1,154 @@
-# Roadmap Sync & Auto-Pick
+# Roadmap Guide
 
-Bidirectional sync between your project roadmap and GitHub Issues, plus AI-assisted next-item selection.
+The harness roadmap system tracks project features across milestones in a single markdown file (`docs/roadmap.md`), with optional bidirectional sync to GitHub Issues and AI-assisted next-item selection.
 
-## Overview
+## The Roadmap File
 
-The roadmap sync system keeps `docs/roadmap.md` and an external issue tracker in sync using a split-authority model:
+### Creating a Roadmap
 
-- **Roadmap owns planning fields** — status, spec, plans, blockers, summary
-- **External service owns execution fields** — assignee, real-time status updates
+```
+/harness:roadmap --create
+```
 
-Sync fires automatically on every state transition (task-start, task-complete, phase-start, phase-complete, save-handoff, archive_session). Errors are swallowed — sync never blocks your work.
+This creates `docs/roadmap.md` with frontmatter and your first milestone. You can also create it manually.
 
-## Prerequisites
+### Structure
 
-- A `docs/roadmap.md` file in your project (create with `/harness:roadmap --create`)
+A roadmap file has three sections: **frontmatter**, **milestones with features**, and an optional **assignment history**.
+
+```markdown
+---
+project: my-project
+version: 1
+created: 2026-04-01
+updated: 2026-04-03
+last_synced: 2026-04-03T10:00:00Z
+last_manual_edit: 2026-04-02
+---
+
+# Roadmap
+
+## v1.0 MVP
+
+### Authentication
+
+- **Status:** done
+- **Spec:** docs/changes/auth/proposal.md
+- **Summary:** User authentication with OAuth2
+- **Blockers:** none
+- **Plan:** docs/plans/2026-03-15-auth-plan.md
+
+### API Gateway
+
+- **Status:** in-progress
+- **Spec:** docs/changes/api-gateway/proposal.md
+- **Summary:** REST API with rate limiting and versioning
+- **Blockers:** none
+- **Plan:** docs/plans/2026-04-01-api-gateway-plan.md
+- **Assignee:** @alice
+- **Priority:** P0
+- **External-ID:** github:myorg/myproject#12
+
+### Dashboard UI
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Admin dashboard for monitoring
+- **Blockers:** API Gateway
+
+## Backlog
+
+### Mobile App
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** iOS and Android companion app
+- **Blockers:** —
+
+## Assignment History
+
+| Feature        | Assignee | Action    | Date       |
+| -------------- | -------- | --------- | ---------- |
+| Authentication | @alice   | assigned  | 2026-03-15 |
+| Authentication | @alice   | completed | 2026-03-28 |
+| API Gateway    | @alice   | assigned  | 2026-04-01 |
+```
+
+### Feature Fields
+
+Every feature under a milestone heading (`### Feature Name`) has these fields:
+
+| Field         | Required | Description                                                              |
+| ------------- | -------- | ------------------------------------------------------------------------ |
+| `Status`      | Yes      | One of: `backlog`, `planned`, `in-progress`, `done`, `blocked`           |
+| `Spec`        | Yes      | Path to the proposal spec, or `—` if none exists                         |
+| `Summary`     | Yes      | One-line description of the feature                                      |
+| `Blockers`    | Yes      | Comma-separated list of feature names this depends on, or `none`/`—`     |
+| `Plan`        | No       | Path to the implementation plan                                          |
+| `Assignee`    | No       | Who is working on this (GitHub username, email, or name)                 |
+| `Priority`    | No       | Override: `P0`, `P1`, `P2`, `P3`. Replaces position as primary sort key. |
+| `External-ID` | No       | Auto-populated by sync. Format: `github:owner/repo#42`.                  |
+
+The `Assignee`, `Priority`, and `External-ID` fields are conditionally emitted — if none are set on any feature, the output is identical to a legacy roadmap with no diff noise.
+
+### Feature Statuses
+
+| Status        | Meaning                                |
+| ------------- | -------------------------------------- |
+| `backlog`     | Identified but not yet planned         |
+| `planned`     | Has a spec and/or plan, ready to start |
+| `in-progress` | Actively being worked on               |
+| `done`        | Completed                              |
+| `blocked`     | Cannot proceed — waiting on blockers   |
+
+Status progression follows a directional rule: `backlog` → `planned` → `in-progress` → `done`. The sync system enforces this — status can only advance forward, never regress, unless explicitly forced.
+
+### Milestones
+
+Features are grouped under H2 milestone headings (`## v1.0 MVP`). The special `## Backlog` milestone holds items not yet assigned to a release. Features are ordered by priority within each milestone — earlier position = higher priority (unless an explicit `Priority` field overrides this).
+
+## Managing the Roadmap
+
+### Via Slash Command
+
+```
+/harness:roadmap --show              # Display current roadmap
+/harness:roadmap --add               # Add a feature interactively
+/harness:roadmap --sync              # Sync roadmap with project state
+/harness:roadmap --edit              # Edit a feature's fields
+/harness:roadmap --query status=blocked  # Query features by field
+```
+
+### Via MCP Tool
+
+The `manage_roadmap` MCP tool provides programmatic access:
+
+| Action   | Description                                              |
+| -------- | -------------------------------------------------------- |
+| `show`   | Display the full roadmap or a filtered view              |
+| `add`    | Add a new feature to a milestone                         |
+| `update` | Update a feature's fields (status, spec, assignee, etc.) |
+| `remove` | Remove a feature                                         |
+| `query`  | Query features by status, milestone, or other fields     |
+| `sync`   | Trigger local + external sync                            |
+
+### Local Sync
+
+Local sync (`syncRoadmap`) scans your project's execution state — specs, plans, and session files — and proposes status changes. For example, if a spec exists for a `backlog` feature, sync proposes advancing it to `planned`. If all tasks in the plan are complete, sync proposes `done`.
+
+The **human-always-wins rule** applies: manually edited statuses are never overwritten unless `force_sync` is set. This prevents the system from fighting human judgment.
+
+Local sync fires automatically after every state transition via `autoSyncRoadmap`.
+
+## External Tracker Sync (GitHub Issues)
+
+### Prerequisites
+
 - A GitHub repository with Issues enabled
 - A `GITHUB_TOKEN` environment variable with `repo` scope
+- Tracker configuration in `harness.config.json`
 
-## Configuring GitHub Issues Sync
+### Configuring GitHub Issues Sync
 
 Add a `roadmap.tracker` section to your `harness.config.json`:
 
