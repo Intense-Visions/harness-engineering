@@ -1,6 +1,6 @@
 # Release Readiness Report
 
-**Date:** 2026-04-01
+**Date:** 2026-04-02
 **Project:** harness-engineering
 **Flags:** standard
 
@@ -8,111 +8,122 @@
 
 **Result: PASS**
 
-| Category                   | Passed              | Warnings | Failures |
-| -------------------------- | ------------------- | -------- | -------- |
-| Packaging                  | 77/77               | 1        | 0        |
-| Documentation              | 6/6                 | 0        | 0        |
-| Repo Hygiene               | 5/5                 | 0        | 0        |
-| CI/CD                      | 6/6                 | 0        | 0        |
-| Maintenance — Doc Drift    | 4 remaining (warn)  | —        | —        |
-| Maintenance — Dead Code    | 5 issues (warn)     | —        | —        |
-| Maintenance — Architecture | 6 complexity (warn) | —        | —        |
-| Maintenance — Diagnostics  | 2 issues (warn)     | —        | —        |
+| Category                   | Passed       | Warnings | Failures |
+| -------------------------- | ------------ | -------- | -------- |
+| Packaging                  | 77/77        | 0        | 0        |
+| Documentation              | 6/6          | 0        | 0        |
+| Repo Hygiene               | 5/5          | 0        | 0        |
+| CI/CD                      | 5/5          | 0        | 0        |
+| Maintenance — Doc Drift    | 19 issues    | —        | —        |
+| Maintenance — Dead Code    | 0 issues     | —        | —        |
+| Maintenance — Architecture | 6 violations | —        | —        |
+| Maintenance — Diagnostics  | 0 issues     | —        | —        |
 
 ## Packaging
 
-### All 7 Packages — PASS
+All 7 packages pass all checks:
 
-| Package                            | Version | Build | Typecheck | Tests       | Metadata   |
-| ---------------------------------- | ------- | ----- | --------- | ----------- | ---------- |
-| @harness-engineering/cli           | 1.15.0  | PASS  | PASS      | PASS (1633) | All fields |
-| @harness-engineering/core          | 0.15.0  | PASS  | PASS      | PASS (1520) | All fields |
-| @harness-engineering/types         | 0.5.0   | PASS  | PASS      | PASS        | All fields |
-| @harness-engineering/graph         | 0.3.3   | PASS  | PASS      | PASS        | All fields |
-| @harness-engineering/orchestrator  | 0.2.3   | PASS  | PASS      | PASS        | All fields |
-| @harness-engineering/eslint-plugin | 0.2.3   | PASS  | PASS      | PASS        | All fields |
-| @harness-engineering/linter-gen    | 0.1.4   | PASS  | PASS      | PASS        | All fields |
+### @harness-engineering/types (0.6.0) — PASS
 
-Warning: CLI `npm pack` includes 4 test files in tarball.
+### @harness-engineering/core (0.16.0) — PASS
+
+### @harness-engineering/graph (0.3.4) — PASS
+
+### @harness-engineering/cli (1.16.0) — PASS
+
+### @harness-engineering/eslint-plugin (0.2.3) — PASS
+
+### @harness-engineering/linter-gen (0.1.4) — PASS
+
+### @harness-engineering/orchestrator (0.2.4) — PASS
+
+All packages have: name, version, license, exports/main, files, publishConfig, repository, bugs, homepage, description.
+
+- [x] Build succeeds (all 8 turbo tasks)
+- [x] Typecheck passes (all 6 packages)
+- [x] Tests pass (all 16 turbo test tasks)
 
 ## Documentation
 
-- [x] README.md exists with install/quickstart and usage sections
-- [x] CHANGELOG.md exists with entries (v0.9.0)
+- [x] README.md exists
+- [x] README has install/quickstart section
+- [x] README has usage/API section
+- [x] CHANGELOG.md exists with 39+ entries
 - [x] LICENSE file exists (MIT)
 
 ## Repo Hygiene
 
-- [x] CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md exist
+- [x] CONTRIBUTING.md exists
+- [x] CODE_OF_CONDUCT.md exists
+- [x] SECURITY.md exists
 - [x] .gitignore covers node_modules, dist, .env
-- [x] No TODO/FIXME in published source files
+- [x] No TODO/FIXME in published source (dist/ files clean)
 
 ## CI/CD
 
-- [x] CI workflow: `.github/workflows/ci.yml`
-- [x] Release workflow: `.github/workflows/release.yml`
+- [x] CI workflow: .github/workflows/ci.yml
+- [x] Release workflow: .github/workflows/release.yml
+- [x] Benchmark workflow: .github/workflows/benchmark.yml
+- [x] Smoke test workflow: .github/workflows/smoke-test.yml
 - [x] test, lint, typecheck scripts in root package.json
-- [x] Lint passes clean
 
 ## Maintenance Results
 
-### Doc Drift (4 remaining — all warnings, not blocking)
+### Doc Drift (19 issues — 12 fail, 7 warn)
 
-- `docs/api/index.md:31-41` — Assembler code example has wrong constructor/return type
-- `docs/api/graph.md:25` — ContextQL uses `run()` instead of `execute()`
-- `README.md:90` — `HarnessConfigSchema` import not exported from CLI package
-- `docs/api/graph.md:33` — VERSION export `0.2.0` vs package.json `0.3.3`
+**Version drift (fail):**
 
-### Dead Code (5 items — warnings)
+- docs/api/cli.md: version 1.13.1 vs actual 1.16.0
+- docs/api/core.md: version 0.15.0 vs actual 0.16.0
+- docs/api/graph.md: version 0.3.3 vs actual 0.3.4, VERSION constant 0.2.0
+- docs/api/eslint-plugin.md: version 0.2.2 vs actual 0.2.3
+- docs/api/types.md: version 0.3.1 vs actual 0.6.0
+- docs/api/linter-gen.md: version 0.1.3 vs actual 0.1.4
 
-1. `packages/core/src/blueprint/impact-lab-generator.ts` — orphan file
-2. `packages/core/src/shared/llm.ts` — dead exports MockLLMService, LLMService
-3. `packages/orchestrator/src/tracker/extensions/linear.ts` — dead exports (Phase 4 stub)
-4. `packages/core/src/blueprint/graph-scanner.ts` — orphan file
-5. `packages/graph/src/index.ts:56-57` — dead re-exports ConfluenceConnector, CIConnector
+**Content drift (fail):**
 
-### Architecture (6 complexity violations — warnings)
+- README.md: HarnessConfigSchema import not exported from CLI package
+- docs/api/eslint-plugin.md: recommended config table incomplete, description inaccurate
+- docs/guides/features-overview.md: claims 24 node/17 edge types, actual 29/22
+- docs/guides/ci-cd-validation.md: missing security, perf, arch from checks
 
-| File                                              | Function                  | CC  | Threshold |
-| ------------------------------------------------- | ------------------------- | --- | --------- |
-| `core/src/usage/aggregator.ts`                    | `aggregateBySession`      | 33  | 15        |
-| `core/src/usage/aggregator.ts`                    | inner for-loop            | 29  | 15        |
-| `core/src/usage/aggregator.ts`                    | `aggregateByDay`          | 19  | 15        |
-| `cli/src/commands/generate-slash-commands.ts`     | `generateSlashCommands`   | 17  | 15        |
-| `cli/src/commands/generate-slash-commands.ts`     | inner for-loop            | 17  | 15        |
-| `core/tests/entropy/detectors/complexity.test.ts` | `complexRouter` (fixture) | 16  | 15        |
+**Count drift (warn):**
 
-### Diagnostics (2 items — warnings)
+- README.md: claims 50 tools (actual 49), 80 skills (actual 81), ESLint list omits 1 rule
+- docs/guides/getting-started.md: claims 79 skills (actual 81), 50 tools (actual 49)
+- docs/api/core.md: VERSION constant 0.15.0 stale vs package.json 0.16.0
 
-1. `docs/changes/force-multiplier-integrations/proposal.md` — unescaped `<name>` tags break VitePress build
-2. `core/src/code-nav/parser.ts:41` — `import.meta.url` CJS build warning
+### Dead Code (0 issues — clean)
+
+No orphaned files, dead exports, or commented-out code blocks detected.
+
+### Architecture (6 complexity violations)
+
+- aggregateBySession CC=33 (packages/core/src/usage/aggregator.ts)
+- for loop CC=29 (packages/core/src/usage/aggregator.ts)
+- aggregateByDay CC=19 (packages/core/src/usage/aggregator.ts)
+- parseFeatureFields CC=21 (packages/core/src/roadmap/parse.ts) — NEW
+- getEdges CC=21 (packages/graph/src/store/GraphStore.ts) — NEW
+- complexRouter CC=16 (test fixture)
+
+### Diagnostics
+
+Clean — 0 issues.
 
 ## Fixes Applied This Session
 
-1. `core/src/security/injection-patterns.ts:36` — eslint-disable for intentional zero-width char regex
-2. `README.md:168` — tool count 49 → 50
-3. `docs/guides/getting-started.md:196` — tool count 46 → 50
-4. `README.md:219` — skill count 79 → 80
-5. `docs/api/core.md:5` — version 0.13.1 → 0.15.0
-6. `docs/api/core.md:26` — VERSION comment 0.12.0 → 0.15.0
-7. `docs/api/graph.md:5` — version 0.3.2 → 0.3.3
-8. `cli/src/hooks/sentinel-pre.js` — fix lint errors (no-misleading-character-class, no-undef)
-9. `cli/src/hooks/sentinel-post.js` — fix lint errors, remove unused import
-10. `cli/src/hooks/pre-compact-state.js` — remove unused variable
-11. `cli/src/commands/hooks/add.ts` — replace `any` types with `JsonObject` alias
-12. `core/tests/state/gate.test.ts:27` — increase timeout for npm-spawning test
-13. `cli/tests/hooks/profiles.test.ts` — update HOOK_SCRIPTS length 5 → 7
-14. `cli/tests/hooks/hooks-cli-integration.test.ts` — update strict hooks length 5 → 7
-15. `cli/src/hooks/cost-tracker.js` — fix snake_case → camelCase field names
-16. `cli/tests/commands/doctor.test.ts` — fix mock to expose .gemini dir for MCP check
-17. `cli/tests/commands/usage.test.ts` — mock fetch, increase timeout, fix JSON parsing
+- Removed unused RoadmapMilestone/AssignmentRecord imports in pilot-scoring.ts (DTS build fix)
+- Added assignee/priority/externalId defaults to roadmap.ts feature construction (typecheck fix)
+- Created platform symlinks for harness-roadmap-pilot skill (platform parity)
+- Fixed resolveReverseStatus import in github-issues.test.ts (test fix)
 
-## Advisory Items (not blocking)
+## Remaining Items (non-blocking maintenance warnings)
 
-- [ ] Fix broken code examples in docs/api/ (Assembler, ContextQL)
-- [ ] Fix HarnessConfigSchema import in README
-- [ ] Sync graph VERSION export with package.json
-- [ ] Escape `<name>` tags in docs proposal
-- [ ] Decompose aggregateBySession (CC=33)
-- [ ] Remove orphan files and dead exports
-- [ ] Update architecture baselines
+- [ ] Update stale version numbers in all docs/api/\*.md files
+- [ ] Fix README HarnessConfigSchema import reference
+- [ ] Update node/edge type counts in features-overview.md
+- [ ] Add missing checks to ci-cd-validation.md
+- [ ] Update tool and skill counts in README and getting-started
+- [ ] Fix eslint-plugin.md recommended config table
+- [ ] Decompose aggregateBySession/aggregateByDay complexity
+- [ ] Consider decomposing parseFeatureFields and getEdges
