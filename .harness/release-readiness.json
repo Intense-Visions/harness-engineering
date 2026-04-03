@@ -1,31 +1,22 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-04-01T23:55:00Z",
+  "timestamp": "2026-04-02T19:30:00Z",
   "flags": {
     "comprehensive": false
   },
   "summary": {
     "result": "PASS",
-    "passed": 94,
-    "warned": 1,
+    "passed": 93,
+    "warned": 0,
     "failed": 0,
-    "total": 95
+    "total": 93
   },
   "categories": {
     "packaging": {
       "passed": 77,
-      "warned": 1,
+      "warned": 0,
       "failed": 0,
-      "findings": [
-        {
-          "package": "packages/cli",
-          "check": "pnpm pack produces expected files",
-          "severity": "warn",
-          "fixable": false,
-          "fixed": false,
-          "detail": "4 test files included in tarball"
-        }
-      ]
+      "findings": []
     },
     "documentation": {
       "passed": 6,
@@ -40,67 +31,85 @@
       "findings": []
     },
     "ci-cd": {
-      "passed": 6,
+      "passed": 5,
       "warned": 0,
       "failed": 0,
       "findings": []
     },
     "maintenance": {
       "doc-drift": {
-        "issues": 4,
+        "issues": 19,
         "findings": [
           {
-            "file": "docs/api/index.md",
-            "check": "Assembler code example has wrong constructor signature and return type",
-            "severity": "warn"
+            "file": "README.md",
+            "check": "HarnessConfigSchema import not exported from CLI package",
+            "severity": "fail"
           },
           {
-            "file": "docs/api/graph.md",
-            "check": "ContextQL example uses run() instead of execute()",
+            "file": "README.md",
+            "check": "ESLint rule count says 11 but list omits require-path-normalization",
             "severity": "warn"
           },
           {
             "file": "README.md",
-            "check": "HarnessConfigSchema import not exported from CLI package",
+            "check": "Claims 50 tools, actual count is 49",
             "severity": "warn"
+          },
+          {
+            "file": "README.md",
+            "check": "Skills count says 80, actual is 81",
+            "severity": "warn"
+          },
+          {
+            "file": "docs/api/cli.md",
+            "check": "Version 1.13.1 vs actual 1.16.0",
+            "severity": "fail"
+          },
+          {
+            "file": "docs/api/core.md",
+            "check": "Version 0.15.0 vs actual 0.16.0",
+            "severity": "fail"
           },
           {
             "file": "docs/api/graph.md",
-            "check": "VERSION export 0.2.0 vs package.json 0.3.3",
-            "severity": "warn"
-          }
-        ],
-        "note": "7 version/count drift findings auto-fixed this session"
-      },
-      "dead-code": {
-        "issues": 5,
-        "findings": [
+            "check": "Version 0.3.3 vs actual 0.3.4, VERSION constant 0.2.0 vs 0.3.4",
+            "severity": "fail"
+          },
           {
-            "file": "packages/core/src/blueprint/impact-lab-generator.ts",
-            "check": "orphaned file",
+            "file": "docs/api/eslint-plugin.md",
+            "check": "Version 0.2.2 vs actual 0.2.3, recommended config incomplete",
+            "severity": "fail"
+          },
+          {
+            "file": "docs/api/types.md",
+            "check": "Version 0.3.1 vs actual 0.6.0",
+            "severity": "fail"
+          },
+          {
+            "file": "docs/api/linter-gen.md",
+            "check": "Version 0.1.3 vs actual 0.1.4",
+            "severity": "fail"
+          },
+          {
+            "file": "docs/guides/getting-started.md",
+            "check": "Skills count says 79, actual is 81; tools count says 50, actual is 49",
             "severity": "warn"
           },
           {
-            "file": "packages/core/src/shared/llm.ts",
-            "check": "dead exports MockLLMService, LLMService",
-            "severity": "warn"
+            "file": "docs/guides/features-overview.md",
+            "check": "Claims 24 node types/17 edge types, actual is 29/22",
+            "severity": "fail"
           },
           {
-            "file": "packages/orchestrator/src/tracker/extensions/linear.ts",
-            "check": "dead exports LinearGraphQLStub, LinearGraphQLExtension",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/blueprint/graph-scanner.ts",
-            "check": "orphaned file",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/graph/src/index.ts",
-            "check": "dead re-exports ConfluenceConnector, CIConnector",
-            "severity": "warn"
+            "file": "docs/guides/ci-cd-validation.md",
+            "check": "Missing security, perf, arch from --skip list and checks table",
+            "severity": "fail"
           }
         ]
+      },
+      "dead-code": {
+        "issues": 0,
+        "findings": []
       },
       "architecture": {
         "issues": 6,
@@ -112,12 +121,22 @@
           },
           {
             "file": "packages/core/src/usage/aggregator.ts",
+            "check": "for loop CC=29 exceeds threshold 15",
+            "severity": "warn"
+          },
+          {
+            "file": "packages/core/src/usage/aggregator.ts",
             "check": "aggregateByDay CC=19 exceeds threshold 15",
             "severity": "warn"
           },
           {
-            "file": "packages/cli/src/commands/generate-slash-commands.ts",
-            "check": "generateSlashCommands CC=17 exceeds threshold 15",
+            "file": "packages/core/src/roadmap/parse.ts",
+            "check": "parseFeatureFields CC=21 exceeds threshold 15",
+            "severity": "warn"
+          },
+          {
+            "file": "packages/graph/src/store/GraphStore.ts",
+            "check": "getEdges CC=21 exceeds threshold 15",
             "severity": "warn"
           },
           {
@@ -128,55 +147,26 @@
         ]
       },
       "diagnostics": {
-        "issues": 2,
-        "findings": [
-          {
-            "file": "docs/changes/force-multiplier-integrations/proposal.md",
-            "check": "unescaped <name> tags break VitePress build",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/code-nav/parser.ts",
-            "check": "import.meta.url CJS build warning",
-            "severity": "info"
-          }
-        ]
+        "issues": 0,
+        "findings": []
       }
     }
   },
   "fixes": {
     "applied": [
-      "eslint-disable-injection-patterns-regex",
-      "readme-tool-count-49-to-50",
-      "getting-started-tool-count-46-to-50",
-      "readme-skill-count-79-to-80",
-      "core-doc-version-0.13.1-to-0.15.0",
-      "core-doc-VERSION-comment-0.12.0-to-0.15.0",
-      "graph-doc-version-0.3.2-to-0.3.3",
-      "sentinel-pre-lint-fixes",
-      "sentinel-post-lint-fixes",
-      "pre-compact-state-unused-var",
-      "hooks-add-any-to-jsonobject",
-      "gate-test-timeout-increase",
-      "profiles-test-hook-count-5-to-7",
-      "hooks-integration-test-hook-count-5-to-7",
-      "cost-tracker-snake-to-camelcase",
-      "doctor-test-mock-gemini-dir",
-      "usage-test-mock-fetch-fix-json-parsing"
+      "pilot-scoring-unused-imports",
+      "roadmap-feature-missing-fields",
+      "roadmap-pilot-platform-symlinks",
+      "github-issues-test-import-fix"
     ],
     "pending": [
       "docs-api-index-assembler-example",
       "docs-api-graph-contextql-example",
       "readme-harness-config-schema-import",
       "graph-version-export-mismatch",
-      "docs-proposal-unescaped-name-tags",
       "aggregator-complexity-decompose",
-      "generate-slash-commands-complexity",
-      "orphan-impact-lab-generator",
-      "orphan-graph-scanner",
-      "dead-exports-cleanup",
-      "missing-core-agents-md",
-      "update-arch-baselines"
+      "parseFeatureFields-complexity",
+      "getEdges-complexity"
     ],
     "skipped": []
   }
