@@ -444,7 +444,7 @@ Search the knowledge graph for nodes similar to a query string using keyword and
 
 ### `search_skills`
 
-Search the skill catalog for domain-specific skills. Returns ranked results based on keyword and stack-signal matching. Use this to discover catalog skills that are not loaded as slash commands.
+Search the skill catalog for domain-specific skills. Returns ranked results based on keyword, name, description, and stack-signal matching. Use this to discover catalog skills that are not loaded as slash commands.
 
 **Parameters:**
 

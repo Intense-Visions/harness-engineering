@@ -47,6 +47,9 @@ temp/
 .harness/debug/
 .harness/sessions/
 .harness/session-taint-*.json
+.harness/handoff.json
+.harness/state/
 
 .vitepress
 *.tsbuildinfo
+.harness/state/pre-compact-summary.json
