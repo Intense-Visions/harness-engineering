@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.0
+
+### Minor Changes
+
+- GitHub sync assignee support and auto-population
+  - **Push assignee on create** — `createTicket` now includes `assignees` in the GitHub Issues API payload when `feature.assignee` is set.
+  - **Push assignee on update** — `updateTicket` sends assignee changes (set or clear) via the `assignees` field on issue PATCH.
+  - **Auto-populate assignee** — `syncToExternal` fetches the authenticated user's GitHub login via `GET /user` and sets it as the default assignee for features with no assignee. Cached per adapter instance.
+  - **`getAuthenticatedUser()`** — New method on `GitHubIssuesSyncAdapter` that calls `GET /user` and returns `@login` format, cached after first call.
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/types@0.8.0 — `TrackerSyncAdapter.getAuthenticatedUser()` interface addition
+
 ## 0.18.0
 
 ### Minor Changes

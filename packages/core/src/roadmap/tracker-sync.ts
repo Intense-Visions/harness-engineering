@@ -29,6 +29,9 @@ export interface TrackerSyncAdapter {
 
   /** Assign a ticket to a person */
   assignTicket(externalId: string, assignee: string): Promise<Result<void>>;
+
+  /** Get the authenticated user's login (e.g., "@octocat"). Cached after first call. */
+  getAuthenticatedUser(): Promise<Result<string>>;
 }
 
 /**

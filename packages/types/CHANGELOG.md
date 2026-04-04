@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.8.0
+
+### Minor Changes
+
+- `TrackerSyncAdapter` interface extended with `getAuthenticatedUser()` method for retrieving the token owner's GitHub username. Enables auto-population of assignee fields during sync.
+
 ## 0.7.0
 
 ### Minor Changes

@@ -108,6 +108,8 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
   private readonly retryOpts: { maxRetries: number; baseDelayMs: number };
   /** Cached GitHub milestone name -> ID mapping */
   private milestoneCache: Map<string, number> | null = null;
+  /** Cached authenticated user login (e.g., "@octocat") */
+  private authenticatedUserCache: string | null = null;
 
   constructor(options: GitHubAdapterOptions) {
     this.token = options.token;
@@ -170,6 +172,30 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     return data.number;
   }
 
+  async getAuthenticatedUser(): Promise<Result<string>> {
+    if (this.authenticatedUserCache) return Ok(this.authenticatedUserCache);
+
+    try {
+      const response = await fetchWithRetry(
+        this.fetchFn,
+        `${this.apiBase}/user`,
+        { method: 'GET', headers: this.headers() },
+        this.retryOpts
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        return Err(new Error(`GitHub API error ${response.status}: ${text}`));
+      }
+
+      const data = (await response.json()) as { login: string };
+      this.authenticatedUserCache = `@${data.login}`;
+      return Ok(this.authenticatedUserCache);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
   private headers(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.token}`,
@@ -205,6 +231,12 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       const milestoneId = await this.ensureMilestone(milestone);
       const issuePayload: Record<string, unknown> = { title: feature.name, body, labels };
       if (milestoneId) issuePayload.milestone = milestoneId;
+      if (feature.assignee) {
+        const login = feature.assignee.startsWith('@')
+          ? feature.assignee.slice(1)
+          : feature.assignee;
+        issuePayload.assignees = [login];
+      }
 
       const response = await fetchWithRetry(
         this.fetchFn,
@@ -249,6 +281,16 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         patch.state = externalStatus;
         // Update labels for status disambiguation, preserving the type label
         patch.labels = [...labelsForStatus(changes.status, this.config), 'feature'];
+      }
+      if (changes.assignee !== undefined) {
+        if (changes.assignee) {
+          const login = changes.assignee.startsWith('@')
+            ? changes.assignee.slice(1)
+            : changes.assignee;
+          patch.assignees = [login];
+        } else {
+          patch.assignees = [];
+        }
       }
       if (milestone) {
         const milestoneId = await this.ensureMilestone(milestone);

@@ -6,6 +6,18 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.12.0 — 2026-04-04
+
+### Added
+
+- **Assignee push on sync** — `createTicket` and `updateTicket` now include the `assignees` field in GitHub API payloads, keeping roadmap assignees in sync with GitHub Issue assignees bidirectionally.
+- **Auto-populate assignee** — `syncToExternal` fetches the authenticated user's GitHub login via `GET /user` and auto-assigns features with no assignee. Cached per adapter instance.
+- **`getAuthenticatedUser()`** — New method on `TrackerSyncAdapter` interface and `GitHubIssuesSyncAdapter` implementation. Returns `@login` format.
+
+### Fixed
+
+- **Project `.env` loading for MCP sync** — `triggerExternalSync` now loads `.env` from the project root when `GITHUB_TOKEN` is not in the environment, fixing token discovery when the MCP server's working directory differs from the project.
+
 ## 0.11.0 — 2026-04-03
 
 ### Added

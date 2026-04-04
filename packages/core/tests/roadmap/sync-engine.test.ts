@@ -83,6 +83,7 @@ function mockAdapter(overrides?: Partial<TrackerSyncAdapter>): TrackerSyncAdapte
     ),
     fetchAllTickets: vi.fn(async () => Ok([])),
     assignTicket: vi.fn(async () => Ok(undefined)),
+    getAuthenticatedUser: vi.fn(async () => Ok('@testuser')),
     ...overrides,
   };
 }

@@ -56,6 +56,14 @@ async function triggerExternalSync(projectPath: string, roadmapFile: string): Pr
     const trackerConfig = loadTrackerConfig(projectPath);
     if (!trackerConfig) return;
 
+    // Load .env from the project root — the MCP server's startup dotenv/config
+    // loads from process.cwd() which may differ from the project being synced.
+    const projectEnvPath = path.join(projectPath, '.env');
+    if (fs.existsSync(projectEnvPath) && !process.env.GITHUB_TOKEN) {
+      const { config: loadDotenv } = await import('dotenv');
+      loadDotenv({ path: projectEnvPath });
+    }
+
     const token = process.env.GITHUB_TOKEN;
     if (!token) return; // No token — cannot sync
 
