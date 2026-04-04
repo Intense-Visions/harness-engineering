@@ -1,5 +1,17 @@
 # @harness-engineering/cli
 
+## 1.21.0
+
+### Minor Changes
+
+- Return readable markdown from emit_interaction instead of JSON blob
+
+  Split the single JSON content item into dual items: rendered markdown first (audience: user+assistant) and metadata JSON second (audience: assistant), with MCP audience annotations. This makes emit_interaction output readable on Gemini CLI and other clients that display raw MCP tool responses.
+
+### Patch Changes
+
+- Fix search_skills to find skills by name and description, not just keywords
+
 ## 1.20.1
 
 ### Patch Changes
