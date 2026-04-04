@@ -46,3 +46,8 @@ state:
   files:
     - .harness/debug/
 depends_on: []
+addresses:
+  - signal: perf-regression
+    weight: 0.5
+  - signal: anomaly-outlier
+    weight: 0.6
