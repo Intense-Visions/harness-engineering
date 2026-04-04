@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { resolveMetricValue, matchHardRules } from '../../src/skill/recommendation-engine';
+import {
+  resolveMetricValue,
+  matchHardRules,
+  scoreByHealth,
+} from '../../src/skill/recommendation-engine';
 import type { HealthSnapshot, HealthMetrics } from '../../src/skill/health-snapshot';
 import type { SkillAddress } from '../../src/skill/schema';
 
@@ -156,6 +160,164 @@ describe('matchHardRules', () => {
     const snapshot = makeSnapshot({ signals: ['circular-deps'] });
     const index = makeIndex({});
     const result = matchHardRules(snapshot, index);
+    expect(result).toHaveLength(0);
+  });
+});
+
+// -- scoreByHealth tests --
+
+describe('scoreByHealth', () => {
+  it('scores a skill with metric-based soft address', () => {
+    const snapshot = makeSnapshot({
+      signals: ['high-coupling'],
+      metrics: makeMetrics({ maxFanOut: 25 }),
+    });
+    const index = makeIndex({
+      'enforce-architecture': {
+        addresses: [{ signal: 'high-coupling', metric: 'fanOut', threshold: 20, weight: 0.8 }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    expect(result).toHaveLength(1);
+    // distance = (25-20)/20 = 0.25, contribution = 0.8 * 0.25 = 0.2
+    expect(result[0]!.score).toBeCloseTo(0.2, 2);
+    expect(result[0]!.urgency).toBe('nice-to-have');
+  });
+
+  it('clamps distance to [0, 1]', () => {
+    const snapshot = makeSnapshot({
+      signals: ['high-coupling'],
+      metrics: makeMetrics({ maxFanOut: 60 }),
+    });
+    const index = makeIndex({
+      'enforce-architecture': {
+        addresses: [{ signal: 'high-coupling', metric: 'fanOut', threshold: 20, weight: 0.8 }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    // distance = (60-20)/20 = 2.0, clamped to 1.0, contribution = 0.8 * 1.0 = 0.8
+    expect(result[0]!.score).toBeCloseTo(0.8, 2);
+    expect(result[0]!.urgency).toBe('recommended');
+  });
+
+  it('uses default weight 0.5 when weight is omitted', () => {
+    const snapshot = makeSnapshot({
+      signals: ['anomaly-outlier'],
+      metrics: makeMetrics({ anomalyOutlierCount: 3 }),
+    });
+    const index = makeIndex({
+      'dependency-health': {
+        addresses: [{ signal: 'anomaly-outlier' }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    expect(result).toHaveLength(1);
+    // signal-only: contribution = 0.5 (default weight)
+    expect(result[0]!.score).toBeCloseTo(0.5, 2);
+  });
+
+  it('signal-only soft address uses full weight when signal is active', () => {
+    const snapshot = makeSnapshot({
+      signals: ['dead-code'],
+    });
+    const index = makeIndex({
+      'codebase-cleanup': {
+        addresses: [{ signal: 'dead-code', weight: 0.8 }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    expect(result[0]!.score).toBeCloseTo(0.8, 2);
+    expect(result[0]!.urgency).toBe('recommended');
+  });
+
+  it('aggregates contributions from multiple matching soft addresses', () => {
+    const snapshot = makeSnapshot({
+      signals: ['high-coupling', 'anomaly-outlier'],
+      metrics: makeMetrics({ maxFanOut: 30 }),
+    });
+    const index = makeIndex({
+      'dependency-health': {
+        addresses: [
+          { signal: 'high-coupling', metric: 'fanOut', threshold: 15, weight: 0.7 },
+          { signal: 'anomaly-outlier', weight: 0.6 },
+        ],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    expect(result).toHaveLength(1);
+    // fanOut: distance = (30-15)/15 = 1.0 (clamped), contribution = 0.7
+    // anomaly-outlier: signal-only, contribution = 0.6
+    // total = (0.7 + 0.6) / 2 addresses = 0.65
+    expect(result[0]!.score).toBeCloseTo(0.65, 2);
+  });
+
+  it('skips hard addresses (handled by Layer 1)', () => {
+    const snapshot = makeSnapshot({
+      signals: ['circular-deps'],
+    });
+    const index = makeIndex({
+      'enforce-architecture': {
+        addresses: [
+          { signal: 'circular-deps', hard: true },
+          { signal: 'high-coupling', weight: 0.8 },
+        ],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    // Only non-hard addresses considered; high-coupling not in signals -> no match
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns empty for no matching signals', () => {
+    const snapshot = makeSnapshot({ signals: ['doc-gaps'] });
+    const index = makeIndex({
+      'enforce-architecture': {
+        addresses: [{ signal: 'high-coupling', metric: 'fanOut', threshold: 20, weight: 0.8 }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    expect(result).toHaveLength(0);
+  });
+
+  it('classifies score >= 0.7 as recommended', () => {
+    const snapshot = makeSnapshot({
+      signals: ['low-coverage'],
+    });
+    const index = makeIndex({
+      tdd: {
+        addresses: [{ signal: 'low-coverage', weight: 0.9 }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    expect(result[0]!.score).toBeCloseTo(0.9, 2);
+    expect(result[0]!.urgency).toBe('recommended');
+  });
+
+  it('classifies score < 0.7 as nice-to-have', () => {
+    const snapshot = makeSnapshot({
+      signals: ['doc-gaps'],
+    });
+    const index = makeIndex({
+      'detect-doc-drift': {
+        addresses: [{ signal: 'doc-gaps', weight: 0.5 }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    expect(result[0]!.urgency).toBe('nice-to-have');
+  });
+
+  it('ignores metric-based address when metric resolves to null', () => {
+    const snapshot = makeSnapshot({
+      signals: ['low-coverage'],
+      metrics: makeMetrics({ testCoverage: null }),
+    });
+    const index = makeIndex({
+      tdd: {
+        addresses: [{ signal: 'low-coverage', metric: 'coverage', threshold: 40, weight: 0.9 }],
+      },
+    });
+    const result = scoreByHealth(snapshot, index);
+    // metric resolves to null, so this address is skipped
     expect(result).toHaveLength(0);
   });
 });
