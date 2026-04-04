@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-03-31
-last_synced: 2026-04-03T22:36:24.460Z
+last_synced: 2026-04-04T00:00:00.000Z
 last_manual_edit: 2026-03-30
 ---
 
@@ -716,7 +716,7 @@ last_manual_edit: 2026-03-30
 
 ### Usage & Cost Tracking
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/usage-cost-tracking/proposal.md
 - **Summary:** Token spend visibility via `harness usage` CLI commands (daily, sessions, session, latest). LiteLLM pricing with static fallback, cost-at-read-time calculation, opt-in Claude Code session parsing. [ACE-B1]
 - **Blockers:** —
@@ -874,12 +874,13 @@ last_manual_edit: 2026-03-30
 
 ### Architecture Decay Timeline
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Scheduled CI snapshots of constraint violations, complexity hotspots, dead code, coupling density, and test coverage stored as time-series graph nodes. Shows architecture stability trends over months with visualization. [J1]
+- **Status:** done
+- **Spec:** docs/changes/architecture-decay-timeline/proposal.md
+- **Summary:** Time-series tracking of architectural health via standalone TimelineManager, category-level snapshots in `.harness/arch/timeline.json`, composite 0-100 stability score, CLI commands (`harness snapshot`), and `get_decay_trends` MCP tool. Weekly CI captures. [J1]
 - **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
+- **Plan:** docs/plans/2026-04-04-architecture-decay-timeline-phase1-plan.md
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-04
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#79
 
@@ -897,11 +898,12 @@ last_manual_edit: 2026-03-30
 ### Spec-to-Implementation Traceability
 
 - **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Requirement-to-code mapping via enhanced phase gates with content validation, new graph edge types (requires, verified_by, tested_by), and coverage matrix showing which EARS-structured spec requirements have corresponding code and tests. [E2]
+- **Spec:** docs/changes/spec-to-implementation-traceability/proposal.md
+- **Summary:** Requirement-to-code-to-test mapping via knowledge graph — requirement nodes, requires/verified_by/tested_by edges, RequirementIngestor, coverage matrix CLI/MCP/CI, hybrid test linking with confidence signals. [E2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-04
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#81
 
@@ -1155,7 +1157,7 @@ last_manual_edit: 2026-03-30
 
 ### Sentinel: Prompt Injection Defense
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/sentinel-prompt-injection-defense/proposal.md
 - **Summary:** Multi-layered prompt injection defense — sentinel hooks (Claude Code) + MCP middleware (Gemini CLI) for runtime scanning, session-scoped restrictive taint model with 30-min expiry, and CLAUDE.md config scanning on clone with tiered response. [ACE-A1/A9]
 - **Blockers:** —
@@ -1199,7 +1201,7 @@ last_manual_edit: 2026-03-30
 
 ### Security Skill Deepening
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/security-skill-deepening/proposal.md
 - **Summary:** FP verification gate requiring justification for harness-ignore suppressions. Insecure defaults / fail-open detection (SEC-DEF-_ rules + AI review). New harness:supply-chain-audit skill with 6-factor dependency risk evaluation. Sharp-edges checks (SEC-EDGE-_) for deprecated crypto, unsafe deserialization, TOCTOU, stringly-typed security. Adapted from Trail of Bits security skills. [ACE-Batch4]
 - **Blockers:** —
