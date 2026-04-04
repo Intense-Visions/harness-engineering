@@ -157,7 +157,11 @@ export function createPredictCommand(): Command {
           configPath: globalOpts.config,
           category: opts.category,
           noRoadmap: opts.roadmap === false,
-          horizon: parseInt(opts.horizon, 10),
+          horizon: (() => {
+            const h = parseInt(opts.horizon, 10);
+            if (isNaN(h) || h < 1) throw new Error('--horizon must be a positive integer');
+            return h;
+          })(),
         });
 
         if (mode === OutputMode.JSON) {

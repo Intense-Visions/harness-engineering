@@ -81,7 +81,13 @@ export class PredictionEngine {
       }
 
       const timeSeries = this.extractTimeSeries(snapshots, category, firstDate);
-      baselines[category] = this.forecastCategory(category, timeSeries, currentT, threshold);
+      baselines[category] = this.forecastCategory(
+        category,
+        timeSeries,
+        currentT,
+        threshold,
+        opts.horizon
+      );
     }
 
     // Second pass: compute adjusted forecasts with roadmap impact
@@ -157,7 +163,8 @@ export class PredictionEngine {
     }
 
     const warnings = this.generateWarnings(
-      categories as Record<ArchMetricCategory, AdjustedForecast>
+      categories as Record<ArchMetricCategory, AdjustedForecast>,
+      opts.horizon
     );
     const stabilityForecast = this.computeStabilityForecast(
       categories as Record<ArchMetricCategory, AdjustedForecast>,
@@ -228,15 +235,18 @@ export class PredictionEngine {
     category: ArchMetricCategory,
     timeSeries: Array<{ t: number; value: number }>,
     currentT: number,
-    threshold: number
+    threshold: number,
+    horizon: number = 12
   ): CategoryForecast {
     const weighted = applyRecencyWeights(timeSeries, 0.85);
     const fit = weightedLinearRegression(weighted);
 
     const current = timeSeries[timeSeries.length - 1]!.value;
-    const projected4w = projectValue(fit, currentT + 4);
-    const projected8w = projectValue(fit, currentT + 8);
-    const projected12w = projectValue(fit, currentT + 12);
+    const h3 = Math.round(horizon / 3);
+    const h2 = Math.round((horizon * 2) / 3);
+    const projected4w = projectValue(fit, currentT + h3);
+    const projected8w = projectValue(fit, currentT + h2);
+    const projected12w = projectValue(fit, currentT + horizon);
     const crossing = weeksUntilThreshold(fit, currentT, threshold);
     const confidence = classifyConfidence(fit.rSquared, fit.dataPoints);
     const direction = this.classifyDirection(fit.slope);
@@ -287,9 +297,12 @@ export class PredictionEngine {
    * - info: threshold crossing <= 12w, any confidence
    */
   private generateWarnings(
-    categories: Record<ArchMetricCategory, AdjustedForecast>
+    categories: Record<ArchMetricCategory, AdjustedForecast>,
+    horizon: number = 12
   ): PredictionWarning[] {
     const warnings: PredictionWarning[] = [];
+    const criticalWindow = Math.round(horizon / 3);
+    const warningWindow = Math.round((horizon * 2) / 3);
 
     for (const category of ALL_CATEGORIES) {
       const af = categories[category];
@@ -303,14 +316,17 @@ export class PredictionEngine {
 
       let severity: 'critical' | 'warning' | 'info' | null = null;
 
-      if (crossing <= 4 && (forecast.confidence === 'high' || forecast.confidence === 'medium')) {
+      if (
+        crossing <= criticalWindow &&
+        (forecast.confidence === 'high' || forecast.confidence === 'medium')
+      ) {
         severity = 'critical';
       } else if (
-        crossing <= 8 &&
+        crossing <= warningWindow &&
         (forecast.confidence === 'high' || forecast.confidence === 'medium')
       ) {
         severity = 'warning';
-      } else if (crossing <= 12) {
+      } else if (crossing <= horizon) {
         severity = 'info';
       }
 
@@ -337,7 +353,7 @@ export class PredictionEngine {
   private computeStabilityForecast(
     categories: Record<ArchMetricCategory, AdjustedForecast>,
     thresholds: Record<ArchMetricCategory, number>,
-    snapshots: TimelineSnapshot[]
+    _snapshots: TimelineSnapshot[]
   ): StabilityForecast {
     // Current stability: compute from latest snapshot values
     const currentMetrics = this.buildMetricsFromForecasts(categories, 'current');
