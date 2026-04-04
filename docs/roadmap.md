@@ -886,11 +886,11 @@ last_manual_edit: 2026-03-30
 
 ### Predictive Architecture Failure
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Status:** done
+- **Spec:** docs/changes/predictive-architecture-failure/proposal.md
 - **Summary:** Extrapolate decay trends from timeline plus planned roadmap features to predict which constraints will break and when. Warns before architectural violations become reality. [J2]
-- **Blockers:** —
-- **Plan:** —
+- **Blockers:** Architecture Decay Timeline
+- **Plan:** docs/plans/2026-04-04-predictive-failure-phase1-regression-math-plan.md
 - **Assignee:** Chad Warner
 - **Assigned:** 2026-04-04
 - **Priority:** —
@@ -911,11 +911,12 @@ last_manual_edit: 2026-03-30
 ### Skill Recommendation Engine
 
 - **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Spec:** docs/changes/skill-recommendation-engine/proposal.md
 - **Summary:** Maps codebase characteristics (coupling score, test coverage, violation types, complexity distribution) to optimal skill sequences via decision-tree scoring. Recommends the right skills for the current codebase state. [D11]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-04
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#82
 
