@@ -107,3 +107,5 @@ export {
 } from './regression';
 
 export type { DataPoint, RegressionFit } from './regression';
+
+export { PredictionEngine } from './prediction-engine';
