@@ -1,5 +1,7 @@
 export PATH="/opt/homebrew/bin:$PATH"
 pnpm run typecheck
+pnpm run test:ci
+node scripts/coverage-ratchet.mjs
 pnpm run docs:build
 node packages/cli/dist/bin/harness.js ci check
 pnpm run generate-docs --check
