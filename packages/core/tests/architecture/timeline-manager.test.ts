@@ -174,4 +174,77 @@ describe('TimelineManager', () => {
       expect(score).toBe(93); // round(0.9286 * 100)
     });
   });
+
+  describe('capture()', () => {
+    it('creates snapshot with all 7 categories from MetricResult[]', () => {
+      const results = makeResults({
+        complexity: { value: 30, violationCount: 2 },
+        coupling: { value: 0.5, violationCount: 1 },
+      });
+      const snapshot = manager.capture(results, 'abc1234');
+
+      expect(snapshot.commitHash).toBe('abc1234');
+      expect(snapshot.capturedAt).toBeTruthy();
+      expect(snapshot.stabilityScore).toBeGreaterThanOrEqual(0);
+      expect(snapshot.stabilityScore).toBeLessThanOrEqual(100);
+      expect(Object.keys(snapshot.metrics)).toHaveLength(7);
+      expect(snapshot.metrics['complexity']!.value).toBe(30);
+      expect(snapshot.metrics['complexity']!.violationCount).toBe(2);
+      expect(snapshot.metrics['coupling']!.value).toBe(0.5);
+    });
+
+    it('persists snapshot to disk', () => {
+      const results = makeResults();
+      manager.capture(results, 'abc1234');
+      const loaded = manager.load();
+      expect(loaded.snapshots).toHaveLength(1);
+      expect(loaded.snapshots[0]!.commitHash).toBe('abc1234');
+    });
+
+    it('appends new snapshot for different commit hash', () => {
+      const results = makeResults();
+      manager.capture(results, 'abc1234');
+      manager.capture(results, 'def5678');
+      const loaded = manager.load();
+      expect(loaded.snapshots).toHaveLength(2);
+    });
+
+    it('deduplicates -- replaces latest snapshot when commit hash matches', () => {
+      const results1 = makeResults({ complexity: { value: 30, violationCount: 2 } });
+      manager.capture(results1, 'abc1234');
+
+      const results2 = makeResults({ complexity: { value: 25, violationCount: 1 } });
+      manager.capture(results2, 'abc1234');
+
+      const loaded = manager.load();
+      expect(loaded.snapshots).toHaveLength(1);
+      expect(loaded.snapshots[0]!.metrics['complexity']!.value).toBe(25);
+    });
+
+    it('only deduplicates when latest snapshot matches -- not earlier ones', () => {
+      const results = makeResults();
+      manager.capture(results, 'aaa');
+      manager.capture(results, 'bbb');
+      manager.capture(results, 'aaa'); // does NOT deduplicate because latest is 'bbb'
+      const loaded = manager.load();
+      expect(loaded.snapshots).toHaveLength(3);
+    });
+
+    it('aggregates multiple MetricResults for same category', () => {
+      const results = [
+        { category: 'complexity' as const, scope: 'src/a.ts', value: 10, violations: [] },
+        {
+          category: 'complexity' as const,
+          scope: 'src/b.ts',
+          value: 20,
+          violations: [
+            { id: 'v1', file: 'src/b.ts', detail: 'high', severity: 'warning' as const },
+          ],
+        },
+      ];
+      const snapshot = manager.capture(results, 'abc1234');
+      expect(snapshot.metrics['complexity']!.value).toBe(30);
+      expect(snapshot.metrics['complexity']!.violationCount).toBe(1);
+    });
+  });
 });
