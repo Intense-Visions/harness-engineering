@@ -69,3 +69,41 @@ export type {
 } from './timeline-types';
 
 export { TimelineManager } from './timeline-manager';
+
+export {
+  ConfidenceTierSchema,
+  RegressionResultSchema as PredictionRegressionResultSchema,
+  DirectionSchema,
+  CategoryForecastSchema,
+  SpecImpactSignalsSchema,
+  SpecImpactEstimateSchema,
+  ContributingFeatureSchema,
+  AdjustedForecastSchema,
+  PredictionWarningSchema,
+  StabilityForecastSchema,
+  PredictionResultSchema,
+  PredictionOptionsSchema,
+} from './prediction-types';
+
+export type {
+  ConfidenceTier,
+  RegressionResult as PredictionRegressionResult,
+  Direction,
+  CategoryForecast,
+  SpecImpactEstimate,
+  AdjustedForecast,
+  PredictionWarning,
+  StabilityForecast,
+  PredictionResult,
+  PredictionOptions,
+} from './prediction-types';
+
+export {
+  weightedLinearRegression,
+  applyRecencyWeights,
+  projectValue,
+  weeksUntilThreshold,
+  classifyConfidence,
+} from './regression';
+
+export type { DataPoint, RegressionFit } from './regression';
