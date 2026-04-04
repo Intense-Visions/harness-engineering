@@ -1,5 +1,15 @@
 # @harness-engineering/cli
 
+## 1.20.1
+
+### Patch Changes
+
+- Fix injection scanner false positives on trusted MCP tool output
+
+  The sentinel injection guard was scanning output from all MCP tools, including harness-internal tools like `run_skill` and `gather_context` that return project documentation and state. Skill docs containing legitimate patterns (e.g., `<context>` XML tags, "auto-approve" feature descriptions) triggered INJ-CTX-003 and INJ-PERM-003, tainting the session and blocking git operations.
+
+  Added `trustedOutputTools` option to the injection guard middleware. All harness MCP tools are marked as trusted (opt-in), skipping output scanning while preserving input scanning. New tools default to untrusted.
+
 ## 1.20.0
 
 ### Minor Changes
