@@ -1,5 +1,16 @@
 # @harness-engineering/cli
 
+## 1.20.0
+
+### Minor Changes
+
+- Load project `.env` for external sync — The MCP server's `triggerExternalSync` now loads `.env` from the project root when `GITHUB_TOKEN` is not already in the environment, fixing token discovery when the MCP server's working directory differs from the project.
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/core@0.19.0 — GitHub sync assignee push and auto-population
+
 ## 1.19.0
 
 ### Patch Changes

@@ -30,8 +30,19 @@ export async function syncToExternal(
 ): Promise<SyncResult> {
   const result = emptySyncResult();
 
+  // Auto-populate assignee from the authenticated user when unset
+  let defaultAssignee: string | null = null;
+  const userResult = await adapter.getAuthenticatedUser();
+  if (userResult.ok) {
+    defaultAssignee = userResult.value;
+  }
+
   for (const milestone of roadmap.milestones) {
     for (const feature of milestone.features) {
+      if (!feature.assignee && defaultAssignee) {
+        feature.assignee = defaultAssignee;
+      }
+
       if (!feature.externalId) {
         // Create new ticket
         const createResult = await adapter.createTicket(feature, milestone.name);
