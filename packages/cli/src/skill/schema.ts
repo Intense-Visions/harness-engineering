@@ -63,6 +63,14 @@ const SkillCodexSchema = z.object({
   instructions_override: z.string().optional(),
 });
 
+export const SkillAddressSchema = z.object({
+  signal: z.string(),
+  hard: z.boolean().optional(),
+  metric: z.string().optional(),
+  threshold: z.number().optional(),
+  weight: z.number().min(0).max(1).optional(),
+});
+
 export const SkillMetadataSchema = z.object({
   name: z.string().regex(/^[a-z][a-z0-9-]*$/, 'Name must be lowercase with hyphens'),
   version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be semver format'),
@@ -87,6 +95,7 @@ export const SkillMetadataSchema = z.object({
   stack_signals: z.array(z.string()).default([]),
   cursor: SkillCursorSchema.optional(),
   codex: SkillCodexSchema.optional(),
+  addresses: z.array(SkillAddressSchema).default([]),
 });
 
 export type SkillMetadata = z.infer<typeof SkillMetadataSchema>;
@@ -95,5 +104,6 @@ export type SkillCli = z.infer<typeof SkillCliSchema>;
 export type SkillState = z.infer<typeof SkillStateSchema>;
 export type SkillCursor = z.infer<typeof SkillCursorSchema>;
 export type SkillCodex = z.infer<typeof SkillCodexSchema>;
+export type SkillAddress = z.infer<typeof SkillAddressSchema>;
 
 export { ALLOWED_TRIGGERS, ALLOWED_PLATFORMS };

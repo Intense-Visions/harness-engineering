@@ -100,6 +100,9 @@ export const ALL_MCP_TOOLS: string[] = [
   'code_outline',
   'code_search',
   'code_unfold',
+  'get_decay_trends',
+  'check_traceability',
+  'predict_failures',
 ];
 
 /**

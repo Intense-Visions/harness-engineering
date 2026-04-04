@@ -93,4 +93,61 @@ describe('SkillMetadataSchema', () => {
     });
     expect(result.platforms).toContain('cursor');
   });
+
+  it('accepts skill with valid addresses array', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      addresses: [
+        { signal: 'circular-deps', hard: true },
+        { signal: 'high-coupling', metric: 'fanOut', threshold: 20, weight: 0.8 },
+      ],
+    });
+    expect(result.addresses).toHaveLength(2);
+    expect(result.addresses![0]!.signal).toBe('circular-deps');
+    expect(result.addresses![0]!.hard).toBe(true);
+    expect(result.addresses![1]!.weight).toBe(0.8);
+  });
+
+  it('defaults addresses to empty array when omitted', () => {
+    const result = SkillMetadataSchema.parse(validBase);
+    expect(result.addresses).toEqual([]);
+  });
+
+  it('rejects addresses entry with weight > 1', () => {
+    expect(() =>
+      SkillMetadataSchema.parse({
+        ...validBase,
+        addresses: [{ signal: 'high-coupling', weight: 1.5 }],
+      })
+    ).toThrow();
+  });
+
+  it('rejects addresses entry with weight < 0', () => {
+    expect(() =>
+      SkillMetadataSchema.parse({
+        ...validBase,
+        addresses: [{ signal: 'high-coupling', weight: -0.1 }],
+      })
+    ).toThrow();
+  });
+
+  it('rejects addresses entry without signal field', () => {
+    expect(() =>
+      SkillMetadataSchema.parse({
+        ...validBase,
+        addresses: [{ hard: true }],
+      })
+    ).toThrow();
+  });
+
+  it('accepts addresses entry with only signal (all others optional)', () => {
+    const result = SkillMetadataSchema.parse({
+      ...validBase,
+      addresses: [{ signal: 'dead-code' }],
+    });
+    expect(result.addresses).toHaveLength(1);
+    expect(result.addresses![0]!.signal).toBe('dead-code');
+    expect(result.addresses![0]!.hard).toBeUndefined();
+    expect(result.addresses![0]!.metric).toBeUndefined();
+  });
 });
