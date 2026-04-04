@@ -30,5 +30,23 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - pre-commit
+  - quality-gate
+  - lint
+  - typecheck
+  - staged-changes
+  - AI-review
+  - mechanical-checks
+  - code-quality
+  - commit-review
+  - change-classification
+stack_signals:
+  - git
+  - eslint
+  - typescript
+  - prettier
+  - jest
+  - vitest
 depends_on:
   - harness-code-review

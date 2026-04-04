@@ -48,5 +48,25 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - accessibility
+  - a11y
+  - WCAG
+  - ARIA
+  - contrast
+  - screen-reader
+  - keyboard-navigation
+  - alt-text
+  - semantic-html
+  - color-contrast
+  - remediation
+  - accessibility-audit
+stack_signals:
+  - html
+  - css
+  - react
+  - vue
+  - svelte
+  - frontend
 depends_on:
   - harness-design-system

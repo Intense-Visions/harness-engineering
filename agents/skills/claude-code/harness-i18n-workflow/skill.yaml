@@ -50,5 +50,24 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - translation-lifecycle
+  - i18n-scaffold
+  - string-extraction
+  - locale-files
+  - pseudo-localization
+  - translation-coverage
+  - i18n-config
+  - retrofit
+  - stale-translations
+  - translation-keys
+  - i18n-setup
+stack_signals:
+  - react
+  - vue
+  - nextjs
+  - react-native
+  - angular
+  - frontend
 depends_on:
   - harness-i18n

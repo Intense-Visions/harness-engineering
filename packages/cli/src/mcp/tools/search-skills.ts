@@ -1,11 +1,12 @@
 import { loadOrRebuildIndex } from '../../skill/index-builder.js';
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js';
+import { scoreSkill } from '../../skill/dispatcher.js';
 import { resolveConfig } from '../../config/loader.js';
 
 export const searchSkillsDefinition = {
   name: 'search_skills',
   description:
-    'Search the skill catalog for domain-specific skills. Returns ranked results based on keyword and stack-signal matching. Use this to discover catalog skills that are not loaded as slash commands.',
+    'Search the skill catalog for domain-specific skills. Returns ranked results based on keyword, name, description, and stack-signal matching. Use this to discover catalog skills that are not loaded as slash commands.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -56,24 +57,8 @@ export async function handleSearchSkills(
   }> = [];
 
   for (const [name, entry] of Object.entries(index.skills)) {
-    // Keyword matching
-    const matchedKeywords = entry.keywords.filter((kw) =>
-      queryTerms.some(
-        (term) =>
-          kw.toLowerCase().includes(term.toLowerCase()) ||
-          term.toLowerCase().includes(kw.toLowerCase())
-      )
-    );
-    const keywordScore = queryTerms.length > 0 ? matchedKeywords.length / queryTerms.length : 0;
-
-    // Stack signal matching
-    let stackScore = 0;
-    if (entry.stackSignals.length > 0) {
-      const matchedSignals = entry.stackSignals.filter((signal) => profile.signals[signal]);
-      stackScore = matchedSignals.length / entry.stackSignals.length;
-    }
-
-    const score = 0.6 * keywordScore + 0.4 * stackScore;
+    // Delegate scoring to shared scoreSkill — no recency context in search
+    const score = scoreSkill(entry, queryTerms, profile, [], name);
 
     if (score > 0 || queryTerms.length === 0) {
       results.push({

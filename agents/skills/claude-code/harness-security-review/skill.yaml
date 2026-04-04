@@ -50,4 +50,27 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - security-audit
+  - OWASP
+  - vulnerability
+  - threat-model
+  - injection
+  - XSS
+  - authentication
+  - authorization
+  - security-scan
+  - remediation
+  - CVE
+  - secrets
+  - supply-chain
+stack_signals:
+  - nodejs
+  - python
+  - go
+  - java
+  - react
+  - nextjs
+  - docker
+  - api
 depends_on: []

@@ -43,6 +43,26 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - performance
+  - tdd
+  - benchmark
+  - red-green-refactor
+  - performance-testing
+  - perf-regression
+  - test-driven
+  - assertion
+  - optimization
+  - profiling
+  - perf-baseline
+stack_signals:
+  - nodejs
+  - python
+  - go
+  - java
+  - rust
+  - vitest
+  - jest
 depends_on:
   - harness-tdd
   - harness-perf

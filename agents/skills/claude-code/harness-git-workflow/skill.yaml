@@ -29,4 +29,19 @@ tier: 3
 state:
   persistent: false
   files: []
+keywords:
+  - git
+  - branching
+  - commit-message
+  - pull-request
+  - merge
+  - git-hooks
+  - conventional-commits
+  - git-workflow
+  - version-control
+  - PR-review
+stack_signals:
+  - git
+  - github
+  - gitlab
 depends_on: []

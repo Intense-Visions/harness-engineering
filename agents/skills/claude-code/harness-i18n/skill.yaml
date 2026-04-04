@@ -52,4 +52,26 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - internationalization
+  - i18n
+  - localization
+  - l10n
+  - hardcoded-strings
+  - translations
+  - RTL
+  - locale
+  - missing-translations
+  - string-extraction
+  - formatting
+  - language-support
+stack_signals:
+  - react
+  - vue
+  - nextjs
+  - react-native
+  - angular
+  - frontend
+  - backend
+  - mobile
 depends_on: []

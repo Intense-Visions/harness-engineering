@@ -48,6 +48,28 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - web-components
+  - token-bound
+  - design-tokens
+  - component-generation
+  - css-strategy
+  - css-modules
+  - css-in-js
+  - hardcoded-values
+  - design-constraints
+  - scaffold
+  - framework-patterns
+  - token-verification
+stack_signals:
+  - react
+  - vue
+  - svelte
+  - tailwind
+  - css
+  - nextjs
+  - nuxt
+  - frontend
 depends_on:
   - harness-design-system
   - harness-design

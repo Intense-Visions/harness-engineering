@@ -34,15 +34,18 @@ export function isTier1Skill(skillName: string): boolean {
  * Score a single catalog skill against the current task context.
  *
  * Weights:
- *   0.5 — keyword match (skill keywords ∩ query terms)
- *   0.3 — stack signal match (project signals ∩ skill signals)
- *   0.2 — recency boost (agent recently touched matching files)
+ *   0.35 — keyword match (skill keywords ∩ query terms)
+ *   0.20 — name match (skill name segments ∩ query terms)
+ *   0.10 — description match (query terms found in description)
+ *   0.20 — stack signal match (project signals ∩ skill signals)
+ *   0.15 — recency boost (agent recently touched matching files)
  */
 export function scoreSkill(
   entry: SkillIndexEntry,
   queryTerms: string[],
   profile: StackProfile | null,
-  recentFiles: string[]
+  recentFiles: string[],
+  skillName: string
 ): number {
   // Keyword match
   const matchedKeywords = entry.keywords.filter((kw) =>
@@ -53,6 +56,27 @@ export function scoreSkill(
     )
   );
   const keywordScore = queryTerms.length > 0 ? matchedKeywords.length / queryTerms.length : 0;
+
+  // Name match — skill name segments matched against query terms
+  let nameScore = 0;
+  if (skillName.length > 0 && queryTerms.length > 0) {
+    const nameSegments = skillName
+      .toLowerCase()
+      .split('-')
+      .filter((s) => s.length > 2);
+    const matchedNameSegments = queryTerms.filter((term) =>
+      nameSegments.some((seg) => seg.includes(term) || term.includes(seg))
+    );
+    nameScore = matchedNameSegments.length / queryTerms.length;
+  }
+
+  // Description match — query terms found in description text
+  let descScore = 0;
+  if (queryTerms.length > 0) {
+    const descLower = entry.description.toLowerCase();
+    const matchedDescTerms = queryTerms.filter((term) => descLower.includes(term));
+    descScore = matchedDescTerms.length / queryTerms.length;
+  }
 
   // Stack signal match
   let stackScore = 0;
@@ -72,13 +96,15 @@ export function scoreSkill(
   let recencyBoost = 0;
   if (recentFiles.length > 0) {
     const hasRecentMatch = entry.stackSignals.some((signal) => {
-      const cleanSignal = signal.replace(/\*/g, '').replace(/\*\*/g, '');
+      const cleanSignal = signal.replace(/\*/g, '');
       return recentFiles.some((f) => f.includes(cleanSignal));
     });
     recencyBoost = hasRecentMatch ? 1.0 : 0;
   }
 
-  return 0.5 * keywordScore + 0.3 * stackScore + 0.2 * recencyBoost;
+  return (
+    0.35 * keywordScore + 0.2 * nameScore + 0.1 * descScore + 0.2 * stackScore + 0.15 * recencyBoost
+  );
 }
 
 /**
@@ -104,7 +130,7 @@ export function suggest(
   for (const [name, entry] of Object.entries(index.skills)) {
     if (config?.neverSuggest?.includes(name)) continue;
 
-    const score = scoreSkill(entry, queryTerms, profile, recentFiles);
+    const score = scoreSkill(entry, queryTerms, profile, recentFiles, name);
     const isForced = config?.alwaysSuggest?.includes(name);
 
     if (score >= 0.4 || isForced) {
