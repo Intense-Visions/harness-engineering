@@ -109,3 +109,6 @@ export {
 export type { DataPoint, RegressionFit } from './regression';
 
 export { PredictionEngine } from './prediction-engine';
+
+export { SpecImpactEstimator } from './spec-impact-estimator';
+export type { EstimatorCoefficients } from './spec-impact-estimator';

@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { ArchMetricCategorySchema } from './types';
 import type { ArchMetricCategory } from './types';
 import { DEFAULT_STABILITY_THRESHOLDS } from './timeline-types';
@@ -18,9 +20,12 @@ import type {
   AdjustedForecast,
   PredictionWarning,
   StabilityForecast,
+  SpecImpactEstimate,
   Direction,
   ConfidenceTier,
 } from './prediction-types';
+import type { SpecImpactEstimator } from './spec-impact-estimator';
+import { parseRoadmap } from '../roadmap/parse';
 
 const ALL_CATEGORIES = ArchMetricCategorySchema.options;
 const DIRECTION_THRESHOLD = 0.001; // slope magnitude below this is "stable"
@@ -29,14 +34,13 @@ const DIRECTION_THRESHOLD = 0.001; // slope magnitude below this is "stable"
  * PredictionEngine: orchestrates weighted regression over timeline snapshots
  * to produce per-category forecasts and warnings.
  *
- * Phase 2: baseline predictions only (no roadmap/spec impact).
- * The estimator parameter is accepted but unused until Phase 3.
+ * Supports roadmap-aware adjusted forecasts via SpecImpactEstimator.
  */
 export class PredictionEngine {
   constructor(
     private readonly rootDir: string,
     private readonly timelineManager: TimelineManager,
-    private readonly estimator: unknown | null // Phase 3: SpecImpactEstimator
+    private readonly estimator: SpecImpactEstimator | null
   ) {}
 
   /**
@@ -57,7 +61,6 @@ export class PredictionEngine {
 
     const thresholds = this.resolveThresholds(opts);
     const categoriesToProcess = opts.categories ?? [...ALL_CATEGORIES];
-    const categories: Record<string, AdjustedForecast> = {};
 
     // Convert snapshot dates to week offsets from first snapshot
     const firstDate = new Date(snapshots[0]!.capturedAt).getTime();
@@ -65,29 +68,91 @@ export class PredictionEngine {
     const currentT =
       (new Date(lastSnapshot.capturedAt).getTime() - firstDate) / (7 * 24 * 60 * 60 * 1000);
 
+    // First pass: compute baselines for all categories
+    const baselines: Record<string, CategoryForecast> = {};
+
     for (const category of ALL_CATEGORIES) {
       const threshold = thresholds[category];
       const shouldProcess = categoriesToProcess.includes(category);
 
       if (!shouldProcess) {
-        // Still include in result with zero forecast
-        const zeroForecast = this.zeroForecast(category, threshold);
+        baselines[category] = this.zeroForecast(category, threshold);
+        continue;
+      }
+
+      const timeSeries = this.extractTimeSeries(snapshots, category, firstDate);
+      baselines[category] = this.forecastCategory(category, timeSeries, currentT, threshold);
+    }
+
+    // Second pass: compute adjusted forecasts with roadmap impact
+    const specImpacts = this.computeSpecImpacts(opts);
+    const categories: Record<string, AdjustedForecast> = {};
+
+    for (const category of ALL_CATEGORIES) {
+      const baseline = baselines[category]!;
+      const threshold = thresholds[category];
+
+      if (!specImpacts || specImpacts.length === 0) {
         categories[category] = {
-          baseline: zeroForecast,
-          adjusted: zeroForecast,
+          baseline,
+          adjusted: baseline,
           contributingFeatures: [],
         };
         continue;
       }
 
-      const timeSeries = this.extractTimeSeries(snapshots, category, firstDate);
-      const forecast = this.forecastCategory(category, timeSeries, currentT, threshold);
+      // Sum deltas for this category across all spec impacts
+      let totalDelta = 0;
+      const contributing: Array<{ name: string; specPath: string; delta: number }> = [];
 
-      // Phase 2: adjusted = baseline (no estimator)
+      for (const impact of specImpacts) {
+        const delta = impact.deltas?.[category as ArchMetricCategory] ?? 0;
+        if (delta !== 0) {
+          totalDelta += delta;
+          contributing.push({
+            name: impact.featureName,
+            specPath: impact.specPath,
+            delta,
+          });
+        }
+      }
+
+      if (totalDelta === 0) {
+        categories[category] = {
+          baseline,
+          adjusted: baseline,
+          contributingFeatures: [],
+        };
+        continue;
+      }
+
+      // Create adjusted forecast by shifting projected values by totalDelta
+      const adjusted: CategoryForecast = {
+        ...baseline,
+        projectedValue4w: baseline.projectedValue4w + totalDelta,
+        projectedValue8w: baseline.projectedValue8w + totalDelta,
+        projectedValue12w: baseline.projectedValue12w + totalDelta,
+      };
+
+      // Recompute threshold crossing with adjusted values
+      const adjustedFit: RegressionFit = {
+        slope: baseline.regression.slope,
+        intercept: baseline.regression.intercept + totalDelta,
+        rSquared: baseline.regression.rSquared,
+        dataPoints: baseline.regression.dataPoints,
+      };
+      adjusted.thresholdCrossingWeeks = weeksUntilThreshold(adjustedFit, currentT, threshold);
+      adjusted.regression = {
+        slope: adjustedFit.slope,
+        intercept: adjustedFit.intercept,
+        rSquared: adjustedFit.rSquared,
+        dataPoints: adjustedFit.dataPoints,
+      };
+
       categories[category] = {
-        baseline: forecast,
-        adjusted: forecast,
-        contributingFeatures: [],
+        baseline,
+        adjusted,
+        contributingFeatures: contributing,
       };
     }
 
@@ -338,5 +403,40 @@ export class PredictionEngine {
     const sorted = [...confidences].sort((a, b) => order[a] - order[b]);
     const mid = Math.floor(sorted.length / 2);
     return sorted[mid] ?? 'low';
+  }
+
+  /**
+   * Load roadmap features, estimate spec impacts via the estimator.
+   * Returns null if estimator is null or includeRoadmap is false.
+   */
+  private computeSpecImpacts(opts: PredictionOptions): SpecImpactEstimate[] | null {
+    if (!this.estimator || !opts.includeRoadmap) {
+      return null;
+    }
+
+    try {
+      const roadmapPath = path.join(this.rootDir, 'roadmap.md');
+      const raw = fs.readFileSync(roadmapPath, 'utf-8');
+      const parseResult = parseRoadmap(raw);
+
+      if (!parseResult.ok) return null;
+
+      // Collect all features with specs across all milestones
+      const features: Array<{ name: string; spec: string | null }> = [];
+      for (const milestone of parseResult.value.milestones) {
+        for (const feature of milestone.features) {
+          if (feature.status === 'planned' || feature.status === 'in-progress') {
+            features.push({ name: feature.name, spec: feature.spec });
+          }
+        }
+      }
+
+      if (features.length === 0) return null;
+
+      return this.estimator.estimateAll(features);
+    } catch {
+      // If roadmap doesn't exist or can't be parsed, proceed without it
+      return null;
+    }
   }
 }

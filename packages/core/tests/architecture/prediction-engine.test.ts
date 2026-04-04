@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 import { PredictionEngine } from '../../src/architecture/prediction-engine';
 import { PredictionResultSchema } from '../../src/architecture/prediction-types';
 import { DEFAULT_STABILITY_THRESHOLDS } from '../../src/architecture/timeline-types';
 import type { TimelineFile, TimelineSnapshot } from '../../src/architecture/timeline-types';
 import type { ArchMetricCategory } from '../../src/architecture/types';
 import type { TimelineManager } from '../../src/architecture/timeline-manager';
+import { SpecImpactEstimator } from '../../src/architecture/spec-impact-estimator';
 
 const ALL_CATEGORIES: ArchMetricCategory[] = [
   'circular-deps',
@@ -331,6 +335,195 @@ describe('PredictionEngine', () => {
       const result = engine.predict({ thresholds: { complexity: 200 } });
       const forecast = result.categories['complexity']!.baseline;
       expect(forecast.threshold).toBe(200);
+    });
+  });
+
+  describe('roadmap integration with SpecImpactEstimator', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pred-engine-'));
+      // Write harness.config.json
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({
+          version: 1,
+          name: 'test',
+          layers: [
+            { name: 'core', pattern: 'src/core/**', allowedDependencies: [] },
+            { name: 'cli', pattern: 'src/cli/**', allowedDependencies: ['core'] },
+          ],
+        })
+      );
+      // Write a roadmap.md
+      fs.writeFileSync(
+        path.join(tmpDir, 'roadmap.md'),
+        [
+          '---',
+          'project: test',
+          'version: 1',
+          'last_synced: 2026-01-01',
+          'last_manual_edit: 2026-01-01',
+          '---',
+          '',
+          '## Milestone: MVP',
+          '',
+          '### Feature A',
+          '',
+          '- **Status:** planned',
+          '- **Spec:** docs/spec-a.md',
+          '- **Plans:** —',
+          '- **Blocked by:** —',
+          '- **Summary:** A feature',
+          '',
+          '### Feature B',
+          '',
+          '- **Status:** planned',
+          '- **Spec:** —',
+          '- **Plans:** —',
+          '- **Blocked by:** —',
+          '- **Summary:** No spec',
+        ].join('\n')
+      );
+      // Write spec-a.md with known signals
+      fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, 'docs/spec-a.md'),
+        [
+          '# Feature A',
+          '',
+          '## Technical Design',
+          '',
+          '```',
+          'src/core/new-service.ts',
+          'src/core/new-service.test.ts',
+          '```',
+          '',
+          '## Implementation Order',
+          '',
+          '### Phase 1: Foundation',
+          '',
+          '### Phase 2: Integration',
+        ].join('\n')
+      );
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('adjusted differs from baseline when estimator is provided and includeRoadmap is true', () => {
+      const snapshots = [
+        makeSnapshot(0, { complexity: 40 }),
+        makeSnapshot(1, { complexity: 45 }),
+        makeSnapshot(2, { complexity: 50 }),
+        makeSnapshot(3, { complexity: 55 }),
+        makeSnapshot(4, { complexity: 60 }),
+      ];
+      const tm = mockTimelineManager({ version: 1, snapshots });
+      const estimator = new SpecImpactEstimator(tmpDir);
+      const engine = new PredictionEngine(tmpDir, tm, estimator);
+      const result = engine.predict({ includeRoadmap: true });
+
+      // Complexity adjusted should be higher than baseline (spec adds files + phases)
+      const complexityAF = result.categories['complexity']!;
+      expect(complexityAF.adjusted.projectedValue4w).toBeGreaterThan(
+        complexityAF.baseline.projectedValue4w
+      );
+    });
+
+    it('contributingFeatures is populated for affected categories', () => {
+      const snapshots = [
+        makeSnapshot(0, { complexity: 40 }),
+        makeSnapshot(1, { complexity: 45 }),
+        makeSnapshot(2, { complexity: 50 }),
+        makeSnapshot(3, { complexity: 55 }),
+        makeSnapshot(4, { complexity: 60 }),
+      ];
+      const tm = mockTimelineManager({ version: 1, snapshots });
+      const estimator = new SpecImpactEstimator(tmpDir);
+      const engine = new PredictionEngine(tmpDir, tm, estimator);
+      const result = engine.predict({ includeRoadmap: true });
+
+      const complexityAF = result.categories['complexity']!;
+      expect(complexityAF.contributingFeatures.length).toBeGreaterThan(0);
+      expect(complexityAF.contributingFeatures[0]!.name).toBe('Feature A');
+      expect(complexityAF.contributingFeatures[0]!.delta).toBeGreaterThan(0);
+    });
+
+    it('adjusted equals baseline when includeRoadmap is false', () => {
+      const snapshots = [
+        makeSnapshot(0, { complexity: 40 }),
+        makeSnapshot(1, { complexity: 45 }),
+        makeSnapshot(2, { complexity: 50 }),
+        makeSnapshot(3, { complexity: 55 }),
+        makeSnapshot(4, { complexity: 60 }),
+      ];
+      const tm = mockTimelineManager({ version: 1, snapshots });
+      const estimator = new SpecImpactEstimator(tmpDir);
+      const engine = new PredictionEngine(tmpDir, tm, estimator);
+      const result = engine.predict({ includeRoadmap: false });
+
+      for (const cat of ALL_CATEGORIES) {
+        const af = result.categories[cat]!;
+        expect(af.adjusted).toEqual(af.baseline);
+        expect(af.contributingFeatures).toEqual([]);
+      }
+    });
+
+    it('adjusted equals baseline when estimator is null', () => {
+      const snapshots = [
+        makeSnapshot(0, { complexity: 40 }),
+        makeSnapshot(1, { complexity: 45 }),
+        makeSnapshot(2, { complexity: 50 }),
+        makeSnapshot(3, { complexity: 55 }),
+        makeSnapshot(4, { complexity: 60 }),
+      ];
+      const tm = mockTimelineManager({ version: 1, snapshots });
+      const engine = new PredictionEngine(tmpDir, tm, null);
+      const result = engine.predict({ includeRoadmap: true });
+
+      for (const cat of ALL_CATEGORIES) {
+        const af = result.categories[cat]!;
+        expect(af.adjusted).toEqual(af.baseline);
+      }
+    });
+
+    it('warnings use adjusted forecast for severity calculation', () => {
+      // Complexity close to threshold -- spec impact should push it into warning range
+      const snapshots = [
+        makeSnapshot(0, { complexity: 70 }),
+        makeSnapshot(1, { complexity: 75 }),
+        makeSnapshot(2, { complexity: 80 }),
+        makeSnapshot(3, { complexity: 85 }),
+        makeSnapshot(4, { complexity: 90 }),
+      ];
+      const tm = mockTimelineManager({ version: 1, snapshots });
+      const estimator = new SpecImpactEstimator(tmpDir);
+      const engine = new PredictionEngine(tmpDir, tm, estimator);
+      const result = engine.predict({ includeRoadmap: true });
+
+      // Should have a warning for complexity
+      const complexityWarning = result.warnings.find((w) => w.category === 'complexity');
+      expect(complexityWarning).toBeDefined();
+      // Contributing features should be populated on the warning
+      expect(complexityWarning!.contributingFeatures.length).toBeGreaterThan(0);
+    });
+
+    it('result still validates against Zod schema with roadmap integration', () => {
+      const snapshots = [
+        makeSnapshot(0, { complexity: 40 }),
+        makeSnapshot(1, { complexity: 45 }),
+        makeSnapshot(2, { complexity: 50 }),
+        makeSnapshot(3, { complexity: 55 }),
+        makeSnapshot(4, { complexity: 60 }),
+      ];
+      const tm = mockTimelineManager({ version: 1, snapshots });
+      const estimator = new SpecImpactEstimator(tmpDir);
+      const engine = new PredictionEngine(tmpDir, tm, estimator);
+      const result = engine.predict({ includeRoadmap: true });
+
+      expect(() => PredictionResultSchema.parse(result)).not.toThrow();
     });
   });
 });
