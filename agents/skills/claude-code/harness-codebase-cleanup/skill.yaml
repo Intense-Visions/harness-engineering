@@ -63,3 +63,8 @@ depends_on:
   - cleanup-dead-code
   - enforce-architecture
   - harness-hotspot-detector
+addresses:
+  - signal: dead-code
+    weight: 0.8
+  - signal: drift
+    weight: 0.6
