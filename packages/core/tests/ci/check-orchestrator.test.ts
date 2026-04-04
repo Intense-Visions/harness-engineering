@@ -102,7 +102,7 @@ describe('runCIChecks', () => {
 
     const report = result.value;
     expect(report.version).toBe(1);
-    expect(report.checks).toHaveLength(8);
+    expect(report.checks).toHaveLength(9);
     expect(report.checks.map((c) => c.name)).toEqual([
       'validate',
       'deps',
@@ -112,8 +112,9 @@ describe('runCIChecks', () => {
       'perf',
       'phase-gate',
       'arch',
+      'traceability',
     ]);
-    expect(report.summary.total).toBe(8);
+    expect(report.summary.total).toBe(9);
   });
 
   it('skips checks listed in skip option', async () => {
@@ -238,7 +239,7 @@ describe('runCIChecks', () => {
     expect(callOrder[0]).toBe('validate');
 
     // All checks still produce results
-    expect(result.value.checks).toHaveLength(8);
+    expect(result.value.checks).toHaveLength(9);
     expect(result.value.checks.map((c) => c.name)).toEqual([
       'validate',
       'deps',
@@ -248,6 +249,7 @@ describe('runCIChecks', () => {
       'perf',
       'phase-gate',
       'arch',
+      'traceability',
     ]);
   });
 
@@ -283,6 +285,7 @@ describe('runCIChecks', () => {
       'perf',
       'phase-gate',
       'arch',
+      'traceability',
     ]);
   });
 });

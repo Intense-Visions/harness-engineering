@@ -64,12 +64,12 @@ export async function handlePredictFailures(input: {
     const estimator = includeRoadmap ? new SpecImpactEstimator(projectPath) : null;
     const engine = new PredictionEngine(projectPath, manager, estimator);
 
-    const categories = input.category ? [input.category as core.ArchMetricCategory] : undefined;
+    const categories = input.category ? [input.category as string] : undefined;
 
     const result = engine.predict({
-      horizon: input.horizon,
+      ...(input.horizon !== undefined ? { horizon: input.horizon as number } : {}),
       includeRoadmap,
-      categories,
+      categories: categories as any,
     });
 
     return {
