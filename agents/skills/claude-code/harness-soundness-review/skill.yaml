@@ -47,3 +47,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+addresses:
+  - signal: layer-violations
+    weight: 0.6
+  - signal: circular-deps
+    weight: 0.5
