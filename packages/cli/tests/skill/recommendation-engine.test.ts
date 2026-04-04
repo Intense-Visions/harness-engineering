@@ -3,9 +3,11 @@ import {
   resolveMetricValue,
   matchHardRules,
   scoreByHealth,
+  sequenceRecommendations,
 } from '../../src/skill/recommendation-engine';
 import type { HealthSnapshot, HealthMetrics } from '../../src/skill/health-snapshot';
 import type { SkillAddress } from '../../src/skill/schema';
+import type { Recommendation } from '../../src/skill/recommendation-types';
 
 // -- Test helpers --
 
@@ -319,5 +321,87 @@ describe('scoreByHealth', () => {
     const result = scoreByHealth(snapshot, index);
     // metric resolves to null, so this address is skipped
     expect(result).toHaveLength(0);
+  });
+});
+
+// -- sequenceRecommendations tests --
+
+describe('sequenceRecommendations', () => {
+  function makeRec(name: string, score = 0.5): Recommendation {
+    return {
+      skillName: name,
+      score,
+      urgency: 'recommended',
+      reasons: [],
+      sequence: 0,
+      triggeredBy: [],
+    };
+  }
+
+  it('assigns sequence numbers starting at 1', () => {
+    const recs = [makeRec('a'), makeRec('b')];
+    const deps = new Map<string, string[]>();
+    const result = sequenceRecommendations(recs, deps);
+    expect(result[0]!.sequence).toBe(1);
+    expect(result[1]!.sequence).toBe(2);
+  });
+
+  it('respects dependency ordering (B depends on A -> A first)', () => {
+    const recs = [makeRec('b'), makeRec('a')];
+    const deps = new Map([['b', ['a']]]);
+    const result = sequenceRecommendations(recs, deps);
+    expect(result[0]!.skillName).toBe('a');
+    expect(result[1]!.skillName).toBe('b');
+  });
+
+  it('applies heuristic ordering within same dependency level', () => {
+    // detect-doc-drift is diagnostic, codebase-cleanup is fix, code-review is validation
+    const recs = [makeRec('code-review'), makeRec('codebase-cleanup'), makeRec('detect-doc-drift')];
+    const deps = new Map<string, string[]>();
+    const result = sequenceRecommendations(recs, deps);
+    expect(result[0]!.skillName).toBe('detect-doc-drift'); // diagnostic
+    expect(result[1]!.skillName).toBe('codebase-cleanup'); // fix
+    expect(result[2]!.skillName).toBe('code-review'); // validation
+  });
+
+  it('handles empty recommendations', () => {
+    const result = sequenceRecommendations([], new Map());
+    expect(result).toHaveLength(0);
+  });
+
+  it('handles single recommendation', () => {
+    const recs = [makeRec('tdd')];
+    const result = sequenceRecommendations(recs, new Map());
+    expect(result).toHaveLength(1);
+    expect(result[0]!.sequence).toBe(1);
+  });
+
+  it('handles multi-level dependencies', () => {
+    // c depends on b, b depends on a
+    const recs = [makeRec('c'), makeRec('a'), makeRec('b')];
+    const deps = new Map([
+      ['c', ['b']],
+      ['b', ['a']],
+    ]);
+    const result = sequenceRecommendations(recs, deps);
+    expect(result[0]!.skillName).toBe('a');
+    expect(result[1]!.skillName).toBe('b');
+    expect(result[2]!.skillName).toBe('c');
+  });
+
+  it('ignores dependencies on skills not in the recommendations list', () => {
+    const recs = [makeRec('b'), makeRec('a')];
+    const deps = new Map([['b', ['a', 'missing-skill']]]);
+    const result = sequenceRecommendations(recs, deps);
+    expect(result[0]!.skillName).toBe('a');
+    expect(result[1]!.skillName).toBe('b');
+  });
+
+  it('returns reasoning string', () => {
+    const recs = [makeRec('a'), makeRec('b')];
+    const deps = new Map<string, string[]>();
+    const result = sequenceRecommendations(recs, deps);
+    // Just check it returned the recs (reasoning is on the public API, tested in Task 6)
+    expect(result).toHaveLength(2);
   });
 });

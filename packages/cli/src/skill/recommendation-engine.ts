@@ -174,3 +174,102 @@ export function scoreByHealth(
 
   return results;
 }
+
+// ---------------------------------------------------------------------------
+// Layer 3: Sequencing
+// ---------------------------------------------------------------------------
+
+/** Keyword sets for heuristic ordering within the same dependency level. */
+const DIAGNOSTIC_KEYWORDS = ['health', 'detect', 'analyze', 'audit', 'hotspot', 'debugging'];
+const FIX_KEYWORDS = ['enforce', 'cleanup', 'fix', 'refactor', 'codebase'];
+const VALIDATION_KEYWORDS = ['verify', 'test', 'tdd', 'review', 'soundness', 'integrity'];
+
+/**
+ * Classify a skill name into a phase for heuristic ordering.
+ * 0 = diagnostic, 1 = fix, 2 = validation, 3 = unclassified
+ */
+function classifyPhase(skillName: string): number {
+  const lower = skillName.toLowerCase();
+  if (DIAGNOSTIC_KEYWORDS.some((kw) => lower.includes(kw))) return 0;
+  if (FIX_KEYWORDS.some((kw) => lower.includes(kw))) return 1;
+  if (VALIDATION_KEYWORDS.some((kw) => lower.includes(kw))) return 2;
+  return 3;
+}
+
+/** Create a comparator for heuristic ordering: phase first, then score descending. */
+function heuristicComparator(recMap: Map<string, Recommendation>) {
+  return (a: string, b: string): number => {
+    const phaseA = classifyPhase(a);
+    const phaseB = classifyPhase(b);
+    if (phaseA !== phaseB) return phaseA - phaseB;
+    return (recMap.get(b)?.score ?? 0) - (recMap.get(a)?.score ?? 0);
+  };
+}
+
+/** Build adjacency list and in-degree map for Kahn's algorithm. */
+function buildDepGraph(
+  nameSet: Set<string>,
+  skillDeps: Map<string, string[]>
+): { inDegree: Map<string, number>; adjacency: Map<string, string[]> } {
+  const inDegree = new Map<string, number>();
+  const adjacency = new Map<string, string[]>();
+
+  for (const name of nameSet) {
+    inDegree.set(name, 0);
+    adjacency.set(name, []);
+  }
+
+  for (const name of nameSet) {
+    for (const dep of skillDeps.get(name) ?? []) {
+      if (!nameSet.has(dep)) continue;
+      adjacency.get(dep)!.push(name);
+      inDegree.set(name, (inDegree.get(name) ?? 0) + 1);
+    }
+  }
+
+  return { inDegree, adjacency };
+}
+
+/**
+ * Topologically sort recommendations by dependency, then apply
+ * diagnostic -> fix -> validate heuristic within the same level.
+ *
+ * Uses Kahn's algorithm for topological sort.
+ * Dependencies on skills not in the recommendations list are ignored.
+ */
+export function sequenceRecommendations(
+  recommendations: Recommendation[],
+  skillDeps: Map<string, string[]>
+): Recommendation[] {
+  if (recommendations.length === 0) return [];
+
+  const nameSet = new Set(recommendations.map((r) => r.skillName));
+  const recMap = new Map(recommendations.map((r) => [r.skillName, r]));
+  const compare = heuristicComparator(recMap);
+  const { inDegree, adjacency } = buildDepGraph(nameSet, skillDeps);
+
+  const sorted: Recommendation[] = [];
+  let sequence = 1;
+
+  let queue = [...nameSet].filter((n) => (inDegree.get(n) ?? 0) === 0).sort(compare);
+
+  while (queue.length > 0) {
+    const nextQueue: string[] = [];
+
+    for (const name of queue) {
+      const rec = recMap.get(name)!;
+      rec.sequence = sequence++;
+      sorted.push(rec);
+
+      for (const dependent of adjacency.get(name) ?? []) {
+        const newDeg = (inDegree.get(dependent) ?? 1) - 1;
+        inDegree.set(dependent, newDeg);
+        if (newDeg === 0) nextQueue.push(dependent);
+      }
+    }
+
+    queue = nextQueue.sort(compare);
+  }
+
+  return sorted;
+}
