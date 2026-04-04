@@ -130,8 +130,10 @@ function printCaptureSummary(
 
     const valueFmt = Number.isInteger(value) ? String(value) : value.toFixed(2);
     const deltaFmt = formatDelta(delta);
+    // Match core TimelineManager.buildTrendLine threshold (|delta| < 2 = stable)
+    // For violation categories: lower is better
     const direction: TrendLine['direction'] =
-      Math.abs(delta) < 0.01 ? 'stable' : delta < 0 ? 'improving' : 'declining';
+      Math.abs(delta) < 2 ? 'stable' : delta < 0 ? 'improving' : 'declining';
 
     const line = `  ${category.padEnd(20)}${valueFmt.padStart(7)}${deltaFmt.padStart(8)}    ${directionSymbol(direction)}`;
     console.log(line);
