@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { manageRoadmapDefinition, handleManageRoadmap } from '../../../src/mcp/tools/roadmap';
+import * as autoSync from '../../../src/mcp/tools/roadmap-auto-sync';
 
 // Minimal valid roadmap for testing
 const TEST_ROADMAP = `---
@@ -582,5 +583,68 @@ describe('manage_roadmap with real-world format (no Feature:/Milestone: prefixes
     const core = foundation.features[0];
     expect(core.plans).toEqual(['docs/plans/2026-03-11-phase1-foundation-and-docs.md']);
     expect(core.blockedBy).toEqual([]);
+  });
+});
+
+describe('manage_roadmap external sync trigger', () => {
+  let syncSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    syncSpy = vi.spyOn(autoSync, 'triggerExternalSync').mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    syncSpy.mockRestore();
+  });
+
+  it('triggers external sync after update action', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Auth System',
+      status: 'done',
+    });
+    expect(syncSpy).toHaveBeenCalledOnce();
+  });
+
+  it('triggers external sync after add action', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'add',
+      feature: 'New Feature',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Test feature',
+    });
+    expect(syncSpy).toHaveBeenCalledOnce();
+  });
+
+  it('triggers external sync after remove action', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'remove',
+      feature: 'Mobile App',
+    });
+    expect(syncSpy).toHaveBeenCalledOnce();
+  });
+
+  it('does NOT trigger external sync on show action', async () => {
+    await handleManageRoadmap({ path: tmpDir, action: 'show' });
+    expect(syncSpy).not.toHaveBeenCalled();
+  });
+
+  it('does NOT trigger external sync on query action', async () => {
+    await handleManageRoadmap({ path: tmpDir, action: 'query', filter: 'planned' });
+    expect(syncSpy).not.toHaveBeenCalled();
+  });
+
+  it('does NOT trigger external sync on failed update', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Nonexistent',
+      status: 'done',
+    });
+    expect(syncSpy).not.toHaveBeenCalled();
   });
 });

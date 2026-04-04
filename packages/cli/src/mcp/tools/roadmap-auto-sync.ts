@@ -51,7 +51,7 @@ export async function autoSyncRoadmap(projectPath: string): Promise<void> {
  * Detect tracker config in harness.config.json and fire fullSync if present.
  * Fire-and-forget: errors are logged to stderr but never propagated.
  */
-async function triggerExternalSync(projectPath: string, roadmapFile: string): Promise<void> {
+export async function triggerExternalSync(projectPath: string, roadmapFile: string): Promise<void> {
   try {
     const trackerConfig = loadTrackerConfig(projectPath);
     if (!trackerConfig) return;

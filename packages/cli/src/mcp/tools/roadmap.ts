@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { triggerExternalSync } from './roadmap-auto-sync.js';
 
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
@@ -391,6 +392,38 @@ function handleSync(
   return resultToMcpResponse(Ok({ changes, applied: false }));
 }
 
+const readOnlyActions = new Set(['show', 'query']);
+
+function dispatchAction(
+  action: ManageRoadmapInput['action'],
+  projectPath: string,
+  input: ManageRoadmapInput,
+  deps: RoadmapDeps
+): McpResponse {
+  switch (action) {
+    case 'show':
+      return handleShow(projectPath, input, deps);
+    case 'add':
+      return handleAdd(projectPath, input, deps);
+    case 'update':
+      return handleUpdate(projectPath, input, deps);
+    case 'remove':
+      return handleRemove(projectPath, input, deps);
+    case 'query':
+      return handleQuery(projectPath, input, deps);
+    case 'sync':
+      return handleSync(projectPath, input, deps);
+    default:
+      return { content: [{ type: 'text' as const, text: `Error: unknown action` }], isError: true };
+  }
+}
+
+function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpResponse): boolean {
+  if (response.isError || readOnlyActions.has(input.action)) return false;
+  if (input.action === 'sync') return input.apply === true;
+  return true;
+}
+
 export async function handleManageRoadmap(input: ManageRoadmapInput) {
   try {
     const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges } =
@@ -399,27 +432,13 @@ export async function handleManageRoadmap(input: ManageRoadmapInput) {
 
     const projectPath = sanitizePath(input.path);
     const deps: RoadmapDeps = { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok };
+    const response = dispatchAction(input.action, projectPath, input, deps);
 
-    switch (input.action) {
-      case 'show':
-        return handleShow(projectPath, input, deps);
-      case 'add':
-        return handleAdd(projectPath, input, deps);
-      case 'update':
-        return handleUpdate(projectPath, input, deps);
-      case 'remove':
-        return handleRemove(projectPath, input, deps);
-      case 'query':
-        return handleQuery(projectPath, input, deps);
-      case 'sync':
-        return handleSync(projectPath, input, deps);
-      default: {
-        return {
-          content: [{ type: 'text' as const, text: `Error: unknown action` }],
-          isError: true,
-        };
-      }
+    if (shouldTriggerExternalSync(input, response)) {
+      await triggerExternalSync(projectPath, roadmapPath(projectPath)).catch(() => {});
     }
+
+    return response;
   } catch (error) {
     return {
       content: [
