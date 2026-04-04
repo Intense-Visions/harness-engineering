@@ -136,7 +136,7 @@ export function runPredict(options: {
   const categories = options.category ? [options.category as ArchMetricCategory] : undefined;
 
   return engine.predict({
-    horizon: options.horizon,
+    ...(options.horizon !== undefined ? { horizon: options.horizon } : {}),
     includeRoadmap: options.noRoadmap !== true,
     categories,
   });
