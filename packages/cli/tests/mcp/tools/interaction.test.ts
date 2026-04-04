@@ -226,17 +226,23 @@ describe('emit_interaction tool', () => {
         },
       });
       expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.id).toBeDefined();
-      expect(parsed.prompt).toContain('### Decision needed:');
-      expect(parsed.prompt).toContain('JWT Middleware');
-      expect(parsed.prompt).toContain('OAuth2 Provider');
-      expect(parsed.prompt).toContain('**Pros**');
-      expect(parsed.prompt).toContain('**Cons**');
-      expect(parsed.prompt).toContain('**Risk**');
-      expect(parsed.prompt).toContain('**Effort**');
-      expect(parsed.prompt).toContain('**Recommendation:**');
-      expect(parsed.prompt).toContain('confidence: high');
+      const markdown = response.content[0].text;
+      const meta = JSON.parse(response.content[1].text);
+      expect(meta.id).toBeDefined();
+      expect(response.content[0].annotations).toEqual({
+        audience: ['user', 'assistant'],
+        priority: 1.0,
+      });
+      expect(response.content[1].annotations).toEqual({ audience: ['assistant'], priority: 0.2 });
+      expect(markdown).toContain('### Decision needed:');
+      expect(markdown).toContain('JWT Middleware');
+      expect(markdown).toContain('OAuth2 Provider');
+      expect(markdown).toContain('**Pros**');
+      expect(markdown).toContain('**Cons**');
+      expect(markdown).toContain('**Risk**');
+      expect(markdown).toContain('**Effort**');
+      expect(markdown).toContain('**Recommendation:**');
+      expect(markdown).toContain('confidence: high');
     });
 
     it('renders free-form question without table', async () => {
@@ -245,9 +251,9 @@ describe('emit_interaction tool', () => {
         type: 'question',
         question: { text: 'What is the target environment?' },
       });
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.prompt).toContain('What is the target environment?');
-      expect(parsed.prompt).not.toContain('### Decision needed:');
+      const markdown = response.content[0].text;
+      expect(markdown).toContain('What is the target environment?');
+      expect(markdown).not.toContain('### Decision needed:');
     });
 
     it('returns error when question has options but no recommendation', async () => {
@@ -288,10 +294,10 @@ describe('emit_interaction tool', () => {
         },
       });
       expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
+      const markdown = response.content[0].text;
       // Pipes in cell content should be escaped
-      expect(parsed.prompt).toContain('Fast \\| reliable');
-      expect(parsed.prompt).toContain('Complex \\| fragile');
+      expect(markdown).toContain('Fast \\| reliable');
+      expect(markdown).toContain('Complex \\| fragile');
     });
 
     it('rejects more than 10 options', async () => {
@@ -344,12 +350,12 @@ describe('emit_interaction tool', () => {
         },
       });
       expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.prompt).toContain('Deploy to production?');
-      expect(parsed.prompt).toContain('All staging tests pass');
-      expect(parsed.prompt).toContain('Impact:');
-      expect(parsed.prompt).toContain('Risk: Medium');
-      expect(parsed.prompt).toContain('Proceed? (yes/no)');
+      const markdown = response.content[0].text;
+      expect(markdown).toContain('Deploy to production?');
+      expect(markdown).toContain('All staging tests pass');
+      expect(markdown).toContain('Impact:');
+      expect(markdown).toContain('Risk: Medium');
+      expect(markdown).toContain('Proceed? (yes/no)');
     });
 
     it('renders confirmation without optional fields', async () => {
@@ -358,9 +364,9 @@ describe('emit_interaction tool', () => {
         type: 'confirmation',
         confirmation: { text: 'Continue?', context: 'Step complete' },
       });
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.prompt).not.toContain('Impact:');
-      expect(parsed.prompt).not.toContain('Risk:');
+      const markdown = response.content[0].text;
+      expect(markdown).not.toContain('Impact:');
+      expect(markdown).not.toContain('Risk:');
     });
 
     it('returns error when confirmation payload is missing', async () => {
@@ -394,12 +400,13 @@ describe('emit_interaction tool', () => {
         },
       });
       expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.prompt).toContain('[PASS] validate');
-      expect(parsed.prompt).toContain('[FAIL] typecheck');
-      expect(parsed.prompt).toContain('3 type errors');
-      expect(parsed.prompt).toContain('Some checks failed');
-      expect(parsed.handoffWritten).toBe(true);
+      const markdown = response.content[0].text;
+      const meta = JSON.parse(response.content[1].text);
+      expect(markdown).toContain('[PASS] validate');
+      expect(markdown).toContain('[FAIL] typecheck');
+      expect(markdown).toContain('3 type errors');
+      expect(markdown).toContain('Some checks failed');
+      expect(meta.handoffWritten).toBe(true);
     });
 
     it('renders transition without qualityGate', async () => {
@@ -416,9 +423,9 @@ describe('emit_interaction tool', () => {
         },
       });
       expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.prompt).not.toContain('Quality Gate');
-      expect(parsed.prompt).toContain('SCOPE');
+      const markdown = response.content[0].text;
+      expect(markdown).not.toContain('Quality Gate');
+      expect(markdown).toContain('SCOPE');
     });
 
     it('returns autoTransition for non-confirmed transitions', async () => {
@@ -434,9 +441,9 @@ describe('emit_interaction tool', () => {
           summary: 'Completed 5 tasks.',
         },
       });
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.autoTransition).toBe(true);
-      expect(parsed.nextAction).toContain('verification');
+      const meta = JSON.parse(response.content[1].text);
+      expect(meta.autoTransition).toBe(true);
+      expect(meta.nextAction).toContain('verification');
     });
 
     it('returns error when transition payload is missing', async () => {
@@ -462,11 +469,12 @@ describe('emit_interaction tool', () => {
         },
       });
       expect(response.isError).toBeFalsy();
-      const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.batchMode).toBe(true);
-      expect(parsed.prompt).toContain('Use ESM modules');
-      expect(parsed.prompt).toContain('Add vitest');
-      expect(parsed.prompt).toContain('Approve all?');
+      const markdown = response.content[0].text;
+      const meta = JSON.parse(response.content[1].text);
+      expect(meta.batchMode).toBe(true);
+      expect(markdown).toContain('Use ESM modules');
+      expect(markdown).toContain('Add vitest');
+      expect(markdown).toContain('Approve all?');
     });
 
     it('returns error when batch payload is missing', async () => {
