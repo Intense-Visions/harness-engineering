@@ -129,6 +129,39 @@ describe('syncToExternal()', () => {
     expect(result.created).toHaveLength(0);
   });
 
+  it('auto-populates assignee from authenticated user when unset', async () => {
+    const feature = makeFeature({ assignee: null });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter();
+
+    await syncToExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.assignee).toBe('@testuser');
+    expect(adapter.getAuthenticatedUser).toHaveBeenCalledOnce();
+  });
+
+  it('preserves existing assignee and does not overwrite', async () => {
+    const feature = makeFeature({ assignee: '@alice' });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter();
+
+    await syncToExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.assignee).toBe('@alice');
+  });
+
+  it('skips auto-populate when getAuthenticatedUser fails', async () => {
+    const feature = makeFeature({ assignee: null });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      getAuthenticatedUser: vi.fn(async () => Err(new Error('Unauthorized'))),
+    });
+
+    await syncToExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.assignee).toBeNull();
+  });
+
   it('handles mix of new and existing features', async () => {
     const newFeature = makeFeature({ name: 'New' });
     const existingFeature = makeFeature({ name: 'Existing', externalId: 'github:owner/repo#10' });
