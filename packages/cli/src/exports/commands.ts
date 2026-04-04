@@ -19,3 +19,9 @@ export { runImpactPreview } from '../commands/impact-preview';
  */
 export { runCheckArch } from '../commands/check-arch';
 export type { CheckArchResult } from '../commands/check-arch';
+
+/**
+ * Architecture snapshot capture (timeline).
+ */
+export { runSnapshotCapture } from '../commands/snapshot';
+export type { SnapshotCaptureResult } from '../commands/snapshot';
