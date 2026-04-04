@@ -33,11 +33,30 @@ export function canDispatch(
     return false;
   }
 
-  // Rolling window request cap check
+  // Rolling window request and token cap check
   const now = Date.now();
-  const recentCount = state.recentRequestTimestamps.filter((ts) => now - ts < 60000).length;
-  if (recentCount >= state.maxRequestsPerMinute) {
+  // Per second requests check
+  const recentCountSec = state.recentRequestTimestamps.filter((ts) => now - ts < 1000).length;
+  if (recentCountSec >= state.maxRequestsPerSecond) {
     return false;
+  }
+
+  if (state.maxInputTokensPerMinute > 0) {
+    const minInputTokens = state.recentInputTokens
+      .filter((t) => now - t.timestamp < 60000)
+      .reduce((sum, t) => sum + t.tokens, 0);
+    if (minInputTokens >= state.maxInputTokensPerMinute) {
+      return false; // Exhausted ITPM
+    }
+  }
+
+  if (state.maxOutputTokensPerMinute > 0) {
+    const minOutputTokens = state.recentOutputTokens
+      .filter((t) => now - t.timestamp < 60000)
+      .reduce((sum, t) => sum + t.tokens, 0);
+    if (minOutputTokens >= state.maxOutputTokensPerMinute) {
+      return false; // Exhausted OTPM
+    }
   }
 
   // Global slots check

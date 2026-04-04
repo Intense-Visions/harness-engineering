@@ -70,9 +70,15 @@ export class AgentRunner {
 
         // Manual iteration to capture the return value (TurnResult)
         let next = await turnGen.next();
+        let hitRateLimit = false;
+
         while (!next.done) {
           const event = next.value;
           yield event;
+
+          if (event.type === 'rate_limit') {
+            hitRateLimit = true;
+          }
 
           // If the agent reports its own sessionId, update our local session state
           // so the next turn's --resume flag uses the correct ID.
@@ -81,6 +87,11 @@ export class AgentRunner {
           }
 
           next = await turnGen.next();
+        }
+
+        if (hitRateLimit) {
+          // Do not consume a turn if the API was rate limited
+          currentTurn--;
         }
 
         lastResult = next.value;

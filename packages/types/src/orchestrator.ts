@@ -254,6 +254,12 @@ export interface AgentConfig {
   globalCooldownMs?: number;
   /** Maximum number of requests allowed per minute */
   maxRequestsPerMinute?: number;
+  /** Maximum number of requests allowed per second */
+  maxRequestsPerSecond?: number;
+  /** Maximum number of input tokens allowed per minute */
+  maxInputTokensPerMinute?: number;
+  /** Maximum number of output tokens allowed per minute */
+  maxOutputTokensPerMinute?: number;
   /** Backend type to use */
   backend: string;
   /** Command to launch the agent if applicable */

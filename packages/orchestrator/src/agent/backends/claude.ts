@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import * as readline from 'node:readline';
+import { randomUUID } from 'node:crypto';
 import {
   AgentBackend,
   SessionStartParams,
@@ -47,7 +48,7 @@ export class ClaudeBackend implements AgentBackend {
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
     const session: AgentSession = {
-      sessionId: `claude-session-${Date.now()}`,
+      sessionId: randomUUID(),
       workspacePath: params.workspacePath,
       backendName: this.name,
       startedAt: new Date().toISOString(),
@@ -59,10 +60,21 @@ export class ClaudeBackend implements AgentBackend {
     session: AgentSession,
     params: TurnParams
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
-    const args = ['-p', params.prompt, '--output-format', 'json'];
+    const args = [
+      '--print',
+      '-p',
+      params.prompt,
+      '--output-format',
+      'stream-json',
+      '--verbose',
+      '--permission-mode',
+      'bypassPermissions',
+    ];
 
     if (params.isContinuation) {
       args.push('--resume', session.sessionId);
+    } else {
+      args.push('--session-id', session.sessionId);
     }
 
     const child = spawn(this.command, args, {
@@ -70,23 +82,71 @@ export class ClaudeBackend implements AgentBackend {
       env: process.env,
     });
 
+    // Close stdin to signal no input is coming
+    child.stdin.end();
+
+    child.on('error', (err) => {
+      console.error(`[claude spawn error] ${err.message}`);
+    });
+
     const rl = readline.createInterface({
       input: child.stdout,
       terminal: false,
     });
 
+    const errRl = readline.createInterface({
+      input: child.stderr,
+      terminal: false,
+    });
+
+    // Log stderr for debugging
+    errRl.on('line', (line) => {
+      console.error(`[claude stderr] ${line}`);
+    });
+
     let lastResult: TurnResult | null = null;
+    let exitCode: number | null = null;
+
+    child.on('exit', (code) => {
+      exitCode = code;
+    });
 
     try {
       for await (const line of rl) {
         try {
-          const event = JSON.parse(line) as AgentEvent;
-          yield event;
-          if (event.type === 'result') {
-            lastResult = event.content as TurnResult;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawEvent = JSON.parse(line) as any;
+
+          // Map Claude's stream-json events to our AgentEvent interface
+          const event: AgentEvent = {
+            type: 'status',
+            timestamp: new Date().toISOString(),
+            sessionId: session.sessionId,
+          };
+
+          if (rawEvent.type === 'progress' && rawEvent.content) {
+            event.type = 'thought';
+            event.content = rawEvent.content;
+          } else if (rawEvent.type === 'call') {
+            event.type = 'call';
+            event.content = `Calling ${rawEvent.tool}(${JSON.stringify(rawEvent.args)})`;
+          } else if (rawEvent.type === 'rate_limit_event') {
+            event.type = 'rate_limit';
+            event.content = 'Rate limit hit - waiting...';
+          } else if (rawEvent.type === 'result' || rawEvent.type === 'turn_complete') {
+            event.type = 'result';
+            const resultData = rawEvent.content || rawEvent;
+            event.content = resultData.result || resultData.message || JSON.stringify(resultData);
+            lastResult = resultData as TurnResult;
+          } else {
+            // Fallback for other event types (system, assistant, etc)
+            event.type = 'status';
+            event.content = rawEvent.message || rawEvent.type;
           }
+
+          yield event;
         } catch {
-          // Ignore non-JSON output (e.g. streaming thoughts)
+          // Ignore non-JSON output
         }
       }
     } finally {
@@ -94,6 +154,26 @@ export class ClaudeBackend implements AgentBackend {
         child.kill('SIGTERM');
       }
       rl.close();
+      errRl.close();
+    }
+
+    // Wait briefly for exit event if not already set
+    if (exitCode === null) {
+      await new Promise((resolve) => {
+        child.on('exit', (code) => {
+          exitCode = code;
+          resolve(null);
+        });
+      });
+    }
+
+    if (exitCode !== 0 && !lastResult) {
+      return {
+        success: false,
+        sessionId: session.sessionId,
+        error: `Claude process exited with code ${exitCode}`,
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      };
     }
 
     return (

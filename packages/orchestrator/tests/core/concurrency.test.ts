@@ -7,6 +7,11 @@ function makeState(overrides: Partial<OrchestratorState> = {}): OrchestratorStat
   return {
     pollIntervalMs: 30000,
     maxConcurrentAgents: 10,
+    globalCooldownUntilMs: null,
+    recentRequestTimestamps: [],
+    globalCooldownMs: 60000,
+    maxRequestsPerMinute: 50,
+    maxRequestsPerSecond: 2,
     running: new Map(),
     claimed: new Set(),
     retryAttempts: new Map(),

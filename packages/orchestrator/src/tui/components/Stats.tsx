@@ -8,7 +8,12 @@ export interface StatsProps {
   maxConcurrency: number;
   globalCooldownUntilMs?: number | null;
   recentRequestTimestampsCount?: number;
+  recentInputTokensCount?: number;
+  recentOutputTokensCount?: number;
   maxRequestsPerMinute?: number;
+  maxRequestsPerSecond?: number;
+  maxInputTokensPerMinute?: number;
+  maxOutputTokensPerMinute?: number;
 }
 
 export const Stats: React.FC<StatsProps> = ({
@@ -17,7 +22,12 @@ export const Stats: React.FC<StatsProps> = ({
   maxConcurrency,
   globalCooldownUntilMs,
   recentRequestTimestampsCount,
+  recentInputTokensCount,
+  recentOutputTokensCount,
   maxRequestsPerMinute,
+  maxRequestsPerSecond,
+  maxInputTokensPerMinute,
+  maxOutputTokensPerMinute,
 }) => {
   const isCooldown = globalCooldownUntilMs && Date.now() < globalCooldownUntilMs;
 
@@ -34,6 +44,25 @@ export const Stats: React.FC<StatsProps> = ({
             {recentRequestTimestampsCount || 0} / {maxRequestsPerMinute || 50}
           </Text>
         </Text>
+        <Text>
+          Req/Sec: <Text color="blue">{maxRequestsPerSecond || 2} max</Text>
+        </Text>
+        {maxInputTokensPerMinute ? (
+          <Text>
+            ITPM:{' '}
+            <Text color="yellow">
+              {recentInputTokensCount || 0} / {maxInputTokensPerMinute}
+            </Text>
+          </Text>
+        ) : null}
+        {maxOutputTokensPerMinute ? (
+          <Text>
+            OTPM:{' '}
+            <Text color="yellow">
+              {recentOutputTokensCount || 0} / {maxOutputTokensPerMinute}
+            </Text>
+          </Text>
+        ) : null}
       </Box>
 
       <Box flexDirection="column">

@@ -340,6 +340,94 @@ export class Orchestrator extends EventEmitter {
           // 3. Emit events for TUI/Observability
           this.emit('agent_event', { issueId: issue.id, event });
           this.emit('state_change', this.getSnapshot());
+
+          // 4. Pause if we need to before starting a new turn
+          if (event.type === 'turn_start') {
+            while (true) {
+              const now = Date.now();
+              let waitTime = 0;
+
+              if (this.state.globalCooldownUntilMs && now < this.state.globalCooldownUntilMs) {
+                waitTime = this.state.globalCooldownUntilMs - now;
+              } else {
+                const recentCountMin = this.state.recentRequestTimestamps.filter(
+                  (ts) => now - ts < 60000
+                ).length;
+                const recentCountSec = this.state.recentRequestTimestamps.filter(
+                  (ts) => now - ts < 1000
+                ).length;
+
+                const recentInputTokensFilter = this.state.recentInputTokens.filter(
+                  (t) => now - t.timestamp < 60000
+                );
+                const recentOutputTokensFilter = this.state.recentOutputTokens.filter(
+                  (t) => now - t.timestamp < 60000
+                );
+
+                const minInputTokens = recentInputTokensFilter.reduce(
+                  (sum, t) => sum + t.tokens,
+                  0
+                );
+                const minOutputTokens = recentOutputTokensFilter.reduce(
+                  (sum, t) => sum + t.tokens,
+                  0
+                );
+
+                if (recentCountMin > this.state.maxRequestsPerMinute) {
+                  const timestamps = this.state.recentRequestTimestamps
+                    .filter((ts) => now - ts < 60000)
+                    .sort((a, b) => a - b);
+                  const oldest = timestamps[0];
+                  if (oldest !== undefined) {
+                    waitTime = 60000 - (now - oldest);
+                  } else {
+                    waitTime = 1000;
+                  }
+                } else if (recentCountSec >= this.state.maxRequestsPerSecond) {
+                  const timestamps = this.state.recentRequestTimestamps
+                    .filter((ts) => now - ts < 1000)
+                    .sort((a, b) => a - b);
+                  const oldest = timestamps[0];
+                  if (oldest !== undefined) {
+                    waitTime = 1000 - (now - oldest);
+                  } else {
+                    waitTime = 1000;
+                  }
+                } else if (
+                  this.state.maxInputTokensPerMinute > 0 &&
+                  minInputTokens >= this.state.maxInputTokensPerMinute
+                ) {
+                  const sorted = recentInputTokensFilter.sort((a, b) => a.timestamp - b.timestamp);
+                  const oldest = sorted[0]?.timestamp;
+                  if (oldest !== undefined) {
+                    waitTime = 60000 - (now - oldest);
+                  } else {
+                    waitTime = 1000;
+                  }
+                } else if (
+                  this.state.maxOutputTokensPerMinute > 0 &&
+                  minOutputTokens >= this.state.maxOutputTokensPerMinute
+                ) {
+                  const sorted = recentOutputTokensFilter.sort((a, b) => a.timestamp - b.timestamp);
+                  const oldest = sorted[0]?.timestamp;
+                  if (oldest !== undefined) {
+                    waitTime = 60000 - (now - oldest);
+                  } else {
+                    waitTime = 1000;
+                  }
+                }
+              }
+
+              if (waitTime > 0) {
+                this.logger.info(
+                  `Rate limit throttling active, pausing ${issue.identifier} for ${waitTime}ms`
+                );
+                await new Promise((r) => setTimeout(r, waitTime));
+              } else {
+                break;
+              }
+            }
+          }
         }
         this.logger.info(`Session generator finished for ${issue.identifier}`);
         // When finished, emit success to state machine
@@ -428,8 +516,13 @@ export class Orchestrator extends EventEmitter {
       tokenTotals: this.state.tokenTotals,
       maxConcurrentAgents: this.state.maxConcurrentAgents,
       globalCooldownUntilMs: this.state.globalCooldownUntilMs,
-      recentRequestTimestampsCount: this.state.recentRequestTimestamps.length,
+      recentRequestTimestamps: this.state.recentRequestTimestamps,
+      recentInputTokens: this.state.recentInputTokens,
+      recentOutputTokens: this.state.recentOutputTokens,
       maxRequestsPerMinute: this.state.maxRequestsPerMinute,
+      maxRequestsPerSecond: this.state.maxRequestsPerSecond,
+      maxInputTokensPerMinute: this.state.maxInputTokensPerMinute,
+      maxOutputTokensPerMinute: this.state.maxOutputTokensPerMinute,
     };
   }
 }

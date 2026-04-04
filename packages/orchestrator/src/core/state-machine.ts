@@ -19,6 +19,9 @@ export interface ApplyEventResult {
 function cloneState(state: OrchestratorState): OrchestratorState {
   return {
     ...state,
+    recentRequestTimestamps: [...state.recentRequestTimestamps],
+    recentInputTokens: [...state.recentInputTokens],
+    recentOutputTokens: [...state.recentOutputTokens],
     running: new Map(state.running),
     claimed: new Set(state.claimed),
     retryAttempts: new Map(state.retryAttempts),
@@ -173,24 +176,35 @@ function handleAgentUpdate(
 
     let nextPhase = entry.phase;
 
-    if (event.type === 'thought' || event.type === 'call') {
+    if (
+      event.type === 'thought' ||
+      event.type === 'call' ||
+      event.type === 'status' ||
+      event.type === 'rate_limit'
+    ) {
       nextPhase = 'StreamingTurn';
-      updatedSession.lastMessage =
-        typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
-    } else if (event.type === 'status') {
       updatedSession.lastMessage =
         typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
     } else if (event.type === 'result') {
       updatedSession.lastMessage =
         typeof event.content === 'string'
           ? event.content
-          : (event.content as any)?.result || JSON.stringify(event.content);
+          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (event.content as any)?.result || JSON.stringify(event.content);
     }
 
     if (event.usage) {
       updatedSession.inputTokens += event.usage.inputTokens;
       updatedSession.outputTokens += event.usage.outputTokens;
       updatedSession.totalTokens += event.usage.totalTokens;
+
+      const now = Date.now();
+      next.recentInputTokens.push({ timestamp: now, tokens: event.usage.inputTokens });
+      next.recentOutputTokens.push({ timestamp: now, tokens: event.usage.outputTokens });
+
+      // Prune
+      next.recentInputTokens = next.recentInputTokens.filter((t) => now - t.timestamp < 60000);
+      next.recentOutputTokens = next.recentOutputTokens.filter((t) => now - t.timestamp < 60000);
 
       effects.push({
         type: 'updateTokens',
