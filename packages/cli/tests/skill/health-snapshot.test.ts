@@ -359,3 +359,86 @@ describe('runHealthChecks', () => {
     expect(checks.lint.passed).toBe(true);
   });
 });
+
+describe('runGraphMetrics', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('returns zero defaults when graph is unavailable', async () => {
+    vi.doMock('../../src/mcp/utils/graph-loader', () => ({
+      loadGraphStore: vi.fn().mockResolvedValue(null),
+    }));
+    const { runGraphMetrics } = await import('../../src/skill/health-snapshot');
+    const metrics = await runGraphMetrics('/tmp/no-graph');
+    expect(metrics.avgFanOut).toBe(0);
+    expect(metrics.maxFanOut).toBe(0);
+    expect(metrics.avgCyclomaticComplexity).toBe(0);
+    expect(metrics.maxCyclomaticComplexity).toBe(0);
+    expect(metrics.avgCouplingRatio).toBe(0);
+    expect(metrics.testCoverage).toBeNull();
+    expect(metrics.anomalyOutlierCount).toBe(0);
+    expect(metrics.articulationPointCount).toBe(0);
+  });
+
+  it('aggregates coupling and complexity metrics from graph adapters', async () => {
+    const fakeStore = {};
+    vi.doMock('../../src/mcp/utils/graph-loader', () => ({
+      loadGraphStore: vi.fn().mockResolvedValue(fakeStore),
+    }));
+    vi.doMock('@harness-engineering/graph', () => ({
+      GraphCouplingAdapter: class {
+        computeCouplingData() {
+          return {
+            files: [
+              { file: 'a.ts', fanIn: 2, fanOut: 10, couplingRatio: 0.83, transitiveDepth: 3 },
+              { file: 'b.ts', fanIn: 5, fanOut: 4, couplingRatio: 0.44, transitiveDepth: 1 },
+            ],
+          };
+        }
+      },
+      GraphComplexityAdapter: class {
+        computeComplexityHotspots() {
+          return {
+            hotspots: [
+              {
+                file: 'a.ts',
+                function: 'foo',
+                changeFrequency: 5,
+                complexity: 15,
+                hotspotScore: 75,
+              },
+              {
+                file: 'b.ts',
+                function: 'bar',
+                changeFrequency: 2,
+                complexity: 8,
+                hotspotScore: 16,
+              },
+            ],
+            percentile95Score: 75,
+          };
+        }
+      },
+      GraphAnomalyAdapter: class {
+        detect() {
+          return {
+            statisticalOutliers: [{ nodeId: 'a' }, { nodeId: 'b' }],
+            articulationPoints: [{ nodeId: 'c' }],
+            summary: { outlierCount: 2, articulationPointCount: 1 },
+          };
+        }
+      },
+    }));
+
+    const { runGraphMetrics } = await import('../../src/skill/health-snapshot');
+    const metrics = await runGraphMetrics('/tmp/with-graph');
+    expect(metrics.avgFanOut).toBe(7); // (10+4)/2
+    expect(metrics.maxFanOut).toBe(10);
+    expect(metrics.avgCyclomaticComplexity).toBe(11.5); // (15+8)/2
+    expect(metrics.maxCyclomaticComplexity).toBe(15);
+    expect(metrics.avgCouplingRatio).toBeCloseTo(0.635); // (0.83+0.44)/2
+    expect(metrics.anomalyOutlierCount).toBe(2);
+    expect(metrics.articulationPointCount).toBe(1);
+  });
+});

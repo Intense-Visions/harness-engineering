@@ -239,3 +239,77 @@ export async function runHealthChecks(projectPath: string): Promise<HealthChecks
     lint: { passed: lint.passed, issueCount: lint.issueCount },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Graph metrics aggregation
+// ---------------------------------------------------------------------------
+
+const ZERO_METRICS: HealthMetrics = {
+  avgFanOut: 0,
+  maxFanOut: 0,
+  avgCyclomaticComplexity: 0,
+  maxCyclomaticComplexity: 0,
+  avgCouplingRatio: 0,
+  testCoverage: null,
+  anomalyOutlierCount: 0,
+  articulationPointCount: 0,
+};
+
+/** Compute average of numeric values; returns 0 for empty arrays. */
+function avg(values: number[]): number {
+  if (values.length === 0) return 0;
+  return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 1000) / 1000;
+}
+
+/**
+ * Run graph-based metric aggregation. Returns HealthMetrics.
+ * Gracefully returns zero defaults when graph is unavailable.
+ */
+export async function runGraphMetrics(projectPath: string): Promise<HealthMetrics> {
+  try {
+    const { loadGraphStore } = await import('../mcp/utils/graph-loader.js');
+    const store = await loadGraphStore(projectPath);
+    if (!store) return ZERO_METRICS;
+
+    const { GraphCouplingAdapter, GraphComplexityAdapter, GraphAnomalyAdapter } =
+      await import('@harness-engineering/graph');
+
+    // Coupling metrics
+    const couplingAdapter = new GraphCouplingAdapter(store);
+    const couplingData = couplingAdapter.computeCouplingData();
+    const files = couplingData.files;
+
+    const avgFanOut = avg(files.map((f: { fanOut: number }) => f.fanOut));
+    const maxFanOut =
+      files.length > 0 ? Math.max(...files.map((f: { fanOut: number }) => f.fanOut)) : 0;
+    const avgCouplingRatio = avg(files.map((f: { couplingRatio: number }) => f.couplingRatio));
+
+    // Complexity metrics
+    const complexityAdapter = new GraphComplexityAdapter(store);
+    const complexityData = complexityAdapter.computeComplexityHotspots();
+    const hotspots = complexityData.hotspots;
+
+    const avgCyclomaticComplexity = avg(hotspots.map((h: { complexity: number }) => h.complexity));
+    const maxCyclomaticComplexity =
+      hotspots.length > 0
+        ? Math.max(...hotspots.map((h: { complexity: number }) => h.complexity))
+        : 0;
+
+    // Anomaly metrics
+    const anomalyAdapter = new GraphAnomalyAdapter(store);
+    const anomalyReport = anomalyAdapter.detect();
+
+    return {
+      avgFanOut,
+      maxFanOut,
+      avgCyclomaticComplexity,
+      maxCyclomaticComplexity,
+      avgCouplingRatio,
+      testCoverage: null, // Coverage integration deferred -- not available from graph
+      anomalyOutlierCount: anomalyReport.summary.outlierCount,
+      articulationPointCount: anomalyReport.summary.articulationPointCount,
+    };
+  } catch {
+    return ZERO_METRICS;
+  }
+}
