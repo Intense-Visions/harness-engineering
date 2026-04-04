@@ -11,7 +11,7 @@ import { resolveConfig } from '../config/loader';
 import { OutputMode } from '../output/formatter';
 import type { OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
-import { CLIError, ExitCode } from '../utils/errors';
+import { CLIError } from '../utils/errors';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
 
