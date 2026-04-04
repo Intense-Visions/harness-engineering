@@ -12,6 +12,8 @@ function makeEntry(overrides: Partial<SkillIndexEntry> = {}): SkillIndexEntry {
     cognitiveMode: undefined,
     phases: [],
     source: 'bundled',
+    addresses: [],
+    dependsOn: [],
     ...overrides,
   };
 }

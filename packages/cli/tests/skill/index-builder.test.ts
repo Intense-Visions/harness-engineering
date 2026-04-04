@@ -63,3 +63,79 @@ describe('computeSkillsDirHash', () => {
     expect(hashWithDir.length).toBe(64);
   });
 });
+
+import { SkillMetadataSchema } from '../../src/skill/schema';
+import { stringify } from 'yaml';
+
+describe('SkillIndexEntry addresses and dependsOn', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'index-builder-addr-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeSkillYaml(name: string, extra: Record<string, unknown> = {}): void {
+    const skillDir = path.join(tmpDir, name);
+    fs.mkdirSync(skillDir, { recursive: true });
+    const yaml = stringify({
+      name,
+      version: '1.0.0',
+      description: `Test skill ${name}`,
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: ['Read'],
+      type: 'flexible',
+      tier: 3,
+      ...extra,
+    });
+    fs.writeFileSync(path.join(skillDir, 'skill.yaml'), yaml);
+  }
+
+  it('includes addresses from skill.yaml in index entry', () => {
+    writeSkillYaml('test-addr-skill', {
+      addresses: [
+        { signal: 'circular-deps', hard: true },
+        { signal: 'high-coupling', metric: 'fanOut', threshold: 20, weight: 0.8 },
+      ],
+    });
+
+    const { parse } = require('yaml');
+    const raw = fs.readFileSync(path.join(tmpDir, 'test-addr-skill', 'skill.yaml'), 'utf-8');
+    const parsed = parse(raw);
+    const meta = SkillMetadataSchema.parse(parsed);
+
+    expect(meta.addresses).toHaveLength(2);
+    expect(meta.addresses[0].signal).toBe('circular-deps');
+    expect(meta.addresses[0].hard).toBe(true);
+    expect(meta.addresses[1].weight).toBe(0.8);
+    expect(meta.depends_on).toEqual([]);
+  });
+
+  it('defaults addresses to empty array when not in skill.yaml', () => {
+    writeSkillYaml('test-no-addr');
+
+    const { parse } = require('yaml');
+    const raw = fs.readFileSync(path.join(tmpDir, 'test-no-addr', 'skill.yaml'), 'utf-8');
+    const parsed = parse(raw);
+    const meta = SkillMetadataSchema.parse(parsed);
+
+    expect(meta.addresses).toEqual([]);
+  });
+
+  it('includes dependsOn from skill.yaml in parsed metadata', () => {
+    writeSkillYaml('test-deps-skill', {
+      depends_on: ['harness-brainstorming', 'harness-planning'],
+    });
+
+    const { parse } = require('yaml');
+    const raw = fs.readFileSync(path.join(tmpDir, 'test-deps-skill', 'skill.yaml'), 'utf-8');
+    const parsed = parse(raw);
+    const meta = SkillMetadataSchema.parse(parsed);
+
+    expect(meta.depends_on).toEqual(['harness-brainstorming', 'harness-planning']);
+  });
+});
