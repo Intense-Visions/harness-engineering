@@ -49,28 +49,28 @@ describe('isTier1Skill', () => {
 describe('scoreSkill', () => {
   it('returns 0 when no matches', () => {
     const entry = makeEntry({ keywords: ['database'], stackSignals: [] });
-    const score = scoreSkill(entry, ['frontend'], null, []);
+    const score = scoreSkill(entry, ['frontend'], null, [], 'some-skill');
     expect(score).toBe(0);
   });
 
   it('scores keyword matches', () => {
     const entry = makeEntry({ keywords: ['testing', 'unit', 'jest'] });
-    const score = scoreSkill(entry, ['testing', 'unit'], null, []);
+    const score = scoreSkill(entry, ['testing', 'unit'], null, [], 'unrelated-skill');
     expect(score).toBeGreaterThan(0);
-    // keyword component = 0.5 * (2/2) = 0.5
-    expect(score).toBeCloseTo(0.5);
+    // keyword component = 0.35 * (2/2) = 0.35
+    expect(score).toBeCloseTo(0.35);
   });
 
   it('scores partial keyword matches', () => {
     const entry = makeEntry({ keywords: ['testing'] });
-    const score = scoreSkill(entry, ['testing', 'database'], null, []);
-    // keyword component = 0.5 * (1/2) = 0.25
-    expect(score).toBeCloseTo(0.25);
+    const score = scoreSkill(entry, ['testing', 'database'], null, [], 'unrelated-skill');
+    // keyword component = 0.35 * (1/2) = 0.175
+    expect(score).toBeCloseTo(0.175);
   });
 
   it('returns 0 keyword score when queryTerms is empty', () => {
     const entry = makeEntry({ keywords: ['testing'] });
-    const score = scoreSkill(entry, [], null, []);
+    const score = scoreSkill(entry, [], null, [], 'some-skill');
     expect(score).toBe(0);
   });
 
@@ -82,9 +82,9 @@ describe('scoreSkill', () => {
     const profile = makeProfile({
       signals: { 'prisma/schema.prisma': true },
     });
-    const score = scoreSkill(entry, [], profile, []);
-    // stack component = 0.3 * (1/1) = 0.3
-    expect(score).toBeCloseTo(0.3);
+    const score = scoreSkill(entry, [], profile, [], 'some-skill');
+    // stack component = 0.2 * (1/1) = 0.2
+    expect(score).toBeCloseTo(0.2);
   });
 
   it('scores domain matches via stackSignals', () => {
@@ -95,10 +95,10 @@ describe('scoreSkill', () => {
     const profile = makeProfile({
       detectedDomains: ['database'],
     });
-    const score = scoreSkill(entry, [], profile, []);
+    const score = scoreSkill(entry, [], profile, [], 'some-skill');
     // domain match: detectedDomains has "database", entry.keywords has "database"
-    // stack component = 0.3 * (1/1) = 0.3
-    expect(score).toBeCloseTo(0.3);
+    // stack component = 0.2 * (1/1) = 0.2
+    expect(score).toBeCloseTo(0.2);
   });
 
   it('scores recency boost', () => {
@@ -106,21 +106,71 @@ describe('scoreSkill', () => {
       keywords: [],
       stackSignals: ['src/models'],
     });
-    const score = scoreSkill(entry, [], null, ['src/models/user.ts']);
-    // recency component = 0.2 * 1.0 = 0.2
+    const score = scoreSkill(entry, [], null, ['src/models/user.ts'], 'some-skill');
+    // recency component = 0.15 * 1.0 = 0.15
+    expect(score).toBeCloseTo(0.15);
+  });
+
+  it('scores name matches', () => {
+    const entry = makeEntry({ keywords: [] });
+    const score = scoreSkill(entry, ['design', 'system'], null, [], 'harness-design-system');
+    // name component = 0.2 * (2/2) = 0.2
     expect(score).toBeCloseTo(0.2);
+  });
+
+  it('scores description matches', () => {
+    const entry = makeEntry({
+      keywords: [],
+      description: 'Design token generation and palette selection',
+    });
+    const score = scoreSkill(entry, ['design', 'token'], null, [], 'unrelated-skill');
+    // desc component = 0.1 * (2/2) = 0.1
+    expect(score).toBeCloseTo(0.1);
+  });
+
+  it('finds skills with no keywords via name and description', () => {
+    const entry = makeEntry({
+      keywords: [],
+      description: 'Design token generation, palette selection, typography',
+    });
+    const score = scoreSkill(entry, ['design', 'system'], null, [], 'harness-design-system');
+    // name: 0.2 * (2/2) = 0.2, desc: 0.1 * (1/2) = 0.05 => 0.25
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeCloseTo(0.25);
+  });
+
+  it('filters short name segments to prevent false positives', () => {
+    const entry = makeEntry({ keywords: [] });
+    // 'go' segment (2 chars) should be filtered out, not match query term 'algorithm'
+    const score = scoreSkill(entry, ['algorithm'], null, [], 'harness-go-tool');
+    // name segments after filter: ['harness', 'tool'] — neither matches 'algorithm'
+    expect(score).toBeCloseTo(0);
+  });
+
+  it('handles empty skillName without error', () => {
+    const entry = makeEntry({ keywords: [] });
+    const score = scoreSkill(entry, ['testing'], null, [], '');
+    // empty name → nameScore stays 0
+    expect(score).toBeCloseTo(0);
   });
 
   it('combines all score components', () => {
     const entry = makeEntry({
       keywords: ['testing'],
       stackSignals: ['prisma/schema.prisma'],
+      description: 'A testing skill for unit tests',
     });
     const profile = makeProfile({
       signals: { 'prisma/schema.prisma': true },
     });
-    const score = scoreSkill(entry, ['testing'], profile, ['prisma/schema.prisma']);
-    // keyword: 0.5 * 1 = 0.5, stack: 0.3 * 1 = 0.3, recency: 0.2 * 1 = 0.2
+    const score = scoreSkill(
+      entry,
+      ['testing'],
+      profile,
+      ['prisma/schema.prisma'],
+      'harness-testing'
+    );
+    // keyword: 0.35*1=0.35, name: 0.2*(1/1)=0.2, desc: 0.1*1=0.1, stack: 0.2*1=0.2, recency: 0.15*1=0.15
     expect(score).toBeCloseTo(1.0);
   });
 });
@@ -141,7 +191,7 @@ describe('suggest', () => {
     });
     const index = makeIndex({ 'test-skill': entry });
     const profile = makeProfile({ signals: { 'jest.config.ts': true } });
-    // keyword: 0.5*(3/3)=0.5 + stack: 0.3*(1/1)=0.3 = 0.8 > 0.4
+    // keyword: 0.35*(3/3)=0.35 + name: 0.2*(1/3)≈0.067 + desc: 0.1*(0/3)=0 + stack: 0.2*(1/1)=0.2 = ~0.62 > 0.4
     const result = suggest(index, 'testing unit jest', profile, []);
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]!.name).toBe('test-skill');

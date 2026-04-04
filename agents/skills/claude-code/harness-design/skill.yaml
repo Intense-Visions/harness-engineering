@@ -50,5 +50,25 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - aesthetic-direction
+  - design-intent
+  - anti-pattern
+  - style-tone
+  - design-enforcement
+  - strictness
+  - design-review
+  - DESIGN-md
+  - visual-direction
+  - design-constraints
+  - component-review
+  - style-guide
+stack_signals:
+  - frontend
+  - css
+  - react
+  - vue
+  - svelte
+  - tailwind
 depends_on:
   - harness-design-system

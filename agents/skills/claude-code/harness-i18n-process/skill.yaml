@@ -41,4 +41,19 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - i18n-process
+  - upstream-injection
+  - internationalization-planning
+  - gate-mode
+  - prompt-mode
+  - i18n-review
+  - localization-planning
+  - spec-validation
+  - i18n-enforcement
+  - feature-planning
+stack_signals:
+  - frontend
+  - backend
+  - mobile
 depends_on: []

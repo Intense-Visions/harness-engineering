@@ -45,6 +45,26 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - mobile-components
+  - token-bound
+  - design-tokens
+  - platform-guidelines
+  - native-conventions
+  - component-generation
+  - mobile-design
+  - platform-rules
+  - token-verification
+  - scaffold
+  - mobile-patterns
+stack_signals:
+  - react-native
+  - swiftui
+  - flutter
+  - jetpack-compose
+  - ios
+  - android
+  - mobile
 depends_on:
   - harness-design-system
   - harness-design

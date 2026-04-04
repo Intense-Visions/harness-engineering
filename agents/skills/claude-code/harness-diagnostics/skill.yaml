@@ -48,4 +48,23 @@ state:
   persistent: true
   files:
     - .harness/diagnostics/
+keywords:
+  - error-diagnosis
+  - debugging
+  - error-taxonomy
+  - troubleshooting
+  - bug-fix
+  - root-cause
+  - error-classification
+  - resolution-strategy
+  - anti-pattern
+  - stack-trace
+  - error-routing
+stack_signals:
+  - nodejs
+  - python
+  - go
+  - java
+  - typescript
+  - rust
 depends_on: []

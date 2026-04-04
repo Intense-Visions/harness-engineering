@@ -45,6 +45,18 @@ function labelsForStatus(status: string, config: TrackerSyncConfig): string[] {
 const RETRY_DEFAULTS = { maxRetries: 5, baseDelayMs: 1000 };
 
 /**
+ * Parse "owner/repo" into { owner, repo }.
+ * Throws if the format is invalid.
+ */
+function parseRepoParts(repo: string | undefined): { owner: string; repo: string } {
+  const parts = (repo ?? '').split('/');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error(`Invalid repo format: "${repo}". Expected "owner/repo".`);
+  }
+  return { owner: parts[0], repo: parts[1] };
+}
+
+/**
  * Sleep helper that can be overridden in tests.
  */
 function sleep(ms: number): Promise<void> {
@@ -121,12 +133,9 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       baseDelayMs: options.baseDelayMs ?? RETRY_DEFAULTS.baseDelayMs,
     };
 
-    const repoParts = (options.config.repo ?? '').split('/');
-    if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
-      throw new Error(`Invalid repo format: "${options.config.repo}". Expected "owner/repo".`);
-    }
-    this.owner = repoParts[0];
-    this.repo = repoParts[1];
+    const { owner, repo } = parseRepoParts(options.config.repo);
+    this.owner = owner;
+    this.repo = repo;
   }
 
   /**

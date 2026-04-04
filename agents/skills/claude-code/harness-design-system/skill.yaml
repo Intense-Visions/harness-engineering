@@ -48,4 +48,26 @@ phases:
 state:
   persistent: false
   files: []
+keywords:
+  - design-system
+  - design-tokens
+  - palette
+  - typography
+  - spacing
+  - color
+  - WCAG
+  - DTCG
+  - CSS-variables
+  - theme
+  - style-guide
+  - contrast
+stack_signals:
+  - css
+  - tailwind
+  - frontend
+  - react
+  - vue
+  - svelte
+  - nextjs
+  - nuxt
 depends_on: []
