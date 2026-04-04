@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-03-31
-last_synced: 2026-04-04T00:00:00.000Z
+last_synced: 2026-04-04T19:00:00.000Z
 last_manual_edit: 2026-03-30
 ---
 
@@ -889,15 +889,16 @@ last_manual_edit: 2026-03-30
 - **Status:** planned
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Extrapolate decay trends from timeline plus planned roadmap features to predict which constraints will break and when. Warns before architectural violations become reality. [J2]
-- **Blockers:** Architecture Decay Timeline
+- **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-04
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#80
 
 ### Spec-to-Implementation Traceability
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/spec-to-implementation-traceability/proposal.md
 - **Summary:** Requirement-to-code-to-test mapping via knowledge graph — requirement nodes, requires/verified_by/tested_by edges, RequirementIngestor, coverage matrix CLI/MCP/CI, hybrid test linking with confidence signals. [E2]
 - **Blockers:** —
