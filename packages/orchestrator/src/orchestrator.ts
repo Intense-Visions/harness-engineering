@@ -218,7 +218,11 @@ export class Orchestrator extends EventEmitter {
       if (!workspaceResult.ok) throw workspaceResult.error;
       const workspacePath = workspaceResult.value;
 
-      // 2. Scan workspace config files for injection patterns
+      // 2. Run hooks (might generate/modify config files)
+      const hookResult = await this.hooks.beforeRun(workspacePath);
+      if (!hookResult.ok) throw hookResult.error;
+
+      // 3. Scan workspace config files for injection patterns (now after hooks)
       const scanResult = await scanWorkspaceConfig(workspacePath);
 
       if (scanResult.exitCode === 2) {
@@ -264,10 +268,6 @@ export class Orchestrator extends EventEmitter {
           { issueId: issue.id }
         );
       }
-
-      // 3. Run hooks
-      const hookResult = await this.hooks.beforeRun(workspacePath);
-      if (!hookResult.ok) throw hookResult.error;
 
       // 4. Render prompt
       const prompt = await this.renderer.render(this.promptTemplate, {
@@ -439,6 +439,86 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
+  }
+
+  /**
+   * Applies rate-limit throttling for an agent session.
+   *
+   * @param identifier - The issue identifier for logging
+   */
+  private async throttleAgent(identifier: string): Promise<void> {
+    while (true) {
+      const now = Date.now();
+      let waitTime = 0;
+
+      if (this.state.globalCooldownUntilMs && now < this.state.globalCooldownUntilMs) {
+        waitTime = this.state.globalCooldownUntilMs - now;
+      } else {
+        waitTime = this.calculateWaitTime(now);
+      }
+
+      if (waitTime > 0) {
+        this.logger.info(`Rate limit throttling active, pausing ${identifier} for ${waitTime}ms`);
+        await new Promise((r) => setTimeout(r, waitTime));
+      } else {
+        break;
+      }
+    }
+  }
+
+  /**
+   * Calculates the required wait time based on current usage and limits.
+   *
+   * @param now - Current timestamp
+   * @returns Wait time in milliseconds
+   */
+  private calculateWaitTime(now: number): number {
+    // recentRequestTimestamps is already pruned to 60s in state machine
+    const recentCountMin = this.state.recentRequestTimestamps.length;
+    // We still need to filter for the 1s window
+    const recentCountSec = this.state.recentRequestTimestamps.filter(
+      (ts) => now - ts < 1000
+    ).length;
+
+    // recentInputTokens and recentOutputTokens are already pruned to 60s in state machine
+    const minInputTokens = this.state.recentInputTokens.reduce((sum, t) => sum + t.tokens, 0);
+    const minOutputTokens = this.state.recentOutputTokens.reduce((sum, t) => sum + t.tokens, 0);
+
+    if (recentCountMin > this.state.maxRequestsPerMinute) {
+      return this.getBackoffTime(this.state.recentRequestTimestamps, now, 60000);
+    }
+
+    if (recentCountSec >= this.state.maxRequestsPerSecond) {
+      return this.getBackoffTime(this.state.recentRequestTimestamps, now, 1000);
+    }
+
+    if (
+      this.state.maxInputTokensPerMinute > 0 &&
+      minInputTokens >= this.state.maxInputTokensPerMinute
+    ) {
+      const sorted = [...this.state.recentInputTokens].sort((a, b) => a.timestamp - b.timestamp);
+      const oldest = sorted[0]?.timestamp;
+      return oldest !== undefined ? 60000 - (now - oldest) : 1000;
+    }
+
+    if (
+      this.state.maxOutputTokensPerMinute > 0 &&
+      minOutputTokens >= this.state.maxOutputTokensPerMinute
+    ) {
+      const sorted = [...this.state.recentOutputTokens].sort((a, b) => a.timestamp - b.timestamp);
+      const oldest = sorted[0]?.timestamp;
+      return oldest !== undefined ? 60000 - (now - oldest) : 1000;
+    }
+
+    return 0;
+  }
+
+  private getBackoffTime(timestamps: number[], now: number, windowMs: number): number {
+    // Only filter if the window is smaller than the 60s pruned window
+    const relevant = windowMs < 60000 ? timestamps.filter((ts) => now - ts < windowMs) : timestamps;
+    const sorted = [...relevant].sort((a, b) => a - b);
+    const oldest = sorted[0];
+    return oldest !== undefined ? windowMs - (now - oldest) : 1000;
   }
 
   /**

@@ -1,5 +1,5 @@
 import type { Issue, WorkflowConfig, AgentEvent } from '@harness-engineering/types';
-import type { OrchestratorState } from '../types/internal';
+import type { OrchestratorState, RunningEntry, LiveSession } from '../types/internal';
 import type { OrchestratorEvent, SideEffect } from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
@@ -221,6 +221,79 @@ function handleAgentUpdate(
   }
 
   return { nextState: next, effects };
+}
+
+function updateRateLimits(state: OrchestratorState, event: AgentEvent): void {
+  if (event.type === 'rate_limit') {
+    state.globalCooldownUntilMs = Date.now() + state.globalCooldownMs;
+  } else if (event.type === 'turn_start') {
+    const now = Date.now();
+    state.recentRequestTimestamps.push(now);
+    state.recentRequestTimestamps = state.recentRequestTimestamps.filter((ts) => now - ts < 60000);
+  }
+}
+
+function updateSessionFromEvent(
+  entry: RunningEntry,
+  event: AgentEvent,
+  state: OrchestratorState,
+  issueId: string
+): { updatedSession: LiveSession; nextPhase: string; usageEffects: SideEffect[] } {
+  const updatedSession = { ...entry.session! };
+  updatedSession.lastEvent = event.type;
+  updatedSession.lastTimestamp = event.timestamp;
+
+  let nextPhase = entry.phase;
+  const usageEffects: SideEffect[] = [];
+
+  if (
+    event.type === 'thought' ||
+    event.type === 'call' ||
+    event.type === 'status' ||
+    event.type === 'rate_limit'
+  ) {
+    nextPhase = 'StreamingTurn';
+    updatedSession.lastMessage =
+      typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+  } else if (event.type === 'result') {
+    updatedSession.lastMessage =
+      typeof event.content === 'string'
+        ? event.content
+        : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (event.content as any)?.result || JSON.stringify(event.content);
+  }
+
+  if (event.usage) {
+    processUsage(state, event.usage);
+    updatedSession.inputTokens += event.usage.inputTokens;
+    updatedSession.outputTokens += event.usage.outputTokens;
+    updatedSession.totalTokens += event.usage.totalTokens;
+
+    usageEffects.push({
+      type: 'updateTokens',
+      issueId,
+      usage: event.usage,
+    });
+  }
+
+  if (event.sessionId) {
+    updatedSession.sessionId = event.sessionId;
+  }
+
+  return { updatedSession, nextPhase, usageEffects };
+}
+
+function processUsage(
+  state: OrchestratorState,
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number }
+): void {
+  const now = Date.now();
+  state.recentInputTokens.push({ timestamp: now, tokens: usage.inputTokens });
+  state.recentOutputTokens.push({ timestamp: now, tokens: usage.outputTokens });
+
+  // Prune
+  state.recentInputTokens = state.recentInputTokens.filter((t) => now - t.timestamp < 60000);
+  state.recentOutputTokens = state.recentOutputTokens.filter((t) => now - t.timestamp < 60000);
 }
 
 function handleRetryFired(
