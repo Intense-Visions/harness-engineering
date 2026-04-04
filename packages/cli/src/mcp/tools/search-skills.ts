@@ -1,6 +1,7 @@
 import { loadOrRebuildIndex } from '../../skill/index-builder.js';
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js';
 import { scoreSkill } from '../../skill/dispatcher.js';
+import { loadCachedSnapshot, isSnapshotFresh } from '../../skill/health-snapshot.js';
 import { resolveConfig } from '../../config/loader.js';
 
 export const searchSkillsDefinition = {
@@ -42,6 +43,10 @@ export async function handleSearchSkills(
   const index = loadOrRebuildIndex(platform, projectRoot, tierOverrides);
   const profile = loadOrGenerateProfile(projectRoot);
 
+  // Load cached health snapshot for passive search boost
+  const snapshot = loadCachedSnapshot(projectRoot);
+  const freshSnapshot = snapshot && isSnapshotFresh(snapshot, projectRoot) ? snapshot : undefined;
+
   const queryTerms = query
     .toLowerCase()
     .split(/\s+/)
@@ -58,7 +63,7 @@ export async function handleSearchSkills(
 
   for (const [name, entry] of Object.entries(index.skills)) {
     // Delegate scoring to shared scoreSkill — no recency context in search
-    const score = scoreSkill(entry, queryTerms, profile, [], name);
+    const score = scoreSkill(entry, queryTerms, profile, [], name, freshSnapshot);
 
     if (score > 0 || queryTerms.length === 0) {
       results.push({
