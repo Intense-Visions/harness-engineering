@@ -129,6 +129,7 @@ import {
 } from './tools/code-nav.js';
 import { checkTraceabilityDefinition, handleCheckTraceability } from './tools/traceability.js';
 import { predictFailuresDefinition, handlePredictFailures } from './tools/predict-failures.js';
+import { recommendSkillsDefinition, handleRecommendSkills } from './tools/recommend-skills.js';
 
 type ToolDefinition = {
   name: string;
@@ -197,6 +198,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   getDecayTrendsDefinition,
   checkTraceabilityDefinition,
   predictFailuresDefinition,
+  recommendSkillsDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -251,6 +253,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_decay_trends: handleGetDecayTrends as ToolHandler,
   check_traceability: handleCheckTraceability as ToolHandler,
   predict_failures: handlePredictFailures as ToolHandler,
+  recommend_skills: handleRecommendSkills as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
