@@ -41,6 +41,7 @@ export type { GitRunner } from './ingest/GitIngestor.js';
 export { TopologicalLinker } from './ingest/TopologicalLinker.js';
 export type { LinkResult } from './ingest/TopologicalLinker.js';
 export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';
+export { RequirementIngestor } from './ingest/RequirementIngestor.js';
 
 // Connectors
 export type {
@@ -104,6 +105,15 @@ export type {
   GraphFilterResult,
   GraphCoverageReport,
 } from './context/Assembler.js';
+
+// Traceability
+export { queryTraceability } from './query/Traceability.js';
+export type {
+  TraceabilityResult,
+  TraceabilityOptions,
+  RequirementCoverage,
+  TracedFile,
+} from './query/Traceability.js';
 
 // Constraints
 export { GraphConstraintAdapter } from './constraints/GraphConstraintAdapter.js';

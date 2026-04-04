@@ -57,6 +57,9 @@ export class CodeIngestor {
       edgesAdded++;
     }
 
+    // Third pass: extract @req annotations and create verified_by edges
+    edgesAdded += this.extractReqAnnotations(fileContents, rootDir);
+
     return {
       nodesAdded,
       nodesUpdated: 0,
@@ -531,5 +534,57 @@ export class CodeIngestor {
     if (/\.tsx?$/.test(filePath)) return 'typescript';
     if (/\.jsx?$/.test(filePath)) return 'javascript';
     return 'unknown';
+  }
+
+  /**
+   * Scan file contents for @req annotations and create verified_by edges
+   * linking requirement nodes to the annotated files.
+   * Format: // @req <feature-name>#<index>
+   */
+  private extractReqAnnotations(fileContents: Map<string, string>, rootDir: string): number {
+    const REQ_TAG = /\/\/\s*@req\s+([\w-]+)#(\d+)/g;
+    const reqNodes = this.store.findNodes({ type: 'requirement' });
+    let edgesAdded = 0;
+
+    for (const [filePath, content] of fileContents) {
+      let match: RegExpExecArray | null;
+      REQ_TAG.lastIndex = 0;
+
+      while ((match = REQ_TAG.exec(content)) !== null) {
+        const featureName = match[1]!;
+        const reqIndex = parseInt(match[2]!, 10);
+
+        // Find the matching requirement node by featureName and index
+        const reqNode = reqNodes.find(
+          (n) => n.metadata.featureName === featureName && n.metadata.index === reqIndex
+        );
+
+        if (!reqNode) {
+          console.warn(
+            `@req annotation references non-existent requirement: ${featureName}#${reqIndex} in ${filePath}`
+          );
+          continue;
+        }
+
+        // Create the file node ID matching the convention used by processFile
+        const relPath = path.relative(rootDir, filePath).replace(/\\/g, '/');
+        const fileNodeId = `file:${relPath}`;
+
+        this.store.addEdge({
+          from: reqNode.id,
+          to: fileNodeId,
+          type: 'verified_by',
+          confidence: 1.0,
+          metadata: {
+            method: 'annotation',
+            tag: `@req ${featureName}#${reqIndex}`,
+            confidence: 1.0,
+          },
+        });
+        edgesAdded++;
+      }
+    }
+
+    return edgesAdded;
   }
 }

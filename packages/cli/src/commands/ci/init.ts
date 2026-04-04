@@ -15,6 +15,7 @@ const ALL_CHECKS: CICheckName[] = [
   'perf',
   'phase-gate',
   'arch',
+  'traceability',
 ];
 
 interface GenerateResult {

@@ -21,6 +21,7 @@ const VALID_CHECKS: CICheckName[] = [
   'perf',
   'phase-gate',
   'arch',
+  'traceability',
 ];
 
 export async function runCICheck(options: {

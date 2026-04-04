@@ -97,11 +97,40 @@ export async function runCheckPhaseGate(
       checkedFiles++;
       const expectedSpec = resolveSpecPath(implFile, mapping.implPattern, mapping.specPattern, cwd);
 
+      const relImpl = path.relative(cwd, implFile).replace(/\\/g, '/');
+      const relSpec = path.relative(cwd, expectedSpec).replace(/\\/g, '/');
+
       if (!fs.existsSync(expectedSpec)) {
         missingSpecs.push({
-          implFile: path.relative(cwd, implFile).replace(/\\/g, '/'),
-          expectedSpec: path.relative(cwd, expectedSpec).replace(/\\/g, '/'),
+          implFile: relImpl,
+          expectedSpec: relSpec,
         });
+      } else if (mapping.contentValidation) {
+        const content = fs.readFileSync(expectedSpec, 'utf-8');
+        const sectionPattern = /^#+\s*(Observable Truths|Success Criteria|Acceptance Criteria)/im;
+        const sectionMatch = sectionPattern.exec(content);
+
+        if (!sectionMatch) {
+          missingSpecs.push({
+            implFile: relImpl,
+            expectedSpec: `${relSpec} (missing requirements section: expected Observable Truths, Success Criteria, or Acceptance Criteria heading)`,
+          });
+        } else {
+          // Extract the section content from the heading to the next heading or EOF
+          const sectionStart = sectionMatch.index + sectionMatch[0].length;
+          const nextHeadingMatch = /^#+\s/m.exec(content.slice(sectionStart));
+          const sectionContent = nextHeadingMatch
+            ? content.slice(sectionStart, sectionStart + nextHeadingMatch.index)
+            : content.slice(sectionStart);
+
+          const hasNumberedItem = /^\s*\d+\.\s+/m.test(sectionContent);
+          if (!hasNumberedItem) {
+            missingSpecs.push({
+              implFile: relImpl,
+              expectedSpec: `${relSpec} (requirements section "${sectionMatch[1]}" has no numbered items)`,
+            });
+          }
+        }
       }
     }
   }

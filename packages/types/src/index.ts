@@ -184,7 +184,8 @@ export type CICheckName =
   | 'security'
   | 'perf'
   | 'phase-gate'
-  | 'arch';
+  | 'arch'
+  | 'traceability';
 
 /**
  * Status of a CI check.

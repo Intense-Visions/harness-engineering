@@ -63,6 +63,8 @@ export const PhaseGateMappingSchema = z.object({
   implPattern: z.string(),
   /** Pattern for corresponding specification files */
   specPattern: z.string(),
+  /** When true, validate that the spec file contains a numbered requirements section */
+  contentValidation: z.boolean().default(false),
 });
 
 /**
@@ -319,6 +321,21 @@ export const HarnessConfigSchema = z.object({
       neverSuggest: z.array(z.string()).default([]),
       /** Override the tier of specific skills (e.g., promote a Tier 3 skill to Tier 2) */
       tierOverrides: z.record(z.string(), z.number().int().min(1).max(3)).default({}),
+    })
+    .optional(),
+  /** Spec-to-implementation traceability check settings */
+  traceability: z
+    .object({
+      /** Whether traceability checks are enabled */
+      enabled: z.boolean().default(true),
+      /** Severity level when traceability coverage is below threshold */
+      severity: z.enum(['error', 'warning']).default('warning'),
+      /** Minimum required coverage percentage (0-100) */
+      minCoverage: z.number().min(0).max(100).default(0),
+      /** Glob patterns for specs to include in traceability checks */
+      includeSpecs: z.array(z.string()).default(['docs/changes/*/proposal.md']),
+      /** Glob patterns for specs to exclude from traceability checks */
+      excludeSpecs: z.array(z.string()).default([]),
     })
     .optional(),
   /** Roadmap sync and tracker integration settings */

@@ -38,6 +38,8 @@ export const NODE_TYPES = [
   'design_token',
   'aesthetic_intent',
   'design_constraint',
+  // Traceability
+  'requirement',
 ] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
@@ -72,6 +74,10 @@ export const EDGE_TYPES = [
   'declares_intent',
   'violates_design',
   'platform_binding',
+  // Traceability relationships
+  'requires',
+  'verified_by',
+  'tested_by',
 ] as const;
 
 export type EdgeType = (typeof EDGE_TYPES)[number];

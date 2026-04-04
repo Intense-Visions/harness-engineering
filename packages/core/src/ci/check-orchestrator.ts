@@ -19,6 +19,7 @@ import { SecurityScanner } from '../security/scanner';
 import { parseSecurityConfig } from '../security/config';
 import { TypeScriptParser } from '../shared/parsers';
 import { ArchConfigSchema, runAll as runArchCollectors } from '../architecture';
+import { GraphStore, queryTraceability } from '@harness-engineering/graph';
 
 export interface RunCIChecksInput {
   projectRoot: string;
@@ -36,6 +37,7 @@ const ALL_CHECKS: CICheckName[] = [
   'perf',
   'phase-gate',
   'arch',
+  'traceability',
 ];
 
 async function runValidateCheck(
@@ -329,6 +331,48 @@ async function runArchCheck(
   return issues;
 }
 
+async function runTraceabilityCheck(
+  projectRoot: string,
+  config: Record<string, unknown>
+): Promise<CICheckIssue[]> {
+  const issues: CICheckIssue[] = [];
+  const traceConfig = (config.traceability as Record<string, unknown>) || {};
+  if (traceConfig.enabled === false) return issues;
+
+  const graphDir = path.join(projectRoot, '.harness', 'graph');
+  const store = new GraphStore();
+  const loaded = await store.load(graphDir);
+  if (!loaded) {
+    // No graph available — skip silently
+    return issues;
+  }
+
+  const results = queryTraceability(store);
+  if (results.length === 0) return issues;
+
+  const minCoverage = (traceConfig.minCoverage as number) ?? 0;
+  const severity = (traceConfig.severity as 'error' | 'warning') ?? 'warning';
+
+  for (const result of results) {
+    const pct = result.summary.coveragePercent;
+    if (pct < minCoverage) {
+      issues.push({
+        severity,
+        message: `Traceability coverage for "${result.featureName}" is ${pct}% (minimum: ${minCoverage}%)`,
+      });
+    }
+    for (const req of result.requirements) {
+      if (req.status === 'none') {
+        issues.push({
+          severity: 'warning',
+          message: `Requirement "${req.requirementName}" has no traced code or tests`,
+        });
+      }
+    }
+  }
+  return issues;
+}
+
 async function runSingleCheck(
   name: CICheckName,
   projectRoot: string,
@@ -362,6 +406,9 @@ async function runSingleCheck(
         break;
       case 'arch':
         issues.push(...(await runArchCheck(projectRoot, config)));
+        break;
+      case 'traceability':
+        issues.push(...(await runTraceabilityCheck(projectRoot, config)));
         break;
     }
   } catch (error) {
