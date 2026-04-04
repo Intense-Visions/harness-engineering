@@ -103,6 +103,12 @@ export interface InjectionGuardOptions {
   projectRoot?: string;
   /** Session ID for taint scoping. Defaults to "default". */
   sessionId?: string;
+  /**
+   * Tool names whose output is trusted internal content (e.g., skill docs,
+   * project state). Output scanning is skipped for these tools to prevent
+   * false positives. Input scanning still applies.
+   */
+  trustedOutputTools?: Set<string>;
 }
 
 /**
@@ -122,6 +128,7 @@ export function wrapWithInjectionGuard(
 ): ToolHandler {
   const projectRoot = options.projectRoot ?? process.cwd();
   const sessionId = options.sessionId ?? 'default';
+  const trustedOutput = options.trustedOutputTools?.has(toolName) ?? false;
 
   return async (input: Record<string, unknown>): Promise<ToolResult> => {
     try {
@@ -163,32 +170,34 @@ export function wrapWithInjectionGuard(
       // Step 3: Call original handler
       const result = await handler(input);
 
-      // Step 4: Scan tool output for injection patterns
-      const outputText = extractResultText(result);
-      if (outputText) {
-        const outputFindings = scanForInjection(outputText);
-        const actionableOutput = outputFindings.filter(
-          (f: InjectionFinding) => f.severity === 'high' || f.severity === 'medium'
-        );
-
-        if (actionableOutput.length > 0) {
-          writeTaint(
-            projectRoot,
-            sessionId,
-            `Injection pattern detected in MCP:${toolName} result`,
-            actionableOutput,
-            `MCP:${toolName}:output`
+      // Step 4: Scan tool output for injection patterns (skip trusted internal tools)
+      if (!trustedOutput) {
+        const outputText = extractResultText(result);
+        if (outputText) {
+          const outputFindings = scanForInjection(outputText);
+          const actionableOutput = outputFindings.filter(
+            (f: InjectionFinding) => f.severity === 'high' || f.severity === 'medium'
           );
 
-          // Append warning to result
-          const warningLines = actionableOutput.map(
-            (f: InjectionFinding) =>
-              `Sentinel [${f.severity}] ${f.ruleId}: detected in ${toolName} output`
-          );
-          result.content.push({
-            type: 'text',
-            text: `\n---\nSentinel Warning: ${warningLines.join('; ')}`,
-          });
+          if (actionableOutput.length > 0) {
+            writeTaint(
+              projectRoot,
+              sessionId,
+              `Injection pattern detected in MCP:${toolName} result`,
+              actionableOutput,
+              `MCP:${toolName}:output`
+            );
+
+            // Append warning to result
+            const warningLines = actionableOutput.map(
+              (f: InjectionFinding) =>
+                `Sentinel [${f.severity}] ${f.ruleId}: detected in ${toolName} output`
+            );
+            result.content.push({
+              type: 'text',
+              text: `\n---\nSentinel Warning: ${warningLines.join('; ')}`,
+            });
+          }
         }
       }
 

@@ -6,6 +6,12 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.12.1 — 2026-04-04
+
+### Fixed
+
+- **Injection scanner false positives** — The sentinel injection guard no longer scans output from trusted harness MCP tools (`run_skill`, `gather_context`, etc.), preventing false INJ-CTX-003 and INJ-PERM-003 taints on legitimate skill documentation. Input scanning is preserved for all tools. (`@harness-engineering/cli@1.20.1`)
+
 ## 0.12.0 — 2026-04-04
 
 ### Added

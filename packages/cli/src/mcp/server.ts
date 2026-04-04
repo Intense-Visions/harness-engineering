@@ -127,11 +127,20 @@ import {
   handleCodeUnfold,
 } from './tools/code-nav.js';
 
-type ToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
+type ToolDefinition = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  /** When true, output scanning is skipped for this tool (internal content, not external). */
+  trustedOutput?: boolean;
+};
 type ToolHandler = (
   input: Record<string, unknown>
 ) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
 
+// All current harness MCP tools return internal project content. Each is marked
+// trustedOutput: true so the injection guard skips output scanning. Future tools
+// that proxy external content should omit this flag (defaults to untrusted).
 const TOOL_DEFINITIONS: ToolDefinition[] = [
   validateToolDefinition,
   checkDependenciesDefinition,
@@ -182,7 +191,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   codeOutlineDefinition,
   codeSearchDefinition,
   codeUnfoldDefinition,
-];
+].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
   check_dependencies: handleCheckDependencies as ToolHandler,
@@ -379,7 +388,16 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     tools: filteredDefinitions,
   }));
 
-  const guardedHandlers = applyInjectionGuard(filteredHandlers, { projectRoot: resolvedRoot });
+  // Build set of tools whose output is trusted internal content (skill docs,
+  // state, validation results). New tools are scanned by default — they must
+  // explicitly set trustedOutput: true to skip output scanning.
+  const trustedOutputTools = new Set(
+    filteredDefinitions.filter((t) => t.trustedOutput === true).map((t) => t.name)
+  );
+  const guardedHandlers = applyInjectionGuard(filteredHandlers, {
+    projectRoot: resolvedRoot,
+    trustedOutputTools,
+  });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
