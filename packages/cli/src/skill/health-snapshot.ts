@@ -313,3 +313,49 @@ export async function runGraphMetrics(projectPath: string): Promise<HealthMetric
     return ZERO_METRICS;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Orchestrator
+// ---------------------------------------------------------------------------
+
+/**
+ * Capture a complete health snapshot for a project.
+ * Runs health checks and graph metrics in parallel, derives signals,
+ * saves to cache, and returns the snapshot.
+ */
+export async function captureHealthSnapshot(projectPath: string): Promise<HealthSnapshot> {
+  // Get git HEAD
+  let gitHead = '';
+  try {
+    gitHead = execSync('git rev-parse HEAD', {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    // Non-git directory
+  }
+
+  // Run checks and graph metrics in parallel
+  const [checks, metrics] = await Promise.all([
+    runHealthChecks(projectPath),
+    runGraphMetrics(projectPath),
+  ]);
+
+  // Derive signals
+  const signals = deriveSignals(checks, metrics);
+
+  const snapshot: HealthSnapshot = {
+    capturedAt: new Date().toISOString(),
+    gitHead,
+    projectPath,
+    checks,
+    metrics,
+    signals,
+  };
+
+  // Write to cache
+  saveCachedSnapshot(snapshot, projectPath);
+
+  return snapshot;
+}

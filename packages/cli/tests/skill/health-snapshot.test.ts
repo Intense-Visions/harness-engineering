@@ -442,3 +442,197 @@ describe('runGraphMetrics', () => {
     expect(metrics.articulationPointCount).toBe(1);
   });
 });
+
+describe('captureHealthSnapshot', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  function mockCleanToolHandlers(): void {
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              healthy: true,
+              checks: [
+                { name: 'deps', passed: true, issueCount: 0 },
+                { name: 'entropy', passed: true, issueCount: 0 },
+                { name: 'security', passed: true, issueCount: 0 },
+                { name: 'perf', passed: true, issueCount: 0 },
+                { name: 'docs', passed: true, issueCount: 0 },
+                { name: 'lint', passed: true, issueCount: 0 },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ valid: true, violations: [] }) }],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ deadCode: {}, drift: {} }) }],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/security', () => ({
+      handleRunSecurityScan: vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: JSON.stringify({ findings: [] }) }],
+      }),
+    }));
+    vi.doMock('../../src/mcp/utils/graph-loader', () => ({
+      loadGraphStore: vi.fn().mockResolvedValue(null),
+    }));
+  }
+
+  it('returns a complete HealthSnapshot with checks, metrics, and signals', async () => {
+    const realCP = await import('child_process');
+    vi.doMock('child_process', () => ({
+      ...realCP,
+      execSync: vi.fn().mockReturnValue('abc123\n'),
+    }));
+    mockCleanToolHandlers();
+
+    const { captureHealthSnapshot } = await import('../../src/skill/health-snapshot');
+    const tmpDir = path.join('/tmp', `snapshot-test-${Date.now()}`);
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+
+    try {
+      const snapshot = await captureHealthSnapshot(tmpDir);
+      expect(snapshot.gitHead).toBe('abc123');
+      expect(snapshot.projectPath).toBe(tmpDir);
+      expect(snapshot.capturedAt).toBeTruthy();
+      expect(snapshot.checks.deps.passed).toBe(true);
+      expect(snapshot.metrics.avgFanOut).toBe(0); // no graph
+      expect(snapshot.signals).toEqual([]); // all clean
+
+      // Verify cache was written
+      const cached = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, '.harness', 'health-snapshot.json'), 'utf-8')
+      );
+      expect(cached.gitHead).toBe('abc123');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('populates signals when checks have issues', async () => {
+    const realCP = await import('child_process');
+    vi.doMock('child_process', () => ({
+      ...realCP,
+      execSync: vi.fn().mockReturnValue('def456\n'),
+    }));
+
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              healthy: false,
+              checks: [
+                { name: 'deps', passed: false, issueCount: 3 },
+                { name: 'entropy', passed: false, issueCount: 4 },
+                { name: 'security', passed: false, issueCount: 2 },
+                { name: 'perf', passed: true, issueCount: 0 },
+                { name: 'docs', passed: false, issueCount: 5 },
+                { name: 'lint', passed: true, issueCount: 0 },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              valid: false,
+              violations: [
+                {
+                  reason: 'CIRCULAR_DEP',
+                  file: 'a.ts',
+                  imports: 'b.ts',
+                  fromLayer: 'x',
+                  toLayer: 'y',
+                  line: 1,
+                  suggestion: '',
+                },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              deadCode: { unusedExports: ['a'], deadFiles: [] },
+              drift: { staleReferences: ['r1'], missingTargets: [] },
+            }),
+          },
+        ],
+      }),
+    }));
+    vi.doMock('../../src/mcp/tools/security', () => ({
+      handleRunSecurityScan: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              findings: [{ severity: 'error', rule: 'r1', message: '' }],
+            }),
+          },
+        ],
+      }),
+    }));
+    vi.doMock('../../src/mcp/utils/graph-loader', () => ({
+      loadGraphStore: vi.fn().mockResolvedValue(null),
+    }));
+
+    const { captureHealthSnapshot } = await import('../../src/skill/health-snapshot');
+    const tmpDir = path.join('/tmp', `snapshot-signals-${Date.now()}`);
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+
+    try {
+      const snapshot = await captureHealthSnapshot(tmpDir);
+      expect(snapshot.signals).toContain('circular-deps');
+      expect(snapshot.signals).toContain('dead-code');
+      expect(snapshot.signals).toContain('drift');
+      expect(snapshot.signals).toContain('doc-gaps');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('handles non-git directory gracefully (empty gitHead)', async () => {
+    const realCP = await import('child_process');
+    vi.doMock('child_process', () => ({
+      ...realCP,
+      execSync: vi.fn().mockImplementation(() => {
+        throw new Error('not a git repo');
+      }),
+    }));
+    mockCleanToolHandlers();
+
+    const { captureHealthSnapshot } = await import('../../src/skill/health-snapshot');
+    const tmpDir = path.join('/tmp', `snapshot-nogit-${Date.now()}`);
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+
+    try {
+      const snapshot = await captureHealthSnapshot(tmpDir);
+      expect(snapshot.gitHead).toBe('');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
