@@ -597,4 +597,73 @@ describe('recommend', () => {
     });
     expect(result.snapshotAge).toBe('fresh');
   });
+
+  it('produces correct workflow for realistic unhealthy codebase', () => {
+    const snapshot = makeSnapshot({
+      signals: ['circular-deps', 'high-coupling', 'low-coverage', 'dead-code', 'security-findings'],
+      metrics: makeMetrics({
+        maxFanOut: 30,
+        avgCouplingRatio: 0.75,
+        testCoverage: 40,
+      }),
+    });
+
+    // Use a mix of skill-declared addresses and rely on fallback rules
+    const skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'enforce-architecture': {
+        addresses: [
+          { signal: 'circular-deps', hard: true },
+          { signal: 'high-coupling', metric: 'fanOut', threshold: 20, weight: 0.8 },
+        ],
+        dependsOn: [],
+      },
+      tdd: {
+        addresses: [{ signal: 'low-coverage', weight: 0.9 }],
+        dependsOn: ['enforce-architecture'],
+      },
+      'codebase-cleanup': {
+        addresses: [{ signal: 'dead-code', weight: 0.8 }],
+        dependsOn: [],
+      },
+      'security-scan': {
+        addresses: [{ signal: 'security-findings', hard: true }],
+        dependsOn: [],
+      },
+    };
+
+    const result = recommend(snapshot, skills, { top: 10 });
+
+    // Verify critical items are present
+    const critical = result.recommendations.filter((r) => r.urgency === 'critical');
+    expect(critical.length).toBeGreaterThanOrEqual(2);
+    expect(critical.map((r) => r.skillName)).toContain('enforce-architecture');
+    expect(critical.map((r) => r.skillName)).toContain('security-scan');
+
+    // Verify all 4 declared skills appear (plus fallback skills for matching signals)
+    expect(result.recommendations.length).toBeGreaterThanOrEqual(4);
+    const names = result.recommendations.map((r) => r.skillName);
+    expect(names).toContain('enforce-architecture');
+    expect(names).toContain('tdd');
+    expect(names).toContain('codebase-cleanup');
+    expect(names).toContain('security-scan');
+
+    // Verify dependency ordering: enforce-architecture before tdd
+    const seqEA = result.recommendations.find(
+      (r) => r.skillName === 'enforce-architecture'
+    )!.sequence;
+    const seqTDD = result.recommendations.find((r) => r.skillName === 'tdd')!.sequence;
+    expect(seqEA).toBeLessThan(seqTDD);
+
+    // Verify sequence numbers are sequential starting at 1
+    const sequences = result.recommendations.map((r) => r.sequence).sort((a, b) => a - b);
+    expect(sequences).toEqual(
+      Array.from({ length: result.recommendations.length }, (_, i) => i + 1)
+    );
+
+    // Verify sequenceReasoning mentions critical count
+    expect(result.sequenceReasoning).toContain('critical');
+
+    // Verify snapshotAge is set
+    expect(result.snapshotAge).toBe('fresh');
+  });
 });
