@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync as realExecSync } from 'child_process';
 import {
   isSnapshotFresh,
   loadCachedSnapshot,
@@ -66,6 +67,58 @@ describe('isSnapshotFresh', () => {
     const oldTime = new Date(Date.now() - 7_200_000).toISOString();
     const snapshot = makeSnapshot({ capturedAt: oldTime });
     expect(isSnapshotFresh(snapshot, '/tmp/test-project')).toBe(false);
+  });
+
+  it('returns true when git HEAD differs but age < 1 hour (time fallback)', () => {
+    // Use a real git repo so the HEAD genuinely differs from the snapshot's gitHead
+    const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
+    try {
+      realExecSync('git init && git commit --allow-empty -m "init"', {
+        cwd: tmpDir,
+        stdio: 'pipe',
+      });
+      const recentTime = new Date(Date.now() - 1_800_000).toISOString(); // 30 min ago
+      const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: recentTime });
+      expect(isSnapshotFresh(snapshot, tmpDir)).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns false when git HEAD differs and age is exactly 1 hour', () => {
+    // Use a real git repo so the HEAD genuinely differs from the snapshot's gitHead
+    const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
+    try {
+      realExecSync('git init && git commit --allow-empty -m "init"', {
+        cwd: tmpDir,
+        stdio: 'pipe',
+      });
+      const exactlyOneHour = new Date(Date.now() - 3_600_000).toISOString();
+      const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: exactlyOneHour });
+      expect(isSnapshotFresh(snapshot, tmpDir)).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns true when git HEAD matches regardless of age', () => {
+    // Use a real git repo to test HEAD-match logic (vi.spyOn does not intercept ESM imports)
+    const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
+    try {
+      realExecSync('git init && git commit --allow-empty -m "init"', {
+        cwd: tmpDir,
+        stdio: 'pipe',
+      });
+      const realHead = realExecSync('git rev-parse HEAD', {
+        cwd: tmpDir,
+        encoding: 'utf-8',
+      }).trim();
+      const veryOld = new Date(Date.now() - 86_400_000).toISOString(); // 24 hours ago
+      const snapshot = makeSnapshot({ gitHead: realHead, capturedAt: veryOld });
+      expect(isSnapshotFresh(snapshot, tmpDir)).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
