@@ -33,3 +33,16 @@ state:
   persistent: false
   files: []
 depends_on: []
+addresses:
+  - signal: circular-deps
+    hard: true
+  - signal: layer-violations
+    hard: true
+  - signal: high-coupling
+    metric: fanOut
+    threshold: 20
+    weight: 0.8
+  - signal: high-coupling
+    metric: couplingRatio
+    threshold: 0.7
+    weight: 0.6

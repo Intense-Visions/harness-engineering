@@ -47,3 +47,6 @@ state:
   files: []
 depends_on:
   - harness-verification
+addresses:
+  - signal: low-coverage
+    weight: 0.9

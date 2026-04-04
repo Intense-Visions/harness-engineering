@@ -40,3 +40,12 @@ state:
   persistent: false
   files: []
 depends_on: []
+addresses:
+  - signal: high-coupling
+    metric: fanOut
+    threshold: 15
+    weight: 0.7
+  - signal: anomaly-outlier
+    weight: 0.6
+  - signal: articulation-point
+    weight: 0.5
