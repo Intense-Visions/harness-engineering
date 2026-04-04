@@ -282,6 +282,117 @@ describe('GitHubIssuesSyncAdapter', () => {
     });
   });
 
+  describe('getAuthenticatedUser', () => {
+    it('returns @login from GET /user', async () => {
+      const fetchFn = mockFetch(200, { login: 'cwarner' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.getAuthenticatedUser();
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toBe('@cwarner');
+
+      const [url] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      expect(url).toBe('https://api.github.com/user');
+    });
+
+    it('caches result after first call', async () => {
+      const fetchFn = mockFetch(200, { login: 'cwarner' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      await adapter.getAuthenticatedUser();
+      await adapter.getAuthenticatedUser();
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns Err on API failure', async () => {
+      const fetchFn = mockFetch(401, { message: 'Bad credentials' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'bad',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+        maxRetries: 0,
+      });
+
+      const result = await adapter.getAuthenticatedUser();
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  describe('createTicket with assignee', () => {
+    it('includes assignees in payload when feature has assignee', async () => {
+      const fetchFn = mockFetchSequence(
+        { status: 200, body: [{ number: 1, title: 'MVP' }] },
+        { status: 201, body: { number: 10, html_url: 'https://github.com/owner/repo/issues/10' } }
+      );
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.createTicket(makeFeature({ assignee: '@alice' }), 'MVP');
+      expect(result.ok).toBe(true);
+
+      const body = JSON.parse((fetchFn as ReturnType<typeof vi.fn>).mock.calls[1]![1].body);
+      expect(body.assignees).toEqual(['alice']);
+    });
+
+    it('omits assignees when feature has no assignee', async () => {
+      const fetchFn = mockFetchSequence(
+        { status: 200, body: [{ number: 1, title: 'MVP' }] },
+        { status: 201, body: { number: 11, html_url: 'https://github.com/owner/repo/issues/11' } }
+      );
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.createTicket(makeFeature({ assignee: null }), 'MVP');
+      expect(result.ok).toBe(true);
+
+      const body = JSON.parse((fetchFn as ReturnType<typeof vi.fn>).mock.calls[1]![1].body);
+      expect(body.assignees).toBeUndefined();
+    });
+  });
+
+  describe('updateTicket with assignee', () => {
+    it('includes assignees when assignee changes', async () => {
+      const fetchFn = mockFetch(200, { html_url: 'https://github.com/owner/repo/issues/42' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      await adapter.updateTicket('github:owner/repo#42', { assignee: '@bob' });
+      const body = JSON.parse((fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
+      expect(body.assignees).toEqual(['bob']);
+    });
+
+    it('clears assignees when assignee set to null', async () => {
+      const fetchFn = mockFetch(200, { html_url: 'https://github.com/owner/repo/issues/42' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      await adapter.updateTicket('github:owner/repo#42', { assignee: null });
+      const body = JSON.parse((fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]![1].body);
+      expect(body.assignees).toEqual([]);
+    });
+  });
+
   describe('assignTicket', () => {
     it('assigns user (stripping @ prefix)', async () => {
       const fetchFn = mockFetch(201, {});
