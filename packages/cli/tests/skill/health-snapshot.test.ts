@@ -244,3 +244,118 @@ describe('deriveSignals', () => {
     expect(couplingCount).toBe(1);
   });
 });
+
+describe('runHealthChecks', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('maps assess_project and check_dependencies output to HealthChecks', async () => {
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              healthy: false,
+              checks: [
+                { name: 'deps', passed: false, issueCount: 3 },
+                { name: 'entropy', passed: false, issueCount: 4 },
+                { name: 'security', passed: true, issueCount: 0 },
+                { name: 'perf', passed: true, issueCount: 0 },
+                { name: 'docs', passed: false, issueCount: 5 },
+                { name: 'lint', passed: true, issueCount: 0 },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              valid: false,
+              violations: [
+                {
+                  reason: 'CIRCULAR_DEP',
+                  file: 'a.ts',
+                  imports: 'b.ts',
+                  fromLayer: 'x',
+                  toLayer: 'y',
+                  line: 1,
+                  suggestion: '',
+                },
+                {
+                  reason: 'CIRCULAR_DEP',
+                  file: 'b.ts',
+                  imports: 'a.ts',
+                  fromLayer: 'y',
+                  toLayer: 'x',
+                  line: 1,
+                  suggestion: '',
+                },
+                {
+                  reason: 'WRONG_LAYER',
+                  file: 'c.ts',
+                  imports: 'd.ts',
+                  fromLayer: 'x',
+                  toLayer: 'z',
+                  line: 5,
+                  suggestion: '',
+                },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              deadCode: { unusedExports: ['a', 'b'], unusedImports: [], deadFiles: ['x.ts'] },
+              drift: { staleReferences: ['ref1'], missingTargets: [] },
+            }),
+          },
+        ],
+      }),
+    }));
+
+    vi.doMock('../../src/mcp/tools/security', () => ({
+      handleRunSecurityScan: vi.fn().mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              findings: [
+                { severity: 'error', rule: 'r1', message: 'm1' },
+                { severity: 'warning', rule: 'r2', message: 'm2' },
+              ],
+            }),
+          },
+        ],
+      }),
+    }));
+
+    const { runHealthChecks } = await import('../../src/skill/health-snapshot');
+    const checks = await runHealthChecks('/tmp/test-project');
+
+    expect(checks.deps.circularDeps).toBe(2);
+    expect(checks.deps.layerViolations).toBe(1);
+    expect(checks.deps.issueCount).toBe(3);
+    expect(checks.entropy.deadExports).toBe(2);
+    expect(checks.entropy.deadFiles).toBe(1);
+    expect(checks.entropy.driftCount).toBe(1);
+    expect(checks.security.findingCount).toBe(0); // from assess_project summary (0)
+    expect(checks.security.criticalCount).toBe(1);
+    expect(checks.docs.undocumentedCount).toBe(5);
+    expect(checks.lint.passed).toBe(true);
+  });
+});
