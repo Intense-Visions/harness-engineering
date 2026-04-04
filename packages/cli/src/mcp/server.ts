@@ -118,6 +118,7 @@ import {
   handleDetectStaleConstraints,
 } from './tools/stale-constraints.js';
 import { searchSkillsDefinition, handleSearchSkills } from './tools/search-skills.js';
+import { getDecayTrendsDefinition, handleGetDecayTrends } from './tools/decay-trends.js';
 import {
   codeOutlineDefinition,
   handleCodeOutline,
@@ -126,6 +127,7 @@ import {
   codeUnfoldDefinition,
   handleCodeUnfold,
 } from './tools/code-nav.js';
+import { checkTraceabilityDefinition, handleCheckTraceability } from './tools/traceability.js';
 
 type ToolDefinition = {
   name: string;
@@ -191,6 +193,8 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   codeOutlineDefinition,
   codeSearchDefinition,
   codeUnfoldDefinition,
+  getDecayTrendsDefinition,
+  checkTraceabilityDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -242,6 +246,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   code_outline: handleCodeOutline as ToolHandler,
   code_search: handleCodeSearch as ToolHandler,
   code_unfold: handleCodeUnfold as ToolHandler,
+  get_decay_trends: handleGetDecayTrends as ToolHandler,
+  check_traceability: handleCheckTraceability as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
