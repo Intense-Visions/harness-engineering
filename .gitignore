@@ -48,6 +48,7 @@ temp/
 .harness/sessions/
 .harness/session-taint-*.json
 .harness/handoff.json
+.harness/state.json
 .harness/state/
 
 .vitepress
