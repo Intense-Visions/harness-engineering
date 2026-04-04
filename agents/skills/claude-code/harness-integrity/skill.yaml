@@ -46,3 +46,8 @@ state:
 depends_on:
   - harness-verify
   - harness-code-review
+addresses:
+  - signal: drift
+    weight: 0.7
+  - signal: dead-code
+    weight: 0.5

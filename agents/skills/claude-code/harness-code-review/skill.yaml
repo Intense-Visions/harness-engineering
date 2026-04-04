@@ -50,3 +50,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+addresses:
+  - signal: high-complexity
+    weight: 0.5
+  - signal: high-coupling
+    weight: 0.4
