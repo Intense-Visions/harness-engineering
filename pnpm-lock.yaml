@@ -80,6 +80,9 @@ importers:
       vitepress:
         specifier: ^1.6.4
         version: 1.6.4(@algolia/client-search@5.50.1)(search-insights@2.17.3)(typescript@5.9.3)
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.31(typescript@5.9.3)
 
   packages/cli:
     dependencies:
