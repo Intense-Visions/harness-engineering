@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { parse } from 'yaml';
 import { SkillMetadataSchema } from './schema.js';
+import type { SkillAddress } from './schema.js';
 import { resolveAllSkillsDirs } from '../utils/paths.js';
 
 export interface SkillIndexEntry {
@@ -13,6 +14,8 @@ export interface SkillIndexEntry {
   cognitiveMode: string | undefined;
   phases: string[];
   source: 'bundled' | 'community' | 'project';
+  addresses: SkillAddress[];
+  dependsOn: string[];
 }
 
 export interface SkillsIndex {
@@ -69,6 +72,8 @@ function parseSkillEntry(
     cognitiveMode: meta.cognitive_mode,
     phases: (meta.phases ?? []).map((p) => p.name),
     source,
+    addresses: meta.addresses ?? [],
+    dependsOn: meta.depends_on ?? [],
   };
 }
 
