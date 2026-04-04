@@ -50,3 +50,22 @@ export { resolveThresholds } from './config';
 
 export { archMatchers, architecture, archModule } from './matchers';
 export type { ArchHandle, ArchitectureOptions } from './matchers';
+
+export {
+  CategorySnapshotSchema,
+  TimelineSnapshotSchema,
+  TimelineFileSchema,
+  TrendLineSchema,
+  TrendResultSchema,
+  DEFAULT_STABILITY_THRESHOLDS,
+} from './timeline-types';
+
+export type {
+  CategorySnapshot as TimelineCategorySnapshot,
+  TimelineSnapshot,
+  TimelineFile,
+  TrendLine,
+  TrendResult,
+} from './timeline-types';
+
+export { TimelineManager } from './timeline-manager';
