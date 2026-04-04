@@ -55,6 +55,7 @@ import { createIntegrationsCommand } from './commands/integrations/index';
 import { createUsageCommand } from './commands/usage';
 import { createTaintCommand } from './commands/taint';
 import { createScanConfigCommand } from './commands/scan-config';
+import { createSnapshotCommand } from './commands/snapshot';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -119,6 +120,7 @@ export function createProgram(): Command {
   program.addCommand(createUsageCommand());
   program.addCommand(createTaintCommand());
   program.addCommand(createScanConfigCommand());
+  program.addCommand(createSnapshotCommand());
 
   return program;
 }
