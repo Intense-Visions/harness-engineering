@@ -126,3 +126,116 @@ export function deriveSignals(checks: HealthChecks, metrics: HealthMetrics): str
   }
   return [...signals];
 }
+
+// ---------------------------------------------------------------------------
+// Health checks runner -- internal parse helpers
+// ---------------------------------------------------------------------------
+
+interface ToolResult {
+  content: Array<{ type: string; text: string }>;
+}
+
+const DEFAULT_CHECK = { passed: true, issueCount: 0 };
+
+/** Extract the first text content from a tool result and parse as JSON. */
+function parseToolResult(result: ToolResult): Record<string, unknown> {
+  return JSON.parse(result.content[0]?.text ?? '{}');
+}
+
+/** Build a map of check name to pass/issue from assess_project output. */
+function buildCheckMap(
+  assessData: Record<string, unknown>
+): Map<string, { passed: boolean; issueCount: number }> {
+  const map = new Map<string, { passed: boolean; issueCount: number }>();
+  const checks = (assessData.checks ?? []) as Array<{
+    name: string;
+    passed: boolean;
+    issueCount: number;
+  }>;
+  for (const c of checks) {
+    map.set(c.name, { passed: c.passed, issueCount: c.issueCount });
+  }
+  return map;
+}
+
+/** Count violations by reason from check_dependencies output. */
+function countViolations(depsData: Record<string, unknown>): {
+  circularDeps: number;
+  layerViolations: number;
+} {
+  const violations = (depsData.violations ?? []) as Array<{ reason: string }>;
+  return {
+    circularDeps: violations.filter((v) => v.reason === 'CIRCULAR_DEP').length,
+    layerViolations: violations.filter(
+      (v) => v.reason === 'WRONG_LAYER' || v.reason === 'FORBIDDEN_IMPORT'
+    ).length,
+  };
+}
+
+/** Extract granular entropy counts from detect_entropy output. */
+function parseEntropyGranular(entropyData: Record<string, unknown>): {
+  deadExports: number;
+  deadFiles: number;
+  driftCount: number;
+} {
+  const dc = (entropyData.deadCode ?? {}) as Record<string, unknown[]>;
+  const dr = (entropyData.drift ?? {}) as Record<string, unknown[]>;
+  return {
+    deadExports: dc.unusedExports?.length ?? 0,
+    deadFiles: dc.deadFiles?.length ?? 0,
+    driftCount: (dr.staleReferences?.length ?? 0) + (dr.missingTargets?.length ?? 0),
+  };
+}
+
+/** Count critical findings from security scan output. */
+function countCriticalFindings(securityData: Record<string, unknown>): number {
+  const findings = (securityData.findings ?? []) as Array<{ severity: string }>;
+  return findings.filter((f) => f.severity === 'error').length;
+}
+
+// ---------------------------------------------------------------------------
+// Health checks runner
+// ---------------------------------------------------------------------------
+
+/**
+ * Run health checks by calling assess_project, check_dependencies, and
+ * entropy/security handlers for granular counts. Returns HealthChecks.
+ */
+export async function runHealthChecks(projectPath: string): Promise<HealthChecks> {
+  const { handleAssessProject } = await import('../mcp/tools/assess-project.js');
+  const { handleCheckDependencies } = await import('../mcp/tools/architecture.js');
+  const { handleDetectEntropy } = await import('../mcp/tools/entropy.js');
+  const { handleRunSecurityScan } = await import('../mcp/tools/security.js');
+
+  const [assessResult, depsResult, entropyResult, securityResult] = await Promise.all([
+    handleAssessProject({
+      path: projectPath,
+      checks: ['deps', 'entropy', 'security', 'perf', 'docs', 'lint'],
+    }),
+    handleCheckDependencies({ path: projectPath }),
+    handleDetectEntropy({ path: projectPath, type: 'all' }),
+    handleRunSecurityScan({ path: projectPath }),
+  ]);
+
+  const assessData = parseToolResult(assessResult);
+  const checkMap = buildCheckMap(assessData);
+  const { circularDeps, layerViolations } = countViolations(parseToolResult(depsResult));
+  const entropyGranular = parseEntropyGranular(parseToolResult(entropyResult));
+  const criticalCount = countCriticalFindings(parseToolResult(securityResult));
+
+  const deps = checkMap.get('deps') ?? DEFAULT_CHECK;
+  const entropy = checkMap.get('entropy') ?? DEFAULT_CHECK;
+  const security = checkMap.get('security') ?? DEFAULT_CHECK;
+  const perf = checkMap.get('perf') ?? DEFAULT_CHECK;
+  const docs = checkMap.get('docs') ?? DEFAULT_CHECK;
+  const lint = checkMap.get('lint') ?? DEFAULT_CHECK;
+
+  return {
+    deps: { passed: deps.passed, issueCount: deps.issueCount, circularDeps, layerViolations },
+    entropy: { passed: entropy.passed, ...entropyGranular },
+    security: { passed: security.passed, findingCount: security.issueCount, criticalCount },
+    perf: { passed: perf.passed, violationCount: perf.issueCount },
+    docs: { passed: docs.passed, undocumentedCount: docs.issueCount },
+    lint: { passed: lint.passed, issueCount: lint.issueCount },
+  };
+}
