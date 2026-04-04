@@ -17,7 +17,7 @@ const ALL_CATEGORIES = ArchMetricCategorySchema.options;
 export class TimelineManager {
   private readonly timelinePath: string;
 
-  constructor(private readonly rootDir: string) {
+  constructor(rootDir: string) {
     this.timelinePath = join(rootDir, '.harness', 'arch', 'timeline.json');
   }
 
@@ -115,9 +115,10 @@ export class TimelineManager {
 
     if (snapshots.length === 1) {
       const only = snapshots[0]!;
+      const m = only.metrics as Record<ArchMetricCategory, CategorySnapshot>;
       return {
         stability: this.buildTrendLine(only.stabilityScore, only.stabilityScore, true),
-        categories: this.buildCategoryTrends(only.metrics, only.metrics),
+        categories: this.buildCategoryTrends(m, m),
         snapshotCount: 1,
         from: only.capturedAt,
         to: only.capturedAt,
@@ -129,7 +130,10 @@ export class TimelineManager {
 
     return {
       stability: this.buildTrendLine(last.stabilityScore, first.stabilityScore, true),
-      categories: this.buildCategoryTrends(last.metrics, first.metrics),
+      categories: this.buildCategoryTrends(
+        last.metrics as Record<ArchMetricCategory, CategorySnapshot>,
+        first.metrics as Record<ArchMetricCategory, CategorySnapshot>
+      ),
       snapshotCount: snapshots.length,
       from: first.capturedAt,
       to: last.capturedAt,
