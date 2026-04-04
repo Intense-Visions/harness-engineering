@@ -94,3 +94,35 @@ export function saveCachedSnapshot(snapshot: HealthSnapshot, projectPath: string
   const filePath = path.join(dir, CACHE_FILE);
   fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2));
 }
+
+// ---------------------------------------------------------------------------
+// Signal derivation
+// ---------------------------------------------------------------------------
+
+/** Signal derivation rules: [signalName, predicate]. */
+const SIGNAL_RULES: Array<[string, (c: HealthChecks, m: HealthMetrics) => boolean]> = [
+  ['circular-deps', (c) => c.deps.circularDeps > 0],
+  ['layer-violations', (c) => c.deps.layerViolations > 0],
+  ['dead-code', (c) => c.entropy.deadExports > 0 || c.entropy.deadFiles > 0],
+  ['drift', (c) => c.entropy.driftCount > 0],
+  ['security-findings', (c) => c.security.findingCount > 0],
+  ['doc-gaps', (c) => c.docs.undocumentedCount > 0],
+  ['perf-regression', (c) => c.perf.violationCount > 0],
+  ['anomaly-outlier', (_c, m) => m.anomalyOutlierCount > 0],
+  ['articulation-point', (_c, m) => m.articulationPointCount > 0],
+  ['high-coupling', (_c, m) => m.avgCouplingRatio > 0.5 || m.maxFanOut > 20],
+  ['high-complexity', (_c, m) => m.maxCyclomaticComplexity > 20 || m.avgCyclomaticComplexity > 10],
+  ['low-coverage', (_c, m) => m.testCoverage !== null && m.testCoverage < 60],
+];
+
+/**
+ * Derive active signal identifiers from health checks and metrics.
+ * Uses threshold-based rules to map numeric values to named signals.
+ */
+export function deriveSignals(checks: HealthChecks, metrics: HealthMetrics): string[] {
+  const signals = new Set<string>();
+  for (const [name, predicate] of SIGNAL_RULES) {
+    if (predicate(checks, metrics)) signals.add(name);
+  }
+  return [...signals];
+}
