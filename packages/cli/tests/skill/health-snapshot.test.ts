@@ -5,6 +5,7 @@ import {
   isSnapshotFresh,
   loadCachedSnapshot,
   saveCachedSnapshot,
+  deriveSignals,
 } from '../../src/skill/health-snapshot';
 import type { HealthSnapshot } from '../../src/skill/health-snapshot';
 
@@ -102,5 +103,144 @@ describe('saveCachedSnapshot / loadCachedSnapshot', () => {
     fs.writeFileSync(path.join(harnessDir, 'health-snapshot.json'), 'not json');
     const loaded = loadCachedSnapshot(tmpDir);
     expect(loaded).toBeNull();
+  });
+});
+
+describe('deriveSignals', () => {
+  it('returns empty array when everything passes with zero counts', () => {
+    const snapshot = makeSnapshot();
+    expect(deriveSignals(snapshot.checks, snapshot.metrics)).toEqual([]);
+  });
+
+  it('includes circular-deps when circularDeps > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.deps.circularDeps = 2;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('circular-deps');
+  });
+
+  it('includes layer-violations when layerViolations > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.deps.layerViolations = 1;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('layer-violations');
+  });
+
+  it('includes dead-code when deadExports > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.entropy.deadExports = 3;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('dead-code');
+  });
+
+  it('includes dead-code when deadFiles > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.entropy.deadFiles = 1;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('dead-code');
+  });
+
+  it('includes drift when driftCount > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.entropy.driftCount = 2;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('drift');
+  });
+
+  it('includes security-findings when findingCount > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.security.findingCount = 5;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('security-findings');
+  });
+
+  it('includes doc-gaps when undocumentedCount > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.docs.undocumentedCount = 10;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('doc-gaps');
+  });
+
+  it('includes perf-regression when violationCount > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.perf.violationCount = 1;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('perf-regression');
+  });
+
+  it('includes anomaly-outlier when anomalyOutlierCount > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.anomalyOutlierCount = 3;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('anomaly-outlier');
+  });
+
+  it('includes articulation-point when articulationPointCount > 0', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.articulationPointCount = 1;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('articulation-point');
+  });
+
+  it('includes high-coupling when avgCouplingRatio > 0.5', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.avgCouplingRatio = 0.65;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('high-coupling');
+  });
+
+  it('includes high-coupling when maxFanOut > 20', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.maxFanOut = 25;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('high-coupling');
+  });
+
+  it('includes high-complexity when maxCyclomaticComplexity > 20', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.maxCyclomaticComplexity = 30;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('high-complexity');
+  });
+
+  it('includes high-complexity when avgCyclomaticComplexity > 10', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.avgCyclomaticComplexity = 12;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('high-complexity');
+  });
+
+  it('includes low-coverage when testCoverage < 60', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.testCoverage = 45;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('low-coverage');
+  });
+
+  it('does not include low-coverage when testCoverage is null', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.testCoverage = null;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).not.toContain('low-coverage');
+  });
+
+  it('returns multiple signals when multiple conditions are met', () => {
+    const snapshot = makeSnapshot();
+    snapshot.checks.deps.circularDeps = 1;
+    snapshot.checks.security.findingCount = 2;
+    snapshot.metrics.maxCyclomaticComplexity = 25;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    expect(signals).toContain('circular-deps');
+    expect(signals).toContain('security-findings');
+    expect(signals).toContain('high-complexity');
+  });
+
+  it('does not duplicate signals', () => {
+    const snapshot = makeSnapshot();
+    snapshot.metrics.maxFanOut = 25;
+    snapshot.metrics.avgCouplingRatio = 0.7;
+    const signals = deriveSignals(snapshot.checks, snapshot.metrics);
+    const couplingCount = signals.filter((s: string) => s === 'high-coupling').length;
+    expect(couplingCount).toBe(1);
   });
 });
