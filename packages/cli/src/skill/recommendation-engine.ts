@@ -305,3 +305,80 @@ export function sequenceRecommendations(
 
   return sorted;
 }
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export interface RecommendOptions {
+  /** Maximum number of recommendations to return (default 5). */
+  top?: number;
+}
+
+/**
+ * Produce scored, sequenced skill recommendations from a health snapshot
+ * and skills index.
+ *
+ * Combines all three layers:
+ * 1. matchHardRules -- critical signals
+ * 2. scoreByHealth -- weighted soft scoring
+ * 3. sequenceRecommendations -- topological + heuristic ordering
+ *
+ * Hard rule matches take precedence over soft scores for the same skill.
+ */
+export function recommend(
+  snapshot: HealthSnapshot,
+  skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }>,
+  options: RecommendOptions = {}
+): RecommendationResult {
+  const top = options.top ?? 5;
+
+  // Empty signals -> no recommendations
+  if (snapshot.signals.length === 0) {
+    return {
+      recommendations: [],
+      snapshotAge: 'none',
+      sequenceReasoning: 'No active signals detected in health snapshot.',
+    };
+  }
+
+  // Build merged address index (skill-declared + fallback)
+  const addressIndex = buildSkillAddressIndex(skills);
+
+  // Layer 1: hard rules
+  const hardRecs = matchHardRules(snapshot, addressIndex);
+
+  // Layer 2: soft scoring
+  const softRecs = scoreByHealth(snapshot, addressIndex);
+
+  // Merge: hard rules take precedence
+  const hardSkills = new Set(hardRecs.map((r) => r.skillName));
+  const merged = [...hardRecs, ...softRecs.filter((r) => !hardSkills.has(r.skillName))];
+
+  // Sort by score descending before limiting to top N
+  merged.sort((a, b) => b.score - a.score);
+  const limited = merged.slice(0, top);
+
+  // Build dependency map from the address index
+  const depMap = new Map<string, string[]>();
+  for (const [name, entry] of addressIndex) {
+    depMap.set(name, entry.dependsOn);
+  }
+
+  // Layer 3: sequence
+  const sequenced = sequenceRecommendations(limited, depMap);
+
+  // Build reasoning
+  const criticalCount = sequenced.filter((r) => r.urgency === 'critical').length;
+  const phases = sequenced.map((r) => `${r.sequence}. ${r.skillName}`).join(' -> ');
+  const reasoning =
+    criticalCount > 0
+      ? `${criticalCount} critical issue(s) detected. Sequence: ${phases}. Critical items first, then diagnostic -> fix -> validate heuristic.`
+      : `Sequence: ${phases}. Ordered by dependencies and diagnostic -> fix -> validate heuristic.`;
+
+  return {
+    recommendations: sequenced,
+    snapshotAge: 'fresh',
+    sequenceReasoning: reasoning,
+  };
+}

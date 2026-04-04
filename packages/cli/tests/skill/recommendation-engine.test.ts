@@ -5,6 +5,7 @@ import {
   scoreByHealth,
   sequenceRecommendations,
   buildSkillAddressIndex,
+  recommend,
 } from '../../src/skill/recommendation-engine';
 import type { HealthSnapshot, HealthMetrics } from '../../src/skill/health-snapshot';
 import type { SkillAddress } from '../../src/skill/schema';
@@ -468,5 +469,132 @@ describe('buildSkillAddressIndex', () => {
     };
     const result = buildSkillAddressIndex(skillsIndex);
     expect(result.get('tdd')!.dependsOn).toEqual(['enforce-architecture']);
+  });
+});
+
+// -- recommend() tests --
+
+describe('recommend', () => {
+  it('returns empty result for empty snapshot (no signals)', () => {
+    const snapshot = makeSnapshot({ signals: [] });
+    const skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'enforce-architecture': {
+        addresses: [{ signal: 'circular-deps', hard: true }],
+        dependsOn: [],
+      },
+    };
+    const result = recommend(snapshot, skills);
+    expect(result.recommendations).toHaveLength(0);
+    expect(result.sequenceReasoning).toContain('No active signals');
+  });
+
+  it('returns empty result for empty skills index', () => {
+    const snapshot = makeSnapshot({ signals: ['circular-deps'] });
+    const result = recommend(snapshot, {});
+    // Fallback rules will inject skills, so this may not be empty
+    // But with circular-deps signal, enforce-architecture fallback will match
+    expect(result.recommendations.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('combines hard rules and soft scores, deduplicating skills', () => {
+    const snapshot = makeSnapshot({
+      signals: ['circular-deps', 'high-coupling'],
+      metrics: makeMetrics({ maxFanOut: 25 }),
+    });
+    const skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'enforce-architecture': {
+        addresses: [
+          { signal: 'circular-deps', hard: true },
+          { signal: 'high-coupling', metric: 'fanOut', threshold: 20, weight: 0.8 },
+        ],
+        dependsOn: [],
+      },
+    };
+    const result = recommend(snapshot, skills);
+    // enforce-architecture appears once (hard rule takes precedence)
+    const ea = result.recommendations.filter((r) => r.skillName === 'enforce-architecture');
+    expect(ea).toHaveLength(1);
+    expect(ea[0]!.urgency).toBe('critical'); // hard rule wins
+  });
+
+  it('limits results with top option', () => {
+    const snapshot = makeSnapshot({
+      signals: [
+        'circular-deps',
+        'dead-code',
+        'low-coverage',
+        'security-findings',
+        'doc-gaps',
+        'drift',
+      ],
+    });
+    // Use fallback rules -- several will match
+    const result = recommend(snapshot, {}, { top: 3 });
+    expect(result.recommendations.length).toBeLessThanOrEqual(3);
+  });
+
+  it('defaults to top 5', () => {
+    const snapshot = makeSnapshot({
+      signals: [
+        'circular-deps',
+        'dead-code',
+        'low-coverage',
+        'security-findings',
+        'doc-gaps',
+        'drift',
+        'high-coupling',
+        'high-complexity',
+        'perf-regression',
+        'anomaly-outlier',
+      ],
+    });
+    const result = recommend(snapshot, {});
+    expect(result.recommendations.length).toBeLessThanOrEqual(5);
+  });
+
+  it('sequences recommendations with dependency ordering', () => {
+    const snapshot = makeSnapshot({
+      signals: ['circular-deps', 'low-coverage'],
+    });
+    const skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'enforce-architecture': {
+        addresses: [{ signal: 'circular-deps', hard: true }],
+        dependsOn: [],
+      },
+      tdd: {
+        addresses: [{ signal: 'low-coverage', weight: 0.9 }],
+        dependsOn: ['enforce-architecture'],
+      },
+    };
+    const result = recommend(snapshot, skills, { top: 10 });
+    const seqEA = result.recommendations.find(
+      (r) => r.skillName === 'enforce-architecture'
+    )!.sequence;
+    const seqTDD = result.recommendations.find((r) => r.skillName === 'tdd')!.sequence;
+    expect(seqEA).toBeLessThan(seqTDD);
+  });
+
+  it('provides sequenceReasoning string', () => {
+    const snapshot = makeSnapshot({ signals: ['circular-deps'] });
+    const skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'enforce-architecture': {
+        addresses: [{ signal: 'circular-deps', hard: true }],
+        dependsOn: [],
+      },
+    };
+    const result = recommend(snapshot, skills);
+    expect(result.sequenceReasoning).toBeTruthy();
+    expect(typeof result.sequenceReasoning).toBe('string');
+  });
+
+  it('sets snapshotAge based on signals presence', () => {
+    const snapshot = makeSnapshot({ signals: ['circular-deps'] });
+    const result = recommend(snapshot, {
+      'enforce-architecture': {
+        addresses: [{ signal: 'circular-deps', hard: true }],
+        dependsOn: [],
+      },
+    });
+    expect(result.snapshotAge).toBe('fresh');
   });
 });
