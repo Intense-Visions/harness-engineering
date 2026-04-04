@@ -30,11 +30,13 @@ export async function runRecommend(options: RecommendOptions): Promise<Recommend
 
   // Resolve snapshot: use cache unless --no-cache or stale
   let snapshot: HealthSnapshot | null = null;
+  let usedCache = false;
 
   if (!options.noCache) {
     const cached = loadCachedSnapshot(cwd);
     if (cached && isSnapshotFresh(cached, cwd)) {
       snapshot = cached;
+      usedCache = true;
     }
   }
 
@@ -58,14 +60,9 @@ export async function runRecommend(options: RecommendOptions): Promise<Recommend
 
   const result = recommend(snapshot, skills, { top });
 
-  // Set snapshotAge based on whether we used cache
   return {
     ...result,
-    snapshotAge: options.noCache
-      ? 'fresh'
-      : snapshot === loadCachedSnapshot(cwd)
-        ? 'cached'
-        : result.snapshotAge,
+    snapshotAge: usedCache ? 'cached' : 'fresh',
   };
 }
 

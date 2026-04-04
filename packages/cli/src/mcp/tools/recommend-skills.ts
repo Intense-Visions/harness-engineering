@@ -41,11 +41,13 @@ export async function handleRecommendSkills(
 
   // Resolve snapshot
   let snapshot: HealthSnapshot | null = null;
+  let usedCache = false;
 
   if (!noCache) {
     const cached = loadCachedSnapshot(projectRoot);
     if (cached && isSnapshotFresh(cached, projectRoot)) {
       snapshot = cached;
+      usedCache = true;
     }
   }
 
@@ -69,11 +71,16 @@ export async function handleRecommendSkills(
 
   const result = recommend(snapshot, skills, { top });
 
+  const output = {
+    ...result,
+    snapshotAge: usedCache ? 'cached' : 'fresh',
+  };
+
   return {
     content: [
       {
         type: 'text',
-        text: JSON.stringify(result, null, 2),
+        text: JSON.stringify(output, null, 2),
       },
     ],
   };
