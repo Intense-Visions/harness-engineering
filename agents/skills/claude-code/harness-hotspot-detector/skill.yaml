@@ -43,3 +43,12 @@ state:
   persistent: false
   files: []
 depends_on: []
+addresses:
+  - signal: high-complexity
+    metric: cyclomaticComplexity
+    threshold: 20
+    weight: 0.9
+  - signal: anomaly-outlier
+    weight: 0.7
+  - signal: articulation-point
+    weight: 0.8

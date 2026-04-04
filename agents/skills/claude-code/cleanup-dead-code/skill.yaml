@@ -32,3 +32,6 @@ state:
   persistent: false
   files: []
 depends_on: []
+addresses:
+  - signal: dead-code
+    hard: true
