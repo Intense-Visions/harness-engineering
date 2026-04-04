@@ -11,6 +11,7 @@
 import type { SkillAddress } from './schema.js';
 import type { HealthSnapshot, HealthMetrics } from './health-snapshot.js';
 import type { Recommendation, RecommendationResult } from './recommendation-types.js';
+import { FALLBACK_RULES } from './recommendation-rules.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,6 +54,37 @@ export function resolveMetricValue(metrics: HealthMetrics, metricName: string): 
     default:
       return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Index builder helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a SkillAddressIndex by merging skill index entries with fallback rules.
+ * - Skills with non-empty addresses: use skill-declared addresses (precedence).
+ * - Skills with empty addresses: use fallback rules if available.
+ * - Fallback-only skills (not in index): injected from FALLBACK_RULES.
+ */
+export function buildSkillAddressIndex(
+  skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }>
+): SkillAddressIndex {
+  const index: SkillAddressIndex = new Map();
+
+  // First, add all skills from the skills index
+  for (const [name, entry] of Object.entries(skills)) {
+    const addresses = entry.addresses.length > 0 ? entry.addresses : (FALLBACK_RULES[name] ?? []);
+    index.set(name, { addresses, dependsOn: entry.dependsOn });
+  }
+
+  // Then, add fallback-only skills not already in the index
+  for (const [name, addresses] of Object.entries(FALLBACK_RULES)) {
+    if (!index.has(name)) {
+      index.set(name, { addresses, dependsOn: [] });
+    }
+  }
+
+  return index;
 }
 
 // ---------------------------------------------------------------------------

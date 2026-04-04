@@ -4,6 +4,7 @@ import {
   matchHardRules,
   scoreByHealth,
   sequenceRecommendations,
+  buildSkillAddressIndex,
 } from '../../src/skill/recommendation-engine';
 import type { HealthSnapshot, HealthMetrics } from '../../src/skill/health-snapshot';
 import type { SkillAddress } from '../../src/skill/schema';
@@ -403,5 +404,69 @@ describe('sequenceRecommendations', () => {
     const result = sequenceRecommendations(recs, deps);
     // Just check it returned the recs (reasoning is on the public API, tested in Task 6)
     expect(result).toHaveLength(2);
+  });
+});
+
+// -- buildSkillAddressIndex tests --
+
+describe('buildSkillAddressIndex', () => {
+  it('creates address index from skills index entries', () => {
+    const skillsIndex: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'my-skill': {
+        addresses: [{ signal: 'drift', weight: 0.7 }],
+        dependsOn: [],
+      },
+    };
+    const result = buildSkillAddressIndex(skillsIndex);
+    // Size includes custom skill + all fallback-only skills
+    expect(result.size).toBeGreaterThanOrEqual(1);
+    expect(result.has('my-skill')).toBe(true);
+    expect(result.get('my-skill')!.addresses).toHaveLength(1);
+  });
+
+  it('merges fallback rules for skills without addresses', () => {
+    const skillsIndex: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'enforce-architecture': {
+        addresses: [], // empty = use fallback
+        dependsOn: [],
+      },
+    };
+    const result = buildSkillAddressIndex(skillsIndex);
+    const entry = result.get('enforce-architecture');
+    expect(entry).toBeDefined();
+    expect(entry!.addresses.length).toBeGreaterThan(0);
+    expect(entry!.addresses.some((a) => a.hard === true)).toBe(true);
+  });
+
+  it('skill-declared addresses take precedence over fallback', () => {
+    const skillsIndex: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      'enforce-architecture': {
+        addresses: [{ signal: 'custom-signal', weight: 0.9 }],
+        dependsOn: [],
+      },
+    };
+    const result = buildSkillAddressIndex(skillsIndex);
+    const entry = result.get('enforce-architecture');
+    expect(entry!.addresses).toHaveLength(1);
+    expect(entry!.addresses[0]!.signal).toBe('custom-signal');
+  });
+
+  it('includes fallback-only skills not in the index', () => {
+    const skillsIndex: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {};
+    const result = buildSkillAddressIndex(skillsIndex);
+    // Fallback rules inject entries for skills not in the index
+    expect(result.has('security-scan')).toBe(true);
+    expect(result.has('tdd')).toBe(true);
+  });
+
+  it('preserves dependsOn from the skills index', () => {
+    const skillsIndex: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {
+      tdd: {
+        addresses: [{ signal: 'low-coverage', weight: 0.9 }],
+        dependsOn: ['enforce-architecture'],
+      },
+    };
+    const result = buildSkillAddressIndex(skillsIndex);
+    expect(result.get('tdd')!.dependsOn).toEqual(['enforce-architecture']);
   });
 });
