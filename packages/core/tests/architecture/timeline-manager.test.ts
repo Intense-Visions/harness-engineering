@@ -247,4 +247,153 @@ describe('TimelineManager', () => {
       expect(snapshot.metrics['complexity']!.violationCount).toBe(1);
     });
   });
+
+  describe('trends()', () => {
+    it('returns empty trend result when no snapshots exist', () => {
+      const result = manager.trends();
+      expect(result.snapshotCount).toBe(0);
+      expect(result.stability.direction).toBe('stable');
+      expect(result.from).toBe('');
+      expect(result.to).toBe('');
+    });
+
+    it('returns stable trends for single snapshot', () => {
+      const results = makeResults({ complexity: { value: 30, violationCount: 2 } });
+      manager.capture(results, 'abc1234');
+      const trend = manager.trends();
+      expect(trend.snapshotCount).toBe(1);
+      expect(trend.stability.delta).toBe(0);
+      expect(trend.stability.direction).toBe('stable');
+    });
+
+    it('detects improving stability trend', () => {
+      // First snapshot: high complexity (lower score)
+      const results1 = makeResults({ complexity: { value: 80, violationCount: 5 } });
+      manager.capture(results1, 'aaa');
+
+      // Second snapshot: low complexity (higher score)
+      const results2 = makeResults({ complexity: { value: 10, violationCount: 1 } });
+      manager.capture(results2, 'bbb');
+
+      const trend = manager.trends();
+      expect(trend.snapshotCount).toBe(2);
+      expect(trend.stability.direction).toBe('improving');
+      expect(trend.stability.delta).toBeGreaterThan(0);
+    });
+
+    it('detects declining stability trend', () => {
+      // First snapshot: low complexity (higher score)
+      const results1 = makeResults({ complexity: { value: 10, violationCount: 1 } });
+      manager.capture(results1, 'aaa');
+
+      // Second snapshot: high complexity (lower score)
+      const results2 = makeResults({ complexity: { value: 80, violationCount: 5 } });
+      manager.capture(results2, 'bbb');
+
+      const trend = manager.trends();
+      expect(trend.stability.direction).toBe('declining');
+      expect(trend.stability.delta).toBeLessThan(0);
+    });
+
+    it('classifies |delta| < 2 as stable direction', () => {
+      const results1 = makeResults({ complexity: { value: 50, violationCount: 2 } });
+      manager.capture(results1, 'aaa');
+
+      // Only change complexity by 1 -- stability score delta should be < 2
+      const results2 = makeResults({ complexity: { value: 51, violationCount: 2 } });
+      manager.capture(results2, 'bbb');
+
+      const trend = manager.trends();
+      expect(trend.stability.direction).toBe('stable');
+    });
+
+    it('respects { last: N } option', () => {
+      for (let i = 0; i < 5; i++) {
+        const results = makeResults({
+          complexity: { value: i * 10, violationCount: i },
+        });
+        manager.capture(results, `commit-${i}`);
+      }
+
+      const trend = manager.trends({ last: 3 });
+      expect(trend.snapshotCount).toBe(3);
+    });
+
+    it('respects { since } option', () => {
+      // Manually save snapshots with known timestamps
+      const timeline: TimelineFile = {
+        version: 1,
+        snapshots: [
+          {
+            capturedAt: '2026-01-01T00:00:00.000Z',
+            commitHash: 'old',
+            stabilityScore: 80,
+            metrics: Object.fromEntries(
+              [
+                'circular-deps',
+                'layer-violations',
+                'complexity',
+                'coupling',
+                'forbidden-imports',
+                'module-size',
+                'dependency-depth',
+              ].map((c) => [c, { value: 0, violationCount: 0 }])
+            ) as any,
+          },
+          {
+            capturedAt: '2026-03-15T00:00:00.000Z',
+            commitHash: 'mid',
+            stabilityScore: 85,
+            metrics: Object.fromEntries(
+              [
+                'circular-deps',
+                'layer-violations',
+                'complexity',
+                'coupling',
+                'forbidden-imports',
+                'module-size',
+                'dependency-depth',
+              ].map((c) => [c, { value: 0, violationCount: 0 }])
+            ) as any,
+          },
+          {
+            capturedAt: '2026-04-01T00:00:00.000Z',
+            commitHash: 'new',
+            stabilityScore: 90,
+            metrics: Object.fromEntries(
+              [
+                'circular-deps',
+                'layer-violations',
+                'complexity',
+                'coupling',
+                'forbidden-imports',
+                'module-size',
+                'dependency-depth',
+              ].map((c) => [c, { value: 0, violationCount: 0 }])
+            ) as any,
+          },
+        ],
+      };
+      manager.save(timeline);
+
+      const trend = manager.trends({ since: '2026-03-01' });
+      expect(trend.snapshotCount).toBe(2);
+      expect(trend.from).toBe('2026-03-15T00:00:00.000Z');
+      expect(trend.to).toBe('2026-04-01T00:00:00.000Z');
+    });
+
+    it('computes per-category trends with inverted direction', () => {
+      // First: high complexity
+      const results1 = makeResults({ complexity: { value: 80, violationCount: 5 } });
+      manager.capture(results1, 'aaa');
+
+      // Second: lower complexity (improving for a violation category)
+      const results2 = makeResults({ complexity: { value: 30, violationCount: 2 } });
+      manager.capture(results2, 'bbb');
+
+      const trend = manager.trends();
+      expect(trend.categories['complexity']!.direction).toBe('improving');
+      expect(trend.categories['complexity']!.delta).toBe(-50);
+    });
+  });
 });
