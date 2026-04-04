@@ -170,7 +170,22 @@ export const emitInteractionDefinition = {
   },
 };
 
-import { type McpResponse, mcpError } from '../utils.js';
+import { type McpResponse, type McpContentItem, mcpError } from '../utils.js';
+
+function dualContent(prompt: string, metadata: Record<string, unknown>): McpContentItem[] {
+  return [
+    {
+      type: 'text' as const,
+      text: prompt,
+      annotations: { audience: ['user' as const, 'assistant' as const], priority: 1.0 },
+    },
+    {
+      type: 'text' as const,
+      text: JSON.stringify(metadata),
+      annotations: { audience: ['assistant' as const], priority: 0.2 },
+    },
+  ];
+}
 
 function formatZodErrors(issues: Array<{ path: Array<string | number>; message: string }>): string {
   return issues
@@ -194,7 +209,7 @@ async function handleQuestion(
 
   const prompt = renderQuestion(questionResult.data);
   await recordInteraction(projectPath, id, 'question', questionResult.data.text, validInput.stream);
-  return { content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }] };
+  return { content: dualContent(prompt, { id }) };
 }
 
 async function handleConfirmation(
@@ -219,7 +234,7 @@ async function handleConfirmation(
     confirmResult.data.text,
     validInput.stream
   );
-  return { content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt }) }] };
+  return { content: dualContent(prompt, { id }) };
 }
 
 async function handleTransition(
@@ -270,13 +285,13 @@ async function handleTransition(
     validInput.stream
   );
 
-  const responsePayload: Record<string, unknown> = { id, prompt, handoffWritten: true };
+  const metadata: Record<string, unknown> = { id, handoffWritten: true };
   if (!transition.requiresConfirmation) {
-    responsePayload.autoTransition = true;
-    responsePayload.nextAction = `Invoke harness-${transition.suggestedNext} skill now`;
+    metadata.autoTransition = true;
+    metadata.nextAction = `Invoke harness-${transition.suggestedNext} skill now`;
   }
 
-  return { content: [{ type: 'text' as const, text: JSON.stringify(responsePayload) }] };
+  return { content: dualContent(prompt, metadata) };
 }
 
 async function handleBatch(
@@ -294,9 +309,7 @@ async function handleBatch(
 
   const prompt = renderBatch(batchResult.data);
   await recordInteraction(projectPath, id, 'batch', batchResult.data.text, validInput.stream);
-  return {
-    content: [{ type: 'text' as const, text: JSON.stringify({ id, prompt, batchMode: true }) }],
-  };
+  return { content: dualContent(prompt, { id, batchMode: true }) };
 }
 
 const INTERACTION_HANDLERS: Record<
