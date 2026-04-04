@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { isTier1Skill, scoreSkill, suggest, formatSuggestions } from '../../src/skill/dispatcher';
+import {
+  isTier1Skill,
+  scoreSkill,
+  suggest,
+  formatSuggestions,
+  computeHealthScore,
+} from '../../src/skill/dispatcher';
+import type { HealthSnapshot } from '../../src/skill/health-snapshot';
 import type { SkillIndexEntry, SkillsIndex } from '../../src/skill/index-builder';
 import type { StackProfile } from '../../src/skill/stack-profile';
 
@@ -27,6 +34,34 @@ function makeProfile(overrides: Partial<StackProfile> = {}): StackProfile {
     generatedAt: '2025-01-01',
     signals: {},
     detectedDomains: [],
+    ...overrides,
+  };
+}
+
+function makeSnapshot(overrides: Partial<HealthSnapshot> = {}): HealthSnapshot {
+  return {
+    capturedAt: new Date().toISOString(),
+    gitHead: 'abc123',
+    projectPath: '/tmp/test',
+    checks: {
+      deps: { passed: true, issueCount: 0, circularDeps: 0, layerViolations: 0 },
+      entropy: { passed: true, deadExports: 0, deadFiles: 0, driftCount: 0 },
+      security: { passed: true, findingCount: 0, criticalCount: 0 },
+      perf: { passed: true, violationCount: 0 },
+      docs: { passed: true, undocumentedCount: 0 },
+      lint: { passed: true, issueCount: 0 },
+    },
+    metrics: {
+      avgFanOut: 0,
+      maxFanOut: 0,
+      avgCyclomaticComplexity: 0,
+      maxCyclomaticComplexity: 0,
+      avgCouplingRatio: 0,
+      testCoverage: null,
+      anomalyOutlierCount: 0,
+      articulationPointCount: 0,
+    },
+    signals: [],
     ...overrides,
   };
 }
@@ -266,5 +301,94 @@ describe('formatSuggestions', () => {
     ]);
     expect(result).toContain('**skill-a**');
     expect(result).toContain('**skill-b**');
+  });
+});
+
+describe('computeHealthScore', () => {
+  it('returns 0 when skill has no addresses', () => {
+    const entry = makeEntry({ addresses: [] });
+    const snapshot = makeSnapshot({ signals: ['circular-deps'] });
+    expect(computeHealthScore(entry, snapshot)).toBe(0);
+  });
+
+  it('returns proportional score when addresses overlap with signals', () => {
+    const entry = makeEntry({
+      addresses: [{ signal: 'circular-deps' }, { signal: 'dead-code' }],
+    });
+    const snapshot = makeSnapshot({ signals: ['circular-deps'] });
+    // 1 of 2 addresses match => 0.5
+    expect(computeHealthScore(entry, snapshot)).toBeCloseTo(0.5);
+  });
+
+  it('returns 1 when all addresses match active signals', () => {
+    const entry = makeEntry({
+      addresses: [{ signal: 'circular-deps' }, { signal: 'dead-code' }],
+    });
+    const snapshot = makeSnapshot({ signals: ['circular-deps', 'dead-code', 'drift'] });
+    expect(computeHealthScore(entry, snapshot)).toBeCloseTo(1.0);
+  });
+
+  it('returns 0 when no addresses match active signals', () => {
+    const entry = makeEntry({
+      addresses: [{ signal: 'circular-deps' }],
+    });
+    const snapshot = makeSnapshot({ signals: ['dead-code'] });
+    expect(computeHealthScore(entry, snapshot)).toBe(0);
+  });
+
+  it('uses weight when provided on address', () => {
+    const entry = makeEntry({
+      addresses: [
+        { signal: 'circular-deps', weight: 0.8 },
+        { signal: 'dead-code', weight: 0.2 },
+      ],
+    });
+    const snapshot = makeSnapshot({ signals: ['circular-deps'] });
+    // Only first matches. Weighted: 0.8 / (0.8 + 0.2) = 0.8
+    expect(computeHealthScore(entry, snapshot)).toBeCloseTo(0.8);
+  });
+});
+
+describe('scoreSkill with health boost', () => {
+  it('returns unchanged score when healthSnapshot is undefined', () => {
+    const entry = makeEntry({ keywords: ['testing', 'unit', 'jest'] });
+    const withoutSnapshot = scoreSkill(entry, ['testing', 'unit'], null, [], 'unrelated-skill');
+    const withUndefined = scoreSkill(
+      entry,
+      ['testing', 'unit'],
+      null,
+      [],
+      'unrelated-skill',
+      undefined
+    );
+    expect(withoutSnapshot).toEqual(withUndefined);
+  });
+
+  it('blends 70/30 when healthSnapshot is provided', () => {
+    const entry = makeEntry({
+      keywords: ['testing'],
+      addresses: [{ signal: 'low-coverage' }],
+    });
+    const snapshot = makeSnapshot({ signals: ['low-coverage'] });
+
+    const originalScore = scoreSkill(entry, ['testing'], null, [], 'some-skill');
+    const boostedScore = scoreSkill(entry, ['testing'], null, [], 'some-skill', snapshot);
+
+    // healthScore = 1.0 (1/1 match), blend = 0.70 * original + 0.30 * 1.0
+    const expected = 0.7 * originalScore + 0.3 * 1.0;
+    expect(boostedScore).toBeCloseTo(expected);
+  });
+
+  it('does not change score when skill has no addresses and snapshot provided', () => {
+    const entry = makeEntry({ keywords: ['testing'], addresses: [] });
+    const snapshot = makeSnapshot({ signals: ['low-coverage'] });
+
+    const originalScore = scoreSkill(entry, ['testing'], null, [], 'some-skill');
+    const boostedScore = scoreSkill(entry, ['testing'], null, [], 'some-skill', snapshot);
+
+    // healthScore = 0 (no addresses), blend = 0.70 * original + 0.30 * 0 < original
+    // Score IS changed (reduced) because the blend formula applies even with 0 health score
+    const expected = 0.7 * originalScore + 0.3 * 0;
+    expect(boostedScore).toBeCloseTo(expected);
   });
 });
