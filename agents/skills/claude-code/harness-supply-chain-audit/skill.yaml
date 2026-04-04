@@ -49,3 +49,6 @@ state:
   files: []
 depends_on:
   - harness-security-scan
+addresses:
+  - signal: security-findings
+    weight: 0.6

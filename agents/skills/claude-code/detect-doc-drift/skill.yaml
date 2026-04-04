@@ -29,3 +29,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+addresses:
+  - signal: doc-gaps
+    weight: 0.7
+  - signal: drift
+    weight: 0.5

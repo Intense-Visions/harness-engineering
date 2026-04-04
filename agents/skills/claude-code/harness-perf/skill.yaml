@@ -49,3 +49,6 @@ state:
   files: []
 depends_on:
   - harness-verify
+addresses:
+  - signal: perf-regression
+    weight: 0.8
