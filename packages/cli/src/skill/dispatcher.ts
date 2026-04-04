@@ -1,5 +1,6 @@
 import type { SkillsIndex, SkillIndexEntry } from './index-builder.js';
 import type { StackProfile } from './stack-profile.js';
+import type { HealthSnapshot } from './health-snapshot.js';
 
 export interface DispatcherConfig {
   alwaysSuggest?: string[];
@@ -31,6 +32,41 @@ export function isTier1Skill(skillName: string): boolean {
 }
 
 /**
+ * Compute a 0-1 health relevance score for a skill against a health snapshot.
+ *
+ * Score is proportional to the overlap between the skill's declared `addresses`
+ * signals and the snapshot's active signals. When addresses specify weights,
+ * the weighted sum is used; otherwise each address contributes equally.
+ *
+ * Returns 0 when the skill has no addresses.
+ */
+export function computeHealthScore(entry: SkillIndexEntry, snapshot: HealthSnapshot): number {
+  if (entry.addresses.length === 0) return 0;
+
+  const activeSignals = new Set(snapshot.signals);
+
+  const hasWeights = entry.addresses.some((a) => a.weight !== undefined);
+
+  if (hasWeights) {
+    // Weighted mode: sum matched weights / total weight
+    let totalWeight = 0;
+    let matchedWeight = 0;
+    for (const addr of entry.addresses) {
+      const w = addr.weight ?? 0.5;
+      totalWeight += w;
+      if (activeSignals.has(addr.signal)) {
+        matchedWeight += w;
+      }
+    }
+    return totalWeight > 0 ? matchedWeight / totalWeight : 0;
+  }
+
+  // Unweighted mode: count matched / total
+  const matched = entry.addresses.filter((a) => activeSignals.has(a.signal)).length;
+  return matched / entry.addresses.length;
+}
+
+/**
  * Score a single catalog skill against the current task context.
  *
  * Weights:
@@ -45,7 +81,8 @@ export function scoreSkill(
   queryTerms: string[],
   profile: StackProfile | null,
   recentFiles: string[],
-  skillName: string
+  skillName: string,
+  healthSnapshot?: HealthSnapshot
 ): number {
   // Keyword match
   const matchedKeywords = entry.keywords.filter((kw) =>
@@ -102,9 +139,20 @@ export function scoreSkill(
     recencyBoost = hasRecentMatch ? 1.0 : 0;
   }
 
-  return (
-    0.35 * keywordScore + 0.2 * nameScore + 0.1 * descScore + 0.2 * stackScore + 0.15 * recencyBoost
-  );
+  let score =
+    0.35 * keywordScore +
+    0.2 * nameScore +
+    0.1 * descScore +
+    0.2 * stackScore +
+    0.15 * recencyBoost;
+
+  // Health boost: blend when a snapshot is provided
+  if (healthSnapshot) {
+    const healthScore = computeHealthScore(entry, healthSnapshot);
+    score = 0.7 * score + 0.3 * healthScore;
+  }
+
+  return score;
 }
 
 /**
