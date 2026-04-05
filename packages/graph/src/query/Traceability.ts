@@ -57,8 +57,9 @@ export function queryTraceability(
   // Step 2: Group requirements by (specPath, featureName)
   const groups = new Map<string, typeof filtered>();
   for (const req of filtered) {
-    const specPath = String(req.metadata?.specPath ?? '');
-    const featureName = String(req.metadata?.featureName ?? '');
+    const meta = req.metadata as Record<string, string | undefined> | undefined;
+    const specPath = meta?.specPath ?? '';
+    const featureName = meta?.featureName ?? '';
     const key = `${specPath}\0${featureName}`;
     const list = groups.get(key);
     if (list) {
@@ -73,8 +74,9 @@ export function queryTraceability(
 
   for (const [, reqs] of groups) {
     const firstReq = reqs[0]!;
-    const specPath = String(firstReq.metadata?.specPath ?? '');
-    const featureName = String(firstReq.metadata?.featureName ?? '');
+    const firstMeta = firstReq.metadata as Record<string, string | undefined> | undefined;
+    const specPath = firstMeta?.specPath ?? '';
+    const featureName = firstMeta?.featureName ?? '';
     const requirements: RequirementCoverage[] = [];
 
     for (const req of reqs) {
