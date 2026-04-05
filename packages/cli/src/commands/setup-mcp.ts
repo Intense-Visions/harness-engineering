@@ -103,6 +103,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'get_decay_trends',
   'check_traceability',
   'predict_failures',
+  'recommend_skills',
 ];
 
 /**
