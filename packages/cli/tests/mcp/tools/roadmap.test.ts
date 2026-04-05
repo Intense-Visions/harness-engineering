@@ -314,6 +314,60 @@ describe('manage_roadmap update action', () => {
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain('feature is required');
   });
+
+  it('updates feature assignee and tracks assignment history', async () => {
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      assignee: '@cwarner',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
+    const dark = q2.features.find((f: { name: string }) => f.name === 'Dark Mode');
+    expect(dark.assignee).toBe('@cwarner');
+    expect(parsed.assignmentHistory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          feature: 'Dark Mode',
+          assignee: '@cwarner',
+          action: 'assigned',
+        }),
+      ])
+    );
+  });
+
+  it('tracks reassignment history when assignee changes', async () => {
+    // First assignment
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      assignee: '@alice',
+    });
+    // Reassignment
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      assignee: '@bob',
+    });
+    expect(response.isError).toBeFalsy();
+    const parsed = JSON.parse(response.content[0].text);
+    const q2 = parsed.milestones.find((m: { name: string }) => m.name === 'Q2 Polish');
+    const dark = q2.features.find((f: { name: string }) => f.name === 'Dark Mode');
+    expect(dark.assignee).toBe('@bob');
+    // Should have: assigned @alice, unassigned @alice, assigned @bob
+    const darkHistory = parsed.assignmentHistory.filter(
+      (h: { feature: string }) => h.feature === 'Dark Mode'
+    );
+    expect(darkHistory).toHaveLength(3);
+    expect(darkHistory[1].action).toBe('unassigned');
+    expect(darkHistory[1].assignee).toBe('@alice');
+    expect(darkHistory[2].action).toBe('assigned');
+    expect(darkHistory[2].assignee).toBe('@bob');
+  });
 });
 
 describe('manage_roadmap remove action', () => {
@@ -624,6 +678,16 @@ describe('manage_roadmap external sync trigger', () => {
       path: tmpDir,
       action: 'remove',
       feature: 'Mobile App',
+    });
+    expect(syncSpy).toHaveBeenCalledOnce();
+  });
+
+  it('triggers external sync after update with assignee', async () => {
+    await handleManageRoadmap({
+      path: tmpDir,
+      action: 'update',
+      feature: 'Dark Mode',
+      assignee: '@cwarner',
     });
     expect(syncSpy).toHaveBeenCalledOnce();
   });

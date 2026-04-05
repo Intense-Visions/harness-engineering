@@ -43,6 +43,10 @@ export const manageRoadmapDefinition = {
         items: { type: 'string' },
         description: 'Blocking feature names (optional for add/update)',
       },
+      assignee: {
+        type: 'string',
+        description: 'Assignee username/email (optional for update). Tracks assignment history.',
+      },
       filter: {
         type: 'string',
         description:
@@ -71,6 +75,7 @@ interface ManageRoadmapInput {
   spec?: string;
   plans?: string[];
   blocked_by?: string[];
+  assignee?: string;
   filter?: string;
   apply?: boolean;
   force_sync?: boolean;
@@ -103,6 +108,7 @@ interface RoadmapDeps {
   serializeRoadmap: Awaited<typeof import('@harness-engineering/core')>['serializeRoadmap'];
   syncRoadmap: Awaited<typeof import('@harness-engineering/core')>['syncRoadmap'];
   applySyncChanges: Awaited<typeof import('@harness-engineering/core')>['applySyncChanges'];
+  assignFeature: Awaited<typeof import('@harness-engineering/core')>['assignFeature'];
   Ok: Awaited<typeof import('@harness-engineering/types')>['Ok'];
 }
 
@@ -255,6 +261,9 @@ function handleUpdate(
       if (input.spec !== undefined) feature.spec = input.spec || null;
       if (input.plans !== undefined) feature.plans = input.plans;
       if (input.blocked_by !== undefined) feature.blockedBy = input.blocked_by;
+      if (input.assignee !== undefined) {
+        deps.assignFeature(roadmap, feature, input.assignee, new Date().toISOString().slice(0, 10));
+      }
       found = true;
       break;
     }
@@ -426,12 +435,19 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
 
 export async function handleManageRoadmap(input: ManageRoadmapInput) {
   try {
-    const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges } =
+    const { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, assignFeature } =
       await import('@harness-engineering/core');
     const { Ok } = await import('@harness-engineering/types');
 
     const projectPath = sanitizePath(input.path);
-    const deps: RoadmapDeps = { parseRoadmap, serializeRoadmap, syncRoadmap, applySyncChanges, Ok };
+    const deps: RoadmapDeps = {
+      parseRoadmap,
+      serializeRoadmap,
+      syncRoadmap,
+      applySyncChanges,
+      assignFeature,
+      Ok,
+    };
     const response = dispatchAction(input.action, projectPath, input, deps);
 
     if (shouldTriggerExternalSync(input, response)) {

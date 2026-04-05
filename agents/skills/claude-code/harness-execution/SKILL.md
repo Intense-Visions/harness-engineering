@@ -293,7 +293,7 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 
    This overwrites any previous summary for this session. The index.md is updated automatically.
 
-6. **Sync roadmap (mandatory when present).** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true` to update linked feature statuses from the just-completed execution state. Do not use `force_sync: true` — the human-always-wins rule applies. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. If no roadmap exists, skip silently.
+6. **Sync roadmap (mandatory when present).** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true` to update linked feature statuses from the just-completed execution state. Do not use `force_sync: true` — the human-always-wins rule applies. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core and warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub." If no roadmap exists, skip silently.
 
 7. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
 

@@ -621,6 +621,7 @@ Manage the project roadmap: show, add, update, remove, sync features, or query b
 - `spec` (string, optional) — Spec file path (optional for add/update)
 - `plans` (array, optional) — Plan file paths (optional for add/update)
 - `blocked_by` (array, optional) — Blocking feature names (optional for add/update)
+- `assignee` (string, optional) — Assignee username/email (optional for update). Tracks assignment history.
 - `filter` (string, optional) — Query filter: "blocked", "in-progress", "done", "planned", "backlog", or "milestone:&lt;name>" (required for query)
 - `apply` (boolean, optional) — For sync action: apply proposed changes (default: false, preview only)
 - `force_sync` (boolean, optional) — For sync action: override human-always-wins rule

@@ -6,6 +6,20 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.14.0 — 2026-04-05
+
+### Fixed
+
+- **Roadmap pilot sync gap** — The roadmap pilot skill assigned features by calling `assignFeature()` directly and writing `roadmap.md` manually, bypassing the `manage_roadmap` MCP tool where `triggerExternalSync` is wired. GitHub Issues were never updated on assignment. (`@harness-engineering/cli@1.23.0`)
+
+### Added
+
+- **`assignee` field on `manage_roadmap update`** — The `update` action now accepts an `assignee` parameter, delegating to `assignFeature()` for proper assignment history tracking. External sync fires automatically via the existing mutation hook. (`@harness-engineering/cli@1.23.0`)
+
+### Changed
+
+- **Skill fallback sync warnings** — All 8 MCP-fallback paths across 5 skills (brainstorming, execution, autopilot, roadmap, roadmap-pilot) now warn when external sync is skipped due to MCP unavailability and advise running `manage_roadmap sync` when MCP is restored.
+
 ## 0.13.0 — 2026-04-04
 
 ### Added

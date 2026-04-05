@@ -82,21 +82,26 @@ Proceed with Feature A? (y/n/pick another)
 
 ### Phase 4: ASSIGN -- Execute Assignment and Transition
 
-1. Call `assignFeature(roadmap, feature, currentUser, todayDate)` from `@harness-engineering/core`.
-   - This updates the feature's `Assignee` field
-   - Appends `assigned` record to assignment history (and `unassigned` for previous assignee if reassignment)
+1. Call `manage_roadmap` with action `update` to assign the feature:
 
-2. Serialize and write the updated roadmap to `docs/roadmap.md`.
+   ```json
+   manage_roadmap({
+     path: "<project-root>",
+     action: "update",
+     feature: "<feature-name>",
+     assignee: "<currentUser>"
+   })
+   ```
 
-3. If tracker config exists in `harness.config.json`, sync the assignment:
-   - Call the external tracker's `assignTicket` to push the assignment
-   - Log result but do not block on failure
+   - This updates the feature's `Assignee` field with assignment history tracking
+   - Automatically triggers external sync (GitHub Issues) if tracker config exists in `harness.config.json`
+   - External sync is fire-and-forget — errors are logged but do not block the assignment
 
-4. Determine the transition target:
+2. Determine the transition target:
    - If the feature has a `spec` field (non-null): transition to `harness:autopilot`
    - If the feature has no `spec`: transition to `harness:brainstorming`
 
-5. Present the transition to the human via `emit_interaction`:
+3. Present the transition to the human via `emit_interaction`:
 
    ```json
    emit_interaction({
@@ -122,7 +127,7 @@ Proceed with Feature A? (y/n/pick another)
    })
    ```
 
-6. Run `harness validate`.
+4. Run `harness validate`.
 
 ---
 
@@ -130,10 +135,9 @@ Proceed with Feature A? (y/n/pick another)
 
 - **`parseRoadmap` / `serializeRoadmap`** -- Parse and write `docs/roadmap.md`. Import from `@harness-engineering/core`.
 - **`scoreRoadmapCandidates`** -- Core scoring algorithm. Import from `@harness-engineering/core`. Takes a `Roadmap` and optional `PilotScoringOptions` (currentUser for affinity).
-- **`assignFeature`** -- Assignment with history tracking. Import from `@harness-engineering/core`. Handles new assignment and reassignment (unassigned + assigned records).
+- **`manage_roadmap update`** -- Used for assignment. Supports `assignee` field which delegates to `assignFeature` internally, handles history tracking, and automatically triggers external sync (GitHub Issues).
 - **`emit_interaction`** -- Used for the skill transition at the end. Transitions to `harness:brainstorming` (no spec) or `harness:autopilot` (spec exists).
 - **`harness validate`** -- Run after assignment is written.
-- **External sync** -- If `harness.config.json` has tracker config, use `fullSync` or direct `assignTicket` to push assignment to external service.
 
 ## Success Criteria
 
@@ -183,10 +187,10 @@ Human confirms **y**.
 **Phase 4: ASSIGN**
 
 ```
-Assigned: Graph Connector -> @cwarner
+manage_roadmap update: Graph Connector assignee -> @cwarner
 History: +1 record (assigned, 2026-04-02)
 Roadmap updated: docs/roadmap.md
-External sync: github:harness-eng/harness#43 assigned
+External sync: github:harness-eng/harness#43 assigned (automatic)
 
 Transitioning to harness:autopilot (spec exists)...
 ```
