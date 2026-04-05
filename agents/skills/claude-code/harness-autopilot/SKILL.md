@@ -531,7 +531,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 4. **Clear scratchpad for this phase.** Call `clearScratchpad({ session: sessionSlug, phase: phaseName, projectPath: projectPath })` to delete ephemeral research files for the completed phase. This frees disk space and prevents stale scratchpad data from leaking into future phases.
 
-5. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true`. This reflects the just-completed phase in the roadmap (e.g., updating the feature from `planned` to `in-progress`). If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core. Skip silently if no roadmap exists. Do not use `force_sync: true` — the human-always-wins rule applies.
+5. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true`. This reflects the just-completed phase in the roadmap (e.g., updating the feature from `planned` to `in-progress`). If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core and warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub." Skip silently if no roadmap exists. Do not use `force_sync: true` — the human-always-wins rule applies.
 
 6. **Write session summary.** Update the session summary to reflect the completed phase:
 
@@ -671,7 +671,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 6. **Check if pruning is needed.** Call `countLearningEntries(projectPath)`. If the count exceeds 30, suggest: "Global learnings.md has {count} entries (threshold: 30). Run `harness learnings prune` to analyze patterns and archive old entries."
 
-7. **Update roadmap to done.** If `docs/roadmap.md` exists and the current spec maps to a roadmap feature, call `manage_roadmap` with action `update` to set the feature status to `done`. Derive the feature name from the spec title (H1 heading) or the session's `handoff.json` `summary` field. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `updateFeature()` from core. Skip silently if no roadmap exists or if the feature is not found. Do not use `force_sync: true`.
+7. **Update roadmap to done.** If `docs/roadmap.md` exists and the current spec maps to a roadmap feature, call `manage_roadmap` with action `update` to set the feature status to `done`. Derive the feature name from the spec title (H1 heading) or the session's `handoff.json` `summary` field. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `updateFeature()` from core and warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub." Skip silently if no roadmap exists or if the feature is not found. Do not use `force_sync: true`.
 
 8. **Write final session summary.** Update the session summary to reflect completion:
 

@@ -92,7 +92,7 @@ Unmatched plans: N (flag for review)
    - One H2 section per milestone
    - One H3 section per feature with 5 fields: `Status`, `Spec`, `Summary`, `Blockers`, `Plan`
 
-2. Write via `manage_roadmap` MCP tool if available. If MCP is unavailable, write directly using the roadmap markdown format:
+2. Write via `manage_roadmap` MCP tool if available. If MCP is unavailable, write directly using the roadmap markdown format and warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub."
 
    ```markdown
    ---
@@ -173,7 +173,7 @@ Wait for confirmation before proceeding.
 
 #### Phase 3: WRITE -- Add Feature to Roadmap
 
-1. Add via `manage_roadmap add` MCP tool if available. If MCP is unavailable, parse the roadmap, add the feature to the specified milestone, and serialize back.
+1. Add via `manage_roadmap add` MCP tool if available. If MCP is unavailable, parse the roadmap, add the feature to the specified milestone, and serialize back. Warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub."
 2. If the milestone is `[NEW]`: create the milestone section, then add the feature.
 3. Write to `docs/roadmap.md`.
 
@@ -276,7 +276,7 @@ Wait for confirmation before proceeding.
 
 #### Phase 3: WRITE -- Apply Changes
 
-1. Apply via `manage_roadmap sync` MCP tool if available, or via `manage_roadmap update` for each changed feature. If MCP is unavailable, parse the roadmap, update statuses, and serialize back.
+1. Apply via `manage_roadmap sync` MCP tool if available, or via `manage_roadmap update` for each changed feature. If MCP is unavailable, parse the roadmap, update statuses, and serialize back. Warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub."
 2. Update `last_synced` timestamp in frontmatter.
 3. Write to `docs/roadmap.md`.
 
@@ -378,7 +378,7 @@ Choice?
    ```
 
 2. Wait for confirmation before writing.
-3. Apply all changes via `manage_roadmap update` / `manage_roadmap remove` MCP tool calls, or direct file manipulation if MCP is unavailable.
+3. Apply all changes via `manage_roadmap update` / `manage_roadmap remove` MCP tool calls, or direct file manipulation if MCP is unavailable. If falling back to direct manipulation, warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub."
 4. Update `last_manual_edit` timestamp in frontmatter (since this is a human-driven edit).
 5. Write to `docs/roadmap.md`.
 
@@ -592,4 +592,4 @@ These are hard stops. Violating any gate means the process has broken down.
 
 - **When no specs or plans are found during `--create`:** Suggest creating a minimal roadmap with just a Backlog milestone containing features described verbally by the human. Alternatively, suggest running `harness:brainstorming` first to generate specs that can then be discovered by `--create`.
 - **When the roadmap file is malformed and cannot be parsed:** Report the specific parse error with line numbers if available. Suggest manual inspection of `docs/roadmap.md` or recreation with `--create` (after backing up the existing file).
-- **When MCP tool is unavailable:** Fall back to direct file manipulation via Read/Write tools using the roadmap markdown format. The core `parseRoadmap`/`serializeRoadmap` functions handle the format. Report the fallback to the human: "MCP tool unavailable, using direct file operations."
+- **When MCP tool is unavailable:** Fall back to direct file manipulation via Read/Write tools using the roadmap markdown format. The core `parseRoadmap`/`serializeRoadmap` functions handle the format. Report the fallback to the human: "MCP tool unavailable, using direct file operations. External sync skipped — run `manage_roadmap sync` when MCP is restored to push changes to GitHub."

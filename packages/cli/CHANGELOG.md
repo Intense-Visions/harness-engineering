@@ -1,5 +1,19 @@
 # @harness-engineering/cli
 
+## 1.23.0
+
+### Minor Changes
+
+- Add `assignee` field to `manage_roadmap update` action
+
+  The `update` action now accepts an `assignee` parameter that delegates to `assignFeature()` for proper assignment history tracking (new assignment and reassignment with unassigned + assigned records). Because `update` is a mutating action, `triggerExternalSync` fires automatically — fixing the bug where the roadmap pilot skill bypassed sync by calling `assignFeature()` directly.
+
+## 1.22.0
+
+### Minor Changes
+
+- Predictive architecture failure analysis, spec-to-implementation traceability, architecture decay timeline, and skill recommendation engine
+
 ## 1.21.0
 
 ### Minor Changes
