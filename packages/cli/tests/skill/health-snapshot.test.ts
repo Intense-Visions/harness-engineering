@@ -1,7 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { execSync as realExecSync } from 'child_process';
+
+/** Create a temp git repo with an initial commit. Works cross-platform. */
+function createTempGitRepo(): string {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'snapshot-git-test-'));
+  const opts = { cwd: tmpDir, stdio: 'pipe' as const };
+  realExecSync('git init', opts);
+  realExecSync('git config user.email "test@test.com"', opts);
+  realExecSync('git config user.name "Test"', opts);
+  realExecSync('git commit --allow-empty -m "init"', opts);
+  return tmpDir;
+}
 import {
   isSnapshotFresh,
   loadCachedSnapshot,
@@ -70,16 +82,8 @@ describe('isSnapshotFresh', () => {
   });
 
   it('returns true when git HEAD differs but age < 1 hour (time fallback)', () => {
-    // Use a real git repo so the HEAD genuinely differs from the snapshot's gitHead
-    const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
+    const tmpDir = createTempGitRepo();
     try {
-      realExecSync(
-        'git init && git config user.email "test@test.com" && git config user.name "Test" && git commit --allow-empty -m "init"',
-        {
-          cwd: tmpDir,
-          stdio: 'pipe',
-        }
-      );
       const recentTime = new Date(Date.now() - 1_800_000).toISOString(); // 30 min ago
       const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: recentTime });
       expect(isSnapshotFresh(snapshot, tmpDir)).toBe(true);
@@ -89,16 +93,8 @@ describe('isSnapshotFresh', () => {
   });
 
   it('returns false when git HEAD differs and age is exactly 1 hour', () => {
-    // Use a real git repo so the HEAD genuinely differs from the snapshot's gitHead
-    const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
+    const tmpDir = createTempGitRepo();
     try {
-      realExecSync(
-        'git init && git config user.email "test@test.com" && git config user.name "Test" && git commit --allow-empty -m "init"',
-        {
-          cwd: tmpDir,
-          stdio: 'pipe',
-        }
-      );
       const exactlyOneHour = new Date(Date.now() - 3_600_000).toISOString();
       const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: exactlyOneHour });
       expect(isSnapshotFresh(snapshot, tmpDir)).toBe(false);
@@ -108,16 +104,8 @@ describe('isSnapshotFresh', () => {
   });
 
   it('returns true when git HEAD matches regardless of age', () => {
-    // Use a real git repo to test HEAD-match logic (vi.spyOn does not intercept ESM imports)
-    const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
+    const tmpDir = createTempGitRepo();
     try {
-      realExecSync(
-        'git init && git config user.email "test@test.com" && git config user.name "Test" && git commit --allow-empty -m "init"',
-        {
-          cwd: tmpDir,
-          stdio: 'pipe',
-        }
-      );
       const realHead = realExecSync('git rev-parse HEAD', {
         cwd: tmpDir,
         encoding: 'utf-8',
@@ -132,7 +120,7 @@ describe('isSnapshotFresh', () => {
 });
 
 describe('saveCachedSnapshot / loadCachedSnapshot', () => {
-  const tmpDir = path.join('/tmp', `health-snapshot-test-${Date.now()}`);
+  const tmpDir = path.join(os.tmpdir(), `health-snapshot-test-${Date.now()}`);
   const harnessDir = path.join(tmpDir, '.harness');
 
   beforeEach(() => {
@@ -154,7 +142,7 @@ describe('saveCachedSnapshot / loadCachedSnapshot', () => {
   });
 
   it('returns null when cache file does not exist', () => {
-    const emptyDir = path.join('/tmp', `health-snapshot-empty-${Date.now()}`);
+    const emptyDir = path.join(os.tmpdir(), `health-snapshot-empty-${Date.now()}`);
     fs.mkdirSync(path.join(emptyDir, '.harness'), { recursive: true });
     const loaded = loadCachedSnapshot(emptyDir);
     expect(loaded).toBeNull();
@@ -560,7 +548,7 @@ describe('captureHealthSnapshot', () => {
     mockCleanToolHandlers();
 
     const { captureHealthSnapshot } = await import('../../src/skill/health-snapshot');
-    const tmpDir = path.join('/tmp', `snapshot-test-${Date.now()}`);
+    const tmpDir = path.join(os.tmpdir(), `snapshot-test-${Date.now()}`);
     fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
 
     try {
@@ -662,7 +650,7 @@ describe('captureHealthSnapshot', () => {
     }));
 
     const { captureHealthSnapshot } = await import('../../src/skill/health-snapshot');
-    const tmpDir = path.join('/tmp', `snapshot-signals-${Date.now()}`);
+    const tmpDir = path.join(os.tmpdir(), `snapshot-signals-${Date.now()}`);
     fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
 
     try {
@@ -687,7 +675,7 @@ describe('captureHealthSnapshot', () => {
     mockCleanToolHandlers();
 
     const { captureHealthSnapshot } = await import('../../src/skill/health-snapshot');
-    const tmpDir = path.join('/tmp', `snapshot-nogit-${Date.now()}`);
+    const tmpDir = path.join(os.tmpdir(), `snapshot-nogit-${Date.now()}`);
     fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
 
     try {
