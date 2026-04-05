@@ -200,14 +200,16 @@ export class RequirementIngestor {
       if (!node.path) continue;
       const normalizedPath = node.path.replace(/\\/g, '/');
 
-      // Code file pattern: packages/*/<feature>*
+      /* eslint-disable @harness-engineering/no-hardcoded-path-separator */
+      // Code file pattern: packages/*/<feature>* (normalizedPath uses / on all platforms)
       const isCodeMatch =
         normalizedPath.includes('packages/') && path.basename(normalizedPath).includes(featureName);
 
-      // Test file pattern: **/tests/**/<feature>* (platform-safe: path normalized to / above)
+      // Test file pattern: **/tests/**/<feature>* (normalizedPath uses / on all platforms)
       const isTestMatch =
         normalizedPath.includes('/tests/') && // platform-safe
         path.basename(normalizedPath).includes(featureName);
+      /* eslint-enable @harness-engineering/no-hardcoded-path-separator */
 
       if (isCodeMatch && !isTestMatch) {
         this.store.addEdge({
@@ -250,10 +252,10 @@ export class RequirementIngestor {
         const namePattern = new RegExp(`\\b${escaped}\\b`, 'i');
         if (namePattern.test(reqText)) {
           // Determine edge type: test files get verified_by, code gets requires
-          const edgeType: EdgeType =
-            node.path && node.path.replace(/\\/g, '/').includes('/tests/')
-              ? 'verified_by'
-              : 'requires'; // platform-safe
+          // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- path normalized to /
+          const edgeType: EdgeType = node.path?.replace(/\\/g, '/').includes('/tests/')
+            ? 'verified_by'
+            : 'requires';
 
           this.store.addEdge({
             from: reqId,

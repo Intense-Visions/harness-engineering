@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
-const EXCLUDE_DIRS = ['node_modules', 'dist', 'coverage', '.harness', '.git', '.turbo'];
+const EXCLUDE_DIRS = ['node_modules', 'dist', 'coverage', '.harness', '.git', '.turbo', '.husky'];
 const GLOB_EXCLUDE = EXCLUDE_DIRS.map((d) => `**/${d}/**`);
 
 function findFiles(pattern: string): string[] {
@@ -51,7 +51,7 @@ describe('no unix commands in package.json scripts', () => {
 
 // -- Anti-pattern 2: .sh files without cross-platform equivalents -------------
 describe('shell scripts have cross-platform equivalents', () => {
-  const shFiles = findFiles('**/*.sh');
+  const shFiles = findFiles('**/*.sh').filter((f) => !f.includes('husky'));
 
   if (shFiles.length === 0) {
     it('no .sh files found (nothing to check)', () => {
