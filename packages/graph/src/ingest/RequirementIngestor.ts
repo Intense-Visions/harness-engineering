@@ -55,7 +55,7 @@ export class RequirementIngestor {
 
     for (const featureDir of featureDirs) {
       const featureName = path.basename(featureDir);
-      const specPath = path.join(featureDir, 'proposal.md');
+      const specPath = path.join(featureDir, 'proposal.md').replaceAll('\\', '/');
 
       let content: string;
       try {
