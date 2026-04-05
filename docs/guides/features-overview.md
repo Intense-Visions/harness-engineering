@@ -14,7 +14,7 @@ This page maps every major capability to the command, skill, or tool that provid
 | **Security scanning**         | Secrets, injection, XSS, crypto, path traversal, agent config, MCP rules        | `harness check-security`                         |
 | **Performance enforcement**   | Benchmarks, baselines, regression detection, critical path analysis             | `harness check-perf`, `harness perf bench`       |
 | **Documentation health**      | Drift detection, coverage checks, auto-fix pipeline                             | `harness check-docs`, `/harness:docs-pipeline`   |
-| **Knowledge graph**           | Structural analysis with 24 node types, 17 edge types, natural language queries | `harness graph scan`, `ask_graph` MCP tool       |
+| **Knowledge graph**           | Structural analysis with 30 node types, 25 edge types, natural language queries | `harness graph scan`, `ask_graph` MCP tool       |
 | **Autonomous execution**      | Plan → execute → verify → review loop across multi-phase projects               | `/harness:autopilot`                             |
 | **Agent orchestration**       | Long-running daemon dispatching coding agents to issues                         | `harness orchestrator run`                       |
 | **Cost tracking**             | Token spend visibility across sessions, days, and models                        | `harness usage daily` (in progress)              |
@@ -112,7 +112,7 @@ A structural analysis engine that powers many of the above capabilities.
 | `check_task_independence` (MCP) | Verify parallel tasks won't conflict                         |
 | `detect_anomalies` (MCP)        | Find structural outliers via z-score analysis                |
 
-**Graph features:** 24 node types, 17 edge types, 4 external connectors (Jira, Slack, Confluence, CI), ContextQL query language, natural language translation, vector search via FusionLayer.
+**Graph features:** 30 node types, 25 edge types, 4 external connectors (Jira, Slack, Confluence, CI), ContextQL query language, natural language translation, vector search via FusionLayer.
 
 ## Security
 

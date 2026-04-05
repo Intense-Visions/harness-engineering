@@ -165,7 +165,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 50 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 52 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
 <details>
 <summary>Manual MCP setup</summary>
@@ -216,7 +216,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 | Component                              | Count | Description                                                                                             |
 | -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 7     | Core library, CLI, ESLint plugin, linter generator, graph, orchestrator, shared types                   |
-| [Skills](./agents/skills/claude-code/) | 80    | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                               |
+| [Skills](./agents/skills/claude-code/) | 81    | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                               |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                      |
 | [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more) |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                      |
