@@ -73,10 +73,13 @@ describe('isSnapshotFresh', () => {
     // Use a real git repo so the HEAD genuinely differs from the snapshot's gitHead
     const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
     try {
-      realExecSync('git init && git commit --allow-empty -m "init"', {
-        cwd: tmpDir,
-        stdio: 'pipe',
-      });
+      realExecSync(
+        'git init && git config user.email "test@test.com" && git config user.name "Test" && git commit --allow-empty -m "init"',
+        {
+          cwd: tmpDir,
+          stdio: 'pipe',
+        }
+      );
       const recentTime = new Date(Date.now() - 1_800_000).toISOString(); // 30 min ago
       const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: recentTime });
       expect(isSnapshotFresh(snapshot, tmpDir)).toBe(true);
@@ -89,10 +92,13 @@ describe('isSnapshotFresh', () => {
     // Use a real git repo so the HEAD genuinely differs from the snapshot's gitHead
     const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
     try {
-      realExecSync('git init && git commit --allow-empty -m "init"', {
-        cwd: tmpDir,
-        stdio: 'pipe',
-      });
+      realExecSync(
+        'git init && git config user.email "test@test.com" && git config user.name "Test" && git commit --allow-empty -m "init"',
+        {
+          cwd: tmpDir,
+          stdio: 'pipe',
+        }
+      );
       const exactlyOneHour = new Date(Date.now() - 3_600_000).toISOString();
       const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: exactlyOneHour });
       expect(isSnapshotFresh(snapshot, tmpDir)).toBe(false);
@@ -105,10 +111,13 @@ describe('isSnapshotFresh', () => {
     // Use a real git repo to test HEAD-match logic (vi.spyOn does not intercept ESM imports)
     const tmpDir = fs.mkdtempSync(path.join('/tmp', 'snapshot-git-test-'));
     try {
-      realExecSync('git init && git commit --allow-empty -m "init"', {
-        cwd: tmpDir,
-        stdio: 'pipe',
-      });
+      realExecSync(
+        'git init && git config user.email "test@test.com" && git config user.name "Test" && git commit --allow-empty -m "init"',
+        {
+          cwd: tmpDir,
+          stdio: 'pipe',
+        }
+      );
       const realHead = realExecSync('git rev-parse HEAD', {
         cwd: tmpDir,
         encoding: 'utf-8',
