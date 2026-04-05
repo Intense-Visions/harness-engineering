@@ -910,11 +910,11 @@ last_manual_edit: 2026-03-30
 
 ### Skill Recommendation Engine
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/skill-recommendation-engine/proposal.md
 - **Summary:** Maps codebase characteristics (coupling score, test coverage, violation types, complexity distribution) to optimal skill sequences via decision-tree scoring. Recommends the right skills for the current codebase state. [D11]
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/plans/2026-04-04-skill-recommendation-engine-phase1-types-plan.md
 - **Assignee:** Chad Warner
 - **Assigned:** 2026-04-04
 - **Priority:** —
