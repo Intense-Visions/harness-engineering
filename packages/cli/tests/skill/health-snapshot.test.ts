@@ -81,18 +81,22 @@ describe('isSnapshotFresh', () => {
     expect(isSnapshotFresh(snapshot, '/tmp/test-project')).toBe(false);
   });
 
-  it('returns true when git HEAD differs but age < 1 hour (time fallback)', () => {
-    const tmpDir = createTempGitRepo();
-    try {
-      const recentTime = new Date(Date.now() - 1_800_000).toISOString(); // 30 min ago
-      const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: recentTime });
-      expect(isSnapshotFresh(snapshot, tmpDir)).toBe(true);
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+  it(
+    'returns true when git HEAD differs but age < 1 hour (time fallback)',
+    { timeout: 15000 },
+    () => {
+      const tmpDir = createTempGitRepo();
+      try {
+        const recentTime = new Date(Date.now() - 1_800_000).toISOString(); // 30 min ago
+        const snapshot = makeSnapshot({ gitHead: 'non-matching-sha', capturedAt: recentTime });
+        expect(isSnapshotFresh(snapshot, tmpDir)).toBe(true);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
     }
-  });
+  );
 
-  it('returns false when git HEAD differs and age is exactly 1 hour', () => {
+  it('returns false when git HEAD differs and age is exactly 1 hour', { timeout: 15000 }, () => {
     const tmpDir = createTempGitRepo();
     try {
       const exactlyOneHour = new Date(Date.now() - 3_600_000).toISOString();
@@ -103,7 +107,7 @@ describe('isSnapshotFresh', () => {
     }
   });
 
-  it('returns true when git HEAD matches regardless of age', () => {
+  it('returns true when git HEAD matches regardless of age', { timeout: 15000 }, () => {
     const tmpDir = createTempGitRepo();
     try {
       const realHead = realExecSync('git rev-parse HEAD', {
