@@ -1,5 +1,6 @@
 export PATH="/opt/homebrew/bin:$PATH"
 pnpm run typecheck
+pnpm run lint
 pnpm run test:ci
 node scripts/coverage-ratchet.mjs
 pnpm run docs:build
