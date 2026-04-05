@@ -1,16 +1,10 @@
 import { Command } from 'commander';
-import {
-  TimelineManager,
-  PredictionEngine,
-  SpecImpactEstimator,
-  ArchConfigSchema,
-} from '@harness-engineering/core';
+import { TimelineManager, PredictionEngine, SpecImpactEstimator } from '@harness-engineering/core';
 import type {
   ArchMetricCategory,
   PredictionResult,
   AdjustedForecast,
   PredictionWarning,
-  ArchConfig,
 } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputMode } from '../output/formatter';
@@ -124,13 +118,8 @@ export function runPredict(options: {
     throw configResult.error;
   }
 
-  const archConfig: ArchConfig = configResult.value.architecture ?? ArchConfigSchema.parse({});
-
   const manager = new TimelineManager(cwd);
-  const estimator =
-    options.noRoadmap === true
-      ? null
-      : new SpecImpactEstimator(cwd, archConfig.prediction?.coefficients);
+  const estimator = options.noRoadmap === true ? null : new SpecImpactEstimator(cwd);
   const engine = new PredictionEngine(cwd, manager, estimator);
 
   const categories = options.category ? [options.category as ArchMetricCategory] : undefined;
