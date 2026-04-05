@@ -252,8 +252,8 @@ export class RequirementIngestor {
         const namePattern = new RegExp(`\\b${escaped}\\b`, 'i');
         if (namePattern.test(reqText)) {
           // Determine edge type: test files get verified_by, code gets requires
-          // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- path normalized to /
-          const edgeType: EdgeType = node.path?.replace(/\\/g, '/').includes('/tests/')
+          // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator
+          const edgeType: EdgeType = node.path?.replace(/\\/g, '/').includes('/tests/') // platform-safe
             ? 'verified_by'
             : 'requires';
 
