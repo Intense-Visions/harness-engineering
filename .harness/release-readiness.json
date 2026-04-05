@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-04-02T19:30:00Z",
+  "timestamp": "2026-04-04T18:25:00Z",
   "flags": {
     "comprehensive": false
   },
   "summary": {
     "result": "PASS",
-    "passed": 93,
+    "passed": 86,
     "warned": 0,
     "failed": 0,
-    "total": 93
+    "total": 86
   },
   "categories": {
     "packaging": {
-      "passed": 77,
+      "passed": 70,
       "warned": 0,
       "failed": 0,
       "findings": []
@@ -38,72 +38,12 @@
     },
     "maintenance": {
       "doc-drift": {
-        "issues": 19,
+        "issues": 1,
         "findings": [
           {
-            "file": "README.md",
-            "check": "HarnessConfigSchema import not exported from CLI package",
-            "severity": "fail"
-          },
-          {
-            "file": "README.md",
-            "check": "ESLint rule count says 11 but list omits require-path-normalization",
-            "severity": "warn"
-          },
-          {
-            "file": "README.md",
-            "check": "Claims 50 tools, actual count is 49",
-            "severity": "warn"
-          },
-          {
-            "file": "README.md",
-            "check": "Skills count says 80, actual is 81",
-            "severity": "warn"
-          },
-          {
-            "file": "docs/api/cli.md",
-            "check": "Version 1.13.1 vs actual 1.16.0",
-            "severity": "fail"
-          },
-          {
-            "file": "docs/api/core.md",
-            "check": "Version 0.15.0 vs actual 0.16.0",
-            "severity": "fail"
-          },
-          {
-            "file": "docs/api/graph.md",
-            "check": "Version 0.3.3 vs actual 0.3.4, VERSION constant 0.2.0 vs 0.3.4",
-            "severity": "fail"
-          },
-          {
-            "file": "docs/api/eslint-plugin.md",
-            "check": "Version 0.2.2 vs actual 0.2.3, recommended config incomplete",
-            "severity": "fail"
-          },
-          {
-            "file": "docs/api/types.md",
-            "check": "Version 0.3.1 vs actual 0.6.0",
-            "severity": "fail"
-          },
-          {
-            "file": "docs/api/linter-gen.md",
-            "check": "Version 0.1.3 vs actual 0.1.4",
-            "severity": "fail"
-          },
-          {
-            "file": "docs/guides/getting-started.md",
-            "check": "Skills count says 79, actual is 81; tools count says 50, actual is 49",
-            "severity": "warn"
-          },
-          {
-            "file": "docs/guides/features-overview.md",
-            "check": "Claims 24 node types/17 edge types, actual is 29/22",
-            "severity": "fail"
-          },
-          {
             "file": "docs/guides/ci-cd-validation.md",
-            "check": "Missing security, perf, arch from --skip list and checks table",
-            "severity": "fail"
+            "check": "Missing coverage for 5 of 6 CI workflows (only harness.yml documented)",
+            "severity": "warn"
           }
         ]
       },
@@ -112,36 +52,56 @@
         "findings": []
       },
       "architecture": {
-        "issues": 6,
+        "issues": 10,
         "findings": [
           {
-            "file": "packages/core/src/usage/aggregator.ts",
-            "check": "aggregateBySession CC=33 exceeds threshold 15",
+            "file": "packages/graph/src/query/Traceability.ts",
+            "check": "for loop CC=40",
+            "severity": "warn"
+          },
+          {
+            "file": "packages/graph/src/query/Traceability.ts",
+            "check": "for loop CC=32",
+            "severity": "warn"
+          },
+          {
+            "file": "packages/cli/src/commands/traceability.ts",
+            "check": "createTraceabilityCommand CC=23",
+            "severity": "warn"
+          },
+          {
+            "file": "packages/core/src/architecture/prediction-engine.ts",
+            "check": "predict CC=16",
             "severity": "warn"
           },
           {
             "file": "packages/core/src/usage/aggregator.ts",
-            "check": "for loop CC=29 exceeds threshold 15",
+            "check": "aggregateBySession CC=33",
             "severity": "warn"
           },
           {
             "file": "packages/core/src/usage/aggregator.ts",
-            "check": "aggregateByDay CC=19 exceeds threshold 15",
+            "check": "for loop CC=29",
+            "severity": "warn"
+          },
+          {
+            "file": "packages/core/src/usage/aggregator.ts",
+            "check": "aggregateByDay CC=19",
             "severity": "warn"
           },
           {
             "file": "packages/core/src/roadmap/parse.ts",
-            "check": "parseFeatureFields CC=21 exceeds threshold 15",
+            "check": "parseFeatureFields CC=21",
             "severity": "warn"
           },
           {
             "file": "packages/graph/src/store/GraphStore.ts",
-            "check": "getEdges CC=21 exceeds threshold 15",
+            "check": "getEdges CC=21",
             "severity": "warn"
           },
           {
             "file": "packages/core/tests/entropy/detectors/complexity.test.ts",
-            "check": "complexRouter test fixture CC=16 exceeds threshold 15",
+            "check": "complexRouter CC=16",
             "severity": "warn"
           }
         ]
@@ -154,16 +114,20 @@
   },
   "fixes": {
     "applied": [
-      "pilot-scoring-unused-imports",
-      "roadmap-feature-missing-fields",
-      "roadmap-pilot-platform-symlinks",
-      "github-issues-test-import-fix"
+      "docs-api-cli-version-1.17.0-to-1.21.0",
+      "docs-api-core-version-0.17.0-to-0.19.0",
+      "docs-api-types-version-0.7.0-to-0.8.0",
+      "readme-tools-count-50-to-52",
+      "readme-skills-count-80-to-81",
+      "features-overview-node-edge-counts",
+      "getting-started-tools-count-50-to-52",
+      "check-orchestrator-traceability-count",
+      "predict-ts-typecheck-errors",
+      "predict-failures-mcp-typecheck-errors"
     ],
     "pending": [
-      "docs-api-index-assembler-example",
-      "docs-api-graph-contextql-example",
-      "readme-harness-config-schema-import",
-      "graph-version-export-mismatch",
+      "ci-cd-validation-missing-workflows",
+      "traceability-complexity-decompose",
       "aggregator-complexity-decompose",
       "parseFeatureFields-complexity",
       "getEdges-complexity"

@@ -6,6 +6,21 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.13.0 — 2026-04-04
+
+### Added
+
+- **Predictive Architecture Failure** — Weighted linear regression extrapolates decay trends per metric category with recency bias. `PredictionEngine` produces per-category forecasts at configurable horizons with tiered confidence (high/medium/low). `SpecImpactEstimator` extracts structural signals from specs to produce roadmap-aware adjusted forecasts. New `harness predict` CLI command and `predict_failures` MCP tool. (`@harness-engineering/core@0.20.0`, `@harness-engineering/cli@1.22.0`)
+- **Spec-to-Implementation Traceability** — Requirement nodes, `requires`/`verified_by`/`tested_by` edges, `RequirementIngestor`, coverage matrix CLI (`harness traceability`) and MCP tool (`check_traceability`). Hybrid test linking with confidence signals. (`@harness-engineering/graph@0.4.0`, `@harness-engineering/cli@1.22.0`)
+- **Architecture Decay Timeline** — `TimelineManager` captures time-series architectural health snapshots. Composite 0–100 stability score across 7 metric categories. `harness snapshot capture|trends|list` CLI commands and `get_decay_trends` MCP tool. Weekly CI workflow. (`@harness-engineering/core@0.20.0`, `@harness-engineering/cli@1.22.0`)
+- **Skill Recommendation Engine** — Three-layer recommendation: hard-rule matching, weighted health scoring, topological sequencing. `captureHealthSnapshot` orchestrator with graph metrics. `harness recommend` CLI command and `recommend_skills` MCP tool. Health-aware `search_skills` passive boost. (`@harness-engineering/core@0.20.0`, `@harness-engineering/cli@1.22.0`)
+- **CI traceability check** — New `traceability` check added to CI orchestrator (9 checks total). (`@harness-engineering/core@0.20.0`)
+
+### Fixed
+
+- **Typecheck errors** in predict CLI and MCP tool (`exactOptionalPropertyTypes` compliance).
+- **Doc drift** — Updated version numbers in API docs (cli, core, types), corrected MCP tool count (52), skills count (81), and graph node/edge type counts (30/25) across README, getting-started, and features-overview guides.
+
 ## 0.12.1 — 2026-04-04
 
 ### Fixed
