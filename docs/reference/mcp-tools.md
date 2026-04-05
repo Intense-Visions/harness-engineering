@@ -69,6 +69,17 @@ Check whether N tasks can safely run in parallel by detecting file overlaps and 
 - `edgeTypes` (array, optional) — Edge types for graph expansion. Default: imports, calls, references
 - `mode` (string, optional) — summary omits overlap details. Default: detailed
 
+### `check_traceability`
+
+Check requirement-to-code-to-test traceability for a spec or all specs
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `spec` (string, optional) — Specific spec file path to check
+- `feature` (string, optional) — Feature name filter
+- `mode` (string, optional) — Response density: summary returns coverage stats only, detailed returns full requirement list. Default: summary
+
 ### `validate_cross_check`
 
 Validate plan-to-implementation coverage: checks that specs have plans and plans have implementations, detects staleness
@@ -217,6 +228,17 @@ Predict conflict severity for task pairs with automatic parallel group recomputa
 - `edgeTypes` (array, optional) — Edge types for graph expansion. Default: imports, calls, references
 - `mode` (string, optional) — summary omits overlap details from conflicts. Default: detailed
 
+### `predict_failures`
+
+Predict which architectural constraints will break and when, based on decay trends and planned roadmap features. Requires at least 3 timeline snapshots.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `horizon` (number, optional) — Forecast horizon in weeks (default: 12)
+- `category` (string, optional) — Filter to a single metric category
+- `includeRoadmap` (boolean, optional) — Include roadmap spec impact in forecasts (default: true)
+
 ## Generators & Creators
 
 ### `create_self_review`
@@ -338,6 +360,16 @@ Scaffold a new harness engineering project from a template
 
 **CLI equivalent:** [`harness init`](cli-commands.md#harness-init)
 
+### `recommend_skills`
+
+Recommend skills based on codebase health. Returns sequenced workflow with urgency markers.
+
+**Parameters:**
+
+- `path` (string, optional) — Project root path (defaults to cwd)
+- `noCache` (boolean, optional) — Force fresh health snapshot even if cache is fresh
+- `top` (number, optional) — Max recommendations to return (default 5)
+
 ### `request_peer_review`
 
 Spawn an agent subprocess to perform code review. Returns structured feedback with approval status. Timeout: 120 seconds.
@@ -379,6 +411,17 @@ List performance-critical functions from @perf-critical annotations and graph in
 - `path` (string, required) — Path to project root
 
 **CLI equivalent:** [`harness perf critical-paths`](cli-commands.md#harness-perf-critical-paths)
+
+### `get_decay_trends`
+
+Get architecture decay trends over time. Returns stability score history and per-category trend analysis from timeline snapshots. Use to answer questions like "is the architecture decaying?" or "which metrics are getting worse?"
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `last` (number, optional) — Number of recent snapshots to analyze (default: 10)
+- `since` (string, optional) — Show trends since this ISO date (e.g., 2026-01-01)
+- `category` (string, optional) — Filter to a single metric category
 
 ### `get_impact`
 

@@ -213,6 +213,16 @@ Start the MCP (Model Context Protocol) server on stdio
 
 - `--tools` — Only register the specified tools (used by Cursor integration)
 
+### `harness predict`
+
+Predict which architectural constraints will break and when
+
+**Options:**
+
+- `--category` — Filter to a single metric category
+- `--no-roadmap` — Baseline only — skip roadmap spec impact
+- `--horizon` — Forecast horizon in weeks (default: 12) (default: "12")
+
 ### `harness query <rootNodeId>`
 
 Query the knowledge graph
@@ -227,6 +237,15 @@ Query the knowledge graph
 - `--types` — Comma-separated node types to include
 - `--edges` — Comma-separated edge types to include
 - `--bidirectional` — Traverse both directions
+
+### `harness recommend`
+
+Recommend skills based on codebase health analysis
+
+**Options:**
+
+- `--no-cache` — Force fresh health snapshot
+- `--top` — Max recommendations (default 5) (default: "5")
 
 ### `harness scan [path]`
 
@@ -604,6 +623,27 @@ Search for community skills on the @harness-skills registry
 ### `harness skill validate`
 
 Validate all skill.yaml files and SKILL.md structure
+
+## Snapshot Commands
+
+Architecture timeline snapshot commands
+
+### `harness snapshot capture`
+
+Capture current architecture metrics as a timeline snapshot
+
+### `harness snapshot list`
+
+List all captured architecture snapshots
+
+### `harness snapshot trends`
+
+Show architecture metric trends over time
+
+**Options:**
+
+- `--last` — Number of recent snapshots to analyze (default: "10")
+- `--since` — Show trends since ISO date
 
 ## State Commands
 
