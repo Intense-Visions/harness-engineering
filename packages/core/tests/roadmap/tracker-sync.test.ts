@@ -17,7 +17,7 @@ function createMockAdapter(overrides?: Partial<TrackerSyncAdapter>): TrackerSync
     updateTicket: async () =>
       Ok({ externalId: 'github:test/repo#1', url: 'https://github.com/test/repo/issues/1' }),
     fetchTicketState: async () =>
-      Ok({ externalId: 'github:test/repo#1', status: 'open', labels: [], assignee: null }),
+      Ok({ externalId: 'github:test/repo#1', title: 'Test', status: 'open', labels: [], assignee: null }),
     fetchAllTickets: async () => Ok([]),
     assignTicket: async () => Ok(undefined),
     ...overrides,

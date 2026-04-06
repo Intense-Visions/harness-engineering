@@ -223,6 +223,7 @@ describe('GitHubIssuesSyncAdapter', () => {
   describe('fetchTicketState', () => {
     it('returns ticket state with assignee', async () => {
       const fetchFn = mockFetch(200, {
+        title: 'Test Feature',
         state: 'open',
         labels: [{ name: 'harness-managed' }, { name: 'in-progress' }],
         assignee: { login: 'cwarner' },
@@ -243,6 +244,7 @@ describe('GitHubIssuesSyncAdapter', () => {
 
     it('returns null assignee when unassigned', async () => {
       const fetchFn = mockFetch(200, {
+        title: 'Test Feature',
         state: 'closed',
         labels: [],
         assignee: null,
@@ -263,9 +265,9 @@ describe('GitHubIssuesSyncAdapter', () => {
   describe('fetchAllTickets', () => {
     it('returns all issues, filtering out pull requests', async () => {
       const fetchFn = mockFetch(200, [
-        { number: 1, state: 'open', labels: [{ name: 'harness-managed' }], assignee: null },
-        { number: 2, state: 'closed', labels: [], assignee: { login: 'x' }, pull_request: {} },
-        { number: 3, state: 'closed', labels: [], assignee: null },
+        { number: 1, title: 'Issue A', state: 'open', labels: [{ name: 'harness-managed' }], assignee: null },
+        { number: 2, title: 'PR B', state: 'closed', labels: [], assignee: { login: 'x' }, pull_request: {} },
+        { number: 3, title: 'Issue C', state: 'closed', labels: [], assignee: null },
       ]);
       const adapter = new GitHubIssuesSyncAdapter({
         token: 'tok',

@@ -350,6 +350,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       }
 
       const data = (await response.json()) as {
+        title: string;
         state: string;
         labels: Array<{ name: string }>;
         assignee: { login: string } | null;
@@ -357,6 +358,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
       return Ok({
         externalId,
+        title: data.title,
         status: data.state,
         labels: data.labels.map((l) => l.name),
         assignee: data.assignee ? `@${data.assignee.login}` : null,
@@ -393,6 +395,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
         const data = (await response.json()) as Array<{
           number: number;
+          title: string;
           state: string;
           labels: Array<{ name: string }>;
           assignee: { login: string } | null;
@@ -405,6 +408,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         for (const issue of issues) {
           tickets.push({
             externalId: buildExternalId(this.owner, this.repo, issue.number),
+            title: issue.title,
             status: issue.state,
             labels: issue.labels.map((l) => l.name),
             assignee: issue.assignee ? `@${issue.assignee.login}` : null,

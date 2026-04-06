@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.9.0
+
+### Minor Changes
+
+- Add `title` field to `ExternalTicketState` interface for title-based dedup during push sync. Prevents duplicate GitHub issues when externalIds are missing from the roadmap.
+
 ## 0.8.0
 
 ### Minor Changes

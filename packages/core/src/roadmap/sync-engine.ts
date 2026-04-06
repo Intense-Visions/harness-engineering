@@ -5,6 +5,7 @@ import type {
   FeatureStatus,
   SyncResult,
   TrackerSyncConfig,
+  ExternalTicketState,
 } from '@harness-engineering/types';
 import { parseRoadmap } from './parse';
 import { serializeRoadmap } from './serialize';
@@ -26,44 +27,61 @@ function emptySyncResult(): SyncResult {
 export async function syncToExternal(
   roadmap: Roadmap,
   adapter: TrackerSyncAdapter,
-  _config: TrackerSyncConfig
+  config: TrackerSyncConfig,
+  prefetchedTickets?: ExternalTicketState[]
 ): Promise<SyncResult> {
   const result = emptySyncResult();
 
-  // Auto-populate assignee from the authenticated user when unset
-  let defaultAssignee: string | null = null;
-  const userResult = await adapter.getAuthenticatedUser();
-  if (userResult.ok) {
-    defaultAssignee = userResult.value;
+  // Build title-based dedup index from pre-fetched tickets.
+  // Only consider tickets that carry the configured labels (harness-managed).
+  const existingByTitle = new Map<string, ExternalTicketState>();
+  const configLabels = new Set((config.labels ?? []).map((l) => l.toLowerCase()));
+  if (prefetchedTickets) {
+    for (const ticket of prefetchedTickets) {
+      const hasConfigLabels =
+        configLabels.size === 0 ||
+        ticket.labels.some((l) => configLabels.has(l.toLowerCase()));
+      if (!hasConfigLabels) continue;
+      const key = ticket.title.toLowerCase();
+      const prev = existingByTitle.get(key);
+      // Prefer open issues over closed when titles collide
+      if (!prev || (prev.status === 'closed' && ticket.status === 'open')) {
+        existingByTitle.set(key, ticket);
+      }
+    }
   }
 
   for (const milestone of roadmap.milestones) {
     for (const feature of milestone.features) {
-      if (!feature.assignee && defaultAssignee) {
-        feature.assignee = defaultAssignee;
+      if (!feature.externalId) {
+        // Dedup: check if a harness-managed issue with the same title already exists
+        const existing = existingByTitle.get(feature.name.toLowerCase());
+        if (existing) {
+          // Link to existing issue — fall through to update planning fields
+          feature.externalId = existing.externalId;
+        } else {
+          // Create new ticket
+          const createResult = await adapter.createTicket(feature, milestone.name);
+          if (createResult.ok) {
+            feature.externalId = createResult.value.externalId;
+            result.created.push(createResult.value);
+          } else {
+            result.errors.push({ featureOrId: feature.name, error: createResult.error });
+          }
+          continue;
+        }
       }
 
-      if (!feature.externalId) {
-        // Create new ticket
-        const createResult = await adapter.createTicket(feature, milestone.name);
-        if (createResult.ok) {
-          feature.externalId = createResult.value.externalId;
-          result.created.push(createResult.value);
-        } else {
-          result.errors.push({ featureOrId: feature.name, error: createResult.error });
-        }
+      // Update existing ticket (both pre-linked and dedup-linked)
+      const updateResult = await adapter.updateTicket(
+        feature.externalId!,
+        feature,
+        milestone.name
+      );
+      if (updateResult.ok) {
+        result.updated.push(feature.externalId!);
       } else {
-        // Update existing ticket
-        const updateResult = await adapter.updateTicket(
-          feature.externalId,
-          feature,
-          milestone.name
-        );
-        if (updateResult.ok) {
-          result.updated.push(feature.externalId);
-        } else {
-          result.errors.push({ featureOrId: feature.externalId, error: updateResult.error });
-        }
+        result.errors.push({ featureOrId: feature.externalId!, error: updateResult.error });
       }
     }
   }
@@ -83,7 +101,8 @@ export async function syncFromExternal(
   roadmap: Roadmap,
   adapter: TrackerSyncAdapter,
   config: TrackerSyncConfig,
-  options?: ExternalSyncOptions
+  options?: ExternalSyncOptions,
+  prefetchedTickets?: ExternalTicketState[]
 ): Promise<SyncResult> {
   const result = emptySyncResult();
   const forceSync = options?.forceSync ?? false;
@@ -100,14 +119,20 @@ export async function syncFromExternal(
 
   if (featureByExternalId.size === 0) return result;
 
-  // Fetch all tickets
-  const fetchResult = await adapter.fetchAllTickets();
-  if (!fetchResult.ok) {
-    result.errors.push({ featureOrId: '*', error: fetchResult.error });
-    return result;
+  // Use pre-fetched tickets or fetch fresh
+  let tickets: ExternalTicketState[];
+  if (prefetchedTickets) {
+    tickets = prefetchedTickets;
+  } else {
+    const fetchResult = await adapter.fetchAllTickets();
+    if (!fetchResult.ok) {
+      result.errors.push({ featureOrId: '*', error: fetchResult.error });
+      return result;
+    }
+    tickets = fetchResult.value;
   }
 
-  for (const ticketState of fetchResult.value) {
+  for (const ticketState of tickets) {
     const feature = featureByExternalId.get(ticketState.externalId);
     if (!feature) continue;
 
@@ -173,11 +198,15 @@ export async function fullSync(
 
     const roadmap = parseResult.value;
 
+    // Fetch all tickets once for both push (dedup) and pull (status/assignee)
+    const fetchResult = await adapter.fetchAllTickets();
+    const tickets = fetchResult.ok ? fetchResult.value : undefined;
+
     // Push first (planning fields out)
-    const pushResult = await syncToExternal(roadmap, adapter, config);
+    const pushResult = await syncToExternal(roadmap, adapter, config, tickets);
 
     // Then pull (execution fields back)
-    const pullResult = await syncFromExternal(roadmap, adapter, config, options);
+    const pullResult = await syncFromExternal(roadmap, adapter, config, options, tickets);
 
     // Write updated roadmap back to disk
     fs.writeFileSync(roadmapPath, serializeRoadmap(roadmap), 'utf-8');
