@@ -18,6 +18,62 @@ function emptySyncResult(): SyncResult {
 }
 
 /**
+ * Build a title-based dedup index from pre-fetched tickets.
+ * Only includes tickets that carry the configured labels (e.g., harness-managed).
+ * Prefers open issues over closed when titles collide.
+ */
+function buildDedupIndex(
+  tickets: ExternalTicketState[] | undefined,
+  config: TrackerSyncConfig
+): Map<string, ExternalTicketState> {
+  const index = new Map<string, ExternalTicketState>();
+  if (!tickets) return index;
+
+  const configLabels = new Set((config.labels ?? []).map((l) => l.toLowerCase()));
+  for (const ticket of tickets) {
+    const hasConfigLabels =
+      configLabels.size === 0 || ticket.labels.some((l) => configLabels.has(l.toLowerCase()));
+    if (!hasConfigLabels) continue;
+    const key = ticket.title.toLowerCase();
+    const prev = index.get(key);
+    if (!prev || (prev.status === 'closed' && ticket.status === 'open')) {
+      index.set(key, ticket);
+    }
+  }
+  return index;
+}
+
+/**
+ * Resolve the externalId for a feature: dedup-link, create, or return existing.
+ * Returns true if the feature now has an externalId (and should be updated), false
+ * if creation failed or a new ticket was created (already recorded in result).
+ */
+async function resolveExternalId(
+  feature: RoadmapFeature,
+  milestone: string,
+  adapter: TrackerSyncAdapter,
+  dedupIndex: Map<string, ExternalTicketState>,
+  result: SyncResult
+): Promise<boolean> {
+  if (feature.externalId) return true;
+
+  const existing = dedupIndex.get(feature.name.toLowerCase());
+  if (existing) {
+    feature.externalId = existing.externalId;
+    return true;
+  }
+
+  const createResult = await adapter.createTicket(feature, milestone);
+  if (createResult.ok) {
+    feature.externalId = createResult.value.externalId;
+    result.created.push(createResult.value);
+  } else {
+    result.errors.push({ featureOrId: feature.name, error: createResult.error });
+  }
+  return false;
+}
+
+/**
  * Push planning fields from roadmap to external service.
  * - Features without externalId get a new ticket (externalId stored on feature object)
  * - Features with externalId get updated with current planning fields
@@ -31,47 +87,19 @@ export async function syncToExternal(
   prefetchedTickets?: ExternalTicketState[]
 ): Promise<SyncResult> {
   const result = emptySyncResult();
-
-  // Build title-based dedup index from pre-fetched tickets.
-  // Only consider tickets that carry the configured labels (harness-managed).
-  const existingByTitle = new Map<string, ExternalTicketState>();
-  const configLabels = new Set((config.labels ?? []).map((l) => l.toLowerCase()));
-  if (prefetchedTickets) {
-    for (const ticket of prefetchedTickets) {
-      const hasConfigLabels =
-        configLabels.size === 0 || ticket.labels.some((l) => configLabels.has(l.toLowerCase()));
-      if (!hasConfigLabels) continue;
-      const key = ticket.title.toLowerCase();
-      const prev = existingByTitle.get(key);
-      // Prefer open issues over closed when titles collide
-      if (!prev || (prev.status === 'closed' && ticket.status === 'open')) {
-        existingByTitle.set(key, ticket);
-      }
-    }
-  }
+  const dedupIndex = buildDedupIndex(prefetchedTickets, config);
 
   for (const milestone of roadmap.milestones) {
     for (const feature of milestone.features) {
-      if (!feature.externalId) {
-        // Dedup: check if a harness-managed issue with the same title already exists
-        const existing = existingByTitle.get(feature.name.toLowerCase());
-        if (existing) {
-          // Link to existing issue — fall through to update planning fields
-          feature.externalId = existing.externalId;
-        } else {
-          // Create new ticket
-          const createResult = await adapter.createTicket(feature, milestone.name);
-          if (createResult.ok) {
-            feature.externalId = createResult.value.externalId;
-            result.created.push(createResult.value);
-          } else {
-            result.errors.push({ featureOrId: feature.name, error: createResult.error });
-          }
-          continue;
-        }
-      }
+      const shouldUpdate = await resolveExternalId(
+        feature,
+        milestone.name,
+        adapter,
+        dedupIndex,
+        result
+      );
+      if (!shouldUpdate) continue;
 
-      // Update existing ticket (both pre-linked and dedup-linked)
       const updateResult = await adapter.updateTicket(feature.externalId!, feature, milestone.name);
       if (updateResult.ok) {
         result.updated.push(feature.externalId!);
