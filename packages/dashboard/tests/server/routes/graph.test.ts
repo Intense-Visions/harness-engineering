@@ -15,6 +15,7 @@ function makeCtx(): ServerContext {
     cache: new DataCache(60_000),
     pollIntervalMs: 30_000,
     sseManager: undefined!,
+    gatherCache: undefined!,
   };
 }
 

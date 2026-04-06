@@ -4,7 +4,6 @@ import type { ServerContext } from '../../src/server/context';
 import { DataCache } from '../../src/server/cache';
 import { GatherCache } from '../../src/server/gather-cache';
 
-// Hoist vi.mock calls to top level (Vitest requirement)
 vi.mock('../../src/server/gather/roadmap', () => ({
   gatherRoadmap: vi.fn().mockResolvedValue({ error: 'skipped' }),
 }));
@@ -43,7 +42,6 @@ vi.mock('../../src/server/gather/anomalies', () => ({
     .mockResolvedValue({ outliers: [], articulationPoints: [], overlapCount: 0 }),
 }));
 
-// Minimal fake SSEStreamingApi
 function makeStream() {
   return {
     aborted: false,
@@ -72,7 +70,7 @@ function makeContext(): ServerContext {
   };
 }
 
-describe('SSEManager', () => {
+describe('SSEManager on-demand gather', () => {
   let manager: SSEManager;
 
   beforeEach(() => {
@@ -85,46 +83,46 @@ describe('SSEManager', () => {
     vi.useRealTimers();
   });
 
-  it('starts with zero connections', () => {
-    expect(manager.connectionCount).toBe(0);
-  });
-
-  it('adds a connection and increments count', () => {
-    const stream = makeStream() as never;
-    const ctx = makeContext();
-    manager.addConnection(stream, ctx);
-    expect(manager.connectionCount).toBe(1);
-  });
-
-  it('removes a connection when stream aborts', () => {
+  it('runs expensive gatherers on first tick and emits checks event', async () => {
     const stream = makeStream();
     const ctx = makeContext();
     manager.addConnection(stream as never, ctx);
-    stream.simulateAbort();
-    expect(manager.connectionCount).toBe(0);
-  });
 
-  it('stops the polling loop when all clients disconnect', () => {
-    const stream = makeStream();
-    const ctx = makeContext();
-    manager.addConnection(stream as never, ctx);
-    expect(manager.isRunning).toBe(true);
-    stream.simulateAbort();
-    expect(manager.isRunning).toBe(false);
-  });
-
-  it('broadcasts to all connected streams on tick', async () => {
-    const stream1 = makeStream();
-    const stream2 = makeStream();
-    const ctx = makeContext();
-
-    manager.addConnection(stream1 as never, ctx);
-    manager.addConnection(stream2 as never, ctx);
-
-    // Advance past one poll interval (100ms) to trigger one tick
     await vi.advanceTimersByTimeAsync(150);
 
-    expect(stream1.writeSSE).toHaveBeenCalled();
-    expect(stream2.writeSSE).toHaveBeenCalled();
+    // Should have two writeSSE calls: overview + checks
+    expect(stream.writeSSE).toHaveBeenCalledTimes(2);
+    const calls = stream.writeSSE.mock.calls;
+    const events = calls.map((c: unknown[]) => JSON.parse((c[0] as { data: string }).data));
+    const types = events.map((e: { type: string }) => e.type);
+    expect(types).toContain('overview');
+    expect(types).toContain('checks');
+  });
+
+  it('does not re-run expensive gatherers on second tick', async () => {
+    const { gatherSecurity } = await import('../../src/server/gather/security');
+    const stream = makeStream();
+    const ctx = makeContext();
+    manager.addConnection(stream as never, ctx);
+
+    // First tick
+    await vi.advanceTimersByTimeAsync(150);
+    const callsAfterFirst = (gatherSecurity as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    // Reset writeSSE to track second tick only
+    stream.writeSSE.mockClear();
+
+    // Second tick
+    await vi.advanceTimersByTimeAsync(150);
+
+    // gatherSecurity should NOT have been called again
+    expect((gatherSecurity as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterFirst);
+
+    // Second tick should only emit overview, not checks
+    const calls = stream.writeSSE.mock.calls;
+    const events = calls.map((c: unknown[]) => JSON.parse((c[0] as { data: string }).data));
+    const types = events.map((e: { type: string }) => e.type);
+    expect(types).toContain('overview');
+    expect(types).not.toContain('checks');
   });
 });

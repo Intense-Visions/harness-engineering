@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { DataCache } from './cache';
+import { GatherCache } from './gather-cache';
 import { SSEManager } from './sse';
 import { DEFAULT_POLL_INTERVAL_MS } from '../shared/constants';
 
@@ -16,6 +17,8 @@ export interface ServerContext {
   pollIntervalMs: number;
   /** Shared SSE manager instance */
   sseManager: SSEManager;
+  /** Cache for expensive on-demand gatherers */
+  gatherCache: GatherCache;
 }
 
 /**
@@ -34,5 +37,6 @@ export function buildContext(overrides?: Partial<ServerContext>): ServerContext 
     cache: overrides?.cache ?? new DataCache(60_000),
     pollIntervalMs: overrides?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
     sseManager: overrides?.sseManager ?? new SSEManager(),
+    gatherCache: overrides?.gatherCache ?? new GatherCache(),
   };
 }

@@ -2,7 +2,11 @@ import type { SSEStreamingApi } from 'hono/streaming';
 import { gatherRoadmap } from './gather/roadmap';
 import { gatherHealth } from './gather/health';
 import { gatherGraph } from './gather/graph';
-import type { OverviewData, SSEEvent } from '../shared/types';
+import { gatherSecurity } from './gather/security';
+import { gatherPerf } from './gather/perf';
+import { gatherArch } from './gather/arch';
+import { gatherAnomalies } from './gather/anomalies';
+import type { OverviewData, ChecksData, SSEEvent } from '../shared/types';
 import type { ServerContext } from './context';
 
 /**
@@ -77,20 +81,8 @@ export class SSEManager {
     }
   }
 
-  private async _tick(ctx: ServerContext): Promise<void> {
-    const [roadmap, health, graph] = await Promise.all([
-      gatherRoadmap(ctx.roadmapPath),
-      gatherHealth(ctx.projectPath),
-      gatherGraph(ctx.projectPath),
-    ]);
-
-    const overview: OverviewData = { roadmap, health, graph };
-    const event: SSEEvent = {
-      type: 'overview',
-      data: overview,
-      timestamp: new Date().toISOString(),
-    };
-
+  /** Broadcast an SSE event to all connected streams, pruning dead connections. */
+  async broadcast(event: SSEEvent): Promise<void> {
     const dead: SSEStreamingApi[] = [];
 
     for (const [stream] of this.connections) {
@@ -113,6 +105,52 @@ export class SSEManager {
     }
     if (this.connections.size === 0) {
       this.stop();
+    }
+  }
+
+  private async _tick(ctx: ServerContext): Promise<void> {
+    const [roadmap, health, graph] = await Promise.all([
+      gatherRoadmap(ctx.roadmapPath),
+      gatherHealth(ctx.projectPath),
+      gatherGraph(ctx.projectPath),
+    ]);
+
+    const overview: OverviewData = { roadmap, health, graph };
+    const overviewEvent: SSEEvent = {
+      type: 'overview',
+      data: overview,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Run expensive gatherers only on first tick (via GatherCache.run)
+    const isFirstRun = !ctx.gatherCache.hasRun('security');
+
+    if (isFirstRun) {
+      const [security, perf, arch, anomalies] = await Promise.all([
+        ctx.gatherCache.run('security', () => gatherSecurity(ctx.projectPath)),
+        ctx.gatherCache.run('perf', () => gatherPerf(ctx.projectPath)),
+        ctx.gatherCache.run('arch', () => gatherArch(ctx.projectPath)),
+        ctx.gatherCache.run('anomalies', () => gatherAnomalies(ctx.projectPath)),
+      ]);
+
+      const checksData: ChecksData = {
+        security,
+        perf,
+        arch,
+        anomalies,
+        lastRun: new Date().toISOString(),
+      };
+
+      const checksEvent: SSEEvent = {
+        type: 'checks',
+        data: checksData,
+        timestamp: new Date().toISOString(),
+      };
+
+      await this.broadcast(overviewEvent);
+      await this.broadcast(checksEvent);
+    } else {
+      await this.broadcast(overviewEvent);
     }
   }
 }

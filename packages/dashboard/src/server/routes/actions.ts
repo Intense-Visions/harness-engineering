@@ -3,6 +3,11 @@ import type { Context } from 'hono';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import type { ServerContext } from '../context';
+import { gatherSecurity } from '../gather/security';
+import { gatherPerf } from '../gather/perf';
+import { gatherArch } from '../gather/arch';
+import { gatherAnomalies } from '../gather/anomalies';
+import type { ChecksData, SSEEvent } from '../../shared/types';
 
 // --- Finding 3: File lock to prevent TOCTOU races ---
 const fileLocks = new Map<string, Promise<void>>();
@@ -188,10 +193,38 @@ async function handleRegenCharts(c: Context, ctx: ServerContext): Promise<Respon
   return c.json({ ok: true, regeneratedAt: new Date().toISOString() });
 }
 
+async function handleRefreshChecks(c: Context, ctx: ServerContext): Promise<Response> {
+  const [security, perf, arch, anomalies] = await Promise.all([
+    ctx.gatherCache.refresh('security', () => gatherSecurity(ctx.projectPath)),
+    ctx.gatherCache.refresh('perf', () => gatherPerf(ctx.projectPath)),
+    ctx.gatherCache.refresh('arch', () => gatherArch(ctx.projectPath)),
+    ctx.gatherCache.refresh('anomalies', () => gatherAnomalies(ctx.projectPath)),
+  ]);
+
+  const checksData: ChecksData = {
+    security,
+    perf,
+    arch,
+    anomalies,
+    lastRun: new Date().toISOString(),
+  };
+
+  const checksEvent: SSEEvent = {
+    type: 'checks',
+    data: checksData,
+    timestamp: new Date().toISOString(),
+  };
+
+  await ctx.sseManager.broadcast(checksEvent);
+
+  return c.json({ ok: true, checks: checksData });
+}
+
 export function buildActionsRouter(ctx: ServerContext): Hono {
   const router = new Hono();
   router.post('/actions/roadmap-status', (c) => handleRoadmapStatus(c, ctx));
   router.post('/actions/validate', (c) => handleValidate(c, ctx));
   router.post('/actions/regen-charts', (c) => handleRegenCharts(c, ctx));
+  router.post('/actions/refresh-checks', (c) => handleRefreshChecks(c, ctx));
   return router;
 }

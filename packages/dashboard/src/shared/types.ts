@@ -149,7 +149,8 @@ export type SSEEvent =
   | { type: 'roadmap'; data: RoadmapResult; timestamp: string }
   | { type: 'health'; data: HealthResult; timestamp: string }
   | { type: 'graph'; data: GraphResult; timestamp: string }
-  | { type: 'overview'; data: OverviewData; timestamp: string };
+  | { type: 'overview'; data: OverviewData; timestamp: string }
+  | { type: 'checks'; data: ChecksData; timestamp: string };
 
 // --- CI types ---
 
@@ -290,3 +291,14 @@ export interface BlastRadiusError {
 }
 
 export type BlastRadiusResult = BlastRadiusData | BlastRadiusError;
+
+// --- Checks aggregate (on-demand gather) ---
+
+/** Combined result of all expensive gatherers for SSE broadcast */
+export interface ChecksData {
+  security: SecurityResult;
+  perf: PerfResult;
+  arch: ArchResult;
+  anomalies: AnomalyResult;
+  lastRun: string;
+}
