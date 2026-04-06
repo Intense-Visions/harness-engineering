@@ -9,3 +9,6 @@ export type {
 
 // Strategy
 export { CompositeProbabilityStrategy } from './CompositeProbabilityStrategy.js';
+
+// Simulator
+export { CascadeSimulator } from './CascadeSimulator.js';
