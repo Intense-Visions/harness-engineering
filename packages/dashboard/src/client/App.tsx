@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router';
 import { Layout } from './components/Layout';
 import { Overview } from './pages/Overview';
+import { Roadmap } from './pages/Roadmap';
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -17,7 +18,7 @@ export function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Overview />} />
-          <Route path="/roadmap" element={<Placeholder title="Roadmap" />} />
+          <Route path="/roadmap" element={<Roadmap />} />
           <Route path="/health" element={<Placeholder title="Health" />} />
           <Route path="/graph" element={<Placeholder title="Graph" />} />
         </Routes>
