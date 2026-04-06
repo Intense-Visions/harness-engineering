@@ -758,6 +758,17 @@ last_manual_edit: 2026-03-30
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#68
 
+### Roadmap Gantt Visualization
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Generate a Mermaid Gantt chart in docs/roadmap.md showing milestone phases, feature timelines, and dependency relationships
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
