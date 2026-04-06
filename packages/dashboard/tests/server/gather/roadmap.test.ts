@@ -85,11 +85,21 @@ describe('gatherRoadmap', () => {
     expect('error' in result).toBe(true);
   });
 
-  it('returns all features from all milestones', async () => {
+  it('returns projected features without filesystem paths', async () => {
     vi.mocked(fs.readFile).mockResolvedValue(VALID_ROADMAP);
     const result = await gatherRoadmap('/project/docs/roadmap.md');
 
     if ('error' in result) return;
     expect(result.features).toHaveLength(5);
+
+    const auth = result.features[0]!;
+    expect(auth.name).toBe('Auth');
+    expect(auth.status).toBe('done');
+    expect(auth.summary).toBe('Authentication system');
+    expect(auth.milestone).toBe('MVP');
+    // Verify no filesystem paths leak through
+    expect(auth).not.toHaveProperty('spec');
+    expect(auth).not.toHaveProperty('plans');
+    expect(auth).not.toHaveProperty('externalId');
   });
 });

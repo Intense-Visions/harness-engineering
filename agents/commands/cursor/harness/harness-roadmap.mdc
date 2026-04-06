@@ -49,7 +49,7 @@ If the human has not seen and approved the milestone groupings and feature list,
    - Has spec + plan but no implementation -> `planned`
    - Has spec but no plan -> `backlog`
    - Has plan but no spec -> `planned` (unusual, flag for human review)
-6. Detect project name from `harness.yaml` `project` field, or `package.json` `name` field, or directory name as fallback.
+6. Detect project name from `harness.config.json` `project` field, or `package.json` `name` field, or directory name as fallback.
 
 Present scan summary:
 

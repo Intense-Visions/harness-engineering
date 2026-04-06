@@ -36,11 +36,11 @@ alwaysApply: false
    - **Component:** Name, which layer it belongs to, what it depends on, what will depend on it
    - **Skill:** Name, purpose, type (rigid or flexible), triggers
 
-3. **Check prerequisites.** The project must already be initialized with harness. If `harness.yaml` does not exist, stop and run initialize-harness-project first.
+3. **Check prerequisites.** The project must already be initialized with harness. If `harness.config.json` does not exist, stop and run initialize-harness-project first.
 
 ### Phase 2: VALIDATE — Check Against Existing Constraints
 
-1. **Read the current configuration.** Load `harness.yaml` and `AGENTS.md` to understand existing layers, constraints, and architecture.
+1. **Read the current configuration.** Load `harness.config.json` and `AGENTS.md` to understand existing layers, constraints, and architecture.
 
 2. **Verify the new component does not conflict:**
    - Does the layer name already exist?
@@ -60,7 +60,7 @@ alwaysApply: false
    - Component: `harness add component <name> --layer <layer-name>`
    - Skill: `harness add skill <name> --type <rigid|flexible>`
 
-2. **Review generated files and configuration changes.** `harness add` modifies `harness.yaml` and may generate template files. Check that the changes look correct.
+2. **Review generated files and configuration changes.** `harness add` modifies `harness.config.json` and may generate template files. Check that the changes look correct.
 
 3. **Create the actual code or content.** `harness add` creates the configuration entry but not necessarily the implementation. Create the directories, files, and initial code as needed.
 
@@ -70,7 +70,7 @@ alwaysApply: false
 
 2. **Update `AGENTS.md`.** Add the new component to the architecture section. Document its purpose, boundaries, and relationships to other components. This keeps agent instructions accurate.
 
-3. **Update layer configuration** if the new component changes dependency relationships. Ensure `harness.yaml` reflects the actual import graph.
+3. **Update layer configuration** if the new component changes dependency relationships. Ensure `harness.config.json` reflects the actual import graph.
 
 4. **For new skills:** Write the `skill.yaml` and `SKILL.md` files following the harness skill format. Use harness-skill-authoring for guidance on writing good skill content.
 
@@ -91,7 +91,7 @@ harness scan [path]
 Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
 
 3. **If validation fails,** fix the issues before committing. Common causes:
-   - New layer not properly registered in `harness.yaml`
+   - New layer not properly registered in `harness.config.json`
    - Component placed in wrong directory for its declared layer
    - Imports from forbidden layers
    - `AGENTS.md` references outdated architecture
@@ -109,7 +109,7 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 
 ## Success Criteria
 
-- The new component is properly registered in `harness.yaml`
+- The new component is properly registered in `harness.config.json`
 - The component's files exist in the correct directories for its declared layer
 - `AGENTS.md` is updated to reflect the new component
 - `harness validate` passes after the addition
@@ -129,7 +129,7 @@ DETERMINE: Adding a layer. Name: infrastructure. Dirs: src/infrastructure/.
   Imported by: business layer (services call external APIs through infrastructure).
 
 VALIDATE:
-  Read harness.yaml — existing layers: presentation, business, data.
+  Read harness.config.json — existing layers: presentation, business, data.
   No conflict with "infrastructure" name.
   Run: harness check-deps — passes (clean baseline).
 
@@ -138,13 +138,13 @@ ADD:
   mkdir -p src/infrastructure
 
 WIRE:
-  Update harness.yaml: allow business → infrastructure imports.
+  Update harness.config.json: allow business → infrastructure imports.
   Update AGENTS.md: document infrastructure layer purpose and boundaries.
 
 VERIFY:
   harness validate    # Pass
   harness check-deps  # Pass
-  git add harness.yaml AGENTS.md src/infrastructure/
+  git add harness.config.json AGENTS.md src/infrastructure/
   git commit -m "feat: add infrastructure layer for external API clients"
 ```
 
@@ -164,7 +164,7 @@ WIRE:
 
 VERIFY:
   harness validate  # Pass
-  git add harness.yaml AGENTS.md
+  git add harness.config.json AGENTS.md
   git commit -m "feat: track API spec for documentation drift detection"
 ```
 
@@ -177,7 +177,7 @@ DETERMINE: Adding a component. Name: notification-service. Layer: business.
   Depends on: data layer (notification repository). Depended on by: presentation layer (routes).
 
 VALIDATE:
-  Read harness.yaml — business layer exists, maps to src/services/.
+  Read harness.config.json — business layer exists, maps to src/services/.
   No existing notification-service directory.
   business → data is an allowed import. Presentation → business is allowed.
   Run: harness check-deps — passes.
@@ -194,7 +194,7 @@ WIRE:
 VERIFY:
   harness validate    # Pass
   harness check-deps  # Pass
-  git add harness.yaml AGENTS.md src/services/notification-service.*
+  git add harness.config.json AGENTS.md src/services/notification-service.*
   git commit -m "feat: add notification service to business layer"
 ```
 

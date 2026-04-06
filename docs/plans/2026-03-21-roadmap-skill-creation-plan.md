@@ -71,7 +71,7 @@ Create the `harness:roadmap` skill with `--create` (bootstrap roadmap from exist
    **## Process with Iron Law:** "Never write `docs/roadmap.md` without the human confirming the proposed structure first."
 
    **### Command: `--create` -- Bootstrap Roadmap** with 4 sub-phases:
-   - Phase 1 SCAN: Check for existing roadmap (warn if exists), scan `docs/changes/*/proposal.md` and `docs/changes/*/proposal.md` for specs, scan `docs/plans/*.md` for plans, match plans to specs, infer features with status, detect project name from `harness.yaml` or `package.json`
+   - Phase 1 SCAN: Check for existing roadmap (warn if exists), scan `docs/changes/*/proposal.md` and `docs/changes/*/proposal.md` for specs, scan `docs/plans/*.md` for plans, match plans to specs, infer features with status, detect project name from `harness.config.json` or `package.json`
    - Phase 2 PROPOSE: Present discovered features in default milestone groupings (Current Work + Backlog), offer choices (A) accept, (B) rename, (C) reorganize, (D) add milestones. Ask about additional features not in specs. Repeat until accepted.
    - Phase 3 WRITE: Build roadmap structure with frontmatter (project, version 1, timestamps), write via `manage_roadmap` MCP tool or direct file write using roadmap markdown format (H2 milestones, H3 features, 5 fields each)
    - Phase 4 VALIDATE: Read back file, verify via `manage_roadmap show` if available, run `harness validate`, present summary

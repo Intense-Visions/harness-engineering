@@ -16,14 +16,14 @@
 
 ### Phase 1: ASSESS — Determine Current State
 
-1. **Check for existing harness configuration.** Look for `.harness/` directory, `AGENTS.md`, `harness.yaml`, and any skill definitions. Their presence determines whether this is a new project or a migration.
+1. **Check for existing harness configuration.** Look for `.harness/` directory, `AGENTS.md`, `harness.config.json`, and any skill definitions. Their presence determines whether this is a new project or a migration.
 
 2. **For new projects:** Gather project context — language, framework, test runner, build tool. Ask the human if any of these are undecided. Do not assume defaults.
 
 2b. **For existing projects with detectable frameworks:** Run `harness init` without flags first. The command auto-detects frameworks (FastAPI, Django, Gin, Axum, Spring Boot, Next.js, React+Vite, Vue, Express, NestJS) by scanning project files. Present the detection result to the human and ask for confirmation before proceeding. If detection fails, ask the human to specify `--framework` manually.
 
 3. **For existing projects:** Run `harness validate` to see what is already configured and what is missing. Read `AGENTS.md` if it exists. Identify the current adoption level:
-   - **Basic:** Has `AGENTS.md` and `harness.yaml` with project metadata. No layers, no skills, no dependency constraints.
+   - **Basic:** Has `AGENTS.md` and `harness.config.json` with project metadata. No layers, no skills, no dependency constraints.
    - **Intermediate:** Has layers defined, dependency constraints between layers, at least one custom skill. `harness check-deps` runs and passes.
    - **Advanced:** Has full persona configuration, custom skills for the team's workflows, state management, learnings capture, and CI integration for `harness validate`.
 
@@ -44,13 +44,13 @@
    **Supported languages:** typescript, python, go, rust, java
 
 2. **Review generated files.** `harness init` creates:
-   - `harness.yaml` — Project configuration (name, stack, adoption level)
+   - `harness.config.json` — Project configuration (name, stack, adoption level)
    - `.harness/` directory — State and learnings storage
    - `AGENTS.md` — Agent instructions (template, needs customization)
    - Layer definitions (intermediate and above)
    - Dependency constraints (intermediate and above)
 
-3. **Do not blindly accept generated content.** Read the generated `AGENTS.md` and `harness.yaml`. Flag anything that looks wrong or incomplete. The scaffolded output is a starting point, not a finished product.
+3. **Do not blindly accept generated content.** Read the generated `AGENTS.md` and `harness.config.json`. Flag anything that looks wrong or incomplete. The scaffolded output is a starting point, not a finished product.
 
 ### Phase 3: CONFIGURE — Customize for the Project
 
@@ -63,7 +63,7 @@
    - Known constraints and forbidden patterns
    - Links to relevant documentation
 
-3. **For intermediate and above:** Define layer boundaries. Which modules belong to which layers? What are the allowed import directions? Document these in `harness.yaml` and ensure they match the actual codebase structure.
+3. **For intermediate and above:** Define layer boundaries. Which modules belong to which layers? What are the allowed import directions? Document these in `harness.config.json` and ensure they match the actual codebase structure.
 
 4. **For advanced:** Configure state management (`.harness/state.json` schema), learnings capture (`.harness/learnings.md` conventions), and CI integration hooks.
 
@@ -75,7 +75,7 @@
 ### Phase 4: VALIDATE — Confirm Everything Works
 
 1. **Run `harness validate`** to verify the full configuration. This checks:
-   - `harness.yaml` schema validity
+   - `harness.config.json` schema validity
    - `AGENTS.md` presence and required sections
    - Layer definitions (if intermediate+)
    - Dependency constraints (if intermediate+)
@@ -111,7 +111,7 @@ This creates the `.harness/graph/` directory and populates it with the project's
 
 ## Success Criteria
 
-- `harness.yaml` exists and passes schema validation
+- `harness.config.json` exists and passes schema validation
 - `AGENTS.md` exists with project-specific content (not just the template)
 - `.harness/` directory exists with appropriate state files
 - `harness validate` passes with zero errors
@@ -138,7 +138,7 @@ Human confirms: "Basic is fine for now."
 
 ```bash
 harness init --level basic --framework express
-# Creates: harness.yaml, .harness/, AGENTS.md (template)
+# Creates: harness.config.json, .harness/, AGENTS.md (template)
 ```
 
 **CONFIGURE:**
@@ -159,7 +159,7 @@ Edit AGENTS.md:
 
 ```bash
 harness validate  # Pass — basic level checks satisfied
-git add harness.yaml .harness/ AGENTS.md
+git add harness.config.json .harness/ AGENTS.md
 git commit -m "feat: initialize harness project at basic level"
 ```
 
@@ -168,7 +168,7 @@ git commit -m "feat: initialize harness project at basic level"
 **ASSESS:**
 
 ```
-Read harness.yaml — level: basic
+Read harness.config.json — level: basic
 Read AGENTS.md — exists, has project-specific content
 Run: harness validate — passes at basic level
 Recommend: intermediate (add layers and dependency constraints)
@@ -179,14 +179,14 @@ Human confirms: "Yes, we're ready for layers."
 
 ```bash
 harness init --level intermediate --migrate
-# Preserves existing harness.yaml and AGENTS.md
+# Preserves existing harness.config.json and AGENTS.md
 # Adds: layer definitions template, dependency constraints template
 ```
 
 **CONFIGURE:**
 
 ```
-Define layers in harness.yaml:
+Define layers in harness.config.json:
   - presentation: src/routes/, src/middleware/
   - business: src/services/, src/models/
   - data: src/repositories/, src/db/
@@ -214,7 +214,7 @@ git commit -m "feat: migrate harness project to intermediate level with layers"
 **Basic (start here):**
 
 - `AGENTS.md` with project context
-- `harness.yaml` with metadata
+- `harness.config.json` with metadata
 - `harness validate` runs in development
 
 **Intermediate (add structure):**

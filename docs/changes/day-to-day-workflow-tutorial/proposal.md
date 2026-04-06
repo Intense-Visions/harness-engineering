@@ -29,7 +29,7 @@ A **bookmark API** with a 3-layer architecture: `types → services → api`. Sm
 Walk through creating a new harness project from scratch.
 
 - Run `harness init --name bookmark-api --level intermediate`
-- Explain the generated `harness.config.json` (verify actual output — may be `harness.yaml`): layers, forbidden imports, phase gates
+- Explain the generated `harness.config.json` (verify actual output — may be `harness.config.json`): layers, forbidden imports, phase gates
 - Show the generated AGENTS.md and what to customize (project overview, conventions, key commands)
 - Run `harness validate` to confirm a clean starting state
 - Run `harness check-deps` to verify layer definitions

@@ -23,7 +23,7 @@
    - Constraints and forbidden patterns
    - Any special instructions or warnings
 
-2. **Read `harness.yaml`.** Extract:
+2. **Read `harness.config.json`.** Extract:
    - Project name and stack
    - Adoption level (basic, intermediate, advanced)
    - Layer definitions and their directory mappings
@@ -48,7 +48,7 @@
 2. **Map the architecture.** Walk the directory structure and identify:
    - Top-level organization pattern (monorepo, single package, workspace)
    - Source code location and entry points
-   - Layer boundaries (from `harness.yaml` and actual directory structure)
+   - Layer boundaries (from `harness.config.json` and actual directory structure)
    - Shared utilities or common modules
    - Configuration files and their purposes
 
@@ -61,7 +61,7 @@
    - Code formatting (detect from config files: `.prettierrc`, `.eslintrc`, `biome.json`)
 
 4. **Map the constraints.** Identify what is restricted:
-   - Forbidden imports (from `harness.yaml` dependency constraints)
+   - Forbidden imports (from `harness.config.json` dependency constraints)
    - Layer boundary rules (which layers can import from which)
    - Linting rules that encode architectural decisions
    - Any constraints documented in `AGENTS.md` that are not yet automated
@@ -95,8 +95,8 @@ Graph queries produce a complete architecture map in seconds, including transiti
 
 ### Phase 3: ORIENT — Identify Adoption Level and Maturity
 
-1. **Confirm the adoption level** matches what `harness.yaml` declares:
-   - Basic: `AGENTS.md` and `harness.yaml` exist but no layers or constraints
+1. **Confirm the adoption level** matches what `harness.config.json` declares:
+   - Basic: `AGENTS.md` and `harness.config.json` exist but no layers or constraints
    - Intermediate: Layers defined, dependency constraints enforced, at least one custom skill
    - Advanced: Personas, state management, learnings, CI integration
 
@@ -184,16 +184,16 @@ Graph queries produce a complete architecture map in seconds, including transiti
 - **`harness check-deps`** — Run to verify dependency constraints are passing, which confirms layer boundaries are respected.
 - **`harness state show`** — View current state to understand where the last session left off.
 - **`AGENTS.md`** — Primary source of project context and agent instructions.
-- **`harness.yaml`** — Source of structural configuration (layers, constraints, skills).
+- **`harness.config.json`** — Source of structural configuration (layers, constraints, skills).
 - **`.harness/learnings.md`** — Historical context and institutional knowledge.
 
 ## Success Criteria
 
-- All four configuration sources were read (`AGENTS.md`, `harness.yaml`, `.harness/learnings.md`, `.harness/state.json`)
+- All four configuration sources were read (`AGENTS.md`, `harness.config.json`, `.harness/learnings.md`, `.harness/state.json`)
 - Technology stack is accurately identified (language, framework, test runner, build tool)
 - Architecture is mapped with correct layer boundaries and dependency directions
 - Conventions are identified from actual code patterns, not assumed
-- Constraints are enumerated from both `harness.yaml` and `AGENTS.md`
+- Constraints are enumerated from both `harness.config.json` and `AGENTS.md`
 - Adoption level is confirmed (not just declared — validated)
 - A structured orientation summary is produced with all sections filled
 - The "Getting Started" section is actionable and tailored to the audience
@@ -211,7 +211,7 @@ Read AGENTS.md:
   - Stack: TypeScript, Express, Vitest, PostgreSQL
   - Conventions: zod validation, repository pattern, kebab-case files
 
-Read harness.yaml:
+Read harness.config.json:
   - Level: intermediate
   - Layers: presentation (src/routes/), business (src/services/), data (src/repositories/)
   - Constraints: presentation → business OK, business → data OK, data → presentation FORBIDDEN
@@ -258,7 +258,7 @@ Produce orientation with all sections. Getting Started for this context:
 
 ```
 Read AGENTS.md — exists, minimal content
-Read harness.yaml — level: basic, no layers defined
+Read harness.config.json — level: basic, no layers defined
 No .harness/learnings.md
 No .harness/state.json
 ```

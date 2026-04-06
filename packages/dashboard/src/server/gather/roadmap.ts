@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { parseRoadmap } from '@harness-engineering/core';
 import type { FeatureStatus } from '@harness-engineering/core';
-import type { RoadmapResult, MilestoneProgress } from '../../shared/types';
+import type { RoadmapResult, MilestoneProgress, DashboardFeature } from '../../shared/types';
 
 /**
  * Read and parse the roadmap file, computing per-milestone progress.
@@ -17,18 +17,8 @@ export async function gatherRoadmap(roadmapPath: string): Promise<RoadmapResult>
     }
 
     const roadmap = result.value;
-    const allFeatures = roadmap.milestones.flatMap((m) => m.features);
-
-    const milestones: MilestoneProgress[] = roadmap.milestones.map((m) => {
-      const counts = countByStatus(m.features.map((f) => f.status));
-      return {
-        name: m.name,
-        isBacklog: m.isBacklog,
-        total: m.features.length,
-        ...counts,
-      };
-    });
-
+    const allFeatures = projectFeatures(roadmap.milestones);
+    const milestones = buildMilestoneProgress(roadmap.milestones);
     const totals = countByStatus(allFeatures.map((f) => f.status));
 
     return {
@@ -45,6 +35,43 @@ export async function gatherRoadmap(roadmapPath: string): Promise<RoadmapResult>
     const message = err instanceof Error ? err.message : String(err);
     return { error: message };
   }
+}
+
+function projectFeatures(
+  milestones: {
+    name: string;
+    features: {
+      name: string;
+      status: string;
+      summary: string;
+      blockedBy: string[];
+      assignee?: string | null;
+      priority?: string | null;
+    }[];
+  }[]
+): DashboardFeature[] {
+  return milestones.flatMap((m) =>
+    m.features.map((f) => ({
+      name: f.name,
+      status: f.status,
+      summary: f.summary,
+      milestone: m.name,
+      blockedBy: f.blockedBy,
+      assignee: f.assignee ?? null,
+      priority: f.priority ?? null,
+    }))
+  );
+}
+
+function buildMilestoneProgress(
+  milestones: { name: string; isBacklog: boolean; features: { status: FeatureStatus }[] }[]
+): MilestoneProgress[] {
+  return milestones.map((m) => ({
+    name: m.name,
+    isBacklog: m.isBacklog,
+    total: m.features.length,
+    ...countByStatus(m.features.map((f) => f.status)),
+  }));
 }
 
 function countByStatus(statuses: FeatureStatus[]): {

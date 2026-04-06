@@ -1,5 +1,3 @@
-import type { RoadmapFeature } from '@harness-engineering/core';
-
 /** Health check response shape */
 export interface HealthCheckResponse {
   status: 'ok' | 'error';
@@ -40,10 +38,21 @@ export interface MilestoneProgress {
   backlog: number;
 }
 
+/** Projected feature for API consumption — excludes filesystem paths */
+export interface DashboardFeature {
+  name: string;
+  status: string;
+  summary: string;
+  milestone: string;
+  blockedBy: string[];
+  assignee: string | null;
+  priority: string | null;
+}
+
 /** Roadmap gatherer result */
 export interface RoadmapData {
   milestones: MilestoneProgress[];
-  features: RoadmapFeature[];
+  features: DashboardFeature[];
   totalFeatures: number;
   totalDone: number;
   totalInProgress: number;
@@ -114,10 +123,8 @@ export interface OverviewData {
 
 // --- SSE event types ---
 
-export type SSEEventType = 'roadmap' | 'health' | 'graph' | 'overview';
-
-export interface SSEEvent {
-  type: SSEEventType;
-  data: unknown;
-  timestamp: string;
-}
+export type SSEEvent =
+  | { type: 'roadmap'; data: RoadmapResult; timestamp: string }
+  | { type: 'health'; data: HealthResult; timestamp: string }
+  | { type: 'graph'; data: GraphResult; timestamp: string }
+  | { type: 'overview'; data: OverviewData; timestamp: string };
