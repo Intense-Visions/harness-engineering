@@ -39,8 +39,7 @@ export async function syncToExternal(
   if (prefetchedTickets) {
     for (const ticket of prefetchedTickets) {
       const hasConfigLabels =
-        configLabels.size === 0 ||
-        ticket.labels.some((l) => configLabels.has(l.toLowerCase()));
+        configLabels.size === 0 || ticket.labels.some((l) => configLabels.has(l.toLowerCase()));
       if (!hasConfigLabels) continue;
       const key = ticket.title.toLowerCase();
       const prev = existingByTitle.get(key);
@@ -73,11 +72,7 @@ export async function syncToExternal(
       }
 
       // Update existing ticket (both pre-linked and dedup-linked)
-      const updateResult = await adapter.updateTicket(
-        feature.externalId!,
-        feature,
-        milestone.name
-      );
+      const updateResult = await adapter.updateTicket(feature.externalId!, feature, milestone.name);
       if (updateResult.ok) {
         result.updated.push(feature.externalId!);
       } else {

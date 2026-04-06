@@ -265,8 +265,21 @@ describe('GitHubIssuesSyncAdapter', () => {
   describe('fetchAllTickets', () => {
     it('returns all issues, filtering out pull requests', async () => {
       const fetchFn = mockFetch(200, [
-        { number: 1, title: 'Issue A', state: 'open', labels: [{ name: 'harness-managed' }], assignee: null },
-        { number: 2, title: 'PR B', state: 'closed', labels: [], assignee: { login: 'x' }, pull_request: {} },
+        {
+          number: 1,
+          title: 'Issue A',
+          state: 'open',
+          labels: [{ name: 'harness-managed' }],
+          assignee: null,
+        },
+        {
+          number: 2,
+          title: 'PR B',
+          state: 'closed',
+          labels: [],
+          assignee: { login: 'x' },
+          pull_request: {},
+        },
         { number: 3, title: 'Issue C', state: 'closed', labels: [], assignee: null },
       ]);
       const adapter = new GitHubIssuesSyncAdapter({
