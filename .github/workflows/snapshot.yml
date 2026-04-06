@@ -16,6 +16,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @harness-engineering/types build
       - run: pnpm --filter @harness-engineering/core build
       - run: pnpm --filter @harness-engineering/cli build
       - run: node packages/cli/dist/bin/harness.js snapshot capture
