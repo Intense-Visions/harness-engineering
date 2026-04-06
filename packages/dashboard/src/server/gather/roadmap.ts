@@ -1,7 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { parseRoadmap } from '@harness-engineering/core';
-import type { FeatureStatus } from '@harness-engineering/core';
-import type { RoadmapResult, MilestoneProgress, DashboardFeature } from '../../shared/types';
+import type {
+  RoadmapResult,
+  MilestoneProgress,
+  DashboardFeature,
+  FeatureStatus,
+} from '../../shared/types';
 
 /**
  * Read and parse the roadmap file, computing per-milestone progress.
@@ -42,7 +46,7 @@ function projectFeatures(
     name: string;
     features: {
       name: string;
-      status: string;
+      status: FeatureStatus;
       summary: string;
       blockedBy: string[];
       assignee?: string | null;

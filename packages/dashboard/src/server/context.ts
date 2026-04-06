@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { DataCache } from './cache';
 import { DEFAULT_POLL_INTERVAL_MS } from '../shared/constants';
 
@@ -18,7 +19,7 @@ export interface ServerContext {
  */
 export function buildContext(overrides?: Partial<ServerContext>): ServerContext {
   const projectPath = overrides?.projectPath ?? process.cwd();
-  const roadmapPath = overrides?.roadmapPath ?? `${projectPath}/docs/roadmap.md`;
+  const roadmapPath = overrides?.roadmapPath ?? join(projectPath, 'docs', 'roadmap.md');
   return {
     projectPath,
     roadmapPath,

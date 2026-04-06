@@ -7,6 +7,7 @@ import { buildRoadmapRouter } from './routes/roadmap';
 import { buildHealthRouter } from './routes/health';
 import { buildGraphRouter } from './routes/graph';
 import { buildSseRouter } from './routes/sse';
+import { buildActionsRouter } from './routes/actions';
 import { buildContext } from './context';
 import { DASHBOARD_PORT } from '../shared/constants';
 
@@ -29,5 +30,6 @@ app.route('/api', buildRoadmapRouter(ctx));
 app.route('/api', buildHealthRouter(ctx));
 app.route('/api', buildGraphRouter(ctx));
 app.route('/api', buildSseRouter(ctx));
+app.route('/api', buildActionsRouter(ctx));
 
 export { app };

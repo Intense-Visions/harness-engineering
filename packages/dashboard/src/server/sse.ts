@@ -37,6 +37,8 @@ export class SSEManager {
     });
 
     if (!this.isRunning) {
+      // The first connection's ctx.pollIntervalMs governs the shared loop.
+      // Subsequent connections inherit this interval even if their ctx differs.
       this.start(ctx);
     }
   }

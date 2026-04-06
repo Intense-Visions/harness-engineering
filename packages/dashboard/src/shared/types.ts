@@ -1,3 +1,6 @@
+import type { FeatureStatus } from '@harness-engineering/core';
+export type { FeatureStatus };
+
 /** Health check response shape */
 export interface HealthCheckResponse {
   status: 'ok' | 'error';
@@ -41,7 +44,7 @@ export interface MilestoneProgress {
 /** Projected feature for API consumption — excludes filesystem paths */
 export interface DashboardFeature {
   name: string;
-  status: string;
+  status: FeatureStatus;
   summary: string;
   milestone: string;
   blockedBy: string[];

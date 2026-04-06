@@ -1,6 +1,7 @@
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
+import { ActionButton } from '../components/ActionButton';
 import type { OverviewData, RoadmapData, HealthData, GraphData } from '@shared/types';
 
 const SSE_URL = '/api/sse';
@@ -28,7 +29,19 @@ export function Overview() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Overview</h1>
-        <StaleIndicator lastUpdated={lastUpdated} stale={stale} error={error} />
+        <div className="flex items-center gap-4">
+          <ActionButton
+            url="/api/actions/validate"
+            label="Run Validate"
+            loadingLabel="Validating…"
+          />
+          <ActionButton
+            url="/api/actions/regen-charts"
+            label="Regen Charts"
+            loadingLabel="Regenerating…"
+          />
+          <StaleIndicator lastUpdated={lastUpdated} stale={stale} error={error} />
+        </div>
       </div>
 
       {!data && !error && <p className="text-sm text-gray-500">Connecting to data stream…</p>}
