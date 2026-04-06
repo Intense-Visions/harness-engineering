@@ -1,5 +1,12 @@
 # @harness-engineering/cli
 
+## 1.23.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/core@0.21.0 — roadmap sync: remove auto-assignee, add title-based dedup, single fetch per cycle
+
 ## 1.23.0
 
 ### Minor Changes
