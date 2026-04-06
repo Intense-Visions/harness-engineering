@@ -256,7 +256,7 @@ Configuration example:
 
 ### Unified Knowledge Graph
 
-The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, and 4 external connectors (Jira, Slack, Confluence, CI).
+The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, CascadeSimulator (probabilistic failure propagation via `compute_blast_radius` MCP tool), and 4 external connectors (Jira, Slack, Confluence, CI).
 
 ### Skill Tier System
 

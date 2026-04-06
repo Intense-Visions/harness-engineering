@@ -99,18 +99,19 @@ Tools for understanding and enforcing codebase structure.
 
 A structural analysis engine that powers many of the above capabilities.
 
-| Command / Tool                  | Description                                                  |
-| ------------------------------- | ------------------------------------------------------------ |
-| `harness graph scan`            | Build the knowledge graph from code, git, and docs           |
-| `harness graph query <id>`      | Query the graph from a starting node with depth/type filters |
-| `harness graph status`          | Show graph statistics (nodes, edges, last scan)              |
-| `harness graph export`          | Export graph as JSON or Mermaid diagram                      |
-| `ask_graph` (MCP)               | Natural language queries: "what depends on the auth module?" |
-| `search_similar` (MCP)          | Find structurally similar code across the codebase           |
-| `get_impact` (MCP)              | Analyze blast radius of changing a file or module            |
-| `predict_conflicts` (MCP)       | Predict merge conflicts before parallel work starts          |
-| `check_task_independence` (MCP) | Verify parallel tasks won't conflict                         |
-| `detect_anomalies` (MCP)        | Find structural outliers via z-score analysis                |
+| Command / Tool                  | Description                                                       |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `harness graph scan`            | Build the knowledge graph from code, git, and docs                |
+| `harness graph query <id>`      | Query the graph from a starting node with depth/type filters      |
+| `harness graph status`          | Show graph statistics (nodes, edges, last scan)                   |
+| `harness graph export`          | Export graph as JSON or Mermaid diagram                           |
+| `ask_graph` (MCP)               | Natural language queries: "what depends on the auth module?"      |
+| `search_similar` (MCP)          | Find structurally similar code across the codebase                |
+| `get_impact` (MCP)              | Analyze blast radius of changing a file or module                 |
+| `compute_blast_radius` (MCP)    | Probabilistic cascading failure simulation with confidence scores |
+| `predict_conflicts` (MCP)       | Predict merge conflicts before parallel work starts               |
+| `check_task_independence` (MCP) | Verify parallel tasks won't conflict                              |
+| `detect_anomalies` (MCP)        | Find structural outliers via z-score analysis                     |
 
 **Graph features:** 30 node types, 25 edge types, 4 external connectors (Jira, Slack, Confluence, CI), ContextQL query language, natural language translation, vector search via FusionLayer.
 
