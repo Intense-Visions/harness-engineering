@@ -8,6 +8,7 @@
     { "path": "./packages/cli" },
     { "path": "./packages/eslint-plugin" },
     { "path": "./packages/linter-gen" },
-    { "path": "./packages/orchestrator" }
+    { "path": "./packages/orchestrator" },
+    { "path": "./packages/dashboard" }
   ]
 }
