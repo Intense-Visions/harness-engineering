@@ -8,6 +8,7 @@ import type {
   ProbabilityStrategy,
 } from './types.js';
 import { CompositeProbabilityStrategy } from './CompositeProbabilityStrategy.js';
+import { classifyNodeCategory } from '../query/groupImpact.js';
 
 interface BfsEntry {
   nodeId: string;
@@ -19,26 +20,6 @@ interface BfsEntry {
 
 const DEFAULT_PROBABILITY_FLOOR = 0.05;
 const DEFAULT_MAX_DEPTH = 10;
-
-// Category classification matching groupNodesByImpact
-const TEST_TYPES: ReadonlySet<string> = new Set(['test_result']);
-const DOC_TYPES: ReadonlySet<string> = new Set(['adr', 'decision', 'document', 'learning']);
-const CODE_TYPES: ReadonlySet<string> = new Set([
-  'file',
-  'module',
-  'class',
-  'interface',
-  'function',
-  'method',
-  'variable',
-]);
-
-function classifyNode(node: GraphNode): 'tests' | 'docs' | 'code' | 'other' {
-  if (TEST_TYPES.has(node.type)) return 'tests';
-  if (DOC_TYPES.has(node.type)) return 'docs';
-  if (CODE_TYPES.has(node.type)) return 'code';
-  return 'other';
-}
 
 export class CascadeSimulator {
   constructor(private readonly store: GraphStore) {}
@@ -124,8 +105,10 @@ export class CascadeSimulator {
     probabilityFloor: number,
     maxDepth: number
   ): void {
+    const MAX_QUEUE_SIZE = 10_000;
     let head = 0;
     while (head < queue.length) {
+      if (queue.length > MAX_QUEUE_SIZE) break; // safety cap for degenerate graphs
       const entry = queue[head++]!;
 
       const existing = visited.get(entry.nodeId);
@@ -245,7 +228,7 @@ export class CascadeSimulator {
       for (const n of nodes) {
         const graphNode = this.store.getNode(n.nodeId);
         if (graphNode) {
-          breakdown[classifyNode(graphNode)]++;
+          breakdown[classifyNodeCategory(graphNode)]++;
         }
       }
       layers.push({ depth, nodes, categoryBreakdown: breakdown });
@@ -264,7 +247,7 @@ export class CascadeSimulator {
 
       const graphNode = this.store.getNode(node.nodeId);
       if (graphNode) {
-        catBreakdown[classifyNode(graphNode)]++;
+        catBreakdown[classifyNodeCategory(graphNode)]++;
       }
     }
 

@@ -1,9 +1,9 @@
 import type { GraphNode } from '../types.js';
 
 /** Node type sets for grouping impact results into categories. */
-const TEST_TYPES: ReadonlySet<string> = new Set(['test_result']);
-const DOC_TYPES: ReadonlySet<string> = new Set(['adr', 'decision', 'document', 'learning']);
-const CODE_TYPES: ReadonlySet<string> = new Set([
+export const TEST_TYPES: ReadonlySet<string> = new Set(['test_result']);
+export const DOC_TYPES: ReadonlySet<string> = new Set(['adr', 'decision', 'document', 'learning']);
+export const CODE_TYPES: ReadonlySet<string> = new Set([
   'file',
   'module',
   'class',
@@ -12,6 +12,16 @@ const CODE_TYPES: ReadonlySet<string> = new Set([
   'method',
   'variable',
 ]);
+
+export type NodeCategory = 'tests' | 'docs' | 'code' | 'other';
+
+/** Classify a graph node into an impact category. */
+export function classifyNodeCategory(node: GraphNode): NodeCategory {
+  if (TEST_TYPES.has(node.type)) return 'tests';
+  if (DOC_TYPES.has(node.type)) return 'docs';
+  if (CODE_TYPES.has(node.type)) return 'code';
+  return 'other';
+}
 
 export interface ImpactGroups {
   readonly tests: readonly GraphNode[];
@@ -34,15 +44,11 @@ export function groupNodesByImpact(nodes: readonly GraphNode[], excludeId?: stri
 
   for (const node of nodes) {
     if (excludeId && node.id === excludeId) continue;
-    if (TEST_TYPES.has(node.type)) {
-      tests.push(node);
-    } else if (DOC_TYPES.has(node.type)) {
-      docs.push(node);
-    } else if (CODE_TYPES.has(node.type)) {
-      code.push(node);
-    } else {
-      other.push(node);
-    }
+    const category = classifyNodeCategory(node);
+    if (category === 'tests') tests.push(node);
+    else if (category === 'docs') docs.push(node);
+    else if (category === 'code') code.push(node);
+    else other.push(node);
   }
 
   return { tests, docs, code, other };
