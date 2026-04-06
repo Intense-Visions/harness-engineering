@@ -27,8 +27,42 @@ describe('HEALTH_SIGNALS', () => {
     expect(HEALTH_SIGNALS).toContain('articulation-point');
   });
 
-  it('contains exactly 12 signals', () => {
-    expect(HEALTH_SIGNALS).toHaveLength(12);
+  it('contains exactly 28 signals', () => {
+    expect(HEALTH_SIGNALS).toHaveLength(28);
+  });
+
+  it('contains change-type signals', () => {
+    expect(HEALTH_SIGNALS).toContain('change-feature');
+    expect(HEALTH_SIGNALS).toContain('change-bugfix');
+    expect(HEALTH_SIGNALS).toContain('change-refactor');
+    expect(HEALTH_SIGNALS).toContain('change-docs');
+  });
+
+  it('contains domain signals', () => {
+    const domainSignals = [
+      'domain-database',
+      'domain-containerization',
+      'domain-deployment',
+      'domain-infrastructure-as-code',
+      'domain-api-design',
+      'domain-secrets',
+      'domain-e2e',
+      'domain-mutation-test',
+      'domain-load-testing',
+      'domain-data-pipeline',
+      'domain-mobile-patterns',
+      'domain-incident-response',
+    ];
+    for (const signal of domainSignals) {
+      expect(HEALTH_SIGNALS).toContain(signal);
+    }
+  });
+
+  it('HealthSignal type accepts change-type and domain values', () => {
+    const changeSignal: HealthSignal = 'change-feature';
+    const domainSignal: HealthSignal = 'domain-database';
+    expect(changeSignal).toBe('change-feature');
+    expect(domainSignal).toBe('domain-database');
   });
 });
 

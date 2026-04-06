@@ -105,6 +105,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'predict_failures',
   'recommend_skills',
   'compute_blast_radius',
+  'dispatch_skills',
 ];
 
 /**
