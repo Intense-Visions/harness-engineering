@@ -17,6 +17,8 @@ export interface ExternalTicket {
 export interface ExternalTicketState {
   /** External identifier */
   externalId: string;
+  /** Ticket title in the external service */
+  title: string;
   /** External status (e.g., "open", "closed") */
   status: string;
   /** External labels (used for status disambiguation on GitHub) */

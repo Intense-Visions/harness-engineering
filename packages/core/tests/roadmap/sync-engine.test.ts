@@ -79,7 +79,7 @@ function mockAdapter(overrides?: Partial<TrackerSyncAdapter>): TrackerSyncAdapte
       Ok({ externalId: _id, url: `https://github.com/owner/repo/issues/1` })
     ),
     fetchTicketState: vi.fn(async () =>
-      Ok({ externalId: '', status: 'open', labels: [], assignee: null })
+      Ok({ externalId: '', title: '', status: 'open', labels: [], assignee: null })
     ),
     fetchAllTickets: vi.fn(async () => Ok([])),
     assignTicket: vi.fn(async () => Ok(undefined)),
@@ -129,15 +129,14 @@ describe('syncToExternal()', () => {
     expect(result.created).toHaveLength(0);
   });
 
-  it('auto-populates assignee from authenticated user when unset', async () => {
+  it('does not auto-assign authenticated user to unassigned features', async () => {
     const feature = makeFeature({ assignee: null });
     const roadmap = makeRoadmap([feature]);
     const adapter = mockAdapter();
 
     await syncToExternal(roadmap, adapter, CONFIG);
 
-    expect(feature.assignee).toBe('@testuser');
-    expect(adapter.getAuthenticatedUser).toHaveBeenCalledOnce();
+    expect(feature.assignee).toBeNull();
   });
 
   it('preserves existing assignee and does not overwrite', async () => {
@@ -150,16 +149,128 @@ describe('syncToExternal()', () => {
     expect(feature.assignee).toBe('@alice');
   });
 
-  it('skips auto-populate when getAuthenticatedUser fails', async () => {
-    const feature = makeFeature({ assignee: null });
+  it('deduplicates by title — links and updates existing issue instead of creating', async () => {
+    const feature = makeFeature({ name: 'Existing Feature', externalId: null });
     const roadmap = makeRoadmap([feature]);
-    const adapter = mockAdapter({
-      getAuthenticatedUser: vi.fn(async () => Err(new Error('Unauthorized'))),
-    });
+    const adapter = mockAdapter();
+    const prefetchedTickets = [
+      {
+        externalId: 'github:owner/repo#99',
+        title: 'Existing Feature',
+        status: 'open',
+        labels: ['harness-managed'],
+        assignee: null,
+      },
+    ];
 
-    await syncToExternal(roadmap, adapter, CONFIG);
+    const result = await syncToExternal(roadmap, adapter, CONFIG, prefetchedTickets);
 
-    expect(feature.assignee).toBeNull();
+    // Should link and update, not create
+    expect(result.created).toHaveLength(0);
+    expect(result.updated).toContain('github:owner/repo#99');
+    expect(feature.externalId).toBe('github:owner/repo#99');
+    expect(adapter.createTicket).not.toHaveBeenCalled();
+    // Should update planning fields on the linked issue
+    expect(adapter.updateTicket).toHaveBeenCalledOnce();
+  });
+
+  it('dedup is case-insensitive', async () => {
+    const feature = makeFeature({ name: 'My Feature', externalId: null });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter();
+    const prefetchedTickets = [
+      {
+        externalId: 'github:owner/repo#50',
+        title: 'my feature',
+        status: 'open',
+        labels: ['harness-managed'],
+        assignee: null,
+      },
+    ];
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG, prefetchedTickets);
+
+    expect(result.created).toHaveLength(0);
+    expect(feature.externalId).toBe('github:owner/repo#50');
+  });
+
+  it('dedup only matches issues with configured labels', async () => {
+    const feature = makeFeature({ name: 'My Feature', externalId: null });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter();
+    // Issue exists with matching title but missing harness-managed label
+    const prefetchedTickets = [
+      {
+        externalId: 'github:owner/repo#50',
+        title: 'My Feature',
+        status: 'open',
+        labels: ['bug'],
+        assignee: null,
+      },
+    ];
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG, prefetchedTickets);
+
+    // Should NOT dedup — label mismatch
+    expect(result.created).toHaveLength(1);
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
+  });
+
+  it('dedup prefers open issues over closed when titles collide', async () => {
+    const feature = makeFeature({ name: 'Dup Title', externalId: null });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter();
+    const prefetchedTickets = [
+      {
+        externalId: 'github:owner/repo#10',
+        title: 'Dup Title',
+        status: 'closed',
+        labels: ['harness-managed'],
+        assignee: null,
+      },
+      {
+        externalId: 'github:owner/repo#20',
+        title: 'Dup Title',
+        status: 'open',
+        labels: ['harness-managed'],
+        assignee: null,
+      },
+    ];
+
+    await syncToExternal(roadmap, adapter, CONFIG, prefetchedTickets);
+
+    expect(feature.externalId).toBe('github:owner/repo#20');
+  });
+
+  it('creates ticket when no title match exists', async () => {
+    const feature = makeFeature({ name: 'Brand New', externalId: null });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter();
+    const prefetchedTickets = [
+      {
+        externalId: 'github:owner/repo#1',
+        title: 'Something Else',
+        status: 'open',
+        labels: ['harness-managed'],
+        assignee: null,
+      },
+    ];
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG, prefetchedTickets);
+
+    expect(result.created).toHaveLength(1);
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
+  });
+
+  it('proceeds without dedup when no prefetched tickets provided', async () => {
+    const feature = makeFeature({ name: 'New Feature', externalId: null });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter();
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG);
+
+    expect(result.created).toHaveLength(1);
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
   });
 
   it('handles mix of new and existing features', async () => {
@@ -184,6 +295,7 @@ describe('syncFromExternal()', () => {
         Ok([
           {
             externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
             status: 'open',
             labels: ['planned'],
             assignee: '@cwarner',
@@ -211,6 +323,7 @@ describe('syncFromExternal()', () => {
         Ok([
           {
             externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
             status: 'open',
             labels: ['in-progress'],
             assignee: null,
@@ -232,6 +345,7 @@ describe('syncFromExternal()', () => {
         Ok([
           {
             externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
             status: 'open',
             labels: ['in-progress'],
             assignee: null,
@@ -253,6 +367,7 @@ describe('syncFromExternal()', () => {
         Ok([
           {
             externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
             status: 'open',
             labels: ['in-progress', 'blocked'], // ambiguous
             assignee: null,
@@ -299,6 +414,7 @@ describe('syncFromExternal()', () => {
         Ok([
           {
             externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
             status: 'closed',
             labels: [],
             assignee: null,

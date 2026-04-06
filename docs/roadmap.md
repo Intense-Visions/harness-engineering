@@ -949,7 +949,8 @@ last_manual_edit: 2026-03-30
 - **Summary:** Probabilistic BFS traversal with failure probability annotations synthesized from change frequency. New tool: compute_blast_radius. Shows transitive downstream impact with confidence scores — not just direct dependencies but the full cascade chain. [C9]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-06
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#85
 

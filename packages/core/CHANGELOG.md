@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.21.0
+
+### Minor Changes
+
+- Fix roadmap sync mass-assignment and duplicate issue creation
+  - **Remove auto-assignee from sync** — `syncToExternal` no longer auto-assigns the authenticated user to every unassigned feature. Assignment only happens through the explicit pilot workflow (`assignFeature`).
+  - **Title-based dedup** — `syncToExternal` accepts pre-fetched tickets and checks for existing GitHub issues by title before creating new ones. Dedup is restricted to issues with configured labels (e.g., `harness-managed`) and prefers open issues over closed when titles collide.
+  - **Dedup-linked issues get updated** — When a feature is linked to an existing issue via dedup, planning fields are synced immediately (not deferred to the next cycle).
+  - **Single fetch per fullSync** — `fullSync` now calls `fetchAllTickets` once and passes the result to both `syncToExternal` and `syncFromExternal`, eliminating redundant paginated API calls.
+
+### Patch Changes
+
+- Updated dependencies
+  - @harness-engineering/types@0.9.0 — `ExternalTicketState.title` field addition
+
 ## 0.19.0
 
 ### Minor Changes

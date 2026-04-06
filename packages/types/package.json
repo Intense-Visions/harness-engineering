@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/types",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "TypeScript types and interfaces for Harness Engineering",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
