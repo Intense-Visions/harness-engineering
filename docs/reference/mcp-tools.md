@@ -329,18 +329,17 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 - `maxFileSize` (number, optional) — Maximum number of lines changed per file before flagging
 - `maxFileCount` (number, optional) — Maximum number of changed files before flagging
 
-### `compute_blast_radius`
+### `dispatch_skills`
 
-Simulate cascading failure propagation from a source node using probability-weighted BFS. Returns cumulative failure probability for each affected node.
+Recommend an optimal skill sequence based on what changed in the codebase. Combines health signals with change-type and domain detection from git diffs. Returns an annotated sequence with parallel-safe flags, estimated impact, and dependency info.
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
-- `file` (string, optional) — File path (relative to project root) to simulate failure for
-- `nodeId` (string, optional) — Node ID to simulate failure for
-- `probabilityFloor` (number, optional) — Minimum cumulative probability to continue traversal (default 0.05)
-- `maxDepth` (number, optional) — Maximum BFS depth (default 10)
-- `mode` (string, optional) — Response density: compact returns summary + top 10 highest-risk nodes, detailed returns full layered cascade chain. Default: compact
+- `path` (string, optional) — Project root path (defaults to cwd)
+- `files` (array, optional) — Changed file paths (auto-detected from git diff if omitted)
+- `commitMessage` (string, optional) — Commit message for change-type detection (auto-detected from git log if omitted)
+- `fresh` (boolean, optional) — Force a fresh health snapshot capture (default: false, uses cached)
+- `limit` (number, optional) — Maximum number of skills to return (default: 5)
 
 ### `gather_context`
 
