@@ -8,6 +8,7 @@ import { FusionLayer } from '../search/FusionLayer.js';
 import { ContextQL } from '../query/ContextQL.js';
 import { groupNodesByImpact } from '../query/groupImpact.js';
 import { GraphAnomalyAdapter } from '../entropy/GraphAnomalyAdapter.js';
+import { CascadeSimulator } from '../blast-radius/index.js';
 
 export { INTENTS } from './types.js';
 export type { Intent, ClassificationResult, ResolvedEntity, AskGraphResult } from './types.js';
@@ -118,6 +119,14 @@ function executeOperation(
   switch (intent) {
     case 'impact': {
       const rootId = entities[0]!.nodeId;
+
+      // Route "blast radius" / "cascade" queries to CascadeSimulator
+      const lowerQuestion = question.toLowerCase();
+      if (lowerQuestion.includes('blast radius') || lowerQuestion.includes('cascade')) {
+        const simulator = new CascadeSimulator(store);
+        return simulator.simulate(rootId);
+      }
+
       const result = cql.execute({
         rootNodeIds: [rootId],
         bidirectional: true,

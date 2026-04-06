@@ -91,6 +91,8 @@ import {
   handleDetectAnomalies,
   askGraphDefinition,
   handleAskGraph,
+  computeBlastRadiusDefinition,
+  handleComputeBlastRadius,
 } from './tools/graph/index.js';
 import {
   getGraphResource,
@@ -199,6 +201,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   checkTraceabilityDefinition,
   predictFailuresDefinition,
   recommendSkillsDefinition,
+  computeBlastRadiusDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -254,6 +257,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   check_traceability: handleCheckTraceability as ToolHandler,
   predict_failures: handlePredictFailures as ToolHandler,
   recommend_skills: handleRecommendSkills as ToolHandler,
+  compute_blast_radius: handleComputeBlastRadius as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

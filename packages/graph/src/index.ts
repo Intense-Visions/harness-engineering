@@ -147,7 +147,7 @@ export { ConflictPredictor } from './independence/index.js';
 export type { ConflictSeverity, ConflictDetail, ConflictPrediction } from './independence/index.js';
 
 // Blast Radius
-export { CompositeProbabilityStrategy } from './blast-radius/index.js';
+export { CompositeProbabilityStrategy, CascadeSimulator } from './blast-radius/index.js';
 export type {
   ProbabilityStrategy,
   CascadeSimulationOptions,

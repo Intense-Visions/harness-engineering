@@ -9,6 +9,14 @@ import type {
 } from './types.js';
 import { CompositeProbabilityStrategy } from './CompositeProbabilityStrategy.js';
 
+interface BfsEntry {
+  nodeId: string;
+  cumProb: number;
+  depth: number;
+  parentId: string;
+  incomingEdge: string;
+}
+
 const DEFAULT_PROBABILITY_FLOOR = 0.05;
 const DEFAULT_MAX_DEPTH = 10;
 
@@ -16,7 +24,13 @@ const DEFAULT_MAX_DEPTH = 10;
 const TEST_TYPES: ReadonlySet<string> = new Set(['test_result']);
 const DOC_TYPES: ReadonlySet<string> = new Set(['adr', 'decision', 'document', 'learning']);
 const CODE_TYPES: ReadonlySet<string> = new Set([
-  'file', 'module', 'class', 'interface', 'function', 'method', 'variable',
+  'file',
+  'module',
+  'class',
+  'interface',
+  'function',
+  'method',
+  'variable',
 ]);
 
 function classifyNode(node: GraphNode): 'tests' | 'docs' | 'code' | 'other' {
@@ -29,10 +43,7 @@ function classifyNode(node: GraphNode): 'tests' | 'docs' | 'code' | 'other' {
 export class CascadeSimulator {
   constructor(private readonly store: GraphStore) {}
 
-  simulate(
-    sourceNodeId: string,
-    options: CascadeSimulationOptions = {},
-  ): CascadeResult {
+  simulate(sourceNodeId: string, options: CascadeSimulationOptions = {}): CascadeResult {
     const sourceNode = this.store.getNode(sourceNodeId);
     if (!sourceNode) {
       throw new Error(`Node not found: ${sourceNodeId}. Ensure the file has been ingested.`);
@@ -40,32 +51,52 @@ export class CascadeSimulator {
 
     const probabilityFloor = options.probabilityFloor ?? DEFAULT_PROBABILITY_FLOOR;
     const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
-    const edgeTypeFilter = options.edgeTypes
-      ? new Set(options.edgeTypes)
-      : null;
+    const edgeTypeFilter = options.edgeTypes ? new Set(options.edgeTypes) : null;
     const strategy = options.strategy ?? this.buildDefaultStrategy();
 
-    // BFS state
-    // visited maps nodeId -> best CascadeNode (highest cumulative probability)
     const visited = new Map<string, CascadeNode>();
-    // Queue: [nodeId, cumulativeProbability, depth, parentId, incomingEdge]
-    const queue: Array<{
-      nodeId: string;
-      cumProb: number;
-      depth: number;
-      parentId: string;
-      incomingEdge: string;
-    }> = [];
+    const queue: BfsEntry[] = [];
+    const fanOutCount = new Map<string, number>();
 
-    // Seed: get outgoing edges from source
+    this.seedQueue(
+      sourceNodeId,
+      sourceNode,
+      strategy,
+      edgeTypeFilter,
+      probabilityFloor,
+      queue,
+      fanOutCount
+    );
+    this.runBfs(
+      queue,
+      visited,
+      fanOutCount,
+      sourceNodeId,
+      strategy,
+      edgeTypeFilter,
+      probabilityFloor,
+      maxDepth
+    );
+
+    return this.buildResult(sourceNodeId, sourceNode.name, visited, fanOutCount);
+  }
+
+  private seedQueue(
+    sourceNodeId: string,
+    sourceNode: GraphNode,
+    strategy: ProbabilityStrategy,
+    edgeTypeFilter: Set<string> | null,
+    probabilityFloor: number,
+    queue: BfsEntry[],
+    fanOutCount: Map<string, number>
+  ): void {
     const sourceEdges = this.store.getEdges({ from: sourceNodeId });
     for (const edge of sourceEdges) {
-      if (edge.to === sourceNodeId) continue; // skip self-loop
+      if (edge.to === sourceNodeId) continue;
       if (edgeTypeFilter && !edgeTypeFilter.has(edge.type)) continue;
       const targetNode = this.store.getNode(edge.to);
       if (!targetNode) continue;
-      const edgeProb = strategy.getEdgeProbability(edge, sourceNode, targetNode);
-      const cumProb = edgeProb; // 1.0 * edgeProb
+      const cumProb = strategy.getEdgeProbability(edge, sourceNode, targetNode);
       if (cumProb < probabilityFloor) continue;
       queue.push({
         nodeId: edge.to,
@@ -75,65 +106,88 @@ export class CascadeSimulator {
         incomingEdge: edge.type,
       });
     }
+    fanOutCount.set(
+      sourceNodeId,
+      sourceEdges.filter(
+        (e) => e.to !== sourceNodeId && (!edgeTypeFilter || edgeTypeFilter.has(e.type))
+      ).length
+    );
+  }
 
-    // Track fan-out per node in the cascade for amplification detection
-    const fanOutCount = new Map<string, number>();
-    // Count source node fan-out
-    fanOutCount.set(sourceNodeId, sourceEdges.filter(
-      e => e.to !== sourceNodeId && (!edgeTypeFilter || edgeTypeFilter.has(e.type)),
-    ).length);
-
+  private runBfs(
+    queue: BfsEntry[],
+    visited: Map<string, CascadeNode>,
+    fanOutCount: Map<string, number>,
+    sourceNodeId: string,
+    strategy: ProbabilityStrategy,
+    edgeTypeFilter: Set<string> | null,
+    probabilityFloor: number,
+    maxDepth: number
+  ): void {
     let head = 0;
     while (head < queue.length) {
       const entry = queue[head++]!;
-      const { nodeId, cumProb, depth, parentId, incomingEdge } = entry;
 
-      // Multi-path: skip if we already found a higher-probability path
-      const existing = visited.get(nodeId);
-      if (existing && existing.cumulativeProbability >= cumProb) continue;
+      const existing = visited.get(entry.nodeId);
+      if (existing && existing.cumulativeProbability >= entry.cumProb) continue;
 
-      const targetNode = this.store.getNode(nodeId);
+      const targetNode = this.store.getNode(entry.nodeId);
       if (!targetNode) continue;
 
-      const cascadeNode: CascadeNode = {
-        nodeId,
+      visited.set(entry.nodeId, {
+        nodeId: entry.nodeId,
         name: targetNode.name,
-        path: targetNode.path,
+        ...(targetNode.path !== undefined && { path: targetNode.path }),
         type: targetNode.type,
-        cumulativeProbability: cumProb,
-        depth,
-        incomingEdge,
-        parentId,
-      };
-      visited.set(nodeId, cascadeNode);
+        cumulativeProbability: entry.cumProb,
+        depth: entry.depth,
+        incomingEdge: entry.incomingEdge,
+        parentId: entry.parentId,
+      });
 
-      // Expand if within depth cap
-      if (depth < maxDepth) {
-        const outEdges = this.store.getEdges({ from: nodeId });
-        let childCount = 0;
-        for (const edge of outEdges) {
-          if (edgeTypeFilter && !edgeTypeFilter.has(edge.type)) continue;
-          if (edge.to === sourceNodeId) continue; // skip back-edge to source
-          const childNode = this.store.getNode(edge.to);
-          if (!childNode) continue;
-          const edgeProb = strategy.getEdgeProbability(edge, targetNode, childNode);
-          const newCumProb = cumProb * edgeProb;
-          if (newCumProb < probabilityFloor) continue;
-          childCount++;
-          queue.push({
-            nodeId: edge.to,
-            cumProb: newCumProb,
-            depth: depth + 1,
-            parentId: nodeId,
-            incomingEdge: edge.type,
-          });
-        }
-        fanOutCount.set(nodeId, (fanOutCount.get(nodeId) ?? 0) + childCount);
+      if (entry.depth < maxDepth) {
+        const childCount = this.expandNode(
+          entry,
+          targetNode,
+          sourceNodeId,
+          strategy,
+          edgeTypeFilter,
+          probabilityFloor,
+          queue
+        );
+        fanOutCount.set(entry.nodeId, (fanOutCount.get(entry.nodeId) ?? 0) + childCount);
       }
     }
+  }
 
-    // Build layers and flat summary from visited
-    return this.buildResult(sourceNodeId, sourceNode.name, visited, fanOutCount);
+  private expandNode(
+    entry: BfsEntry,
+    fromNode: GraphNode,
+    sourceNodeId: string,
+    strategy: ProbabilityStrategy,
+    edgeTypeFilter: Set<string> | null,
+    probabilityFloor: number,
+    queue: BfsEntry[]
+  ): number {
+    const outEdges = this.store.getEdges({ from: entry.nodeId });
+    let childCount = 0;
+    for (const edge of outEdges) {
+      if (edgeTypeFilter && !edgeTypeFilter.has(edge.type)) continue;
+      if (edge.to === sourceNodeId) continue;
+      const childNode = this.store.getNode(edge.to);
+      if (!childNode) continue;
+      const newCumProb = entry.cumProb * strategy.getEdgeProbability(edge, fromNode, childNode);
+      if (newCumProb < probabilityFloor) continue;
+      childCount++;
+      queue.push({
+        nodeId: edge.to,
+        cumProb: newCumProb,
+        depth: entry.depth + 1,
+        parentId: entry.nodeId,
+        incomingEdge: edge.type,
+      });
+    }
+    return childCount;
   }
 
   private buildDefaultStrategy(): ProbabilityStrategy {
@@ -145,7 +199,7 @@ export class CascadeSimulator {
     sourceNodeId: string,
     sourceName: string,
     visited: Map<string, CascadeNode>,
-    fanOutCount: Map<string, number>,
+    fanOutCount: Map<string, number>
   ): CascadeResult {
     if (visited.size === 0) {
       return {
@@ -169,7 +223,7 @@ export class CascadeSimulator {
 
     // Flat summary: sorted by probability desc
     const flatSummary = [...allNodes].sort(
-      (a, b) => b.cumulativeProbability - a.cumulativeProbability,
+      (a, b) => b.cumulativeProbability - a.cumulativeProbability
     );
 
     // Group by depth for layers
@@ -222,10 +276,7 @@ export class CascadeSimulator {
       }
     }
 
-    const maxDepthReached = allNodes.reduce(
-      (max, n) => Math.max(max, n.depth),
-      0,
-    );
+    const maxDepthReached = allNodes.reduce((max, n) => Math.max(max, n.depth), 0);
 
     return {
       sourceNodeId,
