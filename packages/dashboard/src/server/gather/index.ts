@@ -1,3 +1,8 @@
 export { gatherRoadmap } from './roadmap';
 export { gatherHealth } from './health';
 export { gatherGraph } from './graph';
+export { gatherSecurity } from './security';
+export { gatherPerf } from './perf';
+export { gatherArch } from './arch';
+export { gatherAnomalies } from './anomalies';
+export { gatherBlastRadius } from './blast-radius';

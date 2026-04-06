@@ -229,6 +229,9 @@ importers:
       '@tremor/react':
         specifier: ^3.18.0
         version: 3.18.7(react-dom@18.3.1)(react@18.3.1)
+      glob:
+        specifier: ^13.0.6
+        version: 13.0.6
       hono:
         specifier: ^4.7.0
         version: 4.12.10
@@ -4701,6 +4704,15 @@ packages:
       minimatch: 10.2.5
       minipass: 7.1.3
       package-json-from-dist: 1.0.1
+      path-scurry: 2.0.2
+    dev: false
+
+  /glob@13.0.6:
+    resolution: {integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==}
+    engines: {node: 18 || 20 || >=22}
+    dependencies:
+      minimatch: 10.2.5
+      minipass: 7.1.3
       path-scurry: 2.0.2
     dev: false
 

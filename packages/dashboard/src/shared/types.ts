@@ -150,3 +150,143 @@ export type SSEEvent =
   | { type: 'health'; data: HealthResult; timestamp: string }
   | { type: 'graph'; data: GraphResult; timestamp: string }
   | { type: 'overview'; data: OverviewData; timestamp: string };
+
+// --- CI types ---
+
+export interface CIData {
+  checks: CheckResult[];
+  lastRun: string | null;
+}
+
+export interface CheckResult {
+  name: string;
+  passed: boolean;
+  errorCount: number;
+  warningCount: number;
+  details?: string;
+}
+
+// --- Security types ---
+
+export interface SecurityData {
+  valid: boolean;
+  findings: SecurityFindingSummary[];
+  stats: { filesScanned: number; errorCount: number; warningCount: number; infoCount: number };
+}
+
+export interface SecurityFindingSummary {
+  ruleId: string;
+  category: string;
+  severity: string;
+  file: string;
+  line: number;
+  message: string;
+}
+
+export interface SecurityError {
+  error: string;
+}
+
+export type SecurityResult = SecurityData | SecurityError;
+
+// --- Perf types ---
+
+export interface PerfData {
+  valid: boolean;
+  violations: PerfViolationSummary[];
+  stats: { filesAnalyzed: number; violationCount: number };
+}
+
+export interface PerfViolationSummary {
+  metric: string;
+  file: string;
+  value: number;
+  threshold: number;
+  severity: string;
+}
+
+export interface PerfError {
+  error: string;
+}
+
+export type PerfResult = PerfData | PerfError;
+
+// --- Architecture types ---
+
+export interface ArchData {
+  passed: boolean;
+  totalViolations: number;
+  regressions: { category: string; delta: number }[];
+  newViolations: { file: string; detail: string; severity: string }[];
+}
+
+export interface ArchError {
+  error: string;
+}
+
+export type ArchResult = ArchData | ArchError;
+
+// --- Anomaly types ---
+
+export interface AnomalyData {
+  outliers: AnomalyOutlier[];
+  articulationPoints: AnomalyArticulationPoint[];
+  overlapCount: number;
+}
+
+export interface AnomalyOutlier {
+  nodeId: string;
+  name: string;
+  type: string;
+  metric: string;
+  value: number;
+  zScore: number;
+}
+
+export interface AnomalyArticulationPoint {
+  nodeId: string;
+  name: string;
+  componentsIfRemoved: number;
+  dependentCount: number;
+}
+
+export interface AnomalyUnavailable {
+  available: false;
+  reason: string;
+}
+
+export type AnomalyResult = AnomalyData | AnomalyUnavailable;
+
+// --- Blast radius types ---
+
+export interface BlastRadiusData {
+  sourceNodeId: string;
+  sourceName: string;
+  layers: BlastRadiusLayer[];
+  summary: {
+    totalAffected: number;
+    maxDepth: number;
+    highRisk: number;
+    mediumRisk: number;
+    lowRisk: number;
+  };
+}
+
+export interface BlastRadiusLayer {
+  depth: number;
+  nodes: BlastRadiusNode[];
+}
+
+export interface BlastRadiusNode {
+  nodeId: string;
+  name: string;
+  type: string;
+  probability: number;
+  parentId: string;
+}
+
+export interface BlastRadiusError {
+  error: string;
+}
+
+export type BlastRadiusResult = BlastRadiusData | BlastRadiusError;
