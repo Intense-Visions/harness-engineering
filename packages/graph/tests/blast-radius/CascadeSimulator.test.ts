@@ -115,7 +115,7 @@ describe('CascadeSimulator', () => {
       const result = sim.simulate('file:a');
 
       // D should appear exactly once
-      const dNodes = result.flatSummary.filter(n => n.nodeId === 'file:d');
+      const dNodes = result.flatSummary.filter((n) => n.nodeId === 'file:d');
       expect(dNodes).toHaveLength(1);
 
       // Best path to D: A->B->D = 0.35 * 0.35 = 0.1225
@@ -138,7 +138,7 @@ describe('CascadeSimulator', () => {
       const sim = new CascadeSimulator(store);
       const result = sim.simulate('file:a');
 
-      const ids = result.flatSummary.map(n => n.nodeId);
+      const ids = result.flatSummary.map((n) => n.nodeId);
       expect(new Set(ids).size).toBe(ids.length);
     });
   });
@@ -212,8 +212,8 @@ describe('CascadeSimulator', () => {
       const result = sim.simulate('file:a');
 
       // B is visited; A is the source and should not appear in results
-      expect(result.flatSummary.map(n => n.nodeId)).toContain('file:b');
-      expect(result.flatSummary.map(n => n.nodeId)).not.toContain('file:a');
+      expect(result.flatSummary.map((n) => n.nodeId)).toContain('file:b');
+      expect(result.flatSummary.map((n) => n.nodeId)).not.toContain('file:a');
     });
 
     it('handles self-loop without infinite recursion', () => {
@@ -364,9 +364,9 @@ describe('CascadeSimulator', () => {
       const sim = new CascadeSimulator(store);
       const result = sim.simulate('file:a', { strategy: mockStrategy });
 
-      expect(result.summary.highRisk).toBe(1);   // 0.8 >= 0.5
-      expect(result.summary.mediumRisk).toBe(1);  // 0.3 >= 0.2 and < 0.5
-      expect(result.summary.lowRisk).toBe(1);     // 0.1 < 0.2
+      expect(result.summary.highRisk).toBe(1); // 0.8 >= 0.5
+      expect(result.summary.mediumRisk).toBe(1); // 0.3 >= 0.2 and < 0.5
+      expect(result.summary.lowRisk).toBe(1); // 0.1 < 0.2
     });
   });
 
@@ -413,8 +413,9 @@ describe('CascadeSimulator', () => {
       const result = sim.simulate('file:a');
 
       for (let i = 1; i < result.flatSummary.length; i++) {
-        expect(result.flatSummary[i - 1].cumulativeProbability)
-          .toBeGreaterThanOrEqual(result.flatSummary[i].cumulativeProbability);
+        expect(result.flatSummary[i - 1].cumulativeProbability).toBeGreaterThanOrEqual(
+          result.flatSummary[i].cumulativeProbability
+        );
       }
     });
   });
