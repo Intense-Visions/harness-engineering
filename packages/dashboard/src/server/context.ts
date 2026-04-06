@@ -1,0 +1,28 @@
+import { DataCache } from './cache';
+import { DEFAULT_POLL_INTERVAL_MS } from '../shared/constants';
+
+export interface ServerContext {
+  /** Resolved absolute path to docs/roadmap.md */
+  roadmapPath: string;
+  /** Resolved absolute path to the project root */
+  projectPath: string;
+  /** Shared in-memory cache (60s TTL) */
+  cache: DataCache;
+  /** SSE polling interval in milliseconds */
+  pollIntervalMs: number;
+}
+
+/**
+ * Build the server context from environment variables and defaults.
+ * roadmapPath and projectPath default to the current working directory.
+ */
+export function buildContext(overrides?: Partial<ServerContext>): ServerContext {
+  const projectPath = overrides?.projectPath ?? process.cwd();
+  const roadmapPath = overrides?.roadmapPath ?? `${projectPath}/docs/roadmap.md`;
+  return {
+    projectPath,
+    roadmapPath,
+    cache: overrides?.cache ?? new DataCache(60_000),
+    pollIntervalMs: overrides?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
+  };
+}
