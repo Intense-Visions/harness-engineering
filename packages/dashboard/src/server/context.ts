@@ -18,7 +18,8 @@ export interface ServerContext {
  * roadmapPath and projectPath default to the current working directory.
  */
 export function buildContext(overrides?: Partial<ServerContext>): ServerContext {
-  const projectPath = overrides?.projectPath ?? process.cwd();
+  const projectPath =
+    overrides?.projectPath ?? process.env['HARNESS_PROJECT_PATH'] ?? process.cwd();
   const roadmapPath = overrides?.roadmapPath ?? join(projectPath, 'docs', 'roadmap.md');
   return {
     projectPath,

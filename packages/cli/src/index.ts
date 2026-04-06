@@ -58,6 +58,7 @@ import { createScanConfigCommand } from './commands/scan-config';
 import { createSnapshotCommand } from './commands/snapshot';
 import { createPredictCommand } from './commands/predict';
 import { createRecommendCommand } from './commands/recommend';
+import { createDashboardCommand } from './commands/dashboard';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -125,6 +126,7 @@ export function createProgram(): Command {
   program.addCommand(createSnapshotCommand());
   program.addCommand(createPredictCommand());
   program.addCommand(createRecommendCommand());
+  program.addCommand(createDashboardCommand());
 
   return program;
 }
