@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useApi } from '../hooks/useApi';
 
 interface Props {
@@ -16,19 +16,11 @@ interface Props {
  */
 export function ActionButton({ url, label, body, loadingLabel, onSuccess }: Props) {
   const { state, error, run } = useApi(url);
-  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset to idle after 3 s so the button can be used again
   useEffect(() => {
     if (state === 'success') {
       onSuccess?.();
-      successTimer.current = setTimeout(() => {
-        // Button remains in success state until next click — no forced reset
-      }, 3_000);
     }
-    return () => {
-      if (successTimer.current) clearTimeout(successTimer.current);
-    };
   }, [state, onSuccess]);
 
   const isLoading = state === 'loading';

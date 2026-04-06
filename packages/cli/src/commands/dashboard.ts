@@ -49,6 +49,7 @@ function runDashboard(opts: DashboardOptions): void {
   const env = {
     ...process.env,
     DASHBOARD_API_PORT: String(apiPort),
+    DASHBOARD_CLIENT_PORT: String(clientPort),
     HARNESS_PROJECT_PATH: projectPath,
   };
   const child = server.dev
@@ -58,6 +59,13 @@ function runDashboard(opts: DashboardOptions): void {
   child.on('error', (e: Error) => {
     console.error(`Failed to start dashboard: ${e.message}`);
     process.exit(1);
+  });
+
+  child.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.error(`Dashboard server exited with code ${code}`);
+      process.exit(code);
+    }
   });
 
   console.log(`Dashboard API starting on http://localhost:${apiPort}`);

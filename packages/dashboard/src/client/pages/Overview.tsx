@@ -2,24 +2,12 @@ import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { ActionButton } from '../components/ActionButton';
-import type { OverviewData, RoadmapData, HealthData, GraphData } from '@shared/types';
-
-const SSE_URL = '/api/sse';
-
-function isRoadmapData(r: OverviewData['roadmap']): r is RoadmapData {
-  return 'totalFeatures' in r;
-}
-
-function isHealthData(h: OverviewData['health']): h is HealthData {
-  return 'totalIssues' in h;
-}
-
-function isGraphData(g: OverviewData['graph']): g is GraphData {
-  return g.available === true;
-}
+import type { OverviewData } from '@shared/types';
+import { SSE_ENDPOINT } from '@shared/constants';
+import { isRoadmapData, isHealthData, isGraphData } from '../utils/typeGuards';
 
 export function Overview() {
-  const { data, lastUpdated, stale, error } = useSSE(SSE_URL, 'overview');
+  const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
 
   const roadmap = data ? data.roadmap : null;
   const health = data ? data.health : null;

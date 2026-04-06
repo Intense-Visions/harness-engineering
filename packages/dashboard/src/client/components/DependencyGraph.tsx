@@ -1,4 +1,5 @@
 import type { DashboardFeature, FeatureStatus } from '@shared/types';
+import { STATUS_COLOR } from '../utils/statusColors';
 
 interface Props {
   features: DashboardFeature[];
@@ -17,41 +18,67 @@ const COL_GAP = 180;
 const ROW_GAP = 56;
 const PADDING = 24;
 
-const STATUS_COLOR: Record<FeatureStatus, string> = {
-  done: '#10b981',
-  'in-progress': '#3b82f6',
-  planned: '#6b7280',
-  blocked: '#ef4444',
-  backlog: '#374151',
-};
-
 /**
- * Simple layered layout: nodes without incoming edges go in column 0,
- * their dependents in column 1, etc.
+ * Layered layout using Kahn's algorithm for proper topological ordering.
+ * Detects cycles and reports nodes involved.
  */
-function computeLayout(features: DashboardFeature[]): { nodes: Node[]; edges: [string, string][] } {
+function computeLayout(features: DashboardFeature[]): {
+  nodes: Node[];
+  edges: [string, string][];
+  cycleNodes: string[];
+} {
   // Build edges: blocker → blocked feature
   const edges: [string, string][] = [];
   const nameSet = new Set(features.map((f) => f.name));
+  const adjacency = new Map<string, string[]>();
+  for (const f of features) adjacency.set(f.name, []);
   for (const f of features) {
     for (const b of f.blockedBy) {
-      if (nameSet.has(b)) edges.push([b, f.name]);
+      if (nameSet.has(b)) {
+        edges.push([b, f.name]);
+        adjacency.get(b)!.push(f.name);
+      }
     }
   }
 
-  // Compute in-degree per node
+  // Kahn's algorithm: BFS from nodes with inDegree 0
   const inDegree = new Map<string, number>();
   for (const f of features) inDegree.set(f.name, 0);
   for (const [, to] of edges) inDegree.set(to, (inDegree.get(to) ?? 0) + 1);
 
-  // Assign columns (topological levels)
   const col = new Map<string, number>();
-  const queue = features.filter((f) => (inDegree.get(f.name) ?? 0) === 0).map((f) => f.name);
-  for (const name of queue) col.set(name, 0);
+  const queue: string[] = [];
+  for (const f of features) {
+    if ((inDegree.get(f.name) ?? 0) === 0) {
+      queue.push(f.name);
+      col.set(f.name, 0);
+    }
+  }
 
-  for (const [from, to] of edges) {
-    const fromCol = col.get(from) ?? 0;
-    col.set(to, Math.max(col.get(to) ?? 0, fromCol + 1));
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++]!;
+    const currentCol = col.get(current) ?? 0;
+    for (const neighbor of adjacency.get(current)!) {
+      const newDeg = (inDegree.get(neighbor) ?? 1) - 1;
+      inDegree.set(neighbor, newDeg);
+      col.set(neighbor, Math.max(col.get(neighbor) ?? 0, currentCol + 1));
+      if (newDeg === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // Nodes never added to queue are in a cycle
+  const visited = new Set(queue);
+  const cycleNodes = features.filter((f) => !visited.has(f.name)).map((f) => f.name);
+
+  // Place cycle nodes in a fallback column (max + 1)
+  if (cycleNodes.length > 0) {
+    const maxCol = Math.max(0, ...Array.from(col.values()));
+    for (const name of cycleNodes) {
+      col.set(name, maxCol + 1);
+    }
   }
 
   // Assign rows within each column
@@ -68,7 +95,7 @@ function computeLayout(features: DashboardFeature[]): { nodes: Node[]; edges: [s
     };
   });
 
-  return { nodes, edges };
+  return { nodes, edges, cycleNodes };
 }
 
 export function DependencyGraph({ features }: Props) {
@@ -85,7 +112,7 @@ export function DependencyGraph({ features }: Props) {
   const relevant = features.filter((f) => blocking.has(f.name) || blocked.has(f.name));
   if (relevant.length === 0) return null;
 
-  const { nodes, edges } = computeLayout(relevant);
+  const { nodes, edges, cycleNodes } = computeLayout(relevant);
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
   const maxX = Math.max(...nodes.map((n) => n.x + NODE_W)) + PADDING;
@@ -94,6 +121,11 @@ export function DependencyGraph({ features }: Props) {
   return (
     <div>
       <p className="mb-2 text-xs text-gray-500">Blocker relationships (arrow: blocker → blocked)</p>
+      {cycleNodes.length > 0 && (
+        <p className="mb-2 text-xs text-yellow-400">
+          Cyclic dependencies detected: {cycleNodes.join(', ')}
+        </p>
+      )}
       <svg width={maxX} height={maxY} className="overflow-visible">
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">

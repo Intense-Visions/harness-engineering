@@ -1,18 +1,11 @@
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
-import type { GraphData } from '@shared/types';
-
-const SSE_URL = '/api/sse';
-
-function isGraphData(g: unknown): g is GraphData {
-  return (
-    typeof g === 'object' && g !== null && 'available' in g && (g as GraphData).available === true
-  );
-}
+import { SSE_ENDPOINT } from '@shared/constants';
+import { isGraphData } from '../utils/typeGuards';
 
 export function Graph() {
-  const { data, lastUpdated, stale, error } = useSSE(SSE_URL, 'overview');
+  const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
 
   const graph = data ? data.graph : null;
   const graphData = graph && isGraphData(graph) ? graph : null;

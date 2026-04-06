@@ -68,6 +68,15 @@ export class SSEManager {
     }
   }
 
+  /** Safely check stream.closed, treating missing property as alive (relies on onAbort). */
+  private isStreamClosed(stream: SSEStreamingApi): boolean {
+    try {
+      return !!(stream as unknown as { closed?: boolean }).closed;
+    } catch {
+      return false;
+    }
+  }
+
   private async _tick(ctx: ServerContext): Promise<void> {
     const [roadmap, health, graph] = await Promise.all([
       gatherRoadmap(ctx.roadmapPath),
@@ -85,7 +94,7 @@ export class SSEManager {
     const dead: SSEStreamingApi[] = [];
 
     for (const [stream] of this.connections) {
-      if (stream.aborted || stream.closed) {
+      if (stream.aborted || this.isStreamClosed(stream)) {
         dead.push(stream);
         continue;
       }

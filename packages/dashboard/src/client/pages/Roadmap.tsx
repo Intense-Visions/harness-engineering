@@ -4,16 +4,11 @@ import { StaleIndicator } from '../components/StaleIndicator';
 import { ProgressChart } from '../components/ProgressChart';
 import { GanttChart } from '../components/GanttChart';
 import { DependencyGraph } from '../components/DependencyGraph';
-import type { RoadmapData } from '@shared/types';
-
-const SSE_URL = '/api/sse';
-
-function isRoadmapData(r: unknown): r is RoadmapData {
-  return typeof r === 'object' && r !== null && 'totalFeatures' in r;
-}
+import { SSE_ENDPOINT } from '@shared/constants';
+import { isRoadmapData } from '../utils/typeGuards';
 
 export function Roadmap() {
-  const { data, lastUpdated, stale, error } = useSSE(SSE_URL, 'overview');
+  const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
   const [filterMilestone, setFilterMilestone] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 

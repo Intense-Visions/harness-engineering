@@ -1,4 +1,5 @@
 import type { MilestoneProgress } from '@shared/types';
+import { STATUS_COLOR } from '../utils/statusColors';
 
 interface Props {
   milestones: MilestoneProgress[];
@@ -8,14 +9,6 @@ const BAR_HEIGHT = 20;
 const BAR_GAP = 8;
 const LABEL_WIDTH = 140;
 const PADDING = { top: 12, right: 24, bottom: 12, left: 8 };
-
-const STATUS_COLORS = {
-  done: '#10b981',
-  inProgress: '#3b82f6',
-  blocked: '#ef4444',
-  planned: '#6b7280',
-  backlog: '#374151',
-};
 
 export function ProgressChart({ milestones }: Props) {
   const rows = milestones.filter((m) => !m.isBacklog);
@@ -32,10 +25,10 @@ export function ProgressChart({ milestones }: Props) {
 
   function stackedBars(m: MilestoneProgress, y: number) {
     const segments = [
-      { value: m.done, color: STATUS_COLORS.done },
-      { value: m.inProgress, color: STATUS_COLORS.inProgress },
-      { value: m.blocked, color: STATUS_COLORS.blocked },
-      { value: m.planned + m.backlog, color: STATUS_COLORS.planned },
+      { value: m.done, color: STATUS_COLOR['done'] },
+      { value: m.inProgress, color: STATUS_COLOR['in-progress'] },
+      { value: m.blocked, color: STATUS_COLOR['blocked'] },
+      { value: m.planned + m.backlog, color: STATUS_COLOR['planned'] },
     ];
     let accum = 0;
     return segments.map(({ value, color }, i) => {
@@ -98,12 +91,10 @@ export function ProgressChart({ milestones }: Props) {
       </svg>
       {/* Legend */}
       <div className="mt-2 flex flex-wrap gap-4">
-        {Object.entries(STATUS_COLORS).map(([label, color]) => (
+        {Object.entries(STATUS_COLOR).map(([label, color]) => (
           <div key={label} className="flex items-center gap-1">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
-            <span className="text-xs capitalize text-gray-500">
-              {label === 'inProgress' ? 'in progress' : label}
-            </span>
+            <span className="text-xs capitalize text-gray-500">{label.replace('-', ' ')}</span>
           </div>
         ))}
       </div>

@@ -1,4 +1,5 @@
-import type { DashboardFeature, FeatureStatus } from '@shared/types';
+import type { DashboardFeature } from '@shared/types';
+import { STATUS_COLOR } from '../utils/statusColors';
 
 interface Props {
   features: DashboardFeature[];
@@ -13,14 +14,6 @@ const LABEL_WIDTH = 180;
 const BAR_HEIGHT = 16;
 const SECTION_HEADER_HEIGHT = 24;
 const PADDING = { top: 8, right: 16, bottom: 8, left: 8 };
-
-const STATUS_COLOR: Record<FeatureStatus, string> = {
-  done: '#10b981',
-  'in-progress': '#3b82f6',
-  planned: '#6b7280',
-  blocked: '#ef4444',
-  backlog: '#374151',
-};
 
 export function GanttChart({ features, filterMilestone, filterStatus }: Props) {
   // Apply filters
@@ -56,9 +49,9 @@ export function GanttChart({ features, filterMilestone, filterStatus }: Props) {
 
   const rows: JSX.Element[] = [];
   let y = PADDING.top;
-  let colIndex = 0;
 
   for (const [milestone, feats] of groups) {
+    let colIndex = 0;
     // Section header
     rows.push(
       <text

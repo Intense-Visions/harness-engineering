@@ -1,16 +1,11 @@
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
-import type { HealthData } from '@shared/types';
-
-const SSE_URL = '/api/sse';
-
-function isHealthData(h: unknown): h is HealthData {
-  return typeof h === 'object' && h !== null && 'totalIssues' in h;
-}
+import { SSE_ENDPOINT } from '@shared/constants';
+import { isHealthData } from '../utils/typeGuards';
 
 export function Health() {
-  const { data, lastUpdated, stale, error } = useSSE(SSE_URL, 'overview');
+  const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
 
   const health = data ? data.health : null;
   const healthData = health && isHealthData(health) ? health : null;

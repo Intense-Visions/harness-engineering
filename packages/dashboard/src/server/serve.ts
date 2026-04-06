@@ -9,4 +9,5 @@ console.log(`Hono server starting on http://localhost:${port}`);
 serve({
   fetch: app.fetch,
   port,
+  hostname: '127.0.0.1',
 });

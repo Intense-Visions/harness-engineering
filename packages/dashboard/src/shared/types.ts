@@ -82,6 +82,12 @@ export interface HealthData {
   suggestionCount: number;
   durationMs: number;
   analysisErrors: string[];
+  /** Deferred: coverage baselines */
+  coverageBaselines?: { file: string; current: number; baseline: number }[];
+  /** Deferred: doc drift status */
+  docDrift?: { drifted: number; total: number; threshold: number } | null;
+  /** Deferred: dependency health */
+  dependencyHealth?: { violations: number; circular: number } | null;
 }
 
 /** Health gatherer error result */
@@ -114,6 +120,19 @@ export interface GraphUnavailable {
 }
 
 export type GraphResult = GraphData | GraphUnavailable;
+
+// --- Blocker graph types ---
+
+export interface BlockerEdge {
+  from: string;
+  to: string;
+}
+
+export interface RoadmapChartsData {
+  milestones: RoadmapData['milestones'];
+  features: RoadmapData['features'];
+  blockerEdges: BlockerEdge[];
+}
 
 // --- Overview types ---
 

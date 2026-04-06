@@ -35,8 +35,10 @@ function makeContext(): ServerContext {
   return {
     projectPath: '/fake',
     roadmapPath: '/fake/docs/roadmap.md',
+    chartsPath: '/fake/docs/roadmap-charts.md',
     cache: new DataCache(60_000),
     pollIntervalMs: 100,
+    sseManager: undefined!,
   };
 }
 

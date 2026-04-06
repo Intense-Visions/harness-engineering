@@ -9,3 +9,6 @@ export const API_PREFIX = '/api';
 
 /** SSE polling interval in milliseconds (default 30s) */
 export const DEFAULT_POLL_INTERVAL_MS = 30_000;
+
+/** SSE event stream endpoint */
+export const SSE_ENDPOINT = '/api/sse';

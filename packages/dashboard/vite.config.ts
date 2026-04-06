@@ -7,10 +7,10 @@ export default defineConfig({
   root: path.resolve(__dirname, 'src/client'),
   plugins: [react(), tailwindcss()],
   server: {
-    port: 3700,
+    port: Number(process.env['DASHBOARD_CLIENT_PORT'] ?? 3700),
     proxy: {
       '/api': {
-        target: 'http://localhost:3701',
+        target: `http://localhost:${process.env['DASHBOARD_API_PORT'] ?? '3701'}`,
         changeOrigin: true,
       },
     },

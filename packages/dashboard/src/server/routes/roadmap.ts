@@ -1,18 +1,13 @@
 import { Hono } from 'hono';
 import { gatherRoadmap } from '../gather/roadmap';
-import type { ApiResponse, RoadmapResult, RoadmapData } from '../../shared/types';
+import type {
+  ApiResponse,
+  RoadmapResult,
+  RoadmapData,
+  BlockerEdge,
+  RoadmapChartsData,
+} from '../../shared/types';
 import type { ServerContext } from '../context';
-
-export interface BlockerEdge {
-  from: string;
-  to: string;
-}
-
-export interface RoadmapChartsData {
-  milestones: RoadmapData['milestones'];
-  features: RoadmapData['features'];
-  blockerEdges: BlockerEdge[];
-}
 
 const CACHE_KEY = 'roadmap';
 
