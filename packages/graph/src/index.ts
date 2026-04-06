@@ -31,8 +31,8 @@ export { saveGraph, loadGraph } from './store/Serializer.js';
 // Query
 export { ContextQL } from './query/ContextQL.js';
 export { project } from './query/Projection.js';
-export { groupNodesByImpact } from './query/groupImpact.js';
-export type { ImpactGroups } from './query/groupImpact.js';
+export { groupNodesByImpact, classifyNodeCategory } from './query/groupImpact.js';
+export type { ImpactGroups, NodeCategory } from './query/groupImpact.js';
 
 // Ingest
 export { CodeIngestor } from './ingest/CodeIngestor.js';
