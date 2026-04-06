@@ -73,23 +73,25 @@ const results = fusion.search('authentication handler', { topK: 10 });
 
 ## Key Classes
 
-| Class                     | Description                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| `GraphStore`              | In-memory graph backed by LokiJS with indexed node/edge collections             |
-| `VectorStore`             | Optional vector index for semantic similarity search (hnswlib)                  |
-| `ContextQL`               | BFS-based graph traversal engine with type filtering and observability pruning  |
-| `project`                 | Projection utility to select specific fields from query results                 |
-| `CodeIngestor`            | Parses TypeScript/JavaScript files into file, class, function, and method nodes |
-| `GitIngestor`             | Extracts commit history and co-change relationships from git                    |
-| `KnowledgeIngestor`       | Ingests ADRs, learnings, and markdown knowledge artifacts                       |
-| `TopologicalLinker`       | Creates structural edges (imports, calls, references) between code nodes        |
-| `FusionLayer`             | Hybrid search combining keyword matching and semantic similarity scores         |
-| `Assembler`               | Phase-aware context assembly with token budgets and coverage reports            |
-| `SyncManager`             | Orchestrates connector syncs with incremental update tracking                   |
-| `GraphEntropyAdapter`     | Detects graph drift and dead code for entropy monitoring                        |
-| `GraphConstraintAdapter`  | Validates dependency rules and layer boundary violations                        |
-| `GraphFeedbackAdapter`    | Computes impact analysis and harness check data from graph state                |
-| `saveGraph` / `loadGraph` | Serializes and deserializes the graph store to/from disk                        |
+| Class                          | Description                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| `GraphStore`                   | In-memory graph backed by LokiJS with indexed node/edge collections                  |
+| `VectorStore`                  | Optional vector index for semantic similarity search (hnswlib)                       |
+| `ContextQL`                    | BFS-based graph traversal engine with type filtering and observability pruning       |
+| `project`                      | Projection utility to select specific fields from query results                      |
+| `CodeIngestor`                 | Parses TypeScript/JavaScript files into file, class, function, and method nodes      |
+| `GitIngestor`                  | Extracts commit history and co-change relationships from git                         |
+| `KnowledgeIngestor`            | Ingests ADRs, learnings, and markdown knowledge artifacts                            |
+| `TopologicalLinker`            | Creates structural edges (imports, calls, references) between code nodes             |
+| `FusionLayer`                  | Hybrid search combining keyword matching and semantic similarity scores              |
+| `Assembler`                    | Phase-aware context assembly with token budgets and coverage reports                 |
+| `SyncManager`                  | Orchestrates connector syncs with incremental update tracking                        |
+| `GraphEntropyAdapter`          | Detects graph drift and dead code for entropy monitoring                             |
+| `GraphConstraintAdapter`       | Validates dependency rules and layer boundary violations                             |
+| `GraphFeedbackAdapter`         | Computes impact analysis and harness check data from graph state                     |
+| `CascadeSimulator`             | Probability-weighted BFS for cascading failure simulation (`compute_blast_radius`)   |
+| `CompositeProbabilityStrategy` | Default edge probability strategy blending edge type, change frequency, and coupling |
+| `saveGraph` / `loadGraph`      | Serializes and deserializes the graph store to/from disk                             |
 
 ## Node Types
 
