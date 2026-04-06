@@ -149,6 +149,39 @@ describe('askGraph (integration)', () => {
     expect(result.summary).toContain('Could not find');
   });
 
+  it('routes "blast radius" query to CascadeSimulator', async () => {
+    const result = await askGraph(store, 'what is the blast radius of AuthService?');
+    expect(result.intent).toBe('impact');
+    expect(result.data).not.toBeNull();
+    // CascadeResult has sourceNodeId, layers, flatSummary, summary
+    const data = result.data as Record<string, unknown>;
+    expect(data).toHaveProperty('sourceNodeId');
+    expect(data).toHaveProperty('layers');
+    expect(data).toHaveProperty('flatSummary');
+    expect(data).toHaveProperty('summary');
+  });
+
+  it('routes "cascade" query to CascadeSimulator', async () => {
+    const result = await askGraph(store, 'what cascades from AuthService?');
+    expect(result.intent).toBe('impact');
+    expect(result.data).not.toBeNull();
+    const data = result.data as Record<string, unknown>;
+    expect(data).toHaveProperty('sourceNodeId');
+    expect(data).toHaveProperty('layers');
+    expect(data).toHaveProperty('flatSummary');
+    expect(data).toHaveProperty('summary');
+  });
+
+  it('still routes plain impact query to ContextQL', async () => {
+    const result = await askGraph(store, 'what breaks if I change AuthService?');
+    expect(result.intent).toBe('impact');
+    expect(result.data).not.toBeNull();
+    // ContextQL/groupNodesByImpact returns { code, tests, docs, other }
+    const data = result.data as Record<string, unknown>;
+    expect(data).toHaveProperty('code');
+    expect(data).toHaveProperty('tests');
+  });
+
   it('always returns a valid AskGraphResult shape', async () => {
     const questions = [
       'what breaks if I change AuthService?',

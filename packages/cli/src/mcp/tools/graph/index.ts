@@ -6,3 +6,4 @@ export { getImpactDefinition, handleGetImpact } from './get-impact.js';
 export { ingestSourceDefinition, handleIngestSource } from './ingest-source.js';
 export { detectAnomaliesDefinition, handleDetectAnomalies } from './detect-anomalies.js';
 export { askGraphDefinition, handleAskGraph } from './ask-graph.js';
+export { computeBlastRadiusDefinition, handleComputeBlastRadius } from './compute-blast-radius.js';

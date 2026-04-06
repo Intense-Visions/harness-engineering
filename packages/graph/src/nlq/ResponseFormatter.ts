@@ -44,7 +44,20 @@ export class ResponseFormatter {
   }
 
   private formatImpact(entityName: string, data: unknown): string {
-    const d = data as Record<string, unknown[]>;
+    const d = data as Record<string, unknown>;
+
+    // CascadeResult shape: has sourceNodeId, layers, flatSummary, summary
+    if ('sourceNodeId' in d && 'summary' in d) {
+      const summary = d.summary as {
+        totalAffected: number;
+        highRisk: number;
+        mediumRisk: number;
+        lowRisk: number;
+      };
+      return `Blast radius of **${entityName}**: ${summary.totalAffected} affected nodes (${summary.highRisk} high risk, ${summary.mediumRisk} medium, ${summary.lowRisk} low).`;
+    }
+
+    // Legacy groupNodesByImpact shape: { code, tests, docs, other }
     const code = this.safeArrayLength(d?.code);
     const tests = this.safeArrayLength(d?.tests);
     const docs = this.safeArrayLength(d?.docs);
