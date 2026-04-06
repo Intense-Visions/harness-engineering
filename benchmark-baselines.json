@@ -1,19 +1,19 @@
 {
   "core/validateConfig - valid config object": {
-    "mean": 0.0007348717340471011,
-    "p99": 0.001040999999986525
+    "mean": 0.0018,
+    "p99": 0.003
   },
   "core/validateConfig - invalid config object": {
-    "mean": 0.004563551175568626,
-    "p99": 0.005375000000185537
+    "mean": 0.012,
+    "p99": 0.02
   },
   "core/validateCommitMessage - valid conventional commit": {
-    "mean": 0.0001715384800116994,
-    "p99": 0.0002910000000611035
+    "mean": 0.0005,
+    "p99": 0.001
   },
   "core/validateCommitMessage - invalid commit message": {
-    "mean": 0.0002898849186265261,
-    "p99": 0.00037500000007639755
+    "mean": 0.0007,
+    "p99": 0.001
   },
   "graph/GraphStore - addNode - single node": {
     "mean": 0.020869200083472848,

@@ -25,7 +25,7 @@ export class CompositeProbabilityStrategy implements ProbabilityStrategy {
 
   constructor(
     private readonly changeFreqMap: Map<string, number>,
-    private readonly couplingMap: Map<string, number>,
+    private readonly couplingMap: Map<string, number>
   ) {}
 
   getEdgeProbability(edge: GraphEdge, _fromNode: GraphNode, toNode: GraphNode): number {
@@ -39,7 +39,7 @@ export class CompositeProbabilityStrategy implements ProbabilityStrategy {
       1,
       base * CompositeProbabilityStrategy.EDGE_TYPE_BLEND +
         changeFreq * CompositeProbabilityStrategy.CHANGE_FREQ_BLEND +
-        coupling * CompositeProbabilityStrategy.COUPLING_BLEND,
+        coupling * CompositeProbabilityStrategy.COUPLING_BLEND
     );
   }
 }
