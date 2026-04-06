@@ -944,8 +944,8 @@ last_manual_edit: 2026-03-30
 
 ### Cascading Failure Simulation
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
+- **Status:** done
+- **Spec:** docs/changes/cascading-failure-simulation/proposal.md
 - **Summary:** Probabilistic BFS traversal with failure probability annotations synthesized from change frequency. New tool: compute_blast_radius. Shows transitive downstream impact with confidence scores — not just direct dependencies but the full cascade chain. [C9]
 - **Blockers:** —
 - **Plan:** —
