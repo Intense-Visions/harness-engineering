@@ -15,6 +15,24 @@ export const HEALTH_SIGNALS = [
   'perf-regression',
   'anomaly-outlier',
   'articulation-point',
+  // Change-type signals (exactly one active per dispatch)
+  'change-feature',
+  'change-bugfix',
+  'change-refactor',
+  'change-docs',
+  // Domain signals (zero or more active per dispatch)
+  'domain-database',
+  'domain-containerization',
+  'domain-deployment',
+  'domain-infrastructure-as-code',
+  'domain-api-design',
+  'domain-secrets',
+  'domain-e2e',
+  'domain-mutation-test',
+  'domain-load-testing',
+  'domain-data-pipeline',
+  'domain-mobile-patterns',
+  'domain-incident-response',
 ] as const;
 
 /** A single health signal identifier. */

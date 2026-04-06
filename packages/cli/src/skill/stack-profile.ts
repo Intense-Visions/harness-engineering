@@ -56,6 +56,25 @@ const SIGNAL_DOMAIN_MAP: Record<string, string[]> = {
 };
 
 /**
+ * Detect domains from a list of changed file paths by checking each path
+ * against SIGNAL_DOMAIN_MAP keys. A file matches a pattern if the path
+ * equals the pattern exactly or starts with `pattern/` (i.e., is a descendant).
+ */
+export function detectDomainsFromFiles(files: string[]): string[] {
+  const domainSet = new Set<string>();
+
+  for (const file of files) {
+    for (const [pattern, domains] of Object.entries(SIGNAL_DOMAIN_MAP)) {
+      if (file === pattern || file.startsWith(pattern + '/')) {
+        for (const domain of domains) domainSet.add(domain);
+      }
+    }
+  }
+
+  return [...domainSet].sort();
+}
+
+/**
  * Generate a stack profile by scanning the project root for known file patterns.
  */
 export function generateStackProfile(projectRoot: string): StackProfile {
