@@ -1,9 +1,33 @@
 import { defineConfig } from 'vitest/config';
+import path from 'node:path';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@shared': path.resolve(import.meta.dirname, 'src/shared'),
+    },
+  },
   test: {
     globals: true,
-    environment: 'node',
+    // Server tests run in node; client tests run in jsdom via projects below
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'server',
+          include: ['tests/server/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'client',
+          include: ['tests/client/**/*.test.ts'],
+          environment: 'jsdom',
+        },
+      },
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary'],
