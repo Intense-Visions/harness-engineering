@@ -12,6 +12,7 @@ import type { ServerContext } from './context';
 export class SSEManager {
   private connections = new Map<SSEStreamingApi, ServerContext>();
   private timer: ReturnType<typeof setInterval> | null = null;
+  private ticking = false;
 
   get connectionCount(): number {
     return this.connections.size;
@@ -56,6 +57,16 @@ export class SSEManager {
 
   /** Gather all data and broadcast an overview event to all connected streams. */
   async tick(ctx: ServerContext): Promise<void> {
+    if (this.ticking) return;
+    this.ticking = true;
+    try {
+      await this._tick(ctx);
+    } finally {
+      this.ticking = false;
+    }
+  }
+
+  private async _tick(ctx: ServerContext): Promise<void> {
     const [roadmap, health, graph] = await Promise.all([
       gatherRoadmap(ctx.roadmapPath),
       gatherHealth(ctx.projectPath),

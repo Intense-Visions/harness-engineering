@@ -27,16 +27,19 @@ export function buildSseRouter(ctx: ServerContext): Hono {
     return streamSSE(c, async (stream) => {
       const manager = getManager();
 
+      // Hold the connection open until disconnect. Register BEFORE addConnection
+      // and BEFORE the initial tick so early disconnects are never missed.
+      const closed = new Promise<void>((resolve) => {
+        stream.onAbort(resolve);
+      });
+
       // Register the connection — manager handles polling and broadcast
       manager.addConnection(stream, ctx);
 
       // Send an immediate snapshot so the client doesn't wait 30s for first data
       await manager.tick(ctx);
 
-      // Hold the connection open until the client disconnects (stream.aborted becomes true)
-      await new Promise<void>((resolve) => {
-        stream.onAbort(resolve);
-      });
+      await closed;
     });
   });
 

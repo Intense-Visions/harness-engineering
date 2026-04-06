@@ -19,12 +19,12 @@ export function buildGraphRouter(ctx: ServerContext): Hono {
     }
 
     const data = await gatherGraph(ctx.projectPath);
+    const now = Date.now();
     ctx.cache.set(CACHE_KEY, data);
 
-    const entry = ctx.cache.get<GraphResult>(CACHE_KEY)!;
     const response: ApiResponse<GraphResult> = {
-      data: entry.data,
-      timestamp: new Date(entry.timestamp).toISOString(),
+      data,
+      timestamp: new Date(now).toISOString(),
     };
     return c.json(response);
   });

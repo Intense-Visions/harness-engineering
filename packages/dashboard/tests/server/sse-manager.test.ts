@@ -3,6 +3,17 @@ import { SSEManager } from '../../src/server/sse';
 import type { ServerContext } from '../../src/server/context';
 import { DataCache } from '../../src/server/cache';
 
+// Hoist vi.mock calls to top level (Vitest requirement)
+vi.mock('../../src/server/gather/roadmap', () => ({
+  gatherRoadmap: vi.fn().mockResolvedValue({ error: 'skipped' }),
+}));
+vi.mock('../../src/server/gather/health', () => ({
+  gatherHealth: vi.fn().mockResolvedValue({ error: 'skipped' }),
+}));
+vi.mock('../../src/server/gather/graph', () => ({
+  gatherGraph: vi.fn().mockResolvedValue({ available: false, reason: 'skipped' }),
+}));
+
 // Minimal fake SSEStreamingApi
 function makeStream() {
   return {
@@ -74,17 +85,6 @@ describe('SSEManager', () => {
     const stream1 = makeStream();
     const stream2 = makeStream();
     const ctx = makeContext();
-
-    // Mock gatherers to avoid real FS calls
-    vi.mock('../../src/server/gather/roadmap', () => ({
-      gatherRoadmap: vi.fn().mockResolvedValue({ error: 'skipped' }),
-    }));
-    vi.mock('../../src/server/gather/health', () => ({
-      gatherHealth: vi.fn().mockResolvedValue({ error: 'skipped' }),
-    }));
-    vi.mock('../../src/server/gather/graph', () => ({
-      gatherGraph: vi.fn().mockResolvedValue({ available: false, reason: 'skipped' }),
-    }));
 
     manager.addConnection(stream1 as never, ctx);
     manager.addConnection(stream2 as never, ctx);

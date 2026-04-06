@@ -27,12 +27,12 @@ export function buildOverviewRouter(ctx: ServerContext): Hono {
     ]);
 
     const data: OverviewData = { roadmap, health, graph };
+    const now = Date.now();
     ctx.cache.set(CACHE_KEY, data);
 
-    const entry = ctx.cache.get<OverviewData>(CACHE_KEY)!;
     const response: ApiResponse<OverviewData> = {
-      data: entry.data,
-      timestamp: new Date(entry.timestamp).toISOString(),
+      data,
+      timestamp: new Date(now).toISOString(),
     };
     return c.json(response);
   });
