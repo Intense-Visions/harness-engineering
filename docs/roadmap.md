@@ -758,13 +758,13 @@ last_manual_edit: 2026-03-30
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#68
 
-### Roadmap Gantt Visualization
+### Harness Dashboard
 
-- **Status:** planned
-- **Spec:** —
-- **Summary:** Generate a Mermaid Gantt chart in docs/roadmap.md showing milestone phases, feature timelines, and dependency relationships
+- **Status:** done
+- **Spec:** docs/changes/harness-dashboard/proposal.md
+- **Summary:** Local web dashboard (`harness dashboard`) with Hono API + React SPA showing roadmap progress, codebase health, and graph metrics with SSE real-time updates
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/plans/2026-04-06-dashboard-phase1-scaffolding-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** —
@@ -1146,6 +1146,28 @@ last_manual_edit: 2026-03-30
 - **External-ID:** github:Intense-Visions/harness-engineering#101
 
 ## Backlog
+
+### Dashboard v2: Orchestrator Observability
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Real-time agent monitoring in the harness dashboard — agent dispatch status, issue progress, resource usage, error rates — via orchestrator HTTP API and WebSocket
+- **Blockers:** Harness Dashboard
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### Dashboard v3: Team & Stakeholder Views
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Persistent hosting option, multi-project aggregation, and presentation polish for the harness dashboard targeting team reviews and stakeholder visibility
+- **Blockers:** Dashboard v2: Orchestrator Observability
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
 
 ### CI/CD & Issue Tracker Integration
 
