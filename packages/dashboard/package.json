@@ -1,0 +1,48 @@
+{
+  "name": "@harness-engineering/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web dashboard for harness project health and roadmap visualization",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:client\"",
+    "dev:server": "tsx watch src/server/serve.ts",
+    "dev:client": "vite --config vite.config.ts",
+    "build": "pnpm build:server && pnpm build:client",
+    "build:server": "tsup src/server/serve.ts --format esm --outDir dist/server --tsconfig tsconfig.build.json",
+    "build:client": "vite build --config vite.config.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "node ../../scripts/clean.mjs dist"
+  },
+  "dependencies": {
+    "hono": "^4.7.0",
+    "@hono/node-server": "^1.14.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router": "^7.5.0",
+    "@tremor/react": "^3.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.5.2",
+    "@tailwindcss/vite": "^4.1.0",
+    "tailwindcss": "^4.1.0",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.0",
+    "tsup": "^8.5.1",
+    "vite": "^6.3.0",
+    "vitest": "^4.1.2",
+    "@vitest/coverage-v8": "^4.1.2"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
+    "directory": "packages/dashboard"
+  }
+}
