@@ -62,5 +62,6 @@ export interface CascadeResult {
       readonly other: number;
     };
     readonly amplificationPoints: readonly string[];
+    readonly truncated: boolean;
   };
 }

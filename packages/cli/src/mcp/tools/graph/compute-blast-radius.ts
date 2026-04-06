@@ -81,6 +81,28 @@ export async function handleComputeBlastRadius(input: {
       targetNodeId = match.id;
     }
 
+    // Validate bounds
+    if (
+      input.probabilityFloor !== undefined &&
+      (input.probabilityFloor <= 0 || input.probabilityFloor >= 1)
+    ) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error: probabilityFloor must be between 0 and 1 (exclusive)',
+          },
+        ],
+        isError: true,
+      };
+    }
+    if (input.maxDepth !== undefined && (input.maxDepth < 1 || input.maxDepth > 100)) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: maxDepth must be between 1 and 100' }],
+        isError: true,
+      };
+    }
+
     const simulator = new CascadeSimulator(store);
     const result = simulator.simulate(targetNodeId!, {
       ...(input.probabilityFloor !== undefined && {

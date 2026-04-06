@@ -48,7 +48,7 @@ export class CascadeSimulator {
       queue,
       fanOutCount
     );
-    this.runBfs(
+    const truncated = this.runBfs(
       queue,
       visited,
       fanOutCount,
@@ -59,7 +59,7 @@ export class CascadeSimulator {
       maxDepth
     );
 
-    return this.buildResult(sourceNodeId, sourceNode.name, visited, fanOutCount);
+    return this.buildResult(sourceNodeId, sourceNode.name, visited, fanOutCount, truncated);
   }
 
   private seedQueue(
@@ -104,11 +104,11 @@ export class CascadeSimulator {
     edgeTypeFilter: Set<string> | null,
     probabilityFloor: number,
     maxDepth: number
-  ): void {
+  ): boolean {
     const MAX_QUEUE_SIZE = 10_000;
     let head = 0;
     while (head < queue.length) {
-      if (queue.length > MAX_QUEUE_SIZE) break; // safety cap for degenerate graphs
+      if (queue.length > MAX_QUEUE_SIZE) return true; // truncated: safety cap for degenerate graphs
       const entry = queue[head++]!;
 
       const existing = visited.get(entry.nodeId);
@@ -141,6 +141,7 @@ export class CascadeSimulator {
         fanOutCount.set(entry.nodeId, (fanOutCount.get(entry.nodeId) ?? 0) + childCount);
       }
     }
+    return false;
   }
 
   private expandNode(
@@ -182,7 +183,8 @@ export class CascadeSimulator {
     sourceNodeId: string,
     sourceName: string,
     visited: Map<string, CascadeNode>,
-    fanOutCount: Map<string, number>
+    fanOutCount: Map<string, number>,
+    truncated: boolean = false
   ): CascadeResult {
     if (visited.size === 0) {
       return {
@@ -198,6 +200,7 @@ export class CascadeSimulator {
           lowRisk: 0,
           categoryBreakdown: { code: 0, tests: 0, docs: 0, other: 0 },
           amplificationPoints: [],
+          truncated,
         },
       };
     }
@@ -274,6 +277,7 @@ export class CascadeSimulator {
         lowRisk,
         categoryBreakdown: catBreakdown,
         amplificationPoints,
+        truncated,
       },
     };
   }
