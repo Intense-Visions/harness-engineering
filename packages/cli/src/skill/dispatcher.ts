@@ -234,7 +234,7 @@ export function suggest(
 
   const suggestions = [
     ...behavioralScored.sort((a, b) => b.score - a.score).slice(0, 3),
-    ...knowledgeRecommendations.sort((a, b) => b.score - a.score),
+    ...knowledgeRecommendations.sort((a, b) => b.score - a.score).slice(0, 3),
   ];
 
   return {
