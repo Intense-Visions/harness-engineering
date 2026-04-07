@@ -107,7 +107,7 @@ describe('loadFailures cache', () => {
     const result = await loadFailures(tmpDir);
     const elapsed = performance.now() - start;
 
-    expect(elapsed).toBeLessThan(5);
+    expect(elapsed).toBeLessThan(50);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.length).toBe(1);

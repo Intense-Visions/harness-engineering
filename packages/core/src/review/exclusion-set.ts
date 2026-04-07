@@ -1,4 +1,4 @@
-import type { MechanicalFinding } from './types';
+import type { MechanicalFinding } from './types/mechanical';
 
 /**
  * An index of mechanical findings, queryable by file + line range.

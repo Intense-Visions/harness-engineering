@@ -54,6 +54,13 @@ Path to the AGENTS.md file that defines agent roles and responsibilities.
 
 Path to the documentation directory used by doc validation and generation tools.
 
+### `updateCheckInterval`
+
+- **Type:** `number` (integer, minimum `0`)
+- **Required:** No
+
+How often (in milliseconds) to check for CLI updates. Omit or set to `0` to disable update checks.
+
 ## `layers`
 
 - **Type:** `Array<Layer>`
@@ -162,7 +169,7 @@ Controls how agent tasks are executed.
 | ---------- | --------------------------------------- | -------------- | -------------------------------------------- |
 | `executor` | `"subprocess"` \| `"cloud"` \| `"noop"` | `"subprocess"` | Execution backend for agent tasks            |
 | `timeout`  | `number`                                | `300000`       | Task timeout in milliseconds (5 min default) |
-| `skills`   | `string[]`                              | —              | List of skill names available to the agent   |
+| `skills`   | `string[]`                              | --             | List of skill names available to the agent   |
 
 ### Example
 
@@ -201,6 +208,387 @@ Configures entropy detection, which identifies high-entropy strings (potential s
 }
 ```
 
+## `security`
+
+- **Type:** `SecurityConfig`
+- **Required:** No
+
+Configures security scanning for the project. When enabled, Harness scans source files for security issues such as hardcoded credentials, insecure patterns, and known vulnerabilities.
+
+### SecurityConfig Object
+
+| Field     | Type                                                      | Default | Description                                       |
+| --------- | --------------------------------------------------------- | ------- | ------------------------------------------------- |
+| `enabled` | `boolean`                                                 | `true`  | Whether security scanning is enabled              |
+| `strict`  | `boolean`                                                 | `false` | When true, fail on any security warning           |
+| `rules`   | `Record<string, "off" \| "error" \| "warning" \| "info">` | --      | Rule-specific severity overrides keyed by rule ID |
+| `exclude` | `string[]`                                                | --      | Glob patterns to exclude from security scans      |
+
+### Example
+
+```json
+{
+  "security": {
+    "enabled": true,
+    "strict": false,
+    "rules": {
+      "SEC-CRY-001": "warning"
+    },
+    "exclude": ["**/node_modules/**", "**/dist/**", "**/*.test.ts", "**/tests/fixtures/**"]
+  }
+}
+```
+
+## `performance`
+
+- **Type:** `PerformanceConfig`
+- **Required:** No
+
+Configures performance budgets and complexity thresholds. Each sub-field accepts a free-form record so you can define project-specific thresholds.
+
+### PerformanceConfig Object
+
+| Field        | Type                  | Default | Description                                 |
+| ------------ | --------------------- | ------- | ------------------------------------------- |
+| `complexity` | `Record<string, any>` | --      | Complexity thresholds per module or pattern |
+| `coupling`   | `Record<string, any>` | --      | Coupling limits between modules             |
+| `sizeBudget` | `Record<string, any>` | --      | Size budget for bundles or directories      |
+
+Additional properties are allowed and passed through to performance analyzers.
+
+### Example
+
+```json
+{
+  "performance": {
+    "complexity": {
+      "enabled": true,
+      "thresholds": {
+        "cyclomaticComplexity": { "error": 15, "warn": 10 },
+        "nestingDepth": { "warn": 4 },
+        "functionLength": { "warn": 50 },
+        "parameterCount": { "warn": 5 }
+      }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": {
+        "fanOut": { "warn": 15 },
+        "fanIn": { "info": 20 },
+        "couplingRatio": { "warn": 0.7 }
+      }
+    },
+    "sizeBudget": {
+      "enabled": false,
+      "budgets": {}
+    }
+  }
+}
+```
+
+## `design`
+
+- **Type:** `DesignConfig`
+- **Required:** No
+
+Configures design system and aesthetic consistency enforcement.
+
+### DesignConfig Object
+
+| Field             | Type                                         | Default      | Description                                           |
+| ----------------- | -------------------------------------------- | ------------ | ----------------------------------------------------- |
+| `strictness`      | `"strict"` \| `"standard"` \| `"permissive"` | `"standard"` | Strictness of design system enforcement               |
+| `platforms`       | `Array<"web" \| "mobile">`                   | `[]`         | Supported target platforms                            |
+| `tokenPath`       | `string`                                     | --           | Path to design tokens file (JSON or CSS)              |
+| `aestheticIntent` | `string`                                     | --           | Brief description of the intended aesthetic direction |
+
+### Example
+
+```json
+{
+  "design": {
+    "strictness": "strict",
+    "platforms": ["web", "mobile"],
+    "tokenPath": "src/tokens/design-tokens.json",
+    "aestheticIntent": "Minimal, accessible, high-contrast"
+  }
+}
+```
+
+## `i18n`
+
+- **Type:** `I18nConfig`
+- **Required:** No
+
+Configures internationalization management including locale settings, translation framework, and coverage requirements.
+
+### I18nConfig Object
+
+| Field              | Type                                                                                                                    | Default          | Description                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------- |
+| `enabled`          | `boolean`                                                                                                               | `false`          | Whether i18n management is enabled            |
+| `strictness`       | `"strict"` \| `"standard"` \| `"permissive"`                                                                            | `"standard"`     | Strictness of i18n rule enforcement           |
+| `sourceLocale`     | `string`                                                                                                                | `"en"`           | The primary language used for development     |
+| `targetLocales`    | `string[]`                                                                                                              | `[]`             | Locales that translations are required for    |
+| `framework`        | `"auto"` \| `"i18next"` \| `"react-intl"` \| `"vue-i18n"` \| `"flutter-intl"` \| `"apple"` \| `"android"` \| `"custom"` | `"auto"`         | The i18n framework in use                     |
+| `format`           | `string`                                                                                                                | `"json"`         | Storage format for translation files          |
+| `messageFormat`    | `"icu"` \| `"i18next"` \| `"custom"`                                                                                    | `"icu"`          | Syntax used for message formatting            |
+| `keyConvention`    | `"dot-notation"` \| `"snake_case"` \| `"camelCase"` \| `"custom"`                                                       | `"dot-notation"` | Convention for translation keys               |
+| `translationPaths` | `Record<string, string>`                                                                                                | --               | Mapping of locales to their file paths        |
+| `platforms`        | `Array<"web" \| "mobile" \| "backend">`                                                                                 | `[]`             | Platforms targeted by this configuration      |
+| `industry`         | `string`                                                                                                                | --               | Industry vertical for contextual translations |
+| `coverage`         | `I18nCoverageConfig`                                                                                                    | --               | Translation coverage requirements             |
+| `pseudoLocale`     | `string`                                                                                                                | --               | Locale used for pseudo-localization testing   |
+| `mcp`              | `I18nMcpConfig`                                                                                                         | --               | MCP server for AI-assisted translation        |
+
+### I18nCoverageConfig Object
+
+| Field                | Type      | Default | Description                                      |
+| -------------------- | --------- | ------- | ------------------------------------------------ |
+| `minimumPercent`     | `number`  | `100`   | Minimum required translation percentage (0--100) |
+| `requirePlurals`     | `boolean` | `true`  | Whether plural forms are required for all keys   |
+| `detectUntranslated` | `boolean` | `true`  | Whether to detect untranslated strings in source |
+
+### I18nMcpConfig Object
+
+| Field       | Type     | Required | Description                            |
+| ----------- | -------- | -------- | -------------------------------------- |
+| `server`    | `string` | Yes      | Name or URL of the MCP server          |
+| `projectId` | `string` | No       | Project ID on the remote i18n platform |
+
+### Example
+
+```json
+{
+  "i18n": {
+    "enabled": true,
+    "strictness": "strict",
+    "sourceLocale": "en",
+    "targetLocales": ["fr", "de", "ja"],
+    "framework": "react-intl",
+    "format": "json",
+    "coverage": {
+      "minimumPercent": 95,
+      "requirePlurals": true,
+      "detectUntranslated": true
+    },
+    "mcp": {
+      "server": "crowdin-mcp",
+      "projectId": "my-project-123"
+    }
+  }
+}
+```
+
+## `review`
+
+- **Type:** `ReviewConfig`
+- **Required:** No
+
+Configures code review orchestration, including which AI models to use at different tiers.
+
+### ReviewConfig Object
+
+| Field         | Type              | Required | Description                            |
+| ------------- | ----------------- | -------- | -------------------------------------- |
+| `model_tiers` | `ModelTierConfig` | No       | Custom model tier mappings for reviews |
+
+### ModelTierConfig Object
+
+| Field      | Type     | Required | Description                            |
+| ---------- | -------- | -------- | -------------------------------------- |
+| `fast`     | `string` | No       | Model ID for fast/cheap operations     |
+| `standard` | `string` | No       | Model ID for standard reasoning tasks  |
+| `strong`   | `string` | No       | Model ID for complex/critical analysis |
+
+### Example
+
+```json
+{
+  "review": {
+    "model_tiers": {
+      "fast": "claude-haiku-4",
+      "standard": "claude-sonnet-4",
+      "strong": "claude-opus-4"
+    }
+  }
+}
+```
+
+## `integrations`
+
+- **Type:** `IntegrationsConfig`
+- **Required:** No
+
+Tracks which MCP peer integrations are enabled and which have been dismissed by the user. Used by the `harness doctor` command to tailor integration suggestions.
+
+### IntegrationsConfig Object
+
+| Field       | Type       | Default | Description                                           |
+| ----------- | ---------- | ------- | ----------------------------------------------------- |
+| `enabled`   | `string[]` | `[]`    | Tier 1 integrations explicitly enabled by the user    |
+| `dismissed` | `string[]` | `[]`    | Integrations the user does not want doctor to suggest |
+
+### Example
+
+```json
+{
+  "integrations": {
+    "enabled": ["github-mcp", "linear-mcp"],
+    "dismissed": ["jira-mcp"]
+  }
+}
+```
+
+## `architecture`
+
+- **Type:** `ArchConfig`
+- **Required:** No
+
+Configures general architectural enforcement including metric thresholds and per-module overrides. Works alongside `layers` and `forbiddenImports` to provide comprehensive architecture health checks.
+
+### ArchConfig Object
+
+| Field          | Type                                                       | Default                          | Description                                |
+| -------------- | ---------------------------------------------------------- | -------------------------------- | ------------------------------------------ |
+| `enabled`      | `boolean`                                                  | `true`                           | Whether architecture checks are enabled    |
+| `baselinePath` | `string`                                                   | `".harness/arch/baselines.json"` | Path to the architecture baselines file    |
+| `thresholds`   | `Record<MetricCategory, number \| Record<string, number>>` | `{}`                             | Global metric thresholds keyed by category |
+| `modules`      | `Record<string, ThresholdConfig>`                          | `{}`                             | Per-module threshold overrides             |
+
+Threshold keys correspond to architecture metric categories such as `circular-deps`, `layer-violations`, `complexity`, `coupling`, `forbidden-imports`, `module-size`, and `dependency-depth`. Each value can be a single number or a record of named sub-thresholds.
+
+### Example
+
+```json
+{
+  "architecture": {
+    "enabled": true,
+    "baselinePath": ".harness/arch/baselines.json",
+    "thresholds": {
+      "circular-deps": { "max": 0 },
+      "layer-violations": { "max": 0 },
+      "complexity": { "max": 15 },
+      "coupling": { "maxFanIn": 10, "maxFanOut": 8 },
+      "forbidden-imports": { "max": 0 },
+      "module-size": { "maxFiles": 30, "maxLoc": 3500 },
+      "dependency-depth": { "max": 7 }
+    },
+    "modules": {}
+  }
+}
+```
+
+## `skills`
+
+- **Type:** `SkillsConfig`
+- **Required:** No
+
+Controls how skills are loaded, suggested, and tiered in the skill dispatcher.
+
+### SkillsConfig Object
+
+| Field           | Type                     | Default | Description                                                       |
+| --------------- | ------------------------ | ------- | ----------------------------------------------------------------- |
+| `alwaysSuggest` | `string[]`               | `[]`    | Skills to always suggest in the dispatcher, regardless of scoring |
+| `neverSuggest`  | `string[]`               | `[]`    | Skills to never suggest, even if they score highly                |
+| `tierOverrides` | `Record<string, number>` | `{}`    | Override the tier (1--3) of specific skills by skill name         |
+
+### Example
+
+```json
+{
+  "skills": {
+    "alwaysSuggest": ["detect-doc-drift", "check-dependencies"],
+    "neverSuggest": ["experimental-refactor"],
+    "tierOverrides": {
+      "my-custom-skill": 1
+    }
+  }
+}
+```
+
+## `traceability`
+
+- **Type:** `TraceabilityConfig`
+- **Required:** No
+
+Configures spec-to-implementation traceability checks. Ensures that specification documents have corresponding implementations and tracks coverage.
+
+### TraceabilityConfig Object
+
+| Field          | Type                     | Default                          | Description                                                 |
+| -------------- | ------------------------ | -------------------------------- | ----------------------------------------------------------- |
+| `enabled`      | `boolean`                | `true`                           | Whether traceability checks are enabled                     |
+| `severity`     | `"error"` \| `"warning"` | `"warning"`                      | Severity level when coverage is below threshold             |
+| `minCoverage`  | `number`                 | `0`                              | Minimum required coverage percentage (0--100)               |
+| `includeSpecs` | `string[]`               | `["docs/changes/*/proposal.md"]` | Glob patterns for specs to include in traceability checks   |
+| `excludeSpecs` | `string[]`               | `[]`                             | Glob patterns for specs to exclude from traceability checks |
+
+### Example
+
+```json
+{
+  "traceability": {
+    "enabled": true,
+    "severity": "error",
+    "minCoverage": 80,
+    "includeSpecs": ["docs/changes/*/proposal.md", "docs/api/*.md"],
+    "excludeSpecs": ["docs/changes/archived/**"]
+  }
+}
+```
+
+## `roadmap`
+
+- **Type:** `RoadmapConfig`
+- **Required:** No
+
+Configures roadmap management and external tracker synchronization.
+
+### RoadmapConfig Object
+
+| Field     | Type            | Required | Description                    |
+| --------- | --------------- | -------- | ------------------------------ |
+| `tracker` | `TrackerConfig` | No       | External tracker sync settings |
+
+### TrackerConfig Object
+
+| Field              | Type                            | Required | Description                                           |
+| ------------------ | ------------------------------- | -------- | ----------------------------------------------------- |
+| `kind`             | `"github"` (literal)            | Yes      | Tracker kind (currently only `"github"` is supported) |
+| `repo`             | `string`                        | No       | Repository in `"owner/repo"` format                   |
+| `labels`           | `string[]`                      | No       | Labels auto-applied to synced issues for filtering    |
+| `statusMap`        | `Record<RoadmapStatus, string>` | Yes      | Maps roadmap status to external tracker status        |
+| `reverseStatusMap` | `Record<string, string>`        | No       | Maps external status back to roadmap status           |
+
+The `statusMap` keys are roadmap statuses: `"backlog"`, `"planned"`, `"in-progress"`, `"done"`, `"blocked"`. Values are the corresponding external tracker statuses (e.g., `"open"`, `"closed"`).
+
+### Example
+
+```json
+{
+  "roadmap": {
+    "tracker": {
+      "kind": "github",
+      "repo": "my-org/my-project",
+      "labels": ["roadmap"],
+      "statusMap": {
+        "backlog": "open",
+        "planned": "open",
+        "in-progress": "open",
+        "done": "closed",
+        "blocked": "open"
+      },
+      "reverseStatusMap": {
+        "open": "planned",
+        "closed": "done"
+      }
+    }
+  }
+}
+```
+
 ## `phaseGates`
 
 - **Type:** `PhaseGatesConfig`
@@ -218,10 +606,11 @@ Phase gates enforce that implementation files have corresponding specification d
 
 ### PhaseGateMapping Object
 
-| Field         | Type     | Required | Description                                                                                                             |
-| ------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `implPattern` | `string` | Yes      | Glob pattern matching implementation files                                                                              |
-| `specPattern` | `string` | Yes      | Pattern for the required spec file (`{feature}` is replaced with the feature name derived from the implementation path) |
+| Field               | Type      | Default | Description                                                                                                             |
+| ------------------- | --------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `implPattern`       | `string`  | --      | Glob pattern matching implementation files                                                                              |
+| `specPattern`       | `string`  | --      | Pattern for the required spec file (`{feature}` is replaced with the feature name derived from the implementation path) |
+| `contentValidation` | `boolean` | `false` | When true, validate that the spec file contains a numbered requirements section                                         |
 
 ### Example
 
@@ -247,11 +636,24 @@ Metadata about the project template used to initialize this configuration. Typic
 
 ### TemplateConfig Object
 
-| Field       | Type                                          | Required | Description                    |
-| ----------- | --------------------------------------------- | -------- | ------------------------------ |
-| `level`     | `"basic"` \| `"intermediate"` \| `"advanced"` | Yes      | Template complexity level      |
-| `framework` | `string`                                      | No       | Framework the template targets |
-| `version`   | `number`                                      | Yes      | Template version number        |
+| Field       | Type                                                           | Required | Description                             |
+| ----------- | -------------------------------------------------------------- | -------- | --------------------------------------- |
+| `level`     | `"basic"` \| `"intermediate"` \| `"advanced"`                  | No       | Template complexity level (JS/TS only)  |
+| `language`  | `"typescript"` \| `"python"` \| `"go"` \| `"rust"` \| `"java"` | No       | Target language                         |
+| `framework` | `string`                                                       | No       | Primary technology framework            |
+| `version`   | `number`                                                       | Yes      | Template version number                 |
+| `tooling`   | `ToolingConfig`                                                | No       | Language-specific tooling configuration |
+
+### ToolingConfig Object
+
+| Field            | Type     | Required | Description                                    |
+| ---------------- | -------- | -------- | ---------------------------------------------- |
+| `packageManager` | `string` | No       | Package manager (e.g., `"npm"`, `"pnpm"`)      |
+| `linter`         | `string` | No       | Linter tool (e.g., `"eslint"`, `"ruff"`)       |
+| `formatter`      | `string` | No       | Formatter tool (e.g., `"prettier"`, `"black"`) |
+| `buildTool`      | `string` | No       | Build tool (e.g., `"tsc"`, `"vite"`)           |
+| `testRunner`     | `string` | No       | Test runner (e.g., `"vitest"`, `"pytest"`)     |
+| `lockFile`       | `string` | No       | Lock file name (e.g., `"pnpm-lock.yaml"`)      |
 
 ### Example
 
@@ -259,8 +661,17 @@ Metadata about the project template used to initialize this configuration. Typic
 {
   "template": {
     "level": "intermediate",
+    "language": "typescript",
     "framework": "express",
-    "version": 1
+    "version": 1,
+    "tooling": {
+      "packageManager": "pnpm",
+      "linter": "eslint",
+      "formatter": "prettier",
+      "buildTool": "tsc",
+      "testRunner": "vitest",
+      "lockFile": "pnpm-lock.yaml"
+    }
   }
 }
 ```
@@ -300,6 +711,31 @@ A full `harness.config.json` for a layered API project:
   "boundaries": {
     "requireSchema": ["src/api/**"]
   },
+  "security": {
+    "enabled": true,
+    "strict": false,
+    "rules": { "SEC-CRY-001": "warning" },
+    "exclude": ["**/node_modules/**", "**/dist/**"]
+  },
+  "performance": {
+    "complexity": {
+      "enabled": true,
+      "thresholds": { "cyclomaticComplexity": { "error": 15, "warn": 10 } }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": { "fanOut": { "warn": 15 } }
+    },
+    "sizeBudget": { "enabled": false, "budgets": {} }
+  },
+  "architecture": {
+    "enabled": true,
+    "thresholds": {
+      "circular-deps": { "max": 0 },
+      "layer-violations": { "max": 0 },
+      "complexity": { "max": 15 }
+    }
+  },
   "agent": {
     "executor": "subprocess",
     "timeout": 300000,
@@ -315,6 +751,54 @@ A full `harness.config.json` for a layered API project:
     "mappings": [
       { "implPattern": "src/**/*.ts", "specPattern": "docs/changes/{feature}/proposal.md" }
     ]
+  },
+  "traceability": {
+    "enabled": true,
+    "severity": "warning",
+    "minCoverage": 80,
+    "includeSpecs": ["docs/changes/*/proposal.md"]
+  },
+  "skills": {
+    "alwaysSuggest": ["detect-doc-drift"],
+    "neverSuggest": [],
+    "tierOverrides": {}
+  },
+  "design": {
+    "strictness": "standard",
+    "platforms": ["web"]
+  },
+  "i18n": {
+    "enabled": false,
+    "sourceLocale": "en",
+    "targetLocales": []
+  },
+  "review": {
+    "model_tiers": {
+      "fast": "claude-haiku-4",
+      "standard": "claude-sonnet-4"
+    }
+  },
+  "integrations": {
+    "enabled": ["github-mcp"],
+    "dismissed": []
+  },
+  "roadmap": {
+    "tracker": {
+      "kind": "github",
+      "repo": "my-org/my-project",
+      "labels": ["roadmap"],
+      "statusMap": {
+        "backlog": "open",
+        "planned": "open",
+        "in-progress": "open",
+        "done": "closed",
+        "blocked": "open"
+      },
+      "reverseStatusMap": {
+        "open": "planned",
+        "closed": "done"
+      }
+    }
   },
   "template": {
     "level": "intermediate",
@@ -355,4 +839,4 @@ If validation fails, the error message will indicate which field has an invalid 
 
 ---
 
-_Last Updated: 2026-03-17_
+_Last Updated: 2026-04-06_

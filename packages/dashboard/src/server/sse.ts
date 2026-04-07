@@ -7,14 +7,22 @@ import { gatherPerf } from './gather/perf';
 import { gatherArch } from './gather/arch';
 import { gatherAnomalies } from './gather/anomalies';
 import type { OverviewData, ChecksData, SSEEvent } from '../shared/types';
-import type { ServerContext } from './context';
+import type { GatherCache } from './gather-cache';
+
+/** Minimal context interface used by SSEManager — avoids circular import with context.ts. */
+export interface SSEContext {
+  roadmapPath: string;
+  projectPath: string;
+  pollIntervalMs: number;
+  gatherCache: GatherCache;
+}
 
 /**
  * Manages all active SSE connections and runs a single shared polling loop.
  * When the first client connects the loop starts; when the last disconnects it stops.
  */
 export class SSEManager {
-  private connections = new Map<SSEStreamingApi, ServerContext>();
+  private connections = new Map<SSEStreamingApi, SSEContext>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private ticking = false;
 
@@ -30,7 +38,7 @@ export class SSEManager {
    * Register a new SSE stream. Starts the polling loop if this is the first connection.
    * Automatically removes the stream when it aborts (client disconnects).
    */
-  addConnection(stream: SSEStreamingApi, ctx: ServerContext): void {
+  addConnection(stream: SSEStreamingApi, ctx: SSEContext): void {
     this.connections.set(stream, ctx);
 
     stream.onAbort(() => {
@@ -55,14 +63,14 @@ export class SSEManager {
     }
   }
 
-  private start(ctx: ServerContext): void {
+  private start(ctx: SSEContext): void {
     this.timer = setInterval(() => {
       void this.tick(ctx);
     }, ctx.pollIntervalMs);
   }
 
   /** Gather all data and broadcast an overview event to all connected streams. */
-  async tick(ctx: ServerContext): Promise<void> {
+  async tick(ctx: SSEContext): Promise<void> {
     if (this.ticking) return;
     this.ticking = true;
     try {
@@ -108,7 +116,7 @@ export class SSEManager {
     }
   }
 
-  private async _tick(ctx: ServerContext): Promise<void> {
+  private async _tick(ctx: SSEContext): Promise<void> {
     const [roadmap, health, graph] = await Promise.all([
       gatherRoadmap(ctx.roadmapPath),
       gatherHealth(ctx.projectPath),

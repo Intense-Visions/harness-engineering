@@ -93,6 +93,17 @@ Scaffold a new skill with skill.yaml and SKILL.md
 - `--pre-checks` — Pre-check commands
 - `--post-checks` — Post-check commands
 
+### `harness dashboard`
+
+Start the Harness local web dashboard
+
+**Options:**
+
+- `--port` — Client dev server port (default: "3700")
+- `--api-port` — API server port (default: "3701")
+- `--no-open` — Do not automatically open browser
+- `--cwd` — Project directory (defaults to cwd)
+
 ### `harness doctor`
 
 Check environment health: Node version, slash commands, MCP configuration

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { readCostRecords } from './jsonl-reader';
+import { readCostRecords } from '../../src/usage/jsonl-reader';
 
 describe('readCostRecords', () => {
   const tmpDir = path.join(__dirname, '__test-tmp__');

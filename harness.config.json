@@ -33,6 +33,11 @@
       "allowedDependencies": ["types", "core"]
     },
     {
+      "name": "dashboard",
+      "pattern": "packages/dashboard/src/**",
+      "allowedDependencies": ["types", "core", "graph"]
+    },
+    {
       "name": "cli",
       "pattern": "packages/cli/src/**",
       "allowedDependencies": ["types", "core", "graph", "linter-gen", "orchestrator"]
@@ -123,8 +128,10 @@
       "**/*.test.ts",
       "**/tests/fixtures/**",
       "**/coverage/**",
+      "**/packages/*/coverage/**",
       "**/security/rules/**",
-      "**/.vitepress/cache/**"
+      "**/.vitepress/cache/**",
+      "**/.claude/worktrees/**"
     ]
   },
   "entropy": {

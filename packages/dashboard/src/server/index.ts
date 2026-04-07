@@ -11,6 +11,7 @@ import { buildActionsRouter } from './routes/actions';
 import { buildCIRouter } from './routes/ci';
 import { buildImpactRouter } from './routes/impact';
 import { buildContext, type ServerContext } from './context';
+import { SSEManager } from './sse';
 import { DASHBOARD_PORT } from '../shared/constants';
 
 export function buildApp(ctx: ServerContext): Hono {
@@ -41,6 +42,6 @@ export function buildApp(ctx: ServerContext): Hono {
   return app;
 }
 
-const app = buildApp(buildContext());
+const app = buildApp(buildContext({ sseManager: new SSEManager() }));
 
 export { app };

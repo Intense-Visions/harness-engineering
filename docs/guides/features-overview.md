@@ -14,7 +14,7 @@ This page maps every major capability to the command, skill, or tool that provid
 | **Security scanning**         | Secrets, injection, XSS, crypto, path traversal, agent config, MCP rules        | `harness check-security`                         |
 | **Performance enforcement**   | Benchmarks, baselines, regression detection, critical path analysis             | `harness check-perf`, `harness perf bench`       |
 | **Documentation health**      | Drift detection, coverage checks, auto-fix pipeline                             | `harness check-docs`, `/harness:docs-pipeline`   |
-| **Knowledge graph**           | Structural analysis with 30 node types, 25 edge types, natural language queries | `harness graph scan`, `ask_graph` MCP tool       |
+| **Knowledge graph**           | Structural analysis with 30 node types, 25 edge types, natural language queries | `harness scan`, `ask_graph` MCP tool             |
 | **Autonomous execution**      | Plan → execute → verify → review loop across multi-phase projects               | `/harness:autopilot`                             |
 | **Agent orchestration**       | Long-running daemon dispatching coding agents to issues                         | `harness orchestrator run`                       |
 | **Cost tracking**             | Token spend visibility across sessions, days, and models                        | `harness usage daily` (in progress)              |
@@ -101,7 +101,7 @@ A structural analysis engine that powers many of the above capabilities.
 
 | Command / Tool                  | Description                                                       |
 | ------------------------------- | ----------------------------------------------------------------- |
-| `harness graph scan`            | Build the knowledge graph from code, git, and docs                |
+| `harness scan`                  | Build the knowledge graph from code, git, and docs                |
 | `harness graph query <id>`      | Query the graph from a starting node with depth/type filters      |
 | `harness graph status`          | Show graph statistics (nodes, edges, last scan)                   |
 | `harness graph export`          | Export graph as JSON or Mermaid diagram                           |
