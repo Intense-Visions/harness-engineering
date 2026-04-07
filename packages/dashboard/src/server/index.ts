@@ -9,6 +9,7 @@ import { buildGraphRouter } from './routes/graph';
 import { buildSseRouter } from './routes/sse';
 import { buildActionsRouter } from './routes/actions';
 import { buildCIRouter } from './routes/ci';
+import { buildImpactRouter } from './routes/impact';
 import { buildContext, type ServerContext } from './context';
 import { DASHBOARD_PORT } from '../shared/constants';
 
@@ -35,6 +36,7 @@ export function buildApp(ctx: ServerContext): Hono {
   app.route('/api', buildSseRouter(ctx));
   app.route('/api', buildActionsRouter(ctx));
   app.route('/api', buildCIRouter(ctx));
+  app.route('/api', buildImpactRouter(ctx));
 
   return app;
 }

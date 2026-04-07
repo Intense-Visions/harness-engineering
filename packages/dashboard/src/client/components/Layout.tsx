@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/health', label: 'Health' },
   { to: '/graph', label: 'Graph' },
   { to: '/ci', label: 'CI' },
+  { to: '/impact', label: 'Impact' },
 ] as const;
 
 export function Layout({ children }: Props) {

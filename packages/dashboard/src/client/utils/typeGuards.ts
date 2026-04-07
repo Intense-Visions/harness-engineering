@@ -5,6 +5,8 @@ import type {
   SecurityData,
   PerfData,
   ArchData,
+  AnomalyData,
+  BlastRadiusData,
 } from '@shared/types';
 
 export function isRoadmapData(r: unknown): r is RoadmapData {
@@ -31,4 +33,12 @@ export function isPerfData(p: unknown): p is PerfData {
 
 export function isArchData(a: unknown): a is ArchData {
   return typeof a === 'object' && a !== null && 'passed' in a && 'totalViolations' in a;
+}
+
+export function isAnomalyData(a: unknown): a is AnomalyData {
+  return typeof a === 'object' && a !== null && 'outliers' in a && 'articulationPoints' in a;
+}
+
+export function isBlastRadiusData(b: unknown): b is BlastRadiusData {
+  return typeof b === 'object' && b !== null && 'sourceNodeId' in b && 'layers' in b;
 }

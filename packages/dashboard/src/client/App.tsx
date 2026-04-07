@@ -5,6 +5,7 @@ import { Roadmap } from './pages/Roadmap';
 import { Health } from './pages/Health';
 import { Graph } from './pages/Graph';
 import { CI } from './pages/CI';
+import { Impact } from './pages/Impact';
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
           <Route path="/health" element={<Health />} />
           <Route path="/graph" element={<Graph />} />
           <Route path="/ci" element={<CI />} />
+          <Route path="/impact" element={<Impact />} />
         </Routes>
       </Layout>
     </BrowserRouter>
