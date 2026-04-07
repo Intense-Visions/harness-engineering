@@ -14,6 +14,13 @@ export interface Suggestion {
   score: number;
 }
 
+export interface SuggestResult {
+  /** Behavioral skills scored above threshold (0.4), up to 3 */
+  suggestions: Suggestion[];
+  /** Knowledge skills with score ≥ 0.7 — to be auto-injected as Instructions context */
+  autoInjectKnowledge: Suggestion[];
+}
+
 const TIER_1_SKILLS = new Set([
   'harness-brainstorming',
   'harness-planning',
@@ -170,7 +177,13 @@ export function scoreSkill(
 /**
  * Suggest relevant catalog skills for the current task.
  *
- * Returns up to 3 suggestions above the confidence threshold (0.4).
+ * Returns:
+ * - suggestions: behavioral skills (rigid/flexible) above 0.4 threshold, up to 3
+ * - autoInjectKnowledge: knowledge skills with score ≥ 0.7 (for Instructions auto-inject)
+ *
+ * Knowledge skills with score 0.4–0.7 are included in suggestions with no special marker.
+ * Knowledge skills with score < 0.4 are discarded.
+ *
  * Respects alwaysSuggest (forced inclusion) and neverSuggest (forced exclusion).
  */
 export function suggest(
@@ -179,30 +192,55 @@ export function suggest(
   profile: StackProfile | null,
   recentFiles: string[],
   config?: DispatcherConfig
-): Suggestion[] {
+): SuggestResult {
   const queryTerms = taskDescription
     .toLowerCase()
     .split(/\s+/)
     .filter((t) => t.length > 2);
 
-  const scored: Suggestion[] = [];
+  const behavioralScored: Suggestion[] = [];
+  const autoInjectKnowledge: Suggestion[] = [];
+  const knowledgeRecommendations: Suggestion[] = [];
 
   for (const [name, entry] of Object.entries(index.skills)) {
     if (config?.neverSuggest?.includes(name)) continue;
 
     const score = scoreSkill(entry, queryTerms, profile, recentFiles, name);
     const isForced = config?.alwaysSuggest?.includes(name);
+    const effectiveScore = isForced ? Math.max(score, 1.0) : score;
 
-    if (score >= 0.4 || isForced) {
-      scored.push({
-        name,
-        description: entry.description,
-        score: isForced ? Math.max(score, 1.0) : score,
-      });
+    if (entry.type === 'knowledge') {
+      if (effectiveScore >= 0.7) {
+        autoInjectKnowledge.push({
+          name,
+          description: entry.description,
+          score: effectiveScore,
+        });
+      } else if (effectiveScore >= 0.4) {
+        knowledgeRecommendations.push({
+          name,
+          description: entry.description,
+          score: effectiveScore,
+        });
+      }
+      // score < 0.4: discard
+    } else {
+      // Behavioral skill (rigid / flexible)
+      if (effectiveScore >= 0.4 || isForced) {
+        behavioralScored.push({ name, description: entry.description, score: effectiveScore });
+      }
     }
   }
 
-  return scored.sort((a, b) => b.score - a.score).slice(0, 3);
+  const suggestions = [
+    ...behavioralScored.sort((a, b) => b.score - a.score).slice(0, 3),
+    ...knowledgeRecommendations.sort((a, b) => b.score - a.score),
+  ];
+
+  return {
+    suggestions,
+    autoInjectKnowledge: autoInjectKnowledge.sort((a, b) => b.score - a.score),
+  };
 }
 
 /**

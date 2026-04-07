@@ -78,8 +78,8 @@ export async function handleRunSkill(input: {
       const index = loadOrRebuildIndex(platform, projectRoot, skillsConfig?.tierOverrides);
       const profile = loadOrGenerateProfile(projectRoot);
       const taskDesc = [input.skill, input.phase].filter(Boolean).join(' ');
-      const suggestions = suggest(index, taskDesc, profile, [], skillsConfig);
-      const suggestionText = formatSuggestions(suggestions);
+      const result = suggest(index, taskDesc, profile, [], skillsConfig);
+      const suggestionText = formatSuggestions(result.suggestions);
       if (suggestionText) {
         content += suggestionText;
       }
