@@ -97,6 +97,14 @@ export interface HealthError {
 
 export type HealthResult = HealthData | HealthError;
 
+/** Extended health response including security, perf, and arch from GatherCache */
+export interface ExtendedHealthData {
+  health: HealthResult;
+  security: SecurityResult | null;
+  perf: PerfResult | null;
+  arch: ArchResult | null;
+}
+
 // --- Graph types ---
 
 /** Node type breakdown for graph metrics */
@@ -141,6 +149,9 @@ export interface OverviewData {
   roadmap: RoadmapResult;
   health: HealthResult;
   graph: GraphResult;
+  securityStatus?: { valid: boolean; errorCount: number; warningCount: number } | null;
+  perfStatus?: { valid: boolean; violationCount: number } | null;
+  archStatus?: { passed: boolean; totalViolations: number } | null;
 }
 
 // --- SSE event types ---
