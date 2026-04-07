@@ -10,58 +10,14 @@
 
 import { Command } from 'commander';
 import { CLI_VERSION } from './version';
-import { createValidateCommand } from './commands/validate';
-import { createCheckDepsCommand } from './commands/check-deps';
-import { createCheckPerfCommand } from './commands/check-perf';
-import { createCheckSecurityCommand } from './commands/check-security';
-import { createPerfCommand } from './commands/perf';
-import { createCheckDocsCommand } from './commands/check-docs';
-import { createInitCommand } from './commands/init';
-import { createCleanupCommand } from './commands/cleanup';
-import { createFixDriftCommand } from './commands/fix-drift';
-import { createAgentCommand } from './commands/agent';
-import { createAddCommand } from './commands/add';
-import { createLinterCommand } from './commands/linter';
-import { createPersonaCommand } from './commands/persona';
-import { createSkillCommand } from './commands/skill';
-import { createStateCommand } from './commands/state';
-import { createCheckPhaseGateCommand } from './commands/check-phase-gate';
-import { createCreateSkillCommand } from './commands/create-skill';
-import { createSetupMcpCommand } from './commands/setup-mcp';
-import { createSetupCommand } from './commands/setup';
-import { createDoctorCommand } from './commands/doctor';
-import { createGenerateSlashCommandsCommand } from './commands/generate-slash-commands';
-import { createCICommand } from './commands/ci';
-import { createHooksCommand } from './commands/hooks';
-import { createUpdateCommand } from './commands/update';
-import { createGenerateAgentDefinitionsCommand } from './commands/generate-agent-definitions';
-import { createGenerateCommand } from './commands/generate';
-import { createScanCommand } from './commands/graph/scan';
-import { createIngestCommand } from './commands/graph/ingest';
-import { createQueryCommand } from './commands/graph/query';
-import { createGraphCommand } from './commands/graph/index';
-import { createMcpCommand } from './commands/mcp';
-import { createImpactPreviewCommand } from './commands/impact-preview';
-import { createCheckArchCommand } from './commands/check-arch';
-import { createBlueprintCommand } from './commands/blueprint';
-import { createShareCommand } from './commands/share';
-import { createInstallCommand } from './commands/install';
-import { createInstallConstraintsCommand } from './commands/install-constraints';
-import { createUninstallConstraintsCommand } from './commands/uninstall-constraints';
-import { createUninstallCommand } from './commands/uninstall';
-import { createOrchestratorCommand } from './commands/orchestrator';
-import { createLearningsCommand } from './commands/learnings';
-import { createIntegrationsCommand } from './commands/integrations/index';
-import { createUsageCommand } from './commands/usage';
-import { createTaintCommand } from './commands/taint';
-import { createScanConfigCommand } from './commands/scan-config';
-import { createSnapshotCommand } from './commands/snapshot';
-import { createPredictCommand } from './commands/predict';
-import { createRecommendCommand } from './commands/recommend';
-import { createDashboardCommand } from './commands/dashboard';
+import { commandCreators } from './commands/_registry';
 
 /**
  * Creates and configures the main Harness CLI program.
+ *
+ * Commands are auto-discovered from the commands/ directory via _registry.ts.
+ * To add a new command: create it in commands/, export a createXXXCommand()
+ * function, then run `pnpm run generate-barrel-exports` to regenerate the registry.
  *
  * @returns A Commander instance with all subcommands registered.
  */
@@ -77,56 +33,10 @@ export function createProgram(): Command {
     .option('--verbose', 'Verbose output')
     .option('--quiet', 'Minimal output');
 
-  // Register commands
-  program.addCommand(createValidateCommand());
-  program.addCommand(createCheckDepsCommand());
-  program.addCommand(createCheckDocsCommand());
-  program.addCommand(createCheckPerfCommand());
-  program.addCommand(createCheckSecurityCommand());
-  program.addCommand(createPerfCommand());
-  program.addCommand(createInitCommand());
-  program.addCommand(createCleanupCommand());
-  program.addCommand(createFixDriftCommand());
-  program.addCommand(createAgentCommand());
-  program.addCommand(createAddCommand());
-  program.addCommand(createLinterCommand());
-  program.addCommand(createPersonaCommand());
-  program.addCommand(createSkillCommand());
-  program.addCommand(createStateCommand());
-  program.addCommand(createLearningsCommand());
-  program.addCommand(createCheckPhaseGateCommand());
-  program.addCommand(createCreateSkillCommand());
-  program.addCommand(createSetupMcpCommand());
-  program.addCommand(createSetupCommand());
-  program.addCommand(createDoctorCommand());
-  program.addCommand(createGenerateSlashCommandsCommand());
-  program.addCommand(createGenerateAgentDefinitionsCommand());
-  program.addCommand(createGenerateCommand());
-  program.addCommand(createCICommand());
-  program.addCommand(createHooksCommand());
-  program.addCommand(createUpdateCommand());
-  program.addCommand(createScanCommand());
-  program.addCommand(createIngestCommand());
-  program.addCommand(createQueryCommand());
-  program.addCommand(createGraphCommand());
-  program.addCommand(createMcpCommand());
-  program.addCommand(createImpactPreviewCommand());
-  program.addCommand(createCheckArchCommand());
-  program.addCommand(createBlueprintCommand());
-  program.addCommand(createShareCommand());
-  program.addCommand(createInstallCommand());
-  program.addCommand(createInstallConstraintsCommand());
-  program.addCommand(createUninstallConstraintsCommand());
-  program.addCommand(createUninstallCommand());
-  program.addCommand(createOrchestratorCommand());
-  program.addCommand(createIntegrationsCommand());
-  program.addCommand(createUsageCommand());
-  program.addCommand(createTaintCommand());
-  program.addCommand(createScanConfigCommand());
-  program.addCommand(createSnapshotCommand());
-  program.addCommand(createPredictCommand());
-  program.addCommand(createRecommendCommand());
-  program.addCommand(createDashboardCommand());
+  // Register all discovered commands
+  for (const creator of commandCreators) {
+    program.addCommand(creator());
+  }
 
   return program;
 }

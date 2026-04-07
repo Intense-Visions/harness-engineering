@@ -342,6 +342,18 @@ Simulate cascading failure propagation from a source node using probability-weig
 - `maxDepth` (number, optional) — Maximum BFS depth (default 10)
 - `mode` (string, optional) — Response density: compact returns summary + top 10 highest-risk nodes, detailed returns full layered cascade chain. Default: compact
 
+### `dispatch_skills`
+
+Recommend an optimal skill sequence based on what changed in the codebase. Combines health signals with change-type and domain detection from git diffs. Returns an annotated sequence with parallel-safe flags, estimated impact, and dependency info.
+
+**Parameters:**
+
+- `path` (string, optional) — Project root path (defaults to cwd)
+- `files` (array, optional) — Changed file paths (auto-detected from git diff if omitted)
+- `commitMessage` (string, optional) — Commit message for change-type detection (auto-detected from git log if omitted)
+- `fresh` (boolean, optional) — Force a fresh health snapshot capture (default: false, uses cached)
+- `limit` (number, optional) — Maximum number of skills to return (default: 5)
+
 ### `gather_context`
 
 Assemble all working context an agent needs in a single call: state, learnings, handoff, graph context, project validation, and session sections. Runs constituents in parallel.

@@ -21,31 +21,43 @@ export type { HarnessState, FailureEntry, Handoff, GateResult, GateConfig } from
 export { loadState, saveState } from './state-persistence';
 
 /**
- * Learning accumulation and retrieval.
+ * Learning content parsing and deduplication.
  */
 export {
-  clearLearningsCache,
-  appendLearning,
-  loadRelevantLearnings,
-  loadBudgetedLearnings,
+  parseFrontmatter,
+  extractIndexEntry,
   parseDateFromEntry,
+  normalizeLearningContent,
+  computeContentHash,
   analyzeLearningPatterns,
+} from './learnings-content';
+export type {
+  LearningsFrontmatter,
+  LearningsIndexEntry,
+  LearningPattern,
+} from './learnings-content';
+
+/**
+ * Learning file loader with mtime-based cache.
+ */
+export { clearLearningsCache, loadRelevantLearnings } from './learnings-loader';
+
+/**
+ * Learning CRUD operations: append, load index, budgeted retrieval.
+ */
+export { appendLearning, loadBudgetedLearnings, loadIndexEntries } from './learnings';
+export type { BudgetedLearningsOptions } from './learnings';
+
+/**
+ * Learning lifecycle: archival, pruning, session promotion.
+ */
+export {
   archiveLearnings,
   pruneLearnings,
   promoteSessionLearnings,
   countLearningEntries,
-  parseFrontmatter,
-  extractIndexEntry,
-  loadIndexEntries,
-} from './learnings';
-export type {
-  BudgetedLearningsOptions,
-  LearningPattern,
-  PruneResult,
-  PromoteResult,
-  LearningsFrontmatter,
-  LearningsIndexEntry,
-} from './learnings';
+} from './learnings-lifecycle';
+export type { PruneResult, PromoteResult } from './learnings-lifecycle';
 
 /**
  * Failure tracking, loading, and archival.

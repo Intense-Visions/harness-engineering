@@ -933,12 +933,13 @@ last_manual_edit: 2026-03-30
 
 ### Intelligent Skill Dispatch
 
-- **Status:** planned
-- **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
-- **Summary:** Change-triggered automatic skill selection. When files change, determines optimal skill+persona combination based on file hotspot data, change type, and historical skill effectiveness. Auto-composes multi-skill workflows. [L4]
+- **Status:** done
+- **Spec:** docs/changes/intelligent-skill-dispatch/proposal.md
+- **Summary:** Change-triggered automatic skill selection via extended recommendation engine signals. New `dispatch_skills` MCP tool with session-start auto-invocation, annotated skill sequences with parallel-safe flags. [L4]
 - **Blockers:** Skill Recommendation Engine
-- **Plan:** —
-- **Assignee:** —
+- **Plan:** docs/plans/2026-04-06-intelligent-skill-dispatch-phase1-signal-type-foundation-plan.md
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-06
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#83
 

@@ -120,6 +120,7 @@ import {
   handleDetectStaleConstraints,
 } from './tools/stale-constraints.js';
 import { searchSkillsDefinition, handleSearchSkills } from './tools/search-skills.js';
+import { dispatchSkillsDefinition, handleDispatchSkills } from './tools/dispatch-skills.js';
 import { getDecayTrendsDefinition, handleGetDecayTrends } from './tools/decay-trends.js';
 import {
   codeOutlineDefinition,
@@ -202,6 +203,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   predictFailuresDefinition,
   recommendSkillsDefinition,
   computeBlastRadiusDefinition,
+  dispatchSkillsDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -258,6 +260,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   predict_failures: handlePredictFailures as ToolHandler,
   recommend_skills: handleRecommendSkills as ToolHandler,
   compute_blast_radius: handleComputeBlastRadius as ToolHandler,
+  dispatch_skills: handleDispatchSkills as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [

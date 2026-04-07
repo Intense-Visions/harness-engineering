@@ -3,23 +3,22 @@
 // The implementation has been split into focused domain files.
 
 export { loadState, saveState } from './state-persistence';
+export { clearLearningsCache, loadRelevantLearnings } from './learnings-loader';
+export { appendLearning, loadBudgetedLearnings, loadIndexEntries } from './learnings';
 export {
-  clearLearningsCache,
-  appendLearning,
-  loadRelevantLearnings,
-  loadBudgetedLearnings,
   parseDateFromEntry,
   analyzeLearningPatterns,
+  parseFrontmatter,
+  extractIndexEntry,
+  normalizeLearningContent,
+  computeContentHash,
+} from './learnings-content';
+export {
   archiveLearnings,
   pruneLearnings,
   promoteSessionLearnings,
   countLearningEntries,
-  parseFrontmatter,
-  extractIndexEntry,
-  loadIndexEntries,
-  normalizeLearningContent,
-  computeContentHash,
-} from './learnings';
+} from './learnings-lifecycle';
 export { clearFailuresCache, appendFailure, loadFailures, archiveFailures } from './failures';
 export { saveHandoff, loadHandoff } from './handoff';
 export { runMechanicalGate } from './mechanical-gate';
