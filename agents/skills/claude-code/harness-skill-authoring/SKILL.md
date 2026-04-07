@@ -192,6 +192,16 @@ Use this checklist as a final quality gate before declaring a skill complete.
 - Rigid skills include Gates and Escalation sections with specific conditions and consequences
 - The skill can be loaded and run with `harness skill run <name>`
 
+## Rationalizations to Reject
+
+| Rationalization                                                         | Reality                                                                                                                                  |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| "This skill is too simple to need all required sections"                | Every section exists for a reason. A short section is fine; a missing section means the skill was not fully thought through.             |
+| "The process section covers it — no need for explicit success criteria" | Process describes what to do. Success criteria describe how to know it worked. They serve different purposes.                            |
+| "Rationalizations to Reject is meta — this skill does not need it"      | This section is required for all user-facing skills, including this one. No exceptions.                                                  |
+| "I will add examples later once the skill is proven"                    | Examples are a required section. A skill without examples forces the agent to guess at correct behavior. Write at least one example now. |
+| "The When to Use section is obvious from the name"                      | Negative conditions (when NOT to use) prevent misapplication. The skill name conveys nothing about boundary conditions.                  |
+
 ## Examples
 
 ### Example: Creating a Flexible Skill for Database Migration Review
