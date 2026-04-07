@@ -123,11 +123,30 @@ depends_on:
 
 8. **For rigid skills, write `## Escalation`.** Define when to stop and ask for help. Each escalation condition should describe the symptom, the likely cause, and what to report.
 
+9. **Write `## Rationalizations to Reject`.** Every user-facing skill must include this section. It contains domain-specific rationalizations that prevent agents from skipping steps with plausible-sounding excuses. Format requirements:
+
+   - **Table format:** `| Rationalization | Reality |` with a header separator row
+   - **3-8 entries** per skill, each specific to the skill's domain
+   - **No generic filler.** Every entry must address a rationalization that is plausible in the context of this specific skill
+   - **Do not repeat universal rationalizations.** The following three are always in effect for all skills and must NOT appear in individual skill tables:
+
+   | Rationalization | Reality |
+   | --- | --- |
+   | "It's probably fine" | "Probably" is not evidence. Verify before asserting. |
+   | "This is best practice" | Best practice in what context? Cite the source and confirm it applies here. |
+   | "We can fix it later" | If worth flagging, document now with a concrete follow-up plan. |
+
+   Example of a good domain-specific entry (for a code review skill):
+
+   | Rationalization | Reality |
+   | --- | --- |
+   | "The tests pass so the logic must be correct" | Passing tests prove the tested paths work. They say nothing about untested paths, edge cases, or whether the tests themselves are correct. |
+
 ### Phase 5: VALIDATE — Verify the Skill
 
 1. **Run `harness skill validate`** to check:
    - `skill.yaml` has all required fields and valid values
-   - `SKILL.md` has all required sections (`## When to Use`, `## Process`, `## Harness Integration`, `## Success Criteria`, `## Examples`)
+   - `SKILL.md` has all required sections (`## When to Use`, `## Process`, `## Harness Integration`, `## Success Criteria`, `## Examples`, `## Rationalizations to Reject`)
    - Rigid skills have `## Gates` and `## Escalation` sections
    - The `name` in `skill.yaml` matches the directory name
    - Referenced tools exist
