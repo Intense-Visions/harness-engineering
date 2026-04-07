@@ -1,5 +1,11 @@
 # @harness-engineering/linter-gen
 
+## 0.1.5
+
+### Patch Changes
+
+- Fix context-builder import path
+
 ## 0.1.4
 
 ### Patch Changes

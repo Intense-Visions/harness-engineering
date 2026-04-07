@@ -1,5 +1,13 @@
 # @harness-engineering/cli
 
+## 1.23.2
+
+### Patch Changes
+
+- Reduce cyclomatic complexity in `traceability` command
+- Updated dependencies
+  - @harness-engineering/core@0.21.1 — fix blocked status corruption in external sync
+
 ## 1.23.1
 
 ### Patch Changes

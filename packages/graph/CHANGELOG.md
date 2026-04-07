@@ -1,5 +1,17 @@
 # @harness-engineering/graph
 
+## 0.4.1
+
+### Patch Changes
+
+- Reduce cyclomatic complexity in `Traceability` query and `GraphStore`
+
+## 0.4.0
+
+### Minor Changes
+
+- Spec-to-implementation traceability — requirement nodes, coverage matrix, hybrid test linking
+
 ## 0.3.5
 
 ### Patch Changes

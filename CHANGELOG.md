@@ -6,6 +6,18 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+## 0.14.1 — 2026-04-07
+
+### Fixed
+
+- **Blocked status corruption in external sync** — `syncFromExternal` silently flipped manually-set `blocked` features to `planned` because GitHub Issues "open" mapped to "planned" and `STATUS_RANK` treated both as lateral (rank 1). Added guard to skip `blocked → planned` transitions unless `forceSync` is set. (`@harness-engineering/core@0.21.1`)
+
+### Changed
+
+- **Complexity reduction** — Refactored `prediction-engine`, `aggregator`, `traceability` command, `Traceability` query, and `GraphStore` to reduce cyclomatic complexity. (`@harness-engineering/core@0.21.1`, `@harness-engineering/cli@1.23.2`, `@harness-engineering/graph@0.4.1`)
+- **Dead code removal** — Removed orphaned `impact-lab-generator` module, moved misplaced test file. (`@harness-engineering/core@0.21.1`)
+- **Dashboard SSE fixes** — Improved server-sent events reliability and server context handling. (`@harness-engineering/dashboard@0.1.1`)
+
 ## 0.14.0 — 2026-04-05
 
 ### Fixed

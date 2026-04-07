@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.1
+
+### Patch Changes
+
+- **Fix blocked status corruption** — `syncFromExternal` no longer overrides manually-set `blocked` status with `planned` during external sync. GitHub Issues "open" status mapped to "planned" via `reverseStatusMap`, and `STATUS_RANK` lateral equivalence (both rank 1) allowed the directional guard to pass. Added explicit `blocked → planned` guard in `syncFromExternal`.
+- Reduce cyclomatic complexity in `prediction-engine` and `aggregator`
+- Remove orphaned `impact-lab-generator` module
+- Move misplaced `jsonl-reader.test.ts` from `src/` to `tests/`
+
 ## 0.21.0
 
 ### Minor Changes
