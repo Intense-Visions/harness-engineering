@@ -13,11 +13,14 @@ import type { StackProfile } from '../../src/skill/stack-profile';
 function makeEntry(overrides: Partial<SkillIndexEntry> = {}): SkillIndexEntry {
   return {
     tier: 3,
+    type: 'flexible',
     description: 'A test skill',
     keywords: ['testing', 'unit'],
     stackSignals: [],
     cognitiveMode: undefined,
     phases: [],
+    paths: [],
+    relatedSkills: [],
     source: 'bundled',
     addresses: [],
     dependsOn: [],
@@ -94,15 +97,15 @@ describe('scoreSkill', () => {
     const entry = makeEntry({ keywords: ['testing', 'unit', 'jest'] });
     const score = scoreSkill(entry, ['testing', 'unit'], null, [], 'unrelated-skill');
     expect(score).toBeGreaterThan(0);
-    // keyword component = 0.35 * (2/2) = 0.35
-    expect(score).toBeCloseTo(0.35);
+    // keyword component = 0.30 * (2/2) = 0.30  (was 0.35)
+    expect(score).toBeCloseTo(0.3);
   });
 
   it('scores partial keyword matches', () => {
     const entry = makeEntry({ keywords: ['testing'] });
     const score = scoreSkill(entry, ['testing', 'database'], null, [], 'unrelated-skill');
-    // keyword component = 0.35 * (1/2) = 0.175
-    expect(score).toBeCloseTo(0.175);
+    // keyword component = 0.30 * (1/2) = 0.15  (was 0.175)
+    expect(score).toBeCloseTo(0.15);
   });
 
   it('returns 0 keyword score when queryTerms is empty', () => {
@@ -120,8 +123,8 @@ describe('scoreSkill', () => {
       signals: { 'prisma/schema.prisma': true },
     });
     const score = scoreSkill(entry, [], profile, [], 'some-skill');
-    // stack component = 0.2 * (1/1) = 0.2
-    expect(score).toBeCloseTo(0.2);
+    // stack component = 0.15 * (1/1) = 0.15  (was 0.20)
+    expect(score).toBeCloseTo(0.15);
   });
 
   it('scores domain matches via stackSignals', () => {
@@ -134,8 +137,8 @@ describe('scoreSkill', () => {
     });
     const score = scoreSkill(entry, [], profile, [], 'some-skill');
     // domain match: detectedDomains has "database", entry.keywords has "database"
-    // stack component = 0.2 * (1/1) = 0.2
-    expect(score).toBeCloseTo(0.2);
+    // stack component = 0.15 * (1/1) = 0.15  (was 0.20)
+    expect(score).toBeCloseTo(0.15);
   });
 
   it('scores recency boost', () => {
@@ -144,15 +147,15 @@ describe('scoreSkill', () => {
       stackSignals: ['src/models'],
     });
     const score = scoreSkill(entry, [], null, ['src/models/user.ts'], 'some-skill');
-    // recency component = 0.15 * 1.0 = 0.15
-    expect(score).toBeCloseTo(0.15);
+    // recency component = 0.10 * 1.0 = 0.10  (was 0.15)
+    expect(score).toBeCloseTo(0.1);
   });
 
   it('scores name matches', () => {
     const entry = makeEntry({ keywords: [] });
     const score = scoreSkill(entry, ['design', 'system'], null, [], 'harness-design-system');
-    // name component = 0.2 * (2/2) = 0.2
-    expect(score).toBeCloseTo(0.2);
+    // name component = 0.15 * (2/2) = 0.15  (was 0.20)
+    expect(score).toBeCloseTo(0.15);
   });
 
   it('scores description matches', () => {
@@ -171,9 +174,9 @@ describe('scoreSkill', () => {
       description: 'Design token generation, palette selection, typography',
     });
     const score = scoreSkill(entry, ['design', 'system'], null, [], 'harness-design-system');
-    // name: 0.2 * (2/2) = 0.2, desc: 0.1 * (1/2) = 0.05 => 0.25
+    // name: 0.15 * (2/2) = 0.15, desc: 0.10 * (1/2) = 0.05 => 0.20
     expect(score).toBeGreaterThan(0);
-    expect(score).toBeCloseTo(0.25);
+    expect(score).toBeCloseTo(0.2);
   });
 
   it('filters short name segments to prevent false positives', () => {
@@ -207,8 +210,52 @@ describe('scoreSkill', () => {
       ['prisma/schema.prisma'],
       'harness-testing'
     );
-    // keyword: 0.35*1=0.35, name: 0.2*(1/1)=0.2, desc: 0.1*1=0.1, stack: 0.2*1=0.2, recency: 0.15*1=0.15
-    expect(score).toBeCloseTo(1.0);
+    // keyword: 0.30*1=0.30, name: 0.15*(1/1)=0.15, desc: 0.10*1=0.10, stack: 0.15*1=0.15, recency: 0.10*1=0.10
+    // paths: 0.20*0=0 (stackSignals used for recency, not paths glob)
+    // total: 0.30+0.15+0.10+0.15+0.10 = 0.80
+    expect(score).toBeCloseTo(0.8);
+  });
+
+  it('scores paths dimension: 0.20 when any glob matches recentFiles', () => {
+    const entry = makeEntry({
+      keywords: [],
+      stackSignals: [],
+      paths: ['**/*.tsx', '**/*.jsx'],
+    });
+    const score = scoreSkill(entry, [], null, ['src/components/Button.tsx'], 'some-skill');
+    // paths component = 0.20 * 1.0 = 0.20
+    expect(score).toBeCloseTo(0.2);
+  });
+
+  it('scores paths dimension: 0.0 when no glob matches recentFiles', () => {
+    const entry = makeEntry({
+      keywords: [],
+      stackSignals: [],
+      paths: ['**/*.tsx'],
+    });
+    const score = scoreSkill(entry, [], null, ['src/utils/helper.ts'], 'some-skill');
+    // .ts file does not match **/*.tsx
+    expect(score).toBeCloseTo(0.0);
+  });
+
+  it('scores paths dimension: 0.0 when paths is empty', () => {
+    const entry = makeEntry({
+      keywords: [],
+      stackSignals: [],
+      paths: [],
+    });
+    const score = scoreSkill(entry, [], null, ['src/components/Button.tsx'], 'some-skill');
+    expect(score).toBeCloseTo(0.0);
+  });
+
+  it('scores paths dimension: 0.0 when recentFiles is empty', () => {
+    const entry = makeEntry({
+      keywords: [],
+      stackSignals: [],
+      paths: ['**/*.tsx'],
+    });
+    const score = scoreSkill(entry, [], null, [], 'some-skill');
+    expect(score).toBeCloseTo(0.0);
   });
 });
 

@@ -70,11 +70,12 @@ export function computeHealthScore(entry: SkillIndexEntry, snapshot: HealthSnaps
  * Score a single catalog skill against the current task context.
  *
  * Weights:
- *   0.35 — keyword match (skill keywords ∩ query terms)
- *   0.20 — name match (skill name segments ∩ query terms)
+ *   0.30 — keyword match (skill keywords ∩ query terms)
+ *   0.15 — name match (skill name segments ∩ query terms)
  *   0.10 — description match (query terms found in description)
- *   0.20 — stack signal match (project signals ∩ skill signals)
- *   0.15 — recency boost (agent recently touched matching files)
+ *   0.15 — stack signal match (project signals ∩ skill signals)
+ *   0.10 — recency boost (agent recently touched matching files)
+ *   0.20 — paths glob match (skill paths ∩ recent files)
  */
 export function scoreSkill(
   entry: SkillIndexEntry,
@@ -139,12 +140,29 @@ export function scoreSkill(
     recencyBoost = hasRecentMatch ? 1.0 : 0;
   }
 
+  // Paths glob match — score 1.0 if any paths glob matches any recent file
+  let pathsScore = 0;
+  if (entry.paths && entry.paths.length > 0 && recentFiles.length > 0) {
+    const hasPathsMatch = recentFiles.some((file) =>
+      entry.paths.some((glob) => {
+        // Convert glob to regex: ** -> .*, * -> [^/]*
+        const pattern = glob
+          .replace(/[.+^${}()|[\]\\]/g, '\\$&') // escape special regex chars
+          .replace(/\*\*/g, '.*')
+          .replace(/\*/g, '[^/]*');
+        return new RegExp(`^${pattern}$`).test(file) || new RegExp(pattern).test(file);
+      })
+    );
+    pathsScore = hasPathsMatch ? 1.0 : 0;
+  }
+
   let score =
-    0.35 * keywordScore +
-    0.2 * nameScore +
+    0.3 * keywordScore +
+    0.15 * nameScore +
     0.1 * descScore +
-    0.2 * stackScore +
-    0.15 * recencyBoost;
+    0.15 * stackScore +
+    0.1 * recencyBoost +
+    0.2 * pathsScore;
 
   // Health boost: blend when a snapshot is provided
   if (healthSnapshot) {
