@@ -174,6 +174,16 @@ Threat Model:
 - **`query_graph` / `get_relationships`** — Used in threat modeling phase for data flow tracing
 - **`get_impact`** — Understand blast radius of security-sensitive changes
 
+## Rationalizations to Reject
+
+| Rationalization                                                                        | Reality                                                                                                                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The scanner didn't flag it so it must be fine"                                        | Mechanical scanners catch pattern-level issues. They cannot trace user input across multiple function calls to a dangerous sink, detect authorization logic flaws, or evaluate whether a fallback chain fails open. The AI review phase exists precisely because scanners miss semantic vulnerabilities. |
+| "This endpoint is behind authentication so we don't need to validate input"            | Authentication and input validation are orthogonal controls. Authenticated users can still send malicious payloads. Authenticated SQL injection, SSRF, and path traversal are well-documented attack patterns against internal-only endpoints.                                                           |
+| "The vulnerability requires knowing our internal schema to exploit"                    | Security through obscurity is not a control. Internal schema details leak through error messages, API responses, documentation, and employee turnover. Rate the vulnerability based on its impact assuming the attacker knows the system.                                                                |
+| "We'll add rate limiting and input validation later once the feature ships"            | Security controls added after deployment require re-testing and re-review. Shipping without them creates an exposure window and establishes technical debt that is systematically deprioritized once the feature is live.                                                                                |
+| "That's an OWASP theoretical risk — our app isn't targeted by sophisticated attackers" | OWASP findings are exploited by automated scanners, not just sophisticated attackers. Opportunistic bots continuously probe for SQL injection, XSS, and auth bypass. Unpatched OWASP Top 10 issues are routinely exploited within hours of exposure.                                                     |
+
 ## Gates
 
 - **Mechanical scanner must run before AI review.** The scanner catches what patterns can catch; AI reviews what remains.

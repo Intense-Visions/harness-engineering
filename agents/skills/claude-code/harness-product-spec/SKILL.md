@@ -197,6 +197,16 @@
 - Output format matches existing project conventions when they exist
 - Generated PRD is saved to the correct directory with consistent naming
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                    | Why It Is Wrong                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The feature request is clear enough -- I can skip the ambiguity check and start writing stories"  | The gate: no generating specs from ambiguous input without clarification. Missing actors or undefined triggers lead to untestable acceptance criteria. |
+| "This acceptance criterion is understood by the team, so it does not need to be formally testable" | No untestable acceptance criteria is a hard gate. Every criterion must be verifiable by an automated test or specific manual procedure.                |
+| "The happy path scenarios are enough -- edge cases are unlikely"                                   | The skill requires at least one unwanted-behavior criterion for every user-facing action. Edge cases are where production bugs live.                   |
+| "The existing PRD is outdated, so I will just replace it with a fresh one"                         | No overwriting existing specs is a gate. Present the diff rather than replacing the file.                                                              |
+| "We can figure out the success metrics later during implementation"                                | Every success metric must be measurable, time-bound, and specific at spec time.                                                                        |
+
 ## Examples
 
 ### Example: GitHub Issue to PRD for Team Notifications

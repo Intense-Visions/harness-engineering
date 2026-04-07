@@ -1,5 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { handleGeneratePersonaArtifacts, handleRunPersona } from '../../../src/mcp/tools/persona';
+
+vi.mock('../../../src/persona/loader.js', () => ({
+  loadPersona: () => ({ ok: false, error: new Error('persona file not found (expected in test)') }),
+}));
+
+vi.mock('../../../src/persona/runner.js', () => ({
+  runPersona: vi.fn(),
+}));
+
+vi.mock('../../../src/persona/skill-executor.js', () => ({
+  executeSkill: vi.fn(),
+}));
+
+vi.mock('../../../src/persona/generators/runtime.js', () => ({
+  generateRuntime: vi.fn(),
+}));
+
+vi.mock('../../../src/persona/generators/agents-md.js', () => ({
+  generateAgentsMd: vi.fn(),
+}));
+
+vi.mock('../../../src/persona/generators/ci-workflow.js', () => ({
+  generateCIWorkflow: vi.fn(),
+}));
+
+vi.mock('../../../src/persona/constants.js', () => ({
+  ALLOWED_PERSONA_COMMANDS: new Set(),
+}));
 
 describe('persona path traversal prevention', () => {
   describe('handleGeneratePersonaArtifacts', () => {
@@ -57,7 +85,7 @@ describe('persona path traversal prevention', () => {
       expect(result.isError).toBe(true);
     });
 
-    it('accepts valid kebab-case persona names', { timeout: 15000 }, async () => {
+    it('accepts valid kebab-case persona names', async () => {
       const result = await handleRunPersona({ persona: 'code-reviewer' });
       if (result.isError) {
         const text = (result.content[0] as { text: string }).text;

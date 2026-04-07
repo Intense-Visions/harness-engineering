@@ -230,6 +230,15 @@ describe('Checkout flow', () => {
 });
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                      | Why It Is Wrong                                                                                                                                                    |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Using CSS class selectors is faster than adding data-testid attributes"             | No CSS class selectors in page objects. .btn-primary breaks when the design system updates class names. Use data-testid, ARIA roles, and accessible labels.        |
+| "Adding a short waitForTimeout is easier than figuring out the right wait condition" | No arbitrary waits is a hard gate. waitForTimeout is a flakiness timebomb. Wait for specific conditions: network responses, DOM mutations, or URL changes.         |
+| "This test creates data through the UI because the API setup is complex"             | Test data must be created via API or fixtures, not through UI interactions. UI-based setup is slow, brittle, and conflates setup failures with assertion failures. |
+| "The test only fails sometimes in CI -- adding a retry will fix it"                  | Flaky tests block merge. Diagnose the root cause. Retries mask problems. After remediation, rerun 5 times to confirm stability.                                    |
+
 ## Gates
 
 - **No CSS class selectors in page objects.** If a locator uses `.btn-primary` or `[class*="header"]`, the test is brittle. Use `data-testid`, ARIA roles, or accessible labels. Rewrite before merging.

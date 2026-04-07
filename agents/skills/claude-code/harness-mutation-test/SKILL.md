@@ -236,6 +236,15 @@ mvn org.pitest:pitest-maven:mutationCoverage
 # Report generated at target/pit-reports/index.html
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                | Why It Is Wrong                                                                                                      |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| "We have 80% line coverage, so test quality is already good"                                   | Line coverage measures execution, not verification. Mutation testing reveals missing assertions and weak assertions. |
+| "The survived mutants are in non-critical utility code, so we can ignore them"                 | Every survived mutant must be either addressed with a test or explicitly justified as an equivalent mutant.          |
+| "I will write a test that targets the specific mutation to kill it"                            | No gaming the mutation score. Every new test must test a meaningful behavior, not just kill a specific mutant.       |
+| "The test suite has some failures, but we can still run mutation testing to see what we learn" | No mutation testing against a failing test suite. Mutations against broken tests produce garbage results.            |
+
 ## Gates
 
 - **No mutation testing against a failing test suite.** All tests must pass before mutants are generated. Running mutations against broken tests produces garbage results. Fix the tests first.

@@ -122,6 +122,16 @@ Rules:
 - [ ] Unified report follows the exact format
 - [ ] Overall verdict correctly reflects both mechanical and review results
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                | Why It Is Wrong                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "All three mechanical checks failed, but I should still run the AI review to get useful feedback"              | When ALL three checks fail, stop immediately. Do not proceed to Phase 2. AI review on code that does not compile is wasted effort.                 |
+| "The security scanner found a warning but it is not high severity, so it should not affect the overall result" | Error-severity security findings are blocking. The distinction is severity, not the agent's opinion of importance.                                 |
+| "The AI review flagged an architectural concern as blocking, so the integrity check should fail"               | Only runtime errors, data loss, and security vulnerabilities count as blocking review findings. Architectural concerns are noted but do not block. |
+
 ## Examples
 
 ### Example: All Clear

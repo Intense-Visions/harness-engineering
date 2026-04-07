@@ -253,6 +253,16 @@ def test_admin_can_delete_any_project():
     assert admin.has_perm('delete_project', project)
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                    | Reality                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The test only needs one user — I'll just hardcode `userId: 1` rather than building a factory."                    | Hardcoded IDs cause silent test failures when the database is reset, when tests run in parallel, or when another test creates a conflicting record. Factories with sequences or UUIDs exist precisely to avoid this class of failure. One hardcoded ID is how fragile test suites start.                            |
+| "The factory produces objects that are close enough to valid — the test just needs to override two fields anyway." | A factory that requires overrides to produce a valid object has wrong defaults. The factory's zero-override output must pass model validation. If it does not, the factory is documenting the wrong defaults and tests that rely on overrides will break when the model changes.                                    |
+| "Cleanup is handled by rolling back the test transaction — I don't need explicit teardown."                        | Transaction rollback works until it does not: tests that span multiple connections, tests that call external APIs, or tests that write to a queue or file system all escape the transaction. Explicit cleanup is the only strategy that covers all cases, including tests that use features you have not built yet. |
+| "We can share the same seeded dataset across all integration tests to avoid the overhead of per-test factories."   | Shared mutable data means test A's side effect becomes test B's precondition. When tests fail intermittently based on execution order, the root cause is always shared state. The overhead of per-test factory creation is small compared to the cost of debugging order-dependent failures.                        |
+| "The model only has three fields — writing a factory is more overhead than just constructing the object inline."   | Today's three-field model becomes tomorrow's ten-field model with required foreign keys. Inline construction scales linearly with model complexity. A factory written once absorbs all future field additions in one place. The overhead argument inverts as the codebase grows.                                    |
+
 ## Gates
 
 - **No hardcoded IDs in factories.** Factories must generate unique IDs per instance. Hardcoded IDs cause collision failures when tests run in parallel. Use sequences or UUIDs.

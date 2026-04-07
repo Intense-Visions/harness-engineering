@@ -537,6 +537,17 @@ This framing is informational — it does not block anything. It gives the team 
 8. Monorepo support: each package is audited independently with per-package results in the report
 9. `harness validate` passes after the skill's SKILL.md and skill.yaml are written
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                           | Why It Is Wrong                                                                                                            |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| "The MAINTAIN phase takes too long, so I will skip dispatching the 4 maintenance agents"  | No skipping the MAINTAIN phase. Maintenance checks catch issues that release-specific checks miss.                         |
+| "This auto-fix is obviously correct, so I can apply it without prompting the user"        | No auto-fix without prompting. Every fix must be presented to the human before being applied.                              |
+| "Most checks pass and only a few warnings remain, so the release is ready"                | A "mostly passing" report is not a passing report. The result is PASS only when zero failures exist across all categories. |
+| "The previous run found these issues and I fixed them, so I can trust the cached results" | Session resumption requires re-running all checks. Code may have changed since the last run.                               |
+
 ## Examples
 
 ### Example: First Run on a Monorepo with Gaps

@@ -332,21 +332,11 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
-### Universal
-
-These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
-
-- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
-- **"This is best practice"** — Best practice in what context? Cite the source and
-  confirm it applies to this codebase.
-- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
-  with a concrete follow-up plan.
-
-### Domain-Specific
-
-- **"It's an internal API, breaking changes are fine"** — Internal consumers break too. Version the change or coordinate the migration explicitly.
-- **"The field name is obvious enough"** — API field names are a public contract. Follow existing naming conventions and document the semantics.
-- **"Nobody uses that endpoint anyway"** — Verify with access logs or usage data. Assumptions about usage without evidence lead to silent breakages.
+| Rationalization                                   | Reality                                                                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| "It's an internal API, breaking changes are fine" | Internal consumers break too. Version the change or coordinate the migration explicitly.                  |
+| "The field name is obvious enough"                | API field names are a public contract. Follow existing naming conventions and document the semantics.     |
+| "Nobody uses that endpoint anyway"                | Verify with access logs or usage data. Assumptions about usage without evidence lead to silent breakages. |
 
 ## Escalation
 

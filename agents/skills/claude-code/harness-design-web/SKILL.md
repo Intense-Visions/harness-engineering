@@ -341,6 +341,16 @@ defineProps<Props>();
 </style>
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                                | Reality                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The tokens file doesn't exist yet, but I know the brand colors — I'll hardcode them as a placeholder and note they should be replaced later." | Hardcoded values in generated output are the exact problem this skill exists to prevent. There is no placeholder exception. If `design-system/tokens.json` does not exist, instruct the user to run harness-design-system first and stop.              |
+| "The framework is obviously React — everything in this project is React. I don't need to run detection."                                       | Detection also identifies the CSS strategy (Tailwind vs CSS Modules vs CSS-in-JS), which determines how tokens map to code. Skipping detection produces components that may reference non-existent Tailwind classes or wrong theme paths.              |
+| "The user hasn't confirmed the scaffold plan, but the component structure is straightforward — I'll just generate it."                         | The scaffold plan confirmation is a gate. The user must see which tokens will be consumed and what the component structure will be before code is written. Generating first and explaining later inverts the review opportunity.                       |
+| "This component only uses one hardcoded hex value for a shadow — that's not really a design value, so I'll leave it."                          | Every color, font, and spacing value must reference a token. Shadows use color tokens. "Not really a design value" is not a category the verification phase recognizes. The VERIFY phase will flag it; the IMPLEMENT phase should not introduce it.    |
+| "The `@design-token` annotations are just comments — skipping them on a few components won't affect anything."                                 | These annotations are how `harness scan` creates `USES_TOKEN` edges in the knowledge graph. Missing annotations mean harness-impact-analysis cannot trace token changes to affected components. They are structural metadata, not decorative comments. |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

@@ -218,6 +218,15 @@ After removing the `legacy-auth` module:
 - Report includes actionable guidance for every remaining finding
 - `harness validate` passes after cleanup
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "This dead export is in a high-churn file but the removal is clearly safe" | High-churn files have more hidden consumers. Safe findings in the top 10% by churn are downgraded to probably-safe, requiring explicit approval. |
+| "The convergence loop is not reducing findings quickly enough, so I will apply unsafe fixes to make progress" | Unsafe findings are never auto-fixed, regardless of convergence pressure. Each requires human judgment. |
+| "The verification gate failed on a probably-safe fix, but I am confident the fix is correct" | When verification fails after a fix batch, the entire batch must be reverted and all findings reclassified as unsafe. |
+| "I will skip the hotspot context phase since it adds time and the churn data is just supplementary" | The hotspot map drives safety classification accuracy. Without it, safe fixes in high-churn areas are not downgraded. |
+
 ## Escalation
 
 - **When convergence loop does not converge after 5 iterations:** The codebase has deeply tangled issues. Stop and report all remaining findings. Consider breaking the cleanup into focused sessions.

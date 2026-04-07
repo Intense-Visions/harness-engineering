@@ -264,6 +264,16 @@ Phase 4: VALIDATE
   Result: WARN -- 2 security improvements needed
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                | Reality                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "We store state locally because it's just a dev environment"                                   | Local state is not shared between team members. Two developers running `terraform apply` against the same environment with diverged local state will produce conflicting resource definitions, duplicate resources, or state corruption that requires manual recovery.                                   |
+| "We haven't pinned the provider version because we want to automatically get security patches" | Unpinned providers can silently change resource behavior on `terraform init`. A `~> 5.0` constraint without an upper bound can pull a provider with breaking changes. Pin the minor version and upgrade explicitly via reviewed PRs so changes are intentional.                                          |
+| "That S3 bucket has public access because it hosts our static site"                            | Static site hosting does not require a public bucket ACL. CloudFront with an Origin Access Control (OAC) policy serves files from a private bucket. Public bucket ACLs are a common misconfiguration vector because they apply to all objects, including accidentally uploaded sensitive files.          |
+| "We'll tag resources properly before we go to production"                                      | Untagged resources accumulate. Cost allocation reports become impossible, security audits cannot identify owners, and decommissioning requires manual investigation of every resource. Tagging must be enforced at resource creation — retroactive tagging at scale is a weeks-long engineering project. |
+| "Manual changes are fine for urgent hotfixes — we'll import them to Terraform afterward"       | Manual changes without immediate import create drift that may be overwritten by the next `terraform apply`. The "import it later" step is almost never done. Every manual change that goes unimported erodes the reliability guarantee that IaC provides.                                                |
+
 ## Gates
 
 - **No local state for shared infrastructure.** Terraform configurations managing shared resources must use a remote backend with locking. Local state is blocking for any non-experimental configuration.

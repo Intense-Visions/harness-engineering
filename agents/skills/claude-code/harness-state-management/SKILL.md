@@ -218,6 +218,16 @@ Treat learnings as a first-class project artifact. They are as valuable as tests
 - State is saved before session end with an accurate session summary
 - State files are committed to git separately from code changes
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                       | Reality                                                                                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The session is short — I'll update state at the end rather than after each task."                                    | Context resets happen without warning. A session that ends mid-task with no state update forces the next session to reconstruct position by reading git history and code, which takes longer and produces an inaccurate picture. State is updated after each task, not at the end of the session.         |
+| "This decision is obvious from the code — I don't need to record the rationale in state."                             | What is obvious to the agent that made the decision is opaque to the agent that resumes three weeks later with no memory of the session. Decisions are recorded because the context that made them obvious does not survive a context reset. The rationale is exactly what needs to be saved.             |
+| "The learnings file is getting long — I'll trim old entries that are no longer relevant."                             | Learnings are append-only by design. An entry that seems irrelevant may become relevant when a related pattern resurfaces. Trimming destroys the chronological record and the ability to understand why earlier decisions were made. Entries are never deleted, only supplemented with corrections.       |
+| "I can re-read the plan to figure out where I am — I don't need to update the position in state."                     | The plan describes what to do; state records what has been done. Re-reading the plan without state requires the next session to infer progress from code, which produces uncertain position. Uncertain position leads to re-executing completed tasks or skipping tasks that appear complete but are not. |
+| "The stream auto-resolves from the branch — I don't need to explicitly verify which stream is active before writing." | Auto-resolution works when branch names match stream names and the index is current. When branches are renamed, stale, or when multiple streams exist for the same feature, auto-resolution can write to the wrong stream silently. Always announce the resolved stream before writing state.             |
+
 ## Examples
 
 ### Example: Starting a New Session (Resuming Work)

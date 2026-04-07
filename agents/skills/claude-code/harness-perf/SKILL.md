@@ -187,6 +187,17 @@ This phase runs only when `.bench.ts` files exist in the project. If none are fo
 - Gate decision is recorded in state
 - `harness validate` passes after enforcement
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                               | Why It Is Wrong                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The cyclomatic complexity is 16 but the function is straightforward, so I can override the Tier 1 threshold" | Tier 1 violations are non-negotiable blockers. No merge with Tier 1 performance violations. If a threshold needs adjustment, reconfigure with documented justification. |
+| "The benchmark regression is only 6% and it is probably just noise"                                           | The noise margin (default 3%) is applied before flagging. A 6% regression on a perf-critical path exceeds the Tier 1 threshold even after noise consideration.          |
+| "The working tree has a small uncommitted change but it should not affect benchmark results"                  | No running benchmarks with a dirty working tree. Uncommitted changes invalidate benchmark results.                                                                      |
+| "I will update the baselines to match the new performance numbers rather than fixing the regression"          | Baselines must come from fresh runs against committed code. Silently moving the goalposts defeats the purpose of performance gates.                                     |
+
 ## Examples
 
 ### Example: PR with High Complexity Function

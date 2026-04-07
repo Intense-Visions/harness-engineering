@@ -136,6 +136,15 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 - No behavioral changes were introduced (the test suite is the proof)
 - No dead code was left behind (run `harness cleanup` to verify)
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The tests are mostly passing, so I can start refactoring and fix the remaining failures as I go" | All tests must pass BEFORE refactoring starts. If tests are not green before you start, you are not refactoring -- you are debugging. |
+| "This refactoring changes a small amount of behavior, but it is a clear improvement" | Refactoring must not change behavior. The test suite is the proof. If the refactoring requires changing tests, you may be changing behavior. |
+| "I will make several changes at once and run tests at the end since each change is small" | Tests must run after EVERY single change. If a test breaks, you must undo the LAST change immediately. |
+| "The refactoring did not produce a measurable improvement, but the code is different so it must be somewhat better" | If the refactoring introduced no measurable improvement, revert the entire sequence. Refactoring for its own sake is churn. |
+
 ## Examples
 
 ### Example: Moving business logic out of a UI component

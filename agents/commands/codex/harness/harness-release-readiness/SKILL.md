@@ -672,6 +672,15 @@ Current:  27/28 passed (PASS — 1 warning remaining)
 The project is release-ready. The remaining warning (README usage section) is not blocking.
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The MAINTAIN phase takes too long, so I will skip dispatching the 4 maintenance agents" | No skipping the MAINTAIN phase. Maintenance checks catch issues that release-specific checks miss. |
+| "This auto-fix is obviously correct, so I can apply it without prompting the user" | No auto-fix without prompting. Every fix must be presented to the human before being applied. |
+| "Most checks pass and only a few warnings remain, so the release is ready" | A "mostly passing" report is not a passing report. The result is PASS only when zero failures exist across all categories. |
+| "The previous run found these issues and I fixed them, so I can trust the cached results" | Session resumption requires re-running all checks. Code may have changed since the last run. |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

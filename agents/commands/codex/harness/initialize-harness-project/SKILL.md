@@ -123,6 +123,15 @@ This creates the `.harness/graph/` directory and populates it with the project's
 - All generated files are committed in a single atomic commit
 - i18n configuration is set if the human chose to enable it during init
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+|---|---|
+| "The generated AGENTS.md template looks fine -- no need to customize it" | Phase 3 says do not blindly accept generated content. Without project-specific descriptions, agents receive generic instructions. |
+| "We should start at the advanced level since we want full coverage" | The skill recommends basic for new projects. Each level builds on the previous. Jumping to advanced creates misconfigured rules. |
+| "I will skip the i18n question to keep setup fast" | Phase 3 requires asking about i18n and recording the decision. Skipping creates ambiguity about whether the omission was intentional. |
+| "Validation passed, so the project is ready" | Phase 4 includes harness check-deps for intermediate+ projects and knowledge graph initialization. Validation alone is not sufficient. |
+
 ## Examples
 
 ### Example: New TypeScript Project (Basic Level)

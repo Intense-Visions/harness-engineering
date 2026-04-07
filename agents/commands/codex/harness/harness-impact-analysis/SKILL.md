@@ -175,6 +175,14 @@ Output:
   Downstream consumers: 8 files across 3 modules
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The change is small so the blast radius must be low -- I can skip the transitive dependent check" | Small changes to shared utilities can have outsized blast radius. A one-line change to auth.ts can affect 23 transitive dependents. |
+| "The graph is a few commits behind but it is close enough for this analysis" | If the graph is more than 2 commits behind, the skill requires a refresh before proceeding. Recent commits may have added new consumers. |
+| "No graph exists so I cannot produce a useful impact analysis" | The fallback strategy using import parsing and naming conventions achieves ~70% completeness. Missing the graph does not mean stopping. |
+
 ## Gates
 
 - **Graph preferred, fallback available.** If no graph exists, use fallback strategies (import parsing, naming conventions, path matching). Do not stop — produce the best analysis possible with available tools.

@@ -240,6 +240,16 @@ Phase 4: VALIDATE
     Redis fallback serves from LRU when Redis is down
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                     | Reality                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "That third-party API has 99.99% uptime — we don't need a circuit breaker"          | 99.99% uptime means 52 minutes of downtime per year. That downtime will not occur as one predictable window — it will happen as degraded responses and timeouts during a traffic spike. Without a circuit breaker, every caller blocks for the full timeout duration, exhausting thread pools and cascading across the system. |
+| "We have retry logic, so failures are handled"                                      | Retry logic without a circuit breaker amplifies failures. When the downstream service is degraded, retries multiply the load on an already struggling system. Circuit breakers and retries are complementary controls, not alternatives.                                                                                       |
+| "The fallback adds complexity — we'll add it if the circuit breaker actually opens" | A circuit breaker without a fallback is a different kind of failure mode, not resilience. When the circuit opens, users see an error instead of a degraded-but-functional experience. Fallbacks must be designed and tested before the circuit ever opens in production.                                                       |
+| "Our database connection pool is 100 connections — that's plenty"                   | Connection pool size without query timeouts means slow queries hold connections indefinitely. A single slow query spike can exhaust the pool, causing every subsequent request to wait. Pool sizing and query timeouts are both required.                                                                                      |
+| "The service is internal — it doesn't need rate limiting"                           | Internal services are often called by automated processes, CI pipelines, and batch jobs that can spike traffic in ways user-facing services do not. Missing rate limiting on internal services is a common cause of self-inflicted outages during deployments and data migrations.                                             |
+
 ## Gates
 
 - **No retry on non-idempotent operations without idempotency keys.** Retrying a POST or DELETE that lacks an idempotency mechanism can cause data duplication or data loss. This is a blocking finding. The operation must be made idempotent before retry logic is added.

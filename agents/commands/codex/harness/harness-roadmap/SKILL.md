@@ -579,6 +579,15 @@ Total features: 4
 harness validate: passed
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The feature list looks correct, so I can skip the PROPOSE phase and write the roadmap directly" | The Iron Law: never write docs/roadmap.md without the human confirming the proposed structure first. |
+| "This sync detected a status change and the inference is clearly correct, so I can apply it without confirmation" | The sync PROPOSE phase requires presenting proposed changes and waiting for human confirmation. The human-always-wins rule applies. |
+| "The existing roadmap is outdated, so I will recreate it with --create to get a fresh start" | No overwriting an existing roadmap without explicit user consent. Silent overwrites destroy prior manual edits and status tracking. |
+| "There is no roadmap yet but the user asked me to add a feature, so I will create one as a side effect of --add" | When the roadmap does not exist, --add must error with a clear message directing the user to --create. |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

@@ -300,6 +300,16 @@ Phase 4: VALIDATE
   Report: NEEDS_ATTENTION (1 N+1 error, 1 missing index, 1 query rewrite)
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                   | Reality                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The ORM handles query optimization automatically"                                                | ORMs generate syntactically correct queries but do not detect N+1 patterns, choose optimal join strategies, or add missing indexes. The ORM executes what the code asks for. A `findMany` followed by per-item `findUnique` calls in a loop is an N+1 regardless of which ORM executes it. |
+| "That endpoint is only called by admins so performance doesn't matter"                            | Admin endpoints frequently become user-facing as products grow. An N+1 query on a 10-row table becomes a crisis when the table grows to 100,000 rows. Query correctness should not be conditional on current data volume.                                                                  |
+| "We can add indexes later if performance becomes a problem"                                       | Adding indexes to large production tables requires exclusive locks or online rebuild procedures that carry risk. Identifying and adding the correct index during development, before the table grows, costs minutes instead of hours of planned maintenance.                               |
+| "That DELETE without a WHERE clause is wrapped in application logic that only calls it correctly" | Application logic has bugs. A missing WHERE clause is a single misrouted request away from deleting the entire table. Database safety constraints must not depend on application-layer correctness.                                                                                        |
+| "The query is fast in development — the test database only has 100 rows"                          | Development databases do not represent production query plans. Full table scans, missing indexes, and N+1 patterns only manifest at production data volumes. Static analysis catches these issues regardless of local data size.                                                           |
+
 ## Gates
 
 - **No approving N+1 queries in user-facing hot paths.** An N+1 query in an endpoint called per page load is always an error. It must be fixed with eager loading, batching, or a JOIN before the PR can merge.

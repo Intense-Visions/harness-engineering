@@ -127,6 +127,15 @@ Group findings by documentation file so that fixes can be applied file-by-file.
 - No documentation references deleted files, functions, or features
 - Drift findings are prioritized and assigned to the appropriate fix cycle
 
+## Rationalizations to Reject
+
+| Rationalization                                                           | Why It Is Wrong                                                                                                                      |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| "The docs are close enough -- a renamed function is obvious from context" | Renamed references in AGENTS.md cause AI agents to hallucinate about non-existent code. Precision matters.                           |
+| "We only changed internal code, so the docs do not need checking"         | Internal API docs with wrong signatures waste developer debugging time. Changed-behavior-not-reflected drift is High priority.       |
+| "There are too many findings to deal with right now, so skip the scan"    | The escalation protocol exists for this case: focus on Critical and High items, create a tracking issue for the rest.                |
+| "We can rely on code review to catch stale docs"                          | Code reviewers focus on code correctness, not documentation cross-references. harness check-docs catches what humans routinely miss. |
+
 ## Examples
 
 ### Example: Renamed function detected

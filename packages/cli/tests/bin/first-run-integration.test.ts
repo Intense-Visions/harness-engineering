@@ -19,6 +19,12 @@ vi.mock('../../src/index', () => ({
   handleError: vi.fn(),
 }));
 
+// Mock dispatch-session to prevent git operations in tests
+vi.mock('../../src/skill/dispatch-session', () => ({
+  sessionStartDispatch: vi.fn().mockResolvedValue({ dispatched: false }),
+  formatDispatchBanner: vi.fn().mockReturnValue(null),
+}));
+
 import { printFirstRunWelcome } from '../../src/utils/first-run';
 import { runUpdateCheckAtStartup } from '../../src/bin/update-check-hooks';
 

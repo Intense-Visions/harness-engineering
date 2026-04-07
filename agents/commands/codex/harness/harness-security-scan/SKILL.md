@@ -96,21 +96,11 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
-### Universal
-
-These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
-
-- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
-- **"This is best practice"** — Best practice in what context? Cite the source and
-  confirm it applies to this codebase.
-- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
-  with a concrete follow-up plan.
-
-### Domain-Specific
-
-- **"No attacker would find this"** — Security by obscurity. If the code is wrong, flag it regardless of discoverability.
-- **"We're behind a firewall"** — Network boundaries change. Code should be secure at every layer regardless of deployment topology.
-- **"The framework handles this for us"** — Verify the framework's actual behavior. Misuse of a secure framework is still insecure.
+| Rationalization | Reality |
+| --- | --- |
+| "No attacker would find this" | Security by obscurity. If the code is wrong, flag it regardless of discoverability. |
+| "We're behind a firewall" | Network boundaries change. Code should be secure at every layer regardless of deployment topology. |
+| "The framework handles this for us" | Verify the framework's actual behavior. Misuse of a secure framework is still insecure. |
 
 ## Escalation
 

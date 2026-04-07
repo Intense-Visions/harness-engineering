@@ -465,6 +465,16 @@ Remaining violations (require human judgment): 5
 - I18N-401: Missing key in es -- requires Spanish translation
 - I18N-402: Untranslated value in fr -- requires French translation
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                           | Reality                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This string is the app's brand name — it's technically hardcoded but obviously shouldn't be translated. I'll skip flagging it."          | Brand names require explicit suppression via `// i18n-ignore` comment, not silent omission from the scan. Skipping without suppression means future scans have inconsistent results and the team has no record of the deliberate decision.            |
+| "The framework isn't in the knowledge base, but I can tell from context it's using i18next patterns — I'll apply i18next rules directly." | Unrecognized frameworks must fall back to generic detection rules, not assumed framework rules. Applying i18next-specific fix patterns to an unknown framework produces incorrect wrapping that breaks at runtime. Log the gap and use generic rules. |
+| "The project has `i18n.enabled: false` — I'll still flag errors for hardcoded strings since the team should know about them."             | Respecting `i18n.enabled: false` is a gate. The team made a configuration decision. In that state, run in discovery mode (info severity only). Escalating to errors overrides the team's explicit choice.                                             |
+| "I18N-402 untranslated values are just warnings — I'll skip reporting them to keep the report shorter."                                   | Untranslated values (target identical to source) are a distinct violation category with their own code. They indicate copy-paste during file creation without actual translation. Omitting them produces a misleadingly optimistic coverage report.   |
+| "The plural rules for this locale look complex — I'll just check for 'one' and 'other' forms like English and move on."                   | Plural rules are locale-specific and must be loaded from the locale profile. Arabic requires six categories; Polish requires four. Checking only English plural categories produces false-passing results for languages that require more forms.      |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

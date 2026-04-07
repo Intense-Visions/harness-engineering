@@ -235,6 +235,16 @@ harness check-perf — complexity reduced from 12 to 8 (improvement)
 harness perf baselines update — new baseline saved
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                           | Reality                                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The correctness test is green, I'll add the benchmark later when we know performance is an issue."       | The benchmark is not optional — it is the mechanism that defines "performance issue." Without a baseline captured at implementation time, you have nothing to compare against when a regression appears months later. Later never comes.                  |
+| "I'll skip the REFACTOR phase since the spec doesn't mention performance requirements."                   | The spec not mentioning a requirement means there is no user-facing SLO, not that performance is irrelevant. The benchmark still captures the baseline that future work must not regress from. Phase 3 is optional; the benchmark file is not.            |
+| "The benchmark results vary too much between runs to be meaningful — I'll just omit it."                  | Variance is a signal, not a reason to skip. High variance means the benchmark needs warmup iterations, more samples, or isolation from I/O. Fix the benchmark, do not delete it. An absent benchmark offers zero protection against regressions.          |
+| "This function is only called during startup, so its performance doesn't matter at runtime."              | Startup performance determines deployment speed, lambda cold-start latency, and test suite duration. "Not in the hot path at runtime" does not mean performance is free to ignore. Measure it so the baseline exists if startup behavior changes.         |
+| "We already have an integration test that covers this — writing a separate benchmark would be redundant." | Integration tests verify correctness under realistic conditions. Benchmarks measure isolated performance with precise input control. An integration test that passes in 2 seconds tells you nothing about whether the function itself takes 1ms or 800ms. |
+
 ## Gates
 
 - **No code before test AND benchmark.** Both must exist before implementation begins.

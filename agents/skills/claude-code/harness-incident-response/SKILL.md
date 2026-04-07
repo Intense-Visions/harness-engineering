@@ -208,6 +208,16 @@ Phase 4: IMPROVE
     4. [P2] Create secret rotation runbook for all services (owner: @sre)
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                         | Reality                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The root cause was human error — someone pushed a bad config"                          | Human error is a symptom, not a root cause. The root cause is the system that allowed a bad config to reach production undetected. A postmortem that stops at "human error" prevents no future incidents because it identifies no systemic fix.                                   |
+| "We know what happened — we don't need to write a full postmortem for a minor incident" | The decision about what is "minor" is made under the stress of recovery, not under calm analysis. Contributing factors and near-misses that look minor in the moment are frequently the root cause of the next major incident. Document while the context is fresh.               |
+| "The action items are in Slack — we don't need to track them formally"                  | Action items not tracked in a formal system with owners and due dates are not completed. Slack messages are buried within hours. The improvement phase of an incident exists only if its outputs are tracked to completion.                                                       |
+| "We don't have SLOs yet so we can't calculate error budget impact"                      | The absence of SLOs is itself a finding. Without SLOs, there is no objective basis for deciding whether reliability is acceptable. The incident is the forcing function to establish baseline SLOs. Document this gap as a P0 action item.                                        |
+| "The incident was caused by a third-party outage — nothing we could have done"          | Third-party outages expose missing circuit breakers, absent fallbacks, and insufficient multi-region routing. The postmortem should document why the third-party outage caused a customer-visible incident and what resilience improvements would have isolated the blast radius. |
+
 ## Gates
 
 - **No postmortem without a root cause statement.** A postmortem that says "cause unknown" is incomplete. If the root cause cannot be determined, the postmortem must document what was investigated, what was ruled out, and what additional data is needed. Do not close the investigation.

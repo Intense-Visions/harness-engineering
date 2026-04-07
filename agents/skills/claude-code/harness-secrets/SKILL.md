@@ -278,6 +278,16 @@ Phase 4: VALIDATE
   Result: FAIL -- rotation required before deployment, history rewrite recommended
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                             | Reality                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "That key is read-only so it's not a big deal if it leaks"  | Read-only credentials still enable data exfiltration, reconnaissance, and discovery of other vulnerabilities. A leaked read-only database credential exposes every row in the database. Scope does not eliminate risk.                               |
+| "We removed it from the file — it's cleaned up now"         | Removing a secret from the current tree does not remove it from git history. Anyone with a clone of the repository can recover the secret with `git log -p`. Rotation is required regardless of file deletion.                                       |
+| "That's a test environment key, not production"             | Test environment credentials are frequently reused, shared informally, and rotated less often. Leaked test keys also reveal credential patterns and naming conventions that help attackers guess production secrets.                                 |
+| "It's in a private repo so only our team can see it"        | Private repos are accessed by CI/CD systems, third-party integrations, contractors, and former employees. Repository access controls are not a substitute for secret externalization. Breaches routinely originate from compromised internal access. |
+| "We'll move it to an environment variable before we deploy" | Intent does not prevent exposure. The secret is in the codebase now and may already be in commit history, CI logs, or developer machine caches. Remediation must happen at the moment of detection, not at deployment time.                          |
+
 ## Gates
 
 - **No CRITICAL findings may remain unaddressed.** Production credentials exposed in source code are blocking. Execution halts until the credential is rotated and the code is remediated.

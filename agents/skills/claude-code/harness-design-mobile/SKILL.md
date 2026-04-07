@@ -317,6 +317,16 @@ struct WorkoutRow: View {
 }
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                                                 | Reality                                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The touch target is 40pt on iOS — that's close to 44pt and the designer approved the comp, so I'll leave it."                                                  | The 44pt iOS minimum and 48dp Android minimum are non-negotiable gates, not guidelines. Touch target violations are `error` severity regardless of strictness level. Designer comp approval does not override platform accessibility requirements.                      |
+| "This is a cross-platform React Native component, so I only need to read the generic token mapping — platform-specific rules for iOS and Android are optional." | React Native components require both `ios.yaml` and `android.yaml` rules. Platform-specific rules govern safe areas, elevation, navigation patterns, and touch targets that differ between platforms. Missing either set produces non-compliant native behavior.        |
+| "The component uses a hardcoded shadow for iOS — `shadowColor`, `shadowOffset`, etc. Those aren't design tokens, they're platform APIs."                        | Shadow colors must still reference token values. `shadowColor: tokens.color.neutral[900]` is the correct form. Hardcoded shadow values like `#000` or `rgba(0,0,0,0.2)` are token binding violations the VERIFY phase will flag.                                        |
+| "There's no `design-system/DESIGN.md` yet, but I know the aesthetic intent from our planning discussion — I'll proceed with tokens only."                       | Proceeding without `DESIGN.md` means anti-pattern enforcement is disabled for the entire VERIFY phase. The anti-pattern check is what catches design intent violations beyond token correctness. Warn the user and recommend running harness-design first.              |
+| "The scaffold plan is straightforward — a simple card component. I'll skip presenting it to the user and just generate."                                        | The scaffold plan confirmation is when the user can catch incorrect platform assumptions (wrong StyleSheet structure, wrong platform APIs) before any code is written. Mobile components are harder to refactor than web components due to platform-specific branching. |
+
 ## Gates
 
 - **No component generation without reading tokens from harness-design-system.** The SCAFFOLD phase requires `design-system/tokens.json`. Do not generate components with hardcoded values as a fallback.

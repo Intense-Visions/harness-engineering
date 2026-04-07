@@ -104,6 +104,8 @@ describe('create-skill command', () => {
       expect(content).toContain('## Harness Integration');
       expect(content).toContain('## Success Criteria');
       expect(content).toContain('## Examples');
+      expect(content).toContain('## Rationalizations to Reject');
+      expect(content).toContain('| Rationalization | Reality |');
     });
 
     it('does not overwrite existing skill directory', () => {

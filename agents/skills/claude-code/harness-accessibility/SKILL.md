@@ -261,6 +261,16 @@ A11Y-030 [info] Hardcoded color value not from design token set
 - `A11Y-031`: Contrast failure -- fix requires choosing a darker color. Escalate to design tokens or get human input on replacement color.
 - `A11Y-001`: The `alt=""` fix assumes decorative. If the icon conveys meaning, human must write descriptive alt text.
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                         | Reality                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The contrast ratio is 4.4:1 — that's essentially 4.5:1 and the difference is imperceptible. I'll mark it passing."                     | WCAG AA requires exactly 4.5:1 for normal text. 4.4:1 fails. There is no rounding or visual perception exception in the standard. Flag the failure with the actual ratio and let the user decide how to remediate.                                                             |
+| "This `<div onClick>` already has good visual styling — adding `role='button'` and a keyboard handler is unnecessary clutter."          | A clickable `<div>` without `role="button"` and `onKeyDown` is inaccessible to keyboard-only users and screen reader users. Visual styling has no bearing on ARIA semantics or keyboard reachability. This is A11Y-012, always flagged.                                        |
+| "The automated fix for this `<img>` alt attribute is obvious — I'll apply it without showing the diff since it's just adding `alt=''`." | Every automated fix must be presented as a before/after diff before being written to disk. This is a hard gate. The correct alt value for non-decorative images requires human judgment, and even `alt=""` makes a semantic claim about decorativeness that must be confirmed. |
+| "I18n is enabled, so I'll skip the `lang` and `dir` attribute checks entirely — harness-i18n will catch them."                          | Deferral to harness-i18n is conditional on `i18n.enabled: true` in config. If i18n is not configured, these checks remain part of this skill's scan. Always read the config before skipping any check category.                                                                |
+| "There are 15 findings in this component — I'll fix the easy ones automatically and leave the rest without reporting them explicitly."  | All findings must be reported, regardless of whether they are auto-fixable. The report is the primary deliverable of the REPORT phase. Selectively reporting only fixable violations hides the full accessibility debt from the team.                                          |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

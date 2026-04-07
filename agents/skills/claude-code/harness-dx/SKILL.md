@@ -261,6 +261,16 @@ Phase 4: VALIDATE
   DX Scorecard: B -> A (projected after applying changes)
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                                        | Reality                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The README has an installation section but it only covers npm — yarn and pnpm users can figure it out. I'll mark installation as complete."           | Installation instructions must cover all package managers the project supports. If `yarn.lock` or `pnpm-lock.yaml` exists alongside `package-lock.json`, all three installers must be documented. Partial coverage is scored as partial, not complete.                     |
+| "This code example in the README uses the old `sdk.connect()` API — but it still parses syntactically, so it passes the syntax check."                 | Stale API references are broken examples regardless of syntax validity. A syntactically valid example that calls a renamed or removed function fails the freshness check and must be flagged as broken in the scorecard.                                                   |
+| "The API function's behavior is complex, but I can infer what it does from the name `parseAndValidate` — I'll write the docstring stub based on that." | Documentation must be derived from actual source code: type signatures, test files, and existing docs. Inferring behavior from function names produces fabricated documentation. Flag functions that cannot be documented from source as requiring developer-written docs. |
+| "The getting-started guide already exists in the wiki — it's not in the repo, but I'll mark the quickstart as present."                                | Documentation must be locatable from the repository root. A wiki link from the README satisfies the API reference link criterion only if the link is explicit. A guide that requires knowing where the wiki is does not meet the discoverability requirement.              |
+| "There are 18 undocumented exports — I'll generate all 18 JSDoc stubs and commit them without showing the user first."                                 | Scaffolded documentation must be presented for review before being written. Generated stubs may contain inaccurate parameter descriptions or wrong return type assumptions. Use `emit_interaction` to present scaffolded content and wait for approval.                    |
+
 ## Gates
 
 - **No scaffolding without human confirmation.** Generated documentation is always presented as a draft for review. Do not commit generated files automatically. Use `emit_interaction` to present scaffolded content and wait for approval.

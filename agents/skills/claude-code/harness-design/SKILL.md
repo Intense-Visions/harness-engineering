@@ -246,6 +246,16 @@ DESIGN-003 [info] Three font weights in one component
   Fix:        Consolidate font-weight values to 400 (body) and 600 (heading) only
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                             | Reality                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The tokens are already defined, so the aesthetic intent is obvious — I can infer it and skip Phase 1."                     | Tokens define values, not intent. The style, tone, and differentiator exist in the designer's head, not in a color ramp. DESIGN.md cannot be generated without explicit confirmation.                                              |
+| "There are only 3 violations and they're minor — I'll skip recording them in the graph to save time."                       | Unrecorded violations are invisible to every downstream skill. harness-impact-analysis and harness-accessibility rely on `VIOLATES_DESIGN` edges existing. Skip graph writes and the enforcement record is permanently incomplete. |
+| "The strictness level isn't set in config, so I'll just use strict to be safe."                                             | Defaulting to strict without reading config imposes blocking CI failures the team never agreed to. Always read `design.strictness` and default to `standard` when absent — not to the most aggressive level.                       |
+| "This anti-pattern is declared, but there are 40+ instances — it would take forever to report them all, so I'll summarize." | The REVIEW phase must report every finding with file path, line number, and severity. Summarizing hides the scope from the team and makes automated tooling miss violations.                                                       |
+| "DESIGN.md already exists from a previous run, so I can skip Phase 2 and go straight to REVIEW."                            | An existing DESIGN.md may be outdated or missing sections. The DIRECTION phase must verify all required sections are present and current before the REVIEW phase can rely on them.                                                 |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

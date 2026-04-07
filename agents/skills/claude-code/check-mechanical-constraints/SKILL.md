@@ -116,6 +116,15 @@ For each violation that was not auto-fixed, report:
 - Auto-fixed changes are verified by running the test suite
 - No violations are suppressed without explicit team approval and a documented reason
 
+## Rationalizations to Reject
+
+| Rationalization                                                                       | Why It Is Wrong                                                                                                                         |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| "This forbidden import is just for one utility function -- I will suppress it inline" | The gate says no suppressing rules without documentation. Undocumented suppressions accumulate and erode the constraint system.         |
+| "The auto-fix looks right, so I do not need to re-run tests"                          | The gate says no auto-fix without test verification. Even import reordering can break code that depends on module initialization order. |
+| "This is just a Tier 2 warning -- it can wait until after merge"                      | Tier 2 violations must be resolved before merge to main. Warnings that accumulate on main become the new baseline.                      |
+| "The linter rule does not make sense for this project, so I will just disable it"     | Propose a config change with justification, do not disable the rule inline. Fix it at the configuration level.                          |
+
 ## Examples
 
 ### Example: Forbidden import detected

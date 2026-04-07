@@ -831,21 +831,11 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
-### Universal
-
-These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
-
-- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
-- **"This is best practice"** — Best practice in what context? Cite the source and
-  confirm it applies to this codebase.
-- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
-  with a concrete follow-up plan.
-
-### Domain-Specific
-
-- **"The tests pass, so the logic must be correct"** — Tests can be incomplete. Review the logic independently of test results.
-- **"This is how it was done elsewhere in the codebase"** — Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent.
-- **"It's just a refactor, low risk"** — Refactors change behavior surfaces. Review them with the same rigor as feature changes.
+| Rationalization                                     | Reality                                                                                     |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| "The tests pass, so the logic must be correct"      | Tests can be incomplete. Review the logic independently of test results.                    |
+| "This is how it was done elsewhere in the codebase" | Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent. |
+| "It's just a refactor, low risk"                    | Refactors change behavior surfaces. Review them with the same rigor as feature changes.     |
 
 ## Escalation
 

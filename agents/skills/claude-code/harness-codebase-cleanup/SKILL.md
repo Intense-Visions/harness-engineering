@@ -187,6 +187,17 @@ Remaining findings: 3 (require human action)
      Suggested: Deprecate with @deprecated JSDoc tag, remove in next major version
 ```
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                               | Why It Is Wrong                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "This dead export is in a high-churn file but the removal is clearly safe"                                    | High-churn files have more hidden consumers. Safe findings in the top 10% by churn are downgraded to probably-safe, requiring explicit approval. |
+| "The convergence loop is not reducing findings quickly enough, so I will apply unsafe fixes to make progress" | Unsafe findings are never auto-fixed, regardless of convergence pressure. Each requires human judgment.                                          |
+| "The verification gate failed on a probably-safe fix, but I am confident the fix is correct"                  | When verification fails after a fix batch, the entire batch must be reverted and all findings reclassified as unsafe.                            |
+| "I will skip the hotspot context phase since it adds time and the churn data is just supplementary"           | The hotspot map drives safety classification accuracy. Without it, safe fixes in high-churn areas are not downgraded.                            |
+
 ## Examples
 
 ### Example: Post-Refactoring Cleanup

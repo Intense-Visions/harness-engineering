@@ -268,6 +268,16 @@ Phase 4: VALIDATE
   Result: WARN -- 3 instrumentation gaps, alerting needs SLO alignment
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                        | Reality                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "We can see what's happening in CloudWatch logs — we don't need structured logging"    | Unstructured log lines cannot be queried, aggregated, or correlated across services. When an incident spans three services, searching for a request ID across unstructured logs is manual forensics. Structured logging is not a nicety — it is the foundation for incident response.                       |
+| "We'll add alerting once we've seen a few incidents and know what to alert on"         | The first incident is the worst time to define alerting. SLO-based burn rate alerts can be defined from traffic patterns before any incidents occur. Waiting for incidents to define thresholds means every early failure goes undetected.                                                                  |
+| "User ID is a useful label for the latency metric — it helps us debug per-user issues" | User ID as a metric label creates one time series per user, which at 100,000 users means 100,000 label combinations. High-cardinality labels exhaust metric storage, cause query timeouts, and make the entire metrics system unstable. Use logs for per-user debugging; use metrics for aggregate signals. |
+| "The tracing library is initialized, so we have distributed tracing"                   | Initializing the library creates root spans but does not propagate context across HTTP boundaries, instrument database calls, or connect traces to logs. Trace initialization without verified end-to-end propagation produces disconnected, useless traces.                                                |
+| "We have alerts — they're just not linked to runbooks yet"                             | An alert that fires at 3am without a runbook link requires the on-call engineer to start debugging from scratch. The absence of a runbook is not a documentation gap; it is a mean-time-to-recover multiplier.                                                                                              |
+
 ## Gates
 
 - **No sensitive data in logs.** If PII, credentials, or tokens are detected in log output, it is a blocking finding. The logging configuration must sanitize or redact sensitive fields before any other improvements are made.

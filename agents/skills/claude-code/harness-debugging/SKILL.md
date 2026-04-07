@@ -298,6 +298,15 @@ Update the session status to `resolved`.
 - Debug session file is complete with investigation log, hypotheses, and resolution
 - Learnings were captured for future reference
 
+## Rationalizations to Reject
+
+| Rationalization                                                                   | Reality                                                                                                                                     |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I have a strong hunch about what is wrong, so I will jump straight to fixing it" | Phase 1 INVESTIGATE must be completed before ANY fix code is written. You are guessing, not debugging.                                      |
+| "I changed two things and the bug is gone, so the fix must be correct"            | One variable at a time is a gate. Changing multiple things simultaneously means you do not know which change fixed it.                      |
+| "This is my third attempt but I feel close, so one more try before escalating"    | After 3 failed fix attempts, the gate requires you to question the architecture. The problem is likely not where you think it is.           |
+| "A try-catch that swallows the error prevents the crash, so the bug is fixed"     | Symptom suppression is explicitly listed as a bad fix. Wrapping the failure in a try-catch addresses what the bug did, not why it happened. |
+
 ## Examples
 
 ### Example: API Endpoint Returns 500 Instead of 400

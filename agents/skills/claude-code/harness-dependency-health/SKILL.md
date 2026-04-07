@@ -145,6 +145,16 @@ For each problem found, generate a specific, actionable recommendation:
 - Report follows the structured output format
 - All findings are backed by graph query evidence (with graph) or systematic static analysis (without graph)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                  | Why It Is Wrong                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| "There are a few orphan files but they are probably test fixtures or configs, so I will skip investigating them" | Orphan detection explicitly excludes entry points. Files with zero inbound imports that are not entry points must be investigated.            |
+| "The cycle is between two closely related files, so it is not really a problem"                                  | Cycles create fragile coupling where any change in the cycle affects all members. Even "related" files should not have circular dependencies. |
+| "The health score is a B, which is good enough -- no need to act on the recommendations"                         | A hub with 14 importers is a single point of failure. "Good enough" scores mask specific structural risks that compound over time.            |
+
 ## Examples
 
 ### Example: Weekly Health Check on Monorepo

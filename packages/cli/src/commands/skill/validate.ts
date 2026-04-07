@@ -13,6 +13,7 @@ const REQUIRED_SECTIONS = [
   '## Harness Integration',
   '## Success Criteria',
   '## Examples',
+  '## Rationalizations to Reject',
 ];
 
 function validateSkillMd(

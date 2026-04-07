@@ -1,0 +1,4 @@
+[mcp_servers.harness]
+command = "harness"
+args = ["mcp"]
+enabled = true

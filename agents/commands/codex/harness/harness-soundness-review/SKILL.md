@@ -1250,6 +1250,16 @@ Phase 4: SURFACE
 CLEAN EXIT — returning control to harness-planning for sign-off.
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The spec looks coherent to me, so I can skip running the S1 internal coherence check" | Every check in the mode must run. S1 detects contradictions between decisions, technical design, and success criteria that human review frequently misses. |
+| "This unstated assumption is obvious, so documenting it would be pedantic" | S3 exists because "obvious" assumptions cause the most damage when they turn out to be wrong. Obvious assumptions are the cheapest to document and the most expensive to miss. |
+| "The success criterion is somewhat vague but the team will know what it means" | S7 flags vague criteria like "should be fast" because they are untestable. Vague criteria survive brainstorming and planning only to fail at verification. |
+| "This auto-fixable finding is minor, so I will just note it rather than applying the fix" | Auto-fixable findings should be applied silently -- that is the design intent. Skipping them means the spec ships with known inferrable gaps. |
+| "The feasibility check found a signature mismatch but the code can probably be adapted during execution" | S5 feasibility red flags are always severity "error" and always surface to the user. A spec that references nonexistent modules will produce a broken plan. |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

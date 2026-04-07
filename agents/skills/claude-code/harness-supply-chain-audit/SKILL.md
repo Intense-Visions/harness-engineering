@@ -222,6 +222,16 @@ Do not assert risk scores without citing the specific data point that generated 
 - **If the npm or GitHub API is unavailable:** Note which factors were skipped with "unknown" scores. Do not fail the audit — partial results are better than none.
 - **If the user asks for a verdict ("is this safe?"):** Decline to give a binary answer. Supply chain risk is probabilistic. Present the risk signals and let the human decide.
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                             | Why It Is Wrong                                                                                                                                        |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "This package has high risk signals but it is widely used, so it must be safe"              | The Iron Law: present findings as flags for human review, never as verdicts. Popularity does not eliminate bus-factor risk or maintenance abandonment. |
+| "The npm API returned an error for this package, so I will skip it and move on"             | API failures produce "unknown" scores with a note, not skips. Partial results with noted gaps are always better than incomplete audits.                |
+| "The install script is probably just native addon compilation, so I do not need to flag it" | Every install script must be flagged in the report. "Probably legitimate" is exactly the assumption that supply chain attacks exploit.                 |
+
 ## Examples
 
 ```

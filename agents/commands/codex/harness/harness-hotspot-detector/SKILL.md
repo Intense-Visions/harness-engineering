@@ -152,6 +152,14 @@ Output:
   Top recommendation: Extract shared billing types
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "High churn just means the file is actively developed, not that it is risky" | High churn in shared utilities specifically equals high risk. A file with 45 commits that co-changes with 12 different files indicates hidden coupling. |
+| "The co-change pair is between two files in different modules, but they probably just happen to change at the same time" | Distant co-change pairs are flagged as suspicious precisely because they indicate hidden coupling. |
+| "No graph exists so the analysis will be too incomplete to be useful" | Git log provides ~90% of the data needed for hotspot detection. The fallback is the highest-completeness fallback across all graph-enhanced skills. |
+
 ## Gates
 
 - **Graph preferred, fallback available.** If no graph exists, use git log for churn and co-change analysis. Do not stop — git log provides ~90% of the data needed.

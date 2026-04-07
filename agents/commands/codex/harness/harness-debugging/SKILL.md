@@ -350,6 +350,15 @@ if (req.validationErrors?.length) {
 
 Revert test: Commenting out the validation check causes the test to fail with 500. Confirmed.
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "I have a strong hunch about what is wrong, so I will jump straight to fixing it" | Phase 1 INVESTIGATE must be completed before ANY fix code is written. You are guessing, not debugging. |
+| "I changed two things and the bug is gone, so the fix must be correct" | One variable at a time is a gate. Changing multiple things simultaneously means you do not know which change fixed it. |
+| "This is my third attempt but I feel close, so one more try before escalating" | After 3 failed fix attempts, the gate requires you to question the architecture. The problem is likely not where you think it is. |
+| "A try-catch that swallows the error prevents the crash, so the bug is fixed" | Symptom suppression is explicitly listed as a bad fix. Wrapping the failure in a try-catch addresses what the bug did, not why it happened. |
+
 ## Gates
 
 - **Phase 1 before ANY fix.** You must complete investigation before writing fix code. Skipping investigation leads to symptom-chasing, which leads to more bugs.

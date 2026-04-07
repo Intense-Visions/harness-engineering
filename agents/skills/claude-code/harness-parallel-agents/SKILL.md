@@ -159,6 +159,15 @@ For each independent task, write a focused agent brief:
 - `harness validate` passes after integration
 - No agent modified files outside its declared scope
 
+## Rationalizations to Reject
+
+| Rationalization                                                                              | Why It Is Wrong                                                                                                                                |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| "These two tasks touch different functions in the same file, so they are independent enough" | If both tasks write to the same file, they are NOT independent. Even different functions in the same file creates merge conflicts.             |
+| "I verified independence manually -- no need to run check_task_independence"                 | Manual verification misses transitive dependency overlap. check_task_independence with graph-expanded analysis catches transitive conflicts.   |
+| "There are only 2 independent tasks, but parallelism would save time"                        | NOT when there are fewer than 3 independent tasks. Coordination overhead outweighs parallelism benefit for 2 tasks.                            |
+| "Each agent's tests pass, so integration is fine"                                            | Step 4 requires running the FULL test suite after integration. Parallel changes can cause integration failures that individual test runs miss. |
+
 ## Examples
 
 ### Example: Parallel Implementation of Three Independent Services

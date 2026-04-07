@@ -191,6 +191,17 @@ Code behind feature flags or environment checks may appear dead in the default c
 - No dynamically-imported, type-only, or side-effect code was accidentally deleted
 - Each cleanup commit is atomic and has a descriptive message explaining what was removed and why
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                        | Why It Is Wrong                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This export has zero static imports, so it is definitely dead and safe to remove"                     | Zero static imports does not mean zero consumers. Dynamic imports, type-only imports, side-effect imports, and package entry points all create false positives. |
+| "I removed the dead code and the tests pass, so I do not need to run harness validate and check-deps"  | Both harness validate and harness check-deps must pass after every cleanup. Dead code removal can introduce dependency violations.                              |
+| "The convergence loop found new dead code after my fixes, but it is probably just noise from the tool" | Removing dead code creates more dead code. The convergence loop exists to catch these cascades. If the issue count decreased, loop back.                        |
+| "The entropy report has 60 items but I can clean them all up in one pass to be thorough"               | When the report is very large (>50 items), pick the highest-confidence dead code first. Attempting everything at once risks compound errors.                    |
+
 ## Examples
 
 ### Example: Removing unused utility functions

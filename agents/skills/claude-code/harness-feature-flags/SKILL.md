@@ -206,6 +206,16 @@
 - Rollout configuration is validated for active flags
 - Lifecycle policies are recommended with enforcement mechanisms
 
+## Rationalizations to Reject
+
+| Rationalization                                                            | Why It Is Wrong                                                                                                                        |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| "This release flag has been at 100% for a while, but removing it is risky" | Release flags at 100% for more than 30 days are stale candidates. Every stale flag adds dead code branches and test matrix complexity. |
+| "We only need to test the flag-on path since that is the path we ship"     | No flags without test coverage for both paths. The flag-off path IS the fallback when the flag provider is unreachable.                |
+| "These two flags depend on each other, but they work fine together"        | No coupled flag dependencies is a blocking finding. Flags that require other flags creates combinatorial complexity.                   |
+| "Setting the flag default to true makes the rollout easier"                | Every flag must default to safe (feature disabled). A default of true means a provider outage enables the feature for everyone.        |
+| "We do not need a naming convention -- our flag count is small"            | Inconsistent naming becomes unmanageable as flag count grows. The skill flags inconsistency as a warning even at small scale.          |
+
 ## Examples
 
 ### Example: React SPA with LaunchDarkly
