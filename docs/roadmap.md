@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-07
 last_synced: 2026-04-07T21:22:00.000Z
-last_manual_edit: 2026-03-30
+last_manual_edit: 2026-04-07T19:19:51.172Z
 ---
 
 # Roadmap
@@ -767,18 +767,18 @@ last_manual_edit: 2026-03-30
 - **Plan:** docs/plans/2026-04-06-dashboard-phase1-scaffolding-plan.md
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#121
 
 ### Anti-Rationalization Standard
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/anti-rationalization-standard/proposal.md
 - **Summary:** Make ## Rationalizations to Reject a required section in all user-facing skills with domain-specific table format, universal entries defined once in skill authoring spec, hard error validation, and AI-generated backfill across ~112 skill SKILL.md files
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** Chad Warner
-- **Assigned:** 2026-04-07
 - **Priority:** —
+- **Completed:** 2026-04-07
 - **External-ID:** github:Intense-Visions/harness-engineering#117
 
 ## v3.0 Graph Intelligence
@@ -902,8 +902,7 @@ last_manual_edit: 2026-03-30
 - **Summary:** Time-series tracking of architectural health via standalone TimelineManager, category-level snapshots in `.harness/arch/timeline.json`, composite 0-100 stability score, CLI commands (`harness snapshot`), and `get_decay_trends` MCP tool. Weekly CI captures. [J1]
 - **Blockers:** —
 - **Plan:** docs/plans/2026-04-04-architecture-decay-timeline-phase1-plan.md
-- **Assignee:** Chad Warner
-- **Assigned:** 2026-04-04
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#79
 
@@ -914,8 +913,7 @@ last_manual_edit: 2026-03-30
 - **Summary:** Extrapolate decay trends from timeline plus planned roadmap features to predict which constraints will break and when. Warns before architectural violations become reality. [J2]
 - **Blockers:** Architecture Decay Timeline
 - **Plan:** docs/plans/2026-04-04-predictive-failure-phase1-regression-math-plan.md
-- **Assignee:** Chad Warner
-- **Assigned:** 2026-04-04
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#80
 
@@ -926,8 +924,7 @@ last_manual_edit: 2026-03-30
 - **Summary:** Requirement-to-code-to-test mapping via knowledge graph — requirement nodes, requires/verified_by/tested_by edges, RequirementIngestor, coverage matrix CLI/MCP/CI, hybrid test linking with confidence signals. [E2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
-- **Assigned:** 2026-04-04
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#81
 
@@ -938,8 +935,7 @@ last_manual_edit: 2026-03-30
 - **Summary:** Maps codebase characteristics (coupling score, test coverage, violation types, complexity distribution) to optimal skill sequences via decision-tree scoring. Recommends the right skills for the current codebase state. [D11]
 - **Blockers:** —
 - **Plan:** docs/plans/2026-04-04-skill-recommendation-engine-phase1-types-plan.md
-- **Assignee:** Chad Warner
-- **Assigned:** 2026-04-04
+- **Assignee:** @chadwct
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#82
 
@@ -950,8 +946,7 @@ last_manual_edit: 2026-03-30
 - **Summary:** Change-triggered automatic skill selection via extended recommendation engine signals. New `dispatch_skills` MCP tool with session-start auto-invocation, annotated skill sequences with parallel-safe flags. [L4]
 - **Blockers:** Skill Recommendation Engine
 - **Plan:** docs/plans/2026-04-06-intelligent-skill-dispatch-phase1-signal-type-foundation-plan.md
-- **Assignee:** Chad Warner
-- **Assigned:** 2026-04-06
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#83
 
@@ -973,8 +968,7 @@ last_manual_edit: 2026-03-30
 - **Summary:** Probabilistic BFS traversal with failure probability annotations synthesized from change frequency. New tool: compute_blast_radius. Shows transitive downstream impact with confidence scores — not just direct dependencies but the full cascade chain. [C9]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
-- **Assigned:** 2026-04-06
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#85
 
@@ -988,6 +982,17 @@ last_manual_edit: 2026-03-30
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#86
+
+### Knowledge Skills Category & Schema Enrichment
+
+- **Status:** planned
+- **Spec:** docs/changes/knowledge-skills-schema-enrichment/proposal.md
+- **Summary:** Add paths, related_skills, metadata fields to skill.yaml schema + progressive disclosure in SKILL.md. Add type: knowledge to skill type enum. Import 58 PatternsDev/skills (JS/React/Vue patterns) as seed knowledge catalog. Update dispatch engine for file-glob activation. ADR: .harness/architecture/patternsdev-skills-adoption/ADR-001.md
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#122
 
 ## v3.0 Deep Intelligence
 
@@ -1169,7 +1174,7 @@ last_manual_edit: 2026-03-30
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#123
 
 ### Dashboard v3: Team & Stakeholder Views
 
@@ -1180,7 +1185,7 @@ last_manual_edit: 2026-03-30
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#124
 
 ### CI/CD & Issue Tracker Integration
 
