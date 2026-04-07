@@ -283,21 +283,11 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
-### Universal
-
-These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
-
-- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
-- **"This is best practice"** — Best practice in what context? Cite the source and
-  confirm it applies to this codebase.
-- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
-  with a concrete follow-up plan.
-
-### Domain-Specific
-
-- **"It's just a config change, not a code change"** — Config changes cause outages at the same rate as code changes. Deploy them with the same rigor and rollback strategy.
-- **"We tested this in staging"** — Staging is not production. Traffic patterns, data volume, and edge cases differ. Staging success does not guarantee production safety.
-- **"Downtime will be brief"** — Brief is not zero. Quantify the expected impact and communicate it to stakeholders before deploying.
+| Rationalization                                | Reality                                                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| "It's just a config change, not a code change" | Config changes cause outages at the same rate as code changes. Deploy them with the same rigor and rollback strategy.                  |
+| "We tested this in staging"                    | Staging is not production. Traffic patterns, data volume, and edge cases differ. Staging success does not guarantee production safety. |
+| "Downtime will be brief"                       | Brief is not zero. Quantify the expected impact and communicate it to stakeholders before deploying.                                   |
 
 ## Escalation
 

@@ -307,21 +307,11 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
-### Universal
-
-These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
-
-- **"It's probably fine"** — "Probably" is not evidence. Verify before asserting.
-- **"This is best practice"** — Best practice in what context? Cite the source and
-  confirm it applies to this codebase.
-- **"We can fix it later"** — If it is worth flagging, it is worth documenting now
-  with a concrete follow-up plan.
-
-### Domain-Specific
-
-- **"No one would guess this token format"** — Security by obscurity. Tokens must be cryptographically secure regardless of format predictability.
-- **"This is an internal service, auth is less critical"** — Internal services are lateral movement targets. Authenticate all service boundaries.
-- **"The frontend validates permissions, so the backend doesn't need to"** — Client-side checks are bypassable. Server-side authorization is the only real enforcement.
+| Rationalization                                                      | Reality                                                                                             |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| "No one would guess this token format"                               | Security by obscurity. Tokens must be cryptographically secure regardless of format predictability. |
+| "This is an internal service, auth is less critical"                 | Internal services are lateral movement targets. Authenticate all service boundaries.                |
+| "The frontend validates permissions, so the backend doesn't need to" | Client-side checks are bypassable. Server-side authorization is the only real enforcement.          |
 
 ## Escalation
 
