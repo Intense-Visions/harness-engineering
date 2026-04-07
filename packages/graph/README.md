@@ -95,7 +95,7 @@ const results = fusion.search('authentication handler', { topK: 10 });
 
 ## Node Types
 
-24 node types organized by category:
+28 node types organized by category:
 
 | Category          | Types                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------- |
@@ -104,19 +104,23 @@ const results = fusion.search('authentication handler', { topK: 10 });
 | **VCS**           | `commit`, `build`, `test_result`                                                       |
 | **Observability** | `span`, `metric`, `log`                                                                |
 | **Structural**    | `layer`, `pattern`, `constraint`, `violation`                                          |
+| **Design**        | `design_token`, `aesthetic_intent`, `design_constraint`                                |
+| **Traceability**  | `requirement`                                                                          |
 
 Observability types (`span`, `metric`, `log`) are pruned by default in ContextQL queries to reduce noise.
 
 ## Edge Types
 
-17 edge types organized by category:
+24 edge types organized by category:
 
-| Category      | Types                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------- |
-| **Code**      | `contains`, `imports`, `calls`, `implements`, `inherits`, `references`                    |
-| **Knowledge** | `applies_to`, `caused_by`, `resolved_by`, `documents`, `violates`, `specifies`, `decided` |
-| **VCS**       | `co_changes_with`, `triggered_by`, `failed_in`                                            |
-| **Execution** | `executed_by`, `measured_by`                                                              |
+| Category         | Types                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| **Code**         | `contains`, `imports`, `calls`, `implements`, `inherits`, `references`                    |
+| **Knowledge**    | `applies_to`, `caused_by`, `resolved_by`, `documents`, `violates`, `specifies`, `decided` |
+| **VCS**          | `co_changes_with`, `triggered_by`, `failed_in`                                            |
+| **Execution**    | `executed_by`, `measured_by`                                                              |
+| **Design**       | `uses_token`, `declares_intent`, `violates_design`, `platform_binding`                    |
+| **Traceability** | `requires`, `verified_by`, `tested_by`                                                    |
 
 Edges carry an optional `confidence` score (0-1) used by the FusionLayer for ranking.
 

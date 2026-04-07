@@ -29,16 +29,11 @@ This pattern ensures that errors are always explicit and must be handled by the 
 
 ```typescript
 import { Assembler } from '@harness-engineering/graph';
-import type { Result } from '@harness-engineering/types';
+import type { GraphCoverageReport } from '@harness-engineering/graph';
 
 const assembler = new Assembler({ rootDir: '.' });
-const result: Result<{ coverage: number }> = assembler.checkCoverage();
-if (!result.ok) {
-  console.error(result.error.message);
-  process.exit(1);
-}
-
-console.log('Coverage check passed!', result.value);
+const report: GraphCoverageReport = assembler.checkCoverage();
+console.log('Coverage check passed!', report);
 ```
 
 See the package-specific documentation for detailed API references.

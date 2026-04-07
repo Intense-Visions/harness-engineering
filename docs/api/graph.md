@@ -22,7 +22,7 @@ const ingestor = new CodeIngestor(store);
 await ingestor.ingest('./src');
 
 const query = new ContextQL(store);
-const result = query.run({ seed: 'src/index.ts', depth: 2 });
+const result = query.execute({ rootNodeIds: ['file:src/index.ts'], maxDepth: 2 });
 ```
 
 ## Constants
@@ -30,7 +30,7 @@ const result = query.run({ seed: 'src/index.ts', depth: 2 });
 ### `VERSION`
 
 ```typescript
-const VERSION: string; // "0.3.2"
+const VERSION: string; // "0.2.0"
 ```
 
 ### Schema Constants

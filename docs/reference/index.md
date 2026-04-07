@@ -19,7 +19,7 @@ Use this when you need to look up specific CLI command syntax or options.
 
 Complete reference for configuring Harness Engineering projects:
 
-- Configuration file formats (harness.config.yml)
+- Configuration file formats (harness.config.json)
 - All available configuration options
 - Environment variables
 - Configuration examples
@@ -53,7 +53,7 @@ See [CLI Reference](./cli.md) for the complete command list.
 
 ## Configuration Categories
 
-The harness.config.yml file is organized into these sections:
+The harness.config.json file is organized into these sections:
 
 - **Project** - Basic project information
 - **Architecture** - Constraint and dependency rules
@@ -67,12 +67,12 @@ See [Configuration Reference](./configuration.md) for all options.
 
 Key environment variables for Harness Engineering:
 
-| Variable             | Purpose                                           |
-| -------------------- | ------------------------------------------------- |
-| `HARNESS_CONFIG`     | Path to config file (default: harness.config.yml) |
-| `HARNESS_LOG_LEVEL`  | Logging level (debug, info, warn, error)          |
-| `HARNESS_AGENT_MODE` | Agent execution mode (interactive, batch, watch)  |
-| `NODE_ENV`           | Node environment (development, production, test)  |
+| Variable             | Purpose                                            |
+| -------------------- | -------------------------------------------------- |
+| `HARNESS_CONFIG`     | Path to config file (default: harness.config.json) |
+| `HARNESS_LOG_LEVEL`  | Logging level (debug, info, warn, error)           |
+| `HARNESS_AGENT_MODE` | Agent execution mode (interactive, batch, watch)   |
+| `NODE_ENV`           | Node environment (development, production, test)   |
 
 For complete list, see [Configuration Reference](./configuration.md).
 
@@ -93,23 +93,21 @@ harness agent run
 
 ### Configuration Example
 
-```yaml
-# harness.config.yml
-project:
-  name: my-project
-  version: 1.0.0
-
-architecture:
-  layers:
-    - types
-    - config
-    - repository
-    - service
-    - ui
-
-agent:
-  autoReview: true
-  maxDepth: 5
+```json
+// harness.config.json
+{
+  "project": {
+    "name": "my-project",
+    "version": "1.0.0"
+  },
+  "architecture": {
+    "layers": ["types", "config", "repository", "service", "ui"]
+  },
+  "agent": {
+    "autoReview": true,
+    "maxDepth": 5
+  }
+}
 ```
 
 See the respective reference pages for detailed examples and options.
@@ -121,7 +119,7 @@ See the respective reference pages for detailed examples and options.
 Ensure Harness Engineering CLI is installed:
 
 ```bash
-npm install -g harness-cli
+npm install -g @harness-engineering/cli
 harness --version
 ```
 
