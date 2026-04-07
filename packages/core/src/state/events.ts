@@ -6,7 +6,7 @@ import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { getStateDir } from './state-shared';
 import { EVENTS_FILE } from './constants';
-import { computeContentHash } from './learnings';
+import { computeContentHash } from './learnings-content';
 
 /** Event types emitted at skill lifecycle points. */
 export type EventType =

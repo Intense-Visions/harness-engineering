@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { promoteSessionLearnings, countLearningEntries } from '../../src/state/learnings';
+import { promoteSessionLearnings, countLearningEntries } from '../../src/state/learnings-lifecycle';
 
 describe('promoteSessionLearnings', () => {
   let tmpDir: string;

@@ -12,6 +12,9 @@ import { serializeRoadmap } from './serialize';
 import type { TrackerSyncAdapter, ExternalSyncOptions } from './tracker-sync';
 import { resolveReverseStatus } from './tracker-sync';
 import { isRegression } from './status-rank';
+// Known adapters: adapters/github-issues.ts (GitHubIssuesSyncAdapter).
+// This module consumes adapters via the TrackerSyncAdapter interface.
+// Changes to the interface contract require updating both this file and all adapters.
 
 function emptySyncResult(): SyncResult {
   return { created: [], updated: [], assignmentChanges: [], errors: [] };
