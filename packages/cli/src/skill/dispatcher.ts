@@ -1,3 +1,4 @@
+import { minimatch } from 'minimatch';
 import type { SkillsIndex, SkillIndexEntry } from './index-builder.js';
 import type { StackProfile } from './stack-profile.js';
 import type { HealthSnapshot } from './health-snapshot.js';
@@ -144,14 +145,7 @@ export function scoreSkill(
   let pathsScore = 0;
   if (entry.paths && entry.paths.length > 0 && recentFiles.length > 0) {
     const hasPathsMatch = recentFiles.some((file) =>
-      entry.paths.some((glob) => {
-        // Convert glob to regex: ** -> .*, * -> [^/]*
-        const pattern = glob
-          .replace(/[.+^${}()|[\]\\]/g, '\\$&') // escape special regex chars
-          .replace(/\*\*/g, '.*')
-          .replace(/\*/g, '[^/]*');
-        return new RegExp(`^${pattern}$`).test(file) || new RegExp(pattern).test(file);
-      })
+      entry.paths.some((glob) => minimatch(file, glob, { matchBase: true }))
     );
     pathsScore = hasPathsMatch ? 1.0 : 0;
   }
