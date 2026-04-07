@@ -6,6 +6,8 @@ import {
 import type { HealthSnapshot } from '../../skill/health-snapshot.js';
 import { recommend } from '../../skill/recommendation-engine.js';
 import { loadOrRebuildIndex } from '../../skill/index-builder.js';
+import { suggest } from '../../skill/dispatcher.js';
+import type { KnowledgeRecommendation } from '../../skill/recommendation-types.js';
 import { resolveConfig } from '../../config/loader.js';
 
 export const recommendSkillsDefinition = {
@@ -71,9 +73,21 @@ export async function handleRecommendSkills(
 
   const result = recommend(snapshot, skills, { top });
 
+  // Wire knowledge recommendations from dispatcher into result
+  // Phase A: task context not available here; Phase B will pass recentFiles + taskDescription
+  const suggestResult = suggest(index, '', null, []);
+  const knowledgeRecommendations: KnowledgeRecommendation[] = suggestResult.autoInjectKnowledge.map(
+    (s) => ({
+      skillName: s.name,
+      score: s.score,
+      paths: index.skills[s.name]?.paths ?? [],
+    })
+  );
+
   const output = {
     ...result,
     snapshotAge: usedCache ? 'cached' : 'fresh',
+    knowledgeRecommendations,
   };
 
   return {

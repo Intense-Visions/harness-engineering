@@ -411,6 +411,25 @@ describe('formatSuggestions', () => {
   });
 });
 
+describe('suggest() — autoInjectKnowledge shape', () => {
+  it('autoInjectKnowledge entries include name, description, and score', () => {
+    const entry = makeEntry({
+      type: 'knowledge',
+      keywords: ['hooks', 'react', 'custom'],
+      paths: ['**/*.tsx'],
+      description: 'Custom hooks for stateful logic',
+    });
+    const index = makeIndex({ 'react-hooks-pattern': entry });
+    const result = suggest(index, 'hooks react custom', null, ['src/App.tsx']);
+    if (result.autoInjectKnowledge.length > 0) {
+      const kr = result.autoInjectKnowledge[0]!;
+      expect(kr.name).toBeDefined();
+      expect(kr.description).toBeDefined();
+      expect(kr.score).toBeGreaterThanOrEqual(0.7);
+    }
+  });
+});
+
 describe('computeHealthScore', () => {
   it('returns 0 when skill has no addresses', () => {
     const entry = makeEntry({ addresses: [] });
