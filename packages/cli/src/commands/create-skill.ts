@@ -110,6 +110,14 @@ harness skill run ${opts.name}
 \`\`\`bash
 harness skill run ${opts.name}
 \`\`\`
+
+## Rationalizations to Reject
+
+<!-- TODO: Add 3-8 domain-specific rationalizations. Do not repeat universal rationalizations (defined in harness-skill-authoring). -->
+
+| Rationalization | Reality |
+| --- | --- |
+| "[Domain-specific excuse]" | [Why this is wrong and what to do instead] |
 `;
 }
 
