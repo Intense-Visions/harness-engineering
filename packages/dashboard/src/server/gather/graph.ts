@@ -1,8 +1,7 @@
 import { join } from 'node:path';
 import { GraphStore, NODE_TYPES } from '@harness-engineering/graph';
 import type { GraphResult, NodeTypeCount } from '../../shared/types';
-
-const GRAPH_DIR = '.harness/graph';
+import { GRAPH_DIR } from '../../shared/constants';
 
 /**
  * Load the knowledge graph and return node/edge metrics.

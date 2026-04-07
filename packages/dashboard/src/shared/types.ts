@@ -149,9 +149,6 @@ export interface OverviewData {
   roadmap: RoadmapResult;
   health: HealthResult;
   graph: GraphResult;
-  securityStatus?: { valid: boolean; errorCount: number; warningCount: number } | null;
-  perfStatus?: { valid: boolean; violationCount: number } | null;
-  archStatus?: { passed: boolean; totalViolations: number } | null;
 }
 
 // --- SSE event types ---

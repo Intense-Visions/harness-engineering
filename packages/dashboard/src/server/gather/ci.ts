@@ -3,24 +3,10 @@ import type {
   CIData,
   CheckResult,
   SecurityResult,
-  SecurityData,
   PerfResult,
-  PerfData,
   ArchResult,
-  ArchData,
 } from '../../shared/types';
-
-function isSecurityData(r: SecurityResult): r is SecurityData {
-  return 'valid' in r;
-}
-
-function isPerfData(r: PerfResult): r is PerfData {
-  return 'valid' in r;
-}
-
-function isArchData(r: ArchResult): r is ArchData {
-  return 'passed' in r;
-}
+import { isSecurityData, isPerfData, isArchData } from '../../shared/typeGuards';
 
 /** Map a cached security result to a CheckResult. */
 function mapSecurity(result: SecurityResult): CheckResult {

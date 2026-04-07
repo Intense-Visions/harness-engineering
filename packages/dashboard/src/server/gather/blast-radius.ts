@@ -1,8 +1,7 @@
 import { join } from 'node:path';
 import { GraphStore, CascadeSimulator } from '@harness-engineering/graph';
 import type { BlastRadiusResult } from '../../shared/types';
-
-const GRAPH_DIR = '.harness/graph';
+import { GRAPH_DIR } from '../../shared/constants';
 const DEFAULT_MAX_DEPTH = 3;
 
 /**

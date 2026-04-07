@@ -1,8 +1,7 @@
 import { join } from 'node:path';
 import { GraphStore, GraphAnomalyAdapter } from '@harness-engineering/graph';
 import type { AnomalyResult } from '../../shared/types';
-
-const GRAPH_DIR = '.harness/graph';
+import { GRAPH_DIR } from '../../shared/constants';
 
 /**
  * Detect graph anomalies (statistical outliers and articulation points).

@@ -9,16 +9,13 @@ import type {
   AnomalyData,
   BlastRadiusResult,
 } from '../../shared/types';
+import { isAnomalyData } from '../../shared/typeGuards';
 
 const EMPTY_ANOMALIES: AnomalyData = {
   outliers: [],
   articulationPoints: [],
   overlapCount: 0,
 };
-
-function isAnomalyData(r: AnomalyResult): r is AnomalyData {
-  return 'outliers' in r;
-}
 
 function jsonError(c: Context, message: string, status: 400 | 422 = 400) {
   const err: ApiErrorResponse = { error: message, timestamp: new Date().toISOString() };
