@@ -239,6 +239,15 @@ ORPHANED DEPENDENCY: moment (package.json)
 
 **Action:** Remove `moment` from package.json dependencies. Run `npm install` to update lockfile. Run tests — all pass. Commit: "remove unused moment dependency"
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "This export has zero static imports, so it is definitely dead and safe to remove" | Zero static imports does not mean zero consumers. Dynamic imports, type-only imports, side-effect imports, and package entry points all create false positives. |
+| "I removed the dead code and the tests pass, so I do not need to run harness validate and check-deps" | Both harness validate and harness check-deps must pass after every cleanup. Dead code removal can introduce dependency violations. |
+| "The convergence loop found new dead code after my fixes, but it is probably just noise from the tool" | Removing dead code creates more dead code. The convergence loop exists to catch these cascades. If the issue count decreased, loop back. |
+| "The entropy report has 60 items but I can clean them all up in one pass to be thorough" | When the report is very large (>50 items), pick the highest-confidence dead code first. Attempting everything at once risks compound errors. |
+
 ## Escalation
 
 - **When removing code causes unexpected test failures:** The code has a hidden dependency. Undo the deletion, investigate the dependency chain, and document the finding. The code is not dead — it is just hard to trace.

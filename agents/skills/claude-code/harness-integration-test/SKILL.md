@@ -256,6 +256,15 @@ describe('ProjectService contract', () => {
 });
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                           | Why It Is Wrong                                                                                                                                             |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Testing the happy path is sufficient -- error scenarios are edge cases"                  | The success criteria require error scenarios (400, 401, 403, 404, 500, timeout) for all public endpoints. Error paths are where real-world failures happen. |
+| "We can test against the staging environment instead of setting up local mocks"           | No integration tests that require external staging environments for CI. Tests must run with local test doubles.                                             |
+| "The consumer contract changed, so I will update the consumer test to match the provider" | Contract changes must be coordinated. The provider may have introduced a bug, not an intentional change.                                                    |
+| "Tests pass when I run them in order, so they are fine"                                   | Phase 4 requires running tests in random order. Any test that fails only in a specific order has a shared-state bug.                                        |
+
 ## Gates
 
 - **No integration tests that require external staging environments for CI.** Every integration test must run with local test doubles (mocks, containers, in-memory databases). Tests that fail without a staging VPN are not integration tests -- they are environment tests.

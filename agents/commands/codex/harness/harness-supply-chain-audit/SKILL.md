@@ -182,6 +182,14 @@ Combine factor scores into an overall risk level:
 
 ---
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "This package has high risk signals but it is widely used, so it must be safe" | The Iron Law: present findings as flags for human review, never as verdicts. Popularity does not eliminate bus-factor risk or maintenance abandonment. |
+| "The npm API returned an error for this package, so I will skip it and move on" | API failures produce "unknown" scores with a note, not skips. Partial results with noted gaps are always better than incomplete audits. |
+| "The install script is probably just native addon compilation, so I do not need to flag it" | Every install script must be flagged in the report. "Probably legitimate" is exactly the assumption that supply chain attacks exploit. |
+
 ## Gates
 
 - **Stop if no lockfile.** Do not evaluate without a lockfile — results will be unreliable.

@@ -284,6 +284,15 @@ fi
 - [ ] AI review focused on high-signal issues only (no style nits)
 - [ ] Report follows the structured format exactly
 
+## Rationalizations to Reject
+
+| Rationalization                                                               | Why It Is Wrong                                                                                                                                               |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The lint errors are just warnings, so I can proceed to AI review"            | The gate is absolute: any mechanical check failure means STOP. AI review does not run until lint, typecheck, and tests all pass.                              |
+| "This is a docs-only change but let me run AI review anyway for thoroughness" | The fast path is mandatory. If only docs/config files changed, AI review is skipped. Running it anyway wastes tokens.                                         |
+| "The AI found a style issue, so I should block the commit"                    | AI review observations are advisory only. Only mechanical check failures block the commit.                                                                    |
+| "I will skip the security scan since this is an internal endpoint"            | Phase 3 runs the security scanner against all staged source files regardless of exposure. Hardcoded secrets and injection are blocking even in internal code. |
+
 ## Examples
 
 ### Example: Clean Commit

@@ -151,6 +151,14 @@ Output:
   Coverage gaps: none
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "Only the Tier 1 direct tests matter -- Tier 2 and Tier 3 are probably unnecessary" | Tier 2 tests catch indirect breakage one hop away. A change to auth.ts breaks login.ts which breaks login.test.ts. Skipping Tier 2 misses exactly the regressions hardest to debug. |
+| "The changed file has no tests, but that is not my concern -- I just advise on which tests to run" | Coverage gaps must be flagged. When a changed file has no test coverage, the advisor reports it. Silently producing an empty test list gives false confidence. |
+| "The graph is stale but I will use it anyway since some data is better than no data" | If the graph is more than 10 commits behind, refresh before proceeding. Staleness sensitivity is Medium for test advisor. |
+
 ## Gates
 
 - **Graph preferred, fallback available.** If no graph exists, use naming conventions, import parsing, and git co-change analysis to identify relevant tests. Do not stop — produce the best test selection possible.

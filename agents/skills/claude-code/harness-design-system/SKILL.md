@@ -263,6 +263,16 @@ Spacing:         PASS (monotonically increasing, no gaps)
 Harness validate: PASS
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                            | Reality                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The project already has a tailwind.config with colors — I can derive the token set from that and skip the DEFINE phase."  | Existing Tailwind config represents design debt, not design intent. The DEFINE phase exists to make deliberate choices about palette and typography. Deriving tokens from scattered config perpetuates the inconsistency the skill is meant to resolve. |
+| "One of the contrast pairs is 4.3:1 — close enough to 4.5:1 to pass. I'll mark it as passing."                             | 4.3:1 fails WCAG AA for normal text. There is no "close enough." Flag the failure and ask the user to choose an alternative. Silently accepting sub-threshold contrast is a compliance defect.                                                          |
+| "The user confirmed the palette in our conversation, so I can skip the formal confirmation gate and generate immediately." | The confirmation gate exists as a structural checkpoint, not a courtesy. Generate only after presenting the full palette + typography + spacing summary and receiving explicit approval. Conversation context can drift.                                |
+| "There are no existing design files, so I can skip the DISCOVER phase and go straight to defining."                        | The DISCOVER phase also detects the CSS framework and existing color/font usage. Skipping it means the generated tokens may not map to the actual CSS strategy and the design debt assessment is lost.                                                  |
+| "Fonts without fallback stacks are probably fine — modern browsers handle missing fonts gracefully."                       | A missing fallback stack is a token validation failure regardless of browser behavior. Every `fontFamily` token must include at least one generic fallback. This is a VALIDATE phase gate, not a style preference.                                      |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

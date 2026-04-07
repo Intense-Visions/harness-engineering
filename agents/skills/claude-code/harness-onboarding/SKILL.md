@@ -199,6 +199,14 @@ Graph queries produce a complete architecture map in seconds, including transiti
 - The "Getting Started" section is actionable and tailored to the audience
 - `harness validate` was run and results are reported
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                            | Reality                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "I can skip reading .harness/learnings.md since it is just historical notes"                                               | Learnings contain hard-won insights from previous sessions -- decisions made, gotchas discovered, patterns that worked or failed. Skipping them means repeating mistakes already diagnosed.      |
+| "The harness.config.json says intermediate, so I can report that without validation"                                       | Declared adoption level must be confirmed, not assumed. A project that declares intermediate but fails harness validate is not truly intermediate.                                               |
+| "I will map the architecture by reading the directory names since that is faster than checking conventions in actual code" | Conventions must be identified from actual code patterns, not assumed from directory structure. File naming, import style, and error handling can only be verified by reading real source files. |
+
 ## Examples
 
 ### Example: Onboarding to an Intermediate TypeScript Project

@@ -147,6 +147,14 @@ Verification: FAIL
 - Tests: NOT RUN
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The lint command is slow and the code looks clean, so I will skip it" | No skipping. If a command is detected, it runs. Period. There is no "looks clean" judgment call. |
+| "The typecheck failed but it is just a missing type declaration, so I will interpret it as a pass" | The exit code is the only signal. No judgment calls. Exit code non-zero equals FAIL, always. |
+| "I will fix the lint error I found and re-run, since it is a quick fix" | No file modifications. This skill is read-only plus command execution. Fixing errors is the responsibility of the skill that produced the code. |
+
 ## Gates
 
 - **No judgment calls.** The exit code is the only signal.

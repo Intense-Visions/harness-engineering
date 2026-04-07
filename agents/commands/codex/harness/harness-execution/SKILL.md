@@ -474,6 +474,15 @@ Read learnings: .harness/learnings.md — "Date comparison needed UTC normalizat
 Run: harness validate — passes. Resume from Task 4.
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The plan says to do X, but doing Y would be cleaner -- I will improvise" | The Iron Law states: execute the plan as written. If the plan is wrong, stop and fix the plan. Improvising mid-execution introduces untested assumptions. |
+| "This task depends on Task 3 which I know is done, so I can skip verifying prerequisites" | Prerequisites must be verified mechanically, not from memory. Check that dependency tasks are marked complete in state and that referenced files exist. |
+| "The checkpoint is just a confirmation step and the output looks correct, so I will auto-continue" | Checkpoints are non-negotiable pause points. If a task has a checkpoint marker, execution must pause. |
+| "Harness validate passed on the previous task and nothing changed structurally, so I can skip it for this one" | Validation runs after every task with no exceptions. Each task may introduce subtle architectural drift that only harness validate catches. |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

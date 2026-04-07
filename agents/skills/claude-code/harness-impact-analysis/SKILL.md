@@ -151,6 +151,16 @@ When no graph is available, use static analysis to approximate impact:
 - Report follows the structured output format
 - All findings are backed by graph query evidence (with graph) or systematic static analysis (without graph)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                    | Why It Is Wrong                                                                                                                          |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| "The change is small so the blast radius must be low -- I can skip the transitive dependent check" | Small changes to shared utilities can have outsized blast radius. A one-line change to auth.ts can affect 23 transitive dependents.      |
+| "The graph is a few commits behind but it is close enough for this analysis"                       | If the graph is more than 2 commits behind, the skill requires a refresh before proceeding. Recent commits may have added new consumers. |
+| "No graph exists so I cannot produce a useful impact analysis"                                     | The fallback strategy using import parsing and naming conventions achieves ~70% completeness. Missing the graph does not mean stopping.  |
+
 ## Examples
 
 ### Example: Analyzing a Change to auth.ts

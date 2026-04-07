@@ -101,6 +101,15 @@ Good context engineering treats AGENTS.md as a **dynamic knowledge base**, not a
 - AGENTS.md sections accurately describe current module purposes, constraints, and relationships
 - A new AI agent reading AGENTS.md can navigate the codebase and make correct decisions without additional guidance
 
+## Rationalizations to Reject
+
+| Rationalization                                                            | Why It Is Wrong                                                                                                                                                           |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The automated checks passed, so AGENTS.md is accurate"                    | Phase 1 says automated tools catch structural issues but miss semantic drift. Manual review of each section is required.                                                  |
+| "This module is small and internal -- it does not need an AGENTS.md entry" | Undocumented files are the highest priority finding. Even small internal modules need at least a purpose statement.                                                       |
+| "AGENTS.md is severely outdated -- let me rewrite it from scratch"         | Do not attempt to fix everything at once when there are >20 issues. Prioritize: broken links first, then undocumented public APIs.                                        |
+| "I will add the file paths and leave the descriptions for later"           | Purpose-first descriptions, relationship mapping, and gotchas are what make context engineering useful. A file listing without context is marginally better than nothing. |
+
 ## Examples
 
 ### Example: New module added but not documented

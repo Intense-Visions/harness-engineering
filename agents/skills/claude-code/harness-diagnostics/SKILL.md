@@ -232,6 +232,15 @@ This log accumulates over time and helps improve future classifications.
 - **Flaky test not isolated in 60 minutes:** The non-determinism source may be outside the codebase (infrastructure, external service). Escalate with your findings.
 - **Security vulnerability with large blast radius:** If the minimal fix requires changing more than 3 files, reclassify as Design and escalate.
 
+## Rationalizations to Reject
+
+| Rationalization                                                                           | Why It Is Wrong                                                                                                                         |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| "I can see the error is a type issue -- let me just fix it without formal classification" | The gate says classification must be explicit and written down before any fix attempt. Implicit classification skips the evidence step. |
+| "This looks like a Design issue, but I can probably fix it locally with a small change"   | Design category MUST escalate. Local fixes for architectural problems create more architectural problems.                               |
+| "I do not need to run tests before fixing -- I know what the baseline is"                 | Deterministic checks before AND after is a gate. Without a recorded baseline, you cannot prove the fix helped.                          |
+| "My first fix did not work, but I will try a different approach within the same category" | Reclassify, do not force. If the resolution strategy is not working, the classification is probably wrong.                              |
+
 ## Examples
 
 ### Example 1: Type Error in API Handler

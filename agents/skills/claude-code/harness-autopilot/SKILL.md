@@ -720,6 +720,16 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 - Checkpoint commits fire after every passing checkpoint; recovery commits fire on retry budget exhaustion
 - Rigor level persists across session resume — set once during INIT, never changed mid-session
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                     | Reality                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This phase is low complexity, so I can skip the APPROVE_PLAN gate entirely"                        | Low complexity only means auto-approval when no concern signals fire. If the planner flagged concerns, produced a complexity override, or the task count exceeds 15, the gate pauses regardless of the spec annotation. |
+| "I can write the planning logic inline instead of dispatching to the harness-planner persona agent" | The Iron Law is explicit: autopilot delegates, never reimplements. Using a general-purpose agent or inlining planning logic bypasses the harness methodology.                                                           |
+| "The retry budget is exhausted but I can try one more approach before stopping"                     | The 3-attempt retry budget exists because each failed attempt degrades context and compounds risk. Exceeding the budget without human input turns a recoverable failure into an unrecoverable one.                      |
+| "I will skip the scratchpad since keeping research in conversation is faster"                       | Scratchpad is gated by rigor level. At standard or thorough, bulky research (>500 words) must go to scratchpad to keep agent conversation focused on decisions.                                                         |
+| "The plan auto-approved, so I can skip recording the decision in the decisions array"               | Every plan approval -- auto or manual -- must be recorded with its signal evaluation. The decisions array is the audit trail that explains why a plan was approved.                                                     |
+
 ## Examples
 
 ### Example: 3-Phase Security Scanner

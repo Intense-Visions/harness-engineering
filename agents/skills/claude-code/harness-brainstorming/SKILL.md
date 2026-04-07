@@ -326,6 +326,15 @@ These patterns make requirements testable and unambiguous. Apply them when the o
 - `harness validate` passes after the spec is written
 - If scope was too large, it was decomposed into sub-projects with the human's approval
 
+## Rationalizations to Reject
+
+| Rationalization                                                                    | Reality                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I already understand the problem well enough to skip the question phase"          | The Gates section is explicit: you must ask at least one clarifying question before proposing approaches. Skipping questions means making untested assumptions.                             |
+| "There is only one viable approach, so presenting alternatives would be contrived" | The gate requires at least 2 approaches with tradeoffs. A single approach is a recommendation disguised as a decision -- the human has no real choice.                                      |
+| "I will draft the full spec and present it for review all at once to save time"    | Section-dump specs are explicitly forbidden. Presenting section by section with feedback between each catches misunderstandings early.                                                      |
+| "This future capability is low-cost to include now, so we should build it in"      | YAGNI is a gate, not a suggestion. Every capability must trace to a stated requirement. "We might need this later" is the exact rationalization that turns focused specs into bloated ones. |
+
 ## Examples
 
 ### Example: Designing a Notification System

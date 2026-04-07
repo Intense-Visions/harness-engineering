@@ -162,6 +162,15 @@ This ensures subsequent graph queries (impact analysis, drift detection) include
 - Report follows the structured output format
 - All findings are backed by graph query evidence (with graph) or directory/file analysis (without graph)
 
+## Rationalizations to Reject
+
+| Rationalization                                                                         | Why It Is Wrong                                                                                                                                                   |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The graph is a few commits behind, but it is close enough for knowledge mapping"       | If the graph is more than 10 commits behind, run harness scan before proceeding. A stale graph produces a knowledge map with missing modules.                     |
+| "No graph exists, so this skill cannot produce useful output"                           | The fallback strategy is explicit: use directory structure and file analysis. Fallback completeness is ~50%, significantly better than nothing.                   |
+| "The existing AGENTS.md is outdated, so I will overwrite it with the generated version" | Never overwrite without confirmation. Existing AGENTS.md may contain carefully authored context the graph cannot infer.                                           |
+| "The module descriptions I inferred from function names are accurate enough"            | Inferred descriptions are starting points. Phase 3 (AUDIT) exists to identify coverage gaps. Name-based inference misses purpose, constraints, and relationships. |
+
 ## Examples
 
 ### Example: Generating AGENTS.md from Graph

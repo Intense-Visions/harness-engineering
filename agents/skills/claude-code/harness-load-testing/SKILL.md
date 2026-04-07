@@ -259,6 +259,16 @@ Phase 4: ANALYZE
   Recommendation: Add DataLoader for orders resolver, re-test after fix
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                             | Reality                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The smoke test passed, so the full load test will probably be fine too."                                   | A smoke test at 1-2 VUs tells you the script runs — it says nothing about behavior at 100 or 1000 VUs. Connection pool exhaustion, lock contention, and GC pressure only appear under load. Smoke passing is the floor, not the ceiling.                                 |
+| "Staging is smaller than production, so results won't be accurate anyway — no point running the full test." | Staging results are always useful as a proxy: they reveal algorithmic bottlenecks, N+1 queries, and missing indexes that scale identically regardless of instance count. Document the scale factor and use it. Do not skip testing because the environment is imperfect. |
+| "We haven't changed the API, so the old load test baselines still apply."                                   | Baselines go stale when dependencies update, traffic patterns shift, or adjacent services change. A deployment that adds one middleware layer or changes a database index can move p99 by 200ms. Baselines must be re-validated, not assumed.                            |
+| "The p95 threshold is arbitrary — let's just relax it until the test passes."                               | A threshold without a documented basis is a guess. A threshold lowered to make a failing test pass is a suppressed regression. Thresholds must be derived from SLOs or measured baselines. If the SLO is wrong, change the SLO explicitly with stakeholder sign-off.     |
+| "We'll run the soak test later — we just need to ship the load test first."                                 | Soak tests catch failures that only emerge over hours: memory leaks, connection pool exhaustion, log file growth. If the feature involves a long-lived process, background worker, or WebSocket, skipping the soak test means the failure surfaces in production.        |
+
 ## Gates
 
 - **No load tests against production without explicit human approval.** Load tests can cause real outages. The target environment must be verified as non-production before execution. If production testing is required, a `[checkpoint:human-verify]` must be passed with documented approval.

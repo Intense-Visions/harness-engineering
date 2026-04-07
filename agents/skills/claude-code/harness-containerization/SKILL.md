@@ -269,6 +269,16 @@ Phase 4: VALIDATE
   Result: PASS -- well-configured container setup
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                       | Reality                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "We use `latest` in production because we always want the most recent image"          | `latest` is a mutable pointer. A deployment at 9am and a rollback at 9pm may pull different image contents with the same tag. Immutable tags (semver or digest) are required for reproducible deployments and reliable rollbacks.                                                                                 |
+| "The container runs as root because it needs to bind to port 80"                      | Binding to a privileged port requires elevated capability, not full root access. The correct solution is to run the container as a non-root user and use `--cap-add NET_BIND_SERVICE`, or to expose a high port and use a load balancer or ingress for port translation.                                          |
+| "We don't set resource limits because we want the container to use whatever it needs" | Containers without memory limits can exhaust node memory, triggering OOM kills of other containers on the same node. Kubernetes uses resource requests for scheduling and limits for safety; omitting limits transfers the risk of one container onto the entire node.                                            |
+| "Our image is 2GB but it only takes a few seconds to pull in our CI"                  | Image size multiplies across every developer pull, every CI run, and every Kubernetes pod startup. A 2GB image that takes 3 seconds to pull in CI with a warm cache takes 90 seconds on a cold node during an autoscaling event at peak traffic.                                                                  |
+| "We don't need liveness and readiness probes — the container exits if it crashes"     | Process exit is a coarse health signal. A process that is running but deadlocked, stuck in an infinite retry loop, or unable to connect to its database will never exit. Kubernetes will continue routing traffic to it. Readiness probes prevent traffic routing to unhealthy containers that are still running. |
+
 ## Gates
 
 - **No `latest` tag in production manifests.** Production Kubernetes manifests or compose files using `latest` image tags are blocking findings. Immutable tags or digests are required.

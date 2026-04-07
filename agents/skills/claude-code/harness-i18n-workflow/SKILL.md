@@ -493,6 +493,16 @@ emails.welcome.greeting           -> "Hello {name}, welcome aboard!"
 Approve to continue scaffolding, or provide corrections.
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                                  | Reality                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The user already told me they want Spanish and French — I can skip the configuration phase and go straight to scaffolding."                     | The configuration phase writes the `i18n` block to `harness.config.json`. Without it, subsequent runs of harness-i18n have no enabled flag, no strictness level, and no locale list to work against. Verbal confirmation does not substitute for written config.       |
+| "In retrofit mode, the key naming is straightforward — I'll apply the generated key catalog directly without showing it to the user for review." | The retrofit key catalog checkpoint is a hard gate. Key names become permanent identifiers that translation teams, TMS tools, and source code will reference for years. The user must review and approve them before any files are written.                            |
+| "The pseudo-locale transformation for this string with `{name}` is obvious — I'll just wrap the entire string including the placeholder."        | ICU MessageFormat placeholders must be preserved exactly. Transforming `{name}` to `{ñàmë}` breaks the interpolation at runtime. The pseudo-locale algorithm must detect and skip all placeholder syntax before applying accent and expansion transforms.              |
+| "These target locale files already exist from a previous run — I'll overwrite them with the new extraction output to keep things clean."         | Existing target locale translations must never be overwritten. A key with a translated (non-empty, non-source-identical) value in a target locale represents real translation work. Overwriting it destroys that work silently. Always preserve existing translations. |
+| "We found 120 strings in retrofit mode — I'll just run the full extraction without the audit phase since we clearly need everything extracted."  | The retrofit audit results are what tell the user how much effort the extraction requires and let them prioritize high-traffic flows. Skipping the audit and going straight to extraction removes the user's ability to scope the work before it happens.              |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

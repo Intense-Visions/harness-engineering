@@ -170,6 +170,14 @@ Output:
   3 actionable recommendations generated
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "There are a few orphan files but they are probably test fixtures or configs, so I will skip investigating them" | Orphan detection explicitly excludes entry points. Files with zero inbound imports that are not entry points must be investigated. |
+| "The cycle is between two closely related files, so it is not really a problem" | Cycles create fragile coupling where any change in the cycle affects all members. Even "related" files should not have circular dependencies. |
+| "The health score is a B, which is good enough -- no need to act on the recommendations" | A hub with 14 importers is a single point of failure. "Good enough" scores mask specific structural risks that compound over time. |
+
 ## Gates
 
 - **Graph preferred, fallback available.** If no graph exists, use fallback strategies (import parsing, DFS cycle detection, hub/orphan identification). Do not stop — produce the best analysis possible.

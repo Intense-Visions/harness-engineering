@@ -259,6 +259,16 @@ Phase 4: DOCUMENT
   Quality Report: FAIL (2 errors requiring immediate attention)
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                   | Reality                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The pipeline failed halfway through — we'll just re-run it and it'll pick up where it left off."                                 | A non-idempotent pipeline that is re-run from the middle writes duplicate records for the portion that succeeded before failure. The correct fix is to make the pipeline idempotent (MERGE, upsert, or delete-then-insert) so re-runs are always safe, not to assume partial re-runs are harmless. |
+| "The model has no dbt tests yet, but it's only used in one dashboard — low risk."                                                 | Every untested model is a silent data quality failure waiting to reach a stakeholder. Revenue and user-facing models require test coverage regardless of how few consumers they have today. The number of consumers grows; the coverage does not add itself retroactively.                         |
+| "We're still figuring out the schema — we'll add data contracts once the model stabilizes."                                       | Contracts are most valuable during schema evolution, not after it. An unstable schema without a contract lets breaking changes propagate undetected to downstream consumers. Add the contract as the model is defined; update it explicitly as the schema changes. That explicitness is the value. |
+| "Circular dependency detection is handled by the orchestrator — I don't need to check for it during design."                      | Orchestrators detect circular dependencies at runtime, after the DAG has been deployed. Static analysis during design catches them before deployment, before the pipeline fails at 3am, and before engineers have to diagnose a graph cycle under pressure. Detect them early.                     |
+| "The freshness check is too strict — it keeps alerting because the upstream source is occasionally delayed. I'll just remove it." | A freshness check that fires too often has the wrong threshold. Removing it means stale data reaches analysts silently. Adjust the `warn_after` and `error_after` thresholds to match the source's actual SLA, and escalate if the source cannot meet its own SLA.                                 |
+
 ## Gates
 
 - **No approving non-idempotent production pipelines.** If a pipeline writes data without MERGE, upsert, or delete-then-insert patterns, it is flagged as an error. Non-idempotent pipelines cause data duplication on re-runs.

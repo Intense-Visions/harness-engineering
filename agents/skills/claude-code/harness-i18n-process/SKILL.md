@@ -369,6 +369,16 @@ Result:         BLOCKED -- i18n review not conducted for user-facing PR
 Action:         Run harness-i18n scan on changed files, address findings, then re-review
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                                     | Reality                                                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I can see hardcoded strings in the component the user is discussing — I'll flag them now as part of the process review."                           | This skill operates on artifacts (specs, plans, review context), never on source code. Scanning source files is harness-i18n's responsibility. Running Grep on component files from within this skill violates the skill boundary, regardless of how convenient it seems. |
+| "The feature clearly has no user-facing strings — it's a background job. I'll skip injection entirely without checking."                            | The skill must assess whether injection is applicable before skipping. Background jobs can produce user-facing output via notifications, emails, and error responses. A deliberate "not applicable" decision requires reading the feature description, not assuming.      |
+| "The team is in prompt mode and has dismissed the suggestion twice — I'll escalate to gate mode enforcement to make sure they take i18n seriously." | Escalating to gate mode is a configuration decision the team must make explicitly. Prompt mode is always dismissible. Unilaterally enforcing gate-mode behavior overrides a team's deliberate choice and violates the skill's core operating contract.                    |
+| "The plan has one task called 'polish and cleanup' — that probably includes i18n work. I'll mark the i18n check as passing."                        | In gate mode, i18n task presence must be verified by keyword match (i18n, translation, locale, localization, l10n), not inferred from vague task names. Ambiguous tasks must be flagged as missing, not assumed to cover the requirement.                                 |
+| "The spec mentions 'multi-language support' in passing — that counts as addressing i18n, so I won't require a dedicated section."                   | A passing mention is not an i18n section. The validation check requires the spec to identify which strings are user-facing, which locales are affected, and any formatting requirements. A vague reference satisfies none of these.                                       |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

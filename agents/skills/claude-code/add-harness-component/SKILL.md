@@ -110,6 +110,15 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 - No circular dependencies were introduced
 - The addition is committed as a single atomic commit
 
+## Rationalizations to Reject
+
+| Rationalization                                                                | Why It Is Wrong                                                                                                                                     |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I will add the component and fix any constraint violations later"             | Phase 2 requires running harness check-deps for a clean baseline BEFORE adding. Phase 5 requires it to pass AFTER adding.                           |
+| "AGENTS.md does not need updating for a small internal component"              | Phase 4 explicitly requires updating AGENTS.md for every new component. Without it, AI agents have no context.                                      |
+| "The new layer imports are obvious, so I do not need to check for circularity" | Phase 2 checks whether new dependency relationships create circular imports. Circular dependencies are invisible until they cause runtime failures. |
+| "I will commit the config change and the code separately for cleaner history"  | The success criteria require a single atomic commit. Splitting creates a window where config references a nonexistent component.                    |
+
 ## Examples
 
 ### Example: Adding a New Layer

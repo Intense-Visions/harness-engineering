@@ -155,6 +155,14 @@ Integrity Check: FAIL
 Blocking: [SEC-INJ-002] SQL injection — user input passed directly to query without parameterization.
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "All three mechanical checks failed, but I should still run the AI review to get useful feedback" | When ALL three checks fail, stop immediately. Do not proceed to Phase 2. AI review on code that does not compile is wasted effort. |
+| "The security scanner found a warning but it is not high severity, so it should not affect the overall result" | Error-severity security findings are blocking. The distinction is severity, not the agent's opinion of importance. |
+| "The AI review flagged an architectural concern as blocking, so the integrity check should fail" | Only runtime errors, data loss, and security vulnerabilities count as blocking review findings. Architectural concerns are noted but do not block. |
+
 ## Gates
 
 - **Mechanical first.** Always run Phase 1 before Phase 2. If the code does not compile or pass basic checks, AI review is wasted effort (unless partial results exist).

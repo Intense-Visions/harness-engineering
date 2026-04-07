@@ -288,6 +288,16 @@ Phase 4: REPORT
       7. Add automated HIPAA compliance regression tests to CI pipeline
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                 | Reality                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "We're not in the EU so GDPR doesn't apply to us"                               | GDPR applies to any organization that processes data of EU residents, regardless of where the organization is based. If a single EU user can sign up, GDPR scope must be assessed.                                                            |
+| "Our lawyers will handle the compliance questions — just document what we have" | Legal review and technical implementation are distinct. Lawyers cannot attest that Article 17 deletion cascades to S3 and Segment. The technical implementation must be audited separately.                                                   |
+| "We already did a SOC2 audit last year — this codebase is the same"             | SOC2 Type II assesses controls over time. Adding a new data store, third-party processor, or API endpoint can invalidate previous control attestations. Audits are point-in-time snapshots, not permanent certificates.                       |
+| "The audit isn't for three months — we can fix the gaps before then"            | Gaps found now require implementation, testing, and evidence collection time. Auditors expect evidence of sustained control operation, not freshly deployed fixes. A gap fixed the week before an audit is still a finding.                   |
+| "That field is technically a username, not PII"                                 | Data classification cannot be done by naming convention. A username combined with any other identifying field (email, IP, phone) is PII under GDPR. Classification must be based on the realistic re-identification risk, not the field name. |
+
 ## Gates
 
 - **No compliance report without data classification.** A compliance audit that does not inventory and classify data fields is incomplete. The classification matrix must be produced before controls can be meaningfully assessed. Without knowing what data exists and where, control checks are theoretical.

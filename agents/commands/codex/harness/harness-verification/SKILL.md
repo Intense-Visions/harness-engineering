@@ -396,6 +396,15 @@ Task: "Create UserService with create, read, update, delete operations."
 ### Verdict: COMPLETE — all artifacts verified at all levels
 ```
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The tests passed when I ran them earlier, so I do not need to re-run them now" | The Iron Law forbids cached results. All verification evidence must be collected fresh in THIS session. |
+| "The file exists and has code in it, so I can skip reading it thoroughly for Level 2" | Level 2 (SUBSTANTIVE) requires reading the file content thoroughly. Scanning for TODO, throw new Error, empty functions, and hardcoded return values catches stubs that look like real implementations. |
+| "This artifact is tested by a file that imports it, so it passes Level 3 WIRED" | Being imported is necessary but not sufficient for WIRED. The test must actually make assertions about the artifact's behavior and not be skipped. |
+| "The verification report probably looks fine based on what I remember" | The words "should", "probably", "seems to", and "I believe" are forbidden in verification reports. Replace with "verified: [evidence]" or "not verified: [what is missing]." |
+
 ## Gates
 
 - **No completion without evidence.** You may not say "done," "complete," "finished," or "implemented" without a verification report showing PASS at all 3 levels for all deliverables.

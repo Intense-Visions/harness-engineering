@@ -379,6 +379,17 @@ while iteration < maxIterations:
 - PASS/WARN/FAIL report includes per-category breakdown and specific remaining findings
 - Drift fixes in FIX phase are excluded from AUDIT findings (no double-counting)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                               | Why It Is Wrong                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The drift finding is marked unsafe but the fix is obvious, so I will apply it silently"                      | Never apply a fix classified as unsafe without explicit user approval. The Iron Law: safe fixes are silent, unsafe fixes surface.                 |
+| "The convergence loop reduced findings from 8 to 6, but the remaining ones are hard -- I will keep iterating" | If a convergence iteration does not reduce the finding count, stop immediately. Continuing without progress wastes iterations.                    |
+| "I can write the drift detection logic directly instead of delegating to detect-doc-drift"                    | The pipeline delegates, never reimplements. Each sub-skill retains full standalone functionality.                                                 |
+| "The graph is not available so the pipeline results will be unreliable"                                       | The entire pipeline runs without a graph using static analysis fallbacks. Reduced accuracy is noted in the report, not used as an excuse to skip. |
+
 ## Examples
 
 ### Example: Full pipeline run with fixes

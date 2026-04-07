@@ -126,6 +126,16 @@ npx vitest run tests/services/auth.test.ts tests/types/user.test.ts tests/routes
 - Report follows the structured output format
 - All findings are backed by graph query evidence (with graph) or systematic static analysis (without graph)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                    | Why It Is Wrong                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Only the Tier 1 direct tests matter -- Tier 2 and Tier 3 are probably unnecessary"                | Tier 2 tests catch indirect breakage one hop away. A change to auth.ts breaks login.ts which breaks login.test.ts. Skipping Tier 2 misses exactly the regressions hardest to debug. |
+| "The changed file has no tests, but that is not my concern -- I just advise on which tests to run" | Coverage gaps must be flagged. When a changed file has no test coverage, the advisor reports it. Silently producing an empty test list gives false confidence.                      |
+| "The graph is stale but I will use it anyway since some data is better than no data"               | If the graph is more than 10 commits behind, refresh before proceeding. Staleness sensitivity is Medium for test advisor.                                                           |
+
 ## Examples
 
 ### Example: Selecting Tests for a Services Change

@@ -561,6 +561,16 @@ Files: src/services/notification-service.ts, src/services/notification-service.t
 
 _Presented for approval. User approved. Expanded to full tasks._
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "The task is conceptually clear so I do not need to include exact code in the plan" | Every task must have exact file paths, exact code, and exact commands. If you cannot write the code in the plan, you do not understand the task well enough to plan it. |
+| "This task touches 5 files but it is logically one unit of work, so splitting it would add overhead" | Tasks touching more than 3 files must be split. The overhead of splitting is far less than the cost of a failed oversized task. |
+| "Tests for this task can be added in a follow-up task since the implementation is straightforward" | No skipping TDD in tasks. Every code-producing task must start with writing a test. "Add tests later" is explicitly forbidden. |
+| "The spec does not cover this edge case, but I can fill in the gap during planning" | When the spec is missing information, do not fill in the gaps yourself. Escalate. Filling gaps silently creates undocumented design decisions that no one reviewed. |
+| "I discovered we need an additional file during decomposition, but updating the file map is just bookkeeping" | The file map must be complete. Every file that will be created or modified must appear in the file map before task decomposition. |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

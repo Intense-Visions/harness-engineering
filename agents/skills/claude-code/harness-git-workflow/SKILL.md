@@ -190,6 +190,16 @@ git branch -D <branch-name>
 - Worktree was cleaned up after finishing (unless keeping for continued work)
 - No stale worktree references remain after cleanup
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                                                       | Reality                                                                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The tests are probably fine on the fresh branch — they were passing on main when I last checked. I'll skip baseline verification and start working." | Baseline verification is the condition that makes branch work trustworthy. A test failure discovered at finish time is ambiguous — it could be pre-existing or introduced by the work. Skipping baseline removes the only clean comparison point.              |
+| "The user said 'just merge it' — I'll merge without checking if the base branch has advanced since the worktree was created."                         | The pre-finish check for base branch divergence is mandatory before any finishing strategy. Merging without rebasing first can produce a merge that silently breaks tests that were passing on the branch but conflict with new commits on main.               |
+| "The worktree directory isn't gitignored, but it's inside a nested folder that's unlikely to be committed accidentally."                              | The `.gitignore` check is not about likelihood — it is about preventing accidental commits of worktree state that would corrupt the repository. If the worktree directory is not gitignored, add it before creating the worktree. No exceptions.               |
+| "The user chose to discard — I'll delete the branch and worktree immediately without showing the commits that will be lost."                          | The discard path requires showing the commit list from `git log main..HEAD --oneline` and receiving explicit confirmation before running `git worktree remove` and `git branch -D`. Work is being permanently deleted; the user must see what they are losing. |
+| "There's already a worktree for this branch at a different path — I'll create a second one since the user asked for a fresh setup."                   | Git does not allow two worktrees checked out to the same branch. Attempting to create a duplicate will fail. Instead, ask the user whether to use the existing worktree or create a new branch. Never assume a second worktree is the right answer.            |
+
 ## Examples
 
 ### Example: Setting Up a Worktree for a New Feature

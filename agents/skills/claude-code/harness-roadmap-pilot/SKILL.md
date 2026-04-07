@@ -150,6 +150,14 @@ Proceed with Feature A? (y/n/pick another)
 7. Transition routes to brainstorming (no spec) or autopilot (spec exists)
 8. `harness validate` passes after all changes
 
+## Rationalizations to Reject
+
+| Rationalization                                                                                                         | Reality                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| "The top-scored candidate is obviously correct, so I can assign it without asking the human"                            | The Iron Law: never assign or transition without the human confirming the recommendation first.                                         |
+| "Affinity data is not available so the scoring is degraded -- I should just pick the first planned item"                | Proceed without affinity scoring by zeroing out the affinity weight. Position and dependents signals still produce meaningful rankings. |
+| "The feature has no spec, but I can skip brainstorming and jump straight to planning since the summary is clear enough" | No spec routes to brainstorming, spec exists routes to autopilot. A one-line roadmap summary is not a spec.                             |
+
 ## Examples
 
 ### Example: Pick Next Item from a Multi-Milestone Roadmap

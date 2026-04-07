@@ -159,6 +159,15 @@ git commit -m "feat(cart): calculate total from item price and quantity"
 
 **Next cycle (RED):** Write a test for empty array input. Watch it fail (or pass — if it passes, the behavior is already handled). Continue.
 
+## Rationalizations to Reject
+
+| Rationalization | Reality |
+| --- | --- |
+| "I know exactly what the implementation should be, so I will write it first and add the test after" | Code before test equals delete it. The gate is explicit: if production code is written before a failing test exists, delete the production code and start correctly. |
+| "The test passed on the first run, so TDD is working" | If the test passed without implementing the production code, either the behavior already exists or the test is wrong. You must watch the test FAIL for the right reason before proceeding to GREEN. |
+| "I will test multiple behaviors in this one test to be efficient" | One test, one assertion, one behavior. Multi-behavior tests make it impossible to pinpoint which behavior broke when the test fails. |
+| "Harness validate can wait until the end of the feature since it slows down the cycle" | No skipping VALIDATE. Every cycle must end with harness check-deps and harness validate. A passing test with a failing validation means the implementation violated a project constraint. |
+
 ## Gates
 
 These are hard stops. Violating any gate means the process has broken down.

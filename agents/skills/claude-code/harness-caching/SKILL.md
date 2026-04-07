@@ -295,6 +295,16 @@ async function getProducts(): Promise<Product[]> {
 }
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                         | Reality                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Cache invalidation is complex — a short TTL means we're always fresh enough"           | Short TTLs without event-based invalidation guarantee staleness windows proportional to the TTL. A 60-second TTL on pricing data means a price change takes up to 60 seconds to propagate. For correctness-sensitive data, TTL alone is not a strategy — it is a staleness budget.                                                    |
+| "Redis is fast — we don't need to worry about the cache stampede, it'll resolve itself" | Cache stampedes do not resolve themselves; they resolve after they have already caused a database overload. With 200 requests per second and a 450ms rebuild time, a stampede generates ~90 concurrent database queries at once. The database can fail before a single cache entry is rebuilt.                                        |
+| "We cache the whole user object so we have everything in one key"                       | Caching composite objects creates broad invalidation requirements. A user profile update invalidates a cache entry that includes unrelated fields like payment methods or notification preferences. Cache keys scoped to specific sub-resources reduce invalidation blast radius.                                                     |
+| "The cache failure is caught and logged — users will just get a slower response"        | Catching the error is not the same as handling it. If cache failure causes a 30-second database query on every request, "slower response" becomes "timeout" becomes "circuit breaker opens" becomes "service unavailable." Failure handling must degrade to database reads within the acceptable latency budget, not unconditionally. |
+| "We namespace by feature name — there's no collision risk"                              | Feature names are not unique across services. Two services that share a Redis instance and both cache `user:123` without a service prefix will corrupt each other's data silently. Namespace prefixes must include the service and the data schema version, not just the feature name.                                                |
+
 ## Gates
 
 - **No unbounded caches.** Every cache (in-memory, Redis, Memcached) must have either a `maxSize`/`maxmemory` limit or a TTL on every key. An unbounded cache will grow until it causes memory exhaustion. WHERE a cache has no eviction policy configured, THEN the skill must halt and require one before proceeding.

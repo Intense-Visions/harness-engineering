@@ -128,6 +128,16 @@ Use `get_relationships` to check structural edges between co-change pairs.
 - Report follows the structured output format
 - All findings are backed by graph query evidence (with graph) or git log analysis (without graph)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                          | Why It Is Wrong                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "High churn just means the file is actively developed, not that it is risky"                                             | High churn in shared utilities specifically equals high risk. A file with 45 commits that co-changes with 12 different files indicates hidden coupling. |
+| "The co-change pair is between two files in different modules, but they probably just happen to change at the same time" | Distant co-change pairs are flagged as suspicious precisely because they indicate hidden coupling.                                                      |
+| "No graph exists so the analysis will be too incomplete to be useful"                                                    | Git log provides ~90% of the data needed for hotspot detection. The fallback is the highest-completeness fallback across all graph-enhanced skills.     |
+
 ## Examples
 
 ### Example: Detecting Hotspots in a Growing Codebase

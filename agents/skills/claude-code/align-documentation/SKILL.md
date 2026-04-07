@@ -160,6 +160,15 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 - Documentation updates are committed with clear references to the triggering code change
 - No orphaned references to old names, paths, or deleted features remain
 
+## Rationalizations to Reject
+
+| Rationalization                                                               | Why It Is Wrong                                                                                                                                        |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The code change is small, so docs probably do not need updating"             | A single function signature change changes the contract for every consumer. Map every code change to its documentation impact regardless of diff size. |
+| "I updated the main reference -- the other mentions can wait"                 | Orphaned references in AGENTS.md and tutorials actively mislead agents and developers. Phase 4 requires verifying no orphaned references remain.       |
+| "I will match the new documentation to what I think the code does"            | Phase 4 requires cross-checking each update against the actual code. Documentation that is wrong is worse than documentation that is missing.          |
+| "The existing doc style is inconsistent, so I will improve it while aligning" | Follow the existing style. Documentation alignment is about accuracy, not style improvement. Style changes should be a separate effort.                |
+
 ## Examples
 
 ### Example: Syncing docs after a module rename

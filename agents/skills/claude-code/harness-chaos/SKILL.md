@@ -280,6 +280,16 @@ Result: PASSED - System maintained availability throughout.
         Zero 5xx errors observed. No data loss.
 ```
 
+## Rationalizations to Reject
+
+| Rationalization                                                                           | Reality                                                                                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Our circuit breakers are already tested in unit tests — we don't need chaos experiments" | Unit tests verify that circuit breaker code executes. Chaos experiments verify that the circuit breaker actually opens under real load, that the fallback produces an acceptable user-facing response, and that monitoring detects the transition. These are different things. |
+| "We can't run chaos experiments in production — it's too risky"                           | Avoiding chaos experiments does not reduce risk — it defers the discovery of failure modes to real incidents. Chaos experiments in staging with defined abort criteria and short durations are lower risk than discovering failure modes at 2am during a real outage.          |
+| "The experiment passed in staging so we know it'll work in production"                    | Staging differences in traffic volume, data distribution, and infrastructure scale can mask failure modes. Staging experiments validate the mechanism; production experiments (with tightly scoped blast radius) validate the system under real conditions.                    |
+| "We injected the fault and the system recovered — the experiment is done"                 | Recovery alone does not validate resilience. The experiment must also confirm: detection time (did monitoring catch it?), recovery time (did it meet the SLA?), and no data loss or corruption. A system that recovers after 10 minutes of data inconsistency has not passed.  |
+| "We have runbooks for these failure modes, so game days aren't necessary"                 | A runbook that has never been executed under pressure is a hypothesis, not a procedure. Game days reveal whether runbooks are complete, whether on-call engineers can execute them accurately under stress, and whether the estimated recovery times are realistic.            |
+
 ## Gates
 
 - **No chaos experiments without abort criteria.** Every experiment must define conditions under which it is immediately terminated. Running an experiment that you cannot stop is reckless, not engineering.
