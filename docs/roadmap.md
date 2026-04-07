@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-03-31
-last_synced: 2026-04-04T19:00:00.000Z
+updated: 2026-04-07
+last_synced: 2026-04-07T21:22:00.000Z
 last_manual_edit: 2026-03-30
 ---
 
@@ -769,6 +769,17 @@ last_manual_edit: 2026-03-30
 - **Priority:** —
 - **External-ID:** —
 
+### Anti-Rationalization Standard
+
+- **Status:** planned
+- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
+- **Summary:** Make ## Common Rationalizations a required section in skill authoring spec with mandatory table format (Rationalization | Reality), then backfill across top 20 skills. Derived from agent-skills comparative analysis.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#117
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
@@ -909,7 +920,7 @@ last_manual_edit: 2026-03-30
 
 ### Spec-to-Implementation Traceability
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/spec-to-implementation-traceability/proposal.md
 - **Summary:** Requirement-to-code-to-test mapping via knowledge graph — requirement nodes, requires/verified_by/tested_by edges, RequirementIngestor, coverage matrix CLI/MCP/CI, hybrid test linking with confidence signals. [E2]
 - **Blockers:** —
@@ -1301,3 +1312,36 @@ last_manual_edit: 2026-03-30
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#113
+
+### Protected Code Regions
+
+- **Status:** planned
+- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
+- **Summary:** harness-ignore annotation system for code-modifying skills — block-level protection preventing agent modification of performance-critical, compliance-required, or legally-sensitive code during refactoring and cleanup operations
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#118
+
+### Context Budget System
+
+- **Status:** planned
+- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
+- **Summary:** Explicit token budgets in skill.yaml (context_budget field) with 5-level progressive loading hierarchy (rules → spec → source → errors → history). Triggered when skill count approaches 100.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#119
+
+### MCP Degraded Mode
+
+- **Status:** planned
+- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
+- **Summary:** Degraded mode spec in SKILL.md documenting fallback behavior for each MCP tool call. Skills remain functional (with reduced capabilities) without MCP server, enabling multi-platform export to Cursor, Gemini CLI, Windsurf.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#120
