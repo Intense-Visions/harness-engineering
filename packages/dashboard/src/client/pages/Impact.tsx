@@ -7,6 +7,7 @@ import type {
   BlastRadiusResult,
 } from '@shared/types';
 import { isBlastRadiusData } from '../utils/typeGuards';
+import { BlastRadiusGraph } from '../components/BlastRadiusGraph';
 
 const DEPTH_OPTIONS = [1, 2, 3, 4, 5] as const;
 const DEFAULT_DEPTH = 3;
@@ -234,42 +235,7 @@ export function Impact() {
               <h3 className="mb-3 text-sm font-semibold text-gray-200">
                 Blast Radius: {brData.sourceName}
               </h3>
-              <div className="mb-4 grid grid-cols-4 gap-3">
-                <div className="rounded bg-gray-950 p-3 text-center">
-                  <p className="text-lg font-bold tabular-nums text-gray-200">
-                    {brData.summary.totalAffected}
-                  </p>
-                  <p className="text-xs text-gray-500">Total Affected</p>
-                </div>
-                <div className="rounded bg-gray-950 p-3 text-center">
-                  <p className="text-lg font-bold tabular-nums text-red-400">
-                    {brData.summary.highRisk}
-                  </p>
-                  <p className="text-xs text-gray-500">High Risk</p>
-                </div>
-                <div className="rounded bg-gray-950 p-3 text-center">
-                  <p className="text-lg font-bold tabular-nums text-yellow-400">
-                    {brData.summary.mediumRisk}
-                  </p>
-                  <p className="text-xs text-gray-500">Medium Risk</p>
-                </div>
-                <div className="rounded bg-gray-950 p-3 text-center">
-                  <p className="text-lg font-bold tabular-nums text-emerald-400">
-                    {brData.summary.lowRisk}
-                  </p>
-                  <p className="text-xs text-gray-500">Low Risk</p>
-                </div>
-              </div>
-
-              {/* Placeholder: Phase 6 will replace this with SVG visualization */}
-              <div className="rounded border border-gray-700 bg-gray-950 p-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
-                  Propagation Layers (depth: {brData.summary.maxDepth})
-                </p>
-                <pre className="max-h-80 overflow-auto text-xs text-gray-400">
-                  {JSON.stringify(brData.layers, null, 2)}
-                </pre>
-              </div>
+              <BlastRadiusGraph data={brData} />
             </div>
           )}
         </div>

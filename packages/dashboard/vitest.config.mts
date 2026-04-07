@@ -23,7 +23,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'client',
-          include: ['tests/client/**/*.test.ts'],
+          include: ['tests/client/**/*.test.ts', 'tests/client/**/*.test.tsx'],
           environment: 'jsdom',
         },
       },
