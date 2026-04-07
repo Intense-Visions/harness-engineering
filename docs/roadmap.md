@@ -772,11 +772,12 @@ last_manual_edit: 2026-03-30
 ### Anti-Rationalization Standard
 
 - **Status:** planned
-- **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
-- **Summary:** Make ## Common Rationalizations a required section in skill authoring spec with mandatory table format (Rationalization | Reality), then backfill across top 20 skills. Derived from agent-skills comparative analysis.
+- **Spec:** docs/changes/anti-rationalization-standard/proposal.md
+- **Summary:** Make ## Rationalizations to Reject a required section in all user-facing skills with domain-specific table format, universal entries defined once in skill authoring spec, hard error validation, and AI-generated backfill across ~112 skill SKILL.md files
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-07
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#117
 

@@ -301,6 +301,15 @@ Extract and publish a constraints bundle from constraints.yaml
 
 - `-o, --output` — Output directory for the bundle (default: ".")
 
+### `harness traceability`
+
+Show spec-to-implementation traceability from the knowledge graph
+
+**Options:**
+
+- `--spec` — Filter by spec file path
+- `--feature` — Filter by feature name
+
 ### `harness uninstall <skill>`
 
 Uninstall a community skill
