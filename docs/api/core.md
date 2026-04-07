@@ -2,7 +2,7 @@
 
 Core library for the Harness Engineering toolkit. Provides validation, constraint enforcement, entropy detection, context generation, feedback, state management, security scanning, CI orchestration, and more.
 
-**Version:** 0.20.0
+**Version:** 0.21.0
 
 ## Installation
 
@@ -666,3 +666,431 @@ Class that parses TypeScript files into an AST with import/export information.
 Factory function for creating parse errors.
 
 **Types:** `LanguageParser`, `AST`, `Import`, `Export`, `ParseError`, `HealthCheckResult`
+
+---
+
+## Code Navigation Module
+
+AST-based code navigation using tree-sitter. Supports TypeScript, JavaScript, and Python. Source: [`packages/core/src/code-nav/`](../../packages/core/src/code-nav/)
+
+### `parseFile(filePath)`
+
+```typescript
+function parseFile(filePath: string): Promise<Result<ParsedFile, ParseFileError>>;
+```
+
+Parses a source file into a tree-sitter AST with language metadata.
+
+**Types:** `ParsedFile`, `ParseFileError`
+
+### `getParser(lang)`
+
+```typescript
+function getParser(lang: SupportedLanguage): Promise<Parser>;
+```
+
+Returns a cached tree-sitter parser instance for the given language.
+
+### `resetParserCache()`
+
+Clears the parser instance cache. Primarily for testing.
+
+### `getOutline(filePath)`
+
+```typescript
+function getOutline(filePath: string): Promise<OutlineResult>;
+```
+
+Extracts the structural outline of a file — top-level symbols (functions, classes, interfaces, types, variables) with their line ranges and signatures. Classes include child method symbols.
+
+### `formatOutline(outline)`
+
+```typescript
+function formatOutline(outline: OutlineResult): string;
+```
+
+Formats an `OutlineResult` as a tree-style text representation with line numbers.
+
+### `searchSymbols(query, directory, fileGlob?)`
+
+```typescript
+function searchSymbols(query: string, directory: string, fileGlob?: string): Promise<SearchResult>;
+```
+
+Searches for symbols matching a query (case-insensitive substring) across all supported files in a directory. Returns matching symbols with context.
+
+### `unfoldSymbol(filePath, symbolName)`
+
+```typescript
+function unfoldSymbol(filePath: string, symbolName: string): Promise<UnfoldResult>;
+```
+
+Extracts a specific symbol's implementation from a file by name using AST boundaries. Falls back to raw file content if the symbol is not found or parsing fails.
+
+### `unfoldRange(filePath, startLine, endLine)`
+
+```typescript
+function unfoldRange(filePath: string, startLine: number, endLine: number): Promise<UnfoldResult>;
+```
+
+Extracts a range of lines from a file.
+
+### `detectLanguage(filePath)`
+
+```typescript
+function detectLanguage(filePath: string): SupportedLanguage | null;
+```
+
+Detects language from file extension. Returns `null` for unsupported extensions.
+
+### `EXTENSION_MAP`
+
+```typescript
+const EXTENSION_MAP: Record<string, SupportedLanguage>;
+```
+
+Maps file extensions (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, etc.) to supported languages.
+
+**Types:** `SupportedLanguage`, `SymbolKind`, `CodeSymbol`, `OutlineResult`, `SearchMatch`, `SearchResult`, `UnfoldResult`
+
+---
+
+## Pricing Module
+
+Model pricing lookup and cost calculation using LiteLLM pricing data. Source: [`packages/core/src/pricing/`](../../packages/core/src/pricing/)
+
+### `loadPricingData(projectRoot)`
+
+```typescript
+function loadPricingData(projectRoot: string): Promise<PricingDataset>;
+```
+
+Loads pricing data with a four-tier fallback strategy: fresh disk cache (<24h), network fetch from LiteLLM, expired disk cache, then bundled fallback data. Cache is stored at `.harness/cache/pricing.json`.
+
+### `getModelPrice(model, dataset)`
+
+```typescript
+function getModelPrice(model: string, dataset: PricingDataset): ModelPricing | null;
+```
+
+Looks up pricing for a model name. Returns `null` with a console warning if the model is not found.
+
+### `parseLiteLLMData(raw)`
+
+```typescript
+function parseLiteLLMData(raw: LiteLLMPricingData): PricingDataset;
+```
+
+Parses LiteLLM's raw pricing JSON into a `PricingDataset` map. Only includes chat-mode models with valid input/output costs. Converts per-token costs to per-million-token costs.
+
+### `calculateCost(record, dataset)`
+
+```typescript
+function calculateCost(record: UsageRecord, dataset: PricingDataset): number | null;
+```
+
+Calculates the cost of a usage record in integer microdollars. Includes input, output, cache read, and cache write token costs. Returns `null` if the model is unknown.
+
+### Constants
+
+| Export                   | Description                                                  |
+| ------------------------ | ------------------------------------------------------------ |
+| `LITELLM_PRICING_URL`    | Pinned URL for LiteLLM pricing data                          |
+| `CACHE_TTL_MS`           | Cache time-to-live (24 hours in milliseconds)                |
+| `STALENESS_WARNING_DAYS` | Days after which fallback usage triggers a staleness warning |
+
+**Types:** `PricingDataset`, `PricingCacheFile`, `LiteLLMModelEntry`, `LiteLLMPricingData`, `FallbackPricingFile`
+
+---
+
+## Usage Module
+
+Token usage aggregation and cost record parsing. Source: [`packages/core/src/usage/`](../../packages/core/src/usage/)
+
+### `aggregateBySession(records)`
+
+```typescript
+function aggregateBySession(records: UsageRecord[]): SessionUsage[];
+```
+
+Aggregates usage records into per-session summaries, sorted by most recent first. When records from both harness and Claude Code sources share a session ID, harness token counts are authoritative and the result is marked as `'merged'`.
+
+### `aggregateByDay(records)`
+
+```typescript
+function aggregateByDay(records: UsageRecord[]): DailyUsage[];
+```
+
+Aggregates usage records into per-day summaries grouped by UTC calendar date, sorted by most recent first.
+
+### `readCostRecords(projectRoot)`
+
+```typescript
+function readCostRecords(projectRoot: string): UsageRecord[];
+```
+
+Reads `.harness/metrics/costs.jsonl` and normalizes snake_case hook output to camelCase `UsageRecord` format. Skips malformed lines with a warning. Returns empty array if file does not exist.
+
+### `parseCCRecords()`
+
+```typescript
+function parseCCRecords(): UsageRecord[];
+```
+
+Discovers and parses Claude Code JSONL files from `~/.claude/projects/` directories. Deduplicates streaming chunks by keeping only the last entry per `requestId`. Each valid entry is tagged with `_source: 'claude-code'` for merge logic. Returns empty array if the directory does not exist.
+
+---
+
+## Blueprint Module
+
+Project blueprint generation — scans a project and generates an HTML documentation site with LLM-powered code explanations. Source: [`packages/core/src/blueprint/`](../../packages/core/src/blueprint/)
+
+### `ProjectScanner`
+
+```typescript
+class ProjectScanner {
+  constructor(rootDir: string);
+  scan(): Promise<BlueprintData>;
+}
+```
+
+Scans a project directory to produce a `BlueprintData` structure. Reads `package.json` for the project name (falls back to directory name). Returns a scaffold with four default module categories: Foundations, Core Logic, Interaction Surface, and Cross-Cutting Concerns.
+
+### `BlueprintGenerator`
+
+```typescript
+class BlueprintGenerator {
+  generate(data: BlueprintData, options: BlueprintOptions): Promise<void>;
+}
+```
+
+Generates an HTML blueprint from `BlueprintData`. Runs each module through the `ContentPipeline` for LLM-powered code translation, then renders the final HTML using EJS templates. Writes `index.html` to the specified output directory.
+
+### `ContentPipeline`
+
+```typescript
+class ContentPipeline {
+  generateModuleContent(module: BlueprintModule): Promise<Content>;
+}
+```
+
+Generates human-readable code explanations for a blueprint module using the LLM service.
+
+**Types:** `BlueprintData`, `BlueprintModule`, `BlueprintOptions`, `Content`, `Hotspot`, `ModuleDependency`
+
+---
+
+## Architecture Module
+
+Architecture metric collection, baseline management, regression detection, trend analysis, and predictive forecasting. Source: [`packages/core/src/architecture/`](../../packages/core/src/architecture/)
+
+### Collectors
+
+| Class                      | Category          | Description                        |
+| -------------------------- | ----------------- | ---------------------------------- |
+| `CircularDepsCollector`    | circular-deps     | Detects circular dependency chains |
+| `LayerViolationCollector`  | layer-violations  | Detects layer boundary violations  |
+| `ComplexityCollector`      | complexity        | Measures code complexity           |
+| `CouplingCollector`        | coupling          | Measures fan-in/fan-out coupling   |
+| `ForbiddenImportCollector` | forbidden-imports | Detects forbidden import patterns  |
+| `ModuleSizeCollector`      | module-size       | Measures module file counts/sizes  |
+| `DepDepthCollector`        | dep-depth         | Measures dependency chain depth    |
+
+All collectors implement the `Collector` interface: `collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]>`.
+
+### `runAll(config, rootDir, collectors?)`
+
+```typescript
+function runAll(
+  config: ArchConfig,
+  rootDir: string,
+  collectors?: Collector[]
+): Promise<MetricResult[]>;
+```
+
+Runs all collectors in parallel and returns a flat array of metric results. Defaults to `defaultCollectors`. Failed collectors produce a zero-value result with error metadata.
+
+### `defaultCollectors`
+
+```typescript
+const defaultCollectors: Collector[];
+```
+
+Array of all built-in collector instances.
+
+### `ArchBaselineManager`
+
+```typescript
+class ArchBaselineManager {
+  constructor(projectRoot: string, baselinePath?: string);
+  capture(results: MetricResult[], commitHash: string): ArchBaseline;
+  load(): ArchBaseline | null;
+  save(baseline: ArchBaseline): void;
+}
+```
+
+Manages architecture baselines stored at `.harness/arch/baselines.json`. Uses atomic writes (temp file + rename) to prevent corruption. `capture()` aggregates metric results by category into a baseline snapshot.
+
+### `diff(current, baseline)`
+
+```typescript
+function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffResult;
+```
+
+Diffs current metric results against a stored baseline using ratchet logic: new violations and aggregate regressions cause failure, pre-existing violations are allowed, and resolved violations are tracked.
+
+### `resolveThresholds(scope, config)`
+
+```typescript
+function resolveThresholds(scope: string, config: ArchConfig): ThresholdConfig;
+```
+
+Resolves effective thresholds for a given scope. Merges project-wide thresholds with module-level overrides when a matching module entry exists.
+
+### `TimelineManager`
+
+```typescript
+class TimelineManager {
+  constructor(rootDir: string);
+  load(): TimelineFile;
+  save(timeline: TimelineFile): void;
+  capture(results: MetricResult[], commitHash: string): TimelineSnapshot;
+  computeStabilityScore(metrics, thresholds): number;
+  analyzeTrends(timeline: TimelineFile): TrendResult;
+}
+```
+
+Manages architecture metric timelines stored at `.harness/arch/timeline.json`. Supports snapshot capture, trend analysis, and stability scoring. Uses atomic writes.
+
+### `PredictionEngine`
+
+```typescript
+class PredictionEngine {
+  constructor(
+    rootDir: string,
+    timelineManager: TimelineManager,
+    estimator: SpecImpactEstimator | null
+  );
+  predict(options?: Partial<PredictionOptions>): PredictionResult;
+}
+```
+
+Orchestrates weighted regression over timeline snapshots to produce per-category forecasts, warnings, and stability projections. Requires at least 3 snapshots. Supports roadmap-aware adjusted forecasts via `SpecImpactEstimator`.
+
+### `SpecImpactEstimator`
+
+```typescript
+class SpecImpactEstimator {
+  constructor(rootDir: string, coefficients?: EstimatorCoefficients);
+  estimate(specPath: string): SpecImpactEstimate;
+  estimateAll(features: Array<{ name: string; spec: string | null }>): SpecImpactEstimate[];
+}
+```
+
+Mechanical extraction of structural signals from spec files. Applies configurable coefficients to produce per-category metric deltas. No LLM dependency — deterministic and auditable.
+
+**Types:** `EstimatorCoefficients`
+
+### Regression Utilities
+
+| Function                                        | Description                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------ |
+| `weightedLinearRegression(points)`              | Weighted least squares linear regression (requires 2+ data points) |
+| `applyRecencyWeights(values, decay?)`           | Assigns exponential recency weights (newest = 1.0, decay per step) |
+| `projectValue(fit, t)`                          | Projects a value at future time `t` using a regression fit         |
+| `weeksUntilThreshold(fit, currentT, threshold)` | Weeks until projected value crosses a threshold (null if never)    |
+| `classifyConfidence(rSquared, dataPoints)`      | Classifies confidence tier (high/medium/low) from fit quality      |
+
+**Types:** `DataPoint`, `RegressionFit`
+
+### Constraint Graph Sync
+
+### `syncConstraintNodes(store, rules, violations)`
+
+```typescript
+function syncConstraintNodes(
+  store: ConstraintNodeStore,
+  rules: ConstraintRule[],
+  violations: MetricResult[]
+): void;
+```
+
+Synchronizes constraint rules with graph nodes. Upserts each rule as a `constraint` node, updates `lastViolatedAt` timestamps for active violations, and prunes orphaned constraint nodes.
+
+**Types:** `ConstraintNodeStore`
+
+### `detectStaleConstraints(store, windowDays?, category?)`
+
+```typescript
+function detectStaleConstraints(
+  store: ConstraintNodeStore,
+  windowDays?: number,
+  category?: ArchMetricCategory
+): DetectStaleResult;
+```
+
+Detects constraint rules that haven't been violated within the given window (default: 30 days). Returns results sorted by most stale first.
+
+**Types:** `StaleConstraint`, `DetectStaleResult`
+
+### Vitest Matchers
+
+### `archMatchers`
+
+Custom Vitest matchers for architecture assertions. Register with `expect.extend(archMatchers)`.
+
+| Matcher                     | Scope   | Description                                |
+| --------------------------- | ------- | ------------------------------------------ |
+| `toHaveNoCircularDeps()`    | Project | Asserts no circular dependencies           |
+| `toHaveNoLayerViolations()` | Project | Asserts no layer boundary violations       |
+| `toMatchBaseline(options?)` | Project | Asserts no new violations or regressions   |
+| `toHaveMaxComplexity(max)`  | Module  | Asserts complexity within limit            |
+| `toHaveMaxCoupling(limits)` | Module  | Asserts fan-in/fan-out within limits       |
+| `toHaveMaxFileCount(max)`   | Module  | Asserts file count within limit            |
+| `toNotDependOn(module)`     | Module  | Asserts no imports from a forbidden module |
+| `toHaveMaxDepDepth(max)`    | Module  | Asserts dependency depth within limit      |
+
+### `architecture(options?)` / `archModule(modulePath, options?)`
+
+```typescript
+function architecture(options?: ArchitectureOptions): ArchHandle;
+function archModule(modulePath: string, options?: ArchitectureOptions): ArchHandle;
+```
+
+Factory functions for creating architecture handles consumed by the Vitest matchers. `architecture()` creates a project-wide handle; `archModule()` creates a module-scoped handle.
+
+**Types:** `ArchHandle`, `ArchitectureOptions`
+
+### Hashing Utilities
+
+| Function                 | Description                                 |
+| ------------------------ | ------------------------------------------- |
+| `violationId(violation)` | Deterministic hash ID for a violation       |
+| `constraintRuleId(rule)` | Deterministic hash ID for a constraint rule |
+
+### Architecture Type Definitions
+
+| Type / Schema               | Description                                          |
+| --------------------------- | ---------------------------------------------------- |
+| `ArchMetricCategory`        | Union of metric category strings                     |
+| `Violation`                 | A single metric violation with file, detail, and ID  |
+| `MetricResult`              | Collector output: category, scope, value, violations |
+| `ArchBaseline`              | Stored baseline with per-category values and IDs     |
+| `ArchDiffResult`            | Diff output: new/resolved violations, regressions    |
+| `ArchConfig`                | Full architecture configuration                      |
+| `ThresholdConfig`           | Per-category threshold values                        |
+| `ConstraintRule`            | A constraint rule definition                         |
+| `CategoryForecast`          | Per-category regression forecast                     |
+| `AdjustedForecast`          | Forecast with roadmap-adjusted projections           |
+| `PredictionResult`          | Full prediction output with warnings and stability   |
+| `PredictionOptions`         | Options for prediction (horizon, categories, etc.)   |
+| `PredictionWarning`         | Threshold crossing warning with severity             |
+| `StabilityForecast`         | Composite stability score projections                |
+| `SpecImpactEstimate`        | Per-feature metric impact deltas                     |
+| `TimelineSnapshot`          | Single point-in-time metric capture                  |
+| `TimelineFile`              | Full timeline with snapshot array                    |
+| `TrendLine` / `TrendResult` | Trend analysis output                                |
+
+**Schemas:** `ArchMetricCategorySchema`, `ViolationSchema`, `MetricResultSchema`, `CategoryBaselineSchema`, `ArchBaselineSchema`, `CategoryRegressionSchema`, `ArchDiffResultSchema`, `ThresholdConfigSchema`, `ArchConfigSchema`, `ConstraintRuleSchema`, `CategorySnapshotSchema`, `TimelineSnapshotSchema`, `TimelineFileSchema`, `TrendLineSchema`, `TrendResultSchema`, `ConfidenceTierSchema`, `PredictionRegressionResultSchema`, `DirectionSchema`, `CategoryForecastSchema`, `SpecImpactSignalsSchema`, `SpecImpactEstimateSchema`, `ContributingFeatureSchema`, `AdjustedForecastSchema`, `PredictionWarningSchema`, `StabilityForecastSchema`, `PredictionResultSchema`, `PredictionOptionsSchema`
+
+**Constants:** `DEFAULT_STABILITY_THRESHOLDS`

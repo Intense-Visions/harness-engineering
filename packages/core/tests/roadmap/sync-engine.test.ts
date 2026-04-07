@@ -406,6 +406,94 @@ describe('syncFromExternal()', () => {
     expect(result.errors[0]!.error.message).toBe('Network failure');
   });
 
+  it('preserves blocked status when external ticket is open (no blocked label)', async () => {
+    // Regression: manage_roadmap update triggers external sync, GitHub issue is "open"
+    // which maps to "planned" via reverseStatusMap. blocked → planned is lateral (same rank),
+    // so the directional guard allows it. This silently un-blocks features.
+    const feature = makeFeature({
+      externalId: 'github:owner/repo#1',
+      status: 'blocked',
+    });
+    const roadmap = makeRoadmap([feature]);
+
+    // Config with simple "open" -> "planned" reverse mapping (matches real harness.config.json)
+    const simpleConfig: TrackerSyncConfig = {
+      ...CONFIG,
+      reverseStatusMap: {
+        open: 'planned',
+        closed: 'done',
+      },
+    };
+
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          {
+            externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
+            status: 'open',
+            labels: [],
+            assignee: null,
+          },
+        ])
+      ),
+    });
+
+    await syncFromExternal(roadmap, adapter, simpleConfig);
+
+    expect(feature.status).toBe('blocked'); // must NOT flip to planned
+  });
+
+  it('allows blocked → in-progress when external ticket has in-progress label', async () => {
+    const feature = makeFeature({
+      externalId: 'github:owner/repo#1',
+      status: 'blocked',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          {
+            externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
+            status: 'open',
+            labels: ['in-progress'],
+            assignee: null,
+          },
+        ])
+      ),
+    });
+
+    await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.status).toBe('in-progress'); // forward progression allowed
+  });
+
+  it('allows blocked → done when external ticket is closed', async () => {
+    const feature = makeFeature({
+      externalId: 'github:owner/repo#1',
+      status: 'blocked',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          {
+            externalId: 'github:owner/repo#1',
+            title: 'Test Feature',
+            status: 'closed',
+            labels: [],
+            assignee: null,
+          },
+        ])
+      ),
+    });
+
+    await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.status).toBe('done'); // forward progression allowed
+  });
+
   it('advances status forward (planned -> done via closed)', async () => {
     const feature = makeFeature({ externalId: 'github:owner/repo#1', status: 'planned' });
     const roadmap = makeRoadmap([feature]);

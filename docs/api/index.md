@@ -31,7 +31,8 @@ This pattern ensures that errors are always explicit and must be handled by the 
 import { Assembler } from '@harness-engineering/graph';
 import type { GraphCoverageReport } from '@harness-engineering/graph';
 
-const assembler = new Assembler({ rootDir: '.' });
+const store = new GraphStore();
+const assembler = new Assembler(store);
 const report: GraphCoverageReport = assembler.checkCoverage();
 console.log('Coverage check passed!', report);
 ```

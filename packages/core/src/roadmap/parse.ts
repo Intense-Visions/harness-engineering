@@ -170,9 +170,8 @@ function parseListField(fieldMap: Map<string, string>, ...keys: string[]): strin
   return raw.split(',').map((s) => s.trim());
 }
 
-function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> {
-  const fieldMap = extractFieldMap(body);
-
+/** Validate and return the status field, or an Err if invalid. */
+function validateStatus(name: string, fieldMap: Map<string, string>): Result<FeatureStatus> {
   const statusRaw = fieldMap.get('Status');
   if (!statusRaw || !VALID_STATUSES.has(statusRaw)) {
     return Err(
@@ -182,17 +181,12 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
       )
     );
   }
+  return Ok(statusRaw as FeatureStatus);
+}
 
-  const specRaw = fieldMap.get('Spec') ?? EM_DASH;
-  const plans = parseListField(fieldMap, 'Plans', 'Plan');
-  const blockedBy = parseListField(fieldMap, 'Blocked by', 'Blockers');
-
-  // New extended fields
-  const assigneeRaw = fieldMap.get('Assignee') ?? EM_DASH;
+/** Validate and return the priority field, or an Err if invalid. */
+function validatePriority(name: string, fieldMap: Map<string, string>): Result<Priority | null> {
   const priorityRaw = fieldMap.get('Priority') ?? EM_DASH;
-  const externalIdRaw = fieldMap.get('External-ID') ?? EM_DASH;
-
-  // Validate priority if present
   if (priorityRaw !== EM_DASH && !VALID_PRIORITIES.has(priorityRaw)) {
     return Err(
       new Error(
@@ -201,17 +195,34 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
       )
     );
   }
+  return Ok(priorityRaw === EM_DASH ? null : (priorityRaw as Priority));
+}
+
+/** Read an optional dash-or-value field, returning null for em-dash. */
+function optionalField(fieldMap: Map<string, string>, key: string): string | null {
+  const raw = fieldMap.get(key) ?? EM_DASH;
+  return raw === EM_DASH ? null : raw;
+}
+
+function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> {
+  const fieldMap = extractFieldMap(body);
+
+  const statusResult = validateStatus(name, fieldMap);
+  if (!statusResult.ok) return statusResult;
+
+  const priorityResult = validatePriority(name, fieldMap);
+  if (!priorityResult.ok) return priorityResult;
 
   return Ok({
     name,
-    status: statusRaw as FeatureStatus,
-    spec: specRaw === EM_DASH ? null : specRaw,
-    plans,
-    blockedBy,
+    status: statusResult.value,
+    spec: optionalField(fieldMap, 'Spec'),
+    plans: parseListField(fieldMap, 'Plans', 'Plan'),
+    blockedBy: parseListField(fieldMap, 'Blocked by', 'Blockers'),
     summary: fieldMap.get('Summary') ?? '',
-    assignee: assigneeRaw === EM_DASH ? null : assigneeRaw,
-    priority: priorityRaw === EM_DASH ? null : (priorityRaw as Priority),
-    externalId: externalIdRaw === EM_DASH ? null : externalIdRaw,
+    assignee: optionalField(fieldMap, 'Assignee'),
+    priority: priorityResult.value,
+    externalId: optionalField(fieldMap, 'External-ID'),
   });
 }
 

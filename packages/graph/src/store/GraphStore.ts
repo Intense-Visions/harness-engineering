@@ -45,6 +45,18 @@ function removeFromIndex(index: Map<string, GraphEdge[]>, key: string, edge: Gra
   if (list.length === 0) index.delete(key);
 }
 
+/** Filter candidate edges against the remaining query fields and return shallow copies. */
+function filterEdges(candidates: Iterable<GraphEdge>, query: EdgeQuery): GraphEdge[] {
+  const results: GraphEdge[] = [];
+  for (const edge of candidates) {
+    if (query.from !== undefined && edge.from !== query.from) continue;
+    if (query.to !== undefined && edge.to !== query.to) continue;
+    if (query.type !== undefined && edge.type !== query.type) continue;
+    results.push({ ...edge });
+  }
+  return results;
+}
+
 export class GraphStore {
   private nodeMap: Map<string, GraphNode> = new Map();
   private edgeMap: Map<string, GraphEdge> = new Map(); // keyed by from\0to\0type
@@ -123,29 +135,28 @@ export class GraphStore {
   }
 
   getEdges(query: EdgeQuery): GraphEdge[] {
-    // Pick the most selective index to start from
-    let candidates: Iterable<GraphEdge>;
+    // Exact-match shortcut when all three keys are provided
     if (query.from !== undefined && query.to !== undefined && query.type !== undefined) {
       const edge = this.edgeMap.get(edgeKey(query.from, query.to, query.type));
       return edge ? [{ ...edge }] : [];
-    } else if (query.from !== undefined) {
-      candidates = this.edgesByFrom.get(query.from) ?? [];
-    } else if (query.to !== undefined) {
-      candidates = this.edgesByTo.get(query.to) ?? [];
-    } else if (query.type !== undefined) {
-      candidates = this.edgesByType.get(query.type) ?? [];
-    } else {
-      candidates = this.edgeMap.values();
     }
 
-    const results: GraphEdge[] = [];
-    for (const edge of candidates) {
-      if (query.from !== undefined && edge.from !== query.from) continue;
-      if (query.to !== undefined && edge.to !== query.to) continue;
-      if (query.type !== undefined && edge.type !== query.type) continue;
-      results.push({ ...edge });
+    const candidates = this.selectCandidates(query);
+    return filterEdges(candidates, query);
+  }
+
+  /** Pick the most selective index to start from. */
+  private selectCandidates(query: EdgeQuery): Iterable<GraphEdge> {
+    if (query.from !== undefined) {
+      return this.edgesByFrom.get(query.from) ?? [];
     }
-    return results;
+    if (query.to !== undefined) {
+      return this.edgesByTo.get(query.to) ?? [];
+    }
+    if (query.type !== undefined) {
+      return this.edgesByType.get(query.type) ?? [];
+    }
+    return this.edgeMap.values();
   }
 
   getNeighbors(nodeId: string, direction: 'outbound' | 'inbound' | 'both' = 'both'): GraphNode[] {

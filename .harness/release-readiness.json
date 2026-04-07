@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-04-07T08:50:00Z",
+  "timestamp": "2026-04-07T15:45:00Z",
   "flags": {
     "comprehensive": false
   },
@@ -38,129 +38,33 @@
         {
           "check": "assess_project passes",
           "severity": "fail",
-          "fixable": false,
+          "fixable": true,
           "fixed": false,
-          "note": "Stale global CLI install at /opt/homebrew — not a project code issue"
+          "note": "Stale global CLI install at /opt/homebrew — run: npm install -g @harness-engineering/cli"
         }
       ]
     },
     "maintenance": {
       "doc-drift": {
-        "issues": 3,
-        "findings": [
-          {
-            "file": "packages/orchestrator/README.md",
-            "check": "References LinearTrackerExtension which does not exist",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/graph/src/index.ts",
-            "check": "VERSION constant 0.2.0 vs package.json 0.4.0",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/linter-gen/src/engine/context-builder.ts",
-            "check": "GENERATOR_VERSION 0.1.0 vs package.json 0.1.4",
-            "severity": "warn"
-          }
-        ]
+        "issues": 0,
+        "findings": []
       },
       "dead-code": {
-        "issues": 61,
+        "issues": 1,
         "findings": [
           {
             "file": "packages/core/src/blueprint/graph-scanner.ts",
             "check": "Dead file — not imported by any production code",
             "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/blueprint/impact-lab-generator.ts",
-            "check": "Dead file — generateImpactData never imported",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/state/state-manager.ts",
-            "check": "Dead file — StateManager never imported",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/cli/src/commands/traceability.ts",
-            "check": "Dead command — createTraceabilityCommand never registered in CLI",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/cli/package.json",
-            "check": "Orphaned deps: @typescript-eslint/typescript-estree, ejs, tree-sitter-wasms, web-tree-sitter",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/orchestrator/package.json",
-            "check": "Orphaned dep: chokidar",
-            "severity": "warn"
           }
         ]
       },
       "architecture": {
-        "issues": 12,
+        "issues": 1,
         "findings": [
           {
-            "file": "packages/graph/src/query/Traceability.ts",
-            "check": "for loop CC=40",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/graph/src/query/Traceability.ts",
-            "check": "for loop CC=32",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/usage/aggregator.ts",
-            "check": "aggregateBySession CC=33",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/usage/aggregator.ts",
-            "check": "for loop CC=29",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/dashboard/src/server/context.ts",
-            "check": "buildContext CC=25",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/cli/src/commands/traceability.ts",
-            "check": "createTraceabilityCommand CC=23",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/graph/src/store/GraphStore.ts",
-            "check": "getEdges CC=21",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/roadmap/parse.ts",
-            "check": "parseFeatureFields CC=21",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/usage/aggregator.ts",
-            "check": "aggregateByDay CC=19",
-            "severity": "warn"
-          },
-          {
-            "file": "packages/core/src/architecture/prediction-engine.ts",
-            "check": "predict CC=16",
-            "severity": "warn"
-          },
-          {
             "file": "packages/core/tests/entropy/detectors/complexity.test.ts",
-            "check": "complexRouter CC=16 (test fixture)",
-            "severity": "warn"
-          },
-          {
-            "file": "harness.config.json",
-            "check": "Dashboard package missing from layer definitions",
+            "check": "complexRouter CC=16 (intentional test fixture)",
             "severity": "warn"
           }
         ]
@@ -190,27 +94,48 @@
   "fixes": {
     "applied": [
       "readme-mcp-tools-count-55-to-54",
-      "graph-api-doc-version-0.3.2-to-0.2.0",
-      "graph-api-doc-query-run-to-execute",
+      "graph-api-doc-version-0.3.2-to-0.4.0",
+      "graph-api-doc-query-run-to-execute-overview",
+      "graph-api-doc-query-run-to-execute-contextql",
+      "graph-api-doc-assembler-constructor",
+      "api-index-assembler-constructor",
       "api-index-checkCoverage-return-type",
       "reference-index-config-yml-to-json",
       "reference-index-install-command",
-      "graph-readme-node-edge-type-counts"
-    ],
-    "pending": [
-      "orchestrator-readme-linear-tracker",
+      "graph-readme-node-edge-type-counts",
+      "cli-api-doc-version-1.22.0-to-1.23.1",
+      "core-api-doc-version-0.20.0-to-0.21.0",
+      "types-api-doc-version-0.8.1-to-0.9.0",
+      "getting-started-skills-79-to-81-tools-53-to-54",
+      "inspirations-eslint-10-to-11-skills-79-to-81",
+      "orchestrator-readme-linear-tracker-planned",
       "graph-version-constant-0.2.0-to-0.4.0",
       "linter-gen-generator-version-0.1.0-to-0.1.4",
-      "traceability-complexity-decompose",
-      "aggregator-complexity-decompose",
-      "dashboard-context-complexity",
-      "dead-files-core-blueprint-state",
-      "dead-command-traceability",
-      "orphaned-deps-cli-orchestrator",
-      "unused-exports-imports-cleanup",
-      "dashboard-layer-config",
+      "types-doc-CICheckName-arch-traceability",
+      "types-doc-RoadmapFeature-assignee-priority-externalId",
+      "types-doc-Priority-AssignmentRecord-added",
+      "types-doc-Roadmap-assignmentHistory",
+      "register-dashboard-command-in-registry",
+      "wire-dispatch-session-into-cli-startup",
+      "remove-graph-types-dep",
+      "remove-orchestrator-chokidar-dep",
+      "refactor-traceability-ts-cc40-cc32",
+      "refactor-aggregator-ts-cc33-cc29-cc19",
+      "refactor-context-ts-cc25",
+      "refactor-graphstore-ts-cc21",
+      "refactor-parse-ts-cc21",
+      "refactor-cli-traceability-ts-cc23",
+      "refactor-prediction-engine-ts-cc16",
+      "graph-api-doc-undocumented-exports",
+      "core-api-doc-undocumented-modules",
+      "cli-api-doc-command-table-expanded"
+    ],
+    "pending": [
+      "global-cli-reinstall",
+      "dead-file-graph-scanner",
       "vitepress-security-upgrade",
-      "global-cli-reinstall"
+      "turbo-v2-migration",
+      "dashboard-tsconfig-tighten"
     ],
     "skipped": []
   }

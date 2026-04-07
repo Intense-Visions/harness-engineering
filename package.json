@@ -42,7 +42,7 @@
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
     "tsup": "^8.5.1",
-    "turbo": "^1.13.4",
+    "turbo": "^2.9.5",
     "typescript": "^5.9.3",
     "vitepress": "^1.6.4",
     "vitest": "^4.1.2",
@@ -59,7 +59,11 @@
   "packageManager": "pnpm@8.15.4",
   "pnpm": {
     "autoInstallPeers": true,
-    "strictPeerDependencies": false
+    "strictPeerDependencies": false,
+    "auditExceptions": {
+      "GHSA-67mh-4wv8-2f99": "esbuild dev-server CORS — dev-only, no network exposure. Blocked by vitepress ^5 pin.",
+      "GHSA-4w7w-66w2-5vf9": "vite .map path traversal — dev-only, no --host usage. Blocked by vitepress ^5 pin."
+    }
   },
   "engines": {
     "node": ">=22.0.0",

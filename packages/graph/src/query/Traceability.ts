@@ -1,4 +1,5 @@
 import type { GraphStore } from '../store/GraphStore.js';
+import type { GraphEdge } from '../types.js';
 
 // --- Types ---
 
@@ -35,6 +36,76 @@ export interface TraceabilityResult {
 export interface TraceabilityOptions {
   readonly specPath?: string;
   readonly featureName?: string;
+}
+
+// --- Helpers ---
+
+function extractConfidence(edge: GraphEdge): number {
+  return edge.confidence ?? (edge.metadata?.confidence as number) ?? 0;
+}
+
+function extractMethod(edge: GraphEdge): TracedFile['method'] {
+  return (edge.metadata?.method as TracedFile['method']) ?? 'convention';
+}
+
+function edgesToTracedFiles(store: GraphStore, edges: readonly GraphEdge[]): TracedFile[] {
+  return edges.map((edge) => ({
+    path: store.getNode(edge.to)?.path ?? edge.to,
+    confidence: extractConfidence(edge),
+    method: extractMethod(edge),
+  }));
+}
+
+function determineCoverageStatus(
+  hasCode: boolean,
+  hasTests: boolean
+): RequirementCoverage['status'] {
+  if (hasCode && hasTests) return 'full';
+  if (hasCode) return 'code-only';
+  if (hasTests) return 'test-only';
+  return 'none';
+}
+
+function computeMaxConfidence(codeFiles: TracedFile[], testFiles: TracedFile[]): number {
+  const allConfidences = [
+    ...codeFiles.map((f) => f.confidence),
+    ...testFiles.map((f) => f.confidence),
+  ];
+  return allConfidences.length > 0 ? Math.max(...allConfidences) : 0;
+}
+
+function buildRequirementCoverage(
+  store: GraphStore,
+  req: { id: string; name: string; metadata?: Record<string, unknown> | null }
+): RequirementCoverage {
+  const codeFiles = edgesToTracedFiles(store, store.getEdges({ from: req.id, type: 'requires' }));
+  const testFiles = edgesToTracedFiles(
+    store,
+    store.getEdges({ from: req.id, type: 'verified_by' })
+  );
+
+  const hasCode = codeFiles.length > 0;
+  const hasTests = testFiles.length > 0;
+
+  return {
+    requirementId: req.id,
+    requirementName: req.name,
+    index: (req.metadata?.index as number) ?? 0,
+    codeFiles,
+    testFiles,
+    status: determineCoverageStatus(hasCode, hasTests),
+    maxConfidence: computeMaxConfidence(codeFiles, testFiles),
+  };
+}
+
+function computeSummary(requirements: RequirementCoverage[]): TraceabilityResult['summary'] {
+  const total = requirements.length;
+  const withCode = requirements.filter((r) => r.codeFiles.length > 0).length;
+  const withTests = requirements.filter((r) => r.testFiles.length > 0).length;
+  const fullyTraced = requirements.filter((r) => r.status === 'full').length;
+  const untraceable = requirements.filter((r) => r.status === 'none').length;
+  const coveragePercent = total > 0 ? Math.round((fullyTraced / total) * 100) : 0;
+  return { total, withCode, withTests, fullyTraced, untraceable, coveragePercent };
 }
 
 // --- Query ---
@@ -77,68 +148,15 @@ export function queryTraceability(
     const firstMeta = firstReq.metadata as Record<string, string | undefined> | undefined;
     const specPath = firstMeta?.specPath ?? '';
     const featureName = firstMeta?.featureName ?? '';
-    const requirements: RequirementCoverage[] = [];
 
-    for (const req of reqs) {
-      // Traverse outbound 'requires' edges -> code files
-      const requiresEdges = store.getEdges({ from: req.id, type: 'requires' });
-      const codeFiles: TracedFile[] = requiresEdges.map((edge) => {
-        const targetNode = store.getNode(edge.to);
-        return {
-          path: targetNode?.path ?? edge.to,
-          confidence: edge.confidence ?? (edge.metadata?.confidence as number) ?? 0,
-          method: (edge.metadata?.method as TracedFile['method']) ?? 'convention',
-        };
-      });
-
-      // Traverse outbound 'verified_by' edges -> test files
-      const verifiedByEdges = store.getEdges({ from: req.id, type: 'verified_by' });
-      const testFiles: TracedFile[] = verifiedByEdges.map((edge) => {
-        const targetNode = store.getNode(edge.to);
-        return {
-          path: targetNode?.path ?? edge.to,
-          confidence: edge.confidence ?? (edge.metadata?.confidence as number) ?? 0,
-          method: (edge.metadata?.method as TracedFile['method']) ?? 'convention',
-        };
-      });
-
-      const hasCode = codeFiles.length > 0;
-      const hasTests = testFiles.length > 0;
-      const status: RequirementCoverage['status'] =
-        hasCode && hasTests ? 'full' : hasCode ? 'code-only' : hasTests ? 'test-only' : 'none';
-
-      const allConfidences = [
-        ...codeFiles.map((f) => f.confidence),
-        ...testFiles.map((f) => f.confidence),
-      ];
-      const maxConfidence = allConfidences.length > 0 ? Math.max(...allConfidences) : 0;
-
-      requirements.push({
-        requirementId: req.id,
-        requirementName: req.name,
-        index: (req.metadata?.index as number) ?? 0,
-        codeFiles,
-        testFiles,
-        status,
-        maxConfidence,
-      });
-    }
-
-    // Sort by index for stable output
+    const requirements = reqs.map((req) => buildRequirementCoverage(store, req));
     requirements.sort((a, b) => a.index - b.index);
-
-    const total = requirements.length;
-    const withCode = requirements.filter((r) => r.codeFiles.length > 0).length;
-    const withTests = requirements.filter((r) => r.testFiles.length > 0).length;
-    const fullyTraced = requirements.filter((r) => r.status === 'full').length;
-    const untraceable = requirements.filter((r) => r.status === 'none').length;
-    const coveragePercent = total > 0 ? Math.round((fullyTraced / total) * 100) : 0;
 
     results.push({
       specPath,
       featureName,
       requirements,
-      summary: { total, withCode, withTests, fullyTraced, untraceable, coveragePercent },
+      summary: computeSummary(requirements),
     });
   }
 

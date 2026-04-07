@@ -119,10 +119,10 @@ The main class that ties everything together:
 
 ### Tracker Adapters
 
-| Export                   | Description                              |
-| ------------------------ | ---------------------------------------- |
-| `RoadmapTrackerAdapter`  | Reads issues from `docs/roadmap.md`      |
-| `LinearTrackerExtension` | Extends tracking with Linear integration |
+| Export                   | Description                                          |
+| ------------------------ | ---------------------------------------------------- |
+| `RoadmapTrackerAdapter`  | Reads issues from `docs/roadmap.md`                  |
+| `LinearTrackerExtension` | Extends tracking with Linear integration _(planned)_ |
 
 ### Prompt Rendering
 

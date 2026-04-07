@@ -2,7 +2,7 @@
 
 CLI for the Harness Engineering toolkit. Provides the `harness` command with subcommands for validation, initialization, skill management, persona execution, graph operations, and more.
 
-**Version:** 1.22.0
+**Version:** 1.23.1
 
 ## Installation
 
@@ -23,36 +23,110 @@ The `harness` binary supports these global options:
 
 ### Commands
 
-| Command                              | Description                                   |
-| ------------------------------------ | --------------------------------------------- |
-| `harness validate`                   | Validate project structure and configuration  |
-| `harness check-deps`                 | Check architectural dependency constraints    |
-| `harness check-docs`                 | Check documentation coverage                  |
-| `harness check-perf`                 | Check performance against baselines           |
-| `harness check-security`             | Run security scan                             |
-| `harness check-phase-gate`           | Run phase gate checks                         |
-| `harness perf`                       | Performance benchmarking commands             |
-| `harness init`                       | Initialize a harness-engineered project       |
-| `harness cleanup`                    | Clean up generated artifacts                  |
-| `harness fix-drift`                  | Fix documentation drift                       |
-| `harness agent`                      | Agent task management                         |
-| `harness add`                        | Add components to the project                 |
-| `harness linter`                     | Generate ESLint rules from YAML config        |
-| `harness persona`                    | Persona management                            |
-| `harness skill`                      | Skill execution and management                |
-| `harness state`                      | State management                              |
-| `harness create-skill`               | Scaffold a new skill                          |
-| `harness setup-mcp`                  | Configure MCP server integration              |
-| `harness generate-slash-commands`    | Generate slash command definitions            |
-| `harness generate-agent-definitions` | Generate agent definition files               |
-| `harness generate`                   | General-purpose code generation               |
-| `harness ci`                         | CI/CD pipeline commands                       |
-| `harness update`                     | Check for and apply updates                   |
-| `harness scan`                       | Scan codebase into the knowledge graph        |
-| `harness ingest`                     | Ingest external data into the knowledge graph |
-| `harness query`                      | Query the knowledge graph                     |
-| `harness graph`                      | Knowledge graph management                    |
-| `harness orchestrator`               | Agent orchestration and coordination          |
+#### Project Setup
+
+| Command             | Description                                                               |
+| ------------------- | ------------------------------------------------------------------------- |
+| `harness init`      | Initialize a new harness-engineering project                              |
+| `harness setup`     | Configure harness environment: slash commands, MCP, and more              |
+| `harness setup-mcp` | Configure MCP server for AI agent integration                             |
+| `harness doctor`    | Check environment health: Node version, slash commands, MCP configuration |
+| `harness update`    | Update all @harness-engineering packages to the latest version            |
+| `harness add`       | Add a component to the project                                            |
+
+#### Validation
+
+| Command                    | Description                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `harness validate`         | Run all validation checks                                                                      |
+| `harness check-arch`       | Check architecture assertions against baseline and thresholds                                  |
+| `harness check-deps`       | Validate dependency layers and detect circular dependencies                                    |
+| `harness check-docs`       | Check documentation coverage                                                                   |
+| `harness check-perf`       | Run performance checks: structural complexity, coupling, and size budgets                      |
+| `harness check-phase-gate` | Verify that implementation files have matching spec documents                                  |
+| `harness check-security`   | Run lightweight security scan: secrets, injection, XSS, weak crypto                            |
+| `harness scan-config`      | Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt injection patterns |
+
+#### Entropy and Drift
+
+| Command             | Description                                            |
+| ------------------- | ------------------------------------------------------ |
+| `harness cleanup`   | Detect entropy issues (doc drift, dead code, patterns) |
+| `harness fix-drift` | Auto-fix entropy issues (doc drift, dead code)         |
+| `harness taint`     | Manage session taint status for destructive operations |
+
+#### Knowledge Graph
+
+| Command                  | Description                                                       |
+| ------------------------ | ----------------------------------------------------------------- |
+| `harness graph`          | Knowledge graph management                                        |
+| `harness scan`           | Scan project and build knowledge graph                            |
+| `harness query`          | Query the knowledge graph                                         |
+| `harness ingest`         | Ingest data into the knowledge graph                              |
+| `harness impact-preview` | Show blast radius of staged changes using the knowledge graph     |
+| `harness traceability`   | Show spec-to-implementation traceability from the knowledge graph |
+| `harness predict`        | Predict which architectural constraints will break and when       |
+
+#### Performance
+
+| Command            | Description                             |
+| ------------------ | --------------------------------------- |
+| `harness perf`     | Performance benchmarking commands       |
+| `harness snapshot` | Architecture timeline snapshot commands |
+
+#### Code Generation
+
+| Command                              | Description                                                                                     |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `harness generate`                   | Generate all platform integrations (slash commands + agent definitions)                         |
+| `harness generate-slash-commands`    | Generate native commands for Claude Code, Gemini CLI, Codex CLI, and Cursor from skill metadata |
+| `harness generate-agent-definitions` | Generate agent definition files from personas for Claude Code and Gemini CLI                    |
+| `harness blueprint`                  | Generate a self-contained, interactive blueprint of the codebase                                |
+| `harness linter`                     | Generate and validate ESLint rules from YAML config                                             |
+
+#### Skills and Personas
+
+| Command                | Description                                                 |
+| ---------------------- | ----------------------------------------------------------- |
+| `harness skill`        | Skill management commands                                   |
+| `harness create-skill` | Scaffold a new skill with skill.yaml and SKILL.md           |
+| `harness install`      | Install a community skill from the @harness-skills registry |
+| `harness uninstall`    | Uninstall a community skill                                 |
+| `harness persona`      | Agent persona management commands                           |
+| `harness recommend`    | Recommend skills based on codebase health analysis          |
+
+#### Constraints
+
+| Command                         | Description                                                    |
+| ------------------------------- | -------------------------------------------------------------- |
+| `harness install-constraints`   | Install a constraints bundle into the local harness config     |
+| `harness uninstall-constraints` | Remove a previously installed constraints package              |
+| `harness share`                 | Extract and publish a constraints bundle from constraints.yaml |
+
+#### Agent Orchestration
+
+| Command                | Description                  |
+| ---------------------- | ---------------------------- |
+| `harness agent`        | Agent orchestration commands |
+| `harness orchestrator` | Run the orchestrator daemon  |
+
+#### Integrations
+
+| Command                | Description                                               |
+| ---------------------- | --------------------------------------------------------- |
+| `harness mcp`          | Start the MCP (Model Context Protocol) server on stdio    |
+| `harness integrations` | Manage MCP peer integrations (add, list, remove, dismiss) |
+| `harness hooks`        | Manage Claude Code hook configurations                    |
+| `harness ci`           | CI/CD integration commands                                |
+| `harness dashboard`    | Start the Harness local web dashboard                     |
+
+#### State and Learnings
+
+| Command             | Description                       |
+| ------------------- | --------------------------------- |
+| `harness state`     | Project state management commands |
+| `harness learnings` | Learnings management commands     |
+| `harness usage`     | Token usage and cost tracking     |
 
 ## Programmatic API
 

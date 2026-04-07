@@ -4,7 +4,7 @@ TypeScript types and interfaces for the Harness Engineering toolkit.
 
 **Source:** [index.ts](../../packages/types/src/index.ts), [orchestrator.ts](../../packages/types/src/orchestrator.ts)
 
-**Version:** 0.8.1
+**Version:** 0.9.0
 
 ## Installation
 
@@ -217,7 +217,16 @@ interface SkillLifecycleHooks {
 ### `CICheckName`
 
 ```typescript
-type CICheckName = 'validate' | 'deps' | 'docs' | 'entropy' | 'security' | 'perf' | 'phase-gate';
+type CICheckName =
+  | 'validate'
+  | 'deps'
+  | 'docs'
+  | 'entropy'
+  | 'security'
+  | 'perf'
+  | 'phase-gate'
+  | 'arch'
+  | 'traceability';
 ```
 
 ### `CICheckStatus`
@@ -315,6 +324,8 @@ type FeatureStatus = 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
 ### `RoadmapFeature`
 
 ```typescript
+type Priority = 'P0' | 'P1' | 'P2' | 'P3';
+
 interface RoadmapFeature {
   name: string;
   status: FeatureStatus;
@@ -322,6 +333,9 @@ interface RoadmapFeature {
   plans: string[];
   blockedBy: string[];
   summary: string;
+  assignee: string | null;
+  priority: Priority | null;
+  externalId: string | null;
 }
 ```
 
@@ -348,11 +362,23 @@ interface RoadmapFrontmatter {
 }
 ```
 
+### `AssignmentRecord`
+
+```typescript
+interface AssignmentRecord {
+  feature: string;
+  assignee: string;
+  action: 'assigned' | 'completed' | 'unassigned';
+  date: string;
+}
+```
+
 ### `Roadmap`
 
 ```typescript
 interface Roadmap {
   frontmatter: RoadmapFrontmatter;
   milestones: RoadmapMilestone[];
+  assignmentHistory: AssignmentRecord[];
 }
 ```

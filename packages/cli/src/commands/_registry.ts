@@ -12,6 +12,7 @@ import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
 import { createCheckSecurityCommand } from './check-security';
 import { createCICommand } from './ci';
+import { createDashboardCommand } from './dashboard';
 import { createCleanupCommand } from './cleanup';
 import { createCreateSkillCommand } from './create-skill';
 import { createDoctorCommand } from './doctor';
@@ -69,6 +70,7 @@ export const commandCreators: Array<() => Command> = [
   createCICommand,
   createCleanupCommand,
   createCreateSkillCommand,
+  createDashboardCommand,
   createDoctorCommand,
   createFixDriftCommand,
   createGenerateAgentDefinitionsCommand,

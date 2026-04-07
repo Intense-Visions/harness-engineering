@@ -1,7 +1,7 @@
 import type { RuleConfig } from '../schema/linter-config.js';
 
 // Package version - update when releasing
-const GENERATOR_VERSION = '0.1.0';
+const GENERATOR_VERSION = '0.1.4';
 
 export interface RuleContext {
   /** Original kebab-case name */

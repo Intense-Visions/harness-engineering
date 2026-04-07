@@ -69,98 +69,18 @@ export class PredictionEngine {
       (new Date(lastSnapshot.capturedAt).getTime() - firstDate) / (7 * 24 * 60 * 60 * 1000);
 
     // First pass: compute baselines for all categories
-    const baselines: Record<string, CategoryForecast> = {};
-
-    for (const category of ALL_CATEGORIES) {
-      const threshold = thresholds[category];
-      const shouldProcess = categoriesToProcess.includes(category);
-
-      if (!shouldProcess) {
-        baselines[category] = this.zeroForecast(category, threshold);
-        continue;
-      }
-
-      const timeSeries = this.extractTimeSeries(snapshots, category, firstDate);
-      baselines[category] = this.forecastCategory(
-        category,
-        timeSeries,
-        currentT,
-        threshold,
-        opts.horizon
-      );
-    }
+    const baselines = this.computeBaselines(
+      categoriesToProcess,
+      thresholds,
+      snapshots,
+      firstDate,
+      currentT,
+      opts.horizon
+    );
 
     // Second pass: compute adjusted forecasts with roadmap impact
     const specImpacts = this.computeSpecImpacts(opts);
-    const categories: Record<string, AdjustedForecast> = {};
-
-    for (const category of ALL_CATEGORIES) {
-      const baseline = baselines[category]!;
-      const threshold = thresholds[category];
-
-      if (!specImpacts || specImpacts.length === 0) {
-        categories[category] = {
-          baseline,
-          adjusted: baseline,
-          contributingFeatures: [],
-        };
-        continue;
-      }
-
-      // Sum deltas for this category across all spec impacts
-      let totalDelta = 0;
-      const contributing: Array<{ name: string; specPath: string; delta: number }> = [];
-
-      for (const impact of specImpacts) {
-        const delta = impact.deltas?.[category as ArchMetricCategory] ?? 0;
-        if (delta !== 0) {
-          totalDelta += delta;
-          contributing.push({
-            name: impact.featureName,
-            specPath: impact.specPath,
-            delta,
-          });
-        }
-      }
-
-      if (totalDelta === 0) {
-        categories[category] = {
-          baseline,
-          adjusted: baseline,
-          contributingFeatures: [],
-        };
-        continue;
-      }
-
-      // Create adjusted forecast by shifting projected values by totalDelta
-      const adjusted: CategoryForecast = {
-        ...baseline,
-        projectedValue4w: baseline.projectedValue4w + totalDelta,
-        projectedValue8w: baseline.projectedValue8w + totalDelta,
-        projectedValue12w: baseline.projectedValue12w + totalDelta,
-      };
-
-      // Recompute threshold crossing with adjusted values
-      const adjustedFit: RegressionFit = {
-        slope: baseline.regression.slope,
-        intercept: baseline.regression.intercept + totalDelta,
-        rSquared: baseline.regression.rSquared,
-        dataPoints: baseline.regression.dataPoints,
-      };
-      adjusted.thresholdCrossingWeeks = weeksUntilThreshold(adjustedFit, currentT, threshold);
-      adjusted.regression = {
-        slope: adjustedFit.slope,
-        intercept: adjustedFit.intercept,
-        rSquared: adjustedFit.rSquared,
-        dataPoints: adjustedFit.dataPoints,
-      };
-
-      categories[category] = {
-        baseline,
-        adjusted,
-        contributingFeatures: contributing,
-      };
-    }
+    const categories = this.computeAdjustedForecasts(baselines, thresholds, specImpacts, currentT);
 
     const warnings = this.generateWarnings(
       categories as Record<ArchMetricCategory, AdjustedForecast>,
@@ -206,6 +126,103 @@ export class PredictionEngine {
       }
     }
     return base;
+  }
+
+  private computeBaselines(
+    categoriesToProcess: ArchMetricCategory[],
+    thresholds: Record<ArchMetricCategory, number>,
+    snapshots: TimelineSnapshot[],
+    firstDate: number,
+    currentT: number,
+    horizon: number
+  ): Record<string, CategoryForecast> {
+    const baselines: Record<string, CategoryForecast> = {};
+    for (const category of ALL_CATEGORIES) {
+      const threshold = thresholds[category];
+      if (!categoriesToProcess.includes(category)) {
+        baselines[category] = this.zeroForecast(category, threshold);
+        continue;
+      }
+      const timeSeries = this.extractTimeSeries(snapshots, category, firstDate);
+      baselines[category] = this.forecastCategory(
+        category,
+        timeSeries,
+        currentT,
+        threshold,
+        horizon
+      );
+    }
+    return baselines;
+  }
+
+  private computeAdjustedForecasts(
+    baselines: Record<string, CategoryForecast>,
+    thresholds: Record<ArchMetricCategory, number>,
+    specImpacts: SpecImpactEstimate[] | null,
+    currentT: number
+  ): Record<string, AdjustedForecast> {
+    const categories: Record<string, AdjustedForecast> = {};
+    for (const category of ALL_CATEGORIES) {
+      const baseline = baselines[category]!;
+      categories[category] = this.adjustForecastForCategory(
+        category,
+        baseline,
+        thresholds[category],
+        specImpacts,
+        currentT
+      );
+    }
+    return categories;
+  }
+
+  private adjustForecastForCategory(
+    category: ArchMetricCategory,
+    baseline: CategoryForecast,
+    threshold: number,
+    specImpacts: SpecImpactEstimate[] | null,
+    currentT: number
+  ): AdjustedForecast {
+    if (!specImpacts || specImpacts.length === 0) {
+      return { baseline, adjusted: baseline, contributingFeatures: [] };
+    }
+
+    let totalDelta = 0;
+    const contributing: Array<{ name: string; specPath: string; delta: number }> = [];
+
+    for (const impact of specImpacts) {
+      const delta = impact.deltas?.[category] ?? 0;
+      if (delta !== 0) {
+        totalDelta += delta;
+        contributing.push({ name: impact.featureName, specPath: impact.specPath, delta });
+      }
+    }
+
+    if (totalDelta === 0) {
+      return { baseline, adjusted: baseline, contributingFeatures: [] };
+    }
+
+    const adjusted: CategoryForecast = {
+      ...baseline,
+      projectedValue4w: baseline.projectedValue4w + totalDelta,
+      projectedValue8w: baseline.projectedValue8w + totalDelta,
+      projectedValue12w: baseline.projectedValue12w + totalDelta,
+    };
+
+    const adjustedFit: RegressionFit = {
+      slope: baseline.regression.slope,
+      intercept: baseline.regression.intercept + totalDelta,
+      rSquared: baseline.regression.rSquared,
+      dataPoints: baseline.regression.dataPoints,
+    };
+    adjusted.thresholdCrossingWeeks = weeksUntilThreshold(adjustedFit, currentT, threshold);
+    adjusted.regression = {
+      slope: adjustedFit.slope,
+      intercept: adjustedFit.intercept,
+      rSquared: adjustedFit.rSquared,
+      dataPoints: adjustedFit.dataPoints,
+    };
+
+    return { baseline, adjusted, contributingFeatures: contributing };
   }
 
   /**

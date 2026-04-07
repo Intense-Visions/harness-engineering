@@ -180,6 +180,13 @@ export async function syncFromExternal(
         // Directional guard: skip regression
         continue;
       }
+      // Guard: external "open" → "planned" must not override manually-set "blocked".
+      // These share the same STATUS_RANK so isRegression doesn't catch it, but
+      // blocked is a human signal that external status (which has no blocked concept
+      // beyond labels) should not silently clear.
+      if (!forceSync && feature.status === 'blocked' && newStatus === 'planned') {
+        continue;
+      }
       feature.status = newStatus;
     }
   }
