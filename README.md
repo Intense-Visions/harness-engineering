@@ -30,16 +30,16 @@ Instead of relying on prompts and conventions, harness encodes your architectura
 
 ## Quick Start
 
-### 1. Install and generate global skills + personas
+### 1. Install and set up global skills + personas
 
 ```bash
 npm install -g @harness-engineering/cli
-harness generate --global
+harness setup
 ```
 
-This installs the CLI, the MCP server, and writes slash commands and agent definitions to your global config directories (`~/.claude/commands/`, `.gemini/` etc.). Once generated, every project on your machine has access to `/harness:*` slash commands, agent personas, and the `harness-mcp` server binary — no per-project setup needed.
+This installs the CLI and runs interactive setup: generates global slash commands and agent personas for all detected AI clients (Claude Code, Gemini CLI, Cursor, Codex CLI), configures MCP servers, and sets up peer integrations. Once set up, every project on your machine has access to `/harness:*` slash commands, agent personas, and the `harness-mcp` server binary — no per-project setup needed.
 
-> **Tip:** Re-run `harness generate --global` after updating the CLI (`harness update`) to pick up new or changed skills.
+> **Tip:** Re-run `harness setup` after updating the CLI (`harness update`) to pick up new or changed skills.
 
 ### 2. Scaffold a new project
 
@@ -138,15 +138,17 @@ Install the CLI, MCP server, skills, and personas so they're available in every 
 
 ```bash
 npm install -g @harness-engineering/cli
-harness generate --global
+harness setup
 ```
 
-The single `npm install -g` provides both the `harness` CLI and the `harness-mcp` server binary, with all dependencies version-matched. `harness generate --global` then writes to your global config directories:
+The single `npm install -g` provides both the `harness` CLI and the `harness-mcp` server binary, with all dependencies version-matched. `harness setup` then detects installed AI clients and writes to your global config directories:
 
-| Platform    | Slash Commands            | Agent Definitions |
-| ----------- | ------------------------- | ----------------- |
-| Claude Code | `~/.claude/commands/`     | `.claude/agents/` |
-| Gemini CLI  | `.gemini/customCommands/` | `.gemini/agents/` |
+| Platform    | Slash Commands        | Agent Definitions |
+| ----------- | --------------------- | ----------------- |
+| Claude Code | `~/.claude/commands/` | `.claude/agents/` |
+| Gemini CLI  | `~/.gemini/commands/` | `.gemini/agents/` |
+| Cursor      | `~/.cursor/rules/`    | —                 |
+| Codex CLI   | `~/.codex/`           | —                 |
 
 After this, `/harness:*` slash commands and harness agent personas are available in every conversation — no per-project install needed.
 
@@ -203,6 +205,28 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 }
 ```
 
+**Cursor** — add to `.cursor/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "harness",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Codex CLI** — add to `.codex/config.toml` in your project root:
+
+```toml
+[mcp_servers.harness]
+command = "harness"
+args = ["mcp"]
+enabled = true
+```
+
 > **Note:** `harness-mcp` is installed alongside the CLI by `npm install -g @harness-engineering/cli`. Using the installed binary instead of `npx @harness-engineering/mcp-server` avoids stale npx cache issues and ensures the MCP server uses the same package versions as the CLI.
 
 </details>
@@ -211,6 +235,8 @@ Then add your project directory to `~/.gemini/trustedFolders.json` (Gemini ignor
 | ----------- | ----------------------- | ---------------------------------------------- |
 | Claude Code | `.mcp.json`             | None                                           |
 | Gemini CLI  | `.gemini/settings.json` | Add project to `~/.gemini/trustedFolders.json` |
+| Cursor      | `.cursor/mcp.json`      | None                                           |
+| Codex CLI   | `.codex/config.toml`    | None                                           |
 
 ## What's Included
 
