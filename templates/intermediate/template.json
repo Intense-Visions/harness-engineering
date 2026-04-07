@@ -1,7 +1,0 @@
-{
-  "name": "intermediate",
-  "description": "Level 2 adoption: Full docs, linters, layer enforcement",
-  "level": "intermediate",
-  "extends": "base",
-  "version": 1
-}

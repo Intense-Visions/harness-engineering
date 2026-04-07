@@ -1,7 +1,0 @@
-{
-  "name": "basic",
-  "description": "Level 1 adoption",
-  "level": "basic",
-  "extends": "base",
-  "version": 1
-}

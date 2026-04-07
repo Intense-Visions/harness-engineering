@@ -1,7 +1,0 @@
-{
-  "name": "basic",
-  "description": "Level 1 adoption: AGENTS.md, basic docs, simple constraints",
-  "level": "basic",
-  "extends": "base",
-  "version": 1
-}

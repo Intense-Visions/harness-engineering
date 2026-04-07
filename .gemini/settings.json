@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "harness": {
-      "command": "harness",
-      "args": ["mcp"]
-    }
-  }
-}

@@ -1,2 +1,0 @@
-node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,security,deps,phase-gate
-npx lint-staged

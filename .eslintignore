@@ -1,9 +1,0 @@
-node_modules
-dist
-build
-coverage
-.turbo
-.next
-vitest.config.ts
-vite.config.ts
-turbo.config.ts
