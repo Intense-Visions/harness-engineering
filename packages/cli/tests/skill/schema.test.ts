@@ -151,3 +151,63 @@ describe('SkillMetadataSchema', () => {
     expect(result.addresses![0]!.metric).toBeUndefined();
   });
 });
+
+describe('SkillMetadataSchema — knowledge skill fields', () => {
+  const knowledgeBase = {
+    name: 'react-hooks-pattern',
+    version: '1.0.0',
+    description: 'Custom hooks for stateful logic reuse',
+    triggers: ['manual'] as const,
+    platforms: ['claude-code'] as const,
+    tools: [],
+    type: 'knowledge' as const,
+  };
+
+  it('accepts type: knowledge', () => {
+    const result = SkillMetadataSchema.parse(knowledgeBase);
+    expect(result.type).toBe('knowledge');
+  });
+
+  it('accepts paths array and defaults to empty', () => {
+    const withPaths = SkillMetadataSchema.parse({ ...knowledgeBase, paths: ['**/*.tsx'] });
+    expect(withPaths.paths).toEqual(['**/*.tsx']);
+    const withoutPaths = SkillMetadataSchema.parse(knowledgeBase);
+    expect(withoutPaths.paths).toEqual([]);
+  });
+
+  it('accepts related_skills array and defaults to empty', () => {
+    const result = SkillMetadataSchema.parse({
+      ...knowledgeBase,
+      related_skills: ['react-compound-pattern'],
+    });
+    expect(result.related_skills).toEqual(['react-compound-pattern']);
+    const defaults = SkillMetadataSchema.parse(knowledgeBase);
+    expect(defaults.related_skills).toEqual([]);
+  });
+
+  it('accepts metadata object with optional fields', () => {
+    const result = SkillMetadataSchema.parse({
+      ...knowledgeBase,
+      metadata: {
+        author: 'patterns.dev',
+        version: '1.1.0',
+        upstream: 'PatternsDev/skills/react',
+      },
+    });
+    expect(result.metadata.author).toBe('patterns.dev');
+    expect(result.metadata.upstream).toBe('PatternsDev/skills/react');
+  });
+
+  it('defaults metadata to empty object when omitted', () => {
+    const result = SkillMetadataSchema.parse(knowledgeBase);
+    expect(result.metadata).toEqual({});
+  });
+
+  it('metadata passthrough allows arbitrary extra keys', () => {
+    const result = SkillMetadataSchema.parse({
+      ...knowledgeBase,
+      metadata: { customKey: 'value' },
+    });
+    expect((result.metadata as Record<string, unknown>).customKey).toBe('value');
+  });
+});

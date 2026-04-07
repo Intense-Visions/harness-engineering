@@ -84,7 +84,17 @@ export const SkillMetadataSchema = z.object({
   tools: z.array(z.string()),
   cli: SkillCliSchema.optional(),
   mcp: SkillMcpSchema.optional(),
-  type: z.enum(['rigid', 'flexible']),
+  type: z.enum(['rigid', 'flexible', 'knowledge']),
+  paths: z.array(z.string()).default([]),
+  related_skills: z.array(z.string()).default([]),
+  metadata: z
+    .object({
+      author: z.string().optional(),
+      version: z.string().optional(),
+      upstream: z.string().optional(),
+    })
+    .passthrough()
+    .default({}),
   phases: z.array(SkillPhaseSchema).optional(),
   state: SkillStateSchema.default({}),
   depends_on: z.array(z.string()).default([]),
