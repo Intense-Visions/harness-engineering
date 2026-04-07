@@ -2,12 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import {
-  parseDateFromEntry,
-  analyzeLearningPatterns,
-  archiveLearnings,
-  pruneLearnings,
-} from '../../src/state/learnings';
+import { parseDateFromEntry, analyzeLearningPatterns } from '../../src/state/learnings-content';
+import { archiveLearnings, pruneLearnings } from '../../src/state/learnings-lifecycle';
 
 describe('parseDateFromEntry', () => {
   it('should parse date from tagged bullet entry', () => {

@@ -1,4 +1,4 @@
-import type { FeatureStatus } from './index';
+import type { FeatureStatus } from './roadmap';
 
 /**
  * Represents a ticket created in an external tracking service.
