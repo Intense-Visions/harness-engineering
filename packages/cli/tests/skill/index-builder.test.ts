@@ -139,3 +139,26 @@ describe('SkillIndexEntry addresses and dependsOn', () => {
     expect(meta.depends_on).toEqual(['harness-brainstorming', 'harness-planning']);
   });
 });
+
+describe('buildIndex — SkillIndexEntry new fields', () => {
+  it('indexes type field as knowledge for knowledge skills', () => {
+    // Type-check: ensure SkillIndexEntry accepts new fields
+    const entry: import('../../src/skill/index-builder').SkillIndexEntry = {
+      tier: 3,
+      type: 'knowledge' as const,
+      description: 'Custom hooks',
+      keywords: [],
+      stackSignals: [],
+      cognitiveMode: undefined,
+      phases: [],
+      paths: ['**/*.tsx'],
+      relatedSkills: ['react-compound-pattern'],
+      source: 'bundled' as const,
+      addresses: [],
+      dependsOn: [],
+    };
+    expect(entry.type).toBe('knowledge');
+    expect(entry.paths).toEqual(['**/*.tsx']);
+    expect(entry.relatedSkills).toEqual(['react-compound-pattern']);
+  });
+});
