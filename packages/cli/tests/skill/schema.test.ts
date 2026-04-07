@@ -211,3 +211,51 @@ describe('SkillMetadataSchema — knowledge skill fields', () => {
     expect((result.metadata as Record<string, unknown>).customKey).toBe('value');
   });
 });
+
+describe('SkillMetadataSchema — knowledge skill refinement constraints', () => {
+  const knowledgeBase = {
+    name: 'react-hooks-pattern',
+    version: '1.0.0',
+    description: 'Custom hooks for stateful logic reuse',
+    triggers: ['manual'] as const,
+    platforms: ['claude-code'] as const,
+    tools: [],
+    type: 'knowledge' as const,
+  };
+
+  it('rejects knowledge skill with non-empty tools', () => {
+    expect(() => SkillMetadataSchema.parse({ ...knowledgeBase, tools: ['Read'] })).toThrow();
+  });
+
+  it('rejects knowledge skill with non-empty phases', () => {
+    expect(() =>
+      SkillMetadataSchema.parse({
+        ...knowledgeBase,
+        phases: [{ name: 'phase-1', description: 'desc', required: true }],
+      })
+    ).toThrow();
+  });
+
+  it('rejects knowledge skill with state.persistent: true', () => {
+    expect(() =>
+      SkillMetadataSchema.parse({ ...knowledgeBase, state: { persistent: true, files: [] } })
+    ).toThrow();
+  });
+
+  it('accepts knowledge skill with empty tools, empty phases, and persistent: false (default)', () => {
+    const result = SkillMetadataSchema.parse(knowledgeBase);
+    expect(result.type).toBe('knowledge');
+    expect(result.tools).toEqual([]);
+    expect(result.phases).toBeUndefined();
+    expect(result.state.persistent).toBe(false);
+  });
+
+  it('accepts rigid skill with non-empty tools (refinement does not affect non-knowledge)', () => {
+    const result = SkillMetadataSchema.parse({
+      ...knowledgeBase,
+      type: 'rigid',
+      tools: ['Read', 'Write'],
+    });
+    expect(result.tools).toEqual(['Read', 'Write']);
+  });
+});
