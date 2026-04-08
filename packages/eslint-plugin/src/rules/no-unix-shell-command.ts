@@ -18,6 +18,37 @@ const UNIX_COMMAND_PATTERN = new RegExp(
 // Only flag exec() and execSync() — NOT execFile/execFileSync
 const FLAGGED_FUNCTIONS = new Set(['exec', 'execSync']);
 
+function getFlaggedFunctionName(node: TSESTree.CallExpression): string | undefined {
+  if (node.callee.type === 'Identifier' && FLAGGED_FUNCTIONS.has(node.callee.name)) {
+    return node.callee.name;
+  }
+  if (
+    node.callee.type === 'MemberExpression' &&
+    node.callee.property.type === 'Identifier' &&
+    FLAGGED_FUNCTIONS.has(node.callee.property.name)
+  ) {
+    return node.callee.property.name;
+  }
+  return undefined;
+}
+
+function isFlaggedCall(node: TSESTree.CallExpression): boolean {
+  return getFlaggedFunctionName(node) !== undefined;
+}
+
+function extractCommandString(
+  arg: TSESTree.CallExpressionArgument | undefined
+): string | undefined {
+  if (!arg) return undefined;
+  if (arg.type === 'Literal' && typeof arg.value === 'string') {
+    return arg.value;
+  }
+  if (arg.type === 'TemplateLiteral' && arg.quasis.length > 0) {
+    return arg.quasis.map((q) => q.value.raw).join(' ');
+  }
+  return undefined;
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-unix-shell-command',
   meta: {
@@ -35,41 +66,11 @@ export default createRule<[], MessageIds>({
   create(context) {
     return {
       CallExpression(node: TSESTree.CallExpression) {
-        let functionName: string | undefined;
+        if (!isFlaggedCall(node)) return;
 
-        // Handle: exec('...')  / execSync('...')
-        if (node.callee.type === 'Identifier' && FLAGGED_FUNCTIONS.has(node.callee.name)) {
-          functionName = node.callee.name;
-        }
-
-        // Handle: child_process.exec('...')  / child_process.execSync('...')
-        if (
-          node.callee.type === 'MemberExpression' &&
-          node.callee.property.type === 'Identifier' &&
-          FLAGGED_FUNCTIONS.has(node.callee.property.name)
-        ) {
-          functionName = node.callee.property.name;
-        }
-
-        if (!functionName) return;
-
-        const firstArg = node.arguments[0];
-        if (!firstArg) return;
-
-        let commandString: string | undefined;
-
-        if (firstArg.type === 'Literal' && typeof firstArg.value === 'string') {
-          commandString = firstArg.value;
-        } else if (firstArg.type === 'TemplateLiteral' && firstArg.quasis.length > 0) {
-          // Check all static segments of the template literal
-          commandString = firstArg.quasis.map((q) => q.value.raw).join(' ');
-        }
-
+        const commandString = extractCommandString(node.arguments[0]);
         if (commandString && UNIX_COMMAND_PATTERN.test(commandString)) {
-          context.report({
-            node,
-            messageId: 'unixShellCommand',
-          });
+          context.report({ node, messageId: 'unixShellCommand' });
         }
       },
     };

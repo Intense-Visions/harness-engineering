@@ -50,6 +50,41 @@ export const queryGraphDefinition = {
   },
 };
 
+type CQLResult = {
+  readonly nodes: ReadonlyArray<{ type: string; id: string }>;
+  readonly edges: ReadonlyArray<{ type: string }>;
+  readonly stats: {
+    totalReturned: number;
+    totalTraversed: number;
+    pruned: number;
+    depthReached: number;
+  };
+};
+
+function buildSummaryText(result: CQLResult): string {
+  const nodeTypeCounts: Record<string, number> = {};
+  for (const n of result.nodes) {
+    nodeTypeCounts[n.type] = (nodeTypeCounts[n.type] ?? 0) + 1;
+  }
+  const edgeTypeCounts: Record<string, number> = {};
+  for (const e of result.edges) {
+    edgeTypeCounts[e.type] = (edgeTypeCounts[e.type] ?? 0) + 1;
+  }
+  const nodesByType = Object.entries(nodeTypeCounts)
+    .map(([t, c]) => `  ${t}: ${c}`)
+    .join('\n');
+  const edgesByType = Object.entries(edgeTypeCounts)
+    .map(([t, c]) => `  ${t}: ${c}`)
+    .join('\n');
+  return [
+    `Nodes (${result.stats.totalReturned}):`,
+    nodesByType || '  (none)',
+    `Edges (${result.edges.length}):`,
+    edgesByType || '  (none)',
+    `Stats: traversed=${result.stats.totalTraversed}, pruned=${result.stats.pruned}, depthReached=${result.stats.depthReached}`,
+  ].join('\n');
+}
+
 export async function handleQueryGraph(input: {
   path: string;
   rootNodeIds: string[];
@@ -86,49 +121,9 @@ export async function handleQueryGraph(input: {
       }),
     });
 
-    if (input.mode === 'summary') {
-      // Count nodes by type
-      const nodesByType: Record<string, number> = {};
-      for (const node of result.nodes) {
-        nodesByType[node.type] = (nodesByType[node.type] ?? 0) + 1;
-      }
-      // Count edges by type
-      const edgesByType: Record<string, number> = {};
-      for (const edge of result.edges) {
-        edgesByType[edge.type] = (edgesByType[edge.type] ?? 0) + 1;
-      }
-      // Top 10 nodes by connectivity (number of edges)
-      const edgeCounts = new Map<string, number>();
-      for (const edge of result.edges) {
-        edgeCounts.set(edge.from, (edgeCounts.get(edge.from) ?? 0) + 1);
-        edgeCounts.set(edge.to, (edgeCounts.get(edge.to) ?? 0) + 1);
-      }
-      const topNodes = [...edgeCounts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([id, connections]) => ({ id, connections }));
+    const text = input.mode === 'summary' ? buildSummaryText(result) : JSON.stringify(result);
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              mode: 'summary',
-              totalNodes: result.nodes.length,
-              totalEdges: result.edges.length,
-              nodesByType,
-              edgesByType,
-              topNodes,
-              stats: result.stats,
-            }),
-          },
-        ],
-      };
-    }
-
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
-    };
+    return { content: [{ type: 'text' as const, text }] };
   } catch (error) {
     return {
       content: [

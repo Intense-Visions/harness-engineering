@@ -167,33 +167,29 @@ function handleShow(
   return resultToMcpResponse(Ok(roadmap));
 }
 
+function validateAddFields(input: ManageRoadmapInput): McpResponse | null {
+  const required: Array<[keyof ManageRoadmapInput, string]> = [
+    ['feature', 'feature'],
+    ['milestone', 'milestone'],
+    ['status', 'status'],
+    ['summary', 'summary'],
+  ];
+  for (const [field, label] of required) {
+    if (!input[field]) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${label} is required for add action` }],
+        isError: true,
+      };
+    }
+  }
+  return null;
+}
+
 function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: RoadmapDeps): McpResponse {
   const { parseRoadmap, serializeRoadmap, Ok } = deps;
 
-  if (!input.feature) {
-    return {
-      content: [{ type: 'text' as const, text: 'Error: feature is required for add action' }],
-      isError: true,
-    };
-  }
-  if (!input.milestone) {
-    return {
-      content: [{ type: 'text' as const, text: 'Error: milestone is required for add action' }],
-      isError: true,
-    };
-  }
-  if (!input.status) {
-    return {
-      content: [{ type: 'text' as const, text: 'Error: status is required for add action' }],
-      isError: true,
-    };
-  }
-  if (!input.summary) {
-    return {
-      content: [{ type: 'text' as const, text: 'Error: summary is required for add action' }],
-      isError: true,
-    };
-  }
+  const validationError = validateAddFields(input);
+  if (validationError) return validationError;
 
   const raw = readRoadmapFile(projectPath);
   if (raw === null) return roadmapNotFoundError();
@@ -213,12 +209,12 @@ function handleAdd(projectPath: string, input: ManageRoadmapInput, deps: Roadmap
   }
 
   milestone.features.push({
-    name: input.feature,
-    status: input.status,
+    name: input.feature!,
+    status: input.status!,
     spec: input.spec ?? null,
     plans: input.plans ?? [],
     blockedBy: input.blocked_by ?? [],
-    summary: input.summary,
+    summary: input.summary!,
     assignee: null,
     priority: null,
     externalId: null,

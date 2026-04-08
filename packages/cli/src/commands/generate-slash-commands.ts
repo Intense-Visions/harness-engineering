@@ -15,6 +15,7 @@ import {
   resolveProjectSkillsDir,
   resolveGlobalSkillsDir,
   resolveCommunitySkillsDir,
+  resolveGlobalCommunitySkillsDir,
 } from '../utils/paths';
 import { CLIError, ExitCode, handleError } from '../utils/errors';
 import type { Platform, GenerateOptions, SlashCommandSpec } from '../slash-commands/types';
@@ -57,26 +58,37 @@ async function confirmDeletion(files: string[]): Promise<boolean> {
 }
 
 function resolveSkillSources(opts: GenerateOptions): SkillSource[] {
-  if (opts.skillsDir) {
-    return [{ dir: opts.skillsDir, source: 'project' }];
+  const sources: SkillSource[] = [];
+  const seenPaths = new Set<string>();
+
+  function addSource(dir: string, source: 'project' | 'community' | 'global'): void {
+    const resolved = path.resolve(dir);
+    if (!seenPaths.has(resolved) && fs.existsSync(dir)) {
+      seenPaths.add(resolved);
+      sources.push({ dir, source });
+    }
   }
 
-  const sources: SkillSource[] = [];
+  // --skills-dir is additive: adds an extra source alongside normal resolution
+  if (opts.skillsDir) {
+    addSource(opts.skillsDir, 'community');
+  }
+
   const projectDir = resolveProjectSkillsDir();
   if (projectDir) {
-    sources.push({ dir: projectDir, source: 'project' });
+    addSource(projectDir, 'project');
   }
 
   const communityDir = resolveCommunitySkillsDir();
-  if (fs.existsSync(communityDir)) {
-    sources.push({ dir: communityDir, source: 'community' });
-  }
+  addSource(communityDir, 'community');
+
+  // Global community skills (~/.harness/skills/community/)
+  const globalCommunityDir = resolveGlobalCommunitySkillsDir();
+  addSource(globalCommunityDir, 'community');
 
   if (opts.includeGlobal || sources.length === 0) {
     const globalDir = resolveGlobalSkillsDir();
-    if (!projectDir || path.resolve(globalDir) !== path.resolve(projectDir)) {
-      sources.push({ dir: globalDir, source: 'global' });
-    }
+    addSource(globalDir, 'global');
   }
 
   return sources;

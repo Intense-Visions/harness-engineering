@@ -455,14 +455,11 @@ export class PredictionEngine {
       if (!parseResult.ok) return null;
 
       // Collect all features with specs across all milestones
-      const features: Array<{ name: string; spec: string | null }> = [];
-      for (const milestone of parseResult.value.milestones) {
-        for (const feature of milestone.features) {
-          if (feature.status === 'planned' || feature.status === 'in-progress') {
-            features.push({ name: feature.name, spec: feature.spec });
-          }
-        }
-      }
+      const features = parseResult.value.milestones.flatMap((m) =>
+        m.features
+          .filter((f) => f.status === 'planned' || f.status === 'in-progress')
+          .map((f) => ({ name: f.name, spec: f.spec }))
+      );
 
       if (features.length === 0) return null;
 

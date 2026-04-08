@@ -45,35 +45,26 @@ export default createRule<[], MessageIds>({
       return {};
     }
 
+    function isLayerViolation(importLayer: string): boolean {
+      return (
+        importLayer !== currentLayer && !currentLayerDef.allowedDependencies.includes(importLayer)
+      );
+    }
+
     return {
       ImportDeclaration(node: TSESTree.ImportDeclaration) {
         const importPath = node.source.value;
-
-        // Skip external imports
-        if (!importPath.startsWith('.')) {
-          return;
-        }
+        if (!importPath.startsWith('.')) return;
 
         const resolvedImport = resolveImportPath(importPath, context.filename);
         const importLayer = getLayerForFile(resolvedImport, config.layers!);
+        if (!importLayer) return;
 
-        // Skip if import is not in any layer
-        if (!importLayer) {
-          return;
-        }
-
-        // Check if import is allowed
-        if (
-          importLayer !== currentLayer &&
-          !currentLayerDef.allowedDependencies.includes(importLayer)
-        ) {
+        if (isLayerViolation(importLayer)) {
           context.report({
             node,
             messageId: 'layerViolation',
-            data: {
-              fromLayer: currentLayer,
-              toLayer: importLayer,
-            },
+            data: { fromLayer: currentLayer, toLayer: importLayer },
           });
         }
       },

@@ -46,6 +46,22 @@ Before running checks, look for existing state:
 
 3. If no state file exists, this is a fresh run. Proceed directly to checks.
 
+#### Project Type Detection
+
+Before running any checks, verify this is an npm project:
+
+1. Check whether `package.json` exists at the project root.
+2. If `package.json` does **not** exist, exit immediately with:
+
+   ```
+   This project does not appear to be an npm project (no package.json found).
+   /harness:release-readiness is npm-focused and cannot audit this project type.
+
+   For general project health, use: /harness:verification
+   ```
+
+3. If `package.json` exists, continue to Monorepo Detection.
+
 #### Monorepo Detection
 
 Detect whether the project is a monorepo:

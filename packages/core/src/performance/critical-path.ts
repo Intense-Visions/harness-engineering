@@ -83,6 +83,27 @@ export class CriticalPathResolver {
     }
   }
 
+  /**
+   * Determine the function name from the first non-comment line after a @perf-critical annotation.
+   * Returns null if no matching declaration is found.
+   */
+  private resolveFunctionName(lines: string[], fromIndex: number): string | null {
+    for (let j = fromIndex; j < lines.length; j++) {
+      const nextLine = lines[j]!.trim();
+      if (nextLine === '' || nextLine === '*/' || nextLine === '*') continue;
+      if (nextLine.startsWith('*') || nextLine.startsWith('//')) continue;
+
+      const funcMatch = nextLine.match(FUNCTION_DECL_RE);
+      if (funcMatch?.[1]) return funcMatch[1];
+
+      const constMatch = nextLine.match(CONST_DECL_RE);
+      if (constMatch?.[1]) return constMatch[1];
+
+      return null; // First non-comment line with no match
+    }
+    return null;
+  }
+
   private scanFile(filePath: string, entries: CriticalPathEntry[]): void {
     let content: string;
     try {
@@ -95,35 +116,11 @@ export class CriticalPathResolver {
     const relativePath = path.relative(this.projectRoot, filePath).replace(/\\/g, '/');
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-      if (!line.includes('@perf-critical')) continue;
+      if (!lines[i]!.includes('@perf-critical')) continue;
 
-      // Look at subsequent non-empty lines for a function declaration
-      for (let j = i + 1; j < lines.length; j++) {
-        const nextLine = lines[j]!.trim();
-        if (nextLine === '' || nextLine === '*/' || nextLine === '*') continue;
-
-        // Skip additional comment lines (part of same JSDoc block)
-        if (nextLine.startsWith('*') || nextLine.startsWith('//')) continue;
-
-        const funcMatch = nextLine.match(FUNCTION_DECL_RE);
-        if (funcMatch && funcMatch[1]) {
-          entries.push({
-            file: relativePath,
-            function: funcMatch[1],
-            source: 'annotation',
-          });
-        } else {
-          const constMatch = nextLine.match(CONST_DECL_RE);
-          if (constMatch && constMatch[1]) {
-            entries.push({
-              file: relativePath,
-              function: constMatch[1],
-              source: 'annotation',
-            });
-          }
-        }
-        break;
+      const fnName = this.resolveFunctionName(lines, i + 1);
+      if (fnName) {
+        entries.push({ file: relativePath, function: fnName, source: 'annotation' });
       }
     }
   }

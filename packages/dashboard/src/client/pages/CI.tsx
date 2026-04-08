@@ -88,75 +88,88 @@ function CheckBadge({ name, result, expanded, onToggle }: BadgeProps) {
   );
 }
 
+function buildCheckMap(ciData: CIData | null): Map<string, CheckResult> {
+  const map = new Map<string, CheckResult>();
+  if (!ciData) return map;
+  for (const check of ciData.checks) {
+    map.set(check.name, check);
+  }
+  return map;
+}
+
+async function fetchCIData(
+  setCIData: (d: CIData) => void,
+  setError: (e: string | null) => void,
+  setLoading: (v: boolean) => void
+): Promise<void> {
+  try {
+    const res = await fetch('/api/ci');
+    if (!res.ok) {
+      setError(`HTTP ${res.status}`);
+      return;
+    }
+    const body = (await res.json()) as { data: CIData };
+    setCIData(body.data);
+    setError(null);
+  } catch (e) {
+    setError(e instanceof Error ? e.message : 'Network error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function CIHeader({
+  lastRun,
+  onRefreshSuccess,
+}: {
+  lastRun: string | undefined;
+  onRefreshSuccess: () => void;
+}) {
+  return (
+    <div className="mb-6 flex items-center justify-between">
+      <h1 className="text-2xl font-bold">CI Checks</h1>
+      <div className="flex items-center gap-4">
+        <ActionButton
+          url="/api/actions/refresh-checks"
+          label="Run All Checks"
+          loadingLabel="Running checks..."
+          onSuccess={onRefreshSuccess}
+        />
+        {lastRun && <span className="text-xs text-gray-500">Last checked {timeAgo(lastRun)}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function CI() {
   const [ciData, setCIData] = useState<CIData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const fetchCI = useCallback(async () => {
-    try {
-      const res = await fetch('/api/ci');
-      if (!res.ok) {
-        setError(`HTTP ${res.status}`);
-        return;
-      }
-      const body = (await res.json()) as { data: CIData };
-      setCIData(body.data);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Network error');
-    } finally {
-      setLoading(false);
-    }
+  const refresh = useCallback(() => {
+    void fetchCIData(setCIData, setError, setLoading);
   }, []);
 
   useEffect(() => {
-    void fetchCI();
-  }, [fetchCI]);
+    refresh();
+  }, [refresh]);
 
   const toggleExpanded = (name: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-      }
+      next.has(name) ? next.delete(name) : next.add(name);
       return next;
     });
   };
 
-  const handleRefreshSuccess = useCallback(() => {
-    void fetchCI();
-  }, [fetchCI]);
-
-  const checkMap = new Map<string, CheckResult>();
-  if (ciData) {
-    for (const check of ciData.checks) {
-      checkMap.set(check.name, check);
-    }
-  }
+  const checkMap = buildCheckMap(ciData);
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">CI Checks</h1>
-        <div className="flex items-center gap-4">
-          <ActionButton
-            url="/api/actions/refresh-checks"
-            label="Run All Checks"
-            loadingLabel="Running checks..."
-            onSuccess={handleRefreshSuccess}
-          />
-          {ciData?.lastRun && (
-            <span className="text-xs text-gray-500">Last checked {timeAgo(ciData.lastRun)}</span>
-          )}
-        </div>
-      </div>
+      <CIHeader lastRun={ciData?.lastRun} onRefreshSuccess={refresh} />
 
       {loading && !ciData && <p className="text-sm text-gray-500">Loading check results...</p>}
-
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

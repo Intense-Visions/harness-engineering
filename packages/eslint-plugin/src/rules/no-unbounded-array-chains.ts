@@ -19,6 +19,42 @@ const ARRAY_METHODS = new Set([
   'forEach',
 ]);
 
+function isArrayMethodCall(node: TSESTree.MemberExpression): boolean {
+  return node.property.type === 'Identifier' && ARRAY_METHODS.has(node.property.name);
+}
+
+function isInnerChainLink(node: TSESTree.MemberExpression): boolean {
+  const callExpr = node.parent;
+  if (!callExpr) return false;
+  const parentMember = callExpr.parent;
+  return (
+    parentMember !== null &&
+    parentMember !== undefined &&
+    parentMember.type === 'MemberExpression' &&
+    parentMember.property.type === 'Identifier' &&
+    ARRAY_METHODS.has(parentMember.property.name)
+  );
+}
+
+function countChainLength(node: TSESTree.MemberExpression): number {
+  let length = 1;
+  let current: TSESTree.MemberExpression = node;
+  while (true) {
+    const obj = current.object;
+    if (
+      obj.type !== 'CallExpression' ||
+      obj.callee.type !== 'MemberExpression' ||
+      obj.callee.property.type !== 'Identifier' ||
+      !ARRAY_METHODS.has(obj.callee.property.name)
+    ) {
+      break;
+    }
+    length++;
+    current = obj.callee;
+  }
+  return length;
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-unbounded-array-chains',
   meta: {
@@ -35,49 +71,12 @@ export default createRule<[], MessageIds>({
   create(context) {
     return {
       'CallExpression > MemberExpression.callee'(node: TSESTree.MemberExpression) {
-        // Only care about array method calls
-        if (node.property.type !== 'Identifier' || !ARRAY_METHODS.has(node.property.name)) {
-          return;
-        }
+        if (!isArrayMethodCall(node)) return;
+        if (isInnerChainLink(node)) return;
 
-        // Skip if this call is itself the object of another array method call
-        // (i.e., not the outermost in the chain). Only report on the outermost.
         const callExpr = node.parent!;
-        if (
-          callExpr.parent &&
-          callExpr.parent.type === 'MemberExpression' &&
-          callExpr.parent.property.type === 'Identifier' &&
-          ARRAY_METHODS.has(callExpr.parent.property.name)
-        ) {
-          return;
-        }
-
-        // Count the chain length by walking down through the object
-        let chainLength = 1;
-        let current: TSESTree.Node = node;
-
-        while (true) {
-          const memberExpr = current as TSESTree.MemberExpression;
-          const obj = memberExpr.object;
-
-          if (
-            obj.type === 'CallExpression' &&
-            obj.callee.type === 'MemberExpression' &&
-            obj.callee.property.type === 'Identifier' &&
-            ARRAY_METHODS.has(obj.callee.property.name)
-          ) {
-            chainLength++;
-            current = obj.callee;
-          } else {
-            break;
-          }
-        }
-
-        if (chainLength >= 3) {
-          context.report({
-            node: callExpr,
-            messageId: 'unboundedArrayChain',
-          });
+        if (countChainLength(node) >= 3) {
+          context.report({ node: callExpr, messageId: 'unboundedArrayChain' });
         }
       },
     };

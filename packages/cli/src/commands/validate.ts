@@ -102,20 +102,36 @@ export async function runValidate(
   return Ok(result);
 }
 
+function resolveValidateMode(globalOpts: Record<string, unknown>): OutputModeType {
+  if (globalOpts.json) return OutputMode.JSON;
+  if (globalOpts.quiet) return OutputMode.QUIET;
+  if (globalOpts.verbose) return OutputMode.VERBOSE;
+  return OutputMode.TEXT;
+}
+
+async function printCrossCheckWarnings(mode: OutputModeType): Promise<void> {
+  const { runCrossCheck } = await import('./validate-cross-check');
+  const cwd = process.cwd();
+  const crossResult = await runCrossCheck({
+    specsDir: path.join(cwd, 'docs', 'specs'),
+    plansDir: path.join(cwd, 'docs', 'plans'),
+    projectPath: cwd,
+  });
+  if (!crossResult.ok || crossResult.value.warnings === 0) return;
+  if (mode === OutputMode.JSON) return;
+  console.log('\nCross-artifact validation:');
+  for (const w of crossResult.value.planToImpl) console.log(`  ! ${w}`);
+  for (const w of crossResult.value.staleness) console.log(`  ! ${w}`);
+  console.log(`\n  ${crossResult.value.warnings} warnings`);
+}
+
 export function createValidateCommand(): Command {
   const command = new Command('validate')
     .description('Run all validation checks')
     .option('--cross-check', 'Run cross-artifact consistency validation')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
+      const mode = resolveValidateMode(globalOpts);
       const formatter = new OutputFormatter(mode);
 
       const result = await runValidate({
@@ -126,39 +142,18 @@ export function createValidateCommand(): Command {
       });
 
       if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
+        if (mode === OutputMode.JSON) console.log(JSON.stringify({ error: result.error.message }));
+        else logger.error(result.error.message);
         process.exit(result.error.exitCode);
       }
 
-      // Cross-artifact validation
-      if (opts.crossCheck) {
-        const { runCrossCheck } = await import('./validate-cross-check');
-        const cwd = process.cwd();
-        const specsDir = path.join(cwd, 'docs', 'specs');
-        const plansDir = path.join(cwd, 'docs', 'plans');
-
-        const crossResult = await runCrossCheck({ specsDir, plansDir, projectPath: cwd });
-        if (crossResult.ok && crossResult.value.warnings > 0) {
-          console.log('\nCross-artifact validation:');
-          for (const w of crossResult.value.planToImpl) console.log(`  ! ${w}`);
-          for (const w of crossResult.value.staleness) console.log(`  ! ${w}`);
-          console.log(`\n  ${crossResult.value.warnings} warnings`);
-        }
-      }
+      if (opts.crossCheck) await printCrossCheckWarnings(mode);
 
       const output = formatter.formatValidation({
         valid: result.value.valid,
         issues: result.value.issues,
       });
-
-      if (output) {
-        console.log(output);
-      }
-
+      if (output) console.log(output);
       process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
     });
 

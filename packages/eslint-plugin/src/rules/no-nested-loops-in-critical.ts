@@ -36,23 +36,28 @@ export default createRule<[], MessageIds>({
       return criticalStack.length > 0 && criticalStack[criticalStack.length - 1] === true;
     }
 
+    function getAnnotationTarget(
+      node:
+        | TSESTree.FunctionDeclaration
+        | TSESTree.FunctionExpression
+        | TSESTree.ArrowFunctionExpression
+    ): TSESTree.Node {
+      const parentType = node.parent?.type;
+      if (parentType === 'ExportNamedDeclaration' || parentType === 'VariableDeclaration') {
+        return node.parent as TSESTree.Node;
+      }
+      return node;
+    }
+
     function hasCriticalAnnotation(
       node:
         | TSESTree.FunctionDeclaration
         | TSESTree.FunctionExpression
         | TSESTree.ArrowFunctionExpression
     ): boolean {
-      // Check the source lines immediately before this function for @perf-critical.
-      // For JSDoc: `/** @perf-critical */` is typically 1 line before.
-      // For line comment: `// @perf-critical` is 1 line before.
-      const target =
-        node.parent?.type === 'ExportNamedDeclaration' ||
-        node.parent?.type === 'VariableDeclaration'
-          ? node.parent
-          : node;
+      const target = getAnnotationTarget(node);
       const startLine = target.loc.start.line; // 1-indexed
       const lines = sourceText.split('\n');
-      // Only check the line immediately before the function (or same line for inline)
       for (let i = Math.max(0, startLine - 2); i < startLine; i++) {
         if (lines[i]?.includes('@perf-critical')) return true;
       }

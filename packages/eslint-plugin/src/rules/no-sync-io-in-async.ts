@@ -20,6 +20,20 @@ const SYNC_FS_METHODS = new Set([
   'accessSync',
 ]);
 
+function getSyncMethodName(node: TSESTree.CallExpression): string | undefined {
+  if (node.callee.type === 'Identifier' && SYNC_FS_METHODS.has(node.callee.name)) {
+    return node.callee.name;
+  }
+  if (
+    node.callee.type === 'MemberExpression' &&
+    node.callee.property.type === 'Identifier' &&
+    SYNC_FS_METHODS.has(node.callee.property.name)
+  ) {
+    return node.callee.property.name;
+  }
+  return undefined;
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-sync-io-in-async',
   meta: {
@@ -68,29 +82,9 @@ export default createRule<[], MessageIds>({
 
       CallExpression(node: TSESTree.CallExpression) {
         if (asyncDepth === 0) return;
-
-        let name: string | undefined;
-
-        // Handle: readFileSync(...)
-        if (node.callee.type === 'Identifier' && SYNC_FS_METHODS.has(node.callee.name)) {
-          name = node.callee.name;
-        }
-
-        // Handle: fs.readFileSync(...)
-        if (
-          node.callee.type === 'MemberExpression' &&
-          node.callee.property.type === 'Identifier' &&
-          SYNC_FS_METHODS.has(node.callee.property.name)
-        ) {
-          name = node.callee.property.name;
-        }
-
+        const name = getSyncMethodName(node);
         if (name) {
-          context.report({
-            node,
-            messageId: 'syncIoInAsync',
-            data: { name },
-          });
+          context.report({ node, messageId: 'syncIoInAsync', data: { name } });
         }
       },
     };

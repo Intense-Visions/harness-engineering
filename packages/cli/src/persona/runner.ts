@@ -61,6 +61,90 @@ function skipRemaining(activeSteps: Step[], fromIndex: number, report: PersonaRu
   }
 }
 
+interface StepOutcome {
+  stepReport: Omit<StepReport, 'durationMs'>;
+  halt?: 'fail' | 'partial';
+}
+
+async function executeCommandStep(
+  command: string,
+  remainingTime: number,
+  context: StepExecutionContext
+): Promise<StepOutcome> {
+  const timeoutResult: Result<never, Error> = {
+    ok: false,
+    error: new Error(TIMEOUT_ERROR_MESSAGE),
+  };
+  const result = await Promise.race([
+    context.commandExecutor(command),
+    new Promise<Result<never, Error>>((resolve) =>
+      setTimeout(() => resolve(timeoutResult), remainingTime)
+    ),
+  ]);
+
+  if (result.ok) {
+    return { stepReport: { name: command, type: 'command', status: 'pass', result: result.value } };
+  }
+  if (result.error.message === TIMEOUT_ERROR_MESSAGE) {
+    return {
+      stepReport: { name: command, type: 'command', status: 'skipped', error: 'timed out' },
+      halt: 'partial',
+    };
+  }
+  return {
+    stepReport: { name: command, type: 'command', status: 'fail', error: result.error.message },
+    halt: 'fail',
+  };
+}
+
+async function executeSkillStep(
+  step: Extract<import('./schema').Step, { skill: string }>,
+  trigger: import('./schema').TriggerContext,
+  remainingTime: number,
+  context: StepExecutionContext,
+  handoff: import('./trigger-detector').HandoffContext | undefined
+): Promise<StepOutcome> {
+  const SKILL_TIMEOUT_RESULT: SkillExecutionResult = {
+    status: 'fail',
+    output: 'timed out',
+    durationMs: 0,
+  };
+  const skillContext: SkillExecutionContext = {
+    trigger,
+    projectPath: context.projectPath,
+    outputMode: step.output ?? 'auto',
+    ...(handoff ? { handoff } : {}),
+  };
+  const result = await Promise.race([
+    context.skillExecutor(step.skill, skillContext),
+    new Promise<SkillExecutionResult>((resolve) =>
+      setTimeout(() => resolve(SKILL_TIMEOUT_RESULT), remainingTime)
+    ),
+  ]);
+
+  if (result === SKILL_TIMEOUT_RESULT) {
+    return {
+      stepReport: { name: step.skill, type: 'skill', status: 'skipped', error: 'timed out' },
+      halt: 'partial',
+    };
+  }
+  if (result.status === 'pass') {
+    return {
+      stepReport: {
+        name: step.skill,
+        type: 'skill',
+        status: 'pass',
+        result: result.output,
+        ...(result.artifactPath ? { artifactPath: result.artifactPath } : {}),
+      },
+    };
+  }
+  return {
+    stepReport: { name: step.skill, type: 'skill', status: 'fail', error: result.output },
+    halt: 'fail',
+  };
+}
+
 export async function runPersona(
   persona: Persona,
   context: StepExecutionContext
@@ -100,110 +184,18 @@ export async function runPersona(
     const stepStart = Date.now();
     const remainingTime = timeout - (Date.now() - startTime);
 
-    if ('command' in step) {
-      // Command step
-      const result = await Promise.race([
-        context.commandExecutor(step.command),
-        new Promise<Result<never, Error>>((resolve) =>
-          setTimeout(
-            () =>
-              resolve({
-                ok: false,
-                error: new Error(TIMEOUT_ERROR_MESSAGE),
-              } as Result<never, Error>),
-            remainingTime
-          )
-        ),
-      ]);
+    const outcome =
+      'command' in step
+        ? await executeCommandStep(step.command, remainingTime, context)
+        : await executeSkillStep(step, resolvedTrigger, remainingTime, context, handoff);
 
-      const durationMs = Date.now() - stepStart;
+    const durationMs = Date.now() - stepStart;
+    report.steps.push({ ...outcome.stepReport, durationMs });
 
-      if (result.ok) {
-        report.steps.push({
-          name: step.command,
-          type: 'command',
-          status: 'pass',
-          result: result.value,
-          durationMs,
-        });
-      } else if (result.error.message === TIMEOUT_ERROR_MESSAGE) {
-        report.steps.push({
-          name: step.command,
-          type: 'command',
-          status: 'skipped',
-          error: 'timed out',
-          durationMs,
-        });
-        report.status = 'partial';
-        skipRemaining(activeSteps, i + 1, report);
-        break;
-      } else {
-        report.steps.push({
-          name: step.command,
-          type: 'command',
-          status: 'fail',
-          error: result.error.message,
-          durationMs,
-        });
-        report.status = 'fail';
-        skipRemaining(activeSteps, i + 1, report);
-        break;
-      }
-    } else {
-      // Skill step
-      const skillContext: SkillExecutionContext = {
-        trigger: resolvedTrigger,
-        projectPath: context.projectPath,
-        outputMode: step.output ?? 'auto',
-        ...(handoff ? { handoff } : {}),
-      };
-
-      const SKILL_TIMEOUT_RESULT: SkillExecutionResult = {
-        status: 'fail',
-        output: 'timed out',
-        durationMs: 0,
-      };
-
-      const result = await Promise.race([
-        context.skillExecutor(step.skill, skillContext),
-        new Promise<SkillExecutionResult>((resolve) =>
-          setTimeout(() => resolve(SKILL_TIMEOUT_RESULT), remainingTime)
-        ),
-      ]);
-      const durationMs = Date.now() - stepStart;
-
-      if (result === SKILL_TIMEOUT_RESULT) {
-        report.steps.push({
-          name: step.skill,
-          type: 'skill',
-          status: 'skipped',
-          error: 'timed out',
-          durationMs,
-        });
-        report.status = 'partial';
-        skipRemaining(activeSteps, i + 1, report);
-        break;
-      } else if (result.status === 'pass') {
-        report.steps.push({
-          name: step.skill,
-          type: 'skill',
-          status: 'pass',
-          result: result.output,
-          ...(result.artifactPath ? { artifactPath: result.artifactPath } : {}),
-          durationMs,
-        });
-      } else {
-        report.steps.push({
-          name: step.skill,
-          type: 'skill',
-          status: 'fail',
-          error: result.output,
-          durationMs,
-        });
-        report.status = 'fail';
-        skipRemaining(activeSteps, i + 1, report);
-        break;
-      }
+    if (outcome.halt) {
+      report.status = outcome.halt;
+      skipRemaining(activeSteps, i + 1, report);
+      break;
     }
   }
 

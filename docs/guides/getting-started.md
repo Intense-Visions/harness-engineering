@@ -110,6 +110,29 @@ Defined in `harness.config.json`, enforced by `@harness-engineering/no-layer-vio
 
 485 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
 
+#### Installing External Skills
+
+Skills can be installed from npm, local directories, or GitHub repositories:
+
+```bash
+# Install a single skill from npm
+harness install capillary-ui
+
+# Install all skills from a GitHub repo — globally (available to every project)
+harness install . --from github:owner/harness-capillary --global
+
+# Install from a local directory (auto-discovers all skills)
+harness install . --from /path/to/harness-capillary/skills --global
+```
+
+**Global installs** (`--global`) place skills in `~/.harness/skills/community/` and are available to every harness project on your machine — no per-project setup. After installing, regenerate slash commands to pick up the new skills:
+
+```bash
+harness generate
+```
+
+This makes skills available as slash commands, e.g. `/harness:capillary-vulcan`. Skills from external projects can use any namespace via `command_name` in their `skill.yaml`.
+
 ### Personas
 
 Twelve agent personas that run on your project:

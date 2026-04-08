@@ -59,9 +59,16 @@ export default createRule<Options, MessageIds>({
       }
     }
 
+    function getVariableExports(
+      decl: TSESTree.VariableDeclaration
+    ): Array<{ kind: string; name: string }> {
+      return decl.declarations
+        .filter((d) => (d.id.type as AST_NODE_TYPES) === AST_NODE_TYPES.Identifier)
+        .map((d) => ({ kind: 'variable', name: (d.id as TSESTree.Identifier).name }));
+    }
+
     function getExportInfo(decl: TSESTree.Node): Array<{ kind: string; name: string }> {
       const declType = decl.type as AST_NODE_TYPES;
-
       if (declType === AST_NODE_TYPES.FunctionDeclaration) {
         const fn = decl as TSESTree.FunctionDeclaration;
         return fn.id ? [{ kind: 'function', name: fn.id.name }] : [];
@@ -71,10 +78,7 @@ export default createRule<Options, MessageIds>({
         return cls.id ? [{ kind: 'class', name: cls.id.name }] : [];
       }
       if (declType === AST_NODE_TYPES.VariableDeclaration) {
-        const varDecl = decl as TSESTree.VariableDeclaration;
-        return varDecl.declarations
-          .filter((d) => (d.id.type as AST_NODE_TYPES) === AST_NODE_TYPES.Identifier)
-          .map((d) => ({ kind: 'variable', name: (d.id as TSESTree.Identifier).name }));
+        return getVariableExports(decl as TSESTree.VariableDeclaration);
       }
       if (declType === AST_NODE_TYPES.TSTypeAliasDeclaration && !options.ignoreTypes) {
         return [{ kind: 'type', name: (decl as TSESTree.TSTypeAliasDeclaration).id.name }];

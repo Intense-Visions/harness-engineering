@@ -166,18 +166,60 @@ function BlastRadiusPanel({
   );
 }
 
-export function Impact() {
+function SearchBar({
+  searchText,
+  depth,
+  onSearchTextChange,
+  onDepthChange,
+  onSubmit,
+}: {
+  searchText: string;
+  depth: number;
+  onSearchTextChange: (v: string) => void;
+  onDepthChange: (v: number) => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <div className="mb-6 flex items-center gap-4">
+      <form onSubmit={onSubmit} className="flex flex-1 gap-2">
+        <input
+          type="text"
+          value={searchText}
+          onChange={(e) => onSearchTextChange(e.target.value)}
+          placeholder="Search node by name or path..."
+          className="flex-1 rounded border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:border-gray-500 focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="rounded bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700"
+        >
+          Search
+        </button>
+      </form>
+      <label className="flex items-center gap-2 text-sm text-gray-400">
+        Depth
+        <select
+          value={depth}
+          onChange={(e) => onDepthChange(Number(e.target.value))}
+          className="rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-sm text-gray-200"
+        >
+          {DEPTH_OPTIONS.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
+function useAnomalies() {
   const [anomalies, setAnomalies] = useState<AnomalyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [searchText, setSearchText] = useState('');
-  const [depth, setDepth] = useState(DEFAULT_DEPTH);
 
-  const blastRadius = useApi<{ data: BlastRadiusResult }>('/api/impact/blast-radius');
-
-  // Fetch anomalies on mount
-  const fetchAnomalies = useCallback(async () => {
+  const fetch_ = useCallback(async () => {
     try {
       const res = await fetch('/api/impact/anomalies');
       if (!res.ok) {
@@ -195,8 +237,19 @@ export function Impact() {
   }, []);
 
   useEffect(() => {
-    void fetchAnomalies();
-  }, [fetchAnomalies]);
+    void fetch_();
+  }, [fetch_]);
+
+  return { anomalies, loading, fetchError };
+}
+
+export function Impact() {
+  const { anomalies, loading, fetchError } = useAnomalies();
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [depth, setDepth] = useState(DEFAULT_DEPTH);
+
+  const blastRadius = useApi<{ data: BlastRadiusResult }>('/api/impact/blast-radius');
 
   const queryBlastRadius = useCallback(
     (nodeId: string) => {
@@ -210,9 +263,7 @@ export function Impact() {
     (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = searchText.trim();
-      if (trimmed) {
-        queryBlastRadius(trimmed);
-      }
+      if (trimmed) queryBlastRadius(trimmed);
     },
     [searchText, queryBlastRadius]
   );
@@ -225,7 +276,6 @@ export function Impact() {
     [queryBlastRadius]
   );
 
-  // Sort anomalies for display
   const sortedAPs = anomalies
     ? [...anomalies.articulationPoints].sort((a, b) => b.dependentCount - a.dependentCount)
     : [];
@@ -240,37 +290,13 @@ export function Impact() {
     <div>
       <h1 className="mb-6 text-2xl font-bold">Impact Explorer</h1>
 
-      <div className="mb-6 flex items-center gap-4">
-        <form onSubmit={handleSearch} className="flex flex-1 gap-2">
-          <input
-            type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search node by name or path..."
-            className="flex-1 rounded border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:border-gray-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700"
-          >
-            Search
-          </button>
-        </form>
-        <label className="flex items-center gap-2 text-sm text-gray-400">
-          Depth
-          <select
-            value={depth}
-            onChange={(e) => setDepth(Number(e.target.value))}
-            className="rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-sm text-gray-200"
-          >
-            {DEPTH_OPTIONS.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <SearchBar
+        searchText={searchText}
+        depth={depth}
+        onSearchTextChange={setSearchText}
+        onDepthChange={setDepth}
+        onSubmit={handleSearch}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <AnomalyList

@@ -59,55 +59,13 @@ export class GitIngestor {
 
     const commits = this.parseGitLog(output);
 
-    // Create commit nodes
     for (const commit of commits) {
-      const nodeId = `commit:${commit.shortHash}`;
-      this.store.addNode({
-        id: nodeId,
-        type: 'commit',
-        name: commit.message,
-        metadata: {
-          author: commit.author,
-          email: commit.email,
-          date: commit.date,
-          hash: commit.hash,
-        },
-      });
-      nodesAdded++;
-
-      // Create triggered_by edges from file nodes to commit nodes
-      for (const file of commit.files) {
-        const fileNodeId = `file:${file}`;
-        const existingNode = this.store.getNode(fileNodeId);
-        if (existingNode) {
-          this.store.addEdge({
-            from: fileNodeId,
-            to: nodeId,
-            type: 'triggered_by',
-          });
-          edgesAdded++;
-        }
-      }
+      const counts = this.ingestCommit(commit);
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
     }
 
-    // Compute and create co_changes_with edges
-    const coChanges = this.computeCoChanges(commits);
-    for (const { fileA, fileB, count } of coChanges) {
-      const fileAId = `file:${fileA}`;
-      const fileBId = `file:${fileB}`;
-      // Only create edges if both file nodes exist
-      const nodeA = this.store.getNode(fileAId);
-      const nodeB = this.store.getNode(fileBId);
-      if (nodeA && nodeB) {
-        this.store.addEdge({
-          from: fileAId,
-          to: fileBId,
-          type: 'co_changes_with',
-          metadata: { count },
-        });
-        edgesAdded++;
-      }
-    }
+    edgesAdded += this.ingestCoChanges(commits);
 
     return {
       nodesAdded,
@@ -117,6 +75,50 @@ export class GitIngestor {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  private ingestCommit(commit: ParsedCommit): { nodesAdded: number; edgesAdded: number } {
+    const nodeId = `commit:${commit.shortHash}`;
+    this.store.addNode({
+      id: nodeId,
+      type: 'commit',
+      name: commit.message,
+      metadata: {
+        author: commit.author,
+        email: commit.email,
+        date: commit.date,
+        hash: commit.hash,
+      },
+    });
+
+    let edgesAdded = 0;
+    for (const file of commit.files) {
+      const fileNodeId = `file:${file}`;
+      if (this.store.getNode(fileNodeId)) {
+        this.store.addEdge({ from: fileNodeId, to: nodeId, type: 'triggered_by' });
+        edgesAdded++;
+      }
+    }
+
+    return { nodesAdded: 1, edgesAdded };
+  }
+
+  private ingestCoChanges(commits: readonly ParsedCommit[]): number {
+    let edgesAdded = 0;
+    for (const { fileA, fileB, count } of this.computeCoChanges(commits)) {
+      const fileAId = `file:${fileA}`;
+      const fileBId = `file:${fileB}`;
+      if (this.store.getNode(fileAId) && this.store.getNode(fileBId)) {
+        this.store.addEdge({
+          from: fileAId,
+          to: fileBId,
+          type: 'co_changes_with',
+          metadata: { count },
+        });
+        edgesAdded++;
+      }
+    }
+    return edgesAdded;
   }
 
   private async runGit(rootDir: string, args: string[]): Promise<string> {

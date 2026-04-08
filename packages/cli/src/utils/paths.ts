@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -109,6 +110,23 @@ export function resolveCommunitySkillsDir(platform: string = 'claude-code'): str
     return path.join(agentsDir, 'skills', 'community', platform);
   }
   return path.join(__dirname, 'agents', 'skills', 'community', platform);
+}
+
+/**
+ * Resolve the global community skills directory.
+ * Global community skills live under ~/.harness/skills/community/{platform}/
+ * and are available to all harness projects on this machine.
+ */
+export function resolveGlobalCommunitySkillsDir(platform: string = 'claude-code'): string {
+  return path.join(os.homedir(), '.harness', 'skills', 'community', platform);
+}
+
+/**
+ * Resolve the global community skills base directory (no platform suffix).
+ * Used by the install command to place skills for multiple platforms.
+ */
+export function resolveGlobalCommunityBaseDir(): string {
+  return path.join(os.homedir(), '.harness', 'skills', 'community');
 }
 
 /**

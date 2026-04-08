@@ -165,6 +165,48 @@ export async function runCheckArch(
   });
 }
 
+function resolveOutputMode(globalOpts: Record<string, unknown>): OutputModeType {
+  if (globalOpts.json) return OutputMode.JSON;
+  if (globalOpts.quiet) return OutputMode.QUIET;
+  if (globalOpts.verbose) return OutputMode.VERBOSE;
+  return OutputMode.TEXT;
+}
+
+function buildArchIssues(value: CheckArchResult) {
+  return [
+    ...value.newViolations.map((v) => ({
+      file: v.file,
+      message: `New violation [${v.severity}]: ${v.detail}`,
+    })),
+    ...value.thresholdViolations.map((v) => ({
+      file: v.file,
+      message: `Threshold exceeded: ${v.detail}`,
+    })),
+    ...value.regressions.map((r) => ({
+      message: `Regression in ${r.category}: ${r.baselineValue} -> ${r.currentValue} (+${r.delta})`,
+    })),
+  ];
+}
+
+function printArchResult(
+  value: CheckArchResult,
+  mode: OutputModeType,
+  formatter: OutputFormatter
+): void {
+  if (mode === OutputMode.JSON) {
+    console.log(JSON.stringify(value, null, 2));
+    return;
+  }
+  if (value.resolvedViolations.length > 0 && mode !== OutputMode.QUIET) {
+    logger.success(`${value.resolvedViolations.length} violation(s) resolved since baseline.`);
+  }
+  const output = formatter.formatValidation({
+    valid: value.passed,
+    issues: buildArchIssues(value),
+  });
+  if (output) console.log(output);
+}
+
 export function createCheckArchCommand(): Command {
   const command = new Command('check-arch')
     .description('Check architecture assertions against baseline and thresholds')
@@ -172,14 +214,7 @@ export function createCheckArchCommand(): Command {
     .option('--module <path>', 'Check a single module')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
+      const mode = resolveOutputMode(globalOpts);
       const formatter = new OutputFormatter(mode);
 
       const result = await runCheckArch({
@@ -190,66 +225,22 @@ export function createCheckArchCommand(): Command {
       });
 
       if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
+        if (mode === OutputMode.JSON) console.log(JSON.stringify({ error: result.error.message }));
+        else logger.error(result.error.message);
         process.exit(result.error.exitCode);
       }
 
       const value = result.value;
-
-      // Emit warning if in threshold-only mode
-      if (value.warning && mode !== OutputMode.JSON) {
-        logger.warn(value.warning);
-      }
+      if (value.warning && mode !== OutputMode.JSON) logger.warn(value.warning);
 
       if (value.baselineUpdated) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ baselineUpdated: true }));
-        } else {
-          logger.success('Baseline updated successfully.');
-        }
+        if (mode === OutputMode.JSON) console.log(JSON.stringify({ baselineUpdated: true }));
+        else logger.success('Baseline updated successfully.');
         process.exit(ExitCode.SUCCESS);
         return;
       }
 
-      // Build issues list for formatter
-      const issues = [
-        ...value.newViolations.map((v) => ({
-          file: v.file,
-          message: `New violation [${v.severity}]: ${v.detail}`,
-        })),
-        ...value.thresholdViolations.map((v) => ({
-          file: v.file,
-          message: `Threshold exceeded: ${v.detail}`,
-        })),
-        ...value.regressions.map((r) => ({
-          message: `Regression in ${r.category}: ${r.baselineValue} -> ${r.currentValue} (+${r.delta})`,
-        })),
-      ];
-
-      if (mode === OutputMode.JSON) {
-        console.log(JSON.stringify(value, null, 2));
-      } else {
-        // Show resolved violations as positive feedback
-        if (value.resolvedViolations.length > 0 && mode !== OutputMode.QUIET) {
-          logger.success(
-            `${value.resolvedViolations.length} violation(s) resolved since baseline.`
-          );
-        }
-
-        const output = formatter.formatValidation({
-          valid: value.passed,
-          issues,
-        });
-
-        if (output) {
-          console.log(output);
-        }
-      }
-
+      printArchResult(value, mode, formatter);
       process.exit(value.passed ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
     });
 
