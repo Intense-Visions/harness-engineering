@@ -145,6 +145,53 @@ function registerSessionsCommand(usage: Command): void {
     });
 }
 
+type SessionRecord = Awaited<
+  ReturnType<typeof import('@harness-engineering/core').aggregateBySession>
+>[number];
+
+function reportSessionNotFound(id: string, sessionData: SessionRecord[], useJson: boolean): void {
+  // Fuzzy match: find sessions containing the given id as substring
+  const fuzzy = sessionData.filter(
+    (s) => s.sessionId.includes(id) || id.includes(s.sessionId.slice(0, 8))
+  );
+  const suggestions = fuzzy.slice(0, 3).map((s) => s.sessionId);
+  const errMsg = `Session "${id}" not found.`;
+
+  if (useJson) {
+    console.log(JSON.stringify({ error: errMsg, suggestions }));
+    return;
+  }
+
+  logger.error(errMsg);
+  if (suggestions.length > 0) {
+    logger.info('Did you mean:');
+    for (const s of suggestions) {
+      logger.info(`  ${s}`);
+    }
+  }
+}
+
+function printSessionDetail(match: SessionRecord): void {
+  logger.info(`Session: ${match.sessionId}`);
+  logger.info(`Started: ${match.firstTimestamp}`);
+  logger.info(`Ended:   ${match.lastTimestamp}`);
+  logger.info(`Model:   ${match.model ?? 'unknown'}`);
+  logger.info(`Source:  ${match.source}`);
+  logger.info('');
+  logger.info('Token Breakdown:');
+  logger.info(`  Input tokens:          ${formatTokenCount(match.tokens.inputTokens)}`);
+  logger.info(`  Output tokens:         ${formatTokenCount(match.tokens.outputTokens)}`);
+  logger.info(`  Total tokens:          ${formatTokenCount(match.tokens.totalTokens)}`);
+  if (match.cacheReadTokens != null) {
+    logger.info(`  Cache read tokens:     ${formatTokenCount(match.cacheReadTokens)}`);
+  }
+  if (match.cacheCreationTokens != null) {
+    logger.info(`  Cache creation tokens: ${formatTokenCount(match.cacheCreationTokens)}`);
+  }
+  logger.info('');
+  logger.info(`Cost: ${formatMicroUSD(match.costMicroUSD)}`);
+}
+
 function registerSessionCommand(usage: Command): void {
   usage
     .command('session <id>')
@@ -160,30 +207,7 @@ function registerSessionCommand(usage: Command): void {
       const match = sessionData.find((s) => s.sessionId === id);
 
       if (!match) {
-        // Fuzzy match: find sessions containing the given id as substring
-        const fuzzy = sessionData.filter(
-          (s) => s.sessionId.includes(id) || id.includes(s.sessionId.slice(0, 8))
-        );
-
-        const errMsg = `Session "${id}" not found.`;
-        if (fuzzy.length > 0) {
-          const suggestions = fuzzy.slice(0, 3).map((s) => s.sessionId);
-          if (globalOpts.json) {
-            console.log(JSON.stringify({ error: errMsg, suggestions }));
-          } else {
-            logger.error(errMsg);
-            logger.info('Did you mean:');
-            for (const s of suggestions) {
-              logger.info(`  ${s}`);
-            }
-          }
-        } else {
-          if (globalOpts.json) {
-            console.log(JSON.stringify({ error: errMsg, suggestions: [] }));
-          } else {
-            logger.error(errMsg);
-          }
-        }
+        reportSessionNotFound(id, sessionData, globalOpts.json);
         process.exitCode = 1;
         return;
       }
@@ -193,24 +217,7 @@ function registerSessionCommand(usage: Command): void {
         return;
       }
 
-      logger.info(`Session: ${match.sessionId}`);
-      logger.info(`Started: ${match.firstTimestamp}`);
-      logger.info(`Ended:   ${match.lastTimestamp}`);
-      logger.info(`Model:   ${match.model ?? 'unknown'}`);
-      logger.info(`Source:  ${match.source}`);
-      logger.info('');
-      logger.info('Token Breakdown:');
-      logger.info(`  Input tokens:          ${formatTokenCount(match.tokens.inputTokens)}`);
-      logger.info(`  Output tokens:         ${formatTokenCount(match.tokens.outputTokens)}`);
-      logger.info(`  Total tokens:          ${formatTokenCount(match.tokens.totalTokens)}`);
-      if (match.cacheReadTokens != null) {
-        logger.info(`  Cache read tokens:     ${formatTokenCount(match.cacheReadTokens)}`);
-      }
-      if (match.cacheCreationTokens != null) {
-        logger.info(`  Cache creation tokens: ${formatTokenCount(match.cacheCreationTokens)}`);
-      }
-      logger.info('');
-      logger.info(`Cost: ${formatMicroUSD(match.costMicroUSD)}`);
+      printSessionDetail(match);
     });
 }
 

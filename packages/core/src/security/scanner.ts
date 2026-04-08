@@ -115,6 +115,77 @@ export class SecurityScanner {
     return this.scanLinesWithRules(lines, applicableRules, filePath, startLine);
   }
 
+  /** Build a finding for a suppression comment that is missing its justification. */
+  private buildSuppressionFinding(
+    rule: SecurityRule,
+    filePath: string,
+    lineNumber: number,
+    line: string
+  ): SecurityFinding {
+    return {
+      ruleId: rule.id,
+      ruleName: rule.name,
+      category: rule.category,
+      severity: this.config.strict ? 'error' : 'warning',
+      confidence: 'high',
+      file: filePath,
+      line: lineNumber,
+      match: line.trim(),
+      context: line,
+      message: `Suppression of ${rule.id} requires justification: // harness-ignore ${rule.id}: <reason>`,
+      remediation: `Add justification after colon: // harness-ignore ${rule.id}: false positive because ...`,
+    };
+  }
+
+  /** Check one line against a rule's patterns; return a finding or null. */
+  private matchRuleLine(
+    rule: SecurityRule,
+    resolved: string,
+    filePath: string,
+    lineNumber: number,
+    line: string
+  ): SecurityFinding | null {
+    for (const pattern of rule.patterns) {
+      pattern.lastIndex = 0; // Reset regex lastIndex for global/sticky patterns
+      if (!pattern.test(line)) continue;
+      return {
+        ruleId: rule.id,
+        ruleName: rule.name,
+        category: rule.category,
+        severity: resolved as SecurityFinding['severity'],
+        confidence: rule.confidence,
+        file: filePath,
+        line: lineNumber,
+        match: line.trim(),
+        context: line,
+        message: rule.message,
+        remediation: rule.remediation,
+        ...(rule.references ? { references: rule.references } : {}),
+      };
+    }
+    return null;
+  }
+
+  /** Scan a single line against a resolved rule; push any findings into the array. */
+  private scanLineForRule(
+    rule: SecurityRule,
+    resolved: string,
+    line: string,
+    lineNumber: number,
+    filePath: string,
+    findings: SecurityFinding[]
+  ): void {
+    const suppressionMatch = parseHarnessIgnore(line, rule.id);
+    if (suppressionMatch) {
+      if (!suppressionMatch.justification) {
+        findings.push(this.buildSuppressionFinding(rule, filePath, lineNumber, line));
+      }
+      return;
+    }
+    const finding = this.matchRuleLine(rule, resolved, filePath, lineNumber, line);
+    if (finding) findings.push(finding);
+  }
+
   /**
    * Core scanning loop shared by scanContent and scanContentForFile.
    * Evaluates each rule against each line, handling suppression (FP gate)
@@ -135,54 +206,10 @@ export class SecurityScanner {
         this.config.rules ?? {},
         this.config.strict
       );
-
       if (resolved === 'off') continue;
 
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i] ?? '';
-
-        // FP verification gate: suppression requires justification
-        const suppressionMatch = parseHarnessIgnore(line, rule.id);
-        if (suppressionMatch) {
-          if (!suppressionMatch.justification) {
-            findings.push({
-              ruleId: rule.id,
-              ruleName: rule.name,
-              category: rule.category,
-              severity: this.config.strict ? 'error' : 'warning',
-              confidence: 'high',
-              file: filePath,
-              line: startLine + i,
-              match: line.trim(),
-              context: line,
-              message: `Suppression of ${rule.id} requires justification: // harness-ignore ${rule.id}: <reason>`,
-              remediation: `Add justification after colon: // harness-ignore ${rule.id}: false positive because ...`,
-            });
-          }
-          continue;
-        }
-
-        for (const pattern of rule.patterns) {
-          // Reset regex lastIndex for global/sticky patterns
-          pattern.lastIndex = 0;
-          if (pattern.test(line)) {
-            findings.push({
-              ruleId: rule.id,
-              ruleName: rule.name,
-              category: rule.category,
-              severity: resolved as SecurityFinding['severity'],
-              confidence: rule.confidence,
-              file: filePath,
-              line: startLine + i,
-              match: line.trim(),
-              context: line,
-              message: rule.message,
-              remediation: rule.remediation,
-              ...(rule.references ? { references: rule.references } : {}),
-            });
-            break; // One finding per rule per line
-          }
-        }
+        this.scanLineForRule(rule, resolved, lines[i] ?? '', startLine + i, filePath, findings);
       }
     }
 

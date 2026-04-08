@@ -74,6 +74,34 @@ function normalizePath(filePath: string, projectRoot: string): string {
   return normalized;
 }
 
+function resolveImportPath(currentFile: string, importPath: string): string {
+  const dir = path.dirname(currentFile);
+  let resolved = path.join(dir, importPath).replace(/\\/g, '/');
+  if (!resolved.match(/\.(ts|tsx|js|jsx)$/)) {
+    resolved += '.ts';
+  }
+  return path.normalize(resolved).replace(/\\/g, '/');
+}
+
+function enqueueImports(
+  content: string,
+  current: { file: string; depth: number },
+  visited: Set<string>,
+  queue: Array<{ file: string; depth: number }>,
+  maxDepth: number
+): void {
+  const importRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
+  let match: RegExpExecArray | null;
+  while ((match = importRegex.exec(content)) !== null) {
+    const importPath = match[1]!;
+    if (!importPath.startsWith('.')) continue;
+    const resolved = resolveImportPath(current.file, importPath);
+    if (!visited.has(resolved) && current.depth + 1 <= maxDepth) {
+      queue.push({ file: resolved, depth: current.depth + 1 });
+    }
+  }
+}
+
 /**
  * Follow imports up to `maxDepth` levels deep from a source file.
  * Returns all reachable file paths.
@@ -94,31 +122,87 @@ function followImportChain(
     const content = fileContents.get(current.file);
     if (!content) continue;
 
-    // Extract import paths
-    const importRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
-    let match: RegExpExecArray | null;
-    while ((match = importRegex.exec(content)) !== null) {
-      const importPath = match[1]!;
-      if (!importPath.startsWith('.')) continue;
-
-      // Resolve relative import to file path
-      const dir = path.dirname(current.file);
-      let resolved = path.join(dir, importPath).replace(/\\/g, '/');
-      // Add .ts extension if missing
-      if (!resolved.match(/\.(ts|tsx|js|jsx)$/)) {
-        resolved += '.ts';
-      }
-      // Normalize
-      resolved = path.normalize(resolved).replace(/\\/g, '/');
-
-      if (!visited.has(resolved) && current.depth + 1 <= maxDepth) {
-        queue.push({ file: resolved, depth: current.depth + 1 });
-      }
-    }
+    enqueueImports(content, current, visited, queue, maxDepth);
   }
 
   visited.delete(fromFile); // Don't include self
   return visited;
+}
+
+function isMechanicallyExcluded(
+  finding: ReviewFinding,
+  exclusionSet: ExclusionSet,
+  projectRoot: string
+): boolean {
+  const normalizedFile = normalizePath(finding.file, projectRoot);
+  if (exclusionSet.isExcluded(normalizedFile, finding.lineRange)) return true;
+  if (exclusionSet.isExcluded(finding.file, finding.lineRange)) return true;
+
+  const absoluteFile = path.isAbsolute(finding.file)
+    ? finding.file
+    : path.join(projectRoot, finding.file).replace(/\\/g, '/');
+  return exclusionSet.isExcluded(absoluteFile, finding.lineRange);
+}
+
+async function validateWithGraph(
+  crossFileRefs: Array<{ from: string; to: string }>,
+  graph: GraphAdapter
+): Promise<{ result: 'keep' | 'discard' | 'fallback' }> {
+  try {
+    for (const ref of crossFileRefs) {
+      const reachable = await graph.isReachable(ref.from, ref.to);
+      if (!reachable) return { result: 'discard' };
+    }
+    return { result: 'keep' };
+  } catch {
+    return { result: 'fallback' };
+  }
+}
+
+function validateWithHeuristic(
+  finding: ReviewFinding,
+  crossFileRefs: Array<{ from: string; to: string }>,
+  fileContents: Map<string, string> | undefined,
+  projectRoot: string
+): ReviewFinding {
+  if (fileContents) {
+    for (const ref of crossFileRefs) {
+      const normalizedFrom = normalizePath(ref.from, projectRoot);
+      const reachable = followImportChain(normalizedFrom, fileContents, 2);
+      const normalizedTo = normalizePath(ref.to, projectRoot);
+      if (reachable.has(normalizedTo)) {
+        return { ...finding, validatedBy: 'heuristic' };
+      }
+    }
+  }
+
+  return {
+    ...finding,
+    severity: DOWNGRADE_MAP[finding.severity],
+    validatedBy: 'heuristic',
+  };
+}
+
+async function processFinding(
+  finding: ReviewFinding,
+  exclusionSet: ExclusionSet,
+  graph: GraphAdapter | undefined,
+  projectRoot: string,
+  fileContents: Map<string, string> | undefined
+): Promise<ReviewFinding | null> {
+  if (isMechanicallyExcluded(finding, exclusionSet, projectRoot)) return null;
+
+  const crossFileRefs = extractCrossFileRefs(finding);
+  if (crossFileRefs.length === 0) return { ...finding };
+
+  if (graph) {
+    const { result } = await validateWithGraph(crossFileRefs, graph);
+    if (result === 'keep') return { ...finding, validatedBy: 'graph' };
+    if (result === 'discard') return null;
+    // result === 'fallback': fall through to heuristic
+  }
+
+  return validateWithHeuristic(finding, crossFileRefs, fileContents, projectRoot);
 }
 
 /**
@@ -135,84 +219,8 @@ export async function validateFindings(options: ValidateFindingsOptions): Promis
   const validated: ReviewFinding[] = [];
 
   for (const finding of findings) {
-    const normalizedFile = normalizePath(finding.file, projectRoot);
-
-    // Step 1: Mechanical exclusion — check both normalized and original path
-    if (
-      exclusionSet.isExcluded(normalizedFile, finding.lineRange) ||
-      exclusionSet.isExcluded(finding.file, finding.lineRange)
-    ) {
-      continue; // Discard — already caught by mechanical check
-    }
-
-    // Also check absolute form against exclusion set
-    const absoluteFile = path.isAbsolute(finding.file)
-      ? finding.file
-      : path.join(projectRoot, finding.file).replace(/\\/g, '/');
-    if (exclusionSet.isExcluded(absoluteFile, finding.lineRange)) {
-      continue;
-    }
-
-    // Step 2: Check for cross-file claims
-    const crossFileRefs = extractCrossFileRefs(finding);
-
-    if (crossFileRefs.length === 0) {
-      // Single-file finding — no cross-file validation needed
-      validated.push({ ...finding });
-      continue;
-    }
-
-    // Step 3: Validate cross-file claims
-    if (graph) {
-      // Graph reachability validation — fall back to heuristic if graph throws
-      try {
-        let allReachable = true;
-        for (const ref of crossFileRefs) {
-          const reachable = await graph.isReachable(ref.from, ref.to);
-          if (!reachable) {
-            allReachable = false;
-            break;
-          }
-        }
-
-        if (allReachable) {
-          validated.push({ ...finding, validatedBy: 'graph' });
-        }
-        // else: discard — graph says unreachable
-        continue;
-      } catch {
-        // Graph failed — fall through to heuristic fallback below
-      }
-    }
-
-    {
-      // Import-chain heuristic fallback
-      let chainValidated = false;
-
-      if (fileContents) {
-        for (const ref of crossFileRefs) {
-          const normalizedFrom = normalizePath(ref.from, projectRoot);
-          const reachable = followImportChain(normalizedFrom, fileContents, 2);
-          const normalizedTo = normalizePath(ref.to, projectRoot);
-          if (reachable.has(normalizedTo)) {
-            chainValidated = true;
-            break;
-          }
-        }
-      }
-
-      if (chainValidated) {
-        // Import chain validates the claim — keep original severity
-        validated.push({ ...finding, validatedBy: 'heuristic' });
-      } else {
-        // Unvalidated cross-file claim — downgrade severity, do NOT discard
-        validated.push({
-          ...finding,
-          severity: DOWNGRADE_MAP[finding.severity],
-          validatedBy: 'heuristic',
-        });
-      }
-    }
+    const result = await processFinding(finding, exclusionSet, graph, projectRoot, fileContents);
+    if (result !== null) validated.push(result);
   }
 
   return validated;

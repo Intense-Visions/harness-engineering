@@ -5,6 +5,7 @@ import { Ok, Err } from '@harness-engineering/core';
 import { checkDocCoverage, validateKnowledgeMap } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
+import type { OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -89,6 +90,42 @@ export async function runCheckDocs(
   return Ok(result);
 }
 
+function printUndocumentedFiles(undocumented: string[]): void {
+  if (undocumented.length === 0) return;
+  console.log('\nUndocumented files:');
+  for (const file of undocumented.slice(0, 10)) {
+    console.log(`  - ${file}`);
+  }
+  if (undocumented.length > 10) {
+    console.log(`  ... and ${undocumented.length - 10} more`);
+  }
+}
+
+function printCheckDocsResult(
+  value: CheckDocsResult,
+  mode: OutputModeType,
+  formatter: OutputFormatter
+): void {
+  console.log(
+    formatter.formatSummary(
+      'Documentation coverage',
+      `${value.coveragePercent.toFixed(1)}%`,
+      value.valid
+    )
+  );
+
+  if (mode === OutputMode.VERBOSE || !value.valid) {
+    printUndocumentedFiles(value.undocumented);
+  }
+
+  if (value.brokenLinks.length > 0) {
+    console.log('\nBroken links:');
+    for (const link of value.brokenLinks) {
+      console.log(`  - ${link}`);
+    }
+  }
+}
+
 export function createCheckDocsCommand(): Command {
   const command = new Command('check-docs')
     .description('Check documentation coverage')
@@ -118,31 +155,7 @@ export function createCheckDocsCommand(): Command {
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(result.value, null, 2));
       } else if (mode !== OutputMode.QUIET) {
-        const { value } = result;
-        console.log(
-          formatter.formatSummary(
-            'Documentation coverage',
-            `${value.coveragePercent.toFixed(1)}%`,
-            value.valid
-          )
-        );
-
-        if (value.undocumented.length > 0 && (mode === OutputMode.VERBOSE || !value.valid)) {
-          console.log('\nUndocumented files:');
-          for (const file of value.undocumented.slice(0, 10)) {
-            console.log(`  - ${file}`);
-          }
-          if (value.undocumented.length > 10) {
-            console.log(`  ... and ${value.undocumented.length - 10} more`);
-          }
-        }
-
-        if (value.brokenLinks.length > 0) {
-          console.log('\nBroken links:');
-          for (const link of value.brokenLinks) {
-            console.log(`  - ${link}`);
-          }
-        }
+        printCheckDocsResult(result.value, mode, formatter);
       }
 
       process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);

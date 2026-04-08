@@ -44,21 +44,23 @@ function buildSkillYaml(opts: CreateSkillOptions): Record<string, unknown> {
   return doc;
 }
 
+function toListSection(items: string[] | undefined, fallback: string): string {
+  return items && items.length > 0 ? items.map((i) => `- \`${i}\``).join('\n') : fallback;
+}
+
+function buildSkillMdSections(opts: CreateSkillOptions): Record<string, string> {
+  return {
+    mode: opts.cognitiveMode ?? 'constructive-architect',
+    reads: toListSection(opts.reads, '- _No read patterns specified_'),
+    produces: opts.produces ? `- \`${opts.produces}\`` : '- _No output specified_',
+    preChecks: toListSection(opts.preChecks, '- _None_'),
+    postChecks: toListSection(opts.postChecks, '- _None_'),
+  };
+}
+
 function buildSkillMd(opts: CreateSkillOptions): string {
-  const mode = opts.cognitiveMode ?? 'constructive-architect';
-  const readsSection =
-    opts.reads && opts.reads.length > 0
-      ? opts.reads.map((r) => `- \`${r}\``).join('\n')
-      : '- _No read patterns specified_';
-  const producesLine = opts.produces ? `- \`${opts.produces}\`` : '- _No output specified_';
-  const preChecksSection =
-    opts.preChecks && opts.preChecks.length > 0
-      ? opts.preChecks.map((c) => `- \`${c}\``).join('\n')
-      : '- _None_';
-  const postChecksSection =
-    opts.postChecks && opts.postChecks.length > 0
-      ? opts.postChecks.map((c) => `- \`${c}\``).join('\n')
-      : '- _None_';
+  const { mode, reads, produces, preChecks, postChecks } = buildSkillMdSections(opts);
+  const run = `harness skill run ${opts.name}`;
 
   return `# ${opts.name}
 
@@ -74,18 +76,18 @@ ${opts.description}
 ## Context Assembly
 
 ### Reads
-${readsSection}
+${reads}
 
 ### Produces
-${producesLine}
+${produces}
 
 ## Deterministic Checks
 
 ### Pre-checks
-${preChecksSection}
+${preChecks}
 
 ### Post-checks
-${postChecksSection}
+${postChecks}
 
 ## Process
 
@@ -97,7 +99,7 @@ ${postChecksSection}
 This skill integrates with the harness engineering workflow. It can be invoked via:
 
 \`\`\`bash
-harness skill run ${opts.name}
+${run}
 \`\`\`
 
 ## Success Criteria
@@ -108,7 +110,7 @@ harness skill run ${opts.name}
 ## Examples
 
 \`\`\`bash
-harness skill run ${opts.name}
+${run}
 \`\`\`
 
 ## Rationalizations to Reject
@@ -165,6 +167,36 @@ export function generateSkillFiles(opts: CreateSkillOptions): GeneratedFiles {
   return { skillYamlPath, skillMdPath };
 }
 
+function handleSkillError(error: unknown, json: boolean): never {
+  if (!(error instanceof CLIError)) throw error;
+  if (json) {
+    console.log(JSON.stringify({ error: error.message }));
+  } else {
+    logger.error(error.message);
+  }
+  process.exit(error.exitCode);
+}
+
+async function runCreateSkillAction(
+  opts: CreateSkillOptions & { quiet?: boolean; json?: boolean }
+): Promise<void> {
+  try {
+    const result = generateSkillFiles(opts);
+
+    if (!opts.quiet) {
+      logger.success(`Created skill "${opts.name}"`);
+      logger.info(`  ${result.skillYamlPath}`);
+      logger.info(`  ${result.skillMdPath}`);
+    }
+
+    if (opts.json) {
+      logger.raw({ name: opts.name, files: [result.skillYamlPath, result.skillMdPath] });
+    }
+  } catch (error) {
+    handleSkillError(error, opts.json ?? false);
+  }
+}
+
 export function createCreateSkillCommand(): Command {
   const command = new Command('create-skill')
     .description('Scaffold a new skill with skill.yaml and SKILL.md')
@@ -181,41 +213,17 @@ export function createCreateSkillCommand(): Command {
     .option('--post-checks <commands...>', 'Post-check commands')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-
-      try {
-        const result = generateSkillFiles({
-          name: opts.name,
-          description: opts.description,
-          cognitiveMode: opts.cognitiveMode,
-          reads: opts.reads,
-          produces: opts.produces,
-          preChecks: opts.preChecks,
-          postChecks: opts.postChecks,
-        });
-
-        if (!globalOpts.quiet) {
-          logger.success(`Created skill "${opts.name}"`);
-          logger.info(`  ${result.skillYamlPath}`);
-          logger.info(`  ${result.skillMdPath}`);
-        }
-
-        if (globalOpts.json) {
-          logger.raw({
-            name: opts.name,
-            files: [result.skillYamlPath, result.skillMdPath],
-          });
-        }
-      } catch (error) {
-        if (error instanceof CLIError) {
-          if (globalOpts.json) {
-            console.log(JSON.stringify({ error: error.message }));
-          } else {
-            logger.error(error.message);
-          }
-          process.exit(error.exitCode);
-        }
-        throw error;
-      }
+      await runCreateSkillAction({
+        name: opts.name,
+        description: opts.description,
+        cognitiveMode: opts.cognitiveMode,
+        reads: opts.reads,
+        produces: opts.produces,
+        preChecks: opts.preChecks,
+        postChecks: opts.postChecks,
+        quiet: globalOpts.quiet,
+        json: globalOpts.json,
+      });
     });
 
   return command;

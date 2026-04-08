@@ -53,30 +53,36 @@ function serializeMilestoneHeading(milestone: RoadmapMilestone): string {
   return milestone.isBacklog ? '## Backlog' : `## ${milestone.name}`;
 }
 
-function serializeFeature(feature: RoadmapFeature): string[] {
-  const spec = feature.spec ?? EM_DASH;
-  const plans = feature.plans.length > 0 ? feature.plans.join(', ') : EM_DASH;
-  const blockedBy = feature.blockedBy.length > 0 ? feature.blockedBy.join(', ') : EM_DASH;
+function orDash(value: string | null | undefined): string {
+  return value ?? EM_DASH;
+}
 
+function listOrDash(items: string[]): string {
+  return items.length > 0 ? items.join(', ') : EM_DASH;
+}
+
+function serializeExtendedLines(feature: RoadmapFeature): string[] {
+  const hasExtended =
+    feature.assignee !== null || feature.priority !== null || feature.externalId !== null;
+  if (!hasExtended) return [];
+  return [
+    `- **Assignee:** ${orDash(feature.assignee)}`,
+    `- **Priority:** ${orDash(feature.priority)}`,
+    `- **External-ID:** ${orDash(feature.externalId)}`,
+  ];
+}
+
+function serializeFeature(feature: RoadmapFeature): string[] {
   const lines = [
     `### ${feature.name}`,
     '',
     `- **Status:** ${feature.status}`,
-    `- **Spec:** ${spec}`,
+    `- **Spec:** ${orDash(feature.spec)}`,
     `- **Summary:** ${feature.summary}`,
-    `- **Blockers:** ${blockedBy}`,
-    `- **Plan:** ${plans}`,
+    `- **Blockers:** ${listOrDash(feature.blockedBy)}`,
+    `- **Plan:** ${listOrDash(feature.plans)}`,
+    ...serializeExtendedLines(feature),
   ];
-
-  // Emit extended fields only when at least one is non-null
-  const hasExtended =
-    feature.assignee !== null || feature.priority !== null || feature.externalId !== null;
-  if (hasExtended) {
-    lines.push(`- **Assignee:** ${feature.assignee ?? EM_DASH}`);
-    lines.push(`- **Priority:** ${feature.priority ?? EM_DASH}`);
-    lines.push(`- **External-ID:** ${feature.externalId ?? EM_DASH}`);
-  }
-
   return lines;
 }
 

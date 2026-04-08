@@ -213,23 +213,27 @@ function makeInternalSymbol(
   return { name, type, line, references: 0, calledBy: [] };
 }
 
+function extractFunctionSymbol(node: ASTNode, line: number): InternalSymbol[] {
+  if (node.id?.name) return [makeInternalSymbol(node.id.name, 'function', line)];
+  return [];
+}
+
+function extractVariableSymbols(node: ASTNode, line: number): InternalSymbol[] {
+  return (node.declarations || [])
+    .filter((decl) => decl.id?.name)
+    .map((decl) => makeInternalSymbol(decl.id!.name!, 'variable', line));
+}
+
+function extractClassSymbol(node: ASTNode, line: number): InternalSymbol[] {
+  if (node.id?.name) return [makeInternalSymbol(node.id.name, 'class', line)];
+  return [];
+}
+
 function extractSymbolsFromNode(node: ASTNode): InternalSymbol[] {
   const line = node.loc?.start?.line || 0;
-
-  if (node.type === 'FunctionDeclaration' && node.id?.name) {
-    return [makeInternalSymbol(node.id.name, 'function', line)];
-  }
-
-  if (node.type === 'VariableDeclaration') {
-    return (node.declarations || [])
-      .filter((decl) => decl.id?.name)
-      .map((decl) => makeInternalSymbol(decl.id!.name!, 'variable', line));
-  }
-
-  if (node.type === 'ClassDeclaration' && node.id?.name) {
-    return [makeInternalSymbol(node.id.name, 'class', line)];
-  }
-
+  if (node.type === 'FunctionDeclaration') return extractFunctionSymbol(node, line);
+  if (node.type === 'VariableDeclaration') return extractVariableSymbols(node, line);
+  if (node.type === 'ClassDeclaration') return extractClassSymbol(node, line);
   return [];
 }
 
@@ -244,32 +248,24 @@ function extractInternalSymbols(ast: AST): InternalSymbol[] {
   return nodes.flatMap(extractSymbolsFromNode);
 }
 
-/**
- * Extract JSDoc comments from AST
- */
+type RawComment = {
+  type: string;
+  value?: string;
+  loc?: { start?: { line: number } };
+};
+
+function toJSDocComment(comment: RawComment): JSDocComment | null {
+  if (comment.type !== 'Block' || !comment.value?.startsWith('*')) return null;
+  return { content: comment.value, line: comment.loc?.start?.line || 0 };
+}
+
 function extractJSDocComments(ast: AST): JSDocComment[] {
-  const comments: JSDocComment[] = [];
-  const body = ast.body as {
-    comments?: Array<{
-      type: string;
-      value?: string;
-      loc?: { start?: { line: number } };
-    }>;
-  };
-
-  if (body?.comments) {
-    for (const comment of body.comments) {
-      if (comment.type === 'Block' && comment.value?.startsWith('*')) {
-        const jsDocComment: JSDocComment = {
-          content: comment.value,
-          line: comment.loc?.start?.line || 0,
-        };
-        comments.push(jsDocComment);
-      }
-    }
-  }
-
-  return comments;
+  const body = ast.body as { comments?: RawComment[] };
+  if (!body?.comments) return [];
+  return body.comments.flatMap((c) => {
+    const doc = toJSDocComment(c);
+    return doc ? [doc] : [];
+  });
 }
 
 /**
@@ -292,51 +288,45 @@ function buildExportMap(files: SourceFile[]): ExportMap {
   return { byFile, byName };
 }
 
-/**
- * Extract code references from all documentation
- */
-function extractAllCodeReferences(docs: DocumentationFile[]): CodeReference[] {
-  const refs: CodeReference[] = [];
+const CODE_BLOCK_LANGUAGES = new Set(['typescript', 'ts', 'javascript', 'js']);
 
-  for (const doc of docs) {
-    for (const inlineRef of doc.inlineRefs) {
+function refsFromInlineRefs(doc: DocumentationFile): CodeReference[] {
+  return doc.inlineRefs.map((inlineRef) => ({
+    docFile: doc.path,
+    line: inlineRef.line,
+    column: inlineRef.column,
+    reference: inlineRef.reference,
+    context: 'inline' as const,
+  }));
+}
+
+function refsFromCodeBlock(docPath: string, block: CodeBlock): CodeReference[] {
+  if (!CODE_BLOCK_LANGUAGES.has(block.language)) return [];
+  const refs: CodeReference[] = [];
+  const importRegex = /import\s+\{([^}]+)\}\s+from/g;
+  let match;
+  while ((match = importRegex.exec(block.content)) !== null) {
+    const group = match[1];
+    if (group === undefined) continue;
+    for (const name of group.split(',').map((n) => n.trim())) {
       refs.push({
-        docFile: doc.path,
-        line: inlineRef.line,
-        column: inlineRef.column,
-        reference: inlineRef.reference,
-        context: 'inline',
+        docFile: docPath,
+        line: block.line,
+        column: 0,
+        reference: name,
+        context: 'code-block',
       });
     }
-
-    for (const block of doc.codeBlocks) {
-      if (
-        block.language === 'typescript' ||
-        block.language === 'ts' ||
-        block.language === 'javascript' ||
-        block.language === 'js'
-      ) {
-        const importRegex = /import\s+\{([^}]+)\}\s+from/g;
-        let match;
-        while ((match = importRegex.exec(block.content)) !== null) {
-          const matchedGroup = match[1];
-          if (matchedGroup === undefined) continue;
-          const names = matchedGroup.split(',').map((n) => n.trim());
-          for (const name of names) {
-            refs.push({
-              docFile: doc.path,
-              line: block.line,
-              column: 0,
-              reference: name,
-              context: 'code-block',
-            });
-          }
-        }
-      }
-    }
   }
-
   return refs;
+}
+
+function refsFromCodeBlocks(doc: DocumentationFile): CodeReference[] {
+  return doc.codeBlocks.flatMap((block) => refsFromCodeBlock(doc.path, block));
+}
+
+function extractAllCodeReferences(docs: DocumentationFile[]): CodeReference[] {
+  return docs.flatMap((doc) => [...refsFromInlineRefs(doc), ...refsFromCodeBlocks(doc)]);
 }
 
 /**

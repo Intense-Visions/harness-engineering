@@ -220,6 +220,18 @@ function printSnapshotList(manager: TimelineManager): void {
 
 // --- Command registration ---
 
+function handleSnapshotCaptureError(err: unknown, mode: OutputModeType): never {
+  if (err instanceof CLIError) {
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: err.message }));
+    } else {
+      logger.error(err.message);
+    }
+    process.exit(err.exitCode);
+  }
+  throw err;
+}
+
 export function createSnapshotCommand(): Command {
   const command = new Command('snapshot').description('Architecture timeline snapshot commands');
 
@@ -234,22 +246,13 @@ export function createSnapshotCommand(): Command {
         const { snapshot, previous } = await runSnapshotCapture({
           configPath: globalOpts.config,
         });
-
         if (mode === OutputMode.JSON) {
           console.log(JSON.stringify({ snapshot, previous: previous ?? null }, null, 2));
         } else {
           printCaptureSummary(snapshot, previous);
         }
       } catch (err) {
-        if (err instanceof CLIError) {
-          if (mode === OutputMode.JSON) {
-            console.log(JSON.stringify({ error: err.message }));
-          } else {
-            logger.error(err.message);
-          }
-          process.exit(err.exitCode);
-        }
-        throw err;
+        handleSnapshotCaptureError(err, mode);
       }
     });
 

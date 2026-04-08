@@ -113,6 +113,38 @@ export function generateAgentDefinitions(
   return results;
 }
 
+function parsePlatforms(raw: string): Platform[] {
+  const platforms = raw.split(',').map((p: string) => p.trim());
+  for (const p of platforms) {
+    if (!VALID_PLATFORMS.includes(p as Platform)) {
+      throw new CLIError(
+        `Invalid platform "${p}". Valid platforms: ${VALID_PLATFORMS.join(', ')}`,
+        ExitCode.VALIDATION_FAILED
+      );
+    }
+  }
+  return platforms as Platform[];
+}
+
+function printAgentDefsResult(result: GenerateAgentDefsResult, dryRun: boolean): void {
+  console.log(`\n${result.platform} → ${result.outputDir}`);
+  if (result.added.length > 0) {
+    console.log(`  + ${result.added.length} new: ${result.added.join(', ')}`);
+  }
+  if (result.updated.length > 0) {
+    console.log(`  ~ ${result.updated.length} updated: ${result.updated.join(', ')}`);
+  }
+  if (result.removed.length > 0) {
+    console.log(`  - ${result.removed.length} removed: ${result.removed.join(', ')}`);
+  }
+  if (result.unchanged.length > 0) {
+    console.log(`  = ${result.unchanged.length} unchanged`);
+  }
+  if (dryRun) {
+    console.log('  (dry run — no files written)');
+  }
+}
+
 export function createGenerateAgentDefinitionsCommand(): Command {
   return new Command('generate-agent-definitions')
     .description('Generate agent definition files from personas for Claude Code and Gemini CLI')
@@ -122,20 +154,10 @@ export function createGenerateAgentDefinitionsCommand(): Command {
     .option('--dry-run', 'Show what would change without writing', false)
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-
-      const platforms = opts.platforms.split(',').map((p: string) => p.trim());
-      for (const p of platforms) {
-        if (!VALID_PLATFORMS.includes(p as Platform)) {
-          throw new CLIError(
-            `Invalid platform "${p}". Valid platforms: ${VALID_PLATFORMS.join(', ')}`,
-            ExitCode.VALIDATION_FAILED
-          );
-        }
-      }
-
       try {
+        const platforms = parsePlatforms(opts.platforms);
         const results = generateAgentDefinitions({
-          platforms: platforms as Platform[],
+          platforms,
           global: opts.global,
           output: opts.output,
           dryRun: opts.dryRun,
@@ -147,22 +169,7 @@ export function createGenerateAgentDefinitionsCommand(): Command {
         }
 
         for (const result of results) {
-          console.log(`\n${result.platform} → ${result.outputDir}`);
-          if (result.added.length > 0) {
-            console.log(`  + ${result.added.length} new: ${result.added.join(', ')}`);
-          }
-          if (result.updated.length > 0) {
-            console.log(`  ~ ${result.updated.length} updated: ${result.updated.join(', ')}`);
-          }
-          if (result.removed.length > 0) {
-            console.log(`  - ${result.removed.length} removed: ${result.removed.join(', ')}`);
-          }
-          if (result.unchanged.length > 0) {
-            console.log(`  = ${result.unchanged.length} unchanged`);
-          }
-          if (opts.dryRun) {
-            console.log('  (dry run — no files written)');
-          }
+          printAgentDefsResult(result, opts.dryRun);
         }
       } catch (error) {
         handleError(error);

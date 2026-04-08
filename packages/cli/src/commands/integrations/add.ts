@@ -21,6 +21,31 @@ interface AddResult {
   installHint?: string;
 }
 
+type McpEntry = { command: string; args?: string[]; env?: Record<string, string> };
+
+function buildMcpEntry(def: (typeof INTEGRATION_REGISTRY)[number]): McpEntry {
+  const entry: McpEntry = { command: def.mcpConfig.command };
+  if (def.mcpConfig.args.length > 0) entry.args = def.mcpConfig.args;
+  if (def.mcpConfig.env) entry.env = def.mcpConfig.env;
+  return entry;
+}
+
+function writeMcpEntries(cwd: string, defName: string, mcpEntry: McpEntry): void {
+  writeMcpEntry(path.join(cwd, '.mcp.json'), defName, mcpEntry);
+  const geminiDir = path.join(cwd, '.gemini');
+  if (fs.existsSync(geminiDir)) {
+    writeMcpEntry(path.join(geminiDir, 'settings.json'), defName, mcpEntry);
+  }
+}
+
+function updateIntegrationsConfig(cwd: string, defName: string): void {
+  const configPath = path.join(cwd, 'harness.config.json');
+  const integConfig = readIntegrationsConfig(configPath);
+  if (!integConfig.enabled.includes(defName)) integConfig.enabled.push(defName);
+  integConfig.dismissed = integConfig.dismissed.filter((d) => d !== defName);
+  writeIntegrationsConfig(configPath, integConfig);
+}
+
 /**
  * Core logic for adding an integration. Separated from Commander for testability.
  */
@@ -34,7 +59,6 @@ export function addIntegration(cwd: string, name: string): Result<AddResult, CLI
       )
     );
   }
-
   if (def.tier === 0) {
     return Err(
       new CLIError(
@@ -44,46 +68,28 @@ export function addIntegration(cwd: string, name: string): Result<AddResult, CLI
     );
   }
 
-  // Write MCP entry to .mcp.json
-  const mcpPath = path.join(cwd, '.mcp.json');
-  const mcpEntry: { command: string; args?: string[]; env?: Record<string, string> } = {
-    command: def.mcpConfig.command,
-  };
-  if (def.mcpConfig.args.length > 0) mcpEntry.args = def.mcpConfig.args;
-  if (def.mcpConfig.env) mcpEntry.env = def.mcpConfig.env;
-  writeMcpEntry(mcpPath, def.name, mcpEntry);
-
-  // Gemini CLI parity: also write to .gemini/settings.json if detected
-  const geminiDir = path.join(cwd, '.gemini');
-  if (fs.existsSync(geminiDir)) {
-    const geminiPath = path.join(geminiDir, 'settings.json');
-    writeMcpEntry(geminiPath, def.name, mcpEntry);
-  }
-
-  // Update harness.config.json
-  const configPath = path.join(cwd, 'harness.config.json');
-  const integConfig = readIntegrationsConfig(configPath);
-
-  // Add to enabled (if not already)
-  if (!integConfig.enabled.includes(def.name)) {
-    integConfig.enabled.push(def.name);
-  }
-
-  // Remove from dismissed (if present)
-  integConfig.dismissed = integConfig.dismissed.filter((d) => d !== def.name);
-
-  writeIntegrationsConfig(configPath, integConfig);
-
-  // Check env var
-  const envVarMissing = !!def.envVar && !process.env[def.envVar];
+  const mcpEntry = buildMcpEntry(def);
+  writeMcpEntries(cwd, def.name, mcpEntry);
+  updateIntegrationsConfig(cwd, def.name);
 
   return Ok({
     name: def.name,
     displayName: def.displayName,
-    envVarMissing,
+    envVarMissing: !!def.envVar && !process.env[def.envVar],
     ...(def.envVar !== undefined && { envVar: def.envVar }),
     ...(def.installHint !== undefined && { installHint: def.installHint }),
   });
+}
+
+function printAddSuccess(value: AddResult): void {
+  console.log('');
+  logger.success(`${value.displayName} integration enabled.`);
+  console.log('');
+  if (value.envVarMissing && value.envVar) {
+    logger.warn(`Set ${chalk.bold(value.envVar)} in your environment to activate.`);
+    if (value.installHint) console.log(`  ${chalk.dim(value.installHint)}`);
+    console.log('');
+  }
 }
 
 /**
@@ -95,32 +101,13 @@ export function createAddIntegrationCommand(): Command {
     .argument('<name>', 'Integration name (e.g. perplexity, augment-code)')
     .action(async (name: string, _opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const cwd = process.cwd();
-      const result = addIntegration(cwd, name);
-
+      const result = addIntegration(process.cwd(), name);
       if (!result.ok) {
-        if (!globalOpts.quiet) {
-          logger.error(result.error.message);
-        }
+        if (!globalOpts.quiet) logger.error(result.error.message);
         process.exit(result.error.exitCode);
         return;
       }
-
-      const { displayName, envVarMissing, envVar, installHint } = result.value;
-
-      if (!globalOpts.quiet) {
-        console.log('');
-        logger.success(`${displayName} integration enabled.`);
-        console.log('');
-        if (envVarMissing && envVar) {
-          logger.warn(`Set ${chalk.bold(envVar)} in your environment to activate.`);
-          if (installHint) {
-            console.log(`  ${chalk.dim(installHint)}`);
-          }
-          console.log('');
-        }
-      }
-
+      if (!globalOpts.quiet) printAddSuccess(result.value);
       process.exit(ExitCode.SUCCESS);
     });
 }

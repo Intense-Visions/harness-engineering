@@ -36,6 +36,35 @@ const POSITION_WEIGHT = 0.5;
 const DEPENDENTS_WEIGHT = 0.3;
 const AFFINITY_WEIGHT = 0.2;
 
+function isEligibleCandidate(
+  feature: RoadmapFeature,
+  allFeatureNames: Set<string>,
+  doneFeatures: Set<string>
+): boolean {
+  if (feature.status !== 'planned' && feature.status !== 'backlog') return false;
+  const isBlocked = feature.blockedBy.some((blocker) => {
+    const key = blocker.toLowerCase();
+    return allFeatureNames.has(key) && !doneFeatures.has(key);
+  });
+  return !isBlocked;
+}
+
+function computeAffinityScore(
+  feature: RoadmapFeature,
+  milestoneName: string,
+  milestoneMap: Map<string, string[]>,
+  userCompletedFeatures: Set<string>
+): number {
+  if (userCompletedFeatures.size === 0) return 0;
+  const completedBlocker = feature.blockedBy.some((b) =>
+    userCompletedFeatures.has(b.toLowerCase())
+  );
+  if (completedBlocker) return 1.0;
+  const siblings = milestoneMap.get(milestoneName) ?? [];
+  const completedSibling = siblings.some((s) => userCompletedFeatures.has(s));
+  return completedSibling ? 0.5 : 0;
+}
+
 /**
  * Score and sort unblocked planned/backlog items using the two-tier algorithm.
  *
@@ -97,54 +126,24 @@ export function scoreRoadmapCandidates(
   let globalPosition = 0;
 
   for (const ms of roadmap.milestones) {
-    for (let featureIdx = 0; featureIdx < ms.features.length; featureIdx++) {
-      const feature = ms.features[featureIdx]!;
+    for (const feature of ms.features) {
       globalPosition++;
 
-      // Filter: only planned or backlog
-      if (feature.status !== 'planned' && feature.status !== 'backlog') continue;
+      if (!isEligibleCandidate(feature, allFeatureNames, doneFeatures)) continue;
 
-      // Filter: must be unblocked. A blocker is resolved if it is done OR if
-      // it refers to a feature not tracked in this roadmap (external dependency).
-      const isBlocked = feature.blockedBy.some((blocker) => {
-        const key = blocker.toLowerCase();
-        return allFeatureNames.has(key) && !doneFeatures.has(key);
-      });
-      if (isBlocked) continue;
-
-      // Position score: earlier in the full feature list = higher (1.0 for first,
-      // approaching 0 for last). Uses document order including non-candidates (done,
-      // in-progress, blocked) to preserve the original roadmap ordering signal.
       const positionScore = 1 - (globalPosition - 1) / totalPositions;
-
-      // Dependents score: more downstream = higher
       const deps = dependentsCount.get(feature.name.toLowerCase()) ?? 0;
       const dependentsScore = deps / maxDependents;
-
-      // Affinity score: bonus if user completed blockers or milestone siblings
-      let affinityScore = 0;
-      if (userCompletedFeatures.size > 0) {
-        // Check if user completed any blockers of this feature
-        const completedBlockers = feature.blockedBy.filter((b) =>
-          userCompletedFeatures.has(b.toLowerCase())
-        );
-        if (completedBlockers.length > 0) {
-          affinityScore = 1.0;
-        } else {
-          // Check milestone siblings
-          const siblings = milestoneMap.get(ms.name) ?? [];
-          const completedSiblings = siblings.filter((s) => userCompletedFeatures.has(s));
-          if (completedSiblings.length > 0) {
-            affinityScore = 0.5;
-          }
-        }
-      }
-
+      const affinityScore = computeAffinityScore(
+        feature,
+        ms.name,
+        milestoneMap,
+        userCompletedFeatures
+      );
       const weightedScore =
         POSITION_WEIGHT * positionScore +
         DEPENDENTS_WEIGHT * dependentsScore +
         AFFINITY_WEIGHT * affinityScore;
-
       const priorityTier = feature.priority ? PRIORITY_RANK[feature.priority] : null;
 
       candidates.push({

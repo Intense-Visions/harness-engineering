@@ -146,19 +146,59 @@ export async function runCheckPhaseGate(
   });
 }
 
+function resolvePhaseGateOutputMode(globalOpts: Record<string, unknown>): OutputModeType {
+  if (globalOpts.json) return OutputMode.JSON;
+  if (globalOpts.quiet) return OutputMode.QUIET;
+  if (globalOpts.verbose) return OutputMode.VERBOSE;
+  return OutputMode.TEXT;
+}
+
+function handlePhaseGateError(error: CLIError, mode: OutputModeType): never {
+  if (mode === OutputMode.JSON) {
+    console.log(JSON.stringify({ error: error.message }));
+  } else {
+    logger.error(error.message);
+  }
+  process.exit(error.exitCode);
+}
+
+function handlePhaseGateSkipped(
+  value: CheckPhaseGateResult,
+  mode: OutputModeType,
+  formatter: OutputFormatter
+): never {
+  if (mode === OutputMode.JSON) {
+    console.log(formatter.format(value));
+  } else if (mode !== OutputMode.QUIET) {
+    logger.dim('Phase gates not enabled, skipping.');
+  }
+  process.exit(ExitCode.SUCCESS);
+}
+
+function printPhaseGateResult(value: CheckPhaseGateResult, formatter: OutputFormatter): void {
+  const output = formatter.formatValidation({
+    valid: value.pass,
+    issues: value.missingSpecs.map((m) => ({
+      file: m.implFile,
+      message: `Missing spec: ${m.expectedSpec}`,
+    })),
+  });
+  if (output) console.log(output);
+
+  const summary = formatter.formatSummary(
+    'Phase gate check',
+    `${value.checkedFiles} files checked, ${value.missingSpecs.length} missing specs`,
+    value.pass
+  );
+  if (summary) console.log(summary);
+}
+
 export function createCheckPhaseGateCommand(): Command {
   const command = new Command('check-phase-gate')
     .description('Verify that implementation files have matching spec documents')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
+      const mode = resolvePhaseGateOutputMode(globalOpts);
       const formatter = new OutputFormatter(mode);
 
       const result = await runCheckPhaseGate({
@@ -168,47 +208,12 @@ export function createCheckPhaseGateCommand(): Command {
         quiet: globalOpts.quiet,
       });
 
-      if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
-        process.exit(result.error.exitCode);
-      }
+      if (!result.ok) handlePhaseGateError(result.error, mode);
 
       const value = result.value;
+      if (value.skipped) handlePhaseGateSkipped(value, mode, formatter);
 
-      if (value.skipped) {
-        if (mode === OutputMode.JSON) {
-          console.log(formatter.format(value));
-        } else if (mode !== OutputMode.QUIET) {
-          logger.dim('Phase gates not enabled, skipping.');
-        }
-        process.exit(ExitCode.SUCCESS);
-      }
-
-      // Format output
-      const output = formatter.formatValidation({
-        valid: value.pass,
-        issues: value.missingSpecs.map((m) => ({
-          file: m.implFile,
-          message: `Missing spec: ${m.expectedSpec}`,
-        })),
-      });
-
-      if (output) {
-        console.log(output);
-      }
-
-      const summary = formatter.formatSummary(
-        'Phase gate check',
-        `${value.checkedFiles} files checked, ${value.missingSpecs.length} missing specs`,
-        value.pass
-      );
-      if (summary) {
-        console.log(summary);
-      }
+      printPhaseGateResult(value, formatter);
 
       // Severity determines exit code: warning always passes, error fails
       if (!value.pass && value.severity === 'error') {

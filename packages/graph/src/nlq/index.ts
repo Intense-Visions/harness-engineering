@@ -1,5 +1,5 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { AskGraphResult } from './types.js';
+import type { AskGraphResult, Intent, ResolvedEntity } from './types.js';
 import { IntentClassifier } from './IntentClassifier.js';
 import { EntityExtractor } from './EntityExtractor.js';
 import { EntityResolver } from './EntityResolver.js';
@@ -35,50 +35,49 @@ const classifier = new IntentClassifier();
 const extractor = new EntityExtractor();
 const formatter = new ResponseFormatter();
 
+function lowConfidenceResult(intent: Intent, confidence: number): AskGraphResult {
+  return {
+    intent,
+    intentConfidence: confidence,
+    entities: [],
+    summary: "I'm not sure what you're asking. Try rephrasing your question.",
+    data: null,
+    suggestions: [
+      'Try "what breaks if I change <name>?" for impact analysis',
+      'Try "where is <name>?" to find entities',
+      'Try "what calls <name>?" for relationships',
+      'Try "what is <name>?" for explanations',
+      'Try "what looks wrong?" for anomaly detection',
+    ],
+  };
+}
+
+function noEntityResult(intent: Intent, confidence: number): AskGraphResult {
+  return {
+    intent,
+    intentConfidence: confidence,
+    entities: [],
+    summary:
+      'Could not find any matching nodes in the graph for your query. Try using exact class names, function names, or file paths.',
+    data: null,
+  };
+}
+
 export async function askGraph(store: GraphStore, question: string): Promise<AskGraphResult> {
   const fusion = new FusionLayer(store);
   const resolver = new EntityResolver(store, fusion);
-
-  // Step 1: Classify intent
   const classification = classifier.classify(question);
 
-  // Step 2: Low-confidence bail-out
   if (classification.confidence < 0.3) {
-    return {
-      intent: classification.intent,
-      intentConfidence: classification.confidence,
-      entities: [],
-      summary: "I'm not sure what you're asking. Try rephrasing your question.",
-      data: null,
-      suggestions: [
-        'Try "what breaks if I change <name>?" for impact analysis',
-        'Try "where is <name>?" to find entities',
-        'Try "what calls <name>?" for relationships',
-        'Try "what is <name>?" for explanations',
-        'Try "what looks wrong?" for anomaly detection',
-      ],
-    };
+    return lowConfidenceResult(classification.intent, classification.confidence);
   }
 
-  // Step 3: Extract entities
-  const rawEntities = extractor.extract(question);
+  const entities = resolver.resolve(extractor.extract(question));
 
-  // Step 4: Resolve entities
-  const entities = resolver.resolve(rawEntities);
-
-  // Step 5: Check if entity-requiring intents have entities
   if (ENTITY_REQUIRED_INTENTS.has(classification.intent) && entities.length === 0) {
-    return {
-      intent: classification.intent,
-      intentConfidence: classification.confidence,
-      entities: [],
-      summary:
-        'Could not find any matching nodes in the graph for your query. Try using exact class names, function names, or file paths.',
-      data: null,
-    };
+    return noEntityResult(classification.intent, classification.confidence);
   }
 
-  // Step 6: Execute graph operation
   let data: unknown;
   try {
     data = executeOperation(store, classification.intent, entities, question, fusion);
@@ -92,101 +91,91 @@ export async function askGraph(store: GraphStore, question: string): Promise<Ask
     };
   }
 
-  // Step 7: Format response
-  const summary = formatter.format(classification.intent, entities, data, question);
-
   return {
     intent: classification.intent,
     intentConfidence: classification.confidence,
     entities,
-    summary,
+    summary: formatter.format(classification.intent, entities, data, question),
     data,
   };
 }
 
-/**
- * Execute the appropriate graph operation based on classified intent.
- */
+type ContextBlock = { rootNode: string; score: number; nodes: unknown[]; edges: unknown[] };
+
+function buildContextBlocks(
+  cql: ContextQL,
+  rootIds: string[],
+  searchResults: ReturnType<FusionLayer['search']>
+): ContextBlock[] {
+  return rootIds.map((rootId) => {
+    const expanded = cql.execute({ rootNodeIds: [rootId], maxDepth: 2 });
+    const match = searchResults.find((r) => r.nodeId === rootId);
+    return {
+      rootNode: rootId,
+      score: match?.score ?? 1.0,
+      nodes: expanded.nodes as unknown[],
+      edges: expanded.edges as unknown[],
+    };
+  });
+}
+
+function executeImpact(
+  store: GraphStore,
+  cql: ContextQL,
+  entities: readonly ResolvedEntity[],
+  question: string
+): unknown {
+  const rootId = entities[0]!.nodeId;
+  const lower = question.toLowerCase();
+  if (lower.includes('blast radius') || lower.includes('cascade')) {
+    return new CascadeSimulator(store).simulate(rootId);
+  }
+  const result = cql.execute({ rootNodeIds: [rootId], bidirectional: true, maxDepth: 3 });
+  return groupNodesByImpact(result.nodes, rootId);
+}
+
+function executeExplain(
+  cql: ContextQL,
+  entities: readonly ResolvedEntity[],
+  question: string,
+  fusion: FusionLayer
+): unknown {
+  const searchResults = fusion.search(question, 10);
+  const rootIds =
+    entities.length > 0 ? [entities[0]!.nodeId] : searchResults.slice(0, 3).map((r) => r.nodeId);
+  return { searchResults, context: buildContextBlocks(cql, rootIds, searchResults) };
+}
+
 function executeOperation(
   store: GraphStore,
-  intent: string,
-  entities: readonly import('./types.js').ResolvedEntity[],
+  intent: Intent,
+  entities: readonly ResolvedEntity[],
   question: string,
   fusion: FusionLayer
 ): unknown {
   const cql = new ContextQL(store);
 
   switch (intent) {
-    case 'impact': {
-      const rootId = entities[0]!.nodeId;
+    case 'impact':
+      return executeImpact(store, cql, entities, question);
 
-      // Route "blast radius" / "cascade" queries to CascadeSimulator
-      const lowerQuestion = question.toLowerCase();
-      if (lowerQuestion.includes('blast radius') || lowerQuestion.includes('cascade')) {
-        const simulator = new CascadeSimulator(store);
-        return simulator.simulate(rootId);
-      }
-
-      const result = cql.execute({
-        rootNodeIds: [rootId],
-        bidirectional: true,
-        maxDepth: 3,
-      });
-
-      return groupNodesByImpact(result.nodes, rootId);
-    }
-
-    case 'find': {
+    case 'find':
       return fusion.search(question, 10);
-    }
 
     case 'relationships': {
-      const rootId = entities[0]!.nodeId;
       const result = cql.execute({
-        rootNodeIds: [rootId],
+        rootNodeIds: [entities[0]!.nodeId],
         bidirectional: true,
         maxDepth: 1,
       });
       return { nodes: result.nodes, edges: result.edges };
     }
 
-    case 'explain': {
-      const searchResults = fusion.search(question, 10);
+    case 'explain':
+      return executeExplain(cql, entities, question, fusion);
 
-      const contextBlocks: Array<{
-        rootNode: string;
-        score: number;
-        nodes: unknown[];
-        edges: unknown[];
-      }> = [];
-
-      // Use resolved entity as primary root, fall back to search results
-      const rootIds =
-        entities.length > 0
-          ? [entities[0]!.nodeId]
-          : searchResults.slice(0, 3).map((r) => r.nodeId);
-
-      for (const rootId of rootIds) {
-        const expanded = cql.execute({
-          rootNodeIds: [rootId],
-          maxDepth: 2,
-        });
-        const matchingResult = searchResults.find((r) => r.nodeId === rootId);
-        contextBlocks.push({
-          rootNode: rootId,
-          score: matchingResult?.score ?? 1.0,
-          nodes: expanded.nodes as unknown[],
-          edges: expanded.edges as unknown[],
-        });
-      }
-
-      return { searchResults, context: contextBlocks };
-    }
-
-    case 'anomaly': {
-      const adapter = new GraphAnomalyAdapter(store);
-      return adapter.detect();
-    }
+    case 'anomaly':
+      return new GraphAnomalyAdapter(store).detect();
 
     default:
       return null;
