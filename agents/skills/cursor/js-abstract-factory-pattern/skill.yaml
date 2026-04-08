@@ -1,0 +1,35 @@
+name: js-abstract-factory-pattern
+version: '1.0.0'
+description: Create families of related objects without specifying their concrete classes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-factory-pattern
+  - js-constructor-pattern
+stack_signals:
+  - javascript
+keywords:
+  - abstract-factory
+  - creational
+  - family-of-objects
+  - product-families
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/abstract-factory-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

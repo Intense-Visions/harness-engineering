@@ -1,0 +1,36 @@
+name: js-command-pattern
+version: '1.0.0'
+description: Encapsulate operations as objects to support undo, queue, and logging
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-mediator-middleware-pattern
+  - js-iterator-pattern
+stack_signals:
+  - javascript
+keywords:
+  - command
+  - undo
+  - redo
+  - action
+  - encapsulate-operation
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/command-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

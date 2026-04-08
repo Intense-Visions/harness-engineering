@@ -1,0 +1,36 @@
+name: vue-teleport-pattern
+version: '1.0.0'
+description: Render a component's HTML at a different location in the DOM using Vue's Teleport
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+  - '**/*.ts'
+related_skills:
+  - vue-async-components
+  - vue-slots-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - teleport
+  - portal
+  - modal
+  - toast
+  - out-of-flow-rendering
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/teleport-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

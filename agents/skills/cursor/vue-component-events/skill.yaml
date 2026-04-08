@@ -1,0 +1,36 @@
+name: vue-component-events
+version: '1.0.0'
+description: Communicate from child to parent components using emits and defineEmits
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+  - '**/*.ts'
+related_skills:
+  - vue-provide-inject
+  - vue-composables-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - emit
+  - defineEmits
+  - v-on
+  - custom-events
+  - parent-child-communication
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/component-events'
+state:
+  persistent: false
+  files: []
+depends_on: []
