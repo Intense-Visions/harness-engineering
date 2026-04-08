@@ -57,6 +57,20 @@ function isZodParseCall(node: TSESTree.Node): boolean {
 }
 
 /**
+ * Visit each element of an array property, calling visitor on AST nodes.
+ */
+function visitArrayItems(
+  items: unknown[],
+  visitor: (child: TSESTree.Node) => void
+): void {
+  for (const item of items) {
+    if (item && typeof item === 'object' && 'type' in item) {
+      visitor(item as TSESTree.Node);
+    }
+  }
+}
+
+/**
  * Visit child properties of an AST node, calling visitor on each child node.
  */
 function visitChildren(node: TSESTree.Node, visitor: (child: TSESTree.Node) => void): void {
@@ -67,11 +81,7 @@ function visitChildren(node: TSESTree.Node, visitor: (child: TSESTree.Node) => v
     if (!value || typeof value !== 'object') continue;
 
     if (Array.isArray(value)) {
-      for (const item of value) {
-        if (item && typeof item === 'object' && 'type' in item) {
-          visitor(item as TSESTree.Node);
-        }
-      }
+      visitArrayItems(value, visitor);
     } else if ('type' in value) {
       visitor(value as TSESTree.Node);
     }

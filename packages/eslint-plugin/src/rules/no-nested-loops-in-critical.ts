@@ -7,6 +7,68 @@ const createRule = ESLintUtils.RuleCreator(
 
 type MessageIds = 'nestedLoopInCritical';
 
+type FunctionNode =
+  | TSESTree.FunctionDeclaration
+  | TSESTree.FunctionExpression
+  | TSESTree.ArrowFunctionExpression;
+
+function getAnnotationTarget(node: FunctionNode): TSESTree.Node {
+  const parentType = node.parent?.type;
+  if (parentType === 'ExportNamedDeclaration' || parentType === 'VariableDeclaration') {
+    return node.parent as TSESTree.Node;
+  }
+  return node;
+}
+
+function hasCriticalAnnotation(node: FunctionNode, sourceText: string): boolean {
+  const target = getAnnotationTarget(node);
+  const startLine = target.loc.start.line; // 1-indexed
+  const lines = sourceText.split('\n');
+  for (let i = Math.max(0, startLine - 2); i < startLine; i++) {
+    if (lines[i]?.includes('@perf-critical')) return true;
+  }
+  return false;
+}
+
+function makeEnterFunction(
+  criticalStack: boolean[],
+  loopDepthRef: { value: number },
+  sourceText: string
+) {
+  return function enterFunction(node: FunctionNode): void {
+    criticalStack.push(hasCriticalAnnotation(node, sourceText));
+    loopDepthRef.value = 0;
+  };
+}
+
+function makeExitFunction(criticalStack: boolean[], loopDepthRef: { value: number }) {
+  return function exitFunction(): void {
+    criticalStack.pop();
+    loopDepthRef.value = 0;
+  };
+}
+
+function makeEnterLoop(
+  criticalStack: boolean[],
+  loopDepthRef: { value: number },
+  reportFn: (node: TSESTree.Node) => void
+) {
+  return function enterLoop(node: TSESTree.Node): void {
+    if (criticalStack.length === 0 || criticalStack[criticalStack.length - 1] !== true) return;
+    loopDepthRef.value++;
+    if (loopDepthRef.value > 1) {
+      reportFn(node);
+    }
+  };
+}
+
+function makeExitLoop(criticalStack: boolean[], loopDepthRef: { value: number }) {
+  return function exitLoop(): void {
+    if (criticalStack.length === 0 || criticalStack[criticalStack.length - 1] !== true) return;
+    loopDepthRef.value--;
+  };
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-nested-loops-in-critical',
   meta: {
@@ -30,67 +92,16 @@ export default createRule<[], MessageIds>({
 
     // Stack tracks whether each nested function scope is @perf-critical
     const criticalStack: boolean[] = [];
-    let loopDepth = 0;
+    const loopDepthRef = { value: 0 };
 
-    function isCritical(): boolean {
-      return criticalStack.length > 0 && criticalStack[criticalStack.length - 1] === true;
-    }
+    const reportNestedLoop = (node: TSESTree.Node): void => {
+      context.report({ node, messageId: 'nestedLoopInCritical' });
+    };
 
-    function getAnnotationTarget(
-      node:
-        | TSESTree.FunctionDeclaration
-        | TSESTree.FunctionExpression
-        | TSESTree.ArrowFunctionExpression
-    ): TSESTree.Node {
-      const parentType = node.parent?.type;
-      if (parentType === 'ExportNamedDeclaration' || parentType === 'VariableDeclaration') {
-        return node.parent as TSESTree.Node;
-      }
-      return node;
-    }
-
-    function hasCriticalAnnotation(
-      node:
-        | TSESTree.FunctionDeclaration
-        | TSESTree.FunctionExpression
-        | TSESTree.ArrowFunctionExpression
-    ): boolean {
-      const target = getAnnotationTarget(node);
-      const startLine = target.loc.start.line; // 1-indexed
-      const lines = sourceText.split('\n');
-      for (let i = Math.max(0, startLine - 2); i < startLine; i++) {
-        if (lines[i]?.includes('@perf-critical')) return true;
-      }
-      return false;
-    }
-
-    function enterFunction(
-      node:
-        | TSESTree.FunctionDeclaration
-        | TSESTree.FunctionExpression
-        | TSESTree.ArrowFunctionExpression
-    ) {
-      criticalStack.push(hasCriticalAnnotation(node));
-      loopDepth = 0;
-    }
-
-    function exitFunction() {
-      criticalStack.pop();
-      loopDepth = 0;
-    }
-
-    function enterLoop(node: TSESTree.Node) {
-      if (!isCritical()) return;
-      loopDepth++;
-      if (loopDepth > 1) {
-        context.report({ node, messageId: 'nestedLoopInCritical' });
-      }
-    }
-
-    function exitLoop() {
-      if (!isCritical()) return;
-      loopDepth--;
-    }
+    const enterFunction = makeEnterFunction(criticalStack, loopDepthRef, sourceText);
+    const exitFunction = makeExitFunction(criticalStack, loopDepthRef);
+    const enterLoop = makeEnterLoop(criticalStack, loopDepthRef, reportNestedLoop);
+    const exitLoop = makeExitLoop(criticalStack, loopDepthRef);
 
     return {
       FunctionDeclaration: enterFunction,

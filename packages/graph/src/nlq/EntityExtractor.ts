@@ -234,7 +234,6 @@ export class EntityExtractor {
 
     const seen = new Set<string>();
     const result: string[] = [];
-
     const add = (entity: string): void => {
       if (!seen.has(entity)) {
         seen.add(entity);
@@ -242,45 +241,66 @@ export class EntityExtractor {
       }
     };
 
-    // Strategy 1: Quoted strings
-    const quotedConsumed = new Set<string>();
+    const quotedConsumed = this.extractQuoted(trimmed, add);
+    const casingConsumed = this.extractCasing(trimmed, quotedConsumed, add);
+    const pathConsumed = this.extractPaths(trimmed, add);
+    this.extractNouns(trimmed, buildConsumedSet(quotedConsumed, casingConsumed, pathConsumed), add);
+
+    return result;
+  }
+
+  /** Strategy 1: Quoted strings. Returns the set of consumed tokens. */
+  private extractQuoted(trimmed: string, add: (e: string) => void): Set<string> {
+    const consumed = new Set<string>();
     for (const match of trimmed.matchAll(QUOTED_RE)) {
       const inner = match[1]!.trim();
       if (inner.length > 0) {
         add(inner);
-        quotedConsumed.add(inner);
+        consumed.add(inner);
       }
     }
+    return consumed;
+  }
 
-    // Strategy 2: PascalCase/camelCase tokens
-    const casingConsumed = new Set<string>();
+  /** Strategy 2: PascalCase/camelCase tokens. Returns the set of consumed tokens. */
+  private extractCasing(
+    trimmed: string,
+    quotedConsumed: ReadonlySet<string>,
+    add: (e: string) => void
+  ): Set<string> {
+    const consumed = new Set<string>();
     for (const match of trimmed.matchAll(PASCAL_OR_CAMEL_RE)) {
       const token = match[0]!;
       if (!quotedConsumed.has(token)) {
         add(token);
-        casingConsumed.add(token);
+        consumed.add(token);
       }
     }
+    return consumed;
+  }
 
-    // Strategy 3: File paths
-    const pathConsumed = new Set<string>();
+  /** Strategy 3: File paths. Returns the set of consumed tokens. */
+  private extractPaths(trimmed: string, add: (e: string) => void): Set<string> {
+    const consumed = new Set<string>();
     for (const match of trimmed.matchAll(FILE_PATH_RE)) {
       const path = match[0]!;
       add(path);
-      pathConsumed.add(path);
+      consumed.add(path);
     }
+    return consumed;
+  }
 
-    // Strategy 4: Remaining significant nouns
-    const allConsumed = buildConsumedSet(quotedConsumed, casingConsumed, pathConsumed);
-    const words = trimmed.split(/\s+/);
-
-    for (const raw of words) {
+  /** Strategy 4: Remaining significant nouns after stop-word and intent-keyword removal. */
+  private extractNouns(
+    trimmed: string,
+    allConsumed: ReadonlySet<string>,
+    add: (e: string) => void
+  ): void {
+    for (const raw of trimmed.split(/\s+/)) {
       const cleaned = raw.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
       if (cleaned.length === 0) continue;
       if (isSkippableWord(cleaned, allConsumed)) continue;
       add(cleaned);
     }
-
-    return result;
   }
 }

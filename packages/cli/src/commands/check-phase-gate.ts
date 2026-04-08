@@ -61,6 +61,35 @@ function resolveSpecPath(
   return path.resolve(cwd, specRelative);
 }
 
+function checkSpecContent(
+  specPath: string,
+  relImpl: string,
+  relSpec: string,
+  missingSpecs: Array<{ implFile: string; expectedSpec: string }>
+): void {
+  const content = fs.readFileSync(specPath, 'utf-8');
+  const sectionPattern = /^#+\s*(Observable Truths|Success Criteria|Acceptance Criteria)/im;
+  const sectionMatch = sectionPattern.exec(content);
+  if (!sectionMatch) {
+    missingSpecs.push({
+      implFile: relImpl,
+      expectedSpec: `${relSpec} (missing requirements section: expected Observable Truths, Success Criteria, or Acceptance Criteria heading)`,
+    });
+    return;
+  }
+  const sectionStart = sectionMatch.index + sectionMatch[0].length;
+  const nextHeadingMatch = /^#+\s/m.exec(content.slice(sectionStart));
+  const sectionContent = nextHeadingMatch
+    ? content.slice(sectionStart, sectionStart + nextHeadingMatch.index)
+    : content.slice(sectionStart);
+  if (!/^\s*\d+\.\s+/m.test(sectionContent)) {
+    missingSpecs.push({
+      implFile: relImpl,
+      expectedSpec: `${relSpec} (requirements section "${sectionMatch[1]}" has no numbered items)`,
+    });
+  }
+}
+
 export async function runCheckPhaseGate(
   options: CheckPhaseGateOptions
 ): Promise<Result<CheckPhaseGateResult, CLIError>> {
@@ -101,36 +130,9 @@ export async function runCheckPhaseGate(
       const relSpec = path.relative(cwd, expectedSpec).replace(/\\/g, '/');
 
       if (!fs.existsSync(expectedSpec)) {
-        missingSpecs.push({
-          implFile: relImpl,
-          expectedSpec: relSpec,
-        });
+        missingSpecs.push({ implFile: relImpl, expectedSpec: relSpec });
       } else if (mapping.contentValidation) {
-        const content = fs.readFileSync(expectedSpec, 'utf-8');
-        const sectionPattern = /^#+\s*(Observable Truths|Success Criteria|Acceptance Criteria)/im;
-        const sectionMatch = sectionPattern.exec(content);
-
-        if (!sectionMatch) {
-          missingSpecs.push({
-            implFile: relImpl,
-            expectedSpec: `${relSpec} (missing requirements section: expected Observable Truths, Success Criteria, or Acceptance Criteria heading)`,
-          });
-        } else {
-          // Extract the section content from the heading to the next heading or EOF
-          const sectionStart = sectionMatch.index + sectionMatch[0].length;
-          const nextHeadingMatch = /^#+\s/m.exec(content.slice(sectionStart));
-          const sectionContent = nextHeadingMatch
-            ? content.slice(sectionStart, sectionStart + nextHeadingMatch.index)
-            : content.slice(sectionStart);
-
-          const hasNumberedItem = /^\s*\d+\.\s+/m.test(sectionContent);
-          if (!hasNumberedItem) {
-            missingSpecs.push({
-              implFile: relImpl,
-              expectedSpec: `${relSpec} (requirements section "${sectionMatch[1]}" has no numbered items)`,
-            });
-          }
-        }
+        checkSpecContent(expectedSpec, relImpl, relSpec, missingSpecs);
       }
     }
   }

@@ -103,11 +103,15 @@ function resolveImportSource(
   return undefined;
 }
 
-function checkViolations(
-  metrics: FileMetrics[],
-  config?: Partial<CouplingConfig>
-): CouplingViolation[] {
-  const thresholds = {
+type ResolvedThresholds = {
+  fanOut: { warn: number };
+  fanIn: { info: number };
+  couplingRatio: { warn: number };
+  transitiveDependencyDepth: { info: number };
+};
+
+function resolveThresholds(config?: Partial<CouplingConfig>): ResolvedThresholds {
+  return {
     fanOut: { ...DEFAULT_THRESHOLDS.fanOut, ...config?.thresholds?.fanOut },
     fanIn: { ...DEFAULT_THRESHOLDS.fanIn, ...config?.thresholds?.fanIn },
     couplingRatio: { ...DEFAULT_THRESHOLDS.couplingRatio, ...config?.thresholds?.couplingRatio },
@@ -116,67 +120,80 @@ function checkViolations(
       ...config?.thresholds?.transitiveDependencyDepth,
     },
   };
+}
 
+function checkFanOut(m: FileMetrics, threshold: number): CouplingViolation | null {
+  if (m.fanOut <= threshold) return null;
+  return {
+    file: m.file,
+    metric: 'fanOut',
+    value: m.fanOut,
+    threshold,
+    tier: 2,
+    severity: 'warning',
+    message: `File has ${m.fanOut} imports (threshold: ${threshold})`,
+  };
+}
+
+function checkFanIn(m: FileMetrics, threshold: number): CouplingViolation | null {
+  if (m.fanIn <= threshold) return null;
+  return {
+    file: m.file,
+    metric: 'fanIn',
+    value: m.fanIn,
+    threshold,
+    tier: 3,
+    severity: 'info',
+    message: `File is imported by ${m.fanIn} files (threshold: ${threshold})`,
+  };
+}
+
+function checkCouplingRatio(m: FileMetrics, threshold: number): CouplingViolation | null {
+  const totalConnections = m.fanIn + m.fanOut;
+  if (totalConnections <= 5 || m.couplingRatio <= threshold) return null;
+  return {
+    file: m.file,
+    metric: 'couplingRatio',
+    value: m.couplingRatio,
+    threshold,
+    tier: 2,
+    severity: 'warning',
+    message: `Coupling ratio is ${m.couplingRatio.toFixed(2)} (threshold: ${threshold})`,
+  };
+}
+
+function checkTransitiveDepth(m: FileMetrics, threshold: number): CouplingViolation | null {
+  if (m.transitiveDepth <= threshold) return null;
+  return {
+    file: m.file,
+    metric: 'transitiveDependencyDepth',
+    value: m.transitiveDepth,
+    threshold,
+    tier: 3,
+    severity: 'info',
+    message: `Transitive dependency depth is ${m.transitiveDepth} (threshold: ${threshold})`,
+  };
+}
+
+function checkMetricViolations(m: FileMetrics, thresholds: ResolvedThresholds): CouplingViolation[] {
+  const candidates = [
+    checkFanOut(m, thresholds.fanOut.warn),
+    checkFanIn(m, thresholds.fanIn.info),
+    checkCouplingRatio(m, thresholds.couplingRatio.warn),
+    checkTransitiveDepth(m, thresholds.transitiveDependencyDepth.info),
+  ];
+  return candidates.filter((v): v is CouplingViolation => v !== null);
+}
+
+function checkViolations(
+  metrics: FileMetrics[],
+  config?: Partial<CouplingConfig>
+): CouplingViolation[] {
+  const thresholds = resolveThresholds(config);
   const violations: CouplingViolation[] = [];
-
   for (const m of metrics) {
-    if (thresholds.fanOut.warn !== undefined && m.fanOut > thresholds.fanOut.warn) {
-      violations.push({
-        file: m.file,
-        metric: 'fanOut',
-        value: m.fanOut,
-        threshold: thresholds.fanOut.warn,
-        tier: 2,
-        severity: 'warning',
-        message: `File has ${m.fanOut} imports (threshold: ${thresholds.fanOut.warn})`,
-      });
-    }
-
-    if (thresholds.fanIn.info !== undefined && m.fanIn > thresholds.fanIn.info) {
-      violations.push({
-        file: m.file,
-        metric: 'fanIn',
-        value: m.fanIn,
-        threshold: thresholds.fanIn.info,
-        tier: 3,
-        severity: 'info',
-        message: `File is imported by ${m.fanIn} files (threshold: ${thresholds.fanIn.info})`,
-      });
-    }
-
-    const totalConnections = m.fanIn + m.fanOut;
-    if (
-      totalConnections > 5 &&
-      thresholds.couplingRatio.warn !== undefined &&
-      m.couplingRatio > thresholds.couplingRatio.warn
-    ) {
-      violations.push({
-        file: m.file,
-        metric: 'couplingRatio',
-        value: m.couplingRatio,
-        threshold: thresholds.couplingRatio.warn,
-        tier: 2,
-        severity: 'warning',
-        message: `Coupling ratio is ${m.couplingRatio.toFixed(2)} (threshold: ${thresholds.couplingRatio.warn})`,
-      });
-    }
-
-    if (
-      thresholds.transitiveDependencyDepth.info !== undefined &&
-      m.transitiveDepth > thresholds.transitiveDependencyDepth.info
-    ) {
-      violations.push({
-        file: m.file,
-        metric: 'transitiveDependencyDepth',
-        value: m.transitiveDepth,
-        threshold: thresholds.transitiveDependencyDepth.info,
-        tier: 3,
-        severity: 'info',
-        message: `Transitive dependency depth is ${m.transitiveDepth} (threshold: ${thresholds.transitiveDependencyDepth.info})`,
-      });
-    }
+    violations.push(...checkMetricViolations(m, thresholds));
   }
-
   return violations;
 }
 

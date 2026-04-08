@@ -152,62 +152,100 @@ export class RequirementIngestor {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-
-      // Check for section heading
-      const headingMatch = line.match(SECTION_HEADING_RE);
-      if (headingMatch) {
-        const heading = headingMatch[1]!.trim();
-        const isReqSection = REQUIREMENT_SECTIONS.some(
-          (s) => heading.toLowerCase() === s.toLowerCase()
-        );
-        if (isReqSection) {
-          currentSection = heading;
-          inRequirementSection = true;
-        } else {
-          inRequirementSection = false;
+      const sectionResult = this.processHeadingLine(line, inRequirementSection);
+      if (sectionResult !== null) {
+        inRequirementSection = sectionResult.inRequirementSection;
+        if (sectionResult.currentSection !== undefined) {
+          currentSection = sectionResult.currentSection;
         }
         continue;
       }
 
       if (!inRequirementSection) continue;
 
-      // Check for numbered item
       const itemMatch = line.match(NUMBERED_ITEM_RE);
       if (!itemMatch) continue;
 
-      const index = parseInt(itemMatch[1]!, 10);
-      const text = itemMatch[2]!.trim();
-      const rawText = line.trim();
-      const lineNumber = i + 1; // 1-based
-
       globalIndex++;
-      const nodeId = `req:${specHash}:${globalIndex}`;
-      const earsPattern = detectEarsPattern(text);
-
-      results.push({
-        node: {
-          id: nodeId,
-          type: 'requirement',
-          name: text,
-          path: specPath,
-          location: {
-            fileId: `file:${specPath}`,
-            startLine: lineNumber,
-            endLine: lineNumber,
-          },
-          metadata: {
-            specPath,
-            index,
-            section: currentSection!,
-            rawText,
-            earsPattern,
-            featureName,
-          },
-        },
-      });
+      results.push(
+        this.buildRequirementNode(
+          line,
+          itemMatch,
+          i + 1,
+          specPath,
+          specHash,
+          globalIndex,
+          featureName,
+          currentSection!
+        )
+      );
     }
 
     return results;
+  }
+
+  /**
+   * Check if a line is a section heading and return updated section state,
+   * or return null if the line is not a heading.
+   */
+  private processHeadingLine(
+    line: string,
+    inRequirementSection: boolean
+  ): { inRequirementSection: boolean; currentSection?: string } | null {
+    const headingMatch = line.match(SECTION_HEADING_RE);
+    if (!headingMatch) return null;
+
+    const heading = headingMatch[1]!.trim();
+    const isReqSection = REQUIREMENT_SECTIONS.some(
+      (s) => heading.toLowerCase() === s.toLowerCase()
+    );
+
+    if (isReqSection) {
+      return { inRequirementSection: true, currentSection: heading };
+    }
+    return { inRequirementSection: false };
+  }
+
+  /**
+   * Build a requirement GraphNode from a matched numbered-item line.
+   */
+  private buildRequirementNode(
+    line: string,
+    itemMatch: RegExpMatchArray,
+    lineNumber: number,
+    specPath: string,
+    specHash: string,
+    globalIndex: number,
+    featureName: string,
+    currentSection: string
+  ): { node: GraphNode } {
+    const index = parseInt(itemMatch[1]!, 10);
+    const text = itemMatch[2]!.trim();
+    const rawText = line.trim();
+    const nodeId = `req:${specHash}:${globalIndex}`;
+    const earsPattern = detectEarsPattern(text);
+
+    return {
+      node: {
+        id: nodeId,
+        type: 'requirement',
+        name: text,
+        path: specPath,
+        location: {
+          fileId: `file:${specPath}`,
+          startLine: lineNumber,
+          endLine: lineNumber,
+        },
+        metadata: {
+          specPath,
+          index,
+          section: currentSection,
+          rawText,
+          earsPattern,
+          featureName,
+        },
+      },
+    };
   }
 
   /**

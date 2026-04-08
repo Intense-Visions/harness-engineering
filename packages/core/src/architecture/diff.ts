@@ -92,45 +92,64 @@ function collectOrphanedBaselineViolations(
   return resolved;
 }
 
+interface CategoryDiffAccumulator {
+  newViolations: Violation[];
+  resolvedViolations: string[];
+  preExisting: string[];
+  regressions: CategoryRegression[];
+}
+
+/**
+ * Process a single aggregated category against its baseline entry and accumulate diff results.
+ */
+function diffCategory(
+  category: ArchMetricCategory,
+  agg: AggregatedCategory,
+  baselineCategory: CategoryBaseline | undefined,
+  acc: CategoryDiffAccumulator
+): void {
+  const baselineViolationIds = new Set(baselineCategory?.violationIds ?? []);
+  const baselineValue = baselineCategory?.value ?? 0;
+
+  const classified = classifyViolations(agg.violations, baselineViolationIds);
+  acc.newViolations.push(...classified.newViolations);
+  acc.preExisting.push(...classified.preExisting);
+
+  const currentViolationIds = new Set(agg.violations.map((v) => v.id));
+  acc.resolvedViolations.push(...findResolvedViolations(baselineCategory, currentViolationIds));
+
+  if (baselineCategory && agg.value > baselineValue) {
+    acc.regressions.push({
+      category,
+      baselineValue,
+      currentValue: agg.value,
+      delta: agg.value - baselineValue,
+    });
+  }
+}
+
 export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffResult {
   const aggregated = aggregateByCategory(current);
-  const newViolations: Violation[] = [];
-  const resolvedViolations: string[] = [];
-  const preExisting: string[] = [];
-  const regressions: CategoryRegression[] = [];
+  const acc: CategoryDiffAccumulator = {
+    newViolations: [],
+    resolvedViolations: [],
+    preExisting: [],
+    regressions: [],
+  };
   const visitedCategories = new Set<string>();
 
   for (const [category, agg] of aggregated) {
     visitedCategories.add(category);
-
-    const baselineCategory: CategoryBaseline | undefined = baseline.metrics[category];
-    const baselineViolationIds = new Set(baselineCategory?.violationIds ?? []);
-    const baselineValue = baselineCategory?.value ?? 0;
-
-    const classified = classifyViolations(agg.violations, baselineViolationIds);
-    newViolations.push(...classified.newViolations);
-    preExisting.push(...classified.preExisting);
-
-    const currentViolationIds = new Set(agg.violations.map((v) => v.id));
-    resolvedViolations.push(...findResolvedViolations(baselineCategory, currentViolationIds));
-
-    if (baselineCategory && agg.value > baselineValue) {
-      regressions.push({
-        category,
-        baselineValue,
-        currentValue: agg.value,
-        delta: agg.value - baselineValue,
-      });
-    }
+    diffCategory(category, agg, baseline.metrics[category], acc);
   }
 
-  resolvedViolations.push(...collectOrphanedBaselineViolations(baseline, visitedCategories));
+  acc.resolvedViolations.push(...collectOrphanedBaselineViolations(baseline, visitedCategories));
 
   return {
-    passed: newViolations.length === 0 && regressions.length === 0,
-    newViolations,
-    resolvedViolations,
-    preExisting,
-    regressions,
+    passed: acc.newViolations.length === 0 && acc.regressions.length === 0,
+    newViolations: acc.newViolations,
+    resolvedViolations: acc.resolvedViolations,
+    preExisting: acc.preExisting,
+    regressions: acc.regressions,
   };
 }

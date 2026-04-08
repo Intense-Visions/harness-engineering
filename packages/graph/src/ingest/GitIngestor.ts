@@ -146,71 +146,71 @@ export class GitIngestor {
     } | null = null;
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        // Empty line after files means end of commit entry.
-        // Empty line right after the header (before files) is skipped.
-        if (current && current.hasFiles) {
-          commits.push({
-            hash: current.hash,
-            shortHash: current.shortHash,
-            author: current.author,
-            email: current.email,
-            date: current.date,
-            message: current.message,
-            files: current.files,
-          });
-          current = null;
-        }
-        continue;
-      }
-
-      // Try to parse as a commit header line (contains | delimiters)
-      const parts = trimmed.split('|');
-      if (parts.length >= 5 && /^[0-9a-f]{7,40}$/.test(parts[0]!)) {
-        // If we have a pending commit, push it first
-        if (current) {
-          commits.push({
-            hash: current.hash,
-            shortHash: current.shortHash,
-            author: current.author,
-            email: current.email,
-            date: current.date,
-            message: current.message,
-            files: current.files,
-          });
-        }
-        current = {
-          hash: parts[0]!,
-          shortHash: parts[0]!.substring(0, 7),
-          author: parts[1]!,
-          email: parts[2]!,
-          date: parts[3]!,
-          message: parts.slice(4).join('|'), // message may contain |
-          files: [],
-          hasFiles: false,
-        };
-      } else if (current) {
-        // It's a file path
-        current.files.push(trimmed);
-        current.hasFiles = true;
-      }
+      current = this.processLogLine(line, current, commits);
     }
 
     // Don't forget the last commit
     if (current) {
-      commits.push({
-        hash: current.hash,
-        shortHash: current.shortHash,
-        author: current.author,
-        email: current.email,
-        date: current.date,
-        message: current.message,
-        files: current.files,
-      });
+      commits.push(finalizeCommit(current));
     }
 
     return commits;
+  }
+
+  /**
+   * Process one line from git log output, updating the in-progress commit builder
+   * and flushing completed commits into the accumulator.
+   * Returns the updated current builder (null if flushed and not replaced).
+   */
+  private processLogLine(
+    line: string,
+    current: {
+      hash: string;
+      shortHash: string;
+      author: string;
+      email: string;
+      date: string;
+      message: string;
+      files: string[];
+      hasFiles: boolean;
+    } | null,
+    commits: ParsedCommit[]
+  ): typeof current {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      // Empty line after files means end of commit entry.
+      // Empty line right after the header (before files) is skipped.
+      if (current?.hasFiles) {
+        commits.push(finalizeCommit(current));
+        return null;
+      }
+      return current;
+    }
+
+    // Try to parse as a commit header line (contains | delimiters)
+    const parts = trimmed.split('|');
+    if (parts.length >= 5 && /^[0-9a-f]{7,40}$/.test(parts[0]!)) {
+      if (current) {
+        commits.push(finalizeCommit(current));
+      }
+      return {
+        hash: parts[0]!,
+        shortHash: parts[0]!.substring(0, 7),
+        author: parts[1]!,
+        email: parts[2]!,
+        date: parts[3]!,
+        message: parts.slice(4).join('|'), // message may contain |
+        files: [],
+        hasFiles: false,
+      };
+    }
+
+    if (current) {
+      current.files.push(trimmed);
+      current.hasFiles = true;
+    }
+    return current;
   }
 
   private computeCoChanges(

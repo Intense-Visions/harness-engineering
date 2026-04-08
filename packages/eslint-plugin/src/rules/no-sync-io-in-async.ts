@@ -34,6 +34,29 @@ function getSyncMethodName(node: TSESTree.CallExpression): string | undefined {
   return undefined;
 }
 
+type AsyncFunctionNode =
+  | TSESTree.FunctionDeclaration
+  | TSESTree.FunctionExpression
+  | TSESTree.ArrowFunctionExpression;
+
+function adjustAsyncDepth(node: AsyncFunctionNode, depthRef: { value: number }, delta: number): void {
+  if (node.async) {
+    depthRef.value += delta;
+  }
+}
+
+function checkSyncCallInAsync(
+  node: TSESTree.CallExpression,
+  depthRef: { value: number },
+  reportFn: (name: string) => void
+): void {
+  if (depthRef.value === 0) return;
+  const name = getSyncMethodName(node);
+  if (name) {
+    reportFn(name);
+  }
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-sync-io-in-async',
   meta: {
@@ -48,29 +71,12 @@ export default createRule<[], MessageIds>({
   },
   defaultOptions: [],
   create(context) {
-    let asyncDepth = 0;
+    const asyncDepthRef = { value: 0 };
 
-    function enterFunction(
-      node:
-        | TSESTree.FunctionDeclaration
-        | TSESTree.FunctionExpression
-        | TSESTree.ArrowFunctionExpression
-    ) {
-      if (node.async) {
-        asyncDepth++;
-      }
-    }
-
-    function exitFunction(
-      node:
-        | TSESTree.FunctionDeclaration
-        | TSESTree.FunctionExpression
-        | TSESTree.ArrowFunctionExpression
-    ) {
-      if (node.async) {
-        asyncDepth--;
-      }
-    }
+    const enterFunction = (node: AsyncFunctionNode): void =>
+      adjustAsyncDepth(node, asyncDepthRef, 1);
+    const exitFunction = (node: AsyncFunctionNode): void =>
+      adjustAsyncDepth(node, asyncDepthRef, -1);
 
     return {
       FunctionDeclaration: enterFunction,
@@ -81,11 +87,9 @@ export default createRule<[], MessageIds>({
       'ArrowFunctionExpression:exit': exitFunction,
 
       CallExpression(node: TSESTree.CallExpression) {
-        if (asyncDepth === 0) return;
-        const name = getSyncMethodName(node);
-        if (name) {
+        checkSyncCallInAsync(node, asyncDepthRef, (name) => {
           context.report({ node, messageId: 'syncIoInAsync', data: { name } });
-        }
+        });
       },
     };
   },

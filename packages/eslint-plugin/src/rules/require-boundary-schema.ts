@@ -10,6 +10,33 @@ const createRule = ESLintUtils.RuleCreator(
 
 type MessageIds = 'missingSchema';
 
+function extractFunctionDeclaration(
+  node: TSESTree.ExportNamedDeclaration
+): TSESTree.FunctionDeclaration | null {
+  const decl = node.declaration;
+  if (!decl || (decl.type as AST_NODE_TYPES) !== AST_NODE_TYPES.FunctionDeclaration) {
+    return null;
+  }
+  const fn = decl as TSESTree.FunctionDeclaration;
+  if (!fn.id || !fn.body) return null;
+  return fn;
+}
+
+function isFileInBoundary(filePath: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => matchesPattern(filePath, pattern));
+}
+
+function checkBoundaryExport(
+  node: TSESTree.ExportNamedDeclaration,
+  report: (opts: { node: TSESTree.Node; messageId: MessageIds; data: Record<string, string> }) => void
+): void {
+  const fn = extractFunctionDeclaration(node);
+  if (!fn) return;
+  if (!hasZodValidation(fn.body)) {
+    report({ node: fn, messageId: 'missingSchema', data: { name: fn.id!.name } });
+  }
+}
+
 export default createRule<[], MessageIds>({
   name: 'require-boundary-schema',
   meta: {
@@ -32,35 +59,19 @@ export default createRule<[], MessageIds>({
 
     const filePath = normalizePath(context.filename);
 
-    // Check if file matches any boundary pattern
-    const isBoundaryFile = config.boundaries.requireSchema.some((pattern) =>
-      matchesPattern(filePath, pattern)
-    );
-
-    if (!isBoundaryFile) {
+    if (!isFileInBoundary(filePath, config.boundaries.requireSchema)) {
       return {}; // Not a boundary file
     }
 
+    const report = context.report.bind(context) as (opts: {
+      node: TSESTree.Node;
+      messageId: MessageIds;
+      data: Record<string, string>;
+    }) => void;
+
     return {
       ExportNamedDeclaration(node: TSESTree.ExportNamedDeclaration) {
-        const decl = node.declaration;
-
-        // Only check function declarations
-        if (!decl || (decl.type as AST_NODE_TYPES) !== AST_NODE_TYPES.FunctionDeclaration) {
-          return;
-        }
-
-        const fn = decl as TSESTree.FunctionDeclaration;
-        if (!fn.id || !fn.body) return;
-
-        // Check if function has Zod validation
-        if (!hasZodValidation(fn.body)) {
-          context.report({
-            node: fn,
-            messageId: 'missingSchema',
-            data: { name: fn.id.name },
-          });
-        }
+        checkBoundaryExport(node, report);
       },
     };
   },

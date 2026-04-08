@@ -209,17 +209,21 @@ function maxLineOfValue(value: unknown): number {
   return 0;
 }
 
+function maxLineOfNodeKeys(node: object): number {
+  let max = 0;
+  for (const key of Object.keys(node)) {
+    max = Math.max(max, maxLineOfValue((node as Record<string, unknown>)[key]));
+  }
+  return max;
+}
+
 function findMaxLineInNode(node: unknown): number {
   if (!node || typeof node !== 'object') return 0;
 
   const n = node as { loc?: { end?: { line?: number } } };
-  let maxLine = n.loc?.end?.line ?? 0;
+  const locLine = n.loc?.end?.line ?? 0;
 
-  for (const key of Object.keys(node)) {
-    maxLine = Math.max(maxLine, maxLineOfValue((node as Record<string, unknown>)[key]));
-  }
-
-  return maxLine;
+  return Math.max(locLine, maxLineOfNodeKeys(node as object));
 }
 
 /**
@@ -360,32 +364,37 @@ type GraphDeadCodeData = {
 const FILE_TYPES = new Set(['file', 'module']);
 const EXPORT_TYPES = new Set(['function', 'class', 'method', 'interface', 'variable']);
 
-function buildReportFromGraph(data: GraphDeadCodeData): DeadCodeReport {
-  const deadFiles: DeadFile[] = [];
-  const deadExports: DeadExport[] = [];
-
-  for (const node of data.unreachableNodes) {
-    if (FILE_TYPES.has(node.type)) {
-      deadFiles.push({
-        path: node.path || node.id,
-        reason: 'NO_IMPORTERS',
-        exportCount: 0,
-        lineCount: 0,
-      });
-    } else if (EXPORT_TYPES.has(node.type)) {
-      const exportType: DeadExport['type'] =
-        node.type === 'method' ? 'function' : (node.type as DeadExport['type']);
-      deadExports.push({
-        file: node.path || node.id,
-        name: node.name,
-        line: 0,
-        type: exportType,
-        isDefault: false,
-        reason: 'NO_IMPORTERS',
-      });
-    }
+function classifyUnreachableNode(
+  node: GraphDeadCodeData['unreachableNodes'][number],
+  deadFiles: DeadFile[],
+  deadExports: DeadExport[]
+): void {
+  if (FILE_TYPES.has(node.type)) {
+    deadFiles.push({
+      path: node.path || node.id,
+      reason: 'NO_IMPORTERS',
+      exportCount: 0,
+      lineCount: 0,
+    });
+  } else if (EXPORT_TYPES.has(node.type)) {
+    const exportType: DeadExport['type'] =
+      node.type === 'method' ? 'function' : (node.type as DeadExport['type']);
+    deadExports.push({
+      file: node.path || node.id,
+      name: node.name,
+      line: 0,
+      type: exportType,
+      isDefault: false,
+      reason: 'NO_IMPORTERS',
+    });
   }
+}
 
+function computeGraphReportStats(
+  data: GraphDeadCodeData,
+  deadFiles: DeadFile[],
+  deadExports: DeadExport[]
+): DeadCodeReport['stats'] {
   const reachableCount =
     data.reachableNodeIds instanceof Set
       ? data.reachableNodeIds.size
@@ -396,19 +405,30 @@ function buildReportFromGraph(data: GraphDeadCodeData): DeadCodeReport {
   const totalExports = exportNodes.length + (reachableCount > 0 ? reachableCount : 0);
 
   return {
+    filesAnalyzed: totalFiles,
+    entryPointsUsed: [],
+    totalExports,
+    deadExportCount: deadExports.length,
+    totalFiles,
+    deadFileCount: deadFiles.length,
+    estimatedDeadLines: 0,
+  };
+}
+
+function buildReportFromGraph(data: GraphDeadCodeData): DeadCodeReport {
+  const deadFiles: DeadFile[] = [];
+  const deadExports: DeadExport[] = [];
+
+  for (const node of data.unreachableNodes) {
+    classifyUnreachableNode(node, deadFiles, deadExports);
+  }
+
+  return {
     deadExports,
     deadFiles,
     deadInternals: [],
     unusedImports: [],
-    stats: {
-      filesAnalyzed: totalFiles,
-      entryPointsUsed: [],
-      totalExports,
-      deadExportCount: deadExports.length,
-      totalFiles,
-      deadFileCount: deadFiles.length,
-      estimatedDeadLines: 0,
-    },
+    stats: computeGraphReportStats(data, deadFiles, deadExports),
   };
 }
 

@@ -101,79 +101,100 @@ async function offerRegeneration(): Promise<void> {
   }
 }
 
+async function checkForUpdates(
+  _pm: PackageManager,
+  opts: { version?: string },
+  currentVersion: string | null
+): Promise<string | undefined> {
+  if (opts.version) return undefined;
+
+  logger.info('Checking for updates...');
+  let latestCliVersion: string;
+  try {
+    latestCliVersion = getLatestVersion();
+  } catch {
+    logger.error('Failed to fetch latest version from npm registry');
+    process.exit(ExitCode.ERROR);
+  }
+
+  if (currentVersion && currentVersion === latestCliVersion) {
+    logger.success(`Already up to date (v${currentVersion})`);
+    process.exit(ExitCode.SUCCESS);
+  }
+
+  if (currentVersion) {
+    console.log('');
+    logger.info(`Current CLI version: ${chalk.dim(`v${currentVersion}`)}`);
+    logger.info(`Latest CLI version:  ${chalk.green(`v${latestCliVersion}`)}`);
+    console.log('');
+  }
+
+  return latestCliVersion;
+}
+
+function buildInstallPackages(
+  packages: string[],
+  opts: { version?: string }
+): { installPkgs: string[]; installCmd: string; pm: PackageManager } {
+  const pm = detectPackageManager();
+  const installPkgs = packages.map((pkg) => {
+    if (opts.version && pkg === '@harness-engineering/cli') {
+      return `${pkg}@${opts.version}`;
+    }
+    return `${pkg}@latest`;
+  });
+  const installCmd = `${pm} install -g ${installPkgs.join(' ')}`;
+  return { installPkgs, installCmd, pm };
+}
+
+async function runUpdateAction(opts: { version?: string }, globalOpts: Record<string, unknown>): Promise<void> {
+  // 1. Detect package manager
+  const pm = detectPackageManager();
+  if (globalOpts.verbose) {
+    logger.info(`Detected package manager: ${pm}`);
+  }
+
+  // 2. Check if already up to date (CLI package only)
+  const currentVersion = getInstalledVersion(pm);
+  await checkForUpdates(pm, opts, currentVersion);
+
+  // 3. Discover installed packages
+  const packages = getInstalledPackages(pm);
+  if (globalOpts.verbose) {
+    logger.info(`Installed packages: ${packages.join(', ')}`);
+  }
+
+  // 4. Build install command — each package gets @latest, except CLI if --version is specified
+  const { installPkgs, installCmd } = buildInstallPackages(packages, opts);
+
+  if (globalOpts.verbose) {
+    logger.info(`Running: ${installCmd}`);
+  }
+
+  try {
+    logger.info('Updating packages...');
+    execFileSync(pm, ['install', '-g', ...installPkgs], { stdio: 'inherit', timeout: 120000 });
+    console.log('');
+    logger.success('Update complete');
+  } catch {
+    console.log('');
+    logger.error('Update failed. You can try manually:');
+    console.log(`  ${chalk.cyan(installCmd)}`);
+    process.exit(ExitCode.ERROR);
+  }
+
+  // 6. Post-update: offer to regenerate slash commands + agent definitions
+  await offerRegeneration();
+
+  process.exit(ExitCode.SUCCESS);
+}
+
 export function createUpdateCommand(): Command {
   return new Command('update')
     .description('Update all @harness-engineering packages to the latest version')
     .option('--version <semver>', 'Pin @harness-engineering/cli to a specific version')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-
-      // 1. Detect package manager
-      const pm = detectPackageManager();
-      if (globalOpts.verbose) {
-        logger.info(`Detected package manager: ${pm}`);
-      }
-
-      // 2. Check if already up to date (CLI package only)
-      const currentVersion = getInstalledVersion(pm);
-      let latestCliVersion: string | undefined;
-
-      if (!opts.version) {
-        logger.info('Checking for updates...');
-        try {
-          latestCliVersion = getLatestVersion();
-        } catch {
-          logger.error('Failed to fetch latest version from npm registry');
-          return process.exit(ExitCode.ERROR);
-        }
-
-        if (currentVersion && currentVersion === latestCliVersion) {
-          logger.success(`Already up to date (v${currentVersion})`);
-          process.exit(ExitCode.SUCCESS);
-        }
-
-        if (currentVersion) {
-          console.log('');
-          logger.info(`Current CLI version: ${chalk.dim(`v${currentVersion}`)}`);
-          logger.info(`Latest CLI version:  ${chalk.green(`v${latestCliVersion}`)}`);
-          console.log('');
-        }
-      }
-
-      // 3. Discover installed packages
-      const packages = getInstalledPackages(pm);
-      if (globalOpts.verbose) {
-        logger.info(`Installed packages: ${packages.join(', ')}`);
-      }
-
-      // 4. Build install command — each package gets @latest, except CLI if --version is specified
-      const installPkgs = packages.map((pkg) => {
-        if (opts.version && pkg === '@harness-engineering/cli') {
-          return `${pkg}@${opts.version}`;
-        }
-        return `${pkg}@latest`;
-      });
-      const installCmd = `${pm} install -g ${installPkgs.join(' ')}`;
-
-      if (globalOpts.verbose) {
-        logger.info(`Running: ${installCmd}`);
-      }
-
-      try {
-        logger.info('Updating packages...');
-        execFileSync(pm, ['install', '-g', ...installPkgs], { stdio: 'inherit', timeout: 120000 });
-        console.log('');
-        logger.success('Update complete');
-      } catch {
-        console.log('');
-        logger.error('Update failed. You can try manually:');
-        console.log(`  ${chalk.cyan(installCmd)}`);
-        process.exit(ExitCode.ERROR);
-      }
-
-      // 6. Post-update: offer to regenerate slash commands + agent definitions
-      await offerRegeneration();
-
-      process.exit(ExitCode.SUCCESS);
+      await runUpdateAction(opts, globalOpts);
     });
 }

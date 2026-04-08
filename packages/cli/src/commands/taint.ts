@@ -33,6 +33,42 @@ function registerClearCommand(taint: Command): void {
     });
 }
 
+function printSingleSessionStatus(projectRoot: string, sessionId: string): void {
+  const result = checkTaint(projectRoot, sessionId);
+  if (result.expired) {
+    logger.info(`Session "${sessionId}": taint expired (cleared).`);
+  } else if (result.tainted && result.state) {
+    const state = result.state;
+    const expiresAt = new Date(state.expiresAt);
+    const remaining = Math.max(0, Math.round((expiresAt.getTime() - Date.now()) / 1000 / 60));
+    logger.info(`Session "${sessionId}": TAINTED (${state.severity})`);
+    logger.info(`  Reason: ${state.reason}`);
+    logger.info(`  Expires in: ~${remaining} minute${remaining === 1 ? '' : 's'}`);
+    logger.info(`  Findings: ${state.findings.length}`);
+  } else {
+    logger.info(`Session "${sessionId}": clean (no taint).`);
+  }
+}
+
+function printAllSessionsStatus(projectRoot: string): void {
+  const sessions = listTaintedSessions(projectRoot);
+  if (sessions.length === 0) {
+    logger.info('No active taint sessions.');
+    return;
+  }
+  logger.info(`Active taint sessions (${sessions.length}):`);
+  for (const id of sessions) {
+    const result = checkTaint(projectRoot, id);
+    if (result.tainted && result.state) {
+      const remaining = Math.max(
+        0,
+        Math.round((new Date(result.state.expiresAt).getTime() - Date.now()) / 1000 / 60)
+      );
+      logger.info(`  ${id}: ${result.state.severity} — expires in ~${remaining}m`);
+    }
+  }
+}
+
 function registerStatusCommand(taint: Command): void {
   taint
     .command('status [sessionId]')
@@ -40,37 +76,9 @@ function registerStatusCommand(taint: Command): void {
     .action((sessionId?: string) => {
       const projectRoot = getProjectRoot();
       if (sessionId) {
-        const result = checkTaint(projectRoot, sessionId);
-        if (result.expired) {
-          logger.info(`Session "${sessionId}": taint expired (cleared).`);
-        } else if (result.tainted && result.state) {
-          const state = result.state;
-          const expiresAt = new Date(state.expiresAt);
-          const remaining = Math.max(0, Math.round((expiresAt.getTime() - Date.now()) / 1000 / 60));
-          logger.info(`Session "${sessionId}": TAINTED (${state.severity})`);
-          logger.info(`  Reason: ${state.reason}`);
-          logger.info(`  Expires in: ~${remaining} minute${remaining === 1 ? '' : 's'}`);
-          logger.info(`  Findings: ${state.findings.length}`);
-        } else {
-          logger.info(`Session "${sessionId}": clean (no taint).`);
-        }
+        printSingleSessionStatus(projectRoot, sessionId);
       } else {
-        const sessions = listTaintedSessions(projectRoot);
-        if (sessions.length === 0) {
-          logger.info('No active taint sessions.');
-        } else {
-          logger.info(`Active taint sessions (${sessions.length}):`);
-          for (const id of sessions) {
-            const result = checkTaint(projectRoot, id);
-            if (result.tainted && result.state) {
-              const remaining = Math.max(
-                0,
-                Math.round((new Date(result.state.expiresAt).getTime() - Date.now()) / 1000 / 60)
-              );
-              logger.info(`  ${id}: ${result.state.severity} — expires in ~${remaining}m`);
-            }
-          }
-        }
+        printAllSessionsStatus(projectRoot);
       }
     });
 }

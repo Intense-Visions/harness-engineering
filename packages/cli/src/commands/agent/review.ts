@@ -104,6 +104,34 @@ export async function runAgentReview(options: ReviewOptions): Promise<
   });
 }
 
+function resolveReviewMode(globalOpts: Record<string, unknown>): OutputModeType {
+  if (globalOpts.json) return OutputMode.JSON;
+  if (globalOpts.quiet) return OutputMode.QUIET;
+  return OutputMode.TEXT;
+}
+
+function printReviewResult(
+  result: Awaited<ReturnType<typeof runAgentReview>>,
+  mode: OutputModeType
+): void {
+  if (!result.ok) return;
+  const { pipelineResult } = result.value;
+  if (mode === OutputMode.JSON) {
+    console.log(JSON.stringify({
+      ...result.value,
+      pipelineResult: pipelineResult
+        ? { assessment: pipelineResult.assessment, findings: pipelineResult.findings, exitCode: pipelineResult.exitCode }
+        : undefined,
+    }, null, 2));
+  } else if (mode !== OutputMode.QUIET) {
+    if (pipelineResult) {
+      console.log(pipelineResult.terminalOutput);
+    } else {
+      console.log(result.value.passed ? 'v Self-review passed' : 'x Self-review found issues');
+    }
+  }
+}
+
 export function createReviewCommand(): Command {
   return new Command('review')
     .description('Run unified code review pipeline on current changes')
@@ -113,11 +141,7 @@ export function createReviewCommand(): Command {
     .option('--no-mechanical', 'Skip mechanical checks')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : OutputMode.TEXT;
+      const mode = resolveReviewMode(globalOpts);
 
       const result = await runAgentReview({
         configPath: globalOpts.config,
@@ -127,51 +151,17 @@ export function createReviewCommand(): Command {
         comment: opts.comment,
         ci: opts.ci,
         deep: opts.deep,
-        noMechanical: opts.mechanical === false, // Commander negation: --no-mechanical sets mechanical=false
+        noMechanical: opts.mechanical === false,
       });
 
       if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
+        if (mode === OutputMode.JSON) console.log(JSON.stringify({ error: result.error.message }));
+        else logger.error(result.error.message);
         process.exit(result.error.exitCode);
       }
 
+      printReviewResult(result, mode);
       const { pipelineResult } = result.value;
-
-      if (mode === OutputMode.JSON) {
-        console.log(
-          JSON.stringify(
-            {
-              ...result.value,
-              pipelineResult: pipelineResult
-                ? {
-                    assessment: pipelineResult.assessment,
-                    findings: pipelineResult.findings,
-                    exitCode: pipelineResult.exitCode,
-                  }
-                : undefined,
-            },
-            null,
-            2
-          )
-        );
-      } else if (mode !== OutputMode.QUIET) {
-        if (pipelineResult) {
-          console.log(pipelineResult.terminalOutput);
-        } else {
-          console.log(result.value.passed ? 'v Self-review passed' : 'x Self-review found issues');
-        }
-      }
-
-      process.exit(
-        pipelineResult
-          ? pipelineResult.exitCode
-          : result.value.passed
-            ? ExitCode.SUCCESS
-            : ExitCode.VALIDATION_FAILED
-      );
+      process.exit(pipelineResult ? pipelineResult.exitCode : result.value.passed ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
     });
 }
