@@ -69,6 +69,28 @@ describe('SKILL.md structure', () => {
   });
 });
 
+describe('all skill.yaml files pass SkillMetadataSchema validation', () => {
+  const skillYamlFiles = glob.sync('**/skill.yaml', {
+    cwd: SKILLS_DIR,
+    ignore: ['**/node_modules/**', '**/tests/**'],
+  });
+
+  if (skillYamlFiles.length === 0) {
+    it.skip('no skill.yaml files found yet', () => {});
+    return;
+  }
+
+  it.each(skillYamlFiles)('%s parses successfully against SkillMetadataSchema', (file) => {
+    const raw = readFileSync(resolve(SKILLS_DIR, file), 'utf-8');
+    const parsed = parse(raw);
+    const result = SkillMetadataSchema.safeParse(parsed);
+    expect(
+      result.success,
+      `Schema validation failed for ${file}: ${JSON.stringify(result.error?.issues)}`
+    ).toBe(true);
+  });
+});
+
 describe('rigid skills have Gates and Escalation sections', () => {
   const skillYamlFiles = glob.sync('**/skill.yaml', {
     cwd: SKILLS_DIR,

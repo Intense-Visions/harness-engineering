@@ -41,6 +41,7 @@ const ALLOWED_TRIGGERS = [
   'on_review',
   'on_milestone',
   'on_task_complete',
+  'on_doc_check',
 ] as const;
 
 const ALLOWED_PLATFORMS = ['claude-code', 'gemini-cli', 'codex', 'cursor'] as const;
@@ -55,6 +56,7 @@ export const SkillMetadataSchema = z.object({
   cli: SkillCliSchema.optional(),
   mcp: SkillMcpSchema.optional(),
   type: z.enum(['rigid', 'flexible', 'knowledge']),
+  cognitive_mode: z.string().optional(),
   phases: z.array(SkillPhaseSchema).optional(),
   state: SkillStateSchema.default({}),
   depends_on: z.array(z.string()).default([]),
