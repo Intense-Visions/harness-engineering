@@ -430,6 +430,159 @@ describe('suggest() — autoInjectKnowledge shape', () => {
   });
 });
 
+describe('suggest() — related_skills traversal and caps', () => {
+  it('surfaces related_skills of auto-injected skill as secondary recommendations', () => {
+    // 'react-hooks' scores ≥ 0.7 (auto-inject); 'ts-types' is its related skill
+    // Score math: keyword(hooks,react)=0.30 + name(react,hooks)=0.15 + desc(hooks)=0.05 + paths=0.20 = 0.70
+    const injected = makeEntry({
+      type: 'knowledge',
+      keywords: ['hooks', 'react', 'custom'],
+      paths: ['**/*.tsx'],
+      relatedSkills: ['ts-types'],
+      description: 'Custom hooks pattern',
+    });
+    const related = makeEntry({
+      type: 'knowledge',
+      keywords: [],
+      description: 'TypeScript type utilities',
+    });
+    const index = makeIndex({
+      'react-hooks': injected,
+      'ts-types': related,
+    });
+    const result = suggest(index, 'hooks react', null, ['src/App.tsx']);
+    // react-hooks should be auto-injected (score ≥ 0.7)
+    expect(result.autoInjectKnowledge.some((s) => s.name === 'react-hooks')).toBe(true);
+    // ts-types should appear in knowledgeRecommendations via traversal
+    const rec = result.knowledgeRecommendations.find((r) => r.name === 'ts-types');
+    expect(rec).toBeDefined();
+    expect(rec!.score).toBe(0.45);
+    expect(rec!.reason).toBe('related to auto-injected react-hooks');
+  });
+
+  it('does not duplicate a related skill already in autoInjectKnowledge', () => {
+    // Both 'react-hooks' and 'ts-types' score ≥ 0.7; react-hooks also lists ts-types as related
+    const entryA = makeEntry({
+      type: 'knowledge',
+      keywords: ['hooks', 'react', 'custom'],
+      paths: ['**/*.tsx'],
+      relatedSkills: ['ts-types'],
+      description: 'Custom hooks pattern',
+    });
+    const entryB = makeEntry({
+      type: 'knowledge',
+      keywords: ['types', 'typescript'],
+      paths: ['**/*.tsx'],
+      relatedSkills: [],
+      description: 'TypeScript type utilities',
+    });
+    const index = makeIndex({
+      'react-hooks': entryA,
+      'ts-types': entryB,
+    });
+    const result = suggest(index, 'hooks react custom types typescript', null, ['src/App.tsx']);
+    // ts-types must not appear in both autoInjectKnowledge and knowledgeRecommendations
+    const inAutoInject = result.autoInjectKnowledge.some((s) => s.name === 'ts-types');
+    const inRecs = result.knowledgeRecommendations.some((r) => r.name === 'ts-types');
+    expect(inAutoInject && inRecs).toBe(false);
+  });
+
+  it('does not duplicate a related skill already in knowledgeRecommendations', () => {
+    // 'react-hooks' is auto-injected; 'ts-types' already scored 0.4–0.7 into recommendations
+    const injected = makeEntry({
+      type: 'knowledge',
+      keywords: ['hooks', 'react', 'custom'],
+      paths: ['**/*.tsx'],
+      relatedSkills: ['ts-types'],
+      description: 'Custom hooks pattern',
+    });
+    const moderate = makeEntry({
+      type: 'knowledge',
+      keywords: ['types'],
+      paths: [],
+      relatedSkills: [],
+      description: 'TypeScript type utilities',
+    });
+    const index = makeIndex({
+      'react-hooks': injected,
+      'ts-types': moderate,
+    });
+    // Use a query that boosts ts-types into 0.4-0.7 range (keyword match only)
+    const result = suggest(index, 'hooks react custom types', null, ['src/App.tsx']);
+    const recCount = result.knowledgeRecommendations.filter((r) => r.name === 'ts-types').length;
+    expect(recCount).toBeLessThanOrEqual(1);
+  });
+
+  it('adds no recommendations when auto-injected skill has no related_skills', () => {
+    const injected = makeEntry({
+      type: 'knowledge',
+      keywords: ['hooks', 'react', 'custom'],
+      paths: ['**/*.tsx'],
+      relatedSkills: [],
+      description: 'Custom hooks pattern',
+    });
+    const index = makeIndex({ 'react-hooks': injected });
+    const result = suggest(index, 'hooks react custom', null, ['src/App.tsx']);
+    // No traversal entries should be added
+    const traversalEntries = result.knowledgeRecommendations.filter((r) =>
+      r.reason?.startsWith('related to auto-injected')
+    );
+    expect(traversalEntries).toHaveLength(0);
+  });
+
+  it('caps autoInjectKnowledge at 3 and demotes excess to knowledgeRecommendations', () => {
+    // Create 4 knowledge skills that all score ≥ 0.7 via keyword+name+paths match
+    // Score math per skill: keyword(hooks,react)=0.30 + name(react,hooks)=0.15 + desc=0.05 + paths=0.20 = 0.70
+    const makeKnowledgeEntry = () =>
+      makeEntry({
+        type: 'knowledge',
+        keywords: ['hooks', 'react'],
+        paths: ['**/*.tsx'],
+        relatedSkills: [],
+        description: 'Custom hooks pattern',
+      });
+    const index = makeIndex({
+      'react-hooks-alpha': makeKnowledgeEntry(),
+      'react-hooks-beta': makeKnowledgeEntry(),
+      'react-hooks-gamma': makeKnowledgeEntry(),
+      'react-hooks-delta': makeKnowledgeEntry(),
+    });
+    const result = suggest(index, 'react hooks', null, ['src/App.tsx']);
+    expect(result.autoInjectKnowledge.length).toBeLessThanOrEqual(3);
+    // Demoted skills should appear in knowledgeRecommendations
+    const totalKnowledge =
+      result.autoInjectKnowledge.length + result.knowledgeRecommendations.length;
+    // All 4 skills must be accounted for (some in auto-inject, the rest in recommendations)
+    expect(totalKnowledge).toBeGreaterThanOrEqual(4);
+  });
+
+  it('caps knowledgeRecommendations at 10 entries after traversal', () => {
+    // Create an auto-injected skill with 12 related_skills
+    const relatedNames = Array.from({ length: 12 }, (_, i) => `related-${i}`);
+    const injected = makeEntry({
+      type: 'knowledge',
+      keywords: ['hooks', 'react', 'custom'],
+      paths: ['**/*.tsx'],
+      relatedSkills: relatedNames,
+      description: 'Injected skill with many relations',
+    });
+    const relatedEntries: Record<string, ReturnType<typeof makeEntry>> = {};
+    for (const name of relatedNames) {
+      relatedEntries[name] = makeEntry({
+        type: 'knowledge',
+        keywords: [],
+        description: `Related skill ${name}`,
+      });
+    }
+    const index = makeIndex({
+      'react-hooks': injected,
+      ...relatedEntries,
+    });
+    const result = suggest(index, 'hooks react custom', null, ['src/App.tsx']);
+    expect(result.knowledgeRecommendations.length).toBeLessThanOrEqual(10);
+  });
+});
+
 describe('computeHealthScore', () => {
   it('returns 0 when skill has no addresses', () => {
     const entry = makeEntry({ addresses: [] });
