@@ -43,6 +43,16 @@ interface ValidationResult {
   issues: ValidationIssue[];
 }
 
+/** Append formatted lines for a single validation issue into the lines array. */
+function appendIssueLines(lines: string[], issue: ValidationIssue, mode: OutputModeType): void {
+  const location = issue.file ? (issue.line ? `${issue.file}:${issue.line}` : issue.file) : 'unknown';
+  lines.push(`  ${chalk.yellow('*')} ${chalk.dim(location)}`);
+  lines.push(`    ${issue.message}`);
+  if (issue.suggestion && mode === OutputMode.VERBOSE) {
+    lines.push(`    ${chalk.dim('->')} ${issue.suggestion}`);
+  }
+}
+
 /**
  * Formats data and results for CLI output based on the selected mode.
  */
@@ -90,18 +100,8 @@ export class OutputFormatter {
     } else {
       lines.push(chalk.red(`x Validation failed (${result.issues.length} issues)`));
       lines.push('');
-
       for (const issue of result.issues) {
-        const location = issue.file
-          ? issue.line
-            ? `${issue.file}:${issue.line}`
-            : issue.file
-          : 'unknown';
-        lines.push(`  ${chalk.yellow('*')} ${chalk.dim(location)}`);
-        lines.push(`    ${issue.message}`);
-        if (issue.suggestion && this.mode === OutputMode.VERBOSE) {
-          lines.push(`    ${chalk.dim('->')} ${issue.suggestion}`);
-        }
+        appendIssueLines(lines, issue, this.mode);
       }
     }
 

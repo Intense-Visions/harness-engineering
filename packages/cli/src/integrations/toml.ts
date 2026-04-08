@@ -58,6 +58,21 @@ function serializeTomlMcpBlock(name: string, entry: TomlMcpServerEntry): string 
   return lines.join('\n') + '\n';
 }
 
+/** Find the index where a TOML block ends (next top-level section or EOF), trimming trailing blanks. */
+function findBlockEnd(lines: string[], startIdx: number): number {
+  let endIdx = lines.length;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    if (lines[i]?.match(/^\[(?!\[)/)) {
+      endIdx = i;
+      break;
+    }
+  }
+  while (endIdx > startIdx + 1 && lines[endIdx - 1]?.trim() === '') {
+    endIdx--;
+  }
+  return endIdx;
+}
+
 /**
  * Replace an existing TOML block (from blockHeader to the next top-level
  * section header or end-of-file) with newBlock.
@@ -67,19 +82,7 @@ function replaceTomlBlock(content: string, blockHeader: string, newBlock: string
   const startIdx = lines.findIndex((l) => l.trim() === blockHeader);
   if (startIdx === -1) return content + newBlock;
 
-  // Find where the block ends: next top-level [section] or end of file
-  let endIdx = lines.length;
-  for (let i = startIdx + 1; i < lines.length; i++) {
-    if (lines[i]?.match(/^\[(?!\[)/)) {
-      endIdx = i;
-      break;
-    }
-  }
-
-  // Drop any trailing blank lines before the next section
-  while (endIdx > startIdx + 1 && lines[endIdx - 1]?.trim() === '') {
-    endIdx--;
-  }
+  const endIdx = findBlockEnd(lines, startIdx);
 
   const newBlockLines = newBlock.trimEnd().split('\n');
   const result = [

@@ -262,6 +262,27 @@ function buildDepGraph(
   return { inDegree, adjacency };
 }
 
+/** Process one item from the Kahn's algorithm queue: assign sequence, update in-degrees. Returns next sequence value. */
+function processQueueItem(
+  name: string,
+  recMap: Map<string, Recommendation>,
+  adjacency: Map<string, string[]>,
+  inDegree: Map<string, number>,
+  sorted: Recommendation[],
+  nextQueue: string[],
+  sequence: number
+): number {
+  const rec = recMap.get(name)!;
+  rec.sequence = sequence;
+  sorted.push(rec);
+  for (const dependent of adjacency.get(name) ?? []) {
+    const newDeg = (inDegree.get(dependent) ?? 1) - 1;
+    inDegree.set(dependent, newDeg);
+    if (newDeg === 0) nextQueue.push(dependent);
+  }
+  return sequence + 1;
+}
+
 /**
  * Topologically sort recommendations by dependency, then apply
  * diagnostic -> fix -> validate heuristic within the same level.
@@ -287,19 +308,9 @@ export function sequenceRecommendations(
 
   while (queue.length > 0) {
     const nextQueue: string[] = [];
-
     for (const name of queue) {
-      const rec = recMap.get(name)!;
-      rec.sequence = sequence++;
-      sorted.push(rec);
-
-      for (const dependent of adjacency.get(name) ?? []) {
-        const newDeg = (inDegree.get(dependent) ?? 1) - 1;
-        inDegree.set(dependent, newDeg);
-        if (newDeg === 0) nextQueue.push(dependent);
-      }
+      sequence = processQueueItem(name, recMap, adjacency, inDegree, sorted, nextQueue, sequence);
     }
-
     queue = nextQueue.sort(compare);
   }
 
