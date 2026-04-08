@@ -694,7 +694,7 @@ describe('E2E dispatch validation — JS and Vue knowledge skill verticals', () 
     const entry = makeEntry({
       type: 'knowledge',
       keywords: ['composables', 'use-prefix', 'reusable-logic', 'composition-api'],
-      paths: ['**/*.vue', '**/*.ts'],
+      paths: ['**/*.vue'],
       description: 'Extract and reuse stateful logic across components using Vue composables',
     });
     const index = makeIndex({ 'vue-composables-pattern': entry });
@@ -705,5 +705,71 @@ describe('E2E dispatch validation — JS and Vue knowledge skill verticals', () 
       ...result.autoInjectKnowledge.map((s) => s.name),
     ];
     expect(allSurfaced.some((n) => n === 'vue-composables-pattern')).toBe(true);
+  });
+});
+
+describe('path-isolation dispatch', () => {
+  it('js-* skill surfaces when recentFiles contain .js files even with minimal keyword overlap', () => {
+    // Keyword match contributes 0.3 * (1/2) = 0.15 (one of two query terms matches)
+    // Path match contributes 0.2 * 1.0 = 0.20 → total ~0.35+, crossing flexible skill threshold
+    // Demonstrates path score as a meaningful contributor to surfacing
+    const entry = makeEntry({
+      type: 'flexible',
+      keywords: ['module', 'pattern'],
+      paths: ['**/*.js', '**/*.mjs'],
+      description: 'JavaScript module organisation pattern',
+    });
+    const index = makeIndex({ 'js-module-pattern': entry });
+    // Generic query: only one keyword overlaps ('module'), so keyword score alone is borderline
+    const resultWithPath = suggest(index, 'module refactor', null, ['src/utils/helpers.js']);
+    const resultWithoutPath = suggest(index, 'module refactor', null, []);
+
+    const surfacedWithPath = resultWithPath.suggestions.map((s) => s.name);
+    const surfacedWithoutPath = resultWithoutPath.suggestions.map((s) => s.name);
+
+    // With a matching .js file the path score pushes the total over the 0.4 threshold
+    expect(surfacedWithPath.some((n) => n === 'js-module-pattern')).toBe(true);
+    // Without any recent files the path score is 0 and the skill falls below threshold
+    expect(surfacedWithoutPath.some((n) => n === 'js-module-pattern')).toBe(false);
+  });
+
+  it('vue-* skill surfaces when recentFiles contain .vue files (paths fix: **/*.vue only)', () => {
+    // After removing **/*.ts, only **/*.vue triggers path score for vue skills
+    const entry = makeEntry({
+      type: 'knowledge',
+      keywords: ['composables', 'composition-api', 'reusable-logic', 'use-prefix'],
+      paths: ['**/*.vue'],
+      description: 'Extract and reuse stateful logic across components using Vue composables',
+    });
+    const index = makeIndex({ 'vue-composables-pattern': entry });
+    // Generic query that partially matches keywords; .vue file provides path score boost
+    const result = suggest(index, 'logic reusable', null, ['src/components/MyComponent.vue']);
+
+    const allSurfaced = [
+      ...result.suggestions.map((s) => s.name),
+      ...result.autoInjectKnowledge.map((s) => s.name),
+    ];
+    expect(allSurfaced.some((n) => n === 'vue-composables-pattern')).toBe(true);
+  });
+
+  it('vue-* skill does NOT surface when recentFiles contain only .ts files (no vue path match)', () => {
+    // After the paths fix, vue skills have paths: ['**/*.vue'] only.
+    // A .ts file must not trigger path score for vue skills.
+    const entry = makeEntry({
+      type: 'knowledge',
+      keywords: ['composables', 'composition-api', 'reusable-logic', 'use-prefix'],
+      paths: ['**/*.vue'],
+      description: 'Extract and reuse stateful logic across components using Vue composables',
+    });
+    const index = makeIndex({ 'vue-composables-pattern': entry });
+    // Generic query with no keyword overlap — score comes only from path match (or not)
+    const result = suggest(index, 'unrelated task', null, ['src/services/auth.ts']);
+
+    const allSurfaced = [
+      ...result.suggestions.map((s) => s.name),
+      ...result.autoInjectKnowledge.map((s) => s.name),
+    ];
+    // .ts file does not match **/*.vue so path score = 0; total score too low to surface
+    expect(allSurfaced.some((n) => n === 'vue-composables-pattern')).toBe(false);
   });
 });
