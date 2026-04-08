@@ -1,0 +1,40 @@
+name: react-dynamic-import
+version: '1.0.0'
+description: Load modules on demand to reduce initial bundle size and improve startup performance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+  - '**/*.ts'
+related_skills:
+  - react-static-import
+  - react-suspense-pattern
+  - react-progressive-hydration
+stack_signals:
+  - react
+  - typescript
+  - webpack
+  - vite
+keywords:
+  - dynamic-import
+  - code-splitting
+  - lazy-loading
+  - bundle-size
+  - on-demand
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/dynamic-import'
+state:
+  persistent: false
+  files: []
+depends_on: []
