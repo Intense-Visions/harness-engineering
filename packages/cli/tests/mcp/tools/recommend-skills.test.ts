@@ -108,7 +108,6 @@ beforeEach(() => {
   (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
     suggestions: [],
     autoInjectKnowledge: [],
-    context: { healthSignals: [], stackProfile: { frameworks: [], languages: [] } },
   });
 });
 
@@ -190,7 +189,6 @@ describe('handleRecommendSkills — knowledge skill wiring', () => {
           reason: 'paths match: **/*.tsx',
         },
       ],
-      context: { healthSignals: [], stackProfile: { frameworks: [], languages: [] } },
     });
 
     const result = await handleRecommendSkills({
@@ -206,7 +204,6 @@ describe('handleRecommendSkills — knowledge skill wiring', () => {
     (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
       suggestions: [],
       autoInjectKnowledge: [],
-      context: { healthSignals: [], stackProfile: { frameworks: [], languages: [] } },
     });
 
     const result = await handleRecommendSkills({ path: '/tmp/test', noCache: true });
