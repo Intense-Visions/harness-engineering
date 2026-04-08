@@ -1,0 +1,37 @@
+name: react-progressive-hydration
+version: '1.0.0'
+description: Delay hydration of below-fold or non-critical components to improve TTI
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-islands-pattern
+  - react-suspense-pattern
+  - react-dynamic-import
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - hydration
+  - progressive
+  - lazy-hydration
+  - tti
+  - performance
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/progressive-hydration'
+state:
+  persistent: false
+  files: []
+depends_on: []
