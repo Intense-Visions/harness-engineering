@@ -671,3 +671,39 @@ describe('scoreSkill with health boost', () => {
     expect(boostedScore).toBeCloseTo(expected);
   });
 });
+
+describe('E2E dispatch validation — JS and Vue knowledge skill verticals', () => {
+  it('surfaces js-singleton-pattern when editing .js files with relevant query', () => {
+    const entry = makeEntry({
+      type: 'knowledge',
+      keywords: ['singleton', 'single-instance', 'global-state', 'instance-control'],
+      paths: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+      description: 'Ensure a class has only one instance and provide a global access point',
+    });
+    const index = makeIndex({ 'js-singleton-pattern': entry });
+    const result = suggest(index, 'singleton single-instance', null, ['src/utils/db.js']);
+
+    const allSurfaced = [
+      ...result.suggestions.map((s) => s.name),
+      ...result.autoInjectKnowledge.map((s) => s.name),
+    ];
+    expect(allSurfaced.some((n) => n === 'js-singleton-pattern')).toBe(true);
+  });
+
+  it('surfaces vue-composables-pattern when editing .vue files with relevant query', () => {
+    const entry = makeEntry({
+      type: 'knowledge',
+      keywords: ['composables', 'use-prefix', 'reusable-logic', 'composition-api'],
+      paths: ['**/*.vue', '**/*.ts'],
+      description: 'Extract and reuse stateful logic across components using Vue composables',
+    });
+    const index = makeIndex({ 'vue-composables-pattern': entry });
+    const result = suggest(index, 'composables use-prefix', null, ['src/components/App.vue']);
+
+    const allSurfaced = [
+      ...result.suggestions.map((s) => s.name),
+      ...result.autoInjectKnowledge.map((s) => s.name),
+    ];
+    expect(allSurfaced.some((n) => n === 'vue-composables-pattern')).toBe(true);
+  });
+});
