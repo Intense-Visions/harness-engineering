@@ -1,0 +1,35 @@
+name: js-revealing-module-pattern
+version: '1.0.0'
+description: Define all logic privately and selectively expose only the public API
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-module-pattern
+  - js-singleton-pattern
+stack_signals:
+  - javascript
+keywords:
+  - revealing-module
+  - public-api
+  - private-scope
+  - encapsulation
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/revealing-module-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
