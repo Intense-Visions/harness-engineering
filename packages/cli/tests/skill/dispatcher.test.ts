@@ -772,4 +772,20 @@ describe('path-isolation dispatch', () => {
     // .ts file does not match **/*.vue so path score = 0; total score too low to surface
     expect(allSurfaced.some((n) => n === 'vue-composables-pattern')).toBe(false);
   });
+
+  it('harness-database surfaces when recentFiles contain .sql files', () => {
+    const entry = makeEntry({
+      type: 'rigid',
+      keywords: ['database', 'migration', 'schema', 'SQL'],
+      paths: ['*.sql'],
+      description: 'Schema design, migrations, ORM patterns, and migration safety checks',
+    });
+    const index = makeIndex({ 'harness-database': entry });
+    const result = suggest(index, 'migration schema', null, ['db/migrations/001_init.sql']);
+    const allSurfaced = [
+      ...result.suggestions.map((s) => s.name),
+      ...result.autoInjectKnowledge.map((s) => s.name),
+    ];
+    expect(allSurfaced.some((n) => n === 'harness-database')).toBe(true);
+  });
 });
