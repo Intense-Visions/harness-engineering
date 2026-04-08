@@ -9,7 +9,7 @@ import {
   appendFailure,
   clearLearningsCache,
   clearFailuresCache,
-} from '../../src/state/state-manager';
+} from '../../src/state';
 
 describe('loadRelevantLearnings cache', () => {
   let tmpDir: string;

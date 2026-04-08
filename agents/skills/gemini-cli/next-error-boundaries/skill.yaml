@@ -30,7 +30,7 @@ keywords:
   - not-found.tsx
   - global-error
   - reset
-  - 404
+  - "404"
   - error-recovery
 metadata:
   author: community

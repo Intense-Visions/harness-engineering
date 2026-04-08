@@ -2,7 +2,7 @@
 
 CLI for the Harness Engineering toolkit. Provides the `harness` command with subcommands for validation, initialization, skill management, persona execution, graph operations, and more.
 
-**Version:** 1.23.1
+**Version:** 1.23.2
 
 ## Installation
 

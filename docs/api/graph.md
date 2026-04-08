@@ -2,7 +2,7 @@
 
 Knowledge graph for codebase relationships, context assembly, and entropy detection. Provides ingestion, querying, vector search, and adapter layers for constraints, entropy, and feedback.
 
-**Version:** 0.4.0
+**Version:** 0.4.1
 
 ## Installation
 

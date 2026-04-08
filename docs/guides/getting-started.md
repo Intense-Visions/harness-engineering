@@ -19,12 +19,12 @@ Before using harness in any project, install the CLI and generate global slash c
 
 ```bash
 npm install -g @harness-engineering/cli
-harness generate --global
+harness setup
 ```
 
-The single `npm install -g` provides both the `harness` CLI and the `harness-mcp` server binary, with all dependencies version-matched. `harness generate --global` then writes `/harness:*` slash commands and agent definitions to your global config directories for Claude Code and Gemini CLI. After this one-time step, all harness skills, personas, and the MCP server are available in every AI agent session — no per-project setup needed.
+The single `npm install -g` provides both the `harness` CLI and the `harness-mcp` server binary, with all dependencies version-matched. `harness setup` then checks your Node version, generates `/harness:*` slash commands and agent definitions to your global config directories for Claude Code and Gemini CLI, configures MCP, and sets up integrations. After this one-time step, all harness skills, personas, and the MCP server are available in every AI agent session — no per-project setup needed.
 
-> **Tip:** Re-run `harness generate --global` after `harness update` to pick up new or changed skills.
+> **Tip:** Re-run `harness setup` after `harness update` to pick up new or changed skills.
 
 ## Quick Start: Try an Example
 
@@ -108,7 +108,7 @@ Defined in `harness.config.json`, enforced by `@harness-engineering/no-layer-vio
 
 ### Skills
 
-81 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
+485 workflow skills that guide agent behavior: TDD, execution, debugging, verification, planning, brainstorming, code review, and more. Each skill has a `skill.yaml` (metadata) and `SKILL.md` (process documentation).
 
 ### Personas
 
@@ -193,7 +193,7 @@ Then add your project directory to `~/.gemini/trustedFolders.json` so Gemini tru
 
 ### What the MCP Server Provides
 
-- **54 tools** — project validation, dependency checking, entropy detection, skill execution, persona management, linter generation, state management, code review, diff analysis, phase gates, cross-checks, skill scaffolding, graph querying, impact analysis, agent definition generation, and more
+- **57 tools** — project validation, dependency checking, entropy detection, skill execution, persona management, linter generation, state management, code review, diff analysis, phase gates, cross-checks, skill scaffolding, graph querying, impact analysis, agent definition generation, and more
 - **8 resources** — `harness://project` (AGENTS.md context), `harness://skills` (skill catalog), `harness://rules` (active linter rules), `harness://learnings` (review log), `harness://state` (project state), `harness://graph` (graph statistics), `harness://entities` (entity nodes), `harness://relationships` (graph edges)
 
 Once connected, your AI agent can validate constraints, run skills, and access project context without leaving the conversation.

@@ -127,6 +127,23 @@ export {
 export { archiveSession } from './session-archive';
 
 /**
+ * Session scratchpad for transient per-phase data.
+ */
+export { writeScratchpad, readScratchpad, clearScratchpad } from './scratchpad';
+export type { ScratchpadOptions } from './scratchpad';
+
+/**
+ * Git checkpoint commits at phase boundaries.
+ */
+export { commitAtCheckpoint } from './checkpoint-commit';
+export type { CheckpointCommitOptions, CommitResult } from './checkpoint-commit';
+
+/**
+ * TF-IDF learning relevance scoring and filtering.
+ */
+export { tokenize, scoreLearningRelevance, filterByRelevance } from './learnings-relevance';
+
+/**
  * Structured event log for skill lifecycle moments.
  */
 export {

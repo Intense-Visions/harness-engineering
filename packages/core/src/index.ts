@@ -120,6 +120,7 @@ export * from './blueprint/types';
 export { ProjectScanner } from './blueprint/scanner';
 export { BlueprintGenerator } from './blueprint/generator';
 export { ContentPipeline } from './blueprint/content-pipeline';
+export { GraphScanner } from './blueprint/graph-scanner';
 
 /**
  * Update checker utilities for checking for new versions of the toolkit.
@@ -156,4 +157,4 @@ export * from './usage';
  * release. Kept only as a fallback for consumers that cannot resolve the CLI
  * package at runtime.
  */
-export const VERSION = '0.15.0';
+export const VERSION = '0.21.1';

@@ -134,7 +134,7 @@ If the user says no or suggests a different skill:
 
 ---
 
-## Scope Examples
+## Examples
 
 ### Quick Fix
 

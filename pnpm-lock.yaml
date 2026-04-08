@@ -397,8 +397,8 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1(@types/react@18.3.28)(react@18.3.1)
       liquidjs:
-        specifier: ^10.25.2
-        version: 10.25.2
+        specifier: ^10.25.3
+        version: 10.25.5
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -5321,8 +5321,8 @@ packages:
       yaml: 2.8.3
     dev: true
 
-  /liquidjs@10.25.2:
-    resolution: {integrity: sha512-ZbgcjEjGNlAIjqhuMzymO3lCpHgmVMftKfrq4/YLLxmKaFFeQMXRGrJTqKX7OXX1hKVPUDpTIrvL7lxt3X/hmw==}
+  /liquidjs@10.25.5:
+    resolution: {integrity: sha512-GKiKeZjJDdVoQAu+S9rzkYsYnYhcep5W3WwZXgb5f+yq484P/k9JqamBbGYu+LBEixcUAXZr2jogdAIjB3ki1w==}
     engines: {node: '>=16'}
     hasBin: true
     dependencies:

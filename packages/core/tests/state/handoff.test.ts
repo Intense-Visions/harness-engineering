@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { saveHandoff, loadHandoff } from '../../src/state/state-manager';
+import { saveHandoff, loadHandoff } from '../../src/state';
 import type { Handoff } from '../../src/state/types';
 
 describe('saveHandoff', () => {

@@ -1,161 +1,162 @@
 # Release Readiness Report
 
-**Date:** 2026-04-07
+**Date:** 2026-04-08
 **Project:** harness-engineering
 **Flags:** standard
-**Run:** 2 (post-merge with origin/main)
+**Previous Run:** 2026-04-07T15:45:00Z
 
 ## Summary
 
-**Result: PASS** (after fixes)
+**Result: FAIL**
 
-| Category                    | Passed      | Warnings | Failures |
-| --------------------------- | ----------- | -------- | -------- |
-| Packaging                   | 74/74       | 0        | 0        |
-| Documentation               | 6/6         | 0        | 0        |
-| Repo Hygiene                | 5/5         | 0        | 0        |
-| CI/CD                       | 5/6         | 0        | 1\*      |
-| i18n                        | N/A         | --       | --       |
-| Maintenance -- Doc Drift    | 0 remaining | --       | --       |
-| Maintenance -- Dead Code    | 1 remaining | --       | --       |
-| Maintenance -- Architecture | 1 remaining | --       | --       |
-| Maintenance -- Diagnostics  | 3 warnings  | --       | --       |
+One pre-existing failure remains: codex platform parity (1042 skills missing codex variants). All other checks pass.
 
-\*CI/CD failure is `assess_project` due to stale global CLI install at `/opt/homebrew`. Fix: `npm install -g @harness-engineering/cli`.
+| Category                   | Passed       | Warnings | Failures |
+| -------------------------- | ------------ | -------- | -------- |
+| Packaging                  | 74/74        | 0        | 0        |
+| Documentation              | 6/6          | 0        | 0        |
+| Repo Hygiene               | 5/5          | 0        | 0        |
+| CI/CD                      | 5/5          | 0        | 0        |
+| Tests                      | 17/18        | 0        | 1        |
+| Maintenance — Doc Drift    | 0 remaining  | —        | —        |
+| Maintenance — Dead Code    | 1 issue      | —        | —        |
+| Maintenance — Architecture | 0 violations | —        | —        |
+| Maintenance — Diagnostics  | 5 warnings   | —        | —        |
+
+## Delta from Previous Run (2026-04-07)
+
+```
+Since last run:
+  ✓ assess_project now passes (was fail — stale global CLI)
+  ✓ skill.yaml schema validation fixed (404/429 → "404"/"429" across 6 files)
+  ✓ harness-router SKILL.md missing Examples section fixed
+  ✓ VERSION constant updated (0.15.0 → 0.21.1)
+  ✓ liquidjs bumped to >=10.25.3 (HIGH vuln resolved)
+  ✓ Skills count updated (81 → 485) in README.md + getting-started.md
+  ✓ MCP tool count updated (54 → 57) in README.md + getting-started.md
+  ✓ API doc versions aligned with package.json (cli, core, graph, linter-gen)
+  ✓ Install instructions aligned to `harness setup` in getting-started.md
+  ✓ CONTRIBUTING.md project structure corrected
+
+  → Pre-existing: codex platform parity (1042 skills need codex variants)
+  → Pre-existing: dead file graph-scanner.ts
+```
 
 ## Packaging
 
-All 7 publishable packages pass all checks (name, version, license, exports, files, publishConfig, repository, bugs, homepage, description).
+### All 7 publishable packages — PASS
 
-- Build: 9/9 successful
-- Typecheck: 13/13 successful
-- Tests: 5700+ across 457 test files -- all passing
-- Lint: 8/8 successful
-- Pack dry-run: clean (dist-only, no test/src files)
+- [x] @harness-engineering/cli (1.23.2) — all fields present
+- [x] @harness-engineering/core (0.21.1) — all fields present
+- [x] @harness-engineering/eslint-plugin (0.2.3) — all fields present
+- [x] @harness-engineering/graph (0.4.1) — all fields present
+- [x] @harness-engineering/linter-gen (0.1.5) — all fields present
+- [x] @harness-engineering/orchestrator (0.2.5) — all fields present
+- [x] @harness-engineering/types (0.9.0) — all fields present
 
-Dashboard (`@harness-engineering/dashboard`) is private -- not published.
+@harness-engineering/dashboard (0.1.1) — private, not published
 
 ## Documentation
 
-- [x] README.md exists
-- [x] README has install/quickstart section
-- [x] README has usage/API section
-- [x] CHANGELOG.md exists with entries (latest: 0.14.0 -- 2026-04-05)
+- [x] README.md exists with install + usage sections
+- [x] CHANGELOG.md exists with entries (current: 0.14.1)
 - [x] LICENSE file exists (MIT)
+- [x] README contains install/quickstart section
+- [x] README contains usage/API section
+- [x] CHANGELOG has substantive entries
 
 ## Repo Hygiene
 
-- [x] CONTRIBUTING.md exists
+- [x] CONTRIBUTING.md exists (updated project structure)
 - [x] CODE_OF_CONDUCT.md exists
 - [x] SECURITY.md exists
 - [x] .gitignore covers node_modules, dist, .env
-- [x] No TODO/FIXME in published source files
+- [x] No TODO/FIXME in published source (template TODO in create-skill.ts is intentional scaffold content)
 
 ## CI/CD
 
-- [x] CI workflow: `.github/workflows/ci.yml`
-- [x] Release workflow: `.github/workflows/release.yml`
-- [x] `test` script in root package.json
-- [x] `lint` script in root package.json
-- [x] `typecheck` script in root package.json
-- [ ] `assess_project` -- stale global CLI install (infrastructure, not code)
+- [x] CI workflow: .github/workflows/ci.yml
+- [x] Release workflow: .github/workflows/release.yml
+- [x] test, lint, typecheck scripts present
+- [x] assess_project passes (healthy=true, all 7 checks pass)
+- [x] Build succeeds (9/9 tasks)
+
+## Tests
+
+- [x] Typecheck passes (13/13 tasks)
+- [x] Build succeeds (9/9 tasks)
+- [x] CLI tests pass (2004/2004)
+- [x] Core tests pass
+- [x] Skills structure tests pass (5456/5456)
+- [x] Skills schema tests pass
+- [x] Skills references tests pass
+- [ ] **FAIL: Platform parity** — 1042 codex skills missing (pre-existing, needs `harness generate` for codex platform)
 
 ## Maintenance Results
 
-### Doc Drift -- RESOLVED
+### Doc Drift
 
-**Fixed this session (16 total):**
+17 findings detected, 10 fixed this session:
 
-Run 1 (pre-merge):
+- ✓ Skills count 81→485 (README.md, getting-started.md)
+- ✓ MCP tool count 54→57 (README.md, getting-started.md)
+- ✓ Version drift in docs/api/ (cli, core, graph, linter-gen)
+- ✓ VERSION constant 0.15.0→0.21.1 (code + docs)
+- ✓ Install instructions aligned to `harness setup`
+- ✓ CONTRIBUTING.md project structure corrected
+- ✓ Inspirations count 42→50
 
-1. README.md: MCP tool count 55 -> 54
-2. docs/api/graph.md: VERSION "0.3.2" -> "0.4.0"
-3. docs/api/graph.md: Overview `query.run()` -> `query.execute()` with correct params
-4. docs/api/index.md: `checkCoverage()` return type -> `GraphCoverageReport`
-5. docs/reference/index.md: `harness.config.yml` -> `harness.config.json` (all occurrences)
-6. docs/reference/index.md: install command `harness-cli` -> `@harness-engineering/cli`
-7. packages/graph/README.md: node types 24->28, edge types 17->24 with Design/Traceability
+Remaining (medium priority):
 
-Run 2 (post-merge): 8. docs/api/graph.md: ContextQL example `cql.run()` -> `cql.execute()` (second instance) 9. docs/api/graph.md: Assembler constructor signature corrected 10. docs/api/index.md: Assembler constructor signature corrected 11. docs/api/cli.md: version 1.22.0 -> 1.23.1 12. docs/api/core.md: version 0.20.0 -> 0.21.0 13. docs/api/types.md: version 0.8.1 -> 0.9.0 14. docs/guides/getting-started.md: skills 79->81, tools 53->54 15. docs/inspirations.md: ESLint rules 10->11, skills 79->81 16. packages/orchestrator/README.md: LinearTrackerExtension marked as _(planned)_
+- [ ] ESLint plugin docs: recommended config missing `require-path-normalization` rule
+- [ ] ESLint plugin docs: "Enables all rules" claim incorrect (8/11)
+- [ ] Missing docs/api/dashboard.md (dashboard is private — may not need API docs)
+- [ ] Missing orchestrator version in docs/api/orchestrator.md
 
-**Stale version constants fixed:**
+### Dead Code
 
-- `packages/graph/src/index.ts`: VERSION 0.2.0 -> 0.4.0
-- `packages/linter-gen/src/engine/context-builder.ts`: GENERATOR_VERSION 0.1.0 -> 0.1.4
+- `packages/core/src/blueprint/graph-scanner.ts` — dead file, only test imports it. Pending human decision on deletion.
 
-**Type documentation updated:**
+### Architecture
 
-- `docs/api/types.md`: CICheckName +arch +traceability, RoadmapFeature +assignee/priority/externalId, added Priority type, added AssignmentRecord interface, Roadmap +assignmentHistory
+**0 violations.** All clean.
 
-**New documentation sections written:**
+- Layer boundaries: PASS (types→core→cli, no reverse imports)
+- Circular dependencies: PASS (570 files, zero cycles)
+- Forbidden imports: PASS
+- Known fixture: `complexRouter` CC=16 in test file (intentional)
 
-- `docs/api/graph.md`: RequirementIngestor, GraphAnomalyAdapter, TaskIndependenceAnalyzer, ConflictPredictor, CascadeSimulator, CompositeProbabilityStrategy, askGraph/NLQ, queryTraceability, groupNodesByImpact
-- `docs/api/core.md`: code-nav, pricing, usage, blueprint, architecture modules
-- `docs/api/cli.md`: command table expanded from 28 to 50 commands across 10 categories
+### Diagnostics
 
-### Dead Code -- 1 item remaining
+**12 vulnerabilities found (3 resolved this session via liquidjs bump):**
 
-**Fixed this session:**
+- ✓ FIXED: liquidjs HIGH (GHSA-56p5-8mhr-2fph) — bumped to >=10.25.3
+- ✓ FIXED: liquidjs moderate (GHSA-v273-448j-v4qj) — resolved by bump
+- ✓ FIXED: liquidjs low (GHSA-mmg9-6m6j-jqqx) — resolved by bump
+- 6x moderate: hono via @modelcontextprotocol/sdk — blocked on upstream release
+- 2x moderate: esbuild + vite via vitepress — dev-only, known
+- 1x moderate: liquidjs (GHSA-rv5g-f82m-qrvv) — may need >=10.25.4 if not covered
+- Build warning: import.meta CJS in parser.ts (has runtime fallback)
 
-- Registered `createDashboardCommand` in CLI `_registry.ts` (was dead code)
-- Wired `dispatch-session.ts` session-start dispatch into CLI startup
-- Removed 3 orphaned dependencies (graph/@harness-engineering/types, orchestrator/chokidar)
+## Fixes Applied This Session
 
-**Remaining:**
-
-- `packages/core/src/blueprint/graph-scanner.ts` -- dead file (not imported). Needs confirmation before deletion.
-
-### Architecture -- 1 item remaining
-
-**Fixed this session (10 CC violations resolved):**
-
-| File                                   | Before        | After | Helpers |
-| -------------------------------------- | ------------- | ----- | ------- |
-| graph/query/Traceability.ts            | CC=40, 32     | <15   | 5       |
-| core/usage/aggregator.ts               | CC=33, 29, 19 | <15   | 7       |
-| dashboard/server/context.ts            | CC=25         | <15   | 2       |
-| graph/store/GraphStore.ts              | CC=21         | <15   | 2       |
-| core/roadmap/parse.ts                  | CC=21         | <15   | 3       |
-| cli/commands/traceability.ts           | CC=23         | <15   | 7       |
-| core/architecture/prediction-engine.ts | CC=16         | <15   | 3       |
-
-**Remaining:**
-
-- `core/tests/entropy/detectors/complexity.test.ts` complexRouter CC=16 -- intentionally complex test fixture
-
-### Diagnostics (3 warnings -- pre-existing)
-
-- 1 build warning: `import.meta` in CJS build (core/src/code-nav/parser.ts:41) -- has runtime fallback
-- 2 moderate security advisories: `esbuild` and `vite` via `vitepress` transitive deps (dev-only)
-
-## All Fixes Applied This Session
-
-### Doc Drift (16 fixes)
-
-1-16. See Doc Drift section above
-
-### Code Fixes (15 fixes)
-
-1. graph/src/index.ts: VERSION constant 0.2.0 -> 0.4.0
-2. linter-gen/src/engine/context-builder.ts: GENERATOR_VERSION 0.1.0 -> 0.1.4
-3. cli/commands/\_registry.ts: registered createDashboardCommand
-4. cli/bin/harness.ts: wired session-start dispatch
-5. Removed @harness-engineering/types from graph/package.json
-6. Removed chokidar from orchestrator/package.json
-   7-13. Refactored 7 files to reduce cyclomatic complexity (29 helpers extracted)
-7. docs/api/types.md: updated CICheckName, RoadmapFeature, Roadmap, added Priority, AssignmentRecord
-8. orchestrator/README.md: marked LinearTrackerExtension as planned
-
-### Documentation (3 new sections)
-
-1. docs/api/graph.md: 8 export groups documented (RequirementIngestor, NLQ, Blast Radius, etc.)
-2. docs/api/core.md: 5 modules documented (code-nav, pricing, usage, blueprint, architecture)
-3. docs/api/cli.md: command table expanded to 50 commands
+1. Quote `404` keyword in next-error-boundaries/skill.yaml (3 platforms)
+2. Quote `429` keyword in resilience-rate-limiting/skill.yaml (3 platforms)
+3. Add `## Examples` section to harness-router/SKILL.md
+4. Bump liquidjs to >=10.25.3 in packages/orchestrator/package.json
+5. Update VERSION constant from 0.15.0 to 0.21.1 in packages/core/src/index.ts
+6. Update skills count from 81 to 485 in README.md and getting-started.md
+7. Update MCP tool count from 54 to 57 in README.md and getting-started.md
+8. Update inspirations count from 42 to 50 in README.md
+9. Update doc versions: cli 1.23.1→1.23.2, core 0.21.0→0.21.1, graph 0.4.0→0.4.1, linter-gen 0.1.4→0.1.5
+10. Update VERSION constant in docs/api/core.md from 0.15.0 to 0.21.1
+11. Align getting-started.md install instructions to use `harness setup`
+12. Update CONTRIBUTING.md project structure (remove mcp-server, add orchestrator + dashboard)
 
 ## Remaining Items
 
-- [ ] Reinstall global CLI: `npm install -g @harness-engineering/cli`
-- [ ] `core/src/blueprint/graph-scanner.ts` -- confirm dead, then delete
-- [ ] Upgrade vitepress to resolve 2 moderate security advisories
-- [ ] Plan turbo v1 -> v2 migration
-- [ ] Tighten dashboard tsconfig (re-enable noUnusedLocals/noUnusedParameters)
+- [ ] Generate codex platform skills (1042 missing — blocks PASS)
+- [ ] Delete or justify dead file `packages/core/src/blueprint/graph-scanner.ts`
+- [ ] Update ESLint plugin docs (recommended config accuracy)
+- [ ] Add orchestrator version to docs/api/orchestrator.md
+- [ ] Monitor hono/MCP SDK for upstream fix (6 moderate advisories)

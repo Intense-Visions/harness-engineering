@@ -2,7 +2,7 @@
 
 Core library for the Harness Engineering toolkit. Provides validation, constraint enforcement, entropy detection, context generation, feedback, state management, security scanning, CI orchestration, and more.
 
-**Version:** 0.21.0
+**Version:** 0.21.1
 
 ## Installation
 
@@ -23,7 +23,7 @@ import { validateFileStructure, Ok, Err } from '@harness-engineering/core';
 ### `VERSION`
 
 ```typescript
-const VERSION: string; // "0.15.0"
+const VERSION: string; // "0.21.1"
 ```
 
 ## Error Types

@@ -168,7 +168,7 @@ To add the MCP server to an existing project:
 harness setup-mcp
 ```
 
-This gives your AI agent access to 54 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
+This gives your AI agent access to 57 tools (validation, entropy detection, skill execution, state management, code review, graph queries, and more) and 8 resources (project context, skills catalog, rules, learnings, state, graph, entities, relationships).
 
 <details>
 <summary>Manual MCP setup</summary>
@@ -243,7 +243,7 @@ enabled = true
 | Component                              | Count | Description                                                                                             |
 | -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 8     | Core library, CLI, ESLint plugin, linter generator, graph, orchestrator, dashboard, shared types        |
-| [Skills](./agents/skills/claude-code/) | 81    | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                               |
+| [Skills](./agents/skills/claude-code/) | 485   | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                               |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                      |
 | [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more) |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                      |
@@ -288,7 +288,7 @@ Learn by doing. Each example builds on the previous:
 | [Superpowers](https://github.com/jlowin/superpowers)           | Rigid behavioral workflows, subagent dispatch, verification discipline |
 | [Ralph Loop](https://github.com/PlusNowhere/ralph-loop)        | Fresh-context iteration, append-only learnings, task sizing            |
 
-These five projects most directly shaped harness engineering. See the full [Inspirations & Acknowledgments](./docs/inspirations.md) for all 42 projects, standards, and tools analyzed — what we adopted, what we skipped, and why.
+These five projects most directly shaped harness engineering. See the full [Inspirations & Acknowledgments](./docs/inspirations.md) for all 50 projects, standards, and tools analyzed — what we adopted, what we skipped, and why.
 
 ## Contributing
 
