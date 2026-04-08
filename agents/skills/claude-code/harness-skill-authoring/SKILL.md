@@ -196,6 +196,12 @@ state:
     - <state-file-path> # List state files if persistent
 depends_on:
   - <prerequisite-skill> # Skills that must be available (not necessarily run first)
+# Optional fields (required for knowledge skills, optional for behavioral skills)
+paths: [] # File-type-specific glob patterns for dispatch boost
+related_skills: [] # Complementary skill names (knowledge skills only)
+metadata: # Provenance and authorship metadata
+  author: <author>
+  upstream: '<source-url>'
 ```
 
 3. **Validate the YAML.** Ensure proper indentation, correct field names, and valid values. The `name` field must match the directory name exactly.
@@ -280,6 +286,8 @@ Evaluate every skill along two dimensions:
 - **Good skill** = clear activation + specific implementation. The agent knows when to use it and exactly what to do.
 - **Clear activation + vague implementation** = trap. The skill fires correctly but the agent has no concrete instructions, leading to inconsistent results.
 - **Ambiguous activation + specific implementation** = wasted. Great instructions that never get used because the agent does not know when to activate the skill.
+
+**Knowledge skills** follow the same quality matrix. "Clear activation" for a knowledge skill means `paths` globs and `stack_signals` are specific enough to surface the skill without false positives. "Specific implementation" means the `## Instructions` section is concise and actionable.
 
 Use this checklist as a final quality gate before declaring a skill complete.
 
