@@ -83,3 +83,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - test-e2e-strategy
+  - test-playwright-patterns
+  - test-playwright-setup
+  - test-msw-pattern

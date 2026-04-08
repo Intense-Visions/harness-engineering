@@ -72,3 +72,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - graphql-schema-design
+  - graphql-resolver-pattern
+  - graphql-pagination-patterns
+  - trpc-router-composition

@@ -47,6 +47,11 @@ state:
   files: []
 depends_on:
   - harness-verification
+related_skills:
+  - test-tdd-workflow
+  - test-unit-patterns
+  - test-mock-patterns
+  - test-vitest-config
 addresses:
   - signal: low-coverage
     weight: 0.9

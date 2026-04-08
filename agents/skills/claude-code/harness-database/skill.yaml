@@ -85,3 +85,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - prisma-schema-design
+  - prisma-migrations
+  - drizzle-schema-definition
+  - drizzle-migrations

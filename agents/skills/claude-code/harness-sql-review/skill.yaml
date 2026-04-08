@@ -74,3 +74,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - prisma-performance-patterns
+  - drizzle-performance-patterns
+  - prisma-raw-queries
+  - drizzle-query-builder
