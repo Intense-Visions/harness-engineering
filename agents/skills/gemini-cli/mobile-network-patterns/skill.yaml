@@ -1,0 +1,38 @@
+name: mobile-network-patterns
+version: '1.0.0'
+description: Handle network requests, offline support, and connectivity monitoring in React Native
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/api/**'
+  - '**/services/**'
+related_skills:
+  - mobile-storage-patterns
+  - mobile-performance-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - networking
+  - fetch
+  - offline
+  - connectivity
+  - retry
+  - tanstack-query
+  - optimistic
+metadata:
+  author: community
+  upstream: tanstack.com/query
+state:
+  persistent: false
+  files: []
+depends_on: []
+

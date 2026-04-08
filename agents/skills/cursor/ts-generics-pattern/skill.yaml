@@ -1,0 +1,37 @@
+name: ts-generics-pattern
+version: "1.0.0"
+description: Write reusable, type-safe functions and interfaces using TypeScript generics
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-utility-types
+  - ts-conditional-types
+  - ts-mapped-types
+stack_signals:
+  - typescript
+keywords:
+  - generics
+  - type-parameters
+  - constraints
+  - infer
+  - generic-functions
+  - generic-interfaces
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/generics.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

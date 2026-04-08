@@ -1,0 +1,36 @@
+name: microservices-distributed-tracing
+version: "1.0.0"
+description: Propagate trace context and emit spans across services using OpenTelemetry
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-sidecar-pattern
+  - node-event-emitter
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - distributed-tracing
+  - trace-propagation
+  - correlation-IDs
+  - OpenTelemetry
+  - spans
+metadata:
+  author: community
+  upstream: microservices.io/patterns/observability/distributed-tracing.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,33 @@
+name: gof-iterator-pattern
+version: "1.0.0"
+description: Traverse collections with Symbol.iterator and generators for lazy, composable sequences
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-generics-pattern
+  - ts-async-patterns
+stack_signals:
+  - typescript
+keywords:
+  - iterator
+  - Symbol.iterator
+  - generators
+  - lazy-sequences
+  - iterable
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/iterator
+state:
+  persistent: false
+  files: []
+depends_on: []
+

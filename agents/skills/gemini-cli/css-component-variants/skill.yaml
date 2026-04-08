@@ -1,0 +1,37 @@
+name: css-component-variants
+version: '1.0.0'
+description: Build type-safe component variants with cva (class-variance-authority)
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+  - '**/components/**'
+related_skills:
+  - css-tailwind-pattern
+  - css-tailwind-merge
+  - css-custom-components
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - cva
+  - variants
+  - class-variance-authority
+  - component-variants
+  - type-safe-styles
+metadata:
+  author: community
+  upstream: 'cva/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

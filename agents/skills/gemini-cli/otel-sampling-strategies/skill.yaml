@@ -1,0 +1,36 @@
+name: otel-sampling-strategies
+version: '1.0.0'
+description: Control trace volume with head and tail sampling strategies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/telemetry/**'
+related_skills:
+  - otel-sdk-setup
+  - otel-exporter-config
+  - otel-tracing-pattern
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - sampling
+  - head-sampling
+  - tail-sampling
+  - trace-ratio
+  - cost-control
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/sampling'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

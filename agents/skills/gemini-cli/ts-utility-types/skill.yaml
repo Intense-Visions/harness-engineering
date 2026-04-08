@@ -1,0 +1,41 @@
+name: ts-utility-types
+version: "1.0.0"
+description: Apply built-in TypeScript utility types to transform and compose types without redundancy
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-generics-pattern
+  - ts-mapped-types
+  - ts-conditional-types
+stack_signals:
+  - typescript
+keywords:
+  - Partial
+  - Required
+  - Pick
+  - Omit
+  - Record
+  - Exclude
+  - Extract
+  - ReturnType
+  - Parameters
+  - utility-types
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/utility-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

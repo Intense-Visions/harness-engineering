@@ -1,0 +1,35 @@
+name: ts-declaration-merging
+version: "1.0.0"
+description: Extend existing types, modules, and namespaces via declaration merging and augmentation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-module-patterns
+  - ts-generics-pattern
+stack_signals:
+  - typescript
+keywords:
+  - declaration-merging
+  - module-augmentation
+  - global-augmentation
+  - interface-merging
+  - namespace-merging
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/declaration-merging.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

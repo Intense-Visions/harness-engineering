@@ -1,0 +1,40 @@
+name: next-metadata-api
+version: "1.0.0"
+description: generateMetadata, static and dynamic metadata, Open Graph images
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.ts"
+  - "**/app/opengraph-image.*"
+related_skills:
+  - next-app-router
+  - next-static-generation
+  - next-server-components
+  - ts-utility-types
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - metadata
+  - generateMetadata
+  - SEO
+  - open-graph
+  - twitter-card
+  - robots
+  - canonical
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/optimizing/metadata
+state:
+  persistent: false
+  files: []
+depends_on: []

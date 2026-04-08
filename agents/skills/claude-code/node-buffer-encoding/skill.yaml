@@ -1,0 +1,36 @@
+name: node-buffer-encoding
+version: "1.0.0"
+description: Handle binary data, encodings, and conversions with Node.js Buffer and TextEncoder
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-crypto-patterns
+  - ts-async-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - Buffer
+  - TextEncoder
+  - TextDecoder
+  - encoding
+  - binary-data
+metadata:
+  author: community
+  upstream: nodejs.org/api/buffer.html
+state:
+  persistent: false
+  files: []
+depends_on: []

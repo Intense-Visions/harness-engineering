@@ -1,0 +1,33 @@
+name: gof-state-pattern
+version: "1.0.0"
+description: Replace conditional logic with state objects that delegate behavior to the current state
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-discriminated-unions
+  - ts-class-patterns
+  - gof-strategy-pattern
+stack_signals:
+  - typescript
+keywords:
+  - state-pattern
+  - state-machine
+  - context-delegation
+  - eliminating-conditionals
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/state
+state:
+  persistent: false
+  files: []
+depends_on: []
+

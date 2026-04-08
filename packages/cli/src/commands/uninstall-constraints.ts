@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Command } from 'commander';
+import type { Result } from '@harness-engineering/types';
 import {
   readLockfile,
   writeLockfile,
@@ -11,7 +12,6 @@ import {
 import type { Contributions } from '@harness-engineering/core';
 import { findConfigFile } from '../config/loader';
 import { logger } from '../output/logger';
-import type { Result } from '@harness-engineering/types';
 
 // --- Types ---
 

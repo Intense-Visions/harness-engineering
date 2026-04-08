@@ -1,0 +1,39 @@
+name: trpc-error-handling
+version: "1.0.0"
+description: TRPCError, error codes (UNAUTHORIZED, NOT_FOUND), and custom error formatters
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/trpc/**"
+  - "**/routers/**"
+  - "**/server/trpc.ts"
+related_skills:
+  - trpc-router-composition
+  - trpc-input-validation
+  - trpc-react-query-integration
+  - next-error-boundaries
+stack_signals:
+  - trpc
+  - typescript
+  - react
+keywords:
+  - TRPCError
+  - error-codes
+  - UNAUTHORIZED
+  - NOT_FOUND
+  - error-formatter
+  - onError
+  - client-error
+metadata:
+  author: community
+  upstream: https://trpc.io/docs/server/error-handling
+state:
+  persistent: false
+  files: []
+depends_on: []

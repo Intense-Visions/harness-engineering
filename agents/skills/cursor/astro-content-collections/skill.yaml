@@ -1,0 +1,40 @@
+name: astro-content-collections
+version: '1.0.0'
+description: Organize and validate content with Astro content collections, schema definitions, and getCollection
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/content/**'
+  - '**/src/pages/**'
+related_skills:
+  - astro-component-pattern
+  - astro-routing-pattern
+  - astro-image-optimization
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - content-collections
+  - getCollection
+  - getEntry
+  - defineCollection
+  - zod-schema
+  - frontmatter
+  - content-layer
+  - type-safe-content
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/guides/content-collections'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

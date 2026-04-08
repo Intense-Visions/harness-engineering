@@ -1,0 +1,38 @@
+name: next-image-optimization
+version: "1.0.0"
+description: next/image component, responsive images, priority loading, and sizes configuration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/pages/**/*.tsx"
+related_skills:
+  - next-app-router
+  - next-deployment-optimization
+  - next-static-generation
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - next-image
+  - image-optimization
+  - responsive-images
+  - priority
+  - sizes
+  - blur-placeholder
+  - LCP
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/api-reference/components/image
+state:
+  persistent: false
+  files: []
+depends_on: []

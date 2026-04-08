@@ -1,0 +1,38 @@
+name: node-error-handling
+version: "1.0.0"
+description: Handle uncaught exceptions, promise rejections, and errors across async Node.js code
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - ts-error-handling-types
+  - ts-async-patterns
+  - node-event-emitter
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - uncaughtException
+  - unhandledRejection
+  - error-propagation
+  - process-errors
+  - async-errors
+metadata:
+  author: community
+  upstream: nodejs.org/api/process.html#event-uncaughtexception
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,40 @@
+name: prisma-type-generation
+version: "1.0.0"
+description: Use generated Prisma types like XxxCreateInput, XxxWhereInput, $Enums, and validator utilities
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/prisma/**"
+  - "**/*.service.ts"
+  - "**/*.dto.ts"
+related_skills:
+  - prisma-schema-design
+  - prisma-client-queries
+  - ts-utility-types
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - type-generation
+  - Prisma.XxxCreateInput
+  - Prisma.XxxWhereInput
+  - $Enums
+  - inferSelect
+  - TypeScript
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-client/type-safety"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,41 @@
+name: next-server-actions
+version: "1.0.0"
+description: Server Actions, form mutations, progressive enhancement, and useFormState
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.ts"
+  - "**/pages/**/*.tsx"
+related_skills:
+  - next-server-components
+  - next-app-router
+  - next-error-boundaries
+  - next-auth-patterns
+  - ts-utility-types
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - server-actions
+  - use-server
+  - useFormState
+  - useFormStatus
+  - mutations
+  - progressive-enhancement
+  - form
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,38 @@
+name: node-streams-pattern
+version: "1.0.0"
+description: Process large data efficiently using Node.js Readable, Writable, and Transform streams
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-event-emitter
+  - ts-async-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - streams
+  - Readable
+  - Writable
+  - Transform
+  - pipeline
+  - backpressure
+metadata:
+  author: community
+  upstream: nodejs.org/en/docs/guides/backpressuring-in-streams
+state:
+  persistent: false
+  files: []
+depends_on: []
+

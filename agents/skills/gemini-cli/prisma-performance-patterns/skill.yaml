@@ -1,0 +1,41 @@
+name: prisma-performance-patterns
+version: "1.0.0"
+description: Optimize Prisma queries with select, findUnique index hits, batching, and avoiding N+1
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/prisma/**"
+  - "**/*.service.ts"
+  - "**/*.repository.ts"
+related_skills:
+  - prisma-client-queries
+  - prisma-filtering-sorting
+  - prisma-transactions
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - performance
+  - N+1
+  - select
+  - batch
+  - index
+  - query-optimization
+  - over-fetching
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-client/queries/query-optimization-performance"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

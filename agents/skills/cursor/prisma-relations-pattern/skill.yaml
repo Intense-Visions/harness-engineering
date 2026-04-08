@@ -1,0 +1,40 @@
+name: prisma-relations-pattern
+version: "1.0.0"
+description: Model one-to-one, one-to-many, many-to-many, and self-relations with @relation in Prisma
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "schema.prisma"
+  - "prisma/schema.prisma"
+  - "**/prisma/**"
+related_skills:
+  - prisma-schema-design
+  - prisma-client-queries
+  - prisma-filtering-sorting
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - relations
+  - one-to-many
+  - many-to-many
+  - self-relation
+  - foreign-key
+  - join-table
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-schema/data-model/relations"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

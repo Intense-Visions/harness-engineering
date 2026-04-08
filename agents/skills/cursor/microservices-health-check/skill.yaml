@@ -1,0 +1,38 @@
+name: microservices-health-check
+version: "1.0.0"
+description: Implement /health and /ready endpoints for liveness and readiness probes in containers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-service-discovery
+  - node-http-server
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - health-check
+  - liveness
+  - readiness
+  - /health
+  - /ready
+  - kubernetes-probes
+metadata:
+  author: community
+  upstream: microservices.io/patterns/observability/health-check-api.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

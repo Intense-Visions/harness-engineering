@@ -1,0 +1,37 @@
+name: css-headless-ui
+version: '1.0.0'
+description: Style accessible headless components from Radix UI and Headless UI with Tailwind
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/components/**'
+related_skills:
+  - css-tailwind-pattern
+  - css-component-variants
+  - css-animation-pattern
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - headless-ui
+  - radix-ui
+  - accessible
+  - unstyled
+  - data-state
+  - ARIA
+metadata:
+  author: community
+  upstream: 'radix-ui/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

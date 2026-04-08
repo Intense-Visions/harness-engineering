@@ -1,0 +1,36 @@
+name: ts-error-handling-types
+version: "1.0.0"
+description: Model and type errors explicitly using Result types, discriminated unions, and typed throws
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-discriminated-unions
+  - ts-generics-pattern
+  - ts-type-guards
+stack_signals:
+  - typescript
+keywords:
+  - Result-type
+  - error-handling
+  - typed-throws
+  - discriminated-errors
+  - never
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/narrowing.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

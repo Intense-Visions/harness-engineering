@@ -1,0 +1,39 @@
+name: prisma-raw-queries
+version: "1.0.0"
+description: Execute type-safe raw SQL with $queryRaw, $executeRaw, and Prisma.sql template tag
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/prisma/**"
+  - "**/*.service.ts"
+  - "**/*.repository.ts"
+related_skills:
+  - prisma-client-queries
+  - prisma-transactions
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - raw-query
+  - $queryRaw
+  - $executeRaw
+  - Prisma.sql
+  - type-safe
+  - SQL
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-client/queries/raw-database-access"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

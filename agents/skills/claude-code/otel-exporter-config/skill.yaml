@@ -1,0 +1,36 @@
+name: otel-exporter-config
+version: '1.0.0'
+description: Configure OTLP exporters for traces, metrics, and logs to observability backends
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/telemetry/**'
+related_skills:
+  - otel-sdk-setup
+  - otel-sampling-strategies
+  - otel-tracing-pattern
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - OTLP
+  - exporter
+  - collector
+  - Jaeger
+  - Grafana
+  - Datadog
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/exporters'
+state:
+  persistent: false
+  files: []
+depends_on: []

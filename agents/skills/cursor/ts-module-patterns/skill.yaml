@@ -1,0 +1,35 @@
+name: ts-module-patterns
+version: "1.0.0"
+description: Organize TypeScript code with ES modules, barrel exports, path aliases, and declaration files
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-declaration-merging
+  - ts-config-patterns
+stack_signals:
+  - typescript
+keywords:
+  - ES-modules
+  - barrel-exports
+  - path-aliases
+  - declaration-files
+  - .d.ts
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/modules.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

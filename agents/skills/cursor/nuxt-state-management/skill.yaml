@@ -1,0 +1,40 @@
+name: nuxt-state-management
+version: '1.0.0'
+description: Manage SSR-safe shared state with useState and Pinia in Nuxt applications
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/composables/**'
+  - '**/stores/**'
+  - '**/pages/**/*.vue'
+related_skills:
+  - nuxt-composables-pattern
+  - nuxt-auto-imports
+  - nuxt-plugins-pattern
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+  - pinia
+keywords:
+  - state-management
+  - useState
+  - pinia
+  - SSR
+  - hydration
+  - store
+  - shared-state
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/getting-started/state-management'
+state:
+  persistent: false
+  files: []
+depends_on: []

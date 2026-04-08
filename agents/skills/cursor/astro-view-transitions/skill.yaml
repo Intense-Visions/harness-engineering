@@ -1,0 +1,43 @@
+name: astro-view-transitions
+version: '1.0.0'
+description: Implement smooth page transitions and persistent islands using Astro View Transitions API
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+related_skills:
+  - astro-component-pattern
+  - astro-routing-pattern
+  - astro-islands-architecture
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - view-transitions
+  - page-transitions
+  - ViewTransitions
+  - transition:animate
+  - transition:name
+  - transition:persist
+  - astro:before-preparation
+  - astro:page-load
+  - morph
+  - slide
+  - fade
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/guides/view-transitions'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

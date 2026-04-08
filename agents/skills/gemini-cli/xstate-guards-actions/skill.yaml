@@ -1,0 +1,39 @@
+name: xstate-guards-actions
+version: '1.0.0'
+description: Control transitions with guards and execute side effects with actions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-invoke-pattern
+  - xstate-testing-patterns
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - guard
+  - cond
+  - actions
+  - assign
+  - entry
+  - exit
+  - side-effects
+metadata:
+  author: community
+  upstream: 'xstate/docs/guards'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

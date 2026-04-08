@@ -1,0 +1,39 @@
+name: nuxt-layouts-pages
+version: '1.0.0'
+description: Structure Nuxt apps with file-based pages, named layouts, and definePageMeta
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/pages/**/*.vue'
+  - '**/layouts/**/*.vue'
+  - '**/app.vue'
+related_skills:
+  - nuxt-middleware-pattern
+  - nuxt-composables-pattern
+  - nuxt-auto-imports
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - pages
+  - layouts
+  - NuxtPage
+  - NuxtLayout
+  - definePageMeta
+  - file-based-routing
+  - transitions
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/guide/directory-structure/pages'
+state:
+  persistent: false
+  files: []
+depends_on: []

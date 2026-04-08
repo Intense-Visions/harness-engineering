@@ -1,0 +1,38 @@
+name: owasp-security-headers
+version: '1.0.0'
+description: Configure HTTP security headers to protect against XSS, clickjacking, MIME sniffing, and data leaks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/middleware/**'
+  - '**/security/**'
+  - '**/server.*'
+related_skills:
+  - owasp-xss-prevention
+  - owasp-csrf-protection
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - security-headers
+  - csp
+  - helmet
+  - hsts
+  - clickjacking
+  - content-security-policy
+  - x-frame-options
+metadata:
+  author: community
+  upstream: cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet
+state:
+  persistent: false
+  files: []
+depends_on: []
+

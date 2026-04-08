@@ -1,0 +1,39 @@
+name: trpc-router-composition
+version: "1.0.0"
+description: Router merging, nested routers, procedure organization, and createTRPCRouter
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/trpc/**"
+  - "**/routers/**"
+  - "**/server/trpc.ts"
+related_skills:
+  - trpc-input-validation
+  - trpc-middleware-pattern
+  - trpc-nextjs-integration
+  - next-route-handlers
+stack_signals:
+  - trpc
+  - typescript
+  - react
+keywords:
+  - tRPC
+  - router
+  - createTRPCRouter
+  - mergeRouters
+  - procedure
+  - nested-router
+  - appRouter
+metadata:
+  author: community
+  upstream: https://trpc.io/docs/server/routers
+state:
+  persistent: false
+  files: []
+depends_on: []

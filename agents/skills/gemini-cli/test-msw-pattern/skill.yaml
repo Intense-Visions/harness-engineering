@@ -1,0 +1,41 @@
+name: test-msw-pattern
+version: "1.0.0"
+description: Intercept HTTP requests in tests using Mock Service Worker handlers at the network level
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-component-react
+  - test-integration-patterns
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - msw
+  - Mock-Service-Worker
+  - http-handlers
+  - network-mocking
+  - request-interception
+metadata:
+  author: community
+  upstream: mswjs.io/docs/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,41 @@
+name: events-idempotency
+version: "1.0.0"
+description: Handle duplicate message delivery safely using idempotency keys and deduplication stores
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - events-message-queue
+  - events-outbox-pattern
+  - microservices-outbox-pattern
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - idempotency
+  - idempotency-keys
+  - deduplication
+  - at-least-once
+  - duplicate-handling
+metadata:
+  author: community
+  upstream: microservices.io/patterns/communication-style/idempotent-consumer.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

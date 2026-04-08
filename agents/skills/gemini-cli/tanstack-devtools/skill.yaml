@@ -1,0 +1,40 @@
+name: tanstack-devtools
+version: "1.0.0"
+description: "@tanstack/react-query-devtools, cache panel, network inspector, and debugging"
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/query-client.ts"
+  - "**/*query*.ts"
+  - "**/providers.*"
+related_skills:
+  - tanstack-query-keys
+  - tanstack-cache-management
+  - tanstack-query-invalidation
+  - react-hooks-pattern
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - devtools
+  - react-query-devtools
+  - debugging
+  - cache-inspector
+  - query-panel
+  - stale
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/devtools
+state:
+  persistent: false
+  files: []
+depends_on: []

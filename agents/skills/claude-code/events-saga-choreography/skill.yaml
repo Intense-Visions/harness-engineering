@@ -1,0 +1,40 @@
+name: events-saga-choreography
+version: "1.0.0"
+description: Coordinate distributed workflows through event chains and compensation events without an orchestrator
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - microservices-saga-pattern
+  - events-pubsub-pattern
+  - events-idempotency
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - saga
+  - choreography
+  - compensation-events
+  - eventual-consistency
+  - event-chains
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/saga.html
+state:
+  persistent: false
+  files: []
+depends_on: []

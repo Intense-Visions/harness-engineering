@@ -1,0 +1,40 @@
+name: zod-nextjs-integration
+version: "1.0.0"
+description: Validate Next.js server actions, API routes, and form data with Zod schemas
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/app/**/*.ts"
+  - "**/pages/api/**"
+  - "**/actions/**"
+related_skills:
+  - zod-error-handling
+  - zod-async-validation
+  - next-server-actions
+  - trpc-input-validation
+stack_signals:
+  - zod
+  - next
+  - typescript
+keywords:
+  - zod
+  - next.js
+  - server-action
+  - api-route
+  - form-validation
+  - FormData
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

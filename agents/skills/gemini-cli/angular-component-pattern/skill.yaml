@@ -1,0 +1,44 @@
+name: angular-component-pattern
+version: '1.0.0'
+description: Author Angular components with correct inputs/outputs, change detection, and lifecycle hooks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - angular.json
+  - '**/*.component.ts'
+  - '**/*.component.html'
+  - '**/*.service.ts'
+  - '**/*.module.ts'
+related_skills:
+  - angular-signals-pattern
+  - angular-standalone-components
+  - angular-performance-patterns
+  - angular-directive-pattern
+  - ts-strict-types
+stack_signals:
+  - angular
+  - typescript
+  - rxjs
+keywords:
+  - component
+  - input
+  - output
+  - change-detection
+  - lifecycle-hooks
+  - OnPush
+  - ViewChild
+  - ContentChild
+metadata:
+  author: angular.dev
+  upstream: 'angular.dev/guide/components'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

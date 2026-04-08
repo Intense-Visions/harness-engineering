@@ -1,0 +1,36 @@
+name: drizzle-migrations
+version: "1.0.0"
+description: Manage Drizzle schema evolution with drizzle-kit generate/push/migrate and introspect
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "drizzle.config.*"
+  - "**/drizzle/**"
+  - "**/migrations/**"
+related_skills:
+  - drizzle-schema-definition
+stack_signals:
+  - drizzle
+  - typescript
+  - postgresql
+  - sqlite
+keywords:
+  - migrations
+  - drizzle-kit
+  - generate
+  - push
+  - introspect
+  - migration-files
+metadata:
+  author: community
+  upstream: "orm.drizzle.team/docs/migrations"
+state:
+  persistent: false
+  files: []
+depends_on: []

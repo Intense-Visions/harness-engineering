@@ -1,0 +1,38 @@
+name: owasp-file-upload-security
+version: '1.0.0'
+description: Secure file upload endpoints against malicious files, path traversal, and resource exhaustion
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/upload/**'
+  - '**/middleware/**'
+  - '**/security/**'
+  - '**/storage/**'
+related_skills:
+  - owasp-injection-prevention
+  - owasp-security-headers
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - file-upload
+  - validation
+  - mime-type
+  - path-traversal
+  - malware
+  - multer
+  - storage
+metadata:
+  author: community
+  upstream: cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet
+state:
+  persistent: false
+  files: []
+depends_on: []

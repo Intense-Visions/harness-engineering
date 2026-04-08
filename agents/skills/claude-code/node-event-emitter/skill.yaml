@@ -1,0 +1,38 @@
+name: node-event-emitter
+version: "1.0.0"
+description: Use Node.js EventEmitter for typed pub-sub communication with memory leak prevention
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - events-pubsub-pattern
+  - ts-generics-pattern
+  - gof-observer-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - EventEmitter
+  - events
+  - on
+  - off
+  - emit
+  - typed-events
+metadata:
+  author: community
+  upstream: nodejs.org/en/docs/guides/event-loop-timers-and-nexttick
+state:
+  persistent: false
+  files: []
+depends_on: []

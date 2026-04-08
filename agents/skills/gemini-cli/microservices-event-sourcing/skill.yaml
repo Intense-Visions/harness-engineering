@@ -1,0 +1,39 @@
+name: microservices-event-sourcing
+version: "1.0.0"
+description: Store state as an immutable sequence of events with projections, snapshots, and replay
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-cqrs-pattern
+  - events-event-schema
+  - microservices-outbox-pattern
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - event-sourcing
+  - event-store
+  - projections
+  - snapshot
+  - replay
+  - CQRS
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/event-sourcing.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

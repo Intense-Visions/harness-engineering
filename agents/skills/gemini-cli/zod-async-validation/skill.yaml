@@ -1,0 +1,38 @@
+name: zod-async-validation
+version: "1.0.0"
+description: Run async Zod validation with parseAsync, safeParseAsync, async refinements, and external checks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-transform-refine
+  - zod-error-handling
+  - zod-nextjs-integration
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - parseAsync
+  - safeParseAsync
+  - async-refinement
+  - external-validation
+  - database-check
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

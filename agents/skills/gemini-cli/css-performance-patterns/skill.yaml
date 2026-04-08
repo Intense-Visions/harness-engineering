@@ -1,0 +1,38 @@
+name: css-performance-patterns
+version: '1.0.0'
+description: Optimize CSS performance with content-visibility, containment, and render-efficient patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.css'
+  - 'tailwind.config.*'
+  - '**/*.tsx'
+related_skills:
+  - css-tailwind-pattern
+  - css-layout-patterns
+  - css-animation-pattern
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - performance
+  - content-visibility
+  - containment
+  - will-change
+  - CLS
+  - LCP
+metadata:
+  author: community
+  upstream: 'web.dev/css-performance'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

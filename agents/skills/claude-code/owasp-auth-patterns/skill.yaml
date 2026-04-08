@@ -1,0 +1,39 @@
+name: owasp-auth-patterns
+version: "1.0.0"
+description: Implement secure authentication with proper session management, JWT best practices, and token rotation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/auth/**"
+  - "**/security/**"
+  - "**/middleware/**"
+  - "**/guards/**"
+related_skills:
+  - nestjs-guards-pattern
+  - owasp-secrets-management
+  - owasp-cryptography
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - authentication
+  - authorization
+  - jwt
+  - session-management
+  - token-rotation
+  - broken-auth
+  - owasp
+metadata:
+  author: community
+  upstream: "owasp.org/www-project-top-ten/"
+state:
+  persistent: false
+  files: []
+depends_on: []

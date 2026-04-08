@@ -1,0 +1,38 @@
+name: otel-nestjs-integration
+version: '1.0.0'
+description: Integrate OpenTelemetry with NestJS using decorators and module-based configuration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/telemetry/**'
+  - '**/*.module.ts'
+  - '**/*.service.ts'
+related_skills:
+  - otel-sdk-setup
+  - otel-tracing-pattern
+  - otel-custom-instrumentation
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - nestjs
+  - decorators
+  - interceptors
+  - module
+  - tracing-middleware
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/nestjs'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

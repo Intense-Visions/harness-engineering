@@ -1,0 +1,35 @@
+name: resilience-fallback-pattern
+version: '1.0.0'
+description: Provide degraded but functional responses when primary operations fail
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/services/**'
+  - '**/clients/**'
+  - '**/api/**'
+related_skills:
+  - resilience-circuit-breaker
+  - resilience-retry-pattern
+  - resilience-timeout-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - fallback
+  - graceful-degradation
+  - cache-fallback
+  - default-response
+  - resilience
+metadata:
+  author: community
+  upstream: 'microsoft/patterns/graceful-degradation'
+state:
+  persistent: false
+  files: []
+depends_on: []

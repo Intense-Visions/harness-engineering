@@ -1,0 +1,40 @@
+name: svelte-runes-pattern
+version: '1.0.0'
+description: Write reactive Svelte 5 components using $state, $derived, $effect, $props, and $bindable
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/*.svelte'
+  - '**/+page.svelte'
+  - '**/+layout.svelte'
+related_skills:
+  - svelte-stores-pattern
+  - svelte-component-composition
+  - svelte-state-management
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - runes
+  - $state
+  - $derived
+  - $effect
+  - $props
+  - $bindable
+  - svelte5
+  - reactivity
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/svelte5-migration'
+state:
+  persistent: false
+  files: []
+depends_on: []

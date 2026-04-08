@@ -1,0 +1,38 @@
+name: mobile-deployment-patterns
+version: '1.0.0'
+description: Deploy React Native apps with EAS Build, EAS Submit, OTA updates, and CI/CD pipelines
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.native.*'
+  - 'app.json'
+  - 'app.config.*'
+  - 'eas.json'
+related_skills:
+  - mobile-expo-setup
+  - mobile-performance-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - deployment
+  - eas-build
+  - eas-submit
+  - ota-updates
+  - app-store
+  - play-store
+  - ci-cd
+metadata:
+  author: community
+  upstream: docs.expo.dev/deploy/build-project
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,41 @@
+name: angular-reactive-forms
+version: '1.0.0'
+description: Build type-safe reactive forms with FormGroup, FormControl, Validators, and dynamic form arrays
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - angular.json
+  - '**/*.component.ts'
+  - '**/*.component.html'
+  - '**/*.service.ts'
+  - '**/*.module.ts'
+related_skills:
+  - angular-component-pattern
+  - angular-signals-pattern
+  - angular-service-di
+  - ts-utility-types
+stack_signals:
+  - angular
+  - typescript
+  - rxjs
+keywords:
+  - reactive-forms
+  - FormGroup
+  - FormControl
+  - FormArray
+  - Validators
+  - form-builder
+  - typed-forms
+metadata:
+  author: angular.dev
+  upstream: 'angular.dev/guide/forms/reactive-forms'
+state:
+  persistent: false
+  files: []
+depends_on: []

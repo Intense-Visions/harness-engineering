@@ -1,0 +1,40 @@
+name: events-outbox-pattern
+version: "1.0.0"
+description: Reliably publish domain events using the transactional outbox and CDC polling approach
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - microservices-outbox-pattern
+  - events-idempotency
+  - events-kafka-patterns
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - outbox
+  - transactional-outbox
+  - CDC
+  - polling-publisher
+  - reliable-delivery
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/transactional-outbox.html
+state:
+  persistent: false
+  files: []
+depends_on: []

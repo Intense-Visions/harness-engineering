@@ -1,0 +1,38 @@
+name: mobile-expo-setup
+version: '1.0.0'
+description: Set up and configure Expo projects with managed workflow, EAS Build, and development builds
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.native.*'
+  - 'app.json'
+  - 'app.config.*'
+  - 'eas.json'
+related_skills:
+  - mobile-navigation-pattern
+  - mobile-deployment-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - expo
+  - setup
+  - eas-build
+  - development-build
+  - config-plugins
+  - managed-workflow
+metadata:
+  author: community
+  upstream: docs.expo.dev
+state:
+  persistent: false
+  files: []
+depends_on: []
+

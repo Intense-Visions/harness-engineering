@@ -1,0 +1,40 @@
+name: next-server-components
+version: '1.0.0'
+description: React Server Components in Next.js — client/server boundaries, composition, and data access
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - 'next.config.*'
+  - '**/app/**/*.tsx'
+  - '**/app/**/*.ts'
+  - '**/pages/**/*.tsx'
+related_skills:
+  - next-app-router
+  - next-server-actions
+  - next-data-fetching
+  - next-streaming-suspense
+  - react-hooks-pattern
+stack_signals:
+  - next
+  - nextjs
+  - react
+keywords:
+  - server-components
+  - rsc
+  - use-client
+  - client-boundary
+  - server-rendering
+  - data-access
+metadata:
+  author: vercel
+  upstream: 'community/next.js-docs/server-components'
+state:
+  persistent: false
+  files: []
+depends_on: []

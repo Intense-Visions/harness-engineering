@@ -1,0 +1,41 @@
+name: a11y-aria-patterns
+version: '1.0.0'
+description: Apply ARIA roles, states, and properties correctly to enhance assistive technology support
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+related_skills:
+  - a11y-semantic-html
+  - a11y-keyboard-navigation
+  - a11y-screen-reader-testing
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - aria
+  - roles
+  - aria-label
+  - aria-describedby
+  - aria-live
+  - aria-expanded
+  - aria-hidden
+metadata:
+  author: community
+  upstream: w3.org/TR/wai-aria-1.2
+state:
+  persistent: false
+  files: []
+depends_on: []
+

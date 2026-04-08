@@ -1,0 +1,36 @@
+name: nestjs-middleware-pattern
+version: "1.0.0"
+description: Apply NestMiddleware and functional middleware with consumer.forRoutes binding
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.middleware.ts"
+  - "**/*.module.ts"
+related_skills:
+  - nestjs-module-pattern
+  - nestjs-guards-pattern
+  - nestjs-interceptors-pattern
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - middleware
+  - NestMiddleware
+  - functional-middleware
+  - forRoutes
+  - consumer
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/middleware"
+state:
+  persistent: false
+  files: []
+depends_on: []

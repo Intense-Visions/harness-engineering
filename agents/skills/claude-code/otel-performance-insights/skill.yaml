@@ -1,0 +1,37 @@
+name: otel-performance-insights
+version: '1.0.0'
+description: Identify performance bottlenecks using trace analysis, histogram metrics, and span timing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/telemetry/**'
+  - '**/metrics/**'
+related_skills:
+  - otel-tracing-pattern
+  - otel-metrics-pattern
+  - otel-custom-instrumentation
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - performance
+  - latency
+  - bottleneck
+  - p99
+  - SLO
+  - apdex
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/performance'
+state:
+  persistent: false
+  files: []
+depends_on: []

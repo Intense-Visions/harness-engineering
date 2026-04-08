@@ -1,0 +1,40 @@
+name: nestjs-controller-pattern
+version: "1.0.0"
+description: Define HTTP route handlers with @Controller, method decorators, params, and versioning
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.controller.ts"
+  - "**/*.module.ts"
+related_skills:
+  - nestjs-module-pattern
+  - nestjs-pipes-pattern
+  - nestjs-guards-pattern
+  - nestjs-dto-validation
+  - nestjs-swagger-integration
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - controller
+  - route
+  - http
+  - param
+  - query
+  - body
+  - versioning
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/controllers"
+state:
+  persistent: false
+  files: []
+depends_on: []

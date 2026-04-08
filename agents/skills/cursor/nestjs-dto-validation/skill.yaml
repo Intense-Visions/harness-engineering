@@ -1,0 +1,40 @@
+name: nestjs-dto-validation
+version: "1.0.0"
+description: Validate request payloads with class-validator, class-transformer, and DTO patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.dto.ts"
+  - "**/*.controller.ts"
+related_skills:
+  - nestjs-pipes-pattern
+  - nestjs-controller-pattern
+  - nestjs-swagger-integration
+  - ts-utility-types
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - dto
+  - validation
+  - class-validator
+  - class-transformer
+  - whitelist
+  - IsString
+  - IsEmail
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/techniques/validation"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

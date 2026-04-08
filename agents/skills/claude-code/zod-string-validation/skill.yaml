@@ -1,0 +1,40 @@
+name: zod-string-validation
+version: "1.0.0"
+description: Validate and transform strings with Zod's min, max, email, url, regex, trim, and custom messages
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-schema-definition
+  - zod-transform-refine
+  - zod-error-handling
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - string
+  - email
+  - url
+  - regex
+  - min
+  - max
+  - trim
+  - transform
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []

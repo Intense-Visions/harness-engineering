@@ -1,0 +1,38 @@
+name: owasp-dependency-security
+version: '1.0.0'
+description: Manage third-party dependency risks with auditing, lockfiles, and vulnerability scanning
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/package.json'
+  - '**/package-lock.json'
+  - '**/yarn.lock'
+  - '**/pnpm-lock.yaml'
+related_skills:
+  - owasp-secrets-management
+  - owasp-logging-monitoring
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - dependencies
+  - vulnerabilities
+  - npm-audit
+  - supply-chain
+  - lockfile
+  - snyk
+  - dependabot
+metadata:
+  author: community
+  upstream: cheatsheetseries.owasp.org/cheatsheets/Vulnerable_and_Outdated_Components
+state:
+  persistent: false
+  files: []
+depends_on: []

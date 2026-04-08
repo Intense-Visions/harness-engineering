@@ -1,0 +1,36 @@
+name: xstate-visualization
+version: '1.0.0'
+description: Visualize and inspect XState machines with Stately Inspector and VS Code extension
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-react-integration
+  - xstate-testing-patterns
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - visualization
+  - inspector
+  - stately
+  - devtools
+  - state-diagram
+metadata:
+  author: community
+  upstream: 'xstate/docs/inspector'
+state:
+  persistent: false
+  files: []
+depends_on: []

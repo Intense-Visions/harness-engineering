@@ -1,0 +1,38 @@
+name: node-fastify-patterns
+version: "1.0.0"
+description: Build performant APIs with Fastify using schema validation, plugins, decorators, and hooks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-http-server
+  - ts-zod-integration
+  - ts-async-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - fastify
+  - schema-validation
+  - plugins
+  - decorators
+  - hooks-lifecycle
+metadata:
+  author: community
+  upstream: fastify.dev/docs/latest/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

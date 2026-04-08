@@ -1,0 +1,37 @@
+name: redux-slice-pattern
+version: '1.0.0'
+description: Structure Redux state with createSlice for reducers, actions, and initial state
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.slice.ts'
+  - '**/slices/**'
+related_skills:
+  - redux-store-setup
+  - redux-selectors-pattern
+  - redux-typescript-patterns
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - createSlice
+  - reducer
+  - actions
+  - immer
+  - initial-state
+  - redux-toolkit
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/createSlice'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,36 @@
+name: ts-discriminated-unions
+version: "1.0.0"
+description: Model mutually exclusive states with discriminated unions and exhaustive narrowing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-type-guards
+  - ts-conditional-types
+  - ts-error-handling-types
+stack_signals:
+  - typescript
+keywords:
+  - discriminated-unions
+  - narrowing
+  - exhaustive-check
+  - never
+  - kind-field
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/narrowing.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,39 @@
+name: events-sse-pattern
+version: "1.0.0"
+description: Stream one-way server events to browsers using Server-Sent Events and EventSource
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - node-http-server
+  - events-pubsub-pattern
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - SSE
+  - Server-Sent-Events
+  - EventSource
+  - reconnection
+  - one-way-streaming
+metadata:
+  author: community
+  upstream: html.spec.whatwg.org/multipage/server-sent-events.html
+state:
+  persistent: false
+  files: []
+depends_on: []

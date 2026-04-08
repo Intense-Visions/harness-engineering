@@ -1,0 +1,38 @@
+name: mobile-animation-patterns
+version: '1.0.0'
+description: Create fluid 60fps animations with React Native Reanimated and shared values
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/screens/**'
+  - '**/components/**'
+related_skills:
+  - mobile-gesture-handling
+  - mobile-performance-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - reanimated
+  - animation
+  - shared-values
+  - withSpring
+  - withTiming
+  - layout-animations
+  - worklets
+metadata:
+  author: community
+  upstream: docs.swmansion.com/react-native-reanimated
+state:
+  persistent: false
+  files: []
+depends_on: []
+

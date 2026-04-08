@@ -1,0 +1,35 @@
+name: ts-mapped-types
+version: "1.0.0"
+description: Transform object types by iterating over their keys with mapped type syntax
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-generics-pattern
+  - ts-utility-types
+  - ts-conditional-types
+stack_signals:
+  - typescript
+keywords:
+  - mapped-types
+  - keyof
+  - homomorphic
+  - as-clause
+  - modifiers
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/mapped-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []

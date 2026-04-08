@@ -1,0 +1,33 @@
+name: gof-chain-of-responsibility
+version: "1.0.0"
+description: Pass requests along a handler chain with short-circuit and async chain support
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - node-express-patterns
+  - gof-decorator-pattern
+stack_signals:
+  - typescript
+keywords:
+  - chain-of-responsibility
+  - handler-chain
+  - middleware
+  - short-circuit
+  - async-chains
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/chain-of-responsibility
+state:
+  persistent: false
+  files: []
+depends_on: []
+

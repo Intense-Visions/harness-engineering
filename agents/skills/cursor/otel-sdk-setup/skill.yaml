@@ -1,0 +1,37 @@
+name: otel-sdk-setup
+version: '1.0.0'
+description: Initialize the OpenTelemetry Node.js SDK with providers, exporters, and auto-instrumentation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/telemetry/**'
+  - '**/tracing/**'
+related_skills:
+  - otel-tracing-pattern
+  - otel-metrics-pattern
+  - otel-exporter-config
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - sdk-setup
+  - NodeSDK
+  - auto-instrumentation
+  - provider
+  - resource
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/getting-started/nodejs'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

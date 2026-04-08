@@ -1,0 +1,40 @@
+name: svelte-routing-pattern
+version: '1.0.0'
+description: Structure SvelteKit applications with file-based routing, +page.svelte, +layout.svelte, and route params
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/+page.svelte'
+  - '**/+layout.svelte'
+  - '**/+page.server.ts'
+  - '**/+layout.server.ts'
+related_skills:
+  - svelte-load-functions
+  - svelte-form-actions
+  - svelte-error-pages
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - routing
+  - file-based-routing
+  - page
+  - layout
+  - route-params
+  - groups
+  - parallel-routes
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/routing'
+state:
+  persistent: false
+  files: []
+depends_on: []

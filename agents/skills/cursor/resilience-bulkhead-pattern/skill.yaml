@@ -1,0 +1,36 @@
+name: resilience-bulkhead-pattern
+version: '1.0.0'
+description: Isolate failures with bulkheads to limit blast radius of failing components
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/services/**'
+  - '**/clients/**'
+  - '**/http/**'
+related_skills:
+  - resilience-circuit-breaker
+  - resilience-rate-limiting
+  - resilience-timeout-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - bulkhead
+  - isolation
+  - semaphore
+  - concurrency-limit
+  - resource-partition
+metadata:
+  author: community
+  upstream: 'microsoft/patterns/bulkhead'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,42 @@
+name: angular-http-interceptors
+version: '1.0.0'
+description: Intercept HTTP requests with HttpInterceptorFn for auth headers, retry logic, and error handling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - angular.json
+  - '**/*.component.ts'
+  - '**/*.component.html'
+  - '**/*.service.ts'
+  - '**/*.module.ts'
+related_skills:
+  - angular-service-di
+  - angular-rxjs-patterns
+  - angular-routing-guards
+  - angular-standalone-components
+stack_signals:
+  - angular
+  - typescript
+  - rxjs
+keywords:
+  - http-interceptor
+  - HttpInterceptorFn
+  - auth-header
+  - retry
+  - error-handling
+  - provideHttpClient
+  - withInterceptors
+metadata:
+  author: angular.dev
+  upstream: 'angular.dev/guide/http/interceptors'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

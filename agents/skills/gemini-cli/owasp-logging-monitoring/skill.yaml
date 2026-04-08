@@ -1,0 +1,39 @@
+name: owasp-logging-monitoring
+version: '1.0.0'
+description: Implement security logging and monitoring to detect and respond to threats
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/auth/**'
+  - '**/security/**'
+  - '**/middleware/**'
+  - '**/logging/**'
+related_skills:
+  - owasp-auth-patterns
+  - owasp-rate-limiting
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - logging
+  - monitoring
+  - audit
+  - alerting
+  - siem
+  - structured-logging
+  - incident-response
+metadata:
+  author: community
+  upstream: cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet
+state:
+  persistent: false
+  files: []
+depends_on: []
+

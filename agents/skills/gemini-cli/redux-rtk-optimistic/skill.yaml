@@ -1,0 +1,37 @@
+name: redux-rtk-optimistic
+version: '1.0.0'
+description: Implement optimistic updates and pessimistic updates with RTK Query cache
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/api.ts'
+  - '**/api/**'
+  - '**/services/**'
+related_skills:
+  - redux-rtk-query-endpoints
+  - redux-rtk-query-setup
+  - redux-entity-adapter
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - optimistic-update
+  - onQueryStarted
+  - cache-update
+  - pessimistic-update
+  - undo
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/rtk-query/optimistic-updates'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

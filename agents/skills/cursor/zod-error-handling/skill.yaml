@@ -1,0 +1,39 @@
+name: zod-error-handling
+version: "1.0.0"
+description: Handle Zod validation failures with safeParse, ZodError, error.format, error.flatten, and custom error maps
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-schema-definition
+  - zod-transform-refine
+  - zod-nextjs-integration
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - ZodError
+  - safeParse
+  - error.format
+  - error.flatten
+  - errorMap
+  - validation-errors
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

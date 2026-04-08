@@ -1,0 +1,38 @@
+name: zod-infer-types
+version: "1.0.0"
+description: Derive TypeScript types from Zod schemas with z.infer, input vs output types, and ZodTypeAny
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-schema-definition
+  - zod-object-patterns
+  - ts-utility-types
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - z.infer
+  - TypeScript
+  - input-type
+  - output-type
+  - ZodTypeAny
+  - ZodSchema
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []

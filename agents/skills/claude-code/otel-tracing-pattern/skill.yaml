@@ -1,0 +1,36 @@
+name: otel-tracing-pattern
+version: '1.0.0'
+description: Instrument distributed traces with OpenTelemetry spans for request flow visibility
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/tracing/**'
+  - '**/telemetry/**'
+related_skills:
+  - otel-sdk-setup
+  - otel-context-propagation
+  - otel-custom-instrumentation
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - tracing
+  - spans
+  - distributed-tracing
+  - trace-context
+  - opentelemetry
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/traces'
+state:
+  persistent: false
+  files: []
+depends_on: []

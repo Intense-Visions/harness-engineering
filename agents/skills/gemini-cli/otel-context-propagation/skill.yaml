@@ -1,0 +1,37 @@
+name: otel-context-propagation
+version: '1.0.0'
+description: Propagate trace context across service boundaries with W3C TraceContext and baggage
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/middleware/**'
+  - '**/telemetry/**'
+related_skills:
+  - otel-tracing-pattern
+  - otel-sdk-setup
+  - otel-custom-instrumentation
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - context-propagation
+  - W3C-TraceContext
+  - traceparent
+  - baggage
+  - cross-service
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/context-propagation'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

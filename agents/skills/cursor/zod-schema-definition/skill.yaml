@@ -1,0 +1,40 @@
+name: zod-schema-definition
+version: "1.0.0"
+description: Define runtime-validated TypeScript schemas with z.object, primitives, enums, and composition
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-string-validation
+  - zod-object-patterns
+  - zod-infer-types
+  - ts-utility-types
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - schema
+  - validation
+  - z.object
+  - z.enum
+  - z.literal
+  - runtime-types
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

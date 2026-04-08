@@ -1,0 +1,43 @@
+name: prisma-filtering-sorting
+version: "1.0.0"
+description: Filter and sort Prisma queries with where, AND/OR/NOT, orderBy, and cursor/offset pagination
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/prisma/**"
+  - "**/*.service.ts"
+  - "**/*.repository.ts"
+related_skills:
+  - prisma-client-queries
+  - prisma-relations-pattern
+  - prisma-performance-patterns
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - where
+  - filter
+  - AND
+  - OR
+  - NOT
+  - orderBy
+  - cursor
+  - pagination
+  - aggregate
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-client/queries/filtering-and-sorting"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

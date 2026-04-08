@@ -1,0 +1,35 @@
+name: state-zustand-persist
+version: '1.0.0'
+description: Persist Zustand store to localStorage or custom storage with the persist middleware
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/store/**'
+  - '**/stores/**'
+related_skills:
+  - state-zustand-store
+  - state-zustand-slices
+  - state-zustand-devtools
+stack_signals:
+  - zustand
+  - react
+  - typescript
+keywords:
+  - persist
+  - localStorage
+  - storage
+  - rehydration
+  - migration
+metadata:
+  author: community
+  upstream: 'zustand/docs/persist-middleware'
+state:
+  persistent: false
+  files: []
+depends_on: []

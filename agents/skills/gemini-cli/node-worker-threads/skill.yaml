@@ -1,0 +1,38 @@
+name: node-worker-threads
+version: "1.0.0"
+description: Offload CPU-intensive work to worker threads using MessageChannel and shared buffers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-event-emitter
+  - ts-async-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - worker-threads
+  - Worker
+  - workerData
+  - MessageChannel
+  - SharedArrayBuffer
+  - thread-pool
+metadata:
+  author: community
+  upstream: nodejs.org/en/docs/worker_threads
+state:
+  persistent: false
+  files: []
+depends_on: []
+

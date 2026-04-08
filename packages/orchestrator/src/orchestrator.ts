@@ -5,6 +5,7 @@ import {
   IssueTrackerClient,
   AgentBackend,
 } from '@harness-engineering/types';
+import { writeTaint } from '@harness-engineering/core';
 import {
   OrchestratorState,
   OrchestratorEvent,
@@ -22,7 +23,6 @@ import { ClaudeBackend } from './agent/backends/claude';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
-import { writeTaint } from '@harness-engineering/core';
 
 /**
  * The central orchestrator that manages the lifecycle of coding agents.

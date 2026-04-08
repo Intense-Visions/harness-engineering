@@ -1,0 +1,43 @@
+name: next-testing-patterns
+version: "1.0.0"
+description: Component testing with App Router, mocking server components, and MSW integration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "next.config.*"
+  - "**/*.test.tsx"
+  - "**/*.spec.tsx"
+  - "**/*.test.ts"
+  - "**/jest.config.*"
+  - "**/vitest.config.*"
+related_skills:
+  - next-server-components
+  - next-route-handlers
+  - next-server-actions
+  - react-hooks-pattern
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - testing
+  - jest
+  - vitest
+  - MSW
+  - mock-server
+  - server-components-testing
+  - render
+  - integration-test
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/testing
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,38 @@
+name: test-snapshot-patterns
+version: "1.0.0"
+description: Use snapshot testing selectively for stable outputs, knowing when to avoid it
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-component-react
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - snapshots
+  - toMatchSnapshot
+  - toMatchInlineSnapshot
+  - snapshot-testing
+metadata:
+  author: community
+  upstream: vitest.dev/guide/snapshot.html
+state:
+  persistent: false
+  files: []
+depends_on: []

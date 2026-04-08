@@ -1,0 +1,38 @@
+name: nestjs-guards-pattern
+version: "1.0.0"
+description: Protect routes with @UseGuards, CanActivate, JWT guards, and role-based access control
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.guard.ts"
+  - "**/*.controller.ts"
+related_skills:
+  - nestjs-controller-pattern
+  - nestjs-dependency-injection
+  - owasp-auth-patterns
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - guard
+  - authentication
+  - authorization
+  - jwt
+  - role
+  - CanActivate
+  - ExecutionContext
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/guards"
+state:
+  persistent: false
+  files: []
+depends_on: []

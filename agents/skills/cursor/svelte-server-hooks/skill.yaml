@@ -1,0 +1,40 @@
+name: svelte-server-hooks
+version: '1.0.0'
+description: Intercept requests and handle errors in SvelteKit using hooks.server.ts with handle, handleFetch, handleError, and sequence
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/hooks.server.ts'
+  - '**/hooks.client.ts'
+  - '**/hooks.ts'
+related_skills:
+  - svelte-routing-pattern
+  - svelte-load-functions
+  - svelte-error-pages
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - hooks
+  - handle
+  - handleFetch
+  - handleError
+  - sequence
+  - locals
+  - auth
+  - middleware
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/hooks'
+state:
+  persistent: false
+  files: []
+depends_on: []

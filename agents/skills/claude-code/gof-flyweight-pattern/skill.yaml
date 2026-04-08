@@ -1,0 +1,32 @@
+name: gof-flyweight-pattern
+version: "1.0.0"
+description: Share fine-grained objects to reduce memory usage by separating intrinsic and extrinsic state
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - gof-singleton
+stack_signals:
+  - typescript
+keywords:
+  - flyweight
+  - shared-state
+  - intrinsic-state
+  - extrinsic-state
+  - memory-optimization
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/flyweight
+state:
+  persistent: false
+  files: []
+depends_on: []

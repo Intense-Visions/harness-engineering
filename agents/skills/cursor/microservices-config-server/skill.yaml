@@ -1,0 +1,36 @@
+name: microservices-config-server
+version: "1.0.0"
+description: Centralize configuration, feature flags, and secrets management across services
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - node-environment-config
+  - microservices-service-discovery
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - config-server
+  - centralized-config
+  - feature-flags
+  - secrets-management
+metadata:
+  author: community
+  upstream: microservices.io/patterns/externalized-configuration.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,33 @@
+name: gof-null-object
+version: "1.0.0"
+description: Eliminate null checks by providing default no-op implementations of interfaces
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-discriminated-unions
+  - ts-type-guards
+  - ts-class-patterns
+stack_signals:
+  - typescript
+keywords:
+  - null-object
+  - null-checks
+  - default-implementation
+  - no-op
+metadata:
+  author: community
+  upstream: refactoring.guru/introduce-null-object
+state:
+  persistent: false
+  files: []
+depends_on: []
+

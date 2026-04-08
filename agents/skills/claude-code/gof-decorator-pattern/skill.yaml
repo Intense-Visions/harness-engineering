@@ -1,0 +1,33 @@
+name: gof-decorator-pattern
+version: "1.0.0"
+description: Attach additional behavior to objects at runtime by wrapping them in decorator objects
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - gof-proxy-pattern
+  - ts-decorator-patterns
+stack_signals:
+  - typescript
+keywords:
+  - decorator
+  - wrapping
+  - transparent-wrapping
+  - feature-stacking
+  - runtime-behavior
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/decorator
+state:
+  persistent: false
+  files: []
+depends_on: []

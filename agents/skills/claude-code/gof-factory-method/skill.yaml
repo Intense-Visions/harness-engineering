@@ -1,0 +1,33 @@
+name: gof-factory-method
+version: "1.0.0"
+description: Define a factory interface that subclasses use to decide which object to instantiate
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - ts-generics-pattern
+  - gof-abstract-factory
+stack_signals:
+  - typescript
+keywords:
+  - factory-method
+  - Creator
+  - Product
+  - open-closed-principle
+  - subclass-factory
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/factory-method
+state:
+  persistent: false
+  files: []
+depends_on: []

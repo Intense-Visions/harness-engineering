@@ -1,0 +1,41 @@
+name: test-playwright-patterns
+version: "1.0.0"
+description: Write maintainable Playwright tests using page objects, fixtures, and parallel execution
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-playwright-setup
+  - test-e2e-strategy
+  - test-accessibility-testing
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - playwright
+  - page-object-model
+  - fixtures
+  - parallelism
+  - global-setup
+metadata:
+  author: community
+  upstream: playwright.dev/docs/test-patterns
+state:
+  persistent: false
+  files: []
+depends_on: []
+

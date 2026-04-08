@@ -1,0 +1,37 @@
+name: microservices-circuit-breaker
+version: "1.0.0"
+description: Prevent cascading failures with circuit breaker, half-open state, and fallback logic
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-bulkhead-pattern
+  - microservices-api-gateway
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - circuit-breaker
+  - half-open
+  - fallback
+  - opossum
+  - cascading-failures
+metadata:
+  author: community
+  upstream: microservices.io/patterns/reliability/circuit-breaker.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

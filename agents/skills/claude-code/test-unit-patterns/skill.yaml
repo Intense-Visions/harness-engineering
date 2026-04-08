@@ -1,0 +1,41 @@
+name: test-unit-patterns
+version: "1.0.0"
+description: Write focused, isolated unit tests using AAA pattern with describe/it/expect
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-mock-patterns
+  - test-tdd-workflow
+  - test-vitest-config
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - AAA-pattern
+  - unit-tests
+  - describe
+  - it
+  - expect
+  - test-isolation
+metadata:
+  author: community
+  upstream: vitest.dev/guide/
+state:
+  persistent: false
+  files: []
+depends_on: []

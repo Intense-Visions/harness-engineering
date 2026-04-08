@@ -1,0 +1,38 @@
+name: node-testing-patterns
+version: "1.0.0"
+description: Test Node.js APIs and modules using supertest, nock, and test containers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - test-integration-patterns
+  - test-mock-patterns
+  - test-msw-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - supertest
+  - nock
+  - test-containers
+  - mocking-http
+  - API-testing
+metadata:
+  author: community
+  upstream: vitest.dev/guide/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

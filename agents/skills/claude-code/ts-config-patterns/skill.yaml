@@ -1,0 +1,35 @@
+name: ts-config-patterns
+version: "1.0.0"
+description: Configure tsconfig with extends, project references, composite builds, and incremental compilation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-strict-mode
+  - ts-module-patterns
+  - ts-performance-patterns
+stack_signals:
+  - typescript
+keywords:
+  - tsconfig
+  - project-references
+  - composite
+  - incremental
+  - extends
+metadata:
+  author: community
+  upstream: typescriptlang.org/tsconfig
+state:
+  persistent: false
+  files: []
+depends_on: []

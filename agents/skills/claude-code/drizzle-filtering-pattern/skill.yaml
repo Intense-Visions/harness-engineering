@@ -1,0 +1,40 @@
+name: drizzle-filtering-pattern
+version: "1.0.0"
+description: Filter Drizzle queries with eq(), and(), or(), between(), sql template tag, and custom conditions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "drizzle.config.*"
+  - "**/db/**"
+  - "**/drizzle/**"
+related_skills:
+  - drizzle-query-builder
+  - drizzle-relations-pattern
+  - drizzle-performance-patterns
+stack_signals:
+  - drizzle
+  - typescript
+  - postgresql
+  - sqlite
+keywords:
+  - filter
+  - where
+  - eq
+  - and
+  - or
+  - between
+  - sql-template
+  - conditions
+metadata:
+  author: community
+  upstream: "orm.drizzle.team/docs/operators"
+state:
+  persistent: false
+  files: []
+depends_on: []

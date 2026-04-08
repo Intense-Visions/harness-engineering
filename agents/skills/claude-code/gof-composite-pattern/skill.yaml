@@ -1,0 +1,32 @@
+name: gof-composite-pattern
+version: "1.0.0"
+description: Compose objects into tree structures and treat individual and composite objects uniformly
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - ts-discriminated-unions
+stack_signals:
+  - typescript
+keywords:
+  - composite
+  - tree-structure
+  - Component
+  - Leaf
+  - recursive-operations
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/composite
+state:
+  persistent: false
+  files: []
+depends_on: []

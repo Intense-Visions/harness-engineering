@@ -1,0 +1,40 @@
+name: tanstack-mutation-patterns
+version: "1.0.0"
+description: useMutation, variables, onSuccess/onError/onSettled, and retry configuration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/*mutation*.ts"
+  - "**/*query*.ts"
+related_skills:
+  - tanstack-query-keys
+  - tanstack-optimistic-updates
+  - tanstack-query-invalidation
+  - next-server-actions
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - useMutation
+  - mutation
+  - onSuccess
+  - onError
+  - onSettled
+  - variables
+  - retry
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/mutations
+state:
+  persistent: false
+  files: []
+depends_on: []

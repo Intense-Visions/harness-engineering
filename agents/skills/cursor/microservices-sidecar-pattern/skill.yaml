@@ -1,0 +1,37 @@
+name: microservices-sidecar-pattern
+version: "1.0.0"
+description: Inject cross-cutting concerns like observability and security via a sidecar proxy
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-distributed-tracing
+  - microservices-service-discovery
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - sidecar
+  - service-mesh
+  - Envoy
+  - cross-cutting-concerns
+  - proxy-injection
+metadata:
+  author: community
+  upstream: microservices.io/patterns/deployment/sidecar.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

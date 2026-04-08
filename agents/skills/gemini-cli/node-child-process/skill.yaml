@@ -1,0 +1,38 @@
+name: node-child-process
+version: "1.0.0"
+description: Spawn and manage child processes with exec, spawn, fork, and IPC communication
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-event-emitter
+  - ts-async-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - child-process
+  - exec
+  - spawn
+  - fork
+  - IPC
+  - stdio
+metadata:
+  author: community
+  upstream: nodejs.org/api/child_process.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,36 @@
+name: resilience-rate-limiting
+version: '1.0.0'
+description: Control request throughput with rate limiting using token bucket and sliding window algorithms
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/middleware/**'
+  - '**/api/**'
+  - '**/routes/**'
+related_skills:
+  - resilience-bulkhead-pattern
+  - resilience-circuit-breaker
+  - resilience-retry-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - rate-limiting
+  - token-bucket
+  - sliding-window
+  - throttle
+  - 429
+metadata:
+  author: community
+  upstream: 'cloudflare/docs/rate-limiting'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

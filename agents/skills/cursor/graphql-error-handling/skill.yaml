@@ -1,0 +1,37 @@
+name: graphql-error-handling
+version: '1.0.0'
+description: Handle errors in GraphQL with structured error types, union results, and formatError
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/resolvers/**'
+  - '**/errors/**'
+related_skills:
+  - graphql-resolver-pattern
+  - graphql-schema-design
+  - graphql-apollo-server
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - errors
+  - error-handling
+  - graphql-error
+  - union-errors
+  - format-error
+metadata:
+  author: community
+  upstream: graphql.org/learn/validation
+state:
+  persistent: false
+  files: []
+depends_on: []
+

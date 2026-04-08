@@ -1,0 +1,37 @@
+name: graphql-performance-patterns
+version: '1.0.0'
+description: Optimize GraphQL API performance with query complexity limits, caching, and persisted queries
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/resolvers/**'
+related_skills:
+  - graphql-dataloader-pattern
+  - graphql-resolver-pattern
+  - graphql-pagination-patterns
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - performance
+  - caching
+  - persisted-queries
+  - query-complexity
+  - depth-limit
+  - n-plus-one
+metadata:
+  author: community
+  upstream: apollographql.com/docs/apollo-server/performance/caching
+state:
+  persistent: false
+  files: []
+depends_on: []
+

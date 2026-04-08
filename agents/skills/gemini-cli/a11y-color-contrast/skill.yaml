@@ -1,0 +1,41 @@
+name: a11y-color-contrast
+version: '1.0.0'
+description: Ensure sufficient color contrast ratios and avoid color-only information conveyance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+  - '**/*.css'
+  - '**/*.scss'
+related_skills:
+  - a11y-semantic-html
+  - a11y-image-text-alt
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - contrast
+  - color
+  - wcag
+  - ratio
+  - low-vision
+  - color-blind
+metadata:
+  author: community
+  upstream: w3.org/WAI/WCAG21/Understanding/contrast-minimum
+state:
+  persistent: false
+  files: []
+depends_on: []
+

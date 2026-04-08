@@ -1,0 +1,39 @@
+name: test-component-svelte
+version: "1.0.0"
+description: Test Svelte components with Testing Library using render, fireEvent, and waitFor
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-mock-patterns
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - svelte
+  - testing-library
+  - render
+  - fireEvent
+  - waitFor
+metadata:
+  author: community
+  upstream: testing-library.com/docs/svelte-testing-library/intro/
+state:
+  persistent: false
+  files: []
+depends_on: []

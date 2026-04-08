@@ -1,0 +1,44 @@
+name: prisma-client-queries
+version: "1.0.0"
+description: Query data with Prisma Client findUnique/findMany, create/update/delete, upsert, select, include
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/prisma/**"
+  - "**/*.service.ts"
+  - "**/*.repository.ts"
+related_skills:
+  - prisma-schema-design
+  - prisma-relations-pattern
+  - prisma-filtering-sorting
+  - prisma-transactions
+  - nestjs-service-pattern
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - findUnique
+  - findMany
+  - create
+  - update
+  - delete
+  - upsert
+  - select
+  - include
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-client/queries"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

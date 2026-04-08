@@ -1,0 +1,36 @@
+name: otel-error-tracking
+version: '1.0.0'
+description: Track and correlate errors across services with OpenTelemetry span exceptions and status
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/telemetry/**'
+  - '**/error/**'
+related_skills:
+  - otel-tracing-pattern
+  - otel-logging-pattern
+  - otel-custom-instrumentation
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - error-tracking
+  - exceptions
+  - span-status
+  - error-correlation
+  - sentry-migration
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/error-handling'
+state:
+  persistent: false
+  files: []
+depends_on: []

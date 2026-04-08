@@ -1,0 +1,40 @@
+name: next-monorepo-setup
+version: "1.0.0"
+description: Next.js in monorepos, shared packages, and Turborepo integration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "next.config.*"
+  - "turbo.json"
+  - "pnpm-workspace.yaml"
+  - "packages/*/package.json"
+related_skills:
+  - next-app-router
+  - next-environment-config
+  - next-deployment-optimization
+  - ts-utility-types
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - monorepo
+  - turborepo
+  - pnpm-workspaces
+  - shared-packages
+  - transpilePackages
+  - workspace
+  - internal-packages
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/configuring/mdx
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,36 @@
+name: resilience-health-checks
+version: '1.0.0'
+description: Implement health check endpoints for service readiness and liveness monitoring
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/health/**'
+  - '**/routes/**'
+  - '**/api/**'
+related_skills:
+  - resilience-circuit-breaker
+  - resilience-fallback-pattern
+  - otel-metrics-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - health-check
+  - liveness
+  - readiness
+  - startup-probe
+  - kubernetes
+metadata:
+  author: community
+  upstream: 'kubernetes/docs/health-checks'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

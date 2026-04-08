@@ -1,0 +1,38 @@
+name: svelte-component-composition
+version: '1.0.0'
+description: Compose Svelte 5 components with snippets, {@render}, children, and named content slots
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/*.svelte'
+related_skills:
+  - svelte-runes-pattern
+  - svelte-stores-pattern
+  - svelte-state-management
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - snippets
+  - render
+  - children
+  - slots
+  - composition
+  - Snippet
+  - renderSnippet
+  - component-composition
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/snippets'
+state:
+  persistent: false
+  files: []
+depends_on: []

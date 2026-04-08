@@ -1,0 +1,35 @@
+name: ts-conditional-types
+version: "1.0.0"
+description: Use conditional types, infer, and distributive logic to derive types programmatically
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-generics-pattern
+  - ts-mapped-types
+  - ts-utility-types
+stack_signals:
+  - typescript
+keywords:
+  - conditional-types
+  - infer
+  - distributive
+  - template-literal-types
+  - extends
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/conditional-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,39 @@
+name: redux-thunk-pattern
+version: '1.0.0'
+description: Handle async operations with createAsyncThunk for data fetching and side effects
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.slice.ts'
+  - '**/thunks/**'
+  - '**/slices/**'
+related_skills:
+  - redux-slice-pattern
+  - redux-rtk-query-setup
+  - redux-testing-patterns
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - createAsyncThunk
+  - async
+  - thunk
+  - pending
+  - fulfilled
+  - rejected
+  - data-fetching
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/createAsyncThunk'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,35 @@
+name: css-css-modules
+version: '1.0.0'
+description: Scope CSS to components with CSS Modules for collision-free class names
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.module.css'
+  - '**/*.module.scss'
+related_skills:
+  - css-tailwind-pattern
+  - css-design-tokens
+  - css-layout-patterns
+stack_signals:
+  - css
+  - typescript
+  - react
+keywords:
+  - css-modules
+  - scoped-styles
+  - module-css
+  - local-scope
+  - class-names
+metadata:
+  author: community
+  upstream: 'css-modules/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []

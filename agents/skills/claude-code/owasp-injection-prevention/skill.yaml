@@ -1,0 +1,41 @@
+name: owasp-injection-prevention
+version: "1.0.0"
+description: Prevent SQL, NoSQL, and command injection via parameterized queries and input validation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/auth/**"
+  - "**/security/**"
+  - "**/middleware/**"
+  - "**/guards/**"
+  - "**/repositories/**"
+  - "**/database/**"
+related_skills:
+  - nestjs-guards-pattern
+  - node-crypto-patterns
+  - ts-type-guards
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - injection
+  - sql-injection
+  - nosql-injection
+  - command-injection
+  - parameterized-queries
+  - input-validation
+  - owasp
+metadata:
+  author: community
+  upstream: "owasp.org/www-project-top-ten/"
+state:
+  persistent: false
+  files: []
+depends_on: []

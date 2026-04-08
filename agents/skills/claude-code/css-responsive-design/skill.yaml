@@ -1,0 +1,36 @@
+name: css-responsive-design
+version: '1.0.0'
+description: Build responsive layouts with Tailwind breakpoints and container queries
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - 'tailwind.config.*'
+  - '**/*.tsx'
+  - '**/*.css'
+related_skills:
+  - css-tailwind-pattern
+  - css-layout-patterns
+  - css-custom-components
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - responsive
+  - breakpoints
+  - mobile-first
+  - container-queries
+  - media-queries
+metadata:
+  author: community
+  upstream: 'tailwindcss/docs/responsive-design'
+state:
+  persistent: false
+  files: []
+depends_on: []

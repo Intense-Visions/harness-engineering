@@ -1,0 +1,38 @@
+name: test-contract-testing
+version: "1.0.0"
+description: Verify service compatibility using Pact consumer-provider contract tests
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-integration-patterns
+  - microservices-api-gateway
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - Pact
+  - contract-testing
+  - consumer-driven
+  - provider-verification
+metadata:
+  author: community
+  upstream: docs.pact.io/
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,40 @@
+name: trpc-nextjs-integration
+version: "1.0.0"
+description: App Router integration, createCaller, server-side caller, and RSC patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/trpc/**"
+  - "**/routers/**"
+  - "**/server/trpc.ts"
+  - "**/app/api/trpc/**"
+related_skills:
+  - next-route-handlers
+  - next-server-components
+  - trpc-router-composition
+  - trpc-context-pattern
+stack_signals:
+  - trpc
+  - typescript
+  - react
+keywords:
+  - tRPC-next
+  - createCaller
+  - server-caller
+  - RSC
+  - App-Router
+  - fetch-adapter
+  - appRouter
+metadata:
+  author: community
+  upstream: https://trpc.io/docs/client/nextjs
+state:
+  persistent: false
+  files: []
+depends_on: []

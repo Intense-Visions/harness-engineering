@@ -1,0 +1,40 @@
+name: a11y-modal-patterns
+version: '1.0.0'
+description: Build accessible modal dialogs with focus trapping, escape dismissal, and screen reader announcements
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+related_skills:
+  - a11y-keyboard-navigation
+  - a11y-aria-patterns
+  - a11y-semantic-html
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - modal
+  - dialog
+  - focus-trap
+  - inert
+  - overlay
+  - dismiss
+metadata:
+  author: community
+  upstream: w3.org/WAI/ARIA/apd/patterns/dialog-modal
+state:
+  persistent: false
+  files: []
+depends_on: []
+

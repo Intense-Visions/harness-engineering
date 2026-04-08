@@ -1,0 +1,40 @@
+name: nestjs-event-driven
+version: "1.0.0"
+description: Build event-driven systems with EventEmitter2, CQRS module, CommandBus, and QueryBus
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.module.ts"
+  - "**/*.handler.ts"
+  - "**/*.command.ts"
+  - "**/*.event.ts"
+related_skills:
+  - nestjs-module-pattern
+  - nestjs-service-pattern
+  - node-event-emitter
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - event-driven
+  - EventEmitter2
+  - CQRS
+  - CommandBus
+  - QueryBus
+  - EventBus
+  - OnEvent
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/recipes/cqrs"
+state:
+  persistent: false
+  files: []
+depends_on: []

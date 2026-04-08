@@ -1,0 +1,37 @@
+name: css-design-tokens
+version: '1.0.0'
+description: Define and manage design tokens for colors, spacing, and typography in Tailwind
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - 'tailwind.config.*'
+  - '**/*.css'
+  - '**/tokens/**'
+related_skills:
+  - css-tailwind-pattern
+  - css-dark-mode
+  - css-custom-components
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - design-tokens
+  - theme
+  - colors
+  - spacing
+  - typography
+  - CSS-variables
+metadata:
+  author: community
+  upstream: 'tailwindcss/docs/theme'
+state:
+  persistent: false
+  files: []
+depends_on: []

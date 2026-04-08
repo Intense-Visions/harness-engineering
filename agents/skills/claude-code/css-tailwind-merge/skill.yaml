@@ -1,0 +1,36 @@
+name: css-tailwind-merge
+version: '1.0.0'
+description: Resolve Tailwind class conflicts with tailwind-merge for safe className composition
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/lib/**'
+  - '**/utils/**'
+related_skills:
+  - css-tailwind-pattern
+  - css-component-variants
+  - css-custom-components
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - tailwind-merge
+  - twMerge
+  - class-conflict
+  - cn-helper
+  - className-override
+metadata:
+  author: community
+  upstream: 'tailwind-merge/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []

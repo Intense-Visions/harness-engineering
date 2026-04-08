@@ -1,0 +1,41 @@
+name: next-route-handlers
+version: "1.0.0"
+description: API routes in App Router using route.ts, HTTP method exports, and request handling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/route.ts"
+  - "**/app/**/route.tsx"
+  - "**/pages/api/**/*.ts"
+related_skills:
+  - next-app-router
+  - next-auth-patterns
+  - next-middleware-pattern
+  - trpc-nextjs-integration
+  - ts-utility-types
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - route-handlers
+  - API-routes
+  - route.ts
+  - NextRequest
+  - NextResponse
+  - HTTP-methods
+  - REST
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/routing/route-handlers
+state:
+  persistent: false
+  files: []
+depends_on: []

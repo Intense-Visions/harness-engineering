@@ -1,0 +1,41 @@
+name: next-static-generation
+version: "1.0.0"
+description: SSG, generateStaticParams, ISR, and revalidate strategies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.ts"
+  - "**/pages/**/*.tsx"
+related_skills:
+  - next-caching-strategies
+  - next-data-fetching
+  - next-app-router
+  - next-deployment-optimization
+  - ts-utility-types
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - SSG
+  - static-generation
+  - generateStaticParams
+  - ISR
+  - revalidate
+  - on-demand-revalidation
+  - static-paths
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/rendering/static-and-dynamic-rendering
+state:
+  persistent: false
+  files: []
+depends_on: []

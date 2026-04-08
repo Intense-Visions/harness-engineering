@@ -1,0 +1,43 @@
+name: next-auth-patterns
+version: "1.0.0"
+description: Authentication patterns, session handling, and middleware auth guards in Next.js
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "next.config.*"
+  - "**/middleware.ts"
+  - "**/app/**/route.ts"
+  - "**/app/**/*.tsx"
+  - "**/auth.*"
+related_skills:
+  - next-middleware-pattern
+  - next-route-handlers
+  - next-server-actions
+  - trpc-middleware-pattern
+  - trpc-context-pattern
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - authentication
+  - authorization
+  - session
+  - JWT
+  - NextAuth
+  - Auth.js
+  - middleware-guard
+  - cookies
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/authentication
+state:
+  persistent: false
+  files: []
+depends_on: []

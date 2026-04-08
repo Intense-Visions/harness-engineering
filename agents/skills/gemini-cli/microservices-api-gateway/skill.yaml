@@ -1,0 +1,38 @@
+name: microservices-api-gateway
+version: "1.0.0"
+description: Route, aggregate, and secure client requests through an API gateway or BFF pattern
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-service-discovery
+  - gof-facade-pattern
+  - microservices-circuit-breaker
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - api-gateway
+  - BFF
+  - aggregation
+  - routing
+  - backend-for-frontend
+metadata:
+  author: community
+  upstream: microservices.io/patterns/apigateway.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

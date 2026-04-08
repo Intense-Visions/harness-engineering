@@ -1,0 +1,35 @@
+name: resilience-chaos-testing
+version: '1.0.0'
+description: Validate resilience by injecting controlled failures with chaos engineering techniques
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/test/**'
+  - '**/chaos/**'
+  - '**/services/**'
+related_skills:
+  - resilience-circuit-breaker
+  - resilience-fallback-pattern
+  - resilience-health-checks
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - chaos-engineering
+  - fault-injection
+  - failure-testing
+  - resilience-validation
+  - chaos-monkey
+metadata:
+  author: community
+  upstream: 'netflix/chaos-engineering'
+state:
+  persistent: false
+  files: []
+depends_on: []

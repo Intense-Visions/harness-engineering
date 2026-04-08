@@ -1,0 +1,33 @@
+name: gof-builder-pattern
+version: "1.0.0"
+description: Construct complex objects step-by-step using fluent builders and director classes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - gof-factory-method
+stack_signals:
+  - typescript
+keywords:
+  - builder
+  - fluent-interface
+  - method-chaining
+  - Director
+  - immutable-construction
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/builder
+state:
+  persistent: false
+  files: []
+depends_on: []
+

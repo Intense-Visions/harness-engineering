@@ -1,0 +1,33 @@
+name: gof-template-method
+version: "1.0.0"
+description: Define an algorithm skeleton in a base class with abstract steps filled by subclasses
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - gof-strategy-pattern
+stack_signals:
+  - typescript
+keywords:
+  - template-method
+  - algorithm-skeleton
+  - abstract-steps
+  - hooks
+  - inversion-of-control
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/template-method
+state:
+  persistent: false
+  files: []
+depends_on: []
+

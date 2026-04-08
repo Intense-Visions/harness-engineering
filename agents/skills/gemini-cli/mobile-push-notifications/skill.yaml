@@ -1,0 +1,38 @@
+name: mobile-push-notifications
+version: '1.0.0'
+description: Implement push notifications with Expo Notifications, FCM, and APNs
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/notifications/**'
+  - 'app.json'
+  - 'app.config.*'
+related_skills:
+  - mobile-expo-setup
+  - mobile-navigation-pattern
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - push-notifications
+  - fcm
+  - apns
+  - expo-notifications
+  - background
+  - deep-link
+metadata:
+  author: community
+  upstream: docs.expo.dev/push-notifications/overview
+state:
+  persistent: false
+  files: []
+depends_on: []
+

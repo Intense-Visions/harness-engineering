@@ -1,0 +1,38 @@
+name: otel-metrics-pattern
+version: '1.0.0'
+description: Record application metrics with OpenTelemetry counters, histograms, and gauges
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/instrumentation/**'
+  - '**/metrics/**'
+  - '**/telemetry/**'
+related_skills:
+  - otel-sdk-setup
+  - otel-tracing-pattern
+  - otel-exporter-config
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - metrics
+  - counter
+  - histogram
+  - gauge
+  - opentelemetry
+  - prometheus
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/metrics'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

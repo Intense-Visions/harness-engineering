@@ -1,0 +1,32 @@
+name: gof-mediator-pattern
+version: "1.0.0"
+description: Decouple components by routing communication through a central mediator or event bus
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - node-event-emitter
+  - events-pubsub-pattern
+  - gof-observer-pattern
+stack_signals:
+  - typescript
+keywords:
+  - mediator
+  - event-bus
+  - decoupled-communication
+  - god-object-avoidance
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/mediator
+state:
+  persistent: false
+  files: []
+depends_on: []

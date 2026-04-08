@@ -1,0 +1,36 @@
+name: otel-nextjs-integration
+version: '1.0.0'
+description: Add OpenTelemetry tracing to Next.js with instrumentation hook and edge runtime support
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/instrumentation.ts'
+  - '**/instrumentation.node.ts'
+  - '**/telemetry/**'
+related_skills:
+  - otel-sdk-setup
+  - otel-tracing-pattern
+  - otel-exporter-config
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - nextjs
+  - instrumentation-hook
+  - server-components
+  - edge-runtime
+  - vercel
+metadata:
+  author: community
+  upstream: 'nextjs/docs/instrumentation'
+state:
+  persistent: false
+  files: []
+depends_on: []

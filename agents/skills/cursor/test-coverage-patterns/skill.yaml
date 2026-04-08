@@ -1,0 +1,41 @@
+name: test-coverage-patterns
+version: "1.0.0"
+description: Configure and interpret test coverage thresholds for meaningful quality signals
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-vitest-config
+  - test-unit-patterns
+  - test-tdd-workflow
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - coverage
+  - Istanbul
+  - v8
+  - branch-coverage
+  - thresholds
+metadata:
+  author: community
+  upstream: vitest.dev/guide/coverage.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

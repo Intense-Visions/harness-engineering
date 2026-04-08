@@ -1,0 +1,42 @@
+name: nuxt-testing-patterns
+version: '1.0.0'
+description: Test Nuxt components and pages using @nuxt/test-utils, mountSuspended, and mockNuxtImport
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/*.test.ts'
+  - '**/*.spec.ts'
+  - '**/tests/**'
+  - 'vitest.config.*'
+related_skills:
+  - nuxt-composables-pattern
+  - nuxt-auto-imports
+  - nuxt-server-routes
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+  - vitest
+keywords:
+  - testing
+  - nuxt-test-utils
+  - mountSuspended
+  - mockNuxtImport
+  - vitest
+  - E2E
+  - playwright
+  - unit-testing
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/getting-started/testing'
+state:
+  persistent: false
+  files: []
+depends_on: []

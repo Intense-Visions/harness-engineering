@@ -1,0 +1,37 @@
+name: nestjs-service-pattern
+version: "1.0.0"
+description: Encapsulate business logic in @Injectable services with repository pattern separation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.service.ts"
+  - "**/*.module.ts"
+related_skills:
+  - nestjs-module-pattern
+  - nestjs-dependency-injection
+  - prisma-client-queries
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - service
+  - injectable
+  - business-logic
+  - repository
+  - provider
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/providers"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,37 @@
+name: mobile-flatlist-patterns
+version: '1.0.0'
+description: Build performant scrollable lists with FlatList, SectionList, and FlashList
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/screens/**'
+  - '**/components/**'
+related_skills:
+  - mobile-performance-patterns
+  - mobile-animation-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - flatlist
+  - sectionlist
+  - flashlist
+  - virtualization
+  - infinite-scroll
+  - pull-to-refresh
+metadata:
+  author: community
+  upstream: reactnative.dev/docs/flatlist
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,38 @@
+name: mobile-performance-patterns
+version: '1.0.0'
+description: Optimize React Native app performance with profiling, memoization, and native thread management
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/screens/**'
+  - '**/components/**'
+related_skills:
+  - mobile-flatlist-patterns
+  - mobile-animation-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - performance
+  - profiling
+  - memoization
+  - hermes
+  - re-renders
+  - bundle-size
+  - startup
+metadata:
+  author: community
+  upstream: reactnative.dev/docs/performance
+state:
+  persistent: false
+  files: []
+depends_on: []
+

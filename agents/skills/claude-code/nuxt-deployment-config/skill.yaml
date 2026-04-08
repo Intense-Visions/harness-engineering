@@ -1,0 +1,40 @@
+name: nuxt-deployment-config
+version: '1.0.0'
+description: Configure Nuxt deployment targets with Nitro presets, hybrid rendering, and output modes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/server/routes/**'
+  - '**/pages/**/*.vue'
+related_skills:
+  - nuxt-server-routes
+  - nuxt-seo-metadata
+  - nuxt-middleware-pattern
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - deployment
+  - nitro
+  - prerender
+  - hybrid-rendering
+  - SSR
+  - SSG
+  - ISR
+  - output-targets
+  - edge
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/getting-started/deployment'
+state:
+  persistent: false
+  files: []
+depends_on: []

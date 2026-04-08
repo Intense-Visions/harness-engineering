@@ -1,0 +1,40 @@
+name: drizzle-performance-patterns
+version: "1.0.0"
+description: Optimize Drizzle queries with prepared statements, db.batch(), explain analysis, and join-based N+1 avoidance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "drizzle.config.*"
+  - "**/db/**"
+  - "**/drizzle/**"
+related_skills:
+  - drizzle-query-builder
+  - drizzle-filtering-pattern
+  - drizzle-transactions
+stack_signals:
+  - drizzle
+  - typescript
+  - postgresql
+  - sqlite
+keywords:
+  - performance
+  - prepared-statements
+  - db.batch
+  - N+1
+  - joins
+  - explain
+  - query-optimization
+metadata:
+  author: community
+  upstream: "orm.drizzle.team/docs/performance"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

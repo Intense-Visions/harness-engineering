@@ -1,0 +1,38 @@
+name: zod-union-discriminated
+version: "1.0.0"
+description: Model variant types with z.union, z.discriminatedUnion, z.intersection, and type narrowing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-schema-definition
+  - zod-infer-types
+  - ts-utility-types
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - union
+  - discriminatedUnion
+  - intersection
+  - variant
+  - narrowing
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

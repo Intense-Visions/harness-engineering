@@ -1,0 +1,40 @@
+name: mobile-navigation-pattern
+version: '1.0.0'
+description: Implement stack, tab, and drawer navigation in React Native with type-safe routing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/screens/**'
+  - '**/navigation/**'
+  - 'app.json'
+  - 'app.config.*'
+related_skills:
+  - mobile-expo-setup
+  - mobile-gesture-handling
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - navigation
+  - stack
+  - tabs
+  - drawer
+  - deep-linking
+  - expo-router
+  - react-navigation
+metadata:
+  author: community
+  upstream: reactnavigation.org
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,38 @@
+name: microservices-outbox-pattern
+version: "1.0.0"
+description: Guarantee at-least-once event delivery using a transactional outbox and polling publisher
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - events-outbox-pattern
+  - microservices-event-sourcing
+  - events-idempotency
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - outbox
+  - transactional-outbox
+  - at-least-once
+  - idempotency
+  - CDC
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/transactional-outbox.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

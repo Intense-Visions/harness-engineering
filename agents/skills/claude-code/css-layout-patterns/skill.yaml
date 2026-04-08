@@ -1,0 +1,37 @@
+name: css-layout-patterns
+version: '1.0.0'
+description: Build common layouts with Tailwind flexbox and grid utilities
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+  - '**/*.css'
+related_skills:
+  - css-tailwind-pattern
+  - css-responsive-design
+  - css-custom-components
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - flexbox
+  - grid
+  - layout
+  - centering
+  - sidebar
+  - sticky
+metadata:
+  author: community
+  upstream: 'tailwindcss/docs/flexbox-and-grid'
+state:
+  persistent: false
+  files: []
+depends_on: []

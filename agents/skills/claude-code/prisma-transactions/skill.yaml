@@ -1,0 +1,38 @@
+name: prisma-transactions
+version: "1.0.0"
+description: Execute atomic operations with Prisma $transaction, interactive transactions, and nested writes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/prisma/**"
+  - "**/*.service.ts"
+  - "**/*.repository.ts"
+related_skills:
+  - prisma-client-queries
+  - prisma-performance-patterns
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - transactions
+  - $transaction
+  - interactive-transaction
+  - isolation-level
+  - nested-writes
+  - atomicity
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-client/queries/transactions"
+state:
+  persistent: false
+  files: []
+depends_on: []

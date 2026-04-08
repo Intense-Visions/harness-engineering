@@ -1,0 +1,39 @@
+name: nestjs-microservices
+version: "1.0.0"
+description: Connect services with ClientsModule, @MessagePattern, @EventPattern, and TCP/Redis transport
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.module.ts"
+  - "**/*.controller.ts"
+related_skills:
+  - nestjs-module-pattern
+  - nestjs-event-driven
+  - nestjs-controller-pattern
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - microservices
+  - ClientsModule
+  - MessagePattern
+  - EventPattern
+  - transport
+  - TCP
+  - Redis
+  - RabbitMQ
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/microservices/basics"
+state:
+  persistent: false
+  files: []
+depends_on: []

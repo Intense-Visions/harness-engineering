@@ -1,0 +1,37 @@
+name: redux-listener-middleware
+version: '1.0.0'
+description: React to dispatched actions with createListenerMiddleware for side effects
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/store/**'
+  - '**/*.slice.ts'
+  - '**/middleware/**'
+related_skills:
+  - redux-store-setup
+  - redux-thunk-pattern
+  - redux-slice-pattern
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - createListenerMiddleware
+  - listener
+  - side-effects
+  - action-reaction
+  - middleware
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/listenerMiddleware'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

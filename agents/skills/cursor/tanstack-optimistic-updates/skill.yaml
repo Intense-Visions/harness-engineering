@@ -1,0 +1,40 @@
+name: tanstack-optimistic-updates
+version: "1.0.0"
+description: Optimistic mutations, onMutate, rollback on error, and cache snapshot patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/query-client.ts"
+  - "**/*query*.ts"
+  - "**/*mutation*.ts"
+related_skills:
+  - tanstack-mutation-patterns
+  - tanstack-cache-management
+  - tanstack-query-keys
+  - react-hooks-pattern
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - optimistic-updates
+  - onMutate
+  - rollback
+  - cache-snapshot
+  - cancel-queries
+  - pessimistic-update
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates
+state:
+  persistent: false
+  files: []
+depends_on: []

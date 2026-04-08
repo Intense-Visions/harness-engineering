@@ -1,0 +1,41 @@
+name: drizzle-query-builder
+version: "1.0.0"
+description: Compose type-safe SQL with Drizzle's fluent query builder for select, insert, update, and delete
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "drizzle.config.*"
+  - "**/db/**"
+  - "**/drizzle/**"
+related_skills:
+  - drizzle-schema-definition
+  - drizzle-relations-pattern
+  - drizzle-filtering-pattern
+  - drizzle-transactions
+stack_signals:
+  - drizzle
+  - typescript
+  - postgresql
+  - sqlite
+keywords:
+  - query-builder
+  - select
+  - insert
+  - update
+  - delete
+  - from
+  - where
+  - join
+metadata:
+  author: community
+  upstream: "orm.drizzle.team/docs/select"
+state:
+  persistent: false
+  files: []
+depends_on: []

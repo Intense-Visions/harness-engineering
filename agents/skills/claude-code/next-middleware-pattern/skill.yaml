@@ -1,0 +1,40 @@
+name: next-middleware-pattern
+version: "1.0.0"
+description: Edge middleware, matchers, NextRequest/NextResponse for cross-cutting concerns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "next.config.*"
+  - "**/middleware.ts"
+  - "**/middleware.tsx"
+  - "**/app/**/*.ts"
+related_skills:
+  - next-auth-patterns
+  - next-app-router
+  - next-environment-config
+  - ts-utility-types
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - middleware
+  - edge-runtime
+  - NextRequest
+  - NextResponse
+  - matcher
+  - geo-routing
+  - i18n
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/routing/middleware
+state:
+  persistent: false
+  files: []
+depends_on: []

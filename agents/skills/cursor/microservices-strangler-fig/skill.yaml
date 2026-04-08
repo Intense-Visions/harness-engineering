@@ -1,0 +1,39 @@
+name: microservices-strangler-fig
+version: "1.0.0"
+description: Migrate monoliths incrementally using the strangler fig pattern with facade routing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-decomposition
+  - microservices-api-gateway
+  - gof-facade-pattern
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - strangler-fig
+  - migration
+  - monolith
+  - incremental
+  - facade-routing
+  - parallel-run
+metadata:
+  author: community
+  upstream: microservices.io/patterns/refactoring/strangler-application.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

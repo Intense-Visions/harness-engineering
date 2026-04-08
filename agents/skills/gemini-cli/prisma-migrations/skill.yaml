@@ -1,0 +1,39 @@
+name: prisma-migrations
+version: "1.0.0"
+description: Manage database schema evolution with prisma migrate dev/deploy/reset and migration history
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "schema.prisma"
+  - "prisma/schema.prisma"
+  - "prisma/migrations/**"
+related_skills:
+  - prisma-schema-design
+  - prisma-seeding-pattern
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - migrations
+  - migrate-dev
+  - migrate-deploy
+  - shadow-database
+  - baselining
+  - migration-history
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-migrate"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

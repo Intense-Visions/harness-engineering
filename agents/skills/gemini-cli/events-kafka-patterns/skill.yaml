@@ -1,0 +1,42 @@
+name: events-kafka-patterns
+version: "1.0.0"
+description: Produce and consume Kafka messages with partitioning, consumer groups, and offset management
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - events-message-queue
+  - events-event-schema
+  - events-idempotency
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - kafka
+  - producer
+  - consumer
+  - partitions
+  - consumer-groups
+  - offset-management
+metadata:
+  author: community
+  upstream: kafka.apache.org/documentation/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

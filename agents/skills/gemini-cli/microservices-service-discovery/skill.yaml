@@ -1,0 +1,37 @@
+name: microservices-service-discovery
+version: "1.0.0"
+description: Implement service registration and dynamic discovery with health checks in microservices
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-api-gateway
+  - microservices-health-check
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - service-discovery
+  - service-registry
+  - client-side-discovery
+  - server-side-discovery
+  - health-checks
+metadata:
+  author: community
+  upstream: microservices.io/patterns/service-registry.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

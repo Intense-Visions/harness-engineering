@@ -1,0 +1,40 @@
+name: test-tdd-workflow
+version: "1.0.0"
+description: Drive design through tests using red-green-refactor cycle and test-first discipline
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-mock-patterns
+  - test-coverage-patterns
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - TDD
+  - red-green-refactor
+  - test-first
+  - design-through-tests
+metadata:
+  author: community
+  upstream: vitest.dev/guide/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,39 @@
+name: svelte-error-pages
+version: '1.0.0'
+description: Handle expected and unexpected errors in SvelteKit using +error.svelte, error(), and handleError hooks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/+error.svelte'
+  - '**/hooks.server.ts'
+  - '**/+page.server.ts'
+related_skills:
+  - svelte-routing-pattern
+  - svelte-load-functions
+  - svelte-server-hooks
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - error-pages
+  - error
+  - expected-error
+  - unexpected-error
+  - handleError
+  - $page.error
+  - +error.svelte
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/errors'
+state:
+  persistent: false
+  files: []
+depends_on: []

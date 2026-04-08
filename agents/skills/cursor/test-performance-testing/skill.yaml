@@ -1,0 +1,40 @@
+name: test-performance-testing
+version: "1.0.0"
+description: Measure and assert on code performance using vitest bench and timing budgets
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - node-performance-profiling
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - performance-testing
+  - benchmark
+  - vitest-bench
+  - timing-assertions
+  - memory-profiling
+metadata:
+  author: community
+  upstream: vitest.dev/guide/features.html#benchmarking
+state:
+  persistent: false
+  files: []
+depends_on: []
+

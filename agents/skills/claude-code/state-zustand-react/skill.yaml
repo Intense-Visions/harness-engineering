@@ -1,0 +1,37 @@
+name: state-zustand-react
+version: '1.0.0'
+description: Optimize Zustand re-renders with selectors, shallow comparison, and subscription patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/store/**'
+  - '**/stores/**'
+  - '**/*.tsx'
+related_skills:
+  - state-zustand-store
+  - state-selection-patterns
+  - state-zustand-slices
+stack_signals:
+  - zustand
+  - react
+  - typescript
+keywords:
+  - selectors
+  - shallow
+  - re-renders
+  - useShallow
+  - subscriptions
+  - performance
+metadata:
+  author: community
+  upstream: 'zustand/docs/auto-generating-selectors'
+state:
+  persistent: false
+  files: []
+depends_on: []

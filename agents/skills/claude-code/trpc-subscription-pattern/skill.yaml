@@ -1,0 +1,40 @@
+name: trpc-subscription-pattern
+version: "1.0.0"
+description: WebSocket subscriptions, observable, on, and asyncGenerator patterns in tRPC
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/trpc/**"
+  - "**/routers/**"
+  - "**/server/trpc.ts"
+  - "**/wsServer.*"
+related_skills:
+  - trpc-router-composition
+  - trpc-react-query-integration
+  - trpc-context-pattern
+  - trpc-nextjs-integration
+stack_signals:
+  - trpc
+  - typescript
+  - react
+keywords:
+  - subscriptions
+  - WebSocket
+  - observable
+  - asyncGenerator
+  - real-time
+  - event-emitter
+  - tRPC-ws
+metadata:
+  author: community
+  upstream: https://trpc.io/docs/subscriptions
+state:
+  persistent: false
+  files: []
+depends_on: []

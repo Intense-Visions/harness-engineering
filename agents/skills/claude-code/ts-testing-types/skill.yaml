@@ -1,0 +1,35 @@
+name: ts-testing-types
+version: "1.0.0"
+description: Test TypeScript types at compile time using expect-type, tsd, and vitest type matchers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - test-unit-patterns
+  - ts-generics-pattern
+  - ts-utility-types
+stack_signals:
+  - typescript
+keywords:
+  - expect-type
+  - tsd
+  - type-testing
+  - compile-time-tests
+  - vitest-type-matchers
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/types-from-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []

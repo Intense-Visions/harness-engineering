@@ -1,0 +1,37 @@
+name: drizzle-transactions
+version: "1.0.0"
+description: Execute atomic Drizzle operations with db.transaction(), nested transactions, and rollback semantics
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "drizzle.config.*"
+  - "**/db/**"
+  - "**/drizzle/**"
+related_skills:
+  - drizzle-query-builder
+  - drizzle-performance-patterns
+stack_signals:
+  - drizzle
+  - typescript
+  - postgresql
+  - sqlite
+keywords:
+  - transactions
+  - db.transaction
+  - nested-transactions
+  - rollback
+  - atomicity
+metadata:
+  author: community
+  upstream: "orm.drizzle.team/docs/transactions"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,38 @@
+name: xstate-invoke-pattern
+version: '1.0.0'
+description: Invoke promises, callbacks, and child machines as services in state nodes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-actor-pattern
+  - xstate-guards-actions
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - invoke
+  - services
+  - promise
+  - callback
+  - onDone
+  - onError
+metadata:
+  author: community
+  upstream: 'xstate/docs/invoke'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

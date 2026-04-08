@@ -1,0 +1,38 @@
+name: state-server-client-sync
+version: '1.0.0'
+description: Synchronize server state with client state using React Query patterns and cache coordination
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/hooks/**'
+  - '**/queries/**'
+  - '**/api/**'
+  - '**/store/**'
+related_skills:
+  - state-zustand-store
+  - state-selection-patterns
+  - state-context-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - server-state
+  - client-state
+  - react-query
+  - tanstack-query
+  - cache-sync
+  - stale-while-revalidate
+metadata:
+  author: community
+  upstream: 'tanstack-query/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

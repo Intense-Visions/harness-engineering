@@ -1,0 +1,39 @@
+name: zod-array-validation
+version: "1.0.0"
+description: Validate arrays, tuples, records, maps, and sets with Zod's collection primitives
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-schema-definition
+  - zod-union-discriminated
+  - zod-infer-types
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - array
+  - tuple
+  - record
+  - map
+  - set
+  - nonempty
+  - collection
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []

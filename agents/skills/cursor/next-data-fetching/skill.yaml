@@ -1,0 +1,41 @@
+name: next-data-fetching
+version: "1.0.0"
+description: Server-side data patterns, avoiding waterfalls, sequential vs parallel fetching
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.ts"
+  - "**/pages/**/*.tsx"
+related_skills:
+  - next-server-components
+  - next-caching-strategies
+  - next-streaming-suspense
+  - tanstack-prefetching
+  - tanstack-dependent-queries
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - data-fetching
+  - waterfall
+  - parallel-fetch
+  - Promise.all
+  - server-component
+  - async-component
+  - request-deduplication
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/data-fetching/fetching
+state:
+  persistent: false
+  files: []
+depends_on: []

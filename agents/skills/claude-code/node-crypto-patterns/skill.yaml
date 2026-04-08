@@ -1,0 +1,38 @@
+name: node-crypto-patterns
+version: "1.0.0"
+description: Implement hashing, HMAC, signing, encryption, and key derivation with Node.js crypto
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-buffer-encoding
+  - ts-async-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - crypto
+  - hash
+  - hmac
+  - encrypt
+  - decrypt
+  - scrypt
+  - randomBytes
+metadata:
+  author: community
+  upstream: nodejs.org/api/crypto.html
+state:
+  persistent: false
+  files: []
+depends_on: []

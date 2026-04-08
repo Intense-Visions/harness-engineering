@@ -1,0 +1,38 @@
+name: tanstack-suspense-mode
+version: "1.0.0"
+description: useSuspenseQuery, error boundaries, streaming, and React 18 integration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/*query*.ts"
+related_skills:
+  - next-streaming-suspense
+  - tanstack-prefetching
+  - tanstack-query-keys
+  - react-hooks-pattern
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - useSuspenseQuery
+  - suspense
+  - error-boundary
+  - streaming
+  - concurrent
+  - React18
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/suspense
+state:
+  persistent: false
+  files: []
+depends_on: []

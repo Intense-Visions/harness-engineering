@@ -1,0 +1,36 @@
+name: resilience-retry-pattern
+version: '1.0.0'
+description: Handle transient failures with configurable retry strategies and backoff
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/services/**'
+  - '**/clients/**'
+  - '**/http/**'
+  - '**/api/**'
+related_skills:
+  - resilience-circuit-breaker
+  - resilience-timeout-pattern
+  - resilience-fallback-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - retry
+  - backoff
+  - exponential-backoff
+  - jitter
+  - transient-failure
+metadata:
+  author: community
+  upstream: 'aws/architecture/exponential-backoff'
+state:
+  persistent: false
+  files: []
+depends_on: []

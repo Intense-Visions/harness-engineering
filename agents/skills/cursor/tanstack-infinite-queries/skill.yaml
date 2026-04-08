@@ -1,0 +1,40 @@
+name: tanstack-infinite-queries
+version: "1.0.0"
+description: useInfiniteQuery, getNextPageParam, cursor pagination, and flattening pages
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/*query*.ts"
+  - "**/*infinite*.ts"
+related_skills:
+  - tanstack-query-keys
+  - tanstack-prefetching
+  - tanstack-cache-management
+  - react-hooks-pattern
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - infinite-query
+  - useInfiniteQuery
+  - pagination
+  - cursor
+  - load-more
+  - getNextPageParam
+  - flatMap
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries
+state:
+  persistent: false
+  files: []
+depends_on: []

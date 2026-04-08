@@ -1,0 +1,36 @@
+name: ts-strict-mode
+version: "1.0.0"
+description: Enable and satisfy strict TypeScript checks including strictNullChecks and exactOptionalPropertyTypes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-config-patterns
+  - ts-type-guards
+  - ts-error-handling-types
+stack_signals:
+  - typescript
+keywords:
+  - strict-mode
+  - strictNullChecks
+  - noUncheckedIndexedAccess
+  - exactOptionalPropertyTypes
+  - strict-flags
+metadata:
+  author: community
+  upstream: typescriptlang.org/tsconfig#strict
+state:
+  persistent: false
+  files: []
+depends_on: []
+

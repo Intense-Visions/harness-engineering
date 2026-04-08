@@ -1,0 +1,36 @@
+name: ts-async-patterns
+version: "1.0.0"
+description: Type async/await, Promise chains, and concurrent patterns correctly in TypeScript
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-generics-pattern
+  - ts-error-handling-types
+  - node-event-emitter
+stack_signals:
+  - typescript
+keywords:
+  - async-await
+  - Promise
+  - concurrent
+  - error-typing
+  - Promise.all
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/release-notes/typescript-4-7.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

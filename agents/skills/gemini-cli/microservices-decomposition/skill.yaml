@@ -1,0 +1,37 @@
+name: microservices-decomposition
+version: "1.0.0"
+description: Design service boundaries using bounded contexts, DDD, and functional cohesion principles
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-api-gateway
+  - events-event-storming
+  - microservices-cqrs-pattern
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - service-decomposition
+  - bounded-contexts
+  - DDD
+  - service-boundaries
+metadata:
+  author: community
+  upstream: microservices.io/patterns/decomposition/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,33 @@
+name: gof-facade-pattern
+version: "1.0.0"
+description: Provide a simplified interface to a complex subsystem to reduce coupling for clients
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - gof-adapter-pattern
+  - microservices-api-gateway
+stack_signals:
+  - typescript
+keywords:
+  - facade
+  - simplified-interface
+  - subsystem-hiding
+  - API-gateway-analogy
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/facade
+state:
+  persistent: false
+  files: []
+depends_on: []
+

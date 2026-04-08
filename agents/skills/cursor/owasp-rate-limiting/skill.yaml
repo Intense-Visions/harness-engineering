@@ -1,0 +1,38 @@
+name: owasp-rate-limiting
+version: '1.0.0'
+description: Protect APIs with rate limiting, throttling, and abuse prevention strategies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/middleware/**'
+  - '**/security/**'
+  - '**/auth/**'
+related_skills:
+  - owasp-auth-patterns
+  - owasp-logging-monitoring
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - rate-limiting
+  - throttling
+  - brute-force
+  - ddos
+  - token-bucket
+  - sliding-window
+  - redis
+metadata:
+  author: community
+  upstream: cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet
+state:
+  persistent: false
+  files: []
+depends_on: []
+

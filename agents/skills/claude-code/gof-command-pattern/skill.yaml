@@ -1,0 +1,32 @@
+name: gof-command-pattern
+version: "1.0.0"
+description: Encapsulate operations as command objects to support undo, redo, and command queuing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - ts-discriminated-unions
+stack_signals:
+  - typescript
+keywords:
+  - command
+  - invoker
+  - undo-redo
+  - command-queue
+  - operation-encapsulation
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/command
+state:
+  persistent: false
+  files: []
+depends_on: []

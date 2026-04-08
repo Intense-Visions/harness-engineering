@@ -1,0 +1,41 @@
+name: a11y-form-patterns
+version: '1.0.0'
+description: Build accessible forms with proper labeling, validation, and error handling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+related_skills:
+  - a11y-semantic-html
+  - a11y-keyboard-navigation
+  - a11y-aria-patterns
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - forms
+  - labels
+  - validation
+  - error-messages
+  - fieldset
+  - autocomplete
+  - required
+metadata:
+  author: community
+  upstream: w3.org/WAI/tutorials/forms
+state:
+  persistent: false
+  files: []
+depends_on: []
+

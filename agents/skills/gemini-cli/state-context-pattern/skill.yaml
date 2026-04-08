@@ -1,0 +1,36 @@
+name: state-context-pattern
+version: '1.0.0'
+description: Manage shared state with React Context and useReducer for prop-drilling avoidance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/context/**'
+  - '**/contexts/**'
+  - '**/providers/**'
+related_skills:
+  - state-jotai-atoms
+  - state-zustand-store
+  - state-selection-patterns
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - context
+  - useContext
+  - useReducer
+  - provider
+  - prop-drilling
+metadata:
+  author: community
+  upstream: 'react/docs/context'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

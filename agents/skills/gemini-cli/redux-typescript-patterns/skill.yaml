@@ -1,0 +1,38 @@
+name: redux-typescript-patterns
+version: '1.0.0'
+description: Type Redux state, actions, thunks, and hooks with full TypeScript inference
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.slice.ts'
+  - '**/store.ts'
+  - '**/store/**'
+related_skills:
+  - redux-store-setup
+  - redux-slice-pattern
+  - redux-thunk-pattern
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - typescript
+  - types
+  - RootState
+  - AppDispatch
+  - PayloadAction
+  - generics
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/typescript'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

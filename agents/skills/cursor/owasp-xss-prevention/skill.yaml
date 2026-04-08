@@ -1,0 +1,40 @@
+name: owasp-xss-prevention
+version: "1.0.0"
+description: Prevent reflected, stored, and DOM-based XSS via CSP headers, output encoding, and input sanitization
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/auth/**"
+  - "**/security/**"
+  - "**/middleware/**"
+  - "**/guards/**"
+related_skills:
+  - owasp-security-headers
+  - owasp-csrf-protection
+  - nestjs-guards-pattern
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - xss
+  - cross-site-scripting
+  - csp
+  - dompurify
+  - input-sanitization
+  - content-security-policy
+  - owasp
+metadata:
+  author: community
+  upstream: "owasp.org/www-project-top-ten/"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

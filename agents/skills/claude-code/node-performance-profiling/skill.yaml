@@ -1,0 +1,36 @@
+name: node-performance-profiling
+version: "1.0.0"
+description: Profile Node.js applications using --prof, clinic.js, memory snapshots, and event loop lag
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - test-performance-testing
+  - node-worker-threads
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - profiling
+  - --prof
+  - clinic.js
+  - memory-snapshots
+  - event-loop-lag
+metadata:
+  author: community
+  upstream: nodejs.org/en/docs/guides/simple-profiling
+state:
+  persistent: false
+  files: []
+depends_on: []

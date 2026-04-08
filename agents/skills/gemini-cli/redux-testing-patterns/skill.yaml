@@ -1,0 +1,39 @@
+name: redux-testing-patterns
+version: '1.0.0'
+description: Test Redux slices, thunks, selectors, and connected components effectively
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.slice.ts'
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/slices/**'
+related_skills:
+  - redux-slice-pattern
+  - redux-thunk-pattern
+  - redux-selectors-pattern
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - testing
+  - reducers
+  - thunks
+  - selectors
+  - render-with-providers
+  - mock-store
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/testing'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

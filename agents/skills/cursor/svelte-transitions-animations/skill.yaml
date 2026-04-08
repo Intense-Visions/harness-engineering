@@ -1,0 +1,40 @@
+name: svelte-transitions-animations
+version: '1.0.0'
+description: Animate Svelte elements with built-in transitions (fade/fly/slide), custom transitions, and motion directives
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/*.svelte'
+related_skills:
+  - svelte-component-composition
+  - svelte-runes-pattern
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - transitions
+  - animations
+  - fade
+  - fly
+  - slide
+  - animate
+  - in
+  - out
+  - motion
+  - tweened
+  - spring
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/transitions'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,44 @@
+name: drizzle-schema-definition
+version: "1.0.0"
+description: Define Drizzle ORM schemas with pgTable/mysqlTable/sqliteTable, column types, indexes, and constraints
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "drizzle.config.*"
+  - "**/db/schema.ts"
+  - "**/db/index.ts"
+  - "**/drizzle/**"
+related_skills:
+  - drizzle-relations-pattern
+  - drizzle-migrations
+  - drizzle-query-builder
+  - ts-utility-types
+stack_signals:
+  - drizzle
+  - typescript
+  - postgresql
+  - sqlite
+keywords:
+  - drizzle
+  - schema
+  - pgTable
+  - mysqlTable
+  - sqliteTable
+  - column-types
+  - primaryKey
+  - index
+  - unique
+metadata:
+  author: community
+  upstream: "orm.drizzle.team/docs/column-types/pg"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

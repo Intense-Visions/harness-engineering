@@ -1,0 +1,41 @@
+name: a11y-keyboard-navigation
+version: '1.0.0'
+description: Ensure all interactive elements are reachable and operable via keyboard alone
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+related_skills:
+  - a11y-semantic-html
+  - a11y-modal-patterns
+  - a11y-form-patterns
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - keyboard
+  - tab-order
+  - focus
+  - focus-trap
+  - focus-visible
+  - tabindex
+  - skip-link
+metadata:
+  author: community
+  upstream: w3.org/WAI/WCAG21/Understanding/keyboard
+state:
+  persistent: false
+  files: []
+depends_on: []
+

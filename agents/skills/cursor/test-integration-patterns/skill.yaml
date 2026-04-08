@@ -1,0 +1,41 @@
+name: test-integration-patterns
+version: "1.0.0"
+description: Write integration tests that exercise real dependencies using test databases and containers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-e2e-strategy
+  - node-testing-patterns
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - integration-testing
+  - test-containers
+  - real-dependencies
+  - docker-compose
+  - database-testing
+metadata:
+  author: community
+  upstream: vitest.dev/guide/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

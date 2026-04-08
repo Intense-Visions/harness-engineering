@@ -1,0 +1,41 @@
+name: events-websocket-pattern
+version: "1.0.0"
+description: Implement bidirectional real-time communication using WebSocket protocol and Socket.io
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - node-event-emitter
+  - events-pubsub-pattern
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - websocket
+  - ws-protocol
+  - Socket.io
+  - rooms
+  - namespaces
+  - connection-lifecycle
+metadata:
+  author: community
+  upstream: socket.io/docs/v4/
+state:
+  persistent: false
+  files: []
+depends_on: []
+

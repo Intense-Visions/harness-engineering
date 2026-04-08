@@ -1,0 +1,38 @@
+name: redux-persistence-pattern
+version: '1.0.0'
+description: Persist and rehydrate Redux state across sessions with redux-persist or manual storage
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/store.ts'
+  - '**/store/**'
+  - '**/persist/**'
+related_skills:
+  - redux-store-setup
+  - redux-slice-pattern
+  - redux-listener-middleware
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - redux-persist
+  - persistence
+  - rehydration
+  - localStorage
+  - storage
+  - offline
+metadata:
+  author: community
+  upstream: 'redux-persist/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

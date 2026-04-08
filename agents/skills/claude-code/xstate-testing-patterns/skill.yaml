@@ -1,0 +1,36 @@
+name: xstate-testing-patterns
+version: '1.0.0'
+description: Test XState machines with model-based testing and direct state assertions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.test.ts'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-guards-actions
+  - xstate-react-integration
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - testing
+  - model-based
+  - state-assertions
+  - createTestModel
+  - machine-testing
+metadata:
+  author: community
+  upstream: 'xstate/docs/testing'
+state:
+  persistent: false
+  files: []
+depends_on: []

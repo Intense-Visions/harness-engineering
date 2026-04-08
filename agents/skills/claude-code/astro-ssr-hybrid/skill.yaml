@@ -1,0 +1,45 @@
+name: astro-ssr-hybrid
+version: '1.0.0'
+description: Configure SSR and hybrid rendering with output modes, adapters, and per-page prerender control
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+  - '**/src/layouts/**'
+related_skills:
+  - astro-routing-pattern
+  - astro-server-endpoints
+  - astro-deployment-config
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - ssr
+  - server-side-rendering
+  - hybrid-rendering
+  - output-server
+  - output-hybrid
+  - prerender
+  - adapter
+  - Astro.request
+  - Astro.cookies
+  - dynamic-pages
+  - static-pages
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/guides/server-side-rendering'
+state:
+  persistent: false
+  files: []
+depends_on: []

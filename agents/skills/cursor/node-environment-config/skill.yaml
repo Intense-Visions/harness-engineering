@@ -1,0 +1,37 @@
+name: node-environment-config
+version: "1.0.0"
+description: Manage environment configuration with process.env, dotenv, and validation for 12-factor apps
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - ts-zod-integration
+  - ts-strict-mode
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - process.env
+  - dotenv
+  - env-validation
+  - 12-factor
+  - configuration
+metadata:
+  author: community
+  upstream: nodejs.org/api/process.html#processenv
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,37 @@
+name: microservices-cqrs-pattern
+version: "1.0.0"
+description: Separate read and write models to optimize query and command performance independently
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - microservices-event-sourcing
+  - microservices-decomposition
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - CQRS
+  - command-query-separation
+  - read-model
+  - write-model
+  - eventual-consistency
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/cqrs.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

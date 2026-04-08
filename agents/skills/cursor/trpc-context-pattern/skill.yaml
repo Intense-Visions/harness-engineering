@@ -1,0 +1,38 @@
+name: trpc-context-pattern
+version: "1.0.0"
+description: createTRPCContext, request context, database injection, and session access
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/trpc/**"
+  - "**/routers/**"
+  - "**/server/trpc.ts"
+related_skills:
+  - trpc-middleware-pattern
+  - trpc-router-composition
+  - next-auth-patterns
+  - trpc-nextjs-integration
+stack_signals:
+  - trpc
+  - typescript
+  - react
+keywords:
+  - tRPC-context
+  - createTRPCContext
+  - db-injection
+  - session
+  - request-context
+  - ctx
+metadata:
+  author: community
+  upstream: https://trpc.io/docs/server/context
+state:
+  persistent: false
+  files: []
+depends_on: []

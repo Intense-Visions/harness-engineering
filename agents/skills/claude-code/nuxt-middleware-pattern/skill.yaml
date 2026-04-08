@@ -1,0 +1,38 @@
+name: nuxt-middleware-pattern
+version: '1.0.0'
+description: Guard and transform routes using Nuxt route middleware and server middleware
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/middleware/**'
+  - '**/server/middleware/**'
+  - '**/pages/**/*.vue'
+related_skills:
+  - nuxt-server-routes
+  - nuxt-composables-pattern
+  - nuxt-layouts-pages
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - middleware
+  - route-middleware
+  - server-middleware
+  - auth
+  - navigation-guards
+  - definePageMeta
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/guide/directory-structure/middleware'
+state:
+  persistent: false
+  files: []
+depends_on: []

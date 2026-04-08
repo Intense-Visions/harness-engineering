@@ -1,0 +1,40 @@
+name: a11y-image-text-alt
+version: '1.0.0'
+description: Write effective alt text for images and provide text alternatives for non-text content
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+related_skills:
+  - a11y-semantic-html
+  - a11y-aria-patterns
+  - a11y-color-contrast
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - alt-text
+  - images
+  - decorative
+  - svg
+  - icons
+  - figure
+  - caption
+metadata:
+  author: community
+  upstream: w3.org/WAI/tutorials/images
+state:
+  persistent: false
+  files: []
+depends_on: []

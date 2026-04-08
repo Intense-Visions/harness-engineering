@@ -1,0 +1,35 @@
+name: ts-branded-types
+version: "1.0.0"
+description: Prevent mixing semantically distinct primitives using branded opaque types
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-discriminated-unions
+  - ts-type-guards
+  - ts-generics-pattern
+stack_signals:
+  - typescript
+keywords:
+  - branded-types
+  - opaque-types
+  - nominal-typing
+  - validation-boundaries
+  - type-safety
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/types-from-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []

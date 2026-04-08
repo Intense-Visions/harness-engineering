@@ -1,0 +1,41 @@
+name: test-mock-patterns
+version: "1.0.0"
+description: Mock modules, functions, and timers in Vitest and Jest to isolate units under test
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-msw-pattern
+  - ts-generics-pattern
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - vi.mock
+  - jest.mock
+  - vi.fn
+  - spyOn
+  - auto-mocking
+  - module-mocking
+metadata:
+  author: community
+  upstream: vitest.dev/guide/mocking.html
+state:
+  persistent: false
+  files: []
+depends_on: []

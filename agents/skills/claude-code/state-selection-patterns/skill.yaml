@@ -1,0 +1,36 @@
+name: state-selection-patterns
+version: '1.0.0'
+description: Select and derive state efficiently across stores to minimize component re-renders
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/store/**'
+  - '**/stores/**'
+  - '**/selectors/**'
+  - '**/hooks/**'
+related_skills:
+  - state-zustand-react
+  - state-jotai-atoms
+  - redux-selectors-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - selectors
+  - memoization
+  - derived-state
+  - re-render-optimization
+  - equality
+metadata:
+  author: community
+  upstream: 'react/docs/hooks'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,38 @@
+name: xstate-machine-definition
+version: '1.0.0'
+description: Define statecharts with createMachine for explicit state transitions and context
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-guards-actions
+  - xstate-invoke-pattern
+  - xstate-react-integration
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - createMachine
+  - statechart
+  - states
+  - transitions
+  - context
+  - events
+metadata:
+  author: community
+  upstream: 'xstate/docs/machines'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

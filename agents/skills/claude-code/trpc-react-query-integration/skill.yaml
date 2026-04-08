@@ -1,0 +1,40 @@
+name: trpc-react-query-integration
+version: "1.0.0"
+description: api.xxx.useQuery, useMutation, type inference end-to-end with TanStack Query
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/trpc/**"
+  - "**/routers/**"
+  - "**/*trpc*.ts"
+  - "**/*trpc*.tsx"
+related_skills:
+  - tanstack-query-keys
+  - tanstack-mutation-patterns
+  - tanstack-query-invalidation
+  - trpc-router-composition
+stack_signals:
+  - trpc
+  - typescript
+  - react
+keywords:
+  - tRPC
+  - useQuery
+  - useMutation
+  - type-inference
+  - end-to-end-types
+  - createTRPCReact
+  - api-client
+metadata:
+  author: community
+  upstream: https://trpc.io/docs/client/react
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,35 @@
+name: ts-zod-integration
+version: "1.0.0"
+description: Use Zod schemas as the single source of truth for runtime validation and TypeScript types
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-generics-pattern
+  - ts-utility-types
+stack_signals:
+  - typescript
+keywords:
+  - zod
+  - z.infer
+  - schema-first
+  - runtime-validation
+  - type-inference
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/types-from-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

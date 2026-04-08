@@ -1,0 +1,38 @@
+name: nuxt-server-routes
+version: '1.0.0'
+description: Build server-side API routes using Nitro's defineEventHandler and H3 utilities
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/server/api/**'
+  - '**/server/routes/**'
+  - '**/server/middleware/**'
+related_skills:
+  - nuxt-middleware-pattern
+  - nuxt-composables-pattern
+  - nuxt-auto-imports
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - server-routes
+  - api-routes
+  - nitro
+  - h3
+  - defineEventHandler
+  - event-handler
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/guide/directory-structure/server'
+state:
+  persistent: false
+  files: []
+depends_on: []

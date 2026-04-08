@@ -1,0 +1,37 @@
+name: resilience-dead-letter
+version: '1.0.0'
+description: Handle permanently failing messages with dead letter queues for inspection and reprocessing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/queues/**'
+  - '**/workers/**'
+  - '**/consumers/**'
+  - '**/services/**'
+related_skills:
+  - resilience-retry-pattern
+  - resilience-idempotency
+  - resilience-fallback-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - dead-letter
+  - dlq
+  - poison-message
+  - message-queue
+  - reprocessing
+metadata:
+  author: community
+  upstream: 'aws/docs/sqs/dead-letter-queues'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

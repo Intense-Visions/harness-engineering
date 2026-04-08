@@ -1,0 +1,41 @@
+name: events-event-schema
+version: "1.0.0"
+description: Define and evolve event schemas using a schema registry with Avro, Protobuf, or JSON Schema
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - events-kafka-patterns
+  - microservices-event-sourcing
+  - ts-zod-integration
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - schema-registry
+  - Avro
+  - Protobuf
+  - JSON-Schema
+  - schema-evolution
+  - versioning
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/event-sourcing.html
+state:
+  persistent: false
+  files: []
+depends_on: []

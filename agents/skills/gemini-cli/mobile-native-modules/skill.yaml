@@ -1,0 +1,38 @@
+name: mobile-native-modules
+version: '1.0.0'
+description: Bridge native platform APIs into React Native with Expo Modules and Turbo Modules
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/modules/**'
+  - 'app.json'
+  - 'app.config.*'
+related_skills:
+  - mobile-expo-setup
+  - mobile-performance-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - native-modules
+  - turbo-modules
+  - expo-modules
+  - bridge
+  - native-api
+  - platform-specific
+metadata:
+  author: community
+  upstream: docs.expo.dev/modules
+state:
+  persistent: false
+  files: []
+depends_on: []
+

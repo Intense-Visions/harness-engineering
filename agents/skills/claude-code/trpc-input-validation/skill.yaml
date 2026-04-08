@@ -1,0 +1,39 @@
+name: trpc-input-validation
+version: "1.0.0"
+description: Zod integration, input/output schemas, .input()/.output(), and transformers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/trpc/**"
+  - "**/routers/**"
+  - "**/server/trpc.ts"
+related_skills:
+  - trpc-router-composition
+  - trpc-error-handling
+  - next-route-handlers
+  - ts-utility-types
+stack_signals:
+  - trpc
+  - typescript
+  - react
+keywords:
+  - tRPC
+  - input-validation
+  - Zod
+  - output-schema
+  - transformer
+  - superjson
+  - type-inference
+metadata:
+  author: community
+  upstream: https://trpc.io/docs/server/validators
+state:
+  persistent: false
+  files: []
+depends_on: []

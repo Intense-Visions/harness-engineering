@@ -1,0 +1,45 @@
+name: astro-deployment-config
+version: '1.0.0'
+description: Deploy Astro projects to Vercel, Node, Cloudflare, and Netlify with the correct adapter and environment variable setup
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+  - '**/src/layouts/**'
+related_skills:
+  - astro-ssr-hybrid
+  - astro-server-endpoints
+  - astro-integration-pattern
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - deployment
+  - adapter
+  - adapter-vercel
+  - adapter-node
+  - adapter-cloudflare
+  - adapter-netlify
+  - environment-variables
+  - import.meta.env
+  - build-output
+  - static-deployment
+  - server-deployment
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/guides/deploy'
+state:
+  persistent: false
+  files: []
+depends_on: []

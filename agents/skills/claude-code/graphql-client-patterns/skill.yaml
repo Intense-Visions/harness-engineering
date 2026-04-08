@@ -1,0 +1,38 @@
+name: graphql-client-patterns
+version: '1.0.0'
+description: Structure GraphQL client code with fragments, cache policies, and optimistic updates
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/*.gql'
+  - '**/queries/**'
+  - '**/mutations/**'
+related_skills:
+  - graphql-codegen-pattern
+  - graphql-apollo-server
+  - graphql-error-handling
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - apollo-client
+  - urql
+  - cache
+  - fragments
+  - optimistic-update
+  - refetch
+metadata:
+  author: community
+  upstream: apollographql.com/docs/react
+state:
+  persistent: false
+  files: []
+depends_on: []

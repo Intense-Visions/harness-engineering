@@ -1,0 +1,39 @@
+name: prisma-soft-delete
+version: "1.0.0"
+description: Implement soft deletes in Prisma with middleware or $extends query extensions and deletedAt pattern
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/prisma/**"
+  - "**/*.service.ts"
+  - "**/*.repository.ts"
+related_skills:
+  - prisma-client-queries
+  - prisma-schema-design
+  - prisma-filtering-sorting
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - soft-delete
+  - deletedAt
+  - middleware
+  - $extends
+  - query-extension
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-client/queries/middleware/soft-delete-middleware"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

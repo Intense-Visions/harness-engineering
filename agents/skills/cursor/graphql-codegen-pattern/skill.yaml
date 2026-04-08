@@ -1,0 +1,37 @@
+name: graphql-codegen-pattern
+version: '1.0.0'
+description: Generate type-safe code from GraphQL schemas and operations using GraphQL Code Generator
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/*.gql'
+  - '**/codegen.ts'
+  - '**/codegen.yml'
+related_skills:
+  - graphql-schema-design
+  - graphql-client-patterns
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - codegen
+  - code-generation
+  - typed-document-node
+  - type-safety
+  - schema-types
+metadata:
+  author: community
+  upstream: the-guild.dev/graphql/codegen
+state:
+  persistent: false
+  files: []
+depends_on: []
+

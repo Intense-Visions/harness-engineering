@@ -1,0 +1,41 @@
+name: a11y-motion-animation
+version: '1.0.0'
+description: Implement animations that respect user motion preferences and avoid triggering vestibular disorders
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+  - '**/*.css'
+  - '**/*.scss'
+related_skills:
+  - a11y-color-contrast
+  - a11y-semantic-html
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - motion
+  - animation
+  - reduced-motion
+  - prefers-reduced-motion
+  - vestibular
+  - transitions
+metadata:
+  author: community
+  upstream: w3.org/WAI/WCAG21/Understanding/animation-from-interactions
+state:
+  persistent: false
+  files: []
+depends_on: []
+

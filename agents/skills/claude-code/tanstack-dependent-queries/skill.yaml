@@ -1,0 +1,38 @@
+name: tanstack-dependent-queries
+version: "1.0.0"
+description: enabled flag, query dependencies, chaining, and parallel vs sequential queries
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/*query*.ts"
+related_skills:
+  - tanstack-query-keys
+  - tanstack-cache-management
+  - next-data-fetching
+  - react-hooks-pattern
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - dependent-queries
+  - enabled
+  - chained-queries
+  - parallel-queries
+  - sequential
+  - useQueries
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/dependent-queries
+state:
+  persistent: false
+  files: []
+depends_on: []

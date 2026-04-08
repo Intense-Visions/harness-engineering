@@ -1,0 +1,41 @@
+name: test-vitest-config
+version: "1.0.0"
+description: Configure Vitest with workspaces, environments, coverage, and TypeScript integration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-coverage-patterns
+  - ts-config-patterns
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - vitest
+  - defineConfig
+  - globals
+  - coverage
+  - workspace
+  - environment
+metadata:
+  author: community
+  upstream: vitest.dev/config/
+state:
+  persistent: false
+  files: []
+depends_on: []

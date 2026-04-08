@@ -1,0 +1,33 @@
+name: gof-prototype-pattern
+version: "1.0.0"
+description: Clone objects using prototype registry and structured clone for deep copy scenarios
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - gof-singleton
+stack_signals:
+  - typescript
+keywords:
+  - prototype
+  - clone
+  - deep-copy
+  - shallow-copy
+  - structured-clone
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/prototype
+state:
+  persistent: false
+  files: []
+depends_on: []
+

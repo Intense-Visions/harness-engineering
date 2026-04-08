@@ -1,0 +1,40 @@
+name: svelte-stores-pattern
+version: '1.0.0'
+description: Share reactive state across components with Svelte writable, readable, derived stores, and custom store contracts
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/*.svelte'
+  - '**/stores/**'
+  - '**/*.store.ts'
+related_skills:
+  - svelte-runes-pattern
+  - svelte-state-management
+  - svelte-component-composition
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - stores
+  - writable
+  - readable
+  - derived
+  - get
+  - store-contract
+  - custom-stores
+  - subscribe
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/state-management'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,41 @@
+name: angular-lazy-loading
+version: '1.0.0'
+description: Reduce initial bundle size with loadComponent, loadChildren, preloading strategies, and deferrable views
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - angular.json
+  - '**/*.component.ts'
+  - '**/*.component.html'
+  - '**/*.service.ts'
+  - '**/*.module.ts'
+related_skills:
+  - angular-standalone-components
+  - angular-routing-guards
+  - angular-performance-patterns
+  - angular-schematics
+stack_signals:
+  - angular
+  - typescript
+  - rxjs
+keywords:
+  - lazy-loading
+  - loadComponent
+  - loadChildren
+  - preloading
+  - deferrable-views
+  - '@defer'
+  - code-splitting
+metadata:
+  author: angular.dev
+  upstream: 'angular.dev/guide/routing/lazy-loading-ngmodules'
+state:
+  persistent: false
+  files: []
+depends_on: []

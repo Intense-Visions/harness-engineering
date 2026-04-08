@@ -1,0 +1,37 @@
+name: redux-rtk-query-endpoints
+version: '1.0.0'
+description: Define query and mutation endpoints with cache tags and transformations
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - '**/api.ts'
+  - '**/api/**'
+  - '**/services/**'
+related_skills:
+  - redux-rtk-query-setup
+  - redux-rtk-optimistic
+  - redux-typescript-patterns
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - endpoints
+  - query
+  - mutation
+  - providesTags
+  - invalidatesTags
+  - transformResponse
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/rtk-query/endpoints'
+state:
+  persistent: false
+  files: []
+depends_on: []

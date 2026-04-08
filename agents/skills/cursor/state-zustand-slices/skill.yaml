@@ -1,0 +1,37 @@
+name: state-zustand-slices
+version: '1.0.0'
+description: Split large Zustand stores into composable slices for modular state
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/store/**'
+  - '**/stores/**'
+  - '**/slices/**'
+related_skills:
+  - state-zustand-store
+  - state-zustand-immer
+  - state-zustand-persist
+stack_signals:
+  - zustand
+  - react
+  - typescript
+keywords:
+  - slices
+  - slice-pattern
+  - modular
+  - combine
+  - split-store
+metadata:
+  author: community
+  upstream: 'zustand/docs/slices-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,36 @@
+name: node-path-fs-patterns
+version: "1.0.0"
+description: Perform file system operations correctly using fs.promises, path utilities, and file watching
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - ts-async-patterns
+  - node-esm-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - fs.promises
+  - path.join
+  - path.resolve
+  - file-watching
+  - recursive-operations
+metadata:
+  author: community
+  upstream: nodejs.org/api/fs.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,32 @@
+name: gof-strategy-pattern
+version: "1.0.0"
+description: Encapsulate interchangeable algorithms behind a common interface for runtime selection
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - ts-generics-pattern
+  - gof-state-pattern
+stack_signals:
+  - typescript
+keywords:
+  - strategy
+  - algorithm-encapsulation
+  - runtime-selection
+  - function-based-strategies
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/strategy
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,40 @@
+name: nestjs-module-pattern
+version: "1.0.0"
+description: Organize NestJS applications with @Module, imports/exports, global and dynamic modules
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.module.ts"
+  - "**/*.controller.ts"
+  - "**/*.service.ts"
+related_skills:
+  - nestjs-dependency-injection
+  - nestjs-service-pattern
+  - nestjs-config-module
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - module
+  - imports
+  - exports
+  - providers
+  - controllers
+  - global
+  - dynamic-module
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/modules"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

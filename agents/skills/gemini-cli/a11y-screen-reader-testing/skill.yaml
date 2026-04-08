@@ -1,0 +1,41 @@
+name: a11y-screen-reader-testing
+version: '1.0.0'
+description: Test web applications with screen readers to verify accessible user experience
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+related_skills:
+  - a11y-aria-patterns
+  - a11y-semantic-html
+  - a11y-testing-automation
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - screen-reader
+  - voiceover
+  - nvda
+  - jaws
+  - narrator
+  - talkback
+  - testing
+metadata:
+  author: community
+  upstream: w3.org/WAI/test-evaluate
+state:
+  persistent: false
+  files: []
+depends_on: []
+

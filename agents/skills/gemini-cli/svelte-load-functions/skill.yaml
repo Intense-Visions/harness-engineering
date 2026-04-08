@@ -1,0 +1,41 @@
+name: svelte-load-functions
+version: '1.0.0'
+description: Fetch and stream data for SvelteKit pages using load(), server load, universal load, and depends()
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/+page.ts'
+  - '**/+page.server.ts'
+  - '**/+layout.ts'
+  - '**/+layout.server.ts'
+related_skills:
+  - svelte-routing-pattern
+  - svelte-form-actions
+  - svelte-error-pages
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - load
+  - server-load
+  - universal-load
+  - depends
+  - streaming
+  - deferred-data
+  - fetch
+  - locals
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/load'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,38 @@
+name: mobile-storage-patterns
+version: '1.0.0'
+description: Persist data on mobile with AsyncStorage, SecureStore, MMKV, and SQLite
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/storage/**'
+  - '**/store/**'
+related_skills:
+  - mobile-network-patterns
+  - mobile-performance-patterns
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - storage
+  - asyncstorage
+  - securestore
+  - mmkv
+  - sqlite
+  - persistence
+  - keychain
+metadata:
+  author: community
+  upstream: docs.expo.dev/versions/latest/sdk/async-storage
+state:
+  persistent: false
+  files: []
+depends_on: []
+

@@ -1,0 +1,37 @@
+name: node-esm-patterns
+version: "1.0.0"
+description: Write Node.js ES modules correctly using import.meta.url, package.json type, and CJS interop
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - ts-module-patterns
+  - ts-config-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - ES-modules
+  - import.meta.url
+  - __dirname-equivalent
+  - package-type
+  - CJS-interop
+metadata:
+  author: community
+  upstream: nodejs.org/api/esm.html
+state:
+  persistent: false
+  files: []
+depends_on: []
+

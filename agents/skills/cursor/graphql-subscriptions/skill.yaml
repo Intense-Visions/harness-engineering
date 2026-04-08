@@ -1,0 +1,37 @@
+name: graphql-subscriptions
+version: '1.0.0'
+description: Implement real-time data streaming with GraphQL subscriptions over WebSocket
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/resolvers/**'
+  - '**/subscriptions/**'
+related_skills:
+  - graphql-resolver-pattern
+  - graphql-apollo-server
+  - graphql-client-patterns
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - subscriptions
+  - websocket
+  - pubsub
+  - real-time
+  - streaming
+metadata:
+  author: community
+  upstream: apollographql.com/docs/apollo-server/data/subscriptions
+state:
+  persistent: false
+  files: []
+depends_on: []
+

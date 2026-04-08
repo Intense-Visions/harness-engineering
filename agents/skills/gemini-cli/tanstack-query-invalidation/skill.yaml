@@ -1,0 +1,39 @@
+name: tanstack-query-invalidation
+version: "1.0.0"
+description: invalidateQueries, refetchType, staleTime, and gcTime tuning
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/query-client.ts"
+  - "**/*query*.ts"
+related_skills:
+  - tanstack-query-keys
+  - tanstack-mutation-patterns
+  - tanstack-cache-management
+  - next-caching-strategies
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - invalidate
+  - staleTime
+  - gcTime
+  - refetchType
+  - background-refetch
+  - cache-freshness
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation
+state:
+  persistent: false
+  files: []
+depends_on: []

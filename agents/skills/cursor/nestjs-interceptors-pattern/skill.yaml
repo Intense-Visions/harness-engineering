@@ -1,0 +1,39 @@
+name: nestjs-interceptors-pattern
+version: "1.0.0"
+description: Transform responses and add cross-cutting behavior with NestInterceptor and CallHandler
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.interceptor.ts"
+  - "**/*.controller.ts"
+related_skills:
+  - nestjs-controller-pattern
+  - nestjs-exception-filters
+  - nestjs-pipes-pattern
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - interceptor
+  - NestInterceptor
+  - CallHandler
+  - response-transform
+  - logging
+  - timeout
+  - rxjs
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/interceptors"
+state:
+  persistent: false
+  files: []
+depends_on: []
+

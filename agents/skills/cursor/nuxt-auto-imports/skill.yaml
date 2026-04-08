@@ -1,0 +1,40 @@
+name: nuxt-auto-imports
+version: '1.0.0'
+description: Use Nuxt's automatic import system for composables, components, and utils without explicit import statements
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+  - gemini-cli
+  - cursor
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/composables/**'
+  - '**/components/**/*.vue'
+  - '**/utils/**'
+related_skills:
+  - nuxt-composables-pattern
+  - nuxt-plugins-pattern
+  - nuxt-modules-pattern
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - auto-imports
+  - composables
+  - components
+  - utils
+  - nuxt
+  - unplugin-auto-import
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/guide/concepts/auto-imports'
+state:
+  persistent: false
+  files: []
+depends_on: []

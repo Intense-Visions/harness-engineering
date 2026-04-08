@@ -1,0 +1,40 @@
+name: next-environment-config
+version: "1.0.0"
+description: Environment variables, next.config.ts, and server-only module boundaries
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - "next.config.*"
+  - ".env*"
+  - "**/env.ts"
+  - "**/env.mjs"
+related_skills:
+  - next-app-router
+  - next-server-components
+  - next-deployment-optimization
+  - ts-utility-types
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - environment-variables
+  - NEXT_PUBLIC
+  - server-only
+  - next.config
+  - env-validation
+  - t3-env
+  - runtime-config
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/configuring/environment-variables
+state:
+  persistent: false
+  files: []
+depends_on: []

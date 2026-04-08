@@ -1,0 +1,43 @@
+name: angular-testing-patterns
+version: '1.0.0'
+description: Test Angular components, services, and pipes with TestBed, ComponentFixture, and service mocks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths:
+  - angular.json
+  - '**/*.component.ts'
+  - '**/*.component.html'
+  - '**/*.service.ts'
+  - '**/*.module.ts'
+related_skills:
+  - angular-component-pattern
+  - angular-service-di
+  - angular-signals-pattern
+  - test-unit-patterns
+stack_signals:
+  - angular
+  - typescript
+  - rxjs
+keywords:
+  - TestBed
+  - ComponentFixture
+  - jasmine
+  - jest
+  - service-mock
+  - spectator
+  - fakeAsync
+  - tick
+metadata:
+  author: angular.dev
+  upstream: 'angular.dev/guide/testing'
+state:
+  persistent: false
+  files: []
+depends_on: []
+

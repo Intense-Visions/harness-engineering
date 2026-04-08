@@ -1,0 +1,40 @@
+name: svelte-state-management
+version: '1.0.0'
+description: Manage local, shared, and cross-component state in SvelteKit using runes, context API, and module-level state
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/*.svelte'
+  - '**/*.svelte.ts'
+  - '**/stores/**'
+related_skills:
+  - svelte-runes-pattern
+  - svelte-stores-pattern
+  - svelte-server-hooks
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - state-management
+  - context
+  - setContext
+  - getContext
+  - module-state
+  - runes
+  - stores
+  - SSR-safe
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/state-management'
+state:
+  persistent: false
+  files: []
+depends_on: []
