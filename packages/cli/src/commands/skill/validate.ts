@@ -7,7 +7,7 @@ import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 import { resolveSkillsDir } from '../../utils/paths';
 
-const REQUIRED_SECTIONS = [
+const BEHAVIORAL_REQUIRED_SECTIONS = [
   '## When to Use',
   '## Process',
   '## Harness Integration',
@@ -15,6 +15,8 @@ const REQUIRED_SECTIONS = [
   '## Examples',
   '## Rationalizations to Reject',
 ];
+
+const KNOWLEDGE_REQUIRED_SECTIONS = ['## Instructions'];
 
 function validateSkillMd(
   name: string,
@@ -28,13 +30,25 @@ function validateSkillMd(
   }
 
   const mdContent = fs.readFileSync(skillMdPath, 'utf-8');
-  for (const section of REQUIRED_SECTIONS) {
+
+  if (!mdContent.trim().startsWith('# ')) {
+    errors.push(`${name}/SKILL.md: must start with an h1 heading`);
+  }
+
+  if (skillType === 'knowledge') {
+    for (const section of KNOWLEDGE_REQUIRED_SECTIONS) {
+      if (!mdContent.includes(section)) {
+        errors.push(`${name}/SKILL.md: missing section "${section}"`);
+      }
+    }
+    return;
+  }
+
+  // Behavioral skills (rigid, flexible)
+  for (const section of BEHAVIORAL_REQUIRED_SECTIONS) {
     if (!mdContent.includes(section)) {
       errors.push(`${name}/SKILL.md: missing section "${section}"`);
     }
-  }
-  if (!mdContent.trim().startsWith('# ')) {
-    errors.push(`${name}/SKILL.md: must start with an h1 heading`);
   }
   if (skillType === 'rigid') {
     if (!mdContent.includes('## Gates'))
@@ -44,7 +58,7 @@ function validateSkillMd(
   }
 }
 
-function validateSkillEntry(name: string, skillsDir: string, errors: string[]): boolean {
+export function validateSkillEntry(name: string, skillsDir: string, errors: string[]): boolean {
   const skillDir = path.join(skillsDir, name);
   const yamlPath = path.join(skillDir, 'skill.yaml');
 
