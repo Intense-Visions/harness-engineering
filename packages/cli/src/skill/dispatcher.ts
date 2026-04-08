@@ -12,6 +12,7 @@ export interface Suggestion {
   name: string;
   description: string;
   score: number;
+  reason?: string;
 }
 
 export interface SuggestResult {
@@ -19,6 +20,8 @@ export interface SuggestResult {
   suggestions: Suggestion[];
   /** Knowledge skills with score ≥ 0.7 — to be auto-injected as Instructions context */
   autoInjectKnowledge: Suggestion[];
+  /** Knowledge skills with score 0.4–0.7, plus related_skills traversal results */
+  knowledgeRecommendations: Suggestion[];
 }
 
 const TIER_1_SKILLS = new Set([
@@ -199,8 +202,8 @@ export function suggest(
     .filter((t) => t.length > 2);
 
   const behavioralScored: Suggestion[] = [];
-  const autoInjectKnowledge: Suggestion[] = [];
-  const knowledgeRecommendations: Suggestion[] = [];
+  let autoInjectKnowledge: Suggestion[] = [];
+  let knowledgeRecommendations: Suggestion[] = [];
 
   for (const [name, entry] of Object.entries(index.skills)) {
     if (config?.neverSuggest?.includes(name)) continue;
@@ -232,14 +235,50 @@ export function suggest(
     }
   }
 
+  // Sort all scored lists
+  autoInjectKnowledge.sort((a, b) => b.score - a.score);
+  knowledgeRecommendations.sort((a, b) => b.score - a.score);
+
+  // Cap auto-injection at 3 knowledge skills; demote excess to recommendations
+  if (autoInjectKnowledge.length > 3) {
+    const demoted = autoInjectKnowledge.slice(3);
+    autoInjectKnowledge = autoInjectKnowledge.slice(0, 3);
+    knowledgeRecommendations.unshift(...demoted);
+  }
+
+  // Walk related_skills of each auto-injected skill; surface neighbors as secondary recommendations
+  for (const injectedSkill of autoInjectKnowledge) {
+    const entry = index.skills[injectedSkill.name];
+    if (!entry?.relatedSkills?.length) continue;
+    for (const relatedName of entry.relatedSkills) {
+      const related = index.skills[relatedName];
+      if (!related) continue;
+      const alreadySurfaced =
+        autoInjectKnowledge.some((s) => s.name === relatedName) ||
+        knowledgeRecommendations.some((r) => r.name === relatedName);
+      if (!alreadySurfaced) {
+        knowledgeRecommendations.push({
+          name: relatedName,
+          description: related.description,
+          score: 0.45,
+          reason: `related to auto-injected ${injectedSkill.name}`,
+        });
+      }
+    }
+  }
+
+  // Cap traversal results
+  knowledgeRecommendations = knowledgeRecommendations.slice(0, 10);
+
   const suggestions = [
     ...behavioralScored.sort((a, b) => b.score - a.score).slice(0, 3),
-    ...knowledgeRecommendations.sort((a, b) => b.score - a.score).slice(0, 3),
+    ...knowledgeRecommendations.slice(0, 3),
   ];
 
   return {
     suggestions,
-    autoInjectKnowledge: autoInjectKnowledge.sort((a, b) => b.score - a.score),
+    autoInjectKnowledge,
+    knowledgeRecommendations,
   };
 }
 
