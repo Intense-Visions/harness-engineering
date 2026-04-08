@@ -1,0 +1,37 @@
+name: react-static-import
+version: '1.0.0'
+description: Bundle all dependencies at build time for predictable loading performance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+  - '**/*.ts'
+related_skills:
+  - react-dynamic-import
+stack_signals:
+  - react
+  - typescript
+  - webpack
+  - vite
+keywords:
+  - static-import
+  - bundling
+  - tree-shaking
+  - module-loading
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/static-import'
+state:
+  persistent: false
+  files: []
+depends_on: []

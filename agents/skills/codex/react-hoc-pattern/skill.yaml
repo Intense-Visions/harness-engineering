@@ -1,0 +1,35 @@
+name: react-hoc-pattern
+version: '1.0.0'
+description: Extend component behavior by wrapping in a higher-order component
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-hooks-pattern
+  - react-render-props-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - hoc
+  - higher-order-component
+  - component-composition
+  - cross-cutting-concerns
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/hoc-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,39 @@
+name: react-server-components
+version: '1.0.0'
+description: Run components on the server to eliminate client JavaScript and enable direct data access
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-server-rendering
+  - react-client-rendering
+  - react-islands-pattern
+  - react-suspense-pattern
+stack_signals:
+  - react
+  - typescript
+  - next
+keywords:
+  - rsc
+  - server-components
+  - use-client
+  - zero-bundle
+  - data-access
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/react-server-components'
+state:
+  persistent: false
+  files: []
+depends_on: []

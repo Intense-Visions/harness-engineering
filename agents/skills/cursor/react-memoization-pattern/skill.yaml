@@ -1,0 +1,37 @@
+name: react-memoization-pattern
+version: '1.0.0'
+description: Prevent expensive re-renders and recomputations with React memoization APIs
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-hooks-pattern
+  - react-concurrent-ui
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - memoization
+  - memo
+  - useMemo
+  - useCallback
+  - performance
+  - re-render
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/memoization'
+state:
+  persistent: false
+  files: []
+depends_on: []

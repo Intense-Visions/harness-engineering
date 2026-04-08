@@ -1,0 +1,37 @@
+name: react-hooks-pattern
+version: '1.0.0'
+description: Reuse stateful logic across components via custom hooks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-compound-pattern
+  - react-provider-pattern
+  - react-context-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - hooks
+  - custom-hooks
+  - stateful-logic
+  - composition
+  - use-prefix
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/hooks-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

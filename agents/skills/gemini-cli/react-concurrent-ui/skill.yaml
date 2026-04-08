@@ -1,0 +1,36 @@
+name: react-concurrent-ui
+version: '1.0.0'
+description: Build responsive UIs using React 18 concurrent features and transitions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-suspense-pattern
+  - react-memoization-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - concurrent
+  - transitions
+  - startTransition
+  - useDeferredValue
+  - react-18
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/concurrent-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

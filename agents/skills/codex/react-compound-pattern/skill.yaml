@@ -1,0 +1,36 @@
+name: react-compound-pattern
+version: '1.0.0'
+description: Build multi-part components that share state implicitly via context
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-hooks-pattern
+  - react-provider-pattern
+  - react-context-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - compound-components
+  - implicit-state
+  - sub-components
+  - flexible-api
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/compound-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
