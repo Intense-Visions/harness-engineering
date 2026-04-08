@@ -85,3 +85,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - mobile-performance-patterns
+  - mobile-navigation-pattern
+  - mobile-network-patterns
+  - mobile-storage-patterns

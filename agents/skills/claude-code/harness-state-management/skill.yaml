@@ -31,3 +31,8 @@ state:
   files:
     - .harness/state.json
 depends_on: []
+related_skills:
+  - state-zustand-store
+  - state-zustand-slices
+  - redux-slice-pattern
+  - state-context-pattern

@@ -71,3 +71,6 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - resilience-rate-limiting
+  - resilience-fallback-pattern
