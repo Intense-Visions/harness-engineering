@@ -1,0 +1,36 @@
+name: vue-provide-inject
+version: '1.0.0'
+description: Share data across a component tree without prop-drilling using provide/inject
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+  - '**/*.ts'
+related_skills:
+  - vue-composables-pattern
+  - vue-pinia-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - provide
+  - inject
+  - dependency-injection
+  - ancestor-descendant
+  - prop-drilling
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/provide-inject'
+state:
+  persistent: false
+  files: []
+depends_on: []

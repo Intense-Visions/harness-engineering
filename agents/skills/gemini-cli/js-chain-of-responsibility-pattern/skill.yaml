@@ -1,0 +1,35 @@
+name: js-chain-of-responsibility-pattern
+version: '1.0.0'
+description: Pass a request along a chain of handlers until one handles it
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-mediator-middleware-pattern
+  - js-command-pattern
+stack_signals:
+  - javascript
+keywords:
+  - chain-of-responsibility
+  - handler-chain
+  - request-pipeline
+  - middleware
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/chain-of-responsibility-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

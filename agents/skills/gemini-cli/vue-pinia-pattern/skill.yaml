@@ -1,0 +1,36 @@
+name: vue-pinia-pattern
+version: '1.0.0'
+description: Manage shared application state with Pinia stores in the Options or Setup style
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+  - '**/*.ts'
+related_skills:
+  - vue-provide-inject
+  - vue-composables-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - pinia
+  - state-management
+  - store
+  - actions
+  - getters
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/pinia-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

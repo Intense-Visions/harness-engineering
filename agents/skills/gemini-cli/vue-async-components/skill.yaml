@@ -1,0 +1,36 @@
+name: vue-async-components
+version: '1.0.0'
+description: Load Vue components lazily to reduce initial bundle size using defineAsyncComponent
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+  - '**/*.ts'
+related_skills:
+  - vue-teleport-pattern
+  - vue-composables-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - async-components
+  - lazy-loading
+  - code-splitting
+  - defineAsyncComponent
+  - suspense
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/async-components'
+state:
+  persistent: false
+  files: []
+depends_on: []

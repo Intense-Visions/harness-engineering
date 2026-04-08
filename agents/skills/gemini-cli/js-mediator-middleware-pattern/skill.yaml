@@ -1,0 +1,36 @@
+name: js-mediator-middleware-pattern
+version: '1.0.0'
+description: Route component interactions through a central mediator to reduce coupling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-observer-pattern
+  - js-command-pattern
+stack_signals:
+  - javascript
+keywords:
+  - mediator
+  - middleware
+  - pipeline
+  - central-hub
+  - decoupling
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/mediator-middleware-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
