@@ -1,0 +1,35 @@
+name: js-decorator-pattern
+version: '1.0.0'
+description: Extend object behavior dynamically without modifying its source
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-mixin-pattern
+  - js-proxy-pattern
+stack_signals:
+  - javascript
+keywords:
+  - decorator
+  - extend-behavior
+  - wrapping
+  - higher-order
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/decorator-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

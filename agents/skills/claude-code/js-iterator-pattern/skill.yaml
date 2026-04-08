@@ -1,0 +1,36 @@
+name: js-iterator-pattern
+version: '1.0.0'
+description: Traverse a collection sequentially without exposing its internal structure
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-command-pattern
+  - js-composite-pattern
+stack_signals:
+  - javascript
+keywords:
+  - iterator
+  - iterable
+  - symbol-iterator
+  - for-of
+  - generator
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/iterator-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

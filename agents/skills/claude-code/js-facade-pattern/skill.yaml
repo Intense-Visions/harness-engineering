@@ -1,0 +1,35 @@
+name: js-facade-pattern
+version: '1.0.0'
+description: Provide a simplified interface to a complex subsystem
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-adapter-pattern
+  - js-mediator-middleware-pattern
+stack_signals:
+  - javascript
+keywords:
+  - facade
+  - simplify
+  - abstraction
+  - subsystem-interface
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/facade-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
