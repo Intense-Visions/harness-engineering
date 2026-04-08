@@ -75,3 +75,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - events-event-schema
+  - events-pubsub-pattern
+  - events-kafka-patterns
+  - events-outbox-pattern

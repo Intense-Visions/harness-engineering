@@ -74,3 +74,8 @@ stack_signals:
   - docker
   - api
 depends_on: []
+related_skills:
+  - owasp-auth-patterns
+  - owasp-injection-prevention
+  - owasp-xss-prevention
+  - owasp-security-headers

@@ -74,3 +74,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - resilience-circuit-breaker
+  - resilience-retry-pattern
+  - resilience-bulkhead-pattern
+  - resilience-fallback-pattern
