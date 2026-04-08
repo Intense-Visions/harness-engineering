@@ -5,7 +5,6 @@ cognitive_mode: advisory-guide
 paths:
   - '*.ipynb'
   - 'mlflow.yaml'
-  - 'requirements.txt'
 triggers:
   - manual
   - on_new_feature
