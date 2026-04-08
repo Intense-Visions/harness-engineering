@@ -789,3 +789,100 @@ describe('path-isolation dispatch', () => {
     expect(allSurfaced.some((n) => n === 'harness-database')).toBe(true);
   });
 });
+
+describe('behavioral related_skills traversal', () => {
+  it('surfaces related knowledge skills when a behavioral skill is recommended', () => {
+    const behavioral = makeEntry({
+      type: 'rigid',
+      keywords: ['database', 'migration', 'schema'],
+      paths: ['*.sql'],
+      relatedSkills: ['prisma-schema-design', 'drizzle-migrations'],
+      description: 'Database patterns and migration safety',
+    });
+    const relatedKnowledge1 = makeEntry({
+      type: 'knowledge',
+      keywords: ['prisma', 'schema'],
+      paths: ['prisma/schema.prisma'],
+      description: 'Prisma schema design patterns',
+    });
+    const relatedKnowledge2 = makeEntry({
+      type: 'knowledge',
+      keywords: ['drizzle', 'migrations'],
+      paths: ['drizzle.config.ts'],
+      description: 'Drizzle migration patterns',
+    });
+    const index = makeIndex({
+      'harness-database': behavioral,
+      'prisma-schema-design': relatedKnowledge1,
+      'drizzle-migrations': relatedKnowledge2,
+    });
+
+    const result = suggest(index, 'database migration schema', null, ['db/init.sql']);
+
+    // Behavioral skill should be in suggestions
+    expect(result.suggestions.some((s) => s.name === 'harness-database')).toBe(true);
+    // Related knowledge skills should appear in knowledgeRecommendations via traversal
+    expect(result.knowledgeRecommendations.some((s) => s.name === 'prisma-schema-design')).toBe(
+      true
+    );
+    expect(result.knowledgeRecommendations.some((s) => s.name === 'drizzle-migrations')).toBe(true);
+  });
+
+  it('does not duplicate knowledge skills already surfaced by scoring', () => {
+    const behavioral = makeEntry({
+      type: 'rigid',
+      keywords: ['database', 'migration'],
+      relatedSkills: ['prisma-schema-design'],
+      description: 'Database patterns',
+    });
+    const relatedKnowledge = makeEntry({
+      type: 'knowledge',
+      keywords: ['database', 'prisma', 'schema', 'migration'],
+      paths: ['prisma/schema.prisma'],
+      description: 'Prisma schema design patterns',
+    });
+    const index = makeIndex({
+      'harness-database': behavioral,
+      'prisma-schema-design': relatedKnowledge,
+    });
+
+    // Query strong enough to score the knowledge skill independently
+    const result = suggest(index, 'database prisma schema migration', null, [
+      'prisma/schema.prisma',
+    ]);
+
+    // Knowledge skill should appear at most once in knowledgeRecommendations
+    // (suggestions embeds knowledgeRecommendations.slice(0,3) so cross-array overlap is expected)
+    const knRecCount = result.knowledgeRecommendations.filter(
+      (s) => s.name === 'prisma-schema-design'
+    ).length;
+    expect(knRecCount).toBeLessThanOrEqual(1);
+  });
+
+  it('adds reason field indicating which behavioral skill triggered the traversal', () => {
+    const behavioral = makeEntry({
+      type: 'rigid',
+      keywords: ['database', 'migration', 'schema'],
+      paths: ['*.sql'],
+      relatedSkills: ['prisma-schema-design'],
+      description: 'Database patterns',
+    });
+    const related = makeEntry({
+      type: 'knowledge',
+      keywords: ['prisma'],
+      description: 'Prisma schema design',
+    });
+    const index = makeIndex({
+      'harness-database': behavioral,
+      'prisma-schema-design': related,
+    });
+
+    const result = suggest(index, 'database migration schema', null, ['db/init.sql']);
+
+    const traversed = result.knowledgeRecommendations.find(
+      (s) => s.name === 'prisma-schema-design'
+    );
+    expect(traversed).toBeDefined();
+    expect(traversed!.reason).toContain('harness-database');
+  });
+});

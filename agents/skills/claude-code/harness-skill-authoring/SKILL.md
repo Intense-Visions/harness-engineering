@@ -113,7 +113,7 @@ Rules:
 
 **`related_skills` authoring rules:**
 
-The `related_skills` field lists knowledge skill names (not behavioral skills) that complement the current skill. These are surfaced as secondary recommendations when the current skill is auto-injected.
+The `related_skills` field lists skill names that complement the current skill. These are surfaced as secondary knowledge recommendations when the current skill is dispatched — this works for both knowledge skills (when auto-injected) and behavioral skills (when recommended).
 
 Rules:
 
@@ -198,7 +198,7 @@ depends_on:
   - <prerequisite-skill> # Skills that must be available (not necessarily run first)
 # Optional fields (required for knowledge skills, optional for behavioral skills)
 paths: [] # File-type-specific glob patterns for dispatch boost
-related_skills: [] # Complementary skill names (knowledge skills only)
+related_skills: [] # Complementary skill names (surfaces related knowledge when dispatched)
 metadata: # Provenance and authorship metadata
   author: <author>
   upstream: '<source-url>'

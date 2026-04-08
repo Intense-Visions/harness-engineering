@@ -187,6 +187,9 @@ export function scoreSkill(
  * Knowledge skills with score 0.4–0.7 are included in suggestions with no special marker.
  * Knowledge skills with score < 0.4 are discarded.
  *
+ * related_skills traversal runs for both auto-injected knowledge skills and
+ * recommended behavioral skills, surfacing related knowledge as secondary recommendations.
+ *
  * Respects alwaysSuggest (forced inclusion) and neverSuggest (forced exclusion).
  */
 export function suggest(
@@ -246,7 +249,7 @@ export function suggest(
     knowledgeRecommendations.unshift(...demoted);
   }
 
-  // Walk related_skills of each auto-injected skill; surface neighbors as secondary recommendations
+  // Walk related_skills of each auto-injected knowledge skill; surface neighbors as secondary recommendations
   for (const injectedSkill of autoInjectKnowledge) {
     const entry = index.skills[injectedSkill.name];
     if (!entry?.relatedSkills?.length) continue;
@@ -262,6 +265,27 @@ export function suggest(
           description: related.description,
           score: 0.45,
           reason: `related to auto-injected ${injectedSkill.name}`,
+        });
+      }
+    }
+  }
+
+  // Walk related_skills of each recommended behavioral skill; surface knowledge neighbors
+  for (const behavioralSkill of behavioralScored) {
+    const entry = index.skills[behavioralSkill.name];
+    if (!entry?.relatedSkills?.length) continue;
+    for (const relatedName of entry.relatedSkills) {
+      const related = index.skills[relatedName];
+      if (!related) continue;
+      const alreadySurfaced =
+        autoInjectKnowledge.some((s) => s.name === relatedName) ||
+        knowledgeRecommendations.some((r) => r.name === relatedName);
+      if (!alreadySurfaced) {
+        knowledgeRecommendations.push({
+          name: relatedName,
+          description: related.description,
+          score: 0.45,
+          reason: `related to recommended ${behavioralSkill.name}`,
         });
       }
     }
