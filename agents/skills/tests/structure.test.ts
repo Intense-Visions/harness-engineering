@@ -10,14 +10,26 @@ import { SkillMetadataSchema } from './schema';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILLS_DIR = resolve(__dirname, '..');
 
-const REQUIRED_SECTIONS = [
+const BEHAVIORAL_REQUIRED_SECTIONS = [
   '## When to Use',
   '## Process',
   '## Harness Integration',
   '## Success Criteria',
   '## Examples',
 ];
+const KNOWLEDGE_REQUIRED_SECTIONS = ['## Instructions'];
 const RIGID_SECTIONS = ['## Gates', '## Escalation'];
+
+function getSkillType(skillDir: string): string | null {
+  const yamlPath = resolve(skillDir, 'skill.yaml');
+  if (!existsSync(yamlPath)) return null;
+  try {
+    const parsed = parse(readFileSync(yamlPath, 'utf-8'));
+    return parsed?.type ?? null;
+  } catch {
+    return null;
+  }
+}
 
 describe('SKILL.md structure', () => {
   const skillMdFiles = glob.sync('**/SKILL.md', {
@@ -30,13 +42,6 @@ describe('SKILL.md structure', () => {
     return;
   }
 
-  it.each(skillMdFiles)('%s has required sections', (file) => {
-    const content = readFileSync(resolve(SKILLS_DIR, file), 'utf-8');
-    for (const section of REQUIRED_SECTIONS) {
-      expect(content, `Missing section: ${section} in ${file}`).toContain(section);
-    }
-  });
-
   it.each(skillMdFiles)('%s starts with h1 heading', (file) => {
     const content = readFileSync(resolve(SKILLS_DIR, file), 'utf-8');
     expect(content.trim()).toMatch(/^# /);
@@ -45,6 +50,22 @@ describe('SKILL.md structure', () => {
   it.each(skillMdFiles)('%s has corresponding skill.yaml', (file) => {
     const dir = resolve(SKILLS_DIR, file, '..');
     expect(existsSync(resolve(dir, 'skill.yaml')), `Missing skill.yaml for ${file}`).toBe(true);
+  });
+
+  it.each(skillMdFiles)('%s has required sections for its skill type', (file) => {
+    const content = readFileSync(resolve(SKILLS_DIR, file), 'utf-8');
+    const skillDir = resolve(SKILLS_DIR, file, '..');
+    const skillType = getSkillType(skillDir);
+
+    if (skillType === 'knowledge') {
+      for (const section of KNOWLEDGE_REQUIRED_SECTIONS) {
+        expect(content, `Missing section: ${section} in ${file}`).toContain(section);
+      }
+    } else {
+      for (const section of BEHAVIORAL_REQUIRED_SECTIONS) {
+        expect(content, `Missing section: ${section} in ${file}`).toContain(section);
+      }
+    }
   });
 });
 
@@ -73,7 +94,7 @@ describe('rigid skills have Gates and Escalation sections', () => {
   it.each(rigidSkills)('%s (rigid) has Gates and Escalation sections', (file) => {
     const dir = resolve(SKILLS_DIR, file, '..');
     const skillMdPath = resolve(dir, 'SKILL.md');
-    if (!existsSync(skillMdPath)) return; // skip if SKILL.md doesn't exist yet
+    if (!existsSync(skillMdPath)) return;
     const content = readFileSync(skillMdPath, 'utf-8');
     for (const section of RIGID_SECTIONS) {
       expect(content, `Rigid skill missing section: ${section}`).toContain(section);
