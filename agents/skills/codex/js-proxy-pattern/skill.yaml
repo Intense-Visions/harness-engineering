@@ -1,0 +1,36 @@
+name: js-proxy-pattern
+version: '1.0.0'
+description: Intercept and control object property access with ES6 Proxy
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-singleton-pattern
+  - js-observer-pattern
+stack_signals:
+  - javascript
+keywords:
+  - proxy
+  - intercept
+  - reflect
+  - validation
+  - traps
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/proxy-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

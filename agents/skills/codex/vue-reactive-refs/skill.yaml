@@ -1,0 +1,36 @@
+name: vue-reactive-refs
+version: '1.0.0'
+description: Create and manage reactive primitive values and objects using ref and reactive
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+  - '**/*.ts'
+related_skills:
+  - vue-watchers-pattern
+  - vue-composables-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - ref
+  - reactive
+  - computed
+  - reactivity
+  - composition-api
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/reactive-refs'
+state:
+  persistent: false
+  files: []
+depends_on: []

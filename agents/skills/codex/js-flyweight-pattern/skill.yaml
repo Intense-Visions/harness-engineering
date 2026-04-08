@@ -1,0 +1,36 @@
+name: js-flyweight-pattern
+version: '1.0.0'
+description: Share common state across many fine-grained objects to reduce memory usage
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-factory-pattern
+  - js-singleton-pattern
+stack_signals:
+  - javascript
+keywords:
+  - flyweight
+  - memory-optimization
+  - shared-state
+  - intrinsic
+  - extrinsic
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/flyweight-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
