@@ -134,10 +134,14 @@ function buildSpec(
     executionContextLines.push(`@${skillMdRelative}`, `@${skillYamlRelative}`);
   }
 
+  const commandName = meta.command_name;
+  const effectiveName = commandName ?? normalized;
+  const effectiveFullName = commandName ?? `harness:${normalized}`;
+
   return {
-    name: normalized,
+    name: effectiveName,
     namespace: 'harness',
-    fullName: `harness:${normalized}`,
+    fullName: effectiveFullName,
     description: meta.description,
     version: meta.version,
     ...(meta.cognitive_mode ? { cognitiveMode: meta.cognitive_mode } : {}),
@@ -147,6 +151,7 @@ function buildSpec(
     sourceDir: entry.name,
     skillsBaseDir: skillsDir,
     source,
+    ...(commandName ? { commandName } : {}),
     ...(meta.cursor ? { cursor: meta.cursor } : {}),
     prompt: {
       context: buildContextLines(meta).join('\n'),
@@ -186,7 +191,8 @@ export function normalizeSkills(
       if (shouldSkipSkill(meta, platforms)) continue;
 
       const normalized = normalizeName(meta.name);
-      if (checkNameCollision(normalized, meta.name, source, nameMap) === 'skip') continue;
+      const effectiveName = meta.command_name ?? normalized;
+      if (checkNameCollision(effectiveName, meta.name, source, nameMap) === 'skip') continue;
 
       specs.push(buildSpec(meta, normalized, entry, skillsDir, source));
     }

@@ -106,6 +106,10 @@ export const SkillMetadataSchema = z
     stack_signals: z.array(z.string()).default([]),
     cursor: SkillCursorSchema.optional(),
     codex: SkillCodexSchema.optional(),
+    command_name: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]*$/, 'Command name must be lowercase with hyphens')
+      .optional(),
     addresses: z.array(SkillAddressSchema).default([]),
   })
   .superRefine((data, ctx) => {
