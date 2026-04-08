@@ -83,7 +83,7 @@ export async function handleRecommendSkills(
   const output = {
     ...result,
     autoInjectKnowledge: suggestResult.autoInjectKnowledge,
-    snapshotAge: usedCache ? 'cached' : 'fresh',
+    snapshotAge: snapshot ? (usedCache ? 'cached' : 'fresh') : 'none',
   };
 
   return {

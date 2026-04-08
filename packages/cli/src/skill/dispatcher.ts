@@ -16,7 +16,7 @@ export interface Suggestion {
 }
 
 export interface SuggestResult {
-  /** Behavioral skills scored above threshold (0.4), up to 3 */
+  /** Behavioral skills (up to 3) + knowledge recommendations (up to 3), sorted by score */
   suggestions: Suggestion[];
   /** Knowledge skills with score ≥ 0.7 — to be auto-injected as Instructions context */
   autoInjectKnowledge: Suggestion[];
@@ -181,11 +181,12 @@ export function scoreSkill(
  * Suggest relevant catalog skills for the current task.
  *
  * Returns:
- * - suggestions: behavioral skills (rigid/flexible) above 0.4 threshold, up to 3
+ * - suggestions: behavioral skills (up to 3) + knowledge recommendations (up to 3)
  * - autoInjectKnowledge: knowledge skills with score ≥ 0.7 (for Instructions auto-inject)
+ * - knowledgeRecommendations: knowledge skills 0.4–0.7, plus related_skills traversal results
  *
- * Knowledge skills with score 0.4–0.7 are included in suggestions with no special marker.
- * Knowledge skills with score < 0.4 are discarded.
+ * Knowledge skills scored ≥ 0.7 go to autoInjectKnowledge. Scored 0.4–0.7 go to
+ * knowledgeRecommendations (top 3 also spliced into suggestions). Below 0.4: discarded.
  *
  * related_skills traversal runs for both auto-injected knowledge skills and
  * recommended behavioral skills, surfacing related knowledge as secondary recommendations.
