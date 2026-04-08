@@ -13,6 +13,199 @@ import {
   isArchData,
 } from '../utils/typeGuards';
 
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">{title}</h2>
+  );
+}
+
+function SectionUnavailable({ data }: { data: unknown }) {
+  return (
+    <p className="text-sm text-gray-500">
+      {data && typeof data === 'object' && 'error' in data
+        ? (data as { error: string }).error
+        : 'Unavailable'}
+    </p>
+  );
+}
+
+function SectionError({ data }: { data: unknown }) {
+  if (data && typeof data === 'object' && 'error' in data) {
+    return <p className="text-sm text-red-400">{(data as { error: string }).error}</p>;
+  }
+  return <p className="text-sm text-gray-500">Awaiting first scan...</p>;
+}
+
+function RoadmapSection({ roadmap }: { roadmap: unknown }) {
+  return (
+    <section>
+      <SectionHeader title="Roadmap" />
+      {roadmap && isRoadmapData(roadmap) ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <KpiCard label="Total" value={roadmap.totalFeatures} />
+          <KpiCard label="Done" value={roadmap.totalDone} accent="green" />
+          <KpiCard label="In Progress" value={roadmap.totalInProgress} accent="yellow" />
+          <KpiCard label="Planned" value={roadmap.totalPlanned} />
+          <KpiCard
+            label="Blocked"
+            value={roadmap.totalBlocked}
+            accent={roadmap.totalBlocked > 0 ? 'red' : 'default'}
+          />
+        </div>
+      ) : (
+        <SectionUnavailable data={roadmap} />
+      )}
+    </section>
+  );
+}
+
+function HealthSection({ health }: { health: unknown }) {
+  return (
+    <section>
+      <SectionHeader title="Codebase Health" />
+      {health && isHealthData(health) ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <KpiCard
+            label="Total Issues"
+            value={health.totalIssues}
+            accent={health.totalIssues > 0 ? 'yellow' : 'green'}
+          />
+          <KpiCard
+            label="Errors"
+            value={health.errors}
+            accent={health.errors > 0 ? 'red' : 'default'}
+          />
+          <KpiCard
+            label="Warnings"
+            value={health.warnings}
+            accent={health.warnings > 0 ? 'yellow' : 'default'}
+          />
+          <KpiCard
+            label="Auto-fixable"
+            value={health.fixableCount}
+            sub={`${health.durationMs} ms scan`}
+          />
+        </div>
+      ) : (
+        <SectionUnavailable data={health} />
+      )}
+    </section>
+  );
+}
+
+function SecuritySection({ security }: { security: unknown }) {
+  return (
+    <section>
+      <SectionHeader title="Security" />
+      {security && isSecurityData(security) ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <KpiCard
+            label="Status"
+            value={security.valid ? 'OK' : 'Issues Found'}
+            accent={security.valid ? 'green' : 'red'}
+          />
+          <KpiCard
+            label="Errors"
+            value={security.stats.errorCount}
+            accent={security.stats.errorCount > 0 ? 'red' : 'default'}
+          />
+          <KpiCard
+            label="Warnings"
+            value={security.stats.warningCount}
+            accent={security.stats.warningCount > 0 ? 'yellow' : 'default'}
+          />
+          <KpiCard label="Files Scanned" value={security.stats.filesScanned} />
+        </div>
+      ) : (
+        <SectionError data={security} />
+      )}
+    </section>
+  );
+}
+
+function PerfSection({ perf }: { perf: unknown }) {
+  return (
+    <section>
+      <SectionHeader title="Performance" />
+      {perf && isPerfData(perf) ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <KpiCard
+            label="Status"
+            value={perf.valid ? 'OK' : 'Violations'}
+            accent={perf.valid ? 'green' : 'red'}
+          />
+          <KpiCard
+            label="Violations"
+            value={perf.stats.violationCount}
+            accent={perf.stats.violationCount > 0 ? 'red' : 'default'}
+          />
+          <KpiCard label="Files Analyzed" value={perf.stats.filesAnalyzed} />
+        </div>
+      ) : (
+        <SectionError data={perf} />
+      )}
+    </section>
+  );
+}
+
+function ArchSection({ arch }: { arch: unknown }) {
+  return (
+    <section>
+      <SectionHeader title="Architecture" />
+      {arch && isArchData(arch) ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <KpiCard
+            label="Status"
+            value={arch.passed ? 'Passed' : 'Failed'}
+            accent={arch.passed ? 'green' : 'red'}
+          />
+          <KpiCard
+            label="Violations"
+            value={arch.totalViolations}
+            accent={arch.totalViolations > 0 ? 'red' : 'default'}
+          />
+          <KpiCard
+            label="Regressions"
+            value={arch.regressions.length}
+            accent={arch.regressions.length > 0 ? 'yellow' : 'default'}
+          />
+        </div>
+      ) : (
+        <SectionError data={arch} />
+      )}
+    </section>
+  );
+}
+
+function GraphSection({ graph }: { graph: unknown }) {
+  return (
+    <section>
+      <SectionHeader title="Knowledge Graph" />
+      {graph && isGraphData(graph) ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <KpiCard label="Nodes" value={graph.nodeCount} />
+          <KpiCard label="Edges" value={graph.edgeCount} />
+          <KpiCard
+            label="Node Types"
+            value={graph.nodesByType.length}
+            sub={graph.nodesByType.map((n) => `${n.type}: ${n.count}`).join(', ')}
+          />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
+          <p className="text-sm text-gray-400">Graph not connected</p>
+          {(() => {
+            const g = graph as Record<string, unknown> | null;
+            return g && !g.available && typeof g.reason === 'string' ? (
+              <p className="mt-1 text-xs text-gray-600">{g.reason}</p>
+            ) : null;
+          })()}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function Overview() {
   const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
   const { data: checksData } = useSSE(SSE_ENDPOINT, 'checks');
@@ -48,176 +241,12 @@ export function Overview() {
 
       {data && (
         <div className="space-y-8">
-          {/* Roadmap KPIs */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Roadmap
-            </h2>
-            {roadmap && isRoadmapData(roadmap) ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                <KpiCard label="Total" value={roadmap.totalFeatures} />
-                <KpiCard label="Done" value={roadmap.totalDone} accent="green" />
-                <KpiCard label="In Progress" value={roadmap.totalInProgress} accent="yellow" />
-                <KpiCard label="Planned" value={roadmap.totalPlanned} />
-                <KpiCard
-                  label="Blocked"
-                  value={roadmap.totalBlocked}
-                  accent={roadmap.totalBlocked > 0 ? 'red' : 'default'}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">
-                {roadmap && 'error' in roadmap ? roadmap.error : 'Unavailable'}
-              </p>
-            )}
-          </section>
-
-          {/* Health KPIs */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Codebase Health
-            </h2>
-            {health && isHealthData(health) ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <KpiCard
-                  label="Total Issues"
-                  value={health.totalIssues}
-                  accent={health.totalIssues > 0 ? 'yellow' : 'green'}
-                />
-                <KpiCard
-                  label="Errors"
-                  value={health.errors}
-                  accent={health.errors > 0 ? 'red' : 'default'}
-                />
-                <KpiCard
-                  label="Warnings"
-                  value={health.warnings}
-                  accent={health.warnings > 0 ? 'yellow' : 'default'}
-                />
-                <KpiCard
-                  label="Auto-fixable"
-                  value={health.fixableCount}
-                  sub={`${health.durationMs} ms scan`}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">
-                {health && 'error' in health ? health.error : 'Unavailable'}
-              </p>
-            )}
-          </section>
-
-          {/* Security Status KPI */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Security
-            </h2>
-            {security && isSecurityData(security) ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <KpiCard
-                  label="Status"
-                  value={security.valid ? 'OK' : 'Issues Found'}
-                  accent={security.valid ? 'green' : 'red'}
-                />
-                <KpiCard
-                  label="Errors"
-                  value={security.stats.errorCount}
-                  accent={security.stats.errorCount > 0 ? 'red' : 'default'}
-                />
-                <KpiCard
-                  label="Warnings"
-                  value={security.stats.warningCount}
-                  accent={security.stats.warningCount > 0 ? 'yellow' : 'default'}
-                />
-                <KpiCard label="Files Scanned" value={security.stats.filesScanned} />
-              </div>
-            ) : security && 'error' in security ? (
-              <p className="text-sm text-red-400">{(security as { error: string }).error}</p>
-            ) : (
-              <p className="text-sm text-gray-500">Awaiting first scan...</p>
-            )}
-          </section>
-
-          {/* Performance Status KPI */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Performance
-            </h2>
-            {perf && isPerfData(perf) ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <KpiCard
-                  label="Status"
-                  value={perf.valid ? 'OK' : 'Violations'}
-                  accent={perf.valid ? 'green' : 'red'}
-                />
-                <KpiCard
-                  label="Violations"
-                  value={perf.stats.violationCount}
-                  accent={perf.stats.violationCount > 0 ? 'red' : 'default'}
-                />
-                <KpiCard label="Files Analyzed" value={perf.stats.filesAnalyzed} />
-              </div>
-            ) : perf && 'error' in perf ? (
-              <p className="text-sm text-red-400">{(perf as { error: string }).error}</p>
-            ) : (
-              <p className="text-sm text-gray-500">Awaiting first scan...</p>
-            )}
-          </section>
-
-          {/* Architecture Status KPI */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Architecture
-            </h2>
-            {arch && isArchData(arch) ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <KpiCard
-                  label="Status"
-                  value={arch.passed ? 'Passed' : 'Failed'}
-                  accent={arch.passed ? 'green' : 'red'}
-                />
-                <KpiCard
-                  label="Violations"
-                  value={arch.totalViolations}
-                  accent={arch.totalViolations > 0 ? 'red' : 'default'}
-                />
-                <KpiCard
-                  label="Regressions"
-                  value={arch.regressions.length}
-                  accent={arch.regressions.length > 0 ? 'yellow' : 'default'}
-                />
-              </div>
-            ) : arch && 'error' in arch ? (
-              <p className="text-sm text-red-400">{(arch as { error: string }).error}</p>
-            ) : (
-              <p className="text-sm text-gray-500">Awaiting first scan...</p>
-            )}
-          </section>
-
-          {/* Graph KPIs */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Knowledge Graph
-            </h2>
-            {graph && isGraphData(graph) ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <KpiCard label="Nodes" value={graph.nodeCount} />
-                <KpiCard label="Edges" value={graph.edgeCount} />
-                <KpiCard
-                  label="Node Types"
-                  value={graph.nodesByType.length}
-                  sub={graph.nodesByType.map((n) => `${n.type}: ${n.count}`).join(', ')}
-                />
-              </div>
-            ) : (
-              <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-                <p className="text-sm text-gray-400">Graph not connected</p>
-                {graph && !graph.available && (
-                  <p className="mt-1 text-xs text-gray-600">{graph.reason}</p>
-                )}
-              </div>
-            )}
-          </section>
+          <RoadmapSection roadmap={roadmap} />
+          <HealthSection health={health} />
+          <SecuritySection security={security} />
+          <PerfSection perf={perf} />
+          <ArchSection arch={arch} />
+          <GraphSection graph={graph} />
         </div>
       )}
     </div>

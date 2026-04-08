@@ -4,7 +4,7 @@ import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { isHealthData, isSecurityData, isPerfData, isArchData } from '../utils/typeGuards';
-import type { ChecksData, SecurityData, PerfData, ArchData } from '@shared/types';
+import type { HealthData, SecurityData, PerfData, ArchData } from '@shared/types';
 
 function CollapsibleSection({
   title,
@@ -156,6 +156,71 @@ function ArchSection({ data }: { data: ArchData }) {
   );
 }
 
+function EntropySection({ healthData }: { healthData: HealthData }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
+        Entropy Analysis
+      </h2>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <KpiCard
+          label="Total Issues"
+          value={healthData.totalIssues}
+          accent={healthData.totalIssues > 0 ? 'yellow' : 'green'}
+        />
+        <KpiCard
+          label="Errors"
+          value={healthData.errors}
+          accent={healthData.errors > 0 ? 'red' : 'default'}
+        />
+        <KpiCard
+          label="Warnings"
+          value={healthData.warnings}
+          accent={healthData.warnings > 0 ? 'yellow' : 'default'}
+        />
+        <KpiCard label="Auto-fixable" value={healthData.fixableCount} accent="default" />
+      </div>
+    </section>
+  );
+}
+
+function ScanDetailsSection({ healthData }: { healthData: HealthData }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
+        Scan Details
+      </h2>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <KpiCard label="Suggestions" value={healthData.suggestionCount} />
+        <KpiCard label="Scan Duration" value={`${healthData.durationMs} ms`} />
+        <KpiCard
+          label="Analysis Errors"
+          value={healthData.analysisErrors.length}
+          accent={healthData.analysisErrors.length > 0 ? 'red' : 'default'}
+        />
+      </div>
+    </section>
+  );
+}
+
+function AnalysisErrorsSection({ healthData }: { healthData: HealthData }) {
+  if (healthData.analysisErrors.length === 0) return null;
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
+        Analysis Errors
+      </h2>
+      <div className="space-y-2 rounded-lg border border-red-900 bg-gray-900 p-4">
+        {healthData.analysisErrors.map((e, i) => (
+          <p key={i} className="text-xs text-red-400">
+            {e}
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CheckSection<T>({
   title,
   raw,
@@ -218,75 +283,16 @@ export function Health() {
 
       {healthData && (
         <div className="space-y-8">
-          {/* Entropy Analysis (existing) */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Entropy Analysis
-            </h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <KpiCard
-                label="Total Issues"
-                value={healthData.totalIssues}
-                accent={healthData.totalIssues > 0 ? 'yellow' : 'green'}
-              />
-              <KpiCard
-                label="Errors"
-                value={healthData.errors}
-                accent={healthData.errors > 0 ? 'red' : 'default'}
-              />
-              <KpiCard
-                label="Warnings"
-                value={healthData.warnings}
-                accent={healthData.warnings > 0 ? 'yellow' : 'default'}
-              />
-              <KpiCard label="Auto-fixable" value={healthData.fixableCount} accent="default" />
-            </div>
-          </section>
-
-          {/* Scan metadata */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-              Scan Details
-            </h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <KpiCard label="Suggestions" value={healthData.suggestionCount} />
-              <KpiCard label="Scan Duration" value={`${healthData.durationMs} ms`} />
-              <KpiCard
-                label="Analysis Errors"
-                value={healthData.analysisErrors.length}
-                accent={healthData.analysisErrors.length > 0 ? 'red' : 'default'}
-              />
-            </div>
-          </section>
-
-          {/* Analysis errors */}
-          {healthData.analysisErrors.length > 0 && (
-            <section>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-                Analysis Errors
-              </h2>
-              <div className="space-y-2 rounded-lg border border-red-900 bg-gray-900 p-4">
-                {healthData.analysisErrors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-400">
-                    {e}
-                  </p>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Security section (new) */}
+          <EntropySection healthData={healthData} />
+          <ScanDetailsSection healthData={healthData} />
+          <AnalysisErrorsSection healthData={healthData} />
           <CheckSection
             title="Security"
             raw={security}
             guard={isSecurityData}
             Section={SecuritySection}
           />
-
-          {/* Performance section (new) */}
           <CheckSection title="Performance" raw={perf} guard={isPerfData} Section={PerfSection} />
-
-          {/* Architecture section (new) */}
           <CheckSection title="Architecture" raw={arch} guard={isArchData} Section={ArchSection} />
         </div>
       )}
