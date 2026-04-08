@@ -1,0 +1,36 @@
+name: js-static-import
+version: '1.0.0'
+description: Use static import declarations to load ES modules at parse time for tree-shaking and static analysis
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-dynamic-import
+  - js-module-pattern
+stack_signals:
+  - javascript
+keywords:
+  - static-import
+  - esm
+  - tree-shaking
+  - named-exports
+  - bundler-optimization
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/static-import'
+state:
+  persistent: false
+  files: []
+depends_on: []

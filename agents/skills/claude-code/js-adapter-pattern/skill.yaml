@@ -1,0 +1,35 @@
+name: js-adapter-pattern
+version: '1.0.0'
+description: Convert the interface of a class into another interface that clients expect
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-facade-pattern
+  - js-decorator-pattern
+stack_signals:
+  - javascript
+keywords:
+  - adapter
+  - wrapper
+  - interface-compatibility
+  - legacy-integration
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/adapter-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
