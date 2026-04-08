@@ -23,6 +23,10 @@ vi.mock('../../../src/config/loader', () => ({
   resolveConfig: vi.fn(() => ({ ok: true, value: {} })),
 }));
 
+vi.mock('../../../src/skill/dispatcher', () => ({
+  suggest: vi.fn(),
+}));
+
 import {
   captureHealthSnapshot,
   loadCachedSnapshot,
@@ -30,6 +34,7 @@ import {
 } from '../../../src/skill/health-snapshot';
 import { recommend } from '../../../src/skill/recommendation-engine';
 import { loadOrRebuildIndex } from '../../../src/skill/index-builder';
+import { suggest } from '../../../src/skill/dispatcher';
 import type { HealthSnapshot } from '../../../src/skill/health-snapshot';
 
 const MOCK_SNAPSHOT: HealthSnapshot = {
@@ -96,6 +101,11 @@ beforeEach(() => {
   (loadOrRebuildIndex as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_INDEX);
   (recommend as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_RESULT);
   (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+  (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
+    suggestions: [],
+    autoInjectKnowledge: [],
+    context: { healthSignals: [], stackProfile: { frameworks: [], languages: [] } },
+  });
 });
 
 // ── Definition tests ──────────────────────────────────────────────
@@ -158,5 +168,46 @@ describe('handleRecommendSkills', () => {
     await handleRecommendSkills({});
 
     expect(captureHealthSnapshot).toHaveBeenCalledWith(process.cwd());
+  });
+});
+
+// ── Knowledge skill wiring tests ──────────────────────────────────
+
+describe('handleRecommendSkills — knowledge skill wiring', () => {
+  it('includes autoInjectKnowledge in formatted output when suggest() returns knowledge skills', async () => {
+    (loadCachedSnapshot as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_SNAPSHOT);
+    (isSnapshotFresh as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
+      suggestions: [],
+      autoInjectKnowledge: [
+        {
+          name: 'react-hooks-pattern',
+          score: 0.85,
+          reason: 'paths match: **/*.tsx',
+        },
+      ],
+      context: { healthSignals: [], stackProfile: { frameworks: [], languages: [] } },
+    });
+
+    const result = await handleRecommendSkills({
+      path: '/tmp/test',
+      recentFiles: ['src/App.tsx'],
+    });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toHaveProperty('autoInjectKnowledge');
+    expect(Array.isArray(parsed.autoInjectKnowledge)).toBe(true);
+  });
+
+  it('includes empty autoInjectKnowledge when no recentFiles provided', async () => {
+    (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
+      suggestions: [],
+      autoInjectKnowledge: [],
+      context: { healthSignals: [], stackProfile: { frameworks: [], languages: [] } },
+    });
+
+    const result = await handleRecommendSkills({ path: '/tmp/test', noCache: true });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toHaveProperty('autoInjectKnowledge');
+    expect(parsed.autoInjectKnowledge).toEqual([]);
   });
 });

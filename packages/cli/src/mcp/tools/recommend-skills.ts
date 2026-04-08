@@ -6,6 +6,7 @@ import {
 import type { HealthSnapshot } from '../../skill/health-snapshot.js';
 import { recommend } from '../../skill/recommendation-engine.js';
 import { loadOrRebuildIndex } from '../../skill/index-builder.js';
+import { suggest } from '../../skill/dispatcher.js';
 import { resolveConfig } from '../../config/loader.js';
 
 export const recommendSkillsDefinition = {
@@ -27,6 +28,11 @@ export const recommendSkillsDefinition = {
         type: 'number',
         description: 'Max recommendations to return (default 5)',
       },
+      recentFiles: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Recently edited files for knowledge skill path-matching',
+      },
     },
     required: [] as string[],
   },
@@ -38,6 +44,7 @@ export async function handleRecommendSkills(
   const projectRoot = (input.path as string) || process.cwd();
   const noCache = (input.noCache as boolean) || false;
   const top = (input.top as number) || 5;
+  const recentFiles = (input.recentFiles as string[]) || [];
 
   // Resolve snapshot
   let snapshot: HealthSnapshot | null = null;
@@ -71,10 +78,11 @@ export async function handleRecommendSkills(
 
   const result = recommend(snapshot, skills, { top });
 
-  // Phase B will wire knowledgeRecommendations here once task context
-  // (recentFiles, taskDescription) is available from the dispatcher.
+  // Wire suggest() to surface knowledge skills based on recently edited files
+  const suggestResult = suggest(index, '', null, recentFiles);
   const output = {
     ...result,
+    autoInjectKnowledge: suggestResult.autoInjectKnowledge,
     snapshotAge: usedCache ? 'cached' : 'fresh',
   };
 
