@@ -2,6 +2,8 @@ name: harness-sql-review
 version: "1.0.0"
 description: SQL query optimization, index analysis, N+1 detection, and query plan review
 cognitive_mode: adversarial-reviewer
+paths:
+  - '*.sql'
 triggers:
   - manual
   - on_pr

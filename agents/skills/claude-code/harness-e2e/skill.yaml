@@ -2,6 +2,13 @@ name: harness-e2e
 version: "1.0.0"
 description: End-to-end testing with Playwright, Cypress, and Selenium including page objects and flakiness remediation
 cognitive_mode: meticulous-implementer
+paths:
+  - 'playwright.config.ts'
+  - 'playwright.config.js'
+  - 'cypress.config.ts'
+  - 'cypress.config.js'
+  - '*.e2e.ts'
+  - '*.e2e.js'
 triggers:
   - manual
   - on_new_feature
