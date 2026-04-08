@@ -1,0 +1,39 @@
+name: react-2026
+version: '1.0.0'
+description: Modern React patterns for 2025-2026 including React 19, Compiler, and AI-integrated UI
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-server-components
+  - react-memoization-pattern
+  - react-concurrent-ui
+  - react-suspense-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - react-19
+  - compiler
+  - actions
+  - use-hook
+  - ai-ui
+  - modern-react
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/react-2026'
+state:
+  persistent: false
+  files: []
+depends_on: []
