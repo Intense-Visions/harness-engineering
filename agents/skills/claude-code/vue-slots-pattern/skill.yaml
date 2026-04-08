@@ -1,0 +1,36 @@
+name: vue-slots-pattern
+version: '1.0.0'
+description: Use named, scoped, and dynamic slots to build flexible, composable component APIs
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+  - '**/*.ts'
+related_skills:
+  - vue-renderless-components
+  - vue-teleport-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - slots
+  - named-slots
+  - scoped-slots
+  - slot-props
+  - component-composition
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/slots-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []
