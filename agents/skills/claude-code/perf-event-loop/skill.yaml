@@ -1,0 +1,34 @@
+name: perf-event-loop
+version: '1.0.0'
+description: Event loop architecture — task queues, microtask queue, rendering steps, task prioritization
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - perf-long-tasks
+  - perf-interaction-to-next-paint
+  - perf-critical-rendering-path
+  - ts-performance-patterns
+stack_signals: []
+keywords:
+  - event loop
+  - task queue
+  - microtask queue
+  - macrotask
+  - requestAnimationFrame
+  - setTimeout
+  - Promise
+  - queueMicrotask
+  - rendering steps
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
