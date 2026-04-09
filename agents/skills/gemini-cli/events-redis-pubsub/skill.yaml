@@ -10,6 +10,7 @@ platforms:
   - claude-code
   - gemini-cli
   - cursor
+  - codex
 tools: []
 paths:
   - "**/events/**"
@@ -39,4 +40,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-

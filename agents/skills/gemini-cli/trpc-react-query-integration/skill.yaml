@@ -10,6 +10,7 @@ platforms:
   - claude-code
   - gemini-cli
   - cursor
+  - codex
 tools: []
 paths:
   - "**/trpc/**"

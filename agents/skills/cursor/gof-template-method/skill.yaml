@@ -10,6 +10,7 @@ platforms:
   - claude-code
   - gemini-cli
   - cursor
+  - codex
 tools: []
 paths:
   - "**/*.ts"
@@ -32,4 +33,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-
