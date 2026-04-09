@@ -1,0 +1,34 @@
+name: design-gestalt-figure-ground
+version: "1.0.0"
+description: Depth perception — distinguishing foreground from background, ambiguous figure-ground as design tool, z-axis ordering, overlay and modal perception
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-elevation-shadow
+  - design-gestalt-closure-continuity
+stack_signals: []
+keywords:
+  - gestalt
+  - figure-ground
+  - depth
+  - foreground
+  - background
+  - z-axis
+  - overlay
+  - modal
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

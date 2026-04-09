@@ -1,0 +1,35 @@
+name: design-feedback-patterns
+version: "1.0.0"
+description: System response design — immediate vs delayed feedback, optimistic updates, progress indicators, confirmation patterns, undo vs confirm, toast/snackbar/banner
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-state-design
+  - design-micro-interactions
+  - design-affordances
+stack_signals: []
+keywords:
+  - feedback
+  - optimistic-updates
+  - progress-indicators
+  - confirmation
+  - undo
+  - toast
+  - snackbar
+  - banner
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

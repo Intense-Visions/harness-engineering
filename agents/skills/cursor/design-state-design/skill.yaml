@@ -1,0 +1,36 @@
+name: design-state-design
+version: "1.0.0"
+description: UI state inventory — empty, loading, partial, error, success, offline, disabled, read-only, and how each state communicates system status
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-feedback-patterns
+  - design-loading-patterns
+  - design-empty-error-states
+stack_signals: []
+keywords:
+  - state-design
+  - empty-state
+  - loading
+  - error
+  - success
+  - offline
+  - disabled
+  - read-only
+  - UI-states
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

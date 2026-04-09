@@ -1,0 +1,34 @@
+name: design-navigation-ux
+version: "1.0.0"
+description: Wayfinding — navigation models (hub-spoke, hierarchy, flat, content-driven), persistent vs contextual nav, breadcrumbs, information scent
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-affordances
+  - design-information-architecture
+stack_signals: []
+keywords:
+  - navigation
+  - wayfinding
+  - hub-spoke
+  - hierarchy
+  - flat-nav
+  - breadcrumbs
+  - information-scent
+  - spatial-memory
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

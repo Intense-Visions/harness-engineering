@@ -1,0 +1,33 @@
+name: design-loading-patterns
+version: "1.0.0"
+description: Perceived performance — skeleton screens, progressive loading, optimistic rendering, shimmer effects, content-first loading, perceived vs actual speed
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-state-design
+  - design-motion-principles
+  - design-empty-error-states
+stack_signals: []
+keywords:
+  - loading
+  - skeleton-screen
+  - progressive-loading
+  - optimistic-rendering
+  - shimmer
+  - perceived-performance
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,33 @@
+name: design-gestalt-closure-continuity
+version: "1.0.0"
+description: Pattern completion — the brain fills gaps in incomplete shapes (closure) and follows smooth paths over abrupt changes (continuity), implications for icons, progress indicators, and visual flow
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-gestalt-figure-ground
+  - design-iconography
+stack_signals: []
+keywords:
+  - gestalt
+  - closure
+  - continuity
+  - pattern-completion
+  - visual-flow
+  - icons
+  - progress-indicators
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

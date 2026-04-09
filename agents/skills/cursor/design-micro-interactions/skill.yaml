@@ -1,0 +1,35 @@
+name: design-micro-interactions
+version: "1.0.0"
+description: Small moments that delight — trigger, rules, feedback, loops/modes (Dan Saffer's framework), when micro-interactions aid usability vs decoration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-feedback-patterns
+  - design-motion-principles
+  - design-affordances
+stack_signals: []
+keywords:
+  - micro-interactions
+  - trigger
+  - feedback
+  - loops
+  - Dan-Saffer
+  - delight
+  - usability
+  - animation
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
