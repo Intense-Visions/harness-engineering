@@ -1,0 +1,32 @@
+name: perf-style-calculation
+version: '1.0.0'
+description: CSS selector matching — specificity costs, style recalculation triggers, selector performance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - perf-critical-rendering-path
+  - perf-layout-reflow
+  - css-performance-patterns
+stack_signals: []
+keywords:
+  - style recalculation
+  - selector matching
+  - specificity
+  - CSSOM
+  - computed style
+  - CSS containment
+  - style invalidation
+  - recalculate style
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
