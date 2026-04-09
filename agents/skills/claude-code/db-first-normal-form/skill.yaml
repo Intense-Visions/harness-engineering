@@ -1,0 +1,37 @@
+name: db-first-normal-form
+version: '1.0.0'
+description: Atomic values, no repeating groups, and primary key requirement for First Normal Form (1NF)
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-second-normal-form
+  - db-third-normal-form
+  - db-denormalization
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - normalization
+  - first-normal-form
+  - 1NF
+  - atomic-values
+  - repeating-groups
+  - primary-key
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/ddl-basics.html
+state:
+  persistent: false
+  files: []
+depends_on: []
