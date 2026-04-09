@@ -46,6 +46,37 @@ export function persistToolingConfig(
 }
 
 /**
+ * Ensure .harness/.gitignore exists so runtime artifacts are never committed.
+ * Shared between CLI init and MCP init_project.
+ */
+export function ensureHarnessGitignore(targetDir: string): void {
+  const gitignorePath = path.join(targetDir, '.harness', '.gitignore');
+  if (fs.existsSync(gitignorePath)) return;
+
+  const content = `# Runtime artifacts (generated, ephemeral, session-scoped)
+graph/
+debug/
+sessions/
+state.json
+state/
+handoff.json
+handoff-*.json
+autopilot-state.json
+session-taint-*.json
+dispatch-last-head.txt
+health-snapshot.json
+release-readiness.json
+skills-index.json
+stack-profile.json
+metrics/
+events.jsonl
+`;
+
+  fs.mkdirSync(path.dirname(gitignorePath), { recursive: true });
+  fs.writeFileSync(gitignorePath, content);
+}
+
+/**
  * Append framework conventions to existing AGENTS.md after template write.
  * Shared between CLI init and MCP init_project.
  */

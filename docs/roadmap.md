@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-07
-last_synced: 2026-04-09T17:35:00.000Z
-last_manual_edit: 2026-04-09T17:31:24.002Z
+updated: 2026-04-09
+last_synced: 2026-04-09T21:27:34.153Z
+last_manual_edit: 2026-04-09T21:56:08.584Z
 ---
 
 # Roadmap
@@ -782,7 +782,7 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 
 ### Design Knowledge Skills
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/design-knowledge-skills/proposal.md
 - **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
 - **Blockers:** —
@@ -793,7 +793,7 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 
 ### Performance Engineering Knowledge Skills
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
 - **Summary:** ~45 framework-agnostic performance knowledge skills covering browser rendering pipeline, Core Web Vitals, network optimization, JS runtime, caching hierarchies, bundle strategy, memory management, and rendering strategies
 - **Blockers:** —
@@ -805,8 +805,8 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 ### Database Design Knowledge Skills
 
 - **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
-- **Summary:** ~45 ORM-agnostic database design knowledge skills covering normalization, indexing strategy, query optimization, ACID/CAP, transaction isolation, concurrency patterns, schema design, sharding, and zero-downtime migrations
+- **Spec:** docs/changes/database-design-skills/proposal.md
+- **Summary:** 42 ORM-agnostic database design knowledge skills (db-{topic} naming) covering normalization, indexing, query planning, schema patterns, ACID, transactions, concurrency, CAP/BASE, data modeling, migrations, connection management, and sharding — PostgreSQL-primary with bidirectional ORM cross-references
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -816,7 +816,7 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 ### Security Fundamentals Knowledge Skills
 
 - **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Spec:** docs/changes/security-fundamentals-knowledge-skills/proposal.md
 - **Summary:** ~45 framework-agnostic security knowledge skills covering threat modeling, cryptography primitives, auth/authz design, zero-trust architecture, secrets management, transport security, supply chain security, and incident response
 - **Blockers:** —
 - **Plan:** —
@@ -845,6 +845,17 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#133
+
+### Adoption & Usage Telemetry
+
+- **Status:** planned
+- **Spec:** docs/changes/adoption-telemetry/proposal.md
+- **Summary:** Hook-based skill invocation tracking via adoption.jsonl, surfaced in CLI commands and dashboard. Local-only, on by default.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#134
 
 ## v3.0 Graph Intelligence
 
@@ -1074,7 +1085,7 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 
 ### Cross-Project Knowledge Federation
 
-- **Status:** planned
+- **Status:** blocked
 - **Spec:** docs/changes/cross-project-knowledge-federation/proposal.md
 - **Summary:** Decentralized knowledge sharing via package-native federation. PackageResolver interface for language-agnostic discovery. Four knowledge types (learnings, constraints, patterns, structural summaries) with visibility tags. Background sync via hooks + optional cron. [D2]
 - **Blockers:** Constraint sharing must ship first (proves cross-project sharing patterns); needs 5+ active harness-managed projects for adoption density
@@ -1243,7 +1254,7 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 
 ### Dashboard v3: Team & Stakeholder Views
 
-- **Status:** planned
+- **Status:** blocked
 - **Spec:** —
 - **Summary:** Persistent hosting option, multi-project aggregation, and presentation polish for the harness dashboard targeting team reviews and stakeholder visibility
 - **Blockers:** Dashboard v2: Orchestrator Observability
@@ -1416,3 +1427,9 @@ last_manual_edit: 2026-04-09T17:31:24.002Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#120
+
+## Assignment History
+
+| Feature                                  | Assignee    | Action   | Date       |
+| ---------------------------------------- | ----------- | -------- | ---------- |
+| Performance Engineering Knowledge Skills | Chad Warner | assigned | 2026-04-09 |

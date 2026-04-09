@@ -3,7 +3,11 @@ import * as fs from 'fs';
 import { resultToMcpResponse, type McpToolResponse } from '../utils/result-adapter.js';
 import { resolveTemplatesDir } from '../../utils/paths.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import { persistToolingConfig, appendFrameworkAgents } from '../../templates/post-write.js';
+import {
+  persistToolingConfig,
+  appendFrameworkAgents,
+  ensureHarnessGitignore,
+} from '../../templates/post-write.js';
 import type { TemplateMetadata } from '../../templates/schema.js';
 
 export const initProjectDefinition = {
@@ -121,6 +125,7 @@ function scaffoldMcp(
   if (writeResult.ok) {
     persistToolingConfig(safePath, resolveResult.value, i.framework);
     appendFrameworkAgents(safePath, i.framework, language);
+    ensureHarnessGitignore(safePath);
   }
 
   if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
