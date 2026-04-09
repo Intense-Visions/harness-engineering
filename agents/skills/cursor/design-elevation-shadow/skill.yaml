@@ -1,0 +1,34 @@
+name: design-elevation-shadow
+version: "1.0.0"
+description: Depth as information — shadow anatomy (offset, blur, spread, color), elevation scale, chromatic shadows, material metaphor, dark mode shadows
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-gestalt-figure-ground
+  - design-dark-mode-color
+stack_signals: []
+keywords:
+  - elevation
+  - shadow
+  - depth
+  - box-shadow
+  - chromatic-shadow
+  - material
+  - z-axis
+  - dark-mode-shadow
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

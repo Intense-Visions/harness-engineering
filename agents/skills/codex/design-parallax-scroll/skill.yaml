@@ -1,0 +1,34 @@
+name: design-parallax-scroll
+version: "1.0.0"
+description: Scroll-driven depth — rate-differential parallax, scroll-triggered reveals, sticky sections, scroll narrative, performance constraints, motion sensitivity
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-motion-principles
+  - design-elevation-shadow
+stack_signals: []
+keywords:
+  - parallax
+  - scroll
+  - scroll-driven
+  - sticky
+  - reveal
+  - performance
+  - motion-sensitivity
+  - narrative
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

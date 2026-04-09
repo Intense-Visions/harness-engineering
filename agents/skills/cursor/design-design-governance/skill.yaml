@@ -1,0 +1,34 @@
+name: design-design-governance
+version: '1.0.0'
+description: Living system maintenance covering contribution models, deprecation, versioning, adoption metrics, and documentation standards
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-atomic-design
+  - design-naming-conventions
+  - design-design-documentation
+stack_signals: []
+keywords:
+  - governance
+  - contribution
+  - deprecation
+  - versioning
+  - adoption
+  - documentation
+  - design-system-product
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,35 @@
+name: design-data-viz-design
+version: "1.0.0"
+description: Data visualization principles — chart selection, color encoding, annotation, Tufte's data-ink ratio, accessible charts, avoiding chartjunk, small multiples
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-color-accessibility
+  - design-contrast-ratio
+  - design-content-density
+stack_signals: []
+keywords:
+  - data-visualization
+  - charts
+  - data-ink-ratio
+  - Tufte
+  - chartjunk
+  - small-multiples
+  - color-encoding
+  - annotation
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

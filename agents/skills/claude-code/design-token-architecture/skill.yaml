@@ -1,0 +1,36 @@
+name: design-token-architecture
+version: '1.0.0'
+description: Token taxonomy covering primitive, semantic, and component tokens with naming conventions, aliasing, and theme switching
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-palette-construction
+  - design-type-scale
+  - design-atomic-design
+  - css-design-tokens
+stack_signals: []
+keywords:
+  - design-tokens
+  - primitive-tokens
+  - semantic-tokens
+  - component-tokens
+  - CTI
+  - aliasing
+  - theme-switching
+  - DTCG
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

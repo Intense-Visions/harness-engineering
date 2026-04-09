@@ -1,0 +1,35 @@
+name: design-imagery-photography
+version: "1.0.0"
+description: Image in design — art direction, aspect ratios, focal point, image treatments (duotone, overlay, blur), placeholder strategy, image as hero vs supporting
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-brand-consistency
+  - design-visual-hierarchy
+stack_signals: []
+keywords:
+  - imagery
+  - photography
+  - art-direction
+  - aspect-ratio
+  - focal-point
+  - duotone
+  - overlay
+  - placeholder
+  - hero-image
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

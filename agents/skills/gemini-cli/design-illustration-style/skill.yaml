@@ -1,0 +1,34 @@
+name: design-illustration-style
+version: "1.0.0"
+description: Illustration system — style consistency, spot vs hero illustrations, illustration as brand voice, abstract vs representational, illustration tokens
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-brand-consistency
+  - design-iconography
+stack_signals: []
+keywords:
+  - illustration
+  - style-system
+  - spot-illustration
+  - hero-illustration
+  - brand-voice
+  - abstract
+  - representational
+  - illustration-tokens
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

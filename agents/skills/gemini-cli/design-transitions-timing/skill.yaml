@@ -1,0 +1,34 @@
+name: design-transitions-timing
+version: "1.0.0"
+description: Temporal design — enter/exit asymmetry, stagger patterns, easing functions (ease-out for enter, ease-in for exit), duration by element size, interruptibility
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-motion-principles
+  - design-micro-interactions
+stack_signals: []
+keywords:
+  - transitions
+  - timing
+  - easing
+  - stagger
+  - enter-exit
+  - asymmetry
+  - interruptibility
+  - duration
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,34 @@
+name: design-naming-conventions
+version: '1.0.0'
+description: Design system nomenclature for semantic and descriptive names, color naming, size naming, and cross-discipline vocabulary
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-token-architecture
+  - design-component-anatomy
+  - design-design-governance
+stack_signals: []
+keywords:
+  - naming
+  - semantic-names
+  - descriptive-names
+  - vocabulary
+  - nomenclature
+  - color-naming
+  - size-naming
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
