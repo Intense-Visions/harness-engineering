@@ -1,0 +1,34 @@
+name: perf-layout-reflow
+version: '1.0.0'
+description: Layout triggers — forced synchronous layouts, layout thrashing, containment strategies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths: []
+related_skills:
+  - perf-critical-rendering-path
+  - perf-style-calculation
+  - perf-paint-compositing
+  - perf-interaction-to-next-paint
+  - css-performance-patterns
+stack_signals: []
+keywords:
+  - layout
+  - reflow
+  - forced synchronous layout
+  - layout thrashing
+  - layout containment
+  - offsetWidth
+  - getBoundingClientRect
+  - ResizeObserver
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

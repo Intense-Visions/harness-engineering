@@ -1,0 +1,36 @@
+name: perf-paint-compositing
+version: '1.0.0'
+description: Paint layers and compositor — GPU compositing, will-change, layer promotion, paint complexity
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - gemini-cli
+tools: []
+paths: []
+related_skills:
+  - perf-critical-rendering-path
+  - perf-layout-reflow
+  - perf-cumulative-layout-shift
+  - css-performance-patterns
+  - mobile-performance-patterns
+stack_signals: []
+keywords:
+  - paint
+  - compositing
+  - GPU layers
+  - will-change
+  - layer promotion
+  - compositor thread
+  - raster
+  - paint complexity
+  - transform
+  - opacity
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

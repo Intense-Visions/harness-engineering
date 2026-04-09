@@ -1,0 +1,34 @@
+name: perf-long-tasks
+version: '1.0.0'
+description: Long task detection — breaking up work, yielding to the main thread, scheduler API, web workers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-event-loop
+  - perf-interaction-to-next-paint
+  - perf-profiling-methodology
+  - ts-performance-patterns
+stack_signals: []
+keywords:
+  - long task
+  - main thread
+  - yielding
+  - scheduler.yield
+  - scheduler.postTask
+  - web worker
+  - isInputPending
+  - time slicing
+  - 50ms budget
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

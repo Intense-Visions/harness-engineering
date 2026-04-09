@@ -1,0 +1,37 @@
+name: perf-largest-contentful-paint
+version: '1.0.0'
+description: LCP measurement — root causes, sub-part timing, optimization strategies for the largest visible element
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths: []
+related_skills:
+  - perf-critical-rendering-path
+  - perf-dom-parsing
+  - perf-interaction-to-next-paint
+  - perf-cumulative-layout-shift
+  - perf-performance-api
+  - mobile-performance-patterns
+  - angular-performance-patterns
+stack_signals: []
+keywords:
+  - LCP
+  - largest contentful paint
+  - Core Web Vitals
+  - TTFB
+  - resource load delay
+  - render delay
+  - image optimization
+  - preload
+  - fetchpriority
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

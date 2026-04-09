@@ -1,0 +1,37 @@
+name: perf-performance-api
+version: '1.0.0'
+description: Performance Observer and timing APIs — PerformanceEntry types, User Timing, Resource Timing, Navigation Timing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-largest-contentful-paint
+  - perf-interaction-to-next-paint
+  - perf-cumulative-layout-shift
+  - perf-long-tasks
+  - perf-profiling-methodology
+  - otel-performance-insights
+  - test-performance-testing
+stack_signals: []
+keywords:
+  - Performance API
+  - PerformanceObserver
+  - User Timing
+  - Resource Timing
+  - Navigation Timing
+  - performance.mark
+  - performance.measure
+  - PerformanceEntry
+  - Server Timing
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,34 @@
+name: perf-heap-profiling
+version: '1.0.0'
+description: Heap profiling — Chrome DevTools heap snapshots, allocation tracking, retained vs shallow size
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - cursor
+tools: []
+paths: []
+related_skills:
+  - perf-memory-leaks
+  - perf-garbage-collection
+  - perf-profiling-methodology
+  - node-performance-profiling
+stack_signals: []
+keywords:
+  - heap snapshot
+  - allocation tracking
+  - retained size
+  - shallow size
+  - dominator tree
+  - retaining path
+  - Chrome DevTools
+  - memory profiling
+  - heapdump
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

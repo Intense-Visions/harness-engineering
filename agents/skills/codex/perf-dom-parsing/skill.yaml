@@ -1,0 +1,32 @@
+name: perf-dom-parsing
+version: '1.0.0'
+description: HTML parsing — tokenization, tree construction, speculative parsing, parser-blocking scripts
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-critical-rendering-path
+  - perf-style-calculation
+  - perf-largest-contentful-paint
+stack_signals: []
+keywords:
+  - HTML parser
+  - tokenization
+  - tree construction
+  - speculative parsing
+  - preload scanner
+  - parser blocking
+  - document.write
+  - DOMContentLoaded
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
