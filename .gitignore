@@ -42,7 +42,7 @@ temp/
 .worktrees/
 .claude/worktrees/
 
-# Harness runtime artifacts
+# Harness runtime artifacts (see .harness/.gitignore)
 .harness/graph/
 .harness/debug/
 .harness/sessions/
