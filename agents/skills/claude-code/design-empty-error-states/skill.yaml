@@ -21,7 +21,7 @@ stack_signals: []
 keywords:
   - empty-state
   - error-state
-  - 404
+  - "404"
   - zero-data
   - degraded-state
   - onboarding
