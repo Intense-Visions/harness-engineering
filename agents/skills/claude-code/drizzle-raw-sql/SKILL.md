@@ -139,3 +139,19 @@ const filter = userId ? sql`WHERE author_id = ${userId}` : sql.empty;
 ## Source
 
 https://orm.drizzle.team/docs/sql
+
+## Process
+
+1. Read the instructions and examples in this document.
+2. Apply the patterns to your implementation, adapting to your specific context.
+3. Verify your implementation against the details and edge cases listed above.
+
+## Harness Integration
+
+- **Type:** knowledge — this skill is a reference document, not a procedural workflow.
+- **No tools or state** — consumed as context by other skills and agents.
+
+## Success Criteria
+
+- The patterns described in this document are applied correctly in the implementation.
+- Edge cases and anti-patterns listed in this document are avoided.
