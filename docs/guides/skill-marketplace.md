@@ -44,6 +44,44 @@ harness install my-skill --from ./my-skill-1.0.0.tgz
 
 Local installs validate `skill.yaml` the same way registry installs do. The lockfile records `resolved: "local:<path>"` to distinguish local from registry installs.
 
+### From a GitHub repository
+
+```bash
+# Install from a GitHub repo (discovers all skills in the repo)
+harness install skills --from github:owner/repo
+
+# Install from a specific branch or tag
+harness install skills --from github:owner/repo#v2.0
+
+# Install using a full GitHub URL
+harness install skills --from https://github.com/owner/repo
+```
+
+GitHub installs perform a shallow clone to a temp directory, then recursively discover all `skill.yaml` files (up to 3 levels deep). Each discovered skill is installed as a separate entry in the lockfile.
+
+### Bulk install from a directory
+
+If `--from` points to a directory that does **not** contain a `skill.yaml` at its root, harness treats it as a bulk install — it recursively discovers all subdirectories containing `skill.yaml` (up to 3 levels deep) and installs each one:
+
+```bash
+# Install all skills from a directory containing multiple skill subdirectories
+harness install skills --from ./my-skill-collection/
+```
+
+### Global install
+
+By default, skills are installed to the project-level `agents/skills/community/` directory. Use `--global` to install to `~/.harness/skills/community/` so the skill is available to all projects:
+
+```bash
+# Install globally for all projects
+harness install deployment --global
+
+# Global install from GitHub
+harness install skills --from github:owner/repo --global
+```
+
+Global skills are included in `harness skill list` output and follow the same discovery priority (project-local > community > bundled).
+
 ### From a private registry
 
 ```bash
@@ -61,14 +99,25 @@ The `--registry` flag also works with `harness skill search` and `harness skill 
 
 ### What install does
 
+**Registry install** (`harness install <skill>`):
+
 1. Resolves `<skill>` to `@harness-skills/<skill>`
-2. Fetches package metadata from the npm registry
-3. Resolves version (latest, or semver range via `--version`)
-4. Downloads and extracts the tarball
-5. Validates `skill.yaml` against the schema
-6. Copies content to `agents/skills/community/{platform}/` for each declared platform
-7. Auto-installs `depends_on` dependencies (logged as transitive installs)
-8. Updates `agents/skills/community/skills-lock.json`
+2. Checks that the skill name does not collide with a bundled skill (project-level installs only)
+3. Fetches package metadata from the npm registry
+4. Resolves version (latest, or semver range via `--version`)
+5. Checks lockfile — skips if same version already installed (unless `--force`)
+6. Downloads and extracts the tarball
+7. Validates `skill.yaml` against the schema
+8. Copies content to `agents/skills/community/{platform}/` for each declared platform
+9. Auto-installs `depends_on` dependencies (logged as transitive installs)
+10. Updates `agents/skills/community/skills-lock.json`
+
+**Local/GitHub install** (`harness install <skill> --from <source>`):
+
+1. If `--from` is a GitHub reference: shallow-clones the repo to a temp directory
+2. If the source directory has no `skill.yaml` at root: discovers skills recursively (up to 3 levels)
+3. For each discovered skill: validates `skill.yaml`, places content, updates lockfile with `resolved: "local:<path>"`
+4. Cleans up temp directories
 
 ## Uninstalling Skills
 
@@ -101,6 +150,15 @@ harness skill search deploy --registry https://npm.mycompany.com
 ```
 
 Search queries the npm registry API scoped to `@harness-skills/*` packages. Results show name, version, description, and keywords.
+
+### Info
+
+```bash
+# Show detailed metadata for a skill
+harness skill info deployment
+```
+
+Displays name, version, type, description, triggers, platforms, tools, phases, and dependencies for a specific skill.
 
 ### List
 
@@ -226,13 +284,16 @@ The lockfile is deterministic (sorted keys) so it produces clean git diffs. You 
 ```
 packages/cli/src/
 ├── commands/
-│   ├── install.ts              — harness install <skill>
+│   ├── install.ts              — harness install <skill> (registry, local, GitHub, bulk)
 │   ├── uninstall.ts            — harness uninstall <skill>
 │   └── skill/
 │       ├── search.ts           — harness skill search <query>
 │       ├── create.ts           — harness skill create <name>
 │       ├── publish.ts          — harness skill publish
-│       └── list.ts             — harness skill list (with source filtering)
+│       ├── info.ts             — harness skill info <name>
+│       ├── list.ts             — harness skill list (with source filtering)
+│       ├── run.ts              — harness skill run <name>
+│       └── validate.ts         — harness skill validate <name>
 ├── registry/
 │   ├── npm-client.ts           — npm API: fetch, download, search, .npmrc tokens
 │   ├── tarball.ts              — extract tgz, place/remove skill content

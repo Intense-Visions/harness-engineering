@@ -3,8 +3,8 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-07
-last_synced: 2026-04-07T21:22:00.000Z
-last_manual_edit: 2026-04-09T16:03:10.146Z
+last_synced: 2026-04-09T17:35:00.000Z
+last_manual_edit: 2026-04-09T17:31:24.002Z
 ---
 
 # Roadmap
@@ -782,7 +782,7 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Design Knowledge Skills
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/design-knowledge-skills/proposal.md
 - **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
 - **Blockers:** —
@@ -1050,7 +1050,7 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Knowledge Skills Category & Schema Enrichment
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/knowledge-skills-schema-enrichment/proposal.md
 - **Summary:** Add paths, related_skills, metadata fields to skill.yaml schema + progressive disclosure in SKILL.md. Add type: knowledge to skill type enum. Import 58 PatternsDev/skills (JS/React/Vue patterns) as seed knowledge catalog. Update dispatch engine for file-glob activation. ADR: .harness/architecture/patternsdev-skills-adoption/ADR-001.md
 - **Blockers:** —

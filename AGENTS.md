@@ -103,11 +103,58 @@ Each package has a clear responsibility:
 - **eslint-plugin**: ESLint rules for architectural constraint enforcement (depends on types, core)
 - **linter-gen**: YAML-to-ESLint rule generator (depends on types, core)
 - **orchestrator**: Agent orchestration daemon for dispatching coding agents to issues (depends on types, core)
+- **dashboard**: Web dashboard — React + Hono full-stack app with 6 pages (Overview, Roadmap, Health, Graph, CI, Impact), SSE-based live updates, and server-side data gathering (depends on types, core, graph)
 - **cli**: CLI tool and MCP server — top-level integration layer (depends on all packages)
 
 ### Notable Core Modules
 
 - **pricing** (`packages/core/src/pricing/`): LiteLLM-based model pricing lookup. Fetches pricing data from LiteLLM's GitHub JSON with a 24h disk cache at `.harness/cache/pricing.json`, falling back to a bundled `fallback.json` for offline/CI use. Public API: `getModelPrice(model)` returns per-1M-token rates, `calculateCost(record)` returns integer microdollars (USD \* 1,000,000) to avoid floating-point drift. Supports Claude, GPT-4, and Gemini model families.
+  - `pricing.ts` — Parses LiteLLM's raw pricing JSON into a PricingDataset map, filtering to chat models with valid costs
+  - `calculator.ts` — Calculates cost of a usage record in integer microdollars accounting for input/output/cache tokens
+  - `cache.ts` — 24-hour TTL disk cache for LiteLLM pricing with fallback and staleness warning
+
+- **security** (`packages/core/src/security/`): Taint tracking, injection detection, and security rule enforcement.
+  - `taint.ts` — Session-scoped taint file read/write/check/clear/expire logic via `.harness/session-taint-{sessionId}.json`
+  - `scan-config-shared.ts` — Shared scan-config types and utilities for CLI and orchestrator workspace scanner
+  - `injection-patterns.ts` — Shared pattern library for detecting prompt injection attacks in text input
+  - `rules/sharp-edges.ts` — Rules for deprecated crypto APIs (createCipher/createDecipher) and weak cryptography
+  - `rules/insecure-defaults.ts` — Rules for hardcoded defaults on sensitive variables and TLS/SSL disabled by default
+  - `rules/agent-config.ts` — Rules for agent configuration (hidden unicode, URL execution directives, wildcard permissions)
+
+- **architecture** (`packages/core/src/architecture/`): Architecture stability tracking and constraint failure prediction.
+  - `timeline-types.ts` — Zod schemas for architectural timeline snapshots and per-category metric aggregates
+  - `timeline-manager.ts` — Disk I/O and lifecycle management for `timeline.json` storing historical stability snapshots
+  - `spec-impact-estimator.ts` — Mechanical extraction of structural signals (layer violations, coupling, complexity) from spec files
+  - `regression.ts` — Pure math module for weighted linear regression on metric time series
+  - `prediction-types.ts` — Zod schemas for regression results, direction classification, and failure forecasts
+  - `prediction-engine.ts` — Constraint failure prediction using timeline trends and roadmap impact to forecast threshold breaks
+
+- **usage** (`packages/core/src/usage/`): Token usage tracking and cost aggregation.
+  - `jsonl-reader.ts` — Extracts and validates token_usage from parsed JSONL entries
+  - `cc-parser.ts` — Parses Claude Code JSONL logs with deduplication of streaming chunks by requestId
+  - `aggregator.ts` — Aggregates UsageRecords from harness and claude-code sources by session and day with cost calculation
+
+- **state** (`packages/core/src/state/`): Session state and learnings lifecycle management.
+  - `session-sections.ts` — Loader for session-state.json managing accumulative sections (terminology, decisions, constraints, risks, openQuestions, evidence)
+  - `session-archive.ts` — Archives completed sessions by moving directory to `.harness/archive/sessions/<slug>-<date>`
+  - `learnings-loader.ts` — Mtime-based cache loader for learnings files; leaf module preventing circular dependencies
+  - `learnings-lifecycle.ts` — Archive/prune/promotion/counting operations on learnings with pattern analysis
+  - `learnings-content.ts` — Content deduplication via normalization, content hashing, and hash index management
+
+- **code-nav** (`packages/core/src/code-nav/`): Tree-sitter-based code navigation and symbol extraction.
+  - `outline.ts` — Extracts top-level code symbols (functions, classes, interfaces, types) with locations
+  - `unfold.ts` — Extracts specific symbol implementations or line ranges from source files
+  - `parser.ts` — Web-tree-sitter parser wrapper with language detection and grammar caching for TS/JS/Python
+
+- **review** (`packages/core/src/review/`): Code review evidence validation.
+  - `evidence-gate.ts` — Parses file:line references from evidence entries and validates coverage against changed files
+
+- **roadmap** (`packages/core/src/roadmap/`): Roadmap parsing, sync, and pilot selection (see also Project Roadmap section).
+  - `tracker-sync.ts` — Abstract interface for syncing roadmap features with external trackers
+  - `sync-engine.ts` — Bidirectional roadmap-to-external-tracker sync with title dedup and status rank protection
+  - `status-rank.ts` — Status rank ordering (backlog < planned/blocked < in-progress < done) for directional sync protection
+  - `pilot-scoring.ts` — Pilot selection algorithm scoring candidates by position, dependents, and affinity within priority tiers
+  - `adapters/github-issues.ts` — GitHub Issues sync adapter with label-based status disambiguation
 
 ## Development Workflow
 
@@ -253,6 +300,92 @@ Configuration example:
   "references": [{ "path": "./packages/types" }, { "path": "./packages/core" }]
 }
 ```
+
+### CLI Subsystems
+
+**Commands** (`packages/cli/src/commands/`):
+
+- `usage.ts` — Loads and prices usage records from cost data and Claude sessions
+- `traceability.ts` — Checks requirement-to-code-to-test traceability for specs with confidence levels
+- `taint.ts` — Manages session taint state to block destructive operations after injection detection
+- `scan-config.ts` — Scans configuration files for injection patterns and security violations
+- `recommend.ts` — Recommends skills based on codebase health snapshot with urgency markers
+- `predict.ts` — Predicts architectural constraint violations using decay trends and roadmap features
+- `doctor.ts` — Runs system health checks (Node version, MCP config, integrations)
+- `dashboard.ts` — Launches the web dashboard server on configurable ports
+- `integrations/dismiss.ts` — Dismisses integrations by adding them to the dismissed list in config
+- `_registry.ts` — Auto-generated barrel export aggregating all command constructors
+
+**Hooks** (`packages/cli/src/hooks/`): Claude Code lifecycle hooks for security and quality enforcement.
+
+- `sentinel-pre.js` — PreToolUse hook that blocks destructive bash operations during tainted sessions
+- `sentinel-post.js` — PostToolUse hook that scans outputs for injection patterns and sets taint
+- `quality-gate.js` — PostToolUse hook that runs formatter/linter checks after edits
+- `protect-config.js` — PreToolUse hook that blocks modifications to linter and formatter config files
+- `pre-compact-state.js` — PreCompact hook that saves a compact session summary before context compaction
+- `cost-tracker.js` — Stop hook that appends token usage to `.harness/metrics/costs.jsonl`
+- `block-no-verify.js` — PreToolUse hook that blocks git commands using `--no-verify` flag
+- `profiles.ts` — Defines hook profile tiers (minimal/standard/strict) with event matchers
+
+**MCP Tools** (`packages/cli/src/mcp/tools/`):
+
+- `traceability.ts` — MCP tool for checking requirement-to-code-to-test traceability
+- `recommend-skills.ts` — MCP tool that recommends skills based on codebase health with caching
+- `predict-failures.ts` — MCP tool that forecasts architectural constraint violations using decay trends
+- `dispatch-skills.ts` — MCP tool that recommends optimal skill sequences based on git diffs
+- `decay-trends.ts` — MCP tool that analyzes architecture decay trends over timeline snapshots
+- `code-nav.ts` — MCP tool that extracts structural skeletons and searches symbols from code files
+- `graph/compute-blast-radius.ts` — MCP tool that simulates cascading failure propagation using probability-weighted BFS
+- `middleware/injection-guard.ts` — Wraps MCP tool handlers with pre/post injection scanning for tainted session enforcement
+
+**Skill Dispatch** (`packages/cli/src/skill/`): Intelligent skill recommendation and dispatch.
+
+- `recommendation-engine.ts` — Three-layer system combining hard rules, health scoring, and topological sequencing
+- `recommendation-types.ts` — Standardized health signal identifiers and recommendation result types
+- `recommendation-rules.ts` — Fallback address rules for bundled skills without declared addresses
+- `health-snapshot.ts` — Captures and caches codebase health state with checks, metrics, and freshness validation
+- `dispatch-types.ts` — Types for enriched dispatch context combining snapshots with change-type and domain signals
+- `dispatch-session.ts` — Session-start dispatch integration that detects HEAD delta and returns skill recommendations
+- `dispatch-engine.ts` — Enriches health snapshots with change-type and domain signals for recommendation engine
+
+**Other CLI modules:**
+
+- `templates/post-write.ts` — Persists tooling and framework metadata to `harness.config.json` after template init
+- `templates/agents-append.ts` — Appends framework-specific conventions to AGENTS.md during project setup
+- `utils/node-version.ts` — Validates Node.js version meets minimum requirement (>=22.0.0)
+- `utils/first-run.ts` — Detects and marks first run of harness via `~/.harness/.setup-complete` marker
+- `slash-commands/sync-codex.ts` — Syncs skill YAML/MD files to Codex output directory with add/update/remove tracking
+- `slash-commands/render-cursor.ts` — Renders cursor-compatible YAML frontmatter with globs and alwaysApply config
+- `slash-commands/render-codex.ts` — Renders Codex-compatible markdown and YAML files for skill distribution
+- `integrations/toml.ts` — Writes MCP server entries to TOML config files with atomic pattern preservation
+
+### Dashboard Package
+
+`packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
+
+**Client** (`src/client/`): React SPA with 6 pages (Overview, Roadmap, Health, Graph, CI, Impact), reusable components (KpiCard, GanttChart, DependencyGraph, BlastRadiusGraph, ProgressChart, ActionButton, StaleIndicator, Layout), and SSE-based live data hooks (`useSSE`, `useApi`).
+
+**Server** (`src/server/`): Hono HTTP server with SSE connection manager running a shared polling loop. Routes: overview, health, impact, ci, actions, sse, health-check. Data gatherers: health, ci, blast-radius, arch, anomalies.
+
+### Graph Subsystems
+
+In addition to the core graph store and ContextQL engine:
+
+- `query/Traceability.ts` — Traces requirement-to-code/test coverage with confidence levels and EARS pattern detection
+- `ingest/RequirementIngestor.ts` — Ingests requirements from spec markdown sections (Observable Truths, Success Criteria, Acceptance Criteria)
+- `blast-radius/CascadeSimulator.ts` — Probability-weighted BFS simulating cascading failure propagation from a source node
+- `blast-radius/CompositeProbabilityStrategy.ts` — Blends edge type weight (50%), change frequency (30%), and coupling strength (20%) for failure propagation probability
+- `benchmarks/queries.bench.ts` — Vitest benchmarks for graph queries with medium (100-node) synthetic fixtures
+
+### Types Package Detail
+
+Beyond the core Result, Config, and ValidationError types:
+
+- `workflow.ts` — Types for multi-skill workflows with step dependencies, gates, and outcomes
+- `usage.ts` — UsageRecord composition of TokenUsage with cache tokens, model, and cost tracking
+- `tracker-sync.ts` — ExternalTicket/ExternalTicketState types for bidirectional tracker integration
+- `session-state.ts` — SessionSectionName union type and session entry lifecycle
+- `ci.ts` — CICheckName, CICheckStatus, and CICheckIssue types for CI check reporting
 
 ### Unified Knowledge Graph
 
@@ -608,6 +741,6 @@ This is the living documentation of our project - keep it accurate and comprehen
 
 ---
 
-**Last Updated**: 2026-03-24
-**Version**: 1.1
+**Last Updated**: 2026-04-09
+**Version**: 1.2
 **Maintained By**: AI Agents and Engineering Team

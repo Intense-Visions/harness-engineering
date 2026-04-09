@@ -50,7 +50,8 @@ temp/
 .harness/handoff.json
 .harness/state.json
 .harness/state/
+.harness/dispatch-last-head.txt
 
 .vitepress
 *.tsbuildinfo
-.harness/state/pre-compact-summary.json
+
