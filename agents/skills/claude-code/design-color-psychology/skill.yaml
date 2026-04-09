@@ -1,0 +1,31 @@
+name: design-color-psychology
+version: "1.0.0"
+description: Emotional and cultural color associations — warmth/coolness, trust, urgency, industry conventions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-color-harmony
+  - design-brand-consistency
+stack_signals: []
+keywords:
+  - color psychology
+  - color meaning
+  - emotional associations
+  - cultural color
+  - warmth
+  - coolness
+  - trust
+  - urgency
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
