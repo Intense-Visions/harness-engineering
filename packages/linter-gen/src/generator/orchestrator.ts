@@ -134,6 +134,23 @@ async function writeIndexFile(
   }
 }
 
+async function processAllRules(
+  rules: RuleConfig[],
+  templates: Parameters<typeof loadTemplate>[1],
+  configDir: string,
+  outputDir: string,
+  configPath: string,
+  dryRun: boolean,
+  errors: GeneratorError[]
+): Promise<string[]> {
+  const generatedRules: string[] = [];
+  for (const rule of rules) {
+    const name = await processRule(rule, templates, configDir, outputDir, configPath, dryRun, errors);
+    if (name) generatedRules.push(name);
+  }
+  return generatedRules;
+}
+
 /**
  * Generate ESLint rules from harness-linter.yml config
  */
@@ -154,20 +171,15 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
     await prepareOutputDir(outputDir, options.clean ?? false);
   }
 
-  const generatedRules: string[] = [];
-
-  for (const rule of config.rules) {
-    const name = await processRule(
-      rule,
-      config.templates,
-      configDir,
-      outputDir,
-      options.configPath,
-      dryRun,
-      errors
-    );
-    if (name) generatedRules.push(name);
-  }
+  const generatedRules = await processAllRules(
+    config.rules,
+    config.templates,
+    configDir,
+    outputDir,
+    options.configPath,
+    dryRun,
+    errors
+  );
 
   if (generatedRules.length > 0 && !dryRun) {
     await writeIndexFile(outputDir, generatedRules, errors);

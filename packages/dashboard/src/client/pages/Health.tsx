@@ -4,7 +4,7 @@ import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { isHealthData, isSecurityData, isPerfData, isArchData } from '../utils/typeGuards';
-import type { HealthData, SecurityData, PerfData, ArchData } from '@shared/types';
+import type { HealthData, SecurityData, PerfData, ArchData, OverviewData, ChecksData } from '@shared/types';
 
 function CollapsibleSection({
   title,
@@ -257,16 +257,61 @@ function CheckSection<T>({
   );
 }
 
+function HealthErrorMessage({ health }: { health: Record<string, unknown> }) {
+  const msg = 'error' in health ? String(health.error) : 'Unavailable';
+  return <p className="text-sm text-red-400">{msg}</p>;
+}
+
+function HealthDetails({
+  healthData,
+  security,
+  perf,
+  arch,
+}: {
+  healthData: HealthData;
+  security: unknown;
+  perf: unknown;
+  arch: unknown;
+}) {
+  return (
+    <div className="space-y-8">
+      <EntropySection healthData={healthData} />
+      <ScanDetailsSection healthData={healthData} />
+      <AnalysisErrorsSection healthData={healthData} />
+      <CheckSection title="Security" raw={security} guard={isSecurityData} Section={SecuritySection} />
+      <CheckSection title="Performance" raw={perf} guard={isPerfData} Section={PerfSection} />
+      <CheckSection title="Architecture" raw={arch} guard={isArchData} Section={ArchSection} />
+    </div>
+  );
+}
+
+function resolveHealthData(data: OverviewData | null): {
+  health: OverviewData['health'] | null;
+  healthData: HealthData | null;
+} {
+  const health = data ? data.health : null;
+  const healthData = health && isHealthData(health) ? health : null;
+  return { health, healthData };
+}
+
+function resolveChecksData(checksData: ChecksData | null): {
+  security: ChecksData['security'] | null;
+  perf: ChecksData['perf'] | null;
+  arch: ChecksData['arch'] | null;
+} {
+  return {
+    security: checksData ? checksData.security : null,
+    perf: checksData ? checksData.perf : null,
+    arch: checksData ? checksData.arch : null,
+  };
+}
+
 export function Health() {
   const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
   const { data: checksData } = useSSE(SSE_ENDPOINT, 'checks');
 
-  const health = data ? data.health : null;
-  const healthData = health && isHealthData(health) ? health : null;
-
-  const security = checksData ? checksData.security : null;
-  const perf = checksData ? checksData.perf : null;
-  const arch = checksData ? checksData.arch : null;
+  const { health, healthData } = resolveHealthData(data);
+  const { security, perf, arch } = resolveChecksData(checksData);
 
   return (
     <div>
@@ -278,23 +323,11 @@ export function Health() {
       {!data && !error && <p className="text-sm text-gray-500">Connecting to data stream...</p>}
 
       {health && !healthData && (
-        <p className="text-sm text-red-400">{'error' in health ? health.error : 'Unavailable'}</p>
+        <HealthErrorMessage health={health as unknown as Record<string, unknown>} />
       )}
 
       {healthData && (
-        <div className="space-y-8">
-          <EntropySection healthData={healthData} />
-          <ScanDetailsSection healthData={healthData} />
-          <AnalysisErrorsSection healthData={healthData} />
-          <CheckSection
-            title="Security"
-            raw={security}
-            guard={isSecurityData}
-            Section={SecuritySection}
-          />
-          <CheckSection title="Performance" raw={perf} guard={isPerfData} Section={PerfSection} />
-          <CheckSection title="Architecture" raw={arch} guard={isArchData} Section={ArchSection} />
-        </div>
+        <HealthDetails healthData={healthData} security={security} perf={perf} arch={arch} />
       )}
     </div>
   );

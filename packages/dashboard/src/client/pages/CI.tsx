@@ -167,7 +167,7 @@ export function CI() {
 
   return (
     <div>
-      <CIHeader lastRun={ciData?.lastRun} onRefreshSuccess={refresh} />
+      <CIHeader lastRun={ciData?.lastRun ?? undefined} onRefreshSuccess={refresh} />
 
       {loading && !ciData && <p className="text-sm text-gray-500">Loading check results...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}

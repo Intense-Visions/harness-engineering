@@ -12,6 +12,42 @@ const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 const FUNCTION_DECL_RE = /(?:export\s+)?(?:async\s+)?function\s+(\w+)/;
 const CONST_DECL_RE = /(?:export\s+)?(?:const|let)\s+(\w+)\s*=/;
 
+/**
+ * Merge graph-inferred high-fan-in functions into the seen map, skipping duplicates.
+ * Returns the count of newly added entries.
+ */
+function mergeGraphInferred(
+  highFanInFunctions: GraphCriticalPathData['highFanInFunctions'],
+  seen: Map<string, CriticalPathEntry>
+): number {
+  let added = 0;
+  for (const item of highFanInFunctions) {
+    const key = `${item.file}::${item.function}`;
+    if (!seen.has(key)) {
+      seen.set(key, {
+        file: item.file,
+        function: item.function,
+        source: 'graph-inferred',
+        fanIn: item.fanIn,
+      });
+      added++;
+    }
+  }
+  return added;
+}
+
+function isCommentOrBlank(line: string): boolean {
+  return line === '' || line === '*/' || line === '*' || line.startsWith('*') || line.startsWith('//');
+}
+
+function matchDeclarationName(line: string): string | null {
+  const funcMatch = line.match(FUNCTION_DECL_RE);
+  if (funcMatch?.[1]) return funcMatch[1];
+  const constMatch = line.match(CONST_DECL_RE);
+  if (constMatch?.[1]) return constMatch[1];
+  return null;
+}
+
 export class CriticalPathResolver {
   private readonly projectRoot: string;
 
@@ -30,29 +66,16 @@ export class CriticalPathResolver {
     }
 
     // Add graph-inferred entries, skipping duplicates
-    let graphInferred = 0;
-    if (graphData) {
-      for (const item of graphData.highFanInFunctions) {
-        const key = `${item.file}::${item.function}`;
-        if (!seen.has(key)) {
-          seen.set(key, {
-            file: item.file,
-            function: item.function,
-            source: 'graph-inferred',
-            fanIn: item.fanIn,
-          });
-          graphInferred++;
-        }
-      }
-    }
+    const graphInferred = graphData
+      ? mergeGraphInferred(graphData.highFanInFunctions, seen)
+      : 0;
 
     const entries = Array.from(seen.values());
-    const annotatedCount = annotated.length;
 
     return {
       entries,
       stats: {
-        annotated: annotatedCount,
+        annotated: annotated.length,
         graphInferred,
         total: entries.length,
       },
@@ -83,23 +106,11 @@ export class CriticalPathResolver {
     }
   }
 
-  /**
-   * Determine the function name from the first non-comment line after a @perf-critical annotation.
-   * Returns null if no matching declaration is found.
-   */
   private resolveFunctionName(lines: string[], fromIndex: number): string | null {
     for (let j = fromIndex; j < lines.length; j++) {
       const nextLine = lines[j]!.trim();
-      if (nextLine === '' || nextLine === '*/' || nextLine === '*') continue;
-      if (nextLine.startsWith('*') || nextLine.startsWith('//')) continue;
-
-      const funcMatch = nextLine.match(FUNCTION_DECL_RE);
-      if (funcMatch?.[1]) return funcMatch[1];
-
-      const constMatch = nextLine.match(CONST_DECL_RE);
-      if (constMatch?.[1]) return constMatch[1];
-
-      return null; // First non-comment line with no match
+      if (isCommentOrBlank(nextLine)) continue;
+      return matchDeclarationName(nextLine);
     }
     return null;
   }

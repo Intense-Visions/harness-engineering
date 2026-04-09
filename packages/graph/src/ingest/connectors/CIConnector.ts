@@ -94,8 +94,6 @@ export class CIConnector implements GraphConnector {
   async ingest(store: GraphStore, config: ConnectorConfig): Promise<IngestResult> {
     const start = Date.now();
     const errors: string[] = [];
-    let nodesAdded = 0;
-    let edgesAdded = 0;
 
     const apiKeyEnv = config.apiKeyEnv ?? 'GITHUB_TOKEN';
     const apiKey = process.env[apiKeyEnv];
@@ -108,18 +106,36 @@ export class CIConnector implements GraphConnector {
 
     const repo = (config.repo as string) ?? '';
     const maxRuns = (config.maxRuns as number) ?? 10;
+    const counts = await this.fetchAndIngestRuns(store, repo, maxRuns, apiKey, errors);
 
+    return {
+      nodesAdded: counts.nodesAdded,
+      nodesUpdated: 0,
+      edgesAdded: counts.edgesAdded,
+      edgesUpdated: 0,
+      errors,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  private async fetchAndIngestRuns(
+    store: GraphStore,
+    repo: string,
+    maxRuns: number,
+    apiKey: string,
+    errors: string[]
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    let nodesAdded = 0;
+    let edgesAdded = 0;
     try {
       const url = `https://api.github.com/repos/${repo}/actions/runs?per_page=${maxRuns}`;
       const response = await this.httpClient(url, {
         headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/vnd.github.v3+json' },
       });
-
       if (!response.ok) {
         errors.push(`GitHub Actions API error: status ${response.status}`);
-        return emptyResult(errors, start);
+        return { nodesAdded, edgesAdded };
       }
-
       const data = (await response.json()) as WorkflowRunsResponse;
       for (const run of data.workflow_runs) {
         const counts = ingestRun(store, run);
@@ -131,14 +147,6 @@ export class CIConnector implements GraphConnector {
         `GitHub Actions fetch error: ${err instanceof Error ? err.message : String(err)}`
       );
     }
-
-    return {
-      nodesAdded,
-      nodesUpdated: 0,
-      edgesAdded,
-      edgesUpdated: 0,
-      errors,
-      durationMs: Date.now() - start,
-    };
+    return { nodesAdded, edgesAdded };
   }
 }

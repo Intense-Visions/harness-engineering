@@ -145,6 +145,17 @@ export function runCreate(name: string, opts: CreateOptions): CreateResult {
   };
 }
 
+function printCreateResult(name: string, result: CreateResult): void {
+  logger.success(`Created skill "${name}"`);
+  for (const f of result.files) {
+    logger.info(`  ${f}`);
+  }
+  logger.info(`\nNext steps:`);
+  logger.info(`  1. Edit ${path.join(result.directory, 'SKILL.md')} with your skill content`);
+  logger.info(`  2. Run: harness skill validate ${name}`);
+  logger.info(`  3. Run: harness skills publish`);
+}
+
 export function createCreateCommand(): Command {
   return new Command('create')
     .description('Scaffold a new community skill')
@@ -168,16 +179,7 @@ export function createCreateCommand(): Command {
         if (globalOpts.json) {
           logger.raw(result);
         } else {
-          logger.success(`Created skill "${name}"`);
-          for (const f of result.files) {
-            logger.info(`  ${f}`);
-          }
-          logger.info(`\nNext steps:`);
-          logger.info(
-            `  1. Edit ${path.join(result.directory, 'SKILL.md')} with your skill content`
-          );
-          logger.info(`  2. Run: harness skill validate ${name}`);
-          logger.info(`  3. Run: harness skills publish`);
+          printCreateResult(name, result);
         }
       } catch (err) {
         logger.error(err instanceof Error ? err.message : String(err));

@@ -6,60 +6,63 @@ import type {
   SuggestionReport,
 } from '../types';
 
+/** Build a suggestion for a single dead file. */
+function deadFileSuggestion(file: DeadCodeReport['deadFiles'][number]): Suggestion {
+  return {
+    type: 'delete',
+    priority: 'high',
+    source: 'dead-code',
+    relatedIssues: [`dead-file:${file.path}`],
+    title: `Remove dead file: ${file.path.split('/').pop()}`,
+    description: `This file is not imported by any other file and can be safely removed.`,
+    files: [file.path],
+    steps: [`Delete ${file.path}`, 'Run tests to verify no regressions'],
+    whyManual: 'File deletion requires verification that no dynamic imports exist',
+  };
+}
+
+/** Build a suggestion for a single dead export. */
+function deadExportSuggestion(exp: DeadCodeReport['deadExports'][number]): Suggestion {
+  return {
+    type: 'refactor',
+    priority: 'medium',
+    source: 'dead-code',
+    relatedIssues: [`dead-export:${exp.file}:${exp.name}`],
+    title: `Remove unused export: ${exp.name}`,
+    description: `The export "${exp.name}" is not used anywhere. Consider removing it.`,
+    files: [exp.file],
+    steps: [`Remove export "${exp.name}" from ${exp.file}`, 'Run tests to verify no regressions'],
+    whyManual: 'Export removal may affect external consumers not in scope',
+  };
+}
+
+/** Build a suggestion for a single unused import. */
+function unusedImportSuggestion(imp: DeadCodeReport['unusedImports'][number]): Suggestion {
+  const plural = imp.specifiers.length > 1;
+  return {
+    type: 'delete',
+    priority: 'medium',
+    source: 'dead-code',
+    relatedIssues: [`unused-import:${imp.file}:${imp.specifiers.join(',')}`],
+    title: `Remove unused import${plural ? 's' : ''}: ${imp.specifiers.join(', ')}`,
+    description: `The import${plural ? 's' : ''} from "${imp.source}" ${plural ? 'are' : 'is'} not used.`,
+    files: [imp.file],
+    steps: imp.isFullyUnused
+      ? [`Remove entire import line from ${imp.file}`]
+      : [`Remove unused specifiers (${imp.specifiers.join(', ')}) from import statement`],
+    whyManual: 'Import removal can be auto-fixed',
+  };
+}
+
 /**
  * Generate suggestions from dead code report
  */
 function generateDeadCodeSuggestions(report: DeadCodeReport): Suggestion[] {
-  const suggestions: Suggestion[] = [];
-
-  // Suggest removing dead files
-  for (const file of report.deadFiles) {
-    suggestions.push({
-      type: 'delete',
-      priority: 'high',
-      source: 'dead-code',
-      relatedIssues: [`dead-file:${file.path}`],
-      title: `Remove dead file: ${file.path.split('/').pop()}`,
-      description: `This file is not imported by any other file and can be safely removed.`,
-      files: [file.path],
-      steps: [`Delete ${file.path}`, 'Run tests to verify no regressions'],
-      whyManual: 'File deletion requires verification that no dynamic imports exist',
-    });
-  }
-
-  // Suggest removing unused exports
-  for (const exp of report.deadExports) {
-    suggestions.push({
-      type: 'refactor',
-      priority: 'medium',
-      source: 'dead-code',
-      relatedIssues: [`dead-export:${exp.file}:${exp.name}`],
-      title: `Remove unused export: ${exp.name}`,
-      description: `The export "${exp.name}" is not used anywhere. Consider removing it.`,
-      files: [exp.file],
-      steps: [`Remove export "${exp.name}" from ${exp.file}`, 'Run tests to verify no regressions'],
-      whyManual: 'Export removal may affect external consumers not in scope',
-    });
-  }
-
-  // Suggest removing unused imports
-  for (const imp of report.unusedImports) {
-    suggestions.push({
-      type: 'delete',
-      priority: 'medium',
-      source: 'dead-code',
-      relatedIssues: [`unused-import:${imp.file}:${imp.specifiers.join(',')}`],
-      title: `Remove unused import${imp.specifiers.length > 1 ? 's' : ''}: ${imp.specifiers.join(', ')}`,
-      description: `The import${imp.specifiers.length > 1 ? 's' : ''} from "${imp.source}" ${imp.specifiers.length > 1 ? 'are' : 'is'} not used.`,
-      files: [imp.file],
-      steps: imp.isFullyUnused
-        ? [`Remove entire import line from ${imp.file}`]
-        : [`Remove unused specifiers (${imp.specifiers.join(', ')}) from import statement`],
-      whyManual: 'Import removal can be auto-fixed',
-    });
-  }
-
-  return suggestions;
+  return [
+    ...report.deadFiles.map(deadFileSuggestion),
+    ...report.deadExports.map(deadExportSuggestion),
+    ...report.unusedImports.map(unusedImportSuggestion),
+  ];
 }
 
 /**

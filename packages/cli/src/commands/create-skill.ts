@@ -48,7 +48,9 @@ function toListSection(items: string[] | undefined, fallback: string): string {
   return items && items.length > 0 ? items.map((i) => `- \`${i}\``).join('\n') : fallback;
 }
 
-function buildSkillMdSections(opts: CreateSkillOptions): Record<string, string> {
+function buildSkillMdSections(opts: CreateSkillOptions): {
+  mode: string; reads: string; produces: string; preChecks: string; postChecks: string;
+} {
   return {
     mode: opts.cognitiveMode ?? 'constructive-architect',
     reads: toListSection(opts.reads, '- _No read patterns specified_'),
@@ -58,15 +60,21 @@ function buildSkillMdSections(opts: CreateSkillOptions): Record<string, string> 
   };
 }
 
-function buildSkillMd(opts: CreateSkillOptions): string {
-  const { mode, reads, produces, preChecks, postChecks } = buildSkillMdSections(opts);
-  const run = `harness skill run ${opts.name}`;
-
-  return `# ${opts.name}
+function buildSkillMdBody(
+  name: string,
+  description: string,
+  mode: string,
+  reads: string,
+  produces: string,
+  preChecks: string,
+  postChecks: string,
+  run: string
+): string {
+  return `# ${name}
 
 > Cognitive Mode: ${mode}
 
-${opts.description}
+${description}
 
 ## When to Use
 
@@ -121,6 +129,12 @@ ${run}
 | --- | --- |
 | "[Domain-specific excuse]" | [Why this is wrong and what to do instead] |
 `;
+}
+
+function buildSkillMd(opts: CreateSkillOptions): string {
+  const { mode, reads, produces, preChecks, postChecks } = buildSkillMdSections(opts);
+  const run = `harness skill run ${opts.name}`;
+  return buildSkillMdBody(opts.name, opts.description, mode, reads, produces, preChecks, postChecks, run);
 }
 
 export function generateSkillFiles(opts: CreateSkillOptions): GeneratedFiles {

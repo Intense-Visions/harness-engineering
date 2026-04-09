@@ -243,7 +243,20 @@ function useAnomalies() {
   return { anomalies, loading, fetchError };
 }
 
-export function Impact() {
+function sortAnomalyData(anomalies: AnomalyData | null): {
+  sortedAPs: AnomalyArticulationPoint[];
+  sortedOutliers: AnomalyOutlier[];
+} {
+  const sortedAPs = anomalies
+    ? [...anomalies.articulationPoints].sort((a, b) => b.dependentCount - a.dependentCount)
+    : [];
+  const sortedOutliers = anomalies
+    ? [...anomalies.outliers].sort((a, b) => b.zScore - a.zScore)
+    : [];
+  return { sortedAPs, sortedOutliers };
+}
+
+function useImpactExplorer() {
   const { anomalies, loading, fetchError } = useAnomalies();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
@@ -276,15 +289,23 @@ export function Impact() {
     [queryBlastRadius]
   );
 
-  const sortedAPs = anomalies
-    ? [...anomalies.articulationPoints].sort((a, b) => b.dependentCount - a.dependentCount)
-    : [];
-  const sortedOutliers = anomalies
-    ? [...anomalies.outliers].sort((a, b) => b.zScore - a.zScore)
-    : [];
-
+  const { sortedAPs, sortedOutliers } = sortAnomalyData(anomalies);
   const brData = blastRadius.data?.data;
   const brIsData = !!brData && isBlastRadiusData(brData);
+
+  return {
+    anomalies, loading, fetchError, selectedNodeId, searchText, depth,
+    setSearchText, setDepth, handleSearch, handleAnomalyClick,
+    sortedAPs, sortedOutliers, blastRadius, brData, brIsData,
+  };
+}
+
+export function Impact() {
+  const {
+    anomalies, loading, fetchError, selectedNodeId, searchText, depth,
+    setSearchText, setDepth, handleSearch, handleAnomalyClick,
+    sortedAPs, sortedOutliers, blastRadius, brData, brIsData,
+  } = useImpactExplorer();
 
   return (
     <div>

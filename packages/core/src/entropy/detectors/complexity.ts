@@ -109,31 +109,35 @@ function findFunctionEnd(lines: string[], startIdx: number): number {
   return lines.length - 1;
 }
 
+const DECISION_PATTERNS = [
+  /\bif\s*\(/g,
+  /\belse\s+if\s*\(/g,
+  /\bwhile\s*\(/g,
+  /\bfor\s*\(/g,
+  /\bcase\s+/g,
+  /&&/g,
+  /\|\|/g,
+  /\?(?!=)/g, // Ternary ? but not ?. or ??
+  /\bcatch\s*\(/g,
+];
+
+/**
+ * Count all decision-point matches across all patterns in a function body.
+ */
+function countDecisionPoints(body: string): number {
+  let count = 0;
+  for (const pattern of DECISION_PATTERNS) {
+    const matches = body.match(pattern);
+    if (matches) count += matches.length;
+  }
+  return count;
+}
+
 /**
  * Compute cyclomatic complexity by counting decision points.
  */
 function computeCyclomaticComplexity(body: string): number {
-  let complexity = 1; // Base complexity
-
-  // Count decision points using regex
-  const decisionPatterns = [
-    /\bif\s*\(/g,
-    /\belse\s+if\s*\(/g,
-    /\bwhile\s*\(/g,
-    /\bfor\s*\(/g,
-    /\bcase\s+/g,
-    /&&/g,
-    /\|\|/g,
-    /\?(?!=)/g, // Ternary ? but not ?. or ??
-    /\bcatch\s*\(/g,
-  ];
-
-  for (const pattern of decisionPatterns) {
-    const matches = body.match(pattern);
-    if (matches) {
-      complexity += matches.length;
-    }
-  }
+  let complexity = 1 + countDecisionPoints(body);
 
   // else if is counted by both 'if' and 'else if' patterns, deduplicate
   const elseIfMatches = body.match(/\belse\s+if\s*\(/g);

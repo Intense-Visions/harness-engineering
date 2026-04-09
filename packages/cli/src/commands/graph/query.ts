@@ -30,6 +30,39 @@ export async function runQuery(
   return cql.execute(params);
 }
 
+function printQueryResult(result: ContextQLResult): void {
+  console.log(
+    `Found ${result.nodes.length} nodes, ${result.edges.length} edges (depth ${result.stats.depthReached}, pruned ${result.stats.pruned})`
+  );
+  for (const node of result.nodes) {
+    console.log(`  ${node.type.padEnd(12)} ${node.id}`);
+  }
+}
+
+async function runQueryAction(
+  rootNodeId: string,
+  opts: { depth: string; types?: string; edges?: string; bidirectional?: boolean },
+  globalOpts: { config?: string; json?: boolean }
+): Promise<void> {
+  const projectPath = path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
+  try {
+    const result = await runQuery(projectPath, rootNodeId, {
+      depth: parseInt(opts.depth),
+      ...(opts.types !== undefined && { types: opts.types }),
+      ...(opts.edges !== undefined && { edges: opts.edges }),
+      ...(opts.bidirectional !== undefined && { bidirectional: opts.bidirectional }),
+    });
+    if (globalOpts.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printQueryResult(result);
+    }
+  } catch (err) {
+    console.error('Query failed:', err instanceof Error ? err.message : err);
+    process.exit(2);
+  }
+}
+
 export function createQueryCommand(): Command {
   return new Command('query')
     .description('Query the knowledge graph')
@@ -39,28 +72,6 @@ export function createQueryCommand(): Command {
     .option('--edges <edges>', 'Comma-separated edge types to include')
     .option('--bidirectional', 'Traverse both directions')
     .action(async (rootNodeId, opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const projectPath = path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
-      try {
-        const result = await runQuery(projectPath, rootNodeId, {
-          depth: parseInt(opts.depth),
-          types: opts.types,
-          edges: opts.edges,
-          bidirectional: opts.bidirectional,
-        });
-        if (globalOpts.json) {
-          console.log(JSON.stringify(result, null, 2));
-        } else {
-          console.log(
-            `Found ${result.nodes.length} nodes, ${result.edges.length} edges (depth ${result.stats.depthReached}, pruned ${result.stats.pruned})`
-          );
-          for (const node of result.nodes) {
-            console.log(`  ${node.type.padEnd(12)} ${node.id}`);
-          }
-        }
-      } catch (err) {
-        console.error('Query failed:', err instanceof Error ? err.message : err);
-        process.exit(2);
-      }
+      await runQueryAction(rootNodeId, opts, cmd.optsWithGlobals());
     });
 }

@@ -47,10 +47,16 @@ const CODE_NODE_TYPES: ReadonlySet<NodeType> = new Set([
   'variable',
 ]);
 
+function countMetadataChars(node: GraphNode): number {
+  return node.metadata ? JSON.stringify(node.metadata).length : 0;
+}
+
+function countBaseChars(node: GraphNode): number {
+  return (node.name?.length ?? 0) + (node.path?.length ?? 0) + (node.type?.length ?? 0);
+}
+
 function estimateNodeTokens(node: GraphNode): number {
-  const baseChars = (node.name?.length ?? 0) + (node.path?.length ?? 0) + (node.type?.length ?? 0);
-  const metaChars = node.metadata ? JSON.stringify(node.metadata).length : 0;
-  return Math.ceil((baseChars + metaChars) / 4);
+  return Math.ceil((countBaseChars(node) + countMetadataChars(node)) / 4);
 }
 
 export class Assembler {

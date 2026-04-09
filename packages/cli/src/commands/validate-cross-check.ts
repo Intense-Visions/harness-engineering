@@ -49,6 +49,48 @@ function getFileModTime(filePath: string, projectPath: string): Date | null {
   }
 }
 
+function checkStaleness(
+  planName: string,
+  plannedFiles: string[],
+  planModTime: Date,
+  projectPath: string,
+  result: CrossCheckResult
+): void {
+  for (const file of plannedFiles) {
+    const fullPath = path.join(projectPath, file);
+    if (!fs.existsSync(fullPath)) continue;
+    const implModTime = getFileModTime(fullPath, projectPath);
+    if (implModTime && implModTime > planModTime) {
+      result.staleness.push(`${planName}: implementation newer than plan (${file})`);
+      result.warnings++;
+      break;
+    }
+  }
+}
+
+function checkPlanCoverage(
+  planFile: string,
+  options: CrossCheckOptions,
+  result: CrossCheckResult
+): void {
+  const content = fs.readFileSync(planFile, 'utf-8');
+  const plannedFiles = extractPlannedFiles(content);
+  const planName = path.basename(planFile);
+
+  for (const file of plannedFiles) {
+    const fullPath = path.join(options.projectPath, file);
+    if (!fs.existsSync(fullPath)) {
+      result.planToImpl.push(`${planName}: planned file not found: ${file}`);
+      result.warnings++;
+    }
+  }
+
+  const planModTime = getFileModTime(planFile, options.projectPath);
+  if (planModTime) {
+    checkStaleness(planName, plannedFiles, planModTime, options.projectPath, result);
+  }
+}
+
 export async function runCrossCheck(
   options: CrossCheckOptions
 ): Promise<Result<CrossCheckResult, CLIError>> {
@@ -60,36 +102,8 @@ export async function runCrossCheck(
   };
 
   const planFiles = findFiles(options.plansDir, '.md');
-
-  // Check: Plan → Implementation coverage
   for (const planFile of planFiles) {
-    const content = fs.readFileSync(planFile, 'utf-8');
-    const plannedFiles = extractPlannedFiles(content);
-    const planName = path.basename(planFile);
-
-    for (const file of plannedFiles) {
-      const fullPath = path.join(options.projectPath, file);
-      if (!fs.existsSync(fullPath)) {
-        result.planToImpl.push(`${planName}: planned file not found: ${file}`);
-        result.warnings++;
-      }
-    }
-
-    // Check staleness
-    const planModTime = getFileModTime(planFile, options.projectPath);
-    if (planModTime) {
-      for (const file of plannedFiles) {
-        const fullPath = path.join(options.projectPath, file);
-        if (fs.existsSync(fullPath)) {
-          const implModTime = getFileModTime(fullPath, options.projectPath);
-          if (implModTime && implModTime > planModTime) {
-            result.staleness.push(`${planName}: implementation newer than plan (${file})`);
-            result.warnings++;
-            break; // One staleness warning per plan is enough
-          }
-        }
-      }
-    }
+    checkPlanCoverage(planFile, options, result);
   }
 
   return Ok(result);

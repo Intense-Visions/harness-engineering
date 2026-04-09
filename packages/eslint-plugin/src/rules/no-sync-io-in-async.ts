@@ -57,6 +57,18 @@ function checkSyncCallInAsync(
   }
 }
 
+type RuleContext = Parameters<ReturnType<typeof createRule<[], MessageIds>>['create']>[0];
+
+function reportSyncCallExpression(
+  node: TSESTree.CallExpression,
+  context: RuleContext,
+  asyncDepthRef: { value: number }
+): void {
+  checkSyncCallInAsync(node, asyncDepthRef, (name) => {
+    context.report({ node, messageId: 'syncIoInAsync', data: { name } });
+  });
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-sync-io-in-async',
   meta: {
@@ -85,11 +97,8 @@ export default createRule<[], MessageIds>({
       'FunctionExpression:exit': exitFunction,
       ArrowFunctionExpression: enterFunction,
       'ArrowFunctionExpression:exit': exitFunction,
-
       CallExpression(node: TSESTree.CallExpression) {
-        checkSyncCallInAsync(node, asyncDepthRef, (name) => {
-          context.report({ node, messageId: 'syncIoInAsync', data: { name } });
-        });
+        reportSyncCallExpression(node, context, asyncDepthRef);
       },
     };
   },

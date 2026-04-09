@@ -25,13 +25,26 @@ function isViolationLine(line: string): boolean {
   return lower.includes('violation') || lower.includes('layer');
 }
 
+const VIOLATION_FILE_RE = /(?:in\s+)?(\S+\.(?:ts|tsx|js|jsx))(?::(\d+))?/;
+
+/**
+ * Extract file path and line number from a violation line.
+ */
+function extractViolationLocation(
+  line: string,
+  fallbackPath: string
+): { file: string; lineNum: number } {
+  const fileMatch = line.match(VIOLATION_FILE_RE);
+  const file = fileMatch?.[1] ?? fallbackPath;
+  const lineNum = fileMatch?.[2] ? parseInt(fileMatch[2], 10) : 1;
+  return { file, lineNum };
+}
+
 /**
  * Create a finding from a single violation line.
  */
 function createLayerViolationFinding(line: string, fallbackPath: string): ReviewFinding {
-  const fileMatch = line.match(/(?:in\s+)?(\S+\.(?:ts|tsx|js|jsx))(?::(\d+))?/);
-  const file = fileMatch?.[1] ?? fallbackPath;
-  const lineNum = fileMatch?.[2] ? parseInt(fileMatch[2], 10) : 1;
+  const { file, lineNum } = extractViolationLocation(line, fallbackPath);
 
   return {
     id: makeFindingId('arch', file, lineNum, 'layer violation'),

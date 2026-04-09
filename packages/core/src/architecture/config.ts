@@ -15,6 +15,29 @@ import type { ArchConfig, ArchMetricCategory, ThresholdConfig } from './types';
  * When either side is a scalar, the module value replaces the project
  * value entirely (no merge across scalar/object boundaries).
  */
+/**
+ * Merge a single threshold category: shallow-object merge when both sides are objects,
+ * otherwise the module value replaces the project value entirely.
+ */
+function mergeThresholdCategory(
+  projectValue: number | Record<string, number> | undefined,
+  moduleValue: number | Record<string, number>
+): number | Record<string, number> {
+  if (
+    projectValue !== undefined &&
+    typeof projectValue === 'object' &&
+    !Array.isArray(projectValue) &&
+    typeof moduleValue === 'object' &&
+    !Array.isArray(moduleValue)
+  ) {
+    return {
+      ...(projectValue as Record<string, number>),
+      ...(moduleValue as Record<string, number>),
+    };
+  }
+  return moduleValue;
+}
+
 export function resolveThresholds(scope: string, config: ArchConfig): ThresholdConfig {
   const projectThresholds: ThresholdConfig = {};
   for (const [key, val] of Object.entries(config.thresholds)) {
@@ -37,22 +60,7 @@ export function resolveThresholds(scope: string, config: ArchConfig): ThresholdC
 
   for (const [category, moduleValue] of Object.entries(moduleOverrides)) {
     const projectValue = projectThresholds[category as keyof ThresholdConfig];
-
-    // Deep merge only when both sides are objects
-    if (
-      projectValue !== undefined &&
-      typeof projectValue === 'object' &&
-      !Array.isArray(projectValue) &&
-      typeof moduleValue === 'object' &&
-      !Array.isArray(moduleValue)
-    ) {
-      merged[category as keyof ThresholdConfig] = {
-        ...(projectValue as Record<string, number>),
-        ...(moduleValue as Record<string, number>),
-      };
-    } else {
-      merged[category as keyof ThresholdConfig] = moduleValue;
-    }
+    merged[category as keyof ThresholdConfig] = mergeThresholdCategory(projectValue, moduleValue);
   }
 
   return merged;

@@ -27,10 +27,23 @@ interface InitResult {
   detectedFrameworks?: DetectedFramework[];
 }
 
-export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
+function loadEngineAndTemplates(_options: InitOptions): {
+  engine: TemplateEngine;
+  templateList: TemplateMetadata[];
+} {
+  const engine = new TemplateEngine(resolveTemplatesDir());
+  const templates = engine.listTemplates();
+  const templateList = templates.ok ? templates.value : [];
+  return { engine, templateList };
+}
+
+function resolveInitDefaults(options: InitOptions): { cwd: string; name: string; force: boolean } {
   const cwd = options.cwd ?? process.cwd();
-  const name = options.name ?? path.basename(cwd);
-  const force = options.force ?? false;
+  return { cwd, name: options.name ?? path.basename(cwd), force: options.force ?? false };
+}
+
+export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
+  const { cwd, name, force } = resolveInitDefaults(options);
 
   const configPath = path.join(cwd, 'harness.config.json');
   if (!force && fs.existsSync(configPath)) {
@@ -39,9 +52,7 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     );
   }
 
-  const engine = new TemplateEngine(resolveTemplatesDir());
-  const templates = engine.listTemplates();
-  const templateList = templates.ok ? templates.value : [];
+  const { engine, templateList } = loadEngineAndTemplates(options);
 
   const validationError = validateFrameworkLanguage(options, templateList);
   if (validationError) return Err(validationError);

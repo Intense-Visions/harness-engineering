@@ -32,6 +32,23 @@ function extractUsage(entry: Record<string, unknown>): Record<string, number> | 
 }
 
 /**
+ * Apply optional model and cache token fields to a TaggedRecord in-place.
+ */
+function applyOptionalCCFields(
+  record: TaggedRecord,
+  message: Record<string, unknown>,
+  usage: Record<string, number>
+): void {
+  const model = message.model as string | undefined;
+  if (model) record.model = model;
+
+  const cacheCreate = usage.cache_creation_input_tokens as number | undefined;
+  const cacheRead = usage.cache_read_input_tokens as number | undefined;
+  if (typeof cacheCreate === 'number' && cacheCreate > 0) record.cacheCreationTokens = cacheCreate;
+  if (typeof cacheRead === 'number' && cacheRead > 0) record.cacheReadTokens = cacheRead;
+}
+
+/**
  * Builds a TaggedRecord from a validated CC JSONL entry and its usage data.
  */
 function buildRecord(entry: Record<string, unknown>, usage: Record<string, number>): TaggedRecord {
@@ -46,13 +63,7 @@ function buildRecord(entry: Record<string, unknown>, usage: Record<string, numbe
     _source: 'claude-code',
   };
 
-  const model = message.model as string | undefined;
-  if (model) record.model = model;
-
-  const cacheCreate = usage.cache_creation_input_tokens as number | undefined;
-  const cacheRead = usage.cache_read_input_tokens as number | undefined;
-  if (typeof cacheCreate === 'number' && cacheCreate > 0) record.cacheCreationTokens = cacheCreate;
-  if (typeof cacheRead === 'number' && cacheRead > 0) record.cacheReadTokens = cacheRead;
+  applyOptionalCCFields(record, message, usage);
 
   return record;
 }

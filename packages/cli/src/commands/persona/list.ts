@@ -4,6 +4,18 @@ import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 import { resolvePersonasDir } from '../../utils/paths';
 
+function printPersonaList(personas: Array<{ name: string; description: string }>): void {
+  if (personas.length === 0) {
+    logger.info('No personas found.');
+  } else {
+    console.log('Available personas:\n');
+    for (const p of personas) {
+      console.log(`  ${p.name}`);
+      console.log(`    ${p.description}\n`);
+    }
+  }
+}
+
 export function createListCommand(): Command {
   return new Command('list')
     .description('List available agent personas')
@@ -20,15 +32,7 @@ export function createListCommand(): Command {
       } else if (globalOpts.quiet) {
         for (const p of result.value) console.log(p.name);
       } else {
-        if (result.value.length === 0) {
-          logger.info('No personas found.');
-        } else {
-          console.log('Available personas:\n');
-          for (const p of result.value) {
-            console.log(`  ${p.name}`);
-            console.log(`    ${p.description}\n`);
-          }
-        }
+        printPersonaList(result.value);
       }
       process.exit(ExitCode.SUCCESS);
     });

@@ -56,44 +56,46 @@ export class GraphEntropyAdapter {
     let freshEdges = 0;
 
     for (const edge of documentsEdges) {
-      const codeNode = this.store.getNode(edge.to);
-      if (!codeNode) {
+      const result = this.classifyDocEdge(edge);
+      if (result.kind === 'missing') {
         missingTargets.push(edge.to);
-        continue;
-      }
-
-      const docNode = this.store.getNode(edge.from);
-      const codeLastModified = codeNode.lastModified;
-      const docLastModified = docNode?.lastModified;
-
-      // If both timestamps exist, compare them
-      if (codeLastModified && docLastModified) {
-        if (codeLastModified > docLastModified) {
-          // Code changed after docs were written — stale
-          staleEdges.push({
-            docNodeId: edge.from,
-            codeNodeId: edge.to,
-            edgeType: edge.type,
-            codeLastModified,
-            docLastModified,
-          });
-        } else {
-          // Docs are up to date
-          freshEdges++;
-        }
+      } else if (result.kind === 'fresh') {
+        freshEdges++;
       } else {
-        // Missing timestamps — conservatively treat as stale
-        staleEdges.push({
-          docNodeId: edge.from,
-          codeNodeId: edge.to,
-          edgeType: edge.type,
-          codeLastModified,
-          docLastModified,
-        });
+        staleEdges.push(result.entry);
       }
     }
 
     return { staleEdges, missingTargets, freshEdges };
+  }
+
+  private classifyDocEdge(edge: { from: string; to: string; type: string }):
+    | { kind: 'missing' }
+    | { kind: 'fresh' }
+    | {
+        kind: 'stale';
+        entry: {
+          docNodeId: string;
+          codeNodeId: string;
+          edgeType: string;
+          codeLastModified?: string | undefined;
+          docLastModified?: string | undefined;
+        };
+      } {
+    const codeNode = this.store.getNode(edge.to);
+    if (!codeNode) {
+      return { kind: 'missing' };
+    }
+    const docNode = this.store.getNode(edge.from);
+    const codeLastModified = codeNode.lastModified;
+    const docLastModified = docNode?.lastModified;
+    if (codeLastModified && docLastModified) {
+      if (codeLastModified > docLastModified) {
+        return { kind: 'stale', entry: { docNodeId: edge.from, codeNodeId: edge.to, edgeType: edge.type, codeLastModified, docLastModified } };
+      }
+      return { kind: 'fresh' };
+    }
+    return { kind: 'stale', entry: { docNodeId: edge.from, codeNodeId: edge.to, edgeType: edge.type, codeLastModified, docLastModified } };
   }
 
   /**

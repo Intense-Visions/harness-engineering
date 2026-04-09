@@ -1,6 +1,19 @@
 import type { Issue } from '@harness-engineering/types';
 import type { OrchestratorState } from '../types/internal';
 
+function comparePriority(a: Issue, b: Issue): number | null {
+  const pa = a.priority ?? Number.MAX_SAFE_INTEGER;
+  const pb = b.priority ?? Number.MAX_SAFE_INTEGER;
+  return pa !== pb ? pa - pb : null;
+}
+
+function compareCreatedAt(a: Issue, b: Issue): number | null {
+  const ca = a.createdAt ?? '\uffff';
+  const cb = b.createdAt ?? '\uffff';
+  if (ca === cb) return null;
+  return ca < cb ? -1 : 1;
+}
+
 /**
  * Sort candidates by dispatch priority (stable sort).
  * 1. priority ascending (1..4 preferred; null sorts last)
@@ -9,18 +22,11 @@ import type { OrchestratorState } from '../types/internal';
  */
 export function sortCandidates(issues: readonly Issue[]): Issue[] {
   return [...issues].sort((a, b) => {
-    // Priority: lower is higher priority, null sorts last
-    const pa = a.priority ?? Number.MAX_SAFE_INTEGER;
-    const pb = b.priority ?? Number.MAX_SAFE_INTEGER;
-    if (pa !== pb) return pa - pb;
-
-    // Created at: oldest first, null sorts last
-    const ca = a.createdAt ?? '\uffff';
-    const cb = b.createdAt ?? '\uffff';
-    if (ca !== cb) return ca < cb ? -1 : 1;
-
-    // Identifier: lexicographic tie-breaker
-    return a.identifier.localeCompare(b.identifier);
+    return (
+      comparePriority(a, b) ??
+      compareCreatedAt(a, b) ??
+      a.identifier.localeCompare(b.identifier)
+    );
   });
 }
 

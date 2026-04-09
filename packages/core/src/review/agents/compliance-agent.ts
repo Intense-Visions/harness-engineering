@@ -184,6 +184,36 @@ function checkChangeTypeSpecific(bundle: ContextBundle): ReviewFinding[] {
 }
 
 /**
+ * Check a single changed file for try/catch usage without Result type.
+ */
+function checkFileResultTypeConvention(
+  cf: ContextBundle['changedFiles'][number],
+  bundle: ContextBundle,
+  rule: ConventionRule
+): ReviewFinding | null {
+  const hasTryCatch = cf.content.includes('try {') || cf.content.includes('try{');
+  const usesResult =
+    cf.content.includes('Result<') ||
+    cf.content.includes('Result >') ||
+    cf.content.includes(': Result');
+
+  if (!hasTryCatch || usesResult) return null;
+
+  return {
+    id: makeFindingId('compliance', cf.path, 1, 'try-catch not Result'),
+    file: cf.path,
+    lineRange: [1, cf.lines],
+    domain: 'compliance',
+    severity: 'suggestion',
+    title: 'Fallible operation uses try/catch instead of Result type',
+    rationale: `Convention requires using Result type for fallible operations (from ${rule.source}).`,
+    suggestion: 'Refactor error handling to use the Result type pattern.',
+    evidence: [`changeType: ${bundle.changeType}`, `Convention rule: "${rule.text}"`],
+    validatedBy: 'heuristic',
+  };
+}
+
+/**
  * Check for try/catch usage when conventions require Result type.
  */
 function checkResultTypeConvention(
@@ -193,30 +223,9 @@ function checkResultTypeConvention(
   const resultTypeRule = rules.find((r) => r.text.toLowerCase().includes('result type'));
   if (!resultTypeRule) return [];
 
-  const findings: ReviewFinding[] = [];
-  for (const cf of bundle.changedFiles) {
-    const hasTryCatch = cf.content.includes('try {') || cf.content.includes('try{');
-    const usesResult =
-      cf.content.includes('Result<') ||
-      cf.content.includes('Result >') ||
-      cf.content.includes(': Result');
-
-    if (hasTryCatch && !usesResult) {
-      findings.push({
-        id: makeFindingId('compliance', cf.path, 1, 'try-catch not Result'),
-        file: cf.path,
-        lineRange: [1, cf.lines],
-        domain: 'compliance',
-        severity: 'suggestion',
-        title: 'Fallible operation uses try/catch instead of Result type',
-        rationale: `Convention requires using Result type for fallible operations (from ${resultTypeRule.source}).`,
-        suggestion: 'Refactor error handling to use the Result type pattern.',
-        evidence: [`changeType: ${bundle.changeType}`, `Convention rule: "${resultTypeRule.text}"`],
-        validatedBy: 'heuristic',
-      });
-    }
-  }
-  return findings;
+  return bundle.changedFiles
+    .map((cf) => checkFileResultTypeConvention(cf, bundle, resultTypeRule))
+    .filter((f): f is ReviewFinding => f !== null);
 }
 
 export function runComplianceAgent(bundle: ContextBundle): ReviewFinding[] {

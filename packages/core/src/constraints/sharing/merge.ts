@@ -25,21 +25,25 @@ export interface MergeResult {
  * - Architecture modules: per-module per-category merge, same conflict strategy
  * - Security rules: per-rule-ID merge, conflict on different severity
  */
+function arraysEqual(a: unknown[], b: unknown[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((val, i) => deepEqual(val, b[i]));
+}
+
+function objectsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((key) => deepEqual(a[key], b[key]));
+}
+
 function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
   if (typeof a !== 'object' || a === null || b === null) return false;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    return a.every((val, i) => deepEqual(val, b[i]));
-  }
+  if (Array.isArray(a) && Array.isArray(b)) return arraysEqual(a, b);
   if (Array.isArray(a) !== Array.isArray(b)) return false;
-  const keysA = Object.keys(a as Record<string, unknown>);
-  const keysB = Object.keys(b as Record<string, unknown>);
-  if (keysA.length !== keysB.length) return false;
-  return keysA.every((key) =>
-    deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])
-  );
+  return objectsEqual(a as Record<string, unknown>, b as Record<string, unknown>);
 }
 
 /** Order-insensitive equality for string arrays (e.g. allowedDependencies, disallow). */

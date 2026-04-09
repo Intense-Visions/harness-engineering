@@ -5,7 +5,7 @@ import { SSE_ENDPOINT } from '@shared/constants';
 import { isGraphData } from '../utils/typeGuards';
 import type { GraphData } from '@shared/types';
 
-function GraphNotConnected({ reason }: { reason?: string }) {
+function GraphNotConnected({ reason }: { reason?: string | undefined }) {
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
       <p className="text-base font-medium text-gray-300">Graph not connected</p>

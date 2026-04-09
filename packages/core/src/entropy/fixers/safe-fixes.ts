@@ -209,6 +209,47 @@ async function createBackup(
   }
 }
 
+/** Apply the delete-file action, optionally creating a backup first. */
+async function applyDeleteFile(
+  fix: Fix,
+  config: FixConfig
+): Promise<Result<void, { fix: Fix; error: string }>> {
+  if (config.createBackup && config.backupDir) {
+    const backupResult = await createBackup(fix.file, config.backupDir);
+    if (!backupResult.ok) return Err({ fix, error: backupResult.error.message });
+  }
+  await unlink(fix.file);
+  return Ok(undefined);
+}
+
+/** Apply the delete-lines action. */
+async function applyDeleteLines(fix: Fix): Promise<void> {
+  if (fix.line !== undefined) {
+    const content = await readFile(fix.file, 'utf-8');
+    const lines = content.split('\n');
+    lines.splice(fix.line - 1, 1);
+    await writeFile(fix.file, lines.join('\n'));
+  }
+}
+
+/** Apply the replace action. */
+async function applyReplace(fix: Fix): Promise<void> {
+  if (fix.oldContent && fix.newContent !== undefined) {
+    const content = await readFile(fix.file, 'utf-8');
+    await writeFile(fix.file, content.replace(fix.oldContent, fix.newContent));
+  }
+}
+
+/** Apply the insert action. */
+async function applyInsert(fix: Fix): Promise<void> {
+  if (fix.line !== undefined && fix.newContent) {
+    const content = await readFile(fix.file, 'utf-8');
+    const lines = content.split('\n');
+    lines.splice(fix.line - 1, 0, fix.newContent);
+    await writeFile(fix.file, lines.join('\n'));
+  }
+}
+
 /**
  * Apply a single fix
  */
@@ -222,40 +263,19 @@ async function applySingleFix(
 
   try {
     switch (fix.action) {
-      case 'delete-file':
-        if (config.createBackup && config.backupDir) {
-          const backupResult = await createBackup(fix.file, config.backupDir);
-          if (!backupResult.ok) {
-            return Err({ fix, error: backupResult.error.message });
-          }
-        }
-        await unlink(fix.file);
+      case 'delete-file': {
+        const result = await applyDeleteFile(fix, config);
+        if (!result.ok) return result;
         break;
-
+      }
       case 'delete-lines':
-        if (fix.line !== undefined) {
-          const content = await readFile(fix.file, 'utf-8');
-          const lines = content.split('\n');
-          lines.splice(fix.line - 1, 1); // Remove line (1-indexed)
-          await writeFile(fix.file, lines.join('\n'));
-        }
+        await applyDeleteLines(fix);
         break;
-
       case 'replace':
-        if (fix.oldContent && fix.newContent !== undefined) {
-          const content = await readFile(fix.file, 'utf-8');
-          const newContent = content.replace(fix.oldContent, fix.newContent);
-          await writeFile(fix.file, newContent);
-        }
+        await applyReplace(fix);
         break;
-
       case 'insert':
-        if (fix.line !== undefined && fix.newContent) {
-          const content = await readFile(fix.file, 'utf-8');
-          const lines = content.split('\n');
-          lines.splice(fix.line - 1, 0, fix.newContent);
-          await writeFile(fix.file, lines.join('\n'));
-        }
+        await applyInsert(fix);
         break;
     }
 

@@ -111,57 +111,62 @@ export async function runCheckDeps(
   return Ok(result);
 }
 
+async function runCheckDepsAction(
+  globalOpts: { config?: string; json?: boolean; verbose?: boolean; quiet?: boolean }
+): Promise<void> {
+  const mode: OutputModeType = globalOpts.json
+    ? OutputMode.JSON
+    : globalOpts.quiet
+      ? OutputMode.QUIET
+      : globalOpts.verbose
+        ? OutputMode.VERBOSE
+        : OutputMode.TEXT;
+
+  const formatter = new OutputFormatter(mode);
+
+  const result = await runCheckDeps({
+    ...(globalOpts.config !== undefined && { configPath: globalOpts.config }),
+    ...(globalOpts.json !== undefined && { json: globalOpts.json }),
+    ...(globalOpts.verbose !== undefined && { verbose: globalOpts.verbose }),
+    ...(globalOpts.quiet !== undefined && { quiet: globalOpts.quiet }),
+  });
+
+  if (!result.ok) {
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: result.error.message }));
+    } else {
+      logger.error(result.error.message);
+    }
+    process.exit(result.error.exitCode);
+  }
+
+  const issues = [
+    ...result.value.layerViolations.map((v) => ({
+      file: v.file,
+      message: `Layer violation: ${v.fromLayer} -> ${v.toLayer} (${v.message})`,
+    })),
+    ...result.value.circularDeps.map((c) => ({
+      message: `Circular dependency: ${c.cycle.join(' -> ')}`,
+    })),
+  ];
+
+  const output = formatter.formatValidation({
+    valid: result.value.valid,
+    issues,
+  });
+
+  if (output) {
+    console.log(output);
+  }
+
+  process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+}
+
 export function createCheckDepsCommand(): Command {
   const command = new Command('check-deps')
     .description('Validate dependency layers and detect circular dependencies')
     .action(async (_opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
-      const formatter = new OutputFormatter(mode);
-
-      const result = await runCheckDeps({
-        configPath: globalOpts.config,
-        json: globalOpts.json,
-        verbose: globalOpts.verbose,
-        quiet: globalOpts.quiet,
-      });
-
-      if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
-        process.exit(result.error.exitCode);
-      }
-
-      const issues = [
-        ...result.value.layerViolations.map((v) => ({
-          file: v.file,
-          message: `Layer violation: ${v.fromLayer} -> ${v.toLayer} (${v.message})`,
-        })),
-        ...result.value.circularDeps.map((c) => ({
-          message: `Circular dependency: ${c.cycle.join(' -> ')}`,
-        })),
-      ];
-
-      const output = formatter.formatValidation({
-        valid: result.value.valid,
-        issues,
-      });
-
-      if (output) {
-        console.log(output);
-      }
-
-      process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+      await runCheckDepsAction(cmd.optsWithGlobals());
     });
 
   return command;

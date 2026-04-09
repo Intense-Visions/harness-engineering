@@ -197,11 +197,29 @@ export async function loadEvents(
   }
 }
 
+/** Extract phase transition fields from event data. */
+function phaseTransitionFields(
+  data: { from?: string; to?: string; taskCount?: number } | undefined
+): { from: string; to: string; suffix: string } {
+  return {
+    from: data?.from ?? '?',
+    to: data?.to ?? '?',
+    suffix: data?.taskCount ? ` (${data.taskCount} tasks)` : '',
+  };
+}
+
 /** Format a phase_transition event's detail string. */
 function formatPhaseTransition(event: SkillEvent): string {
   const data = event.data as { from?: string; to?: string; taskCount?: number } | undefined;
-  const suffix = data?.taskCount ? ` (${data.taskCount} tasks)` : '';
-  return `phase: ${data?.from ?? '?'} -> ${data?.to ?? '?'}${suffix}`;
+  const { from, to, suffix } = phaseTransitionFields(data);
+  return `phase: ${from} -> ${to}${suffix}`;
+}
+
+/** Build check summary string from gate_result checks array. */
+function formatGateChecks(
+  checks: Array<{ name: string; passed: boolean }> | undefined
+): string | undefined {
+  return checks?.map((c) => `${c.name} ${c.passed ? 'Y' : 'N'}`).join(', ');
 }
 
 /** Format a gate_result event's detail string. */
@@ -213,7 +231,7 @@ function formatGateResult(event: SkillEvent): string {
       }
     | undefined;
   const status = data?.passed ? 'passed' : 'failed';
-  const checks = data?.checks?.map((c) => `${c.name} ${c.passed ? 'Y' : 'N'}`).join(', ');
+  const checks = formatGateChecks(data?.checks);
   return checks ? `gate: ${status} (${checks})` : `gate: ${status}`;
 }
 

@@ -151,57 +151,43 @@ function printCoverageSummary(summary: any): void {
   );
 }
 
+async function runTraceability(options: TraceabilityCommandOptions): Promise<void> {
+  const mode = resolveOutputMode(options);
+  const projectPath = process.cwd();
+  const store = await loadGraphStore(projectPath);
+
+  if (!store) handleNoStore(mode);
+
+  const graphModule = await import('@harness-engineering/graph');
+  const filterOptions = buildFilterOptions(options);
+  const results = graphModule.queryTraceability(store, filterOptions);
+
+  if (results.length === 0) handleEmptyResults(mode);
+
+  if (mode === OutputMode.JSON) {
+    console.log(JSON.stringify(results, null, 2));
+  } else {
+    console.log('');
+    console.log(chalk.bold('Spec-to-Implementation Traceability'));
+    console.log('');
+    for (const result of results) printResultTable(result, mode);
+  }
+  process.exit(ExitCode.SUCCESS);
+}
+
 export function createTraceabilityCommand(): Command {
-  const command = new Command('traceability')
+  return new Command('traceability')
     .description('Show spec-to-implementation traceability from the knowledge graph')
     .option('--spec <path>', 'Filter by spec file path')
     .option('--feature <name>', 'Filter by feature name')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const options: TraceabilityCommandOptions = {
+      await runTraceability({
         spec: opts.spec,
         feature: opts.feature,
         json: globalOpts.json,
         verbose: globalOpts.verbose,
         quiet: globalOpts.quiet,
-      };
-
-      const mode = resolveOutputMode(options);
-      const projectPath = process.cwd();
-      const store = await loadGraphStore(projectPath);
-
-      if (!store) {
-        handleNoStore(mode);
-      }
-
-      // Dynamic import to avoid circular dependency issues at module load time
-      const graphModule = await import('@harness-engineering/graph');
-      const queryTraceability = graphModule.queryTraceability;
-
-      const filterOptions = buildFilterOptions(options);
-      const results = queryTraceability(store, filterOptions);
-
-      if (results.length === 0) {
-        handleEmptyResults(mode);
-      }
-
-      // JSON output
-      if (mode === OutputMode.JSON) {
-        console.log(JSON.stringify(results, null, 2));
-        process.exit(ExitCode.SUCCESS);
-      }
-
-      // Formatted table output
-      console.log('');
-      console.log(chalk.bold('Spec-to-Implementation Traceability'));
-      console.log('');
-
-      for (const result of results) {
-        printResultTable(result, mode);
-      }
-
-      process.exit(ExitCode.SUCCESS);
+      });
     });
-
-  return command;
 }

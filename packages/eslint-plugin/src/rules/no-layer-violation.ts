@@ -38,6 +38,26 @@ function resolveImportLayer(
   return getLayerForFile(resolvedImport, layers) ?? null;
 }
 
+type RuleContext = Parameters<ReturnType<typeof createRule<[], MessageIds>>['create']>[0];
+
+function checkLayerImport(
+  node: TSESTree.ImportDeclaration,
+  context: RuleContext,
+  currentLayer: string,
+  currentLayerDef: LayerDef,
+  layers: LayerDef[]
+): void {
+  const importLayer = resolveImportLayer(node.source.value, context.filename, layers);
+  if (!importLayer) return;
+  if (isLayerViolation(importLayer, currentLayer, currentLayerDef)) {
+    context.report({
+      node,
+      messageId: 'layerViolation',
+      data: { fromLayer: currentLayer, toLayer: importLayer },
+    });
+  }
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-layer-violation',
   meta: {
@@ -69,18 +89,10 @@ export default createRule<[], MessageIds>({
       return {};
     }
 
+    const layers = config.layers;
     return {
       ImportDeclaration(node: TSESTree.ImportDeclaration) {
-        const importLayer = resolveImportLayer(node.source.value, context.filename, config.layers!);
-        if (!importLayer) return;
-
-        if (isLayerViolation(importLayer, currentLayer, currentLayerDef)) {
-          context.report({
-            node,
-            messageId: 'layerViolation',
-            data: { fromLayer: currentLayer, toLayer: importLayer },
-          });
-        }
+        checkLayerImport(node, context, currentLayer, currentLayerDef, layers);
       },
     };
   },
