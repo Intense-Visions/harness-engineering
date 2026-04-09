@@ -6,15 +6,15 @@
 
 ## Summary
 
-**Result: FAIL**
+**Result: PASS**
 
 | Category                   | Passed       | Warnings | Failures |
 | -------------------------- | ------------ | -------- | -------- |
 | Packaging                  | 77/77        | 0        | 0        |
 | Documentation              | 6/6          | 0        | 0        |
 | Repo Hygiene               | 5/5          | 0        | 0        |
-| CI/CD                      | 6/6          | 0        | 0        |
-| Tests                      | 17/18        | 0        | 1        |
+| CI/CD                      | 6/6          | 3        | 0        |
+| Tests                      | 18/18        | 0        | 0        |
 | Maintenance — Doc Drift    | 0 issues     | —        | —        |
 | Maintenance — Dead Code    | 1 issue      | —        | —        |
 | Maintenance — Architecture | 0 violations | —        | —        |
@@ -24,13 +24,13 @@
 
 All 7 public packages pass all checks (name, version, license, exports, main, files, publishConfig, repository, bugs, homepage, description).
 
-- @harness-engineering/types (0.9.0) — all fields present
-- @harness-engineering/core (0.21.1) — all fields present
-- @harness-engineering/cli (1.23.2) — all fields present
-- @harness-engineering/graph (0.4.1) — all fields present
-- @harness-engineering/eslint-plugin (0.2.3) — all fields present
-- @harness-engineering/linter-gen (0.1.5) — all fields present
-- @harness-engineering/orchestrator (0.2.5) — all fields present
+- @harness-engineering/types (0.9.1) — all fields present
+- @harness-engineering/core (0.21.2) — all fields present
+- @harness-engineering/cli (1.24.0) — all fields present
+- @harness-engineering/graph (0.4.2) — all fields present
+- @harness-engineering/eslint-plugin (0.2.4) — all fields present
+- @harness-engineering/linter-gen (0.1.6) — all fields present
+- @harness-engineering/orchestrator (0.2.6) — all fields present
 - @harness-engineering/dashboard (0.1.1) — private, skipped
 
 ## Documentation
@@ -61,13 +61,24 @@ All 7 public packages pass all checks (name, version, license, exports, main, fi
 - [x] Build succeeds (all 9 packages)
 - [x] Typecheck passes (all 13 tasks)
 - [x] Lint passes (all 8 tasks)
-- [ ] **Tests FAIL: 1042 codex platform parity failures** — skill variants not generated for codex platform
+- [x] Platform parity — codex skill variants generated (540 skills across 4 platforms)
+- [x] CLI function coverage: 68.97% (above 68.48% baseline)
 
 ## Maintenance Results
 
 ### Doc Drift
 
-Clean (6 issues found and fixed this session).
+Clean. All API doc versions synced to source:
+
+| Doc                       | Before          | After  |
+| ------------------------- | --------------- | ------ |
+| docs/api/orchestrator.md  | missing version | 0.2.6  |
+| docs/api/cli.md           | 1.23.2          | 1.24.0 |
+| docs/api/graph.md         | 0.4.1           | 0.4.2  |
+| docs/api/eslint-plugin.md | 0.2.3           | 0.2.4  |
+| docs/api/core.md          | 0.21.1          | 0.21.2 |
+| docs/api/types.md         | 0.9.0           | 0.9.1  |
+| docs/api/linter-gen.md    | 0.1.5           | 0.1.6  |
 
 ### Dead Code
 
@@ -77,35 +88,33 @@ Clean (6 issues found and fixed this session).
 
 ### Architecture
 
-Clean. 2 threshold findings (non-violations):
-
-- Complexity in test fixture (false positive)
-- Module-size regression +24 LOC (branch changes)
+Clean. All layer boundaries enforced.
 
 ### Diagnostics
 
-9 warnings (unchanged):
+9 warnings (non-blocking):
 
-- 1 build warning: import.meta CJS fallback in parser.ts
-- 8 moderate npm audit vulnerabilities (hono x6 production, esbuild + vite dev-only)
+- 1 build warning: import.meta CJS fallback in parser.ts (has runtime fallback)
+- 8 moderate npm audit vulnerabilities: hono x5 and @hono/node-server x1 (transitive via @modelcontextprotocol/sdk), esbuild + vite (dev-only)
 
-## Fixes Applied This Session
+## Fixes Applied This Session (Wave 2)
 
-1. Updated MCP tool count 57→55 in README.md and getting-started.md
-2. Added `require-path-normalization` to eslint-plugin.md recommended table
-3. Corrected "Enables all rules" → "Enables 8 of 11 rules" with explanation
-4. Updated graph `VERSION` constant 0.4.0→0.4.1 in code and doc
-5. Updated eslint-plugin `meta.version` 0.1.0→0.2.3
-6. Added 4 missing checks (security, perf, arch, traceability) to ci-cd-validation.md
-7. Removed dead `ContentPipeline` re-export from core/src/index.ts
-8. Deleted stale `packages/core/test/` duplicate directory
-9. Deleted dead files: graph-scanner.ts, scratchpad.ts, checkpoint-commit.ts, learnings-relevance.ts
-10. Removed barrel exports for deleted state modules
+1. `docs/api/orchestrator.md` — added missing version 0.2.6
+2. `docs/api/cli.md` — version 1.23.2 → 1.24.0
+3. `docs/api/graph.md` — version 0.4.1 → 0.4.2; VERSION constant example updated
+4. `docs/api/eslint-plugin.md` — version 0.2.3 → 0.2.4; strict config description corrected
+5. `docs/api/core.md` — version 0.21.1 → 0.21.2
+6. `docs/api/types.md` — version 0.9.0 → 0.9.1
+7. `docs/api/linter-gen.md` — version 0.1.5 → 0.1.6
+8. `packages/eslint-plugin/src/index.ts` — meta.version 0.2.3 → 0.2.4
+9. `packages/core/src/state/session-sections.ts` — Math.random() → crypto.getRandomValues() (CWE-338)
+10. `agents/skills/README.md` — skill count updated to 540 across 4 platforms
 
-## Remaining Items
+## Remaining Items (Human Decision Required)
 
-- [ ] **[BLOCKING]** Generate codex platform skill variants: `harness generate --platform codex`
-- [ ] Bump hono to >=4.12.12 and @hono/node-server to >=1.19.13 (6 production advisories)
-- [ ] Decide: add 3 performance ESLint rules to `strict` config, or document as opt-in
+- [ ] `eslint-plugin/src/utils/schema.ts` — HarnessConfigSchema diverged from CLI source; recommend moving canonical schema to packages/types
+- [ ] `check-orchestrator.ts:376` `runSingleCheck` complexity >10; refactor to extract sub-functions
+- [ ] Skill subdirectory test-driven over-exports — decide to un-export or accept pattern
+- [ ] `graph/CIConnector.ts` — local `emptyResult` shadows canonical shared utility
+- [ ] Bump hono ≥4.12.12 / @hono/node-server ≥1.19.13 when upstream releases available
 - [ ] Review `backfill-learnings-frontmatter.ts` — keep or delete
-- [ ] Upgrade vitepress when vite >=6.4.2 release available (dev-only, low priority)

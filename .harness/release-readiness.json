@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-04-09T00:15:00Z",
+  "timestamp": "2026-04-09T02:30:00Z",
   "flags": {
     "comprehensive": false
   },
   "summary": {
-    "result": "FAIL",
-    "passed": 94,
-    "warned": 3,
-    "failed": 1,
+    "result": "PASS",
+    "passed": 95,
+    "warned": 13,
+    "failed": 0,
     "total": 95
   },
   "categories": {
@@ -56,18 +56,10 @@
       ]
     },
     "tests": {
-      "passed": 17,
+      "passed": 18,
       "warned": 0,
-      "failed": 1,
-      "findings": [
-        {
-          "check": "Platform parity — codex skills",
-          "severity": "fail",
-          "fixable": true,
-          "fixed": false,
-          "note": "1042 codex platform skill variants not yet generated. Run: harness generate --platform codex"
-        }
-      ]
+      "failed": 0,
+      "findings": []
     },
     "maintenance": {
       "doc-drift": {
@@ -206,9 +198,21 @@
       "delete-dead-scratchpad",
       "delete-dead-checkpoint-commit",
       "delete-dead-learnings-relevance",
-      "remove-dead-state-barrel-exports"
+      "remove-dead-state-barrel-exports",
+      "doc-drift-orchestrator-version-0.2.6",
+      "doc-drift-cli-version-1.23.2-to-1.24.0",
+      "doc-drift-graph-version-0.4.1-to-0.4.2",
+      "doc-drift-graph-version-constant-example",
+      "doc-drift-eslint-plugin-version-0.2.3-to-0.2.4",
+      "doc-drift-eslint-plugin-strict-config-description",
+      "doc-drift-core-version-0.21.1-to-0.21.2",
+      "doc-drift-types-version-0.9.0-to-0.9.1",
+      "doc-drift-linter-gen-version-0.1.5-to-0.1.6",
+      "eslint-plugin-meta-version-0.2.3-to-0.2.4",
+      "security-session-sections-crypto-random",
+      "skills-readme-count-540-platforms-4"
     ],
-    "pending": ["codex-platform-parity"],
+    "pending": [],
     "skipped": []
   }
 }
