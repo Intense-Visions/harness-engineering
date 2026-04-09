@@ -9,7 +9,7 @@ import { ExitCode } from '../../utils/errors';
  * Creates the 'integrations list' subcommand.
  * Shows all integrations with status (configured/available/dismissed).
  */
-function printTier0Integrations(
+export function printTier0Integrations(
   tier0: typeof INTEGRATION_REGISTRY,
   mcpServers: Record<string, unknown>
 ): void {
@@ -20,7 +20,7 @@ function printTier0Integrations(
   }
 }
 
-function printTier1Integrations(
+export function printTier1Integrations(
   tier1: typeof INTEGRATION_REGISTRY,
   mcpServers: Record<string, unknown>,
   dismissed: string[]
@@ -38,7 +38,7 @@ function printTier1Integrations(
   }
 }
 
-async function runListIntegrations(globalOpts: Record<string, unknown>): Promise<void> {
+export async function runListIntegrations(globalOpts: Record<string, unknown>): Promise<void> {
   const cwd = process.cwd();
   const mcpConfig = readMcpConfig(path.join(cwd, '.mcp.json'));
   const integConfig = readIntegrationsConfig(path.join(cwd, 'harness.config.json'));

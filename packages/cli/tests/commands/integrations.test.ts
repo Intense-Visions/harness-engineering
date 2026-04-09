@@ -32,6 +32,92 @@ describe('integrations commands', () => {
       const cmd = createListIntegrationsCommand();
       expect(cmd.name()).toBe('list');
     });
+
+    it('printTier0Integrations prints tier 0 entries', async () => {
+      const { printTier0Integrations } = await import('../../src/commands/integrations/list');
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const tier0 = [{ name: 'context7', description: 'Context docs', tier: 0 as const }];
+      printTier0Integrations(tier0, { context7: {} });
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Tier 0'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('context7'));
+      consoleSpy.mockRestore();
+    });
+
+    it('printTier0Integrations marks unconfigured with circle icon', async () => {
+      const { printTier0Integrations } = await import('../../src/commands/integrations/list');
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const tier0 = [{ name: 'context7', description: 'Context docs', tier: 0 as const }];
+      printTier0Integrations(tier0, {});
+      const calls = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
+      expect(calls).toContain('context7');
+      consoleSpy.mockRestore();
+    });
+
+    it('printTier1Integrations shows dismissed label', async () => {
+      const { printTier1Integrations } = await import('../../src/commands/integrations/list');
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const tier1 = [
+        {
+          name: 'perplexity',
+          description: 'Perplexity AI',
+          tier: 1 as const,
+          envVar: 'PERPLEXITY_API_KEY',
+        },
+      ];
+      printTier1Integrations(tier1, {}, ['perplexity']);
+      const calls = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
+      expect(calls).toContain('dismissed');
+      consoleSpy.mockRestore();
+    });
+
+    it('printTier1Integrations shows env var status when not dismissed', async () => {
+      const { printTier1Integrations } = await import('../../src/commands/integrations/list');
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      delete process.env.PERPLEXITY_API_KEY;
+      const tier1 = [
+        {
+          name: 'perplexity',
+          description: 'Perplexity AI',
+          tier: 1 as const,
+          envVar: 'PERPLEXITY_API_KEY',
+        },
+      ];
+      printTier1Integrations(tier1, {}, []);
+      const calls = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
+      expect(calls).toContain('PERPLEXITY_API_KEY');
+      consoleSpy.mockRestore();
+    });
+
+    it('runListIntegrations outputs JSON when --json flag set', async () => {
+      const { runListIntegrations } = await import('../../src/commands/integrations/list');
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      await runListIntegrations({ json: true }).catch(() => {});
+      const jsonCall = consoleSpy.mock.calls.find((c) => {
+        try {
+          JSON.parse(String(c[0]));
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      expect(jsonCall).toBeDefined();
+      const parsed = JSON.parse(String(jsonCall![0]));
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed[0]).toHaveProperty('name');
+      expect(parsed[0]).toHaveProperty('tier');
+      consoleSpy.mockRestore();
+    });
+
+    it('runListIntegrations outputs table view when no flags', async () => {
+      const { runListIntegrations } = await import('../../src/commands/integrations/list');
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      await runListIntegrations({}).catch(() => {});
+      const calls = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
+      expect(calls).toContain('MCP Integrations');
+      expect(calls).toContain('Tier 0');
+      expect(calls).toContain('Tier 1');
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('add', () => {
