@@ -34,6 +34,7 @@
   "dependencies": {
     "@clack/prompts": "^0.9.1",
     "@harness-engineering/core": "workspace:*",
+    "@harness-engineering/dashboard": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/linter-gen": "workspace:*",
     "@harness-engineering/orchestrator": "workspace:*",

@@ -1,9 +1,16 @@
 {
   "name": "@harness-engineering/dashboard",
   "version": "0.1.2",
-  "private": true,
   "description": "Local web dashboard for harness project health and roadmap visualization",
   "type": "module",
+  "exports": {
+    "./server": "./dist/server/serve.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:client\"",
     "dev:server": "tsx watch src/server/serve.ts",
