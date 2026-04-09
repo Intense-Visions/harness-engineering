@@ -7,6 +7,8 @@ tier: 3
 triggers:
   - manual
 platforms:
+  - claude-code
+  - gemini-cli
   - cursor
 tools: []
 paths:

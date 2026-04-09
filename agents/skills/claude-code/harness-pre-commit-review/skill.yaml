@@ -2,7 +2,7 @@ name: harness-pre-commit-review
 version: "1.0.0"
 description: Lightweight pre-commit quality gate combining mechanical checks and AI review
 triggers: [manual, on_commit]
-platforms: [claude-code, gemini-cli]
+platforms: [claude-code, gemini-cli, cursor, codex]
 tools: [Bash, Read, Glob, Grep]
 cli:
   command: harness skill run harness-pre-commit-review

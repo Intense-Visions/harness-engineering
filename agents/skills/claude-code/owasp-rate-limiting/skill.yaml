@@ -8,6 +8,8 @@ triggers:
   - manual
 platforms:
   - claude-code
+  - gemini-cli
+  - cursor
 tools: []
 paths:
   - '**/middleware/**'

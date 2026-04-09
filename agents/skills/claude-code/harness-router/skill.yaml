@@ -7,7 +7,6 @@ triggers:
   - manual
 platforms:
   - claude-code
-  - gemini-cli
 tools:
   - Read
   - Glob
