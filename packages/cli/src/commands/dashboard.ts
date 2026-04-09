@@ -1,7 +1,11 @@
 import { Command } from 'commander';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const DEFAULT_CLIENT_PORT = 3700;
 const DEFAULT_API_PORT = 3701;
