@@ -7,7 +7,10 @@ tier: 3
 triggers:
   - manual
 platforms:
+  - claude-code
+  - gemini-cli
   - cursor
+  - codex
 tools: []
 paths: []
 related_skills:
