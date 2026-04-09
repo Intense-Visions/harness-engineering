@@ -30,7 +30,7 @@ const result = query.execute({ rootNodeIds: ['file:src/index.ts'], maxDepth: 2 }
 ### `VERSION`
 
 ```typescript
-const VERSION: string; // "0.4.0"
+const VERSION: string; // "0.4.1"
 ```
 
 ### Schema Constants

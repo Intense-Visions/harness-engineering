@@ -28,7 +28,7 @@ export default [
 
 ### `recommended`
 
-Enables all rules. Architectural rules are set to `error`, documentation rules to `warn`.
+Enables 8 of 11 rules. Architectural rules are set to `error`, documentation and portability rules to `warn`. The 3 performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are opt-in.
 
 | Rule                          | Severity |
 | ----------------------------- | -------- |
@@ -39,6 +39,7 @@ Enables all rules. Architectural rules are set to `error`, documentation rules t
 | `enforce-doc-exports`         | warn     |
 | `no-unix-shell-command`       | warn     |
 | `no-hardcoded-path-separator` | warn     |
+| `require-path-normalization`  | warn     |
 
 ### `strict`
 

@@ -32,7 +32,7 @@ function printTier1Integrations(
     if (dismissed.includes(i.name)) {
       suffix = chalk.dim('[dismissed]');
     } else if (i.envVar) {
-      suffix = `${i.envVar} ${!!process.env[i.envVar] ? chalk.green('\u2713') : chalk.yellow('not set')}`;
+      suffix = `${i.envVar} ${process.env[i.envVar] ? chalk.green('\u2713') : chalk.yellow('not set')}`;
     }
     console.log(`    ${icon} ${i.name.padEnd(22)} ${i.description.padEnd(35)} ${suffix}`);
   }
@@ -46,7 +46,8 @@ async function runListIntegrations(globalOpts: Record<string, unknown>): Promise
 
   if (globalOpts.json) {
     const entries = INTEGRATION_REGISTRY.map((i) => ({
-      name: i.name, tier: i.tier,
+      name: i.name,
+      tier: i.tier,
       configured: i.name in mcpServers,
       enabled: integConfig.enabled.includes(i.name),
       dismissed: integConfig.dismissed.includes(i.name),
@@ -67,7 +68,9 @@ async function runListIntegrations(globalOpts: Record<string, unknown>): Promise
   console.log('');
   printTier1Integrations(tier1, mcpServers, integConfig.dismissed);
   console.log('');
-  console.log(`  Run '${chalk.cyan('harness integrations add <name>')}' to enable a Tier 1 integration.`);
+  console.log(
+    `  Run '${chalk.cyan('harness integrations add <name>')}' to enable a Tier 1 integration.`
+  );
   console.log('');
   process.exit(ExitCode.SUCCESS);
 }

@@ -96,25 +96,36 @@ function appendProjectState(
   return content + `\n\n---\n## Project State\n\`\`\`json\n${stateContent}\n\`\`\`\n`;
 }
 
-async function runSkill(name: string, opts: { path?: string; complexity?: string; phase?: string; party?: boolean }): Promise<void> {
+async function runSkill(
+  name: string,
+  opts: { path?: string; complexity?: string; phase?: string; party?: boolean }
+): Promise<void> {
   const skillsDir = resolveSkillsDir();
   const skillDir = path.join(skillsDir, name);
 
   if (!fs.existsSync(skillDir)) {
     logger.error(`Skill not found: ${name}`);
     process.exit(ExitCode.ERROR);
+    return;
   }
 
   const metadata = loadSkillMetadata(skillDir);
   const projectPath = opts.path ? path.resolve(opts.path) : process.cwd();
-  const complexity = resolveComplexity(metadata, (opts.complexity as Complexity) ?? 'standard', projectPath);
+  const complexity = resolveComplexity(
+    metadata,
+    (opts.complexity as Complexity) ?? 'standard',
+    projectPath
+  );
   const principles = loadPrinciples(projectPath);
 
   let priorState: string | undefined;
   let stateWarning: string | undefined;
   if (opts.phase) {
     const phaseResult = resolvePhaseState(metadata, projectPath, opts.phase);
-    if (!phaseResult) { process.exit(ExitCode.ERROR); }
+    if (!phaseResult) {
+      process.exit(ExitCode.ERROR);
+      return;
+    }
     priorState = phaseResult.priorState;
     stateWarning = phaseResult.stateWarning;
   }
@@ -133,9 +144,15 @@ async function runSkill(name: string, opts: { path?: string; complexity?: string
   if (!fs.existsSync(skillMdPath)) {
     logger.error(`SKILL.md not found for skill: ${name}`);
     process.exit(ExitCode.ERROR);
+    return;
   }
 
-  const content = appendProjectState(fs.readFileSync(skillMdPath, 'utf-8'), metadata, projectPath, !!opts.path);
+  const content = appendProjectState(
+    fs.readFileSync(skillMdPath, 'utf-8'),
+    metadata,
+    projectPath,
+    !!opts.path
+  );
   process.stdout.write(preamble + content);
   process.exit(ExitCode.SUCCESS);
 }

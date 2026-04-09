@@ -10,7 +10,8 @@ function printStateText(state: HarnessState, stream?: string): void {
   console.log(`Schema Version: ${state.schemaVersion}`);
   if (state.position.phase) console.log(`Phase:          ${state.position.phase}`);
   if (state.position.task) console.log(`Task:           ${state.position.task}`);
-  if (state.lastSession) console.log(`Last Session:   ${state.lastSession.date} — ${state.lastSession.summary}`);
+  if (state.lastSession)
+    console.log(`Last Session:   ${state.lastSession.date} — ${state.lastSession.summary}`);
   printStateProgress(state.progress);
   if (state.decisions.length > 0) console.log(`\nDecisions: ${state.decisions.length}`);
   if (state.blockers.length > 0) {
@@ -36,7 +37,11 @@ export function createShowCommand(): Command {
       const globalOpts = cmd.optsWithGlobals();
       const result = await loadState(path.resolve(opts.path), opts.stream);
 
-      if (!result.ok) { logger.error(result.error.message); process.exit(ExitCode.ERROR); }
+      if (!result.ok) {
+        logger.error(result.error.message);
+        process.exit(ExitCode.ERROR);
+        return;
+      }
 
       const state = result.value;
       if (globalOpts.json) logger.raw(state);
