@@ -33,6 +33,8 @@ triggers:
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -76,3 +78,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - otel-sdk-setup
+  - otel-tracing-pattern
+  - otel-metrics-pattern
+  - otel-logging-pattern

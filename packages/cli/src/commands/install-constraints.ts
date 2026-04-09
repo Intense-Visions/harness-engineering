@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Command } from 'commander';
 import semver from 'semver';
+import type { Result } from '@harness-engineering/types';
 import {
   BundleSchema,
   deepMergeConstraints,
@@ -16,7 +17,6 @@ import type { ConflictReport } from '@harness-engineering/core';
 import { findConfigFile } from '../config/loader';
 import { logger } from '../output/logger';
 import { CLI_VERSION } from '../version';
-import type { Result } from '@harness-engineering/types';
 
 // --- Types ---
 

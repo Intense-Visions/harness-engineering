@@ -231,69 +231,82 @@ export interface ImpactPreviewOptions {
   path?: string;
 }
 
+interface ImpactAccumulator {
+  perFileResults: PerFileImpact[];
+  allGroups: ImpactGroup[];
+  aggregateCounts: AggregatedCounts;
+}
+
+async function accumulateFileImpact(
+  file: string,
+  projectPath: string,
+  mode: 'summary' | 'detailed',
+  perFile: boolean,
+  acc: ImpactAccumulator
+): Promise<void> {
+  const response = await handleGetImpact({
+    path: projectPath,
+    filePath: file,
+    mode: perFile ? 'summary' : mode,
+  });
+  const parsed = parseImpactResponse(response);
+  if (!parsed) return;
+
+  acc.aggregateCounts.code += parsed.counts.code;
+  acc.aggregateCounts.tests += parsed.counts.tests;
+  acc.aggregateCounts.docs += parsed.counts.docs;
+  acc.aggregateCounts.other += parsed.counts.other;
+
+  if (perFile) {
+    acc.perFileResults.push({
+      file,
+      code: parsed.counts.code,
+      tests: parsed.counts.tests,
+      docs: parsed.counts.docs,
+    });
+  }
+  acc.allGroups.push(parsed.items);
+}
+
+function formatImpactOutput(
+  stagedFiles: string[],
+  acc: ImpactAccumulator,
+  options: ImpactPreviewOptions
+): string {
+  if (options.perFile) {
+    if (acc.perFileResults.length === 0) {
+      return `Impact Preview (${stagedFiles.length} staged file${stagedFiles.length === 1 ? '' : 's'}): no impact data`;
+    }
+    return formatPerFile(acc.perFileResults);
+  }
+  const merged = mergeImpactGroups(acc.allGroups);
+  return options.detailed
+    ? formatDetailed(stagedFiles.length, merged, acc.aggregateCounts)
+    : formatCompact(stagedFiles.length, merged, acc.aggregateCounts);
+}
+
 export async function runImpactPreview(options: ImpactPreviewOptions): Promise<string> {
   const projectPath = path.resolve(options.path ?? process.cwd());
 
-  // Step 1: Get staged files
   const stagedFiles = getStagedFiles(projectPath);
-  if (stagedFiles.length === 0) {
-    return 'Impact Preview: no staged changes';
-  }
+  if (stagedFiles.length === 0) return 'Impact Preview: no staged changes';
 
-  // Step 2: Check for graph
   if (!graphExists(projectPath)) {
     return 'Impact Preview: skipped (no graph — run `harness scan` to enable)';
   }
 
-  // Step 3: Get impact for each file
-  const mode = options.detailed ? 'detailed' : 'summary';
-  const perFileResults: PerFileImpact[] = [];
-  const allGroups: ImpactGroup[] = [];
-  const aggregateCounts: AggregatedCounts = { code: 0, tests: 0, docs: 0, other: 0 };
+  const mode: 'summary' | 'detailed' = options.detailed ? 'detailed' : 'summary';
+  const acc: ImpactAccumulator = {
+    perFileResults: [],
+    allGroups: [],
+    aggregateCounts: { code: 0, tests: 0, docs: 0, other: 0 },
+  };
 
   for (const file of stagedFiles) {
-    const response = await handleGetImpact({
-      path: projectPath,
-      filePath: file,
-      mode: options.perFile ? 'summary' : mode,
-    });
-
-    const parsed = parseImpactResponse(response);
-    if (!parsed) continue;
-
-    // Accumulate true counts from API response
-    aggregateCounts.code += parsed.counts.code;
-    aggregateCounts.tests += parsed.counts.tests;
-    aggregateCounts.docs += parsed.counts.docs;
-    aggregateCounts.other += parsed.counts.other;
-
-    if (options.perFile) {
-      perFileResults.push({
-        file,
-        code: parsed.counts.code,
-        tests: parsed.counts.tests,
-        docs: parsed.counts.docs,
-      });
-    }
-
-    allGroups.push(parsed.items);
+    await accumulateFileImpact(file, projectPath, mode, options.perFile ?? false, acc);
   }
 
-  // Step 4: Format output
-  if (options.perFile) {
-    if (perFileResults.length === 0) {
-      return `Impact Preview (${stagedFiles.length} staged file${stagedFiles.length === 1 ? '' : 's'}): no impact data`;
-    }
-    return formatPerFile(perFileResults);
-  }
-
-  const merged = mergeImpactGroups(allGroups);
-
-  if (options.detailed) {
-    return formatDetailed(stagedFiles.length, merged, aggregateCounts);
-  }
-
-  return formatCompact(stagedFiles.length, merged, aggregateCounts);
+  return formatImpactOutput(stagedFiles, acc, options);
 }
 
 export function createImpactPreviewCommand(): Command {

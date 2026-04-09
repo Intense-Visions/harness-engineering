@@ -1,0 +1,35 @@
+name: design-fluent-design
+version: '1.0.0'
+description: Microsoft Fluent 2 design system covering light/depth/motion/material/scale, acrylic material, reveal highlight, connected animations, responsive containers, and token theming
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-elevation-shadow
+  - design-motion-principles
+  - design-token-architecture
+stack_signals: []
+keywords:
+  - fluent-design
+  - Microsoft
+  - acrylic
+  - reveal-highlight
+  - connected-animations
+  - responsive-containers
+  - Windows
+  - Teams
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

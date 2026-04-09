@@ -7,6 +7,29 @@ function escapeTomlLiteral(content: string): string {
   return content.replace(/'''/g, "''\\'''");
 }
 
+function appendExecutionContext(
+  lines: string[],
+  spec: SlashCommandSpec,
+  skillMdContent: string,
+  skillYamlContent: string
+): void {
+  lines.push('<execution_context>');
+  if (skillMdContent) {
+    const mdPath = spec.prompt.executionContext.split('\n')[0]?.replace(/^@/, '') ?? '';
+    lines.push(`--- SKILL.md (${mdPath}) ---`);
+    lines.push(escapeTomlLiteral(skillMdContent));
+    lines.push('');
+  }
+  if (skillYamlContent) {
+    const refs = spec.prompt.executionContext.split('\n');
+    const yamlPath = (refs[1] ?? refs[0] ?? '').replace(/^@/, '');
+    lines.push(`--- skill.yaml (${yamlPath}) ---`);
+    lines.push(escapeTomlLiteral(skillYamlContent));
+  }
+  lines.push('</execution_context>');
+  lines.push('');
+}
+
 export function renderGemini(
   spec: SlashCommandSpec,
   skillMdContent: string,
@@ -29,21 +52,7 @@ export function renderGemini(
   lines.push('');
 
   if (skillMdContent || skillYamlContent) {
-    lines.push('<execution_context>');
-    if (skillMdContent) {
-      const mdPath = spec.prompt.executionContext.split('\n')[0]?.replace(/^@/, '') ?? '';
-      lines.push(`--- SKILL.md (${mdPath}) ---`);
-      lines.push(escapeTomlLiteral(skillMdContent));
-      lines.push('');
-    }
-    if (skillYamlContent) {
-      const refs = spec.prompt.executionContext.split('\n');
-      const yamlPath = (refs[1] ?? refs[0] ?? '').replace(/^@/, '');
-      lines.push(`--- skill.yaml (${yamlPath}) ---`);
-      lines.push(escapeTomlLiteral(skillYamlContent));
-    }
-    lines.push('</execution_context>');
-    lines.push('');
+    appendExecutionContext(lines, spec, skillMdContent, skillYamlContent);
   }
 
   const geminiProcess = spec.prompt.process.replace(

@@ -1,0 +1,35 @@
+name: js-template-method-pattern
+version: '1.0.0'
+description: Define the skeleton of an algorithm in a base class and let subclasses override specific steps
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-strategy-pattern
+  - js-constructor-pattern
+stack_signals:
+  - javascript
+keywords:
+  - template-method
+  - algorithm-skeleton
+  - hook-methods
+  - inheritance
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/template-method-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

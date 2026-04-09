@@ -1,0 +1,45 @@
+name: angular-performance-patterns
+version: '1.0.0'
+description: Optimize Angular app performance with OnPush, trackBy, virtual scrolling, and deferrable views
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - angular.json
+  - '**/*.component.ts'
+  - '**/*.component.html'
+  - '**/*.service.ts'
+  - '**/*.module.ts'
+related_skills:
+  - angular-component-pattern
+  - angular-signals-pattern
+  - angular-lazy-loading
+  - angular-pipe-pattern
+stack_signals:
+  - angular
+  - typescript
+  - rxjs
+keywords:
+  - OnPush
+  - trackBy
+  - virtual-scrolling
+  - deferrable-views
+  - performance
+  - memoization
+  - zoneless
+  - CdkVirtualScrollViewport
+metadata:
+  author: angular.dev
+  upstream: 'angular.dev/guide/best-practices/runtime-performance'
+state:
+  persistent: false
+  files: []
+depends_on: []

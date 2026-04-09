@@ -1,0 +1,40 @@
+name: nuxt-modules-pattern
+version: '1.0.0'
+description: Build and configure Nuxt modules using defineNuxtModule, addComponent, and module hooks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/modules/**'
+related_skills:
+  - nuxt-plugins-pattern
+  - nuxt-auto-imports
+  - nuxt-composables-pattern
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - modules
+  - defineNuxtModule
+  - addComponent
+  - addImports
+  - module-hooks
+  - build-time
+  - nuxt-kit
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/guide/going-further/modules'
+state:
+  persistent: false
+  files: []
+depends_on: []

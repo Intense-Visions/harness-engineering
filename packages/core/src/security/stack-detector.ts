@@ -1,42 +1,50 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-export function detectStack(projectRoot: string): string[] {
-  const stacks: string[] = [];
+type Deps = Record<string, unknown>;
 
-  // Check for Node.js / JavaScript ecosystem
+/** Derive sub-stacks from a merged dependency map (dependencies + devDependencies). */
+function nodeSubStacks(allDeps: Deps): string[] {
+  const found: string[] = [];
+  if (allDeps.react || allDeps['react-dom']) found.push('react');
+  if (allDeps.express) found.push('express');
+  if (allDeps.koa) found.push('koa');
+  if (allDeps.fastify) found.push('fastify');
+  if (allDeps.next) found.push('next');
+  if (allDeps.vue) found.push('vue');
+  if (allDeps.angular || allDeps['@angular/core']) found.push('angular');
+  return found;
+}
+
+/** Detect Node.js and any framework sub-stacks present in package.json. */
+function detectNodeStacks(projectRoot: string): string[] {
   const pkgJsonPath = path.join(projectRoot, 'package.json');
-  if (fs.existsSync(pkgJsonPath)) {
-    stacks.push('node');
-    try {
-      const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
-      const allDeps = {
-        ...pkgJson.dependencies,
-        ...pkgJson.devDependencies,
-      };
+  if (!fs.existsSync(pkgJsonPath)) return [];
 
-      if (allDeps.react || allDeps['react-dom']) stacks.push('react');
-      if (allDeps.express) stacks.push('express');
-      if (allDeps.koa) stacks.push('koa');
-      if (allDeps.fastify) stacks.push('fastify');
-      if (allDeps.next) stacks.push('next');
-      if (allDeps.vue) stacks.push('vue');
-      if (allDeps.angular || allDeps['@angular/core']) stacks.push('angular');
-    } catch {
-      // Malformed package.json — continue with just 'node'
-    }
+  const stacks = ['node'];
+  try {
+    const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
+    const allDeps: Deps = { ...pkgJson.dependencies, ...pkgJson.devDependencies };
+    stacks.push(...nodeSubStacks(allDeps));
+  } catch {
+    // Malformed package.json — continue with just 'node'
   }
+  return stacks;
+}
+
+export function detectStack(projectRoot: string): string[] {
+  const stacks: string[] = [...detectNodeStacks(projectRoot)];
 
   // Check for Go
-  const goModPath = path.join(projectRoot, 'go.mod');
-  if (fs.existsSync(goModPath)) {
+  if (fs.existsSync(path.join(projectRoot, 'go.mod'))) {
     stacks.push('go');
   }
 
   // Check for Python
-  const requirementsPath = path.join(projectRoot, 'requirements.txt');
-  const pyprojectPath = path.join(projectRoot, 'pyproject.toml');
-  if (fs.existsSync(requirementsPath) || fs.existsSync(pyprojectPath)) {
+  const hasPython =
+    fs.existsSync(path.join(projectRoot, 'requirements.txt')) ||
+    fs.existsSync(path.join(projectRoot, 'pyproject.toml'));
+  if (hasPython) {
     stacks.push('python');
   }
 

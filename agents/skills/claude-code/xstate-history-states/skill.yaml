@@ -1,0 +1,39 @@
+name: xstate-history-states
+version: '1.0.0'
+description: Remember and restore previous state configurations with history states
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-parallel-states
+  - xstate-guards-actions
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - history
+  - shallow
+  - deep
+  - restore
+  - previous-state
+metadata:
+  author: community
+  upstream: 'xstate/docs/history-states'
+state:
+  persistent: false
+  files: []
+depends_on: []

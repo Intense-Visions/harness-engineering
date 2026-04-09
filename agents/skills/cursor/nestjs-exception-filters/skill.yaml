@@ -1,0 +1,40 @@
+name: nestjs-exception-filters
+version: "1.0.0"
+description: Handle errors globally with @Catch, ExceptionFilter, and custom exception hierarchies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.filter.ts"
+  - "**/*.exception.ts"
+related_skills:
+  - nestjs-controller-pattern
+  - nestjs-interceptors-pattern
+  - nestjs-pipes-pattern
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - exception-filter
+  - error-handling
+  - HttpException
+  - Catch
+  - custom-exception
+  - global-filter
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/exception-filters"
+state:
+  persistent: false
+  files: []
+depends_on: []

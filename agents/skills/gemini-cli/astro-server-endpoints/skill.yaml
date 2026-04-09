@@ -1,0 +1,44 @@
+name: astro-server-endpoints
+version: '1.0.0'
+description: Build API endpoints and middleware in Astro for GET/POST handlers and server-side request processing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+related_skills:
+  - astro-ssr-hybrid
+  - astro-routing-pattern
+  - astro-deployment-config
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - api-endpoints
+  - server-endpoints
+  - GET
+  - POST
+  - APIRoute
+  - middleware
+  - request-response
+  - APIContext
+  - defineMiddleware
+  - sequence
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/guides/endpoints'
+state:
+  persistent: false
+  files: []
+depends_on: []

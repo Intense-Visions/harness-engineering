@@ -1,0 +1,43 @@
+name: tanstack-prefetching
+version: "1.0.0"
+description: prefetchQuery, dehydrate/hydrate, SSR with Next.js, and router-level prefetch
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/query-client.ts"
+  - "**/*query*.ts"
+related_skills:
+  - next-data-fetching
+  - next-caching-strategies
+  - tanstack-cache-management
+  - tanstack-query-keys
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - prefetch
+  - dehydrate
+  - hydrate
+  - SSR
+  - HydrationBoundary
+  - server-prefetch
+  - initial-data
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/prefetching
+state:
+  persistent: false
+  files: []
+depends_on: []

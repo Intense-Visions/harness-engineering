@@ -1,0 +1,41 @@
+name: nestjs-dependency-injection
+version: "1.0.0"
+description: Master NestJS DI container with tokens, useClass/useValue/useFactory providers
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.module.ts"
+  - "**/*.service.ts"
+related_skills:
+  - nestjs-module-pattern
+  - nestjs-service-pattern
+  - nestjs-config-module
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - dependency-injection
+  - injection-token
+  - useClass
+  - useValue
+  - useFactory
+  - provider
+  - IoC
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/fundamentals/custom-providers"
+state:
+  persistent: false
+  files: []
+depends_on: []

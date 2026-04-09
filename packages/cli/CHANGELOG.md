@@ -1,5 +1,30 @@
 # @harness-engineering/cli
 
+## 1.24.0
+
+### Minor Changes
+
+- Skill dispatcher enhancements, knowledge skill infrastructure, and structural improvements
+  - Add `related_skills` traversal and knowledge auto-injection (cap N=3) to skill dispatcher
+  - Add `paths` glob dimension to skill scoring (0.20 weight)
+  - Add NL router skill with `command_name` override
+  - Add `--skills-dir`, bulk install, global skills, and GitHub source to install command
+  - Replicate knowledge skills across gemini-cli, cursor, and codex platforms
+  - Add `return` after `process.exit()` calls for TypeScript control-flow correctness
+  - Replace `!!` with `Boolean()` for explicit boolean coercion in integrations list
+  - Reduce Tier 2 structural complexity across CLI commands
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @harness-engineering/core@0.21.2
+  - @harness-engineering/graph@0.4.2
+  - @harness-engineering/linter-gen@0.1.6
+  - @harness-engineering/orchestrator@0.2.6
+  - @harness-engineering/types@0.9.1
+
 ## 1.23.2
 
 ### Patch Changes

@@ -1,0 +1,39 @@
+name: react-islands-pattern
+version: '1.0.0'
+description: Hydrate only interactive UI islands, leaving static content as HTML
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-progressive-hydration
+  - react-server-components
+  - react-server-rendering
+stack_signals:
+  - react
+  - typescript
+  - astro
+  - next
+keywords:
+  - islands
+  - partial-hydration
+  - performance
+  - static-html
+  - interactive-components
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/islands-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

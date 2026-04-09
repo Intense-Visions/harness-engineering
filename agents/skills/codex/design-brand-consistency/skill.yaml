@@ -1,0 +1,35 @@
+name: design-brand-consistency
+version: "1.0.0"
+description: Visual coherence — brand attributes to design decisions, voice to visual mapping, consistency vs monotony, brand flex zones, multi-platform coherence
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-color-psychology
+  - design-font-pairing
+  - design-design-governance
+stack_signals: []
+keywords:
+  - brand
+  - consistency
+  - coherence
+  - voice
+  - visual-mapping
+  - flex-zones
+  - multi-platform
+  - brand-attributes
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

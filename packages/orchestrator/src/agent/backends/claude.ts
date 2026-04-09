@@ -13,6 +13,30 @@ import {
   AgentError,
 } from '@harness-engineering/types';
 
+function resolveExitCode(
+  code: number | null,
+  command: string,
+  resolve: (value: Result<void, AgentError>) => void
+): void {
+  if (code === 0) {
+    resolve(Ok(undefined));
+  } else {
+    resolve(
+      Err({
+        category: 'agent_not_found',
+        message: `Claude command '${command}' not found or failed`,
+      })
+    );
+  }
+}
+
+function resolveSpawnError(
+  command: string,
+  resolve: (value: Result<void, AgentError>) => void
+): void {
+  resolve(Err({ category: 'agent_not_found', message: `Claude command '${command}' not found` }));
+}
+
 export class ClaudeBackend implements AgentBackend {
   readonly name = 'claude';
   private command: string;
@@ -88,26 +112,8 @@ export class ClaudeBackend implements AgentBackend {
   async healthCheck(): Promise<Result<void, AgentError>> {
     return new Promise((resolve) => {
       const child = spawn(this.command, ['--version']);
-      child.on('exit', (code) => {
-        if (code === 0) {
-          resolve(Ok(undefined));
-        } else {
-          resolve(
-            Err({
-              category: 'agent_not_found',
-              message: `Claude command '${this.command}' not found or failed`,
-            })
-          );
-        }
-      });
-      child.on('error', () => {
-        resolve(
-          Err({
-            category: 'agent_not_found',
-            message: `Claude command '${this.command}' not found`,
-          })
-        );
-      });
+      child.on('exit', (code) => resolveExitCode(code, this.command, resolve));
+      child.on('error', () => resolveSpawnError(this.command, resolve));
     });
   }
 }

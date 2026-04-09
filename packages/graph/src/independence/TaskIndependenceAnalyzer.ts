@@ -55,68 +55,69 @@ export class TaskIndependenceAnalyzer {
     const depth = params.depth ?? 1;
     const edgeTypes = (params.edgeTypes ?? DEFAULT_EDGE_TYPES) as readonly EdgeType[];
 
-    // --- Validation ---
     this.validate(tasks);
 
-    // --- Determine analysis level ---
     const useGraph = this.store != null && depth > 0;
     const analysisLevel: 'graph-expanded' | 'file-only' = useGraph ? 'graph-expanded' : 'file-only';
 
-    // --- Expand file sets ---
-    // originalFiles: Map<taskId, Set<file>>
-    // expandedFiles: Map<taskId, Map<file, sourceFile>> (expanded file -> which original file led to it)
+    const { originalFiles, expandedFiles } = this.buildFileSets(tasks, useGraph, depth, edgeTypes);
+    const taskIds = tasks.map((t) => t.id);
+    const pairs = this.computeAllPairs(taskIds, originalFiles, expandedFiles);
+    const groups = this.buildGroups(taskIds, pairs);
+    const verdict = this.generateVerdict(taskIds, groups, analysisLevel);
+
+    return { tasks: taskIds, analysisLevel, depth, pairs, groups, verdict };
+  }
+
+  // --- Private methods ---
+
+  private buildFileSets(
+    tasks: readonly TaskDefinition[],
+    useGraph: boolean,
+    depth: number,
+    edgeTypes: readonly EdgeType[]
+  ): {
+    originalFiles: Map<string, Set<string>>;
+    expandedFiles: Map<string, Map<string, string>>;
+  } {
     const originalFiles = new Map<string, Set<string>>();
     const expandedFiles = new Map<string, Map<string, string>>();
 
     for (const task of tasks) {
-      const origSet = new Set(task.files);
-      originalFiles.set(task.id, origSet);
-
-      if (useGraph) {
-        const expanded = this.expandViaGraph(task.files, depth, edgeTypes);
-        expandedFiles.set(task.id, expanded);
-      } else {
-        expandedFiles.set(task.id, new Map());
-      }
+      originalFiles.set(task.id, new Set(task.files));
+      expandedFiles.set(
+        task.id,
+        useGraph ? this.expandViaGraph(task.files, depth, edgeTypes) : new Map()
+      );
     }
 
-    // --- Compute pairwise overlaps ---
-    const taskIds = tasks.map((t) => t.id);
-    const pairs: PairResult[] = [];
+    return { originalFiles, expandedFiles };
+  }
 
+  private computeAllPairs(
+    taskIds: readonly string[],
+    originalFiles: Map<string, Set<string>>,
+    expandedFiles: Map<string, Map<string, string>>
+  ): PairResult[] {
+    const pairs: PairResult[] = [];
     for (let i = 0; i < taskIds.length; i++) {
       for (let j = i + 1; j < taskIds.length; j++) {
         const idA = taskIds[i]!;
         const idB = taskIds[j]!;
-        const pair = this.computePairOverlap(
-          idA,
-          idB,
-          originalFiles.get(idA)!,
-          originalFiles.get(idB)!,
-          expandedFiles.get(idA)!,
-          expandedFiles.get(idB)!
+        pairs.push(
+          this.computePairOverlap(
+            idA,
+            idB,
+            originalFiles.get(idA)!,
+            originalFiles.get(idB)!,
+            expandedFiles.get(idA)!,
+            expandedFiles.get(idB)!
+          )
         );
-        pairs.push(pair);
       }
     }
-
-    // --- Build parallel groups via union-find ---
-    const groups = this.buildGroups(taskIds, pairs);
-
-    // --- Generate verdict ---
-    const verdict = this.generateVerdict(taskIds, groups, analysisLevel);
-
-    return {
-      tasks: taskIds,
-      analysisLevel,
-      depth,
-      pairs,
-      groups,
-      verdict,
-    };
+    return pairs;
   }
-
-  // --- Private methods ---
 
   private validate(tasks: readonly TaskDefinition[]): void {
     if (tasks.length < 2) {

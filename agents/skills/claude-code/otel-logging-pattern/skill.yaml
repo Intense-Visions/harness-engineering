@@ -1,0 +1,40 @@
+name: otel-logging-pattern
+version: '1.0.0'
+description: Correlate structured logs with traces using OpenTelemetry log signals
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/logging/**'
+  - '**/logger/**'
+  - '**/telemetry/**'
+related_skills:
+  - otel-tracing-pattern
+  - otel-sdk-setup
+  - otel-error-tracking
+stack_signals:
+  - opentelemetry
+  - nodejs
+  - typescript
+keywords:
+  - logging
+  - structured-logs
+  - trace-correlation
+  - log-context
+  - pino
+  - winston
+metadata:
+  author: community
+  upstream: 'opentelemetry/docs/logs'
+state:
+  persistent: false
+  files: []
+depends_on: []

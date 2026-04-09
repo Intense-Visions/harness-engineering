@@ -2,6 +2,11 @@ name: harness-mobile-patterns
 version: "1.0.0"
 description: Mobile platform lifecycle, permissions, deep linking, push notifications, and app store submission
 cognitive_mode: advisory-guide
+paths:
+  - 'app.json'
+  - 'pubspec.yaml'
+  - 'AndroidManifest.xml'
+  - 'Info.plist'
 triggers:
   - manual
   - on_new_feature
@@ -9,6 +14,8 @@ triggers:
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -80,3 +87,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - mobile-performance-patterns
+  - mobile-navigation-pattern
+  - mobile-network-patterns
+  - mobile-storage-patterns

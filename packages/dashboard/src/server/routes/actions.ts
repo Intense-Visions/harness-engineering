@@ -36,6 +36,40 @@ let validating = false;
 const MAX_OUTPUT_BYTES = 512 * 1024;
 const VALIDATE_TIMEOUT_MS = 30_000;
 
+type RoadmapUpdateResult = { updated: string } | { error: string; code: number };
+
+async function updateRoadmapContent(
+  roadmapPath: string,
+  feature: string,
+  status: string
+): Promise<RoadmapUpdateResult> {
+  let content: string;
+  try {
+    content = await readFile(roadmapPath, 'utf-8');
+  } catch {
+    return { error: 'Could not read roadmap file', code: 500 };
+  }
+
+  const escapedName = feature.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Finding 12: Add (?=\s|$) to prevent prefix collisions
+  const sectionPattern = new RegExp(
+    `(###\\s+${escapedName}(?=\\s|$)[\\s\\S]*?\\*\\*Status:\\*\\*\\s*)([^\\n]+)`
+  );
+
+  if (!sectionPattern.test(content)) {
+    return { error: `Feature '${feature}' not found in roadmap`, code: 404 };
+  }
+
+  const updated = content.replace(sectionPattern, `$1${status}`);
+  try {
+    await writeFile(roadmapPath, updated, 'utf-8');
+  } catch {
+    return { error: 'Could not write roadmap file', code: 500 };
+  }
+
+  return { updated };
+}
+
 async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Response> {
   const body = await c.req.json<{ feature?: string; status?: string }>();
   const { feature, status } = body;
@@ -56,39 +90,66 @@ async function handleRoadmapStatus(c: Context, ctx: ServerContext): Promise<Resp
   let result: Response | undefined;
 
   await withFileLock(ctx.roadmapPath, async () => {
-    let content: string;
-    try {
-      content = await readFile(ctx.roadmapPath, 'utf-8');
-    } catch {
-      result = c.json({ error: 'Could not read roadmap file' }, 500);
+    const outcome = await updateRoadmapContent(ctx.roadmapPath, feature, status);
+    if ('error' in outcome) {
+      result = c.json({ error: outcome.error }, outcome.code as 404 | 500);
       return;
     }
-
-    const escapedName = feature.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Finding 12: Add (?=\s|$) to prevent prefix collisions
-    const sectionPattern = new RegExp(
-      `(###\\s+${escapedName}(?=\\s|$)[\\s\\S]*?\\*\\*Status:\\*\\*\\s*)([^\\n]+)`
-    );
-
-    if (!sectionPattern.test(content)) {
-      result = c.json({ error: `Feature '${feature}' not found in roadmap` }, 404);
-      return;
-    }
-
-    const updated = content.replace(sectionPattern, `$1${status}`);
-    try {
-      await writeFile(ctx.roadmapPath, updated, 'utf-8');
-    } catch {
-      result = c.json({ error: 'Could not write roadmap file' }, 500);
-      return;
-    }
-
     ctx.cache.invalidate('roadmap');
     ctx.cache.invalidate('overview');
     result = c.json({ ok: true, feature, status });
   });
 
   return result!;
+}
+
+interface ValidateState {
+  out: string[];
+  err: string[];
+  outSize: number;
+  errSize: number;
+  timedOut: boolean;
+}
+
+function setupValidateHandlers(
+  child: ReturnType<typeof spawn>,
+  state: ValidateState,
+  timer: ReturnType<typeof setTimeout>,
+  settle: (r: Response) => void,
+  c: Context
+): void {
+  child.stdout?.on('data', (d: Buffer) => {
+    if (state.outSize < MAX_OUTPUT_BYTES) {
+      const chunk = d.toString();
+      state.out.push(chunk);
+      state.outSize += chunk.length;
+    }
+  });
+  child.stderr?.on('data', (d: Buffer) => {
+    if (state.errSize < MAX_OUTPUT_BYTES) {
+      const chunk = d.toString();
+      state.err.push(chunk);
+      state.errSize += chunk.length;
+    }
+  });
+  child.on('close', (code) => {
+    clearTimeout(timer);
+    if (state.timedOut) return;
+    const stdout =
+      state.outSize >= MAX_OUTPUT_BYTES
+        ? state.out.join('').slice(0, MAX_OUTPUT_BYTES) + '\n[output truncated]'
+        : state.out.join('');
+    const stderr =
+      state.errSize >= MAX_OUTPUT_BYTES
+        ? state.err.join('').slice(0, MAX_OUTPUT_BYTES) + '\n[output truncated]'
+        : state.err.join('');
+    settle(c.json({ ok: code === 0, exitCode: code, stdout, stderr }));
+  });
+  child.on('error', (e: Error) => {
+    clearTimeout(timer);
+    if (state.timedOut) return;
+    settle(c.json({ ok: false, error: e.message }, 500));
+  });
 }
 
 function handleValidate(c: Context, ctx: ServerContext): Promise<Response> {
@@ -104,11 +165,7 @@ function handleValidate(c: Context, ctx: ServerContext): Promise<Response> {
       shell: false,
     });
 
-    const out: string[] = [];
-    const err: string[] = [];
-    let outSize = 0;
-    let errSize = 0;
-    let timedOut = false;
+    const state: ValidateState = { out: [], err: [], outSize: 0, errSize: 0, timedOut: false };
     let settled = false;
 
     function settle(response: Response) {
@@ -120,52 +177,14 @@ function handleValidate(c: Context, ctx: ServerContext): Promise<Response> {
 
     // Finding 4: 30s timeout
     const timer = setTimeout(() => {
-      timedOut = true;
+      state.timedOut = true;
       child.kill();
       settle(
-        c.json({
-          ok: false,
-          exitCode: -1,
-          stdout: '',
-          stderr: 'Validation timed out after 30s',
-        })
+        c.json({ ok: false, exitCode: -1, stdout: '', stderr: 'Validation timed out after 30s' })
       );
     }, VALIDATE_TIMEOUT_MS);
 
-    // Finding 4: Cap accumulated output at 512 KB
-    child.stdout.on('data', (d: Buffer) => {
-      if (outSize < MAX_OUTPUT_BYTES) {
-        const chunk = d.toString();
-        out.push(chunk);
-        outSize += chunk.length;
-      }
-    });
-    child.stderr.on('data', (d: Buffer) => {
-      if (errSize < MAX_OUTPUT_BYTES) {
-        const chunk = d.toString();
-        err.push(chunk);
-        errSize += chunk.length;
-      }
-    });
-
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (timedOut) return;
-      const stdout =
-        outSize >= MAX_OUTPUT_BYTES
-          ? out.join('').slice(0, MAX_OUTPUT_BYTES) + '\n[output truncated]'
-          : out.join('');
-      const stderr =
-        errSize >= MAX_OUTPUT_BYTES
-          ? err.join('').slice(0, MAX_OUTPUT_BYTES) + '\n[output truncated]'
-          : err.join('');
-      settle(c.json({ ok: code === 0, exitCode: code, stdout, stderr }));
-    });
-    child.on('error', (e: Error) => {
-      clearTimeout(timer);
-      if (timedOut) return;
-      settle(c.json({ ok: false, error: e.message }, 500));
-    });
+    setupValidateHandlers(child, state, timer, settle, c);
   });
 }
 

@@ -1,0 +1,39 @@
+name: redux-store-setup
+version: '1.0.0'
+description: Configure the Redux store with configureStore, middleware, and dev tools
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/store.ts'
+  - '**/store/index.ts'
+  - '**/store/**'
+related_skills:
+  - redux-slice-pattern
+  - redux-typescript-patterns
+  - redux-persistence-pattern
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - configureStore
+  - middleware
+  - devtools
+  - store-setup
+  - provider
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/configureStore'
+state:
+  persistent: false
+  files: []
+depends_on: []

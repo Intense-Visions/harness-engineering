@@ -1,0 +1,39 @@
+name: css-custom-components
+version: '1.0.0'
+description: Build reusable styled components with Tailwind patterns and prop-driven APIs
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/components/**'
+  - '**/ui/**'
+  - '**/*.tsx'
+related_skills:
+  - css-component-variants
+  - css-tailwind-merge
+  - css-tailwind-pattern
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - component-library
+  - styled-components
+  - reusable
+  - polymorphic
+  - asChild
+metadata:
+  author: community
+  upstream: 'shadcn-ui/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []

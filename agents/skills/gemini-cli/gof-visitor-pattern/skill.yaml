@@ -1,0 +1,34 @@
+name: gof-visitor-pattern
+version: "1.0.0"
+description: Add operations to object structures without modifying them using double dispatch
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-discriminated-unions
+  - ts-generics-pattern
+stack_signals:
+  - typescript
+keywords:
+  - visitor
+  - double-dispatch
+  - AST-traversal
+  - open-closed-principle
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/visitor
+state:
+  persistent: false
+  files: []
+depends_on: []

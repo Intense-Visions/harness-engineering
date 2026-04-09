@@ -1,0 +1,35 @@
+name: design-iconography
+version: "1.0.0"
+description: Icon design principles — optical sizing, stroke consistency, pixel grid alignment, metaphor clarity, icon families, filled vs outlined, icon as language
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-gestalt-closure-continuity
+  - design-visual-hierarchy
+stack_signals: []
+keywords:
+  - icons
+  - iconography
+  - optical-sizing
+  - stroke-consistency
+  - pixel-grid
+  - metaphor
+  - filled
+  - outlined
+  - icon-family
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

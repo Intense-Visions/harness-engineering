@@ -1,0 +1,44 @@
+name: next-error-boundaries
+version: "1.0.0"
+description: error.tsx, global-error.tsx, not-found.tsx, and error recovery patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/error.tsx"
+  - "**/app/**/not-found.tsx"
+  - "**/app/**/global-error.tsx"
+  - "**/app/**/*.tsx"
+related_skills:
+  - next-app-router
+  - next-streaming-suspense
+  - next-data-fetching
+  - react-hooks-pattern
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - error-boundary
+  - error.tsx
+  - not-found.tsx
+  - global-error
+  - reset
+  - "404"
+  - error-recovery
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/routing/error-handling
+state:
+  persistent: false
+  files: []
+depends_on: []

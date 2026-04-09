@@ -220,40 +220,40 @@ function printSnapshotList(manager: TimelineManager): void {
 
 // --- Command registration ---
 
-export function createSnapshotCommand(): Command {
-  const command = new Command('snapshot').description('Architecture timeline snapshot commands');
+function handleSnapshotCaptureError(err: unknown, mode: OutputModeType): never {
+  if (err instanceof CLIError) {
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: err.message }));
+    } else {
+      logger.error(err.message);
+    }
+    process.exit(err.exitCode);
+  }
+  throw err;
+}
 
-  command
+function registerCaptureCommand(parent: Command): void {
+  parent
     .command('capture')
     .description('Capture current architecture metrics as a timeline snapshot')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json ? OutputMode.JSON : OutputMode.TEXT;
-
       try {
-        const { snapshot, previous } = await runSnapshotCapture({
-          configPath: globalOpts.config,
-        });
-
+        const { snapshot, previous } = await runSnapshotCapture({ configPath: globalOpts.config });
         if (mode === OutputMode.JSON) {
           console.log(JSON.stringify({ snapshot, previous: previous ?? null }, null, 2));
         } else {
           printCaptureSummary(snapshot, previous);
         }
       } catch (err) {
-        if (err instanceof CLIError) {
-          if (mode === OutputMode.JSON) {
-            console.log(JSON.stringify({ error: err.message }));
-          } else {
-            logger.error(err.message);
-          }
-          process.exit(err.exitCode);
-        }
-        throw err;
+        handleSnapshotCaptureError(err, mode);
       }
     });
+}
 
-  command
+function registerTrendsCommand(parent: Command): void {
+  parent
     .command('trends')
     .description('Show architecture metric trends over time')
     .option('--last <n>', 'Number of recent snapshots to analyze', '10')
@@ -261,38 +261,36 @@ export function createSnapshotCommand(): Command {
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json ? OutputMode.JSON : OutputMode.TEXT;
-      const cwd = process.cwd();
-
-      const manager = new TimelineManager(cwd);
-      const trends = manager.trends({
-        last: parseInt(opts.last, 10),
-        since: opts.since,
-      });
-
+      const manager = new TimelineManager(process.cwd());
+      const trends = manager.trends({ last: parseInt(opts.last, 10), since: opts.since });
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(trends, null, 2));
       } else {
         printTrendsSummary(trends);
       }
     });
+}
 
-  command
+function registerListCommand(parent: Command): void {
+  parent
     .command('list')
     .description('List all captured architecture snapshots')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json ? OutputMode.JSON : OutputMode.TEXT;
-      const cwd = process.cwd();
-
-      const manager = new TimelineManager(cwd);
-
+      const manager = new TimelineManager(process.cwd());
       if (mode === OutputMode.JSON) {
-        const timeline = manager.load();
-        console.log(JSON.stringify(timeline, null, 2));
+        console.log(JSON.stringify(manager.load(), null, 2));
       } else {
         printSnapshotList(manager);
       }
     });
+}
 
+export function createSnapshotCommand(): Command {
+  const command = new Command('snapshot').description('Architecture timeline snapshot commands');
+  registerCaptureCommand(command);
+  registerTrendsCommand(command);
+  registerListCommand(command);
   return command;
 }

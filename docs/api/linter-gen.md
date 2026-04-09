@@ -2,7 +2,7 @@
 
 Generate ESLint rules from YAML configuration files. Define custom linting rules declaratively and generate the TypeScript ESLint rule implementations.
 
-**Version:** 0.1.4
+**Version:** 0.1.6
 
 ## Installation
 

@@ -1,0 +1,42 @@
+name: nestjs-testing-patterns
+version: "1.0.0"
+description: Test NestJS apps with Test.createTestingModule, jest mocks, supertest e2e, and overrideProvider
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.spec.ts"
+  - "**/*.e2e-spec.ts"
+  - "test/**"
+related_skills:
+  - nestjs-service-pattern
+  - nestjs-controller-pattern
+  - nestjs-dependency-injection
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - testing
+  - jest
+  - supertest
+  - e2e
+  - unit-test
+  - createTestingModule
+  - overrideProvider
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/fundamentals/testing"
+state:
+  persistent: false
+  files: []
+depends_on: []

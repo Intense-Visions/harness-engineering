@@ -1,0 +1,43 @@
+name: test-e2e-strategy
+version: "1.0.0"
+description: Choose the right test layer (unit/integration/E2E) and prevent flaky tests in CI
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-playwright-patterns
+  - test-integration-patterns
+  - test-unit-patterns
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - E2E
+  - test-pyramid
+  - flakiness
+  - CI
+  - test-strategy
+metadata:
+  author: community
+  upstream: testing-library.com/docs/guiding-principles
+state:
+  persistent: false
+  files: []
+depends_on: []

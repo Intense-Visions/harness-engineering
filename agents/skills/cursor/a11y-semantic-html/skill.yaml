@@ -1,0 +1,43 @@
+name: a11y-semantic-html
+version: '1.0.0'
+description: Use semantic HTML elements to convey document structure and meaning to assistive technology
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.html'
+  - '**/*.vue'
+  - '**/*.svelte'
+  - '**/*.astro'
+related_skills:
+  - a11y-aria-patterns
+  - a11y-keyboard-navigation
+  - a11y-screen-reader-testing
+stack_signals:
+  - accessibility
+  - react
+  - typescript
+keywords:
+  - semantic
+  - landmarks
+  - headings
+  - nav
+  - main
+  - article
+  - section
+metadata:
+  author: community
+  upstream: developer.mozilla.org/en-US/docs/Learn/Accessibility/HTML
+state:
+  persistent: false
+  files: []
+depends_on: []

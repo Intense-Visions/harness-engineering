@@ -1,0 +1,43 @@
+name: next-caching-strategies
+version: "1.0.0"
+description: fetch cache options, revalidate, cache tags, and unstable_cache patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.ts"
+related_skills:
+  - next-data-fetching
+  - next-static-generation
+  - next-server-components
+  - tanstack-query-invalidation
+  - tanstack-prefetching
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - caching
+  - revalidate
+  - cache-tags
+  - unstable_cache
+  - data-cache
+  - full-route-cache
+  - router-cache
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/caching
+state:
+  persistent: false
+  files: []
+depends_on: []

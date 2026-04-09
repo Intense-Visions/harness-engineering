@@ -1,0 +1,38 @@
+name: resilience-timeout-pattern
+version: '1.0.0'
+description: Prevent resource exhaustion with request timeouts and AbortController
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/services/**'
+  - '**/clients/**'
+  - '**/http/**'
+related_skills:
+  - resilience-retry-pattern
+  - resilience-circuit-breaker
+  - resilience-fallback-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - timeout
+  - AbortController
+  - deadline
+  - cancellation
+  - resource-exhaustion
+metadata:
+  author: community
+  upstream: 'nodejs/docs/abort-controller'
+state:
+  persistent: false
+  files: []
+depends_on: []

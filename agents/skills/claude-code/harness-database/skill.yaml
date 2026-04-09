@@ -2,12 +2,21 @@ name: harness-database
 version: "1.0.0"
 description: Schema design, migrations, ORM patterns, and migration safety checks
 cognitive_mode: advisory-guide
+paths:
+  - '*.sql'
+  - 'prisma/schema.prisma'
+  - 'drizzle.config.ts'
+  - 'drizzle.config.js'
+  - 'knexfile.ts'
+  - 'knexfile.js'
 triggers:
   - manual
   - on_new_feature
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -78,3 +87,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - prisma-schema-design
+  - prisma-migrations
+  - drizzle-schema-definition
+  - drizzle-migrations

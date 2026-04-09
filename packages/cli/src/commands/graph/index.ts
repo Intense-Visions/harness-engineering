@@ -3,6 +3,54 @@ import { runGraphStatus } from './status.js';
 import { runGraphExport } from './export.js';
 import * as path from 'path';
 
+function resolveProjectPath(globalOpts: { config?: string }): string {
+  return path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
+}
+
+function printGraphStatus(result: Awaited<ReturnType<typeof runGraphStatus>>): void {
+  if (result.status === 'no_graph') {
+    console.log(result.message);
+    return;
+  }
+  console.log(`Graph: ${result.nodeCount} nodes, ${result.edgeCount} edges`);
+  console.log(`Last scan: ${result.lastScanTimestamp}`);
+  console.log('Nodes by type:');
+  for (const [type, count] of Object.entries(result.nodesByType!)) {
+    console.log(`  ${type}: ${count}`);
+  }
+  if (!result.connectorSyncStatus) return;
+  console.log('Connector sync status:');
+  for (const [name, timestamp] of Object.entries(result.connectorSyncStatus)) {
+    console.log(`  ${name}: last synced ${timestamp}`);
+  }
+}
+
+async function runStatusAction(_opts: unknown, cmd: Command): Promise<void> {
+  try {
+    const globalOpts = cmd.optsWithGlobals();
+    const result = await runGraphStatus(resolveProjectPath(globalOpts));
+    if (globalOpts.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printGraphStatus(result);
+    }
+  } catch (err) {
+    console.error('Status failed:', err instanceof Error ? err.message : err);
+    process.exit(2);
+  }
+}
+
+async function runExportAction(opts: { format: string }, cmd: Command): Promise<void> {
+  const globalOpts = cmd.optsWithGlobals();
+  try {
+    const output = await runGraphExport(resolveProjectPath(globalOpts), opts.format);
+    console.log(output);
+  } catch (err) {
+    console.error('Export failed:', err instanceof Error ? err.message : err);
+    process.exit(2);
+  }
+}
+
 /**
  * Creates and configures the 'graph' command group for knowledge graph management.
  *
@@ -10,55 +58,12 @@ import * as path from 'path';
  */
 export function createGraphCommand(): Command {
   const graph = new Command('graph').description('Knowledge graph management');
-
-  graph
-    .command('status')
-    .description('Show graph statistics')
-    .action(async (_opts, cmd) => {
-      try {
-        const globalOpts = cmd.optsWithGlobals();
-        const projectPath = path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
-        const result = await runGraphStatus(projectPath);
-        if (globalOpts.json) {
-          console.log(JSON.stringify(result, null, 2));
-        } else if (result.status === 'no_graph') {
-          console.log(result.message);
-        } else {
-          console.log(`Graph: ${result.nodeCount} nodes, ${result.edgeCount} edges`);
-          console.log(`Last scan: ${result.lastScanTimestamp}`);
-          console.log('Nodes by type:');
-          for (const [type, count] of Object.entries(result.nodesByType!)) {
-            console.log(`  ${type}: ${count}`);
-          }
-          if (result.connectorSyncStatus) {
-            console.log('Connector sync status:');
-            for (const [name, timestamp] of Object.entries(result.connectorSyncStatus)) {
-              console.log(`  ${name}: last synced ${timestamp}`);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Status failed:', err instanceof Error ? err.message : err);
-        process.exit(2);
-      }
-    });
-
+  graph.command('status').description('Show graph statistics').action(runStatusAction);
   graph
     .command('export')
     .description('Export graph')
     .requiredOption('--format <format>', 'Output format (json, mermaid)')
-    .action(async (opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const projectPath = path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
-      try {
-        const output = await runGraphExport(projectPath, opts.format);
-        console.log(output);
-      } catch (err) {
-        console.error('Export failed:', err instanceof Error ? err.message : err);
-        process.exit(2);
-      }
-    });
-
+    .action(runExportAction);
   return graph;
 }
 

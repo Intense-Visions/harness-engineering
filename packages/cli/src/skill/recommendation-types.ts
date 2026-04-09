@@ -57,6 +57,16 @@ export interface Recommendation {
   triggeredBy: string[];
 }
 
+/** A knowledge skill recommendation produced by the dispatcher (not the health engine). */
+export interface KnowledgeRecommendation {
+  /** Skill name (matches skill.yaml name field). */
+  skillName: string;
+  /** Composite score from 0 to 1. */
+  score: number;
+  /** File glob patterns that triggered this recommendation. */
+  paths: string[];
+}
+
 /** The complete result of a recommendation run. */
 export interface RecommendationResult {
   /** Ordered list of skill recommendations. */
@@ -65,4 +75,6 @@ export interface RecommendationResult {
   snapshotAge: 'fresh' | 'cached' | 'none';
   /** Human-readable explanation of the sequencing logic. */
   sequenceReasoning: string;
+  /** Knowledge skill recommendations from the dispatcher (separate from health-based recs). */
+  knowledgeRecommendations?: KnowledgeRecommendation[];
 }

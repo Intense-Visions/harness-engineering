@@ -1,0 +1,33 @@
+name: design-alignment
+version: "1.0.0"
+description: Visual order — edge, center, optical vs. mathematical alignment, alignment as invisible structure
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-grid-systems
+  - design-consistency
+stack_signals: []
+keywords:
+  - alignment
+  - edge alignment
+  - center alignment
+  - optical alignment
+  - mathematical alignment
+  - visual order
+  - invisible structure
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

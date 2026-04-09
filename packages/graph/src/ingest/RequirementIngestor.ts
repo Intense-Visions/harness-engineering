@@ -54,51 +54,9 @@ export class RequirementIngestor {
     }
 
     for (const featureDir of featureDirs) {
-      const featureName = path.basename(featureDir);
-      const specPath = path.join(featureDir, 'proposal.md').replaceAll('\\', '/');
-
-      let content: string;
-      try {
-        content = await fs.readFile(specPath, 'utf-8');
-      } catch {
-        continue; // No proposal.md in this directory
-      }
-
-      try {
-        const specHash = hash(specPath);
-
-        // Create a document node for the spec itself
-        const specNodeId = `file:${specPath}`;
-        this.store.addNode({
-          id: specNodeId,
-          type: 'document',
-          name: path.basename(specPath),
-          path: specPath,
-          metadata: { featureName },
-        });
-
-        // Parse sections and extract numbered requirements
-        const requirements = this.extractRequirements(content, specPath, specHash, featureName);
-
-        for (const req of requirements) {
-          this.store.addNode(req.node);
-          nodesAdded++;
-
-          // Link requirement -> spec document via 'specifies' edge
-          this.store.addEdge({
-            from: req.node.id,
-            to: specNodeId,
-            type: 'specifies',
-          });
-          edgesAdded++;
-
-          // Convention-based linking
-          edgesAdded += this.linkByPathPattern(req.node.id, featureName);
-          edgesAdded += this.linkByKeywordOverlap(req.node.id, req.node.name);
-        }
-      } catch (err) {
-        errors.push(`${specPath}: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      const counts = await this.ingestFeatureDir(featureDir, errors);
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
     }
 
     return {
@@ -109,6 +67,70 @@ export class RequirementIngestor {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  private async ingestFeatureDir(
+    featureDir: string,
+    errors: string[]
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    const featureName = path.basename(featureDir);
+    const specPath = path.join(featureDir, 'proposal.md').replaceAll('\\', '/');
+
+    let content: string;
+    try {
+      content = await fs.readFile(specPath, 'utf-8');
+    } catch {
+      return { nodesAdded: 0, edgesAdded: 0 };
+    }
+
+    try {
+      return this.ingestSpec(specPath, content, featureName);
+    } catch (err) {
+      errors.push(`${specPath}: ${err instanceof Error ? err.message : String(err)}`);
+      return { nodesAdded: 0, edgesAdded: 0 };
+    }
+  }
+
+  private ingestSpec(
+    specPath: string,
+    content: string,
+    featureName: string
+  ): { nodesAdded: number; edgesAdded: number } {
+    const specHash = hash(specPath);
+    const specNodeId = `file:${specPath}`;
+    this.store.addNode({
+      id: specNodeId,
+      type: 'document',
+      name: path.basename(specPath),
+      path: specPath,
+      metadata: { featureName },
+    });
+
+    const requirements = this.extractRequirements(content, specPath, specHash, featureName);
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+
+    for (const req of requirements) {
+      const counts = this.ingestRequirement(req.node, specNodeId, featureName);
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
+    }
+
+    return { nodesAdded, edgesAdded };
+  }
+
+  private ingestRequirement(
+    node: GraphNode,
+    specNodeId: string,
+    featureName: string
+  ): { nodesAdded: number; edgesAdded: number } {
+    this.store.addNode(node);
+    this.store.addEdge({ from: node.id, to: specNodeId, type: 'specifies' });
+    const edgesAdded =
+      1 +
+      this.linkByPathPattern(node.id, featureName) +
+      this.linkByKeywordOverlap(node.id, node.name);
+    return { nodesAdded: 1, edgesAdded };
   }
 
   /**
@@ -130,62 +152,100 @@ export class RequirementIngestor {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-
-      // Check for section heading
-      const headingMatch = line.match(SECTION_HEADING_RE);
-      if (headingMatch) {
-        const heading = headingMatch[1]!.trim();
-        const isReqSection = REQUIREMENT_SECTIONS.some(
-          (s) => heading.toLowerCase() === s.toLowerCase()
-        );
-        if (isReqSection) {
-          currentSection = heading;
-          inRequirementSection = true;
-        } else {
-          inRequirementSection = false;
+      const sectionResult = this.processHeadingLine(line, inRequirementSection);
+      if (sectionResult !== null) {
+        inRequirementSection = sectionResult.inRequirementSection;
+        if (sectionResult.currentSection !== undefined) {
+          currentSection = sectionResult.currentSection;
         }
         continue;
       }
 
       if (!inRequirementSection) continue;
 
-      // Check for numbered item
       const itemMatch = line.match(NUMBERED_ITEM_RE);
       if (!itemMatch) continue;
 
-      const index = parseInt(itemMatch[1]!, 10);
-      const text = itemMatch[2]!.trim();
-      const rawText = line.trim();
-      const lineNumber = i + 1; // 1-based
-
       globalIndex++;
-      const nodeId = `req:${specHash}:${globalIndex}`;
-      const earsPattern = detectEarsPattern(text);
-
-      results.push({
-        node: {
-          id: nodeId,
-          type: 'requirement',
-          name: text,
-          path: specPath,
-          location: {
-            fileId: `file:${specPath}`,
-            startLine: lineNumber,
-            endLine: lineNumber,
-          },
-          metadata: {
-            specPath,
-            index,
-            section: currentSection!,
-            rawText,
-            earsPattern,
-            featureName,
-          },
-        },
-      });
+      results.push(
+        this.buildRequirementNode(
+          line,
+          itemMatch,
+          i + 1,
+          specPath,
+          specHash,
+          globalIndex,
+          featureName,
+          currentSection!
+        )
+      );
     }
 
     return results;
+  }
+
+  /**
+   * Check if a line is a section heading and return updated section state,
+   * or return null if the line is not a heading.
+   */
+  private processHeadingLine(
+    line: string,
+    _inRequirementSection: boolean
+  ): { inRequirementSection: boolean; currentSection?: string | undefined } | null {
+    const headingMatch = line.match(SECTION_HEADING_RE);
+    if (!headingMatch) return null;
+
+    const heading = headingMatch[1]!.trim();
+    const isReqSection = REQUIREMENT_SECTIONS.some(
+      (s) => heading.toLowerCase() === s.toLowerCase()
+    );
+
+    if (isReqSection) {
+      return { inRequirementSection: true, currentSection: heading };
+    }
+    return { inRequirementSection: false };
+  }
+
+  /**
+   * Build a requirement GraphNode from a matched numbered-item line.
+   */
+  private buildRequirementNode(
+    line: string,
+    itemMatch: RegExpMatchArray,
+    lineNumber: number,
+    specPath: string,
+    specHash: string,
+    globalIndex: number,
+    featureName: string,
+    currentSection: string
+  ): { node: GraphNode } {
+    const index = parseInt(itemMatch[1]!, 10);
+    const text = itemMatch[2]!.trim();
+    const rawText = line.trim();
+    const nodeId = `req:${specHash}:${globalIndex}`;
+    const earsPattern = detectEarsPattern(text);
+
+    return {
+      node: {
+        id: nodeId,
+        type: 'requirement',
+        name: text,
+        path: specPath,
+        location: {
+          fileId: `file:${specPath}`,
+          startLine: lineNumber,
+          endLine: lineNumber,
+        },
+        metadata: {
+          specPath,
+          index,
+          section: currentSection,
+          rawText,
+          earsPattern,
+          featureName,
+        },
+      },
+    };
   }
 
   /**

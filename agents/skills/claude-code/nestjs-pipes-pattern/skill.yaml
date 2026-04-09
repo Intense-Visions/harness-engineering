@@ -1,0 +1,40 @@
+name: nestjs-pipes-pattern
+version: "1.0.0"
+description: Validate and transform request data with PipeTransform, ValidationPipe, and custom pipes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.pipe.ts"
+  - "**/*.controller.ts"
+related_skills:
+  - nestjs-controller-pattern
+  - nestjs-dto-validation
+  - nestjs-exception-filters
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - pipe
+  - validation
+  - transform
+  - PipeTransform
+  - ValidationPipe
+  - ParseIntPipe
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/pipes"
+state:
+  persistent: false
+  files: []
+depends_on: []

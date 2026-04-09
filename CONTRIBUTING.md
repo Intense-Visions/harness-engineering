@@ -52,11 +52,12 @@ harness-engineering/
 ├── packages/              # Runtime libraries
 │   ├── types/            # Shared TypeScript types and interfaces
 │   ├── core/             # Core runtime library and utilities
-│   ├── cli/              # CLI tool (harness validate, check-deps, skill, state, etc.)
+│   ├── cli/              # CLI tool + MCP server (harness validate, check-deps, skill, state, etc.)
 │   ├── eslint-plugin/    # ESLint rules for constraint enforcement
 │   ├── linter-gen/       # YAML-to-ESLint rule generator
-│   ├── mcp-server/       # MCP server for AI agent integration
-│   └── graph/            # Knowledge graph for codebase relationships
+│   ├── graph/            # Knowledge graph for codebase relationships
+│   ├── orchestrator/     # Orchestrator daemon for dispatching agents to issues
+│   └── dashboard/        # Development dashboard (private, not published)
 ├── agents/                # Agent configuration (skills + personas)
 ├── templates/             # Project scaffolding templates
 ├── examples/              # Progressive tutorial examples

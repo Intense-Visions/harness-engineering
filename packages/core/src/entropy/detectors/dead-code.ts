@@ -46,51 +46,52 @@ function resolveImportToFile(
   return null;
 }
 
-/**
- * Build a map of file reachability from entry points
- */
+function enqueueResolved(
+  sources: Array<{ source?: string }>,
+  current: string,
+  snapshot: CodebaseSnapshot,
+  visited: Set<string>,
+  queue: string[]
+): void {
+  for (const item of sources) {
+    if (!item.source) continue;
+    const resolved = resolveImportToFile(item.source, current, snapshot);
+    if (resolved && !visited.has(resolved)) {
+      queue.push(resolved);
+    }
+  }
+}
+
+function processReachabilityNode(
+  current: string,
+  snapshot: CodebaseSnapshot,
+  reachability: Map<string, boolean>,
+  visited: Set<string>,
+  queue: string[]
+): void {
+  reachability.set(current, true);
+  const sourceFile = snapshot.files.find((f) => f.path === current);
+  if (!sourceFile) return;
+
+  enqueueResolved(sourceFile.imports, current, snapshot, visited, queue);
+  const reExports = sourceFile.exports.filter((e) => e.isReExport);
+  enqueueResolved(reExports, current, snapshot, visited, queue);
+}
+
 export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, boolean> {
   const reachability = new Map<string, boolean>();
-
-  // Initialize all files as unreachable
   for (const file of snapshot.files) {
     reachability.set(file.path, false);
   }
 
-  // BFS from entry points
   const queue = [...snapshot.entryPoints];
   const visited = new Set<string>();
 
   while (queue.length > 0) {
     const current = queue.shift()!;
-
     if (visited.has(current)) continue;
     visited.add(current);
-
-    // Mark as reachable
-    reachability.set(current, true);
-
-    // Find the source file
-    const sourceFile = snapshot.files.find((f) => f.path === current);
-    if (!sourceFile) continue;
-
-    // Add all imports to queue
-    for (const imp of sourceFile.imports) {
-      const resolved = resolveImportToFile(imp.source, current, snapshot);
-      if (resolved && !visited.has(resolved)) {
-        queue.push(resolved);
-      }
-    }
-
-    // Add re-exports (export { x } from './module') to queue
-    for (const exp of sourceFile.exports) {
-      if (exp.isReExport && exp.source) {
-        const resolved = resolveImportToFile(exp.source, current, snapshot);
-        if (resolved && !visited.has(resolved)) {
-          queue.push(resolved);
-        }
-      }
-    }
+    processReachabilityNode(current, snapshot, reachability, visited, queue);
   }
 
   return reachability;
@@ -198,24 +199,31 @@ function findDeadExports(
 /**
  * Traverse an AST node and find the maximum line number.
  */
+function maxLineOfValue(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce((m: number, item: unknown) => Math.max(m, findMaxLineInNode(item)), 0);
+  }
+  if (value && typeof value === 'object') {
+    return findMaxLineInNode(value);
+  }
+  return 0;
+}
+
+function maxLineOfNodeKeys(node: object): number {
+  let max = 0;
+  for (const key of Object.keys(node)) {
+    max = Math.max(max, maxLineOfValue((node as Record<string, unknown>)[key]));
+  }
+  return max;
+}
+
 function findMaxLineInNode(node: unknown): number {
   if (!node || typeof node !== 'object') return 0;
 
   const n = node as { loc?: { end?: { line?: number } } };
-  let maxLine = n.loc?.end?.line ?? 0;
+  const locLine = n.loc?.end?.line ?? 0;
 
-  for (const key of Object.keys(node)) {
-    const value = (node as Record<string, unknown>)[key];
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        maxLine = Math.max(maxLine, findMaxLineInNode(item));
-      }
-    } else if (value && typeof value === 'object') {
-      maxLine = Math.max(maxLine, findMaxLineInNode(value));
-    }
-  }
-
-  return maxLine;
+  return Math.max(locLine, maxLineOfNodeKeys(node as object));
 }
 
 /**
@@ -348,111 +356,96 @@ function findDeadInternals(
   return deadInternals;
 }
 
-/**
- * Detect dead code in a codebase snapshot.
- * Analyzes exports, files, imports, and internal symbols to find unused code.
- * When graphDeadCodeData is provided, uses graph-derived reachability instead of snapshot-based BFS.
- */
-export async function detectDeadCode(
-  snapshot: CodebaseSnapshot,
-  graphDeadCodeData?: {
-    reachableNodeIds: Set<string> | string[];
-    unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }>;
+type GraphDeadCodeData = {
+  reachableNodeIds: Set<string> | string[];
+  unreachableNodes: Array<{ id: string; type: string; name: string; path?: string }>;
+};
+
+const FILE_TYPES = new Set(['file', 'module']);
+const EXPORT_TYPES = new Set(['function', 'class', 'method', 'interface', 'variable']);
+
+function classifyUnreachableNode(
+  node: GraphDeadCodeData['unreachableNodes'][number],
+  deadFiles: DeadFile[],
+  deadExports: DeadExport[]
+): void {
+  if (FILE_TYPES.has(node.type)) {
+    deadFiles.push({
+      path: node.path || node.id,
+      reason: 'NO_IMPORTERS',
+      exportCount: 0,
+      lineCount: 0,
+    });
+  } else if (EXPORT_TYPES.has(node.type)) {
+    const exportType: DeadExport['type'] =
+      node.type === 'method' ? 'function' : (node.type as DeadExport['type']);
+    deadExports.push({
+      file: node.path || node.id,
+      name: node.name,
+      line: 0,
+      type: exportType,
+      isDefault: false,
+      reason: 'NO_IMPORTERS',
+    });
   }
-): Promise<Result<DeadCodeReport, EntropyError>> {
-  // Graph-enhanced mode: use pre-computed graph reachability
-  if (graphDeadCodeData) {
-    const deadFiles: DeadFile[] = [];
-    const deadExports: DeadExport[] = [];
+}
 
-    const fileTypes = new Set(['file', 'module']);
-    const exportTypes = new Set(['function', 'class', 'method', 'interface', 'variable']);
+function computeGraphReportStats(
+  data: GraphDeadCodeData,
+  deadFiles: DeadFile[],
+  deadExports: DeadExport[]
+): DeadCodeReport['stats'] {
+  const reachableCount =
+    data.reachableNodeIds instanceof Set
+      ? data.reachableNodeIds.size
+      : data.reachableNodeIds.length;
+  const fileNodes = data.unreachableNodes.filter((n) => FILE_TYPES.has(n.type));
+  const exportNodes = data.unreachableNodes.filter((n) => EXPORT_TYPES.has(n.type));
+  const totalFiles = reachableCount + fileNodes.length;
+  const totalExports = exportNodes.length + (reachableCount > 0 ? reachableCount : 0);
 
-    for (const node of graphDeadCodeData.unreachableNodes) {
-      if (fileTypes.has(node.type)) {
-        deadFiles.push({
-          path: node.path || node.id,
-          reason: 'NO_IMPORTERS',
-          exportCount: 0,
-          lineCount: 0,
-        });
-      } else if (exportTypes.has(node.type)) {
-        // Map 'method' to 'function' since DeadExport['type'] does not include 'method'
-        const exportType: DeadExport['type'] =
-          node.type === 'method' ? 'function' : (node.type as DeadExport['type']);
-        deadExports.push({
-          file: node.path || node.id,
-          name: node.name,
-          line: 0,
-          type: exportType,
-          isDefault: false,
-          reason: 'NO_IMPORTERS',
-        });
-      }
-    }
+  return {
+    filesAnalyzed: totalFiles,
+    entryPointsUsed: [],
+    totalExports,
+    deadExportCount: deadExports.length,
+    totalFiles,
+    deadFileCount: deadFiles.length,
+    estimatedDeadLines: 0,
+  };
+}
 
-    const reachableCount =
-      graphDeadCodeData.reachableNodeIds instanceof Set
-        ? graphDeadCodeData.reachableNodeIds.size
-        : graphDeadCodeData.reachableNodeIds.length;
+function buildReportFromGraph(data: GraphDeadCodeData): DeadCodeReport {
+  const deadFiles: DeadFile[] = [];
+  const deadExports: DeadExport[] = [];
 
-    // Separate unreachable nodes by type for accurate stats
-    const fileNodes = graphDeadCodeData.unreachableNodes.filter((n) => fileTypes.has(n.type));
-    const exportNodes = graphDeadCodeData.unreachableNodes.filter((n) => exportTypes.has(n.type));
-
-    // totalFiles: file-type nodes in both reachable and unreachable sets
-    // Since we only have IDs for reachable nodes, use reachableCount as an upper bound
-    // and subtract known non-file unreachable nodes to estimate reachable file count
-    const totalFiles = reachableCount + fileNodes.length;
-    const totalExports = exportNodes.length + (reachableCount > 0 ? reachableCount : 0);
-
-    const report: DeadCodeReport = {
-      deadExports,
-      deadFiles,
-      deadInternals: [],
-      unusedImports: [],
-      stats: {
-        filesAnalyzed: totalFiles,
-        entryPointsUsed: [],
-        totalExports,
-        deadExportCount: deadExports.length,
-        totalFiles,
-        deadFileCount: deadFiles.length,
-        estimatedDeadLines: 0,
-      },
-    };
-
-    return Ok(report);
+  for (const node of data.unreachableNodes) {
+    classifyUnreachableNode(node, deadFiles, deadExports);
   }
 
-  // Build reachability map from entry points
+  return {
+    deadExports,
+    deadFiles,
+    deadInternals: [],
+    unusedImports: [],
+    stats: computeGraphReportStats(data, deadFiles, deadExports),
+  };
+}
+
+function buildReportFromSnapshot(snapshot: CodebaseSnapshot): DeadCodeReport {
   const reachability = buildReachabilityMap(snapshot);
-
-  // Build export usage map
   const usageMap = buildExportUsageMap(snapshot);
-
-  // Find dead exports
   const deadExports = findDeadExports(snapshot, usageMap, reachability);
-
-  // Find dead files
   const deadFiles = findDeadFiles(snapshot, reachability);
-
-  // Find unused imports
   const unusedImports = findUnusedImports(snapshot);
-
-  // Find dead internals
   const deadInternals = findDeadInternals(snapshot, reachability);
-
-  // Calculate total exports
   const totalExports = snapshot.files.reduce(
     (acc, file) => acc + file.exports.filter((e) => !e.isReExport).length,
     0
   );
-
-  // Estimate dead lines
   const estimatedDeadLines = deadFiles.reduce((acc, file) => acc + file.lineCount, 0);
 
-  const report: DeadCodeReport = {
+  return {
     deadExports,
     deadFiles,
     deadInternals,
@@ -467,6 +460,14 @@ export async function detectDeadCode(
       estimatedDeadLines,
     },
   };
+}
 
+export async function detectDeadCode(
+  snapshot: CodebaseSnapshot,
+  graphDeadCodeData?: GraphDeadCodeData
+): Promise<Result<DeadCodeReport, EntropyError>> {
+  const report = graphDeadCodeData
+    ? buildReportFromGraph(graphDeadCodeData)
+    : buildReportFromSnapshot(snapshot);
   return Ok(report);
 }

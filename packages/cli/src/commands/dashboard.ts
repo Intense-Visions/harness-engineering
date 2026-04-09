@@ -1,7 +1,11 @@
 import { Command } from 'commander';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const DEFAULT_CLIENT_PORT = 3700;
 const DEFAULT_API_PORT = 3701;
@@ -34,6 +38,29 @@ function resolveServerScript(): { script: string; dev: boolean } | null {
   return dev ? { script: dev, dev: true } : null;
 }
 
+function spawnDashboardServer(
+  server: { script: string; dev: boolean },
+  env: NodeJS.ProcessEnv
+): ReturnType<typeof spawn> {
+  const child = server.dev
+    ? spawn('tsx', [server.script], { env, stdio: 'inherit' })
+    : spawn('node', [server.script], { env, stdio: 'inherit' });
+
+  child.on('error', (e: Error) => {
+    console.error(`Failed to start dashboard: ${e.message}`);
+    process.exit(1);
+  });
+
+  child.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.error(`Dashboard server exited with code ${code}`);
+      process.exit(code);
+    }
+  });
+
+  return child;
+}
+
 function runDashboard(opts: DashboardOptions): void {
   const clientPort = Number(opts.port ?? DEFAULT_CLIENT_PORT);
   const apiPort = Number(opts.apiPort ?? DEFAULT_API_PORT);
@@ -52,21 +79,8 @@ function runDashboard(opts: DashboardOptions): void {
     DASHBOARD_CLIENT_PORT: String(clientPort),
     HARNESS_PROJECT_PATH: projectPath,
   };
-  const child = server.dev
-    ? spawn('tsx', [server.script], { env, stdio: 'inherit' })
-    : spawn('node', [server.script], { env, stdio: 'inherit' });
 
-  child.on('error', (e: Error) => {
-    console.error(`Failed to start dashboard: ${e.message}`);
-    process.exit(1);
-  });
-
-  child.on('exit', (code) => {
-    if (code !== 0 && code !== null) {
-      console.error(`Dashboard server exited with code ${code}`);
-      process.exit(code);
-    }
-  });
+  spawnDashboardServer(server, env);
 
   console.log(`Dashboard API starting on http://localhost:${apiPort}`);
   console.log(`Open ${url} (pass --no-open to suppress)`);

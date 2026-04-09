@@ -368,25 +368,46 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     }
   }
 
+  private buildLabelsParam(): string {
+    const filterLabels = this.config.labels ?? [];
+    return filterLabels.length > 0 ? `&labels=${filterLabels.join(',')}` : '';
+  }
+
+  private issueToTicketState(issue: {
+    number: number;
+    title: string;
+    state: string;
+    labels: Array<{ name: string }>;
+    assignee: { login: string } | null;
+  }): ExternalTicketState {
+    return {
+      externalId: buildExternalId(this.owner, this.repo, issue.number),
+      title: issue.title,
+      status: issue.state,
+      labels: issue.labels.map((l) => l.name),
+      assignee: issue.assignee ? `@${issue.assignee.login}` : null,
+    };
+  }
+
+  private async fetchIssuePage(page: number, labelsParam: string): Promise<Response> {
+    const perPage = 100;
+    return fetchWithRetry(
+      this.fetchFn,
+      `${this.apiBase}/repos/${this.owner}/${this.repo}/issues?state=all&per_page=${perPage}&page=${page}${labelsParam}`,
+      { method: 'GET', headers: this.headers() },
+      this.retryOpts
+    );
+  }
+
   async fetchAllTickets(): Promise<Result<ExternalTicketState[]>> {
     try {
-      const filterLabels = this.config.labels ?? [];
-      const labelsParam = filterLabels.length > 0 ? `&labels=${filterLabels.join(',')}` : '';
-
+      const labelsParam = this.buildLabelsParam();
       const tickets: ExternalTicketState[] = [];
       let page = 1;
       const perPage = 100;
 
       while (true) {
-        const response = await fetchWithRetry(
-          this.fetchFn,
-          `${this.apiBase}/repos/${this.owner}/${this.repo}/issues?state=all&per_page=${perPage}&page=${page}${labelsParam}`,
-          {
-            method: 'GET',
-            headers: this.headers(),
-          },
-          this.retryOpts
-        );
+        const response = await this.fetchIssuePage(page, labelsParam);
 
         if (!response.ok) {
           const text = await response.text();
@@ -402,17 +423,9 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
           pull_request?: unknown;
         }>;
 
-        // Filter out pull requests (GitHub API returns them in issues endpoint)
         const issues = data.filter((d) => !d.pull_request);
-
         for (const issue of issues) {
-          tickets.push({
-            externalId: buildExternalId(this.owner, this.repo, issue.number),
-            title: issue.title,
-            status: issue.state,
-            labels: issue.labels.map((l) => l.name),
-            assignee: issue.assignee ? `@${issue.assignee.login}` : null,
-          });
+          tickets.push(this.issueToTicketState(issue));
         }
 
         if (data.length < perPage) break;

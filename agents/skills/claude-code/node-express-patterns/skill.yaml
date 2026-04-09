@@ -1,0 +1,40 @@
+name: node-express-patterns
+version: "1.0.0"
+description: Structure Express applications with middleware chains, routers, and proper error handling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-http-server
+  - ts-async-patterns
+  - node-error-handling
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - express
+  - middleware
+  - router
+  - error-middleware
+  - request-lifecycle
+metadata:
+  author: community
+  upstream: expressjs.com/en/guide/routing.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,35 @@
+name: vue-watchers-pattern
+version: '1.0.0'
+description: React to data changes with watch and watchEffect for side effects and async operations
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+related_skills:
+  - vue-reactive-refs
+  - vue-composables-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - watch
+  - watchEffect
+  - side-effects
+  - reactive-watch
+  - deep-watch
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/watchers-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

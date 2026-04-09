@@ -1,0 +1,36 @@
+name: js-observer-pattern
+version: '1.0.0'
+description: Notify subscribers automatically when an observable object's state changes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-proxy-pattern
+  - js-mediator-middleware-pattern
+stack_signals:
+  - javascript
+keywords:
+  - observer
+  - pub-sub
+  - event-emitter
+  - subscribe
+  - notify
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/observer-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

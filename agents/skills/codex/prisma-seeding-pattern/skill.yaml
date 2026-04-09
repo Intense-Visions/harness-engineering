@@ -1,0 +1,41 @@
+name: prisma-seeding-pattern
+version: "1.0.0"
+description: Seed databases idempotently with prisma/seed.ts, --seed flag, and environment branching
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "prisma/seed.ts"
+  - "prisma/seed.js"
+  - "**/prisma/**"
+related_skills:
+  - prisma-schema-design
+  - prisma-migrations
+  - prisma-client-queries
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - seeding
+  - seed
+  - database-fixtures
+  - idempotent
+  - test-data
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-migrate/workflows/seeding"
+state:
+  persistent: false
+  files: []
+depends_on: []

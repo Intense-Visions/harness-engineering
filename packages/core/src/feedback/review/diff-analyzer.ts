@@ -9,9 +9,6 @@ import type {
   GraphImpactData,
 } from '../types';
 
-/**
- * Determine the status of a file from a diff part.
- */
 function detectFileStatus(part: string): ChangedFile['status'] {
   if (/new file mode/.test(part)) return 'added';
   if (/deleted file mode/.test(part)) return 'deleted';
@@ -19,20 +16,22 @@ function detectFileStatus(part: string): ChangedFile['status'] {
   return 'modified';
 }
 
-/**
- * Parse a single diff part into a ChangedFile, or null if invalid.
- */
-function parseDiffPart(part: string): ChangedFile | null {
+function parseDiffHeader(part: string): string | null {
   if (!part.trim()) return null;
-
   const headerMatch = /diff --git a\/(.+?) b\/(.+?)(?:\n|$)/.exec(part);
   if (!headerMatch || !headerMatch[2]) return null;
+  return headerMatch[2];
+}
+
+function parseDiffPart(part: string): ChangedFile | null {
+  const path = parseDiffHeader(part);
+  if (!path) return null;
 
   const additionRegex = /^\+(?!\+\+)/gm;
   const deletionRegex = /^-(?!--)/gm;
 
   return {
-    path: headerMatch[2],
+    path,
     status: detectFileStatus(part),
     additions: (part.match(additionRegex) || []).length,
     deletions: (part.match(deletionRegex) || []).length,
@@ -61,6 +60,168 @@ export function parseDiff(diff: string): Result<CodeChanges, FeedbackError> {
   }
 }
 
+function checkForbiddenPatterns(
+  diff: string,
+  forbiddenPatterns: NonNullable<SelfReviewConfig['diffAnalysis']>['forbiddenPatterns'],
+  nextId: () => string
+): ReviewItem[] {
+  const items: ReviewItem[] = [];
+  if (!forbiddenPatterns) return items;
+
+  for (const forbidden of forbiddenPatterns) {
+    const pattern =
+      typeof forbidden.pattern === 'string'
+        ? new RegExp(forbidden.pattern, 'g')
+        : forbidden.pattern;
+
+    if (!pattern.test(diff)) continue;
+
+    items.push({
+      id: nextId(),
+      category: 'diff',
+      check: `Forbidden pattern: ${forbidden.pattern}`,
+      passed: false,
+      severity: forbidden.severity,
+      details: forbidden.message,
+      suggestion: `Remove occurrences of ${forbidden.pattern}`,
+    });
+  }
+
+  return items;
+}
+
+function checkMaxChangedFiles(
+  files: ChangedFile[],
+  maxChangedFiles: number | undefined,
+  nextId: () => string
+): ReviewItem[] {
+  if (!maxChangedFiles || files.length <= maxChangedFiles) return [];
+
+  return [
+    {
+      id: nextId(),
+      category: 'diff',
+      check: `PR size: ${files.length} files changed`,
+      passed: false,
+      severity: 'warning',
+      details: `This PR changes ${files.length} files, which exceeds the recommended maximum of ${maxChangedFiles}`,
+      suggestion: 'Consider breaking this into smaller PRs',
+    },
+  ];
+}
+
+function checkFileSizes(
+  files: ChangedFile[],
+  maxFileSize: number | undefined,
+  nextId: () => string
+): ReviewItem[] {
+  const items: ReviewItem[] = [];
+  if (!maxFileSize) return items;
+
+  for (const file of files) {
+    const totalLines = file.additions + file.deletions;
+    if (totalLines <= maxFileSize) continue;
+
+    items.push({
+      id: nextId(),
+      category: 'diff',
+      check: `File size: ${file.path}`,
+      passed: false,
+      severity: 'warning',
+      details: `File has ${totalLines} lines changed, exceeding limit of ${maxFileSize}`,
+      file: file.path,
+      suggestion: 'Consider splitting this file into smaller modules',
+    });
+  }
+
+  return items;
+}
+
+function checkTestCoverageGraph(
+  files: ChangedFile[],
+  graphImpactData: GraphImpactData
+): ReviewItem[] {
+  const items: ReviewItem[] = [];
+
+  for (const file of files) {
+    if (file.status !== 'added' || !file.path.endsWith('.ts') || file.path.includes('.test.')) {
+      continue;
+    }
+
+    const hasGraphTest = graphImpactData.affectedTests.some((t) => t.coversFile === file.path);
+    if (hasGraphTest) continue;
+
+    items.push({
+      id: `test-coverage-${file.path}`,
+      category: 'diff' as const,
+      check: 'Test coverage (graph)',
+      passed: false,
+      severity: 'warning' as const,
+      details: `New file ${file.path} has no test file linked in the graph`,
+      file: file.path,
+    });
+  }
+
+  return items;
+}
+
+function checkTestCoverageFilename(files: ChangedFile[], nextId: () => string): ReviewItem[] {
+  const items: ReviewItem[] = [];
+
+  const addedSourceFiles = files.filter(
+    (f) => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.')
+  );
+  const testFiles = files.filter((f) => f.path.includes('.test.'));
+
+  for (const sourceFile of addedSourceFiles) {
+    const expectedTestPath = sourceFile.path.replace('.ts', '.test.ts');
+    const hasTest = testFiles.some(
+      (t) =>
+        t.path.includes(expectedTestPath) || t.path.includes(sourceFile.path.replace('.ts', ''))
+    );
+
+    if (hasTest) continue;
+
+    items.push({
+      id: nextId(),
+      category: 'diff',
+      check: `Test coverage: ${sourceFile.path}`,
+      passed: false,
+      severity: 'warning',
+      details: 'New source file added without corresponding test file',
+      file: sourceFile.path,
+      suggestion: `Add tests in ${expectedTestPath}`,
+    });
+  }
+
+  return items;
+}
+
+function checkDocCoverage(files: ChangedFile[], graphImpactData: GraphImpactData): ReviewItem[] {
+  const items: ReviewItem[] = [];
+
+  for (const file of files) {
+    if (file.status !== 'modified' || !file.path.endsWith('.ts') || file.path.includes('.test.')) {
+      continue;
+    }
+
+    const hasDoc = graphImpactData.affectedDocs.some((d) => d.documentsFile === file.path);
+    if (hasDoc) continue;
+
+    items.push({
+      id: `doc-coverage-${file.path}`,
+      category: 'diff' as const,
+      check: 'Documentation coverage (graph)',
+      passed: true,
+      severity: 'info' as const,
+      details: `Modified file ${file.path} has no documentation linked in the graph`,
+      file: file.path,
+    });
+  }
+
+  return items;
+}
+
 export async function analyzeDiff(
   changes: CodeChanges,
   options: SelfReviewConfig['diffAnalysis'],
@@ -70,117 +231,22 @@ export async function analyzeDiff(
     return Ok([]);
   }
 
-  const items: ReviewItem[] = [];
   let itemId = 0;
+  const nextId = () => `diff-${++itemId}`;
 
-  // Check forbidden patterns
-  if (options.forbiddenPatterns) {
-    for (const forbidden of options.forbiddenPatterns) {
-      const pattern =
-        typeof forbidden.pattern === 'string'
-          ? new RegExp(forbidden.pattern, 'g')
-          : forbidden.pattern;
+  const items: ReviewItem[] = [
+    ...checkForbiddenPatterns(changes.diff, options.forbiddenPatterns, nextId),
+    ...checkMaxChangedFiles(changes.files, options.maxChangedFiles, nextId),
+    ...checkFileSizes(changes.files, options.maxFileSize, nextId),
+  ];
 
-      if (pattern.test(changes.diff)) {
-        items.push({
-          id: `diff-${++itemId}`,
-          category: 'diff',
-          check: `Forbidden pattern: ${forbidden.pattern}`,
-          passed: false,
-          severity: forbidden.severity,
-          details: forbidden.message,
-          suggestion: `Remove occurrences of ${forbidden.pattern}`,
-        });
-      }
-    }
-  }
-
-  // Check max changed files
-  if (options.maxChangedFiles && changes.files.length > options.maxChangedFiles) {
-    items.push({
-      id: `diff-${++itemId}`,
-      category: 'diff',
-      check: `PR size: ${changes.files.length} files changed`,
-      passed: false,
-      severity: 'warning',
-      details: `This PR changes ${changes.files.length} files, which exceeds the recommended maximum of ${options.maxChangedFiles}`,
-      suggestion: 'Consider breaking this into smaller PRs',
-    });
-  }
-
-  // Check max file size
-  if (options.maxFileSize) {
-    for (const file of changes.files) {
-      const totalLines = file.additions + file.deletions;
-      if (totalLines > options.maxFileSize) {
-        items.push({
-          id: `diff-${++itemId}`,
-          category: 'diff',
-          check: `File size: ${file.path}`,
-          passed: false,
-          severity: 'warning',
-          details: `File has ${totalLines} lines changed, exceeding limit of ${options.maxFileSize}`,
-          file: file.path,
-          suggestion: 'Consider splitting this file into smaller modules',
-        });
-      }
-    }
-  }
-
-  // Check for test coverage (new .ts files without corresponding .test.ts)
   if (options.checkTestCoverage) {
-    if (graphImpactData) {
-      // Use graph relationships for test coverage
-      for (const file of changes.files) {
-        if (file.status === 'added' && file.path.endsWith('.ts') && !file.path.includes('.test.')) {
-          const hasGraphTest = graphImpactData.affectedTests.some(
-            (t) => t.coversFile === file.path
-          );
-          if (!hasGraphTest) {
-            items.push({
-              id: `test-coverage-${file.path}`,
-              category: 'diff' as const,
-              check: 'Test coverage (graph)',
-              passed: false,
-              severity: 'warning' as const,
-              details: `New file ${file.path} has no test file linked in the graph`,
-              file: file.path,
-            });
-          }
-        }
-      }
-    } else {
-      // Existing filename-based test coverage check
-      const addedSourceFiles = changes.files.filter(
-        (f) => f.status === 'added' && f.path.endsWith('.ts') && !f.path.includes('.test.')
-      );
-
-      const testFiles = changes.files.filter((f) => f.path.includes('.test.'));
-
-      for (const sourceFile of addedSourceFiles) {
-        const expectedTestPath = sourceFile.path.replace('.ts', '.test.ts');
-        const hasTest = testFiles.some(
-          (t) =>
-            t.path.includes(expectedTestPath) || t.path.includes(sourceFile.path.replace('.ts', ''))
-        );
-
-        if (!hasTest) {
-          items.push({
-            id: `diff-${++itemId}`,
-            category: 'diff',
-            check: `Test coverage: ${sourceFile.path}`,
-            passed: false,
-            severity: 'warning',
-            details: 'New source file added without corresponding test file',
-            file: sourceFile.path,
-            suggestion: `Add tests in ${expectedTestPath}`,
-          });
-        }
-      }
-    }
+    const coverageItems = graphImpactData
+      ? checkTestCoverageGraph(changes.files, graphImpactData)
+      : checkTestCoverageFilename(changes.files, nextId);
+    items.push(...coverageItems);
   }
 
-  // Impact scope warning (graph-enhanced)
   if (graphImpactData && graphImpactData.impactScope > 20) {
     items.push({
       id: 'impact-scope',
@@ -192,28 +258,8 @@ export async function analyzeDiff(
     });
   }
 
-  // Documentation coverage (graph-enhanced)
   if (graphImpactData) {
-    for (const file of changes.files) {
-      if (
-        file.status === 'modified' &&
-        file.path.endsWith('.ts') &&
-        !file.path.includes('.test.')
-      ) {
-        const hasDoc = graphImpactData.affectedDocs.some((d) => d.documentsFile === file.path);
-        if (!hasDoc) {
-          items.push({
-            id: `doc-coverage-${file.path}`,
-            category: 'diff' as const,
-            check: 'Documentation coverage (graph)',
-            passed: true,
-            severity: 'info' as const,
-            details: `Modified file ${file.path} has no documentation linked in the graph`,
-            file: file.path,
-          });
-        }
-      }
-    }
+    items.push(...checkDocCoverage(changes.files, graphImpactData));
   }
 
   return Ok(items);

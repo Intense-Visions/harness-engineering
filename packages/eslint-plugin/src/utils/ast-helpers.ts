@@ -2,39 +2,37 @@
 import { AST_NODE_TYPES, type TSESTree } from '@typescript-eslint/utils';
 
 /**
+ * Return true if the last non-empty line before the node ends a block comment.
+ */
+function lastNonEmptyLineEndsBlockComment(lines: string[]): boolean {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i]?.trim() ?? '';
+    if (line === '') continue;
+    return line.endsWith('*/');
+  }
+  return false;
+}
+
+/**
+ * Return true if the text contains a JSDoc block (/** ... *\/).
+ */
+function textContainsJSDoc(text: string): boolean {
+  const startIdx = text.lastIndexOf('/**');
+  const endIdx = text.lastIndexOf('*/');
+  return startIdx !== -1 && endIdx > startIdx;
+}
+
+/**
  * Check if a node has a preceding JSDoc comment
  */
 export function hasJSDocComment(node: TSESTree.Node, sourceCode: string): boolean {
   if (!node.range) return false;
 
-  // Get text before the node
   const textBefore = sourceCode.slice(0, node.range[0]);
   const lines = textBefore.split('\n');
 
-  // Look backwards for /** ... */
-  let foundJSDoc = false;
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i]?.trim() ?? '';
-
-    // Empty line or whitespace - keep looking
-    if (line === '') continue;
-
-    // Found JSDoc end
-    if (line.endsWith('*/')) {
-      // Check if it's JSDoc (starts with /**)
-      const startIdx = textBefore.lastIndexOf('/**');
-      const endIdx = textBefore.lastIndexOf('*/');
-      if (startIdx !== -1 && endIdx > startIdx) {
-        foundJSDoc = true;
-      }
-      break;
-    }
-
-    // Found something else - no JSDoc
-    break;
-  }
-
-  return foundJSDoc;
+  if (!lastNonEmptyLineEndsBlockComment(lines)) return false;
+  return textContainsJSDoc(textBefore);
 }
 
 // Keys to skip to avoid circular references during AST traversal
@@ -59,6 +57,17 @@ function isZodParseCall(node: TSESTree.Node): boolean {
 }
 
 /**
+ * Visit each element of an array property, calling visitor on AST nodes.
+ */
+function visitArrayItems(items: unknown[], visitor: (child: TSESTree.Node) => void): void {
+  for (const item of items) {
+    if (item && typeof item === 'object' && 'type' in item) {
+      visitor(item as TSESTree.Node);
+    }
+  }
+}
+
+/**
  * Visit child properties of an AST node, calling visitor on each child node.
  */
 function visitChildren(node: TSESTree.Node, visitor: (child: TSESTree.Node) => void): void {
@@ -69,11 +78,7 @@ function visitChildren(node: TSESTree.Node, visitor: (child: TSESTree.Node) => v
     if (!value || typeof value !== 'object') continue;
 
     if (Array.isArray(value)) {
-      for (const item of value) {
-        if (item && typeof item === 'object' && 'type' in item) {
-          visitor(item as TSESTree.Node);
-        }
-      }
+      visitArrayItems(value, visitor);
     } else if ('type' in value) {
       visitor(value as TSESTree.Node);
     }

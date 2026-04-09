@@ -1,0 +1,36 @@
+name: js-module-pattern
+version: '1.0.0'
+description: Encapsulate private state and expose a public API using closures or ES modules
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-revealing-module-pattern
+  - js-singleton-pattern
+stack_signals:
+  - javascript
+keywords:
+  - module
+  - encapsulation
+  - private-state
+  - iife
+  - esm
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/module-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

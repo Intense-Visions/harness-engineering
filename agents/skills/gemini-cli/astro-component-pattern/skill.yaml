@@ -1,0 +1,44 @@
+name: astro-component-pattern
+version: '1.0.0'
+description: Structure .astro components with frontmatter, template, and scoped styles following Astro conventions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+related_skills:
+  - astro-islands-architecture
+  - astro-content-collections
+  - astro-routing-pattern
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - astro-component
+  - frontmatter
+  - component-script
+  - scoped-styles
+  - slots
+  - props
+  - Astro.props
+  - define:vars
+  - is:global
+  - is:inline
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/basics/astro-components'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,36 @@
+name: js-dynamic-import
+version: '1.0.0'
+description: Load ES modules on demand with import() to reduce initial bundle size and enable code splitting
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-static-import
+  - js-module-pattern
+stack_signals:
+  - javascript
+keywords:
+  - dynamic-import
+  - code-splitting
+  - lazy-loading
+  - import-on-demand
+  - bundle-size
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/dynamic-import'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,35 @@
+name: design-dark-mode-color
+version: "1.0.0"
+description: Color adaptation for dark themes — inverted hierarchy, reduced saturation, elevation through lightness
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-palette-construction
+  - design-elevation-shadow
+  - design-contrast-ratio
+  - css-dark-mode
+stack_signals: []
+keywords:
+  - dark mode
+  - dark theme
+  - inverted hierarchy
+  - reduced saturation
+  - elevation
+  - surface tint
+  - night mode
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

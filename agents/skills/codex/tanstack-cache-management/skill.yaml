@@ -1,0 +1,43 @@
+name: tanstack-cache-management
+version: "1.0.0"
+description: queryClient.setQueryData, cancelQueries, removeQueries, and observer patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/query-client.ts"
+  - "**/*query*.ts"
+related_skills:
+  - tanstack-query-keys
+  - tanstack-optimistic-updates
+  - tanstack-query-invalidation
+  - tanstack-mutation-patterns
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - setQueryData
+  - cancelQueries
+  - removeQueries
+  - queryClient
+  - getQueryData
+  - cache-manipulation
+  - observer
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/reference/QueryClient
+state:
+  persistent: false
+  files: []
+depends_on: []

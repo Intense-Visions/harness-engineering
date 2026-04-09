@@ -116,6 +116,37 @@ export async function syncToExternal(
 }
 
 /**
+ * Apply a single external ticket's assignee and status to a roadmap feature in-place.
+ */
+function applyTicketToFeature(
+  ticketState: ExternalTicketState,
+  feature: RoadmapFeature,
+  config: TrackerSyncConfig,
+  forceSync: boolean,
+  result: SyncResult
+): void {
+  // Assignee: external wins
+  if (ticketState.assignee !== feature.assignee) {
+    result.assignmentChanges.push({
+      feature: feature.name,
+      from: feature.assignee,
+      to: ticketState.assignee,
+    });
+    feature.assignee = ticketState.assignee;
+  }
+
+  // Status: use reverse mapping with label disambiguation
+  const resolvedStatus = resolveReverseStatus(ticketState.status, ticketState.labels, config);
+  if (!resolvedStatus || resolvedStatus === feature.status) return;
+
+  const newStatus = resolvedStatus as FeatureStatus;
+  if (!forceSync && isRegression(feature.status, newStatus)) return;
+  // Guard: external "open" → "planned" must not override manually-set "blocked".
+  if (!forceSync && feature.status === 'blocked' && newStatus === 'planned') return;
+  feature.status = newStatus;
+}
+
+/**
  * Pull execution fields (assignee, status) from external service.
  * - External assignee wins over local assignee
  * - Status changes are subject to directional guard (no regression unless forceSync)
@@ -161,34 +192,7 @@ export async function syncFromExternal(
   for (const ticketState of tickets) {
     const feature = featureByExternalId.get(ticketState.externalId);
     if (!feature) continue;
-
-    // Assignee: external wins
-    if (ticketState.assignee !== feature.assignee) {
-      result.assignmentChanges.push({
-        feature: feature.name,
-        from: feature.assignee,
-        to: ticketState.assignee,
-      });
-      feature.assignee = ticketState.assignee;
-    }
-
-    // Status: use reverse mapping with label disambiguation
-    const resolvedStatus = resolveReverseStatus(ticketState.status, ticketState.labels, config);
-    if (resolvedStatus && resolvedStatus !== feature.status) {
-      const newStatus = resolvedStatus as FeatureStatus;
-      if (!forceSync && isRegression(feature.status, newStatus)) {
-        // Directional guard: skip regression
-        continue;
-      }
-      // Guard: external "open" → "planned" must not override manually-set "blocked".
-      // These share the same STATUS_RANK so isRegression doesn't catch it, but
-      // blocked is a human signal that external status (which has no blocked concept
-      // beyond labels) should not silently clear.
-      if (!forceSync && feature.status === 'blocked' && newStatus === 'planned') {
-        continue;
-      }
-      feature.status = newStatus;
-    }
+    applyTicketToFeature(ticketState, feature, config, forceSync, result);
   }
 
   return result;

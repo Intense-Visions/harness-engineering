@@ -1,0 +1,35 @@
+name: design-affordances
+version: "1.0.0"
+description: Perceived actionability — signifiers, constraints, mappings (Don Norman), flat design's affordance problem, touch targets, hover states as affordance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-feedback-patterns
+  - design-form-ux
+  - design-navigation-ux
+stack_signals: []
+keywords:
+  - affordances
+  - signifiers
+  - constraints
+  - mappings
+  - Don-Norman
+  - touch-targets
+  - hover
+  - actionability
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

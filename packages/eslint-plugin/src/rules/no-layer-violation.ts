@@ -14,6 +14,50 @@ const createRule = ESLintUtils.RuleCreator(
 
 type MessageIds = 'layerViolation';
 
+interface LayerDef {
+  name: string;
+  pattern: string;
+  allowedDependencies: string[];
+}
+
+function isLayerViolation(
+  importLayer: string,
+  currentLayer: string,
+  currentLayerDef: LayerDef
+): boolean {
+  return importLayer !== currentLayer && !currentLayerDef.allowedDependencies.includes(importLayer);
+}
+
+function resolveImportLayer(
+  importPath: string,
+  filename: string,
+  layers: LayerDef[]
+): string | null {
+  if (!importPath.startsWith('.')) return null;
+  const resolvedImport = resolveImportPath(importPath, filename);
+  return getLayerForFile(resolvedImport, layers) ?? null;
+}
+
+type RuleContext = Parameters<ReturnType<typeof createRule<[], MessageIds>>['create']>[0];
+
+function checkLayerImport(
+  node: TSESTree.ImportDeclaration,
+  context: RuleContext,
+  currentLayer: string,
+  currentLayerDef: LayerDef,
+  layers: LayerDef[]
+): void {
+  const importLayer = resolveImportLayer(node.source.value, context.filename, layers);
+  if (!importLayer) return;
+  if (isLayerViolation(importLayer, currentLayer, currentLayerDef)) {
+    context.report({
+      node,
+      messageId: 'layerViolation',
+      data: { fromLayer: currentLayer, toLayer: importLayer },
+    });
+  }
+}
+
 export default createRule<[], MessageIds>({
   name: 'no-layer-violation',
   meta: {
@@ -45,37 +89,10 @@ export default createRule<[], MessageIds>({
       return {};
     }
 
+    const layers = config.layers;
     return {
       ImportDeclaration(node: TSESTree.ImportDeclaration) {
-        const importPath = node.source.value;
-
-        // Skip external imports
-        if (!importPath.startsWith('.')) {
-          return;
-        }
-
-        const resolvedImport = resolveImportPath(importPath, context.filename);
-        const importLayer = getLayerForFile(resolvedImport, config.layers!);
-
-        // Skip if import is not in any layer
-        if (!importLayer) {
-          return;
-        }
-
-        // Check if import is allowed
-        if (
-          importLayer !== currentLayer &&
-          !currentLayerDef.allowedDependencies.includes(importLayer)
-        ) {
-          context.report({
-            node,
-            messageId: 'layerViolation',
-            data: {
-              fromLayer: currentLayer,
-              toLayer: importLayer,
-            },
-          });
-        }
+        checkLayerImport(node, context, currentLayer, currentLayerDef, layers);
       },
     };
   },

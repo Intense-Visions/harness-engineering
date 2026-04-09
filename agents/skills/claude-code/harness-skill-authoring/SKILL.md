@@ -51,6 +51,116 @@
 
 3. **Key difference in SKILL.md:** Rigid skills require `## Gates` and `## Escalation` sections. Flexible skills may omit them (though they can include them if useful).
 
+### Phase 2B: CHOOSE TYPE — Knowledge Skills
+
+Knowledge skills encode domain reference material (design patterns, architectural guidance, best practices) as first-class skills. They are _not_ behavioral — they do not define process phases, require tools, or maintain state. Agents receive them as contextual guidance alongside behavioral skills.
+
+**Choose `type: knowledge` when:**
+
+- The skill encodes "know things" content, not "do things" process
+- The content is reference material an agent should _consult_ rather than _execute_
+- The skill maps cleanly to a technology vertical (e.g., React patterns, TypeScript generics, OWASP rules)
+- The skill's value is educational depth that benefits from progressive disclosure
+- NOT when the skill requires tools, phases, or state — those are rigid or flexible skills
+- NOT when the skill is a harness process skill (planning, execution, brainstorming)
+
+**Knowledge skill `skill.yaml` template:**
+
+```yaml
+name: <technology-prefix>-<pattern-name> # e.g., react-hooks-pattern, ts-generics-pattern
+version: '1.0.0'
+description: <one-line summary>
+cognitive_mode: advisory-guide # always advisory-guide for knowledge skills
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+tools: [] # knowledge skills declare no tools
+paths:
+  - '**/*.tsx' # file-type-specific globs only — see rules below
+related_skills:
+  - <complementary-knowledge-skill> # other knowledge skills in the same vertical
+stack_signals:
+  - typescript
+  - react
+keywords:
+  - hooks
+  - custom-hooks
+metadata:
+  author: <author-name>
+  upstream: '<source-url>' # provenance tracking
+state:
+  persistent: false
+  files: []
+depends_on: []
+```
+
+**`paths` authoring rules (critical — read carefully):**
+
+The `paths` field is a list of minimatch glob patterns matched against the user's recent/changed files. A match boosts the skill's dispatch score by 0.20 (the paths scoring weight). Incorrect globs cause false activation.
+
+Rules:
+
+1. **Use file-type-specific globs only.** `**/*.tsx`, `**/*.vue`, `*.sql`, `Dockerfile` are correct. `**/*.ts` is incorrect — it activates for every TypeScript project regardless of context.
+2. **The lesson from Vue skills:** `**/*.ts` was initially added to Vue skills and had to be removed. TypeScript files exist in every project; Vue-specific content should only activate on `**/*.vue` files.
+3. **Config file patterns are safe.** `playwright.config.ts`, `prisma/schema.prisma`, `drizzle.config.ts` are sufficiently specific.
+4. **When in doubt, leave `paths: []`.** A skill with `paths: []` scores 0.0 on the paths dimension but can still surface via keyword and stack_signals matching.
+5. **Test your globs.** After adding paths, verify the skill surfaces when the target file is present and does NOT surface when an unrelated file is present (e.g., a Vue skill must not activate when only `.ts` files are present).
+
+**`related_skills` authoring rules:**
+
+The `related_skills` field lists skill names that complement the current skill. These are surfaced as secondary knowledge recommendations when the current skill is dispatched — this works for both knowledge skills (when auto-injected) and behavioral skills (when recommended).
+
+Rules:
+
+1. **Only reference skills that genuinely complement each other.** A React hooks skill relates to React compound pattern, not to OWASP security rules.
+2. **Reference by exact skill name** (directory name, e.g., `react-compound-pattern`, not `React Compound Pattern`).
+3. **Keep lists short (2–5 entries).** More than 5 related skills dilutes the signal.
+4. **Bidirectionality is not required** but is good practice — if skill A lists skill B, skill B should list skill A.
+
+**Knowledge skill `SKILL.md` structure:**
+
+Knowledge skills use a two-section disclosure model. The `## Instructions` section (~5K tokens max) is auto-injected into agent context on high-confidence matches. The `## Details` section is loaded on-demand for educational depth.
+
+```markdown
+# <Pattern Name>
+
+> <One-sentence description>
+
+## When to Use
+
+- [Specific activation conditions]
+- NOT when [boundary conditions]
+
+## Instructions
+
+[Agent-facing directives — concise, actionable, <5K tokens]
+[This section is auto-injected on high-confidence dispatch]
+
+## Details
+
+[Educational depth — patterns, examples, trade-offs]
+[This section is loaded on-demand when the agent explicitly requests it]
+
+## Source
+
+[Link to original source / upstream]
+```
+
+The `## Details` heading is the boundary marker. Everything before it is the Instructions section. The progressive disclosure split happens at `\n## Details`.
+
+**Schema constraints enforced automatically:**
+
+- `type: knowledge` → `phases` must be empty or omitted
+- `type: knowledge` → `tools` must be empty
+- `type: knowledge` → `state.persistent` must be false
+- `type: knowledge` → `cognitive_mode` defaults to `advisory-guide`
+- `type: knowledge` → `tier` defaults to 3
+
 ### Phase 3: WRITE SKILL.YAML — Define Metadata
 
 1. **Create the skill directory** under `agents/skills/<platform>/<skill-name>/`.
@@ -86,6 +196,12 @@ state:
     - <state-file-path> # List state files if persistent
 depends_on:
   - <prerequisite-skill> # Skills that must be available (not necessarily run first)
+# Optional fields (required for knowledge skills, optional for behavioral skills)
+paths: [] # File-type-specific glob patterns for dispatch boost
+related_skills: [] # Complementary skill names (surfaces related knowledge when dispatched)
+metadata: # Provenance and authorship metadata
+  author: <author>
+  upstream: '<source-url>'
 ```
 
 3. **Validate the YAML.** Ensure proper indentation, correct field names, and valid values. The `name` field must match the directory name exactly.
@@ -170,6 +286,8 @@ Evaluate every skill along two dimensions:
 - **Good skill** = clear activation + specific implementation. The agent knows when to use it and exactly what to do.
 - **Clear activation + vague implementation** = trap. The skill fires correctly but the agent has no concrete instructions, leading to inconsistent results.
 - **Ambiguous activation + specific implementation** = wasted. Great instructions that never get used because the agent does not know when to activate the skill.
+
+**Knowledge skills** follow the same quality matrix. "Clear activation" for a knowledge skill means `paths` globs and `stack_signals` are specific enough to surface the skill without false positives. "Specific implementation" means the `## Instructions` section is concise and actionable.
 
 Use this checklist as a final quality gate before declaring a skill complete.
 

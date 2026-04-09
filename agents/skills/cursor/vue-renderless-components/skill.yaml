@@ -1,0 +1,35 @@
+name: vue-renderless-components
+version: '1.0.0'
+description: Extract behavior into components that render nothing, delegating all rendering to the consumer via slots
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+related_skills:
+  - vue-slots-pattern
+  - vue-composables-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - renderless
+  - headless
+  - scoped-slots
+  - behavior-extraction
+  - slot-props
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/renderless-components'
+state:
+  persistent: false
+  files: []
+depends_on: []

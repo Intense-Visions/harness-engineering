@@ -29,6 +29,37 @@ function isExcluded(relativePath: string, excludeRegexes: RegExp[]): boolean {
 // Directories that are always skipped for performance
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', '.nuxt', '__pycache__']);
 
+/** Walk a directory recursively, collecting source files into the provided array. */
+async function walkDir(
+  dir: string,
+  rootDir: string,
+  excludeRegexes: RegExp[],
+  files: string[]
+): Promise<void> {
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return; // Permission denied or missing directory
+  }
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = path.relative(rootDir, fullPath).replaceAll('\\', '/');
+
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      if (isExcluded(relativePath + '/', excludeRegexes)) continue;
+      await walkDir(fullPath, rootDir, excludeRegexes, files);
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name);
+      if (!SOURCE_EXTENSIONS.has(ext)) continue;
+      if (isExcluded(relativePath, excludeRegexes)) continue;
+      files.push(fullPath);
+    }
+  }
+}
+
 /**
  * Find source files recursively, skipping excluded paths.
  * Zero external dependencies — uses only node:fs.
@@ -41,34 +72,7 @@ export async function globFiles(rootDir: string, exclude?: string[]): Promise<st
     '**/fixtures/**',
   ];
   const excludeRegexes = patterns.map(globToRegex);
-
   const files: string[] = [];
-
-  async function walk(dir: string): Promise<void> {
-    let entries;
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return; // Permission denied or missing directory
-    }
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      const relativePath = path.relative(rootDir, fullPath).replaceAll('\\', '/');
-
-      if (entry.isDirectory()) {
-        if (SKIP_DIRS.has(entry.name)) continue;
-        if (isExcluded(relativePath + '/', excludeRegexes)) continue;
-        await walk(fullPath);
-      } else if (entry.isFile()) {
-        const ext = path.extname(entry.name);
-        if (!SOURCE_EXTENSIONS.has(ext)) continue;
-        if (isExcluded(relativePath, excludeRegexes)) continue;
-        files.push(fullPath);
-      }
-    }
-  }
-
-  await walk(rootDir);
+  await walkDir(rootDir, rootDir, excludeRegexes, files);
   return files;
 }

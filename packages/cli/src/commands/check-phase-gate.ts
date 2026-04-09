@@ -61,6 +61,35 @@ function resolveSpecPath(
   return path.resolve(cwd, specRelative);
 }
 
+function checkSpecContent(
+  specPath: string,
+  relImpl: string,
+  relSpec: string,
+  missingSpecs: Array<{ implFile: string; expectedSpec: string }>
+): void {
+  const content = fs.readFileSync(specPath, 'utf-8');
+  const sectionPattern = /^#+\s*(Observable Truths|Success Criteria|Acceptance Criteria)/im;
+  const sectionMatch = sectionPattern.exec(content);
+  if (!sectionMatch) {
+    missingSpecs.push({
+      implFile: relImpl,
+      expectedSpec: `${relSpec} (missing requirements section: expected Observable Truths, Success Criteria, or Acceptance Criteria heading)`,
+    });
+    return;
+  }
+  const sectionStart = sectionMatch.index + sectionMatch[0].length;
+  const nextHeadingMatch = /^#+\s/m.exec(content.slice(sectionStart));
+  const sectionContent = nextHeadingMatch
+    ? content.slice(sectionStart, sectionStart + nextHeadingMatch.index)
+    : content.slice(sectionStart);
+  if (!/^\s*\d+\.\s+/m.test(sectionContent)) {
+    missingSpecs.push({
+      implFile: relImpl,
+      expectedSpec: `${relSpec} (requirements section "${sectionMatch[1]}" has no numbered items)`,
+    });
+  }
+}
+
 export async function runCheckPhaseGate(
   options: CheckPhaseGateOptions
 ): Promise<Result<CheckPhaseGateResult, CLIError>> {
@@ -101,36 +130,9 @@ export async function runCheckPhaseGate(
       const relSpec = path.relative(cwd, expectedSpec).replace(/\\/g, '/');
 
       if (!fs.existsSync(expectedSpec)) {
-        missingSpecs.push({
-          implFile: relImpl,
-          expectedSpec: relSpec,
-        });
+        missingSpecs.push({ implFile: relImpl, expectedSpec: relSpec });
       } else if (mapping.contentValidation) {
-        const content = fs.readFileSync(expectedSpec, 'utf-8');
-        const sectionPattern = /^#+\s*(Observable Truths|Success Criteria|Acceptance Criteria)/im;
-        const sectionMatch = sectionPattern.exec(content);
-
-        if (!sectionMatch) {
-          missingSpecs.push({
-            implFile: relImpl,
-            expectedSpec: `${relSpec} (missing requirements section: expected Observable Truths, Success Criteria, or Acceptance Criteria heading)`,
-          });
-        } else {
-          // Extract the section content from the heading to the next heading or EOF
-          const sectionStart = sectionMatch.index + sectionMatch[0].length;
-          const nextHeadingMatch = /^#+\s/m.exec(content.slice(sectionStart));
-          const sectionContent = nextHeadingMatch
-            ? content.slice(sectionStart, sectionStart + nextHeadingMatch.index)
-            : content.slice(sectionStart);
-
-          const hasNumberedItem = /^\s*\d+\.\s+/m.test(sectionContent);
-          if (!hasNumberedItem) {
-            missingSpecs.push({
-              implFile: relImpl,
-              expectedSpec: `${relSpec} (requirements section "${sectionMatch[1]}" has no numbered items)`,
-            });
-          }
-        }
+        checkSpecContent(expectedSpec, relImpl, relSpec, missingSpecs);
       }
     }
   }
@@ -146,19 +148,59 @@ export async function runCheckPhaseGate(
   });
 }
 
+function resolvePhaseGateOutputMode(globalOpts: Record<string, unknown>): OutputModeType {
+  if (globalOpts.json) return OutputMode.JSON;
+  if (globalOpts.quiet) return OutputMode.QUIET;
+  if (globalOpts.verbose) return OutputMode.VERBOSE;
+  return OutputMode.TEXT;
+}
+
+function handlePhaseGateError(error: CLIError, mode: OutputModeType): never {
+  if (mode === OutputMode.JSON) {
+    console.log(JSON.stringify({ error: error.message }));
+  } else {
+    logger.error(error.message);
+  }
+  process.exit(error.exitCode);
+}
+
+function handlePhaseGateSkipped(
+  value: CheckPhaseGateResult,
+  mode: OutputModeType,
+  formatter: OutputFormatter
+): never {
+  if (mode === OutputMode.JSON) {
+    console.log(formatter.format(value));
+  } else if (mode !== OutputMode.QUIET) {
+    logger.dim('Phase gates not enabled, skipping.');
+  }
+  process.exit(ExitCode.SUCCESS);
+}
+
+function printPhaseGateResult(value: CheckPhaseGateResult, formatter: OutputFormatter): void {
+  const output = formatter.formatValidation({
+    valid: value.pass,
+    issues: value.missingSpecs.map((m) => ({
+      file: m.implFile,
+      message: `Missing spec: ${m.expectedSpec}`,
+    })),
+  });
+  if (output) console.log(output);
+
+  const summary = formatter.formatSummary(
+    'Phase gate check',
+    `${value.checkedFiles} files checked, ${value.missingSpecs.length} missing specs`,
+    value.pass
+  );
+  if (summary) console.log(summary);
+}
+
 export function createCheckPhaseGateCommand(): Command {
   const command = new Command('check-phase-gate')
     .description('Verify that implementation files have matching spec documents')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
+      const mode = resolvePhaseGateOutputMode(globalOpts);
       const formatter = new OutputFormatter(mode);
 
       const result = await runCheckPhaseGate({
@@ -168,47 +210,12 @@ export function createCheckPhaseGateCommand(): Command {
         quiet: globalOpts.quiet,
       });
 
-      if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
-        process.exit(result.error.exitCode);
-      }
+      if (!result.ok) handlePhaseGateError(result.error, mode);
 
       const value = result.value;
+      if (value.skipped) handlePhaseGateSkipped(value, mode, formatter);
 
-      if (value.skipped) {
-        if (mode === OutputMode.JSON) {
-          console.log(formatter.format(value));
-        } else if (mode !== OutputMode.QUIET) {
-          logger.dim('Phase gates not enabled, skipping.');
-        }
-        process.exit(ExitCode.SUCCESS);
-      }
-
-      // Format output
-      const output = formatter.formatValidation({
-        valid: value.pass,
-        issues: value.missingSpecs.map((m) => ({
-          file: m.implFile,
-          message: `Missing spec: ${m.expectedSpec}`,
-        })),
-      });
-
-      if (output) {
-        console.log(output);
-      }
-
-      const summary = formatter.formatSummary(
-        'Phase gate check',
-        `${value.checkedFiles} files checked, ${value.missingSpecs.length} missing specs`,
-        value.pass
-      );
-      if (summary) {
-        console.log(summary);
-      }
+      printPhaseGateResult(value, formatter);
 
       // Severity determines exit code: warning always passes, error fails
       if (!value.pass && value.severity === 'error') {

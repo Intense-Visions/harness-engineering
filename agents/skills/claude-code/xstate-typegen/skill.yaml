@@ -1,0 +1,39 @@
+name: xstate-typegen
+version: '1.0.0'
+description: Generate full type safety for XState machines with typegen and setup patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-guards-actions
+  - xstate-react-integration
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - typegen
+  - type-safety
+  - setup
+  - typed-events
+  - typed-context
+metadata:
+  author: community
+  upstream: 'xstate/docs/typegen'
+state:
+  persistent: false
+  files: []
+depends_on: []

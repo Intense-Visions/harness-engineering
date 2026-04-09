@@ -9,6 +9,8 @@ triggers:
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -79,3 +81,7 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - owasp-auth-patterns
+  - owasp-csrf-protection
+  - next-auth-patterns

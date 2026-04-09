@@ -4,6 +4,7 @@ import {
   type HealthSignal,
   type Recommendation,
   type RecommendationResult,
+  type KnowledgeRecommendation,
 } from '../../src/skill/recommendation-types';
 
 describe('HEALTH_SIGNALS', () => {
@@ -90,5 +91,33 @@ describe('RecommendationResult type', () => {
     };
     expect(result.recommendations).toEqual([]);
     expect(result.sequenceReasoning).toBe('No recommendations needed.');
+  });
+});
+
+describe('RecommendationResult — knowledgeRecommendations field', () => {
+  it('accepts RecommendationResult with empty knowledgeRecommendations', () => {
+    const result: RecommendationResult = {
+      recommendations: [],
+      snapshotAge: 'fresh',
+      sequenceReasoning: 'No signals.',
+      knowledgeRecommendations: [],
+    };
+    expect(result.knowledgeRecommendations).toEqual([]);
+  });
+
+  it('accepts RecommendationResult with knowledge recommendations', () => {
+    const kr: KnowledgeRecommendation = {
+      skillName: 'react-hooks-pattern',
+      score: 0.85,
+      paths: ['**/*.tsx'],
+    };
+    const result: RecommendationResult = {
+      recommendations: [],
+      snapshotAge: 'fresh',
+      sequenceReasoning: 'Test.',
+      knowledgeRecommendations: [kr],
+    };
+    expect(result.knowledgeRecommendations![0]!.skillName).toBe('react-hooks-pattern');
+    expect(result.knowledgeRecommendations![0]!.score).toBe(0.85);
   });
 });

@@ -1,5 +1,7 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { Command } from 'commander';
 import { parse as yamlParse } from 'yaml';
 import { SkillMetadataSchema } from '../skill/schema';
@@ -19,7 +21,7 @@ import {
   type LockfileEntry,
 } from '../registry/lockfile';
 import { getBundledSkillNames } from '../registry/bundled-skills';
-import { resolveGlobalSkillsDir } from '../utils/paths';
+import { resolveGlobalSkillsDir, resolveGlobalCommunityBaseDir } from '../utils/paths';
 import { logger } from '../output/logger';
 
 export interface InstallOptions {
@@ -27,6 +29,7 @@ export interface InstallOptions {
   force?: boolean;
   from?: string;
   registry?: string;
+  global?: boolean;
   /** Internal: tracks which package triggered this install (for transitive deps) */
   _dependencyOf?: string | null;
 }
@@ -62,77 +65,200 @@ function validateSkillYaml(parsed: unknown): SkillYaml {
   };
 }
 
-async function runLocalInstall(fromPath: string, options: InstallOptions): Promise<InstallResult> {
+/**
+ * Resolve where community skills should be placed.
+ * --global installs to ~/.harness/skills/community/ (available to all projects).
+ * Otherwise installs to the project-level agents/skills/community/.
+ */
+function resolveCommunityBase(global: boolean): { communityBase: string; lockfilePath: string } {
+  if (global) {
+    const communityBase = resolveGlobalCommunityBaseDir();
+    return { communityBase, lockfilePath: path.join(communityBase, 'skills-lock.json') };
+  }
+  const globalDir = resolveGlobalSkillsDir();
+  const skillsDir = path.dirname(globalDir);
+  const communityBase = path.join(skillsDir, 'community');
+  return { communityBase, lockfilePath: path.join(communityBase, 'skills-lock.json') };
+}
+
+/**
+ * Detect if a --from value is a GitHub reference.
+ * Supports: github:owner/repo, github:owner/repo#branch, https://github.com/owner/repo
+ */
+function parseGitHubRef(from: string): { owner: string; repo: string; ref: string } | null {
+  // github:owner/repo or github:owner/repo#branch
+  const ghPrefix = from.match(/^github:([^/]+)\/([^#]+?)(?:#(.+))?$/);
+  if (ghPrefix && ghPrefix[1] && ghPrefix[2]) {
+    return { owner: ghPrefix[1], repo: ghPrefix[2], ref: ghPrefix[3] ?? 'HEAD' };
+  }
+  // https://github.com/owner/repo or https://github.com/owner/repo/tree/branch
+  const urlMatch = from.match(
+    /^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+))?$/
+  );
+  if (urlMatch && urlMatch[1] && urlMatch[2]) {
+    return { owner: urlMatch[1], repo: urlMatch[2], ref: urlMatch[3] ?? 'HEAD' };
+  }
+  return null;
+}
+
+/**
+ * Clone a GitHub repo to a temp directory (shallow clone).
+ * Returns the path to the cloned directory.
+ */
+function cloneGitHubRepo(owner: string, repo: string, ref: string): string {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-gh-install-'));
+  const url = `https://github.com/${owner}/${repo}.git`;
+
+  try {
+    const cloneArgs = ['clone', '--depth', '1'];
+    if (ref !== 'HEAD') {
+      cloneArgs.push('--branch', ref);
+    }
+    cloneArgs.push(url, tmpDir);
+    execFileSync('git', cloneArgs, { timeout: 60_000, stdio: 'pipe' });
+  } catch (err) {
+    cleanupTempDir(tmpDir);
+    throw new Error(`Failed to clone ${url}: ${err instanceof Error ? err.message : String(err)}`, {
+      cause: err,
+    });
+  }
+  return tmpDir;
+}
+
+/**
+ * Discover all skill directories under a path.
+ * Walks up to 3 levels deep looking for directories containing skill.yaml.
+ */
+function discoverSkillDirs(rootDir: string): string[] {
+  const skillDirs: string[] = [];
+
+  function scan(dir: string, depth: number): void {
+    if (depth > 3) return;
+    if (!fs.existsSync(dir)) return;
+
+    // Check if this directory itself is a skill
+    if (fs.existsSync(path.join(dir, 'skill.yaml'))) {
+      skillDirs.push(dir);
+      return; // Don't recurse into skill directories
+    }
+
+    // Recurse into subdirectories
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      scan(path.join(dir, entry.name), depth + 1);
+    }
+  }
+
+  scan(rootDir, 0);
+  return skillDirs;
+}
+
+/** Resolve a local --from path to a pkg directory, returning the temp dir if one was created. */
+function resolveLocalPkgDir(fromPath: string): { pkgDir: string; extractDir: string | null } {
   const resolvedPath = path.resolve(fromPath);
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`--from path does not exist: ${resolvedPath}`);
   }
   const stat = fs.statSync(resolvedPath);
-
-  let extractDir: string | null = null;
-  let pkgDir: string;
-
   if (stat.isDirectory()) {
-    pkgDir = resolvedPath;
-  } else if (resolvedPath.endsWith('.tgz') || resolvedPath.endsWith('.tar.gz')) {
-    const tarballBuffer = fs.readFileSync(resolvedPath);
-    extractDir = extractTarball(tarballBuffer);
-    pkgDir = path.join(extractDir, 'package');
-  } else {
-    throw new Error(`--from path must be a directory or .tgz file. Got: ${resolvedPath}`);
+    return { pkgDir: resolvedPath, extractDir: null };
   }
+  if (resolvedPath.endsWith('.tgz') || resolvedPath.endsWith('.tar.gz')) {
+    const tarballBuffer = fs.readFileSync(resolvedPath);
+    const extractDir = extractTarball(tarballBuffer);
+    return { pkgDir: path.join(extractDir, 'package'), extractDir };
+  }
+  throw new Error(`--from path must be a directory or .tgz file. Got: ${resolvedPath}`);
+}
 
-  try {
-    // Validate skill.yaml
-    const skillYamlPath = path.join(pkgDir, 'skill.yaml');
-    if (!fs.existsSync(skillYamlPath)) {
-      throw new Error(`No skill.yaml found at ${skillYamlPath}`);
-    }
-    const rawYaml = fs.readFileSync(skillYamlPath, 'utf-8');
-    const parsed = yamlParse(rawYaml);
-    const skillYaml = validateSkillYaml(parsed);
-    const shortName = skillYaml.name;
+/** Install a single validated skill directory into the community base. */
+function installSkillDir(
+  pkgDir: string,
+  resolvedPath: string,
+  options: InstallOptions
+): InstallResult {
+  const skillYamlPath = path.join(pkgDir, 'skill.yaml');
+  if (!fs.existsSync(skillYamlPath)) {
+    throw new Error(`No skill.yaml found at ${skillYamlPath}`);
+  }
+  const skillYaml = validateSkillYaml(yamlParse(fs.readFileSync(skillYamlPath, 'utf-8')));
+  const shortName = skillYaml.name;
 
-    // Resolve paths
-    const globalDir = resolveGlobalSkillsDir();
-    const skillsDir = path.dirname(globalDir);
-    const communityBase = path.join(skillsDir, 'community');
-    const lockfilePath = path.join(communityBase, 'skills-lock.json');
+  const { communityBase, lockfilePath } = resolveCommunityBase(options.global ?? false);
 
-    // Check bundled collision
-    const bundledNames = getBundledSkillNames(globalDir);
+  if (!options.global) {
+    const bundledNames = getBundledSkillNames(resolveGlobalSkillsDir());
     if (bundledNames.has(shortName)) {
       throw new Error(
         `'${shortName}' is a bundled skill and cannot be overridden by community installs.`
       );
     }
+  }
 
-    // Place content
-    placeSkillContent(pkgDir, communityBase, shortName, skillYaml.platforms);
+  placeSkillContent(pkgDir, communityBase, shortName, skillYaml.platforms);
 
-    // Update lockfile
-    const packageName = `@harness-skills/${shortName}`;
-    const lockfile = readLockfile(lockfilePath);
-    const entry: LockfileEntry = {
-      version: skillYaml.version,
-      resolved: `local:${resolvedPath}`,
-      integrity: '',
-      platforms: skillYaml.platforms,
-      installedAt: new Date().toISOString(),
-      dependencyOf: options._dependencyOf ?? null,
-    };
-    const updatedLockfile = updateLockfileEntry(lockfile, packageName, entry);
-    writeLockfile(lockfilePath, updatedLockfile);
+  const packageName = `@harness-skills/${shortName}`;
+  const lockfile = readLockfile(lockfilePath);
+  const entry: LockfileEntry = {
+    version: skillYaml.version,
+    resolved: `local:${resolvedPath}`,
+    integrity: '',
+    platforms: skillYaml.platforms,
+    installedAt: new Date().toISOString(),
+    dependencyOf: options._dependencyOf ?? null,
+  };
+  writeLockfile(lockfilePath, updateLockfileEntry(lockfile, packageName, entry));
 
-    return {
-      installed: true,
-      name: packageName,
-      version: skillYaml.version,
-    };
+  return { installed: true, name: packageName, version: skillYaml.version };
+}
+
+async function runLocalInstall(fromPath: string, options: InstallOptions): Promise<InstallResult> {
+  const { pkgDir, extractDir } = resolveLocalPkgDir(fromPath);
+  try {
+    return installSkillDir(pkgDir, path.resolve(fromPath), options);
   } finally {
-    if (extractDir) {
-      cleanupTempDir(extractDir);
-    }
+    if (extractDir) cleanupTempDir(extractDir);
+  }
+}
+
+/**
+ * Install all skills discovered under a directory (bulk install).
+ * Discovers skill.yaml files recursively and installs each one.
+ */
+export async function runBulkInstall(
+  rootDir: string,
+  options: InstallOptions
+): Promise<InstallResult[]> {
+  const skillDirs = discoverSkillDirs(rootDir);
+  if (skillDirs.length === 0) {
+    throw new Error(
+      `No skills found under ${rootDir}. Expected directories containing skill.yaml.`
+    );
+  }
+
+  const results: InstallResult[] = [];
+  for (const skillDir of skillDirs) {
+    const result = await runLocalInstall(skillDir, options);
+    results.push(result);
+  }
+  return results;
+}
+
+/**
+ * Install from a GitHub repository.
+ * Clones the repo to a temp directory, discovers skills, and installs them.
+ */
+async function runGitHubInstall(from: string, options: InstallOptions): Promise<InstallResult[]> {
+  const ghRef = parseGitHubRef(from);
+  if (!ghRef) throw new Error(`Invalid GitHub reference: ${from}`);
+
+  const tmpDir = cloneGitHubRepo(ghRef.owner, ghRef.repo, ghRef.ref);
+  try {
+    return await runBulkInstall(tmpDir, options);
+  } finally {
+    cleanupTempDir(tmpDir);
   }
 }
 
@@ -145,8 +271,36 @@ export async function runInstall(
     throw new Error('--from and --registry cannot be used together');
   }
 
-  // Local install path
+  // Local or GitHub install path
   if (options.from) {
+    // GitHub references are handled as bulk installs
+    if (parseGitHubRef(options.from)) {
+      const results = await runGitHubInstall(options.from, options);
+      // Return aggregate result
+      const installed = results.filter((r) => r.installed);
+      return {
+        installed: installed.length > 0,
+        name: installed.map((r) => r.name).join(', '),
+        version: installed.map((r) => r.version).join(', '),
+      };
+    }
+
+    // Check if --from points to a directory containing multiple skills (no skill.yaml at root)
+    const resolvedFrom = path.resolve(options.from);
+    if (
+      fs.existsSync(resolvedFrom) &&
+      fs.statSync(resolvedFrom).isDirectory() &&
+      !fs.existsSync(path.join(resolvedFrom, 'skill.yaml'))
+    ) {
+      const results = await runBulkInstall(resolvedFrom, options);
+      const installed = results.filter((r) => r.installed);
+      return {
+        installed: installed.length > 0,
+        name: installed.map((r) => r.name).join(', '),
+        version: installed.map((r) => r.version).join(', '),
+      };
+    }
+
     return runLocalInstall(options.from, options);
   }
 
@@ -154,17 +308,16 @@ export async function runInstall(
   const shortName = extractSkillName(packageName);
 
   // Resolve paths
-  const globalDir = resolveGlobalSkillsDir();
-  const skillsDir = path.dirname(globalDir);
-  const communityBase = path.join(skillsDir, 'community');
-  const lockfilePath = path.join(communityBase, 'skills-lock.json');
+  const { communityBase, lockfilePath } = resolveCommunityBase(options.global ?? false);
 
-  // Check bundled skill collision
-  const bundledNames = getBundledSkillNames(globalDir);
-  if (bundledNames.has(shortName)) {
-    throw new Error(
-      `'${shortName}' is a bundled skill and cannot be overridden by community installs.`
-    );
+  // Check bundled skill collision (only for project-level installs)
+  if (!options.global) {
+    const bundledNames = getBundledSkillNames(resolveGlobalSkillsDir());
+    if (bundledNames.has(shortName)) {
+      throw new Error(
+        `'${shortName}' is a bundled skill and cannot be overridden by community installs.`
+      );
+    }
   }
 
   // Fetch metadata and resolve version
@@ -243,6 +396,7 @@ export async function runInstall(
   for (const dep of deps) {
     logger.info(`Installing dependency: ${dep} (required by ${shortName})`);
     await runInstall(dep, {
+      global: options.global ?? false,
       _dependencyOf: packageName,
       ...(options.registry !== undefined ? { registry: options.registry } : {}),
     });
@@ -254,11 +408,15 @@ export async function runInstall(
 export function createInstallCommand(): Command {
   const cmd = new Command('install');
   cmd
-    .description('Install a community skill from the @harness-skills registry')
-    .argument('<skill>', 'Skill name or @harness-skills/scoped package name')
+    .description('Install skills from npm registry, local directory, or GitHub repository')
+    .argument('<skill>', 'Skill name, @harness-skills/scoped package, or "." for bulk install')
     .option('--version <range>', 'Semver range or exact version to install')
     .option('--force', 'Force reinstall even if same version is already installed')
-    .option('--from <path>', 'Install from a local directory or .tgz file')
+    .option(
+      '--from <source>',
+      'Install from local path, directory, or GitHub (github:owner/repo, https://github.com/owner/repo)'
+    )
+    .option('--global', 'Install globally (~/.harness/skills/community/) for all projects', false)
     .option('--registry <url>', 'Use a custom npm registry URL')
     .action(async (skill: string, opts: InstallOptions) => {
       try {
@@ -271,7 +429,7 @@ export function createInstallCommand(): Command {
           logger.success(
             `Upgraded ${result.name} from ${result.previousVersion} to ${result.version}`
           );
-        } else {
+        } else if (result.installed) {
           logger.success(`Installed ${result.name}@${result.version}`);
         }
       } catch (err) {

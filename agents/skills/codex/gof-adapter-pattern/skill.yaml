@@ -1,0 +1,36 @@
+name: gof-adapter-pattern
+version: "1.0.0"
+description: Wrap incompatible interfaces to make them work together without modifying source code
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - gof-facade-pattern
+  - gof-decorator-pattern
+stack_signals:
+  - typescript
+keywords:
+  - adapter
+  - interface-compatibility
+  - legacy-wrapping
+  - object-adapter
+  - class-adapter
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/adapter
+state:
+  persistent: false
+  files: []
+depends_on: []

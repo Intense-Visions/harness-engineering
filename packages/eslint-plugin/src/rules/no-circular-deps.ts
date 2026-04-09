@@ -79,6 +79,30 @@ function normalizePath(filePath: string): string {
 }
 
 type MessageIds = 'circularDep';
+type RuleContext = Parameters<ReturnType<typeof createRule<[], MessageIds>>['create']>[0];
+
+function checkImportDeclaration(
+  node: TSESTree.ImportDeclaration,
+  context: RuleContext,
+  currentFile: string
+): void {
+  const importPath = node.source.value;
+  if (!importPath.startsWith('.')) {
+    return;
+  }
+  const importingDir = path.dirname(context.filename);
+  const resolvedPath = path.resolve(importingDir, importPath);
+  const normalizedImport = normalizePath(resolvedPath);
+  const cycle = detectCycle(currentFile, normalizedImport);
+  if (cycle) {
+    context.report({
+      node,
+      messageId: 'circularDep',
+      data: { cycle: cycle.map((f) => path.basename(f)).join(' → ') },
+    });
+  }
+  addEdge(currentFile, normalizedImport);
+}
 
 export default createRule<[], MessageIds>({
   name: 'no-circular-deps',
@@ -95,35 +119,9 @@ export default createRule<[], MessageIds>({
   defaultOptions: [],
   create(context) {
     const currentFile = normalizePath(context.filename);
-
     return {
       ImportDeclaration(node: TSESTree.ImportDeclaration) {
-        const importPath = node.source.value;
-
-        // Skip external imports
-        if (!importPath.startsWith('.')) {
-          return;
-        }
-
-        // Resolve import to normalized path
-        const importingDir = path.dirname(context.filename);
-        const resolvedPath = path.resolve(importingDir, importPath);
-        const normalizedImport = normalizePath(resolvedPath);
-
-        // Check for cycle before adding edge
-        const cycle = detectCycle(currentFile, normalizedImport);
-        if (cycle) {
-          context.report({
-            node,
-            messageId: 'circularDep',
-            data: {
-              cycle: cycle.map((f) => path.basename(f)).join(' → '),
-            },
-          });
-        }
-
-        // Add edge to graph
-        addEdge(currentFile, normalizedImport);
+        checkImportDeclaration(node, context, currentFile);
       },
     };
   },

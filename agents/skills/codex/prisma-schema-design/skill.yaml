@@ -1,0 +1,46 @@
+name: prisma-schema-design
+version: "1.0.0"
+description: Design Prisma schemas with datasource, generator, models, field types, and field attributes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "schema.prisma"
+  - "prisma/schema.prisma"
+  - "**/prisma/**"
+related_skills:
+  - prisma-relations-pattern
+  - prisma-migrations
+  - prisma-type-generation
+  - ts-utility-types
+stack_signals:
+  - prisma
+  - typescript
+  - postgresql
+  - mysql
+  - sqlite
+keywords:
+  - prisma
+  - schema
+  - model
+  - datasource
+  - generator
+  - field-types
+  - id
+  - default
+  - unique
+metadata:
+  author: community
+  upstream: "prisma.io/docs/orm/prisma-schema"
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -4,6 +4,37 @@ import { validateDependencies } from '../../constraints/dependencies';
 import type { DependencyViolation } from '../../constraints/types';
 import { relativePosix } from '../../shared/fs-utils';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring deferred
+function makeLayerStubParser(): any {
+  return {
+    name: 'typescript',
+    extensions: ['.ts', '.tsx'],
+    parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }),
+    extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
+    extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
+    health: async () => ({ ok: true, value: { available: true } }),
+  };
+}
+
+function mapLayerViolations(
+  layerViolations: DependencyViolation[],
+  rootDir: string,
+  category: Violation['category']
+): Violation[] {
+  return layerViolations.map((v) => {
+    const relFile = relativePosix(rootDir, v.file);
+    const relImport = relativePosix(rootDir, v.imports);
+    const detail = `${v.fromLayer} -> ${v.toLayer}: ${relFile} imports ${relImport}`;
+    return {
+      id: violationId(relFile, category ?? '', detail),
+      file: relFile,
+      category,
+      detail,
+      severity: 'error' as const,
+    };
+  });
+}
+
 export class LayerViolationCollector implements Collector {
   readonly category = 'layer-violations' as const;
 
@@ -20,23 +51,10 @@ export class LayerViolationCollector implements Collector {
   }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    // LayerViolationCollector requires layer config to be passed through ArchConfig.
-    // For now, use an empty layer set — the real layer config will come from harness.config.json
-    // wiring in Phase 4 (config schema). This collector is invoked with the right LayerConfig
-    // at that point.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring deferred
-    const stubParser: any = {
-      name: 'typescript',
-      extensions: ['.ts', '.tsx'],
-      parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }),
-      extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
-      extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
-      health: async () => ({ ok: true, value: { available: true } }),
-    };
     const result = await validateDependencies({
       layers: [],
       rootDir,
-      parser: stubParser,
+      parser: makeLayerStubParser(),
       fallbackBehavior: 'skip',
     });
 
@@ -52,30 +70,12 @@ export class LayerViolationCollector implements Collector {
       ];
     }
 
-    const layerViolations = result.value.violations.filter(
-      (v: DependencyViolation) => v.reason === 'WRONG_LAYER'
+    const violations = mapLayerViolations(
+      result.value.violations.filter((v: DependencyViolation) => v.reason === 'WRONG_LAYER'),
+      rootDir,
+      this.category
     );
 
-    const violations: Violation[] = layerViolations.map((v: DependencyViolation) => {
-      const relFile = relativePosix(rootDir, v.file);
-      const relImport = relativePosix(rootDir, v.imports);
-      const detail = `${v.fromLayer} -> ${v.toLayer}: ${relFile} imports ${relImport}`;
-      return {
-        id: violationId(relFile, this.category, detail),
-        file: relFile,
-        category: this.category,
-        detail,
-        severity: 'error' as const,
-      };
-    });
-
-    return [
-      {
-        category: this.category,
-        scope: 'project',
-        value: violations.length,
-        violations,
-      },
-    ];
+    return [{ category: this.category, scope: 'project', value: violations.length, violations }];
   }
 }

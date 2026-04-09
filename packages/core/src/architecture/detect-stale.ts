@@ -16,6 +16,37 @@ export interface DetectStaleResult {
   windowDays: number;
 }
 
+type ConstraintNode = { id: string; [key: string]: unknown };
+
+/**
+ * Evaluate a single constraint node against the staleness cutoff.
+ * Returns a StaleConstraint entry if stale, or null if not.
+ */
+function evaluateStaleNode(
+  node: ConstraintNode,
+  now: number,
+  cutoff: number
+): StaleConstraint | null {
+  const lastViolatedAt = (node.lastViolatedAt as string | null) ?? null;
+  const createdAt = node.createdAt as string;
+  const comparisonTimestamp = lastViolatedAt ?? createdAt;
+
+  if (!comparisonTimestamp) return null;
+
+  const timestampMs = new Date(comparisonTimestamp).getTime();
+  if (timestampMs >= cutoff) return null;
+
+  const daysSince = Math.floor((now - timestampMs) / (24 * 60 * 60 * 1000));
+  return {
+    id: node.id,
+    category: node.category as ArchMetricCategory,
+    description: (node.name as string) ?? '',
+    scope: (node.scope as string) ?? 'project',
+    lastViolatedAt,
+    daysSinceLastViolation: daysSince,
+  };
+}
+
 /**
  * Detect constraint rules that haven't been violated within the given window.
  *
@@ -28,8 +59,7 @@ export function detectStaleConstraints(
   category?: ArchMetricCategory
 ): DetectStaleResult {
   const now = Date.now();
-  const windowMs = windowDays * 24 * 60 * 60 * 1000;
-  const cutoff = now - windowMs;
+  const cutoff = now - windowDays * 24 * 60 * 60 * 1000;
 
   let constraints = store.findNodes({ type: 'constraint' });
 
@@ -41,27 +71,10 @@ export function detectStaleConstraints(
   const staleConstraints: StaleConstraint[] = [];
 
   for (const node of constraints) {
-    const lastViolatedAt = (node.lastViolatedAt as string | null) ?? null;
-    const createdAt = node.createdAt as string;
-    const comparisonTimestamp = lastViolatedAt ?? createdAt;
-
-    if (!comparisonTimestamp) continue;
-
-    const timestampMs = new Date(comparisonTimestamp).getTime();
-    if (timestampMs < cutoff) {
-      const daysSince = Math.floor((now - timestampMs) / (24 * 60 * 60 * 1000));
-      staleConstraints.push({
-        id: node.id as string,
-        category: node.category as ArchMetricCategory,
-        description: (node.name as string) ?? '',
-        scope: (node.scope as string) ?? 'project',
-        lastViolatedAt,
-        daysSinceLastViolation: daysSince,
-      });
-    }
+    const entry = evaluateStaleNode(node, now, cutoff);
+    if (entry) staleConstraints.push(entry);
   }
 
-  // Sort by most stale first
   staleConstraints.sort((a, b) => b.daysSinceLastViolation - a.daysSinceLastViolation);
 
   return { staleConstraints, totalConstraints, windowDays };

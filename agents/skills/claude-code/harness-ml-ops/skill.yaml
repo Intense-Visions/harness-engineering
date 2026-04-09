@@ -2,12 +2,17 @@ name: harness-ml-ops
 version: "1.0.0"
 description: Model serving patterns, experiment tracking, prompt evaluation, and ML pipeline management
 cognitive_mode: advisory-guide
+paths:
+  - '*.ipynb'
+  - 'mlflow.yaml'
 triggers:
   - manual
   - on_new_feature
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read

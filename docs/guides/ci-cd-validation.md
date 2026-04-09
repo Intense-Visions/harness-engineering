@@ -21,21 +21,25 @@ harness ci check [--json] [--fail-on <severity>] [--skip <check>]
 
 **Options:**
 
-| Flag                   | Default | Description                                                                         |
-| ---------------------- | ------- | ----------------------------------------------------------------------------------- |
-| `--json`               | off     | Output structured JSON report                                                       |
-| `--fail-on <severity>` | `error` | Exit non-zero on `error` (default) or `warning`                                     |
-| `--skip <checks>`      | none    | Comma-separated checks to skip: `validate`, `deps`, `docs`, `entropy`, `phase-gate` |
+| Flag                   | Default | Description                                                                                                                     |
+| ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`               | off     | Output structured JSON report                                                                                                   |
+| `--fail-on <severity>` | `error` | Exit non-zero on `error` (default) or `warning`                                                                                 |
+| `--skip <checks>`      | none    | Comma-separated checks to skip: `validate`, `deps`, `docs`, `entropy`, `security`, `perf`, `phase-gate`, `arch`, `traceability` |
 
 ### Checks
 
-| Check        | What it validates                                                    | Severity on failure |
-| ------------ | -------------------------------------------------------------------- | ------------------- |
-| `validate`   | AGENTS.md exists, has required sections, no broken links             | Error               |
-| `deps`       | Layer dependency boundaries respected, no forbidden imports          | Error               |
-| `docs`       | Documentation coverage — undocumented source files flagged           | Warning             |
-| `entropy`    | Code drift between docs and source, dead code detection              | Warning             |
-| `phase-gate` | Spec-to-implementation mapping (when `phaseGates.enabled` in config) | Configurable        |
+| Check          | What it validates                                                    | Severity on failure |
+| -------------- | -------------------------------------------------------------------- | ------------------- |
+| `validate`     | AGENTS.md exists, has required sections, no broken links             | Error               |
+| `deps`         | Layer dependency boundaries respected, no forbidden imports          | Error               |
+| `docs`         | Documentation coverage — undocumented source files flagged           | Warning             |
+| `entropy`      | Code drift between docs and source, dead code detection              | Warning             |
+| `security`     | Security scan — permission bypass, injection patterns, secrets       | Error               |
+| `perf`         | Performance budgets — complexity thresholds, bundle size             | Warning             |
+| `phase-gate`   | Spec-to-implementation mapping (when `phaseGates.enabled` in config) | Configurable        |
+| `arch`         | Architecture constraints — layer boundaries, module-size baselines   | Error               |
+| `traceability` | Requirement-to-code traceability mapping                             | Warning             |
 
 ### Exit Codes
 
@@ -53,7 +57,16 @@ interface CICheckReport {
   project: string;
   timestamp: string;
   checks: Array<{
-    name: 'validate' | 'deps' | 'docs' | 'entropy' | 'phase-gate';
+    name:
+      | 'validate'
+      | 'deps'
+      | 'docs'
+      | 'entropy'
+      | 'security'
+      | 'perf'
+      | 'phase-gate'
+      | 'arch'
+      | 'traceability';
     status: 'pass' | 'fail' | 'warn' | 'skip';
     issues: Array<{
       severity: 'error' | 'warning';

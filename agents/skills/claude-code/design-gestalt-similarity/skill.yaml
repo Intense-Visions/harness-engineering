@@ -1,0 +1,33 @@
+name: design-gestalt-similarity
+version: "1.0.0"
+description: Visual kinship — elements sharing color, size, shape, or texture perceived as related, creating categories without explicit labels
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-gestalt-proximity
+  - design-consistency
+  - design-visual-hierarchy
+stack_signals: []
+keywords:
+  - gestalt
+  - similarity
+  - visual-kinship
+  - color-grouping
+  - shape-grouping
+  - categorization
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,3 +1,4 @@
+import { minimatch } from 'minimatch';
 import type { SkillsIndex, SkillIndexEntry } from './index-builder.js';
 import type { StackProfile } from './stack-profile.js';
 import type { HealthSnapshot } from './health-snapshot.js';
@@ -11,6 +12,16 @@ export interface Suggestion {
   name: string;
   description: string;
   score: number;
+  reason?: string;
+}
+
+export interface SuggestResult {
+  /** Behavioral skills (up to 3) + knowledge recommendations (up to 3), sorted by score */
+  suggestions: Suggestion[];
+  /** Knowledge skills with score ≥ 0.7 — to be auto-injected as Instructions context */
+  autoInjectKnowledge: Suggestion[];
+  /** Knowledge skills with score 0.4–0.7, plus related_skills traversal results */
+  knowledgeRecommendations: Suggestion[];
 }
 
 const TIER_1_SKILLS = new Set([
@@ -70,11 +81,12 @@ export function computeHealthScore(entry: SkillIndexEntry, snapshot: HealthSnaps
  * Score a single catalog skill against the current task context.
  *
  * Weights:
- *   0.35 — keyword match (skill keywords ∩ query terms)
- *   0.20 — name match (skill name segments ∩ query terms)
+ *   0.30 — keyword match (skill keywords ∩ query terms)
+ *   0.15 — name match (skill name segments ∩ query terms)
  *   0.10 — description match (query terms found in description)
- *   0.20 — stack signal match (project signals ∩ skill signals)
- *   0.15 — recency boost (agent recently touched matching files)
+ *   0.15 — stack signal match (project signals ∩ skill signals)
+ *   0.10 — recency boost (agent recently touched matching files)
+ *   0.20 — paths glob match (skill paths ∩ recent files)
  */
 export function scoreSkill(
   entry: SkillIndexEntry,
@@ -139,12 +151,22 @@ export function scoreSkill(
     recencyBoost = hasRecentMatch ? 1.0 : 0;
   }
 
+  // Paths glob match — score 1.0 if any paths glob matches any recent file
+  let pathsScore = 0;
+  if (entry.paths && entry.paths.length > 0 && recentFiles.length > 0) {
+    const hasPathsMatch = recentFiles.some((file) =>
+      entry.paths.some((glob) => minimatch(file, glob, { matchBase: true }))
+    );
+    pathsScore = hasPathsMatch ? 1.0 : 0;
+  }
+
   let score =
-    0.35 * keywordScore +
-    0.2 * nameScore +
+    0.3 * keywordScore +
+    0.15 * nameScore +
     0.1 * descScore +
-    0.2 * stackScore +
-    0.15 * recencyBoost;
+    0.15 * stackScore +
+    0.1 * recencyBoost +
+    0.2 * pathsScore;
 
   // Health boost: blend when a snapshot is provided
   if (healthSnapshot) {
@@ -158,7 +180,17 @@ export function scoreSkill(
 /**
  * Suggest relevant catalog skills for the current task.
  *
- * Returns up to 3 suggestions above the confidence threshold (0.4).
+ * Returns:
+ * - suggestions: behavioral skills (up to 3) + knowledge recommendations (up to 3)
+ * - autoInjectKnowledge: knowledge skills with score ≥ 0.7 (for Instructions auto-inject)
+ * - knowledgeRecommendations: knowledge skills 0.4–0.7, plus related_skills traversal results
+ *
+ * Knowledge skills scored ≥ 0.7 go to autoInjectKnowledge. Scored 0.4–0.7 go to
+ * knowledgeRecommendations (top 3 also spliced into suggestions). Below 0.4: discarded.
+ *
+ * related_skills traversal runs for both auto-injected knowledge skills and
+ * recommended behavioral skills, surfacing related knowledge as secondary recommendations.
+ *
  * Respects alwaysSuggest (forced inclusion) and neverSuggest (forced exclusion).
  */
 export function suggest(
@@ -167,30 +199,112 @@ export function suggest(
   profile: StackProfile | null,
   recentFiles: string[],
   config?: DispatcherConfig
-): Suggestion[] {
+): SuggestResult {
   const queryTerms = taskDescription
     .toLowerCase()
     .split(/\s+/)
     .filter((t) => t.length > 2);
 
-  const scored: Suggestion[] = [];
+  const behavioralScored: Suggestion[] = [];
+  let autoInjectKnowledge: Suggestion[] = [];
+  let knowledgeRecommendations: Suggestion[] = [];
 
   for (const [name, entry] of Object.entries(index.skills)) {
     if (config?.neverSuggest?.includes(name)) continue;
 
     const score = scoreSkill(entry, queryTerms, profile, recentFiles, name);
     const isForced = config?.alwaysSuggest?.includes(name);
+    const effectiveScore = isForced ? Math.max(score, 1.0) : score;
 
-    if (score >= 0.4 || isForced) {
-      scored.push({
-        name,
-        description: entry.description,
-        score: isForced ? Math.max(score, 1.0) : score,
-      });
+    if (entry.type === 'knowledge') {
+      if (effectiveScore >= 0.7) {
+        autoInjectKnowledge.push({
+          name,
+          description: entry.description,
+          score: effectiveScore,
+        });
+      } else if (effectiveScore >= 0.4) {
+        knowledgeRecommendations.push({
+          name,
+          description: entry.description,
+          score: effectiveScore,
+        });
+      }
+      // score < 0.4: discard
+    } else {
+      // Behavioral skill (rigid / flexible)
+      if (effectiveScore >= 0.4 || isForced) {
+        behavioralScored.push({ name, description: entry.description, score: effectiveScore });
+      }
     }
   }
 
-  return scored.sort((a, b) => b.score - a.score).slice(0, 3);
+  // Sort all scored lists
+  autoInjectKnowledge.sort((a, b) => b.score - a.score);
+  knowledgeRecommendations.sort((a, b) => b.score - a.score);
+
+  // Cap auto-injection at 3 knowledge skills; demote excess to recommendations
+  if (autoInjectKnowledge.length > 3) {
+    const demoted = autoInjectKnowledge.slice(3);
+    autoInjectKnowledge = autoInjectKnowledge.slice(0, 3);
+    knowledgeRecommendations.unshift(...demoted);
+  }
+
+  // Walk related_skills of each auto-injected knowledge skill; surface neighbors as secondary recommendations
+  for (const injectedSkill of autoInjectKnowledge) {
+    const entry = index.skills[injectedSkill.name];
+    if (!entry?.relatedSkills?.length) continue;
+    for (const relatedName of entry.relatedSkills) {
+      const related = index.skills[relatedName];
+      if (!related) continue;
+      const alreadySurfaced =
+        autoInjectKnowledge.some((s) => s.name === relatedName) ||
+        knowledgeRecommendations.some((r) => r.name === relatedName);
+      if (!alreadySurfaced) {
+        knowledgeRecommendations.push({
+          name: relatedName,
+          description: related.description,
+          score: 0.45,
+          reason: `related to auto-injected ${injectedSkill.name}`,
+        });
+      }
+    }
+  }
+
+  // Walk related_skills of each recommended behavioral skill; surface knowledge neighbors
+  for (const behavioralSkill of behavioralScored) {
+    const entry = index.skills[behavioralSkill.name];
+    if (!entry?.relatedSkills?.length) continue;
+    for (const relatedName of entry.relatedSkills) {
+      const related = index.skills[relatedName];
+      if (!related) continue;
+      const alreadySurfaced =
+        autoInjectKnowledge.some((s) => s.name === relatedName) ||
+        knowledgeRecommendations.some((r) => r.name === relatedName);
+      if (!alreadySurfaced) {
+        knowledgeRecommendations.push({
+          name: relatedName,
+          description: related.description,
+          score: 0.45,
+          reason: `related to recommended ${behavioralSkill.name}`,
+        });
+      }
+    }
+  }
+
+  // Cap traversal results
+  knowledgeRecommendations = knowledgeRecommendations.slice(0, 10);
+
+  const suggestions = [
+    ...behavioralScored.sort((a, b) => b.score - a.score).slice(0, 3),
+    ...knowledgeRecommendations.slice(0, 3),
+  ];
+
+  return {
+    suggestions,
+    autoInjectKnowledge,
+    knowledgeRecommendations,
+  };
 }
 
 /**

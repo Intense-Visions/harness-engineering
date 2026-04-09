@@ -17,6 +17,26 @@ interface ParsedCommit {
   readonly files: readonly string[];
 }
 
+function finalizeCommit(current: {
+  hash: string;
+  shortHash: string;
+  author: string;
+  email: string;
+  date: string;
+  message: string;
+  files: string[];
+}): ParsedCommit {
+  return {
+    hash: current.hash,
+    shortHash: current.shortHash,
+    author: current.author,
+    email: current.email,
+    date: current.date,
+    message: current.message,
+    files: current.files,
+  };
+}
+
 /**
  * Ingests git history into the graph, creating commit nodes,
  * triggered_by edges (file -> commit), and co_changes_with edges
@@ -59,55 +79,13 @@ export class GitIngestor {
 
     const commits = this.parseGitLog(output);
 
-    // Create commit nodes
     for (const commit of commits) {
-      const nodeId = `commit:${commit.shortHash}`;
-      this.store.addNode({
-        id: nodeId,
-        type: 'commit',
-        name: commit.message,
-        metadata: {
-          author: commit.author,
-          email: commit.email,
-          date: commit.date,
-          hash: commit.hash,
-        },
-      });
-      nodesAdded++;
-
-      // Create triggered_by edges from file nodes to commit nodes
-      for (const file of commit.files) {
-        const fileNodeId = `file:${file}`;
-        const existingNode = this.store.getNode(fileNodeId);
-        if (existingNode) {
-          this.store.addEdge({
-            from: fileNodeId,
-            to: nodeId,
-            type: 'triggered_by',
-          });
-          edgesAdded++;
-        }
-      }
+      const counts = this.ingestCommit(commit);
+      nodesAdded += counts.nodesAdded;
+      edgesAdded += counts.edgesAdded;
     }
 
-    // Compute and create co_changes_with edges
-    const coChanges = this.computeCoChanges(commits);
-    for (const { fileA, fileB, count } of coChanges) {
-      const fileAId = `file:${fileA}`;
-      const fileBId = `file:${fileB}`;
-      // Only create edges if both file nodes exist
-      const nodeA = this.store.getNode(fileAId);
-      const nodeB = this.store.getNode(fileBId);
-      if (nodeA && nodeB) {
-        this.store.addEdge({
-          from: fileAId,
-          to: fileBId,
-          type: 'co_changes_with',
-          metadata: { count },
-        });
-        edgesAdded++;
-      }
-    }
+    edgesAdded += this.ingestCoChanges(commits);
 
     return {
       nodesAdded,
@@ -117,6 +95,50 @@ export class GitIngestor {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  private ingestCommit(commit: ParsedCommit): { nodesAdded: number; edgesAdded: number } {
+    const nodeId = `commit:${commit.shortHash}`;
+    this.store.addNode({
+      id: nodeId,
+      type: 'commit',
+      name: commit.message,
+      metadata: {
+        author: commit.author,
+        email: commit.email,
+        date: commit.date,
+        hash: commit.hash,
+      },
+    });
+
+    let edgesAdded = 0;
+    for (const file of commit.files) {
+      const fileNodeId = `file:${file}`;
+      if (this.store.getNode(fileNodeId)) {
+        this.store.addEdge({ from: fileNodeId, to: nodeId, type: 'triggered_by' });
+        edgesAdded++;
+      }
+    }
+
+    return { nodesAdded: 1, edgesAdded };
+  }
+
+  private ingestCoChanges(commits: readonly ParsedCommit[]): number {
+    let edgesAdded = 0;
+    for (const { fileA, fileB, count } of this.computeCoChanges(commits)) {
+      const fileAId = `file:${fileA}`;
+      const fileBId = `file:${fileB}`;
+      if (this.store.getNode(fileAId) && this.store.getNode(fileBId)) {
+        this.store.addEdge({
+          from: fileAId,
+          to: fileBId,
+          type: 'co_changes_with',
+          metadata: { count },
+        });
+        edgesAdded++;
+      }
+    }
+    return edgesAdded;
   }
 
   private async runGit(rootDir: string, args: string[]): Promise<string> {
@@ -144,71 +166,71 @@ export class GitIngestor {
     } | null = null;
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        // Empty line after files means end of commit entry.
-        // Empty line right after the header (before files) is skipped.
-        if (current && current.hasFiles) {
-          commits.push({
-            hash: current.hash,
-            shortHash: current.shortHash,
-            author: current.author,
-            email: current.email,
-            date: current.date,
-            message: current.message,
-            files: current.files,
-          });
-          current = null;
-        }
-        continue;
-      }
-
-      // Try to parse as a commit header line (contains | delimiters)
-      const parts = trimmed.split('|');
-      if (parts.length >= 5 && /^[0-9a-f]{7,40}$/.test(parts[0]!)) {
-        // If we have a pending commit, push it first
-        if (current) {
-          commits.push({
-            hash: current.hash,
-            shortHash: current.shortHash,
-            author: current.author,
-            email: current.email,
-            date: current.date,
-            message: current.message,
-            files: current.files,
-          });
-        }
-        current = {
-          hash: parts[0]!,
-          shortHash: parts[0]!.substring(0, 7),
-          author: parts[1]!,
-          email: parts[2]!,
-          date: parts[3]!,
-          message: parts.slice(4).join('|'), // message may contain |
-          files: [],
-          hasFiles: false,
-        };
-      } else if (current) {
-        // It's a file path
-        current.files.push(trimmed);
-        current.hasFiles = true;
-      }
+      current = this.processLogLine(line, current, commits);
     }
 
     // Don't forget the last commit
     if (current) {
-      commits.push({
-        hash: current.hash,
-        shortHash: current.shortHash,
-        author: current.author,
-        email: current.email,
-        date: current.date,
-        message: current.message,
-        files: current.files,
-      });
+      commits.push(finalizeCommit(current));
     }
 
     return commits;
+  }
+
+  /**
+   * Process one line from git log output, updating the in-progress commit builder
+   * and flushing completed commits into the accumulator.
+   * Returns the updated current builder (null if flushed and not replaced).
+   */
+  private processLogLine(
+    line: string,
+    current: {
+      hash: string;
+      shortHash: string;
+      author: string;
+      email: string;
+      date: string;
+      message: string;
+      files: string[];
+      hasFiles: boolean;
+    } | null,
+    commits: ParsedCommit[]
+  ): typeof current {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      // Empty line after files means end of commit entry.
+      // Empty line right after the header (before files) is skipped.
+      if (current?.hasFiles) {
+        commits.push(finalizeCommit(current));
+        return null;
+      }
+      return current;
+    }
+
+    // Try to parse as a commit header line (contains | delimiters)
+    const parts = trimmed.split('|');
+    if (parts.length >= 5 && /^[0-9a-f]{7,40}$/.test(parts[0]!)) {
+      if (current) {
+        commits.push(finalizeCommit(current));
+      }
+      return {
+        hash: parts[0]!,
+        shortHash: parts[0]!.substring(0, 7),
+        author: parts[1]!,
+        email: parts[2]!,
+        date: parts[3]!,
+        message: parts.slice(4).join('|'), // message may contain |
+        files: [],
+        hasFiles: false,
+      };
+    }
+
+    if (current) {
+      current.files.push(trimmed);
+      current.hasFiles = true;
+    }
+    return current;
   }
 
   private computeCoChanges(

@@ -1,0 +1,41 @@
+name: mobile-testing-patterns
+version: '1.0.0'
+description: Test React Native apps with Jest, Testing Library, and Detox for unit, integration, and E2E coverage
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/*.test.*'
+  - '**/*.spec.*'
+  - '**/screens/**'
+related_skills:
+  - mobile-performance-patterns
+  - mobile-expo-setup
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - testing
+  - jest
+  - testing-library
+  - detox
+  - e2e
+  - snapshot
+  - mocking
+metadata:
+  author: community
+  upstream: callstack.github.io/react-native-testing-library
+state:
+  persistent: false
+  files: []
+depends_on: []

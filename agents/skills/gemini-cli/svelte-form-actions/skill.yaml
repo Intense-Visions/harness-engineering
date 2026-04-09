@@ -1,0 +1,41 @@
+name: svelte-form-actions
+version: '1.0.0'
+description: Handle form submissions with SvelteKit actions, use:enhance, fail(), redirect(), and progressive enhancement
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/+page.server.ts'
+  - '**/+page.svelte'
+related_skills:
+  - svelte-load-functions
+  - svelte-routing-pattern
+  - svelte-error-pages
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - form-actions
+  - use:enhance
+  - fail
+  - redirect
+  - progressive-enhancement
+  - validation
+  - ActionResult
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/form-actions'
+state:
+  persistent: false
+  files: []
+depends_on: []

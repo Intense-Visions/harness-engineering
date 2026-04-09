@@ -27,10 +27,23 @@ interface InitResult {
   detectedFrameworks?: DetectedFramework[];
 }
 
-export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
+function loadEngineAndTemplates(_options: InitOptions): {
+  engine: TemplateEngine;
+  templateList: TemplateMetadata[];
+} {
+  const engine = new TemplateEngine(resolveTemplatesDir());
+  const templates = engine.listTemplates();
+  const templateList = templates.ok ? templates.value : [];
+  return { engine, templateList };
+}
+
+function resolveInitDefaults(options: InitOptions): { cwd: string; name: string; force: boolean } {
   const cwd = options.cwd ?? process.cwd();
-  const name = options.name ?? path.basename(cwd);
-  const force = options.force ?? false;
+  return { cwd, name: options.name ?? path.basename(cwd), force: options.force ?? false };
+}
+
+export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
+  const { cwd, name, force } = resolveInitDefaults(options);
 
   const configPath = path.join(cwd, 'harness.config.json');
   if (!force && fs.existsSync(configPath)) {
@@ -39,9 +52,7 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     );
   }
 
-  const engine = new TemplateEngine(resolveTemplatesDir());
-  const templates = engine.listTemplates();
-  const templateList = templates.ok ? templates.value : [];
+  const { engine, templateList } = loadEngineAndTemplates(options);
 
   const validationError = validateFrameworkLanguage(options, templateList);
   if (validationError) return Err(validationError);
@@ -140,6 +151,47 @@ function scaffoldProject(
   });
 }
 
+function printInitSuccess(filesCreated: string[], mcpConfigured: string[]): void {
+  console.log('');
+  logger.success('Project initialized!');
+  console.log('');
+  logger.info('Created files:');
+  for (const file of filesCreated) {
+    console.log(`  ${chalk.green('+')} ${file}`);
+  }
+  if (mcpConfigured.length > 0) {
+    console.log('');
+    logger.info('MCP server configured for:');
+    for (const name of mcpConfigured) {
+      console.log(`  ${chalk.green('+')} ${name}`);
+    }
+  }
+  console.log('');
+  console.log(chalk.bold('Next steps:'));
+  console.log(`  1. Review ${chalk.cyan('harness.config.json')}`);
+  console.log(`  2. Update ${chalk.cyan('AGENTS.md')} with your project context`);
+  console.log(`  3. Run ${chalk.cyan('harness validate')} to check your setup`);
+  console.log('');
+}
+
+async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<void> {
+  const result = await runInit(opts);
+
+  if (!result.ok) {
+    logger.error(result.error.message);
+    process.exit(result.error.exitCode);
+  }
+
+  const cwd = opts.cwd ?? process.cwd();
+  const mcpResult = setupMcp(cwd, 'all');
+
+  if (!opts.quiet) {
+    printInitSuccess(result.value.filesCreated, mcpResult.configured);
+  }
+
+  process.exit(ExitCode.SUCCESS);
+}
+
 export function createInitCommand(): Command {
   const command = new Command('init')
     .description('Initialize a new harness-engineering project')
@@ -151,48 +203,14 @@ export function createInitCommand(): Command {
     .option('-y, --yes', 'Use defaults without prompting')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-
-      const result = await runInit({
+      await runInitAction({
         name: opts.name,
         level: opts.level,
         framework: opts.framework,
         language: opts.language,
         force: opts.force,
+        quiet: globalOpts.quiet,
       });
-
-      if (!result.ok) {
-        logger.error(result.error.message);
-        process.exit(result.error.exitCode);
-      }
-
-      // Set up MCP server config for AI clients
-      const cwd = opts.cwd ?? process.cwd();
-      const mcpResult = setupMcp(cwd, 'all');
-
-      if (!globalOpts.quiet) {
-        console.log('');
-        logger.success('Project initialized!');
-        console.log('');
-        logger.info('Created files:');
-        for (const file of result.value.filesCreated) {
-          console.log(`  ${chalk.green('+')} ${file}`);
-        }
-        if (mcpResult.configured.length > 0) {
-          console.log('');
-          logger.info('MCP server configured for:');
-          for (const name of mcpResult.configured) {
-            console.log(`  ${chalk.green('+')} ${name}`);
-          }
-        }
-        console.log('');
-        console.log(chalk.bold('Next steps:'));
-        console.log(`  1. Review ${chalk.cyan('harness.config.json')}`);
-        console.log(`  2. Update ${chalk.cyan('AGENTS.md')} with your project context`);
-        console.log(`  3. Run ${chalk.cyan('harness validate')} to check your setup`);
-        console.log('');
-      }
-
-      process.exit(ExitCode.SUCCESS);
     });
 
   return command;

@@ -1,0 +1,35 @@
+name: js-strategy-pattern
+version: '1.0.0'
+description: Define a family of algorithms and make them interchangeable without altering the client
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-template-method-pattern
+  - js-factory-pattern
+stack_signals:
+  - javascript
+keywords:
+  - strategy
+  - algorithm-swap
+  - interchangeable
+  - policy
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/strategy-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

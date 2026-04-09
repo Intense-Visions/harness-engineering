@@ -37,13 +37,14 @@ agents/skills/
 - `initialize-harness-project` - Scaffold new project
 - `add-harness-component` - Add components
 
-### Graph Integration Levels
+### Skill Catalog
 
-**Graph-Transformed** (7 skills): harness-code-review, validate-context-engineering, detect-doc-drift, cleanup-dead-code, harness-parallel-agents, enforce-architecture, harness-onboarding
+The library contains **540 skills** across all 4 platforms (claude-code, gemini-cli, cursor, codex), including:
 
-**Graph-Enhanced** (5 skills): harness-execution, harness-planning, harness-architecture-advisor, harness-refactoring, align-documentation
-
-**Graph-Enabled** (5 new skills): harness-impact-analysis, harness-dependency-health, harness-hotspot-detector, harness-test-advisor, harness-knowledge-mapper
+- **74 harness-\* skills** — methodology, workflow, and operational skills (brainstorming, planning, execution, code-review, debugging, release-readiness, etc.)
+- **55 design-\* skills** — design knowledge across color, typography, layout, Gestalt, interaction, motion, design systems, platform languages, and process
+- **Framework skills** — react, vue, angular, svelte, astro, next, nuxt, node, nestjs, graphql, trpc, prisma, drizzle, tanstack, redux, xstate, zod, and more
+- **Knowledge skills** — gof patterns, owasp security, otel observability, test patterns, microservices, events, resilience, typescript, and more
 
 ## Usage
 

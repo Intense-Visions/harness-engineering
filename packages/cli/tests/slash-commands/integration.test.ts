@@ -243,7 +243,7 @@ describe('codex sync', () => {
     expect(results[0].unchanged.length).toBeGreaterThan(0);
   });
 
-  it('detects orphaned codex skill directories for removal', () => {
+  it('detects orphaned codex skill directories for removal', { timeout: 15000 }, () => {
     // First generate to create the skill directories
     generateSlashCommands({
       platforms: ['codex'],

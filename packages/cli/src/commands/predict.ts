@@ -44,21 +44,7 @@ function severityPrefix(severity: PredictionWarning['severity']): string {
   }
 }
 
-function printPredictionReport(result: PredictionResult): void {
-  const sf = result.stabilityForecast;
-  const horizonWeeks = 12; // default display horizon
-
-  console.log('');
-  console.log(
-    `Architecture Prediction (${horizonWeeks}-week horizon, ${result.snapshotsUsed} snapshots)`
-  );
-  console.log('');
-  console.log(
-    `  Stability: ${sf.current}/100 -> projected ${sf.projected12w}/100 in 12w (${sf.confidence} confidence)`
-  );
-  console.log('');
-
-  // Table header
+function printCategoryTable(result: PredictionResult): void {
   const header =
     '  ' +
     'Category'.padEnd(20) +
@@ -88,18 +74,36 @@ function printPredictionReport(result: PredictionResult): void {
       f.confidence;
     console.log(line);
   }
+}
 
-  // Warnings
-  if (result.warnings.length > 0) {
-    console.log('');
-    console.log('  Warnings:');
-    for (const w of result.warnings) {
-      console.log(`  ${severityPrefix(w.severity)} ${w.message}`);
-      if (w.contributingFeatures.length > 0) {
-        console.log(`    Accelerated by: ${w.contributingFeatures.join(', ')}`);
-      }
+function printWarnings(result: PredictionResult): void {
+  if (result.warnings.length === 0) return;
+  console.log('');
+  console.log('  Warnings:');
+  for (const w of result.warnings) {
+    console.log(`  ${severityPrefix(w.severity)} ${w.message}`);
+    if (w.contributingFeatures.length > 0) {
+      console.log(`    Accelerated by: ${w.contributingFeatures.join(', ')}`);
     }
   }
+}
+
+function printPredictionReport(result: PredictionResult): void {
+  const sf = result.stabilityForecast;
+  const horizonWeeks = 12; // default display horizon
+
+  console.log('');
+  console.log(
+    `Architecture Prediction (${horizonWeeks}-week horizon, ${result.snapshotsUsed} snapshots)`
+  );
+  console.log('');
+  console.log(
+    `  Stability: ${sf.current}/100 -> projected ${sf.projected12w}/100 in 12w (${sf.confidence} confidence)`
+  );
+  console.log('');
+
+  printCategoryTable(result);
+  printWarnings(result);
 
   console.log('');
 }
@@ -131,6 +135,31 @@ export function runPredict(options: {
   });
 }
 
+function parseHorizon(raw: string): number {
+  const h = parseInt(raw, 10);
+  if (isNaN(h) || h < 1) throw new Error('--horizon must be a positive integer');
+  return h;
+}
+
+function handlePredictError(err: unknown, mode: OutputModeType): never {
+  const message = err instanceof Error ? err.message : String(err);
+  if (err instanceof CLIError) {
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: message }));
+    } else {
+      logger.error(message);
+    }
+    process.exit(err.exitCode);
+  }
+  // PredictionEngine throws plain Error for < 3 snapshots
+  if (mode === OutputMode.JSON) {
+    console.log(JSON.stringify({ error: message }));
+  } else {
+    logger.error(message);
+  }
+  process.exit(ExitCode.ERROR);
+}
+
 export function createPredictCommand(): Command {
   const command = new Command('predict')
     .description('Predict which architectural constraints will break and when')
@@ -146,11 +175,7 @@ export function createPredictCommand(): Command {
           configPath: globalOpts.config,
           category: opts.category,
           noRoadmap: opts.roadmap === false,
-          horizon: (() => {
-            const h = parseInt(opts.horizon, 10);
-            if (isNaN(h) || h < 1) throw new Error('--horizon must be a positive integer');
-            return h;
-          })(),
+          horizon: parseHorizon(opts.horizon),
         });
 
         if (mode === OutputMode.JSON) {
@@ -159,22 +184,7 @@ export function createPredictCommand(): Command {
           printPredictionReport(result);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (err instanceof CLIError) {
-          if (mode === OutputMode.JSON) {
-            console.log(JSON.stringify({ error: message }));
-          } else {
-            logger.error(message);
-          }
-          process.exit(err.exitCode);
-        }
-        // PredictionEngine throws plain Error for < 3 snapshots
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: message }));
-        } else {
-          logger.error(message);
-        }
-        process.exit(ExitCode.ERROR);
+        handlePredictError(err, mode);
       }
     });
 

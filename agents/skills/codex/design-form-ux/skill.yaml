@@ -1,0 +1,35 @@
+name: design-form-ux
+version: "1.0.0"
+description: Form design beyond labels — progressive disclosure, inline validation timing, smart defaults, forgiving formats, single-column superiority, error recovery
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-affordances
+  - design-state-design
+  - design-gestalt-proximity
+  - a11y-form-patterns
+stack_signals: []
+keywords:
+  - form-design
+  - validation
+  - progressive-disclosure
+  - smart-defaults
+  - error-recovery
+  - single-column
+  - inline-validation
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

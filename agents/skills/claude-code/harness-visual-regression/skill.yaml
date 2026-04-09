@@ -2,12 +2,18 @@ name: harness-visual-regression
 version: "1.0.0"
 description: Screenshot comparison, visual diff detection, and baseline management
 cognitive_mode: meticulous-verifier
+paths:
+  - 'percy.yml'
+  - '.storybook/main.ts'
+  - '.storybook/main.js'
 triggers:
   - manual
   - on_pr
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read

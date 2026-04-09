@@ -1,0 +1,36 @@
+name: js-constructor-pattern
+version: '1.0.0'
+description: Use constructor functions or classes to create and initialize objects
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-prototype-pattern
+  - js-factory-pattern
+stack_signals:
+  - javascript
+keywords:
+  - constructor
+  - class
+  - new
+  - instantiation
+  - initialization
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/constructor-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

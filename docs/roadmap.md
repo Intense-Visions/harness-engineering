@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-07
 last_synced: 2026-04-07T21:22:00.000Z
-last_manual_edit: 2026-04-07T19:19:51.172Z
+last_manual_edit: 2026-04-09T16:03:10.146Z
 ---
 
 # Roadmap
@@ -778,8 +778,73 @@ last_manual_edit: 2026-04-07T19:19:51.172Z
 - **Plan:** —
 - **Assignee:** Chad Warner
 - **Priority:** —
-- **Completed:** 2026-04-07
 - **External-ID:** github:Intense-Visions/harness-engineering#117
+
+### Design Knowledge Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/design-knowledge-skills/proposal.md
+- **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#128
+
+### Performance Engineering Knowledge Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Summary:** ~45 framework-agnostic performance knowledge skills covering browser rendering pipeline, Core Web Vitals, network optimization, JS runtime, caching hierarchies, bundle strategy, memory management, and rendering strategies
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#129
+
+### Database Design Knowledge Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Summary:** ~45 ORM-agnostic database design knowledge skills covering normalization, indexing strategy, query optimization, ACID/CAP, transaction isolation, concurrency patterns, schema design, sharding, and zero-downtime migrations
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#130
+
+### Security Fundamentals Knowledge Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Summary:** ~45 framework-agnostic security knowledge skills covering threat modeling, cryptography primitives, auth/authz design, zero-trust architecture, secrets management, transport security, supply chain security, and incident response
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#131
+
+### API Design Knowledge Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Summary:** ~35 language-agnostic API design knowledge skills covering REST principles, resource modeling, HTTP semantics, versioning, pagination, error contracts, idempotency, rate limiting, webhooks, OpenAPI, and deprecation strategy
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#132
+
+### UX Writing and Content Design Knowledge Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Summary:** ~25 knowledge skills covering microcopy principles, error message design, empty states, onboarding copy, CTAs, form labels, notification copy, loading states, voice and tone, and plain language — complements the design-\* skill domain
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#133
 
 ## v3.0 Graph Intelligence
 

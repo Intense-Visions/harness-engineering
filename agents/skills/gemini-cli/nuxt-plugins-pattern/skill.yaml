@@ -1,0 +1,40 @@
+name: nuxt-plugins-pattern
+version: '1.0.0'
+description: Extend the Nuxt app instance with plugins using defineNuxtPlugin and provide/inject
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/plugins/**'
+related_skills:
+  - nuxt-auto-imports
+  - nuxt-modules-pattern
+  - nuxt-state-management
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - plugins
+  - defineNuxtPlugin
+  - provide
+  - inject
+  - client-only
+  - server-only
+  - plugin-order
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/guide/directory-structure/plugins'
+state:
+  persistent: false
+  files: []
+depends_on: []

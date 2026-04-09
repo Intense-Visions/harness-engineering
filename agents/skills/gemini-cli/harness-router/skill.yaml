@@ -1,0 +1,46 @@
+name: harness-router
+version: "1.0.0"
+description: Natural language router to harness skills — classifies intent, confirms, dispatches
+cognitive_mode: analytical-classifier
+command_name: harness
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-router
+  args:
+    - name: intent
+      description: Natural language description of what the user wants
+      required: true
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-router
+    path: string
+type: rigid
+tier: 1
+phases:
+  - name: classify
+    description: Parse intent and search skills index for matches
+    required: true
+  - name: confirm
+    description: Present routing decision with scope and reasoning
+    required: true
+  - name: dispatch
+    description: Invoke selected skill via run_skill with original intent
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []
+addresses:
+  - signal: high-complexity
+    weight: 0.3

@@ -1,0 +1,44 @@
+name: events-event-storming
+version: "1.0.0"
+description: Run event storming workshops to discover domain events, commands, and bounded contexts
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - microservices-decomposition
+  - events-event-schema
+  - microservices-event-sourcing
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - event-storming
+  - domain-events
+  - commands
+  - aggregates
+  - bounded-contexts
+  - workshop
+metadata:
+  author: community
+  upstream: eventstorming.com/
+state:
+  persistent: false
+  files: []
+depends_on: []

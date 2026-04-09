@@ -1,0 +1,37 @@
+name: react-context-pattern
+version: '1.0.0'
+description: Share state across the component tree without prop drilling using React Context
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-provider-pattern
+  - react-hooks-pattern
+  - react-state-management-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - context
+  - createContext
+  - useContext
+  - global-state
+  - prop-drilling
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/context-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

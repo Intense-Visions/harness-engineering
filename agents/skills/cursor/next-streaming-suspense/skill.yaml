@@ -1,0 +1,43 @@
+name: next-streaming-suspense
+version: "1.0.0"
+description: Streaming SSR, Suspense boundaries, and loading.tsx conventions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/app/**/*.ts"
+related_skills:
+  - next-server-components
+  - next-data-fetching
+  - next-error-boundaries
+  - tanstack-suspense-mode
+  - react-hooks-pattern
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - streaming
+  - suspense
+  - loading-ui
+  - loading.tsx
+  - HTTP-streaming
+  - skeleton
+  - deferred
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/routing/loading-ui-and-streaming
+state:
+  persistent: false
+  files: []
+depends_on: []

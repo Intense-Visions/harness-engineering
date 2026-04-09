@@ -1,0 +1,35 @@
+name: js-singleton-pattern
+version: '1.0.0'
+description: Ensure a class has only one instance and provide a global access point
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-module-pattern
+  - js-proxy-pattern
+stack_signals:
+  - javascript
+keywords:
+  - singleton
+  - single-instance
+  - global-state
+  - instance-control
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/singleton-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

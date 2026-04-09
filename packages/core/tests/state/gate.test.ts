@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { runMechanicalGate } from '../../src/state/state-manager';
+import { runMechanicalGate } from '../../src/state';
 
 describe('runMechanicalGate', () => {
   let tmpDir: string;

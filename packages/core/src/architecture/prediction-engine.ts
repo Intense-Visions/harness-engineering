@@ -49,26 +49,11 @@ export class PredictionEngine {
    */
   predict(options?: Partial<PredictionOptions>): PredictionResult {
     const opts = this.resolveOptions(options);
-    const timeline = this.timelineManager.load();
-    const snapshots = timeline.snapshots;
-
-    if (snapshots.length < 3) {
-      throw new Error(
-        `PredictionEngine requires at least 3 snapshots, got ${snapshots.length}. ` +
-          'Run "harness snapshot" to capture more data points.'
-      );
-    }
-
+    const snapshots = this.loadValidatedSnapshots();
     const thresholds = this.resolveThresholds(opts);
     const categoriesToProcess = opts.categories ?? [...ALL_CATEGORIES];
+    const { firstDate, lastSnapshot, currentT } = this.computeTimeOffsets(snapshots);
 
-    // Convert snapshot dates to week offsets from first snapshot
-    const firstDate = new Date(snapshots[0]!.capturedAt).getTime();
-    const lastSnapshot = snapshots[snapshots.length - 1]!;
-    const currentT =
-      (new Date(lastSnapshot.capturedAt).getTime() - firstDate) / (7 * 24 * 60 * 60 * 1000);
-
-    // First pass: compute baselines for all categories
     const baselines = this.computeBaselines(
       categoriesToProcess,
       thresholds,
@@ -78,31 +63,42 @@ export class PredictionEngine {
       opts.horizon
     );
 
-    // Second pass: compute adjusted forecasts with roadmap impact
     const specImpacts = this.computeSpecImpacts(opts);
     const categories = this.computeAdjustedForecasts(baselines, thresholds, specImpacts, currentT);
-
-    const warnings = this.generateWarnings(
-      categories as Record<ArchMetricCategory, AdjustedForecast>,
-      opts.horizon
-    );
-    const stabilityForecast = this.computeStabilityForecast(
-      categories as Record<ArchMetricCategory, AdjustedForecast>,
-      thresholds,
-      snapshots
-    );
+    const adjustedCategories = categories as Record<ArchMetricCategory, AdjustedForecast>;
 
     return {
       generatedAt: new Date().toISOString(),
       snapshotsUsed: snapshots.length,
-      timelineRange: {
-        from: snapshots[0]!.capturedAt,
-        to: lastSnapshot.capturedAt,
-      },
-      stabilityForecast,
-      categories: categories as Record<ArchMetricCategory, AdjustedForecast>,
-      warnings,
+      timelineRange: { from: snapshots[0]!.capturedAt, to: lastSnapshot.capturedAt },
+      stabilityForecast: this.computeStabilityForecast(adjustedCategories, thresholds, snapshots),
+      categories: adjustedCategories,
+      warnings: this.generateWarnings(adjustedCategories, opts.horizon),
     };
+  }
+
+  private loadValidatedSnapshots(): TimelineSnapshot[] {
+    const timeline = this.timelineManager.load();
+    const snapshots = timeline.snapshots;
+    if (snapshots.length < 3) {
+      throw new Error(
+        `PredictionEngine requires at least 3 snapshots, got ${snapshots.length}. ` +
+          'Run "harness snapshot" to capture more data points.'
+      );
+    }
+    return snapshots;
+  }
+
+  private computeTimeOffsets(snapshots: TimelineSnapshot[]): {
+    firstDate: number;
+    lastSnapshot: TimelineSnapshot;
+    currentT: number;
+  } {
+    const firstDate = new Date(snapshots[0]!.capturedAt).getTime();
+    const lastSnapshot = snapshots[snapshots.length - 1]!;
+    const currentT =
+      (new Date(lastSnapshot.capturedAt).getTime() - firstDate) / (7 * 24 * 60 * 60 * 1000);
+    return { firstDate, lastSnapshot, currentT };
   }
 
   // --- Private helpers ---
@@ -325,42 +321,52 @@ export class PredictionEngine {
       const af = categories[category];
       if (!af) continue;
 
-      // Use adjusted forecast for warning (in baseline mode, adjusted === baseline)
-      const forecast = af.adjusted;
-      const crossing = forecast.thresholdCrossingWeeks;
-
-      if (crossing === null || crossing <= 0) continue;
-
-      let severity: 'critical' | 'warning' | 'info' | null = null;
-
-      if (
-        crossing <= criticalWindow &&
-        (forecast.confidence === 'high' || forecast.confidence === 'medium')
-      ) {
-        severity = 'critical';
-      } else if (
-        crossing <= warningWindow &&
-        (forecast.confidence === 'high' || forecast.confidence === 'medium')
-      ) {
-        severity = 'warning';
-      } else if (crossing <= horizon) {
-        severity = 'info';
-      }
-
-      if (severity) {
-        const contributingNames = af.contributingFeatures.map((f) => f.name);
-        warnings.push({
-          severity,
-          category,
-          message: `${category} projected to exceed threshold (~${crossing}w, ${forecast.confidence} confidence)`,
-          weeksUntil: crossing,
-          confidence: forecast.confidence,
-          contributingFeatures: contributingNames,
-        });
-      }
+      const warning = this.buildCategoryWarning(
+        category,
+        af,
+        criticalWindow,
+        warningWindow,
+        horizon
+      );
+      if (warning) warnings.push(warning);
     }
 
     return warnings;
+  }
+
+  private buildCategoryWarning(
+    category: ArchMetricCategory,
+    af: AdjustedForecast,
+    criticalWindow: number,
+    warningWindow: number,
+    horizon: number
+  ): PredictionWarning | null {
+    const forecast = af.adjusted;
+    const crossing = forecast.thresholdCrossingWeeks;
+
+    if (crossing === null || crossing <= 0) return null;
+
+    const isHighConfidence = forecast.confidence === 'high' || forecast.confidence === 'medium';
+    let severity: 'critical' | 'warning' | 'info' | null = null;
+
+    if (crossing <= criticalWindow && isHighConfidence) {
+      severity = 'critical';
+    } else if (crossing <= warningWindow && isHighConfidence) {
+      severity = 'warning';
+    } else if (crossing <= horizon) {
+      severity = 'info';
+    }
+
+    if (!severity) return null;
+
+    return {
+      severity,
+      category,
+      message: `${category} projected to exceed threshold (~${crossing}w, ${forecast.confidence} confidence)`,
+      weeksUntil: crossing,
+      confidence: forecast.confidence,
+      contributingFeatures: af.contributingFeatures.map((f) => f.name),
+    };
   }
 
   /**
@@ -455,14 +461,11 @@ export class PredictionEngine {
       if (!parseResult.ok) return null;
 
       // Collect all features with specs across all milestones
-      const features: Array<{ name: string; spec: string | null }> = [];
-      for (const milestone of parseResult.value.milestones) {
-        for (const feature of milestone.features) {
-          if (feature.status === 'planned' || feature.status === 'in-progress') {
-            features.push({ name: feature.name, spec: feature.spec });
-          }
-        }
-      }
+      const features = parseResult.value.milestones.flatMap((m) =>
+        m.features
+          .filter((f) => f.status === 'planned' || f.status === 'in-progress')
+          .map((f) => ({ name: f.name, spec: f.spec }))
+      );
 
       if (features.length === 0) return null;
 

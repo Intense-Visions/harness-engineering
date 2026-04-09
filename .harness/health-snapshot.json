@@ -1,0 +1,55 @@
+{
+  "capturedAt": "2026-04-09T16:34:40.240Z",
+  "gitHead": "6a29ff637bf8ce7a1efddcb3705f657ff6bcd347",
+  "projectPath": "/Users/cwarner/Projects/harness-engineering",
+  "checks": {
+    "deps": {
+      "passed": true,
+      "issueCount": 0,
+      "circularDeps": 0,
+      "layerViolations": 0
+    },
+    "entropy": {
+      "passed": true,
+      "deadExports": 0,
+      "deadFiles": 517,
+      "driftCount": 0
+    },
+    "security": {
+      "passed": true,
+      "findingCount": 3,
+      "criticalCount": 0
+    },
+    "perf": {
+      "passed": true,
+      "violationCount": 0
+    },
+    "docs": {
+      "passed": true,
+      "undocumentedCount": 19835
+    },
+    "lint": {
+      "passed": true,
+      "issueCount": 0
+    }
+  },
+  "metrics": {
+    "avgFanOut": 1.75,
+    "maxFanOut": 50,
+    "avgCyclomaticComplexity": 4.858,
+    "maxCyclomaticComplexity": 338,
+    "avgCouplingRatio": 0.591,
+    "testCoverage": null,
+    "anomalyOutlierCount": 149,
+    "articulationPointCount": 239
+  },
+  "signals": [
+    "dead-code",
+    "security-findings",
+    "doc-gaps",
+    "anomaly-outlier",
+    "articulation-point",
+    "high-coupling",
+    "high-complexity"
+  ]
+}

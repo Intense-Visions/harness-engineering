@@ -42,6 +42,40 @@ interface AutopilotState {
 }
 
 /**
+ * Read an autopilot-state.json file and push normalized task statuses for phases
+ * linked to the given plan paths. Ignores malformed files.
+ */
+function collectAutopilotStatuses(
+  autopilotPath: string,
+  featurePlans: string[],
+  allTaskStatuses: TaskStatus[]
+): void {
+  try {
+    const raw = fs.readFileSync(autopilotPath, 'utf-8');
+    const autopilot: AutopilotState = JSON.parse(raw);
+    if (!autopilot.phases) return;
+
+    const linkedPhases = autopilot.phases.filter((phase) =>
+      phase.planPath
+        ? featurePlans.some((p) => p === phase.planPath || phase.planPath!.endsWith(p))
+        : false
+    );
+
+    for (const phase of linkedPhases) {
+      if (phase.status === 'complete') {
+        allTaskStatuses.push('complete');
+      } else if (phase.status === 'pending') {
+        allTaskStatuses.push('pending');
+      } else {
+        allTaskStatuses.push('in_progress');
+      }
+    }
+  } catch {
+    // Ignore malformed autopilot state files
+  }
+}
+
+/**
  * Infer status for a single feature by checking execution state files.
  */
 function inferStatus(
@@ -98,32 +132,7 @@ function inferStatus(
         if (!entry.isDirectory()) continue;
         const autopilotPath = path.join(sessionsDir, entry.name, 'autopilot-state.json');
         if (!fs.existsSync(autopilotPath)) continue;
-        try {
-          const raw = fs.readFileSync(autopilotPath, 'utf-8');
-          const autopilot: AutopilotState = JSON.parse(raw);
-          if (!autopilot.phases) continue;
-
-          // Check if any phase references a plan linked to this feature
-          const linkedPhases = autopilot.phases.filter((phase) =>
-            phase.planPath
-              ? feature.plans.some((p) => p === phase.planPath || phase.planPath!.endsWith(p))
-              : false
-          );
-
-          if (linkedPhases.length > 0) {
-            for (const phase of linkedPhases) {
-              if (phase.status === 'complete') {
-                allTaskStatuses.push('complete');
-              } else if (phase.status === 'pending') {
-                allTaskStatuses.push('pending');
-              } else {
-                allTaskStatuses.push('in_progress');
-              }
-            }
-          }
-        } catch {
-          // Ignore malformed autopilot state files
-        }
+        collectAutopilotStatuses(autopilotPath, feature.plans, allTaskStatuses);
       }
     } catch {
       // Ignore errors scanning sessions directory

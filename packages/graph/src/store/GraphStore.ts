@@ -160,24 +160,31 @@ export class GraphStore {
   }
 
   getNeighbors(nodeId: string, direction: 'outbound' | 'inbound' | 'both' = 'both'): GraphNode[] {
-    const neighborIds = new Set<string>();
+    const neighborIds = this.collectNeighborIds(nodeId, direction);
+    return this.resolveNodes(neighborIds);
+  }
 
+  private collectNeighborIds(
+    nodeId: string,
+    direction: 'outbound' | 'inbound' | 'both'
+  ): Set<string> {
+    const ids = new Set<string>();
     if (direction === 'outbound' || direction === 'both') {
-      const outEdges = this.edgesByFrom.get(nodeId) ?? [];
-      for (const edge of outEdges) {
-        neighborIds.add(edge.to);
+      for (const edge of this.edgesByFrom.get(nodeId) ?? []) {
+        ids.add(edge.to);
       }
     }
-
     if (direction === 'inbound' || direction === 'both') {
-      const inEdges = this.edgesByTo.get(nodeId) ?? [];
-      for (const edge of inEdges) {
-        neighborIds.add(edge.from);
+      for (const edge of this.edgesByTo.get(nodeId) ?? []) {
+        ids.add(edge.from);
       }
     }
+    return ids;
+  }
 
+  private resolveNodes(ids: Set<string>): GraphNode[] {
     const results: GraphNode[] = [];
-    for (const nid of neighborIds) {
+    for (const nid of ids) {
       const node = this.getNode(nid);
       if (node) results.push(node);
     }

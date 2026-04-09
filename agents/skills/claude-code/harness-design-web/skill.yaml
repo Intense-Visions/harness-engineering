@@ -9,6 +9,8 @@ triggers:
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -70,6 +72,11 @@ stack_signals:
   - nextjs
   - nuxt
   - frontend
+related_skills:
+  - design-responsive-strategy
+  - design-web-fonts
+  - design-grid-systems
+  - design-readability
 depends_on:
   - harness-design-system
   - harness-design

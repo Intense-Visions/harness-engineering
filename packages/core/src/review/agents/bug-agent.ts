@@ -17,6 +17,19 @@ export const BUG_DETECTION_DESCRIPTOR: ReviewAgentDescriptor = {
 };
 
 /**
+ * Returns true when the lines preceding index i contain a zero-guard.
+ */
+function hasPrecedingZeroCheck(lines: string[], i: number): boolean {
+  const preceding = lines.slice(Math.max(0, i - 3), i).join('\n');
+  return (
+    preceding.includes('=== 0') ||
+    preceding.includes('!== 0') ||
+    preceding.includes('== 0') ||
+    preceding.includes('!= 0')
+  );
+}
+
+/**
  * Detect potential division-by-zero issues.
  */
 function detectDivisionByZero(bundle: ContextBundle): ReviewFinding[] {
@@ -26,33 +39,37 @@ function detectDivisionByZero(bundle: ContextBundle): ReviewFinding[] {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
       // Look for division operations that don't have a preceding zero check
-      if (line.match(/[^=!<>]\s*\/\s*[a-zA-Z_]\w*/) && !line.includes('//')) {
-        // Check if preceding lines have a zero check for the divisor
-        const preceding = lines.slice(Math.max(0, i - 3), i).join('\n');
-        if (
-          !preceding.includes('=== 0') &&
-          !preceding.includes('!== 0') &&
-          !preceding.includes('== 0') &&
-          !preceding.includes('!= 0')
-        ) {
-          findings.push({
-            id: makeFindingId('bug', cf.path, i + 1, 'division by zero'),
-            file: cf.path,
-            lineRange: [i + 1, i + 1],
-            domain: 'bug',
-            severity: 'important',
-            title: 'Potential division by zero without guard',
-            rationale:
-              'Division operation found without a preceding zero check on the divisor. This can cause Infinity or NaN at runtime.',
-            suggestion: 'Add a check for zero before dividing, or use a safe division utility.',
-            evidence: [`Line ${i + 1}: ${line.trim()}`],
-            validatedBy: 'heuristic',
-          });
-        }
-      }
+      if (!line.match(/[^=!<>]\s*\/\s*[a-zA-Z_]\w*/) || line.includes('//')) continue;
+      if (hasPrecedingZeroCheck(lines, i)) continue;
+      findings.push({
+        id: makeFindingId('bug', cf.path, i + 1, 'division by zero'),
+        file: cf.path,
+        lineRange: [i + 1, i + 1],
+        domain: 'bug',
+        severity: 'important',
+        title: 'Potential division by zero without guard',
+        rationale:
+          'Division operation found without a preceding zero check on the divisor. This can cause Infinity or NaN at runtime.',
+        suggestion: 'Add a check for zero before dividing, or use a safe division utility.',
+        evidence: [`Line ${i + 1}: ${line.trim()}`],
+        validatedBy: 'heuristic',
+      });
     }
   }
   return findings;
+}
+
+/**
+ * Returns true when the line at index i is an empty catch block.
+ */
+function isEmptyCatch(lines: string[], i: number): boolean {
+  const line = lines[i]!;
+  if (line.match(/catch\s*\([^)]*\)\s*\{\s*\}/)) return true;
+  return (
+    line.match(/catch\s*\([^)]*\)\s*\{/) !== null &&
+    i + 1 < lines.length &&
+    lines[i + 1]!.trim() === '}'
+  );
 }
 
 /**
@@ -63,29 +80,23 @@ function detectEmptyCatch(bundle: ContextBundle): ReviewFinding[] {
   for (const cf of bundle.changedFiles) {
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
       // Match: catch (e) {} or catch(e){} or catch (e) { }
-      if (
-        line.match(/catch\s*\([^)]*\)\s*\{\s*\}/) ||
-        (line.match(/catch\s*\([^)]*\)\s*\{/) &&
-          i + 1 < lines.length &&
-          lines[i + 1]!.trim() === '}')
-      ) {
-        findings.push({
-          id: makeFindingId('bug', cf.path, i + 1, 'empty catch block'),
-          file: cf.path,
-          lineRange: [i + 1, i + 2],
-          domain: 'bug',
-          severity: 'important',
-          title: 'Empty catch block silently swallows error',
-          rationale:
-            'Catching an error without handling, logging, or re-throwing it hides failures and makes debugging difficult.',
-          suggestion:
-            'Log the error, re-throw it, or handle it explicitly. If intentionally ignoring, add a comment explaining why.',
-          evidence: [`Line ${i + 1}: ${line.trim()}`],
-          validatedBy: 'heuristic',
-        });
-      }
+      if (!isEmptyCatch(lines, i)) continue;
+      const line = lines[i]!;
+      findings.push({
+        id: makeFindingId('bug', cf.path, i + 1, 'empty catch block'),
+        file: cf.path,
+        lineRange: [i + 1, i + 2],
+        domain: 'bug',
+        severity: 'important',
+        title: 'Empty catch block silently swallows error',
+        rationale:
+          'Catching an error without handling, logging, or re-throwing it hides failures and makes debugging difficult.',
+        suggestion:
+          'Log the error, re-throw it, or handle it explicitly. If intentionally ignoring, add a comment explaining why.',
+        evidence: [`Line ${i + 1}: ${line.trim()}`],
+        validatedBy: 'heuristic',
+      });
     }
   }
   return findings;

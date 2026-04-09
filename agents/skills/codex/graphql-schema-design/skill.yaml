@@ -1,0 +1,41 @@
+name: graphql-schema-design
+version: '1.0.0'
+description: Design expressive, evolvable GraphQL schemas with clear type hierarchies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/*.gql'
+  - '**/schema/**'
+related_skills:
+  - graphql-resolver-pattern
+  - graphql-pagination-patterns
+  - graphql-federation-pattern
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - schema
+  - types
+  - interfaces
+  - unions
+  - input-types
+  - enums
+  - nullability
+metadata:
+  author: community
+  upstream: graphql.org/learn/schema
+state:
+  persistent: false
+  files: []
+depends_on: []

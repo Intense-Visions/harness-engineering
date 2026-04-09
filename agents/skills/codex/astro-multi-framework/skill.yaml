@@ -1,0 +1,46 @@
+name: astro-multi-framework
+version: '1.0.0'
+description: Mix React, Vue, Svelte, and Solid components in one Astro project with framework isolation and shared state via nanostores
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+  - '**/src/layouts/**'
+related_skills:
+  - astro-islands-architecture
+  - astro-integration-pattern
+  - react-hooks-pattern
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - multi-framework
+  - framework-isolation
+  - nanostores
+  - react
+  - vue
+  - svelte
+  - solid
+  - shared-state
+  - cross-framework
+  - useStore
+  - atom
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/guides/framework-components'
+state:
+  persistent: false
+  files: []
+depends_on: []

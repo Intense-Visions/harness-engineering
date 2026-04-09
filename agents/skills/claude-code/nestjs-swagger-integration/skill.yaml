@@ -1,0 +1,40 @@
+name: nestjs-swagger-integration
+version: "1.0.0"
+description: Document APIs with @ApiProperty, @ApiOperation, @ApiTags, and DocumentBuilder
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.controller.ts"
+  - "**/*.dto.ts"
+related_skills:
+  - nestjs-controller-pattern
+  - nestjs-dto-validation
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - swagger
+  - openapi
+  - ApiProperty
+  - ApiOperation
+  - ApiTags
+  - DocumentBuilder
+  - api-docs
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/openapi/introduction"
+state:
+  persistent: false
+  files: []
+depends_on: []

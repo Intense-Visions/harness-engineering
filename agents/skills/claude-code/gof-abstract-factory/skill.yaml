@@ -1,0 +1,35 @@
+name: gof-abstract-factory
+version: "1.0.0"
+description: Create families of related objects through factory interfaces without coupling to concrete types
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - gof-factory-method
+  - ts-class-patterns
+  - ts-generics-pattern
+stack_signals:
+  - typescript
+keywords:
+  - abstract-factory
+  - factory-family
+  - product-family
+  - swappable-implementations
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/abstract-factory
+state:
+  persistent: false
+  files: []
+depends_on: []

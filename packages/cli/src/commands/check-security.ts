@@ -106,6 +106,51 @@ export async function runCheckSecurity(
   });
 }
 
+async function runCheckSecurityAction(
+  opts: { severity: SecuritySeverity; changedOnly?: boolean },
+  globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
+): Promise<void> {
+  const mode: OutputModeType = globalOpts.json
+    ? OutputMode.JSON
+    : globalOpts.quiet
+      ? OutputMode.QUIET
+      : globalOpts.verbose
+        ? OutputMode.VERBOSE
+        : OutputMode.TEXT;
+
+  const formatter = new OutputFormatter(mode);
+
+  const result = await runCheckSecurity(process.cwd(), {
+    severity: opts.severity,
+    ...(opts.changedOnly !== undefined && { changedOnly: opts.changedOnly }),
+  });
+
+  if (!result.ok) {
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: result.error.message }));
+    } else {
+      logger.error(result.error.message);
+    }
+    process.exit(ExitCode.ERROR);
+  }
+
+  const issues = result.value.findings.map((f) => ({
+    file: `${f.file}:${f.line}`,
+    message: `[${f.ruleId}] ${f.severity.toUpperCase()} ${f.message}`,
+  }));
+
+  const output = formatter.formatValidation({
+    valid: result.value.valid,
+    issues,
+  });
+
+  if (output) {
+    console.log(output);
+  }
+
+  process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+}
+
 export function createCheckSecurityCommand(): Command {
   const command = new Command('check-security')
     .description('Run lightweight security scan: secrets, injection, XSS, weak crypto')
@@ -119,46 +164,7 @@ export function createCheckSecurityCommand(): Command {
     })
     .option('--changed-only', 'Only scan git-changed files')
     .action(async (opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
-      const formatter = new OutputFormatter(mode);
-
-      const result = await runCheckSecurity(process.cwd(), {
-        severity: opts.severity,
-        changedOnly: opts.changedOnly,
-      });
-
-      if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
-        process.exit(ExitCode.ERROR);
-      }
-
-      const issues = result.value.findings.map((f) => ({
-        file: `${f.file}:${f.line}`,
-        message: `[${f.ruleId}] ${f.severity.toUpperCase()} ${f.message}`,
-      }));
-
-      const output = formatter.formatValidation({
-        valid: result.value.valid,
-        issues,
-      });
-
-      if (output) {
-        console.log(output);
-      }
-
-      process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+      await runCheckSecurityAction(opts, cmd.optsWithGlobals());
     });
 
   return command;

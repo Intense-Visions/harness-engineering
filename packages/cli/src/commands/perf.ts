@@ -64,6 +64,58 @@ function outputBenchResults(
   }
 }
 
+async function runBaselinesShow(globalOpts: { json?: boolean }): Promise<void> {
+  const manager = new BaselineManager(process.cwd());
+  const data = manager.load();
+
+  if (!data) {
+    console.log(
+      globalOpts.json
+        ? JSON.stringify({ baselines: null, message: 'No baselines file found' })
+        : 'No baselines file found at .harness/perf/baselines.json'
+    );
+    return;
+  }
+
+  if (globalOpts.json) {
+    console.log(JSON.stringify(data, null, 2));
+  } else {
+    logger.info(`Baselines (updated: ${data.updatedAt}, from: ${data.updatedFrom})`);
+    for (const [name, baseline] of Object.entries(data.benchmarks)) {
+      logger.info(
+        `  ${name}: ${baseline.opsPerSec} ops/s (mean: ${baseline.meanMs}ms, p99: ${baseline.p99Ms}ms)`
+      );
+    }
+  }
+}
+
+async function runBaselinesUpdate(globalOpts: { json?: boolean }): Promise<void> {
+  const cwd = process.cwd();
+  const { BenchmarkRunner } = await import('@harness-engineering/core');
+  const runner = new BenchmarkRunner();
+  const manager = new BaselineManager(cwd);
+
+  logger.info('Running benchmarks to update baselines...');
+  const benchResult = await runner.run({ cwd });
+
+  if (!benchResult.success || benchResult.results.length === 0) {
+    logger.error(
+      'No benchmark results to save. Run `harness perf bench` first to verify benchmarks work.'
+    );
+    return;
+  }
+
+  const commitHash = await getCommitHash(cwd);
+  manager.save(benchResult.results, commitHash);
+
+  if (globalOpts.json) {
+    console.log(JSON.stringify({ updated: benchResult.results.length, commitHash }));
+  } else {
+    logger.info(`Updated ${benchResult.results.length} baseline(s) from commit ${commitHash}`);
+    logger.info('Baselines saved to .harness/perf/baselines.json');
+  }
+}
+
 function registerBaselinesCommands(perf: Command): void {
   const baselines = perf.command('baselines').description('Manage performance baselines');
 
@@ -71,61 +123,14 @@ function registerBaselinesCommands(perf: Command): void {
     .command('show')
     .description('Display current baselines')
     .action(async (_opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const manager = new BaselineManager(process.cwd());
-      const data = manager.load();
-
-      if (!data) {
-        console.log(
-          globalOpts.json
-            ? JSON.stringify({ baselines: null, message: 'No baselines file found' })
-            : 'No baselines file found at .harness/perf/baselines.json'
-        );
-        return;
-      }
-
-      if (globalOpts.json) {
-        console.log(JSON.stringify(data, null, 2));
-      } else {
-        logger.info(`Baselines (updated: ${data.updatedAt}, from: ${data.updatedFrom})`);
-        for (const [name, baseline] of Object.entries(data.benchmarks)) {
-          logger.info(
-            `  ${name}: ${baseline.opsPerSec} ops/s (mean: ${baseline.meanMs}ms, p99: ${baseline.p99Ms}ms)`
-          );
-        }
-      }
+      await runBaselinesShow(cmd.optsWithGlobals());
     });
 
   baselines
     .command('update')
     .description('Update baselines from latest benchmark run')
     .action(async (_opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const cwd = process.cwd();
-
-      const { BenchmarkRunner } = await import('@harness-engineering/core');
-      const runner = new BenchmarkRunner();
-      const manager = new BaselineManager(cwd);
-
-      logger.info('Running benchmarks to update baselines...');
-      const benchResult = await runner.run({ cwd });
-
-      if (!benchResult.success || benchResult.results.length === 0) {
-        logger.error(
-          'No benchmark results to save. Run `harness perf bench` first to verify benchmarks work.'
-        );
-        return;
-      }
-
-      const commitHash = await getCommitHash(cwd);
-      manager.save(benchResult.results, commitHash);
-
-      if (globalOpts.json) {
-        console.log(JSON.stringify({ updated: benchResult.results.length, commitHash }));
-      } else {
-        logger.info(`Updated ${benchResult.results.length} baseline(s) from commit ${commitHash}`);
-        logger.info('Baselines saved to .harness/perf/baselines.json');
-      }
+      await runBaselinesUpdate(cmd.optsWithGlobals());
     });
 }
 
@@ -187,6 +192,17 @@ function registerReportCommand(perf: Command): void {
     });
 }
 
+function printCriticalPaths(result: Awaited<ReturnType<CriticalPathResolver['resolve']>>): void {
+  logger.info(
+    `Critical paths: ${result.stats.total} (${result.stats.annotated} annotated, ${result.stats.graphInferred} graph-inferred)`
+  );
+  for (const entry of result.entries) {
+    logger.info(
+      `  ${entry.file}::${entry.function} [${entry.source}]${entry.fanIn ? ` (fan-in: ${entry.fanIn})` : ''}`
+    );
+  }
+}
+
 function registerCriticalPathsCommand(perf: Command): void {
   perf
     .command('critical-paths')
@@ -199,14 +215,7 @@ function registerCriticalPathsCommand(perf: Command): void {
       if (globalOpts.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        logger.info(
-          `Critical paths: ${result.stats.total} (${result.stats.annotated} annotated, ${result.stats.graphInferred} graph-inferred)`
-        );
-        for (const entry of result.entries) {
-          logger.info(
-            `  ${entry.file}::${entry.function} [${entry.source}]${entry.fanIn ? ` (fan-in: ${entry.fanIn})` : ''}`
-          );
-        }
+        printCriticalPaths(result);
       }
     });
 }

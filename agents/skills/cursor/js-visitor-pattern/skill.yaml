@@ -1,0 +1,35 @@
+name: js-visitor-pattern
+version: '1.0.0'
+description: Add new operations to object structures without modifying the objects
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-iterator-pattern
+  - js-composite-pattern
+stack_signals:
+  - javascript
+keywords:
+  - visitor
+  - double-dispatch
+  - open-closed
+  - external-operations
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/visitor-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

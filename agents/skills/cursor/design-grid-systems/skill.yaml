@@ -1,0 +1,35 @@
+name: design-grid-systems
+version: "1.0.0"
+description: Grid theory — column, modular, baseline, compound grids, breaking the grid intentionally
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-alignment
+  - design-whitespace
+  - design-responsive-strategy
+stack_signals: []
+keywords:
+  - grid
+  - column grid
+  - modular grid
+  - baseline grid
+  - gutter
+  - margin
+  - grid breakout
+  - layout grid
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

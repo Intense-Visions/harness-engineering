@@ -1,0 +1,35 @@
+name: design-color-harmony
+version: "1.0.0"
+description: Color wheel relationships — complementary, analogous, triadic, split-complementary, tetradic schemes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-color-psychology
+  - design-palette-construction
+  - design-contrast-ratio
+stack_signals: []
+keywords:
+  - color wheel
+  - complementary
+  - analogous
+  - triadic
+  - split-complementary
+  - tetradic
+  - color scheme
+  - hue relationships
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

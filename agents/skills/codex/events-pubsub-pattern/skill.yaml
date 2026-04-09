@@ -1,0 +1,44 @@
+name: events-pubsub-pattern
+version: "1.0.0"
+description: Implement publisher-subscriber communication with topic-based routing and fan-out delivery
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - node-event-emitter
+  - gof-observer-pattern
+  - events-message-queue
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - pubsub
+  - publisher
+  - subscriber
+  - topic-based
+  - fan-out
+  - at-most-once
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/event-sourcing.html
+state:
+  persistent: false
+  files: []
+depends_on: []

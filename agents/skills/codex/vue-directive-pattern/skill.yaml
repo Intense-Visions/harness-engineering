@@ -1,0 +1,34 @@
+name: vue-directive-pattern
+version: '1.0.0'
+description: Create custom Vue directives for low-level DOM manipulation and reusable DOM behavior
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+related_skills:
+  - vue-composables-pattern
+  - vue-renderless-components
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - custom-directive
+  - v-directive
+  - dom-manipulation
+  - directive-hooks
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/directive-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

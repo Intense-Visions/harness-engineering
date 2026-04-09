@@ -1,0 +1,42 @@
+name: test-playwright-setup
+version: "1.0.0"
+description: Configure Playwright test runner with fixtures, reporters, and browser contexts
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-playwright-patterns
+  - test-e2e-strategy
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - playwright
+  - e2e-testing
+  - test-fixtures
+  - browser-automation
+  - trace-viewer
+metadata:
+  author: community
+  upstream: playwright.dev/docs/intro
+state:
+  persistent: false
+  files: []
+depends_on: []

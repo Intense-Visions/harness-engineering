@@ -1,0 +1,42 @@
+name: events-redis-pubsub
+version: "1.0.0"
+description: Use Redis pub/sub channels and keyspace notifications for lightweight real-time messaging
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - events-pubsub-pattern
+  - events-message-queue
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - redis
+  - pubsub
+  - channels
+  - pattern-subscriptions
+  - keyspace-notifications
+metadata:
+  author: community
+  upstream: redis.io/docs/latest/develop/interact/pubsub/
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,35 @@
+name: design-empty-error-states
+version: "1.0.0"
+description: Empty and error state design — empty states as onboarding, error states as recovery, 404 pages, zero-data states, degraded states, constructive error messages
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-state-design
+  - design-loading-patterns
+  - design-feedback-patterns
+stack_signals: []
+keywords:
+  - empty-state
+  - error-state
+  - "404"
+  - zero-data
+  - degraded-state
+  - onboarding
+  - error-recovery
+  - constructive-error
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

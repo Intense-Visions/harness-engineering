@@ -8,6 +8,8 @@ triggers:
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -32,6 +34,11 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - gof-strategy-pattern
+  - gof-adapter-pattern
+  - gof-facade-pattern
+  - gof-decorator-pattern
 addresses:
   - signal: high-complexity
     metric: cyclomaticComplexity

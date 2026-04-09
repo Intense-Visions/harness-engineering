@@ -1,0 +1,42 @@
+name: test-accessibility-testing
+version: "1.0.0"
+description: Automate WCAG accessibility checks using axe-core with Playwright and jest-axe
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-playwright-patterns
+  - test-component-react
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - accessibility
+  - axe-core
+  - WCAG
+  - jest-axe
+  - a11y
+metadata:
+  author: community
+  upstream: playwright.dev/docs/accessibility-testing
+state:
+  persistent: false
+  files: []
+depends_on: []

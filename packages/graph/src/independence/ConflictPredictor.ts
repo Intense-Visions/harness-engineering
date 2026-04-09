@@ -1,5 +1,9 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { IndependenceCheckParams, OverlapDetail } from './TaskIndependenceAnalyzer.js';
+import type {
+  IndependenceCheckParams,
+  OverlapDetail,
+  PairResult,
+} from './TaskIndependenceAnalyzer.js';
 import { TaskIndependenceAnalyzer } from './TaskIndependenceAnalyzer.js';
 import { GraphComplexityAdapter } from '../entropy/GraphComplexityAdapter.js';
 import { GraphCouplingAdapter } from '../entropy/GraphCouplingAdapter.js';
@@ -42,79 +46,24 @@ export class ConflictPredictor {
   }
 
   predict(params: IndependenceCheckParams): ConflictPrediction {
-    // 1. Run base analyzer
     const analyzer = new TaskIndependenceAnalyzer(this.store);
     const result = analyzer.analyze(params);
 
-    // 2. Build churn and coupling lookup maps (only with graph)
-    const churnMap = new Map<string, number>();
-    const couplingMap = new Map<string, number>();
-    let churnThreshold = Infinity;
-    let couplingThreshold = Infinity;
+    const { churnMap, couplingMap, churnThreshold, couplingThreshold } = this.buildMetricMaps();
 
-    if (this.store != null) {
-      const complexityResult = new GraphComplexityAdapter(this.store).computeComplexityHotspots();
-      for (const hotspot of complexityResult.hotspots) {
-        const existing = churnMap.get(hotspot.file);
-        if (existing === undefined || hotspot.changeFrequency > existing) {
-          churnMap.set(hotspot.file, hotspot.changeFrequency);
-        }
-      }
+    const conflicts = this.classifyConflicts(
+      result.pairs,
+      churnMap,
+      couplingMap,
+      churnThreshold,
+      couplingThreshold
+    );
 
-      const couplingResult = new GraphCouplingAdapter(this.store).computeCouplingData();
-      for (const fileData of couplingResult.files) {
-        couplingMap.set(fileData.file, fileData.fanIn + fileData.fanOut);
-      }
-
-      // Compute 80th percentile thresholds
-      churnThreshold = this.computePercentile(Array.from(churnMap.values()), 80);
-      couplingThreshold = this.computePercentile(Array.from(couplingMap.values()), 80);
-    }
-
-    // 3. Classify each conflicting pair
-    const conflicts: ConflictDetail[] = [];
-
-    for (const pair of result.pairs) {
-      if (pair.independent) continue;
-
-      const { severity, reason, mitigation } = this.classifyPair(
-        pair.taskA,
-        pair.taskB,
-        pair.overlaps,
-        churnMap,
-        couplingMap,
-        churnThreshold,
-        couplingThreshold
-      );
-
-      conflicts.push({
-        taskA: pair.taskA,
-        taskB: pair.taskB,
-        severity,
-        reason,
-        mitigation,
-        overlaps: pair.overlaps,
-      });
-    }
-
-    // 4. Build revised groups (high-severity edges only)
     const taskIds = result.tasks;
     const groups = this.buildHighSeverityGroups(taskIds, conflicts);
-
-    // 5. Compare groups to detect regrouping
     const regrouped = !this.groupsEqual(result.groups, groups);
+    const { highCount, mediumCount, lowCount } = this.countBySeverity(conflicts);
 
-    // 6. Build summary
-    let highCount = 0;
-    let mediumCount = 0;
-    let lowCount = 0;
-    for (const c of conflicts) {
-      if (c.severity === 'high') highCount++;
-      else if (c.severity === 'medium') mediumCount++;
-      else lowCount++;
-    }
-
-    // 7. Generate verdict
     const verdict = this.generateVerdict(
       taskIds,
       groups,
@@ -131,17 +80,126 @@ export class ConflictPredictor {
       depth: result.depth,
       conflicts,
       groups,
-      summary: {
-        high: highCount,
-        medium: mediumCount,
-        low: lowCount,
-        regrouped,
-      },
+      summary: { high: highCount, medium: mediumCount, low: lowCount, regrouped },
       verdict,
     };
   }
 
   // --- Private helpers ---
+
+  private buildMetricMaps(): {
+    churnMap: Map<string, number>;
+    couplingMap: Map<string, number>;
+    churnThreshold: number;
+    couplingThreshold: number;
+  } {
+    const churnMap = new Map<string, number>();
+    const couplingMap = new Map<string, number>();
+
+    if (this.store == null) {
+      return { churnMap, couplingMap, churnThreshold: Infinity, couplingThreshold: Infinity };
+    }
+
+    const complexityResult = new GraphComplexityAdapter(this.store).computeComplexityHotspots();
+    for (const hotspot of complexityResult.hotspots) {
+      const existing = churnMap.get(hotspot.file);
+      if (existing === undefined || hotspot.changeFrequency > existing) {
+        churnMap.set(hotspot.file, hotspot.changeFrequency);
+      }
+    }
+
+    const couplingResult = new GraphCouplingAdapter(this.store).computeCouplingData();
+    for (const fileData of couplingResult.files) {
+      couplingMap.set(fileData.file, fileData.fanIn + fileData.fanOut);
+    }
+
+    const churnThreshold = this.computePercentile(Array.from(churnMap.values()), 80);
+    const couplingThreshold = this.computePercentile(Array.from(couplingMap.values()), 80);
+    return { churnMap, couplingMap, churnThreshold, couplingThreshold };
+  }
+
+  private classifyConflicts(
+    pairs: readonly PairResult[],
+    churnMap: Map<string, number>,
+    couplingMap: Map<string, number>,
+    churnThreshold: number,
+    couplingThreshold: number
+  ): ConflictDetail[] {
+    const conflicts: ConflictDetail[] = [];
+    for (const pair of pairs) {
+      if (pair.independent) continue;
+      const { severity, reason, mitigation } = this.classifyPair(
+        pair.taskA,
+        pair.taskB,
+        pair.overlaps,
+        churnMap,
+        couplingMap,
+        churnThreshold,
+        couplingThreshold
+      );
+      conflicts.push({
+        taskA: pair.taskA,
+        taskB: pair.taskB,
+        severity,
+        reason,
+        mitigation,
+        overlaps: pair.overlaps,
+      });
+    }
+    return conflicts;
+  }
+
+  private countBySeverity(conflicts: readonly ConflictDetail[]): {
+    highCount: number;
+    mediumCount: number;
+    lowCount: number;
+  } {
+    let highCount = 0;
+    let mediumCount = 0;
+    let lowCount = 0;
+    for (const c of conflicts) {
+      if (c.severity === 'high') highCount++;
+      else if (c.severity === 'medium') mediumCount++;
+      else lowCount++;
+    }
+    return { highCount, mediumCount, lowCount };
+  }
+
+  private classifyTransitiveOverlap(
+    taskA: string,
+    taskB: string,
+    overlap: OverlapDetail,
+    churnMap: Map<string, number>,
+    couplingMap: Map<string, number>,
+    churnThreshold: number,
+    couplingThreshold: number
+  ): { severity: ConflictSeverity; reason: string; mitigation: string } {
+    const churn = churnMap.get(overlap.file);
+    const coupling = couplingMap.get(overlap.file);
+    const via = overlap.via ?? 'unknown';
+
+    if (churn !== undefined && churn >= churnThreshold && churnThreshold !== Infinity) {
+      return {
+        severity: 'medium',
+        reason: `Transitive overlap on high-churn file ${overlap.file} (via ${via})`,
+        mitigation: `Review: ${overlap.file} changes frequently — coordinate edits between ${taskA} and ${taskB}`,
+      };
+    }
+
+    if (coupling !== undefined && coupling >= couplingThreshold && couplingThreshold !== Infinity) {
+      return {
+        severity: 'medium',
+        reason: `Transitive overlap on highly-coupled file ${overlap.file} (via ${via})`,
+        mitigation: `Review: ${overlap.file} has high coupling — coordinate edits between ${taskA} and ${taskB}`,
+      };
+    }
+
+    return {
+      severity: 'low',
+      reason: `Transitive overlap on ${overlap.file} (via ${via}) — low risk`,
+      mitigation: `Info: transitive overlap unlikely to cause conflicts`,
+    };
+  }
 
   private classifyPair(
     taskA: string,
@@ -157,46 +215,30 @@ export class ConflictPredictor {
     let primaryMitigation = '';
 
     for (const overlap of overlaps) {
-      let overlapSeverity: ConflictSeverity;
-      let reason: string;
-      let mitigation: string;
+      const classified =
+        overlap.type === 'direct'
+          ? {
+              severity: 'high' as ConflictSeverity,
+              reason: `Both tasks write to ${overlap.file}`,
+              mitigation: `Serialize: run ${taskA} before ${taskB}`,
+            }
+          : this.classifyTransitiveOverlap(
+              taskA,
+              taskB,
+              overlap,
+              churnMap,
+              couplingMap,
+              churnThreshold,
+              couplingThreshold
+            );
 
-      if (overlap.type === 'direct') {
-        overlapSeverity = 'high';
-        reason = `Both tasks write to ${overlap.file}`;
-        mitigation = `Serialize: run ${taskA} before ${taskB}`;
-      } else {
-        // Transitive overlap -- check churn and coupling
-        const churn = churnMap.get(overlap.file);
-        const coupling = couplingMap.get(overlap.file);
-        const via = overlap.via ?? 'unknown';
-
-        if (churn !== undefined && churn >= churnThreshold && churnThreshold !== Infinity) {
-          overlapSeverity = 'medium';
-          reason = `Transitive overlap on high-churn file ${overlap.file} (via ${via})`;
-          mitigation = `Review: ${overlap.file} changes frequently — coordinate edits between ${taskA} and ${taskB}`;
-        } else if (
-          coupling !== undefined &&
-          coupling >= couplingThreshold &&
-          couplingThreshold !== Infinity
-        ) {
-          overlapSeverity = 'medium';
-          reason = `Transitive overlap on highly-coupled file ${overlap.file} (via ${via})`;
-          mitigation = `Review: ${overlap.file} has high coupling — coordinate edits between ${taskA} and ${taskB}`;
-        } else {
-          overlapSeverity = 'low';
-          reason = `Transitive overlap on ${overlap.file} (via ${via}) — low risk`;
-          mitigation = `Info: transitive overlap unlikely to cause conflicts`;
-        }
-      }
-
-      if (this.severityRank(overlapSeverity) > this.severityRank(maxSeverity)) {
-        maxSeverity = overlapSeverity;
-        primaryReason = reason;
-        primaryMitigation = mitigation;
+      if (this.severityRank(classified.severity) > this.severityRank(maxSeverity)) {
+        maxSeverity = classified.severity;
+        primaryReason = classified.reason;
+        primaryMitigation = classified.mitigation;
       } else if (primaryReason === '') {
-        primaryReason = reason;
-        primaryMitigation = mitigation;
+        primaryReason = classified.reason;
+        primaryMitigation = classified.mitigation;
       }
     }
 

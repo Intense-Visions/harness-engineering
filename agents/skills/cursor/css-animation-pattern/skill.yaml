@@ -1,0 +1,43 @@
+name: css-animation-pattern
+version: '1.0.0'
+description: Create performant CSS animations with Tailwind transitions and keyframe utilities
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'tailwind.config.*'
+  - '**/*.tsx'
+  - '**/*.css'
+related_skills:
+  - css-tailwind-pattern
+  - css-performance-patterns
+  - css-component-variants
+  - design-motion-principles
+  - design-transitions-timing
+  - design-micro-interactions
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - animation
+  - transition
+  - keyframes
+  - motion
+  - hover
+  - transform
+metadata:
+  author: community
+  upstream: 'tailwindcss/docs/animation'
+state:
+  persistent: false
+  files: []
+depends_on: []

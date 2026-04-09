@@ -31,28 +31,25 @@ export class GraphConstraintAdapter {
   constructor(private readonly store: GraphStore) {}
 
   computeDependencyGraph(): GraphDependencyData {
-    // Find all file nodes
-    const fileNodes = this.store.findNodes({ type: 'file' });
-    const nodes = fileNodes.map((n) => n.path ?? n.id);
+    const nodes = this.collectFileNodePaths();
+    const edges = this.collectImportEdges();
+    return { nodes, edges };
+  }
 
-    // Only extract `imports` edges — matches existing constraint system behavior.
-    // Other code relationship edges (calls, references) are not tracked by the constraint layer.
-    const importsEdges = this.store.getEdges({ type: 'imports' });
+  private collectFileNodePaths(): string[] {
+    return this.store.findNodes({ type: 'file' }).map((n) => n.path ?? n.id);
+  }
 
-    const edges = importsEdges.map((e) => {
-      // Resolve edge endpoints to file paths
+  private collectImportEdges(): GraphDependencyData['edges'][number][] {
+    return this.store.getEdges({ type: 'imports' }).map((e) => {
       const fromNode = this.store.getNode(e.from);
       const toNode = this.store.getNode(e.to);
       const fromPath = fromNode?.path ?? e.from;
       const toPath = toNode?.path ?? e.to;
-
       const importType = (e.metadata?.importType as 'static' | 'dynamic' | 'type-only') ?? 'static';
       const line = (e.metadata?.line as number) ?? 0;
-
       return { from: fromPath, to: toPath, importType, line };
     });
-
-    return { nodes, edges };
   }
 
   computeLayerViolations(layers: LayerDef[], rootDir: string): GraphLayerViolation[] {

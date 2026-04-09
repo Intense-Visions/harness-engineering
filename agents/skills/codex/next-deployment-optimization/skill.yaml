@@ -1,0 +1,42 @@
+name: next-deployment-optimization
+version: "1.0.0"
+description: Bundle analysis, code splitting, dynamic imports, and next/dynamic optimization
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "next.config.*"
+  - "**/app/**/*.tsx"
+  - "**/pages/**/*.tsx"
+related_skills:
+  - next-static-generation
+  - next-image-optimization
+  - next-environment-config
+  - next-app-router
+stack_signals:
+  - nextjs
+  - react
+  - typescript
+keywords:
+  - bundle-analysis
+  - code-splitting
+  - dynamic-import
+  - next-dynamic
+  - tree-shaking
+  - lazy-loading
+  - performance
+metadata:
+  author: community
+  upstream: https://nextjs.org/docs/app/building-your-application/optimizing
+state:
+  persistent: false
+  files: []
+depends_on: []

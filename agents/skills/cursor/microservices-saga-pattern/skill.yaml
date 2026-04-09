@@ -1,0 +1,40 @@
+name: microservices-saga-pattern
+version: "1.0.0"
+description: Coordinate distributed transactions using choreography and orchestration sagas with compensation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/services/**"
+  - "**/gateway/**"
+  - "**/api-gateway/**"
+  - "docker-compose.*"
+related_skills:
+  - events-saga-choreography
+  - microservices-event-sourcing
+  - microservices-outbox-pattern
+stack_signals:
+  - microservices
+  - nodejs
+  - typescript
+keywords:
+  - saga
+  - choreography
+  - orchestration
+  - compensating-transactions
+  - distributed-transactions
+metadata:
+  author: community
+  upstream: microservices.io/patterns/data/saga.html
+state:
+  persistent: false
+  files: []
+depends_on: []

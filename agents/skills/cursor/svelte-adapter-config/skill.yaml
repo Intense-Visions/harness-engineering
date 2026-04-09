@@ -1,0 +1,42 @@
+name: svelte-adapter-config
+version: '1.0.0'
+description: Configure SvelteKit deployment adapters for Node, Vercel, Cloudflare, and static hosting
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/+page.svelte'
+  - '**/+layout.svelte'
+related_skills:
+  - svelte-routing-pattern
+  - svelte-load-functions
+  - svelte-server-hooks
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - adapters
+  - adapter-auto
+  - adapter-node
+  - adapter-vercel
+  - adapter-static
+  - prerender
+  - deployment
+  - cloudflare
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/adapters'
+state:
+  persistent: false
+  files: []
+depends_on: []

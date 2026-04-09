@@ -1,0 +1,35 @@
+name: js-composite-pattern
+version: '1.0.0'
+description: Compose objects into tree structures and treat individual objects and composites uniformly
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-iterator-pattern
+  - js-visitor-pattern
+stack_signals:
+  - javascript
+keywords:
+  - composite
+  - tree-structure
+  - uniform-treatment
+  - recursive-composition
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/composite-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

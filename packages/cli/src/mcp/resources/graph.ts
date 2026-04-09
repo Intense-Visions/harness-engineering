@@ -20,6 +20,34 @@ function formatStaleness(isoTimestamp: string): string {
   return 'just now';
 }
 
+function countByType<T extends { type: string }>(items: T[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    counts[item.type] = (counts[item.type] ?? 0) + 1;
+  }
+  return counts;
+}
+
+async function readLastScanTimestamp(projectRoot: string): Promise<string | null> {
+  const metadataPath = path.join(projectRoot, '.harness', 'graph', 'metadata.json');
+  try {
+    const raw = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+    return raw.lastScanTimestamp ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function computeGraphStatus(lastScanTimestamp: string | null): {
+  status: 'ok' | 'stale';
+  staleness: string;
+} {
+  if (!lastScanTimestamp) return { status: 'ok', staleness: 'unknown' };
+  const ageMs = Date.now() - new Date(lastScanTimestamp).getTime();
+  const status: 'ok' | 'stale' = ageMs > 24 * 60 * 60 * 1000 ? 'stale' : 'ok';
+  return { status, staleness: formatStaleness(lastScanTimestamp) };
+}
+
 export async function getGraphResource(projectRoot: string): Promise<string> {
   const store = await loadGraphStore(projectRoot);
 
@@ -30,48 +58,15 @@ export async function getGraphResource(projectRoot: string): Promise<string> {
     });
   }
 
-  const graphDir = path.join(projectRoot, '.harness', 'graph');
-  const metadataPath = path.join(graphDir, 'metadata.json');
-  let lastScanTimestamp: string | null = null;
-
-  try {
-    const raw = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
-    lastScanTimestamp = raw.lastScanTimestamp ?? null;
-  } catch {
-    // Ignore missing or malformed metadata
-  }
-
-  const allNodes = store.findNodes({});
-  const allEdges = store.getEdges({});
-
-  const nodesByType: Record<string, number> = {};
-  for (const node of allNodes) {
-    nodesByType[node.type] = (nodesByType[node.type] ?? 0) + 1;
-  }
-
-  const edgesByType: Record<string, number> = {};
-  for (const edge of allEdges) {
-    edgesByType[edge.type] = (edgesByType[edge.type] ?? 0) + 1;
-  }
-
-  let status: 'ok' | 'stale' = 'ok';
-  let staleness = 'unknown';
-
-  if (lastScanTimestamp) {
-    const ageMs = Date.now() - new Date(lastScanTimestamp).getTime();
-    const twentyFourHoursMs = 24 * 60 * 60 * 1000;
-    if (ageMs > twentyFourHoursMs) {
-      status = 'stale';
-    }
-    staleness = formatStaleness(lastScanTimestamp);
-  }
+  const lastScanTimestamp = await readLastScanTimestamp(projectRoot);
+  const { status, staleness } = computeGraphStatus(lastScanTimestamp);
 
   return JSON.stringify({
     status,
     nodeCount: store.nodeCount,
     edgeCount: store.edgeCount,
-    nodesByType,
-    edgesByType,
+    nodesByType: countByType(store.findNodes({})),
+    edgesByType: countByType(store.getEdges({})),
     lastScanTimestamp,
     staleness,
   });

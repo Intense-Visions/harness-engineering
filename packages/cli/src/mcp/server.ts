@@ -384,75 +384,93 @@ async function appendUpdateNotification(
   }
 }
 
+function buildFilteredTools(toolFilter?: string[]): {
+  definitions: ToolDefinition[];
+  handlers: Record<string, ToolHandler>;
+} {
+  if (!toolFilter) {
+    return { definitions: TOOL_DEFINITIONS, handlers: TOOL_HANDLERS };
+  }
+  return {
+    definitions: TOOL_DEFINITIONS.filter((t) => toolFilter.includes(t.name)),
+    handlers: Object.fromEntries(
+      Object.entries(TOOL_HANDLERS).filter(([name]) => toolFilter.includes(name))
+    ),
+  };
+}
+
+async function dispatchTool(
+  guardedHandlers: Record<string, ToolHandler>,
+  name: string,
+  args: Record<string, unknown> | undefined,
+  resolvedRoot: string,
+  sessionChecked: { value: boolean }
+): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+  const handler = guardedHandlers[name];
+  if (!handler) {
+    return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
+  }
+  const result = await handler(args ?? {});
+  if (!sessionChecked.value) {
+    sessionChecked.value = true;
+    await appendUpdateNotification(result, resolvedRoot);
+  }
+  return result;
+}
+
+async function handleReadResource(
+  uri: string,
+  resolvedRoot: string
+): Promise<{ contents: Array<{ uri: string; text: string; mimeType: string }> }> {
+  const handler = RESOURCE_HANDLERS[uri];
+  if (!handler) {
+    throw new Error(`Unknown resource: ${uri}`);
+  }
+  const content = await handler(resolvedRoot);
+  const mimeType = RESOURCE_DEFINITIONS.find((r) => r.uri === uri)?.mimeType ?? 'text/plain';
+  return { contents: [{ uri, text: content, mimeType }] };
+}
+
 export function createHarnessServer(projectRoot?: string, toolFilter?: string[]): Server {
   const resolvedRoot = projectRoot ?? process.cwd();
-  let sessionChecked = false;
+  const { definitions, handlers } = buildFilteredTools(toolFilter);
 
-  const filteredDefinitions = toolFilter
-    ? TOOL_DEFINITIONS.filter((t) => toolFilter.includes(t.name))
-    : TOOL_DEFINITIONS;
-
-  const filteredHandlers = toolFilter
-    ? Object.fromEntries(
-        Object.entries(TOOL_HANDLERS).filter(([name]) => toolFilter.includes(name))
-      )
-    : TOOL_HANDLERS;
+  // Build set of tools whose output is trusted internal content (skill docs,
+  // state, validation results). New tools are scanned by default — they must
+  // explicitly set trustedOutput: true to skip output scanning.
+  const trustedOutputTools = new Set(
+    definitions.filter((t) => t.trustedOutput === true).map((t) => t.name)
+  );
+  const guardedHandlers = applyInjectionGuard(handlers, {
+    projectRoot: resolvedRoot,
+    trustedOutputTools,
+  });
 
   const server = new Server(
     { name: 'harness-engineering', version: '0.1.0' },
     { capabilities: { tools: {}, resources: {} } }
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: filteredDefinitions,
-  }));
+  const sessionChecked = { value: false };
 
-  // Build set of tools whose output is trusted internal content (skill docs,
-  // state, validation results). New tools are scanned by default — they must
-  // explicitly set trustedOutput: true to skip output scanning.
-  const trustedOutputTools = new Set(
-    filteredDefinitions.filter((t) => t.trustedOutput === true).map((t) => t.name)
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: definitions }));
+  server.setRequestHandler(
+    CallToolRequestSchema,
+    async (request) =>
+      dispatchTool(
+        guardedHandlers,
+        request.params.name,
+        request.params.arguments,
+        resolvedRoot,
+        sessionChecked
+      ) as unknown as Promise<never>
   );
-  const guardedHandlers = applyInjectionGuard(filteredHandlers, {
-    projectRoot: resolvedRoot,
-    trustedOutputTools,
-  });
-
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-    const handler = guardedHandlers[name];
-    if (!handler) {
-      return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
-    }
-
-    const result = await handler(args ?? {});
-
-    // On first tool invocation per session, check for updates
-    if (!sessionChecked) {
-      sessionChecked = true;
-      await appendUpdateNotification(result, resolvedRoot);
-    }
-
-    return result as unknown as Promise<never>;
-  });
-
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: RESOURCE_DEFINITIONS,
   }));
-
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const uri = request.params.uri;
-    const handler = RESOURCE_HANDLERS[uri];
-    if (!handler) {
-      throw new Error(`Unknown resource: ${uri}`);
-    }
-    const content = await handler(resolvedRoot);
-    const resourceDef = RESOURCE_DEFINITIONS.find((r) => r.uri === uri);
-    const mimeType = resourceDef?.mimeType ?? 'text/plain';
-    return {
-      contents: [{ uri, text: content, mimeType }],
-    };
-  });
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
+    handleReadResource(request.params.uri, resolvedRoot)
+  );
 
   return server;
 }

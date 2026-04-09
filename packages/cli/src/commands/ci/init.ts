@@ -129,44 +129,53 @@ function detectPlatform(): CIPlatform | null {
   return null;
 }
 
+function writeGeneratedConfig(filename: string, content: string, platform: CIPlatform): void {
+  const targetPath = path.resolve(filename);
+  const dir = path.dirname(targetPath);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(targetPath, content);
+  if (platform === 'generic' && process.platform !== 'win32') {
+    fs.chmodSync(targetPath, '755');
+  }
+}
+
+async function runInitAction(
+  opts: { platform?: string; checks?: string },
+  globalOpts: { json?: boolean }
+): Promise<void> {
+  const platform: CIPlatform =
+    (opts.platform as CIPlatform | undefined) ?? detectPlatform() ?? 'generic';
+
+  const checks = opts.checks
+    ? (opts.checks.split(',').map((s: string) => s.trim()) as CICheckName[])
+    : undefined;
+
+  const configOpts: Parameters<typeof generateCIConfig>[0] = { platform };
+  if (checks) configOpts.checks = checks;
+  const result = generateCIConfig(configOpts);
+
+  if (!result.ok) {
+    logger.error(result.error.message);
+    process.exit(result.error.exitCode);
+  }
+
+  const { filename, content } = result.value;
+  writeGeneratedConfig(filename, content, platform);
+
+  if (globalOpts.json) {
+    console.log(JSON.stringify({ file: filename, platform }));
+  } else {
+    logger.success(`Generated ${filename} for ${platform}`);
+    logger.dim("Run 'harness ci check' to test locally");
+  }
+}
+
 export function createInitCommand(): Command {
   return new Command('init')
     .description('Generate CI configuration for harness checks')
     .option('--platform <platform>', 'CI platform: github, gitlab, or generic')
     .option('--checks <list>', 'Comma-separated list of checks to include')
     .action(async (opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const platform: CIPlatform = opts.platform ?? detectPlatform() ?? 'generic';
-
-      const checks = opts.checks
-        ? (opts.checks.split(',').map((s: string) => s.trim()) as CICheckName[])
-        : undefined;
-
-      const opts2: Parameters<typeof generateCIConfig>[0] = { platform };
-      if (checks) opts2.checks = checks;
-      const result = generateCIConfig(opts2);
-
-      if (!result.ok) {
-        logger.error(result.error.message);
-        process.exit(result.error.exitCode);
-      }
-
-      const { filename, content } = result.value;
-      const targetPath = path.resolve(filename);
-      const dir = path.dirname(targetPath);
-
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(targetPath, content);
-
-      if (platform === 'generic' && process.platform !== 'win32') {
-        fs.chmodSync(targetPath, '755');
-      }
-
-      if (globalOpts.json) {
-        console.log(JSON.stringify({ file: filename, platform }));
-      } else {
-        logger.success(`Generated ${filename} for ${platform}`);
-        logger.dim("Run 'harness ci check' to test locally");
-      }
+      await runInitAction(opts, cmd.optsWithGlobals());
     });
 }

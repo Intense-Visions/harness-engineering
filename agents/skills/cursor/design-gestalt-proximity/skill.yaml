@@ -1,0 +1,34 @@
+name: design-gestalt-proximity
+version: "1.0.0"
+description: Spatial grouping — elements near each other perceived as related, controlling group membership through distance, common region as proximity amplifier
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-gestalt-similarity
+  - design-whitespace
+  - design-form-ux
+stack_signals: []
+keywords:
+  - gestalt
+  - proximity
+  - spatial-grouping
+  - common-region
+  - distance
+  - grouping
+  - related-elements
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

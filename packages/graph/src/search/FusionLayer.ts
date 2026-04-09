@@ -86,41 +86,57 @@ export class FusionLayer {
     }
 
     const allNodes = this.store.findNodes({});
+    const semanticScores = this.buildSemanticScores(queryEmbedding, allNodes.length);
+    const { kwWeight, semWeight } = this.resolveWeights(semanticScores.size > 0);
+    const results = this.scoreNodes(allNodes, keywords, semanticScores, kwWeight, semWeight);
 
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, topK);
+  }
+
+  private buildSemanticScores(
+    queryEmbedding: readonly number[] | undefined,
+    nodeCount: number
+  ): Map<string, number> {
     const semanticScores = new Map<string, number>();
     if (queryEmbedding && this.vectorStore) {
-      const vectorResults = this.vectorStore.search(queryEmbedding, allNodes.length);
+      const vectorResults = this.vectorStore.search(queryEmbedding, nodeCount);
       for (const vr of vectorResults) {
         semanticScores.set(vr.id, vr.score);
       }
     }
+    return semanticScores;
+  }
 
-    const hasSemanticScores = semanticScores.size > 0;
-    const kwWeight = hasSemanticScores ? this.keywordWeight : 1.0;
-    const semWeight = hasSemanticScores ? this.semanticWeight : 0.0;
+  private resolveWeights(hasSemanticScores: boolean): { kwWeight: number; semWeight: number } {
+    return {
+      kwWeight: hasSemanticScores ? this.keywordWeight : 1.0,
+      semWeight: hasSemanticScores ? this.semanticWeight : 0.0,
+    };
+  }
 
+  private scoreNodes(
+    allNodes: GraphNode[],
+    keywords: string[],
+    semanticScores: Map<string, number>,
+    kwWeight: number,
+    semWeight: number
+  ): FusionResult[] {
     const results: FusionResult[] = [];
-
     for (const node of allNodes) {
       const kwScore = this.keywordScore(keywords, node);
       const semScore = semanticScores.get(node.id) ?? 0;
       const fusedScore = kwWeight * kwScore + semWeight * semScore;
-
       if (fusedScore > 0) {
         results.push({
           nodeId: node.id,
           node,
           score: fusedScore,
-          signals: {
-            keyword: kwScore,
-            semantic: semScore,
-          },
+          signals: { keyword: kwScore, semantic: semScore },
         });
       }
     }
-
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, topK);
+    return results;
   }
 
   private extractKeywords(query: string): string[] {

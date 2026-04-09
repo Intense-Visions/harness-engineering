@@ -12,6 +12,7 @@ import type { HealthSnapshot } from '../skill/health-snapshot';
 import { recommend } from '../skill/recommendation-engine';
 import type { RecommendationResult, Recommendation } from '../skill/recommendation-types';
 import { loadOrRebuildIndex } from '../skill/index-builder';
+import type { SkillAddress } from '../skill/schema';
 import chalk from 'chalk';
 
 // ---------------------------------------------------------------------------
@@ -24,40 +25,39 @@ export interface RecommendOptions {
   top?: number;
 }
 
-export async function runRecommend(options: RecommendOptions): Promise<RecommendationResult> {
-  const cwd = options.cwd ?? process.cwd();
-  const top = options.top ?? 5;
-
-  // Resolve snapshot: use cache unless --no-cache or stale
-  let snapshot: HealthSnapshot | null = null;
-  let usedCache = false;
-
-  if (!options.noCache) {
+async function resolveSnapshot(
+  cwd: string,
+  noCache: boolean | undefined
+): Promise<{ snapshot: HealthSnapshot; usedCache: boolean }> {
+  if (!noCache) {
     const cached = loadCachedSnapshot(cwd);
     if (cached && isSnapshotFresh(cached, cwd)) {
-      snapshot = cached;
-      usedCache = true;
+      return { snapshot: cached, usedCache: true };
     }
   }
+  return { snapshot: await captureHealthSnapshot(cwd), usedCache: false };
+}
 
-  if (!snapshot) {
-    snapshot = await captureHealthSnapshot(cwd);
-  }
-
-  // Load skill index for address data
+function buildSkillsRecord(
+  cwd: string
+): Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> {
   const configResult = resolveConfig();
   const tierOverrides = configResult.ok ? configResult.value.skills?.tierOverrides : undefined;
   const index = loadOrRebuildIndex('claude-code', cwd, tierOverrides);
 
-  // Build skills record from index (addresses + dependsOn)
-  const skills: Record<
-    string,
-    { addresses: (typeof index.skills)[string]['addresses']; dependsOn: string[] }
-  > = {};
+  const skills: Record<string, { addresses: SkillAddress[]; dependsOn: string[] }> = {};
   for (const [name, entry] of Object.entries(index.skills)) {
     skills[name] = { addresses: entry.addresses, dependsOn: entry.dependsOn };
   }
+  return skills;
+}
 
+export async function runRecommend(options: RecommendOptions): Promise<RecommendationResult> {
+  const cwd = options.cwd ?? process.cwd();
+  const top = options.top ?? 5;
+
+  const { snapshot, usedCache } = await resolveSnapshot(cwd, options.noCache);
+  const skills = buildSkillsRecord(cwd);
   const result = recommend(snapshot, skills, { top });
 
   return {

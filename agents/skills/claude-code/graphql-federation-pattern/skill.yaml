@@ -1,0 +1,41 @@
+name: graphql-federation-pattern
+version: '1.0.0'
+description: Compose a unified GraphQL API from independently deployed subgraph services
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/*.gql'
+  - '**/schema/**'
+  - '**/subgraph/**'
+related_skills:
+  - graphql-schema-design
+  - graphql-resolver-pattern
+  - graphql-apollo-server
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - federation
+  - subgraph
+  - gateway
+  - entities
+  - extend
+  - key-directive
+metadata:
+  author: community
+  upstream: apollographql.com/docs/federation
+state:
+  persistent: false
+  files: []
+depends_on: []

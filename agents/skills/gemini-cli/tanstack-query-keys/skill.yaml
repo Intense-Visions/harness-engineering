@@ -1,0 +1,42 @@
+name: tanstack-query-keys
+version: "1.0.0"
+description: Query key factories, key hierarchies, colocated keys, and invalidation scope
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/queries/**"
+  - "**/queryClient.ts"
+  - "**/query-client.ts"
+  - "**/*query*.ts"
+related_skills:
+  - tanstack-query-invalidation
+  - tanstack-cache-management
+  - tanstack-mutation-patterns
+  - react-hooks-pattern
+stack_signals:
+  - tanstack-query
+  - react
+  - typescript
+keywords:
+  - query-keys
+  - key-factory
+  - key-hierarchy
+  - invalidation
+  - cache-key
+  - colocated-keys
+metadata:
+  author: community
+  upstream: https://tanstack.com/query/latest/docs/framework/react/guides/query-keys
+state:
+  persistent: false
+  files: []
+depends_on: []

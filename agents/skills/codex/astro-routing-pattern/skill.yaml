@@ -1,0 +1,43 @@
+name: astro-routing-pattern
+version: '1.0.0'
+description: Implement file-based routing, dynamic routes, and getStaticPaths for static and server-rendered pages
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+related_skills:
+  - astro-component-pattern
+  - astro-ssr-hybrid
+  - astro-server-endpoints
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - file-based-routing
+  - dynamic-routes
+  - getStaticPaths
+  - params
+  - rest-routes
+  - route-priority
+  - pagination
+  - redirect
+  - 404-page
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/guides/routing'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,37 @@
+name: ts-performance-patterns
+version: "1.0.0"
+description: Reduce TypeScript compilation time and type complexity with targeted optimizations
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-config-patterns
+  - ts-generics-pattern
+stack_signals:
+  - typescript
+keywords:
+  - type-instantiation
+  - skipLibCheck
+  - isolatedModules
+  - type-complexity
+  - compilation-performance
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/performance.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,39 @@
+name: resilience-circuit-breaker
+version: '1.0.0'
+description: Protect services from cascading failures with the circuit breaker pattern
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/services/**'
+  - '**/clients/**'
+  - '**/http/**'
+  - '**/api/**'
+related_skills:
+  - resilience-retry-pattern
+  - resilience-fallback-pattern
+  - resilience-timeout-pattern
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - circuit-breaker
+  - cascading-failure
+  - half-open
+  - opossum
+  - fault-tolerance
+metadata:
+  author: community
+  upstream: 'microsoft/patterns/circuit-breaker'
+state:
+  persistent: false
+  files: []
+depends_on: []

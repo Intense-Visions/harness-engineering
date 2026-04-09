@@ -157,6 +157,30 @@ export function applyHotspotDowngrade(
 }
 
 /**
+ * Merge a group of findings that share the same file+line into a single result entry.
+ */
+function mergeGroup(group: CleanupFinding[]): CleanupFinding[] {
+  if (group.length === 1) return [group[0]!];
+
+  const deadCode = group.find((f) => f.concern === 'dead-code');
+  const arch = group.find((f) => f.concern === 'architecture');
+
+  if (deadCode && arch) {
+    return [
+      {
+        ...deadCode,
+        description: `${deadCode.description} (also violates architecture: ${arch.type})`,
+        suggestion: deadCode.fixAction
+          ? `${deadCode.fixAction} (resolves both dead code and architecture violation)`
+          : deadCode.suggestion,
+      },
+    ];
+  }
+
+  return group;
+}
+
+/**
  * Deduplicate cross-concern findings (e.g., dead import + forbidden import on same line)
  */
 export function deduplicateCleanupFindings(findings: CleanupFinding[]): CleanupFinding[] {
@@ -170,29 +194,8 @@ export function deduplicateCleanupFindings(findings: CleanupFinding[]): CleanupF
   }
 
   const result: CleanupFinding[] = [];
-
   for (const group of byFileAndLine.values()) {
-    if (group.length === 1) {
-      result.push(group[0]!);
-      continue;
-    }
-
-    // Check for dead-code + architecture overlap
-    const deadCode = group.find((f) => f.concern === 'dead-code');
-    const arch = group.find((f) => f.concern === 'architecture');
-
-    if (deadCode && arch) {
-      // Merge: dead code fix resolves both
-      result.push({
-        ...deadCode,
-        description: `${deadCode.description} (also violates architecture: ${arch.type})`,
-        suggestion: deadCode.fixAction
-          ? `${deadCode.fixAction} (resolves both dead code and architecture violation)`
-          : deadCode.suggestion,
-      });
-    } else {
-      result.push(...group);
-    }
+    result.push(...mergeGroup(group));
   }
 
   return result;

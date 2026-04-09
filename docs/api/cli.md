@@ -2,7 +2,7 @@
 
 CLI for the Harness Engineering toolkit. Provides the `harness` command with subcommands for validation, initialization, skill management, persona execution, graph operations, and more.
 
-**Version:** 1.23.1
+**Version:** 1.24.0
 
 ## Installation
 
@@ -86,14 +86,50 @@ The `harness` binary supports these global options:
 
 #### Skills and Personas
 
-| Command                | Description                                                 |
-| ---------------------- | ----------------------------------------------------------- |
-| `harness skill`        | Skill management commands                                   |
-| `harness create-skill` | Scaffold a new skill with skill.yaml and SKILL.md           |
-| `harness install`      | Install a community skill from the @harness-skills registry |
-| `harness uninstall`    | Uninstall a community skill                                 |
-| `harness persona`      | Agent persona management commands                           |
-| `harness recommend`    | Recommend skills based on codebase health analysis          |
+| Command                | Description                                                             |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `harness skill`        | Skill management commands                                               |
+| `harness create-skill` | Scaffold a new skill with skill.yaml and SKILL.md                       |
+| `harness install`      | Install skills from npm registry, local directory, or GitHub repository |
+| `harness uninstall`    | Uninstall a community skill                                             |
+| `harness persona`      | Agent persona management commands                                       |
+| `harness recommend`    | Recommend skills based on codebase health analysis                      |
+
+#### `harness install` — Skill Installation
+
+Install skills from multiple sources:
+
+```bash
+# Install from npm registry
+harness install capillary-ui
+
+# Install a single skill from a local directory
+harness install my-skill --from ./path/to/skill
+
+# Install all skills from a directory (auto-discovers skill.yaml files)
+harness install . --from /path/to/harness-capillary/skills
+
+# Install from a GitHub repository (shallow clone, discovers all skills)
+harness install . --from github:owner/repo
+harness install . --from github:owner/repo#branch
+harness install . --from https://github.com/owner/repo
+
+# Install globally — available to ALL harness projects on this machine
+harness install . --from github:owner/repo --global
+harness install . --from /path/to/project/skills --global
+```
+
+**Global installs** place skills in `~/.harness/skills/community/` and are automatically discovered by every harness project.
+
+**Bulk install** is triggered automatically when `--from` points to a directory that has no `skill.yaml` at its root — the command recursively discovers all `skill.yaml` files up to 3 levels deep and installs each one.
+
+| Option              | Description                                              |
+| ------------------- | -------------------------------------------------------- |
+| `--from <source>`   | Local path, directory, `.tgz`, or GitHub ref             |
+| `--global`          | Install to `~/.harness/skills/community/` (all projects) |
+| `--version <range>` | Semver range for npm installs                            |
+| `--force`           | Reinstall even if same version is already installed      |
+| `--registry <url>`  | Custom npm registry                                      |
 
 #### Constraints
 
@@ -185,6 +221,8 @@ Generates the file scaffolding for a new skill.
 ### `generateSlashCommands(options)`
 
 Generates slash command definition files from skill metadata.
+
+`--skills-dir <path>` is **additive**: it adds the specified directory as an extra skill source alongside project and community skills — it does not replace them.
 
 **Types:** `GenerateResult`, `SkillSource`
 

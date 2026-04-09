@@ -27,6 +27,11 @@ stack_signals:
   - "charts/"
   - ".dockerignore"
   - "skaffold.yaml"
+paths:
+  - 'Dockerfile'
+  - 'docker-compose*.yml'
+  - 'docker-compose*.yaml'
+  - '.dockerignore'
 triggers:
   - manual
   - on_pr
@@ -34,6 +39,8 @@ triggers:
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read

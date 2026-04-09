@@ -1,0 +1,40 @@
+name: css-tailwind-pattern
+version: '1.0.0'
+description: Apply Tailwind CSS utility-first patterns for consistent, maintainable styling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'tailwind.config.*'
+  - '**/*.css'
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - css-component-variants
+  - css-responsive-design
+  - css-dark-mode
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - tailwind
+  - utility-first
+  - utility-classes
+  - styling
+  - className
+metadata:
+  author: community
+  upstream: 'tailwindcss/docs'
+state:
+  persistent: false
+  files: []
+depends_on: []

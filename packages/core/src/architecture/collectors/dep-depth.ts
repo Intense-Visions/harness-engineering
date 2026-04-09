@@ -28,35 +28,36 @@ function extractImportSources(content: string, filePath: string): string[] {
   return sources;
 }
 
-async function collectTsFiles(dir: string): Promise<string[]> {
-  const results: string[] = [];
+function isSkippedEntry(name: string): boolean {
+  return name.startsWith('.') || name === 'node_modules' || name === 'dist';
+}
 
-  async function scan(d: string): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist')
-        continue;
-      const fullPath = join(d, entry.name);
-      if (entry.isDirectory()) {
-        await scan(fullPath);
-      } else if (
-        entry.isFile() &&
-        (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
-        !entry.name.endsWith('.test.ts') &&
-        !entry.name.endsWith('.test.tsx') &&
-        !entry.name.endsWith('.spec.ts')
-      ) {
-        results.push(fullPath);
-      }
+function isTsSourceFile(name: string): boolean {
+  if (!name.endsWith('.ts') && !name.endsWith('.tsx')) return false;
+  return !name.endsWith('.test.ts') && !name.endsWith('.test.tsx') && !name.endsWith('.spec.ts');
+}
+
+async function scanDir(d: string, results: string[]): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(d, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (isSkippedEntry(entry.name)) continue;
+    const fullPath = join(d, entry.name);
+    if (entry.isDirectory()) {
+      await scanDir(fullPath, results);
+    } else if (entry.isFile() && isTsSourceFile(entry.name)) {
+      results.push(fullPath);
     }
   }
+}
 
-  await scan(dir);
+async function collectTsFiles(dir: string): Promise<string[]> {
+  const results: string[] = [];
+  await scanDir(dir, results);
   return results;
 }
 
@@ -106,32 +107,38 @@ export class DepDepthCollector implements Collector {
     ];
   }
 
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const allFiles = await collectTsFiles(rootDir);
-
-    // Build import graph
+  private async buildImportGraph(allFiles: string[]): Promise<Map<string, string[]>> {
     const graph = new Map<string, string[]>();
     const fileSet = new Set(allFiles);
-
     for (const file of allFiles) {
       try {
         const content = await readFile(file, 'utf-8');
-        const imports = extractImportSources(content, file).filter((imp) => fileSet.has(imp));
-        graph.set(file, imports);
+        graph.set(
+          file,
+          extractImportSources(content, file).filter((imp) => fileSet.has(imp))
+        );
       } catch {
         graph.set(file, []);
       }
     }
+    return graph;
+  }
 
-    // Group files by module directory
+  private buildModuleMap(allFiles: string[], rootDir: string): Map<string, string[]> {
     const moduleMap = new Map<string, string[]>();
     for (const file of allFiles) {
       const relDir = relativePosix(rootDir, dirname(file));
       if (!moduleMap.has(relDir)) moduleMap.set(relDir, []);
       moduleMap.get(relDir)!.push(file);
     }
+    return moduleMap;
+  }
 
-    // Compute longest chain per module
+  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const allFiles = await collectTsFiles(rootDir);
+    const graph = await this.buildImportGraph(allFiles);
+    const moduleMap = this.buildModuleMap(allFiles, rootDir);
+
     const memo = new Map<string, number>();
     const threshold =
       typeof config.thresholds['dependency-depth'] === 'number'
@@ -141,12 +148,9 @@ export class DepDepthCollector implements Collector {
     const results: MetricResult[] = [];
 
     for (const [modulePath, files] of moduleMap) {
-      let longestChain = 0;
-
-      for (const file of files) {
-        const depth = computeLongestChain(file, graph, new Set(), memo);
-        if (depth > longestChain) longestChain = depth;
-      }
+      const longestChain = files.reduce((max, file) => {
+        return Math.max(max, computeLongestChain(file, graph, new Set(), memo));
+      }, 0);
 
       const violations: Violation[] = [];
       if (longestChain > threshold) {

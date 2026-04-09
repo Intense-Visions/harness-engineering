@@ -3,6 +3,39 @@ import * as path from 'node:path';
 import type { UsageRecord } from '@harness-engineering/types';
 
 /**
+ * Extract and validate token_usage from a parsed JSONL entry.
+ * Returns null if missing or malformed.
+ */
+function extractTokenUsage(
+  entry: Record<string, unknown>,
+  lineNumber: number
+): Record<string, number> | null {
+  const tokenUsage = entry.token_usage as Record<string, number> | null | undefined;
+  if (!tokenUsage || typeof tokenUsage !== 'object') {
+    console.warn(
+      `[harness usage] Skipping malformed JSONL line ${lineNumber}: missing token_usage`
+    );
+    return null;
+  }
+  return tokenUsage;
+}
+
+/**
+ * Assign optional cache and model fields to a UsageRecord in-place.
+ */
+function applyOptionalFields(record: UsageRecord, entry: Record<string, unknown>): void {
+  if (entry.cache_creation_tokens != null) {
+    record.cacheCreationTokens = entry.cache_creation_tokens as number;
+  }
+  if (entry.cache_read_tokens != null) {
+    record.cacheReadTokens = entry.cache_read_tokens as number;
+  }
+  if (entry.model != null) {
+    record.model = entry.model as string;
+  }
+}
+
+/**
  * Parses a single JSONL line into a UsageRecord, normalizing snake_case fields.
  * Returns null if the line is malformed or missing required fields.
  */
@@ -15,13 +48,8 @@ function parseLine(line: string, lineNumber: number): UsageRecord | null {
     return null;
   }
 
-  const tokenUsage = entry.token_usage as Record<string, number> | null | undefined;
-  if (!tokenUsage || typeof tokenUsage !== 'object') {
-    console.warn(
-      `[harness usage] Skipping malformed JSONL line ${lineNumber}: missing token_usage`
-    );
-    return null;
-  }
+  const tokenUsage = extractTokenUsage(entry, lineNumber);
+  if (!tokenUsage) return null;
 
   const inputTokens = tokenUsage.input_tokens ?? 0;
   const outputTokens = tokenUsage.output_tokens ?? 0;
@@ -36,15 +64,7 @@ function parseLine(line: string, lineNumber: number): UsageRecord | null {
     },
   };
 
-  if (entry.cache_creation_tokens != null) {
-    record.cacheCreationTokens = entry.cache_creation_tokens as number;
-  }
-  if (entry.cache_read_tokens != null) {
-    record.cacheReadTokens = entry.cache_read_tokens as number;
-  }
-  if (entry.model != null) {
-    record.model = entry.model as string;
-  }
+  applyOptionalFields(record, entry);
 
   return record;
 }

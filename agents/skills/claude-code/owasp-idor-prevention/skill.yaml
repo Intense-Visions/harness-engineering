@@ -1,0 +1,42 @@
+name: owasp-idor-prevention
+version: "1.0.0"
+description: Prevent insecure direct object references by enforcing ownership checks and indirect reference maps
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/auth/**"
+  - "**/security/**"
+  - "**/middleware/**"
+  - "**/guards/**"
+related_skills:
+  - nestjs-guards-pattern
+  - owasp-auth-patterns
+  - ts-type-guards
+stack_signals:
+  - nodejs
+  - typescript
+  - security
+keywords:
+  - idor
+  - insecure-direct-object-reference
+  - authorization
+  - object-level-auth
+  - resource-ownership
+  - bola
+  - owasp
+metadata:
+  author: community
+  upstream: "owasp.org/www-project-top-ten/"
+state:
+  persistent: false
+  files: []
+depends_on: []

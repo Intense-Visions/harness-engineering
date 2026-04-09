@@ -66,63 +66,72 @@ function parseFailOn(failOn?: string): CIFailOnSeverity {
   return 'error';
 }
 
+function checkLogFn(status: string): (msg: string) => void {
+  if (status === 'pass') return logger.success;
+  if (status === 'fail') return logger.error;
+  if (status === 'warn') return logger.warn;
+  return logger.dim;
+}
+
+function printCheckReport(report: CICheckReport): void {
+  for (const check of report.checks) {
+    checkLogFn(check.status)(`${check.name}: ${check.status} (${check.durationMs}ms)`);
+    for (const issue of check.issues) {
+      const prefix = issue.severity === 'error' ? '  x' : '  !';
+      console.log(`${prefix} ${issue.message}${issue.file ? ` (${issue.file})` : ''}`);
+    }
+  }
+  console.log('');
+  if (report.exitCode === 0) {
+    logger.success(`All checks passed (${report.summary.passed}/${report.summary.total})`);
+  } else {
+    logger.error(
+      `${report.summary.failed} failed, ${report.summary.warnings} warnings, ${report.summary.passed} passed`
+    );
+  }
+}
+
+async function runCheckAction(
+  opts: { skip?: string; failOn?: string },
+  globalOpts: Record<string, unknown>
+): Promise<void> {
+  const mode = resolveOutputMode(globalOpts);
+  const skip = parseSkip(opts.skip);
+  const failOn = parseFailOn(opts.failOn);
+
+  const opts2: { configPath?: string; skip?: CICheckName[]; failOn?: CIFailOnSeverity } = {
+    skip,
+    failOn,
+  };
+  if (typeof globalOpts.config === 'string') opts2.configPath = globalOpts.config;
+  const result = await runCICheck(opts2);
+
+  if (!result.ok) {
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: result.error.message }));
+    } else {
+      logger.error(result.error.message);
+    }
+    process.exit(ExitCode.ERROR);
+  }
+
+  const report = result.value;
+
+  if (mode === OutputMode.JSON) {
+    console.log(JSON.stringify(report, null, 2));
+  } else if (mode !== OutputMode.QUIET) {
+    printCheckReport(report);
+  }
+
+  process.exit(report.exitCode);
+}
+
 export function createCheckCommand(): Command {
   return new Command('check')
     .description('Run all harness checks for CI (validate, deps, docs, entropy, phase-gate, arch)')
     .option('--skip <checks>', 'Comma-separated checks to skip (e.g., entropy,docs)')
     .option('--fail-on <severity>', 'Fail on severity level: error (default) or warning', 'error')
     .action(async (opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const mode = resolveOutputMode(globalOpts);
-
-      const skip = parseSkip(opts.skip);
-      const failOn = parseFailOn(opts.failOn);
-
-      const result = await runCICheck({
-        configPath: globalOpts.config,
-        skip,
-        failOn,
-      });
-
-      if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
-        process.exit(ExitCode.ERROR);
-      }
-
-      const report = result.value;
-
-      if (mode === OutputMode.JSON) {
-        console.log(JSON.stringify(report, null, 2));
-      } else if (mode !== OutputMode.QUIET) {
-        for (const check of report.checks) {
-          const logFn =
-            check.status === 'pass'
-              ? logger.success
-              : check.status === 'fail'
-                ? logger.error
-                : check.status === 'warn'
-                  ? logger.warn
-                  : logger.dim;
-          logFn(`${check.name}: ${check.status} (${check.durationMs}ms)`);
-          for (const issue of check.issues) {
-            const prefix = issue.severity === 'error' ? '  x' : '  !';
-            console.log(`${prefix} ${issue.message}${issue.file ? ` (${issue.file})` : ''}`);
-          }
-        }
-        console.log('');
-        if (report.exitCode === 0) {
-          logger.success(`All checks passed (${report.summary.passed}/${report.summary.total})`);
-        } else {
-          logger.error(
-            `${report.summary.failed} failed, ${report.summary.warnings} warnings, ${report.summary.passed} passed`
-          );
-        }
-      }
-
-      process.exit(report.exitCode);
+      await runCheckAction(opts, cmd.optsWithGlobals());
     });
 }

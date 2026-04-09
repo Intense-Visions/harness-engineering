@@ -1,0 +1,34 @@
+name: vue-composables-pattern
+version: '1.0.0'
+description: Extract and reuse stateful logic across components using Vue composables
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.vue'
+related_skills:
+  - vue-reactive-refs
+  - vue-watchers-pattern
+stack_signals:
+  - vue
+  - typescript
+keywords:
+  - composables
+  - use-prefix
+  - reusable-logic
+  - composition-api
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/vue/composables-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

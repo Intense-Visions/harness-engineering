@@ -46,6 +46,37 @@ function extractConventionRules(bundle: ContextBundle): ConventionRule[] {
   return rules;
 }
 
+const EXPORT_RE = /export\s+(?:async\s+)?(?:function|const|class|interface|type)\s+(\w+)/;
+
+/**
+ * Check whether the line immediately before index `i` (ignoring blank lines) closes a JSDoc.
+ */
+function hasPrecedingJsDoc(lines: string[], i: number): boolean {
+  for (let j = i - 1; j >= 0; j--) {
+    const prev = lines[j]!.trim();
+    if (prev === '') continue;
+    return prev.endsWith('*/');
+  }
+  return false;
+}
+
+/**
+ * Scan a single file's lines for exported symbols that lack JSDoc.
+ */
+function scanFileForMissingJsDoc(
+  filePath: string,
+  lines: string[]
+): Array<{ file: string; line: number; exportName: string }> {
+  const missing: Array<{ file: string; line: number; exportName: string }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const exportMatch = lines[i]!.match(EXPORT_RE);
+    if (exportMatch && !hasPrecedingJsDoc(lines, i)) {
+      missing.push({ file: filePath, line: i + 1, exportName: exportMatch[1]! });
+    }
+  }
+  return missing;
+}
+
 /**
  * Check if a file's exported functions have JSDoc comments.
  * Returns file paths and line numbers of exports missing JSDoc.
@@ -53,39 +84,9 @@ function extractConventionRules(bundle: ContextBundle): ConventionRule[] {
 function findMissingJsDoc(
   bundle: ContextBundle
 ): Array<{ file: string; line: number; exportName: string }> {
-  const missing: Array<{ file: string; line: number; exportName: string }> = [];
-
-  for (const cf of bundle.changedFiles) {
-    const lines = cf.content.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-      // Look for export declarations
-      const exportMatch = line.match(
-        /export\s+(?:async\s+)?(?:function|const|class|interface|type)\s+(\w+)/
-      );
-      if (exportMatch) {
-        // Check if previous non-empty line is end of JSDoc comment (*/)
-        let hasJsDoc = false;
-        for (let j = i - 1; j >= 0; j--) {
-          const prev = lines[j]!.trim();
-          if (prev === '') continue;
-          if (prev.endsWith('*/')) {
-            hasJsDoc = true;
-          }
-          break;
-        }
-        if (!hasJsDoc) {
-          missing.push({
-            file: cf.path,
-            line: i + 1,
-            exportName: exportMatch[1]!,
-          });
-        }
-      }
-    }
-  }
-
-  return missing;
+  return bundle.changedFiles.flatMap((cf) =>
+    scanFileForMissingJsDoc(cf.path, cf.content.split('\n'))
+  );
 }
 
 /**
@@ -183,6 +184,36 @@ function checkChangeTypeSpecific(bundle: ContextBundle): ReviewFinding[] {
 }
 
 /**
+ * Check a single changed file for try/catch usage without Result type.
+ */
+function checkFileResultTypeConvention(
+  cf: ContextBundle['changedFiles'][number],
+  bundle: ContextBundle,
+  rule: ConventionRule
+): ReviewFinding | null {
+  const hasTryCatch = cf.content.includes('try {') || cf.content.includes('try{');
+  const usesResult =
+    cf.content.includes('Result<') ||
+    cf.content.includes('Result >') ||
+    cf.content.includes(': Result');
+
+  if (!hasTryCatch || usesResult) return null;
+
+  return {
+    id: makeFindingId('compliance', cf.path, 1, 'try-catch not Result'),
+    file: cf.path,
+    lineRange: [1, cf.lines],
+    domain: 'compliance',
+    severity: 'suggestion',
+    title: 'Fallible operation uses try/catch instead of Result type',
+    rationale: `Convention requires using Result type for fallible operations (from ${rule.source}).`,
+    suggestion: 'Refactor error handling to use the Result type pattern.',
+    evidence: [`changeType: ${bundle.changeType}`, `Convention rule: "${rule.text}"`],
+    validatedBy: 'heuristic',
+  };
+}
+
+/**
  * Check for try/catch usage when conventions require Result type.
  */
 function checkResultTypeConvention(
@@ -192,30 +223,9 @@ function checkResultTypeConvention(
   const resultTypeRule = rules.find((r) => r.text.toLowerCase().includes('result type'));
   if (!resultTypeRule) return [];
 
-  const findings: ReviewFinding[] = [];
-  for (const cf of bundle.changedFiles) {
-    const hasTryCatch = cf.content.includes('try {') || cf.content.includes('try{');
-    const usesResult =
-      cf.content.includes('Result<') ||
-      cf.content.includes('Result >') ||
-      cf.content.includes(': Result');
-
-    if (hasTryCatch && !usesResult) {
-      findings.push({
-        id: makeFindingId('compliance', cf.path, 1, 'try-catch not Result'),
-        file: cf.path,
-        lineRange: [1, cf.lines],
-        domain: 'compliance',
-        severity: 'suggestion',
-        title: 'Fallible operation uses try/catch instead of Result type',
-        rationale: `Convention requires using Result type for fallible operations (from ${resultTypeRule.source}).`,
-        suggestion: 'Refactor error handling to use the Result type pattern.',
-        evidence: [`changeType: ${bundle.changeType}`, `Convention rule: "${resultTypeRule.text}"`],
-        validatedBy: 'heuristic',
-      });
-    }
-  }
-  return findings;
+  return bundle.changedFiles
+    .map((cf) => checkFileResultTypeConvention(cf, bundle, resultTypeRule))
+    .filter((f): f is ReviewFinding => f !== null);
 }
 
 export function runComplianceAgent(bundle: ContextBundle): ReviewFinding[] {

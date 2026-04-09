@@ -86,6 +86,29 @@ function collectCommunitySkills(seen: Set<string>, allSkills: SkillListEntry[]):
   return communitySkills;
 }
 
+function addUnique(
+  entries: SkillListEntry[],
+  seen: Set<string>,
+  allSkills: SkillListEntry[]
+): void {
+  for (const entry of entries) {
+    if (!seen.has(entry.name)) {
+      seen.add(entry.name);
+      allSkills.push(entry);
+    }
+  }
+}
+
+function collectLocalSkills(seen: Set<string>, allSkills: SkillListEntry[]): void {
+  const projectDir = resolveProjectSkillsDir();
+  if (projectDir) addUnique(scanDirectory(projectDir, 'local'), seen, allSkills);
+}
+
+function collectBundledSkills(seen: Set<string>, allSkills: SkillListEntry[]): void {
+  const globalDir = resolveGlobalSkillsDir();
+  addUnique(scanDirectory(globalDir, 'bundled'), seen, allSkills);
+}
+
 /**
  * Collect skills from all sources with deduplication.
  * Priority: local > community > bundled (first found wins).
@@ -94,45 +117,40 @@ export function collectSkills(opts: CollectOptions): SkillListEntry[] {
   const seen = new Set<string>();
   const allSkills: SkillListEntry[] = [];
 
-  const addUnique = (entries: SkillListEntry[]) => {
-    for (const entry of entries) {
-      if (!seen.has(entry.name)) {
-        seen.add(entry.name);
-        allSkills.push(entry);
-      }
-    }
-  };
-
-  // 1. Project-local skills
-  if (opts.filter === 'all' || opts.filter === 'local') {
-    const projectDir = resolveProjectSkillsDir();
-    if (projectDir) {
-      addUnique(scanDirectory(projectDir, 'local'));
-    }
-  }
-
-  // 2. Community-installed skills (scan directory for full metadata, enrich version from lockfile)
+  if (opts.filter === 'all' || opts.filter === 'local') collectLocalSkills(seen, allSkills);
   if (opts.filter === 'all' || opts.filter === 'installed') {
-    addUnique(collectCommunitySkills(seen, allSkills));
+    addUnique(collectCommunitySkills(seen, allSkills), seen, allSkills);
   }
+  if (opts.filter === 'all') collectBundledSkills(seen, allSkills);
 
-  // 3. Bundled/global skills
-  if (opts.filter === 'all') {
-    const globalDir = resolveGlobalSkillsDir();
-    addUnique(scanDirectory(globalDir, 'bundled'));
-  }
-
-  // For installed-only, return only community entries
-  if (opts.filter === 'installed') {
-    return allSkills.filter((s) => s.source === 'community');
-  }
-
-  // For local-only, return only local entries
-  if (opts.filter === 'local') {
-    return allSkills.filter((s) => s.source === 'local');
-  }
-
+  if (opts.filter === 'installed') return allSkills.filter((s) => s.source === 'community');
+  if (opts.filter === 'local') return allSkills.filter((s) => s.source === 'local');
   return allSkills;
+}
+
+function resolveFilter(opts: {
+  installed?: boolean;
+  local?: boolean;
+}): 'all' | 'installed' | 'local' {
+  if (opts.installed) return 'installed';
+  if (opts.local) return 'local';
+  return 'all';
+}
+
+function printSkillEntry(s: SkillListEntry): void {
+  const version = s.version ? `@${s.version}` : '';
+  console.log(`  ${s.name}${version} [${s.source}] (${s.type || 'unknown'})`);
+  if (s.description) console.log(`    ${s.description}`);
+  console.log();
+}
+
+function printSkillsVerbose(skills: SkillListEntry[]): void {
+  if (skills.length === 0) {
+    logger.info('No skills found.');
+    return;
+  }
+  console.log('Available skills:\n');
+  for (const s of skills) printSkillEntry(s);
 }
 
 export function createListCommand(): Command {
@@ -143,31 +161,14 @@ export function createListCommand(): Command {
     .option('--all', 'Show all skills (default)')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-
-      let filter: 'all' | 'installed' | 'local' = 'all';
-      if (opts.installed) filter = 'installed';
-      else if (opts.local) filter = 'local';
-
-      const skills = collectSkills({ filter });
+      const skills = collectSkills({ filter: resolveFilter(opts) });
 
       if (globalOpts.json) {
         logger.raw(skills);
       } else if (globalOpts.quiet) {
         for (const s of skills) console.log(s.name);
       } else {
-        if (skills.length === 0) {
-          logger.info('No skills found.');
-        } else {
-          console.log('Available skills:\n');
-          for (const s of skills) {
-            const version = s.version ? `@${s.version}` : '';
-            console.log(`  ${s.name}${version} [${s.source}] (${s.type || 'unknown'})`);
-            if (s.description) {
-              console.log(`    ${s.description}`);
-            }
-            console.log();
-          }
-        }
+        printSkillsVerbose(skills);
       }
       process.exit(ExitCode.SUCCESS);
     });

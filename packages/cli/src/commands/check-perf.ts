@@ -131,6 +131,52 @@ export async function runCheckPerf(
   });
 }
 
+async function runCheckPerfAction(
+  opts: { structural?: boolean; coupling?: boolean; size?: boolean },
+  globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
+): Promise<void> {
+  const mode: OutputModeType = globalOpts.json
+    ? OutputMode.JSON
+    : globalOpts.quiet
+      ? OutputMode.QUIET
+      : globalOpts.verbose
+        ? OutputMode.VERBOSE
+        : OutputMode.TEXT;
+
+  const formatter = new OutputFormatter(mode);
+
+  const result = await runCheckPerf(process.cwd(), {
+    ...(opts.structural !== undefined && { structural: opts.structural }),
+    ...(opts.coupling !== undefined && { coupling: opts.coupling }),
+    ...(opts.size !== undefined && { size: opts.size }),
+  });
+
+  if (!result.ok) {
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: result.error.message }));
+    } else {
+      logger.error(result.error.message);
+    }
+    process.exit(ExitCode.ERROR);
+  }
+
+  const issues = result.value.violations.map((v) => ({
+    file: v.file,
+    message: v.message,
+  }));
+
+  const output = formatter.formatValidation({
+    valid: result.value.valid,
+    issues,
+  });
+
+  if (output) {
+    console.log(output);
+  }
+
+  process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+}
+
 export function createCheckPerfCommand(): Command {
   const command = new Command('check-perf')
     .description('Run performance checks: structural complexity, coupling, and size budgets')
@@ -138,47 +184,7 @@ export function createCheckPerfCommand(): Command {
     .option('--coupling', 'Run coupling metric checks only')
     .option('--size', 'Run size budget checks only')
     .action(async (opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      const mode: OutputModeType = globalOpts.json
-        ? OutputMode.JSON
-        : globalOpts.quiet
-          ? OutputMode.QUIET
-          : globalOpts.verbose
-            ? OutputMode.VERBOSE
-            : OutputMode.TEXT;
-
-      const formatter = new OutputFormatter(mode);
-
-      const result = await runCheckPerf(process.cwd(), {
-        structural: opts.structural,
-        coupling: opts.coupling,
-        size: opts.size,
-      });
-
-      if (!result.ok) {
-        if (mode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
-        }
-        process.exit(ExitCode.ERROR);
-      }
-
-      const issues = result.value.violations.map((v) => ({
-        file: v.file,
-        message: v.message,
-      }));
-
-      const output = formatter.formatValidation({
-        valid: result.value.valid,
-        issues,
-      });
-
-      if (output) {
-        console.log(output);
-      }
-
-      process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+      await runCheckPerfAction(opts, cmd.optsWithGlobals());
     });
 
   return command;

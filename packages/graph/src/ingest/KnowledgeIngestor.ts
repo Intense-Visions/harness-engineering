@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { GraphStore } from '../store/GraphStore.js';
-import type { IngestResult, EdgeType } from '../types.js';
+import type { GraphNode, IngestResult, EdgeType } from '../types.js';
 import { hash, mergeResults, emptyResult } from './ingestUtils.js';
 
 const CODE_NODE_TYPES = ['file', 'function', 'class', 'method', 'interface', 'variable'] as const;
@@ -26,158 +26,68 @@ export class KnowledgeIngestor {
       try {
         const content = await fs.readFile(filePath, 'utf-8');
         const filename = path.basename(filePath, '.md');
-
-        // Extract title from first # heading
-        const titleMatch = content.match(/^#\s+(.+)$/m);
-        const title = titleMatch ? titleMatch[1]!.trim() : filename;
-
-        // Extract date and status
-        const dateMatch = content.match(/\*\*Date:\*\*\s*(.+)/);
-        const statusMatch = content.match(/\*\*Status:\*\*\s*(.+)/);
-        const date = dateMatch ? dateMatch[1]!.trim() : undefined;
-        const status = statusMatch ? statusMatch[1]!.trim() : undefined;
-
         const nodeId = `adr:${filename}`;
-        this.store.addNode({
-          id: nodeId,
-          type: 'adr',
-          name: title,
-          path: filePath,
-          metadata: { date, status },
-        });
+        this.store.addNode(parseADRNode(nodeId, filePath, filename, content));
         nodesAdded++;
-
-        // Link to code nodes
         edgesAdded += this.linkToCode(content, nodeId, 'documents');
       } catch (err) {
         errors.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
-    return {
-      nodesAdded,
-      nodesUpdated: 0,
-      edgesAdded,
-      edgesUpdated: 0,
-      errors,
-      durationMs: Date.now() - start,
-    };
+    return buildResult(nodesAdded, edgesAdded, errors, start);
   }
 
   async ingestLearnings(projectPath: string): Promise<IngestResult> {
     const start = Date.now();
     const filePath = path.join(projectPath, '.harness', 'learnings.md');
+    const content = await readFileOrEmpty(filePath);
+    if (content === null) return emptyResult(Date.now() - start);
 
-    let content: string;
-    try {
-      content = await fs.readFile(filePath, 'utf-8');
-    } catch {
-      return emptyResult(Date.now() - start);
-    }
-
-    const errors: string[] = [];
     let nodesAdded = 0;
     let edgesAdded = 0;
-
-    // Parse entries: ## headings start sections, bullets are individual learnings
-    const lines = content.split('\n');
     let currentDate: string | undefined;
 
-    for (const line of lines) {
-      // Section heading: ## date — description
+    // Parse entries: ## headings start sections, bullets are individual learnings
+    for (const line of content.split('\n')) {
       const headingMatch = line.match(/^##\s+(\S+)/);
       if (headingMatch) {
         currentDate = headingMatch[1]!;
         continue;
       }
-
-      // Bullet point: individual learning
       const bulletMatch = line.match(/^-\s+(.+)/);
       if (!bulletMatch) continue;
 
       const text = bulletMatch[1]!;
-
-      // Extract tags
-      const skillMatch = text.match(/\[skill:([^\]]+)\]/);
-      const outcomeMatch = text.match(/\[outcome:([^\]]+)\]/);
-      const skill = skillMatch ? skillMatch[1]! : undefined;
-      const outcome = outcomeMatch ? outcomeMatch[1]! : undefined;
-
       const nodeId = `learning:${hash(text)}`;
-      this.store.addNode({
-        id: nodeId,
-        type: 'learning',
-        name: text,
-        metadata: { skill, outcome, date: currentDate },
-      });
+      this.store.addNode(parseLearningNode(nodeId, text, currentDate));
       nodesAdded++;
-
-      // Link to code nodes
       edgesAdded += this.linkToCode(text, nodeId, 'applies_to');
     }
 
-    return {
-      nodesAdded,
-      nodesUpdated: 0,
-      edgesAdded,
-      edgesUpdated: 0,
-      errors,
-      durationMs: Date.now() - start,
-    };
+    return buildResult(nodesAdded, edgesAdded, [], start);
   }
 
   async ingestFailures(projectPath: string): Promise<IngestResult> {
     const start = Date.now();
     const filePath = path.join(projectPath, '.harness', 'failures.md');
+    const content = await readFileOrEmpty(filePath);
+    if (content === null) return emptyResult(Date.now() - start);
 
-    let content: string;
-    try {
-      content = await fs.readFile(filePath, 'utf-8');
-    } catch {
-      return emptyResult(Date.now() - start);
-    }
-
-    const errors: string[] = [];
     let nodesAdded = 0;
     let edgesAdded = 0;
 
     // Parse structured entries within ## sections
-    const sections = content.split(/^##\s+/m).filter((s) => s.trim());
-
-    for (const section of sections) {
-      const dateMatch = section.match(/\*\*Date:\*\*\s*(.+)/);
-      const skillMatch = section.match(/\*\*Skill:\*\*\s*(.+)/);
-      const typeMatch = section.match(/\*\*Type:\*\*\s*(.+)/);
-      const descMatch = section.match(/\*\*Description:\*\*\s*(.+)/);
-
-      const date = dateMatch ? dateMatch[1]!.trim() : undefined;
-      const skill = skillMatch ? skillMatch[1]!.trim() : undefined;
-      const failureType = typeMatch ? typeMatch[1]!.trim() : undefined;
-      const description = descMatch ? descMatch[1]!.trim() : undefined;
-
-      if (!description) continue;
-
-      const nodeId = `failure:${hash(description)}`;
-      this.store.addNode({
-        id: nodeId,
-        type: 'failure',
-        name: description,
-        metadata: { date, skill, type: failureType },
-      });
+    for (const section of content.split(/^##\s+/m).filter((s) => s.trim())) {
+      const parsed = parseFailureSection(section);
+      if (!parsed) continue;
+      const { description, node } = parsed;
+      this.store.addNode(node);
       nodesAdded++;
-
-      // Link to code nodes
-      edgesAdded += this.linkToCode(description, nodeId, 'caused_by');
+      edgesAdded += this.linkToCode(description, node.id, 'caused_by');
     }
 
-    return {
-      nodesAdded,
-      nodesUpdated: 0,
-      edgesAdded,
-      edgesUpdated: 0,
-      errors,
-      durationMs: Date.now() - start,
-    };
+    return buildResult(nodesAdded, edgesAdded, [], start);
   }
 
   async ingestAll(projectPath: string, opts?: { adrDir?: string }): Promise<IngestResult> {
@@ -239,4 +149,98 @@ export class KnowledgeIngestor {
     }
     return results;
   }
+}
+
+// --- Module-level helpers ---
+
+async function readFileOrEmpty(filePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(filePath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+function buildResult(
+  nodesAdded: number,
+  edgesAdded: number,
+  errors: string[],
+  start: number
+): IngestResult {
+  return {
+    nodesAdded,
+    nodesUpdated: 0,
+    edgesAdded,
+    edgesUpdated: 0,
+    errors,
+    durationMs: Date.now() - start,
+  };
+}
+
+function parseADRNode(
+  nodeId: string,
+  filePath: string,
+  filename: string,
+  content: string
+): GraphNode {
+  const titleMatch = content.match(/^#\s+(.+)$/m);
+  const title = titleMatch ? titleMatch[1]!.trim() : filename;
+  const dateMatch = content.match(/\*\*Date:\*\*\s*(.+)/);
+  const statusMatch = content.match(/\*\*Status:\*\*\s*(.+)/);
+  return {
+    id: nodeId,
+    type: 'adr',
+    name: title,
+    path: filePath,
+    metadata: {
+      date: dateMatch ? dateMatch[1]!.trim() : undefined,
+      status: statusMatch ? statusMatch[1]!.trim() : undefined,
+    },
+  };
+}
+
+function parseLearningNode(
+  nodeId: string,
+  text: string,
+  currentDate: string | undefined
+): GraphNode {
+  const skillMatch = text.match(/\[skill:([^\]]+)\]/);
+  const outcomeMatch = text.match(/\[outcome:([^\]]+)\]/);
+  return {
+    id: nodeId,
+    type: 'learning',
+    name: text,
+    metadata: {
+      skill: skillMatch ? skillMatch[1]! : undefined,
+      outcome: outcomeMatch ? outcomeMatch[1]! : undefined,
+      date: currentDate,
+    },
+  };
+}
+
+interface FailureParsed {
+  description: string;
+  node: GraphNode;
+}
+
+function parseFailureSection(section: string): FailureParsed | null {
+  const descMatch = section.match(/\*\*Description:\*\*\s*(.+)/);
+  const description = descMatch ? descMatch[1]!.trim() : undefined;
+  if (!description) return null;
+  const dateMatch = section.match(/\*\*Date:\*\*\s*(.+)/);
+  const skillMatch = section.match(/\*\*Skill:\*\*\s*(.+)/);
+  const typeMatch = section.match(/\*\*Type:\*\*\s*(.+)/);
+  return {
+    description,
+    node: {
+      id: `failure:${hash(description)}`,
+      type: 'failure',
+      name: description,
+      metadata: {
+        date: dateMatch ? dateMatch[1]!.trim() : undefined,
+        skill: skillMatch ? skillMatch[1]!.trim() : undefined,
+        type: typeMatch ? typeMatch[1]!.trim() : undefined,
+      },
+    },
+  };
 }

@@ -1,0 +1,38 @@
+name: ts-template-literal-types
+version: "1.0.0"
+description: Construct precise string types using template literal syntax and string manipulation types
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-conditional-types
+  - ts-mapped-types
+  - ts-discriminated-unions
+stack_signals:
+  - typescript
+keywords:
+  - template-literal-types
+  - Capitalize
+  - Uppercase
+  - string-manipulation
+  - key-remapping
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/template-literal-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []

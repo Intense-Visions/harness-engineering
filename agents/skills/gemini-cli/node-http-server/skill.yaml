@@ -1,0 +1,40 @@
+name: node-http-server
+version: "1.0.0"
+description: Build low-level HTTP servers with Node.js http module and middleware pattern
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/server/**"
+  - "**/routes/**"
+  - "**/*.mjs"
+  - "**/workers/**"
+  - "**/streams/**"
+related_skills:
+  - node-event-emitter
+  - node-express-patterns
+  - ts-async-patterns
+stack_signals:
+  - nodejs
+  - typescript
+keywords:
+  - http
+  - createServer
+  - IncomingMessage
+  - ServerResponse
+  - middleware
+metadata:
+  author: community
+  upstream: nodejs.org/api/http.html
+state:
+  persistent: false
+  files: []
+depends_on: []

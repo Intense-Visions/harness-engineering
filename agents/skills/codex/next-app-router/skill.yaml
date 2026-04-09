@@ -1,0 +1,44 @@
+name: next-app-router
+version: '1.0.0'
+description: App Router architecture, layouts, nested routes, and route segments in Next.js 13+
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'next.config.*'
+  - '**/app/**/*.tsx'
+  - '**/app/**/*.ts'
+  - '**/pages/**/*.tsx'
+related_skills:
+  - next-server-components
+  - next-server-actions
+  - next-data-fetching
+  - react-hooks-pattern
+  - tanstack-prefetching
+  - next-error-boundaries
+stack_signals:
+  - next
+  - nextjs
+  - react
+keywords:
+  - app-router
+  - layouts
+  - nested-routes
+  - route-segments
+  - file-conventions
+  - app-directory
+metadata:
+  author: vercel
+  upstream: 'community/next.js-docs/app-router'
+state:
+  persistent: false
+  files: []
+depends_on: []

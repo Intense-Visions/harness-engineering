@@ -1,0 +1,35 @@
+name: design-atomic-design
+version: '1.0.0'
+description: Composition methodology for building design systems using atoms, molecules, organisms, templates, and pages
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-component-anatomy
+  - design-design-governance
+stack_signals: []
+keywords:
+  - atomic-design
+  - atoms
+  - molecules
+  - organisms
+  - templates
+  - pages
+  - Brad-Frost
+  - composition
+  - abstraction
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

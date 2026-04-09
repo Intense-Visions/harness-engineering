@@ -1,0 +1,43 @@
+name: svelte-performance-patterns
+version: '1.0.0'
+description: Optimize SvelteKit performance with code splitting, preloading, virtualization, and lazy loading
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/*.svelte'
+  - '**/+page.svelte'
+  - '**/+layout.svelte'
+related_skills:
+  - svelte-routing-pattern
+  - svelte-load-functions
+  - svelte-adapter-config
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+keywords:
+  - performance
+  - code-splitting
+  - preloading
+  - lazy-loading
+  - virtualization
+  - data-sveltekit-preload-data
+  - preload
+  - bundle-size
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/link-options'
+state:
+  persistent: false
+  files: []
+depends_on: []

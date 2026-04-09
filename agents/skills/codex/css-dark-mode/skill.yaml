@@ -1,0 +1,41 @@
+name: css-dark-mode
+version: '1.0.0'
+description: Implement dark mode with Tailwind's dark variant and CSS custom properties
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'tailwind.config.*'
+  - '**/*.css'
+  - '**/*.tsx'
+related_skills:
+  - css-design-tokens
+  - css-tailwind-pattern
+  - css-custom-components
+  - design-dark-mode-color
+  - design-color-accessibility
+stack_signals:
+  - tailwind
+  - css
+  - typescript
+keywords:
+  - dark-mode
+  - dark-variant
+  - theme-switching
+  - color-scheme
+  - prefers-color-scheme
+metadata:
+  author: community
+  upstream: 'tailwindcss/docs/dark-mode'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,5 +1,15 @@
 # @harness-engineering/orchestrator
 
+## 0.2.6
+
+### Patch Changes
+
+- Reduce Tier 2 structural violations and fix exactOptionalPropertyTypes errors
+- Updated dependencies
+- Updated dependencies
+  - @harness-engineering/core@0.21.2
+  - @harness-engineering/types@0.9.1
+
 ## 0.2.5
 
 ### Patch Changes

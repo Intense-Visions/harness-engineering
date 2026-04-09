@@ -1,0 +1,45 @@
+name: angular-rxjs-patterns
+version: '1.0.0'
+description: Apply RxJS patterns in Angular — switchMap, takeUntilDestroyed, async pipe, and error handling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - angular.json
+  - '**/*.component.ts'
+  - '**/*.component.html'
+  - '**/*.service.ts'
+  - '**/*.module.ts'
+related_skills:
+  - angular-signals-pattern
+  - angular-http-interceptors
+  - angular-service-di
+  - angular-component-pattern
+stack_signals:
+  - angular
+  - typescript
+  - rxjs
+keywords:
+  - rxjs
+  - observable
+  - switchMap
+  - takeUntilDestroyed
+  - async-pipe
+  - BehaviorSubject
+  - catchError
+  - shareReplay
+metadata:
+  author: angular.dev
+  upstream: 'angular.dev/guide/rxjs-best-practices'
+state:
+  persistent: false
+  files: []
+depends_on: []

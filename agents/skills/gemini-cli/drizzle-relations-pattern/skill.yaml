@@ -1,0 +1,41 @@
+name: drizzle-relations-pattern
+version: "1.0.0"
+description: Define Drizzle relations with relations(), one(), many(), references(), and inferred types
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "drizzle.config.*"
+  - "**/db/schema.ts"
+  - "**/drizzle/**"
+related_skills:
+  - drizzle-schema-definition
+  - drizzle-query-builder
+  - drizzle-filtering-pattern
+stack_signals:
+  - drizzle
+  - typescript
+  - postgresql
+  - sqlite
+keywords:
+  - relations
+  - one-to-many
+  - many-to-many
+  - references
+  - inferSelect
+  - inferInsert
+metadata:
+  author: community
+  upstream: "orm.drizzle.team/docs/relations"
+state:
+  persistent: false
+  files: []
+depends_on: []

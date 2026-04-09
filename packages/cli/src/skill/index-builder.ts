@@ -8,11 +8,14 @@ import { resolveAllSkillsDirs } from '../utils/paths.js';
 
 export interface SkillIndexEntry {
   tier: number;
+  type: 'rigid' | 'flexible' | 'knowledge';
   description: string;
   keywords: string[];
   stackSignals: string[];
   cognitiveMode: string | undefined;
   phases: string[];
+  paths: string[];
+  relatedSkills: string[];
   source: 'bundled' | 'community' | 'project';
   addresses: SkillAddress[];
   dependsOn: string[];
@@ -66,11 +69,14 @@ function parseSkillEntry(
 
   return {
     tier: effectiveTier ?? 3,
+    type: meta.type,
     description: meta.description,
     keywords: meta.keywords ?? [],
     stackSignals: meta.stack_signals ?? [],
     cognitiveMode: meta.cognitive_mode,
     phases: (meta.phases ?? []).map((p) => p.name),
+    paths: meta.paths ?? [],
+    relatedSkills: meta.related_skills ?? [],
     source,
     addresses: meta.addresses ?? [],
     dependsOn: meta.depends_on ?? [],

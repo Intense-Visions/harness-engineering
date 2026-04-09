@@ -1,0 +1,35 @@
+name: js-provider-pattern
+version: '1.0.0'
+description: Make shared data available to multiple child components without prop-drilling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-module-pattern
+  - js-singleton-pattern
+stack_signals:
+  - javascript
+keywords:
+  - provider
+  - context
+  - dependency-injection
+  - shared-data
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/provider-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

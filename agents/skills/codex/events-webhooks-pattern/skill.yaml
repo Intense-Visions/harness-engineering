@@ -1,0 +1,43 @@
+name: events-webhooks-pattern
+version: "1.0.0"
+description: Implement reliable webhook delivery with retry backoff, signature verification, and queuing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - events-pubsub-pattern
+  - events-idempotency
+  - node-crypto-patterns
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - webhooks
+  - retry-backoff
+  - signature-verification
+  - delivery-guarantees
+  - queuing
+metadata:
+  author: community
+  upstream: microservices.io/patterns/communication-style/messaging.html
+state:
+  persistent: false
+  files: []
+depends_on: []

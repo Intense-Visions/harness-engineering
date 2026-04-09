@@ -1,0 +1,40 @@
+name: mobile-gesture-handling
+version: '1.0.0'
+description: Implement touch gestures with React Native Gesture Handler for swipe, pan, pinch, and long press
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.native.*'
+  - '**/screens/**'
+  - '**/components/**'
+related_skills:
+  - mobile-animation-patterns
+  - mobile-navigation-pattern
+stack_signals:
+  - react-native
+  - expo
+  - typescript
+keywords:
+  - gestures
+  - swipe
+  - pan
+  - pinch
+  - long-press
+  - gesture-handler
+  - reanimated
+metadata:
+  author: community
+  upstream: docs.swmansion.com/react-native-gesture-handler
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -62,51 +62,12 @@ export class GraphAnomalyAdapter {
     const threshold =
       options?.threshold != null && options.threshold > 0 ? options.threshold : DEFAULT_THRESHOLD;
 
-    const requestedMetrics = options?.metrics ?? [...DEFAULT_METRICS];
-    const warnings: string[] = [];
-    const metricsToAnalyze: string[] = [];
-
-    for (const m of requestedMetrics) {
-      if (RECOGNIZED_METRICS.has(m)) {
-        metricsToAnalyze.push(m);
-      } else {
-        warnings.push(m);
-      }
-    }
-
-    const allOutliers: StatisticalOutlier[] = [];
-    const analyzedNodeIds = new Set<string>();
-
-    // Pre-compute adapter results once to avoid redundant computation
-    const couplingMetrics = ['fanIn', 'fanOut', 'transitiveDepth'];
-    const needsCoupling = metricsToAnalyze.some((m) => couplingMetrics.includes(m));
-    const needsComplexity = metricsToAnalyze.includes('hotspotScore');
-
-    const cachedCouplingData = needsCoupling
-      ? new GraphCouplingAdapter(this.store).computeCouplingData()
-      : undefined;
-    const cachedHotspotData = needsComplexity
-      ? new GraphComplexityAdapter(this.store).computeComplexityHotspots()
-      : undefined;
-
-    for (const metric of metricsToAnalyze) {
-      const entries = this.collectMetricValues(metric, cachedCouplingData, cachedHotspotData);
-      for (const e of entries) {
-        analyzedNodeIds.add(e.nodeId);
-      }
-      const outliers = this.computeZScoreOutliers(entries, metric, threshold);
-      allOutliers.push(...outliers);
-    }
-
-    // Sort by zScore descending
-    allOutliers.sort((a, b) => b.zScore - a.zScore);
-
+    const { metricsToAnalyze, warnings } = this.filterMetrics(
+      options?.metrics ?? [...DEFAULT_METRICS]
+    );
+    const { allOutliers, analyzedNodeIds } = this.computeAllOutliers(metricsToAnalyze, threshold);
     const articulationPoints = this.findArticulationPoints();
-
-    // Compute overlap: nodes that are both statistical outliers and articulation points
-    const outlierNodeIds = new Set(allOutliers.map((o) => o.nodeId));
-    const apNodeIds = new Set(articulationPoints.map((ap) => ap.nodeId));
-    const overlapping = [...outlierNodeIds].filter((id) => apNodeIds.has(id));
+    const overlapping = this.computeOverlap(allOutliers, articulationPoints);
 
     return {
       statisticalOutliers: allOutliers,
@@ -122,6 +83,54 @@ export class GraphAnomalyAdapter {
         threshold,
       },
     };
+  }
+
+  private filterMetrics(requested: string[]): { metricsToAnalyze: string[]; warnings: string[] } {
+    const metricsToAnalyze: string[] = [];
+    const warnings: string[] = [];
+    for (const m of requested) {
+      if (RECOGNIZED_METRICS.has(m)) {
+        metricsToAnalyze.push(m);
+      } else {
+        warnings.push(m);
+      }
+    }
+    return { metricsToAnalyze, warnings };
+  }
+
+  private computeAllOutliers(
+    metricsToAnalyze: string[],
+    threshold: number
+  ): { allOutliers: StatisticalOutlier[]; analyzedNodeIds: Set<string> } {
+    const couplingMetrics = ['fanIn', 'fanOut', 'transitiveDepth'];
+    const needsCoupling = metricsToAnalyze.some((m) => couplingMetrics.includes(m));
+    const cachedCouplingData = needsCoupling
+      ? new GraphCouplingAdapter(this.store).computeCouplingData()
+      : undefined;
+    const cachedHotspotData = metricsToAnalyze.includes('hotspotScore')
+      ? new GraphComplexityAdapter(this.store).computeComplexityHotspots()
+      : undefined;
+
+    const allOutliers: StatisticalOutlier[] = [];
+    const analyzedNodeIds = new Set<string>();
+
+    for (const metric of metricsToAnalyze) {
+      const entries = this.collectMetricValues(metric, cachedCouplingData, cachedHotspotData);
+      for (const e of entries) analyzedNodeIds.add(e.nodeId);
+      allOutliers.push(...this.computeZScoreOutliers(entries, metric, threshold));
+    }
+
+    allOutliers.sort((a, b) => b.zScore - a.zScore);
+    return { allOutliers, analyzedNodeIds };
+  }
+
+  private computeOverlap(
+    outliers: StatisticalOutlier[],
+    articulationPoints: ArticulationPoint[]
+  ): string[] {
+    const outlierNodeIds = new Set(outliers.map((o) => o.nodeId));
+    const apNodeIds = new Set(articulationPoints.map((ap) => ap.nodeId));
+    return [...outlierNodeIds].filter((id) => apNodeIds.has(id));
   }
 
   private collectMetricValues(

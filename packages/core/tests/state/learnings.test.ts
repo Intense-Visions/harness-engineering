@@ -11,7 +11,7 @@ import {
   loadIndexEntries,
   normalizeLearningContent,
   computeContentHash,
-} from '../../src/state/state-manager';
+} from '../../src/state';
 
 describe('appendLearning with tags', () => {
   let tmpDir: string;

@@ -1,0 +1,37 @@
+name: react-provider-pattern
+version: '1.0.0'
+description: Make data available to any component in the tree without prop drilling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-context-pattern
+  - react-hooks-pattern
+  - react-compound-pattern
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - context
+  - provider
+  - prop-drilling
+  - global-state
+  - dependency-injection
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/provider-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

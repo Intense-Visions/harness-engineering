@@ -1,0 +1,37 @@
+name: react-client-rendering
+version: '1.0.0'
+description: Render React entirely in the browser for highly interactive single-page applications
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-server-rendering
+  - react-server-components
+  - react-islands-pattern
+stack_signals:
+  - react
+  - typescript
+  - vite
+keywords:
+  - csr
+  - client-rendering
+  - spa
+  - browser-rendering
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/client-side-rendering'
+state:
+  persistent: false
+  files: []
+depends_on: []

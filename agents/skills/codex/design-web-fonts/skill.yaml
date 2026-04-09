@@ -1,0 +1,35 @@
+name: design-web-fonts
+version: "1.0.0"
+description: Font loading strategy — performance vs. FOUT/FOIT, variable fonts, subsetting, system font stacks
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-typography-fundamentals
+  - design-responsive-type
+stack_signals: []
+keywords:
+  - web fonts
+  - font loading
+  - FOUT
+  - FOIT
+  - variable fonts
+  - subsetting
+  - system fonts
+  - font-display
+  - woff2
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -3,10 +3,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { resolveSessionDir, updateSessionIndex } from '../../src/state/session-resolver';
-import { appendLearning, loadRelevantLearnings } from '../../src/state/state-manager';
-import { saveState, loadState } from '../../src/state/state-manager';
-import { saveHandoff, loadHandoff } from '../../src/state/state-manager';
-import { appendFailure, loadFailures } from '../../src/state/state-manager';
+import { appendLearning, loadRelevantLearnings } from '../../src/state';
+import { saveState, loadState } from '../../src/state';
+import { saveHandoff, loadHandoff } from '../../src/state';
+import { appendFailure, loadFailures } from '../../src/state';
 
 function makeTmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'session-test-'));

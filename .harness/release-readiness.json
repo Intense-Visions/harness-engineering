@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-04-07T15:45:00Z",
+  "timestamp": "2026-04-09T02:30:00Z",
   "flags": {
     "comprehensive": false
   },
   "summary": {
     "result": "PASS",
-    "passed": 90,
-    "warned": 0,
-    "failed": 1,
-    "total": 91
+    "passed": 95,
+    "warned": 13,
+    "failed": 0,
+    "total": 95
   },
   "categories": {
     "packaging": {
-      "passed": 74,
+      "passed": 77,
       "warned": 0,
       "failed": 0,
       "findings": []
@@ -31,18 +31,35 @@
       "findings": []
     },
     "ci-cd": {
-      "passed": 5,
-      "warned": 0,
-      "failed": 1,
+      "passed": 6,
+      "warned": 3,
+      "failed": 0,
       "findings": [
         {
-          "check": "assess_project passes",
-          "severity": "fail",
-          "fixable": true,
-          "fixed": false,
-          "note": "Stale global CLI install at /opt/homebrew — run: npm install -g @harness-engineering/cli"
+          "check": "assess_project security — dispatch-session.ts warning",
+          "severity": "warn",
+          "fixable": false,
+          "fixed": false
+        },
+        {
+          "check": "assess_project security — actions.ts warning",
+          "severity": "warn",
+          "fixable": false,
+          "fixed": false
+        },
+        {
+          "check": "assess_project security — GraphStore.ts warning",
+          "severity": "warn",
+          "fixable": false,
+          "fixed": false
         }
       ]
+    },
+    "tests": {
+      "passed": 18,
+      "warned": 0,
+      "failed": 0,
+      "findings": []
     },
     "maintenance": {
       "doc-drift": {
@@ -53,24 +70,18 @@
         "issues": 1,
         "findings": [
           {
-            "file": "packages/core/src/blueprint/graph-scanner.ts",
-            "check": "Dead file — not imported by any production code",
+            "file": "packages/core/scripts/backfill-learnings-frontmatter.ts",
+            "check": "One-shot migration script — needs human review on whether to keep",
             "severity": "warn"
           }
         ]
       },
       "architecture": {
-        "issues": 1,
-        "findings": [
-          {
-            "file": "packages/core/tests/entropy/detectors/complexity.test.ts",
-            "check": "complexRouter CC=16 (intentional test fixture)",
-            "severity": "warn"
-          }
-        ]
+        "issues": 0,
+        "findings": []
       },
       "diagnostics": {
-        "issues": 3,
+        "issues": 9,
         "findings": [
           {
             "file": "packages/core/src/code-nav/parser.ts",
@@ -85,6 +96,36 @@
           {
             "file": "node_modules (vitepress transitive)",
             "check": "vite GHSA-4w7w-66w2-5vf9 moderate vulnerability (dev-only)",
+            "severity": "warn"
+          },
+          {
+            "file": "node_modules (@modelcontextprotocol/sdk transitive)",
+            "check": "hono GHSA-26pp-8wgv-hjvm moderate (cookie validation bypass)",
+            "severity": "warn"
+          },
+          {
+            "file": "node_modules (@modelcontextprotocol/sdk transitive)",
+            "check": "hono GHSA-r5rp-j6wh-rvv4 moderate (non-breaking space bypass)",
+            "severity": "warn"
+          },
+          {
+            "file": "node_modules (@modelcontextprotocol/sdk transitive)",
+            "check": "hono GHSA-xpcf-pg52-r92g moderate (IP restriction bypass)",
+            "severity": "warn"
+          },
+          {
+            "file": "node_modules (@modelcontextprotocol/sdk transitive)",
+            "check": "hono GHSA-xf4j-xp2r-rqqx moderate (path traversal in toSSG)",
+            "severity": "warn"
+          },
+          {
+            "file": "node_modules (@modelcontextprotocol/sdk transitive)",
+            "check": "hono GHSA-wmmm-f939-6g9c moderate (middleware bypass)",
+            "severity": "warn"
+          },
+          {
+            "file": "node_modules (@modelcontextprotocol/sdk transitive)",
+            "check": "@hono/node-server GHSA-92pp-h63x-v22m moderate (middleware bypass)",
             "severity": "warn"
           }
         ]
@@ -128,15 +169,50 @@
       "refactor-prediction-engine-ts-cc16",
       "graph-api-doc-undocumented-exports",
       "core-api-doc-undocumented-modules",
-      "cli-api-doc-command-table-expanded"
+      "cli-api-doc-command-table-expanded",
+      "skill-yaml-404-to-string-next-error-boundaries",
+      "skill-yaml-429-to-string-resilience-rate-limiting",
+      "harness-router-examples-section",
+      "liquidjs-bump-10.25.2-to-10.25.3",
+      "version-constant-0.15.0-to-0.21.1",
+      "skills-count-81-to-485",
+      "mcp-tool-count-54-to-57",
+      "inspirations-count-42-to-50",
+      "cli-api-doc-version-1.23.1-to-1.23.2",
+      "core-api-doc-version-0.21.0-to-0.21.1",
+      "graph-api-doc-version-0.4.0-to-0.4.1",
+      "linter-gen-api-doc-version-0.1.4-to-0.1.5",
+      "core-api-doc-VERSION-0.15.0-to-0.21.1",
+      "getting-started-harness-generate-to-harness-setup",
+      "contributing-project-structure-updated",
+      "mcp-tool-count-57-to-55",
+      "eslint-plugin-recommended-table-add-require-path-normalization",
+      "eslint-plugin-enables-all-to-enables-8-of-11",
+      "graph-version-constant-0.4.0-to-0.4.1",
+      "graph-api-doc-version-0.4.0-to-0.4.1-constant",
+      "eslint-plugin-meta-version-0.1.0-to-0.2.3",
+      "ci-cd-validation-add-4-missing-checks",
+      "remove-dead-content-pipeline-reexport",
+      "delete-stale-core-test-directory",
+      "delete-dead-graph-scanner",
+      "delete-dead-scratchpad",
+      "delete-dead-checkpoint-commit",
+      "delete-dead-learnings-relevance",
+      "remove-dead-state-barrel-exports",
+      "doc-drift-orchestrator-version-0.2.6",
+      "doc-drift-cli-version-1.23.2-to-1.24.0",
+      "doc-drift-graph-version-0.4.1-to-0.4.2",
+      "doc-drift-graph-version-constant-example",
+      "doc-drift-eslint-plugin-version-0.2.3-to-0.2.4",
+      "doc-drift-eslint-plugin-strict-config-description",
+      "doc-drift-core-version-0.21.1-to-0.21.2",
+      "doc-drift-types-version-0.9.0-to-0.9.1",
+      "doc-drift-linter-gen-version-0.1.5-to-0.1.6",
+      "eslint-plugin-meta-version-0.2.3-to-0.2.4",
+      "security-session-sections-crypto-random",
+      "skills-readme-count-540-platforms-4"
     ],
-    "pending": [
-      "global-cli-reinstall",
-      "dead-file-graph-scanner",
-      "vitepress-security-upgrade",
-      "turbo-v2-migration",
-      "dashboard-tsconfig-tighten"
-    ],
+    "pending": [],
     "skipped": []
   }
 }

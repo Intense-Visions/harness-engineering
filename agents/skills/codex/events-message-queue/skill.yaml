@@ -1,0 +1,43 @@
+name: events-message-queue
+version: "1.0.0"
+description: Use message queues for reliable async delivery with competing consumers and dead letter queues
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/events/**"
+  - "**/queues/**"
+  - "**/handlers/**"
+  - "**/socket/**"
+  - "**/pub-sub/**"
+related_skills:
+  - events-pubsub-pattern
+  - events-idempotency
+  - events-kafka-patterns
+stack_signals:
+  - nodejs
+  - typescript
+  - kafka
+  - redis
+  - rabbitmq
+keywords:
+  - message-queue
+  - at-least-once
+  - competing-consumers
+  - dead-letter-queue
+  - async-messaging
+metadata:
+  author: community
+  upstream: microservices.io/patterns/communication-style/messaging.html
+state:
+  persistent: false
+  files: []
+depends_on: []

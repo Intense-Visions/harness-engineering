@@ -1,0 +1,35 @@
+name: js-state-pattern
+version: '1.0.0'
+description: Allow an object to alter its behavior when its internal state changes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.js'
+  - '**/*.mjs'
+  - '**/*.cjs'
+related_skills:
+  - js-observer-pattern
+  - js-command-pattern
+stack_signals:
+  - javascript
+keywords:
+  - state-machine
+  - state-transitions
+  - behavior-change
+  - finite-state
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/javascript/state-pattern'
+state:
+  persistent: false
+  files: []
+depends_on: []

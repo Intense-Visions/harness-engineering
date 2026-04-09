@@ -1,0 +1,39 @@
+name: xstate-parallel-states
+version: '1.0.0'
+description: Model concurrent state regions with parallel state nodes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-guards-actions
+  - xstate-history-states
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - parallel
+  - concurrent
+  - regions
+  - orthogonal
+  - type-parallel
+metadata:
+  author: community
+  upstream: 'xstate/docs/parallel-states'
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -47,16 +47,16 @@ const CODE_NODE_TYPES: ReadonlySet<NodeType> = new Set([
   'variable',
 ]);
 
-/**
- * Estimate the number of tokens for a node based on its name, path, and type.
- * Uses a 4-characters-per-token heuristic.
- */
+function countMetadataChars(node: GraphNode): number {
+  return node.metadata ? JSON.stringify(node.metadata).length : 0;
+}
+
+function countBaseChars(node: GraphNode): number {
+  return (node.name?.length ?? 0) + (node.path?.length ?? 0) + (node.type?.length ?? 0);
+}
+
 function estimateNodeTokens(node: GraphNode): number {
-  let chars = (node.name?.length ?? 0) + (node.path?.length ?? 0) + (node.type?.length ?? 0);
-  if (node.metadata) {
-    chars += JSON.stringify(node.metadata).length;
-  }
-  return Math.ceil(chars / 4); // ~4 chars per token
+  return Math.ceil((countBaseChars(node) + countMetadataChars(node)) / 4);
 }
 
 export class Assembler {
@@ -166,59 +166,66 @@ export class Assembler {
     return { keptNodes, tokenEstimate, truncated };
   }
 
-  /**
-   * Compute a token budget allocation across node types.
-   */
-  computeBudget(totalTokens: number, phase?: string): GraphBudget {
-    const allNodes = this.store.findNodes({});
-
-    // Count nodes by type
+  private countNodesByType(): Record<string, number> {
     const typeCounts: Record<string, number> = {};
-    for (const node of allNodes) {
+    for (const node of this.store.findNodes({})) {
       typeCounts[node.type] = (typeCounts[node.type] ?? 0) + 1;
     }
+    return typeCounts;
+  }
 
-    // Compute density: for each module node, count its edges
+  private computeModuleDensity(): Record<string, number> {
     const density: Record<string, number> = {};
-    const moduleNodes = this.store.findNodes({ type: 'module' });
-    for (const mod of moduleNodes) {
-      const outEdges = this.store.getEdges({ from: mod.id });
-      const inEdges = this.store.getEdges({ to: mod.id });
-      density[mod.name] = outEdges.length + inEdges.length;
+    for (const mod of this.store.findNodes({ type: 'module' })) {
+      const out = this.store.getEdges({ from: mod.id }).length;
+      const inn = this.store.getEdges({ to: mod.id }).length;
+      density[mod.name] = out + inn;
     }
+    return density;
+  }
 
-    // Apply phase boost
-    const boostTypes = phase ? PHASE_NODE_TYPES[phase] : undefined;
-    const boostFactor = 2.0;
-
-    // Calculate weighted total
-    let weightedTotal = 0;
+  private computeTypeWeights(
+    typeCounts: Record<string, number>,
+    boostTypes: readonly NodeType[] | undefined
+  ): { weights: Record<string, number>; weightedTotal: number } {
     const weights: Record<string, number> = {};
+    let weightedTotal = 0;
     for (const [type, count] of Object.entries(typeCounts)) {
-      const isBoosted = boostTypes?.includes(type as NodeType);
-      const weight = count * (isBoosted ? boostFactor : 1.0);
+      const weight = count * (boostTypes?.includes(type as NodeType) ? 2.0 : 1.0);
       weights[type] = weight;
       weightedTotal += weight;
     }
+    return { weights, weightedTotal };
+  }
 
-    // Allocate proportionally
+  private allocateProportionally(
+    weights: Record<string, number>,
+    weightedTotal: number,
+    totalTokens: number
+  ): Record<string, number> {
     const allocations: Record<string, number> = {};
-    if (weightedTotal > 0) {
-      let allocated = 0;
-      const types = Object.keys(weights);
-      for (let i = 0; i < types.length; i++) {
-        const type = types[i]!;
-        if (i === types.length - 1) {
-          // Last type gets remainder to ensure exact sum
-          allocations[type] = totalTokens - allocated;
-        } else {
-          const share = Math.round((weights[type]! / weightedTotal) * totalTokens);
-          allocations[type] = share;
-          allocated += share;
-        }
+    if (weightedTotal === 0) return allocations;
+    let allocated = 0;
+    const types = Object.keys(weights);
+    for (let i = 0; i < types.length; i++) {
+      const type = types[i]!;
+      if (i === types.length - 1) {
+        allocations[type] = totalTokens - allocated;
+      } else {
+        const share = Math.round((weights[type]! / weightedTotal) * totalTokens);
+        allocations[type] = share;
+        allocated += share;
       }
     }
+    return allocations;
+  }
 
+  computeBudget(totalTokens: number, phase?: string): GraphBudget {
+    const typeCounts = this.countNodesByType();
+    const density = this.computeModuleDensity();
+    const boostTypes = phase ? PHASE_NODE_TYPES[phase] : undefined;
+    const { weights, weightedTotal } = this.computeTypeWeights(typeCounts, boostTypes);
+    const allocations = this.allocateProportionally(weights, weightedTotal, totalTokens);
     return { total: totalTokens, allocations, density };
   }
 
@@ -254,61 +261,53 @@ export class Assembler {
     };
   }
 
-  /**
-   * Generate a markdown repository map from graph structure.
-   */
-  generateMap(): string {
-    const moduleNodes = this.store.findNodes({ type: 'module' });
-
-    // Sort modules by edge count (most connected first)
-    const modulesWithEdgeCount = moduleNodes.map((mod) => {
-      const outEdges = this.store.getEdges({ from: mod.id });
-      const inEdges = this.store.getEdges({ to: mod.id });
-      return { module: mod, edgeCount: outEdges.length + inEdges.length };
+  private buildModuleLines(): string[] {
+    const modulesWithEdgeCount = this.store.findNodes({ type: 'module' }).map((mod) => {
+      const edgeCount =
+        this.store.getEdges({ from: mod.id }).length + this.store.getEdges({ to: mod.id }).length;
+      return { module: mod, edgeCount };
     });
     modulesWithEdgeCount.sort((a, b) => b.edgeCount - a.edgeCount);
 
-    const lines: string[] = ['# Repository Structure', ''];
+    if (modulesWithEdgeCount.length === 0) return [];
 
-    if (modulesWithEdgeCount.length > 0) {
-      lines.push('## Modules', '');
-      for (const { module: mod, edgeCount } of modulesWithEdgeCount) {
-        lines.push(`### ${mod.name} (${edgeCount} connections)`);
-        lines.push('');
-
-        // Find files contained in this module
-        const containsEdges = this.store.getEdges({ from: mod.id, type: 'contains' });
-        for (const edge of containsEdges) {
-          const fileNode = this.store.getNode(edge.to);
-          if (fileNode && fileNode.type === 'file') {
-            // Count symbols in this file
-            const symbolEdges = this.store.getEdges({ from: fileNode.id, type: 'contains' });
-            lines.push(`- ${fileNode.path ?? fileNode.name} (${symbolEdges.length} symbols)`);
-          }
+    const lines: string[] = ['## Modules', ''];
+    for (const { module: mod, edgeCount } of modulesWithEdgeCount) {
+      lines.push(`### ${mod.name} (${edgeCount} connections)`, '');
+      for (const edge of this.store.getEdges({ from: mod.id, type: 'contains' })) {
+        const fileNode = this.store.getNode(edge.to);
+        if (fileNode?.type === 'file') {
+          const symbols = this.store.getEdges({ from: fileNode.id, type: 'contains' }).length;
+          lines.push(`- ${fileNode.path ?? fileNode.name} (${symbols} symbols)`);
         }
-        lines.push('');
-      }
-    }
-
-    // Find entry points: file nodes with high out-degree (excluding barrel files)
-    const fileNodes = this.store.findNodes({ type: 'file' });
-    const nonBarrelFiles = fileNodes.filter((n) => !n.name.startsWith('index.'));
-    const filesWithOutDegree = nonBarrelFiles.map((f) => {
-      const outEdges = this.store.getEdges({ from: f.id });
-      return { file: f, outDegree: outEdges.length };
-    });
-    filesWithOutDegree.sort((a, b) => b.outDegree - a.outDegree);
-
-    const entryPoints = filesWithOutDegree.filter((f) => f.outDegree > 0).slice(0, 5);
-
-    if (entryPoints.length > 0) {
-      lines.push('## Entry Points', '');
-      for (const { file, outDegree } of entryPoints) {
-        lines.push(`- ${file.path ?? file.name} (${outDegree} outbound edges)`);
       }
       lines.push('');
     }
+    return lines;
+  }
 
+  private buildEntryPointLines(): string[] {
+    const filesWithOutDegree = this.store
+      .findNodes({ type: 'file' })
+      .filter((n) => !n.name.startsWith('index.'))
+      .map((f) => ({ file: f, outDegree: this.store.getEdges({ from: f.id }).length }));
+    filesWithOutDegree.sort((a, b) => b.outDegree - a.outDegree);
+
+    const entryPoints = filesWithOutDegree.filter((f) => f.outDegree > 0).slice(0, 5);
+    if (entryPoints.length === 0) return [];
+
+    const lines: string[] = ['## Entry Points', ''];
+    for (const { file, outDegree } of entryPoints) {
+      lines.push(`- ${file.path ?? file.name} (${outDegree} outbound edges)`);
+    }
+    lines.push('');
+    return lines;
+  }
+
+  generateMap(): string {
+    const lines: string[] = ['# Repository Structure', ''];
+    lines.push(...this.buildModuleLines());
+    lines.push(...this.buildEntryPointLines());
     return lines.join('\n');
   }
 

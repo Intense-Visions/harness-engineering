@@ -1,0 +1,45 @@
+name: svelte-testing-patterns
+version: '1.0.0'
+description: Test Svelte components and SvelteKit routes using Vitest, @testing-library/svelte, render, and fireEvent
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'svelte.config.*'
+  - '**/*.test.ts'
+  - '**/*.spec.ts'
+  - 'vitest.config.*'
+  - '**/tests/**'
+related_skills:
+  - svelte-runes-pattern
+  - svelte-stores-pattern
+  - svelte-form-actions
+stack_signals:
+  - svelte
+  - sveltekit
+  - typescript
+  - vitest
+keywords:
+  - testing
+  - vitest
+  - testing-library
+  - render
+  - fireEvent
+  - tick
+  - mocking
+  - unit-testing
+metadata:
+  author: svelte.dev
+  upstream: 'kit.svelte.dev/docs/testing'
+state:
+  persistent: false
+  files: []
+depends_on: []

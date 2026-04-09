@@ -1,0 +1,38 @@
+name: state-zustand-immer
+version: '1.0.0'
+description: Write mutable-style updates in Zustand stores with the Immer middleware
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/store/**'
+  - '**/stores/**'
+related_skills:
+  - state-zustand-store
+  - state-zustand-slices
+  - state-zustand-devtools
+stack_signals:
+  - zustand
+  - react
+  - typescript
+keywords:
+  - immer
+  - mutable
+  - produce
+  - nested-updates
+  - immutable
+metadata:
+  author: community
+  upstream: 'zustand/docs/immer-middleware'
+state:
+  persistent: false
+  files: []
+depends_on: []

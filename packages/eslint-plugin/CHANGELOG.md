@@ -1,5 +1,11 @@
 # @harness-engineering/eslint-plugin
 
+## 0.2.4
+
+### Patch Changes
+
+- Reduce Tier 2 structural violations and fix exactOptionalPropertyTypes errors
+
 ## 0.2.3
 
 ### Patch Changes

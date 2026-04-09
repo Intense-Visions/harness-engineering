@@ -1,0 +1,38 @@
+name: ts-class-patterns
+version: "1.0.0"
+description: Use abstract classes, private fields, access modifiers, and implements vs extends correctly
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "tsconfig.json"
+  - "tsconfig.*.json"
+related_skills:
+  - ts-decorator-patterns
+  - ts-generics-pattern
+  - gof-factory-method
+stack_signals:
+  - typescript
+keywords:
+  - abstract-classes
+  - private-fields
+  - access-modifiers
+  - implements
+  - extends
+metadata:
+  author: community
+  upstream: typescriptlang.org/docs/handbook/2/classes.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,37 @@
+name: gof-observer-pattern
+version: "1.0.0"
+description: Implement push-based notification between Subject and Observer with typed subscriptions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - node-event-emitter
+  - events-pubsub-pattern
+  - gof-mediator-pattern
+stack_signals:
+  - typescript
+keywords:
+  - observer
+  - Subject
+  - subscribe
+  - event-emitter
+  - RxJS
+  - weak-references
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/observer
+state:
+  persistent: false
+  files: []
+depends_on: []

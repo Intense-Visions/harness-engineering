@@ -1,0 +1,34 @@
+name: design-component-anatomy
+version: '1.0.0'
+description: Anatomy of reusable components covering slots, variants, states, sizes, composition patterns, and compound components
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-atomic-design
+  - design-naming-conventions
+stack_signals: []
+keywords:
+  - component-anatomy
+  - slots
+  - variants
+  - states
+  - sizes
+  - composition
+  - configuration
+  - compound-components
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

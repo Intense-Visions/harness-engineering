@@ -1,0 +1,41 @@
+name: nuxt-composables-pattern
+version: '1.0.0'
+description: Fetch data and manage async state in Nuxt using useAsyncData, useFetch, useLazyFetch, and useNuxtApp
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'nuxt.config.*'
+  - '**/composables/**'
+  - '**/pages/**/*.vue'
+related_skills:
+  - nuxt-auto-imports
+  - nuxt-state-management
+  - nuxt-server-routes
+stack_signals:
+  - nuxt
+  - vue
+  - typescript
+keywords:
+  - useAsyncData
+  - useFetch
+  - useLazyFetch
+  - useNuxtApp
+  - composables
+  - data-fetching
+  - ssr
+metadata:
+  author: nuxt.com
+  upstream: 'nuxt.com/docs/getting-started/data-fetching'
+state:
+  persistent: false
+  files: []
+depends_on: []

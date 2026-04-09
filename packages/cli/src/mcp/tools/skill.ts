@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { parse as parseYaml } from 'yaml';
 import { Ok, Err } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
@@ -26,6 +27,11 @@ export const runSkillDefinition = {
       },
       phase: { type: 'string', description: 'Start at a specific phase (re-entry)' },
       party: { type: 'boolean', description: 'Enable multi-perspective evaluation' },
+      autoInject: {
+        type: 'boolean',
+        description:
+          'When true, returns only the Instructions section (before ## Details) for knowledge skills',
+      },
     },
     required: ['skill'],
   },
@@ -37,6 +43,7 @@ export async function handleRunSkill(input: {
   complexity?: 'fast' | 'standard' | 'thorough';
   phase?: string;
   party?: boolean;
+  autoInject?: boolean;
 }) {
   const skillsDir = resolveSkillsDir();
   if (!/^[a-z0-9][a-z0-9._-]*$/i.test(input.skill)) {
@@ -68,6 +75,24 @@ export async function handleRunSkill(input: {
     }
   }
 
+  // Progressive disclosure for knowledge skills
+  const skillYamlPath = path.join(skillDir, 'skill.yaml');
+  if (fs.existsSync(skillYamlPath)) {
+    try {
+      const rawYaml = fs.readFileSync(skillYamlPath, 'utf-8');
+      const skillMeta = parseYaml(rawYaml) as { type?: string };
+      if (skillMeta.type === 'knowledge') {
+        const boundary = content.indexOf('\n## Details');
+        if (boundary !== -1 && input.autoInject === true) {
+          content = content.slice(0, boundary);
+        }
+        // On-demand mode (autoInject: false or undefined): return full content
+      }
+    } catch {
+      // YAML parse failure must never block skill loading
+    }
+  }
+
   // Dispatcher: inject domain skill suggestions for Tier 1 workflow skills
   if (isTier1Skill(input.skill)) {
     try {
@@ -78,8 +103,8 @@ export async function handleRunSkill(input: {
       const index = loadOrRebuildIndex(platform, projectRoot, skillsConfig?.tierOverrides);
       const profile = loadOrGenerateProfile(projectRoot);
       const taskDesc = [input.skill, input.phase].filter(Boolean).join(' ');
-      const suggestions = suggest(index, taskDesc, profile, [], skillsConfig);
-      const suggestionText = formatSuggestions(suggestions);
+      const result = suggest(index, taskDesc, profile, [], skillsConfig);
+      const suggestionText = formatSuggestions(result.suggestions);
       if (suggestionText) {
         content += suggestionText;
       }

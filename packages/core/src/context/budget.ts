@@ -27,12 +27,67 @@ const NODE_TYPE_TO_CATEGORY: Record<string, keyof typeof DEFAULT_RATIOS> = {
   system: 'systemPrompt',
 };
 
+type RatioKey = keyof typeof DEFAULT_RATIOS;
+
+function makeZeroWeights(): Record<RatioKey, number> {
+  return {
+    systemPrompt: 0,
+    projectManifest: 0,
+    taskSpec: 0,
+    activeCode: 0,
+    interfaces: 0,
+    reserve: 0,
+  };
+}
+
+function normalizeRatios(ratios: Record<RatioKey, number>): void {
+  const sum = Object.values(ratios).reduce((s, r) => s + r, 0);
+  if (sum === 0) return;
+  for (const key of Object.keys(ratios) as RatioKey[]) {
+    ratios[key] = ratios[key] / sum;
+  }
+}
+
+function enforceMinimumRatios(ratios: Record<RatioKey, number>, min: number): void {
+  for (const key of Object.keys(ratios) as RatioKey[]) {
+    if (ratios[key] < min) ratios[key] = min;
+  }
+}
+
+function applyGraphDensity(
+  ratios: Record<RatioKey, number>,
+  graphDensity: Record<string, number>
+): void {
+  const weights = makeZeroWeights();
+  for (const [nodeType, count] of Object.entries(graphDensity)) {
+    const category = NODE_TYPE_TO_CATEGORY[nodeType];
+    if (category) weights[category] += count;
+  }
+
+  const totalWeight = Object.values(weights).reduce((s, w) => s + w, 0);
+  if (totalWeight === 0) return;
+
+  const MIN = 0.01;
+  for (const key of Object.keys(ratios) as RatioKey[]) {
+    ratios[key] = weights[key] > 0 ? weights[key] / totalWeight : MIN;
+  }
+
+  // Ensure reserve and systemPrompt keep at least their defaults
+  if (ratios.reserve < DEFAULT_RATIOS.reserve) ratios.reserve = DEFAULT_RATIOS.reserve;
+  if (ratios.systemPrompt < DEFAULT_RATIOS.systemPrompt)
+    ratios.systemPrompt = DEFAULT_RATIOS.systemPrompt;
+
+  normalizeRatios(ratios);
+  enforceMinimumRatios(ratios, MIN);
+  normalizeRatios(ratios);
+}
+
 export function contextBudget(
   totalTokens: number,
   overrides?: TokenBudgetOverrides,
   graphDensity?: Record<string, number>
 ): TokenBudget {
-  const ratios: Record<keyof typeof DEFAULT_RATIOS, number> = {
+  const ratios: Record<RatioKey, number> = {
     systemPrompt: DEFAULT_RATIOS.systemPrompt,
     projectManifest: DEFAULT_RATIOS.projectManifest,
     taskSpec: DEFAULT_RATIOS.taskSpec,
@@ -42,64 +97,7 @@ export function contextBudget(
   };
 
   if (graphDensity) {
-    // Compute density-aware allocation
-    const categoryWeights: Record<keyof typeof DEFAULT_RATIOS, number> = {
-      systemPrompt: 0,
-      projectManifest: 0,
-      taskSpec: 0,
-      activeCode: 0,
-      interfaces: 0,
-      reserve: 0,
-    };
-
-    for (const [nodeType, count] of Object.entries(graphDensity)) {
-      const category = NODE_TYPE_TO_CATEGORY[nodeType];
-      if (category) {
-        categoryWeights[category] += count;
-      }
-    }
-
-    const totalWeight = Object.values(categoryWeights).reduce((sum, w) => sum + w, 0);
-
-    if (totalWeight > 0) {
-      const MIN_ALLOCATION = 0.01;
-
-      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
-        if (categoryWeights[key] > 0) {
-          ratios[key] = categoryWeights[key] / totalWeight;
-        } else {
-          ratios[key] = MIN_ALLOCATION;
-        }
-      }
-
-      // Ensure reserve and systemPrompt have at least their default ratios
-      // since no graph node types map to them
-      if (ratios.reserve < DEFAULT_RATIOS.reserve) {
-        ratios.reserve = DEFAULT_RATIOS.reserve;
-      }
-      if (ratios.systemPrompt < DEFAULT_RATIOS.systemPrompt) {
-        ratios.systemPrompt = DEFAULT_RATIOS.systemPrompt;
-      }
-
-      // Normalize so ratios sum to 1.0
-      const ratioSum = Object.values(ratios).reduce((sum, r) => sum + r, 0);
-      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
-        ratios[key] = ratios[key] / ratioSum;
-      }
-
-      // Ensure all categories have at least 1% allocation
-      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
-        if (ratios[key] < MIN_ALLOCATION) {
-          ratios[key] = MIN_ALLOCATION;
-        }
-      }
-
-      // Re-normalize after enforcing minimums
-      const finalSum = Object.values(ratios).reduce((sum, r) => sum + r, 0);
-      for (const key of Object.keys(ratios) as (keyof typeof DEFAULT_RATIOS)[]) {
-        ratios[key] = ratios[key] / finalSum;
-      }
-    }
+    applyGraphDensity(ratios, graphDensity);
   }
 
   if (overrides) {

@@ -1,0 +1,40 @@
+name: xstate-actor-pattern
+version: '1.0.0'
+description: Spawn and manage child actors for independent concurrent state machines
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.machine.ts'
+  - '**/*.machine.tsx'
+  - '**/machines/**'
+related_skills:
+  - xstate-machine-definition
+  - xstate-invoke-pattern
+  - xstate-parallel-states
+stack_signals:
+  - xstate
+  - typescript
+  - react
+keywords:
+  - actor
+  - spawn
+  - interpret
+  - send
+  - actor-model
+  - child-machine
+metadata:
+  author: community
+  upstream: 'xstate/docs/actors'
+state:
+  persistent: false
+  files: []
+depends_on: []

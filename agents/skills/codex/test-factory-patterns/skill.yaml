@@ -1,0 +1,43 @@
+name: test-factory-patterns
+version: "1.0.0"
+description: Build maintainable test data using factory functions, builders, and faker.js
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.tsx"
+  - "vitest.config.*"
+  - "jest.config.*"
+  - "playwright.config.*"
+related_skills:
+  - test-unit-patterns
+  - test-integration-patterns
+  - ts-generics-pattern
+stack_signals:
+  - vitest
+  - jest
+  - playwright
+  - testing-library
+keywords:
+  - factory-functions
+  - faker
+  - test-builders
+  - object-mother
+  - test-data
+metadata:
+  author: community
+  upstream: vitest.dev/guide/
+state:
+  persistent: false
+  files: []
+depends_on: []

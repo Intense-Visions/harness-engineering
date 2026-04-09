@@ -1,0 +1,44 @@
+name: astro-integration-pattern
+version: '1.0.0'
+description: Add official and custom Astro integrations using hooks, the integration API, and addRenderer
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - 'astro.config.*'
+  - '**/*.astro'
+  - '**/src/pages/**'
+  - '**/src/content/**'
+related_skills:
+  - astro-multi-framework
+  - astro-deployment-config
+  - astro-ssr-hybrid
+stack_signals:
+  - astro
+  - typescript
+keywords:
+  - astro-integration
+  - integration-hooks
+  - astro:config:setup
+  - astro:build:done
+  - addRenderer
+  - injectRoute
+  - injectScript
+  - updateConfig
+  - official-integrations
+  - custom-integration
+metadata:
+  author: docs.astro.build
+  upstream: 'docs.astro.build/en/reference/integrations-reference'
+state:
+  persistent: false
+  files: []
+depends_on: []

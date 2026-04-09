@@ -1,0 +1,41 @@
+name: graphql-apollo-server
+version: '1.0.0'
+description: Configure and run Apollo Server with plugins, context, and data sources
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.graphql'
+  - '**/resolvers/**'
+  - '**/server.ts'
+  - '**/apollo.*'
+related_skills:
+  - graphql-resolver-pattern
+  - graphql-schema-design
+  - graphql-error-handling
+stack_signals:
+  - graphql
+  - typescript
+  - apollo
+keywords:
+  - apollo-server
+  - plugins
+  - context
+  - data-sources
+  - middleware
+  - express
+metadata:
+  author: community
+  upstream: apollographql.com/docs/apollo-server
+state:
+  persistent: false
+  files: []
+depends_on: []

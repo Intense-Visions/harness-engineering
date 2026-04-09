@@ -2,12 +2,16 @@ name: harness-sql-review
 version: "1.0.0"
 description: SQL query optimization, index analysis, N+1 detection, and query plan review
 cognitive_mode: adversarial-reviewer
+paths:
+  - '*.sql'
 triggers:
   - manual
   - on_pr
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -72,3 +76,8 @@ state:
   persistent: false
   files: []
 depends_on: []
+related_skills:
+  - prisma-performance-patterns
+  - drizzle-performance-patterns
+  - prisma-raw-queries
+  - drizzle-query-builder

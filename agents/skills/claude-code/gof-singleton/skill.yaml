@@ -1,0 +1,35 @@
+name: gof-singleton
+version: "1.0.0"
+description: Ensure a class has exactly one instance using module-level singletons and WeakRef patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.ts"
+  - "tsconfig.json"
+related_skills:
+  - ts-class-patterns
+  - ts-module-patterns
+stack_signals:
+  - typescript
+keywords:
+  - singleton
+  - single-instance
+  - module-singleton
+  - WeakRef
+  - lazy-initialization
+metadata:
+  author: community
+  upstream: refactoring.guru/design-patterns/singleton
+state:
+  persistent: false
+  files: []
+depends_on: []

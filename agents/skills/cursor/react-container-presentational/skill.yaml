@@ -1,0 +1,36 @@
+name: react-container-presentational
+version: '1.0.0'
+description: Separate data-fetching containers from stateless presentational components
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.tsx'
+  - '**/*.jsx'
+related_skills:
+  - react-hooks-pattern
+  - react-server-components
+stack_signals:
+  - react
+  - typescript
+keywords:
+  - container
+  - presentational
+  - smart-dumb
+  - separation-of-concerns
+  - testability
+metadata:
+  author: patterns.dev
+  upstream: 'PatternsDev/skills/react/container-presentational'
+state:
+  persistent: false
+  files: []
+depends_on: []

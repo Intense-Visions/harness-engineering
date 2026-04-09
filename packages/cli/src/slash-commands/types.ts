@@ -23,6 +23,7 @@ export interface SlashCommandSpec {
   sourceDir: string;
   skillsBaseDir: string;
   source?: 'project' | 'community' | 'global';
+  commandName?: string;
   cursor?: SkillCursor;
 
   prompt: {

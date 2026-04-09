@@ -1,0 +1,42 @@
+name: zod-transform-refine
+version: "1.0.0"
+description: Transform and validate data with Zod's transform, refine, superRefine, and preprocess APIs
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "**/*.schema.ts"
+  - "**/*.schema.tsx"
+  - "**/schemas/**"
+  - "**/validation/**"
+related_skills:
+  - zod-schema-definition
+  - zod-string-validation
+  - zod-error-handling
+  - zod-async-validation
+stack_signals:
+  - zod
+  - typescript
+keywords:
+  - zod
+  - transform
+  - refine
+  - superRefine
+  - preprocess
+  - coerce
+  - pipe
+metadata:
+  author: community
+  upstream: "zod.dev"
+state:
+  persistent: false
+  files: []
+depends_on: []

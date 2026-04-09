@@ -1,0 +1,37 @@
+name: design-apple-hig
+version: '1.0.0'
+description: Apple Human Interface Guidelines covering clarity/deference/depth, vibrancy and materials, SF Symbols, semantic colors, safe areas, and platform-specific navigation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-elevation-shadow
+  - design-navigation-ux
+  - design-typography-fundamentals
+stack_signals: []
+keywords:
+  - apple
+  - HIG
+  - human-interface-guidelines
+  - iOS
+  - macOS
+  - SF-Symbols
+  - vibrancy
+  - materials
+  - safe-areas
+  - semantic-colors
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

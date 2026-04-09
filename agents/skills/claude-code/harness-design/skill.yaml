@@ -8,6 +8,8 @@ triggers:
 platforms:
   - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools:
   - Bash
   - Read
@@ -70,5 +72,11 @@ stack_signals:
   - vue
   - svelte
   - tailwind
+related_skills:
+  - design-visual-hierarchy
+  - design-typography-fundamentals
+  - design-color-harmony
+  - design-whitespace
+  - design-design-critique
 depends_on:
   - harness-design-system

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { appendFailure, loadFailures } from '../../src/state/state-manager';
+import { appendFailure, loadFailures } from '../../src/state';
 
 describe('appendFailure', () => {
   let tmpDir: string;

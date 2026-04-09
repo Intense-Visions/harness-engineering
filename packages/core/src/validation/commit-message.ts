@@ -61,26 +61,17 @@ export function validateCommitMessage(
 }
 
 /**
- * Validates a commit message against conventional commit format
+ * Parse the header line and return an error Result if it does not match.
  */
-function validateConventionalCommit(message: string): Result<CommitValidation, ValidationError> {
-  const lines = message.split('\n');
-  const headerLine = lines[0];
-
-  if (!headerLine) {
-    const error = createError<ValidationError>(
-      'VALIDATION_FAILED',
-      'Commit message header cannot be empty',
-      { message },
-      ['Provide a commit message with at least a header line']
-    );
-    return Err(error);
-  }
-
+function parseConventionalHeader(
+  message: string,
+  headerLine: string
+): Result<RegExpMatchArray, ValidationError> {
   const match = headerLine.match(CONVENTIONAL_PATTERN);
+  if (match) return Ok(match);
 
-  if (!match) {
-    const error = createError<ValidationError>(
+  return Err(
+    createError<ValidationError>(
       'VALIDATION_FAILED',
       'Commit message does not follow conventional format',
       { message, header: headerLine },
@@ -89,62 +80,76 @@ function validateConventionalCommit(message: string): Result<CommitValidation, V
         'Valid types: ' + VALID_TYPES.join(', '),
         'Example: feat(core): add new feature',
       ]
+    )
+  );
+}
+
+/**
+ * Collect validation issues from parsed commit fields.
+ */
+function collectCommitIssues(type: string, description: string | undefined): string[] {
+  const issues: string[] = [];
+  if (!VALID_TYPES.includes(type)) {
+    issues.push(`Invalid commit type "${type}". Valid types: ${VALID_TYPES.join(', ')}`);
+  }
+  if (!description || description.trim() === '') {
+    issues.push('Commit description cannot be empty');
+  }
+  return issues;
+}
+
+/**
+ * Check if the commit body contains a BREAKING CHANGE footer.
+ */
+function hasBreakingChangeInBody(lines: string[]): boolean {
+  if (lines.length <= 1) return false;
+  return lines.slice(1).join('\n').includes('BREAKING CHANGE:');
+}
+
+/**
+ * Validates a commit message against conventional commit format
+ */
+function validateConventionalCommit(message: string): Result<CommitValidation, ValidationError> {
+  const lines = message.split('\n');
+  const headerLine = lines[0];
+
+  if (!headerLine) {
+    return Err(
+      createError<ValidationError>(
+        'VALIDATION_FAILED',
+        'Commit message header cannot be empty',
+        { message },
+        ['Provide a commit message with at least a header line']
+      )
     );
-    return Err(error);
   }
 
+  const matchResult = parseConventionalHeader(message, headerLine);
+  if (!matchResult.ok) return matchResult;
+
+  const match = matchResult.value;
   const type = match[1]!;
   const scope = match[3];
   const breaking = match[4] === '!';
   const description = match[5];
 
-  const issues: string[] = [];
-
-  // Validate type
-  if (!VALID_TYPES.includes(type)) {
-    issues.push(`Invalid commit type "${type}". Valid types: ${VALID_TYPES.join(', ')}`);
-  }
-
-  // Validate description is not empty
-  if (!description || description.trim() === '') {
-    issues.push('Commit description cannot be empty');
-  }
-
-  // Check for breaking change marker
-  let hasBreakingChange = breaking;
-
-  // Check for BREAKING CHANGE: in commit body
-  if (lines.length > 1) {
-    const body = lines.slice(1).join('\n');
-    if (body.includes('BREAKING CHANGE:')) {
-      hasBreakingChange = true;
-    }
-  }
-
-  // If there are validation issues, return error with proper message
+  const issues = collectCommitIssues(type, description);
   if (issues.length > 0) {
-    let errorMessage = `Commit message validation failed: ${issues.join('; ')}`;
-
-    // For empty description, use more specific message
-    if (issues.some((issue) => issue.includes('description cannot be empty'))) {
-      errorMessage = `Commit message validation failed: ${issues.join('; ')}`;
-    }
-
-    const error = createError<ValidationError>(
-      'VALIDATION_FAILED',
-      errorMessage,
-      { message, issues, type, scope },
-      ['Review and fix the validation issues above']
+    return Err(
+      createError<ValidationError>(
+        'VALIDATION_FAILED',
+        `Commit message validation failed: ${issues.join('; ')}`,
+        { message, issues, type, scope },
+        ['Review and fix the validation issues above']
+      )
     );
-    return Err(error);
   }
 
-  const result: CommitValidation = {
+  return Ok({
     valid: true,
     type,
     ...(scope && { scope }),
-    breaking: hasBreakingChange,
+    breaking: breaking || hasBreakingChangeInBody(lines),
     issues: [],
-  };
-  return Ok(result);
+  });
 }

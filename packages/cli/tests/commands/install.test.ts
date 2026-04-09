@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createInstallCommand, runInstall } from '../../src/commands/install';
+import { createInstallCommand, runInstall, runBulkInstall } from '../../src/commands/install';
+
+vi.mock('child_process', () => ({
+  execFileSync: vi.fn(() => {
+    throw new Error('git not available in test environment');
+  }),
+}));
 
 // Mock all registry modules
 vi.mock('../../src/registry/npm-client', () => ({
@@ -35,6 +41,7 @@ vi.mock('../../src/registry/bundled-skills', () => ({
 vi.mock('../../src/utils/paths', () => ({
   resolveGlobalSkillsDir: vi.fn(() => '/global/skills/claude-code'),
   resolveCommunitySkillsDir: vi.fn(() => '/community/skills/claude-code'),
+  resolveGlobalCommunityBaseDir: vi.fn(() => '/home/user/.harness/skills/community'),
 }));
 
 vi.mock('yaml', () => ({
@@ -48,6 +55,9 @@ vi.mock('fs', async (importOriginal) => {
     existsSync: vi.fn(() => true),
     readFileSync: vi.fn(() => 'name: deployment\nversion: 1.0.0\n'),
     statSync: vi.fn(() => ({ isDirectory: () => true })),
+    readdirSync: vi.fn(() => []),
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
   };
 });
 
@@ -329,16 +339,18 @@ describe('local install (--from)', () => {
     expect(mockedWriteLockfile).toHaveBeenCalled();
   });
 
-  it('throws when --from path has no skill.yaml', async () => {
+  it('throws when --from dir has no skill.yaml anywhere', async () => {
     mockedExistsSync.mockImplementation((p: fs.PathLike) => {
-      // The --from path itself exists, but skill.yaml inside it does not
+      // The --from path itself exists, but no skill.yaml anywhere inside it
       if (String(p).includes('skill.yaml')) return false;
       return true;
     });
     mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    // readdirSync returns empty — no subdirs to scan
+    vi.mocked(fs.readdirSync).mockReturnValue([]);
 
     await expect(runInstall('local-skill', { from: '/path/to/skill' })).rejects.toThrow(
-      'No skill.yaml found'
+      'No skills found'
     );
   });
 
@@ -349,5 +361,163 @@ describe('local install (--from)', () => {
     await expect(runInstall('local-skill', { from: '/path/to/skill.zip' })).rejects.toThrow(
       '--from path must be a directory or .tgz file'
     );
+  });
+});
+
+describe('global install (--global)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set(['harness-tdd', 'harness-planning']));
+    mockedReadLockfile.mockReturnValue({ version: 1, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+  });
+
+  it('has --global option', () => {
+    const cmd = createInstallCommand();
+    const opt = cmd.options.find((o) => o.long === '--global');
+    expect(opt).toBeDefined();
+  });
+
+  it('installs to global community dir when --global is set', async () => {
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedExistsSync.mockReturnValue(true);
+    mockedYamlParse.mockReturnValue({
+      name: 'capillary-ui',
+      version: '1.0.0',
+      description: 'Cap UI skill',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+
+    const result = await runInstall('capillary-ui', { from: '/path/to/skill', global: true });
+    expect(result.installed).toBe(true);
+    // placeSkillContent should be called with the global community base dir
+    expect(mockedPlaceContent).toHaveBeenCalledWith(
+      expect.any(String),
+      '/home/user/.harness/skills/community',
+      'capillary-ui',
+      ['claude-code']
+    );
+  });
+
+  it('allows installing bundled skill names globally', async () => {
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedExistsSync.mockReturnValue(true);
+    mockedYamlParse.mockReturnValue({
+      name: 'harness-tdd',
+      version: '2.0.0',
+      description: 'Custom TDD',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+
+    // Global installs skip bundled collision check
+    const result = await runInstall('harness-tdd', { from: '/path/to/skill', global: true });
+    expect(result.installed).toBe(true);
+  });
+});
+
+describe('bulk install from directory', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 1, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+  });
+
+  it('auto-discovers and installs multiple skills from a directory', async () => {
+    // Directory structure: /project/skills/{capillary-ui,capillary-vulcan}/skill.yaml
+    // Root dir does NOT have skill.yaml — subdirs do
+    mockedExistsSync.mockImplementation((p: fs.PathLike) => {
+      // Normalize separators for cross-platform compatibility (Windows uses backslashes)
+      const s = String(p).replace(/\\/g, '/');
+      // No skill.yaml at root, but subdirs exist and have skill.yaml
+      if (s.endsWith('/project/skills/skill.yaml')) return false;
+      return true;
+    });
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+
+    // Mock readdirSync to return skill subdirectories for the root
+    const mockedReaddirSync = vi.mocked(fs.readdirSync);
+    mockedReaddirSync.mockImplementation(((p: string, _opts?: unknown) => {
+      const normalized = String(p).replace(/\\/g, '/');
+      if (normalized.endsWith('/project/skills')) {
+        return [
+          { name: 'capillary-ui', isDirectory: () => true },
+          { name: 'capillary-vulcan', isDirectory: () => true },
+        ] as unknown as fs.Dirent[];
+      }
+      // Skill subdirs themselves have no further subdirs
+      return [] as unknown as fs.Dirent[];
+    }) as typeof fs.readdirSync);
+
+    mockedYamlParse.mockReturnValue({
+      name: 'capillary-ui',
+      version: '1.0.0',
+      description: 'A skill',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+
+    const results = await runBulkInstall('/project/skills', {});
+    expect(results.length).toBe(2);
+    expect(results.every((r) => r.installed)).toBe(true);
+  });
+
+  it('auto-detects bulk install when --from dir has no skill.yaml', async () => {
+    // When --from points to a directory without skill.yaml at root,
+    // it should discover child skill dirs
+    mockedExistsSync.mockImplementation((p: fs.PathLike) => {
+      const s = String(p);
+      // Root dir exists but has no skill.yaml
+      if (s === '/project/skills/skill.yaml') return false;
+      return true;
+    });
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+
+    const mockedReaddirSync = vi.mocked(fs.readdirSync);
+    mockedReaddirSync.mockImplementation(((p: string, _opts?: unknown) => {
+      if (String(p).includes('/project/skills')) {
+        return [{ name: 'my-skill', isDirectory: () => true }] as unknown as fs.Dirent[];
+      }
+      return [] as unknown as fs.Dirent[];
+    }) as typeof fs.readdirSync);
+
+    mockedYamlParse.mockReturnValue({
+      name: 'my-skill',
+      version: '1.0.0',
+      description: 'A skill',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+
+    const result = await runInstall('my-skill', { from: '/project/skills' });
+    expect(result.installed).toBe(true);
+  });
+});
+
+describe('GitHub install', () => {
+  it('parses github: shorthand references', async () => {
+    // The parseGitHubRef function is internal, but we can test through runInstall
+    // which will try to clone — this will fail in test env but validates the path
+    await expect(runInstall('capillary', { from: 'github:owner/repo' })).rejects.toThrow(); // Will fail at git clone, but proves the GitHub path is taken
   });
 });

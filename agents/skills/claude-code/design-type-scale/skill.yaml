@@ -1,0 +1,34 @@
+name: design-type-scale
+version: "1.0.0"
+description: Mathematical type scales — modular, major third, perfect fourth, golden ratio, custom scales
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-typography-fundamentals
+  - design-visual-hierarchy
+  - design-responsive-type
+stack_signals: []
+keywords:
+  - type scale
+  - modular scale
+  - major third
+  - perfect fourth
+  - golden ratio
+  - font size
+  - scale ratio
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

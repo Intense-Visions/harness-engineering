@@ -23,6 +23,14 @@ vi.mock('../../../src/config/loader', () => ({
   resolveConfig: vi.fn(() => ({ ok: true, value: {} })),
 }));
 
+vi.mock('../../../src/skill/dispatcher', async (importActual) => {
+  const actual = await importActual<typeof import('../../../src/skill/dispatcher.js')>();
+  return {
+    ...actual,
+    suggest: vi.fn(),
+  };
+});
+
 import {
   captureHealthSnapshot,
   loadCachedSnapshot,
@@ -30,6 +38,7 @@ import {
 } from '../../../src/skill/health-snapshot';
 import { recommend } from '../../../src/skill/recommendation-engine';
 import { loadOrRebuildIndex } from '../../../src/skill/index-builder';
+import { suggest } from '../../../src/skill/dispatcher';
 import type { HealthSnapshot } from '../../../src/skill/health-snapshot';
 
 const MOCK_SNAPSHOT: HealthSnapshot = {
@@ -96,6 +105,10 @@ beforeEach(() => {
   (loadOrRebuildIndex as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_INDEX);
   (recommend as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_RESULT);
   (captureHealthSnapshot as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_SNAPSHOT);
+  (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
+    suggestions: [],
+    autoInjectKnowledge: [],
+  });
 });
 
 // ── Definition tests ──────────────────────────────────────────────
@@ -158,5 +171,106 @@ describe('handleRecommendSkills', () => {
     await handleRecommendSkills({});
 
     expect(captureHealthSnapshot).toHaveBeenCalledWith(process.cwd());
+  });
+});
+
+// ── Knowledge skill wiring tests ──────────────────────────────────
+
+describe('handleRecommendSkills — knowledge skill wiring', () => {
+  it('includes autoInjectKnowledge in formatted output when suggest() returns knowledge skills', async () => {
+    (loadCachedSnapshot as ReturnType<typeof vi.fn>).mockReturnValue(MOCK_SNAPSHOT);
+    (isSnapshotFresh as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
+      suggestions: [],
+      autoInjectKnowledge: [
+        {
+          name: 'react-hooks-pattern',
+          score: 0.85,
+          reason: 'paths match: **/*.tsx',
+        },
+      ],
+    });
+
+    const result = await handleRecommendSkills({
+      path: '/tmp/test',
+      recentFiles: ['src/App.tsx'],
+    });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toHaveProperty('autoInjectKnowledge');
+    expect(Array.isArray(parsed.autoInjectKnowledge)).toBe(true);
+  });
+
+  it('includes empty autoInjectKnowledge when no recentFiles provided', async () => {
+    (suggest as ReturnType<typeof vi.fn>).mockReturnValue({
+      suggestions: [],
+      autoInjectKnowledge: [],
+    });
+
+    const result = await handleRecommendSkills({ path: '/tmp/test', noCache: true });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed).toHaveProperty('autoInjectKnowledge');
+    expect(parsed.autoInjectKnowledge).toEqual([]);
+  });
+});
+
+// ── E2E scoring tests ─────────────────────────────────────────────
+
+describe('E2E: .tsx file editing surfaces React knowledge skills', () => {
+  it('scoreSkill with recentFiles=[*.tsx] scores react-hooks-pattern above 0.40 threshold', async () => {
+    const { scoreSkill } = await import('../../../src/skill/dispatcher.js');
+
+    const reactHooksEntry = {
+      name: 'react-hooks-pattern',
+      type: 'knowledge' as const,
+      tier: 3,
+      description: 'Reuse stateful logic across components via custom hooks',
+      keywords: ['hooks', 'custom-hooks', 'stateful-logic', 'composition'],
+      stackSignals: ['react', 'typescript'],
+      paths: ['**/*.tsx', '**/*.jsx'],
+      relatedSkills: [],
+      addresses: [],
+      dependsOn: [],
+      cognitiveMode: 'advisory-guide',
+      phases: [],
+      source: 'community' as const,
+    };
+
+    const recentFiles = ['src/App.tsx', 'src/components/Button.tsx'];
+    // Include 'hooks' to match keyword, plus tsx file triggers paths score of 0.20
+    const queryTerms = ['hooks', 'component', 'stateful'];
+
+    const score = scoreSkill(reactHooksEntry, queryTerms, null, recentFiles, 'react-hooks-pattern');
+
+    // paths score: 0.20 (tsx match) + keyword score (hooks/stateful match) + desc score
+    // Should exceed recommendation threshold of 0.40
+    expect(score).toBeGreaterThan(0.4);
+  });
+
+  it('scoreSkill with recentFiles=[*.py] scores react-hooks-pattern below 0.40 threshold', async () => {
+    const { scoreSkill } = await import('../../../src/skill/dispatcher.js');
+
+    const reactHooksEntry = {
+      name: 'react-hooks-pattern',
+      type: 'knowledge' as const,
+      tier: 3,
+      description: 'Reuse stateful logic across components via custom hooks',
+      keywords: ['hooks', 'custom-hooks', 'stateful-logic', 'composition'],
+      stackSignals: ['react', 'typescript'],
+      paths: ['**/*.tsx', '**/*.jsx'],
+      relatedSkills: [],
+      addresses: [],
+      dependsOn: [],
+      cognitiveMode: 'advisory-guide',
+      phases: [],
+      source: 'community' as const,
+    };
+
+    const recentFiles = ['scripts/process.py', 'data/input.csv'];
+    const queryTerms = ['data', 'processing', 'script'];
+
+    const score = scoreSkill(reactHooksEntry, queryTerms, null, recentFiles, 'react-hooks-pattern');
+
+    // No paths match, no keyword match, no stack match
+    expect(score).toBeLessThan(0.4);
   });
 });

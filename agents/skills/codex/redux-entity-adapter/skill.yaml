@@ -1,0 +1,39 @@
+name: redux-entity-adapter
+version: '1.0.0'
+description: Normalize collections with createEntityAdapter for efficient CRUD on entity state
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - '**/*.slice.ts'
+  - '**/slices/**'
+related_skills:
+  - redux-slice-pattern
+  - redux-selectors-pattern
+  - redux-rtk-query-endpoints
+stack_signals:
+  - redux
+  - react
+  - typescript
+keywords:
+  - createEntityAdapter
+  - normalized-state
+  - ids
+  - entities
+  - CRUD
+  - entity-state
+metadata:
+  author: community
+  upstream: 'redux-toolkit/docs/createEntityAdapter'
+state:
+  persistent: false
+  files: []
+depends_on: []

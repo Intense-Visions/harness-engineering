@@ -3,6 +3,17 @@ import type { IngestResult } from '../../types.js';
 import type { GraphConnector, ConnectorConfig, HttpClient } from './ConnectorInterface.js';
 import { linkToCode, sanitizeExternalText } from './ConnectorUtils.js';
 
+function missingApiKeyResult(envVar: string, start: number): IngestResult {
+  return {
+    nodesAdded: 0,
+    nodesUpdated: 0,
+    edgesAdded: 0,
+    edgesUpdated: 0,
+    errors: [`Missing API key: environment variable "${envVar}" is not set`],
+    durationMs: Date.now() - start,
+  };
+}
+
 interface ConfluencePage {
   id: string;
   title: string;
@@ -28,43 +39,43 @@ export class ConfluenceConnector implements GraphConnector {
   async ingest(store: GraphStore, config: ConnectorConfig): Promise<IngestResult> {
     const start = Date.now();
     const errors: string[] = [];
-    let nodesAdded = 0;
-    let edgesAdded = 0;
 
     const apiKeyEnv = config.apiKeyEnv ?? 'CONFLUENCE_API_KEY';
     const apiKey = process.env[apiKeyEnv];
     if (!apiKey) {
-      return {
-        nodesAdded: 0,
-        nodesUpdated: 0,
-        edgesAdded: 0,
-        edgesUpdated: 0,
-        errors: [`Missing API key: environment variable "${apiKeyEnv}" is not set`],
-        durationMs: Date.now() - start,
-      };
+      return missingApiKeyResult(apiKeyEnv, start);
     }
 
     const baseUrlEnv = config.baseUrlEnv ?? 'CONFLUENCE_BASE_URL';
     const baseUrl = process.env[baseUrlEnv] ?? '';
     const spaceKey = (config.spaceKey as string) ?? '';
-
-    try {
-      const result = await this.fetchAllPages(store, baseUrl, apiKey, spaceKey);
-      nodesAdded = result.nodesAdded;
-      edgesAdded = result.edgesAdded;
-      errors.push(...result.errors);
-    } catch (err) {
-      errors.push(`Confluence fetch error: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    const counts = await this.fetchAllPagesHandled(store, baseUrl, apiKey, spaceKey, errors);
 
     return {
-      nodesAdded,
+      nodesAdded: counts.nodesAdded,
       nodesUpdated: 0,
-      edgesAdded,
+      edgesAdded: counts.edgesAdded,
       edgesUpdated: 0,
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  private async fetchAllPagesHandled(
+    store: GraphStore,
+    baseUrl: string,
+    apiKey: string,
+    spaceKey: string,
+    errors: string[]
+  ): Promise<{ nodesAdded: number; edgesAdded: number }> {
+    try {
+      const result = await this.fetchAllPages(store, baseUrl, apiKey, spaceKey);
+      errors.push(...result.errors);
+      return { nodesAdded: result.nodesAdded, edgesAdded: result.edgesAdded };
+    } catch (err) {
+      errors.push(`Confluence fetch error: ${err instanceof Error ? err.message : String(err)}`);
+      return { nodesAdded: 0, edgesAdded: 0 };
+    }
   }
 
   private async fetchAllPages(

@@ -1,0 +1,42 @@
+name: nestjs-graphql-integration
+version: "1.0.0"
+description: Build GraphQL APIs with GraphQLModule, @Resolver, @Query/@Mutation, @ObjectType, and DataLoader
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths:
+  - "nest-cli.json"
+  - "**/*.resolver.ts"
+  - "**/*.graphql"
+  - "**/*.gql"
+related_skills:
+  - nestjs-module-pattern
+  - nestjs-service-pattern
+  - graphql-resolver-pattern
+stack_signals:
+  - nestjs
+  - typescript
+  - nodejs
+keywords:
+  - graphql
+  - resolver
+  - ObjectType
+  - Query
+  - Mutation
+  - DataLoader
+  - code-first
+metadata:
+  author: community
+  upstream: "docs.nestjs.com/graphql/quick-start"
+state:
+  persistent: false
+  files: []
+depends_on: []

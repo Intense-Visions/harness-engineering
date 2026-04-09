@@ -96,6 +96,67 @@ function appendProjectState(
   return content + `\n\n---\n## Project State\n\`\`\`json\n${stateContent}\n\`\`\`\n`;
 }
 
+async function runSkill(
+  name: string,
+  opts: { path?: string; complexity?: string; phase?: string; party?: boolean }
+): Promise<void> {
+  const skillsDir = resolveSkillsDir();
+  const skillDir = path.join(skillsDir, name);
+
+  if (!fs.existsSync(skillDir)) {
+    logger.error(`Skill not found: ${name}`);
+    process.exit(ExitCode.ERROR);
+    return;
+  }
+
+  const metadata = loadSkillMetadata(skillDir);
+  const projectPath = opts.path ? path.resolve(opts.path) : process.cwd();
+  const complexity = resolveComplexity(
+    metadata,
+    (opts.complexity as Complexity) ?? 'standard',
+    projectPath
+  );
+  const principles = loadPrinciples(projectPath);
+
+  let priorState: string | undefined;
+  let stateWarning: string | undefined;
+  if (opts.phase) {
+    const phaseResult = resolvePhaseState(metadata, projectPath, opts.phase);
+    if (!phaseResult) {
+      process.exit(ExitCode.ERROR);
+      return;
+    }
+    priorState = phaseResult.priorState;
+    stateWarning = phaseResult.stateWarning;
+  }
+
+  const preamble = buildPreamble({
+    ...(complexity !== undefined && { complexity }),
+    phases: metadata?.phases as Array<{ name: string; description: string; required: boolean }>,
+    ...(principles !== undefined && { principles }),
+    ...(opts.phase !== undefined && { phase: opts.phase }),
+    ...(priorState !== undefined && { priorState }),
+    ...(stateWarning !== undefined && { stateWarning }),
+    ...(opts.party !== undefined && { party: opts.party }),
+  });
+
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
+  if (!fs.existsSync(skillMdPath)) {
+    logger.error(`SKILL.md not found for skill: ${name}`);
+    process.exit(ExitCode.ERROR);
+    return;
+  }
+
+  const content = appendProjectState(
+    fs.readFileSync(skillMdPath, 'utf-8'),
+    metadata,
+    projectPath,
+    !!opts.path
+  );
+  process.stdout.write(preamble + content);
+  process.exit(ExitCode.SUCCESS);
+}
+
 export function createRunCommand(): Command {
   return new Command('run')
     .description('Run a skill (outputs SKILL.md content with context preamble)')
@@ -104,61 +165,5 @@ export function createRunCommand(): Command {
     .option('--complexity <level>', 'Rigor level: fast, standard, thorough', 'standard')
     .option('--phase <name>', 'Start at a specific phase (for re-entry)')
     .option('--party', 'Enable multi-perspective evaluation')
-    .action(async (name, opts, _cmd) => {
-      const skillsDir = resolveSkillsDir();
-      const skillDir = path.join(skillsDir, name);
-
-      if (!fs.existsSync(skillDir)) {
-        logger.error(`Skill not found: ${name}`);
-        process.exit(ExitCode.ERROR);
-        return;
-      }
-
-      const metadata = loadSkillMetadata(skillDir);
-      const projectPath = opts.path ? path.resolve(opts.path) : process.cwd();
-      const complexity = resolveComplexity(
-        metadata,
-        (opts.complexity as Complexity) ?? 'standard',
-        projectPath
-      );
-      const principles = loadPrinciples(projectPath);
-
-      let priorState: string | undefined;
-      let stateWarning: string | undefined;
-      if (opts.phase) {
-        const phaseResult = resolvePhaseState(metadata, projectPath, opts.phase);
-        if (!phaseResult) {
-          process.exit(ExitCode.ERROR);
-          return;
-        }
-        priorState = phaseResult.priorState;
-        stateWarning = phaseResult.stateWarning;
-      }
-
-      const preamble = buildPreamble({
-        ...(complexity !== undefined && { complexity }),
-        phases: metadata?.phases as Array<{ name: string; description: string; required: boolean }>,
-        ...(principles !== undefined && { principles }),
-        phase: opts.phase,
-        ...(priorState !== undefined && { priorState }),
-        ...(stateWarning !== undefined && { stateWarning }),
-        party: opts.party,
-      });
-
-      const skillMdPath = path.join(skillDir, 'SKILL.md');
-      if (!fs.existsSync(skillMdPath)) {
-        logger.error(`SKILL.md not found for skill: ${name}`);
-        process.exit(ExitCode.ERROR);
-        return;
-      }
-
-      const content = appendProjectState(
-        fs.readFileSync(skillMdPath, 'utf-8'),
-        metadata,
-        projectPath,
-        !!opts.path
-      );
-      process.stdout.write(preamble + content);
-      process.exit(ExitCode.SUCCESS);
-    });
+    .action(async (name, opts) => runSkill(name, opts));
 }
