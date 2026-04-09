@@ -110,6 +110,10 @@ export const SkillMetadataSchema = z
       .string()
       .regex(/^[a-z][a-z0-9-]*$/, 'Command name must be lowercase with hyphens')
       .optional(),
+    command_namespace: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]*$/, 'Command namespace must be lowercase with hyphens')
+      .optional(),
     addresses: z.array(SkillAddressSchema).default([]),
   })
   .superRefine((data, ctx) => {

@@ -116,22 +116,37 @@ Skills can be installed from npm, local directories, or GitHub repositories:
 
 ```bash
 # Install a single skill from npm
-harness install capillary-ui
+harness install acme-ui
 
 # Install all skills from a GitHub repo — globally (available to every project)
-harness install . --from github:owner/harness-capillary --global
+harness install . --from github:owner/acme-skills --global
 
 # Install from a local directory (auto-discovers all skills)
-harness install . --from /path/to/harness-capillary/skills --global
+harness install . --from /path/to/acme-skills/skills --global
 ```
 
 **Global installs** (`--global`) place skills in `~/.harness/skills/community/` and are available to every harness project on your machine — no per-project setup. After installing, regenerate slash commands to pick up the new skills:
 
 ```bash
-harness generate
+harness generate-slash-commands --global --include-global
 ```
 
-This makes skills available as slash commands, e.g. `/harness:capillary-vulcan`. Skills from external projects can use any namespace via `command_name` in their `skill.yaml`.
+This makes skills available as slash commands. By default, installed skills are namespaced under `harness:` (e.g., `/harness:acme-ui`). Skills can define a custom namespace via `command_namespace` in their `skill.yaml` (e.g., `command_namespace: acme` produces `/acme:ui`).
+
+#### Updating Third-Party Skills
+
+Re-run the install command with `--force` to pull the latest version, then regenerate slash commands:
+
+```bash
+# Update from GitHub
+harness install . --from github:owner/acme-skills --force --global
+
+# Update from npm
+harness install acme-ui --force --global
+
+# Regenerate slash commands after updating
+harness generate-slash-commands --global --include-global
+```
 
 ### Personas
 

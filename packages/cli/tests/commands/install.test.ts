@@ -385,9 +385,9 @@ describe('global install (--global)', () => {
     mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
     mockedExistsSync.mockReturnValue(true);
     mockedYamlParse.mockReturnValue({
-      name: 'capillary-ui',
+      name: 'acme-ui',
       version: '1.0.0',
-      description: 'Cap UI skill',
+      description: 'Acme UI skill',
       triggers: ['manual'],
       platforms: ['claude-code'],
       tools: [],
@@ -395,13 +395,13 @@ describe('global install (--global)', () => {
       depends_on: [],
     });
 
-    const result = await runInstall('capillary-ui', { from: '/path/to/skill', global: true });
+    const result = await runInstall('acme-ui', { from: '/path/to/skill', global: true });
     expect(result.installed).toBe(true);
     // placeSkillContent should be called with the global community base dir
     expect(mockedPlaceContent).toHaveBeenCalledWith(
       expect.any(String),
       '/home/user/.harness/skills/community',
-      'capillary-ui',
+      'acme-ui',
       ['claude-code']
     );
   });
@@ -438,7 +438,7 @@ describe('bulk install from directory', () => {
   });
 
   it('auto-discovers and installs multiple skills from a directory', async () => {
-    // Directory structure: /project/skills/{capillary-ui,capillary-vulcan}/skill.yaml
+    // Directory structure: /project/skills/{acme-ui,acme-tools}/skill.yaml
     // Root dir does NOT have skill.yaml — subdirs do
     mockedExistsSync.mockImplementation((p: fs.PathLike) => {
       // Normalize separators for cross-platform compatibility (Windows uses backslashes)
@@ -455,8 +455,8 @@ describe('bulk install from directory', () => {
       const normalized = String(p).replace(/\\/g, '/');
       if (normalized.endsWith('/project/skills')) {
         return [
-          { name: 'capillary-ui', isDirectory: () => true },
-          { name: 'capillary-vulcan', isDirectory: () => true },
+          { name: 'acme-ui', isDirectory: () => true },
+          { name: 'acme-tools', isDirectory: () => true },
         ] as unknown as fs.Dirent[];
       }
       // Skill subdirs themselves have no further subdirs
@@ -464,7 +464,7 @@ describe('bulk install from directory', () => {
     }) as typeof fs.readdirSync);
 
     mockedYamlParse.mockReturnValue({
-      name: 'capillary-ui',
+      name: 'acme-ui',
       version: '1.0.0',
       description: 'A skill',
       triggers: ['manual'],
@@ -518,6 +518,6 @@ describe('GitHub install', () => {
   it('parses github: shorthand references', async () => {
     // The parseGitHubRef function is internal, but we can test through runInstall
     // which will try to clone — this will fail in test env but validates the path
-    await expect(runInstall('capillary', { from: 'github:owner/repo' })).rejects.toThrow(); // Will fail at git clone, but proves the GitHub path is taken
+    await expect(runInstall('acme', { from: 'github:owner/repo' })).rejects.toThrow(); // Will fail at git clone, but proves the GitHub path is taken
   });
 });

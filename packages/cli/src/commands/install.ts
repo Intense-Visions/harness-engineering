@@ -432,6 +432,14 @@ export function createInstallCommand(): Command {
         } else if (result.installed) {
           logger.success(`Installed ${result.name}@${result.version}`);
         }
+
+        // Prompt to generate slash commands after successful install/upgrade
+        if (result.installed || result.upgraded) {
+          const globalFlag = opts.global ? ' --global --include-global' : '';
+          logger.info(
+            `Run \`harness generate-slash-commands${globalFlag}\` to register slash commands.`
+          );
+        }
       } catch (err) {
         logger.error(err instanceof Error ? err.message : String(err));
         process.exit(1);

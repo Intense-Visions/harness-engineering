@@ -83,3 +83,80 @@ describe('generateSlashCommands - command_name routing', () => {
     expect(claudeResult?.added).toContain('harness.md');
   });
 });
+
+describe('generateSlashCommands - command_namespace routing', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('writes custom namespace skill to its own subdirectory', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'custom-namespace-skill');
+    generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: false,
+      yes: false,
+    });
+
+    // Should be in acme/ subdirectory as ui.md → registers as /acme:ui
+    expect(fs.existsSync(path.join(tmpDir, 'acme', 'ui.md'))).toBe(true);
+  });
+
+  it('does not write custom namespace skill into the harness subdirectory', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'custom-namespace-skill');
+    generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: false,
+      yes: false,
+    });
+
+    // Must NOT be in harness/ subdirectory
+    expect(fs.existsSync(path.join(tmpDir, 'harness', 'ui.md'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'harness', 'acme-ui.md'))).toBe(false);
+  });
+
+  it('custom namespace file contains correct command name', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'custom-namespace-skill');
+    generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: false,
+      yes: false,
+    });
+
+    const content = fs.readFileSync(path.join(tmpDir, 'acme', 'ui.md'), 'utf-8');
+    expect(content).toContain('name: acme:ui');
+  });
+
+  it('reports custom namespace files in added results', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'custom-namespace-skill');
+    const results = generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: false,
+      yes: false,
+    });
+
+    const claudeResult = results.find((r) => r.platform === 'claude-code');
+    expect(claudeResult?.added).toContain('ui.md');
+  });
+});

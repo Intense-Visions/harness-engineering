@@ -135,12 +135,15 @@ function buildSpec(
   }
 
   const commandName = meta.command_name;
-  const effectiveName = commandName ?? normalized;
-  const effectiveFullName = commandName ?? `harness:${normalized}`;
+  const commandNamespace = meta.command_namespace;
+  const effectiveNamespace = commandNamespace ?? 'harness';
+  const nameForNamespace = stripNamespacePrefix(normalized, commandNamespace);
+  const effectiveName = commandName ?? nameForNamespace;
+  const effectiveFullName = commandName ?? `${effectiveNamespace}:${nameForNamespace}`;
 
   return {
     name: effectiveName,
-    namespace: 'harness',
+    namespace: effectiveNamespace,
     fullName: effectiveFullName,
     description: meta.description,
     version: meta.version,
@@ -152,6 +155,7 @@ function buildSpec(
     skillsBaseDir: skillsDir,
     source,
     ...(commandName ? { commandName } : {}),
+    ...(commandNamespace ? { customNamespace: commandNamespace } : {}),
     ...(meta.cursor ? { cursor: meta.cursor } : {}),
     prompt: {
       context: buildContextLines(meta).join('\n'),
@@ -160,6 +164,24 @@ function buildSpec(
       process: buildProcessLines(meta).join('\n'),
     },
   };
+}
+
+/**
+ * Strip a custom namespace prefix from a normalized skill name.
+ * e.g., namespace 'acme' + normalized 'acme-ui' → 'ui'
+ */
+function stripNamespacePrefix(normalized: string, namespace: string | undefined): string {
+  if (namespace && normalized.startsWith(`${namespace}-`)) {
+    return normalized.slice(namespace.length + 1);
+  }
+  return normalized;
+}
+
+/**
+ * Build a collision key that is namespace-qualified to avoid cross-namespace conflicts.
+ */
+function buildCollisionKey(effectiveName: string, namespace: string | undefined): string {
+  return namespace ? `${namespace}:${effectiveName}` : effectiveName;
 }
 
 export function normalizeSkills(
@@ -191,8 +213,10 @@ export function normalizeSkills(
       if (shouldSkipSkill(meta, platforms)) continue;
 
       const normalized = normalizeName(meta.name);
-      const effectiveName = meta.command_name ?? normalized;
-      if (checkNameCollision(effectiveName, meta.name, source, nameMap) === 'skip') continue;
+      const nameForCollision = stripNamespacePrefix(normalized, meta.command_namespace);
+      const effectiveName = meta.command_name ?? nameForCollision;
+      const collisionKey = buildCollisionKey(effectiveName, meta.command_namespace);
+      if (checkNameCollision(collisionKey, meta.name, source, nameMap) === 'skip') continue;
 
       specs.push(buildSpec(meta, normalized, entry, skillsDir, source));
     }
