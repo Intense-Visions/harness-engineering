@@ -1,0 +1,33 @@
+name: design-readability
+version: "1.0.0"
+description: Optimizing for reading — line length, leading, paragraph spacing, alignment, F-pattern/Z-pattern
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-typography-fundamentals
+  - design-content-density
+  - design-responsive-type
+stack_signals: []
+keywords:
+  - readability
+  - line length
+  - measure
+  - leading
+  - line height
+  - paragraph spacing
+  - alignment
+  - F-pattern
+  - Z-pattern
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

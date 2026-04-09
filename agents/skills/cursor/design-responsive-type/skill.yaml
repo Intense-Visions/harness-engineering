@@ -1,0 +1,31 @@
+name: design-responsive-type
+version: "1.0.0"
+description: Type across viewports — fluid typography (clamp), viewport scaling, minimum sizes, maintaining hierarchy
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-type-scale
+  - design-readability
+  - design-responsive-strategy
+stack_signals: []
+keywords:
+  - responsive type
+  - fluid typography
+  - clamp
+  - viewport units
+  - minimum font size
+  - scaling
+  - responsive font
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

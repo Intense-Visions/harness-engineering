@@ -1,0 +1,31 @@
+name: design-content-density
+version: "1.0.0"
+description: Information density tradeoffs — compact vs. comfortable vs. spacious, data-dense vs. marketing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-whitespace
+  - design-readability
+  - design-responsive-strategy
+stack_signals: []
+keywords:
+  - content density
+  - information density
+  - compact
+  - comfortable
+  - spacious
+  - data-dense
+  - scanability
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

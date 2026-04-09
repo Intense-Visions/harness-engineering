@@ -1,0 +1,35 @@
+name: design-consistency
+version: "1.0.0"
+description: Internal vs. external consistency — consistent patterns within a product, platform convention adherence, and when to break consistency deliberately
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - design-alignment
+  - design-gestalt-similarity
+  - design-brand-consistency
+  - design-design-governance
+stack_signals: []
+keywords:
+  - consistency
+  - internal-consistency
+  - external-consistency
+  - platform-conventions
+  - pattern-consistency
+  - deliberate-inconsistency
+  - audit
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

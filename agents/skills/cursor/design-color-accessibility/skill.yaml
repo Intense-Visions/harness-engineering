@@ -1,0 +1,31 @@
+name: design-color-accessibility
+version: "1.0.0"
+description: Color independence — conveying information without color alone, colorblind-safe palettes, perceptual uniformity
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-contrast-ratio
+  - design-palette-construction
+  - a11y-color-contrast
+stack_signals: []
+keywords:
+  - colorblind
+  - color independence
+  - deuteranopia
+  - protanopia
+  - tritanopia
+  - perceptual uniformity
+  - accessible palette
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

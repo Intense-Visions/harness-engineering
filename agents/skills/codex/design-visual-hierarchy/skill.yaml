@@ -1,0 +1,33 @@
+name: design-visual-hierarchy
+version: "1.0.0"
+description: Directing attention — size, color, contrast, position, isolation, motion as hierarchy tools
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-typographic-hierarchy
+  - design-contrast-ratio
+  - design-whitespace
+  - design-gestalt-proximity
+stack_signals: []
+keywords:
+  - visual hierarchy
+  - attention
+  - focal point
+  - emphasis
+  - dominance
+  - subordination
+  - visual weight
+  - scanning
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

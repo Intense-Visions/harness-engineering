@@ -1,0 +1,32 @@
+name: design-contrast-ratio
+version: "1.0.0"
+description: Luminance contrast for readability and visual weight — WCAG ratios, contrast as hierarchy tool
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-color-harmony
+  - design-color-accessibility
+  - a11y-color-contrast
+  - design-visual-hierarchy
+stack_signals: []
+keywords:
+  - contrast ratio
+  - luminance
+  - WCAG
+  - readability
+  - visual weight
+  - AA
+  - AAA
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

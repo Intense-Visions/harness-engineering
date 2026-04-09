@@ -1,0 +1,31 @@
+name: design-font-pairing
+version: "1.0.0"
+description: Combining typefaces — contrast principles, superfamilies, serif+sans rules, limiting to 2-3 families
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-typography-fundamentals
+  - design-type-scale
+  - design-brand-consistency
+stack_signals: []
+keywords:
+  - font pairing
+  - typeface combination
+  - serif sans-serif
+  - superfamily
+  - contrast
+  - concord
+  - font stack
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
