@@ -1,0 +1,36 @@
+name: perf-interaction-to-next-paint
+version: '1.0.0'
+description: INP measurement — input delay, processing time, presentation delay, long task attribution
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - perf-event-loop
+  - perf-long-tasks
+  - perf-largest-contentful-paint
+  - perf-cumulative-layout-shift
+  - perf-performance-api
+  - angular-performance-patterns
+stack_signals: []
+keywords:
+  - INP
+  - interaction to next paint
+  - Core Web Vitals
+  - input delay
+  - processing time
+  - presentation delay
+  - responsiveness
+  - event handlers
+  - scheduler.yield
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
