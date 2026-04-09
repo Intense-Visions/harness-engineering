@@ -1,0 +1,37 @@
+name: security-threat-modeling-process
+version: "1.0.0"
+description: End-to-end threat modeling process -- from scoping and DFD construction through threat enumeration, risk rating, and mitigation tracking
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-threat-modeling-stride
+  - security-trust-boundaries
+  - security-attack-trees
+  - owasp-auth-patterns
+  - owasp-logging-monitoring
+stack_signals: []
+keywords:
+  - threat modeling
+  - threat model
+  - data flow diagram
+  - DFD
+  - risk assessment
+  - security design review
+  - threat register
+  - mitigation tracking
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,38 @@
+name: security-audit-log-design
+version: "1.0.0"
+description: Security audit log design -- what to log, structured event format, tamper evidence, retention, and the balance between observability and privacy
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-log-correlation
+  - security-compliance-logging
+  - security-incident-containment
+  - security-forensics-fundamentals
+  - owasp-logging-monitoring
+stack_signals: []
+keywords:
+  - audit log
+  - security logging
+  - tamper evidence
+  - structured logging
+  - event log
+  - audit trail
+  - log retention
+  - security monitoring
+  - SIEM
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

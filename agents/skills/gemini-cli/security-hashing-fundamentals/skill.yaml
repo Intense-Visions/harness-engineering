@@ -1,0 +1,39 @@
+name: security-hashing-fundamentals
+version: "1.0.0"
+description: Cryptographic hash functions (SHA-256, SHA-3, BLAKE3), collision resistance, preimage resistance, and correct use cases for hashing vs encryption vs MAC
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-hmac-signatures
+  - security-credential-storage
+  - security-symmetric-encryption
+  - security-cryptographic-randomness
+  - owasp-cryptography
+stack_signals: []
+keywords:
+  - hash function
+  - SHA-256
+  - SHA-3
+  - BLAKE3
+  - collision resistance
+  - preimage attack
+  - content addressing
+  - integrity verification
+  - MD5
+  - SHA-1
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

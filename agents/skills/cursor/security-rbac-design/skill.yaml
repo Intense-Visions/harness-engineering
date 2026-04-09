@@ -1,0 +1,39 @@
+name: security-rbac-design
+version: "1.0.0"
+description: Role-based access control modeling -- role hierarchies, permission granularity, role explosion prevention, and the principle of least privilege
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-abac-design
+  - security-rebac-design
+  - security-capability-based-security
+  - security-zero-trust-principles
+  - owasp-auth-patterns
+  - owasp-idor-prevention
+stack_signals: []
+keywords:
+  - RBAC
+  - role-based access control
+  - roles
+  - permissions
+  - authorization
+  - least privilege
+  - role hierarchy
+  - role explosion
+  - access control matrix
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

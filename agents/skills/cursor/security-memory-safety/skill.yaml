@@ -1,0 +1,38 @@
+name: security-memory-safety
+version: "1.0.0"
+description: Memory safety vulnerabilities -- buffer overflows, use-after-free, double-free -- and mitigation through safe languages, bounds checking, and memory-safe abstractions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-injection-families
+  - security-race-conditions
+  - security-deserialization-attacks
+  - owasp-injection-prevention
+stack_signals: []
+keywords:
+  - memory safety
+  - buffer overflow
+  - use-after-free
+  - double-free
+  - stack overflow
+  - heap overflow
+  - bounds checking
+  - Rust
+  - safe languages
+  - memory corruption
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

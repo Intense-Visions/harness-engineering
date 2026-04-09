@@ -1,0 +1,40 @@
+name: security-credential-storage
+version: "1.0.0"
+description: Password hashing with Argon2id, bcrypt, and scrypt -- salting, peppering, adaptive cost, and upgrade strategies for legacy hashes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-hashing-fundamentals
+  - security-authentication-flows
+  - security-session-management
+  - security-mfa-design
+  - owasp-auth-patterns
+  - owasp-secrets-management
+stack_signals: []
+keywords:
+  - password hashing
+  - argon2
+  - bcrypt
+  - scrypt
+  - salting
+  - peppering
+  - credential storage
+  - password storage
+  - adaptive cost
+  - key stretching
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

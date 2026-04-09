@@ -1,0 +1,39 @@
+name: security-threat-modeling-stride
+version: "1.0.0"
+description: STRIDE methodology for systematic threat identification across spoofing, tampering, repudiation, information disclosure, denial of service, and elevation of privilege
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-threat-modeling-process
+  - security-trust-boundaries
+  - security-attack-trees
+  - owasp-injection-prevention
+  - owasp-auth-patterns
+  - owasp-csrf-protection
+stack_signals: []
+keywords:
+  - stride
+  - threat modeling
+  - spoofing
+  - tampering
+  - repudiation
+  - information disclosure
+  - denial of service
+  - elevation of privilege
+  - threat identification
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,40 @@
+name: security-session-management
+version: "1.0.0"
+description: Session lifecycle design -- token generation, fixation prevention, binding, idle and absolute timeouts, revocation, and secure cookie configuration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-credential-storage
+  - security-authentication-flows
+  - security-cryptographic-randomness
+  - security-tls-fundamentals
+  - owasp-auth-patterns
+  - owasp-csrf-protection
+  - owasp-security-headers
+stack_signals: []
+keywords:
+  - session management
+  - session token
+  - session fixation
+  - session hijacking
+  - cookie security
+  - token revocation
+  - idle timeout
+  - absolute timeout
+  - JWT session
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
