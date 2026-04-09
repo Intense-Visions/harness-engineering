@@ -2,7 +2,7 @@
 
 ESLint plugin for enforcing harness engineering architectural constraints. Provides 11 rules and 2 shared configurations.
 
-**Version:** 0.2.3
+**Version:** 0.2.4
 
 ## Installation
 
@@ -43,7 +43,7 @@ Enables 8 of 11 rules. Architectural rules are set to `error`, documentation and
 
 ### `strict`
 
-Same rules as `recommended`, but all set to `error`.
+Same rules as `recommended` (8 of 11), but all set to `error`. The 3 opt-in performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) remain opt-in in both configs.
 
 ## Rules
 

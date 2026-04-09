@@ -160,6 +160,6 @@ export async function updateSessionEntryStatus(
 /** Generates a short unique ID for session entries. */
 function generateEntryId(): string {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
+  const random = Buffer.from(crypto.getRandomValues(new Uint8Array(4))).toString('hex');
   return `${timestamp}-${random}`;
 }

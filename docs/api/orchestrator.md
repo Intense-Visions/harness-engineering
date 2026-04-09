@@ -1,6 +1,6 @@
 # Orchestrator API Reference
 
-The `@harness-engineering/orchestrator` package provides the core implementation of the Harness Orchestrator daemon.
+The `@harness-engineering/orchestrator` package (v0.2.6) provides the core implementation of the Harness Orchestrator daemon.
 
 **Source:** [orchestrator.ts](../../packages/orchestrator/src/orchestrator.ts), [runner.ts](../../packages/orchestrator/src/agent/runner.ts)
 
