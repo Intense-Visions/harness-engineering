@@ -1,0 +1,33 @@
+name: design-typography-fundamentals
+version: "1.0.0"
+description: Anatomy of type — x-height, ascenders, counters, serifs, stroke contrast, optical sizing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-type-scale
+  - design-font-pairing
+  - design-readability
+stack_signals: []
+keywords:
+  - typography
+  - x-height
+  - ascender
+  - descender
+  - serif
+  - sans-serif
+  - stroke contrast
+  - optical sizing
+  - typeface anatomy
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

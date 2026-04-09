@@ -1,0 +1,34 @@
+name: design-palette-construction
+version: "1.0.0"
+description: Building functional palettes — primary/secondary/accent, neutral scales, semantic colors, tint/shade generation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-color-harmony
+  - design-color-accessibility
+  - design-dark-mode-color
+  - design-token-architecture
+stack_signals: []
+keywords:
+  - palette
+  - primary color
+  - secondary color
+  - accent
+  - neutral scale
+  - semantic colors
+  - tint
+  - shade
+  - color system
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
