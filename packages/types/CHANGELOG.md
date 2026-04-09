@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.9.1
+
+### Patch Changes
+
+- Reduce Tier 2 structural violations and fix exactOptionalPropertyTypes errors
+
 ## 0.9.0
 
 ### Minor Changes

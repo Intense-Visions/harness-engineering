@@ -1,5 +1,11 @@
 # @harness-engineering/graph
 
+## 0.4.2
+
+### Patch Changes
+
+- Add missing `finalizeCommit` function, fix unused parameter, and reduce Tier 2 structural complexity
+
 ## 0.4.1
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.2
+
+### Patch Changes
+
+- Reduce Tier 2 structural violations and fix exactOptionalPropertyTypes errors across core modules
+- Updated dependencies
+- Updated dependencies
+  - @harness-engineering/graph@0.4.2
+  - @harness-engineering/types@0.9.1
+
 ## 0.21.1
 
 ### Patch Changes

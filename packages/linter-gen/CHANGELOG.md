@@ -1,5 +1,11 @@
 # @harness-engineering/linter-gen
 
+## 0.1.6
+
+### Patch Changes
+
+- Reduce Tier 2 structural violations and fix exactOptionalPropertyTypes errors
+
 ## 0.1.5
 
 ### Patch Changes
