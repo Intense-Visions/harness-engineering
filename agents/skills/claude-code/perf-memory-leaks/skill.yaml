@@ -1,0 +1,34 @@
+name: perf-memory-leaks
+version: '1.0.0'
+description: Memory leak patterns — detached DOM, closures, event listeners, timers, WeakRef strategies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - perf-garbage-collection
+  - perf-heap-profiling
+  - perf-performance-api
+  - node-performance-profiling
+stack_signals: []
+keywords:
+  - memory leak
+  - detached DOM
+  - closure leak
+  - event listener leak
+  - WeakRef
+  - WeakMap
+  - FinalizationRegistry
+  - retained size
+  - GC root
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
