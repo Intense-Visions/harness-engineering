@@ -1,0 +1,32 @@
+name: design-i18n-design
+version: "1.0.0"
+description: Designing for internationalization — text expansion, RTL layout, icon cultural sensitivity, date/number/currency formatting, pseudolocalization
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-responsive-strategy
+  - design-typography-fundamentals
+  - design-content-density
+stack_signals: []
+keywords:
+  - internationalization
+  - i18n
+  - RTL
+  - bi-directional
+  - text-expansion
+  - pseudolocalization
+  - localization
+  - cultural-sensitivity
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

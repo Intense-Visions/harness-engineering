@@ -1,0 +1,33 @@
+name: design-material-design-3
+version: '1.0.0'
+description: Google Material You design language covering dynamic color, tonal palettes, elevation with tonal surface color, shape theming, and motion choreography
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools: []
+paths: []
+related_skills:
+  - design-token-architecture
+  - design-elevation-shadow
+  - design-color-harmony
+stack_signals: []
+keywords:
+  - material-design
+  - material-you
+  - M3
+  - dynamic-color
+  - tonal-palette
+  - shape-theme
+  - elevation-tint
+  - Android
+  - Google
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
