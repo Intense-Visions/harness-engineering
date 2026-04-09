@@ -52,7 +52,7 @@ async function runListIntegrations(globalOpts: Record<string, unknown>): Promise
       enabled: integConfig.enabled.includes(i.name),
       dismissed: integConfig.dismissed.includes(i.name),
       envVar: i.envVar ?? null,
-      envVarSet: i.envVar ? !!process.env[i.envVar] : null,
+      envVarSet: i.envVar ? Boolean(process.env[i.envVar]) : null,
     }));
     console.log(JSON.stringify(entries, null, 2));
     process.exit(ExitCode.SUCCESS);
