@@ -394,6 +394,7 @@ Recommend skills based on codebase health. Returns sequenced workflow with urgen
 - `path` (string, optional) — Project root path (defaults to cwd)
 - `noCache` (boolean, optional) — Force fresh health snapshot even if cache is fresh
 - `top` (number, optional) — Max recommendations to return (default 5)
+- `recentFiles` (array, optional) — Recently edited files for knowledge skill path-matching
 
 ### `request_peer_review`
 
@@ -595,6 +596,7 @@ Load and return the content of a skill (SKILL.md), optionally with project state
 - `complexity` (string, optional) — Rigor level: fast (minimal), standard (default), thorough (full)
 - `phase` (string, optional) — Start at a specific phase (re-entry)
 - `party` (boolean, optional) — Enable multi-perspective evaluation
+- `autoInject` (boolean, optional) — When true, returns only the Instructions section (before ## Details) for knowledge skills
 
 **CLI equivalent:** [`harness skill run`](cli-commands.md#harness-skill-run-name)
 

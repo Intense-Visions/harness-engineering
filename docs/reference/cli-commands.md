@@ -189,16 +189,17 @@ Initialize a new harness-engineering project
 
 ### `harness install <skill>`
 
-Install a community skill from the @harness-skills registry
+Install skills from npm registry, local directory, or GitHub repository
 
 **Arguments:**
 
-- `skill` (required) — Skill name or @harness-skills/scoped package name
+- `skill` (required) — Skill name, @harness-skills/scoped package, or "." for bulk install
 
 **Options:**
 
 - `--force` — Force reinstall even if same version is already installed
-- `--from` — Install from a local directory or .tgz file
+- `--from` — Install from local path, directory, or GitHub (github:owner/repo, https://github.com/owner/repo)
+- `--global` — Install globally (~/.harness/skills/community/) for all projects
 - `--registry` — Use a custom npm registry URL
 
 ### `harness install-constraints <source>`
