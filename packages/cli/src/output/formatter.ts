@@ -45,7 +45,11 @@ interface ValidationResult {
 
 /** Append formatted lines for a single validation issue into the lines array. */
 function appendIssueLines(lines: string[], issue: ValidationIssue, mode: OutputModeType): void {
-  const location = issue.file ? (issue.line ? `${issue.file}:${issue.line}` : issue.file) : 'unknown';
+  const location = issue.file
+    ? issue.line
+      ? `${issue.file}:${issue.line}`
+      : issue.file
+    : 'unknown';
   lines.push(`  ${chalk.yellow('*')} ${chalk.dim(location)}`);
   lines.push(`    ${issue.message}`);
   if (issue.suggestion && mode === OutputMode.VERBOSE) {

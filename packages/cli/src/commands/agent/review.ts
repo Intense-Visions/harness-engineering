@@ -117,12 +117,22 @@ function printReviewResult(
   if (!result.ok) return;
   const { pipelineResult } = result.value;
   if (mode === OutputMode.JSON) {
-    console.log(JSON.stringify({
-      ...result.value,
-      pipelineResult: pipelineResult
-        ? { assessment: pipelineResult.assessment, findings: pipelineResult.findings, exitCode: pipelineResult.exitCode }
-        : undefined,
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          ...result.value,
+          pipelineResult: pipelineResult
+            ? {
+                assessment: pipelineResult.assessment,
+                findings: pipelineResult.findings,
+                exitCode: pipelineResult.exitCode,
+              }
+            : undefined,
+        },
+        null,
+        2
+      )
+    );
   } else if (mode !== OutputMode.QUIET) {
     if (pipelineResult) {
       console.log(pipelineResult.terminalOutput);
@@ -162,6 +172,12 @@ export function createReviewCommand(): Command {
 
       printReviewResult(result, mode);
       const { pipelineResult } = result.value;
-      process.exit(pipelineResult ? pipelineResult.exitCode : result.value.passed ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+      process.exit(
+        pipelineResult
+          ? pipelineResult.exitCode
+          : result.value.passed
+            ? ExitCode.SUCCESS
+            : ExitCode.VALIDATION_FAILED
+      );
     });
 }

@@ -55,7 +55,9 @@ export function buildPreamble(options: PreambleOptions): string {
   }
 
   if (options.phase) {
-    sections.push(buildPhaseReentrySection(options.phase, options.priorState, options.stateWarning));
+    sections.push(
+      buildPhaseReentrySection(options.phase, options.priorState, options.stateWarning)
+    );
   }
 
   if (options.party) {

@@ -223,7 +223,13 @@ export async function runHealthChecks(projectPath: string): Promise<HealthChecks
   const entropyGranular = parseEntropyGranular(parseToolResult(entropyResult));
   const criticalCount = countCriticalFindings(parseToolResult(securityResult));
 
-  return assembleHealthChecks(checkMap, circularDeps, layerViolations, entropyGranular, criticalCount);
+  return assembleHealthChecks(
+    checkMap,
+    circularDeps,
+    layerViolations,
+    entropyGranular,
+    criticalCount
+  );
 }
 
 /** Assemble HealthChecks from a check map and granular sub-counts. */

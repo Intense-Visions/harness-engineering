@@ -4,7 +4,14 @@ import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { isHealthData, isSecurityData, isPerfData, isArchData } from '../utils/typeGuards';
-import type { HealthData, SecurityData, PerfData, ArchData, OverviewData, ChecksData } from '@shared/types';
+import type {
+  HealthData,
+  SecurityData,
+  PerfData,
+  ArchData,
+  OverviewData,
+  ChecksData,
+} from '@shared/types';
 
 function CollapsibleSection({
   title,
@@ -278,7 +285,12 @@ function HealthDetails({
       <EntropySection healthData={healthData} />
       <ScanDetailsSection healthData={healthData} />
       <AnalysisErrorsSection healthData={healthData} />
-      <CheckSection title="Security" raw={security} guard={isSecurityData} Section={SecuritySection} />
+      <CheckSection
+        title="Security"
+        raw={security}
+        guard={isSecurityData}
+        Section={SecuritySection}
+      />
       <CheckSection title="Performance" raw={perf} guard={isPerfData} Section={PerfSection} />
       <CheckSection title="Architecture" raw={arch} guard={isArchData} Section={ArchSection} />
     </div>

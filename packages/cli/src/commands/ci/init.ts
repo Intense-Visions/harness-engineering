@@ -143,7 +143,8 @@ async function runInitAction(
   opts: { platform?: string; checks?: string },
   globalOpts: { json?: boolean }
 ): Promise<void> {
-  const platform: CIPlatform = (opts.platform as CIPlatform | undefined) ?? detectPlatform() ?? 'generic';
+  const platform: CIPlatform =
+    (opts.platform as CIPlatform | undefined) ?? detectPlatform() ?? 'generic';
 
   const checks = opts.checks
     ? (opts.checks.split(',').map((s: string) => s.trim()) as CICheckName[])

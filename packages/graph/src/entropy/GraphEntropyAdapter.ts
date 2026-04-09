@@ -91,11 +91,29 @@ export class GraphEntropyAdapter {
     const docLastModified = docNode?.lastModified;
     if (codeLastModified && docLastModified) {
       if (codeLastModified > docLastModified) {
-        return { kind: 'stale', entry: { docNodeId: edge.from, codeNodeId: edge.to, edgeType: edge.type, codeLastModified, docLastModified } };
+        return {
+          kind: 'stale',
+          entry: {
+            docNodeId: edge.from,
+            codeNodeId: edge.to,
+            edgeType: edge.type,
+            codeLastModified,
+            docLastModified,
+          },
+        };
       }
       return { kind: 'fresh' };
     }
-    return { kind: 'stale', entry: { docNodeId: edge.from, codeNodeId: edge.to, edgeType: edge.type, codeLastModified, docLastModified } };
+    return {
+      kind: 'stale',
+      entry: {
+        docNodeId: edge.from,
+        codeNodeId: edge.to,
+        edgeType: edge.type,
+        codeLastModified,
+        docLastModified,
+      },
+    };
   }
 
   /**

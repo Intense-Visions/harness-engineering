@@ -175,7 +175,10 @@ function checkTransitiveDepth(m: FileMetrics, threshold: number): CouplingViolat
   };
 }
 
-function checkMetricViolations(m: FileMetrics, thresholds: ResolvedThresholds): CouplingViolation[] {
+function checkMetricViolations(
+  m: FileMetrics,
+  thresholds: ResolvedThresholds
+): CouplingViolation[] {
   const candidates = [
     checkFanOut(m, thresholds.fanOut.warn),
     checkFanIn(m, thresholds.fanIn.info),

@@ -59,10 +59,7 @@ function isZodParseCall(node: TSESTree.Node): boolean {
 /**
  * Visit each element of an array property, calling visitor on AST nodes.
  */
-function visitArrayItems(
-  items: unknown[],
-  visitor: (child: TSESTree.Node) => void
-): void {
+function visitArrayItems(items: unknown[], visitor: (child: TSESTree.Node) => void): void {
   for (const item of items) {
     if (item && typeof item === 'object' && 'type' in item) {
       visitor(item as TSESTree.Node);

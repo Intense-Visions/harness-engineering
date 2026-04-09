@@ -179,7 +179,9 @@ function handleValidate(c: Context, ctx: ServerContext): Promise<Response> {
     const timer = setTimeout(() => {
       state.timedOut = true;
       child.kill();
-      settle(c.json({ ok: false, exitCode: -1, stdout: '', stderr: 'Validation timed out after 30s' }));
+      settle(
+        c.json({ ok: false, exitCode: -1, stdout: '', stderr: 'Validation timed out after 30s' })
+      );
     }, VALIDATE_TIMEOUT_MS);
 
     setupValidateHandlers(child, state, timer, settle, c);

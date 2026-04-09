@@ -147,7 +147,10 @@ function buildInstallPackages(
   return { installPkgs, installCmd, pm };
 }
 
-async function runUpdateAction(opts: { version?: string }, globalOpts: Record<string, unknown>): Promise<void> {
+async function runUpdateAction(
+  opts: { version?: string },
+  globalOpts: Record<string, unknown>
+): Promise<void> {
   // 1. Detect package manager
   const pm = detectPackageManager();
   if (globalOpts.verbose) {

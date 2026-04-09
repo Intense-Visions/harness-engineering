@@ -39,7 +39,11 @@ type AsyncFunctionNode =
   | TSESTree.FunctionExpression
   | TSESTree.ArrowFunctionExpression;
 
-function adjustAsyncDepth(node: AsyncFunctionNode, depthRef: { value: number }, delta: number): void {
+function adjustAsyncDepth(
+  node: AsyncFunctionNode,
+  depthRef: { value: number },
+  delta: number
+): void {
   if (node.async) {
     depthRef.value += delta;
   }

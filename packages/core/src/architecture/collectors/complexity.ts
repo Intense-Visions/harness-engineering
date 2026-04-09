@@ -33,7 +33,14 @@ function resolveMaxComplexity(config: ArchConfig): number {
 }
 
 function mapComplexityViolations(
-  complexityViolations: Array<{ severity: string; file: string; metric: string; function: string; value: number; threshold: number }>,
+  complexityViolations: Array<{
+    severity: string;
+    file: string;
+    metric: string;
+    function: string;
+    value: number;
+    threshold: number;
+  }>,
   rootDir: string,
   category: Violation['category']
 ): Violation[] {
@@ -78,12 +85,31 @@ export class ComplexityCollector implements Collector {
 
     const result = await detectComplexityViolations(snapshot, complexityConfig);
     if (!result.ok) {
-      return [{ category: this.category, scope: 'project', value: 0, violations: [], metadata: { error: 'Failed to detect complexity violations' } }];
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: 'Failed to detect complexity violations' },
+        },
+      ];
     }
 
     const { violations: complexityViolations, stats } = result.value;
     const violations = mapComplexityViolations(complexityViolations, rootDir, this.category);
 
-    return [{ category: this.category, scope: 'project', value: violations.length, violations, metadata: { filesAnalyzed: stats.filesAnalyzed, functionsAnalyzed: stats.functionsAnalyzed } }];
+    return [
+      {
+        category: this.category,
+        scope: 'project',
+        value: violations.length,
+        violations,
+        metadata: {
+          filesAnalyzed: stats.filesAnalyzed,
+          functionsAnalyzed: stats.functionsAnalyzed,
+        },
+      },
+    ];
   }
 }

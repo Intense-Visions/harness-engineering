@@ -258,12 +258,21 @@ async function accumulateFileImpact(
   acc.aggregateCounts.other += parsed.counts.other;
 
   if (perFile) {
-    acc.perFileResults.push({ file, code: parsed.counts.code, tests: parsed.counts.tests, docs: parsed.counts.docs });
+    acc.perFileResults.push({
+      file,
+      code: parsed.counts.code,
+      tests: parsed.counts.tests,
+      docs: parsed.counts.docs,
+    });
   }
   acc.allGroups.push(parsed.items);
 }
 
-function formatImpactOutput(stagedFiles: string[], acc: ImpactAccumulator, options: ImpactPreviewOptions): string {
+function formatImpactOutput(
+  stagedFiles: string[],
+  acc: ImpactAccumulator,
+  options: ImpactPreviewOptions
+): string {
   if (options.perFile) {
     if (acc.perFileResults.length === 0) {
       return `Impact Preview (${stagedFiles.length} staged file${stagedFiles.length === 1 ? '' : 's'}): no impact data`;

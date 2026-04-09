@@ -28,7 +28,11 @@ function isFileInBoundary(filePath: string, patterns: string[]): boolean {
 
 function checkBoundaryExport(
   node: TSESTree.ExportNamedDeclaration,
-  report: (opts: { node: TSESTree.Node; messageId: MessageIds; data: Record<string, string> }) => void
+  report: (opts: {
+    node: TSESTree.Node;
+    messageId: MessageIds;
+    data: Record<string, string>;
+  }) => void
 ): void {
   const fn = extractFunctionDeclaration(node);
   if (!fn) return;

@@ -25,7 +25,13 @@ function mapForbiddenImportViolations(
     const relFile = relativePosix(rootDir, v.file);
     const relImport = relativePosix(rootDir, v.imports);
     const detail = `forbidden import: ${relFile} -> ${relImport}`;
-    return { id: violationId(relFile, category ?? '', detail), file: relFile, category, detail, severity: 'error' as const };
+    return {
+      id: violationId(relFile, category ?? '', detail),
+      file: relFile,
+      category,
+      detail,
+      severity: 'error' as const,
+    };
   });
 }
 
@@ -53,7 +59,15 @@ export class ForbiddenImportCollector implements Collector {
     });
 
     if (!result.ok) {
-      return [{ category: this.category, scope: 'project', value: 0, violations: [], metadata: { error: 'Failed to validate dependencies' } }];
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: 'Failed to validate dependencies' },
+        },
+      ];
     }
 
     const violations = mapForbiddenImportViolations(

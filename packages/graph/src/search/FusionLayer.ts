@@ -128,7 +128,12 @@ export class FusionLayer {
       const semScore = semanticScores.get(node.id) ?? 0;
       const fusedScore = kwWeight * kwScore + semWeight * semScore;
       if (fusedScore > 0) {
-        results.push({ nodeId: node.id, node, score: fusedScore, signals: { keyword: kwScore, semantic: semScore } });
+        results.push({
+          nodeId: node.id,
+          node,
+          score: fusedScore,
+          signals: { keyword: kwScore, semantic: semScore },
+        });
       }
     }
     return results;

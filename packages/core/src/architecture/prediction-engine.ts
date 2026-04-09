@@ -346,8 +346,7 @@ export class PredictionEngine {
 
     if (crossing === null || crossing <= 0) return null;
 
-    const isHighConfidence =
-      forecast.confidence === 'high' || forecast.confidence === 'medium';
+    const isHighConfidence = forecast.confidence === 'high' || forecast.confidence === 'medium';
     let severity: 'critical' | 'warning' | 'info' | null = null;
 
     if (crossing <= criticalWindow && isHighConfidence) {

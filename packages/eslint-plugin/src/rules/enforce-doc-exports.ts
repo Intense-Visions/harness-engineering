@@ -15,7 +15,9 @@ type Options = [
 
 type MessageIds = 'missingJSDoc';
 
-function getVariableExports(decl: TSESTree.VariableDeclaration): Array<{ kind: string; name: string }> {
+function getVariableExports(
+  decl: TSESTree.VariableDeclaration
+): Array<{ kind: string; name: string }> {
   return decl.declarations
     .filter((d) => (d.id.type as AST_NODE_TYPES) === AST_NODE_TYPES.Identifier)
     .map((d) => ({ kind: 'variable', name: (d.id as TSESTree.Identifier).name }));

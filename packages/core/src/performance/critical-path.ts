@@ -37,7 +37,9 @@ function mergeGraphInferred(
 }
 
 function isCommentOrBlank(line: string): boolean {
-  return line === '' || line === '*/' || line === '*' || line.startsWith('*') || line.startsWith('//');
+  return (
+    line === '' || line === '*/' || line === '*' || line.startsWith('*') || line.startsWith('//')
+  );
 }
 
 function matchDeclarationName(line: string): string | null {
@@ -66,9 +68,7 @@ export class CriticalPathResolver {
     }
 
     // Add graph-inferred entries, skipping duplicates
-    const graphInferred = graphData
-      ? mergeGraphInferred(graphData.highFanInFunctions, seen)
-      : 0;
+    const graphInferred = graphData ? mergeGraphInferred(graphData.highFanInFunctions, seen) : 0;
 
     const entries = Array.from(seen.values());
 

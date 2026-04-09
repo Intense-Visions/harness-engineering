@@ -10,11 +10,17 @@ import {
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 
-async function runListStreams(opts: { path: string }, globalOpts: Record<string, unknown>): Promise<void> {
+async function runListStreams(
+  opts: { path: string },
+  globalOpts: Record<string, unknown>
+): Promise<void> {
   const projectPath = path.resolve(opts.path);
   const indexResult = await loadStreamIndex(projectPath);
   const result = await listStreams(projectPath);
-  if (!result.ok) { logger.error(result.error.message); process.exit(ExitCode.ERROR); }
+  if (!result.ok) {
+    logger.error(result.error.message);
+    process.exit(ExitCode.ERROR);
+  }
   const active = indexResult.ok ? indexResult.value.activeStream : null;
   if (globalOpts.json) {
     logger.raw({ activeStream: active, streams: result.value });
@@ -29,23 +35,35 @@ async function runListStreams(opts: { path: string }, globalOpts: Record<string,
   process.exit(ExitCode.SUCCESS);
 }
 
-async function runCreateStream(name: string, opts: { path: string; branch?: string }): Promise<void> {
+async function runCreateStream(
+  name: string,
+  opts: { path: string; branch?: string }
+): Promise<void> {
   const result = await createStream(path.resolve(opts.path), name, opts.branch);
-  if (!result.ok) { logger.error(result.error.message); process.exit(ExitCode.ERROR); }
+  if (!result.ok) {
+    logger.error(result.error.message);
+    process.exit(ExitCode.ERROR);
+  }
   logger.success(`Stream '${name}' created.`);
   process.exit(ExitCode.SUCCESS);
 }
 
 async function runArchiveStream(name: string, opts: { path: string }): Promise<void> {
   const result = await archiveStream(path.resolve(opts.path), name);
-  if (!result.ok) { logger.error(result.error.message); process.exit(ExitCode.ERROR); }
+  if (!result.ok) {
+    logger.error(result.error.message);
+    process.exit(ExitCode.ERROR);
+  }
   logger.success(`Stream '${name}' archived.`);
   process.exit(ExitCode.SUCCESS);
 }
 
 async function runActivateStream(name: string, opts: { path: string }): Promise<void> {
   const result = await setActiveStream(path.resolve(opts.path), name);
-  if (!result.ok) { logger.error(result.error.message); process.exit(ExitCode.ERROR); }
+  if (!result.ok) {
+    logger.error(result.error.message);
+    process.exit(ExitCode.ERROR);
+  }
   logger.success(`Active stream set to '${name}'.`);
   process.exit(ExitCode.SUCCESS);
 }

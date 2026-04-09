@@ -49,7 +49,11 @@ function toListSection(items: string[] | undefined, fallback: string): string {
 }
 
 function buildSkillMdSections(opts: CreateSkillOptions): {
-  mode: string; reads: string; produces: string; preChecks: string; postChecks: string;
+  mode: string;
+  reads: string;
+  produces: string;
+  preChecks: string;
+  postChecks: string;
 } {
   return {
     mode: opts.cognitiveMode ?? 'constructive-architect',
@@ -134,7 +138,16 @@ ${run}
 function buildSkillMd(opts: CreateSkillOptions): string {
   const { mode, reads, produces, preChecks, postChecks } = buildSkillMdSections(opts);
   const run = `harness skill run ${opts.name}`;
-  return buildSkillMdBody(opts.name, opts.description, mode, reads, produces, preChecks, postChecks, run);
+  return buildSkillMdBody(
+    opts.name,
+    opts.description,
+    mode,
+    reads,
+    produces,
+    preChecks,
+    postChecks,
+    run
+  );
 }
 
 export function generateSkillFiles(opts: CreateSkillOptions): GeneratedFiles {

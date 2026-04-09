@@ -11,7 +11,11 @@ import { resolvePersonasDir } from '../../utils/paths';
 import { toKebabCase } from '../../utils/string';
 import type { Persona } from '../../persona/schema';
 
-function generatePersonaArtifacts(persona: Persona, outputDir: string, only: string | undefined): string[] {
+function generatePersonaArtifacts(
+  persona: Persona,
+  outputDir: string,
+  only: string | undefined
+): string[] {
   const slug = toKebabCase(persona.name);
   const generated: string[] = [];
 
@@ -53,8 +57,15 @@ export function createGenerateCommand(): Command {
     .action(async (name, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const personaResult = loadPersona(path.join(resolvePersonasDir(), `${name}.yaml`));
-      if (!personaResult.ok) { logger.error(personaResult.error.message); process.exit(ExitCode.ERROR); }
-      const generated = generatePersonaArtifacts(personaResult.value, path.resolve(opts.outputDir), opts.only as string | undefined);
+      if (!personaResult.ok) {
+        logger.error(personaResult.error.message);
+        process.exit(ExitCode.ERROR);
+      }
+      const generated = generatePersonaArtifacts(
+        personaResult.value,
+        path.resolve(opts.outputDir),
+        opts.only as string | undefined
+      );
       if (!globalOpts.quiet) {
         logger.success(`Generated ${generated.length} artifacts for ${personaResult.value.name}:`);
         for (const f of generated) console.log(`  - ${f}`);

@@ -25,7 +25,13 @@ function mapLayerViolations(
     const relFile = relativePosix(rootDir, v.file);
     const relImport = relativePosix(rootDir, v.imports);
     const detail = `${v.fromLayer} -> ${v.toLayer}: ${relFile} imports ${relImport}`;
-    return { id: violationId(relFile, category ?? '', detail), file: relFile, category, detail, severity: 'error' as const };
+    return {
+      id: violationId(relFile, category ?? '', detail),
+      file: relFile,
+      category,
+      detail,
+      severity: 'error' as const,
+    };
   });
 }
 
@@ -53,7 +59,15 @@ export class LayerViolationCollector implements Collector {
     });
 
     if (!result.ok) {
-      return [{ category: this.category, scope: 'project', value: 0, violations: [], metadata: { error: 'Failed to validate dependencies' } }];
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: 'Failed to validate dependencies' },
+        },
+      ];
     }
 
     const violations = mapLayerViolations(

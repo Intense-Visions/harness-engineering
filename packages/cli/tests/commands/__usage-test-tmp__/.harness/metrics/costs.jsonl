@@ -1,0 +1,4 @@
+{"timestamp":"2026-03-30T10:00:00.000Z","session_id":"sess-aaa-111","token_usage":{"input_tokens":1000,"output_tokens":500}}
+{"timestamp":"2026-03-30T14:00:00.000Z","session_id":"sess-aaa-111","token_usage":{"input_tokens":2000,"output_tokens":800}}
+{"timestamp":"2026-03-31T09:00:00.000Z","session_id":"sess-bbb-222","token_usage":{"input_tokens":500,"output_tokens":200},"model":"claude-sonnet-4-20250514"}
+{"timestamp":"2026-03-29T08:00:00.000Z","session_id":"sess-ccc-333","token_usage":{"input_tokens":3000,"output_tokens":1500},"cache_creation_tokens":50,"cache_read_tokens":100}

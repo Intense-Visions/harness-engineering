@@ -53,16 +53,40 @@ export class CircularDepsCollector implements Collector {
     const graphResult = await buildDependencyGraph(files, makeStubParser());
 
     if (!graphResult.ok) {
-      return [{ category: this.category, scope: 'project', value: 0, violations: [], metadata: { error: 'Failed to build dependency graph' } }];
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: 'Failed to build dependency graph' },
+        },
+      ];
     }
 
     const result = detectCircularDeps(graphResult.value);
     if (!result.ok) {
-      return [{ category: this.category, scope: 'project', value: 0, violations: [], metadata: { error: 'Failed to detect circular deps' } }];
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: 'Failed to detect circular deps' },
+        },
+      ];
     }
 
     const { cycles, largestCycle } = result.value;
     const violations = mapCycleViolations(cycles, rootDir, this.category);
-    return [{ category: this.category, scope: 'project', value: cycles.length, violations, metadata: { largestCycle, cycleCount: cycles.length } }];
+    return [
+      {
+        category: this.category,
+        scope: 'project',
+        value: cycles.length,
+        violations,
+        metadata: { largestCycle, cycleCount: cycles.length },
+      },
+    ];
   }
 }

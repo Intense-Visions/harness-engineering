@@ -145,7 +145,15 @@ async function processAllRules(
 ): Promise<string[]> {
   const generatedRules: string[] = [];
   for (const rule of rules) {
-    const name = await processRule(rule, templates, configDir, outputDir, configPath, dryRun, errors);
+    const name = await processRule(
+      rule,
+      templates,
+      configDir,
+      outputDir,
+      configPath,
+      dryRun,
+      errors
+    );
     if (name) generatedRules.push(name);
   }
   return generatedRules;

@@ -50,13 +50,21 @@ function checkImportDeclaration(
   node: TSESTree.ImportDeclaration,
   applicableRules: ForbiddenImportRule[],
   filename: string,
-  report: (opts: { node: TSESTree.Node; messageId: MessageIds; data: Record<string, string> }) => void
+  report: (opts: {
+    node: TSESTree.Node;
+    messageId: MessageIds;
+    data: Record<string, string>;
+  }) => void
 ): void {
   const importPath = node.source.value;
   const resolvedImport = resolveImportPath(importPath, filename);
   const violatedRule = findViolatedRule(applicableRules, importPath, resolvedImport);
   if (violatedRule) {
-    report({ node, messageId: 'forbiddenImport', data: { message: buildForbiddenMessage(violatedRule, importPath) } });
+    report({
+      node,
+      messageId: 'forbiddenImport',
+      data: { message: buildForbiddenMessage(violatedRule, importPath) },
+    });
   }
 }
 

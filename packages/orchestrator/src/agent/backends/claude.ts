@@ -21,7 +21,12 @@ function resolveExitCode(
   if (code === 0) {
     resolve(Ok(undefined));
   } else {
-    resolve(Err({ category: 'agent_not_found', message: `Claude command '${command}' not found or failed` }));
+    resolve(
+      Err({
+        category: 'agent_not_found',
+        message: `Claude command '${command}' not found or failed`,
+      })
+    );
   }
 }
 

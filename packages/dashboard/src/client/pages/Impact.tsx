@@ -294,17 +294,41 @@ function useImpactExplorer() {
   const brIsData = !!brData && isBlastRadiusData(brData);
 
   return {
-    anomalies, loading, fetchError, selectedNodeId, searchText, depth,
-    setSearchText, setDepth, handleSearch, handleAnomalyClick,
-    sortedAPs, sortedOutliers, blastRadius, brData, brIsData,
+    anomalies,
+    loading,
+    fetchError,
+    selectedNodeId,
+    searchText,
+    depth,
+    setSearchText,
+    setDepth,
+    handleSearch,
+    handleAnomalyClick,
+    sortedAPs,
+    sortedOutliers,
+    blastRadius,
+    brData,
+    brIsData,
   };
 }
 
 export function Impact() {
   const {
-    anomalies, loading, fetchError, selectedNodeId, searchText, depth,
-    setSearchText, setDepth, handleSearch, handleAnomalyClick,
-    sortedAPs, sortedOutliers, blastRadius, brData, brIsData,
+    anomalies,
+    loading,
+    fetchError,
+    selectedNodeId,
+    searchText,
+    depth,
+    setSearchText,
+    setDepth,
+    handleSearch,
+    handleAnomalyClick,
+    sortedAPs,
+    sortedOutliers,
+    blastRadius,
+    brData,
+    brIsData,
   } = useImpactExplorer();
 
   return (

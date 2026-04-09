@@ -23,9 +23,7 @@ function compareCreatedAt(a: Issue, b: Issue): number | null {
 export function sortCandidates(issues: readonly Issue[]): Issue[] {
   return [...issues].sort((a, b) => {
     return (
-      comparePriority(a, b) ??
-      compareCreatedAt(a, b) ??
-      a.identifier.localeCompare(b.identifier)
+      comparePriority(a, b) ?? compareCreatedAt(a, b) ?? a.identifier.localeCompare(b.identifier)
     );
   });
 }

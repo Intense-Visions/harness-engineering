@@ -111,9 +111,12 @@ export async function runCheckDeps(
   return Ok(result);
 }
 
-async function runCheckDepsAction(
-  globalOpts: { config?: string; json?: boolean; verbose?: boolean; quiet?: boolean }
-): Promise<void> {
+async function runCheckDepsAction(globalOpts: {
+  config?: string;
+  json?: boolean;
+  verbose?: boolean;
+  quiet?: boolean;
+}): Promise<void> {
   const mode: OutputModeType = globalOpts.json
     ? OutputMode.JSON
     : globalOpts.quiet

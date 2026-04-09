@@ -26,7 +26,13 @@ function buildCouplingSnapshot(files: string[], rootDir: string): CodebaseSnapsh
 }
 
 function mapCouplingViolations(
-  couplingViolations: Array<{ severity: string; file: string; metric: string; value: number; threshold: number }>,
+  couplingViolations: Array<{
+    severity: string;
+    file: string;
+    metric: string;
+    value: number;
+    threshold: number;
+  }>,
   rootDir: string,
   category: Violation['category']
 ): Violation[] {
@@ -65,12 +71,28 @@ export class CouplingCollector implements Collector {
 
     const result = await detectCouplingViolations(snapshot);
     if (!result.ok) {
-      return [{ category: this.category, scope: 'project', value: 0, violations: [], metadata: { error: 'Failed to detect coupling violations' } }];
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: 'Failed to detect coupling violations' },
+        },
+      ];
     }
 
     const { violations: couplingViolations, stats } = result.value;
     const violations = mapCouplingViolations(couplingViolations, rootDir, this.category);
 
-    return [{ category: this.category, scope: 'project', value: violations.length, violations, metadata: { filesAnalyzed: stats.filesAnalyzed } }];
+    return [
+      {
+        category: this.category,
+        scope: 'project',
+        value: violations.length,
+        violations,
+        metadata: { filesAnalyzed: stats.filesAnalyzed },
+      },
+    ];
   }
 }
