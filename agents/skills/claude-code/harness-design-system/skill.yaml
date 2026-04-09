@@ -70,4 +70,11 @@ stack_signals:
   - svelte
   - nextjs
   - nuxt
+related_skills:
+  - design-token-architecture
+  - design-component-anatomy
+  - design-atomic-design
+  - design-design-governance
+  - design-naming-conventions
+  - design-brand-consistency
 depends_on: []

@@ -17,6 +17,9 @@ related_skills:
   - css-tailwind-pattern
   - css-responsive-design
   - css-custom-components
+  - design-grid-systems
+  - design-alignment
+  - design-whitespace
 stack_signals:
   - tailwind
   - css

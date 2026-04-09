@@ -7,7 +7,7 @@ tier: 3
 triggers:
   - manual
 platforms:
-  - gemini-cli
+  - claude-code
 tools: []
 paths:
   - '**/*.tsx'
@@ -19,6 +19,8 @@ related_skills:
   - a11y-semantic-html
   - a11y-modal-patterns
   - a11y-form-patterns
+  - design-affordances
+  - design-feedback-patterns
 stack_signals:
   - accessibility
   - react
@@ -38,4 +40,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-

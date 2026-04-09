@@ -20,6 +20,8 @@ paths:
 related_skills:
   - a11y-semantic-html
   - a11y-image-text-alt
+  - design-color-accessibility
+  - design-contrast-ratio
 stack_signals:
   - accessibility
   - react

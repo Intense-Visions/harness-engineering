@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-07
 last_synced: 2026-04-07T21:22:00.000Z
-last_manual_edit: 2026-04-07T19:19:51.172Z
+last_manual_edit: 2026-04-09T12:53:51.909Z
 ---
 
 # Roadmap
@@ -778,8 +778,18 @@ last_manual_edit: 2026-04-07T19:19:51.172Z
 - **Plan:** —
 - **Assignee:** Chad Warner
 - **Priority:** —
-- **Completed:** 2026-04-07
 - **External-ID:** github:Intense-Visions/harness-engineering#117
+
+### Design Knowledge Skills
+
+- **Status:** planned
+- **Spec:** docs/changes/design-knowledge-skills/proposal.md
+- **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#128
 
 ## v3.0 Graph Intelligence
 

@@ -7,7 +7,7 @@ tier: 3
 triggers:
   - manual
 platforms:
-  - cursor
+  - claude-code
 tools: []
 paths:
   - '**/*.tsx'
@@ -17,6 +17,9 @@ related_skills:
   - css-tailwind-pattern
   - css-responsive-design
   - css-custom-components
+  - design-grid-systems
+  - design-alignment
+  - design-whitespace
 stack_signals:
   - tailwind
   - css
@@ -35,4 +38,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-

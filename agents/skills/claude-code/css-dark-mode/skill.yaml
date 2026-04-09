@@ -17,6 +17,8 @@ related_skills:
   - css-design-tokens
   - css-tailwind-pattern
   - css-custom-components
+  - design-dark-mode-color
+  - design-color-accessibility
 stack_signals:
   - tailwind
   - css

@@ -7,7 +7,7 @@ tier: 3
 triggers:
   - manual
 platforms:
-  - cursor
+  - claude-code
 tools: []
 paths:
   - '**/*.tsx'
@@ -20,6 +20,8 @@ paths:
 related_skills:
   - a11y-color-contrast
   - a11y-semantic-html
+  - design-motion-principles
+  - design-micro-interactions
 stack_signals:
   - accessibility
   - react
@@ -38,4 +40,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-

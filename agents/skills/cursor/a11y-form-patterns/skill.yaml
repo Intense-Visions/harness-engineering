@@ -7,7 +7,7 @@ tier: 3
 triggers:
   - manual
 platforms:
-  - cursor
+  - claude-code
 tools: []
 paths:
   - '**/*.tsx'
@@ -19,6 +19,8 @@ related_skills:
   - a11y-semantic-html
   - a11y-keyboard-navigation
   - a11y-aria-patterns
+  - design-form-ux
+  - design-readability
 stack_signals:
   - accessibility
   - react
@@ -38,4 +40,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-

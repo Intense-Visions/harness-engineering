@@ -7,7 +7,7 @@ tier: 3
 triggers:
   - manual
 platforms:
-  - cursor
+  - claude-code
 tools: []
 paths:
   - 'tailwind.config.*'
@@ -17,6 +17,9 @@ related_skills:
   - css-tailwind-pattern
   - css-layout-patterns
   - css-custom-components
+  - design-responsive-strategy
+  - design-grid-systems
+  - design-content-density
 stack_signals:
   - tailwind
   - css
@@ -34,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-

@@ -19,6 +19,8 @@ related_skills:
   - a11y-semantic-html
   - a11y-keyboard-navigation
   - a11y-aria-patterns
+  - design-form-ux
+  - design-readability
 stack_signals:
   - accessibility
   - react

@@ -17,6 +17,9 @@ related_skills:
   - css-tailwind-pattern
   - css-performance-patterns
   - css-component-variants
+  - design-motion-principles
+  - design-transitions-timing
+  - design-micro-interactions
 stack_signals:
   - tailwind
   - css
