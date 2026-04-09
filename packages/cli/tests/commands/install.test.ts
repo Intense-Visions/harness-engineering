@@ -441,9 +441,10 @@ describe('bulk install from directory', () => {
     // Directory structure: /project/skills/{capillary-ui,capillary-vulcan}/skill.yaml
     // Root dir does NOT have skill.yaml — subdirs do
     mockedExistsSync.mockImplementation((p: fs.PathLike) => {
-      const s = String(p);
+      // Normalize separators for cross-platform compatibility (Windows uses backslashes)
+      const s = String(p).replace(/\\/g, '/');
       // No skill.yaml at root, but subdirs exist and have skill.yaml
-      if (s === '/project/skills/skill.yaml') return false;
+      if (s.endsWith('/project/skills/skill.yaml')) return false;
       return true;
     });
     mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
@@ -451,7 +452,8 @@ describe('bulk install from directory', () => {
     // Mock readdirSync to return skill subdirectories for the root
     const mockedReaddirSync = vi.mocked(fs.readdirSync);
     mockedReaddirSync.mockImplementation(((p: string, _opts?: unknown) => {
-      if (String(p) === '/project/skills') {
+      const normalized = String(p).replace(/\\/g, '/');
+      if (normalized.endsWith('/project/skills')) {
         return [
           { name: 'capillary-ui', isDirectory: () => true },
           { name: 'capillary-vulcan', isDirectory: () => true },
