@@ -190,8 +190,8 @@ export class RequirementIngestor {
    */
   private processHeadingLine(
     line: string,
-    inRequirementSection: boolean
-  ): { inRequirementSection: boolean; currentSection?: string } | null {
+    _inRequirementSection: boolean
+  ): { inRequirementSection: boolean; currentSection?: string | undefined } | null {
     const headingMatch = line.match(SECTION_HEADING_RE);
     if (!headingMatch) return null;
 

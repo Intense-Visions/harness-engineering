@@ -17,6 +17,26 @@ interface ParsedCommit {
   readonly files: readonly string[];
 }
 
+function finalizeCommit(current: {
+  hash: string;
+  shortHash: string;
+  author: string;
+  email: string;
+  date: string;
+  message: string;
+  files: string[];
+}): ParsedCommit {
+  return {
+    hash: current.hash,
+    shortHash: current.shortHash,
+    author: current.author,
+    email: current.email,
+    date: current.date,
+    message: current.message,
+    files: current.files,
+  };
+}
+
 /**
  * Ingests git history into the graph, creating commit nodes,
  * triggered_by edges (file -> commit), and co_changes_with edges
