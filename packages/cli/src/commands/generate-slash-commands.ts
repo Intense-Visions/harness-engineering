@@ -152,20 +152,48 @@ function generateForPlatform(
   opts: GenerateOptions
 ): GenerateResult {
   const rendered = new Map<string, string>();
+  const parentRendered = new Map<string, string>();
+
   for (const spec of specs) {
     const [filename, content] = renderSpec(platform, spec, opts.global);
-    rendered.set(filename, content);
+    // Skills with command_name override the namespace prefix and belong at the
+    // parent directory level (e.g. ~/.claude/commands/harness.md → /harness),
+    // NOT inside the namespace subdirectory (which would give /harness:harness).
+    if (spec.commandName && (platform === 'claude-code' || platform === 'gemini-cli')) {
+      parentRendered.set(filename, content);
+    } else {
+      rendered.set(filename, content);
+    }
   }
+
   const plan = computeSyncPlan(outputDir, rendered);
   if (!opts.dryRun) {
     applySyncPlan(outputDir, rendered, plan, false);
   }
+
+  if (parentRendered.size === 0) {
+    return {
+      platform,
+      added: plan.added,
+      updated: plan.updated,
+      removed: plan.removed,
+      unchanged: plan.unchanged,
+      outputDir,
+    };
+  }
+
+  const parentDir = path.dirname(outputDir);
+  const parentPlan = computeSyncPlan(parentDir, parentRendered);
+  if (!opts.dryRun) {
+    applySyncPlan(parentDir, parentRendered, parentPlan, false);
+  }
+
   return {
     platform,
-    added: plan.added,
-    updated: plan.updated,
-    removed: plan.removed,
-    unchanged: plan.unchanged,
+    added: [...plan.added, ...parentPlan.added],
+    updated: [...plan.updated, ...parentPlan.updated],
+    removed: [...plan.removed, ...parentPlan.removed],
+    unchanged: [...plan.unchanged, ...parentPlan.unchanged],
     outputDir,
   };
 }
