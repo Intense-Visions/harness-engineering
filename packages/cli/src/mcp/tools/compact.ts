@@ -49,13 +49,19 @@ export const compactToolDefinition = {
         description: 'Token budget for compacted output (default: 2000)',
       },
     },
-    required: ['path'],
+    required: [],
   },
 };
 
-/** Build a CompactionPipeline from strategy names. */
-function buildPipeline(strategies?: StrategyName[]): CompactionPipeline {
+const KNOWN_STRATEGIES = new Set<string>(['structural', 'truncate', 'pack', 'semantic']);
+
+/** Build a CompactionPipeline from strategy names. Returns the pipeline and any unknown strategy names. */
+function buildPipeline(strategies?: StrategyName[]): {
+  pipeline: CompactionPipeline;
+  unknownStrategies: string[];
+} {
   const names = strategies ?? ['structural', 'truncate'];
+  const unknownStrategies = names.filter((name) => !KNOWN_STRATEGIES.has(name));
   const instances = names
     .map((name) => {
       switch (name) {
@@ -75,7 +81,7 @@ function buildPipeline(strategies?: StrategyName[]): CompactionPipeline {
     })
     .filter(Boolean) as Array<InstanceType<typeof StructuralStrategy | typeof TruncationStrategy>>;
 
-  return new CompactionPipeline(instances);
+  return { pipeline: new CompactionPipeline(instances), unknownStrategies };
 }
 
 /** Build a PackedEnvelope from compacted sections. */
@@ -171,12 +177,16 @@ async function handleIntentMode(
     };
   }
 
-  // Expand context around each result
-  const perSectionBudget = Math.floor(budget / searchResults.length);
+  // Expand context around each result — weight budget by relevance score
+  const totalScore = searchResults.reduce((sum, r) => sum + r.score, 0);
   const sections: Array<{ source: string; content: string }> = [];
   let totalOriginalChars = 0;
 
   for (const result of searchResults) {
+    const resultBudget =
+      totalScore > 0
+        ? Math.floor(budget * (result.score / totalScore))
+        : Math.floor(budget / searchResults.length);
     const expanded = cql.execute({
       rootNodeIds: [result.nodeId],
       maxDepth: 2,
@@ -190,11 +200,11 @@ async function handleIntentMode(
     });
 
     totalOriginalChars += rawContent.length;
-    const compacted = pipeline.apply(rawContent, perSectionBudget);
+    const compacted = pipeline.apply(rawContent, resultBudget);
     sections.push({ source: result.nodeId, content: compacted });
   }
 
-  const originalTokens = estimateTokens('x'.repeat(totalOriginalChars));
+  const originalTokens = Math.ceil(totalOriginalChars / 4);
   const compactedTokens = sections.reduce((sum, s) => sum + estimateTokens(s.content), 0);
   const reductionPct =
     originalTokens > 0 ? Math.round((1 - compactedTokens / originalTokens) * 100) : 0;
@@ -219,22 +229,50 @@ async function handleIntentMode(
 }
 
 export async function handleCompact(input: {
-  path: string;
+  path?: string;
   content?: string;
   intent?: string;
   ref?: { source: string; content: string };
   strategies?: StrategyName[];
   tokenBudget?: number;
 }): Promise<ToolResult> {
-  let safePath: string;
-  try {
-    safePath = sanitizePath(input.path);
-  } catch (error) {
+  // Validate path is present when intent mode is used
+  if (input.intent && !input.path) {
     return {
       content: [
         {
           type: 'text' as const,
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          text: "Error: 'path' is required when using intent mode.",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  let safePath: string | undefined;
+  if (input.path) {
+    try {
+      safePath = sanitizePath(input.path);
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  // Guard: content + ref (without intent) is not a valid combination
+  if (input.content && input.ref && !input.intent) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: "Error: Cannot provide both 'content' and 'ref'. Use one or the other.",
         },
       ],
       isError: true,
@@ -242,21 +280,31 @@ export async function handleCompact(input: {
   }
 
   const budget = input.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
-  const pipeline = buildPipeline(input.strategies);
+  const { pipeline, unknownStrategies } = buildPipeline(input.strategies);
+  const strategyWarning =
+    unknownStrategies.length > 0
+      ? `\nWarning: unknown strategies ignored: ${unknownStrategies.join(', ')}`
+      : '';
 
   // Mode A: content
   if (input.content && !input.intent) {
-    return handleContentMode(input.content, pipeline, budget, 'content');
+    const result = handleContentMode(input.content, pipeline, budget, 'content');
+    if (strategyWarning) result.content[0].text += strategyWarning;
+    return result;
   }
 
   // Mode C: ref
   if (input.ref) {
-    return handleContentMode(input.ref.content, pipeline, budget, input.ref.source);
+    const result = handleContentMode(input.ref.content, pipeline, budget, input.ref.source);
+    if (strategyWarning) result.content[0].text += strategyWarning;
+    return result;
   }
 
   // Mode B: intent (with optional content filter)
   if (input.intent) {
-    return handleIntentMode(safePath, input.intent, pipeline, budget, input.content);
+    const result = await handleIntentMode(safePath!, input.intent, pipeline, budget, input.content);
+    if (strategyWarning && !result.isError) result.content[0].text += strategyWarning;
+    return result;
   }
 
   return {
