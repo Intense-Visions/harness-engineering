@@ -1,0 +1,31 @@
+name: ux-active-voice
+version: "1.0.0"
+description: Active voice in UI writing — active vs passive voice, when passive is acceptable, verb-first patterns for buttons and actions
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-plain-language
+stack_signals: []
+keywords:
+  - active-voice
+  - passive-voice
+  - verb-first
+  - action-labels
+  - imperative-mood
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
