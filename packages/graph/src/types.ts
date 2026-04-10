@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { StabilityTier } from '@harness-engineering/types';
 
 // --- Node Types ---
 
@@ -179,13 +178,16 @@ export const CURRENT_SCHEMA_VERSION = 1;
 
 // --- Node Stability Classification (for prompt caching) ---
 
+/** Stability classification for prompt caching -- mirrors StabilityTier from @harness-engineering/types. */
+export type GraphStabilityTier = 'static' | 'session' | 'ephemeral';
+
 /**
  * Maps graph node types to their caching stability tier.
  * Used by provider cache adapters to determine cache directives.
  *
  * Node types not listed here default to 'ephemeral' at resolution time.
  */
-export const NODE_STABILITY: Record<string, StabilityTier> = {
+export const NODE_STABILITY: Record<string, GraphStabilityTier> = {
   File: 'session',
   Function: 'session',
   Class: 'session',

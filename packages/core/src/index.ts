@@ -164,6 +164,11 @@ export {
 export * from './compaction';
 
 /**
+ * Caching module — stability classification and cache-aware utilities.
+ */
+export * from './caching';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`

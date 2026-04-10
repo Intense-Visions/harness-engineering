@@ -10,6 +10,7 @@ export type {
   ProjectionSpec,
   IngestResult,
   GraphMetadata,
+  GraphStabilityTier,
 } from './types.js';
 
 export {
