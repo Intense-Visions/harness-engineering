@@ -1,0 +1,36 @@
+name: perf-http3-quic
+version: '1.0.0'
+description: HTTP/3 and QUIC protocol — 0-RTT connections, connection migration, stream-level flow control, and UDP-based transport
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-http2-multiplexing
+  - perf-connection-costs
+  - perf-cdn-strategies
+  - perf-compression
+stack_signals: []
+keywords:
+  - http3
+  - quic
+  - 0-rtt
+  - connection migration
+  - udp transport
+  - stream multiplexing
+  - congestion control
+  - tls 1.3
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

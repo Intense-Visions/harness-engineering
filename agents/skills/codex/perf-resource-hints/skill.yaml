@@ -1,0 +1,39 @@
+name: perf-resource-hints
+version: '1.0.0'
+description: Resource hints — preload, prefetch, preconnect, dns-prefetch, modulepreload, and fetchpriority for optimal resource loading
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-connection-costs
+  - perf-critical-rendering-path
+  - perf-largest-contentful-paint
+  - perf-lazy-loading
+  - perf-font-loading
+  - css-performance-patterns
+stack_signals: []
+keywords:
+  - preload
+  - prefetch
+  - preconnect
+  - dns-prefetch
+  - modulepreload
+  - fetchpriority
+  - resource hints
+  - early hints
+  - 103 early hints
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,38 @@
+name: perf-cdn-cache-control
+version: '1.0.0'
+description: CDN cache control — cache keys, Vary header strategies, surrogate control, cache purging, and edge TTL management
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-browser-cache
+  - perf-cdn-strategies
+  - perf-cache-invalidation
+  - perf-compression
+  - otel-performance-insights
+stack_signals: []
+keywords:
+  - cdn cache
+  - cache key
+  - vary header
+  - surrogate-control
+  - cache purge
+  - edge ttl
+  - s-maxage
+  - cache tag
+  - instant purge
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

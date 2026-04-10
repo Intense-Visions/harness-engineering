@@ -80,33 +80,9 @@
      });
    }
 
-   // middleware.ts — runs on every request at the edge
-   import { NextResponse } from 'next/server';
-   import type { NextRequest } from 'next/server';
-
-   export function middleware(request: NextRequest) {
-     const country = request.geo?.country || 'US';
-
-     // Geo-based redirect
-     if (country === 'DE' && !request.nextUrl.pathname.startsWith('/de')) {
-       return NextResponse.redirect(new URL(`/de${request.nextUrl.pathname}`, request.url));
-     }
-
-     // A/B test assignment at the edge
-     const bucket =
-       request.cookies.get('ab-bucket')?.value || (Math.random() < 0.5 ? 'control' : 'variant');
-
-     const response = NextResponse.next();
-     if (!request.cookies.get('ab-bucket')) {
-       response.cookies.set('ab-bucket', bucket, { maxAge: 86400 * 30 });
-     }
-     response.headers.set('x-ab-bucket', bucket);
-     return response;
-   }
-
-   export const config = {
-     matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-   };
+   // middleware.ts — geo-redirects and A/B tests at the edge
+   // Use request.geo?.country for geo-routing, cookies for A/B persistence
+   // Configure matcher to exclude static assets: /((?!_next/static|favicon).*)
    ```
 
 4. **Handle edge runtime constraints.** Edge runtimes use a limited Web API subset (no Node.js APIs):
@@ -193,57 +169,31 @@
    // export const preferredRegion = 'iad1'; // US East, near the DB
    ```
 
-7. **Monitor edge function performance.** Track cold starts, execution time, and cache hit rates:
-
-   ```typescript
-   // Instrument edge functions
-   async function handleRequest(request: Request, env: Env) {
-     const start = Date.now();
-
-     try {
-       const response = await renderPage(request);
-
-       // Log metrics
-       const duration = Date.now() - start;
-       const colo = request.cf?.colo; // Cloudflare: which edge location
-
-       env.ANALYTICS.writeDataPoint({
-         indexes: [colo],
-         blobs: [request.url],
-         doubles: [duration],
-       });
-
-       return response;
-     } catch (error) {
-       // Fallback to origin on edge failure
-       return fetch(request);
-     }
-   }
-   ```
+7. **Monitor edge function performance.** Instrument with `Date.now()` timing, log the edge location (`request.cf?.colo` on Cloudflare), and always fall back to `fetch(request)` on error. Track cold start frequency, P99 execution time, and cache hit rates via platform analytics (Cloudflare Analytics Engine, Vercel Analytics).
 
 ## Details
 
 ### Edge Runtime Cold Starts
 
-Cloudflare Workers use V8 isolates (not containers), achieving sub-millisecond cold starts. Vercel Edge Functions also use V8 isolates with ~5ms cold starts. This is dramatically faster than Lambda cold starts (100-1000ms). The trade-off is a restricted runtime environment: no file system, no native modules, limited memory (128MB on Workers), and limited CPU time (typically 10-50ms for free tiers, more for paid). Design edge functions to be lightweight — offload heavy computation to origin functions.
+Cloudflare Workers use V8 isolates with sub-millisecond cold starts; Vercel Edge Functions ~5ms. Both are far faster than Lambda (100-1000ms). Trade-off: no file system, no native modules, limited memory (128MB), and limited CPU time (10-50ms free tier). Design edge functions to be lightweight.
 
 ### Worked Example: Cloudflare Blog
 
-Cloudflare's own blog runs entirely on Workers with streaming SSR. Each blog post is rendered at the edge from Markdown stored in Workers KV. The first request to a post renders and caches at the edge. Subsequent requests serve from the edge cache in <5ms globally. When a post is updated, a webhook purges the edge cache for that URL. Result: consistent <50ms TTFB worldwide for all blog pages, with zero origin server load for read traffic. The entire blog costs less than $5/month to operate.
+Runs entirely on Workers with streaming SSR. Blog posts render from Markdown in Workers KV, cached at the edge. First request renders and caches; subsequent requests serve in <5ms globally. Webhook-based cache purging on content updates. Result: <50ms TTFB worldwide, zero origin load for reads.
 
 ### Worked Example: Shopify Oxygen
 
-Shopify Oxygen deploys Remix-based storefronts to Cloudflare Workers. Product data is fetched from the Shopify Storefront API. Edge rendering generates HTML in 20-50ms, and Shopify's API responds in 50-100ms. The total TTFB is 70-150ms globally, compared to 200-400ms for origin-only rendering. For frequently-accessed pages (homepage, top products), edge caching reduces TTFB to <10ms. They use stale-while-revalidate caching: serve cached HTML instantly, refresh in the background.
+Deploys Remix storefronts to Cloudflare Workers. Edge rendering takes 20-50ms, Storefront API responds in 50-100ms, yielding 70-150ms total TTFB vs 200-400ms origin-only. Stale-while-revalidate caching drops frequently-accessed pages to <10ms TTFB.
 
 ### Anti-Patterns
 
-**Edge rendering with origin-only databases.** If every edge function request queries a database in US-East, the latency advantage of edge rendering is negated by the data round-trip. Use edge-local data stores (KV, edge replicas) or accept that the benefit is limited to non-data-dependent content.
+**Edge rendering with origin-only databases.** If every request queries a database in US-East, the edge latency advantage is negated. Use edge-local data stores (KV, replicas) or accept the benefit is limited to non-data-dependent content.
 
-**Heavy computation at the edge.** Edge runtimes have strict CPU time limits (10-50ms on free tiers). Image processing, complex templating, or heavy JSON transformations should run on origin serverless functions. Use the edge for lightweight rendering, routing, and personalization.
+**Heavy computation at the edge.** Edge runtimes have strict CPU time limits (10-50ms on free tiers). Offload image processing and heavy transformations to origin functions. Use the edge for lightweight rendering, routing, and personalization.
 
-**Not falling back to origin on edge failure.** Edge functions can fail due to platform issues or exceeding resource limits. Always implement a fallback path that routes to the origin server, ensuring users see content even when the edge fails.
+**Not falling back to origin on edge failure.** Always implement a fallback path to the origin server for when edge functions fail due to platform issues or resource limits.
 
-**Deploying to every edge location when data is in one region.** If 80% of traffic is from North America and the database is in US-East, deploying to 200+ global locations does not help — most requests still need a cross-Atlantic data fetch. Use regional deployment (e.g., Vercel's `preferredRegion`) to deploy near the database for data-heavy pages.
+**Deploying globally when data is in one region.** If most traffic is regional and the DB is in US-East, 200+ edge locations add no benefit. Use `preferredRegion` to deploy near the database for data-heavy pages.
 
 ## Source
 

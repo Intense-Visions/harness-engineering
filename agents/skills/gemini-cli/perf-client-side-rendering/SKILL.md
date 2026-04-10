@@ -74,16 +74,6 @@
 3. **Implement skeleton screens for data-loading states.** Skeletons reduce perceived load time by 15-30%:
 
    ```typescript
-   function ProductCardSkeleton() {
-     return (
-       <div className="product-card">
-         <div className="skeleton skeleton-image" />
-         <div className="skeleton skeleton-title" />
-         <div className="skeleton skeleton-price" />
-       </div>
-     );
-   }
-
    function ProductGrid() {
      const { data, isLoading } = useProducts();
 
@@ -99,45 +89,13 @@
 
      return (
        <div className="grid">
-         {data.map(product => (
-           <ProductCard key={product.id} product={product} />
-         ))}
+         {data.map(product => <ProductCard key={product.id} product={product} />)}
        </div>
      );
    }
    ```
 
-   ```css
-   .skeleton {
-     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-     background-size: 200% 100%;
-     animation: shimmer 1.5s infinite;
-     border-radius: 4px;
-   }
-   .skeleton-image {
-     width: 100%;
-     aspect-ratio: 1;
-   }
-   .skeleton-title {
-     width: 80%;
-     height: 20px;
-     margin-top: 12px;
-   }
-   .skeleton-price {
-     width: 40%;
-     height: 16px;
-     margin-top: 8px;
-   }
-
-   @keyframes shimmer {
-     0% {
-       background-position: 200% 0;
-     }
-     100% {
-       background-position: -200% 0;
-     }
-   }
-   ```
+   Use a CSS shimmer animation (`background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite`) on `.skeleton` elements with explicit dimensions matching the loaded content to prevent layout shift.
 
 4. **Use concurrent rendering for responsive interactions.** React 18 concurrent features prevent expensive renders from blocking user input:
 
@@ -173,12 +131,8 @@
    // useDeferredValue: defer expensive re-renders
    function FilteredList({ filter }: { filter: string }) {
      const deferredFilter = useDeferredValue(filter);
-     const isStale = filter !== deferredFilter;
-
-     // ExpensiveList re-renders with the deferred (older) value
-     // while the input updates immediately with the current value
      return (
-       <div style={{ opacity: isStale ? 0.7 : 1 }}>
+       <div style={{ opacity: filter !== deferredFilter ? 0.7 : 1 }}>
          <ExpensiveList filter={deferredFilter} />
        </div>
      );
@@ -248,21 +202,21 @@ React's reconciliation algorithm diffs the previous and next virtual DOM trees t
 
 ### Worked Example: Figma File Browser
 
-Figma's file browser renders thousands of file thumbnails in a grid. They use windowed rendering (only rendering files in the viewport plus a buffer) combined with React.memo on individual file cards. State management uses Zustand with selector-based subscriptions so that selecting a file does not re-render all file cards. The search input uses useDeferredValue to keep typing responsive while the filtered file list updates in the background. Result: smooth 60fps scrolling through 10,000+ files with <50ms INP on interactions.
+Figma uses windowed rendering plus React.memo on file cards with Zustand selector-based subscriptions, so selecting a file does not re-render the grid. The search input uses useDeferredValue to keep typing responsive. Result: 60fps scrolling through 10,000+ files with <50ms INP.
 
 ### Worked Example: Linear Issue Tracker
 
-Linear's issue list renders hundreds of issues with complex status indicators, assignees, labels, and priority badges. They achieve instant-feeling interactions by: (1) optimistic updates — the UI updates before the server confirms, (2) fine-grained state subscriptions — clicking an issue's status only re-renders that row, (3) CSS transitions instead of React-driven animations for status changes, (4) skeleton screens that match the exact layout of loaded content. The result is a <50ms INP for issue status changes and zero layout shift during loading transitions.
+Linear achieves instant-feeling interactions via: (1) optimistic updates before server confirmation, (2) fine-grained state subscriptions so status changes re-render only that row, (3) CSS transitions instead of React-driven animations, (4) skeleton screens matching loaded layout. Result: <50ms INP for status changes and zero layout shift.
 
 ### Anti-Patterns
 
-**Premature memoization.** Wrapping every component in React.memo adds comparison overhead. Only memoize components that: (a) receive complex props and render frequently, (b) are expensive to render (>5ms), or (c) sit below state that changes frequently. Profile first, memoize second.
+**Premature memoization.** Only memoize components that receive complex props and render frequently, are expensive (>5ms), or sit below frequently-changing state. Profile first, memoize second.
 
-**State in the wrong component.** Lifting state too high causes entire subtrees to re-render on every state change. Keep state as close to where it is used as possible. A search filter state should live in the search component, not in the page root.
+**State in the wrong component.** Lifting state too high causes entire subtrees to re-render. Keep state as close to where it is used as possible.
 
-**Creating objects in JSX props.** `<Child style={{ color: 'red' }} />` creates a new object on every render, defeating React.memo. Extract constant objects outside the component or use useMemo for dynamic objects.
+**Creating objects in JSX props.** `<Child style={{ color: 'red' }} />` creates a new object every render, defeating React.memo. Extract constants or use useMemo.
 
-**Synchronous heavy computation during render.** Computing 10,000-item filters or sorting inside a render function blocks the frame. Move heavy computation to a Web Worker or use useDeferredValue so the main thread stays responsive.
+**Synchronous heavy computation during render.** Move heavy computation (sorting, filtering 10K+ items) to a Web Worker or use useDeferredValue.
 
 ## Source
 

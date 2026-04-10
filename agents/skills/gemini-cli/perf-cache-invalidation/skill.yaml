@@ -1,0 +1,37 @@
+name: perf-cache-invalidation
+version: '1.0.0'
+description: Cache invalidation — TTL strategies, event-driven invalidation, cache stampede prevention, and versioned cache keys
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-server-side-caching
+  - perf-browser-cache
+  - perf-cdn-cache-control
+  - perf-cdn-strategies
+stack_signals: []
+keywords:
+  - cache invalidation
+  - ttl
+  - cache stampede
+  - thundering herd
+  - event-driven invalidation
+  - versioned keys
+  - cache warming
+  - probabilistic early expiration
+  - lock-based invalidation
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

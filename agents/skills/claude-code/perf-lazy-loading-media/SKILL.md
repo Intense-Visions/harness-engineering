@@ -144,7 +144,7 @@
 4. **Use BlurHash for compact placeholders.** BlurHash encodes a placeholder in ~20-30 characters, decoded to a blurred preview on the client:
 
    ```typescript
-   // Server: encode BlurHash at upload/build time
+   // Server: encode at upload/build time using sharp + blurhash
    import { encode } from 'blurhash';
    import sharp from 'sharp';
 
@@ -154,32 +154,10 @@
        .ensureAlpha()
        .resize(32, 32, { fit: 'inside' })
        .toBuffer({ resolveWithObject: true });
-
-     return encode(
-       new Uint8ClampedArray(data),
-       info.width,
-       info.height,
-       4, 3  // x and y components
-     );
+     return encode(new Uint8ClampedArray(data), info.width, info.height, 4, 3);
    }
 
-   // Client: decode and render to canvas
-   import { decode } from 'blurhash';
-
-   function BlurHashCanvas({ hash, width, height }) {
-     const canvasRef = useRef<HTMLCanvasElement>(null);
-
-     useEffect(() => {
-       const pixels = decode(hash, width, height);
-       const ctx = canvasRef.current?.getContext('2d');
-       if (!ctx) return;
-       const imageData = ctx.createImageData(width, height);
-       imageData.data.set(pixels);
-       ctx.putImageData(imageData, 0, 0);
-     }, [hash, width, height]);
-
-     return <canvas ref={canvasRef} width={width} height={height} />;
-   }
+   // Client: decode hash to pixels, render to <canvas> via ctx.putImageData()
    ```
 
 5. **Implement video poster optimization.** For video elements, use a poster image to avoid loading video data before play:
@@ -192,36 +170,7 @@
 
    Set `preload="none"` to prevent the browser from downloading any video data. The poster image provides the visual preview. Combine with `loading="lazy"` on a facade image for below-fold videos.
 
-6. **Implement progressive image loading with CSS transitions.** Smooth the transition from placeholder to full image:
-
-   ```typescript
-   function ProgressiveImage({ src, placeholder, alt, width, height }) {
-     const [loaded, setLoaded] = useState(false);
-     const [currentSrc, setCurrentSrc] = useState(placeholder);
-
-     useEffect(() => {
-       const img = new Image();
-       img.onload = () => {
-         setCurrentSrc(src);
-         setLoaded(true);
-       };
-       img.src = src;
-     }, [src]);
-
-     return (
-       <img
-         src={currentSrc}
-         alt={alt}
-         width={width}
-         height={height}
-         style={{
-           filter: loaded ? 'none' : 'blur(20px)',
-           transition: 'filter 0.3s ease-out',
-         }}
-       />
-     );
-   }
-   ```
+6. **Implement progressive image loading with CSS transitions.** Preload the full image in a `new Image()`, swap `src` on load, and animate with `filter: blur(20px)` transitioning to `filter: none` over 300ms. This smooths the placeholder-to-image transition without layout shift.
 
 7. **Configure the loading threshold.** Browsers load lazy images before they enter the viewport. Chrome uses a distance threshold that varies by connection speed (~1250px on 4G, ~2500px on slow 3G). For custom Intersection Observer implementations, set rootMargin based on image size and expected scroll speed:
 
@@ -241,11 +190,11 @@ When `loading="lazy"` is set, the browser defers the image fetch until the image
 
 ### Worked Example: Medium Article Images
 
-Medium uses LQIP with a progressive loading pattern for article images. On initial load, a ~200-byte blurred thumbnail is inlined as a base64 data URI in the HTML. When the image container approaches the viewport (via Intersection Observer with 300px rootMargin), the full image loads. Once loaded, a CSS transition fades from the blurred placeholder to the sharp image over 300ms. This approach eliminates layout shift (the placeholder has the same dimensions), provides immediate visual feedback (the blur gives spatial context), and defers ~95% of image bytes until needed.
+Medium inlines a ~200-byte blurred LQIP as a base64 data URI. When the container approaches the viewport (Intersection Observer, 300px rootMargin), the full image loads and a CSS transition fades from blur to sharp over 300ms. Result: zero layout shift, immediate visual feedback, and ~95% of image bytes deferred.
 
 ### Worked Example: Instagram Feed
 
-Instagram's feed uses a combination of BlurHash placeholders and progressive JPEG delivery. Each image in the API response includes a 28-character BlurHash string. The client renders this to a canvas element as an instant placeholder. The actual image loads progressively (headers first, then increasing resolution scans). The result: users see colored blurred previews within 50ms of scrolling, followed by a progressive reveal of detail. No layout shift occurs because dimensions are known from the API. The feed loads perceived-instantly despite containing dozens of high-resolution photos.
+Each API response includes a 28-character BlurHash string rendered to a canvas as an instant placeholder. The actual image loads progressively (headers first, then increasing resolution scans). Result: colored blurred previews within 50ms of scrolling, zero layout shift, and perceived-instant loading.
 
 ### Anti-Patterns
 

@@ -1,0 +1,37 @@
+name: perf-http2-multiplexing
+version: '1.0.0'
+description: HTTP/2 stream multiplexing — concurrent requests, server push, prioritization, and head-of-line blocking mitigation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-http3-quic
+  - perf-connection-costs
+  - perf-cdn-strategies
+  - perf-resource-hints
+  - perf-critical-rendering-path
+stack_signals: []
+keywords:
+  - http2
+  - multiplexing
+  - streams
+  - server push
+  - hpack
+  - head-of-line blocking
+  - connection coalescing
+  - binary framing
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -151,165 +151,74 @@
 4. **Use Workbox for production service workers.** Workbox provides battle-tested caching strategies and precaching:
 
    ```typescript
-   // sw.ts — using Workbox
    import { precacheAndRoute } from 'workbox-precaching';
    import { registerRoute } from 'workbox-routing';
    import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
    import { ExpirationPlugin } from 'workbox-expiration';
    import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
-   // Precache build assets (injected by build tool)
    precacheAndRoute(self.__WB_MANIFEST);
 
-   // Cache images: cache-first with expiration
+   // Images: cache-first, 100 entries, 30 days
    registerRoute(
      ({ request }) => request.destination === 'image',
      new CacheFirst({
        cacheName: 'images',
        plugins: [
          new CacheableResponsePlugin({ statuses: [0, 200] }),
-         new ExpirationPlugin({
-           maxEntries: 100,
-           maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-         }),
+         new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 }),
        ],
      })
    );
 
-   // Cache API responses: stale-while-revalidate with max age
+   // API: stale-while-revalidate, 50 entries, 5 min
    registerRoute(
      ({ url }) => url.pathname.startsWith('/api/'),
      new StaleWhileRevalidate({
        cacheName: 'api-responses',
        plugins: [
          new CacheableResponsePlugin({ statuses: [0, 200] }),
-         new ExpirationPlugin({
-           maxEntries: 50,
-           maxAgeSeconds: 5 * 60, // 5 minutes
-         }),
+         new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 300 }),
        ],
      })
    );
 
-   // Cache pages: network-first with offline fallback
+   // Pages: network-first with 3s timeout
    registerRoute(
      ({ request }) => request.mode === 'navigate',
-     new NetworkFirst({
-       cacheName: 'pages',
-       networkTimeoutSeconds: 3,
-       plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
-     })
+     new NetworkFirst({ cacheName: 'pages', networkTimeoutSeconds: 3 })
    );
    ```
 
-5. **Implement offline fallback pages.** Show a meaningful offline page when the network is unavailable:
+5. **Implement offline fallback pages.** For navigation requests, catch fetch failures and serve the cached page or a precached `/offline.html`. Use `event.request.mode === 'navigate'` to detect page navigations.
 
-   ```typescript
-   // In the fetch event handler, after network-first fails:
-   self.addEventListener('fetch', (event: FetchEvent) => {
-     if (event.request.mode === 'navigate') {
-       event.respondWith(
-         fetch(event.request).catch(async () => {
-           const cache = await caches.open(CACHE_VERSION);
-           const cached = await cache.match(event.request);
-           if (cached) return cached;
-           return cache.match('/offline.html');
-         })
-       );
-     }
-   });
-   ```
+6. **Implement background sync for offline writes.** On fetch failure, store the request in IndexedDB and call `registration.sync.register('tag')`. In the service worker, listen for the `sync` event, retrieve queued submissions, replay them via `fetch`, and remove from the queue on success. This enables offline form submission and data sync.
 
-6. **Implement background sync for offline writes.** Queue failed POST requests and retry when connectivity returns:
-
-   ```typescript
-   // main.ts — register sync when offline
-   async function submitForm(data: FormData) {
-     try {
-       await fetch('/api/submit', { method: 'POST', body: data });
-     } catch {
-       // Store in IndexedDB and register sync
-       await saveToQueue(data);
-       const registration = await navigator.serviceWorker.ready;
-       await registration.sync.register('submit-form');
-       showNotification('Saved offline. Will sync when online.');
-     }
-   }
-
-   // sw.ts — handle sync event
-   self.addEventListener('sync', (event: SyncEvent) => {
-     if (event.tag === 'submit-form') {
-       event.waitUntil(
-         getQueuedSubmissions().then((submissions) =>
-           Promise.all(
-             submissions.map(async (data) => {
-               await fetch('/api/submit', { method: 'POST', body: data });
-               await removeFromQueue(data.id);
-             })
-           )
-         )
-       );
-     }
-   });
-   ```
-
-7. **Handle service worker updates safely.** Avoid breaking active sessions during updates:
-
-   ```typescript
-   // sw.ts — controlled update strategy
-   self.addEventListener('install', (event) => {
-     // DON'T call skipWaiting() — let the user decide when to update
-     event.waitUntil(caches.open(CACHE_VERSION).then((cache) => cache.addAll(PRECACHE_ASSETS)));
-   });
-
-   // main.ts — prompt user for update
-   let refreshing = false;
-   navigator.serviceWorker.addEventListener('controllerchange', () => {
-     if (!refreshing) {
-       refreshing = true;
-       window.location.reload();
-     }
-   });
-
-   function promptUpdate(registration: ServiceWorkerRegistration) {
-     const updateBanner = document.getElementById('update-banner');
-     updateBanner.style.display = 'block';
-     updateBanner.querySelector('button').addEventListener('click', () => {
-       registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
-     });
-   }
-
-   // sw.ts — listen for skip waiting message
-   self.addEventListener('message', (event) => {
-     if (event.data?.type === 'SKIP_WAITING') {
-       self.skipWaiting();
-     }
-   });
-   ```
+7. **Handle service worker updates safely.** Do not call `skipWaiting()` unconditionally. Instead, show an update banner when `registration.waiting` is detected, and only call `skipWaiting()` via `postMessage` when the user clicks "Update". Listen for `controllerchange` on the main page to reload once (guard with a `refreshing` flag to avoid loops).
 
 ## Details
 
 ### Service Worker Scope and Lifecycle
 
-A service worker controls all pages within its scope (defined by the registration URL). The lifecycle prevents race conditions: a new service worker installs in the background while the old one serves current pages. The new worker activates only when all pages controlled by the old worker are closed (or `skipWaiting()` is called). This ensures users never see a mix of old and new cached resources. The trade-off: updates are delayed until all tabs are closed unless `skipWaiting()` is used.
+A service worker controls all pages within its scope. The lifecycle prevents race conditions: a new worker installs in the background while the old one serves current pages, activating only when all controlled pages close (or `skipWaiting()` is called). This ensures consistent cached resource versions at the cost of delayed updates.
 
 ### Worked Example: Twitter Lite PWA
 
-Twitter Lite (now X Lite) uses Workbox with a layered caching strategy. Static assets (JS, CSS, icons) use cache-first with the precache manifest ensuring atomic updates. Timeline API responses use stale-while-revalidate so tweets appear instantly from cache while fresh data loads in the background. Images use cache-first with a 100-entry LRU cache. The offline page shows cached tweets and a banner indicating offline status. Background sync queues tweet drafts and likes when offline. Result: 65% lower data usage on repeat visits, 30% faster perceived load time, and full offline reading capability. This drove 75% increase in tweets sent and 20% decrease in bounce rate.
+Workbox with layered strategies: cache-first for static assets (precache manifest for atomic updates), stale-while-revalidate for timeline API, cache-first with 100-entry LRU for images. Background sync queues drafts and likes offline. Result: 65% lower data usage on repeat visits, 30% faster perceived load, 75% increase in tweets sent.
 
 ### Worked Example: Starbucks PWA
 
-Starbucks' PWA uses service worker caching to deliver a near-native app experience on mobile web. The menu and store locator are precached at install time (~1.5MB). Subsequent visits load the app shell from cache in <100ms, then fetch personalized content (rewards, recent orders) from the network. The offline experience shows the full menu and nearest stores from cache. Background sync handles mobile order placement during connectivity drops. The PWA is 99.84% smaller than their native iOS app (233KB vs 148MB) and loads 3x faster on repeat visits.
+Menu and store locator precached at install (~1.5MB). App shell loads from cache in <100ms; personalized content fetches from network. Offline shows full menu from cache. Background sync handles orders during connectivity drops. The PWA is 99.84% smaller than the native iOS app (233KB vs 148MB).
 
 ### Anti-Patterns
 
 **Using skipWaiting() unconditionally.** `skipWaiting()` activates the new worker immediately, potentially serving old cached HTML with new cached JS. This causes version mismatch errors. Use skipWaiting only with a user-initiated refresh prompt.
 
-**Caching POST requests or authenticated responses.** The Cache API is designed for GET requests. Caching POST responses causes confusion because the cache key is the URL, not the request body. Authenticated responses cached by the service worker may be served to different users on shared devices.
+**Caching POST requests or authenticated responses.** The Cache API keys on URL only, not request body. Authenticated responses may leak across users on shared devices.
 
-**Not setting cache size limits.** Without expiration or max entries, the service worker cache grows indefinitely. Mobile devices have limited storage. Always use ExpirationPlugin or manual cleanup to limit cache size.
+**Not setting cache size limits.** Without expiration or max entries, caches grow indefinitely. Always use ExpirationPlugin or manual cleanup.
 
-**Caching opaque responses without understanding the cost.** Cross-origin responses without CORS headers are "opaque" (status 0). Chrome allocates 7MB of storage quota per opaque response. Caching many opaque responses quickly exhausts storage. Use CacheableResponsePlugin to filter by status.
+**Caching opaque responses without understanding the cost.** Chrome allocates 7MB quota per opaque (status 0) response. Use CacheableResponsePlugin to filter by status.
 
 ## Source
 

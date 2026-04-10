@@ -1,0 +1,38 @@
+name: perf-browser-cache
+version: '1.0.0'
+description: Browser caching — Cache-Control directives, ETag validation, immutable assets, stale-while-revalidate, and cache partitioning
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-cdn-cache-control
+  - perf-cache-invalidation
+  - perf-service-worker-caching
+  - perf-cdn-strategies
+  - perf-compression
+stack_signals: []
+keywords:
+  - cache-control
+  - etag
+  - immutable
+  - stale-while-revalidate
+  - max-age
+  - browser cache
+  - cache partitioning
+  - conditional request
+  - 304 not modified
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

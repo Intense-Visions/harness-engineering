@@ -110,24 +110,19 @@
    worker.postMessage({ bitmap }, [bitmap]);
    ```
 
-4. **Implement a worker pool for parallel throughput.** Process multiple tasks concurrently across workers:
+4. **Implement a worker pool for parallel throughput.** Create `navigator.hardwareConcurrency` workers at startup. Maintain a busy set and task queue. When a task arrives, dispatch to an idle worker or enqueue. On completion, resolve the promise and process the next queued task:
 
    ```typescript
    class WorkerPool {
      private workers: Worker[] = [];
-     private queue: Array<{
-       task: any;
-       resolve: (value: any) => void;
-       reject: (error: any) => void;
-     }> = [];
+     private queue: Array<{ task: any; resolve: Function; reject: Function }> = [];
      private busy = new Set<Worker>();
 
      constructor(workerUrl: URL, poolSize = navigator.hardwareConcurrency || 4) {
        for (let i = 0; i < poolSize; i++) {
-         const worker = new Worker(workerUrl, { type: 'module' });
-         worker.addEventListener('message', (e) => this.onComplete(worker, e.data));
-         worker.addEventListener('error', (e) => this.onError(worker, e));
-         this.workers.push(worker);
+         const w = new Worker(workerUrl, { type: 'module' });
+         w.addEventListener('message', (e) => this.onComplete(w, e.data));
+         this.workers.push(w);
        }
      }
 
@@ -135,74 +130,35 @@
        return new Promise((resolve, reject) => {
          const idle = this.workers.find((w) => !this.busy.has(w));
          if (idle) {
-           this.busy.add(idle);
-           idle.postMessage(task);
-           (idle as any).__resolve = resolve;
-           (idle as any).__reject = reject;
+           this.dispatch(idle, task, resolve, reject);
          } else {
            this.queue.push({ task, resolve, reject });
          }
        });
      }
 
-     private onComplete(worker: Worker, result: any) {
-       (worker as any).__resolve(result);
-       this.busy.delete(worker);
-       this.processQueue(worker);
+     private dispatch(w: Worker, task: any, resolve: Function, reject: Function) {
+       this.busy.add(w);
+       (w as any).__resolve = resolve;
+       w.postMessage(task);
      }
 
-     private processQueue(worker: Worker) {
+     private onComplete(w: Worker, result: any) {
+       (w as any).__resolve(result);
+       this.busy.delete(w);
        const next = this.queue.shift();
-       if (next) {
-         this.busy.add(worker);
-         worker.postMessage(next.task);
-         (worker as any).__resolve = next.resolve;
-         (worker as any).__reject = next.reject;
-       }
+       if (next) this.dispatch(w, next.task, next.resolve, next.reject);
      }
 
      terminate() {
        this.workers.forEach((w) => w.terminate());
      }
    }
-
-   // Usage
-   const pool = new WorkerPool(new URL('./processor.ts', import.meta.url));
-   const results = await Promise.all(
-     chunks.map((chunk) => pool.exec({ type: 'process', data: chunk }))
-   );
    ```
 
-5. **Use SharedArrayBuffer for real-time shared state.** Multiple workers can read and write shared memory without copying:
+5. **Use SharedArrayBuffer for real-time shared state.** Requires COOP (`same-origin`) and COEP (`require-corp`) headers. Create a `SharedArrayBuffer`, wrap in `Int32Array`, and send to multiple workers. Use `Atomics.add/load/store` for thread-safe reads and writes, and `Atomics.wait/notify` for synchronization. This avoids all serialization overhead for numeric data.
 
-   ```typescript
-   // Requires: Cross-Origin-Opener-Policy: same-origin
-   // Requires: Cross-Origin-Embedder-Policy: require-corp
-
-   // main.ts — create shared buffer
-   const sharedBuffer = new SharedArrayBuffer(1024 * Int32Array.BYTES_PER_ELEMENT);
-   const sharedArray = new Int32Array(sharedBuffer);
-
-   // Send the same buffer to multiple workers
-   worker1.postMessage({ buffer: sharedBuffer });
-   worker2.postMessage({ buffer: sharedBuffer });
-
-   // worker.ts — read/write with Atomics for thread safety
-   self.addEventListener('message', (e) => {
-     const array = new Int32Array(e.data.buffer);
-
-     // Atomic operations prevent data races
-     Atomics.add(array, 0, 1); // atomic increment
-     const value = Atomics.load(array, 0); // atomic read
-     Atomics.store(array, 1, 42); // atomic write
-
-     // Wait/notify for synchronization
-     Atomics.wait(array, 2, 0); // sleep until notified
-     Atomics.notify(array, 2, 1); // wake one waiting worker
-   });
-   ```
-
-6. **Integrate workers with React.** Use hooks to manage worker lifecycle:
+6. **Integrate workers with React.** Create a `useWorker` hook: instantiate the worker in `useEffect`, return `{ result, loading, execute }`, and terminate on cleanup. This manages lifecycle and prevents leaks:
 
    ```typescript
    function useWorker<T>(workerFactory: () => Worker) {
@@ -226,51 +182,23 @@
 
      return { result, loading, execute };
    }
-
-   // Usage
-   function DataProcessor({ items }) {
-     const { result, loading, execute } = useWorker<ProcessedItem[]>(
-       () => new Worker(new URL('./processor.ts', import.meta.url), { type: 'module' })
-     );
-
-     useEffect(() => {
-       if (items.length > 0) execute(items);
-     }, [items, execute]);
-
-     if (loading) return <Spinner />;
-     return <DataTable data={result} />;
-   }
    ```
 
-7. **Configure bundlers for worker support.**
-
-   ```typescript
-   // Vite: workers work out of the box with ?worker suffix
-   import MyWorker from './worker?worker';
-   const worker = new MyWorker();
-
-   // Or with standard URL pattern (Vite, webpack 5, esbuild):
-   const worker = new Worker(new URL('./worker.ts', import.meta.url), {
-     type: 'module',
-   });
-
-   // webpack 5: worker-loader is no longer needed
-   // The new URL() pattern is natively supported
-   ```
+7. **Configure bundlers for worker support.** Vite supports `import MyWorker from './worker?worker'` or the standard `new URL('./worker.ts', import.meta.url)` pattern. Webpack 5 and esbuild also support the `new URL()` pattern natively (worker-loader is no longer needed).
 
 ## Details
 
 ### Worker Thread Cost
 
-Creating a Web Worker takes ~40-100ms (DOM thread) for the initial setup. Each worker consumes ~1-5MB of memory for its V8 isolate. The postMessage serialization uses the structured clone algorithm, which copies data at ~400MB/s for typed arrays and ~50MB/s for complex objects. For a 10MB JSON dataset, serialization takes ~200ms — this can negate the benefit if the computation itself is fast. Use Transferable objects or SharedArrayBuffer to avoid copy cost.
+Worker creation takes ~40-100ms; each consumes ~1-5MB for its V8 isolate. Structured clone serialization runs at ~400MB/s for typed arrays, ~50MB/s for complex objects. A 10MB JSON dataset takes ~200ms to serialize, potentially negating the benefit. Use Transferable objects or SharedArrayBuffer to avoid copy cost.
 
 ### Worked Example: Figma Canvas Rendering
 
-Figma processes design file data in Web Workers. The main thread handles UI interaction (clicks, selections, viewport panning), while a dedicated worker handles: (1) parsing the binary file format, (2) computing layout constraints, (3) generating render commands. The worker sends render commands to the main thread via Transferable ArrayBuffers, which are then submitted to WebGL. This architecture ensures that even opening a file with 10,000+ layers does not block UI interaction. INP stays under 50ms during file operations that would otherwise freeze the main thread for seconds.
+A dedicated worker parses the binary file format, computes layout constraints, and generates render commands sent to the main thread via Transferable ArrayBuffers for WebGL submission. Result: opening 10,000+ layer files does not block UI; INP stays under 50ms.
 
 ### Worked Example: Google Sheets Calculations
 
-Google Sheets offloads cell recalculation to Web Workers. When a user edits a cell, the dependency graph traversal and formula evaluation run in a worker pool. The main thread remains responsive for continued typing and scrolling. For large spreadsheets with complex formulas, recalculation can take hundreds of milliseconds — running this on the main thread would make every keystroke feel sluggish. The worker pool uses SharedArrayBuffer for the cell value grid, allowing all workers to read the current state without serialization overhead.
+Cell recalculation (dependency graph traversal + formula evaluation) runs in a worker pool. SharedArrayBuffer stores the cell value grid so all workers read current state without serialization. Result: responsive typing and scrolling even during heavy recalculation.
 
 ### Anti-Patterns
 

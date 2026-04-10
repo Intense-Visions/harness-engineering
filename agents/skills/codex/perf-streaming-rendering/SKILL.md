@@ -106,36 +106,7 @@
    }
    ```
 
-4. **Handle bot/crawler requests differently.** Search engine crawlers need the complete HTML:
-
-   ```typescript
-   function handleRequest(req, res) {
-     const isBot = /bot|crawl|spider|slurp/i.test(
-       req.headers['user-agent'] || ''
-     );
-
-     const { pipe, abort } = renderToPipeableStream(
-       <App url={req.url} />,
-       {
-         bootstrapScripts: ['/client.js'],
-         onShellReady() {
-           if (!isBot) {
-             // Users: stream immediately for fast TTFB
-             res.statusCode = 200;
-             pipe(res);
-           }
-         },
-         onAllReady() {
-           if (isBot) {
-             // Bots: wait for complete HTML for SEO
-             res.statusCode = 200;
-             pipe(res);
-           }
-         },
-       }
-     );
-   }
-   ```
+4. **Handle bot/crawler requests differently.** Detect bots via user-agent (`/bot|crawl|spider/i`). For users, call `pipe(res)` in `onShellReady` for fast TTFB. For bots, call `pipe(res)` in `onAllReady` so they receive complete HTML for SEO indexing.
 
 5. **Understand out-of-order streaming mechanics.** React streams HTML in order (shell first), then replaces Suspense fallbacks out-of-order as data resolves:
 
@@ -232,7 +203,7 @@ The "shell" is everything outside Suspense boundaries. Choosing what goes in the
 
 ### Worked Example: Vercel Dashboard
 
-Vercel's project dashboard uses streaming SSR with five Suspense boundaries: navigation (shell, instant), project list (fast, ~30ms from cache), deployment status (medium, ~100ms from API), analytics summary (slow, ~300ms from aggregation service), and team activity (slowest, ~500ms from activity log). Users see the navigation and project list within 50ms of TTFB. Deployment status appears next. Analytics and activity stream in over the following 500ms. The perceived load time is under 100ms for the primary content, despite the full page taking 600ms to complete.
+Five Suspense boundaries: navigation (shell, instant), project list (~30ms from cache), deployment status (~100ms from API), analytics (~300ms), team activity (~500ms). Users see navigation and project list within 50ms of TTFB. Perceived load is under 100ms despite the full page taking 600ms.
 
 ### Anti-Patterns
 

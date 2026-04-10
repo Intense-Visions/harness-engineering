@@ -1,0 +1,39 @@
+name: perf-connection-costs
+version: '1.0.0'
+description: Network connection overhead — DNS resolution, TCP handshake, TLS negotiation, connection reuse, and keep-alive strategies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-http2-multiplexing
+  - perf-http3-quic
+  - perf-resource-hints
+  - perf-cdn-strategies
+  - perf-critical-rendering-path
+  - node-performance-profiling
+stack_signals: []
+keywords:
+  - dns resolution
+  - tcp handshake
+  - tls negotiation
+  - connection reuse
+  - keep-alive
+  - time to first byte
+  - ttfb
+  - ssl certificate
+  - connection pooling
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
