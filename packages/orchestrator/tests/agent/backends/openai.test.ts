@@ -46,7 +46,7 @@ describe('OpenAIBackend', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    backend = new OpenAIBackend({ model: 'gpt-4o' });
+    backend = new OpenAIBackend({ model: 'gpt-4o', apiKey: 'test-api-key' });
   });
 
   describe('startSession', () => {
@@ -70,6 +70,10 @@ describe('OpenAIBackend', () => {
         systemPrompt: 'You are a helpful assistant.',
       });
       expect(result.ok).toBe(true);
+      if (result.ok) {
+        const session = result.value as import('../../../src/agent/backends/openai').OpenAISession;
+        expect(session.systemPrompt).toBe('You are a helpful assistant.');
+      }
     });
   });
 
@@ -95,7 +99,7 @@ describe('OpenAIBackend', () => {
 
     it('returns Err when models.list throws', async () => {
       // Re-instantiate with a client that will throw
-      const failingBackend = new OpenAIBackend({ model: 'gpt-4o' });
+      const failingBackend = new OpenAIBackend({ model: 'gpt-4o', apiKey: 'test-api-key' });
       // Force healthCheck failure by making models.list reject
       const openaiModule = await import('openai');
       const mockInstance = (openaiModule.default as ReturnType<typeof vi.fn>).mock.results.at(

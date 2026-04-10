@@ -19,7 +19,7 @@ export interface OpenAIBackendConfig {
   apiKey?: string;
 }
 
-interface OpenAISession extends AgentSession {
+export interface OpenAISession extends AgentSession {
   systemPrompt?: string;
 }
 
