@@ -274,48 +274,56 @@ const RESOURCE_DEFINITIONS = [
     description:
       'Available skills with metadata (name, description, cognitive_mode, type, triggers)',
     mimeType: 'application/json',
+    _meta: { stability: 'static' },
   },
   {
     uri: 'harness://rules',
     name: 'Harness Rules',
     description: 'Active linter rules and constraints from harness config',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://project',
     name: 'Project Context',
     description: 'Project structure and agent instructions from AGENTS.md',
     mimeType: 'text/markdown',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://learnings',
     name: 'Learnings',
     description: 'Review learnings and anti-pattern log from .harness/',
     mimeType: 'text/markdown',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://state',
     name: 'Project State',
     description: 'Current harness state including position, progress, decisions, and blockers',
     mimeType: 'application/json',
+    _meta: { stability: 'ephemeral' },
   },
   {
     uri: 'harness://graph',
     name: 'Knowledge Graph',
     description: 'Graph statistics, node/edge counts by type, staleness',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://entities',
     name: 'Graph Entities',
     description: 'All entity nodes with types and metadata',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://relationships',
     name: 'Graph Relationships',
     description: 'All edges with types, confidence scores, and timestamps',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
 ];
 
