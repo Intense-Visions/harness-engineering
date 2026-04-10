@@ -82,15 +82,30 @@ function registerDailyCommand(usage: Command): void {
       const limited = dailyData.slice(0, days);
 
       if (globalOpts.json) {
-        console.log(JSON.stringify(limited, null, 2));
+        const enriched = limited.map((day) => {
+          const hitRate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
+          return {
+            ...day,
+            ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
+          };
+        });
+        console.log(JSON.stringify(enriched, null, 2));
         return;
       }
 
+      const hasCacheData = limited.some(
+        (d) => d.cacheReadTokens != null && d.cacheReadTokens > 0,
+      );
+
       // Table header
+      const cacheHeader = hasCacheData ? ' | Cache ' : '';
+      const cacheDivider = hasCacheData ? ' | ------' : '';
       const header =
-        'Date         | Sessions | Input     | Output    | Model(s)                     | Cost';
+        'Date         | Sessions | Input     | Output    | Model(s)                     | Cost  ' +
+        cacheHeader;
       const divider =
-        '-------------|----------|-----------|-----------|------------------------------|--------';
+        '-------------|----------|-----------|-----------|------------------------------|-------' +
+        cacheDivider;
       logger.info(header);
       logger.info(divider);
 
@@ -101,7 +116,15 @@ function registerDailyCommand(usage: Command): void {
         const output = formatTokenCount(day.tokens.outputTokens).padStart(9);
         const models = formatModels(day.models).padEnd(28);
         const cost = formatMicroUSD(day.costMicroUSD);
-        logger.info(`${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}`);
+        const cacheCol = hasCacheData
+          ? (() => {
+              const rate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
+              return ' | ' + (rate != null ? formatPercent(rate).padStart(5) : '    -');
+            })()
+          : '';
+        logger.info(
+          `${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}${cacheCol}`,
+        );
       }
     });
 }
