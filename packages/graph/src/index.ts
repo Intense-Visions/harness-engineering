@@ -27,6 +27,8 @@ export type { NodeQuery, EdgeQuery } from './store/GraphStore.js';
 export { VectorStore } from './store/VectorStore.js';
 export type { VectorSearchResult } from './store/VectorStore.js';
 export { saveGraph, loadGraph } from './store/Serializer.js';
+export { PackedSummaryCache, normalizeIntent } from './store/PackedSummaryCache.js';
+export type { CacheableEnvelope } from './store/PackedSummaryCache.js';
 
 // Query
 export { ContextQL } from './query/ContextQL.js';
