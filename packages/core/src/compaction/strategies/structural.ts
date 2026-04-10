@@ -75,6 +75,6 @@ export class StructuralStrategy implements CompactionStrategy {
     }
 
     const cleaned = cleanValue(parsed);
-    return JSON.stringify(cleaned);
+    return JSON.stringify(cleaned) ?? '';
   }
 }

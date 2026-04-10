@@ -72,4 +72,19 @@ describe('StructuralStrategy', () => {
     // Compact form: no newlines in output
     expect(result.includes('\n')).toBe(false);
   });
+
+  it('returns a string (not undefined) when input is JSON null', () => {
+    // cleanValue(null) returns undefined; JSON.stringify(undefined) returns JS undefined
+    // apply() must always return string — guard ensures '' rather than undefined
+    const result = strategy.apply('null');
+    expect(typeof result).toBe('string');
+    expect(result).toBe('');
+  });
+
+  it('returns a string (not undefined) when all fields prune to empty', () => {
+    // cleanRecord returns undefined when every field is pruned; propagates to apply()
+    const result = strategy.apply('{"a":null}');
+    expect(typeof result).toBe('string');
+    expect(result).toBe('');
+  });
 });
