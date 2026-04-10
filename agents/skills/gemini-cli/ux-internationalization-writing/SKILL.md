@@ -160,6 +160,8 @@ Without these comments, translators work from guesswork. Mozilla's Pontoon trans
 
 **Android Resource String Best Practices.** Android's resource system (`strings.xml`) enforces externalization of all user-visible strings. Google's Android developer documentation provides explicit guidance: use `plurals` resources for pluralization, `string-array` for lists, and translator comments via `translatable` and `description` attributes. Android Studio flags hardcoded strings with lint warnings. The system also supports ICU MessageFormat natively through the `MessageFormat` class. Android's approach demonstrates that i18n writing quality improves when the framework enforces best practices rather than relying on developer discipline.
 
+**Apple's Localization Guide.** Apple's internationalization documentation provides concrete examples of writing for translation. Their Xcode tooling generates a string catalog that surfaces every user-visible string, its context, and the translator comment. Apple mandates complete sentences in all localizable strings and provides a stringsdict format for pluralization that maps directly to CLDR plural categories. Their pseudo-localization testing tool simulates text expansion and right-to-left layout in every build, catching i18n writing failures before they reach translators.
+
 ## Source
 
 - W3C Internationalization Best Practices -- https://www.w3.org/International/techniques/authoring-html

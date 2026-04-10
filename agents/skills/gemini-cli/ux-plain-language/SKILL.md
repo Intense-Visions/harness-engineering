@@ -123,6 +123,8 @@ Gov.uk performed this audit across their entire government website and reduced t
 
 **Notion's Feature Naming.** Notion's naming conventions demonstrate user-centered vocabulary. The product uses "page" (not "document"), "block" (not "content element"), "template" (not "scaffolding"), "share" (not "publish" or "distribute"), and "comment" (not "annotation" or "feedback item"). Each term was chosen because it maps to a concept users already understand. When Notion introduced databases, they called them "databases" -- a word every user knows -- rather than "structured data collections" or "relational tables." The simplicity of the naming makes a complex product feel approachable.
 
+**Apple's Privacy Labels.** Apple's App Store privacy labels translate complex data collection practices into plain language that any user can understand. Instead of "This application processes personally identifiable information for advertising attribution purposes," Apple's labels say "Data Used to Track You" and "Data Linked to You." Each label category uses a concrete icon and a two-to-four word description. The labels read at a fourth-grade level while remaining legally accurate -- proof that legal concepts can be expressed in plain language without sacrificing precision.
+
 ## Source
 
 - plainlanguage.gov -- Federal Plain Language Guidelines, the definitive government standard for clear writing

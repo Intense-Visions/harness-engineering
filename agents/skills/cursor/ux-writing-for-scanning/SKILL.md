@@ -11,9 +11,9 @@
 - Composing email notifications, digest emails, and alert messages that users process in seconds
 - Organizing lists of features, permissions, or options in preference panels
 - Reviewing existing UI text that users report as "too long" or "hard to find things"
-- NOT for: legal text where completeness and precision override scannability
 - Structuring API documentation, developer guides, and technical reference material for quick lookup
 - Designing pricing pages and feature comparison tables for rapid evaluation
+- NOT for: legal text where completeness and precision override scannability
 - NOT for: creative writing, brand storytelling, or marketing copy where engagement requires linear reading
 
 ## Instructions

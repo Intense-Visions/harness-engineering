@@ -131,8 +131,10 @@ When the UI reflects a state change, the microcopy must communicate what happene
 ## Process
 
 1. Read the instructions and examples in this document.
-2. Apply the patterns to your implementation, adapting to your specific context.
-3. Verify your implementation against the details and edge cases listed above.
+2. Audit all button labels, error messages, and tooltips against the character limits table.
+3. Run the five-second test on key screens to verify labels are immediately comprehensible.
+4. Check every button for specific verb-noun patterns — replace any generic "OK," "Submit," or "Confirm."
+5. Verify your implementation against the anti-patterns listed above.
 
 ## Harness Integration
 

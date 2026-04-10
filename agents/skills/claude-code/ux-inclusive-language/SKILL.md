@@ -127,6 +127,8 @@ The principle: accessibility features should be labeled by what they do, not by 
 
 **Slack's Inclusive Emoji and Language Patterns.** Slack supports diverse skin tone emoji, pronoun display in profiles, and uses inclusive language throughout its UI. Notification settings say "when someone mentions you" (gender-neutral). The team directory shows pronouns when users choose to display them, without making pronouns mandatory. Empty states say "No messages from anyone yet" rather than assuming a gendered pronoun for the hypothetical message sender. Slack's approach demonstrates that inclusive language can be systematic without being intrusive -- the changes are subtle, consistent, and respect user choice.
 
+**Apple's Human Interface Guidelines on Inclusion.** Apple's HIG dedicates a section to inclusive language with specific guidance: use "select" instead of "click" to accommodate touch, voice, and switch control users. Use "turn on" and "turn off" instead of "enable" and "disable" (which carry ability connotations). Refer to people, not users -- "people who use your app" rather than "your users." Apple's guidelines treat inclusive language as a design requirement, not optional polish, and enforce it across all first-party apps as part of their App Review process.
+
 ## Source
 
 - Microsoft Writing Style Guide -- Bias-free communication, https://learn.microsoft.com/en-us/style-guide/bias-free-communication

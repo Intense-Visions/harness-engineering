@@ -12,9 +12,9 @@
 - Labeling form fields, toggles, and navigation elements with actionable text
 - Creating help text and tooltips that explain what the user can do
 - Reviewing existing UI text to convert passive constructions to active ones
-- NOT for: legal disclaimers, privacy policies, and terms of service where passive voice is sometimes legally required
 - Auditing automated notification templates for active voice compliance
 - Converting legacy enterprise UI text from passive to active constructions
+- NOT for: legal disclaimers, privacy policies, and terms of service where passive voice is sometimes legally required
 - NOT for: system status messages where the actor is genuinely irrelevant ("Updated 5 minutes ago")
 
 ## Instructions
