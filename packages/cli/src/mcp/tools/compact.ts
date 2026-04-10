@@ -135,10 +135,6 @@ async function handleIntentMode(
   budget: number,
   filterContent?: string
 ): Promise<ToolResult> {
-  // Phase 4 stub: check for cached PackedSummary node (always miss)
-  // TODO(Phase 4): const cached = await checkPackedSummaryCache(projectPath, intent);
-  // if (cached) return cached;
-
   const { loadGraphStore } = await import('../utils/graph-loader.js');
   const store = await loadGraphStore(projectPath);
   if (!store) {
@@ -150,6 +146,18 @@ async function handleIntentMode(
         },
       ],
       isError: true,
+    };
+  }
+
+  // Phase 4: check for cached PackedSummary node
+  const { PackedSummaryCache } = await import('@harness-engineering/graph');
+  const cache = new PackedSummaryCache(store);
+  const cachedEnvelope = cache.get(intent);
+  if (cachedEnvelope) {
+    return {
+      content: [
+        { type: 'text' as const, text: serializeEnvelope(cachedEnvelope as PackedEnvelope) },
+      ],
     };
   }
 
@@ -180,6 +188,7 @@ async function handleIntentMode(
   // Expand context around each result — weight budget by relevance score
   const totalScore = searchResults.reduce((sum, r) => sum + r.score, 0);
   const sections: Array<{ source: string; content: string }> = [];
+  const sourceNodeIds: string[] = [];
   let totalOriginalChars = 0;
 
   for (const result of searchResults) {
@@ -202,6 +211,7 @@ async function handleIntentMode(
     totalOriginalChars += rawContent.length;
     const compacted = pipeline.apply(rawContent, resultBudget);
     sections.push({ source: result.nodeId, content: compacted });
+    sourceNodeIds.push(result.nodeId);
   }
 
   const originalTokens = Math.ceil(totalOriginalChars / 4);
@@ -220,8 +230,8 @@ async function handleIntentMode(
     sections,
   };
 
-  // Phase 4 stub: write PackedSummary node to graph
-  // TODO(Phase 4): await writePackedSummaryNode(projectPath, intent, envelope);
+  // Phase 4: write PackedSummary node to graph for future cache hits
+  cache.set(intent, envelope, sourceNodeIds);
 
   return {
     content: [{ type: 'text' as const, text: serializeEnvelope(envelope) }],

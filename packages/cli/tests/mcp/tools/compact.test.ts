@@ -195,6 +195,12 @@ describe('compact tool', () => {
         loadGraphStore: vi.fn().mockResolvedValue({}),
       }));
       vi.doMock('@harness-engineering/graph', () => ({
+        PackedSummaryCache: class {
+          get() {
+            return null;
+          }
+          set() {}
+        },
         FusionLayer: class {
           search() {
             return [
@@ -238,6 +244,12 @@ describe('compact tool', () => {
         loadGraphStore: vi.fn().mockResolvedValue({}),
       }));
       vi.doMock('@harness-engineering/graph', () => ({
+        PackedSummaryCache: class {
+          get() {
+            return null;
+          }
+          set() {}
+        },
         FusionLayer: class {
           search() {
             return [];
@@ -271,6 +283,12 @@ describe('compact tool', () => {
         loadGraphStore: vi.fn().mockResolvedValue({}),
       }));
       vi.doMock('@harness-engineering/graph', () => ({
+        PackedSummaryCache: class {
+          get() {
+            return null;
+          }
+          set() {}
+        },
         FusionLayer: class {
           search(query: string) {
             capturedQuery = query;
@@ -310,6 +328,12 @@ describe('compact tool', () => {
         loadGraphStore: vi.fn().mockResolvedValue({}),
       }));
       vi.doMock('@harness-engineering/graph', () => ({
+        PackedSummaryCache: class {
+          get() {
+            return null;
+          }
+          set() {}
+        },
         FusionLayer: class {
           search() {
             return [{ nodeId: 'src/test.ts', score: 0.8 }];
