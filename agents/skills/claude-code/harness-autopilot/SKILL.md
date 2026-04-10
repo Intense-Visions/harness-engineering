@@ -6,153 +6,120 @@
 
 - After a multi-phase spec is approved and you want automated execution across all phases
 - When a project has 2+ implementation phases that would require repeated manual skill invocations
-- When you want the Ralph Loop pattern (fresh context per iteration, append-only learnings) applied at the phase level
+- When you want the Ralph Loop pattern (fresh context per iteration, append-only learnings) at the phase level
 - NOT for single-phase work (use harness-execution directly)
 - NOT when the spec is not yet approved (use harness-brainstorming first)
 - NOT for CI/headless execution (this is a conversational skill)
 
 ## Relationship to Other Skills
 
-| Skill                | Persona Agent (`subagent_type`) | Role in Autopilot                            |
-| -------------------- | ------------------------------- | -------------------------------------------- |
-| harness-planning     | `harness-planner`               | Delegated to for phase plan creation         |
-| harness-execution    | `harness-task-executor`         | Delegated to for task-by-task implementation |
-| harness-verification | `harness-verifier`              | Delegated to for post-execution validation   |
-| harness-code-review  | `harness-code-reviewer`         | Delegated to for post-verification review    |
+| Skill                | Persona (`subagent_type`) | Role                        |
+| -------------------- | ------------------------- | --------------------------- |
+| harness-planning     | `harness-planner`         | Phase plan creation         |
+| harness-execution    | `harness-task-executor`   | Task-by-task implementation |
+| harness-verification | `harness-verifier`        | Post-execution validation   |
+| harness-code-review  | `harness-code-reviewer`   | Post-verification review    |
 
-Autopilot orchestrates these persona agents — it never reimplements their logic. Each agent is dispatched via the Agent tool with the corresponding `subagent_type`, which isolates it to the harness methodology and prevents it from using unrelated skills.
+Autopilot orchestrates these persona agents — it never reimplements their logic. Each agent is dispatched via the Agent tool with the corresponding `subagent_type`, isolating it to the harness methodology.
 
 ## Iron Law
 
 **Autopilot delegates, never reimplements.** If you find yourself writing planning logic, execution logic, or review logic inside the autopilot loop, STOP. Delegate to the dedicated persona agent.
 
-**Always use dedicated persona agents, never general-purpose agents.** Every dispatch MUST target the specific harness persona (`harness-planner`, `harness-task-executor`, `harness-verifier`, `harness-code-reviewer`). General-purpose agents see all globally registered skills and may use unrelated workflows instead of the harness methodology.
+**Always use dedicated persona agents, never general-purpose agents.** Every dispatch MUST target the specific harness persona. General-purpose agents see all globally registered skills and may use unrelated workflows.
 
 - **Claude Code:** Use the Agent tool with `subagent_type` set to the persona name.
-- **Gemini CLI:** Use the `run_agent` tool targeting the persona by name, or dispatch via `harness persona run <name>`.
+- **Gemini CLI:** Use `run_agent` targeting the persona by name, or `harness persona run <name>`.
 
-**Plans are gated by concern signals.** When no concern signals fire (low complexity, no planner concerns, task count within threshold), plans are auto-approved with a structured report and execution proceeds immediately. When any signal fires, the plan pauses for human review with the standard yes/revise/skip/stop flow. The `--review-plans` session flag forces all plans to pause regardless of signals.
+**Plans are gated by concern signals.** When no signals fire, plans auto-approve with a structured report. When any signal fires, the plan pauses for human review (yes/revise/skip/stop). The `--review-plans` flag forces all plans to pause.
 
 ## Rigor Levels
 
-The `rigorLevel` is set during INIT via `--fast` or `--thorough` flags and persists for the entire session. Default is `standard`.
+Set during INIT via `--fast` or `--thorough` flags; persists for the entire session. Default: `standard`.
 
-| State          | `fast`                                                                                 | `standard` (default)                                                    | `thorough`                                                                                                                 |
-| -------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| PLAN           | Pass `rigorLevel: fast` to planner. Planner skips skeleton pass.                       | Default planner behavior.                                               | Pass `rigorLevel: thorough` to planner. Planner always produces skeleton for approval.                                     |
-| APPROVE_PLAN   | Auto-approve all plans regardless of concern signals. Skip human review.               | Default signal-based approval logic.                                    | Force human review of all plans (equivalent to `--review-plans`).                                                          |
-| EXECUTE        | Skip scratchpad — agents keep research in conversation. Checkpoint commits still fire. | Agents use scratchpad for research >500 words. Checkpoint commits fire. | Verbose scratchpad — agents write all research, reasoning, and intermediate output to scratchpad. Checkpoint commits fire. |
-| VERIFY         | Minimal verification — run `harness validate` only. Skip detailed verification agent.  | Default verification pipeline.                                          | Full verification — run verification agent with expanded checks.                                                           |
-| PHASE_COMPLETE | Scratchpad clear is a no-op (nothing written).                                         | Clear scratchpad for completed phase.                                   | Clear scratchpad for completed phase.                                                                                      |
-
-When `rigorLevel` is `fast`, the APPROVE_PLAN concern signal evaluation is bypassed entirely — plans always auto-approve. When `rigorLevel` is `thorough`, it implicitly sets `reviewPlans: true` for the APPROVE_PLAN gate.
+| State          | `fast`                                   | `standard`                         | `thorough`                              |
+| -------------- | ---------------------------------------- | ---------------------------------- | --------------------------------------- |
+| PLAN           | Skip skeleton pass                       | Default behavior                   | Always produce skeleton for approval    |
+| APPROVE_PLAN   | Auto-approve all plans, skip signals     | Signal-based approval              | Force human review (= `--review-plans`) |
+| EXECUTE        | Skip scratchpad; checkpoint commits fire | Scratchpad for research >500 words | Verbose scratchpad for all research     |
+| VERIFY         | `harness validate` only, skip agent      | Default verification pipeline      | Full verification with expanded checks  |
+| PHASE_COMPLETE | Scratchpad clear is a no-op              | Clear scratchpad                   | Clear scratchpad                        |
 
 ## Process
 
 ### State Machine
 
 ```
-INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE
-                                                                         ↓
+INIT -> ASSESS -> PLAN -> APPROVE_PLAN -> EXECUTE -> VERIFY -> REVIEW -> PHASE_COMPLETE
+                                                                         |
                                                                    [next phase?]
-                                                                    ↓         ↓
-                                                                 ASSESS   FINAL_REVIEW → DONE
+                                                                    |         |
+                                                                 ASSESS   FINAL_REVIEW -> DONE
 ```
 
 ---
 
-### Phase 1: INIT — Load Spec and Restore State
+### INIT — Load Spec and Restore State
 
-1. **Resolve spec path.** The spec file is provided as an argument, or ask the user for the spec path.
+1. **Resolve spec path.** Provided as argument, or ask the user.
 
 2. **Derive session slug and directory:**
-   - Derive the session slug from the spec path:
-     1. If the path starts with `docs/`, strip the `docs/` prefix. Otherwise, use the full relative path.
-     2. Drop the trailing `.md` extension
-     3. Replace all `/` and `.` characters with `--`
-     4. Lowercase the result
-   - Set `sessionDir = .harness/sessions/<slug>/`
-   - Create the session directory if it does not exist
+   - Strip `docs/` prefix if present, drop `.md`, replace `/` and `.` with `--`, lowercase.
+   - Set `sessionDir = .harness/sessions/<slug>/`. Create if needed.
 
 3. **Check for existing state.** Read `{sessionDir}/autopilot-state.json`. If it exists and `currentState` is not `DONE`:
-   - **Schema migration:** If `schemaVersion < 3`, backfill missing fields: set `startingCommit` to the earliest commit in `history` (or current HEAD if no history), set `decisions` to `[]`, set `finalReview` to `{ "status": "pending", "findings": [], "retryCount": 0 }`. If `schemaVersion < 4`, set `reviewPlans` to `false`. Update `schemaVersion` to `4` and save. If `schemaVersion < 5`, set `rigorLevel` to `"standard"`. Update `schemaVersion` to `5` and save.
+   - **Schema migration:** If `schemaVersion < 3`, backfill: `startingCommit` from earliest commit in `history` (or HEAD), `decisions: []`, `finalReview: { "status": "pending", "findings": [], "retryCount": 0 }`. If `< 4`, set `reviewPlans: false`. If `< 5`, set `rigorLevel: "standard"`. Update `schemaVersion` to `5`.
    - Report: "Resuming autopilot from state `{currentState}`, phase {currentPhase}: {phaseName}."
-   - Skip steps 4 and 5 (initial state creation and flag parsing) — these only apply to fresh starts.
-   - Skip to the recorded `currentState` and continue from there.
+   - Skip steps 4-5 (fresh start only). Jump to recorded `currentState`.
 
-4. **If no existing state (fresh start):**
-   - Read the spec file.
-   - Parse the `## Implementation Order` section to extract phases.
-   - For each phase heading (`### Phase N: Name`), extract:
-     - Phase name
-     - Complexity annotation (`<!-- complexity: low|medium|high -->`, default: `medium`)
-   - Capture the starting commit: run `git rev-parse HEAD` and store the result as `startingCommit`.
+4. **Fresh start (no existing state):**
+   - Read spec. Parse `## Implementation Order` for phases (`### Phase N: Name`).
+   - Extract phase name and complexity annotation (`<!-- complexity: low|medium|high -->`, default: `medium`).
+   - Capture `startingCommit` via `git rev-parse HEAD`.
    - Create `{sessionDir}/autopilot-state.json`:
      ```json
      {
        "schemaVersion": 5,
        "sessionDir": ".harness/sessions/<slug>",
-       "specPath": "<path to spec>",
-       "startingCommit": "<git rev-parse HEAD output>",
+       "specPath": "<path>",
+       "startingCommit": "<HEAD>",
        "reviewPlans": false,
        "rigorLevel": "standard",
        "currentState": "ASSESS",
        "currentPhase": 0,
        "phases": [
          {
-           "name": "<phase name>",
-           "complexity": "<low|medium|high>",
+           "name": "<name>",
+           "complexity": "<level>",
            "complexityOverride": null,
            "planPath": null,
            "status": "pending"
          }
        ],
-       "retryBudget": {
-         "maxAttempts": 3,
-         "currentTask": null
-       },
+       "retryBudget": { "maxAttempts": 3, "currentTask": null },
        "history": [],
        "decisions": [],
-       "finalReview": {
-         "status": "pending",
-         "findings": [],
-         "retryCount": 0
-       }
+       "finalReview": { "status": "pending", "findings": [], "retryCount": 0 }
      }
      ```
 
-5. **Parse session flags.** Check CLI arguments for session-level flags. These persist for the entire session -- resuming a session preserves the settings from when it was started (flags are only read on fresh start, not on resume).
+5. **Parse session flags** (fresh start only; resume preserves original settings):
    - `--review-plans`: Set `state.reviewPlans: true`.
-   - `--fast`: Set `state.rigorLevel: "fast"`. Reduces rigor across all phases: skip skeleton approval, skip scratchpad, minimal verification.
-   - `--thorough`: Set `state.rigorLevel: "thorough"`. Increases rigor across all phases: require skeleton approval, verbose scratchpad, full verification.
-   - If neither `--fast` nor `--thorough` is passed, `rigorLevel` defaults to `"standard"`.
-   - If both `--fast` and `--thorough` are passed, reject with error: "Cannot use --fast and --thorough together. Choose one."
+   - `--fast`: Set `rigorLevel: "fast"`. Skips skeleton approval, scratchpad, forces auto-approve, minimal verification.
+   - `--thorough`: Set `rigorLevel: "thorough"`. Requires skeleton approval, verbose scratchpad, forces plan review, full verification.
+   - Default: `"standard"`. If both `--fast` and `--thorough` passed, reject with error.
 
-6. **Load context via gather_context.** Use the `gather_context` MCP tool to load all working context efficiently:
+6. **Load context via gather_context:**
 
    ```json
-   gather_context({
-     path: "<project-root>",
-     intent: "Autopilot phase execution for <spec name>",
-     skill: "harness-autopilot",
-     session: "<session-slug>",
-     include: ["state", "learnings", "handoff", "validation"]
-   })
+   gather_context({ path: "<project-root>", intent: "Autopilot for <spec>", skill: "harness-autopilot", session: "<slug>", include: ["state", "learnings", "handoff", "validation"] })
    ```
 
-   This loads session-scoped learnings, handoff, state, and validation results in a single call. The `session` parameter ensures all reads come from the session directory (`.harness/sessions/<slug>/`), isolating this workstream from others. Note any relevant learnings or known dead ends for the current phase from the returned `learnings` array.
+   Loads session-scoped learnings, handoff, state, and validation in one call. Note relevant learnings or dead ends for the current phase.
 
-7. **Load session summary for cold start.** If resuming (existing `autopilot-state.json` found):
-   - Call `loadSessionSummary()` for the session slug to get quick orientation context (~200 tokens).
-   - The summary provides the last skill, phase, status, and next step — enough to understand where the autopilot left off without re-reading the full state machine.
-   - If no summary exists (first run), skip — the full INIT handles context loading.
+7. **Cold start orientation.** If resuming, call `loadSessionSummary()` for quick context (~200 tokens). Skip on first run.
 
-8. **Load roadmap context.** If `docs/roadmap.md` exists, read it to understand:
-   - Current project priorities (which features are `in-progress`)
-   - Blockers that may affect the upcoming phases
-   - Overall project status and milestone progress
-
-   This provides the autopilot with project-level context beyond the individual spec being executed. If the roadmap does not exist, skip this step — the autopilot operates normally without it.
+8. **Load roadmap context.** If `docs/roadmap.md` exists, read for current priorities, blockers, and milestone status. Skip if absent.
 
 9. **Transition to ASSESS.**
 
@@ -160,30 +127,25 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 
 ### ASSESS — Determine Phase Approach
 
-1. **Read the current phase** from `{sessionDir}/autopilot-state.json` at index `currentPhase`.
+1. Read current phase from state at index `currentPhase`.
+2. If `planPath` is set and file exists, skip to `APPROVE_PLAN`.
+3. **Evaluate complexity** (use `complexityOverride` if set):
 
-2. **Check if plan already exists.** If `planPath` is set and the file exists, skip to `APPROVE_PLAN`.
+   | Complexity | Action                                                                               |
+   | ---------- | ------------------------------------------------------------------------------------ |
+   | `low`      | Auto-plan via `harness-planner`. Proceed to PLAN.                                    |
+   | `medium`   | Auto-plan via `harness-planner`. Proceed to PLAN with extra scrutiny note.           |
+   | `high`     | Pause. Tell user to run `/harness:planning` interactively, then re-invoke autopilot. |
 
-3. **Evaluate complexity:**
-   - Read the phase's `complexity` field from state.
-   - If `complexityOverride` is set, use it instead.
-   - Decision matrix:
-
-     | Effective Complexity | Action                                                                                                                                                                                                                               |
-     | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-     | `low`                | Auto-plan via `harness-planner` agent. Proceed to PLAN.                                                                                                                                                                              |
-     | `medium`             | Auto-plan via `harness-planner` agent. Proceed to PLAN. Present with extra scrutiny note.                                                                                                                                            |
-     | `high`               | Pause. Tell the user: "Phase {N}: {name} is marked high-complexity. Run `/harness:planning` interactively for this phase, then re-invoke `/harness:autopilot` to continue." Transition to PLAN with `awaitingInteractivePlan: true`. |
-
-4. **Update state** with `currentState: "PLAN"` and save.
+4. Update state: `currentState: "PLAN"`.
 
 ---
 
 ### PLAN — Generate or Await Plan
 
-**If auto-planning (low/medium complexity):**
+**Auto-planning (low/medium):**
 
-1. Dispatch a planning agent using the Agent tool:
+1. Dispatch planning agent:
 
    ```
    Agent tool parameters:
@@ -191,79 +153,53 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      description: "Plan phase {N}: {name}"
      prompt: |
        You are running harness-planning for phase {N}: {name}.
+       Spec: {specPath}  Session: {sessionDir} / {sessionSlug}
+       Phase description: {from spec}  Rigor level: {rigorLevel}
 
-       Spec: {specPath}
-       Session directory: {sessionDir}
-       Session slug: {sessionSlug}
-       Phase description: {phase description from spec}
-       Rigor level: {rigorLevel}
-
-       On startup, call gather_context({ session: "{sessionSlug}" }) to load
-       session-scoped learnings, state, and validation context.
+       On startup, call gather_context({ session: "{sessionSlug}" }).
 
        ## Scratchpad (if rigorLevel is not "fast")
-
-       For bulky research output (spec analysis, codebase exploration notes,
-       dependency analysis — anything >500 words), write to scratchpad instead
-       of keeping in conversation:
-
+       For bulky research (>500 words), write to scratchpad:
          writeScratchpad({ session: "{sessionSlug}", phase: "{phaseName}", projectPath: "{projectPath}" }, "research-{topic}.md", content)
+       Reference the scratchpad file path in your conversation instead of inlining the content.
 
-       Reference the scratchpad file path in your conversation instead of
-       inlining the content. This keeps the planning context focused on
-       decisions and task structure.
-
-       Follow the harness-planning skill process exactly. Write the plan to
-       docs/plans/{date}-{phase-name}-plan.md. Write {sessionDir}/handoff.json when done.
+       Follow harness-planning exactly. Write plan to docs/plans/{date}-{phase-name}-plan.md.
+       Write {sessionDir}/handoff.json when done.
    ```
 
-2. When the agent returns:
-   - Read the generated plan path from `{sessionDir}/handoff.json`.
-   - **Apply complexity override check:**
-     - Count tasks in the plan.
-     - Count `[checkpoint:*]` markers.
-     - If `spec_complexity == "low"` AND (`task_count > 10` OR `checkpoint_count > 3`):
-       Set `complexityOverride: "medium"` in state. Note to user: "Planning produced {N} tasks — more than expected for low complexity. Reviewing with extra scrutiny."
-     - If `spec_complexity == "low"` AND (`task_count > 20` OR `checkpoint_count > 6`):
-       Set `complexityOverride: "high"` in state. Note to user: "This phase is significantly larger than expected. Consider breaking it down."
-   - Update state: set `planPath` for the current phase.
-   - Transition to `APPROVE_PLAN`.
+2. When agent returns:
+   - Read plan path from `{sessionDir}/handoff.json`.
+   - **Complexity override check:** Count tasks and `[checkpoint:*]` markers. If `low` AND (`tasks > 10` OR `checkpoints > 3`): override to `"medium"`. If `low` AND (`tasks > 20` OR `checkpoints > 6`): override to `"high"`.
+   - Update state: set `planPath`. Transition to `APPROVE_PLAN`.
 
-**If awaiting interactive plan (high complexity):**
+**Awaiting interactive plan (high):**
 
-1. Check if a plan file now exists for this phase (user ran planning separately).
-   - Look for files matching `docs/plans/*{phase-name}*` or check `{sessionDir}/handoff.json` for a planning handoff.
-2. If found: update `planPath` in state, transition to `APPROVE_PLAN`.
-3. If not found: remind the user and wait.
+1. Check for plan file matching `docs/plans/*{phase-name}*` or `{sessionDir}/handoff.json`.
+2. If found: update `planPath`, transition to `APPROVE_PLAN`.
+3. If not: remind user and wait.
 
 ---
 
 ### APPROVE_PLAN — Conditional Review Gate
 
-1. **Gather plan metadata:**
-   - Phase name and number
-   - Task count (from the plan file)
-   - Checkpoint count
-   - Estimated time (task count x 3 minutes)
-   - Effective complexity (original + any override)
-   - Concerns array from the planning handoff (`{sessionDir}/handoff.json` field `concerns`, default: `[]` if field is absent)
+1. **Gather plan metadata:** phase name/number, task count, checkpoint count, estimated time (tasks x 3 min), effective complexity, concerns from handoff (`{sessionDir}/handoff.json` `concerns` field, default `[]`).
 
-2. **Rigor-level override:**
-   - If `rigorLevel` is `"fast"`: Skip the signal evaluation entirely. Auto-approve the plan. Record decision as `"auto_approved_plan_fast"`. Transition directly to EXECUTE.
-   - If `rigorLevel` is `"thorough"`: Force `shouldPauseForReview = true` regardless of other signals (equivalent to `--review-plans`).
-   - If `rigorLevel` is `"standard"`: Proceed with normal signal evaluation below.
+2. **Rigor override:**
+   - `"fast"`: Skip signal evaluation. Auto-approve. Record `"auto_approved_plan_fast"`. Go to EXECUTE.
+   - `"thorough"`: Force `shouldPauseForReview = true`.
+   - `"standard"`: Normal signal evaluation below.
 
-3. **Evaluate `shouldPauseForReview`.** Check the following signals in order. If **any** signal is true, pause for human review. If **all** are false, auto-approve.
+3. **Evaluate `shouldPauseForReview`.** If **any** signal is true, pause. If **all** false, auto-approve.
 
-   | #   | Signal               | Condition                             | Description                                                                                                                                                                                  |
-   | --- | -------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | 1   | `reviewPlans`        | `state.reviewPlans === true`          | Session-level flag set by `--review-plans` CLI arg                                                                                                                                           |
-   | 2   | `highComplexity`     | `phase.complexity === "high"`         | Phase is marked as high complexity in the spec (reachable when resuming after interactive planning; confirms the plan is ready for automated execution even though the human drove planning) |
-   | 3   | `complexityOverride` | `phase.complexityOverride !== null`   | Planner produced more tasks than expected for the spec complexity                                                                                                                            |
-   | 4   | `plannerConcerns`    | Handoff `concerns` array is non-empty | Planner flagged specific risks or uncertainties                                                                                                                                              |
-   | 5   | `taskCount`          | Plan contains > 15 tasks (i.e., 16+)  | Plan is large enough to warrant human review                                                                                                                                                 |
+   | #   | Signal               | Condition                           | Description                          |
+   | --- | -------------------- | ----------------------------------- | ------------------------------------ |
+   | 1   | `reviewPlans`        | `state.reviewPlans === true`        | `--review-plans` flag                |
+   | 2   | `highComplexity`     | `phase.complexity === "high"`       | High complexity in spec              |
+   | 3   | `complexityOverride` | `phase.complexityOverride !== null` | Planner exceeded expected complexity |
+   | 4   | `plannerConcerns`    | Handoff `concerns` non-empty        | Planner flagged risks                |
+   | 5   | `taskCount`          | Plan has > 15 tasks                 | Large plan                           |
 
-4. **Build the signal evaluation result** for reporting and recording:
+4. **Signal evaluation result** (for reporting):
 
    ```json
    {
@@ -276,87 +212,24 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    }
    ```
 
-5. **If auto-approving (no signals fired):**
+5. **Auto-approve (no signals fired):**
+   - Emit report: `Auto-approved Phase N: {name}` with review mode, complexity, concerns, task count.
+   - Record decision in `decisions` array with signal snapshot.
+   - Transition to EXECUTE.
 
-   a. **Emit structured auto-approve report:**
+6. **Pause for review (signals fired):**
+   - Emit report showing triggered signals.
+   - Present plan summary. Ask: "Approve? (yes / revise / skip phase / stop)"
+     - **yes** -> EXECUTE. **revise** -> user edits, re-present. **skip phase** -> mark `skipped`, PHASE_COMPLETE. **stop** -> save and exit.
+   - Record decision with actual value: `approved_plan`, `revised_plan`, `skipped_phase`, `stopped`.
 
-   ```
-   Auto-approved Phase 1: Setup Infrastructure
-     Review mode: auto
-     Complexity: low (no override)
-     Planner concerns: none
-     Tasks: 8 (threshold: 15)
-   ```
-
-   b. **Record the decision** in state `decisions` array:
-
-   ```json
-   {
-     "phase": 0,
-     "decision": "auto_approved_plan",
-     "timestamp": "ISO-8601",
-     "signals": {
-       "reviewPlans": false,
-       "highComplexity": "low",
-       "complexityOverride": null,
-       "plannerConcerns": [],
-       "taskCount": 8,
-       "taskThreshold": 15
-     }
-   }
-   ```
-
-   c. **Transition to EXECUTE** — no human interaction needed.
-
-6. **If pausing for review (one or more signals fired):**
-
-   a. **Emit structured pause report** showing which signal(s) triggered:
-
-   ```
-   Pausing for review -- Phase 2: Auth Middleware
-     Review mode: manual (--review-plans flag set)
-     Complexity override: low -> medium (triggered)
-     Planner concerns: 2 concern(s)
-     Tasks: 12 (threshold: 15)
-   ```
-
-   Mark triggered signals explicitly. Non-triggered signals display their normal value without "(triggered)".
-
-   b. **Present the plan summary:** task count, checkpoint count, estimated time, effective complexity, and any concerns from the planning handoff.
-
-   c. **Ask:** "Approve this plan and begin execution? (yes / revise / skip phase / stop)"
-   - **yes** — Transition to EXECUTE.
-   - **revise** — Tell user to edit the plan file directly, then re-present from step 1.
-   - **skip phase** — Mark phase as `skipped` in state, transition to PHASE_COMPLETE.
-   - **stop** — Save state and exit. User can resume later.
-
-   d. **Record the decision** in state `decisions` array:
-
-   ```json
-   {
-     "phase": 0,
-     "decision": "approved_plan",
-     "timestamp": "ISO-8601",
-     "signals": {
-       "reviewPlans": true,
-       "highComplexity": "low",
-       "complexityOverride": "medium",
-       "plannerConcerns": ["concern text"],
-       "taskCount": 12,
-       "taskThreshold": 15
-     }
-   }
-   ```
-
-   Use the actual decision value: `approved_plan`, `revised_plan`, `skipped_phase`, or `stopped`.
-
-7. **Update state** with `currentState: "EXECUTE"` (or appropriate state for skip/stop) and save.
+7. Update state with next `currentState` and save.
 
 ---
 
 ### EXECUTE — Run the Plan
 
-1. **Dispatch execution agent using the Agent tool:**
+1. **Dispatch execution agent:**
 
    ```
    Agent tool parameters:
@@ -364,82 +237,50 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      description: "Execute phase {N}: {name}"
      prompt: |
        You are running harness-execution for phase {N}: {name}.
+       Plan: {planPath}  Session: {sessionDir} / {sessionSlug}
+       State: {sessionDir}/state.json  Rigor level: {rigorLevel}
 
-       Plan: {planPath}
-       Session directory: {sessionDir}
-       Session slug: {sessionSlug}
-       State: {sessionDir}/state.json
-       Rigor level: {rigorLevel}
-
-       On startup, call gather_context({ session: "{sessionSlug}" }) to load
-       session-scoped learnings, state, and validation context.
+       On startup, call gather_context({ session: "{sessionSlug}" }).
 
        ## Scratchpad (if rigorLevel is not "fast")
-
-       For bulky intermediate output (test output analysis, error investigation
-       notes, dependency trees — anything >500 words), write to scratchpad:
-
+       For bulky output (>500 words), write to scratchpad:
          writeScratchpad({ session: "{sessionSlug}", phase: "{phaseName}", projectPath: "{projectPath}" }, "task-{N}-{topic}.md", content)
+       Reference the scratchpad file path in your conversation instead of inlining the content.
 
-       Reference the scratchpad file path instead of inlining the content.
-
-       Follow the harness-execution skill process exactly.
-       Update {sessionDir}/state.json after each task.
-       Write {sessionDir}/handoff.json when done or when blocked.
+       Follow harness-execution exactly. Update {sessionDir}/state.json after each task.
+       Write {sessionDir}/handoff.json when done or blocked.
    ```
 
-2. **When the agent returns, check the outcome:**
-   - **After each checkpoint verification passes**, commit the work:
-     ```
-     commitAtCheckpoint({
-       projectPath: "{projectPath}",
-       session: "{sessionSlug}",
-       checkpointLabel: "Checkpoint {N}: {checkpoint description}"
-     })
-     ```
-     If the commit result shows `committed: false`, no changes existed — continue silently.
+2. **Check outcome:**
+   - **After each checkpoint passes**, commit: `commitAtCheckpoint({ projectPath, session, checkpointLabel })`. If `committed: false`, continue silently.
    - **All tasks complete:** Transition to VERIFY.
-   - **Checkpoint reached:** Surface the checkpoint to the user in the main conversation. Handle the checkpoint type:
+   - **Checkpoint reached:** Surface to user. Handle by type:
      - `[checkpoint:human-verify]` — Show output, ask for confirmation, then resume execution agent.
      - `[checkpoint:decision]` — Present options, record choice, resume execution agent.
      - `[checkpoint:human-action]` — Instruct user, wait for confirmation, resume execution agent.
-   - **Task failed:** Enter retry logic (see below).
+   - **Task failed:** Enter retry logic.
 
-3. **Retry logic on failure:**
-   - Read `retryBudget` from state.
-   - If `attemptsUsed < maxAttempts`:
-     - Increment `attemptsUsed`.
-     - Record the attempt (timestamp, error, fix attempted, result).
-     - **Attempt 1:** Read error output, apply obvious fix, re-dispatch execution agent for the failed task only.
-     - **Attempt 2:** Expand context — read related files, check `learnings.md` for similar failures, re-dispatch with additional context.
-     - **Attempt 3:** Full context gather — read test output, imports, plan instructions for ambiguity. Re-dispatch with maximum context.
-   - If budget exhausted:
-     - **Recovery commit:** Before stopping, commit any passing work:
-       ```
-       commitAtCheckpoint({
-         projectPath: "{projectPath}",
-         session: "{sessionSlug}",
-         checkpointLabel: "Phase {N}: {name} — recovery at task {taskNumber}",
-         isRecovery: true
-       })
-       ```
-       This preserves all work completed before the failure. The `[autopilot][recovery]` prefix in the commit message distinguishes recovery commits from normal checkpoint commits.
-     - **Stop.** Present all 3 attempts with full context to the user.
-     - Record failure in `.harness/failures.md`.
-     - Ask: "How should we proceed? (fix manually and continue / revise plan / stop)"
-     - Save state. User's choice determines next transition.
+3. **Retry logic (3 attempts):**
+   - Increment `attemptsUsed`. Record the attempt (timestamp, error, fix attempted, result).
+   - **Attempt 1:** Read error, apply obvious fix, re-dispatch for failed task.
+   - **Attempt 2:** Expand context — read related files, check `learnings.md`, re-dispatch.
+   - **Attempt 3:** Full context gather — test output, imports, plan instructions. Re-dispatch.
+   - **Budget exhausted:**
+     - Recovery commit: `commitAtCheckpoint({ ..., checkpointLabel: "Phase {N}: {name} — recovery at task {T}", isRecovery: true })`. Preserves work before failure. `[autopilot][recovery]` prefix distinguishes from normal commits.
+     - Stop. Present all 3 attempts. Record in `.harness/failures.md`.
+     - Ask: "How to proceed? (fix manually and continue / revise plan / stop)"
 
-4. **Update state** after each execution cycle and save.
+4. Update state after each execution cycle.
 
 ---
 
 ### VERIFY — Post-Execution Validation
 
-1. **Rigor-level branching:**
-   - If `rigorLevel` is `"fast"`: Skip the verification agent entirely. Run only `harness validate`. If it passes, transition to REVIEW. If it fails, surface to user.
-   - If `rigorLevel` is `"thorough"` or `"standard"`: Dispatch the verification agent as below.
+1. **Rigor branching:**
+   - `"fast"`: Skip agent. Run `harness validate` only. Pass -> REVIEW. Fail -> surface to user.
+   - `"standard"` / `"thorough"`: Dispatch verification agent.
 
-2. **Dispatch verification agent using the Agent tool:**
+2. **Dispatch verification agent:**
 
    ```
    Agent tool parameters:
@@ -447,31 +288,23 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      description: "Verify phase {N}: {name}"
      prompt: |
        You are running harness-verification for phase {N}: {name}.
-
-       Session directory: {sessionDir}
-       Session slug: {sessionSlug}
-
-       On startup, call gather_context({ session: "{sessionSlug}" }) to load
-       session-scoped learnings, state, and validation context.
-
-       Follow the harness-verification skill process exactly.
-       Report pass/fail with findings.
+       Session: {sessionDir} / {sessionSlug}
+       On startup, call gather_context({ session: "{sessionSlug}" }).
+       Follow harness-verification exactly. Report pass/fail with findings.
    ```
 
-3. **When the agent returns:**
-   - **All checks pass:** Transition to REVIEW.
-   - **Failures found:** Surface findings to the user. Ask: "Fix these issues before review? (fix / skip verification / stop)"
-     - **fix** — Re-enter EXECUTE with targeted fixes (retry budget resets for verification fixes).
-     - **skip** — Record skip decision in `decisions` array. Proceed to REVIEW with verification warnings noted.
-     - **stop** — Save state and exit.
+3. **Outcome:**
+   - **Pass:** Transition to REVIEW.
+   - **Failures:** Surface to user. Ask: "Fix before review? (fix / skip verification / stop)"
+     - **fix** -> re-enter EXECUTE (retry budget resets). **skip** -> record in `decisions`, proceed with warnings. **stop** -> save and exit.
 
-4. **Update state** with `currentState: "REVIEW"` and save.
+4. Update state: `currentState: "REVIEW"`.
 
 ---
 
 ### REVIEW — Code Review
 
-1. **Dispatch review agent using the Agent tool:**
+1. **Dispatch review agent:**
 
    ```
    Agent tool parameters:
@@ -479,46 +312,32 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      description: "Review phase {N}: {name}"
      prompt: |
        You are running harness-code-review for phase {N}: {name}.
-
-       Session directory: {sessionDir}
-       Session slug: {sessionSlug}
-
-       On startup, call gather_context({ session: "{sessionSlug}" }) to load
-       session-scoped learnings, state, and validation context.
-
-       Follow the harness-code-review skill process exactly.
-       Report findings with severity (blocking / warning / note).
+       Session: {sessionDir} / {sessionSlug}
+       On startup, call gather_context({ session: "{sessionSlug}" }).
+       Follow harness-code-review exactly. Report findings (blocking / warning / note).
    ```
 
-2. **When the agent returns:**
-   - **Persist review findings:** Write the review findings to `{sessionDir}/phase-{N}-review.json` (array of findings with severity, file, line, title). This file is consumed by FINAL_REVIEW step 3.
-   - **No blocking findings:** Report summary, transition to PHASE_COMPLETE.
-   - **Blocking findings:** Surface to user. Ask: "Address blocking findings before completing this phase? (fix / override / stop)"
-     - **fix** — Re-enter EXECUTE with review fixes.
-     - **override** — Record override decision, transition to PHASE_COMPLETE.
-     - **stop** — Save state and exit.
+2. **Outcome:**
+   - **Persist findings** to `{sessionDir}/phase-{N}-review.json` (consumed by FINAL_REVIEW).
+   - **No blocking:** Report summary, transition to PHASE_COMPLETE.
+   - **Blocking:** Surface to user. Ask: "Address before completing? (fix / override / stop)"
+     - **fix** -> re-enter EXECUTE. **override** -> record decision, PHASE_COMPLETE. **stop** -> save and exit.
 
-3. **Update state** with `currentState: "PHASE_COMPLETE"` and save.
+3. Update state: `currentState: "PHASE_COMPLETE"`.
 
 ---
 
 ### PHASE_COMPLETE — Summary and Transition
 
-1. **Present phase summary:**
-   - Phase name and number
-   - Tasks completed
-   - Retries used
-   - Verification result (pass/fail/skipped)
-   - Review findings count (blocking/warning/note)
-   - Time from phase start to completion (from history timestamps)
+1. **Present phase summary:** name, tasks completed, retries used, verification result, review findings count, elapsed time.
 
-2. **Record phase in history:**
+2. **Record in history:**
 
    ```json
    {
      "phase": 0,
-     "name": "<phase name>",
-     "startedAt": "<timestamp>",
+     "name": "<name>",
+     "startedAt": "<ts>",
      "completedAt": "<now>",
      "tasksCompleted": 8,
      "retriesUsed": 1,
@@ -527,47 +346,35 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    }
    ```
 
-3. **Mark phase as `complete`** in state.
+3. Mark phase `complete` in state.
 
-4. **Clear scratchpad for this phase.** Call `clearScratchpad({ session: sessionSlug, phase: phaseName, projectPath: projectPath })` to delete ephemeral research files for the completed phase. This frees disk space and prevents stale scratchpad data from leaking into future phases.
+4. **Clear scratchpad:** `clearScratchpad({ session, phase, projectPath })`. Frees disk space and prevents stale data leaking into future phases.
 
-5. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true`. This reflects the just-completed phase in the roadmap (e.g., updating the feature from `planned` to `in-progress`). If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core and warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub." Skip silently if no roadmap exists. Do not use `force_sync: true` — the human-always-wins rule applies.
+5. **Sync roadmap.** If `docs/roadmap.md` exists, call `manage_roadmap` with `sync` and `apply: true`. If unavailable, fall back to `syncRoadmap()` from core and warn. Skip if no roadmap. Never use `force_sync: true`.
 
-6. **Write session summary.** Update the session summary to reflect the completed phase:
+6. **Write session summary:**
 
    ```json
-   writeSessionSummary(projectPath, sessionSlug, {
-     session: "<session-slug>",
-     lastActive: "<ISO timestamp>",
-     skill: "harness-autopilot",
-     phase: "<completed phase number> of <total phases>",
-     status: "Phase <N> complete. <tasks completed>/<total> tasks.",
-     spec: "<spec path>",
-     plan: "<current plan path>",
-     keyContext: "<1-2 sentences: what this phase accomplished, key decisions>",
-     nextStep: "<e.g., Continue to Phase N+1: <name>, or DONE>"
-   })
+   writeSessionSummary(projectPath, sessionSlug, { session: "<slug>", lastActive: "<ts>", skill: "harness-autopilot", phase: "<N> of <total>", status: "Phase <N> complete. <done>/<total> tasks.", spec: "<path>", plan: "<plan path>", keyContext: "<summary>", nextStep: "<next>" })
    ```
 
 7. **Check for next phase:**
-   - If more phases remain: "Phase {N} complete. Next: Phase {N+1}: {name} (complexity: {level}). Continue? (yes / stop)"
-     - **yes** — Increment `currentPhase`, reset `retryBudget`, transition to ASSESS.
-     - **stop** — Save state and exit.
-   - If no more phases: Transition to FINAL_REVIEW.
+   - More phases: "Phase {N} complete. Next: Phase {N+1}: {name} (complexity: {level}). Continue? (yes / stop)"
+     - **yes** -> increment `currentPhase`, reset `retryBudget`, transition to ASSESS.
+     - **stop** -> save and exit.
+   - No more phases: Transition to FINAL_REVIEW.
 
 ---
 
 ### FINAL_REVIEW — Project-Wide Code Review
 
-> Runs automatically after the last phase completes. Reviews the cumulative diff (`startingCommit..HEAD`) across all phases to catch cross-phase issues before the PR offer.
+> Reviews cumulative diff (`startingCommit..HEAD`) across all phases to catch cross-phase issues before the PR offer.
 
-1. **Update state** with `currentState: "FINAL_REVIEW"` and save.
+1. Update state: `currentState: "FINAL_REVIEW"`. Set `finalReview.status: "in_progress"`.
 
-2. **Update `finalReview` tracking** in `autopilot-state.json`: set `finalReview.status` to `"in_progress"`.
+2. **Gather per-phase review findings** from `{sessionDir}/phase-{N}-review.json` files.
 
-3. **Gather per-phase review findings.** Read from `{sessionDir}/` — each phase's review output is stored alongside the phase handoff. Collect all review findings across phases into a single context block.
-
-4. **Dispatch review agent using the Agent tool:**
+3. **Dispatch review agent:**
 
    ```
    Agent tool parameters:
@@ -575,70 +382,46 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
      description: "Final review: cross-phase coherence check"
      prompt: |
        You are running harness-code-review as a final project-wide review.
-
-       Diff scope: startingCommit..HEAD (use `git diff {startingCommit}..HEAD`)
-       Starting commit: {startingCommit}
-       Session directory: {sessionDir}
-       Session slug: {sessionSlug}
-
-       On startup, call gather_context({ session: "{sessionSlug}" }) to load
-       session-scoped learnings, state, and validation context.
+       Diff scope: git diff {startingCommit}..HEAD
+       Session: {sessionDir} / {sessionSlug}
+       On startup, call gather_context({ session: "{sessionSlug}" }).
 
        ## Per-Phase Review Findings
+       {collected findings}
+       Don't assume these are resolved — verify. Focus on cross-phase coherence:
+       naming consistency, duplicated utilities, architectural drift.
 
-       {collected per-phase findings}
-
-       These were found and addressed during per-phase reviews. Don't assume
-       they're resolved — verify. Focus extra attention on cross-phase coherence:
-       naming consistency, duplicated utilities, architectural drift across phases.
-
-       Review the FULL diff (startingCommit..HEAD), not just the last phase.
-       Report findings with severity (blocking / warning / note).
+       Review the FULL diff (startingCommit..HEAD). Report findings (blocking / warning / note).
    ```
 
-5. **When the agent returns:**
-   - **No blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Update `finalReview.status` to `"passed"`, report summary, transition to DONE.
-   - **Blocking findings:** Store all findings (blocking, warning, note) in `finalReview.findings`. Surface blocking findings to user. Ask: "Address blocking findings before completing? (fix / override / stop)"
-     - **fix** — Increment `finalReview.retryCount`. If `retryCount <= 3`: dispatch fixes using the Agent tool, then run `harness validate` to verify the fix, then re-run FINAL_REVIEW from step 2 (re-sets status to `in_progress`, re-gathers per-phase findings for fresh context). If `retryCount > 3`: stop — present all attempts to user, record in `.harness/failures.md`, ask: "How should we proceed? (fix manually and continue / stop)"
-
+4. **Outcome:**
+   - **No blocking:** Store findings in `finalReview.findings`. Set status `"passed"`. Transition to DONE.
+   - **Blocking:** Store findings. Surface to user. Ask: "Address before completing? (fix / override / stop)"
+     - **fix** -> Increment `finalReview.retryCount`. If `<= 3`: dispatch fix agent, run `harness validate`, re-run FINAL_REVIEW from step 1. If `> 3`: stop, record in `.harness/failures.md`.
        Fix dispatch:
-
        ```
        Agent tool parameters:
          subagent_type: "harness-task-executor"
          description: "Fix final review findings"
          prompt: |
-           Fix the following blocking review findings. One task per finding.
-
-           {blocking findings with file, line, title, and rationale}
-
-           Session directory: {sessionDir}
-           Session slug: {sessionSlug}
-
-           Follow the harness-execution skill process. Commit each fix atomically.
+           Fix these blocking findings (one task per finding):
+           {findings with file, line, title, rationale}
+           Session: {sessionDir} / {sessionSlug}
+           Follow harness-execution. Commit each fix atomically.
            Write {sessionDir}/handoff.json when done.
        ```
+     - **override** -> Record rationale in `decisions`. Set status `"overridden"`. Transition to DONE.
+     - **stop** -> Save and exit. Resumable from FINAL_REVIEW.
 
-     - **override** — Record override decision (rationale from user) in state `decisions` array. Update `finalReview.status` to `"overridden"`. Transition to DONE.
-     - **stop** — Save state and exit. Resumable from FINAL_REVIEW.
-
-6. **Update state** and save after each step.
+5. Update state after each step.
 
 ---
 
 ### DONE — Final Summary
 
-1. **Present project summary:**
-   - Total phases completed
-   - Total tasks across all phases
-   - Total retries used
-   - Total time (first phase start to last phase completion)
-   - Final review result: `finalReview.status` (passed / overridden) and total findings count from `finalReview.findings`
-   - Any overridden review findings (per-phase and final)
+1. **Present project summary:** total phases, total tasks, total retries, total time, final review result (`finalReview.status` + findings count), any overridden findings.
 
-2. **Offer next steps:**
-   - "Create a PR? (yes / no)"
-   - If yes: assemble commit history, suggest PR title and description.
+2. **Offer:** "Create a PR? (yes / no)" If yes, assemble commit history, suggest PR title/description.
 
 3. **Write final handoff** to `{sessionDir}/handoff.json`:
 
@@ -646,16 +429,13 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    {
      "fromSkill": "harness-autopilot",
      "phase": "DONE",
-     "summary": "Completed {N} phases with {M} total tasks",
-     "completed": ["Phase 1: ...", "Phase 2: ..."],
+     "summary": "Completed {N} phases with {M} tasks",
+     "completed": ["Phase 1: ..."],
      "pending": [],
      "concerns": [],
-     "decisions": ["<all decisions from all phases>"],
-     "contextKeywords": ["<merged from spec>"],
-     "finalReview": {
-       "status": "<passed | overridden>",
-       "findingsCount": "<number of findings from final review>"
-     }
+     "decisions": ["<all>"],
+     "contextKeywords": ["<from spec>"],
+     "finalReview": { "status": "<passed|overridden>", "findingsCount": "<N>" }
    }
    ```
 
@@ -664,89 +444,77 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
    ```
    ## {date} — Autopilot: {spec name}
    - [skill:harness-autopilot] [outcome:complete] Executed {N} phases, {M} tasks, {R} retries
-   - [skill:harness-autopilot] [outcome:observation] {any notable patterns from the run}
+   - [skill:harness-autopilot] [outcome:observation] {notable patterns}
    ```
 
-5. **Promote session learnings to global.** Call `promoteSessionLearnings(projectPath, sessionSlug)` to move generalizable session learnings (tagged `[outcome:gotcha]`, `[outcome:decision]`, `[outcome:observation]`) to the global `learnings.md`. Report: "Promoted {N} learnings to global, {M} session-specific entries kept in session."
+5. **Promote session learnings to global.** Call `promoteSessionLearnings(projectPath, sessionSlug)` to move generalizable learnings (`[outcome:gotcha]`, `[outcome:decision]`, `[outcome:observation]`) to global `learnings.md`. Report counts.
 
-6. **Check if pruning is needed.** Call `countLearningEntries(projectPath)`. If the count exceeds 30, suggest: "Global learnings.md has {count} entries (threshold: 30). Run `harness learnings prune` to analyze patterns and archive old entries."
+6. **Check pruning threshold.** Call `countLearningEntries(projectPath)`. If > 30, suggest `harness learnings prune`.
 
-7. **Update roadmap to done.** If `docs/roadmap.md` exists and the current spec maps to a roadmap feature, call `manage_roadmap` with action `update` to set the feature status to `done`. Derive the feature name from the spec title (H1 heading) or the session's `handoff.json` `summary` field. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `updateFeature()` from core and warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub." Skip silently if no roadmap exists or if the feature is not found. Do not use `force_sync: true`.
+7. **Update roadmap to done.** If `docs/roadmap.md` exists and spec maps to a feature, call `manage_roadmap` with `update` to set status `done`. Derive feature name from spec H1 or handoff summary. If unavailable, fall back to `updateFeature()` and warn. Skip if no roadmap or feature not found. Never use `force_sync: true`.
 
-8. **Write final session summary.** Update the session summary to reflect completion:
+8. **Write final session summary:**
 
    ```json
-   writeSessionSummary(projectPath, sessionSlug, {
-     session: "<session-slug>",
-     lastActive: "<ISO timestamp>",
-     skill: "harness-autopilot",
-     status: "DONE. <total phases> phases, <total tasks> tasks complete.",
-     spec: "<spec path>",
-     keyContext: "<1-2 sentences: overall summary of what was built>",
-     nextStep: "All phases complete. Create PR or close session."
-   })
+   writeSessionSummary(projectPath, sessionSlug, { session: "<slug>", lastActive: "<ts>", skill: "harness-autopilot", status: "DONE. <phases> phases, <tasks> tasks.", spec: "<path>", keyContext: "<summary>", nextStep: "All phases complete. Create PR or close session." })
    ```
 
-9. **Clean up state:** Set `currentState: "DONE"` in `{sessionDir}/autopilot-state.json`. Do not delete the file — it serves as a record.
+9. Set `currentState: "DONE"` in autopilot-state.json. Do not delete — it serves as a record.
 
 ## Harness Integration
 
-- **`harness validate`** — Run during INIT to verify project health. Included in every execution task via harness-execution delegation.
-- **`gather_context`** — Used in INIT phase to load learnings, state, handoff, and validation in a single call instead of reading files individually.
-- **`harness check-deps`** — Delegated to harness-execution (included in task steps).
-- **State file** — `.harness/sessions/<slug>/autopilot-state.json` tracks the orchestration state machine. `.harness/sessions/<slug>/state.json` tracks task-level execution state (managed by harness-execution). The slug is derived from the spec path during INIT.
-- **Handoff** — `.harness/sessions/<slug>/handoff.json` is written by each delegated skill and read by the next. Autopilot writes a final handoff on DONE.
-- **Learnings** — `.harness/learnings.md` (global) is appended by both delegated skills and autopilot itself. On DONE, session learnings with generalizable outcomes are promoted to global via `promoteSessionLearnings`. If global count exceeds 30, autopilot suggests running `harness learnings prune`.
-- **Roadmap context** — During INIT, reads `docs/roadmap.md` (if present) for project-level priorities, blockers, and milestone status. Provides broader context for phase execution decisions.
-- **Roadmap sync** — During PHASE_COMPLETE, calls `manage_roadmap` with `sync` and `apply: true` to reflect phase progress. During DONE, calls `manage_roadmap` with `update` to set feature status to `done`. Both skip silently when no roadmap exists. Neither uses `force_sync: true`.
-- **Scratchpad** — Agents write bulky research output (>500 words) to `.harness/sessions/<slug>/scratchpad/<phase>/` via `writeScratchpad()` instead of keeping it in conversation context. Cleared automatically at phase transitions via `clearScratchpad()` in PHASE_COMPLETE. Skipped entirely when `rigorLevel` is `"fast"`.
-- **Checkpoint commits** — After each checkpoint verification passes in EXECUTE, `commitAtCheckpoint()` creates a commit with message `[autopilot] <label>`. On failure with retry budget exhausted, a recovery commit is created with `[autopilot][recovery] <label>`. Skipped silently when no changes exist.
-- **Rigor levels** — `--fast` / `--thorough` flags set `rigorLevel` in state during INIT. Persists for the entire session. Affects PLAN (skeleton skip/require), APPROVE_PLAN (auto-approve/force-review), EXECUTE (scratchpad usage), and VERIFY (minimal/full). See the Rigor Behavior Table for details.
+- **`harness validate`** — Run during INIT for project health. Included in every execution task via harness-execution delegation.
+- **`gather_context`** — INIT loads learnings, state, handoff, and validation in a single call.
+- **`harness check-deps`** — Delegated to harness-execution (in task steps).
+- **State file** — `{sessionDir}/autopilot-state.json` tracks orchestration state. `{sessionDir}/state.json` tracks task-level execution (managed by harness-execution). Slug derived from spec path in INIT.
+- **Handoff** — `{sessionDir}/handoff.json` written by each delegated skill, read by the next. Autopilot writes final handoff on DONE.
+- **Learnings** — `.harness/learnings.md` (global) appended by delegated skills and autopilot. On DONE, session learnings promoted via `promoteSessionLearnings`. If count > 30, suggest pruning.
+- **Roadmap context** — INIT reads `docs/roadmap.md` (if present) for priorities, blockers, milestones.
+- **Roadmap sync** — PHASE_COMPLETE: `manage_roadmap sync` with `apply: true`. DONE: `manage_roadmap update` to `done`. Both skip silently without roadmap. Neither uses `force_sync: true`.
+- **Scratchpad** — Agents write bulky research (>500 words) to `{sessionDir}/scratchpad/<phase>/` via `writeScratchpad()`. Cleared at phase transitions via `clearScratchpad()`. Skipped when `rigorLevel` is `"fast"`.
+- **Checkpoint commits** — `commitAtCheckpoint()` creates `[autopilot] <label>` commits after passing checkpoints. Recovery commits use `[autopilot][recovery]` prefix. Skipped when no changes exist.
+- **Rigor levels** — `--fast`/`--thorough` set `rigorLevel` in INIT, persists for session. Affects PLAN, APPROVE_PLAN, EXECUTE, VERIFY. See Rigor Levels table.
 
 ## Success Criteria
 
-- Single `/harness:autopilot` invocation executes all phases through to completion
-- Resume from any state after context reset via session-scoped `autopilot-state.json`
+- Single `/harness:autopilot` invocation executes all phases through completion
+- Resume from any state via session-scoped `autopilot-state.json`
 - Low-complexity phases auto-plan; high-complexity phases pause for interactive planning
-- Planning override bumps complexity upward when task signals disagree
+- Planning override bumps complexity when task signals disagree
 - Retry budget (3 attempts) with escalating context before surfacing failures
-- Existing skills (planning, execution, verification, review) are unchanged
-- Plans auto-approve when no concern signals fire; plans pause for human review when any signal fires
-- `--review-plans` flag forces human review for all plans in a session
+- Existing skills (planning, execution, verification, review) unchanged
+- Plans auto-approve when no signals fire; pause when any signal fires
+- `--review-plans` forces human review for all plans
 - Phase completion summary shown between every phase
-- `--fast` skips skeleton approval, skips scratchpad, auto-approves plans, and runs minimal verification
-- `--thorough` requires skeleton approval, uses verbose scratchpad, forces plan review, and runs full verification
-- Scratchpad is cleared automatically at every phase transition (PHASE_COMPLETE)
-- Checkpoint commits fire after every passing checkpoint; recovery commits fire on retry budget exhaustion
-- Rigor level persists across session resume — set once during INIT, never changed mid-session
+- `--fast` skips skeleton, scratchpad, auto-approves, minimal verification
+- `--thorough` requires skeleton, verbose scratchpad, forces review, full verification
+- Scratchpad cleared at every phase transition
+- Checkpoint commits after every passing checkpoint; recovery commits on budget exhaustion
+- Rigor level persists across resume — set once in INIT, never changed mid-session
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                     | Reality                                                                                                                                                                                                                 |
-| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "This phase is low complexity, so I can skip the APPROVE_PLAN gate entirely"                        | Low complexity only means auto-approval when no concern signals fire. If the planner flagged concerns, produced a complexity override, or the task count exceeds 15, the gate pauses regardless of the spec annotation. |
-| "I can write the planning logic inline instead of dispatching to the harness-planner persona agent" | The Iron Law is explicit: autopilot delegates, never reimplements. Using a general-purpose agent or inlining planning logic bypasses the harness methodology.                                                           |
-| "The retry budget is exhausted but I can try one more approach before stopping"                     | The 3-attempt retry budget exists because each failed attempt degrades context and compounds risk. Exceeding the budget without human input turns a recoverable failure into an unrecoverable one.                      |
-| "I will skip the scratchpad since keeping research in conversation is faster"                       | Scratchpad is gated by rigor level. At standard or thorough, bulky research (>500 words) must go to scratchpad to keep agent conversation focused on decisions.                                                         |
-| "The plan auto-approved, so I can skip recording the decision in the decisions array"               | Every plan approval -- auto or manual -- must be recorded with its signal evaluation. The decisions array is the audit trail that explains why a plan was approved.                                                     |
+| Rationalization                                                                                     | Reality                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This phase is low complexity, so I can skip the APPROVE_PLAN gate entirely"                        | Low complexity only means auto-approval when no concern signals fire. If the planner flagged concerns, produced a complexity override, or task count exceeds 15, the gate pauses regardless of spec annotation. |
+| "I can write the planning logic inline instead of dispatching to the harness-planner persona agent" | The Iron Law is explicit: autopilot delegates, never reimplements. Using a general-purpose agent or inlining planning logic bypasses the harness methodology.                                                   |
+| "The retry budget is exhausted but I can try one more approach before stopping"                     | The 3-attempt retry budget exists because each failed attempt degrades context and compounds risk. Exceeding the budget without human input turns a recoverable failure into an unrecoverable one.              |
+| "I will skip the scratchpad since keeping research in conversation is faster"                       | Scratchpad is gated by rigor level. At standard or thorough, bulky research (>500 words) must go to scratchpad to keep agent conversation focused on decisions.                                                 |
+| "The plan auto-approved, so I can skip recording the decision in the decisions array"               | Every plan approval -- auto or manual -- must be recorded with its signal evaluation. The decisions array is the audit trail that explains why a plan was approved.                                             |
 
 ## Examples
 
 ### Example: 3-Phase Security Scanner
 
 **User invokes:** `/harness:autopilot docs/changes/security-scanner/proposal.md`
-
 **Or with rigor flag:** `/harness:autopilot docs/changes/security-scanner/proposal.md --fast`
 
 **INIT (with --fast):**
 
 ```
-Read spec — found 3 phases:
-  Phase 1: Core Scanner (complexity: low)
-  Phase 2: Rule Engine (complexity: high)
-  Phase 3: CLI Integration (complexity: low)
-Rigor level: fast
-Created .harness/sessions/changes--security-scanner--proposal/autopilot-state.json. Starting Phase 1.
+Read spec — 3 phases:
+  Phase 1: Core Scanner (low)  Phase 2: Rule Engine (high)  Phase 3: CLI Integration (low)
+Rigor level: fast. Starting Phase 1.
 ```
 
 **Phase 1 — APPROVE_PLAN (fast mode):**
@@ -764,45 +532,36 @@ Checkpoint 2: core implementation — committed (def5678)
 Checkpoint 3: tests and validation — nothing to commit (skipped)
 ```
 
-**INIT:**
+**INIT (standard):**
 
 ```
-Read spec — found 3 phases:
-  Phase 1: Core Scanner (complexity: low)
-  Phase 2: Rule Engine (complexity: high)
-  Phase 3: CLI Integration (complexity: low)
-Created .harness/sessions/changes--security-scanner--proposal/autopilot-state.json. Starting Phase 1.
+Read spec — 3 phases:
+  Phase 1: Core Scanner (low)  Phase 2: Rule Engine (high)  Phase 3: CLI Integration (low)
+Starting Phase 1.
 ```
 
-**Phase 1 — ASSESS:**
-
-```
-Phase 1: Core Scanner — complexity: low. Auto-planning.
-```
+**Phase 1 — ASSESS:** `Phase 1: Core Scanner — low complexity. Auto-planning.`
 
 **Phase 1 — PLAN:**
 
 ```
-[harness-planner agent runs harness-planning]
-Plan generated: docs/plans/2026-03-19-core-scanner-plan.md (8 tasks, ~24 min)
+[harness-planner runs]
+Plan: docs/plans/2026-03-19-core-scanner-plan.md (8 tasks, ~24 min)
 ```
 
 **Phase 1 — APPROVE_PLAN:**
 
 ```
 Auto-approved Phase 1: Core Scanner
-  Review mode: auto
-  Complexity: low (no override)
-  Planner concerns: none
-  Tasks: 8 (threshold: 15)
+  Review mode: auto | Complexity: low (no override) | Concerns: none | Tasks: 8 (threshold: 15)
 ```
 
-**Phase 1 — EXECUTE → VERIFY → REVIEW:**
+**Phase 1 — EXECUTE -> VERIFY -> REVIEW:**
 
 ```
-[harness-task-executor agent executes 8 tasks... all pass]
-[harness-verifier agent runs verification... pass]
-[harness-code-reviewer agent runs code review... 0 blocking, 2 notes]
+[harness-task-executor: 8 tasks pass]
+[harness-verifier: pass]
+[harness-code-reviewer: 0 blocking, 2 notes]
 ```
 
 **Phase 1 — PHASE_COMPLETE:**
@@ -810,26 +569,23 @@ Auto-approved Phase 1: Core Scanner
 ```
 Phase 1: Core Scanner — COMPLETE
 Tasks: 8/8 | Retries: 0 | Verification: pass | Review: 0 blocking
-Next: Phase 2: Rule Engine (complexity: high). Continue? (yes / stop)
-→ User: "yes"
+Next: Phase 2: Rule Engine (high). Continue? (yes / stop) -> "yes"
 ```
 
 **Phase 2 — ASSESS:**
 
 ```
-Phase 2: Rule Engine — complexity: high.
-This phase requires interactive planning. Run /harness:planning with the
-Rule Engine section of the spec, then re-invoke /harness:autopilot to continue.
+Phase 2: Rule Engine — high complexity.
+Requires interactive planning. Run /harness:planning, then re-invoke /harness:autopilot.
 ```
 
 **[User runs /harness:planning interactively, produces plan]**
-
 **User re-invokes:** `/harness:autopilot`
 
 **INIT (resume):**
 
 ```
-Resuming autopilot from state PLAN, phase 2: Rule Engine.
+Resuming from state PLAN, phase 2: Rule Engine.
 Found plan: docs/plans/2026-03-19-rule-engine-plan.md
 ```
 
@@ -837,22 +593,16 @@ Found plan: docs/plans/2026-03-19-rule-engine-plan.md
 
 ```
 Pausing for review -- Phase 2: Rule Engine
-  Review mode: auto
-  Complexity: high (triggered)
-  Planner concerns: none
-  Tasks: 14 (threshold: 15)
-Approve this plan and begin execution? (yes / revise / skip / stop)
-→ User: "yes"
+  Complexity: high (triggered) | Concerns: none | Tasks: 14 (threshold: 15)
+Approve? (yes / revise / skip / stop) -> "yes"
 ```
 
-**Phase 2 — EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE**
+**Phase 2 — EXECUTE -> VERIFY -> REVIEW -> PHASE_COMPLETE:**
 
 ```
-[Execution with checkpoint pauses as needed]
 Phase 2: Rule Engine — COMPLETE
 Tasks: 14/14 | Retries: 1 | Verification: pass | Review: 0 blocking
-Next: Phase 3: CLI Integration (complexity: low). Continue? (yes / stop)
-→ User: "yes"
+Next: Phase 3: CLI Integration (low). Continue? -> "yes"
 ```
 
 **Phase 3 — [auto-plans, executes, completes]**
@@ -860,18 +610,15 @@ Next: Phase 3: CLI Integration (complexity: low). Continue? (yes / stop)
 **FINAL_REVIEW:**
 
 ```
-[harness-code-reviewer runs cross-phase review on startingCommit..HEAD]
+[harness-code-reviewer: cross-phase review on startingCommit..HEAD]
 Final review: 0 blocking, 1 warning. Passed.
 ```
 
 **DONE:**
 
 ```
-All phases complete.
-Total: 3 phases, 30 tasks, 1 retry
-Final review: passed (0 blocking, 1 warning)
-Create a PR? (yes / no)
-→ User: "yes"
+All phases complete. Total: 3 phases, 30 tasks, 1 retry.
+Final review: passed (0 blocking, 1 warning). Create a PR? (yes / no) -> "yes"
 ```
 
 ### Example: Retry Budget Exhaustion
@@ -879,48 +626,38 @@ Create a PR? (yes / no)
 **During Phase 1 — EXECUTE:**
 
 ```
-Task 4: wire parser — FAILED
-Error: Type error in parser.ts:42 — missing generic parameter
-
+Task 4: wire parser — FAILED (Type error in parser.ts:42 — missing generic parameter)
 Retry 1/3: Added generic parameter to parseRule<T>. Re-running...
-Task 4: wire parser — FAILED
-Error: Test assertion failure — expected 3 rules, got 0
-
-Retry 2/3: Expanded context — read rule-loader.ts, checked learnings. Fixed import path. Re-running...
-Task 4: wire parser — FAILED
-Error: Test timeout after 5000ms
-
-Retry 3/3: Full context — re-read plan instructions, checked for ambiguity. Found test was missing async/await. Re-running...
-Task 4: wire parser — PASSED
-
-Continuing execution...
+  FAILED (expected 3 rules, got 0)
+Retry 2/3: Expanded context — read rule-loader.ts, checked learnings. Fixed import path.
+  FAILED (Test timeout after 5000ms)
+Retry 3/3: Full context — re-read plan, found missing async/await.
+  PASSED. Continuing execution...
 ```
 
 **If all 3 retries fail:**
 
 ```
 Task 4: wire parser — FAILED (budget exhausted)
-
-Attempt 1: Added generic parameter → Type error persists
-Attempt 2: Fixed import path → Tests still timeout
-Attempt 3: Added async/await → New error: connection refused
-
+  Attempt 1: Added generic parameter -> Type error persists
+  Attempt 2: Fixed import path -> Tests still timeout
+  Attempt 3: Added async/await -> connection refused
 Recorded in .harness/failures.md.
-How should we proceed? (fix manually and continue / revise plan / stop)
+How to proceed? (fix manually and continue / revise plan / stop)
 ```
 
 ## Gates
 
-- **No reimplementing delegated skills.** Autopilot orchestrates. If you are writing planning logic, execution logic, verification logic, or review logic, STOP. Delegate to the appropriate persona agent via `subagent_type`.
-- **No executing without plan approval.** Every plan passes through the APPROVE_PLAN gate. When no concern signals fire, the plan is auto-approved with a structured report. When any signal fires, the plan pauses for human review. The `--review-plans` flag forces all plans to pause. No plan reaches EXECUTE without passing this gate.
-- **No skipping VERIFY or REVIEW.** Every phase goes through verification and review. The human can override findings, but the steps cannot be skipped.
-- **No infinite retries.** The retry budget is 3 attempts. If exhausted, STOP and surface to the human. Do not extend the budget without explicit human instruction.
-- **No modifying session state files manually.** The session state files are managed by the skill. If the state appears corrupted, start fresh rather than patching it.
+- **No reimplementing delegated skills.** Autopilot orchestrates. If you are writing planning, execution, verification, or review logic, STOP. Delegate via `subagent_type`.
+- **No executing without plan approval.** Every plan passes APPROVE_PLAN. No signals -> auto-approve with report. Any signal -> human review. `--review-plans` forces all to pause. No plan reaches EXECUTE without passing this gate.
+- **No skipping VERIFY or REVIEW.** Every phase goes through both. The human can override findings, but the steps cannot be skipped.
+- **No infinite retries.** The retry budget is 3 attempts. If exhausted, STOP and surface to human. Do not extend without explicit instruction.
+- **No modifying session state files manually.** State files are managed by the skill. If corrupted, start fresh rather than patching.
 
 ## Escalation
 
-- **When the spec has no Implementation Order section:** Cannot identify phases. Ask the user to add phase annotations to the spec or provide a roadmap file.
-- **When a delegated skill fails to produce expected output:** Check that `{sessionDir}/handoff.json` was written correctly. If the agent failed, report the failure and ask the user whether to retry the entire phase step or stop.
-- **When the user wants to reorder phases mid-run:** Update the phases array in the session-scoped `autopilot-state.json` (mark skipped phases, adjust currentPhase). Do not re-run completed phases.
-- **When context limits are approaching:** Persist state immediately and inform the user: "Context limit approaching. State saved. Re-invoke /harness:autopilot to continue from this point."
-- **When multiple phases fail in sequence:** After 2 consecutive phase failures (retry budget exhausted in both), suggest the user review the spec for systemic issues rather than continuing.
+- **When the spec has no Implementation Order section:** Cannot identify phases. Ask user to add phase annotations or provide a roadmap file.
+- **When a delegated skill fails to produce expected output:** Check `{sessionDir}/handoff.json`. If agent failed, report and ask whether to retry the phase step or stop.
+- **When the user wants to reorder phases mid-run:** Update phases array in autopilot-state.json (mark skipped, adjust currentPhase). Do not re-run completed phases.
+- **When context limits are approaching:** Persist state immediately. "Context limit approaching. State saved. Re-invoke /harness:autopilot to continue."
+- **When multiple phases fail in sequence:** After 2 consecutive phase failures (budget exhausted in both), suggest reviewing the spec for systemic issues.

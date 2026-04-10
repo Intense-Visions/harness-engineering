@@ -18,15 +18,15 @@
 
 **Execute the plan as written. If the plan is wrong, stop and fix the plan — do not improvise.**
 
-Deviating from the plan mid-execution introduces untested assumptions, breaks task atomicity, and makes progress untraceable. If a task cannot be completed as written, that is a blocker. Record it and stop.
+Deviating mid-execution introduces untested assumptions, breaks atomicity, and makes progress untraceable. If a task cannot be completed as written, that is a blocker. Record it and stop.
 
 ---
 
 ### Phase 1: PREPARE — Load State and Verify Prerequisites
 
-1. **Load the plan.** Read the plan document from `docs/plans/`. Identify the total task count and any checkpoints.
+1. **Load the plan.** Read from `docs/plans/`. Identify total task count and checkpoints.
 
-2. **Gather context in one call.** Use the `gather_context` MCP tool to load all working context at once:
+2. **Gather context in one call.** Use `gather_context` to load all working context:
 
    ```json
    gather_context({
@@ -38,73 +38,62 @@ Deviating from the plan mid-execution introduces untested assumptions, breaks ta
    })
    ```
 
-   **Session resolution:** If a session directory is known (passed via autopilot dispatch or available from a previous handoff), include the `session` parameter. This scopes all state reads/writes to `.harness/sessions/<slug>/`. If no session is known, omit it — `gather_context` falls back to global files at `.harness/`.
+   If session slug is known, include `session` to scope reads/writes to `.harness/sessions/<slug>/`. If unknown, omit it — falls back to `.harness/`. Returns `state` (current position, null = fresh start), `learnings` (prior insights — do not ignore), `handoff` (context from previous skill), `validation` (project health). Failed constituents return null with errors in `meta.errors`.
 
-   This returns `state` (current position — if null, this is a fresh start at Task 1), `learnings` (hard-won insights from previous sessions — do not ignore them), `handoff` (structured context from the previous skill), and `validation` (current project health). If any constituent fails, its field is null and the error is reported in `meta.errors`.
+3. **Load session summary for cold start.** If resuming (session slug known):
+   - Call `listActiveSessions()` to read the session index.
+   - Call `loadSessionSummary()` for the target session.
+   - If ambiguous, present the index and ask which session to resume.
 
-3. **Load session summary for cold start.** If resuming a session (session slug is known), read the session summary for quick orientation:
-   - Call `listActiveSessions()` to read the session index (~100 tokens).
-   - If the target session is known, call `loadSessionSummary()` for that session (~200 tokens).
-   - If ambiguous (multiple active sessions, no clear target), present the index to the user and ask which session to resume.
-   - The summary provides skill, phase, status, key context, and next step — enough to orient without re-reading full state + learnings + plan.
+4. **Check for known dead ends.** Review `learnings` tagged `[outcome:failure]`. Warn if any match current plan approaches.
 
-4. **Check for known dead ends.** Review `learnings` entries tagged `[outcome:failure]`. If any match approaches in the current plan, surface warnings before proceeding.
-
-5. **Verify prerequisites.** For the current task:
-   - Are dependency tasks marked complete in state?
-   - Do the files referenced in the task exist as expected?
-   - Does the test suite pass? Run `harness validate` to confirm a clean baseline.
+5. **Verify prerequisites** for the current task:
+   - Dependency tasks marked complete in state?
+   - Referenced files exist?
+   - Test suite passes? Run `harness validate` for clean baseline.
 
 6. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
 ### Graph-Enhanced Context (when available)
 
-When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+When a knowledge graph exists at `.harness/graph/`:
 
-- `query_graph` — check file overlap between current and next task for conflict detection
+- `query_graph` — check file overlap between tasks for conflict detection
 - `get_impact` — understand blast radius before executing a task
 
-Enables smarter execution ordering and blockage detection. Fall back to file-based commands if no graph is available.
+Fall back to file-based commands if no graph is available.
 
 ---
 
 ### Phase 2: EXECUTE — Implement Tasks Atomically
 
-When reporting task progress, use progress markers:
+Report progress with: `**[Phase N/M]** Task N — <description>`
 
-```
-**[Phase N/M]** Task N — <task description>
-```
+For each task, starting from current position:
 
-For each task, starting from the current position:
+1. **Read task instructions completely** before writing any code.
 
-1. **Read the task instructions completely** before writing any code. Understand what files to touch, what tests to write, what the expected outcome is.
+2. **Follow instructions exactly.** The plan contains exact file paths, code, and commands. Execute as written.
 
-2. **Follow the task instructions exactly.** The plan contains exact file paths, exact code, and exact commands. Execute them as written.
-
-3. **TDD rhythm within each task:**
-   - Write the test as specified in the task
-   - Run the test — observe it fail (for the right reason)
-   - Write the implementation as specified in the task
-   - Run the test — observe it pass
+3. **TDD rhythm:**
+   - Write the test as specified
+   - Run test — observe it fail (for the right reason)
+   - Write the implementation as specified
+   - Run test — observe it pass
    - Run `harness validate`
 
-4. **Commit atomically.** Each task produces exactly one commit. Use the commit message specified in the plan. If no message is specified, write a descriptive message in the project's convention.
+4. **Commit atomically.** One commit per task. Use the plan's commit message, or write a descriptive one.
 
-5. **Run mechanical gate.** After each task commit, run the full gate check. Use `assess_project` to run harness checks (including lint) in parallel, then run the test suite:
+5. **Run mechanical gate.** After each commit, run `assess_project`:
 
    ```json
-   assess_project({
-     path: "<project-root>",
-     checks: ["validate", "deps", "lint"],
-     mode: "summary"
-   })
+   assess_project({ path: "<project-root>", checks: ["validate", "deps", "lint"], mode: "summary" })
    ```
 
-   Then run the project's test suite (`npx turbo run test` or equivalent). This is binary pass/fail.
-   - **All pass →** proceed to the next task.
-   - **Any fail →** retry with error context (max 2 attempts).
-   - **Still failing after retries →** record the failure in `.harness/failures.md`, escalate, and stop.
+   Then run the test suite. Binary pass/fail:
+   - **All pass** → proceed to next task.
+   - **Any fail** → retry with error context (max 2 attempts).
+   - **Still failing** → record in `.harness/failures.md`, escalate, stop.
 
 6. **Update state after each task.** Write to `.harness/state.json`:
 
@@ -117,90 +106,73 @@ For each task, starting from the current position:
    }
    ```
 
-7. **Handle checkpoints** according to the checkpoint protocol (see below).
+7. **Handle checkpoints** per the checkpoint protocol below.
 
 ---
 
 ### Checkpoint Protocol
 
-Plans contain three types of checkpoints. Each requires pausing execution.
+Three checkpoint types. Each requires pausing execution.
 
 **`[checkpoint:human-verify]` — Show and Confirm**
 
-1. Stop execution.
-2. Use `emit_interaction` to present the checkpoint:
-   ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "confirmation",
-     confirmation: {
-       text: "Task N complete. Output: <summary>. Continue to Task N+1?",
-       context: "<test output or file diff summary>",
-       impact: "Continuing proceeds to the next task. Declining pauses execution for review.",
-       risk: "low"
-     }
-   })
-   ```
-3. Wait for the human to confirm before proceeding.
+Stop. Present via `emit_interaction`:
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "confirmation",
+  confirmation: {
+    text: "Task N complete. Output: <summary>. Continue to Task N+1?",
+    context: "<test output or diff summary>",
+    impact: "Continuing proceeds to next task. Declining pauses for review.",
+    risk: "low"
+  }
+})
+```
+
+Wait for human confirmation.
 
 **`[checkpoint:decision]` — Present Options and Wait**
 
-1. Stop execution.
-2. Use `emit_interaction` to present the decision:
-   ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "question",
-     question: {
-       text: "Task N requires a decision: <description>",
-       options: [
-         {
-           label: "<option A>",
-           pros: ["<pro 1>", "<pro 2>"],
-           cons: ["<con 1>"],
-           risk: "low",
-           effort: "low"
-         },
-         {
-           label: "<option B>",
-           pros: ["<pro 1>"],
-           cons: ["<con 1>", "<con 2>"],
-           risk: "medium",
-           effort: "medium"
-         }
-       ],
-       recommendation: {
-         optionIndex: 0,
-         reason: "<why this option is recommended>",
-         confidence: "medium"
-       }
-     }
-   })
-   ```
-3. Wait for the human to choose.
+Stop. Present via `emit_interaction`:
+
+```json
+emit_interaction({
+  path: "<project-root>",
+  type: "question",
+  question: {
+    text: "Task N requires a decision: <description>",
+    options: [
+      { label: "<option A>", pros: ["..."], cons: ["..."], risk: "low", effort: "low" },
+      { label: "<option B>", pros: ["..."], cons: ["..."], risk: "medium", effort: "medium" }
+    ],
+    recommendation: { optionIndex: 0, reason: "<why>", confidence: "medium" }
+  }
+})
+```
+
+Wait for human choice.
 
 **`[checkpoint:human-action]` — Instruct and Wait**
 
-1. Stop execution.
-2. Tell the human exactly what they need to do (e.g., "Create an API key at [URL] and paste it here").
-3. State: "Task N requires your action: [instructions]. Let me know when done."
-4. Wait for the human to complete the action and confirm.
+Stop. Tell the human exactly what to do (e.g., "Create an API key at [URL] and paste it here"). State: "Task N requires your action: [instructions]. Let me know when done." Wait for confirmation.
 
 ---
 
 ### Phase 3: VERIFY — Two-Tier Validation
 
-**Quick gate (default):** The mechanical gate in Phase 2 Step 5 IS the standard verification. Every task commit must pass it before proceeding. No additional verification step is needed for normal execution.
+**Quick gate (default):** The mechanical gate in Phase 2 Step 5 IS the standard verification. Every task commit must pass it. No additional step needed for normal execution.
 
-**Deep audit (on-demand):** When `--deep` is passed or at milestone boundaries (e.g., end of a phase, final task), invoke the full `harness-verification` skill for 3-level audit:
+**Deep audit (on-demand):** When `--deep` is passed or at milestone boundaries, invoke `harness-verification` for 3-level audit:
 
-1. **EXISTS** — Do the artifacts the task claims to produce actually exist?
-2. **SUBSTANTIVE** — Do those artifacts contain meaningful, correct content (not stubs or placeholders)?
-3. **WIRED** — Are those artifacts integrated into the system (imported, routed, tested, reachable)?
+1. **EXISTS** — Do claimed artifacts actually exist?
+2. **SUBSTANTIVE** — Do they contain meaningful, correct content (not stubs)?
+3. **WIRED** — Are they integrated (imported, routed, tested, reachable)?
 
-If the deep audit fails at any level, treat it as a blocker. Record it and stop.
+If deep audit fails, treat as blocker. Record and stop.
 
-After all tasks pass verification:
+After all tasks pass:
 
 ```json
 emit_interaction({
@@ -210,7 +182,7 @@ emit_interaction({
     completedPhase: "execution",
     suggestedNext: "verification",
     reason: "All plan tasks executed and verified",
-    artifacts: ["<list of created/modified files>"],
+    artifacts: ["<created/modified files>"],
     qualityGate: {
       checks: [
         { name: "all-tasks-complete", passed: true, detail: "<N>/<N> tasks" },
@@ -227,42 +199,29 @@ emit_interaction({
 
 ### Phase 4: PERSIST — Save Progress and Learnings
 
-Between tasks (especially between sessions):
+All session-scoped files use `{sessionDir}/` when session is known, otherwise `.harness/`.
 
-1. **Update state (session-scoped `{sessionDir}/state.json` if session is known, otherwise `.harness/state.json`)** with current position, progress, and `lastSession` context:
+1. **Update state** with current position, progress, and `lastSession`:
 
    ```json
-   {
-     "lastSession": {
-       "lastSkill": "harness-execution",
-       "pendingTasks": ["Task 4", "Task 5"]
-     }
-   }
+   { "lastSession": { "lastSkill": "harness-execution", "pendingTasks": ["Task 4", "Task 5"] } }
    ```
 
-### Graph Refresh
+**Graph Refresh:** If `.harness/graph/` exists, run `harness scan [path]` after code changes. Skipping causes stale graph query results.
 
-If a knowledge graph exists at `.harness/graph/`, refresh it after code changes to keep graph queries accurate:
-
-```
-harness scan [path]
-```
-
-Skipping this step means subsequent graph queries (impact analysis, dependency health, test advisor) may return stale results.
-
-2. **Append tagged learnings to the session-scoped learnings file (`{sessionDir}/learnings.md` if session is known, otherwise `.harness/learnings.md`).** Tag every entry with skill and outcome:
+2. **Append tagged learnings** to `learnings.md`. Tag every entry:
 
    ```markdown
    ## YYYY-MM-DD — Task N: <task name>
 
    - [skill:harness-execution] [outcome:success] What was accomplished
-   - [skill:harness-execution] [outcome:gotcha] What was surprising or non-obvious
+   - [skill:harness-execution] [outcome:gotcha] What was surprising
    - [skill:harness-execution] [outcome:decision] What was decided and why
    ```
 
-3. **Record failures in the session-scoped failures file (`{sessionDir}/failures.md` if session is known, otherwise `.harness/failures.md`)** if any task was escalated after retry exhaustion (from Phase 2 Step 5). Include the approach attempted and why it failed, so future sessions avoid the same dead end.
+3. **Record failures** in `failures.md` if any task was escalated after retry exhaustion. Include approach attempted and why it failed.
 
-4. **Write the session-scoped handoff (`{sessionDir}/handoff.json` if session is known, otherwise `.harness/handoff.json`)** with structured context for the next skill or session:
+4. **Write handoff** to `handoff.json`:
 
    ```json
    {
@@ -275,141 +234,85 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
    }
    ```
 
-5. **Write session summary.** Write/update the session summary for cold-start context restoration:
+5. **Write session summary** for cold-start restoration via `writeSessionSummary(projectPath, sessionSlug, { session, lastActive, skill, phase, status, spec, plan, keyContext, nextStep })`.
+
+6. **Sync roadmap (mandatory when present).** If `docs/roadmap.md` exists, call `manage_roadmap` with `sync` and `apply: true`. Do not use `force_sync: true`. If unavailable, fall back to `syncRoadmap()` from core and warn. If no roadmap, skip silently.
+
+7. **Learnings are append-only.** Never edit or delete previous learnings.
+
+8. **Auto-transition to verification.** When ALL tasks complete (not mid-plan), call:
 
    ```json
-   writeSessionSummary(projectPath, sessionSlug, {
-     session: "<session-slug>",
-     lastActive: "<ISO timestamp>",
-     skill: "harness-execution",
-     phase: "<current phase of plan>",
-     status: "<e.g., Task 4/6 complete, paused at CHECKPOINT>",
-     spec: "<spec path if known>",
-     plan: "<plan path>",
-     keyContext: "<1-2 sentences: what was accomplished, key decisions made>",
-     nextStep: "<what to do next when resuming>"
-   })
+   emit_interaction({ type: "transition", transition: { completedPhase: "execution", suggestedNext: "verification", requiresConfirmation: false, summary: "<tasks completed summary>", qualityGate: { checks: [{ name: "all-tasks-complete", passed: true }, { name: "harness-validate", passed: true }, { name: "tests-pass", passed: true }, { name: "no-blockers", passed: true }], allPassed: true } } })
    ```
 
-   This overwrites any previous summary for this session. The index.md is updated automatically.
-
-6. **Sync roadmap (mandatory when present).** If `docs/roadmap.md` exists, call `manage_roadmap` with action `sync` and `apply: true` to update linked feature statuses from the just-completed execution state. Do not use `force_sync: true` — the human-always-wins rule applies. If `manage_roadmap` is unavailable, fall back to direct file manipulation using `syncRoadmap()` from core and warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored to push changes to GitHub." If no roadmap exists, skip silently.
-
-7. **Learnings are append-only.** Never edit or delete previous learnings. They are a chronological record.
-
-8. **Auto-transition to verification.** When ALL tasks in the plan are complete (not when stopping mid-plan):
-
-   Call `emit_interaction`:
-
-   ```json
-   {
-     "type": "transition",
-     "transition": {
-       "completedPhase": "execution",
-       "suggestedNext": "verification",
-       "reason": "All tasks complete",
-       "artifacts": ["<list of created/modified files>"],
-       "requiresConfirmation": false,
-       "summary": "Completed <N> tasks. <N> files created, <N> modified. All quick gates passed.",
-       "qualityGate": {
-         "checks": [
-           { "name": "all-tasks-complete", "passed": true, "detail": "<N>/<N> tasks" },
-           { "name": "harness-validate", "passed": true },
-           { "name": "tests-pass", "passed": true },
-           { "name": "no-blockers", "passed": true }
-         ],
-         "allPassed": true
-       }
-     }
-   }
-   ```
-
-   The response will include `nextAction: "Invoke harness-verification skill now"`.
    Immediately invoke harness-verification without waiting for user input.
 
-   **Important:** Only emit this transition when all tasks are complete. If execution stopped due to a blocker, checkpoint, or partial completion, do NOT emit a transition -- write the handoff and stop.
+   **Important:** Only emit when all tasks complete. If stopped due to blocker/checkpoint/partial completion, write handoff and stop instead.
 
 ---
 
 ### Stopping Conditions
 
-These are non-negotiable. When any condition is met, stop immediately.
+Non-negotiable. When any condition is met, stop immediately.
 
-- **Hit a blocker.** The task cannot be completed as written. Something is missing, broken, or wrong. Do not guess at a fix. Do not improvise. Record the blocker in state and report it: "Blocked on Task N: [specific issue]. The plan needs to be updated."
-
-- **Test failure after implementation.** The test was supposed to pass but does not. Do not retry blindly. Read the failure. Diagnose the root cause. If the fix is within the current task scope, fix it. If not, stop — the plan may be wrong.
-
-- **Unclear instruction.** The task says something ambiguous or contradictory. Do not interpret it. Ask: "Task N says [quote]. I interpret this as [interpretation]. Is that correct?"
-
-- **Harness validation failure.** `harness validate` fails after a task. Do not proceed. The task introduced an architectural violation or constraint breach. Fix it before moving on.
-
-- **Three consecutive failures on the same task.** After 3 attempts, the task design is likely wrong. Stop. Report: "Task N has failed 3 times. Root cause: [analysis]. The plan may need revision."
+- **Hit a blocker.** Task cannot be completed as written. Do not guess or improvise. Record and report: "Blocked on Task N: [issue]. The plan needs to be updated."
+- **Test failure after implementation.** Do not retry blindly. Diagnose root cause. Fix if within task scope; otherwise stop.
+- **Unclear instruction.** Do not interpret ambiguity. Ask: "Task N says [quote]. I interpret this as [interpretation]. Correct?"
+- **Harness validation failure.** Do not proceed. Fix the violation before moving on.
+- **Three consecutive failures.** Task design is likely wrong. Report: "Task N failed 3 times. Root cause: [analysis]. Plan may need revision."
 
 ## Session State
 
-This skill reads and writes to the following session sections via `manage_state`:
+This skill reads/writes session sections via `manage_state`:
 
-| Section       | Read | Write | Purpose                                                                               |
-| ------------- | ---- | ----- | ------------------------------------------------------------------------------------- |
-| terminology   | yes  | yes   | Reads domain terms for consistent naming; adds terms discovered during implementation |
-| decisions     | yes  | yes   | Reads planning decisions for context; records implementation decisions                |
-| constraints   | yes  | yes   | Reads constraints to respect boundaries; adds constraints discovered during coding    |
-| risks         | yes  | yes   | Reads risks for awareness; updates risk status as mitigated or realized               |
-| openQuestions | yes  | yes   | Reads questions for context; resolves questions answered by implementation            |
-| evidence      | yes  | yes   | Reads prior evidence; writes file:line citations, test outputs, and diff references   |
+| Section       | R/W  | Purpose                                                                         |
+| ------------- | ---- | ------------------------------------------------------------------------------- |
+| terminology   | both | Domain terms for consistent naming; adds terms discovered during implementation |
+| decisions     | both | Planning decisions for context; records implementation decisions                |
+| constraints   | both | Constraints to respect boundaries; adds constraints discovered during coding    |
+| risks         | both | Risks for awareness; updates status as mitigated or realized                    |
+| openQuestions | both | Questions for context; resolves questions answered by implementation            |
+| evidence      | both | Prior evidence; writes file:line citations, test outputs, diff references       |
 
-**When to write:** After each task completion, append relevant entries. Evidence entries should be written for every significant technical assertion (test result, file reference, performance measurement). Mark openQuestions as resolved when implementation answers them.
+**Write:** After each task, append relevant entries. Write evidence for every significant technical assertion. Mark openQuestions as resolved when answered.
 
-**When to read:** During Phase 1 (PREPARE), read all sections via `gather_context` with `include: ["sessions"]` to inherit full accumulated context from brainstorming and planning.
+**Read:** During PREPARE, read all sections via `gather_context` with `include: ["sessions"]`.
 
 ## Evidence Requirements
 
-When this skill makes claims about task completion, test results, or code behavior, it MUST cite evidence using one of:
+Claims about task completion, test results, or code behavior MUST cite evidence:
 
-1. **File reference:** `file:line` format (e.g., `src/services/notification-service.ts:42` -- "create method implemented with validation")
-2. **Test output:** Include the actual test command and its output:
-   ```
-   $ npx vitest run src/services/notification-service.test.ts
-   PASS  src/services/notification-service.test.ts (8 tests)
-   ```
-3. **Diff evidence:** Before/after with file path for modifications to existing files
-4. **Harness output:** Include `harness validate` output as evidence of project health
-5. **Session evidence:** Write to the `evidence` session section after each task:
-   ```json
-   manage_state({
-     action: "append_entry",
-     session: "<current-session>",
-     section: "evidence",
-     authorSkill: "harness-execution",
-     content: "src/services/notification-service.ts:42 -- create method returns Notification with all required fields"
-   })
-   ```
+1. **File reference:** `file:line` format (e.g., `src/services/notification-service.ts:42`)
+2. **Test output:** Actual command and output (e.g., `$ npx vitest run ... → PASS (8 tests)`)
+3. **Diff evidence:** Before/after with file path for modifications
+4. **Harness output:** `harness validate` output as project health evidence
+5. **Session evidence:** Write to `evidence` section via `manage_state` after each task
 
-**When to cite:** After every task completion in Phase 2 (EXECUTE). Every commit message claim ("added X", "fixed Y") must be backed by test output or file reference. During Phase 4 (PERSIST) when writing learnings that reference specific code behavior.
+**When to cite:** After every task completion. Every commit claim must be backed by test output or file reference.
 
-**Uncited claims:** Technical assertions without citations MUST be prefixed with `[UNVERIFIED]`. Example: `[UNVERIFIED] The notification service handles duplicate entries`. Uncited claims are flagged during review (Wave 2.2).
+**Uncited claims:** Prefix with `[UNVERIFIED]`. Uncited claims are flagged during review.
 
 ## Harness Integration
 
-- **`harness validate`** — Run after every task completion. Mandatory. No task is complete without a passing validation.
-- **`gather_context`** — Used in PREPARE phase to load state, learnings, handoff, and validation in a single call instead of 4+ separate reads.
-- **`harness check-deps`** — Run when tasks add new imports or modules. Catches boundary violations early.
-- **`harness state show`** — View current execution position and progress.
-- **`harness state learn "<message>"`** — Append a learning from the command line.
-- **State file** — Session-scoped at `{sessionDir}/state.json` when session is known, otherwise `.harness/state.json`. Read at session start to resume position. Updated after every task.
-- **Learnings file** — Session-scoped at `{sessionDir}/learnings.md` when session is known, otherwise `.harness/learnings.md`. Append-only knowledge capture. Read at session start for prior context.
-- **Roadmap sync** — After completing plan execution, call `manage_roadmap` with action `sync` and `apply: true` to update roadmap status. Mandatory when `docs/roadmap.md` exists. Do not use `force_sync: true`. Falls back to `syncRoadmap()` from core if MCP tool is unavailable.
-- **`emit_interaction`** -- Call at plan completion to auto-transition to harness-verification. Uses auto-transition (proceeds immediately without user confirmation).
+- **`harness validate`** — Run after every task. Mandatory. No task complete without passing.
+- **`gather_context`** — PREPARE phase: load state, learnings, handoff, validation in one call.
+- **`harness check-deps`** — Run when tasks add new imports/modules.
+- **`harness state show`** — View current position and progress.
+- **`harness state learn "<message>"`** — Append a learning from CLI.
+- **State/Learnings files** — Session-scoped when session known, otherwise `.harness/`. State updated after every task; learnings append-only.
+- **Roadmap sync** — After plan completion, `manage_roadmap sync` with `apply: true`. Mandatory when roadmap exists. No `force_sync: true`.
+- **`emit_interaction`** — Auto-transition to harness-verification at plan completion.
 
 ## Success Criteria
 
-- Every task in the plan is executed in order, atomically, with one commit per task
-- `.harness/state.json` accurately reflects current position and progress
-- `.harness/learnings.md` contains entries for every session with non-trivial discoveries
+- Every task executed in order, atomically, one commit per task
+- `.harness/state.json` accurately reflects position and progress
+- `.harness/learnings.md` has entries for sessions with non-trivial discoveries
 - `harness validate` passes after every task
-- Checkpoints were honored: execution paused at every `[checkpoint:*]` marker
-- No improvisation: tasks were executed as written, or execution was stopped and the blocker was reported
-- All stopping conditions were respected (no guessing past blockers, no blind retries)
+- Checkpoints honored: execution paused at every `[checkpoint:*]` marker
+- No improvisation: tasks executed as written, or stopped with blocker reported
+- All stopping conditions respected
 
 ## Rationalizations to Reject
 
@@ -428,16 +331,16 @@ When this skill makes claims about task completion, test results, or code behavi
 
 ```
 Read plan: docs/plans/2026-03-14-notifications-plan.md (5 tasks)
-Read state: .harness/state.json — file not found (fresh start, position: Task 1)
-Read learnings: .harness/learnings.md — file not found (no prior context)
-Run: harness validate — passes. Clean baseline confirmed.
+Read state: .harness/state.json — not found (fresh start, Task 1)
+Read learnings: .harness/learnings.md — not found
+Run: harness validate — passes. Clean baseline.
 ```
 
 **Task 1: Define notification types**
 
 ```
 1. Create src/types/notification.ts with Notification interface
-2. Run: harness validate — passes
+2. harness validate — passes
 3. Commit: "feat(notifications): define Notification type"
 4. Update state: { position: Task 2, progress: { "Task 1": "complete" } }
 ```
@@ -446,74 +349,65 @@ Run: harness validate — passes. Clean baseline confirmed.
 
 ```
 1. Write test: src/services/notification-service.test.ts
-2. Run test: FAIL — NotificationService is not defined (correct failure)
+2. Run test: FAIL — NotificationService not defined (correct)
 3. Implement: src/services/notification-service.ts
 4. Run test: PASS
-5. Run: harness validate — passes
+5. harness validate — passes
 6. Commit: "feat(notifications): add NotificationService.create"
-7. Update state: { position: Task 3, progress: { "Task 1": "complete", "Task 2": "complete" } }
+7. Update state: { position: Task 3, Tasks 1-2 complete }
 ```
 
 **Task 3: Add list and expiry (TDD) — has checkpoint**
 
 ```
-[checkpoint:human-verify] — "Tasks 1-2 complete. NotificationService can create
-notifications. Tests pass. Continue to Task 3 (list and expiry methods)?"
+[checkpoint:human-verify] — "Tasks 1-2 complete. Tests pass. Continue to Task 3?"
 Human: "Continue."
-
 1. Write tests: list by userId, filter expired
-2. Run tests: FAIL (methods not implemented)
+2. Run tests: FAIL (not implemented)
 3. Implement list() and isExpired()
 4. Run tests: PASS
-5. Run: harness validate — passes
-6. Commit: "feat(notifications): add list and expiry to NotificationService"
-7. Update state, append learning:
-   "## 2026-03-14 — Task 3: list and expiry
-   - [gotcha]: Date comparison needed UTC normalization — used Date.now() not new Date()"
+5. harness validate — passes
+6. Commit: "feat(notifications): add list and expiry"
+7. Append learning: [gotcha] Date comparison needed UTC normalization
 ```
 
-**Context reset mid-plan (resume at Task 4):**
+**Context reset (resume at Task 4):**
 
 ```
-Read plan: docs/plans/2026-03-14-notifications-plan.md
-Read state: .harness/state.json — position: Task 4, Tasks 1-3 complete
-Read learnings: .harness/learnings.md — "Date comparison needed UTC normalization"
-Run: harness validate — passes. Resume from Task 4.
+Read state: position Task 4, Tasks 1-3 complete
+Read learnings: "Date comparison needed UTC normalization"
+harness validate — passes. Resume Task 4.
 ```
 
 ## Gates
 
-These are hard stops. Violating any gate means the process has broken down.
+Hard stops. Violating any gate means the process has broken down.
 
-- **No execution without a plan.** If no plan document exists, do not start. Use harness-planning to create one.
-- **No improvisation.** Execute the plan as written. If the plan says "create file X with code Y," create file X with code Y. Do not add "improvements" or "optimizations" that are not in the plan.
-- **No skipping tasks.** Tasks are ordered by dependency. Skipping a task means later tasks may fail. Execute in order.
-- **No skipping validation.** `harness validate` runs after every task. No exceptions. A task that passes its tests but fails validation is not complete.
-- **No ignoring checkpoints.** If a task has a `[checkpoint:*]` marker, execution must pause. Do not auto-continue past checkpoints.
-- **No guessing past blockers.** If a task cannot be completed as written, stop. Report the blocker. Do not invent a workaround.
-- **State must be updated.** After every task, `.harness/state.json` must reflect the new position. Skipping state updates makes resume impossible.
+- **No execution without a plan.** If no plan exists, do not start. Use harness-planning.
+- **No improvisation.** Execute as written. Do not add "improvements" not in the plan.
+- **No skipping tasks.** Tasks are dependency-ordered. Execute in order.
+- **No skipping validation.** `harness validate` after every task. No exceptions.
+- **No ignoring checkpoints.** `[checkpoint:*]` markers require pausing. No auto-continue.
+- **No guessing past blockers.** Cannot complete as written? Stop. Report. Do not invent workarounds.
+- **State must be updated.** After every task, state must reflect new position.
 
 ## Escalation
 
-- **When a task fails and the fix is outside task scope:** Report: "Task N failed because [reason]. The fix requires changes to [files/tasks outside scope]. The plan needs to be updated at Tasks [X, Y] before I can continue."
-- **When the plan references files that do not exist:** The plan is out of date or was written against a different branch. Report: "Task N references [file] which does not exist. Plan may need regeneration."
-- **When tests pass but behavior seems wrong:** Do not ignore your instinct, but also do not act on it unilaterally. Report: "Task N passes all tests, but I notice [observation]. Should I investigate before proceeding?"
-- **When state is corrupted or inconsistent:** If `.harness/state.json` says Task 5 is complete but the code for Task 5 does not exist, the state is wrong. Report the inconsistency. Do not trust corrupted state — re-verify from Task 1 if needed.
-- **When the human wants to skip ahead:** Explain the risk: "Skipping Task N means Tasks [X, Y] that depend on it may fail. If you want to skip, we should update the plan to remove the dependency." Get explicit approval before skipping.
+- **Task fails, fix outside scope:** "Task N failed because [reason]. Fix requires changes to [outside scope]. Plan needs updating at Tasks [X, Y]."
+- **Plan references missing files:** "Task N references [file] which does not exist. Plan may need regeneration."
+- **Tests pass but behavior seems wrong:** "Task N passes all tests, but I notice [observation]. Should I investigate?"
+- **State corrupted:** If state says Task 5 complete but code missing, report inconsistency. Re-verify from Task 1 if needed.
+- **Human wants to skip ahead:** "Skipping Task N means Tasks [X, Y] may fail. Update the plan to remove the dependency?" Get explicit approval.
 
 ## Trace Output (Optional)
 
-When `.harness/gate.json` has `"trace": true` or `--verbose` is passed, append one-sentence reasoning at each phase boundary to `.harness/trace.md`.
-
-**Format:** `**[PHASE HH:MM:SS]** summary`
-
-Example:
+When `.harness/gate.json` has `"trace": true` or `--verbose` is passed, append to `.harness/trace.md`:
 
 ```markdown
-**[PREPARE 14:32:07]** Loaded plan with 5 tasks, resuming from Task 3 per state.json.
-**[EXECUTE 14:32:15]** Task 3 committed; mechanical gate passed on first attempt.
-**[VERIFY 14:35:42]** Deep audit requested at milestone; all 3 levels passed.
-**[PERSIST 14:35:50]** State updated, handoff.json written with 2 pending tasks.
+**[PREPARE 14:32:07]** Loaded plan with 5 tasks, resuming from Task 3.
+**[EXECUTE 14:32:15]** Task 3 committed; gate passed first attempt.
+**[VERIFY 14:35:42]** Deep audit at milestone; all 3 levels passed.
+**[PERSIST 14:35:50]** State updated, handoff written with 2 pending tasks.
 ```
 
-This is for human debugging only. Not required for normal execution.
+For human debugging only. Not required for normal execution.

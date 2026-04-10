@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-09
 last_synced: 2026-04-09T21:27:34.153Z
-last_manual_edit: 2026-04-10T11:46:58.873Z
+last_manual_edit: 2026-04-10T12:23:13.213Z
 ---
 
 # Roadmap
@@ -827,8 +827,8 @@ last_manual_edit: 2026-04-10T11:46:58.873Z
 ### API Design Knowledge Skills
 
 - **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
-- **Summary:** ~35 language-agnostic API design knowledge skills covering REST principles, resource modeling, HTTP semantics, versioning, pagination, error contracts, idempotency, rate limiting, webhooks, OpenAPI, and deprecation strategy
+- **Spec:** docs/changes/api-design-knowledge-skills/proposal.md
+- **Summary:** 36 language-agnostic API design knowledge skills across 8 topic clusters (REST foundations, HTTP semantics, request/response design, error handling, versioning, security, async/events, contract/tooling) with bidirectional cross-references to existing graphql-_, trpc-_, owasp-_, events-_, security-_, perf-_, and db-\* skills
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -838,7 +838,7 @@ last_manual_edit: 2026-04-10T11:46:58.873Z
 ### UX Writing and Content Design Knowledge Skills
 
 - **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Spec:** docs/changes/ux-writing-knowledge-skills/proposal.md
 - **Summary:** ~25 knowledge skills covering microcopy principles, error message design, empty states, onboarding copy, CTAs, form labels, notification copy, loading states, voice and tone, and plain language — complements the design-\* skill domain
 - **Blockers:** —
 - **Plan:** —
@@ -856,6 +856,17 @@ last_manual_edit: 2026-04-10T11:46:58.873Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#134
+
+### Pipeline Token Optimization
+
+- **Status:** planned
+- **Spec:** docs/changes/pipeline-token-optimization/proposal.md
+- **Summary:** Artifact-based agent delegation and skill compression to reduce per-session token consumption in the brainstorming-to-autopilot pipeline
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#135
 
 ## v3.0 Graph Intelligence
 
