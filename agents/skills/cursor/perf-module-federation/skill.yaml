@@ -1,0 +1,37 @@
+name: perf-module-federation
+version: '1.0.0'
+description: Module federation — Micro-frontend runtime sharing, remote module loading, shared dependency management, and version negotiation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-code-splitting
+  - perf-bundle-analysis
+  - perf-lazy-loading
+  - perf-browser-cache
+  - perf-cdn-strategies
+stack_signals: []
+keywords:
+  - module federation
+  - micro-frontend
+  - remote modules
+  - shared dependencies
+  - webpack federation
+  - runtime sharing
+  - version negotiation
+  - federated modules
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

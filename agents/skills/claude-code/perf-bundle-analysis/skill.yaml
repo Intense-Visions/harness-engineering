@@ -1,0 +1,36 @@
+name: perf-bundle-analysis
+version: '1.0.0'
+description: Bundle analysis — Bundle visualization, size budgets, dependency cost analysis, and CI-integrated size tracking
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-code-splitting
+  - perf-tree-shaking
+  - perf-lazy-loading
+  - perf-compression
+stack_signals: []
+keywords:
+  - bundle analysis
+  - bundle size
+  - webpack-bundle-analyzer
+  - size budget
+  - dependency cost
+  - bundlephobia
+  - source map explorer
+  - size limit
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

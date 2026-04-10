@@ -1,0 +1,38 @@
+name: perf-edge-rendering
+version: '1.0.0'
+description: Edge rendering — Edge compute platforms, regional deployment, latency optimization, and edge-specific constraints
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-server-side-rendering
+  - perf-cdn-strategies
+  - perf-static-generation
+  - perf-streaming-rendering
+  - perf-client-side-rendering
+stack_signals: []
+keywords:
+  - edge computing
+  - edge rendering
+  - edge runtime
+  - Cloudflare Workers
+  - Vercel Edge
+  - Deno Deploy
+  - regional deployment
+  - edge latency
+  - edge middleware
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

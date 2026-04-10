@@ -1,0 +1,37 @@
+name: perf-lazy-loading-media
+version: '1.0.0'
+description: Media lazy loading — Native image lazy loading, video poster strategies, placeholder techniques, and progressive image rendering
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-lazy-loading
+  - perf-responsive-images
+  - perf-image-formats
+  - perf-largest-contentful-paint
+  - perf-cumulative-layout-shift
+stack_signals: []
+keywords:
+  - lazy loading images
+  - loading attribute
+  - video poster
+  - placeholder
+  - LQIP
+  - blurhash
+  - progressive jpeg
+  - native lazy loading
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

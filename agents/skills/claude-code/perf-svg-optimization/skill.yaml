@@ -1,0 +1,36 @@
+name: perf-svg-optimization
+version: '1.0.0'
+description: SVG optimization — Minification, inline vs external strategies, sprite sheets, accessibility, and rendering performance
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-image-formats
+  - perf-critical-rendering-path
+  - perf-compression
+  - css-performance-patterns
+stack_signals: []
+keywords:
+  - svg optimization
+  - svgo
+  - svg sprite
+  - inline svg
+  - svg minification
+  - icon system
+  - svg accessibility
+  - vector graphics
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

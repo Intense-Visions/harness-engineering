@@ -1,0 +1,39 @@
+name: perf-service-worker-caching
+version: '1.0.0'
+description: Service Worker caching — Lifecycle management, caching strategies, offline support, background sync, and Workbox patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-browser-cache
+  - perf-cdn-strategies
+  - perf-cache-invalidation
+  - perf-web-workers
+  - perf-critical-rendering-path
+stack_signals: []
+keywords:
+  - service worker
+  - cache API
+  - workbox
+  - offline
+  - cache first
+  - network first
+  - stale while revalidate
+  - background sync
+  - precaching
+  - runtime caching
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

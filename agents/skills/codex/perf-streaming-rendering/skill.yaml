@@ -1,0 +1,36 @@
+name: perf-streaming-rendering
+version: '1.0.0'
+description: Streaming rendering — React Suspense streaming, chunked transfer encoding, out-of-order streaming, and progressive page delivery
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-server-side-rendering
+  - perf-critical-rendering-path
+  - perf-largest-contentful-paint
+  - perf-client-side-rendering
+stack_signals: []
+keywords:
+  - streaming SSR
+  - chunked transfer
+  - React Suspense
+  - renderToPipeableStream
+  - out-of-order streaming
+  - progressive rendering
+  - shell rendering
+  - streaming HTML
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
