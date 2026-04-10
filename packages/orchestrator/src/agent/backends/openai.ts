@@ -42,7 +42,7 @@ export class OpenAIBackend implements AgentBackend {
       workspacePath: params.workspacePath,
       backendName: this.name,
       startedAt: new Date().toISOString(),
-      systemPrompt: params.systemPrompt,
+      ...(params.systemPrompt !== undefined && { systemPrompt: params.systemPrompt }),
     };
     return Ok(session);
   }
