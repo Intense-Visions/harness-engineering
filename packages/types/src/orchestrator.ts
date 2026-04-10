@@ -12,6 +12,10 @@ export interface TokenUsage {
   outputTokens: number;
   /** Combined total tokens used */
   totalTokens: number;
+  /** Tokens used to create a new cache entry (provider-specific) */
+  cacheCreationTokens?: number;
+  /** Tokens read from an existing cache entry (provider-specific) */
+  cacheReadTokens?: number;
 }
 
 // --- Issue Model ---
