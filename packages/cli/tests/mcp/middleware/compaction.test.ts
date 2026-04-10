@@ -144,3 +144,54 @@ describe('wrapWithCompaction', () => {
     });
   });
 });
+
+describe('CT08: reduction metrics — real handler simulation', () => {
+  it('achieves >= 20% reduction on a synthetic 200-item JSON response', async () => {
+    // Simulate a tool returning a large JSON object similar to gather_context output
+    const syntheticHandler = async (): Promise<ToolResult> => {
+      const output = {
+        results: Array.from({ length: 200 }, (_, i) => ({
+          id: `node-${i}`,
+          type: 'file',
+          path: `/src/modules/module-${i}/index.ts`,
+          status: 'ok',
+          empty_field: null,
+          empty_arr: [],
+          nested: { empty: '' },
+          description: `Module ${i} provides utility functions for domain area ${i}. It exports several helper methods.`,
+        })),
+      };
+      return { content: [{ type: 'text', text: JSON.stringify(output) }] };
+    };
+
+    const rawResult = await syntheticHandler();
+    const originalLen = rawResult.content[0].text.length;
+
+    const wrapped = wrapWithCompaction('gather_context', syntheticHandler);
+    const compactedResult = await wrapped({});
+    const compactedText = compactedResult.content[0].text;
+
+    // Extract token counts from header
+    const match = compactedText.match(/(\d+)→(\d+) tokens \(-(\d+)%\)/);
+    expect(match).not.toBeNull();
+    const reductionPct = parseInt(match![3], 10);
+
+    // Spec success criterion: >= 20% reduction on average
+    expect(reductionPct).toBeGreaterThanOrEqual(20);
+
+    // Sanity: compacted text is shorter than original
+    expect(compactedText.length).toBeLessThan(originalLen);
+  });
+
+  it('compact: false returns byte-identical result matching raw handler', async () => {
+    const handler = async (): Promise<ToolResult> => ({
+      content: [{ type: 'text', text: JSON.stringify({ a: 1, b: null, c: [], d: 'value' }) }],
+    });
+
+    const rawResult = await handler();
+    const wrapped = wrapWithCompaction('any_tool', handler);
+    const bypassResult = await wrapped({ compact: false, path: '/tmp' });
+
+    expect(bypassResult.content[0].text).toBe(rawResult.content[0].text);
+  });
+});
