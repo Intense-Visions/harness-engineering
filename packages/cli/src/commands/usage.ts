@@ -39,6 +39,18 @@ function formatTokenCount(count: number): string {
   return String(count);
 }
 
+function formatPercent(ratio: number): string {
+  return (ratio * 100).toFixed(1) + '%';
+}
+
+function computeCacheHitRate(
+  cacheReadTokens: number | undefined,
+  inputTokens: number
+): number | null {
+  if (cacheReadTokens == null || cacheReadTokens === 0 || inputTokens === 0) return null;
+  return cacheReadTokens / inputTokens;
+}
+
 function formatModels(models: string[]): string {
   if (models.length === 0) return 'unknown';
   if (models.length === 1) return models[0] ?? 'unknown';
@@ -188,6 +200,12 @@ function printSessionDetail(match: SessionRecord): void {
   if (match.cacheCreationTokens != null) {
     logger.info(`  Cache creation tokens: ${formatTokenCount(match.cacheCreationTokens)}`);
   }
+  const hitRate = computeCacheHitRate(match.cacheReadTokens, match.tokens.inputTokens);
+  if (hitRate != null) {
+    logger.info('');
+    logger.info('Cache Performance:');
+    logger.info(`  Cache hit rate:        ${formatPercent(hitRate)}`);
+  }
   logger.info('');
   logger.info(`Cost: ${formatMicroUSD(match.costMicroUSD)}`);
 }
@@ -213,7 +231,12 @@ function registerSessionCommand(usage: Command): void {
       }
 
       if (globalOpts.json) {
-        console.log(JSON.stringify(match, null, 2));
+        const hitRate = computeCacheHitRate(match.cacheReadTokens, match.tokens.inputTokens);
+        const enriched = {
+          ...match,
+          ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
+        };
+        console.log(JSON.stringify(enriched, null, 2));
         return;
       }
 
