@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { resolveProjectConfig } from './utils/config-resolver.js';
 import { applyInjectionGuard } from './middleware/injection-guard.js';
+import { applyCompaction } from './middleware/compaction.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
@@ -445,6 +446,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     projectRoot: resolvedRoot,
     trustedOutputTools,
   });
+  const compactedHandlers = applyCompaction(guardedHandlers);
 
   const server = new Server(
     { name: 'harness-engineering', version: '0.1.0' },
@@ -458,7 +460,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     CallToolRequestSchema,
     async (request) =>
       dispatchTool(
-        guardedHandlers,
+        compactedHandlers,
         request.params.name,
         request.params.arguments,
         resolvedRoot,

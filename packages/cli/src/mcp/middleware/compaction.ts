@@ -59,7 +59,7 @@ function compactText(text: string): string {
  * 4. Prepends the `<!-- packed: ... -->` header to the first text item.
  * 5. Fail-open: if the handler throws, the error propagates unchanged.
  */
-export function wrapWithCompaction(toolName: string, handler: ToolHandler): ToolHandler {
+export function wrapWithCompaction(_toolName: string, handler: ToolHandler): ToolHandler {
   return async (input: Record<string, unknown>): Promise<ToolResult> => {
     // Escape hatch: caller explicitly opts out
     if (input.compact === false) {
