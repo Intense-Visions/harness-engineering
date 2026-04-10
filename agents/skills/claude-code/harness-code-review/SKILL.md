@@ -11,6 +11,17 @@
 - NOT for rubber-stamping (if you cannot find issues, look harder or state confidence level)
 - NOT for style-only feedback (leave that to linters and mechanical checks)
 
+## Argument Resolution
+
+When invoked by autopilot (or with explicit arguments), resolve paths before starting:
+
+1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All handoff writes go to `{sessionDir}/handoff.json`.
+2. **Commit range:** If `commit-range` argument provided (e.g., `abc123..HEAD`), use as diff scope in Phase 2 MECHANICAL and Phase 7 OUTPUT. Otherwise, auto-detect from git environment.
+
+When no arguments are provided (standalone invocation), session slug is unknown — omit from `gather_context`, fall back to global `.harness/` paths. Diff scope auto-detected.
+
+---
+
 ## Process
 
 The review runs as a 7-phase pipeline. Each phase has a clear input, output, and exit condition.

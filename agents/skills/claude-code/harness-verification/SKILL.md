@@ -33,6 +33,16 @@ The words "should", "probably", "seems to", and "I believe" are forbidden in ver
 
 ---
 
+### Argument Resolution
+
+When invoked by autopilot (or with explicit arguments), resolve paths before starting:
+
+1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All handoff writes go to `{sessionDir}/handoff.json`.
+
+When no arguments are provided (standalone invocation), session slug is unknown — omit from `gather_context`, fall back to global `.harness/` paths.
+
+---
+
 ### Context Loading
 
 Before running verification levels, load session context:

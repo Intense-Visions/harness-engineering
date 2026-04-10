@@ -22,9 +22,20 @@ Deviating mid-execution introduces untested assumptions, breaks atomicity, and m
 
 ---
 
+### Argument Resolution
+
+When invoked by autopilot (or with explicit arguments), resolve paths before starting:
+
+1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All state/handoff writes go to `{sessionDir}/`.
+2. **Plan path:** If `plan-path` argument provided, read plan from that path. Otherwise, discover from `{sessionDir}/handoff.json` (read upstream planning output) or search `docs/plans/`.
+
+When no arguments are provided (standalone invocation), discover plan from `docs/plans/` or prompt. Global `.harness/` paths used as fallback.
+
+---
+
 ### Phase 1: PREPARE — Load State and Verify Prerequisites
 
-1. **Load the plan.** Read from `docs/plans/`. Identify total task count and checkpoints.
+1. **Load the plan.** If `plan-path` argument was resolved, read from that path. Otherwise read from `docs/plans/`. Identify total task count and checkpoints.
 
 2. **Gather context in one call.** Use `gather_context` to load all working context:
 

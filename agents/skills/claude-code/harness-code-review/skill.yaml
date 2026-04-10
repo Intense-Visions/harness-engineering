@@ -41,6 +41,12 @@ cli:
     - name: --thorough
       description: Maximum rigor — always load learnings, full agent roster + meta-judge
       required: false
+    - name: session-slug
+      description: Session slug for scoped state/handoff (passed by autopilot)
+      required: false
+    - name: commit-range
+      description: "Git commit range for diff scope (e.g., abc123..HEAD)"
+      required: false
 mcp:
   tool: run_skill
   input:

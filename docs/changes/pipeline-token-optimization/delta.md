@@ -55,3 +55,29 @@
 - Each phase-agent receives no prior phase SKILL.md content or conversation history
 - State machine transitions unchanged from prior version
 - Iron Law preserved: "Autopilot delegates, never reimplements"
+
+# Delta: Pipeline Skill Updates (Phase 4)
+
+**Date:** 2026-04-10
+**Plan:** docs/plans/2026-04-10-pipeline-skill-updates-plan.md
+
+## Changes
+
+### skill.yaml (all 5 pipeline skills)
+
+- [ADDED] `session-slug` argument to all 5 skill.yaml files — enables orchestrator to pass session scope
+- [ADDED] `spec-path` argument to harness-planning skill.yaml — enables orchestrator to pass spec location
+- [ADDED] `plan-path` argument to harness-execution skill.yaml — enables orchestrator to pass plan location
+- [ADDED] `commit-range` argument to harness-code-review skill.yaml — enables orchestrator to pass diff scope
+
+### SKILL.md (all 5 pipeline skills)
+
+- [ADDED] "Argument Resolution" section to all 5 SKILL.md files — documents how args resolve before process starts
+- [KEPT] All existing process phases, gates, escalation rules unchanged
+- [KEPT] Standalone invocation behavior — when no args provided, skills discover paths via directory scan (existing behavior)
+
+## Invariants
+
+- Every skill works both standalone (no args, global paths) and as phase-agent (args provided, session-scoped paths)
+- Argument resolution is additive — no existing behavior removed
+- Session-scoped handoff writes already existed from Phase 2; Phase 4 formalizes how session slug is received

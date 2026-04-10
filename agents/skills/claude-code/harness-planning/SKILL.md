@@ -37,6 +37,18 @@ The skeleton pass is the primary rigor lever. Fast mode goes straight to full de
 
 ---
 
+### Argument Resolution
+
+When invoked by autopilot (or with explicit arguments), resolve paths before starting:
+
+1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All handoff writes go to `{sessionDir}/handoff.json`.
+2. **Spec path:** If `spec-path` argument provided, read spec from that path. Otherwise, discover from `{sessionDir}/handoff.json` (read upstream brainstorming output) or prompt the user.
+3. **Rigor level:** If `fast`/`thorough` argument provided, use it. Otherwise default to `standard`.
+
+When no arguments are provided (standalone invocation), discover spec from context or prompt. Global `.harness/` paths used as fallback.
+
+---
+
 ### Phase 1: SCOPE — Derive Must-Haves from Goals
 
 Work backward from the goal. Start with "what must be true when we are done?"

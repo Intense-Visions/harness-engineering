@@ -22,6 +22,17 @@ If you find yourself writing production code, tests, or scaffolding before sign-
 
 ---
 
+### Argument Resolution
+
+When invoked by autopilot (or with explicit arguments), resolve paths before starting:
+
+1. **Session slug:** If `session-slug` argument provided, use it for all session-scoped reads/writes (`{sessionDir} = .harness/sessions/<session-slug>/`). Otherwise, session-scoped paths are unavailable — fall back to global `.harness/` paths.
+2. **Handoff output:** When session slug is known, write handoff to `{sessionDir}/handoff.json`. Otherwise write to `.harness/handoff.json` (deprecated fallback).
+
+When no arguments are provided (standalone invocation), the skill operates exactly as before — no session scoping, global paths only.
+
+---
+
 ### Phase 1: EXPLORE -- Gather Context
 
 1. **Read the existing codebase.** Understand architecture, constraints, and conventions. Check AGENTS.md, existing specs in `docs/`, and relevant source files.
