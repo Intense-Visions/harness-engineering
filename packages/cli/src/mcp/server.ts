@@ -274,7 +274,7 @@ const RESOURCE_DEFINITIONS = [
     description:
       'Available skills with metadata (name, description, cognitive_mode, type, triggers)',
     mimeType: 'application/json',
-    _meta: { stability: 'static' },
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://rules',

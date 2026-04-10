@@ -75,14 +75,12 @@ describe('MCP Server', () => {
     const resources = getResourceDefinitions();
     const byUri = Object.fromEntries(resources.map((r) => [r.uri, r]));
 
-    // skills index is static — changes only on deploy
-    expect(byUri['harness://skills']._meta?.stability).toBe('static');
-
     // state is ephemeral — changes per invocation
     expect(byUri['harness://state']._meta?.stability).toBe('ephemeral');
 
-    // session-scoped resources — stable within a session
+    // session-scoped resources — stable within a session (skills is session: filesystem-backed, changes without restart)
     const sessionResources = [
+      'harness://skills',
       'harness://rules',
       'harness://project',
       'harness://learnings',
