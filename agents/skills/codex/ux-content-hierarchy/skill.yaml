@@ -1,0 +1,32 @@
+name: ux-content-hierarchy
+version: "1.0.0"
+description: Content hierarchy in UI — heading structure, progressive disclosure in text, inverted pyramid for interface writing
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-writing-for-scanning
+  - ux-microcopy-principles
+  - design-information-architecture
+stack_signals: []
+keywords:
+  - content-hierarchy
+  - headings
+  - progressive-disclosure
+  - inverted-pyramid
+  - information-architecture
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
