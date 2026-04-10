@@ -50,7 +50,7 @@ export function estimateTokens(content: string): number {
 export function serializeEnvelope(envelope: PackedEnvelope): string {
   const { meta, sections } = envelope;
 
-  const strategyLabel = meta.strategy.join('+');
+  const strategyLabel = meta.strategy.length > 0 ? meta.strategy.join('+') : 'none';
   const cachedLabel = meta.cached ? ' [cached]' : '';
   const header = `<!-- packed: ${strategyLabel} | ${meta.originalTokenEstimate}→${meta.compactedTokenEstimate} tokens (-${meta.reductionPct}%)${cachedLabel} -->`;
 

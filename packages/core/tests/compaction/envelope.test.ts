@@ -88,4 +88,12 @@ describe('serializeEnvelope', () => {
     const result = serializeEnvelope(envelope);
     expect(result).toContain('<!-- packed:');
   });
+
+  it('uses "none" label when strategy array is empty', () => {
+    const envelope = makeEnvelope({ meta: { ...makeEnvelope().meta, strategy: [] } });
+    const result = serializeEnvelope(envelope);
+    // Empty strategy must not produce double-space '<!--  packed:  | ...' or empty label
+    expect(result).toContain('<!-- packed: none |');
+    expect(result).not.toMatch(/packed:\s{2,}/);
+  });
 });
