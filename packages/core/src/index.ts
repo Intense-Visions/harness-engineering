@@ -159,6 +159,11 @@ export {
 } from './adoption';
 
 /**
+ * Compaction module for reducing MCP tool response token consumption.
+ */
+export * from './compaction';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`
