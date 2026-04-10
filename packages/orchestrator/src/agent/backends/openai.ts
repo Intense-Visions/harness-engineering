@@ -11,6 +11,7 @@ import {
   Err,
   AgentError,
 } from '@harness-engineering/types';
+import { OpenAICacheAdapter } from '@harness-engineering/core';
 
 export interface OpenAIBackendConfig {
   /** OpenAI model to use. Defaults to 'gpt-4o'. */
@@ -27,6 +28,7 @@ export class OpenAIBackend implements AgentBackend {
   readonly name = 'openai';
   private config: Required<OpenAIBackendConfig>;
   private client: OpenAI;
+  private cacheAdapter: OpenAICacheAdapter;
 
   constructor(config: OpenAIBackendConfig = {}) {
     this.config = {
@@ -34,6 +36,7 @@ export class OpenAIBackend implements AgentBackend {
       apiKey: config.apiKey ?? process.env.OPENAI_API_KEY ?? '',
     };
     this.client = new OpenAI({ apiKey: this.config.apiKey });
+    this.cacheAdapter = new OpenAICacheAdapter();
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
@@ -71,6 +74,8 @@ export class OpenAIBackend implements AgentBackend {
     let inputTokens = 0;
     let outputTokens = 0;
     let totalTokens = 0;
+    let cacheCreationTokens = 0;
+    let cacheReadTokens = 0;
 
     try {
       const stream = await this.client.chat.completions.create({
@@ -97,6 +102,9 @@ export class OpenAIBackend implements AgentBackend {
           inputTokens = chunk.usage.prompt_tokens ?? 0;
           outputTokens = chunk.usage.completion_tokens ?? 0;
           totalTokens = chunk.usage.total_tokens ?? 0;
+          const cacheUsage = this.cacheAdapter.parseCacheUsage(chunk);
+          cacheCreationTokens = cacheUsage.cacheCreationTokens;
+          cacheReadTokens = cacheUsage.cacheReadTokens;
         }
       }
     } catch (err) {
@@ -122,6 +130,8 @@ export class OpenAIBackend implements AgentBackend {
         inputTokens,
         outputTokens,
         totalTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
       },
     };
   }

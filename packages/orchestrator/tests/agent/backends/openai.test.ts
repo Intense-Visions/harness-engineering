@@ -183,6 +183,32 @@ describe('OpenAIBackend', () => {
       });
     });
 
+    it('includes cacheReadTokens in usage from prompt_tokens_details', async () => {
+      const sessionResult = await backend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      expect(sessionResult.ok).toBe(true);
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const gen = backend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'Say hello',
+        isContinuation: false,
+      });
+
+      let next = await gen.next();
+      while (!next.done) {
+        next = await gen.next();
+      }
+      const result = next.value;
+
+      // The mock stream yields prompt_tokens_details.cached_tokens: 20
+      expect(result.usage.cacheReadTokens).toBe(20);
+      expect(result.usage.cacheCreationTokens).toBe(0);
+    });
+
     it('returns zero usage when stream yields no usage chunk', async () => {
       const openaiModule = await import('openai');
       const mockInstance = (openaiModule.default as ReturnType<typeof vi.fn>).mock.results.at(
