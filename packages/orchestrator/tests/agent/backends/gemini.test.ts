@@ -3,25 +3,29 @@ import { GeminiBackend } from '../../../src/agent/backends/gemini';
 
 // Mock @google/generative-ai before importing the backend
 vi.mock('@google/generative-ai', () => {
-  const mockStream = {
-    stream: (async function* () {
-      yield {
-        text: () => 'Hello ',
-        usageMetadata: undefined,
-      };
-      yield {
-        text: () => 'world',
-        usageMetadata: {
-          promptTokenCount: 50,
-          candidatesTokenCount: 10,
-          totalTokenCount: 60,
-          cachedContentTokenCount: 15,
-        },
-      };
-    })(),
-  };
+  function createMockStream() {
+    return {
+      stream: (async function* () {
+        yield {
+          text: () => 'Hello ',
+          usageMetadata: undefined,
+        };
+        yield {
+          text: () => 'world',
+          usageMetadata: {
+            promptTokenCount: 50,
+            candidatesTokenCount: 10,
+            totalTokenCount: 60,
+            cachedContentTokenCount: 15,
+          },
+        };
+      })(),
+    };
+  }
 
-  const mockGenerateContentStream = vi.fn().mockResolvedValue(mockStream);
+  const mockGenerateContentStream = vi
+    .fn()
+    .mockImplementation(() => Promise.resolve(createMockStream()));
 
   const MockGenerativeModel = vi.fn().mockImplementation(function () {
     return {
@@ -195,18 +199,43 @@ describe('GeminiBackend', () => {
       expect(modelCallArg?.systemInstruction).toBe('You are a helpful coder.');
     });
 
+    it('includes cacheReadTokens in usage from cachedContentTokenCount', async () => {
+      const sessionResult = await backend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      expect(sessionResult.ok).toBe(true);
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const gen = backend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'Say hello',
+        isContinuation: false,
+      });
+
+      let next = await gen.next();
+      while (!next.done) {
+        next = await gen.next();
+      }
+      const result = next.value;
+
+      // The mock stream yields cachedContentTokenCount: 15
+      expect(result.usage.cacheReadTokens).toBe(15);
+      expect(result.usage.cacheCreationTokens).toBe(0);
+    });
+
     it('returns zero usage when stream yields no usageMetadata', async () => {
       const geminiModule = await import('@google/generative-ai');
-      const mockStream = {
+      const mockGenerateContentStream = (
+        geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
+      )['__mockGenerateContentStream'];
+      const noUsageStream = {
         stream: (async function* () {
           yield { text: () => 'Hi', usageMetadata: undefined };
         })(),
       };
-      const MockGenerativeModel = (
-        geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
-      )['__MockGenerativeModel'];
-      const mockInstance = MockGenerativeModel.mock.results.at(-1)?.value;
-      mockInstance?.generateContentStream.mockResolvedValueOnce(mockStream);
+      mockGenerateContentStream.mockResolvedValueOnce(noUsageStream);
 
       const sessionResult = await backend.startSession({
         workspacePath: '/tmp/workspace',

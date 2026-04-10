@@ -11,6 +11,7 @@ import {
   Err,
   AgentError,
 } from '@harness-engineering/types';
+import { GeminiCacheAdapter } from '@harness-engineering/core';
 
 export interface GeminiBackendConfig {
   /** Gemini model to use. Defaults to 'gemini-2.0-flash'. */
@@ -26,12 +27,14 @@ export interface GeminiSession extends AgentSession {
 export class GeminiBackend implements AgentBackend {
   readonly name = 'gemini';
   private config: Required<GeminiBackendConfig>;
+  private cacheAdapter: GeminiCacheAdapter;
 
   constructor(config: GeminiBackendConfig = {}) {
     this.config = {
       model: config.model ?? 'gemini-2.0-flash',
       apiKey: config.apiKey ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? '',
     };
+    this.cacheAdapter = new GeminiCacheAdapter();
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
@@ -61,6 +64,8 @@ export class GeminiBackend implements AgentBackend {
     let inputTokens = 0;
     let outputTokens = 0;
     let totalTokens = 0;
+    let cacheCreationTokens = 0;
+    let cacheReadTokens = 0;
 
     try {
       const genAI = new GoogleGenerativeAI(this.config.apiKey);
@@ -89,6 +94,9 @@ export class GeminiBackend implements AgentBackend {
           inputTokens = chunk.usageMetadata.promptTokenCount ?? 0;
           outputTokens = chunk.usageMetadata.candidatesTokenCount ?? 0;
           totalTokens = chunk.usageMetadata.totalTokenCount ?? 0;
+          const cacheUsage = this.cacheAdapter.parseCacheUsage(chunk);
+          cacheCreationTokens = cacheUsage.cacheCreationTokens;
+          cacheReadTokens = cacheUsage.cacheReadTokens;
         }
       }
     } catch (err) {
@@ -114,6 +122,8 @@ export class GeminiBackend implements AgentBackend {
         inputTokens,
         outputTokens,
         totalTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
       },
     };
   }
