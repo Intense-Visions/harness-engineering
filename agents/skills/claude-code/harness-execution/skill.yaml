@@ -31,6 +31,12 @@ cli:
     - name: session-slug
       description: Session slug for scoped state/handoff (passed by autopilot)
       required: false
+    - name: fast
+      description: Minimal rigor — skip scratchpad, checkpoint commits only
+      required: false
+    - name: thorough
+      description: Maximum rigor — verbose scratchpad for all research
+      required: false
 mcp:
   tool: run_skill
   input:

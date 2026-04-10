@@ -124,7 +124,7 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
 - `"standard"`/`"thorough"`: dispatch harness-verifier:
   ```
   subagent_type: "harness-verifier"
-  prompt: "Phase {N}: {name}. Session: {sessionSlug}. Verify and report pass/fail with findings."
+  prompt: "Phase {N}: {name}. Session: {sessionSlug}. Rigor: {rigorLevel}. Verify and report pass/fail with findings."
   ```
   Pass → REVIEW. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
 
@@ -136,7 +136,7 @@ Dispatch harness-code-reviewer:
 
 ```
 subagent_type: "harness-code-reviewer"
-prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. Report findings (blocking / warning / note)."
+prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. Report findings (critical / important / suggestion)."
 ```
 
 Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
@@ -162,7 +162,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 3. Dispatch harness-code-reviewer:
    ```
    subagent_type: "harness-code-reviewer"
-   prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report blocking/warning/note."
+   prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report findings (critical / important / suggestion)."
    ```
 4. No blocking: store in `finalReview.findings`, set `"passed"` → DONE.
 5. Blocking: ask "fix / override / stop."
