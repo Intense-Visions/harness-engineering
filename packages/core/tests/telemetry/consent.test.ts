@@ -28,14 +28,14 @@ describe('resolveConsent', () => {
     process.env.DO_NOT_TRACK = '1';
     const result = resolveConsent(tmpDir, { enabled: true });
     expect(result.allowed).toBe(false);
-    expect(result.installId).toBe('');
+    expect(result).toEqual({ allowed: false });
   });
 
   it('returns allowed:false when HARNESS_TELEMETRY_OPTOUT=1', () => {
     process.env.HARNESS_TELEMETRY_OPTOUT = '1';
     const result = resolveConsent(tmpDir, { enabled: true });
     expect(result.allowed).toBe(false);
-    expect(result.installId).toBe('');
+    expect(result).toEqual({ allowed: false });
   });
 
   it('ignores DO_NOT_TRACK when value is not "1"', () => {

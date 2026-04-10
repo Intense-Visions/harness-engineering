@@ -19,15 +19,11 @@ export interface TelemetryIdentity {
 
 /**
  * Resolved consent state after merging env vars, config, and identity file.
+ * Discriminated union: when allowed is false, no identity or installId fields exist.
  */
-export interface ConsentState {
-  /** false if DO_NOT_TRACK, HARNESS_TELEMETRY_OPTOUT, or config disabled */
-  allowed: boolean;
-  /** Only populated when allowed is true */
-  identity: TelemetryIdentity;
-  /** UUIDv4 install ID -- only populated when allowed is true */
-  installId: string;
-}
+export type ConsentState =
+  | { allowed: true; identity: TelemetryIdentity; installId: string }
+  | { allowed: false };
 
 /**
  * A single telemetry event payload for PostHog HTTP batch API.

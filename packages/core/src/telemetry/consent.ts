@@ -26,8 +26,6 @@ function readIdentity(projectRoot: string): TelemetryIdentity {
   }
 }
 
-const DISALLOWED: ConsentState = { allowed: false, identity: {}, installId: '' };
-
 /**
  * Resolves telemetry consent by checking (in order):
  * 1. DO_NOT_TRACK=1 env var (ecosystem standard)
@@ -41,12 +39,12 @@ export function resolveConsent(
   config: TelemetryConfig | undefined
 ): ConsentState {
   // Env vars always win
-  if (process.env.DO_NOT_TRACK === '1') return DISALLOWED;
-  if (process.env.HARNESS_TELEMETRY_OPTOUT === '1') return DISALLOWED;
+  if (process.env.DO_NOT_TRACK === '1') return { allowed: false };
+  if (process.env.HARNESS_TELEMETRY_OPTOUT === '1') return { allowed: false };
 
   // Config check (default to enabled)
   const enabled = config?.enabled ?? true;
-  if (!enabled) return DISALLOWED;
+  if (!enabled) return { allowed: false };
 
   // Telemetry is allowed -- gather identity and install ID
   const installId = getOrCreateInstallId(projectRoot);
