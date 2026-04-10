@@ -30,7 +30,7 @@ export function getOrCreateInstallId(projectRoot: string): string {
 
   // Ensure .harness directory exists
   fs.mkdirSync(harnessDir, { recursive: true });
-  fs.writeFileSync(installIdFile, id, 'utf-8');
+  fs.writeFileSync(installIdFile, id, { encoding: 'utf-8', mode: 0o600 });
 
   return id;
 }
