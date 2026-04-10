@@ -31,19 +31,19 @@ vi.mock('@anthropic-ai/sdk', () => {
     }),
   };
 
-  const mockMessagesCreate = vi.fn().mockResolvedValue(mockStream);
+  const mockMessagesStream = vi.fn().mockReturnValue(mockStream);
 
   const MockAnthropic = vi.fn().mockImplementation(function () {
     return {
       messages: {
-        create: mockMessagesCreate,
+        stream: mockMessagesStream,
       },
     };
   });
 
   return {
     default: MockAnthropic,
-    __mockMessagesCreate: mockMessagesCreate,
+    __mockMessagesStream: mockMessagesStream,
   };
 });
 
@@ -144,7 +144,7 @@ describe('AnthropicBackend', () => {
     it('passes system prompt with cache_control to API', async () => {
       const sdkModule = await import('@anthropic-ai/sdk');
       const mockCreate = (sdkModule as unknown as Record<string, ReturnType<typeof vi.fn>>)[
-        '__mockMessagesCreate'
+        '__mockMessagesStream'
       ];
 
       const sessionResult = await backend.startSession({
@@ -172,10 +172,12 @@ describe('AnthropicBackend', () => {
 
     it('returns failed TurnResult when SDK throws', async () => {
       const sdkModule = await import('@anthropic-ai/sdk');
-      const mockCreate = (sdkModule as unknown as Record<string, ReturnType<typeof vi.fn>>)[
-        '__mockMessagesCreate'
+      const mockStream = (sdkModule as unknown as Record<string, ReturnType<typeof vi.fn>>)[
+        '__mockMessagesStream'
       ];
-      mockCreate.mockRejectedValueOnce(new Error('Rate limited'));
+      mockStream.mockImplementationOnce(() => {
+        throw new Error('Rate limited');
+      });
 
       const sessionResult = await backend.startSession({
         workspacePath: '/tmp/workspace',

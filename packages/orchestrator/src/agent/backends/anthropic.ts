@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import type { TextBlockParam } from '@anthropic-ai/sdk/resources/messages/messages';
 import {
   AgentBackend,
   SessionStartParams,
@@ -67,16 +68,20 @@ export class AnthropicBackend implements AgentBackend {
     const anthropicSession = session as AnthropicSession;
 
     const systemBlocks = anthropicSession.systemPrompt
-      ? [this.cacheAdapter.wrapSystemBlock(anthropicSession.systemPrompt, 'session')]
+      ? [
+          this.cacheAdapter.wrapSystemBlock(
+            anthropicSession.systemPrompt,
+            'session'
+          ) as unknown as TextBlockParam,
+        ]
       : undefined;
 
     try {
-      const stream = await this.client.messages.create({
+      const stream = this.client.messages.stream({
         model: this.config.model,
         max_tokens: this.config.maxTokens,
         ...(systemBlocks && { system: systemBlocks }),
         messages: [{ role: 'user', content: params.prompt }],
-        stream: true,
       });
 
       for await (const event of stream) {
@@ -92,7 +97,7 @@ export class AnthropicBackend implements AgentBackend {
 
       // Extract final usage from the stream
       const finalMessage = await stream.finalMessage();
-      const usage = finalMessage.usage as Record<string, number>;
+      const usage = finalMessage.usage as unknown as Record<string, number>;
       const cacheUsage = this.cacheAdapter.parseCacheUsage(finalMessage);
 
       return {

@@ -20,6 +20,7 @@ export * from './agent/backends/mock';
 export * from './agent/backends/claude';
 export * from './agent/backends/openai';
 export * from './agent/backends/gemini';
+export * from './agent/backends/anthropic';
 export * from './prompt/renderer';
 export * from './orchestrator';
 export * from './tui/launcher';
