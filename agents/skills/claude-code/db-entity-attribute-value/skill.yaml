@@ -1,0 +1,38 @@
+name: db-entity-attribute-value
+version: "1.0.0"
+description: EAV pattern for dynamic attributes -- when justified, why usually avoided, and alternatives
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-polymorphic-associations
+  - db-document-in-relational
+  - db-first-normal-form
+  - db-denormalization
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - EAV
+  - entity-attribute-value
+  - dynamic-schema
+  - key-value
+  - sparse-columns
+  - metadata-table
+metadata:
+  author: community
+  upstream: "en.wikipedia.org/wiki/Entity%E2%80%93attribute%E2%80%93value_model"
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,37 @@
+name: db-closure-table
+version: "1.0.0"
+description: Ancestor-descendant pair table for fast path queries and flexible hierarchy operations
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-adjacency-list
+  - db-nested-sets
+  - db-hierarchical-data
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - closure-table
+  - ancestor-descendant
+  - path-query
+  - transitive-closure
+  - hierarchy
+  - tree-operations
+metadata:
+  author: community
+  upstream: "dirk.blog/2008/01/04/closure-tables/"
+state:
+  persistent: false
+  files: []
+depends_on: []
