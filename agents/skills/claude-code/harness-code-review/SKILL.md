@@ -442,7 +442,12 @@ emit_interaction({
 
 #### Handoff and Transition
 
-Write `.harness/handoff.json`:
+Write handoff to the session-scoped path when session slug is known, otherwise fall back to global:
+
+- Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
+- Global (fallback, **deprecated**): `.harness/handoff.json`
+
+> **[DEPRECATED]** Writing to `.harness/handoff.json` is deprecated. In autopilot sessions, always write to `.harness/sessions/<slug>/handoff.json`.
 
 ```json
 {
@@ -553,6 +558,7 @@ Every `ReviewFinding.evidence` array MUST include citations using one of:
 - **`emit_interaction`** — Post-review: suggest merge transition on APPROVE. Confirmed transition.
 - **Rigor levels** — `--fast`/`--thorough` control learnings, agent tiers, output. See Rigor Levels table.
 - **`filterByRelevance`** — Phase 3 learnings scoring. Threshold 0.7, budget 1000 tokens.
+- **Session directory** — `.harness/sessions/<slug>/` contains `handoff.json`, `state.json`, `artifacts.json` (spec/plan paths, reviewed file list). Write handoff to session scope when slug is known. Global `.harness/handoff.json` is deprecated for session-aware invocations.
 
 ## Success Criteria
 

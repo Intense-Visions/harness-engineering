@@ -167,7 +167,12 @@ emit_interaction({
 
 ### Handoff and Transition
 
-Write `.harness/handoff.json`:
+Write handoff to the session-scoped path when session slug is known, otherwise fall back to global:
+
+- Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
+- Global (fallback, **deprecated**): `.harness/handoff.json`
+
+> **[DEPRECATED]** Writing to `.harness/handoff.json` is deprecated. In autopilot sessions, always write to `.harness/sessions/<slug>/handoff.json` to prevent cross-session contamination.
 
 ```json
 {
@@ -322,6 +327,7 @@ Task: "Create UserService with CRUD operations."
 - **`harness check-docs`** -- Verify documentation updated for new artifacts. Missing docs for public APIs is a gap.
 - **Test runner** -- Must be run fresh (not cached) during Level 3. Read actual output, check exit codes.
 - **`emit_interaction`** -- Auto-transition to harness-code-review on PASS verdict only.
+- **Session directory** -- `.harness/sessions/<slug>/` contains `handoff.json`, `state.json`, `artifacts.json` (spec path, plan path, file lists from execution). Do not write to global `.harness/handoff.json` when session slug is known.
 
 All commands must be run fresh. Do not rely on results from previous sessions or runs.
 

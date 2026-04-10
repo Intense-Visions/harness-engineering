@@ -187,7 +187,14 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 5. **Check failures log.** Read `.harness/failures.md`. If planned approaches match known failures, flag them.
 6. **Run soundness review.** Invoke `harness-soundness-review --mode plan` against the draft. Do not proceed until the review converges with no remaining issues.
 7. **Write the plan to `docs/plans/`.** Naming: `YYYY-MM-DD-<feature-name>-plan.md`. Create directory if needed.
-8. **Write handoff.** Save `.harness/handoff.json` with `fromSkill`, `summary`, `pending`, `concerns`, `decisions`, `contextKeywords`.
+8. **Write handoff.** Write to the session-scoped path when session slug is known, otherwise fall back to global path:
+   - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
+   - Global (fallback, **deprecated**): `.harness/handoff.json`
+
+   > **[DEPRECATED]** Writing to `.harness/handoff.json` is deprecated. In autopilot sessions, always use `.harness/sessions/<slug>/handoff.json` to prevent cross-session contamination.
+
+   Fields: `fromSkill`, `phase`, `summary`, `completed`, `pending`, `concerns`, `decisions`, `contextKeywords`.
+
 9. **Write session summary (if session is known).** Call `writeSessionSummary` with skill, status, plan path, keyContext, nextStep. Skip if no session slug.
 
 10. **Request plan sign-off:** Use `emit_interaction` (type: `confirmation`) with plan path, task count, and time estimate.
@@ -268,6 +275,7 @@ When referencing existing code in task specs, cite evidence using `file:line` fo
 - **`harness check-deps`** — Referenced in tasks adding imports or creating modules.
 - **Plan location** — `docs/plans/YYYY-MM-DD-<feature-name>-plan.md`.
 - **Handoff** — Once approved, invoke harness-execution for task-by-task implementation.
+- **Session directory** — Session-scoped writes go to `.harness/sessions/<slug>/`. Structure: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and produced file lists). Global `.harness/handoff.json` is deprecated for session-aware invocations.
 - **`emit_interaction`** — Call at end of Phase 4 to suggest transitioning to execution (confirmed transition).
 - **Rigor levels** — `--fast`/`--thorough` control skeleton pass. See Rigor Levels table.
 - **Two-pass planning** — Skeleton (~200 tokens) before full expansion. Catches directional errors early.

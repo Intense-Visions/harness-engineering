@@ -131,7 +131,11 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
 7. **Write handoff and suggest transition.** After approval:
 
-   Write `.harness/handoff.json`:
+   Write handoff to the session-scoped path when a session slug is known, otherwise fall back to the global path:
+   - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
+   - Global (fallback, deprecated): `.harness/handoff.json`
+
+   > **[DEPRECATED]** Writing to `.harness/handoff.json` is deprecated. When running within an autopilot session, always write to `.harness/sessions/<session-slug>/handoff.json`. Global writes cause cross-session contamination in parallel runs.
 
    ```json
    {
@@ -250,6 +254,7 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 - **`harness check-docs`** -- Verify spec does not conflict with existing docs.
 - **Spec location** -- `docs/changes/<feature>/proposal.md`.
 - **Handoff** -- Once approved, invoke harness-planning to create the implementation plan.
+- **Session directory** — When session slug is known, handoff goes to `.harness/sessions/<slug>/handoff.json`. The session directory structure is: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and file lists). Do not write to `.harness/handoff.json` in session context.
 - **Roadmap sync** -- After approval, call `manage_roadmap` action `add` to register as `planned`. Skip silently if no roadmap. Duplicates ignored.
 - **`emit_interaction`** -- End of Phase 4 to suggest transition to harness-planning (confirmed transition).
 

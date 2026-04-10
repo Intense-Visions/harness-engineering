@@ -199,7 +199,7 @@ emit_interaction({
 
 ### Phase 4: PERSIST — Save Progress and Learnings
 
-All session-scoped files use `{sessionDir}/` when session is known, otherwise `.harness/`.
+All session-scoped files use `{sessionDir}/` when session is known, otherwise `.harness/`. Session-scoped files include: `handoff.json`, `state.json`, `learnings.md`, `artifacts.json`.
 
 1. **Update state** with current position, progress, and `lastSession`:
 
@@ -221,7 +221,11 @@ All session-scoped files use `{sessionDir}/` when session is known, otherwise `.
 
 3. **Record failures** in `failures.md` if any task was escalated after retry exhaustion. Include approach attempted and why it failed.
 
-4. **Write handoff** to `handoff.json`:
+4. **Write handoff.** Write to the session-scoped path when session slug is known, otherwise fall back to global:
+   - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
+   - Global (fallback, **deprecated**): `.harness/handoff.json`
+
+   > **[DEPRECATED]** Writing to `.harness/handoff.json` is deprecated. In autopilot sessions, always write to `.harness/sessions/<slug>/handoff.json`.
 
    ```json
    {
