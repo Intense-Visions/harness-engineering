@@ -31,7 +31,7 @@ keywords:
   - query-parameters
 metadata:
   author: community
-  upstream: restfulapi.net/resource-naming
+  upstream: github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md
 state:
   persistent: false
   files: []

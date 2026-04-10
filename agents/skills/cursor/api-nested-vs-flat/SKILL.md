@@ -163,7 +163,7 @@ Or serve the same response from both paths and set `Content-Location: /comments/
 
 - **Type:** knowledge -- this skill is a reference document, not a procedural workflow.
 - **No tools or state** -- consumed as context by other skills and agents.
-- **related_skills:** api-resource-modeling, api-filtering-sorting, api-resource-granularity
+- **related_skills:** api-resource-modeling, api-filtering-sorting, api-resource-granularity, api-rest-maturity-model
 
 ## Success Criteria
 

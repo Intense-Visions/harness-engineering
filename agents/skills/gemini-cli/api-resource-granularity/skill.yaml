@@ -32,7 +32,7 @@ keywords:
   - composite-resource
 metadata:
   author: community
-  upstream: restfulapi.net/resource-naming
+  upstream: stripe.com/docs/api/expanding_objects
 state:
   persistent: false
   files: []

@@ -87,6 +87,9 @@ export type {
 // --- Caching / Stability Classification ---
 export type { StabilityTier, StabilityMetadata } from './caching';
 
+// --- Telemetry ---
+export type { TelemetryConfig, TelemetryIdentity, ConsentState, TelemetryEvent } from './telemetry';
+
 // --- Orchestrator ---
 export type {
   TokenUsage,
