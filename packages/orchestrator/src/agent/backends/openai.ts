@@ -68,35 +68,51 @@ export class OpenAIBackend implements AgentBackend {
 
     messages.push({ role: 'user', content: params.prompt });
 
-    const stream = await this.client.chat.completions.create({
-      model: this.config.model,
-      messages,
-      stream: true,
-      stream_options: { include_usage: true },
-    });
-
     let inputTokens = 0;
     let outputTokens = 0;
     let totalTokens = 0;
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta;
+    try {
+      const stream = await this.client.chat.completions.create({
+        model: this.config.model,
+        messages,
+        stream: true,
+        stream_options: { include_usage: true },
+      });
 
-      if (delta?.content) {
-        const event: AgentEvent = {
-          type: 'text',
-          timestamp: new Date().toISOString(),
-          content: delta.content,
-          sessionId: session.sessionId,
-        };
-        yield event;
-      }
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta;
 
-      if (chunk.usage) {
-        inputTokens = chunk.usage.prompt_tokens ?? 0;
-        outputTokens = chunk.usage.completion_tokens ?? 0;
-        totalTokens = chunk.usage.total_tokens ?? 0;
+        if (delta?.content) {
+          const event: AgentEvent = {
+            type: 'text',
+            timestamp: new Date().toISOString(),
+            content: delta.content,
+            sessionId: session.sessionId,
+          };
+          yield event;
+        }
+
+        if (chunk.usage) {
+          inputTokens = chunk.usage.prompt_tokens ?? 0;
+          outputTokens = chunk.usage.completion_tokens ?? 0;
+          totalTokens = chunk.usage.total_tokens ?? 0;
+        }
       }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'OpenAI request failed';
+      yield {
+        type: 'error',
+        timestamp: new Date().toISOString(),
+        content: errorMessage,
+        sessionId: session.sessionId,
+      };
+      return {
+        success: false,
+        sessionId: session.sessionId,
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        error: errorMessage,
+      };
     }
 
     return {
