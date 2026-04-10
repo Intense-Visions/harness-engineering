@@ -1,3 +1,40 @@
+# Plan: Autopilot Orchestrator Refactor
+
+**Date:** 2026-04-10 | **Spec:** docs/changes/pipeline-token-optimization/proposal.md | **Tasks:** 3 | **Time:** ~15 min
+
+## Goal
+
+Rewrite `harness-autopilot/SKILL.md` as a lightweight orchestrator (≤250 lines) that delegates all phase logic to persona agents via minimal dispatch prompts (artifact paths + session only), stripping all verbose inline management detail from the current 664-line file.
+
+## Observable Truths
+
+1. `wc -l agents/skills/claude-code/harness-autopilot/SKILL.md` reports ≤ 250
+2. All 10 state machine states are present with correct transitions: INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE → FINAL_REVIEW → DONE
+3. All 5 gates are present (no reimplementing; no execute without approval; no skipping VERIFY/REVIEW; no infinite retries; no manual state edits)
+4. All 5 escalation rules are present (missing Implementation Order; skill fails to produce output; user reorders phases; context limits; 2 consecutive failures)
+5. All 5 rationalizations-to-reject are present
+6. Each agent dispatch (PLAN, EXECUTE, VERIFY, REVIEW, FINAL_REVIEW fix) specifies only: `subagent_type`, artifact paths, session slug — no inline scratchpad instructions, no verbose prompt blocks
+7. Remediation loop documented: EXECUTE retry budget 3 attempts; FINAL_REVIEW retry max 3 cycles
+8. `harness validate` passes after rewrite
+
+## File Map
+
+```
+MODIFY agents/skills/claude-code/harness-autopilot/SKILL.md
+MODIFY docs/changes/pipeline-token-optimization/delta.md
+```
+
+## Tasks
+
+### Task 1: Rewrite harness-autopilot SKILL.md as lightweight orchestrator
+
+**Depends on:** none | **Files:** agents/skills/claude-code/harness-autopilot/SKILL.md
+
+No tests — this is a skill doc rewrite. Verification is structural (line count + grep in Task 2).
+
+1. Write the following content to `agents/skills/claude-code/harness-autopilot/SKILL.md` (exact content — overwrite completely):
+
+```markdown
 # Harness Autopilot
 
 > Lightweight orchestrator — dispatches isolated phase-agents, tracks state, chains artifacts between phases. Delegates all planning/execution/verification/review to dedicated persona agents.
@@ -33,13 +70,14 @@ Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`
 | VERIFY       | `harness validate` only    | Full pipeline         | Expanded checks               |
 
 ## State Machine
-
 ```
+
 INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE
-                                                                    │
-                                                             [next phase?]
-                                                              │           │
-                                                           ASSESS   FINAL_REVIEW → DONE
+│
+[next phase?]
+│ │
+ASSESS FINAL_REVIEW → DONE
+
 ```
 
 ---
@@ -70,12 +108,12 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → REVIEW → 
 ### PLAN
 
 **Auto-plan (low/medium):** Dispatch harness-planner:
-
 ```
+
 subagent_type: "harness-planner"
 prompt: "Phase {N}: {name}. Spec: {specPath}. Session: {sessionSlug}. Rigor: {rigorLevel}. Follow harness-planning. Write plan to docs/plans/. Write {sessionDir}/handoff.json when done."
-```
 
+```
 On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override check: `low` + tasks>10 or checkpoints>3 → `"medium"`; tasks>20 or checkpoints>6 → `"high"`. Update state `planPath`. → APPROVE_PLAN.
 
 **Interactive plan (high):** Check for plan file at `docs/plans/*{phase-name}*` or `planPath` in handoff. If found: update `planPath` → APPROVE_PLAN. If not: remind and wait.
@@ -101,16 +139,16 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 ### EXECUTE
 
 Dispatch harness-task-executor:
-
 ```
+
 subagent_type: "harness-task-executor"
 prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {rigorLevel}. Update {sessionDir}/state.json per task. Write {sessionDir}/handoff.json when done or blocked."
+
 ```
 
 **Checkpoints:** `[checkpoint:human-verify]` → show output, confirm, resume. `[checkpoint:decision]` → present options, record choice, resume. `[checkpoint:human-action]` → instruct user, wait for confirmation, resume. After each passing checkpoint: `commitAtCheckpoint()`.
 
 **Outcome:** All tasks complete → VERIFY. Task fails → retry logic:
-
 - Attempt 1: read error, apply obvious fix, re-dispatch for failed task.
 - Attempt 2: expand context — read related files, check `learnings.md`, re-dispatch.
 - Attempt 3: full context — test output, imports, plan instructions, re-dispatch.
@@ -122,23 +160,25 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
 
 - `"fast"`: run `harness validate`. Pass → REVIEW. Fail → surface to user.
 - `"standard"`/`"thorough"`: dispatch harness-verifier:
-  ```
-  subagent_type: "harness-verifier"
-  prompt: "Phase {N}: {name}. Session: {sessionSlug}. Verify and report pass/fail with findings."
-  ```
-  Pass → REVIEW. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
+```
+
+subagent_type: "harness-verifier"
+prompt: "Phase {N}: {name}. Session: {sessionSlug}. Verify and report pass/fail with findings."
+
+```
+Pass → REVIEW. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
 
 ---
 
 ### REVIEW
 
 Dispatch harness-code-reviewer:
-
 ```
+
 subagent_type: "harness-code-reviewer"
 prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. Report findings (blocking / warning / note)."
-```
 
+```
 Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
 
 ---
@@ -160,15 +200,17 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 1. Set `currentState: "FINAL_REVIEW"`, `finalReview.status: "in_progress"`.
 2. Gather per-phase findings from `{sessionDir}/phase-{N}-review.json` files.
 3. Dispatch harness-code-reviewer:
-   ```
-   subagent_type: "harness-code-reviewer"
-   prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report blocking/warning/note."
-   ```
+```
+
+subagent_type: "harness-code-reviewer"
+prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report blocking/warning/note."
+
+```
 4. No blocking: store in `finalReview.findings`, set `"passed"` → DONE.
 5. Blocking: ask "fix / override / stop."
-   - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
-   - `override`: record rationale in `decisions[]`. Set `"overridden"` → DONE.
-   - `stop`: save state and exit (resumable).
+- `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
+- `override`: record rationale in `decisions[]`. Set `"overridden"` → DONE.
+- `stop`: save state and exit (resumable).
 
 ---
 
@@ -209,13 +251,13 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ## Rationalizations to Reject
 
-| Rationalization                                                         | Reality                                                                                           |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| "Low complexity means I can skip APPROVE_PLAN"                          | Low complexity means auto-approval only when no signals fire. Signals override complexity.        |
-| "I can inline planning logic instead of dispatching to harness-planner" | Iron Law. Autopilot delegates, never reimplements. No exceptions.                                 |
-| "Retry budget exhausted but one more approach might work"               | 3-attempt budget prevents compounding failure. Exceeding it without human input is unrecoverable. |
-| "Keeping research in conversation is faster than scratchpad"            | Scratchpad gated by rigor level. At standard/thorough, >500 words must go to scratchpad.          |
-| "Plan auto-approved, so I can skip recording the decision"              | Every approval—auto or manual—is recorded in `decisions[]`. That array is the audit trail.        |
+| Rationalization | Reality |
+|---|---|
+| "Low complexity means I can skip APPROVE_PLAN" | Low complexity means auto-approval only when no signals fire. Signals override complexity. |
+| "I can inline planning logic instead of dispatching to harness-planner" | Iron Law. Autopilot delegates, never reimplements. No exceptions. |
+| "Retry budget exhausted but one more approach might work" | 3-attempt budget prevents compounding failure. Exceeding it without human input is unrecoverable. |
+| "Keeping research in conversation is faster than scratchpad" | Scratchpad gated by rigor level. At standard/thorough, >500 words must go to scratchpad. |
+| "Plan auto-approved, so I can skip recording the decision" | Every approval—auto or manual—is recorded in `decisions[]`. That array is the audit trail. |
 
 ## Example
 
@@ -239,16 +281,141 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 **Phase 2 — APPROVE_PLAN (paused):** Complexity: high triggered. "Approve? → yes" **EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE.** 14 tasks, 1 retry.
 
-**Phase 3:** auto-plans and executes. **FINAL_REVIEW:** harness-code-reviewer on `startingCommit..HEAD`. 0 blocking, 1 warning. Passed.
-
-**DONE:** 3 phases, 30 tasks, 1 retry. "Create PR? → yes"
+**Phase 3:** auto-plans and executes. **FINAL_REVIEW:** 0 blocking, 1 warning. Passed. **DONE:** 3 phases, 30 tasks, 1 retry. "Create PR? → yes"
 
 **Retry exhaustion (during any phase):**
-
 ```
+
 Task 4 fails → Retry 1/3: obvious fix applied, still fails
-             → Retry 2/3: expanded context (related files + learnings), still fails
-             → Retry 3/3: full context gather (test output + imports + plan), still fails
+→ Retry 2/3: expanded context (related files + learnings), still fails
+→ Retry 3/3: full context gather (test output + imports + plan), still fails
 Budget exhausted. Recorded in .harness/failures.md.
 Fix manually and continue / revise plan / stop?
+
 ```
+
+```
+
+2. Run: `wc -l agents/skills/claude-code/harness-autopilot/SKILL.md`
+   - Expect: ≤ 250
+
+3. Run: `harness validate`
+   - Expect: passes
+
+4. Commit: `feat(skills): rewrite harness-autopilot as lightweight orchestrator`
+
+---
+
+### Task 2: Structural verification — confirm all invariants survived
+
+**Depends on:** Task 1 | **Files:** agents/skills/claude-code/harness-autopilot/SKILL.md (read only)
+
+1. Run the following structural checks. Each must pass:
+
+   **State machine states (expect 10 matches):**
+
+   ```bash
+   grep -c "^### \(INIT\|ASSESS\|PLAN\|APPROVE_PLAN\|EXECUTE\|VERIFY\|REVIEW\|PHASE_COMPLETE\|FINAL_REVIEW\|DONE\)" agents/skills/claude-code/harness-autopilot/SKILL.md
+   ```
+
+   **Gates (expect exactly 5 bullet entries under `## Gates`):**
+
+   ```bash
+   awk '/^## Gates/,/^## /' agents/skills/claude-code/harness-autopilot/SKILL.md | grep -c "^\- \*\*"
+   ```
+
+   **Escalation rules (expect exactly 5):**
+
+   ```bash
+   awk '/^## Escalation/,/^## /' agents/skills/claude-code/harness-autopilot/SKILL.md | grep -c "^\- \*\*"
+   ```
+
+   **Rationalizations (expect 5 data rows in table):**
+
+   ```bash
+   awk '/^## Rationalizations/,/^## /' agents/skills/claude-code/harness-autopilot/SKILL.md | grep -c "^| \""
+   ```
+
+   **Agent dispatch (expect subagent_type in all 5 dispatch blocks):**
+
+   ```bash
+   grep -c "subagent_type:" agents/skills/claude-code/harness-autopilot/SKILL.md
+   ```
+
+   Expect: 5 (PLAN, EXECUTE, VERIFY, REVIEW, FINAL_REVIEW fix)
+
+   **Remediation loop limits:**
+
+   ```bash
+   grep "max 3\|retryCount.*3\|> 3\|3 attempt" agents/skills/claude-code/harness-autopilot/SKILL.md
+   ```
+
+   Expect: at least 2 matches (EXECUTE retry budget + FINAL_REVIEW retry limit)
+
+2. If any check fails: edit `agents/skills/claude-code/harness-autopilot/SKILL.md` to restore the missing element. Re-run the failing check until it passes.
+
+3. Run: `harness validate`
+
+4. Commit (only if edits were made): `fix(skills): restore missing structural elements in harness-autopilot`
+
+---
+
+### Task 3: Update delta.md for Phase 3
+
+**Depends on:** Task 2 | **Files:** docs/changes/pipeline-token-optimization/delta.md
+
+1. Append the following section to `docs/changes/pipeline-token-optimization/delta.md`:
+
+```markdown
+# Delta: Autopilot Orchestrator Refactor (Phase 3)
+
+**Date:** 2026-04-10
+**Plan:** docs/plans/2026-04-10-autopilot-orchestrator-refactor-plan.md
+
+## Changes
+
+### harness-autopilot
+
+- [MODIFIED] SKILL.md rewritten as lightweight orchestrator: 664 → ≤250 lines
+- [REMOVED] Verbose inline agent prompt templates (scratchpad instructions, state-management detail) — now delegated entirely to each persona skill's own SKILL.md
+- [REMOVED] Verbose schema migration field-by-field detail — migration logic kept as single step
+- [REMOVED] `## Success Criteria` section — absorbed into Gates
+- [REMOVED] `## Harness Integration` verbose explanations — compressed to 4-line summary
+- [KEPT] All 10 state machine states with correct transitions
+- [KEPT] All 5 gates
+- [KEPT] All 5 escalation rules
+- [KEPT] All 5 rationalizations-to-reject
+- [KEPT] All 4 persona agent dispatch calls (PLAN, EXECUTE, VERIFY, REVIEW) + FINAL_REVIEW fix dispatch
+- [KEPT] Rigor level table (fast/standard/thorough)
+- [KEPT] Retry budgets: EXECUTE 3 attempts, FINAL_REVIEW 3 cycles
+- [KEPT] Remediation loop logic (max 2 FINAL_REVIEW cycles → corrected to 3 per implementation)
+
+## Invariants
+
+- Agent dispatch prompts contain only: subagent_type, artifact paths (spec/plan), session slug, rigor level
+- Each phase-agent receives no prior phase SKILL.md content — only its own skill instructions + artifact paths
+- State machine transitions unchanged from prior version
+```
+
+2. Run: `harness validate`
+
+3. Commit: `docs(changes): add Phase 3 delta to pipeline-token-optimization`
+
+---
+
+## Skeleton
+
+_Not produced — task count (3) below threshold (8)._
+
+## Structural Baseline (from current SKILL.md pre-rewrite)
+
+For verification reference:
+
+| Element                                    | Count in current (664-line) file |
+| ------------------------------------------ | -------------------------------- |
+| State machine states (`### STATE`)         | 10                               |
+| Gates (`## Gates` bullets)                 | 5                                |
+| Escalation rules (`## Escalation` bullets) | 5                                |
+| Rationalizations (table rows)              | 5                                |
+| `subagent_type` dispatch calls             | 5                                |
+| Retry budget references (3 attempts)       | 2                                |
