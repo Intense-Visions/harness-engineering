@@ -21,6 +21,8 @@ related_skills:
   - microservices-cqrs-pattern
   - events-event-schema
   - microservices-outbox-pattern
+  - db-audit-trail
+  - db-temporal-data
 stack_signals:
   - microservices
   - nodejs

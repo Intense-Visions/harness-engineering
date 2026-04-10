@@ -19,6 +19,8 @@ paths:
 related_skills:
   - prisma-schema-design
   - prisma-seeding-pattern
+  - db-zero-downtime-migration
+  - db-expand-contract
 stack_signals:
   - prisma
   - typescript

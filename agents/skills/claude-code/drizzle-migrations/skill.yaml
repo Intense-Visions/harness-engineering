@@ -18,6 +18,8 @@ paths:
   - "**/migrations/**"
 related_skills:
   - drizzle-schema-definition
+  - db-zero-downtime-migration
+  - db-expand-contract
 stack_signals:
   - drizzle
   - typescript

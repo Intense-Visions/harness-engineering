@@ -19,6 +19,9 @@ paths:
 related_skills:
   - drizzle-query-builder
   - drizzle-performance-patterns
+  - db-acid-properties
+  - db-isolation-levels
+  - db-optimistic-locking
 stack_signals:
   - drizzle
   - typescript

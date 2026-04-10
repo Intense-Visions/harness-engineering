@@ -19,6 +19,9 @@ paths:
 related_skills:
   - prisma-client-queries
   - prisma-performance-patterns
+  - db-acid-properties
+  - db-isolation-levels
+  - db-optimistic-locking
 stack_signals:
   - prisma
   - typescript

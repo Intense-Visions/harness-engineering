@@ -21,6 +21,9 @@ related_skills:
   - prisma-migrations
   - prisma-type-generation
   - ts-utility-types
+  - db-first-normal-form
+  - db-third-normal-form
+  - db-polymorphic-associations
 stack_signals:
   - prisma
   - typescript

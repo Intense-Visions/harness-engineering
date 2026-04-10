@@ -24,6 +24,9 @@ related_skills:
   - perf-n-plus-one
   - perf-index-strategies
   - perf-connection-pooling
+  - db-btree-index
+  - db-composite-index
+  - db-explain-reading
 stack_signals:
   - drizzle
   - typescript

@@ -22,6 +22,9 @@ related_skills:
   - drizzle-migrations
   - drizzle-query-builder
   - ts-utility-types
+  - db-first-normal-form
+  - db-third-normal-form
+  - db-polymorphic-associations
 stack_signals:
   - drizzle
   - typescript

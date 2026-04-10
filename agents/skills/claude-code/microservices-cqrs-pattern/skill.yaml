@@ -20,6 +20,8 @@ paths:
 related_skills:
   - microservices-event-sourcing
   - microservices-decomposition
+  - db-eventual-consistency
+  - db-denormalization
 stack_signals:
   - microservices
   - nodejs
