@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-09
 last_synced: 2026-04-09T21:27:34.153Z
-last_manual_edit: 2026-04-10T15:03:42.807Z
+last_manual_edit: 2026-04-10T17:36:33.967Z
 ---
 
 # Roadmap
@@ -870,7 +870,7 @@ last_manual_edit: 2026-04-10T15:03:42.807Z
 
 ### MCP Response Compaction
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/mcp-response-compaction/proposal.md
 - **Summary:** Auto-compaction middleware on all harness MCP tool responses plus a dedicated compact tool with content/intent/ref modes, FusionLayer-backed aggregation, and graph-cached packed summaries.
 - **Blockers:** —
@@ -878,6 +878,17 @@ last_manual_edit: 2026-04-10T15:03:42.807Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#136
+
+### Prompt Caching with Content Stability Classification
+
+- **Status:** planned
+- **Spec:** docs/changes/prompt-caching-provider-adapters/proposal.md
+- **Summary:** Content stability classification (static/session/ephemeral) with provider-specific cache adapters for Anthropic, OpenAI, and Gemini. Phase 5 of MCP Response Compaction.
+- **Blockers:** MCP Response Compaction
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#137
 
 ## v3.0 Graph Intelligence
 
