@@ -17,7 +17,7 @@ related_skills:
   - api-resource-modeling
   - api-filtering-sorting
   - api-resource-granularity
-  - api-nested-vs-flat
+  - api-rest-maturity-model
 stack_signals:
   - rest
   - api
