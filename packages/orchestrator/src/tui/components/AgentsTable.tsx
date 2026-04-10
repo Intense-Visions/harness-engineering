@@ -28,6 +28,9 @@ export const AgentsTable: React.FC<AgentsTableProps> = ({ agents }) => {
         <Box width={20}>
           <Text bold>Identifier</Text>
         </Box>
+        <Box width={12}>
+          <Text bold>Backend</Text>
+        </Box>
         <Box width={20}>
           <Text bold>Phase</Text>
         </Box>
@@ -44,6 +47,9 @@ export const AgentsTable: React.FC<AgentsTableProps> = ({ agents }) => {
         <Box key={agent.issueId} flexDirection="row">
           <Box width={20}>
             <Text>{agent.identifier}</Text>
+          </Box>
+          <Box width={12}>
+            <Text color="blue">{agent.session?.backendName || '-'}</Text>
           </Box>
           <Box width={20}>
             <Text color="cyan">{agent.phase}</Text>
