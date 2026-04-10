@@ -37,6 +37,13 @@ export class OpenAIBackend implements AgentBackend {
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
+    if (!this.config.apiKey) {
+      return Err({
+        category: 'agent_not_found',
+        message: 'OPENAI_API_KEY is not set',
+      });
+    }
+
     const session: OpenAISession = {
       sessionId: `openai-session-${Date.now()}`,
       workspacePath: params.workspacePath,
