@@ -233,11 +233,10 @@ describe('GeminiBackend', () => {
 
     it('yields error event and returns failed TurnResult when SDK throws', async () => {
       const geminiModule = await import('@google/generative-ai');
-      const MockGenerativeModel = (
+      const mockGenerateContentStream = (
         geminiModule as unknown as Record<string, ReturnType<typeof vi.fn>>
-      )['__MockGenerativeModel'];
-      const mockInstance = MockGenerativeModel.mock.results.at(-1)?.value;
-      mockInstance?.generateContentStream.mockRejectedValueOnce(new Error('Network failure'));
+      )['__mockGenerateContentStream'];
+      mockGenerateContentStream.mockRejectedValueOnce(new Error('Network failure'));
 
       const sessionResult = await backend.startSession({
         workspacePath: '/tmp/workspace',
