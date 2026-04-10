@@ -40,7 +40,7 @@ function selectLines(lines: string[], charBudget: number): Array<{ line: string;
 
   for (const item of scored) {
     const lineLen = item.line.length + 1; // +1 for newline
-    if (used + lineLen > charBudget) break;
+    if (used + lineLen > charBudget) continue;
     kept.push({ line: item.line, idx: item.idx });
     used += lineLen;
   }
