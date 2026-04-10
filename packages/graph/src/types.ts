@@ -40,6 +40,8 @@ export const NODE_TYPES = [
   'design_constraint',
   // Traceability
   'requirement',
+  // Cache
+  'packed_summary',
 ] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
@@ -78,6 +80,8 @@ export const EDGE_TYPES = [
   'requires',
   'verified_by',
   'tested_by',
+  // Cache relationships
+  'caches',
 ] as const;
 
 export type EdgeType = (typeof EDGE_TYPES)[number];
