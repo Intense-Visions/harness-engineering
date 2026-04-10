@@ -132,6 +132,22 @@ describe('harness usage', () => {
       const output = JSON.parse(logOutput.join(''));
       expect(output).toEqual([]);
     });
+
+    it('includes cacheHitRate in daily JSON when cache data exists', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      // 2026-03-29 has cacheReadTokens=100, inputTokens=3000
+      const march29 = output.find((d: any) => d.date === '2026-03-29');
+      expect(march29).toBeDefined();
+      expect(march29.cacheHitRate).toBeCloseTo(0.033, 2);
+
+      // 2026-03-30 has no cache data
+      const march30 = output.find((d: any) => d.date === '2026-03-30');
+      expect(march30).toBeDefined();
+      expect(march30.cacheHitRate).toBeUndefined();
+    });
   });
 
   describe('sessions', () => {
