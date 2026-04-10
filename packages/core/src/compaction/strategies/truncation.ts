@@ -74,7 +74,7 @@ export class TruncationStrategy implements CompactionStrategy {
     const kept =
       available > 0
         ? selectLines(lines, available)
-        : [{ line: lines[0].slice(0, charBudget), idx: 0 }];
+        : [{ line: (lines[0] ?? '').slice(0, charBudget), idx: 0 }];
 
     return kept.map((k) => k.line).join('\n') + TRUNCATION_MARKER;
   }
