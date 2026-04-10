@@ -71,6 +71,37 @@ describe('MCP Server', () => {
     expect(uris).toContain('harness://relationships');
   });
 
+  it('resource descriptors include stability hints in _meta', () => {
+    const resources = getResourceDefinitions();
+    const byUri = Object.fromEntries(resources.map((r) => [r.uri, r]));
+
+    // skills index is static — changes only on deploy
+    expect(byUri['harness://skills']._meta?.stability).toBe('static');
+
+    // state is ephemeral — changes per invocation
+    expect(byUri['harness://state']._meta?.stability).toBe('ephemeral');
+
+    // session-scoped resources — stable within a session
+    const sessionResources = [
+      'harness://rules',
+      'harness://project',
+      'harness://learnings',
+      'harness://graph',
+      'harness://entities',
+      'harness://relationships',
+    ];
+    for (const uri of sessionResources) {
+      expect(byUri[uri]._meta?.stability).toBe('session');
+    }
+  });
+
+  it('all resource descriptors have a _meta.stability field', () => {
+    const resources = getResourceDefinitions();
+    for (const resource of resources) {
+      expect(resource._meta?.stability).toMatch(/^(static|session|ephemeral)$/);
+    }
+  });
+
   it('registers graph tools', () => {
     const names = getToolDefinitions().map((t) => t.name);
     expect(names).toContain('query_graph');
