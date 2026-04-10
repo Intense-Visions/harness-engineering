@@ -3,9 +3,10 @@ import { compactToolDefinition, handleCompact } from '../../../src/mcp/tools/com
 
 describe('compact tool', () => {
   describe('definition', () => {
-    it('has correct name and required fields', () => {
+    it('has correct name and schema', () => {
       expect(compactToolDefinition.name).toBe('compact');
-      expect(compactToolDefinition.inputSchema.required).toContain('path');
+      // path is optional — only required for intent mode (validated at runtime)
+      expect(compactToolDefinition.inputSchema.required).not.toContain('path');
     });
   });
 
@@ -74,6 +75,35 @@ describe('compact tool', () => {
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('must provide');
     });
+
+    it('returns error when both content and ref are provided without intent', async () => {
+      const result = await handleCompact({
+        path: '/tmp/test-project',
+        content: 'some content',
+        ref: { source: 'test', content: 'ref content' },
+      });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Cannot provide both 'content' and 'ref'");
+    });
+
+    it('warns when unknown strategies are provided', async () => {
+      const result = await handleCompact({
+        path: '/tmp/test-project',
+        content: JSON.stringify({ a: 'value' }),
+        strategies: ['structural', 'nonexistent' as any],
+      });
+      expect(result.isError).toBeUndefined();
+      const text = result.content[0].text;
+      expect(text).toContain('Warning: unknown strategies ignored: nonexistent');
+    });
+
+    it('works without path in content mode', async () => {
+      const result = await handleCompact({
+        content: JSON.stringify({ a: 1, b: null }),
+      });
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toMatch(/<!-- packed:/);
+    });
   });
 
   describe('ref mode', () => {
@@ -120,6 +150,14 @@ describe('compact tool', () => {
   });
 
   describe('intent mode', () => {
+    it('returns error when intent is provided without path', async () => {
+      const result = await handleCompact({
+        intent: 'understand the notification service',
+      });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("'path' is required when using intent mode");
+    });
+
     it('returns packed envelope with sections from graph search results', async () => {
       // Intent mode requires a graph — use a path that will fail to load graph
       // and return a graceful "no graph" error
@@ -148,6 +186,10 @@ describe('compact tool', () => {
   });
 
   describe('intent mode with mocked graph', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('returns packed envelope with sections when graph has results', async () => {
       vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
         loadGraphStore: vi.fn().mockResolvedValue({}),
@@ -259,19 +301,42 @@ describe('compact tool', () => {
   });
 
   describe('cache stub (Phase 4 placeholder)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('intent mode always sets cached: false in envelope meta', async () => {
-      // Even when graph is available, cached should be false until Phase 4
-      // Use the no-graph path to get a quick result
-      const result = await handleCompact({
-        path: '/tmp/no-graph-project',
+      vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
+        loadGraphStore: vi.fn().mockResolvedValue({}),
+      }));
+      vi.doMock('@harness-engineering/graph', () => ({
+        FusionLayer: class {
+          search() {
+            return [{ nodeId: 'src/test.ts', score: 0.8 }];
+          }
+        },
+        ContextQL: class {
+          execute() {
+            return { nodes: [{ id: 'src/test.ts', type: 'file', content: 'test' }], edges: [] };
+          }
+        },
+      }));
+
+      const { handleCompact: freshHandleCompact } = await import('../../../src/mcp/tools/compact');
+
+      const result = await freshHandleCompact({
+        path: '/tmp/test-project',
         intent: 'anything',
       });
 
-      // No graph = error path, but when graph is present (mocked above),
-      // the envelope meta should have cached: false.
-      // For this test, just verify the tool does not crash and
-      // the code path includes the TODO comment (verified by code review).
-      expect(result.content).toHaveLength(1);
+      expect(result.isError).toBeUndefined();
+      const text = result.content[0].text;
+      // Verify cached: false — packed header should NOT contain [cached] marker
+      expect(text).toMatch(/<!-- packed:/);
+      expect(text).not.toContain('[cached]');
+
+      vi.doUnmock('@harness-engineering/graph');
+      vi.doUnmock('../../../src/mcp/utils/graph-loader');
     });
   });
 });
