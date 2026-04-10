@@ -61,7 +61,7 @@ function selectLines(lines: string[], charBudget: number): Array<{ line: string;
  */
 export class TruncationStrategy implements CompactionStrategy {
   readonly name = 'truncate' as const;
-  readonly lossy = false;
+  readonly lossy = false; // deliberate: spec Decision 2 — truncation is classified lossless at the pipeline level
 
   apply(content: string, budget: number = DEFAULT_TOKEN_BUDGET): string {
     if (!content) return content;
