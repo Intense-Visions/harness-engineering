@@ -1,0 +1,34 @@
+name: ux-internationalization-writing
+version: "1.0.0"
+description: Writing for internationalization — source strings that survive translation, concatenation traps, pluralization, date and number references
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-inclusive-language
+  - ux-plain-language
+  - ux-microcopy-principles
+  - design-i18n-design
+stack_signals: []
+keywords:
+  - internationalization
+  - i18n
+  - translation
+  - localization
+  - pluralization
+  - concatenation
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
