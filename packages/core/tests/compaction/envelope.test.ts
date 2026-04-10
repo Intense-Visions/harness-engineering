@@ -96,4 +96,39 @@ describe('serializeEnvelope', () => {
     expect(result).toContain('<!-- packed: none |');
     expect(result).not.toMatch(/packed:\s{2,}/);
   });
+
+  it('includes cache metrics in header when cached with token data', () => {
+    const envelope = makeEnvelope({
+      meta: {
+        ...makeEnvelope().meta,
+        cached: true,
+        cacheReadTokens: 1200,
+        cacheInputTokens: 2000,
+      },
+    });
+    const result = serializeEnvelope(envelope);
+    expect(result).toContain('[cached | cache: 1.2K read, 60% hit]');
+  });
+
+  it('falls back to [cached] when cache tokens are missing', () => {
+    const envelope = makeEnvelope({
+      meta: { ...makeEnvelope().meta, cached: true },
+    });
+    const result = serializeEnvelope(envelope);
+    expect(result).toContain('[cached]');
+    expect(result).not.toContain('cache:');
+  });
+
+  it('formats small cache read tokens without K suffix', () => {
+    const envelope = makeEnvelope({
+      meta: {
+        ...makeEnvelope().meta,
+        cached: true,
+        cacheReadTokens: 500,
+        cacheInputTokens: 1000,
+      },
+    });
+    const result = serializeEnvelope(envelope);
+    expect(result).toContain('[cached | cache: 500 read, 50% hit]');
+  });
 });

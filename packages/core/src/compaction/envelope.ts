@@ -24,6 +24,10 @@ export interface PackedEnvelope {
     reductionPct: number;
     /** Whether this result was served from cache. */
     cached: boolean;
+    /** Prompt cache read tokens (from provider response), if available. */
+    cacheReadTokens?: number;
+    /** Total input tokens sent to provider, if available. */
+    cacheInputTokens?: number;
   };
   sections: Array<{
     /** Tool name, file path, or section label — used as the section heading. */
@@ -51,8 +55,24 @@ export function serializeEnvelope(envelope: PackedEnvelope): string {
   const { meta, sections } = envelope;
 
   const strategyLabel = meta.strategy.length > 0 ? meta.strategy.join('+') : 'none';
-  const cachedLabel = meta.cached ? ' [cached]' : '';
-  const header = `<!-- packed: ${strategyLabel} | ${meta.originalTokenEstimate}→${meta.compactedTokenEstimate} tokens (-${meta.reductionPct}%)${cachedLabel} -->`;
+  let cacheLabel = '';
+  if (meta.cached) {
+    if (
+      meta.cacheReadTokens != null &&
+      meta.cacheInputTokens != null &&
+      meta.cacheInputTokens > 0
+    ) {
+      const hitPct = Math.round((meta.cacheReadTokens / meta.cacheInputTokens) * 100);
+      const readFormatted =
+        meta.cacheReadTokens >= 1000
+          ? (meta.cacheReadTokens / 1000).toFixed(1) + 'K'
+          : String(meta.cacheReadTokens);
+      cacheLabel = ` [cached | cache: ${readFormatted} read, ${hitPct}% hit]`;
+    } else {
+      cacheLabel = ' [cached]';
+    }
+  }
+  const header = `<!-- packed: ${strategyLabel} | ${meta.originalTokenEstimate}→${meta.compactedTokenEstimate} tokens (-${meta.reductionPct}%)${cacheLabel} -->`;
 
   if (sections.length === 0) {
     return header;
