@@ -1,0 +1,33 @@
+name: ux-writing-for-scanning
+version: "1.0.0"
+description: Writing for scanning — F-pattern, front-loading keywords, chunking, bullet vs prose decisions for UI text
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-content-hierarchy
+  - ux-plain-language
+  - ux-microcopy-principles
+  - design-readability
+stack_signals: []
+keywords:
+  - scanning
+  - f-pattern
+  - front-loading
+  - chunking
+  - scanability
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
