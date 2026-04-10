@@ -21,6 +21,8 @@ related_skills:
   - owasp-auth-patterns
   - owasp-security-headers
   - nestjs-guards-pattern
+  - security-session-management
+  - security-threat-modeling-stride
 stack_signals:
   - nodejs
   - typescript

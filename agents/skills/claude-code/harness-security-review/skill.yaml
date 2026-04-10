@@ -81,3 +81,8 @@ related_skills:
   - owasp-injection-prevention
   - owasp-xss-prevention
   - owasp-security-headers
+  - security-threat-modeling-stride
+  - security-threat-modeling-process
+  - security-zero-trust-principles
+  - security-audit-log-design
+  - security-injection-families

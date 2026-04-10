@@ -21,6 +21,11 @@ related_skills:
   - nestjs-guards-pattern
   - owasp-secrets-management
   - owasp-cryptography
+  - security-credential-storage
+  - security-session-management
+  - security-mfa-design
+  - security-authentication-flows
+  - security-rbac-design
 stack_signals:
   - nodejs
   - typescript

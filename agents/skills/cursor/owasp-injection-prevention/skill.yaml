@@ -23,6 +23,9 @@ related_skills:
   - nestjs-guards-pattern
   - node-crypto-patterns
   - ts-type-guards
+  - security-injection-families
+  - security-deserialization-attacks
+  - security-memory-safety
 stack_signals:
   - nodejs
   - typescript

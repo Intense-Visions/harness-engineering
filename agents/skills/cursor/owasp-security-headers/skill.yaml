@@ -19,6 +19,9 @@ paths:
 related_skills:
   - owasp-xss-prevention
   - owasp-csrf-protection
+  - security-hsts-preloading
+  - security-tls-fundamentals
+  - security-zero-trust-principles
 stack_signals:
   - nodejs
   - typescript

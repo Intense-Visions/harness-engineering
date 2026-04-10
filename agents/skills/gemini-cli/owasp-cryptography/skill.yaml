@@ -20,6 +20,11 @@ paths:
 related_skills:
   - owasp-secrets-management
   - owasp-auth-patterns
+  - security-symmetric-encryption
+  - security-asymmetric-encryption
+  - security-hashing-fundamentals
+  - security-hmac-signatures
+  - security-cryptographic-randomness
 stack_signals:
   - nodejs
   - typescript

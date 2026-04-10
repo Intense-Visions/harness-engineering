@@ -19,6 +19,8 @@ paths:
 related_skills:
   - owasp-auth-patterns
   - owasp-logging-monitoring
+  - security-zero-trust-principles
+  - security-threat-modeling-stride
 stack_signals:
   - nodejs
   - typescript

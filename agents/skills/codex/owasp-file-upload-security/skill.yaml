@@ -20,6 +20,8 @@ paths:
 related_skills:
   - owasp-injection-prevention
   - owasp-security-headers
+  - security-injection-families
+  - security-threat-modeling-stride
 stack_signals:
   - nodejs
   - typescript

@@ -20,6 +20,9 @@ paths:
 related_skills:
   - owasp-secrets-management
   - owasp-logging-monitoring
+  - security-dependency-auditing
+  - security-sbom-provenance
+  - security-code-signing
 stack_signals:
   - nodejs
   - typescript
