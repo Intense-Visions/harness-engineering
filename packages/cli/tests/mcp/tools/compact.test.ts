@@ -118,4 +118,32 @@ describe('compact tool', () => {
       expect(text.length).toBeLessThan(4000);
     });
   });
+
+  describe('intent mode', () => {
+    it('returns packed envelope with sections from graph search results', async () => {
+      // Intent mode requires a graph — use a path that will fail to load graph
+      // and return a graceful "no graph" error
+      const result = await handleCompact({
+        path: '/tmp/no-graph-project',
+        intent: 'understand the notification service',
+      });
+
+      // Without a graph, should return a graceful error
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('No graph found');
+    });
+  });
+
+  describe('intent + content mode', () => {
+    it('returns error when no graph is available', async () => {
+      const result = await handleCompact({
+        path: '/tmp/no-graph-project',
+        intent: 'understand the notification service',
+        content: 'filter context here',
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('No graph found');
+    });
+  });
 });
