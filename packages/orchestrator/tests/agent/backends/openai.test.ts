@@ -25,13 +25,17 @@ vi.mock('openai', () => {
 
   const mockChatCreate = vi.fn().mockResolvedValue(mockStream);
 
-  return {
-    default: vi.fn().mockImplementation(() => ({
+  const MockOpenAI = vi.fn().mockImplementation(function () {
+    return {
       models: { list: mockModelsList },
       chat: {
         completions: { create: mockChatCreate },
       },
-    })),
+    };
+  });
+
+  return {
+    default: MockOpenAI,
     __mockChatCreate: mockChatCreate,
     __mockModelsList: mockModelsList,
   };
