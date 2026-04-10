@@ -75,4 +75,47 @@ describe('compact tool', () => {
       expect(result.content[0].text).toContain('must provide');
     });
   });
+
+  describe('ref mode', () => {
+    it('compacts ref.content and preserves ref.source in envelope header', async () => {
+      const result = await handleCompact({
+        path: '/tmp/test-project',
+        ref: {
+          source: 'gather_context',
+          content: JSON.stringify({
+            results: Array.from({ length: 20 }, (_, i) => ({
+              id: `node-${i}`,
+              path: `/src/mod-${i}.ts`,
+              empty: null,
+              nested: { blank: '' },
+            })),
+          }),
+        },
+      });
+
+      expect(result.isError).toBeUndefined();
+      const text = result.content[0].text;
+      expect(text).toMatch(/<!-- packed:/);
+      // Source attribution preserved
+      expect(text).toContain('### [gather_context]');
+      // Real data preserved
+      expect(text).toContain('node-0');
+    });
+
+    it('respects custom tokenBudget for ref mode', async () => {
+      const result = await handleCompact({
+        path: '/tmp/test-project',
+        ref: {
+          source: 'find_context_for',
+          content: 'A'.repeat(20000),
+        },
+        tokenBudget: 500,
+      });
+
+      const text = result.content[0].text;
+      expect(text).toMatch(/<!-- packed:/);
+      // Should be within budget
+      expect(text.length).toBeLessThan(4000);
+    });
+  });
 });
