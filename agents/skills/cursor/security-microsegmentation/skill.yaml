@@ -1,0 +1,39 @@
+name: security-microsegmentation
+version: '1.0.0'
+description: Network and application-level segmentation -- isolating workloads so that compromising one service does not grant lateral movement to others
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-zero-trust-principles
+  - security-identity-verification
+  - security-trust-boundaries
+  - security-mtls-design
+  - owasp-security-headers
+stack_signals: []
+keywords:
+  - microsegmentation
+  - network segmentation
+  - lateral movement
+  - zero trust networking
+  - service mesh
+  - network policy
+  - Kubernetes NetworkPolicy
+  - firewall rules
+  - east-west traffic
+  - blast radius
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

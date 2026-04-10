@@ -1,0 +1,36 @@
+name: security-environment-variable-risks
+version: '1.0.0'
+description: Why environment variables leak secrets and safer alternatives -- process listings, crash dumps, child processes, logging, and the 12-factor app's blind spot
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-secrets-lifecycle
+  - security-vault-patterns
+  - owasp-secrets-management
+stack_signals: []
+keywords:
+  - environment variables
+  - env vars
+  - secrets leakage
+  - 12-factor app
+  - process environment
+  - /proc/environ
+  - dotenv
+  - secrets in config
+  - secret injection
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

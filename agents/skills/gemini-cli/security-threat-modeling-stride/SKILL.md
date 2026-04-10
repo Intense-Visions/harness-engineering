@@ -10,6 +10,7 @@
 - Adding a new data flow, API, or integration point to an existing system
 - Training team members to think adversarially about system design
 - Building a threat register for risk prioritization
+- Evaluating whether a third-party component introduces new trust boundaries or attack surface
 
 ## Threat Context
 
@@ -145,3 +146,5 @@ A high-quality STRIDE analysis has these characteristics:
 4. **Confusing STRIDE categories with vulnerabilities.** "SQL injection" is not a STRIDE category -- it is a specific vulnerability class that maps to Tampering (the attacker modifies the intended query) and Information Disclosure (the attacker extracts data the query was not designed to return). STRIDE categories describe the attacker's strategic goals; vulnerabilities are the tactical mechanisms used to achieve those goals. Mixing the levels of abstraction produces threat models that duplicate vulnerability scan output rather than informing architecture.
 
 5. **Skipping the prioritization step.** Treating all identified threats as equally urgent produces analysis paralysis and diffuses engineering effort. A threat model with 80 equally-weighted items leads to either complete inaction or arbitrary cherry-picking. Use risk scoring (likelihood x impact) to create a ranked backlog. Address the top 10 threats in the current release; schedule the next 20 for the following release; accept or monitor the remainder.
+
+6. **Using STRIDE as a one-person exercise.** Threat modeling done by a single security engineer in isolation misses the domain knowledge that developers and architects bring. The team that builds the system understands its nuances -- the undocumented caching layer, the legacy endpoint that bypasses the API gateway, the batch job that runs with elevated privileges. Run STRIDE as a collaborative workshop, not a solo audit.

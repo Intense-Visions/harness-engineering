@@ -1,0 +1,38 @@
+name: security-log-correlation
+version: '1.0.0'
+description: SIEM architecture, correlation rules, alert fatigue management, and turning raw logs into actionable security intelligence
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-audit-log-design
+  - security-compliance-logging
+  - security-incident-containment
+  - owasp-logging-monitoring
+stack_signals: []
+keywords:
+  - SIEM
+  - log correlation
+  - security monitoring
+  - alert fatigue
+  - correlation rules
+  - detection engineering
+  - Sigma rules
+  - threat detection
+  - security operations
+  - SOC
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

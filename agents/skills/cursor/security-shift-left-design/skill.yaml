@@ -1,0 +1,37 @@
+name: security-shift-left-design
+version: '1.0.0'
+description: Integrating threat modeling and security analysis into the design phase -- finding security flaws when they cost $1 to fix instead of $100 in production
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-threat-modeling-process
+  - security-threat-modeling-stride
+  - security-ci-security-testing
+  - security-security-champions
+  - owasp-auth-patterns
+stack_signals: []
+keywords:
+  - shift left
+  - security by design
+  - secure design review
+  - security requirements
+  - threat modeling in design
+  - NIST cost of defects
+  - security architecture review
+  - design phase security
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

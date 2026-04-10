@@ -1,0 +1,38 @@
+name: security-rebac-design
+version: '1.0.0'
+description: Relationship-based access control using the Zanzibar model -- modeling authorization as a graph of relationships between subjects and resources
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-rbac-design
+  - security-abac-design
+  - security-capability-based-security
+  - owasp-idor-prevention
+  - owasp-auth-patterns
+stack_signals: []
+keywords:
+  - ReBAC
+  - relationship-based access control
+  - Zanzibar
+  - SpiceDB
+  - OpenFGA
+  - authorization graph
+  - permission model
+  - Google Zanzibar
+  - tuple-based authorization
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

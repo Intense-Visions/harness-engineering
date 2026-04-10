@@ -1,0 +1,38 @@
+name: security-mtls-design
+version: '1.0.0'
+description: Mutual TLS for service-to-service authentication -- both sides present certificates, eliminating the need for shared secrets or API keys between services
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-tls-fundamentals
+  - security-certificate-management
+  - security-microsegmentation
+  - security-zero-trust-principles
+  - owasp-cryptography
+stack_signals: []
+keywords:
+  - mTLS
+  - mutual TLS
+  - client certificate
+  - service mesh
+  - SPIFFE
+  - service identity
+  - certificate authentication
+  - two-way TLS
+  - zero trust networking
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

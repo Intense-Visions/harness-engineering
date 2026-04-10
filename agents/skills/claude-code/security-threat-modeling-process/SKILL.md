@@ -9,6 +9,7 @@
 - Running a threat modeling workshop with a development team
 - Reviewing whether an existing threat model is complete and current
 - Preparing documentation for a SOC2, ISO 27001, or FedRAMP audit that requires evidence of threat analysis
+- Onboarding a new team member who needs to understand the system's security posture quickly
 
 ## Threat Context
 
@@ -145,3 +146,5 @@ Track these metrics to assess whether threat modeling is producing value:
 4. **No risk rating.** Listing 200 threats without prioritization leads to analysis paralysis. The development team stares at a wall of threats and does not know where to start. Not all threats are equal -- a low-likelihood, low-impact information disclosure on a public status page is not comparable to a high-likelihood, high-impact elevation of privilege on the admin API. Rate them, rank them, and address the top 10 first.
 
 5. **Confusing threat modeling with penetration testing.** Threat modeling is a design-time analytical activity that identifies what could go wrong based on the system's architecture. Penetration testing is a validation-time empirical activity that confirms whether specific vulnerabilities exist in the running system. Threat modeling without penetration testing is unverified theory. Penetration testing without threat modeling is undirected probing. They are complementary -- threat modeling tells you where to look; penetration testing tells you what you actually find.
+
+6. **Treating threat modeling as a document, not a process.** Teams that produce a polished PDF threat model and file it away have completed a documentation exercise, not a security activity. The value of threat modeling is in the ongoing conversation it creates -- the team's shared understanding of where the system is vulnerable and what trade-offs were made. Update the model when the architecture changes, review it during sprint planning, and reference it when making design decisions.

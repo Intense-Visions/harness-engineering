@@ -1,0 +1,41 @@
+name: security-certificate-management
+version: '1.0.0'
+description: CA hierarchy, certificate pinning, Certificate Transparency, ACME/Let's Encrypt, and the lifecycle of X.509 certificates from issuance to revocation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-tls-fundamentals
+  - security-hsts-preloading
+  - security-mtls-design
+  - security-asymmetric-encryption
+  - owasp-cryptography
+stack_signals: []
+keywords:
+  - certificate
+  - CA
+  - certificate authority
+  - X.509
+  - certificate transparency
+  - CT logs
+  - ACME
+  - Let's Encrypt
+  - certificate pinning
+  - certificate revocation
+  - CRL
+  - OCSP
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

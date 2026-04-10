@@ -1,0 +1,40 @@
+name: security-mfa-design
+version: '1.0.0'
+description: Multi-factor authentication design -- TOTP, WebAuthn/passkeys, SMS risks, recovery flows, and step-up authentication for sensitive operations
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-credential-storage
+  - security-session-management
+  - security-authentication-flows
+  - security-cryptographic-randomness
+  - owasp-auth-patterns
+stack_signals: []
+keywords:
+  - MFA
+  - multi-factor authentication
+  - TOTP
+  - WebAuthn
+  - passkeys
+  - FIDO2
+  - two-factor
+  - 2FA
+  - recovery codes
+  - step-up authentication
+  - SMS verification
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

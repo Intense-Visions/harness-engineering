@@ -1,0 +1,37 @@
+name: security-hsts-preloading
+version: '1.0.0'
+description: HTTP Strict Transport Security and preload lists -- eliminating the first-request HTTP downgrade window and ensuring browsers never connect over plaintext
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-tls-fundamentals
+  - security-certificate-management
+  - security-mtls-design
+  - owasp-security-headers
+stack_signals: []
+keywords:
+  - HSTS
+  - HTTP Strict Transport Security
+  - preload
+  - SSL stripping
+  - HTTPS redirect
+  - max-age
+  - includeSubDomains
+  - transport security
+  - downgrade attack
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

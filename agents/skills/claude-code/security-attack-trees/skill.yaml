@@ -1,0 +1,36 @@
+name: security-attack-trees
+version: '1.0.0'
+description: Attack tree construction and analysis -- modeling multi-step adversary strategies as goal-oriented tree decompositions for prioritizing defenses
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-threat-modeling-stride
+  - security-threat-modeling-process
+  - security-trust-boundaries
+  - owasp-auth-patterns
+stack_signals: []
+keywords:
+  - attack tree
+  - threat analysis
+  - attack path
+  - adversary modeling
+  - risk prioritization
+  - kill chain
+  - attack graph
+  - defense in depth
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

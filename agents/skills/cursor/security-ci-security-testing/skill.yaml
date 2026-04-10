@@ -1,0 +1,42 @@
+name: security-ci-security-testing
+version: '1.0.0'
+description: SAST, DAST, SCA, and secrets scanning in CI/CD pipelines -- automated security testing that runs on every commit
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-shift-left-design
+  - security-dependency-auditing
+  - security-penetration-testing
+  - security-secrets-lifecycle
+  - owasp-injection-prevention
+  - owasp-dependency-security
+stack_signals: []
+keywords:
+  - SAST
+  - DAST
+  - SCA
+  - secrets scanning
+  - CI security
+  - pipeline security
+  - static analysis
+  - dynamic analysis
+  - CodeQL
+  - Semgrep
+  - Trivy
+  - gitleaks
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

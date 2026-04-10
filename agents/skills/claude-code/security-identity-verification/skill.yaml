@@ -1,0 +1,38 @@
+name: security-identity-verification
+version: '1.0.0'
+description: Continuous authentication and device trust -- verifying identity beyond the initial login using behavioral signals, device posture, and risk-adaptive challenges
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-zero-trust-principles
+  - security-microsegmentation
+  - security-mfa-design
+  - security-session-management
+  - owasp-auth-patterns
+stack_signals: []
+keywords:
+  - continuous authentication
+  - device trust
+  - device posture
+  - risk-based authentication
+  - adaptive authentication
+  - BeyondCorp
+  - zero trust identity
+  - device attestation
+  - session risk scoring
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

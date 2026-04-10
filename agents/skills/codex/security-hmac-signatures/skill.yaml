@@ -1,0 +1,38 @@
+name: security-hmac-signatures
+version: '1.0.0'
+description: HMAC for message authentication and digital signatures for non-repudiation -- when to use which, how they fail, and implementation pitfalls
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-hashing-fundamentals
+  - security-symmetric-encryption
+  - security-asymmetric-encryption
+  - security-cryptographic-randomness
+  - owasp-cryptography
+stack_signals: []
+keywords:
+  - HMAC
+  - digital signature
+  - message authentication code
+  - MAC
+  - RSA signature
+  - ECDSA
+  - Ed25519
+  - webhook verification
+  - JWT signing
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

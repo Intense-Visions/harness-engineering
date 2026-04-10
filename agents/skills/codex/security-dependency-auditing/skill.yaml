@@ -1,0 +1,38 @@
+name: security-dependency-auditing
+version: '1.0.0'
+description: Vulnerability scanning, lockfile integrity, update strategies, and managing the security risk of third-party dependencies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-sbom-provenance
+  - security-code-signing
+  - security-shift-left-design
+  - owasp-dependency-security
+stack_signals: []
+keywords:
+  - dependency audit
+  - vulnerability scanning
+  - SCA
+  - npm audit
+  - Snyk
+  - Dependabot
+  - lockfile
+  - CVE
+  - supply chain
+  - transitive dependency
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,39 @@
+name: security-penetration-testing
+version: '1.0.0'
+description: Penetration test scoping, methodology, rules of engagement, and remediation workflows -- maximizing the value of offensive security assessments
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-ci-security-testing
+  - security-shift-left-design
+  - security-threat-modeling-process
+  - security-vulnerability-disclosure
+  - owasp-injection-prevention
+stack_signals: []
+keywords:
+  - penetration testing
+  - pen test
+  - red team
+  - vulnerability assessment
+  - rules of engagement
+  - remediation
+  - OWASP testing guide
+  - PTES
+  - bug bounty
+  - ethical hacking
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

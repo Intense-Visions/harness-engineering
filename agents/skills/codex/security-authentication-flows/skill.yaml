@@ -1,0 +1,40 @@
+name: security-authentication-flows
+version: '1.0.0'
+description: Secure design of login, registration, password reset, magic link, and SSO authentication flows -- preventing account enumeration, credential theft, and session fixation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-credential-storage
+  - security-session-management
+  - security-mfa-design
+  - security-cryptographic-randomness
+  - owasp-auth-patterns
+  - owasp-csrf-protection
+stack_signals: []
+keywords:
+  - login
+  - registration
+  - password reset
+  - magic link
+  - SSO
+  - OAuth
+  - OIDC
+  - account enumeration
+  - brute force
+  - credential stuffing
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,37 @@
+name: security-deserialization-attacks
+version: '1.0.0'
+description: Insecure deserialization vulnerabilities -- gadget chains, object injection, and why accepting serialized objects from untrusted sources is inherently dangerous
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-injection-families
+  - security-memory-safety
+  - owasp-injection-prevention
+stack_signals: []
+keywords:
+  - deserialization
+  - insecure deserialization
+  - gadget chain
+  - object injection
+  - Java serialization
+  - pickle
+  - PHP unserialize
+  - YAML deserialization
+  - remote code execution
+  - RCE
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
