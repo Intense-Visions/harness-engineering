@@ -17,6 +17,7 @@ export {
   EDGE_TYPES,
   OBSERVABILITY_TYPES,
   CURRENT_SCHEMA_VERSION,
+  NODE_STABILITY,
   GraphNodeSchema,
   GraphEdgeSchema,
 } from './types.js';
