@@ -22,59 +22,63 @@ import {
 type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
 type ToolHandler = (input: Record<string, unknown>) => Promise<ToolResult>;
 
-/** Shared default pipeline — structural then truncation, both lossless. */
+/** Default pipeline — structural then truncation. */
 const DEFAULT_PIPELINE = new CompactionPipeline([
   new StructuralStrategy(),
   new TruncationStrategy(),
 ]);
 
-/**
- * Build the `<!-- packed: ... -->` header line.
- */
-function buildHeader(originalTokens: number, compactedTokens: number): string {
-  const reductionPct =
-    originalTokens > 0 ? Math.round((1 - compactedTokens / originalTokens) * 100) : 0;
-  return `<!-- packed: structural+truncate | ${originalTokens}→${compactedTokens} tokens (-${reductionPct}%) -->`;
+/** Build the `<!-- packed: ... -->` header line. */
+function buildHeader(orig: number, comp: number): string {
+  const pct = orig > 0 ? Math.round((1 - comp / orig) * 100) : 0;
+  return `<!-- packed: ${DEFAULT_PIPELINE.strategyNames.join('+')} | ${orig}→${comp} tokens (-${pct}%) -->`;
 }
 
-/**
- * Compact a single text content item.
- * Returns the compacted text with a packed header prepended.
- */
+/** Compact text via pipeline (no header). */
 function compactText(text: string): string {
-  const originalTokens = estimateTokens(text);
-  const compacted = DEFAULT_PIPELINE.apply(text, DEFAULT_TOKEN_BUDGET);
-  const compactedTokens = estimateTokens(compacted);
-  const header = buildHeader(originalTokens, compactedTokens);
-  return `${header}\n${compacted}`;
+  return DEFAULT_PIPELINE.apply(text, DEFAULT_TOKEN_BUDGET);
 }
 
-/**
- * Wrap a single MCP tool handler with compaction middleware.
- *
- * The returned handler:
- * 1. If `input.compact === false`, bypasses middleware and returns raw output.
- * 2. Calls the original handler.
- * 3. For each content item with type === 'text', applies the default pipeline.
- * 4. Prepends the `<!-- packed: ... -->` header to the first text item.
- * 5. Fail-open: if the handler throws, the error propagates unchanged.
- */
+/** Compact all text items; prepend header to first only (header accounts for own tokens). */
+function compactResult(result: ToolResult): ToolResult {
+  const texts = result.content.filter((i) => i.type === 'text');
+  const origTok = texts.reduce((s, i) => s + estimateTokens(i.text), 0);
+  const packed = new Map<object, string>();
+  for (const item of texts) packed.set(item, compactText(item.text));
+
+  const compTok = [...packed.values()].reduce((s, t) => s + estimateTokens(t), 0);
+  const hdrTok = estimateTokens(buildHeader(origTok, compTok));
+  const header = buildHeader(origTok, compTok + hdrTok);
+
+  let first = true;
+  const content = result.content.map((item) => {
+    if (item.type !== 'text') return item;
+    const c = packed.get(item)!;
+    if (first) {
+      first = false;
+      return { ...item, text: `${header}\n${c}` };
+    }
+    return { ...item, text: c };
+  });
+  return { ...result, content };
+}
+
+/** Wrap a tool handler with compaction. Fail-open; compact:false bypasses. */
 export function wrapWithCompaction(_toolName: string, handler: ToolHandler): ToolHandler {
   return async (input: Record<string, unknown>): Promise<ToolResult> => {
-    // Escape hatch: caller explicitly opts out
-    if (input.compact === false) {
+    // Escape hatch: caller explicitly opts out (accept boolean or string)
+    if (input.compact === false || input.compact === 'false') {
       return handler(input);
     }
 
     const result = await handler(input);
 
-    // Apply compaction to each text content item
-    const compactedContent = result.content.map((item) => {
-      if (item.type !== 'text') return item;
-      return { ...item, text: compactText(item.text) };
-    });
-
-    return { ...result, content: compactedContent };
+    try {
+      return compactResult(result);
+    } catch {
+      // Fail-open: compaction error returns the original handler result unchanged
+      return result;
+    }
   };
 }
 

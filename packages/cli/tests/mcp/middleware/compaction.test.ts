@@ -131,16 +131,74 @@ describe('wrapWithCompaction', () => {
     });
   });
 
-  describe('CT07: fail-open — middleware error returns raw result', () => {
-    it('returns raw handler output when middleware throws internally', async () => {
-      // Handler that returns a result the middleware can process normally,
-      // but we verify fail-open by testing with a handler that throws
+  describe('CT07: fail-open — handler error propagates unchanged', () => {
+    it('propagates handler throw as-is (not swallowed by middleware)', async () => {
       const throwingHandler = async (): Promise<ToolResult> => {
         throw new Error('handler exploded');
       };
       const wrapped = wrapWithCompaction('throw_tool', throwingHandler);
-      // The middleware should catch and re-throw (fail-open means original handler error propagates)
       await expect(wrapped({})).rejects.toThrow('handler exploded');
+    });
+  });
+
+  describe('CT-failopen: fail-open — middleware compaction error returns raw result', () => {
+    it('returns raw handler output when compaction step throws', async () => {
+      // Handler that returns content items where .text getter throws,
+      // causing the compaction step to fail while handler itself is healthy
+      const poisonedHandler = async (): Promise<ToolResult> => ({
+        content: [
+          {
+            get type(): string {
+              return 'text';
+            },
+            get text(): string {
+              throw new Error('compaction boom');
+            },
+          },
+        ],
+      });
+      const wrappedPoison = wrapWithCompaction('poison_tool', poisonedHandler);
+      const result = await wrappedPoison({});
+      // Fail-open: should return the raw result (with poisoned content), not throw
+      expect(result.content).toHaveLength(1);
+      expect(result.isError).toBeUndefined();
+    });
+  });
+
+  describe('CT09: multi-item text response gets exactly one header', () => {
+    it('prepends header to first text item only', async () => {
+      const multiHandler = async (): Promise<ToolResult> => ({
+        content: [
+          { type: 'text', text: JSON.stringify({ a: 1, b: null }) },
+          { type: 'text', text: JSON.stringify({ c: 2, d: null }) },
+          { type: 'text', text: JSON.stringify({ e: 3 }) },
+        ],
+      });
+      const wrapped = wrapWithCompaction('multi_tool', multiHandler);
+      const result = await wrapped({});
+
+      // Count headers across all items
+      const headerCount = result.content.filter(
+        (item) => item.type === 'text' && item.text.includes('<!-- packed:')
+      ).length;
+      expect(headerCount).toBe(1);
+
+      // First item has the header
+      expect(result.content[0].text).toMatch(/^<!-- packed:/);
+      // Subsequent items do NOT have the header
+      expect(result.content[1].text).not.toContain('<!-- packed:');
+      expect(result.content[2].text).not.toContain('<!-- packed:');
+    });
+  });
+
+  describe('CT10: compact: "false" (string) bypasses middleware', () => {
+    it('returns byte-identical output when compact is string "false"', async () => {
+      const rawResult = await verboseHandler();
+      const wrapped = wrapWithCompaction('string_bypass_tool', verboseHandler);
+      const bypassResult = await wrapped({ compact: 'false' });
+
+      expect(bypassResult.content[0].text).toBe(rawResult.content[0].text);
+      expect(bypassResult.content[0].text).not.toContain('<!-- packed:');
     });
   });
 });
