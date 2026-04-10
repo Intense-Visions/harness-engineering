@@ -84,6 +84,9 @@ export type {
   SessionSections,
 } from './session-state';
 
+// --- Caching / Stability Classification ---
+export type { StabilityTier, StabilityMetadata } from './caching';
+
 // --- Orchestrator ---
 export type {
   TokenUsage,
