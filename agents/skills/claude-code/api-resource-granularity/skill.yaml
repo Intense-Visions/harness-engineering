@@ -1,0 +1,40 @@
+name: api-resource-granularity
+version: '1.0.0'
+description: Fine-grained vs coarse-grained resource design -- aggregation patterns and over-fetching tradeoffs
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-resource-modeling
+  - api-field-selection
+  - api-nested-vs-flat
+  - api-pagination-cursor
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - resource-granularity
+  - coarse-grained
+  - fine-grained
+  - aggregation
+  - over-fetching
+  - under-fetching
+  - composite-resource
+metadata:
+  author: community
+  upstream: restfulapi.net/resource-naming
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,40 @@
+name: api-hateoas
+version: '1.0.0'
+description: Hypermedia as the engine of application state -- practical HAL and JSON:API link design with adoption criteria
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-rest-maturity-model
+  - api-pagination-cursor
+  - api-resource-modeling
+  - api-http-methods
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - HATEOAS
+  - hypermedia
+  - HAL
+  - JSON:API
+  - links
+  - self-describing
+  - REST-level-3
+metadata:
+  author: community
+  upstream: martinfowler.com/articles/richardsonMaturityModel.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -67,6 +67,8 @@ export class AnthropicBackend implements AgentBackend {
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
     const anthropicSession = session as AnthropicSession;
 
+    // Cast is safe: wrapSystemBlock('session') returns { type, text, cache_control: { type: 'ephemeral' } }
+    // which is structurally compatible with TextBlockParam. The ttl field is only added for 'static' tier.
     const systemBlocks = anthropicSession.systemPrompt
       ? [
           this.cacheAdapter.wrapSystemBlock(
@@ -95,18 +97,18 @@ export class AnthropicBackend implements AgentBackend {
         }
       }
 
-      // Extract final usage from the stream
+      // Extract final usage from the stream — use SDK's typed usage object directly
       const finalMessage = await stream.finalMessage();
-      const usage = finalMessage.usage as unknown as Record<string, number>;
+      const { input_tokens, output_tokens } = finalMessage.usage;
       const cacheUsage = this.cacheAdapter.parseCacheUsage(finalMessage);
 
       return {
         success: true,
         sessionId: session.sessionId,
         usage: {
-          inputTokens: usage.input_tokens ?? 0,
-          outputTokens: usage.output_tokens ?? 0,
-          totalTokens: (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0),
+          inputTokens: input_tokens,
+          outputTokens: output_tokens,
+          totalTokens: input_tokens + output_tokens,
           cacheCreationTokens: cacheUsage.cacheCreationTokens,
           cacheReadTokens: cacheUsage.cacheReadTokens,
         },
