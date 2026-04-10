@@ -169,6 +169,11 @@ export * from './compaction';
 export * from './caching';
 
 /**
+ * Telemetry module for consent resolution and install identity.
+ */
+export { resolveConsent, getOrCreateInstallId } from './telemetry';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`
