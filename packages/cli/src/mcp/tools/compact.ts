@@ -149,8 +149,10 @@ async function handleIntentMode(
     };
   }
 
+  // GC-005: Single dynamic import for all graph exports
+  const { PackedSummaryCache, FusionLayer, ContextQL } = await import('@harness-engineering/graph');
+
   // Phase 4: check for cached PackedSummary node
-  const { PackedSummaryCache } = await import('@harness-engineering/graph');
   const cache = new PackedSummaryCache(store);
   const cachedEnvelope = cache.get(intent);
   if (cachedEnvelope) {
@@ -160,8 +162,6 @@ async function handleIntentMode(
       ],
     };
   }
-
-  const { FusionLayer, ContextQL } = await import('@harness-engineering/graph');
   const fusion = new FusionLayer(store);
   const cql = new ContextQL(store);
 

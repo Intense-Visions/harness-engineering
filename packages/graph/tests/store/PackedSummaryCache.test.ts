@@ -40,6 +40,8 @@ describe('PackedSummaryCache', () => {
     });
 
     it('returns cached envelope when node exists and is fresh', () => {
+      store.addNode(makeNode({ id: 'file:auth.ts', type: 'file', name: 'auth.ts' }));
+
       const intent = 'understand auth';
       const envelope = {
         meta: {
@@ -191,6 +193,67 @@ describe('PackedSummaryCache', () => {
       expect(result!.meta.cached).toBe(true);
     });
 
+    it('returns null when a cached source node has been deleted (GC-001)', () => {
+      // Add a source node, create cache, then delete the source node
+      store.addNode(
+        makeNode({
+          id: 'file:auth.ts',
+          type: 'file',
+          name: 'auth.ts',
+          lastModified: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        })
+      );
+
+      const intent = 'understand auth';
+      const envelope = {
+        meta: {
+          strategy: ['structural'],
+          originalTokenEstimate: 100,
+          compactedTokenEstimate: 50,
+          reductionPct: 50,
+          cached: false,
+        },
+        sections: [{ source: 'file:auth.ts', content: 'compacted' }],
+      };
+
+      cache.set(intent, envelope, ['file:auth.ts']);
+
+      // Delete the source node — cache should now be stale
+      store.removeNode('file:auth.ts');
+
+      const result = cache.get(intent);
+      expect(result).toBeNull();
+    });
+
+    it('returns null when createdAt is malformed producing NaN (GC-002)', () => {
+      const intent = 'understand auth';
+      const envelope = {
+        meta: {
+          strategy: ['structural'],
+          originalTokenEstimate: 100,
+          compactedTokenEstimate: 50,
+          reductionPct: 50,
+          cached: false,
+        },
+        sections: [{ source: 'file:auth.ts', content: 'compacted' }],
+      };
+
+      // Manually create a cache node with a malformed createdAt
+      const nodeId = `packed_summary:${normalizeIntent(intent)}`;
+      store.addNode({
+        id: nodeId,
+        type: 'packed_summary',
+        name: intent,
+        metadata: {
+          envelope: JSON.stringify(envelope),
+          createdAt: 'not-a-valid-date',
+        },
+      });
+
+      const result = cache.get(intent);
+      expect(result).toBeNull();
+    });
+
     it('returns null when any one of multiple source nodes is modified', () => {
       // One source old, one source fresh
       store.addNode(
@@ -271,6 +334,8 @@ describe('PackedSummaryCache', () => {
     });
 
     it('overwrites existing cache node on re-set', () => {
+      store.addNode(makeNode({ id: 'file:auth.ts', type: 'file', name: 'auth.ts' }));
+
       const intent = 'understand auth';
       const envelope1 = {
         meta: {

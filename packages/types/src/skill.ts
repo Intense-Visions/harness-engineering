@@ -1,3 +1,5 @@
+import type { StabilityTier } from './caching';
+
 /**
  * Predefined cognitive modes for skills.
  */
@@ -27,6 +29,8 @@ export interface SkillMetadata {
   description: string;
   /** The cognitive mode this skill operates in */
   cognitive_mode?: CognitiveMode;
+  /** Caching stability tier -- defaults to inferred from content type if omitted */
+  stability?: StabilityTier;
 }
 
 /**
