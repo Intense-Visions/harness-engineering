@@ -103,6 +103,38 @@ Etsy migrated to HTTP/2 and measured a 13% reduction in median page load time. T
 
 **Ignoring stream priorities.** Without explicit priority configuration, the server may send low-priority resources (analytics scripts, tracking pixels) before high-priority ones (CSS, fonts). Use `fetchpriority` attributes and server-side priority tuning.
 
+**Enabling HTTP/2 only at the CDN edge, not origin-to-CDN.** If your CDN terminates HTTP/2 at the edge but uses HTTP/1.1 for origin connections, you lose multiplexing benefits on the backend leg. Ensure your origin supports HTTP/2 and configure the CDN to use HTTP/2 for origin fetches. Cloudflare, Fastly, and Akamai all support HTTP/2 to origin.
+
+**Not testing with realistic concurrency levels.** HTTP/2 multiplexing benefits scale with the number of concurrent requests. Testing with a page that loads 5 resources will show minimal improvement over HTTP/1.1. Real-world SPAs often load 50-100 resources (chunks, images, API calls). Test with production-representative page loads to accurately measure HTTP/2 impact. Use WebPageTest's "Connection View" to confirm streams are actually multiplexed rather than serialized.
+
+### Decision Guidance: Bundling Strategy Under HTTP/2
+
+HTTP/2 makes the "many small files vs. few large files" trade-off different from HTTP/1.1, but the optimal answer is not "never bundle." The ideal approach depends on cache invalidation frequency and total resource count:
+
+- **Under 30 resources per page** — fine-grained splitting works well. Each module caches independently, and HTTP/2 handles concurrent delivery efficiently.
+- **Over 100 resources per page** — even with HTTP/2, browser resource scheduling overhead and priority inversion become measurable. Group related modules into logical chunks (per-route bundles of 3-5 modules) to reduce total stream count while maintaining cache granularity.
+- **Shared vendor code** — always separate vendor dependencies (React, lodash, etc.) into a dedicated chunk. These change on a different cadence than application code and benefit from long-term caching.
+
+### Flow Control and Window Sizing
+
+HTTP/2 implements flow control at both the connection and stream levels. Each stream has a flow control window (default: 65,535 bytes) that limits how much data the sender can transmit before receiving a WINDOW_UPDATE frame. The connection also has a flow control window that limits aggregate data across all streams.
+
+Undersized flow control windows cause throughput bottlenecks on high-bandwidth connections. If the initial window is 64KB and the RTT is 100ms, maximum throughput per stream is limited to ~640KB/s regardless of available bandwidth. Most servers auto-tune window sizes, but verify that your server or reverse proxy (Nginx, Envoy, HAProxy) is configured with adequate initial window sizes for your bandwidth profile. Nginx default `http2_recv_buffer_size` is 256KB — increase to 1MB+ for high-throughput scenarios.
+
+### HPACK Compression Effectiveness by Header Type
+
+Not all headers benefit equally from HPACK compression. Headers that repeat identically across requests see the highest compression ratios because they are stored in the dynamic table and referenced by index:
+
+- **Cookies** — often the largest header (1-4KB), repeats identically on every request to the same origin. HPACK compresses subsequent requests to a single index reference (~1 byte). This alone can save 50-80% of total header bytes.
+- **Authorization** — Bearer tokens repeat across API calls. HPACK reduces these to index references after the first request.
+- **Varying headers** (e.g., unique request IDs, timestamps) — these cannot be deduplicated and must be transmitted in full each time. Minimize custom headers that change per request.
+
+The HPACK dynamic table has a maximum size (default: 4,096 bytes, configurable via SETTINGS_HEADER_TABLE_SIZE). On connections with highly diverse header values, the table evicts entries frequently, reducing compression effectiveness. Monitor HPACK compression ratio in server logs to detect this.
+
+For API-heavy applications with large cookie headers, increasing the table size to
+8,192 or 16,384 bytes can meaningfully improve compression ratios on long-lived
+connections.
+
 ## Source
 
 - RFC 7540: HTTP/2 — https://www.rfc-editor.org/rfc/rfc7540

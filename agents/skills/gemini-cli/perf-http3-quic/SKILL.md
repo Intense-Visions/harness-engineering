@@ -102,6 +102,41 @@ Cloudflare measured a 12.4% improvement in time-to-first-byte for HTTP/3 vs HTTP
 
 **Serving HTTP/3 without optimizing the TLS certificate chain.** QUIC's initial handshake must fit in the initial congestion window. An oversized certificate chain (>4KB) requires multiple roundtrips, negating the 1-RTT handshake benefit. Use ECDSA certificates (smaller than RSA), minimize chain length, and enable OCSP stapling.
 
+**Disabling QUIC retry tokens in production.** QUIC retry tokens protect against IP address spoofing amplification attacks. Without retry, an attacker can send a small initial packet with a spoofed source IP and the server responds with a much larger handshake — a classic amplification vector. Always enable retry tokens in production. The cost is one additional roundtrip for the first connection, but subsequent connections from the same client are not affected.
+
+**Not monitoring QUIC-specific metrics.** Standard HTTP monitoring (status codes, TTFB) misses QUIC-specific failure modes. Track: 0-RTT acceptance rate (should be >80% for repeat visitors), connection migration success rate, UDP block rate (percentage of clients falling back to TCP), and handshake failure rate. A sudden drop in 0-RTT acceptance may indicate a server key rotation issue or middlebox interference.
+
+### Decision Guidance: When HTTP/3 Provides the Most Benefit
+
+HTTP/3 is not uniformly better than HTTP/2 in all scenarios. The largest gains appear under specific conditions:
+
+- **High packet loss (>1%)** — HTTP/3's per-stream loss recovery eliminates head-of-line blocking. On networks with 2-3% packet loss (typical mobile), HTTP/3 can be 30-50% faster than HTTP/2.
+- **High RTT (>100ms)** — 0-RTT saves an entire roundtrip on repeat connections. At 200ms RTT, this saves 200ms of latency — significant for perceived performance.
+- **Mobile users switching networks** — connection migration keeps sessions alive across WiFi-to-cellular transitions. Without it, users experience 1-3 second stalls while TCP connections are re-established.
+- **Low packet loss, low RTT (wired connections)** — improvement is marginal (3-5%). The cost of deploying and maintaining HTTP/3 infrastructure may not be justified for intranet or datacenter-to-datacenter traffic.
+
+### QUIC and Load Balancers
+
+QUIC connections are identified by Connection IDs, not IP:port tuples. This creates challenges for load balancers that route based on the 5-tuple (src IP, src port, dst IP, dst port, protocol). If a QUIC connection migrates (client IP changes), a naive load balancer routes the migrated packets to a different backend server, breaking the connection.
+
+Solutions:
+
+- **Connection ID-aware load balancers** — encode routing information in the Connection ID itself. The load balancer extracts the backend server identifier from the Connection ID without maintaining per-connection state. RFC 9312 defines a standardized format for this.
+- **Shared state backends** — store QUIC session state in a shared store (Redis, memcached) so any backend can resume a migrated connection. Adds latency but works with existing L4 load balancers.
+- **CDN termination** — terminate QUIC at the CDN edge and use HTTP/2 or HTTP/1.1 to the origin. This is the simplest approach and avoids load balancer complexity entirely. Most CDNs (Cloudflare, Fastly, Akamai) support this.
+
+### UDP Path MTU Discovery
+
+QUIC runs over UDP, which does not have TCP's built-in path MTU discovery. QUIC implements its own PMTU discovery by sending probe packets of increasing size. If a packet exceeds the path MTU, it is silently dropped (unlike TCP where ICMP messages signal the issue). Some networks block ICMP "Packet Too Big" messages, making PMTU discovery unreliable. QUIC's initial packet size is capped at 1200 bytes (the minimum guaranteed MTU for IPv6) to ensure the handshake succeeds. After connection establishment, QUIC can probe for larger MTU to improve throughput for bulk transfers.
+
+### Debugging QUIC Connections
+
+QUIC's encryption makes traditional packet inspection tools (tcpdump, Wireshark) less useful — the payload is encrypted. To debug QUIC issues, use QUIC-aware tooling:
+
+- **Chrome's net-export** — `chrome://net-export/` captures QUIC session logs including handshake details, stream states, and congestion control metrics
+- **qlog** — standardized QUIC event logging format (RFC 9516). Most QUIC implementations support qlog output. Visualize with qvis (https://qvis.quictools.info/)
+- **SSLKEYLOGFILE** — set this environment variable to capture TLS keys, enabling Wireshark to decrypt QUIC traffic for development debugging (never in production)
+
 ## Source
 
 - RFC 9000: QUIC Transport Protocol — https://www.rfc-editor.org/rfc/rfc9000

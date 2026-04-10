@@ -113,6 +113,26 @@ The Guardian improved First Contentful Paint by 1.2 seconds by moving from a sin
 
 **Ignoring CDN cache key design.** Default cache keys often include all query parameters, cookies, and sometimes headers. A URL with analytics parameters (`?utm_source=twitter&utm_medium=social`) creates a different cache entry than the base URL, reducing hit rates. Strip non-functional query parameters from cache keys.
 
+**Using a single CDN region for global traffic.** Deploying origin servers in a single region (e.g., us-east-1) and relying solely on CDN edge caching creates a single point of failure and high shield-to-origin latency for distant PoPs. Deploy origin replicas in at least two regions and configure the CDN shield tier to route to the nearest origin.
+
+**Purging entire cache zones instead of targeted invalidation.** When a single asset changes, purging the entire cache (sometimes called a "zone purge") drops hit rates to zero temporarily and creates a thundering herd against the origin. Use surrogate keys or cache tags to purge only the specific resources that changed. Fastly, Cloudflare, and Akamai all support tag-based purging.
+
+### Decision Guidance: When to Use Edge Compute vs. Origin Logic
+
+Edge compute is ideal for latency-sensitive, low-complexity operations: URL rewrites, A/B test bucket assignment, geolocation-based routing, bot detection, and request/response header manipulation. Avoid running complex business logic at the edge — database access from edge functions introduces unpredictable latency depending on the PoP-to-database distance, and debugging distributed edge deployments is significantly harder than centralized origin debugging. A good rule of thumb: if the operation needs a database query, keep it at the origin. If it can run with only the request context and a key-value store, it belongs at the edge.
+
+### Cache Invalidation Strategies
+
+Cache invalidation is often the hardest part of CDN management. Three primary approaches:
+
+- **TTL-based expiration** — simplest approach, content expires after a fixed duration. Works well for content with predictable update cadences (news articles refresh hourly, product prices refresh every 5 minutes).
+- **Purge-on-publish** — the CMS or deploy pipeline sends a purge request when content changes. Provides near-instant freshness but requires integration between the publishing system and the CDN API.
+- **Stale-while-revalidate** — serves stale content immediately while fetching fresh content in the background. Combines low latency with eventual freshness. Best for content where serving slightly stale data is acceptable (e.g., product listing pages, blog posts).
+
+For most applications, combining TTL-based expiration with stale-while-revalidate provides the best balance: `Cache-Control: max-age=300, stale-while-revalidate=3600` serves cached content for 5 minutes, then serves stale for up to an hour while revalidating in the background.
+
+When using purge-on-publish, always implement rate limiting on purge API calls. A misconfigured deploy pipeline that purges thousands of URLs in a tight loop can overwhelm the CDN's purge infrastructure and cause cascading cache misses across all PoPs.
+
 ## Source
 
 - Cloudflare CDN Architecture — https://www.cloudflare.com/learning/cdn/what-is-a-cdn/
