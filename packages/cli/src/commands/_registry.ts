@@ -3,6 +3,7 @@
 import type { Command } from 'commander';
 
 import { createAddCommand } from './add';
+import { createAdoptionCommand } from './adoption';
 import { createAgentCommand } from './agent';
 import { createBlueprintCommand } from './blueprint';
 import { createCheckArchCommand } from './check-arch';
@@ -12,9 +13,9 @@ import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
 import { createCheckSecurityCommand } from './check-security';
 import { createCICommand } from './ci';
-import { createDashboardCommand } from './dashboard';
 import { createCleanupCommand } from './cleanup';
 import { createCreateSkillCommand } from './create-skill';
+import { createDashboardCommand } from './dashboard';
 import { createDoctorCommand } from './doctor';
 import { createFixDriftCommand } from './fix-drift';
 import { createGenerateAgentDefinitionsCommand } from './generate-agent-definitions';
@@ -59,6 +60,7 @@ import { createValidateCommand } from './validate';
  */
 export const commandCreators: Array<() => Command> = [
   createAddCommand,
+  createAdoptionCommand,
   createAgentCommand,
   createBlueprintCommand,
   createCheckArchCommand,

@@ -7,6 +7,7 @@ import { buildRoadmapRouter } from './routes/roadmap';
 import { buildHealthRouter } from './routes/health';
 import { buildGraphRouter } from './routes/graph';
 import { buildSseRouter } from './routes/sse';
+import { buildAdoptionRouter } from './routes/adoption';
 import { buildActionsRouter } from './routes/actions';
 import { buildCIRouter } from './routes/ci';
 import { buildImpactRouter } from './routes/impact';
@@ -35,6 +36,7 @@ export function buildApp(ctx: ServerContext): Hono {
   app.route('/api', buildHealthRouter(ctx));
   app.route('/api', buildGraphRouter(ctx));
   app.route('/api', buildSseRouter(ctx));
+  app.route('/api', buildAdoptionRouter(ctx));
   app.route('/api', buildActionsRouter(ctx));
   app.route('/api', buildCIRouter(ctx));
   app.route('/api', buildImpactRouter(ctx));

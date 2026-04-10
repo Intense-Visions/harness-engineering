@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-09
 last_synced: 2026-04-09T21:27:34.153Z
-last_manual_edit: 2026-04-09T21:56:08.584Z
+last_manual_edit: 2026-04-10T11:46:58.873Z
 ---
 
 # Roadmap
@@ -793,7 +793,7 @@ last_manual_edit: 2026-04-09T21:56:08.584Z
 
 ### Performance Engineering Knowledge Skills
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
 - **Summary:** ~45 framework-agnostic performance knowledge skills covering browser rendering pipeline, Core Web Vitals, network optimization, JS runtime, caching hierarchies, bundle strategy, memory management, and rendering strategies
 - **Blockers:** —
@@ -815,7 +815,7 @@ last_manual_edit: 2026-04-09T21:56:08.584Z
 
 ### Security Fundamentals Knowledge Skills
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/security-fundamentals-knowledge-skills/proposal.md
 - **Summary:** ~45 framework-agnostic security knowledge skills covering threat modeling, cryptography primitives, auth/authz design, zero-trust architecture, secrets management, transport security, supply chain security, and incident response
 - **Blockers:** —

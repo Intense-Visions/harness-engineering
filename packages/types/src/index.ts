@@ -72,6 +72,9 @@ export type {
 // --- Usage & Cost Tracking ---
 export type { UsageRecord, ModelPricing, DailyUsage, SessionUsage } from './usage';
 
+// --- Adoption Telemetry ---
+export type { SkillInvocationRecord, SkillAdoptionSummary, AdoptionSnapshot } from './adoption';
+
 // --- Session State ---
 export { SESSION_SECTION_NAMES } from './session-state';
 export type {

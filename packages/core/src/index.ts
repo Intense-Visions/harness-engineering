@@ -148,6 +148,17 @@ export * from './pricing';
 export * from './usage';
 
 /**
+ * Adoption telemetry module for tracking and aggregating skill invocations.
+ */
+export {
+  readAdoptionRecords,
+  aggregateBySkill,
+  topSkills,
+  aggregateByDay as aggregateAdoptionByDay,
+  type DailyAdoption,
+} from './adoption';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`
