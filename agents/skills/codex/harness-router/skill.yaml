@@ -40,6 +40,7 @@ phases:
 state:
   persistent: false
   files: []
+stability: static
 depends_on: []
 addresses:
   - signal: high-complexity

@@ -42,4 +42,5 @@ metadata:
 state:
   persistent: false
   files: []
+stability: static
 depends_on: []
