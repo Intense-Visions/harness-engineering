@@ -69,4 +69,19 @@ describe('TruncationStrategy', () => {
   it('handles empty string without error', () => {
     expect(strategy.apply('')).toBe('');
   });
+
+  it('returns non-empty content when budget is tiny (budget=1)', () => {
+    const content = 'first line\nsecond line\nthird line';
+    const result = strategy.apply(content, 1);
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).toContain('[truncated');
+  });
+
+  it('returns non-empty content when budget is zero', () => {
+    const content = 'content exceeds budget';
+    const result = strategy.apply(content, 0);
+    expect(typeof result).toBe('string');
+    expect(result).toContain('[truncated');
+  });
 });
