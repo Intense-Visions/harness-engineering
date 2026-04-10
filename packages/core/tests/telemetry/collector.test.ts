@@ -42,7 +42,7 @@ describe('collectEvents', () => {
     expect(events[0]!.timestamp).toBe('2026-04-10T10:00:00.000Z');
     expect(events[0]!.properties.skillName).toBe('harness-brainstorming');
     expect(events[0]!.properties.duration).toBe(5000);
-    expect(events[0]!.properties.outcome).toBe('completed');
+    expect(events[0]!.properties.outcome).toBe('success');
     expect(events[0]!.properties.phasesReached).toEqual(['SCOPE', 'DECOMPOSE']);
     expect(events[0]!.properties.installId).toBe('test-uuid-1234');
     expect(events[0]!.properties.os).toBe(process.platform);
