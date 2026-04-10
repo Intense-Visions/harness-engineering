@@ -1,0 +1,37 @@
+name: db-connection-sizing
+version: '1.0.0'
+description: max_connections tuning, per-connection memory overhead, and serverless pool constraints
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - auto
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-connection-pooling
+  - db-acid-in-practice
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - max-connections
+  - connection-sizing
+  - per-connection-memory
+  - work-mem
+  - shared-buffers
+  - serverless
+  - connection-limits
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/runtime-config-connection.html
+state:
+  persistent: false
+  files: []
+depends_on: []
