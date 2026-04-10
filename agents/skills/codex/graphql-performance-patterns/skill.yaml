@@ -19,6 +19,11 @@ related_skills:
   - graphql-dataloader-pattern
   - graphql-resolver-pattern
   - graphql-pagination-patterns
+  - perf-n-plus-one
+  - perf-query-optimization
+  - perf-connection-pooling
+  - perf-server-side-caching
+  - perf-cdn-cache-control
 stack_signals:
   - graphql
   - typescript

@@ -19,6 +19,11 @@ paths:
 related_skills:
   - mobile-flatlist-patterns
   - mobile-animation-patterns
+  - perf-critical-rendering-path
+  - perf-image-formats
+  - perf-lazy-loading-media
+  - perf-service-worker-caching
+  - perf-connection-costs
 stack_signals:
   - react-native
   - expo

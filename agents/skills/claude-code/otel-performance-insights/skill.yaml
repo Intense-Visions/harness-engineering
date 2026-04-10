@@ -20,6 +20,10 @@ related_skills:
   - otel-tracing-pattern
   - otel-metrics-pattern
   - otel-custom-instrumentation
+  - perf-performance-api
+  - perf-profiling-methodology
+  - perf-server-side-rendering
+  - perf-connection-pooling
 stack_signals:
   - opentelemetry
   - nodejs

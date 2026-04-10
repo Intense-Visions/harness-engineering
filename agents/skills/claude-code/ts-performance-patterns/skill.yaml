@@ -20,6 +20,10 @@ paths:
 related_skills:
   - ts-config-patterns
   - ts-generics-pattern
+  - perf-tree-shaking
+  - perf-bundle-analysis
+  - perf-code-splitting
+  - perf-profiling-methodology
 stack_signals:
   - typescript
 keywords:

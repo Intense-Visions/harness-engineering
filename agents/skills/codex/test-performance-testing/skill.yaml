@@ -22,6 +22,10 @@ paths:
 related_skills:
   - test-unit-patterns
   - node-performance-profiling
+  - perf-profiling-methodology
+  - perf-performance-api
+  - perf-largest-contentful-paint
+  - perf-interaction-to-next-paint
 stack_signals:
   - vitest
   - jest

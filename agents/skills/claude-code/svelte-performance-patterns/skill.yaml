@@ -21,6 +21,11 @@ related_skills:
   - svelte-routing-pattern
   - svelte-load-functions
   - svelte-adapter-config
+  - perf-critical-rendering-path
+  - perf-code-splitting
+  - perf-lazy-loading
+  - perf-server-side-rendering
+  - perf-bundle-analysis
 stack_signals:
   - svelte
   - sveltekit

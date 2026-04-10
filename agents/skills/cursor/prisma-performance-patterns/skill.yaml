@@ -20,6 +20,10 @@ related_skills:
   - prisma-client-queries
   - prisma-filtering-sorting
   - prisma-transactions
+  - perf-query-optimization
+  - perf-n-plus-one
+  - perf-index-strategies
+  - perf-connection-pooling
 stack_signals:
   - prisma
   - typescript

@@ -20,6 +20,11 @@ related_skills:
   - css-tailwind-pattern
   - css-layout-patterns
   - css-animation-pattern
+  - perf-critical-rendering-path
+  - perf-style-calculation
+  - perf-layout-reflow
+  - perf-paint-compositing
+  - perf-largest-contentful-paint
 stack_signals:
   - tailwind
   - css

@@ -21,6 +21,11 @@ paths:
 related_skills:
   - test-performance-testing
   - node-worker-threads
+  - perf-event-loop
+  - perf-garbage-collection
+  - perf-memory-leaks
+  - perf-heap-profiling
+  - perf-profiling-methodology
 stack_signals:
   - nodejs
   - typescript

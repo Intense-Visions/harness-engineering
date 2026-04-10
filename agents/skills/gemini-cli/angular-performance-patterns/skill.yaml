@@ -23,6 +23,11 @@ related_skills:
   - angular-signals-pattern
   - angular-lazy-loading
   - angular-pipe-pattern
+  - perf-critical-rendering-path
+  - perf-lazy-loading
+  - perf-code-splitting
+  - perf-server-side-rendering
+  - perf-largest-contentful-paint
 stack_signals:
   - angular
   - typescript

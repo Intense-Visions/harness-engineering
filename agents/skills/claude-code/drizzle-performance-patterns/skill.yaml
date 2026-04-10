@@ -20,6 +20,10 @@ related_skills:
   - drizzle-query-builder
   - drizzle-filtering-pattern
   - drizzle-transactions
+  - perf-query-optimization
+  - perf-n-plus-one
+  - perf-index-strategies
+  - perf-connection-pooling
 stack_signals:
   - drizzle
   - typescript
