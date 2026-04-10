@@ -53,6 +53,7 @@
     "@harness-engineering/types": "workspace:*",
     "ink": "^4.4.1",
     "liquidjs": "^10.25.3",
+    "openai": "^4.0.0",
     "react": "^18.3.1",
     "yaml": "^2.8.3"
   },
