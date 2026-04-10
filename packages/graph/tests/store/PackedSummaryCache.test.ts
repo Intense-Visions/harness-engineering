@@ -131,6 +131,117 @@ describe('PackedSummaryCache', () => {
       const result = cache.get(intent);
       expect(result).toBeNull();
     });
+
+    it('returns cached envelope when source nodes have no lastModified', () => {
+      store.addNode(
+        makeNode({
+          id: 'file:auth.ts',
+          type: 'file',
+          name: 'auth.ts',
+          // no lastModified
+        })
+      );
+
+      const intent = 'understand auth';
+      const envelope = {
+        meta: {
+          strategy: ['structural'],
+          originalTokenEstimate: 100,
+          compactedTokenEstimate: 50,
+          reductionPct: 50,
+          cached: false,
+        },
+        sections: [{ source: 'file:auth.ts', content: 'compacted' }],
+      };
+
+      cache.set(intent, envelope, ['file:auth.ts']);
+
+      const result = cache.get(intent);
+      expect(result).not.toBeNull();
+      expect(result!.meta.cached).toBe(true);
+    });
+
+    it('returns cached envelope when source node lastModified is before cache creation', () => {
+      const pastTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2h ago
+      store.addNode(
+        makeNode({
+          id: 'file:auth.ts',
+          type: 'file',
+          name: 'auth.ts',
+          lastModified: pastTime,
+        })
+      );
+
+      const intent = 'understand auth';
+      const envelope = {
+        meta: {
+          strategy: ['structural'],
+          originalTokenEstimate: 100,
+          compactedTokenEstimate: 50,
+          reductionPct: 50,
+          cached: false,
+        },
+        sections: [{ source: 'file:auth.ts', content: 'compacted' }],
+      };
+
+      cache.set(intent, envelope, ['file:auth.ts']);
+
+      const result = cache.get(intent);
+      expect(result).not.toBeNull();
+      expect(result!.meta.cached).toBe(true);
+    });
+
+    it('returns null when any one of multiple source nodes is modified', () => {
+      // One source old, one source fresh
+      store.addNode(
+        makeNode({
+          id: 'file:auth.ts',
+          type: 'file',
+          name: 'auth.ts',
+          lastModified: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        })
+      );
+      store.addNode(
+        makeNode({
+          id: 'file:user.ts',
+          type: 'file',
+          name: 'user.ts',
+          lastModified: new Date().toISOString(), // just now
+        })
+      );
+
+      const intent = 'understand auth and users';
+      const envelope = {
+        meta: {
+          strategy: ['structural'],
+          originalTokenEstimate: 200,
+          compactedTokenEstimate: 80,
+          reductionPct: 60,
+          cached: false,
+        },
+        sections: [
+          { source: 'file:auth.ts', content: 'auth' },
+          { source: 'file:user.ts', content: 'user' },
+        ],
+      };
+
+      // Backdate cache
+      const nodeId = `packed_summary:${normalizeIntent(intent)}`;
+      store.addNode({
+        id: nodeId,
+        type: 'packed_summary',
+        name: normalizeIntent(intent),
+        metadata: {
+          envelope: JSON.stringify(envelope),
+          createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        },
+      });
+      store.addEdge({ from: nodeId, to: 'file:auth.ts', type: 'caches' });
+      store.addEdge({ from: nodeId, to: 'file:user.ts', type: 'caches' });
+
+      const result = cache.get(intent);
+      expect(result).toBeNull();
+    });
   });
 
   describe('set', () => {
