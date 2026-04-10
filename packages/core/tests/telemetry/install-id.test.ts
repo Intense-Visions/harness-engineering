@@ -41,6 +41,16 @@ describe('getOrCreateInstallId', () => {
     expect(id).toBe(existingId);
   });
 
+  it('regenerates when stored ID is not a valid UUID v4', () => {
+    fs.writeFileSync(installIdFile, 'garbage-not-a-uuid', 'utf-8');
+    const id = getOrCreateInstallId(tmpDir);
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(id).not.toBe('garbage-not-a-uuid');
+    // Verify the file was overwritten with the valid UUID
+    const stored = fs.readFileSync(installIdFile, 'utf-8').trim();
+    expect(stored).toBe(id);
+  });
+
   it('creates .harness directory if it does not exist', () => {
     fs.rmSync(path.join(tmpDir, '.harness'), { recursive: true, force: true });
     const id = getOrCreateInstallId(tmpDir);

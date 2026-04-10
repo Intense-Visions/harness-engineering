@@ -12,12 +12,15 @@ export function getOrCreateInstallId(projectRoot: string): string {
   const harnessDir = path.join(projectRoot, '.harness');
   const installIdFile = path.join(harnessDir, '.install-id');
 
+  const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
   // Try to read existing ID
   try {
     const existing = fs.readFileSync(installIdFile, 'utf-8').trim();
-    if (existing.length > 0) {
+    if (UUID_V4_RE.test(existing)) {
       return existing;
     }
+    // Invalid format -- fall through to regenerate
   } catch {
     // File does not exist -- create it below
   }
