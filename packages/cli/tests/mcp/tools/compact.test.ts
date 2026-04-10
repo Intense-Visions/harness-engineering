@@ -318,12 +318,111 @@ describe('compact tool', () => {
     });
   });
 
-  describe('cache stub (Phase 4 placeholder)', () => {
+  describe('cache behavior (Phase 4)', () => {
     afterEach(() => {
       vi.restoreAllMocks();
     });
 
-    it('intent mode always sets cached: false in envelope meta', async () => {
+    it('returns cached envelope on cache hit with cached: true marker', async () => {
+      vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
+        loadGraphStore: vi.fn().mockResolvedValue({}),
+      }));
+      vi.doMock('@harness-engineering/graph', () => ({
+        PackedSummaryCache: class {
+          get() {
+            return {
+              meta: {
+                strategy: ['structural'],
+                originalTokenEstimate: 200,
+                compactedTokenEstimate: 80,
+                reductionPct: 60,
+                cached: true,
+              },
+              sections: [{ source: 'file:auth.ts', content: 'cached content' }],
+            };
+          }
+          set() {}
+        },
+        FusionLayer: class {
+          search() {
+            return [];
+          }
+        },
+        ContextQL: class {
+          execute() {
+            return { nodes: [], edges: [] };
+          }
+        },
+      }));
+
+      const { handleCompact: freshHandleCompact } = await import('../../../src/mcp/tools/compact');
+
+      const result = await freshHandleCompact({
+        path: '/tmp/test-project',
+        intent: 'understand auth',
+      });
+
+      expect(result.isError).toBeUndefined();
+      const text = result.content[0].text;
+      expect(text).toContain('[cached]');
+      expect(text).toContain('cached content');
+
+      vi.doUnmock('@harness-engineering/graph');
+      vi.doUnmock('../../../src/mcp/utils/graph-loader');
+    });
+
+    it('writes cache node on cache miss', async () => {
+      let setCalled = false;
+      let setArgs: { intent: string; sourceNodeIds: string[] } | null = null;
+
+      vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
+        loadGraphStore: vi.fn().mockResolvedValue({}),
+      }));
+      vi.doMock('@harness-engineering/graph', () => ({
+        PackedSummaryCache: class {
+          get() {
+            return null;
+          }
+          set(intent: string, _envelope: unknown, sourceNodeIds: string[]) {
+            setCalled = true;
+            setArgs = { intent, sourceNodeIds };
+          }
+        },
+        FusionLayer: class {
+          search() {
+            return [{ nodeId: 'file:auth.ts', score: 0.9 }];
+          }
+        },
+        ContextQL: class {
+          execute() {
+            return {
+              nodes: [{ id: 'file:auth.ts', type: 'file', content: 'auth code' }],
+              edges: [],
+            };
+          }
+        },
+      }));
+
+      const { handleCompact: freshHandleCompact } = await import('../../../src/mcp/tools/compact');
+
+      const result = await freshHandleCompact({
+        path: '/tmp/test-project',
+        intent: 'understand auth',
+      });
+
+      expect(result.isError).toBeUndefined();
+      const text = result.content[0].text;
+      // Should NOT be cached (first call)
+      expect(text).not.toContain('[cached]');
+      // Should have called set
+      expect(setCalled).toBe(true);
+      expect(setArgs!.sourceNodeIds).toContain('file:auth.ts');
+
+      vi.doUnmock('@harness-engineering/graph');
+      vi.doUnmock('../../../src/mcp/utils/graph-loader');
+    });
+
+    it('intent mode returns cached: false when no cache exists', async () => {
       vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
         loadGraphStore: vi.fn().mockResolvedValue({}),
       }));
@@ -341,7 +440,10 @@ describe('compact tool', () => {
         },
         ContextQL: class {
           execute() {
-            return { nodes: [{ id: 'src/test.ts', type: 'file', content: 'test' }], edges: [] };
+            return {
+              nodes: [{ id: 'src/test.ts', type: 'file', content: 'test' }],
+              edges: [],
+            };
           }
         },
       }));
@@ -355,7 +457,6 @@ describe('compact tool', () => {
 
       expect(result.isError).toBeUndefined();
       const text = result.content[0].text;
-      // Verify cached: false — packed header should NOT contain [cached] marker
       expect(text).toMatch(/<!-- packed:/);
       expect(text).not.toContain('[cached]');
 
