@@ -203,6 +203,29 @@ describe('wrapWithCompaction', () => {
   });
 });
 
+describe('CT11: compact tool is not double-compacted', () => {
+  it('returns raw handler output unchanged when toolName is "compact"', async () => {
+    const compactHandler = async (): Promise<ToolResult> => ({
+      content: [
+        {
+          type: 'text',
+          text: '<!-- packed: structural+truncate | 800→400 tokens (-50%) -->\n### [source]\ncompacted content',
+        },
+      ],
+    });
+
+    const rawResult = await compactHandler();
+    const wrapped = wrapWithCompaction('compact', compactHandler);
+    const result = await wrapped({});
+
+    // Must be byte-identical — no additional packed header or transformation
+    expect(result.content[0].text).toBe(rawResult.content[0].text);
+    // Should NOT have a second packed header prepended
+    const headerCount = (result.content[0].text.match(/<!-- packed:/g) || []).length;
+    expect(headerCount).toBe(1);
+  });
+});
+
 describe('CT08: reduction metrics — real handler simulation', () => {
   it('achieves >= 20% reduction on a synthetic 200-item JSON response', async () => {
     // Simulate a tool returning a large JSON object similar to gather_context output

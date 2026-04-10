@@ -64,8 +64,13 @@ function compactResult(result: ToolResult): ToolResult {
 }
 
 /** Wrap a tool handler with compaction. Fail-open; compact:false bypasses. */
-export function wrapWithCompaction(_toolName: string, handler: ToolHandler): ToolHandler {
+export function wrapWithCompaction(toolName: string, handler: ToolHandler): ToolHandler {
   return async (input: Record<string, unknown>): Promise<ToolResult> => {
+    // The compact tool already produces carefully budgeted output — skip to avoid double compaction
+    if (toolName === 'compact') {
+      return handler(input);
+    }
+
     // Escape hatch: caller explicitly opts out (accept boolean or string)
     if (input.compact === false || input.compact === 'false') {
       return handler(input);

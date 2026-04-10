@@ -10,7 +10,8 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 
 type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
 
-const DEFAULT_TOKEN_BUDGET = 2000;
+// Tighter than middleware default (4000) because explicit compact calls indicate the AI wants aggressive compaction
+const COMPACT_TOOL_DEFAULT_BUDGET = 2000;
 
 type StrategyName = 'structural' | 'truncate' | 'pack' | 'semantic';
 
@@ -289,7 +290,7 @@ export async function handleCompact(input: {
     };
   }
 
-  const budget = input.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
+  const budget = input.tokenBudget ?? COMPACT_TOOL_DEFAULT_BUDGET;
   const { pipeline, unknownStrategies } = buildPipeline(input.strategies);
   const strategyWarning =
     unknownStrategies.length > 0

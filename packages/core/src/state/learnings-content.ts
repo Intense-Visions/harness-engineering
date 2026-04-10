@@ -202,10 +202,8 @@ export function analyzeLearningPatterns(entries: string[]): LearningPattern[] {
   return patterns.sort((a, b) => b.count - a.count);
 }
 
-/** Estimate token count from a string (chars / 4, ceiling). */
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
+// Re-export from canonical source to avoid duplication
+export { estimateTokens } from '../compaction/envelope';
 
 /**
  * Score how relevant a learning entry is to a given intent.
