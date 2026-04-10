@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { compactToolDefinition, handleCompact } from '../../../src/mcp/tools/compact';
 
 describe('compact tool', () => {
@@ -144,6 +144,117 @@ describe('compact tool', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('No graph found');
+    });
+  });
+
+  describe('intent mode with mocked graph', () => {
+    it('returns packed envelope with sections when graph has results', async () => {
+      vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
+        loadGraphStore: vi.fn().mockResolvedValue({}),
+      }));
+      vi.doMock('@harness-engineering/graph', () => ({
+        FusionLayer: class {
+          search() {
+            return [
+              { nodeId: 'src/services/user.ts', score: 0.9 },
+              { nodeId: 'src/types/user.ts', score: 0.7 },
+            ];
+          }
+        },
+        ContextQL: class {
+          execute({ rootNodeIds }: { rootNodeIds: string[] }) {
+            return {
+              nodes: [
+                { id: rootNodeIds[0], type: 'file', content: 'mock content for ' + rootNodeIds[0] },
+              ],
+              edges: [],
+            };
+          }
+        },
+      }));
+
+      const { handleCompact: freshHandleCompact } = await import('../../../src/mcp/tools/compact');
+
+      const result = await freshHandleCompact({
+        path: '/tmp/test-project',
+        intent: 'understand user service',
+      });
+
+      expect(result.isError).toBeUndefined();
+      const text = result.content[0].text;
+      expect(text).toMatch(/<!-- packed:/);
+      // Should have sections for each search result
+      expect(text).toContain('### [src/services/user.ts]');
+      expect(text).toContain('### [src/types/user.ts]');
+
+      vi.doUnmock('@harness-engineering/graph');
+      vi.doUnmock('../../../src/mcp/utils/graph-loader');
+    });
+
+    it('returns empty envelope when graph search finds no results', async () => {
+      vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
+        loadGraphStore: vi.fn().mockResolvedValue({}),
+      }));
+      vi.doMock('@harness-engineering/graph', () => ({
+        FusionLayer: class {
+          search() {
+            return [];
+          }
+        },
+        ContextQL: class {
+          execute() {
+            return { nodes: [], edges: [] };
+          }
+        },
+      }));
+
+      const { handleCompact: freshHandleCompact } = await import('../../../src/mcp/tools/compact');
+
+      const result = await freshHandleCompact({
+        path: '/tmp/test-project',
+        intent: 'something with no matches',
+      });
+
+      expect(result.isError).toBeUndefined();
+      const text = result.content[0].text;
+      expect(text).toContain('No relevant context found');
+
+      vi.doUnmock('@harness-engineering/graph');
+      vi.doUnmock('../../../src/mcp/utils/graph-loader');
+    });
+
+    it('passes content as filter context when intent + content are both provided', async () => {
+      let capturedQuery = '';
+      vi.doMock('../../../src/mcp/utils/graph-loader', () => ({
+        loadGraphStore: vi.fn().mockResolvedValue({}),
+      }));
+      vi.doMock('@harness-engineering/graph', () => ({
+        FusionLayer: class {
+          search(query: string) {
+            capturedQuery = query;
+            return [];
+          }
+        },
+        ContextQL: class {
+          execute() {
+            return { nodes: [], edges: [] };
+          }
+        },
+      }));
+
+      const { handleCompact: freshHandleCompact } = await import('../../../src/mcp/tools/compact');
+
+      await freshHandleCompact({
+        path: '/tmp/test-project',
+        intent: 'understand auth',
+        content: 'OAuth2 refresh tokens',
+      });
+
+      expect(capturedQuery).toContain('understand auth');
+      expect(capturedQuery).toContain('OAuth2 refresh tokens');
+
+      vi.doUnmock('@harness-engineering/graph');
+      vi.doUnmock('../../../src/mcp/utils/graph-loader');
     });
   });
 });
