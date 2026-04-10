@@ -50,7 +50,10 @@ export class AnthropicCacheAdapter implements CacheAdapter {
     }
 
     const wrapped = tools.map((t) => ({ ...t }));
-    wrapped[wrapped.length - 1].cache_control = { type: 'ephemeral' as const };
+    const last = wrapped[wrapped.length - 1];
+    if (last) {
+      last.cache_control = { type: 'ephemeral' as const };
+    }
     return { tools: wrapped };
   }
 
