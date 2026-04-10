@@ -1,0 +1,39 @@
+name: db-covering-index
+version: '1.0.0'
+description: Index-only scans using INCLUDE columns to avoid heap table lookups
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-btree-index
+  - db-composite-index
+  - db-scan-types
+  - db-explain-reading
+  - prisma-performance-patterns
+  - drizzle-performance-patterns
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - covering-index
+  - index-only-scan
+  - INCLUDE
+  - heap-lookup
+  - visibility-map
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/indexes-index-only-scans.html
+state:
+  persistent: false
+  files: []
+depends_on: []

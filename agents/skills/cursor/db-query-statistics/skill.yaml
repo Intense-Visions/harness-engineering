@@ -1,0 +1,40 @@
+name: db-query-statistics
+version: '1.0.0'
+description: pg_stats, histogram bounds, selectivity estimation, and the ANALYZE command
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-explain-reading
+  - db-scan-types
+  - db-query-rewriting
+  - db-btree-index
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - pg_stats
+  - histogram
+  - selectivity
+  - ANALYZE
+  - statistics
+  - n_distinct
+  - most_common_vals
+  - cardinality-estimation
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/planner-stats.html
+state:
+  persistent: false
+  files: []
+depends_on: []

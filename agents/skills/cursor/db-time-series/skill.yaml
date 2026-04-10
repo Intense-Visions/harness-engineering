@@ -1,0 +1,40 @@
+name: db-time-series
+version: "1.0.0"
+description: Append-only tables, time-based partitioning, retention policies, and TimescaleDB patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-temporal-data
+  - db-audit-trail
+  - db-btree-index
+  - db-composite-index
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - time-series
+  - append-only
+  - partitioning
+  - retention
+  - TimescaleDB
+  - hypertable
+  - downsampling
+  - continuous-aggregate
+metadata:
+  author: community
+  upstream: "docs.timescale.com/use-timescale/latest/hypertables/"
+state:
+  persistent: false
+  files: []
+depends_on: []

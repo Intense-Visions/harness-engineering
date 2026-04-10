@@ -1,0 +1,37 @@
+name: db-second-normal-form
+version: '1.0.0'
+description: Full functional dependency and eliminating partial dependencies for Second Normal Form (2NF)
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-first-normal-form
+  - db-third-normal-form
+  - db-denormalization
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - normalization
+  - second-normal-form
+  - 2NF
+  - partial-dependency
+  - functional-dependency
+  - composite-key
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/ddl-constraints.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,39 @@
+name: db-expression-index
+version: '1.0.0'
+description: Indexes on computed expressions, functional indexes, and specialized index types (GIN, GiST)
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-btree-index
+  - db-partial-index
+  - db-composite-index
+  - db-explain-reading
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - expression-index
+  - functional-index
+  - GIN
+  - GiST
+  - computed-index
+  - jsonb-index
+  - full-text-search
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/indexes-expressional.html
+state:
+  persistent: false
+  files: []
+depends_on: []

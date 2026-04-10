@@ -1,0 +1,41 @@
+name: db-polymorphic-associations
+version: "1.0.0"
+description: Single-table inheritance, class-table inheritance, and shared foreign key patterns for polymorphic data
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-first-normal-form
+  - db-third-normal-form
+  - db-denormalization
+  - db-entity-attribute-value
+  - db-document-in-relational
+  - prisma-schema-design
+  - drizzle-schema-definition
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - polymorphic-association
+  - single-table-inheritance
+  - class-table-inheritance
+  - concrete-table-inheritance
+  - discriminator-column
+  - shared-foreign-key
+metadata:
+  author: community
+  upstream: "martinfowler.com/eaaCatalog/singleTableInheritance.html"
+state:
+  persistent: false
+  files: []
+depends_on: []

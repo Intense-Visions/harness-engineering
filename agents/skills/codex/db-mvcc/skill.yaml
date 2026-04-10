@@ -1,0 +1,44 @@
+name: db-mvcc
+version: '1.0.0'
+description: Multi-version concurrency control, snapshot isolation, tuple visibility, and vacuum/bloat management
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-isolation-levels
+  - db-read-phenomena
+  - db-acid-in-practice
+  - db-pessimistic-locking
+  - db-optimistic-locking
+  - db-deadlock-prevention
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - MVCC
+  - multi-version-concurrency-control
+  - snapshot-isolation
+  - vacuum
+  - autovacuum
+  - bloat
+  - xmin
+  - xmax
+  - tuple-visibility
+  - dead-tuples
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/mvcc-intro.html
+state:
+  persistent: false
+  files: []
+depends_on: []

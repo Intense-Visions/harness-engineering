@@ -1,0 +1,41 @@
+name: db-document-in-relational
+version: "1.0.0"
+description: JSONB columns for semi-structured data -- when to embed vs normalize, indexing JSON, and hybrid modeling
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-entity-attribute-value
+  - db-polymorphic-associations
+  - db-first-normal-form
+  - db-denormalization
+  - db-expression-index
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - JSONB
+  - JSON
+  - document-store
+  - semi-structured
+  - embed-vs-normalize
+  - GIN-index
+  - hybrid-model
+  - schemaless
+metadata:
+  author: community
+  upstream: "postgresql.org/docs/current/datatype-json.html"
+state:
+  persistent: false
+  files: []
+depends_on: []

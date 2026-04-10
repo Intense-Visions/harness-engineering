@@ -1,0 +1,39 @@
+name: db-adjacency-list
+version: "1.0.0"
+description: Parent-child hierarchies via self-referencing foreign key, recursive CTEs, and depth queries
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-nested-sets
+  - db-closure-table
+  - db-hierarchical-data
+  - db-query-rewriting
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - adjacency-list
+  - parent-child
+  - self-referencing-fk
+  - recursive-CTE
+  - hierarchy
+  - tree-structure
+  - WITH-RECURSIVE
+metadata:
+  author: community
+  upstream: "postgresql.org/docs/current/queries-with.html"
+state:
+  persistent: false
+  files: []
+depends_on: []

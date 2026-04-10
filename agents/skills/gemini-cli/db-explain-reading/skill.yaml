@@ -1,0 +1,43 @@
+name: db-explain-reading
+version: '1.0.0'
+description: Reading EXPLAIN and EXPLAIN ANALYZE output, understanding cost estimation, and comparing actual vs estimated rows
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-scan-types
+  - db-query-statistics
+  - db-query-rewriting
+  - db-btree-index
+  - db-composite-index
+  - db-covering-index
+  - prisma-performance-patterns
+  - drizzle-performance-patterns
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - EXPLAIN
+  - EXPLAIN-ANALYZE
+  - query-plan
+  - cost-estimation
+  - actual-rows
+  - execution-time
+  - planner
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/using-explain.html
+state:
+  persistent: false
+  files: []
+depends_on: []

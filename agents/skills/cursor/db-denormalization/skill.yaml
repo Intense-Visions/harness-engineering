@@ -1,0 +1,37 @@
+name: db-denormalization
+version: '1.0.0'
+description: When and how to intentionally denormalize for performance, read-heavy patterns, and materialized views
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-first-normal-form
+  - db-second-normal-form
+  - db-third-normal-form
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - denormalization
+  - materialized-view
+  - read-performance
+  - redundant-data
+  - caching
+  - CQRS
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/rules-materializedviews.html
+state:
+  persistent: false
+  files: []
+depends_on: []

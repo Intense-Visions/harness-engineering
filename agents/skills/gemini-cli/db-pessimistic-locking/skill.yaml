@@ -1,0 +1,43 @@
+name: db-pessimistic-locking
+version: '1.0.0'
+description: SELECT FOR UPDATE, lock granularity, lock duration, and row-level locking strategies
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-optimistic-locking
+  - db-deadlock-prevention
+  - db-isolation-levels
+  - db-mvcc
+  - db-acid-properties
+  - prisma-transactions
+  - drizzle-transactions
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - pessimistic-locking
+  - select-for-update
+  - row-lock
+  - lock-granularity
+  - lock-duration
+  - exclusive-lock
+  - shared-lock
+  - FOR-NO-KEY-UPDATE
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/explicit-locking.html
+state:
+  persistent: false
+  files: []
+depends_on: []

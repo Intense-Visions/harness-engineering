@@ -1,0 +1,40 @@
+name: db-graph-in-relational
+version: "1.0.0"
+description: Modeling graph relationships in SQL with recursive queries and knowing when to use a graph DB instead
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-adjacency-list
+  - db-closure-table
+  - db-hierarchical-data
+  - db-query-rewriting
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - graph
+  - edges
+  - vertices
+  - recursive-query
+  - shortest-path
+  - social-graph
+  - network-model
+  - graph-database
+metadata:
+  author: community
+  upstream: "postgresql.org/docs/current/queries-with.html"
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,39 @@
+name: db-expand-contract
+version: '1.0.0'
+description: Add new, migrate data, remove old -- safe column and table renames using expand-contract
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - auto
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-zero-downtime-migration
+  - db-migration-rollback
+  - db-acid-properties
+  - db-acid-in-practice
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - expand-contract
+  - column-rename
+  - table-rename
+  - safe-migration
+  - backwards-compatible
+  - dual-write
+  - backfill
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/sql-altertable.html
+state:
+  persistent: false
+  files: []
+depends_on: []

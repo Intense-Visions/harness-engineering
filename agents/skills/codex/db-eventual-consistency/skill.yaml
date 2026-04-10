@@ -1,0 +1,37 @@
+name: db-eventual-consistency
+version: '1.0.0'
+description: BASE properties, convergence strategies, and conflict resolution patterns for eventually consistent systems
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-cap-theorem
+  - db-acid-properties
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - eventual-consistency
+  - BASE
+  - conflict-resolution
+  - CRDTs
+  - last-write-wins
+  - convergence
+  - replication-lag
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/warm-standby.html
+state:
+  persistent: false
+  files: []
+depends_on: []

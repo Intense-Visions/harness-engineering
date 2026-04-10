@@ -1,0 +1,42 @@
+name: db-query-rewriting
+version: '1.0.0'
+description: Rewriting queries for planner efficiency -- CTEs vs subqueries, EXISTS vs IN, and sargable predicates
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-explain-reading
+  - db-scan-types
+  - db-query-statistics
+  - db-btree-index
+  - db-composite-index
+  - db-denormalization
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - query-rewriting
+  - sargable
+  - CTE
+  - subquery
+  - EXISTS
+  - IN
+  - query-optimization
+  - lateral-join
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/queries.html
+state:
+  persistent: false
+  files: []
+depends_on: []

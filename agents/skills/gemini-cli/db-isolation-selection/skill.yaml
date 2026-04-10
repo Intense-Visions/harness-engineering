@@ -1,0 +1,40 @@
+name: db-isolation-selection
+version: '1.0.0'
+description: Choosing isolation levels for specific workloads -- performance vs correctness trade-offs
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-isolation-levels
+  - db-read-phenomena
+  - db-acid-properties
+  - db-optimistic-locking
+  - db-pessimistic-locking
+  - prisma-transactions
+  - drizzle-transactions
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - isolation-selection
+  - workload-analysis
+  - performance-correctness
+  - retry-strategy
+  - transaction-design
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/transaction-iso.html
+state:
+  persistent: false
+  files: []
+depends_on: []
