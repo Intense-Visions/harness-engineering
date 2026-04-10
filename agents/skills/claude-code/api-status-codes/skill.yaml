@@ -1,0 +1,46 @@
+name: api-status-codes
+version: '1.0.0'
+description: Status code selection by scenario, common misuses (200 for errors, 404 vs 403, 400 vs 422), and response contract design
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-http-methods
+  - api-error-contracts
+  - api-problem-details-rfc
+  - api-rest-maturity-model
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - status-codes
+  - '200'
+  - '201'
+  - '204'
+  - '400'
+  - '401'
+  - '403'
+  - '404'
+  - '409'
+  - '422'
+  - '429'
+  - '500'
+  - '503'
+metadata:
+  author: community
+  upstream: developer.mozilla.org/en-US/docs/Web/HTTP/Status
+state:
+  persistent: false
+  files: []
+depends_on: []
