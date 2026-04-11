@@ -329,6 +329,19 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 - `maxFileSize` (number, optional) — Maximum number of lines changed per file before flagging
 - `maxFileCount` (number, optional) — Maximum number of changed files before flagging
 
+### `compact`
+
+Compact content, resolve intents into aggregated packed responses, or re-compress prior tool output. Returns a packed envelope with source attribution and reduction metadata.
+
+**Parameters:**
+
+- `path` (string, optional) — Path to project root
+- `content` (string, optional) — Content string to compact directly (Mode A)
+- `intent` (string, optional) — Intent description — aggregates context via graph search then packs (Mode B)
+- `ref` (object, optional) — Re-compress prior tool output with source attribution (Mode C)
+- `strategies` (array, optional) — Strategies to apply (default: structural + truncate)
+- `tokenBudget` (number, optional) — Token budget for compacted output (default: 2000)
+
 ### `compute_blast_radius`
 
 Simulate cascading failure propagation from a source node using probability-weighted BFS. Returns cumulative failure probability for each affected node.

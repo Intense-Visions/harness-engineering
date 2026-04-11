@@ -6,26 +6,6 @@ Complete reference for all `harness` CLI commands and subcommands. See the [Feat
 
 ## Top-Level Commands
 
-### `harness adoption skills`
-
-Show top skills by invocation count with success rate, avg duration, and last-used date
-
-**Options:**
-
-- `--limit <n>` — Number of skills to show (default: "20")
-
-### `harness adoption recent`
-
-Show recent skill invocations sorted by date descending
-
-**Options:**
-
-- `--limit <n>` — Number of invocations to show (default: "20")
-
-### `harness adoption skill <name>`
-
-Show detail for a specific skill including phase completion rates
-
 ### `harness add <type> <name>`
 
 Add a component to the project
@@ -95,18 +75,18 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 
 Detect entropy issues (doc drift, dead code, patterns)
 
-### `harness cleanup-sessions`
-
-Remove stale session directories from `.harness/sessions/` older than 24 hours
-
-**Options:**
-
-- `--dry-run` — Preview what would be removed without deleting
-- `--cwd <path>` — Project root path
-
 **Options:**
 
 - `-t, --type` — Issue type: drift, dead-code, patterns, all (default: "all")
+
+### `harness cleanup-sessions`
+
+Remove stale session directories from .harness/sessions/ (no write in 24h)
+
+**Options:**
+
+- `--dry-run` — List stale sessions without deleting them
+- `--path` — Project root path (default: ".")
 
 ### `harness create-skill`
 
@@ -199,7 +179,7 @@ Ingest data into the knowledge graph
 
 **Options:**
 
-- `--source` — Source to ingest (code, knowledge, git, jira, slack)
+- `--source` — Source to ingest (code, knowledge, git, jira, slack, ci, confluence)
 - `--all` — Run all sources (code, knowledge, git, and configured connectors)
 - `--full` — Force full re-ingestion
 
@@ -375,6 +355,30 @@ Run all validation checks
 **Options:**
 
 - `--cross-check` — Run cross-artifact consistency validation
+
+## Adoption Commands
+
+View skill adoption telemetry
+
+### `harness adoption recent`
+
+Show recent skill invocations
+
+**Options:**
+
+- `--limit` — Number of invocations to show (default: 20) (default: "20")
+
+### `harness adoption skill <name>`
+
+Show detail for a specific skill
+
+### `harness adoption skills`
+
+Show top skills by invocation count
+
+**Options:**
+
+- `--limit` — Number of skills to show (default: 20) (default: "20")
 
 ## Agent Commands
 
@@ -747,6 +751,29 @@ Clear session taint — removes taint file(s) and re-enables destructive operati
 
 Show current taint status for a session or all sessions
 
+## Telemetry Commands
+
+Telemetry identity and status management
+
+### `harness telemetry identify`
+
+Set or clear telemetry identity fields in .harness/telemetry.json
+
+**Options:**
+
+- `--project` — Project name
+- `--team` — Team name
+- `--alias` — User alias
+- `--clear` — Remove all identity fields
+
+### `harness telemetry status`
+
+Show current telemetry consent state, install ID, and identity
+
+**Options:**
+
+- `--json` — Output as JSON
+
 ## Usage Commands
 
 Token usage and cost tracking
@@ -774,26 +801,3 @@ List recent sessions with token usage and cost
 **Options:**
 
 - `--limit` — Number of sessions to show (default: 10, max: 100) (default: "10")
-
-## Telemetry Commands
-
-Anonymous usage telemetry management
-
-### `harness telemetry identify`
-
-Set or clear telemetry identity fields in `.harness/telemetry.json`
-
-**Options:**
-
-- `--project <name>` — Project name
-- `--team <name>` — Team name
-- `--alias <name>` — User alias
-- `--clear` — Remove all identity fields
-
-### `harness telemetry status`
-
-Show current telemetry consent state, install ID, identity, and env var overrides
-
-**Options:**
-
-- `--json` — Output as JSON
