@@ -52,6 +52,28 @@ function sectionItems(input: SectionPaginationInput): unknown[] {
   return flat.sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? ''));
 }
 
+function checkSectionGuards(
+  section: string,
+  mode?: string
+): { content: Array<{ type: 'text'; text: string }>; isError: true } | null {
+  if (section === 'graphContext' && (mode ?? 'summary') === 'summary') {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error:
+              'section=graphContext requires mode=detailed. Summary mode aggregates graph blocks into counts — there are no paginatable items.',
+            hint: 'Pass mode="detailed" to paginate graphContext blocks.',
+          }),
+        },
+      ],
+      isError: true,
+    };
+  }
+  return null;
+}
+
 function paginateSection(input: SectionPaginationInput) {
   const items = sectionItems(input);
   const paged = paginate(items, input.offset, input.limit);
@@ -130,7 +152,7 @@ export const gatherContextDefinition = {
         type: 'string',
         enum: ['graphContext', 'learnings', 'sessionSections'],
         description:
-          'Section to paginate. When provided, offset/limit apply within this section only. When omitted, returns first page of each section (current behavior).',
+          'Section to paginate. When provided, offset/limit apply within this section only and the response contains only { section, items, pagination, meta }. Note: section=graphContext requires mode=detailed (summary mode has no paginatable blocks). When omitted, returns the full response.',
       },
       offset: {
         type: 'number',
@@ -442,6 +464,8 @@ export async function handleGatherContext(input: {
 
   // Section-aware pagination
   if (input.section) {
+    const guardError = checkSectionGuards(input.section, input.mode);
+    if (guardError) return guardError;
     const result = paginateSection({
       section: input.section,
       offset: input.offset ?? 0,

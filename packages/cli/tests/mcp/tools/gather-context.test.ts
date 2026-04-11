@@ -331,12 +331,13 @@ describe('gather_context tool', () => {
       expect(parsed.pagination).toHaveProperty('hasMore');
     });
 
-    it('returns graphContext section with pagination when section=graphContext', async () => {
+    it('returns graphContext section with pagination when section=graphContext and mode=detailed', async () => {
       const response = await handleGatherContext({
         path: '/nonexistent/project-gc-pagination',
         intent: 'test pagination',
         include: ['graph'],
         section: 'graphContext',
+        mode: 'detailed',
       });
       expect(response.isError).toBeUndefined();
       const parsed = JSON.parse(response.content[0].text);
@@ -345,6 +346,19 @@ describe('gather_context tool', () => {
       expect(parsed).toHaveProperty('pagination');
       expect(parsed.pagination.offset).toBe(0);
       expect(parsed.pagination.limit).toBe(20);
+    });
+
+    it('returns error when section=graphContext without mode=detailed', async () => {
+      const response = await handleGatherContext({
+        path: '/nonexistent/project-gc-pagination',
+        intent: 'test pagination',
+        include: ['graph'],
+        section: 'graphContext',
+        // mode defaults to 'summary' — should be rejected
+      });
+      expect(response.isError).toBe(true);
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.error).toContain('mode=detailed');
     });
 
     it('returns sessionSections with pagination when section=sessionSections', async () => {

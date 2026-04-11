@@ -33,11 +33,12 @@ export const getDecayTrendsDefinition = {
       offset: {
         type: 'number',
         description:
-          'Number of trend entries to skip (pagination). Default: 0. Trends are sorted by decay magnitude (absolute delta) desc.',
+          'Number of trend entries to skip (pagination). Default: 0. Trends are sorted by decay magnitude (absolute delta) desc. Ignored when category is set (category filter returns a single entry).',
       },
       limit: {
         type: 'number',
-        description: 'Max trend entries to return (pagination). Default: 20.',
+        description:
+          'Max trend entries to return (pagination). Default: 20. Ignored when category is set (category filter returns a single entry).',
       },
     },
     required: ['path'],
