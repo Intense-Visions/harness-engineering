@@ -171,7 +171,7 @@ export * from './caching';
 /**
  * Telemetry module for consent resolution and install identity.
  */
-export { resolveConsent, getOrCreateInstallId } from './telemetry';
+export { resolveConsent, getOrCreateInstallId, collectEvents, send } from './telemetry';
 
 /**
  * The current version of the Harness Engineering core library.
