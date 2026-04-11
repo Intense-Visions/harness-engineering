@@ -1,0 +1,44 @@
+name: api-authentication-patterns
+version: '1.0.0'
+description: API auth landscape overview — when to use API keys vs OAuth2 vs JWT vs mTLS, trust levels, client types, token lifetimes
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-api-keys
+  - api-oauth2-flows
+  - security-authentication
+  - owasp-auth-patterns
+  - api-rate-limiting
+stack_signals:
+  - rest
+  - api
+  - http
+  - oauth2
+  - jwt
+keywords:
+  - api-authentication
+  - API-keys
+  - OAuth2
+  - JWT
+  - mTLS
+  - token-lifetime
+  - auth-patterns
+  - bearer-token
+metadata:
+  author: community
+  upstream: auth0.com/docs/get-started/authentication-and-authorization-flow
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

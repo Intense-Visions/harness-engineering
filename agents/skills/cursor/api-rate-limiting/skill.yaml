@@ -1,0 +1,41 @@
+name: api-rate-limiting
+version: '1.0.0'
+description: Rate limit design as consumer contract — quota tiers, burst vs sustained limits, per-user vs per-app limits, fair-use policy, quota negotiation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-rate-limit-headers
+  - owasp-rate-limiting
+  - api-retry-guidance
+  - api-authentication-patterns
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - rate-limiting
+  - quota
+  - burst-limit
+  - sustained-limit
+  - per-user-limit
+  - per-app-limit
+  - fair-use
+  - throttling
+metadata:
+  author: community
+  upstream: cloud.google.com/apis/design/design_patterns#rate_limiting
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static
