@@ -19,6 +19,7 @@ related_skills:
   - security-asymmetric-encryption
   - security-cryptographic-randomness
   - owasp-cryptography
+  - api-webhook-security
 stack_signals: []
 keywords:
   - HMAC

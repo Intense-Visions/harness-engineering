@@ -22,6 +22,7 @@ related_skills:
   - events-message-queue
   - events-outbox-pattern
   - microservices-outbox-pattern
+  - api-idempotency-keys
 stack_signals:
   - nodejs
   - typescript

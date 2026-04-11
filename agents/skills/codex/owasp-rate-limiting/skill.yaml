@@ -21,6 +21,8 @@ related_skills:
   - owasp-logging-monitoring
   - security-zero-trust-principles
   - security-threat-modeling-stride
+  - api-rate-limiting
+  - api-rate-limit-headers
 stack_signals:
   - nodejs
   - typescript

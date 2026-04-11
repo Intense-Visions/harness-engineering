@@ -173,7 +173,7 @@ PostgreSQL uses **heap tables** with separate B-tree indexes. Each index entry p
 
 - **Type:** knowledge -- this skill is a reference document, not a procedural workflow.
 - **No tools or state** -- consumed as context by other skills and agents.
-- **related_skills:** db-hash-index, db-composite-index, db-covering-index, db-expression-index, db-explain-reading, db-scan-types
+- **related_skills:** db-hash-index, db-composite-index, db-covering-index, db-expression-index, db-explain-reading, db-scan-types, api-pagination-keyset
 
 ## Success Criteria
 

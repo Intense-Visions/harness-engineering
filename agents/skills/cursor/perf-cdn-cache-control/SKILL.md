@@ -187,6 +187,7 @@ Shopify handles 80,000+ requests per second during flash sales using a Varnish-b
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** perf-browser-cache, perf-cdn-strategies, perf-cache-invalidation, perf-compression, otel-performance-insights, api-http-caching
 
 ## Success Criteria
 

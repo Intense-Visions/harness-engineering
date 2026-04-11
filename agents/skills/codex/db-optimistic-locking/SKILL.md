@@ -141,7 +141,7 @@ A content management system had editors frequently working on the same articles.
 
 - **Type:** knowledge -- this skill is a reference document, not a procedural workflow.
 - **No tools or state** -- consumed as context by other skills and agents.
-- **related_skills:** db-pessimistic-locking, db-mvcc, db-isolation-levels, db-deadlock-prevention, db-acid-properties, prisma-transactions, drizzle-transactions
+- **related_skills:** db-pessimistic-locking, db-mvcc, db-isolation-levels, db-deadlock-prevention, db-acid-properties, prisma-transactions, drizzle-transactions, api-conditional-requests
 
 ## Success Criteria
 

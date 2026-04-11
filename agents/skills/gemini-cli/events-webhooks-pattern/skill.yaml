@@ -22,6 +22,8 @@ related_skills:
   - events-pubsub-pattern
   - events-idempotency
   - node-crypto-patterns
+  - api-webhook-design
+  - api-webhook-security
 stack_signals:
   - nodejs
   - typescript

@@ -26,6 +26,8 @@ related_skills:
   - security-mfa-design
   - security-authentication-flows
   - security-rbac-design
+  - api-authentication-patterns
+  - api-oauth2-flows
 stack_signals:
   - nodejs
   - typescript

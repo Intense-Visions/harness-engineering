@@ -25,6 +25,7 @@ related_skills:
   - security-secrets-lifecycle
   - security-vault-patterns
   - security-environment-variable-risks
+  - api-api-keys
 stack_signals:
   - nodejs
   - typescript

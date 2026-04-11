@@ -164,6 +164,7 @@ https://owasp.org/www-project-top-ten/
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** owasp-logging-monitoring, owasp-cryptography, nestjs-guards-pattern, security-secrets-lifecycle, security-vault-patterns, security-environment-variable-risks, api-api-keys
 
 ## Success Criteria
 

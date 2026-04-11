@@ -19,6 +19,7 @@ related_skills:
   - perf-cache-invalidation
   - perf-compression
   - otel-performance-insights
+  - api-http-caching
 stack_signals: []
 keywords:
   - cdn cache

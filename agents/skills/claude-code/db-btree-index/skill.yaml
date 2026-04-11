@@ -22,6 +22,7 @@ related_skills:
   - db-scan-types
   - prisma-performance-patterns
   - drizzle-performance-patterns
+  - api-pagination-keyset
 stack_signals:
   - postgresql
   - mysql

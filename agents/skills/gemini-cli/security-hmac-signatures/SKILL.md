@@ -152,3 +152,14 @@ Generate HMAC keys from a CSPRNG, never from passwords or human-memorable string
 4. **Allowing JWT `alg: none`.** Some JWT libraries accept unsigned tokens when the algorithm header is `none`. This allows any attacker to forge valid tokens by simply removing the signature and setting the algorithm to none. Always validate the algorithm against a server-side allowlist and reject `none` unconditionally.
 
 5. **No key rotation plan.** A leaked HMAC secret or signing key with no rotation mechanism means: revoking all existing tokens and signatures, coordinating an emergency key change across all consumers, and potentially losing non-repudiation for the entire validity period of the compromised key. Design key rotation from day one with overlapping validity windows. The rotation mechanism itself must be tested regularly.
+
+## Harness Integration
+
+- **Type:** knowledge -- this skill is a reference document, not a procedural workflow.
+- **No tools or state** -- consumed as context by other skills and agents.
+- **related_skills:** security-hashing-fundamentals, security-symmetric-encryption, security-asymmetric-encryption, security-cryptographic-randomness, owasp-cryptography, api-webhook-security
+
+## Success Criteria
+
+- The patterns described in this document are applied correctly in the implementation.
+- Edge cases and anti-patterns listed in this document are avoided.

@@ -155,3 +155,14 @@ When designing authentication for a new application, choose one of these standar
 5. **No rate limiting on login or password reset.** Without rate limiting, attackers can attempt millions of credential combinations per hour (credential stuffing) or flood the target with reset emails (email bombing, which may also trigger the email provider's rate limits and block legitimate emails to the victim). Rate limit by account, by IP, and apply global anomaly detection thresholds.
 
 6. **Account lockout without progressive delays.** Hard lockout after 5 failures enables denial of service against any targeted user. An attacker who knows the victim's email can lock them out indefinitely by submitting wrong passwords. Use progressive delays (increasing wait time per failed attempt) and CAPTCHA escalation instead of binary lockout. Combine with per-IP rate limiting to catch distributed attacks.
+
+## Harness Integration
+
+- **Type:** knowledge -- this skill is a reference document, not a procedural workflow.
+- **No tools or state** -- consumed as context by other skills and agents.
+- **related_skills:** security-credential-storage, security-session-management, security-mfa-design, security-cryptographic-randomness, owasp-auth-patterns, owasp-csrf-protection, api-authentication-patterns
+
+## Success Criteria
+
+- The patterns described in this document are applied correctly in the implementation.
+- Edge cases and anti-patterns listed in this document are avoided.

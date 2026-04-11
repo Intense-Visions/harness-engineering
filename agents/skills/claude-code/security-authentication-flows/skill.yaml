@@ -20,6 +20,7 @@ related_skills:
   - security-cryptographic-randomness
   - owasp-auth-patterns
   - owasp-csrf-protection
+  - api-authentication-patterns
 stack_signals: []
 keywords:
   - login

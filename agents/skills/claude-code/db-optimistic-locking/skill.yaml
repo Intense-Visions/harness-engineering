@@ -21,6 +21,7 @@ related_skills:
   - db-acid-properties
   - prisma-transactions
   - drizzle-transactions
+  - api-conditional-requests
 stack_signals:
   - postgresql
   - mysql
