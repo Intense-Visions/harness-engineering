@@ -1,0 +1,40 @@
+name: api-validation-errors
+version: '1.0.0'
+description: Field-level validation error design — multi-field error arrays, JSON Pointer (RFC 6901) paths, source/pointer vs source/parameter, and 422 vs 400 choice
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-problem-details-rfc
+  - api-error-contracts
+  - api-bulk-operations
+  - api-status-codes
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - validation-errors
+  - field-errors
+  - JSON-pointer
+  - RFC-6901
+  - '422'
+  - multi-error
+  - source-pointer
+metadata:
+  author: community
+  upstream: jsonapi.org/format/#error-objects
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

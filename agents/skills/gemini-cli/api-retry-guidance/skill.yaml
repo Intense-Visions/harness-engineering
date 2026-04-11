@@ -1,0 +1,41 @@
+name: api-retry-guidance
+version: '1.0.0'
+description: Retry-After headers, exponential backoff signals, transient vs permanent error classification, 429 vs 503 semantics, and idempotency requirement for safe retries
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-rate-limit-headers
+  - api-idempotency-keys
+  - api-status-codes
+  - api-error-contracts
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - retry-guidance
+  - Retry-After
+  - exponential-backoff
+  - transient-error
+  - permanent-error
+  - '429'
+  - '503'
+  - jitter
+metadata:
+  author: community
+  upstream: aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static
