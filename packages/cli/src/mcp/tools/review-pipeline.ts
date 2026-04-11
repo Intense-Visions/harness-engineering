@@ -1,10 +1,5 @@
 import { sanitizePath } from '../utils/sanitize-path.js';
-
-const FINDING_SEVERITY_ORDER: Record<string, number> = {
-  critical: 0,
-  important: 1,
-  suggestion: 2,
-};
+import { SEVERITY_ORDER } from '../utils/severity.js';
 
 // ============ run_code_review ============
 
@@ -123,8 +118,7 @@ export async function handleRunCodeReview(input: {
 
     // Sort findings by severity desc before pagination
     const sortedFindings = [...result.findings].sort(
-      (a, b) =>
-        (FINDING_SEVERITY_ORDER[a.severity] ?? 99) - (FINDING_SEVERITY_ORDER[b.severity] ?? 99)
+      (a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
     );
 
     const paged = paginate(sortedFindings, input.offset ?? 0, input.limit ?? 20);

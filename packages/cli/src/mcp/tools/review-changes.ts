@@ -1,26 +1,8 @@
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { sortFindingsBySeverity } from '../utils/severity.js';
 
 type Depth = 'quick' | 'standard' | 'deep';
 const SIZE_GATE_LINES = 10_000;
-
-const SEVERITY_ORDER: Record<string, number> = {
-  error: 0,
-  critical: 0,
-  warning: 1,
-  important: 1,
-  info: 2,
-  suggestion: 2,
-};
-
-function sortFindingsBySeverity(findings: unknown[]): unknown[] {
-  return [...findings].sort((a, b) => {
-    const aObj = a as Record<string, unknown>;
-    const bObj = b as Record<string, unknown>;
-    const aSev = SEVERITY_ORDER[typeof aObj.severity === 'string' ? aObj.severity : ''] ?? 99;
-    const bSev = SEVERITY_ORDER[typeof bObj.severity === 'string' ? bObj.severity : ''] ?? 99;
-    return aSev - bSev;
-  });
-}
 
 export const reviewChangesDefinition = {
   name: 'review_changes',
@@ -261,7 +243,11 @@ async function runDeepReview(
 ) {
   const { handleRunCodeReview } = await import('./review-pipeline.js');
   const { paginate } = await import('@harness-engineering/core');
-  const result = await handleRunCodeReview({ path: projectPath, diff });
+  const result = await handleRunCodeReview({
+    path: projectPath,
+    diff,
+    limit: Number.MAX_SAFE_INTEGER,
+  });
   const deepContent = result.content[0];
   if (!deepContent) throw new Error('Empty code review response');
   const parsed = JSON.parse(deepContent.text);

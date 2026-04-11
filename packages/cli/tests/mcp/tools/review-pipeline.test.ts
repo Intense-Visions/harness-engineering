@@ -41,19 +41,17 @@ describe('run_code_review tool', () => {
         path: '/nonexistent/project-pipeline-test',
         diff: minimalDiff,
       });
-      // Pipeline may error on nonexistent path but should still parse
-      if (!response.isError) {
-        const parsed = JSON.parse(response.content[0].text);
-        expect(parsed).toHaveProperty('pagination');
-        expect(parsed.pagination).toHaveProperty('offset', 0);
-        expect(parsed.pagination).toHaveProperty('limit', 20);
-        expect(parsed.pagination).toHaveProperty('total');
-        expect(parsed.pagination).toHaveProperty('hasMore');
-        expect(parsed).toHaveProperty('findings');
-        expect(Array.isArray(parsed.findings)).toBe(true);
-        // findingCount should reflect total, not page size
-        expect(parsed.findingCount).toBe(parsed.pagination.total);
-      }
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed).toHaveProperty('pagination');
+      expect(parsed.pagination).toHaveProperty('offset', 0);
+      expect(parsed.pagination).toHaveProperty('limit', 20);
+      expect(parsed.pagination).toHaveProperty('total');
+      expect(parsed.pagination).toHaveProperty('hasMore');
+      expect(parsed).toHaveProperty('findings');
+      expect(Array.isArray(parsed.findings)).toBe(true);
+      // findingCount should reflect total, not page size
+      expect(parsed.findingCount).toBe(parsed.pagination.total);
     });
 
     it('respects offset and limit params', async () => {
@@ -63,12 +61,11 @@ describe('run_code_review tool', () => {
         offset: 0,
         limit: 1,
       });
-      if (!response.isError) {
-        const parsed = JSON.parse(response.content[0].text);
-        expect(parsed.pagination.offset).toBe(0);
-        expect(parsed.pagination.limit).toBe(1);
-        expect(parsed.findings.length).toBeLessThanOrEqual(1);
-      }
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.pagination.offset).toBe(0);
+      expect(parsed.pagination.limit).toBe(1);
+      expect(parsed.findings.length).toBeLessThanOrEqual(1);
     });
 
     it('offset beyond findings returns empty page', async () => {
@@ -78,11 +75,10 @@ describe('run_code_review tool', () => {
         offset: 10000,
         limit: 20,
       });
-      if (!response.isError) {
-        const parsed = JSON.parse(response.content[0].text);
-        expect(parsed.findings).toHaveLength(0);
-        expect(parsed.pagination.hasMore).toBe(false);
-      }
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.findings).toHaveLength(0);
+      expect(parsed.pagination.hasMore).toBe(false);
     });
   });
 });
