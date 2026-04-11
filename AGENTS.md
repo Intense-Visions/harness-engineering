@@ -315,6 +315,9 @@ Configuration example:
 - `dashboard.ts` — Launches the web dashboard server on configurable ports
 - `integrations/dismiss.ts` — Dismisses integrations by adding them to the dismissed list in config
 - `_registry.ts` — Auto-generated barrel export aggregating all command constructors
+- `telemetry/index.ts` — Parent command group for telemetry management (identify + status)
+- `telemetry/identify.ts` — Sets or clears identity fields in `.harness/telemetry.json`
+- `telemetry/status.ts` — Displays current consent state, install ID, identity, and env overrides
 
 **Hooks** (`packages/cli/src/hooks/`): Claude Code lifecycle hooks for security and quality enforcement.
 
@@ -326,6 +329,7 @@ Configuration example:
 - `cost-tracker.js` — Stop hook that appends token usage to `.harness/metrics/costs.jsonl`
 - `block-no-verify.js` — PreToolUse hook that blocks git commands using `--no-verify` flag
 - `profiles.ts` — Defines hook profile tiers (minimal/standard/strict) with event matchers
+- `telemetry-reporter.js` — Stop hook that reads adoption.jsonl, resolves consent, sends anonymous events to PostHog, and shows first-run privacy notice
 
 **MCP Tools** (`packages/cli/src/mcp/tools/`):
 
