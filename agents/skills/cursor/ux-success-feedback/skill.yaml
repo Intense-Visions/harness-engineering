@@ -1,0 +1,32 @@
+name: ux-success-feedback
+version: "1.0.0"
+description: Success feedback copy — confirmation messages, celebration calibration, next-step prompts after task completion
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-notification-copy
+  - ux-loading-states
+stack_signals: []
+keywords:
+  - success-feedback
+  - confirmation
+  - celebration
+  - next-steps
+  - positive-reinforcement
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,34 @@
+name: ux-notification-copy
+version: "1.0.0"
+description: Notification and alert copy — urgency calibration, actionability, toast vs banner vs modal decision, brevity
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-error-messages
+  - ux-success-feedback
+  - design-feedback-patterns
+stack_signals: []
+keywords:
+  - notification
+  - alert
+  - toast
+  - banner
+  - urgency
+  - actionability
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

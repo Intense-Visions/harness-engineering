@@ -1,0 +1,32 @@
+name: ux-confirmation-dialogs
+version: "1.0.0"
+description: Confirmation dialog copy — destructive action writing, consequence clarity, specific button labels over generic OK/Cancel
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-destructive-action-copy
+  - ux-button-cta-copy
+  - ux-microcopy-principles
+stack_signals: []
+keywords:
+  - confirmation-dialog
+  - destructive-action
+  - modal-copy
+  - button-labels
+  - irreversibility
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
