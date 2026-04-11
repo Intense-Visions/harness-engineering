@@ -60,28 +60,45 @@ describe('TruncationStrategy', () => {
     expect(result).toContain('/src/services/critical-module.ts');
   });
 
-  it('appends a truncation marker when content is cut', () => {
+  it('appends a truncation marker when budget has room for it', () => {
     const overBudget = 'word '.repeat(5000);
-    const result = strategy.apply(overBudget, 10);
+    // Budget of 100 tokens = 400 chars — plenty of room for content + marker
+    const result = strategy.apply(overBudget, 100);
     expect(result).toContain('[truncated');
+  });
+
+  it('omits marker when budget is too tight, preferring content', () => {
+    const overBudget = 'word '.repeat(5000);
+    // Budget of 10 tokens = 40 chars — not enough for marker (49 chars), content wins
+    const result = strategy.apply(overBudget, 10);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.length).toBeLessThanOrEqual(40);
   });
 
   it('handles empty string without error', () => {
     expect(strategy.apply('')).toBe('');
   });
 
-  it('returns non-empty content when budget is tiny (budget=1)', () => {
+  it('returns content when budget is tiny (budget=1)', () => {
     const content = 'first line\nsecond line\nthird line';
     const result = strategy.apply(content, 1);
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
-    expect(result).toContain('[truncated');
+    // With only 4 chars, marker is omitted — all budget goes to content
+    expect(result.length).toBeLessThanOrEqual(4);
   });
 
-  it('returns non-empty content when budget is zero', () => {
+  it('returns empty string when budget is zero', () => {
     const content = 'content exceeds budget';
     const result = strategy.apply(content, 0);
-    expect(typeof result).toBe('string');
-    expect(result).toContain('[truncated');
+    expect(result).toBe('');
+  });
+
+  it('truncates long lines instead of skipping them', () => {
+    // One very long line that exceeds the budget — should be truncated, not dropped
+    const longLine = 'A'.repeat(10000);
+    const result = strategy.apply(longLine, 50); // 200 chars budget
+    expect(result.length).toBeGreaterThan(0);
+    expect(result).toContain('AAAA'); // Some content preserved
   });
 });

@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-11
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-11T03:00:54.627Z
+last_manual_edit: 2026-04-11T16:47:55.564Z
 ---
 
 # Roadmap
@@ -889,6 +889,17 @@ last_manual_edit: 2026-04-11T03:00:54.627Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#137
+
+### Paged MCP tool responses
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Replace lossy truncation with cursor-based paging for tools where agents may need content past the budget (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Return hasMore + cursor/offset instead of truncation marker so agents can request more.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#145
 
 ## v3.0 Graph Intelligence
 

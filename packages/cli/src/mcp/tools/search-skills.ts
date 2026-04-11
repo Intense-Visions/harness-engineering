@@ -52,6 +52,10 @@ export async function handleSearchSkills(
     .split(/\s+/)
     .filter((t) => t.length > 2);
 
+  // Minimum score to surface a result — filters noise from incidental substring matches.
+  // The suggest() dispatcher uses 0.4; search uses a lower floor since it's exploratory.
+  const MIN_SCORE = 0.25;
+
   const results: Array<{
     name: string;
     description: string;
@@ -65,7 +69,7 @@ export async function handleSearchSkills(
     // Delegate scoring to shared scoreSkill — no recency context in search
     const score = scoreSkill(entry, queryTerms, profile, [], name, freshSnapshot);
 
-    if (score > 0 || queryTerms.length === 0) {
+    if (score >= MIN_SCORE || queryTerms.length === 0) {
       results.push({
         name,
         description: entry.description,
