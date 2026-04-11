@@ -135,7 +135,7 @@ export async function handleRunCodeReview(input: {
               findings: sortedFindings,
               findingCount: sortedFindings.length,
               terminalOutput: result.terminalOutput,
-              githubCommentCount: result.githubCommentCount,
+              githubCommentCount: result.githubComments.length,
               exitCode: result.exitCode,
             }),
           },
