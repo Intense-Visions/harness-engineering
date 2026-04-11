@@ -1,5 +1,11 @@
 import { sanitizePath } from '../utils/sanitize-path.js';
 
+const FINDING_SEVERITY_ORDER: Record<string, number> = {
+  critical: 0,
+  important: 1,
+  suggestion: 2,
+};
+
 // ============ run_code_review ============
 
 export const runCodeReviewDefinition = {
@@ -39,6 +45,15 @@ export const runCodeReviewDefinition = {
         type: 'string',
         description: 'Repository in owner/repo format (required for --comment)',
       },
+      offset: {
+        type: 'number',
+        description:
+          'Number of findings to skip (pagination). Default: 0. Findings are sorted by severity desc (critical > important > suggestion).',
+      },
+      limit: {
+        type: 'number',
+        description: 'Max findings to return (pagination). Default: 20.',
+      },
     },
     required: ['path', 'diff'],
   },
@@ -54,6 +69,8 @@ export async function handleRunCodeReview(input: {
   noMechanical?: boolean;
   prNumber?: number;
   repo?: string;
+  offset?: number;
+  limit?: number;
 }) {
   try {
     const { parseDiff, runReviewPipeline } = await import('@harness-engineering/core');
@@ -102,6 +119,16 @@ export async function handleRunCodeReview(input: {
       ...(input.repo != null ? { repo: input.repo } : {}),
     });
 
+    const { paginate } = await import('@harness-engineering/core');
+
+    // Sort findings by severity desc before pagination
+    const sortedFindings = [...result.findings].sort(
+      (a, b) =>
+        (FINDING_SEVERITY_ORDER[a.severity] ?? 99) - (FINDING_SEVERITY_ORDER[b.severity] ?? 99)
+    );
+
+    const paged = paginate(sortedFindings, input.offset ?? 0, input.limit ?? 20);
+
     return {
       content: [
         {
@@ -112,7 +139,9 @@ export async function handleRunCodeReview(input: {
               skipReason: result.skipReason,
               stoppedByMechanical: result.stoppedByMechanical,
               assessment: result.assessment,
+              findings: paged.items,
               findingCount: result.findings.length,
+              pagination: paged.pagination,
               terminalOutput: result.terminalOutput,
               githubCommentCount: result.githubComments.length,
               exitCode: result.exitCode,
