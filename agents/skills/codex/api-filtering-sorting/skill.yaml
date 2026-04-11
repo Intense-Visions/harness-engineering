@@ -1,0 +1,40 @@
+name: api-filtering-sorting
+version: '1.0.0'
+description: Query parameter design for filter operators (eq, gt, lt, in, contains), sort syntax, filter injection prevention, and performance hints
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-nested-vs-flat
+  - api-pagination-cursor
+  - api-field-selection
+  - db-query-rewriting
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - filtering
+  - sorting
+  - query-parameters
+  - filter-operators
+  - sort-order
+  - field-filtering
+  - rsql
+metadata:
+  author: community
+  upstream: jsonapi.org/format/#fetching-filtering
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

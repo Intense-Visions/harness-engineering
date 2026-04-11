@@ -1,0 +1,40 @@
+name: api-pagination-cursor
+version: '1.0.0'
+description: Cursor-based pagination with opaque tokens, base64 encoding, forward/backward traversal, and cursor stability guarantees
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-pagination-offset
+  - api-pagination-keyset
+  - graphql-pagination-patterns
+  - api-filtering-sorting
+stack_signals:
+  - rest
+  - api
+  - pagination
+keywords:
+  - cursor-pagination
+  - opaque-cursor
+  - base64
+  - forward-pagination
+  - backward-pagination
+  - page-token
+  - seek
+metadata:
+  author: community
+  upstream: relay.dev/graphql/connections.htm
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static
