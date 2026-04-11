@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global setTimeout, fetch, AbortSignal */
 // telemetry-reporter.js — Stop:* hook
 // Reads adoption.jsonl, resolves consent, sends telemetry events to PostHog,
 // and shows a one-time first-run privacy notice.
@@ -10,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import process from 'node:process';
 
 // PostHog project API key — public, write-only (cannot read data)
+// TODO: Replace with real PostHog project key before enabling telemetry in production
 const POSTHOG_API_KEY = 'phc_harness_placeholder';
 const POSTHOG_BATCH_URL = 'https://app.posthog.com/batch';
 const MAX_ATTEMPTS = 3;
@@ -227,6 +229,15 @@ async function main() {
     }
 
     await sendEvents(events);
+
+    // Truncate adoption.jsonl after successful send to prevent re-sending
+    const adoptionFile = join(cwd, '.harness', 'metrics', 'adoption.jsonl');
+    try {
+      writeFileSync(adoptionFile, '', 'utf-8');
+    } catch {
+      // Non-fatal — records may be re-sent next session
+    }
+
     process.stderr.write(`[telemetry-reporter] Sent ${events.length} telemetry event(s)\n`);
     process.exit(0);
   } catch (err) {

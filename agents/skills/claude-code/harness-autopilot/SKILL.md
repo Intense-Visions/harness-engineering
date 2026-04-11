@@ -182,6 +182,18 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 ---
 
+## Process
+
+1. **INIT** — Resolve spec, derive session slug, check for existing state, parse phases.
+2. **ASSESS** — Route by complexity: low/medium auto-plans, high pauses for interactive planning.
+3. **PLAN → APPROVE** — Dispatch harness-planner, check approval signals, auto-approve or pause.
+4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
+5. **VERIFY → REVIEW** — Dispatch harness-verifier and harness-code-reviewer, fix blocking findings.
+6. **PHASE_COMPLETE** — Summarize, sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
+7. **FINAL_REVIEW → DONE** — Cross-phase review, offer PR creation, write final handoff.
+
+---
+
 ## Harness Integration
 
 - **State:** `{sessionDir}/autopilot-state.json` (orchestration) + `{sessionDir}/state.json` (task-level, written by harness-execution).
@@ -217,7 +229,16 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 | "Keeping research in conversation is faster than scratchpad"            | Scratchpad gated by rigor level. At standard/thorough, >500 words must go to scratchpad.          |
 | "Plan auto-approved, so I can skip recording the decision"              | Every approval—auto or manual—is recorded in `decisions[]`. That array is the audit trail.        |
 
-## Example
+## Success Criteria
+
+- All phases in the spec are executed in order with plan → execute → verify → review per phase
+- Every plan approval is recorded in `decisions[]` (auto or manual)
+- Retry budget (3 attempts) is enforced — exhausted retries surface to user, never silently continue
+- FINAL_REVIEW runs on `startingCommit..HEAD` diff and catches cross-phase coherence issues
+- State is persisted to `autopilot-state.json` after every state transition — re-invocation resumes correctly
+- `harness validate` passes after every phase
+
+## Examples
 
 **Invocation:** `/harness:autopilot docs/changes/security-scanner/proposal.md`
 
