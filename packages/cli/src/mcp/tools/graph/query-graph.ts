@@ -152,9 +152,15 @@ export async function handleQueryGraph(input: {
     const limit = input.limit ?? 50;
     const paged = paginate(sortedNodes, offset, limit);
 
+    // Filter edges to only those connecting paginated nodes
+    const pagedNodeIds = new Set(paged.items.map((n: { id: string }) => n.id));
+    const filteredEdges = result.edges.filter(
+      (e: { from: string; to: string }) => pagedNodeIds.has(e.from) || pagedNodeIds.has(e.to)
+    );
+
     const response = {
       nodes: paged.items,
-      edges: result.edges,
+      edges: filteredEdges,
       stats: result.stats,
       pagination: paged.pagination,
     };

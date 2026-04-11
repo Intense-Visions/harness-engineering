@@ -55,8 +55,9 @@ export async function handleDetectAnomalies(input: {
     const limit = input.limit ?? 30;
     const paged = paginate(report.statisticalOutliers, offset, limit);
 
+    const { statisticalOutliers: _fullOutliers, ...rest } = report;
     const response = {
-      ...report,
+      ...rest,
       statisticalOutliers: paged.items,
       pagination: paged.pagination,
     };

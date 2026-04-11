@@ -100,9 +100,7 @@ export async function handleGetRelationships(input: {
 
     // Sort edges by confidence (weight) desc, defaulting to 1
     const sortedEdges = [...filteredEdges].sort(
-      (a, b) =>
-        ((b as { confidence?: number }).confidence ?? 1) -
-        ((a as { confidence?: number }).confidence ?? 1)
+      (a, b) => (b.confidence ?? 1) - (a.confidence ?? 1)
     );
 
     const offset = input.offset ?? 0;
@@ -117,7 +115,12 @@ export async function handleGetRelationships(input: {
             nodeId: input.nodeId,
             direction,
             depth: input.depth ?? 1,
-            nodes: filteredNodes,
+            // Filter nodes to only those referenced by paginated edges
+            nodes: filteredNodes.filter((n: { id: string }) =>
+              paged.items.some(
+                (e: { from: string; to: string }) => e.from === n.id || e.to === n.id
+              )
+            ),
             edges: paged.items,
             stats: result.stats,
             pagination: paged.pagination,
