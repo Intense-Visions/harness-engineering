@@ -1,0 +1,42 @@
+name: api-contract-testing
+version: '1.0.0'
+description: Consumer-driven contract testing — Pact fundamentals, provider verification, schema validation in CI (spectral, vacuum), breaking change detection (oasdiff), contract as living documentation
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-openapi-design
+  - api-backward-compatibility
+  - api-versioning-url
+stack_signals:
+  - rest
+  - api
+  - openapi
+  - testing
+  - http
+keywords:
+  - contract-testing
+  - Pact
+  - consumer-driven
+  - provider-verification
+  - spectral
+  - oasdiff
+  - breaking-change-detection
+  - schema-validation
+metadata:
+  author: community
+  upstream: docs.pact.io
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

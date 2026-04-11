@@ -1,0 +1,44 @@
+name: api-openapi-design
+version: '1.0.0'
+description: Contract-first OpenAPI 3.1 design — schema reuse ($ref, components), discriminator for polymorphism, operationId naming conventions, AsyncAPI for event-driven APIs, code generation integration
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-contract-testing
+  - api-error-contracts
+  - api-backward-compatibility
+  - api-validation-errors
+stack_signals:
+  - rest
+  - api
+  - openapi
+  - swagger
+  - http
+keywords:
+  - OpenAPI
+  - AsyncAPI
+  - contract-first
+  - schema-reuse
+  - $ref
+  - components
+  - operationId
+  - code-generation
+  - swagger
+metadata:
+  author: community
+  upstream: spec.openapis.org/oas/v3.1.0
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

@@ -1,0 +1,43 @@
+name: api-sdk-ergonomics
+version: '1.0.0'
+description: Client library design — method naming (verb-noun), pagination helpers (auto-cursor iteration), error surface (typed exceptions vs error objects), retry built-ins, idiomatic patterns per language, discoverability
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-deprecation-strategy
+  - api-error-contracts
+  - api-pagination-cursor
+  - api-retry-guidance
+stack_signals:
+  - rest
+  - api
+  - sdk
+  - http
+  - client-library
+keywords:
+  - SDK-ergonomics
+  - client-library
+  - method-naming
+  - pagination-helpers
+  - typed-exceptions
+  - retry-built-in
+  - discoverability
+  - developer-experience
+metadata:
+  author: community
+  upstream: stripe.com/blog/payment-api-design
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static
