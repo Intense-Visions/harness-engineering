@@ -1,0 +1,39 @@
+name: api-pagination-offset
+version: '1.0.0'
+description: Offset/limit pagination including COUNT(*) costs, page drift on inserts/deletes, max offset limits, and UI implications
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-pagination-cursor
+  - api-pagination-keyset
+  - api-filtering-sorting
+stack_signals:
+  - rest
+  - api
+  - pagination
+keywords:
+  - offset-pagination
+  - limit
+  - offset
+  - page
+  - page-size
+  - total-count
+  - page-drift
+metadata:
+  author: community
+  upstream: developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
+state:
+  persistent: false
+  files: []
+depends_on: []
