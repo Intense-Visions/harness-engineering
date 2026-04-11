@@ -1,0 +1,40 @@
+name: api-long-running-operations
+version: '1.0.0'
+description: Async request patterns — 202 Accepted + polling, operation resource pattern, callback/webhook notification, status endpoint design, Google AIP-151
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-webhook-design
+  - api-status-codes
+  - api-http-methods
+  - api-error-contracts
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - long-running-operations
+  - 202-Accepted
+  - polling
+  - async-request
+  - operation-resource
+  - callback
+  - AIP-151
+metadata:
+  author: community
+  upstream: aip.dev/151
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

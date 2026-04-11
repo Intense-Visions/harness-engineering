@@ -1,0 +1,41 @@
+name: api-webhook-design
+version: '1.0.0'
+description: Webhook registration, payload design, delivery guarantees (at-least-once), retry policy, ordering guarantees, fan-out patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-webhook-security
+  - events-webhooks-pattern
+  - api-idempotency-keys
+  - api-long-running-operations
+stack_signals:
+  - rest
+  - api
+  - http
+  - webhooks
+keywords:
+  - webhooks
+  - webhook-registration
+  - at-least-once
+  - delivery-guarantee
+  - retry-policy
+  - fan-out
+  - event-payload
+metadata:
+  author: community
+  upstream: webhooks.fyi
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static
