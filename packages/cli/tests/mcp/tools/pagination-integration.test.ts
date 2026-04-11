@@ -111,16 +111,21 @@ describe('schema completeness — all 8 tools have offset/limit with sort-key do
     assertPaginationSchema(runCodeReviewDefinition, 'run_code_review', 'severity');
   });
 
-  it('gather_context schema: offset/limit/section present', () => {
+  it('gather_context schema: offset/limit/section present with sort key documented', () => {
     const props = gatherContextDefinition.inputSchema.properties as Record<
       string,
-      { type?: string; enum?: string[] }
+      { type?: string; description?: string; enum?: string[] }
     >;
     expect(props).toHaveProperty('offset');
     expect(props).toHaveProperty('limit');
     expect(props).toHaveProperty('section');
     expect(props.offset.type).toBe('number');
     expect(props.limit.type).toBe('number');
+    // Offset description documents sort behaviour per section
+    expect(props.offset.description).toMatch(/section/i);
+    // Limit description documents its default
+    expect(props.limit.description).toMatch(/default:\s*\d+/i);
+    // Section enum is complete and ordered
     expect(props.section.enum).toEqual(['graphContext', 'learnings', 'sessionSections']);
   });
 
@@ -193,7 +198,11 @@ describe('multi-page fetch — query_graph', () => {
     const collectedIds = new Set<string>();
     let offset = 0;
     let hasMore = true;
+    let iterations = 0;
+    const MAX_ITERATIONS = 50;
     while (hasMore) {
+      if (++iterations > MAX_ITERATIONS) throw new Error('pagination loop did not terminate');
+
       const result = await handleQueryGraph({
         path: tmpDir,
         rootNodeIds: ['file:a.ts'],
@@ -274,7 +283,11 @@ describe('multi-page fetch — get_relationships', () => {
     const collectedEdges = new Set<string>();
     let offset = 0;
     let hasMore = true;
+    let iterations = 0;
+    const MAX_ITERATIONS = 50;
     while (hasMore) {
+      if (++iterations > MAX_ITERATIONS) throw new Error('pagination loop did not terminate');
+
       const result = await handleGetRelationships({
         path: tmpDir,
         nodeId: 'file:a.ts',
