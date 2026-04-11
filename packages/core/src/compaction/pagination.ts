@@ -11,7 +11,12 @@ export interface PaginationMeta {
   offset: number;
   /** Maximum items in this page. */
   limit: number;
-  /** Total items available (null if expensive to compute). */
+  /**
+   * Total items available. `null` when the producer cannot cheaply compute
+   * the count (e.g. streaming or external query). `paginate()` always sets
+   * this to `items.length`; tools that build PaginationMeta manually may
+   * pass `null`.
+   */
   total: number | null;
   /** True if more pages exist beyond this slice. */
   hasMore: boolean;
@@ -31,14 +36,16 @@ export interface PaginatedSlice<T> {
  * @returns A `PaginatedSlice` with the requested page and metadata.
  */
 export function paginate<T>(items: T[], offset: number, limit: number): PaginatedSlice<T> {
-  const sliced = items.slice(offset, offset + limit);
+  const safeOffset = Math.max(0, offset);
+  const safeLimit = Math.max(0, limit);
+  const sliced = items.slice(safeOffset, safeOffset + safeLimit);
   return {
     items: sliced,
     pagination: {
-      offset,
-      limit,
+      offset: safeOffset,
+      limit: safeLimit,
       total: items.length,
-      hasMore: offset + limit < items.length,
+      hasMore: safeOffset + safeLimit < items.length,
     },
   };
 }
