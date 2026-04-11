@@ -149,7 +149,7 @@ async function checkAllPackages(
   const results = await Promise.allSettled(
     packages.map(async (pkg) => {
       const latest = await getLatestVersionAsync(pkg);
-      const current = installedVersions[pkg];
+      const current = installedVersions[pkg] ?? null;
       return { pkg, current, latest, outdated: !current || current !== latest };
     })
   );
