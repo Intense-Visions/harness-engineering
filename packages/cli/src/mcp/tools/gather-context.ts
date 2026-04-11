@@ -1,4 +1,67 @@
+import { paginate } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
+
+interface GraphContextBlock {
+  rootNode: string;
+  score: number;
+  nodes: unknown[];
+  edges: unknown[];
+}
+
+interface GraphContextResult {
+  intent: string;
+  tokenBudget: number;
+  blocksReturned: number;
+  context: GraphContextBlock[];
+}
+
+interface SectionPaginationInput {
+  section: 'graphContext' | 'learnings' | 'sessionSections';
+  offset: number;
+  limit: number;
+  graphContext: GraphContextResult | null;
+  learnings: unknown[];
+  sessionSections: Record<
+    string,
+    Array<{ timestamp?: string; content: string; authorSkill?: string }>
+  > | null;
+  meta: Record<string, unknown>;
+}
+
+type SessionEntry = { timestamp?: string; content: string; authorSkill?: string };
+type FlatSessionEntry = SessionEntry & { sectionName: string };
+
+function flattenSessionSections(
+  sections: Record<string, SessionEntry[]> | null
+): FlatSessionEntry[] {
+  if (!sections) return [];
+  return Object.entries(sections).flatMap(([name, entries]) =>
+    Array.isArray(entries) ? entries.map((e) => ({ sectionName: name, ...e })) : []
+  );
+}
+
+function sectionItems(input: SectionPaginationInput): unknown[] {
+  if (input.section === 'graphContext') {
+    const blocks = input.graphContext?.context ?? [];
+    return [...blocks].sort((a, b) => b.score - a.score);
+  }
+  if (input.section === 'learnings') {
+    return Array.isArray(input.learnings) ? input.learnings : [];
+  }
+  const flat = flattenSessionSections(input.sessionSections);
+  return flat.sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? ''));
+}
+
+function paginateSection(input: SectionPaginationInput) {
+  const items = sectionItems(input);
+  const paged = paginate(items, input.offset, input.limit);
+  return {
+    section: input.section,
+    items: paged.items,
+    pagination: paged.pagination,
+    meta: input.meta,
+  };
+}
 
 type IncludeKey =
   | 'state'
@@ -321,19 +384,6 @@ export async function handleGatherContext(input: {
   const outputHandoff = handoff ?? null;
   // Graph context shape returned by the graph promise above.
   // Summary mode aggregates node/edge counts across all context blocks.
-  interface GraphContextBlock {
-    rootNode: string;
-    score: number;
-    nodes: unknown[];
-    edges: unknown[];
-  }
-  interface GraphContextResult {
-    intent: string;
-    tokenBudget: number;
-    blocksReturned: number;
-    context: GraphContextBlock[];
-  }
-
   const outputGraphContext =
     graphContext == null
       ? null
@@ -389,6 +439,25 @@ export async function handleGatherContext(input: {
   const outputText = JSON.stringify(output);
   const tokenEstimate = Math.ceil(outputText.length / 4);
   output.meta.tokenEstimate = tokenEstimate;
+
+  // Section-aware pagination
+  if (input.section) {
+    const result = paginateSection({
+      section: input.section,
+      offset: input.offset ?? 0,
+      limit: input.limit ?? 20,
+      graphContext: graphContext as GraphContextResult | null,
+      learnings: Array.isArray(outputLearnings) ? (outputLearnings as unknown[]) : [],
+      sessionSections: sessionSections as Record<
+        string,
+        Array<{ timestamp?: string; content: string; authorSkill?: string }>
+      > | null,
+      meta: output.meta as unknown as Record<string, unknown>,
+    });
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+    };
+  }
 
   return {
     content: [
