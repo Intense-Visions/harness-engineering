@@ -1,6 +1,6 @@
 name: ux-confirmation-dialogs
 version: "1.0.0"
-description: Confirmation dialog copy — destructive action writing, consequence clarity, specific button labels over generic OK/Cancel
+description: Confirmation dialogs — destructive action writing, consequence clarity, and specific button labels that make irreversibility unmistakable
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

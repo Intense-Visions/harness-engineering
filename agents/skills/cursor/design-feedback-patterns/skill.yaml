@@ -18,7 +18,9 @@ related_skills:
   - design-micro-interactions
   - design-affordances
   - ux-error-messages
+  - ux-error-severity
   - ux-notification-copy
+  - ux-success-feedback
 stack_signals: []
 keywords:
   - feedback

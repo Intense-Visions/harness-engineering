@@ -1,6 +1,6 @@
 name: ux-tooltip-contextual-help
 version: "1.0.0"
-description: Tooltip and contextual help writing — when to use tooltips, progressive disclosure, character limits, hover vs persistent help
+description: Tooltip and contextual help writing — when to use tooltips, what to put in them, and progressive disclosure patterns that educate without interrupting
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

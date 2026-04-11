@@ -16,6 +16,7 @@ paths: []
 related_skills:
   - design-affordances
   - design-information-architecture
+  - ux-navigation-labels
 stack_signals: []
 keywords:
   - navigation
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

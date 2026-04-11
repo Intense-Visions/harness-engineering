@@ -76,10 +76,15 @@ phases:
 related_skills:
   - ux-microcopy-principles
   - ux-voice-tone
+  - ux-active-voice
   - ux-error-messages
   - ux-form-labels
+  - ux-button-cta-copy
   - ux-confirmation-dialogs
+  - ux-destructive-action-copy
   - ux-empty-states
+  - ux-notification-copy
+  - ux-onboarding-copy
 state:
   persistent: false
   files: []
