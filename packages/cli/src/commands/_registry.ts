@@ -48,6 +48,7 @@ import { createSkillCommand } from './skill';
 import { createSnapshotCommand } from './snapshot';
 import { createStateCommand } from './state';
 import { createTaintCommand } from './taint';
+import { createTelemetryCommand } from './telemetry';
 import { createTraceabilityCommand } from './traceability';
 import { createUninstallCommand } from './uninstall';
 import { createUninstallConstraintsCommand } from './uninstall-constraints';
@@ -106,6 +107,7 @@ export const commandCreators: Array<() => Command> = [
   createSnapshotCommand,
   createStateCommand,
   createTaintCommand,
+  createTelemetryCommand,
   createTraceabilityCommand,
   createUninstallCommand,
   createUninstallConstraintsCommand,
