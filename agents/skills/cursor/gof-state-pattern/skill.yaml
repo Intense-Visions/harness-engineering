@@ -1,6 +1,7 @@
 name: gof-state-pattern
 version: "1.0.0"
 description: Replace conditional logic with state objects that delegate behavior to the current state
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

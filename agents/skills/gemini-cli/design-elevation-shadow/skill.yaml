@@ -1,6 +1,7 @@
 name: design-elevation-shadow
 version: "1.0.0"
 description: Depth as information — shadow anatomy (offset, blur, spread, color), elevation scale, chromatic shadows, material metaphor, dark mode shadows
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

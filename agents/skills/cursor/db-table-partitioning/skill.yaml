@@ -1,6 +1,7 @@
 name: db-table-partitioning
 version: '1.0.0'
 description: Range, list, and hash partitioning -- declarative partitioning, partition pruning, and maintenance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: redux-entity-adapter
 version: '1.0.0'
 description: Normalize collections with createEntityAdapter for efficient CRUD on entity state
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

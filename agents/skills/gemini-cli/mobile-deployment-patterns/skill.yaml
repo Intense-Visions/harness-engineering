@@ -1,6 +1,7 @@
 name: mobile-deployment-patterns
 version: '1.0.0'
 description: Deploy React Native apps with EAS Build, EAS Submit, OTA updates, and CI/CD pipelines
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

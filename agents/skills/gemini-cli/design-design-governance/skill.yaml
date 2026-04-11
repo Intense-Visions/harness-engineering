@@ -1,6 +1,7 @@
 name: design-design-governance
 version: '1.0.0'
 description: Living system maintenance covering contribution models, deprecation, versioning, adoption metrics, and documentation standards
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

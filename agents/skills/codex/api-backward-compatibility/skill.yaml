@@ -1,6 +1,7 @@
 name: api-backward-compatibility
 version: '1.0.0'
 description: Additive change rules, Postel's law, breaking change taxonomy, automated breaking-change detection
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

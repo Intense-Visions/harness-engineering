@@ -1,6 +1,7 @@
 name: api-http-caching
 version: '1.0.0'
 description: Cache-Control directives, ETag generation, Vary header strategy, CDN interaction, and cache invalidation patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,4 +41,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

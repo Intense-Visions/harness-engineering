@@ -1,6 +1,7 @@
 name: angular-pipe-pattern
 version: '1.0.0'
 description: Create custom Angular pipes for pure data transformation and leverage built-in pipes correctly
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,5 +42,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

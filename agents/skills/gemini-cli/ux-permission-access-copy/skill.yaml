@@ -1,6 +1,7 @@
 name: ux-permission-access-copy
 version: "1.0.0"
 description: Permission and access copy — role-based messaging, upgrade prompts, gating copy, "you don't have access" patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

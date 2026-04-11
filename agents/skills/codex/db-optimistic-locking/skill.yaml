@@ -1,6 +1,7 @@
 name: db-optimistic-locking
 version: '1.0.0'
 description: Version columns, conditional updates, conflict detection and retry patterns for optimistic concurrency control
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: a11y-modal-patterns
 version: '1.0.0'
 description: Build accessible modal dialogs with focus trapping, escape dismissal, and screen reader announcements
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,5 +40,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: design-apple-hig
 version: '1.0.0'
 description: Apple Human Interface Guidelines covering clarity/deference/depth, vibrancy and materials, SF Symbols, semantic colors, safe areas, and platform-specific navigation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

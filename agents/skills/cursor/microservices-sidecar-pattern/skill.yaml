@@ -1,6 +1,7 @@
 name: microservices-sidecar-pattern
 version: "1.0.0"
 description: Inject cross-cutting concerns like observability and security via a sidecar proxy
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

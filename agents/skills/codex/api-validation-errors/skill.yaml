@@ -1,6 +1,7 @@
 name: api-validation-errors
 version: '1.0.0'
 description: Field-level validation error design — multi-field error arrays, JSON Pointer (RFC 6901) paths, source/pointer vs source/parameter, and 422 vs 400 choice
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,4 +38,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

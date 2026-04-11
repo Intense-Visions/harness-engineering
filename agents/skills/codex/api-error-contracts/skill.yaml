@@ -1,6 +1,7 @@
 name: api-error-contracts
 version: '1.0.0'
 description: Consistent error response structure — machine-readable codes, human-readable messages, actionable remediation, and error taxonomies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,4 +38,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

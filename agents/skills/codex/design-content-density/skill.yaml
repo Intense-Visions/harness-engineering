@@ -1,6 +1,7 @@
 name: design-content-density
 version: "1.0.0"
 description: Information density tradeoffs — compact vs. comfortable vs. spacious, data-dense vs. marketing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

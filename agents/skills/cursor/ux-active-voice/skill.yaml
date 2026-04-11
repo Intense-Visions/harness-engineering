@@ -1,6 +1,7 @@
 name: ux-active-voice
 version: "1.0.0"
 description: Active voice in UI writing — active vs passive voice, when passive is acceptable, verb-first patterns for buttons and actions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

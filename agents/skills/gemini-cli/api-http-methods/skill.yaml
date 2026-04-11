@@ -1,6 +1,7 @@
 name: api-http-methods
 version: '1.0.0'
 description: GET/POST/PUT/PATCH/DELETE semantics, safety and idempotency properties, and when to use each HTTP method
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,4 +41,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

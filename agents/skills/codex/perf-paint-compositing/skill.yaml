@@ -1,6 +1,7 @@
 name: perf-paint-compositing
 version: '1.0.0'
 description: Paint layers and compositor — GPU compositing, will-change, layer promotion, paint complexity
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

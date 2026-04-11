@@ -1,6 +1,7 @@
 name: security-abac-design
 version: '1.0.0'
 description: Attribute-based access control -- policy engines, XACML concepts, attribute evaluation, and when ABAC is the right model over RBAC
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: design-motion-principles
 version: "1.0.0"
 description: Purposeful animation — Disney's 12 principles adapted for UI, easing curves, duration guidelines, choreography, motion as feedback vs decoration, reducing motion
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

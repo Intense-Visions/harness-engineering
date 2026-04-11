@@ -1,6 +1,7 @@
 name: ux-confirmation-dialogs
 version: "1.0.0"
 description: Confirmation dialogs — destructive action writing, consequence clarity, and specific button labels that make irreversibility unmistakable
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

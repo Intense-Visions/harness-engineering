@@ -1,6 +1,7 @@
 name: state-zustand-react
 version: '1.0.0'
 description: Optimize Zustand re-renders with selectors, shallow comparison, and subscription patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

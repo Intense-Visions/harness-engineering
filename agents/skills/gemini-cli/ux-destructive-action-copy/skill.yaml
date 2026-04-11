@@ -1,6 +1,7 @@
 name: ux-destructive-action-copy
 version: "1.0.0"
 description: Destructive action copy — irreversibility warnings, undo availability, double-confirmation patterns, cooldown messaging
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

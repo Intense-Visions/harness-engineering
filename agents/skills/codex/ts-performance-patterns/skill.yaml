@@ -1,6 +1,7 @@
 name: ts-performance-patterns
 version: "1.0.0"
 description: Reduce TypeScript compilation time and type complexity with targeted optimizations
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

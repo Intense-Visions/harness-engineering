@@ -1,6 +1,7 @@
 name: xstate-react-integration
 version: '1.0.0'
 description: Connect XState machines to React components with useMachine and useActor hooks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

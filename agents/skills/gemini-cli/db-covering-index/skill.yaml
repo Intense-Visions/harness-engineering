@@ -1,6 +1,7 @@
 name: db-covering-index
 version: '1.0.0'
 description: Index-only scans using INCLUDE columns to avoid heap table lookups
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

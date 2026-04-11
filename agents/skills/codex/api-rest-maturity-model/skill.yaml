@@ -1,6 +1,7 @@
 name: api-rest-maturity-model
 version: '1.0.0'
 description: Richardson Maturity Model levels 0-3 -- evaluating and advancing REST API design maturity
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

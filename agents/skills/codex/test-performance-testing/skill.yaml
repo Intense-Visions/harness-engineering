@@ -1,6 +1,7 @@
 name: test-performance-testing
 version: "1.0.0"
 description: Measure and assert on code performance using vitest bench and timing budgets
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -43,5 +44,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

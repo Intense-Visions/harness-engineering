@@ -1,6 +1,7 @@
 name: resilience-idempotency
 version: '1.0.0'
 description: Ensure safe retries with idempotency keys and at-least-once delivery guarantees
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: vue-composables-pattern
 version: '1.0.0'
 description: Extract and reuse stateful logic across components using Vue composables
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

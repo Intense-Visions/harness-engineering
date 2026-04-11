@@ -1,6 +1,7 @@
 name: svelte-testing-patterns
 version: '1.0.0'
 description: Test Svelte components and SvelteKit routes using Vitest, @testing-library/svelte, render, and fireEvent
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -42,5 +43,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

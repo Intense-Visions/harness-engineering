@@ -1,6 +1,7 @@
 name: security-credential-storage
 version: "1.0.0"
 description: Password hashing with Argon2id, bcrypt, and scrypt -- salting, peppering, adaptive cost, and upgrade strategies for legacy hashes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

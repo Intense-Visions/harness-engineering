@@ -1,6 +1,7 @@
 name: test-e2e-strategy
 version: "1.0.0"
 description: Choose the right test layer (unit/integration/E2E) and prevent flaky tests in CI
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

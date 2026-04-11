@@ -1,6 +1,7 @@
 name: test-snapshot-patterns
 version: "1.0.0"
 description: Use snapshot testing selectively for stable outputs, knowing when to avoid it
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

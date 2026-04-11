@@ -1,6 +1,7 @@
 name: tanstack-devtools
 version: "1.0.0"
 description: "@tanstack/react-query-devtools, cache panel, network inspector, and debugging"
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

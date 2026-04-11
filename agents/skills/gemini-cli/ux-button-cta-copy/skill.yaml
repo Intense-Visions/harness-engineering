@@ -1,6 +1,7 @@
 name: ux-button-cta-copy
 version: "1.0.0"
 description: Button and CTA copy — verb-noun pattern, specificity over vagueness, context-sensitive labels, and writing buttons that tell users exactly what will happen
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

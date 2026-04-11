@@ -1,6 +1,7 @@
 name: redux-persistence-pattern
 version: '1.0.0'
 description: Persist and rehydrate Redux state across sessions with redux-persist or manual storage
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

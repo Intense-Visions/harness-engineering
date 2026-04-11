@@ -1,6 +1,7 @@
 name: graphql-dataloader-pattern
 version: '1.0.0'
 description: Batch and cache data fetches to eliminate N+1 queries in GraphQL resolvers
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

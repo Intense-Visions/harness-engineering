@@ -1,6 +1,7 @@
 name: design-gestalt-closure-continuity
 version: "1.0.0"
 description: Pattern completion — the brain fills gaps in incomplete shapes (closure) and follows smooth paths over abrupt changes (continuity), implications for icons, progress indicators, and visual flow
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -30,5 +31,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: events-sse-pattern
 version: "1.0.0"
 description: Stream one-way server events to browsers using Server-Sent Events and EventSource
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,5 +40,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

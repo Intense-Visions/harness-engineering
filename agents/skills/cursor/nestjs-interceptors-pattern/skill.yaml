@@ -1,6 +1,7 @@
 name: nestjs-interceptors-pattern
 version: "1.0.0"
 description: Transform responses and add cross-cutting behavior with NestInterceptor and CallHandler
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

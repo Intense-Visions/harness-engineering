@@ -1,6 +1,7 @@
 name: test-component-svelte
 version: "1.0.0"
 description: Test Svelte components with Testing Library using render, fireEvent, and waitFor
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,5 +40,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

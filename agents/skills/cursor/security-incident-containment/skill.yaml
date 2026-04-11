@@ -1,6 +1,7 @@
 name: security-incident-containment
 version: '1.0.0'
 description: Incident triage, isolation strategies, evidence preservation, and the first 60 minutes of a security incident -- what to do and what not to touch
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: design-gestalt-similarity
 version: "1.0.0"
 description: Visual kinship — elements sharing color, size, shape, or texture perceived as related, creating categories without explicit labels
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -30,5 +31,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

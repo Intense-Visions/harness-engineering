@@ -1,6 +1,7 @@
 name: mobile-gesture-handling
 version: '1.0.0'
 description: Implement touch gestures with React Native Gesture Handler for swipe, pan, pinch, and long press
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

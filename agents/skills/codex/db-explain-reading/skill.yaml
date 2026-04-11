@@ -1,6 +1,7 @@
 name: db-explain-reading
 version: '1.0.0'
 description: Reading EXPLAIN and EXPLAIN ANALYZE output, understanding cost estimation, and comparing actual vs estimated rows
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

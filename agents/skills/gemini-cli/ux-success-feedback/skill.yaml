@@ -1,6 +1,7 @@
 name: ux-success-feedback
 version: "1.0.0"
 description: Success feedback copy — confirmation messages, celebration calibration, and next-step prompts that close the action loop and guide users forward
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

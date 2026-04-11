@@ -1,6 +1,7 @@
 name: db-hash-index
 version: '1.0.0'
 description: Hash indexes for equality-only lookups and when to prefer them over B-tree
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

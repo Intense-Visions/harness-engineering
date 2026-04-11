@@ -1,6 +1,7 @@
 name: svelte-form-actions
 version: '1.0.0'
 description: Handle form submissions with SvelteKit actions, use:enhance, fail(), redirect(), and progressive enhancement
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

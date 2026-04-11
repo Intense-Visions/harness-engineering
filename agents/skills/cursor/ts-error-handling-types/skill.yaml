@@ -1,6 +1,7 @@
 name: ts-error-handling-types
 version: "1.0.0"
 description: Model and type errors explicitly using Result types, discriminated unions, and typed throws
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

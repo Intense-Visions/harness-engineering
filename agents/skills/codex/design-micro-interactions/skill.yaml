@@ -1,6 +1,7 @@
 name: design-micro-interactions
 version: "1.0.0"
 description: Small moments that delight — trigger, rules, feedback, loops/modes (Dan Saffer's framework), when micro-interactions aid usability vs decoration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: tanstack-dependent-queries
 version: "1.0.0"
 description: enabled flag, query dependencies, chaining, and parallel vs sequential queries
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

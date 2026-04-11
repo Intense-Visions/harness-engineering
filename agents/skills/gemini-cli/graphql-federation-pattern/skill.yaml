@@ -1,6 +1,7 @@
 name: graphql-federation-pattern
 version: '1.0.0'
 description: Compose a unified GraphQL API from independently deployed subgraph services
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

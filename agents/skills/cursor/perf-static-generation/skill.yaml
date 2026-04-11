@@ -1,6 +1,7 @@
 name: perf-static-generation
 version: '1.0.0'
 description: Static generation — Build-time rendering, incremental static regeneration, on-demand revalidation, and hybrid rendering strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

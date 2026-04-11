@@ -1,6 +1,7 @@
 name: a11y-testing-automation
 version: '1.0.0'
 description: Automate accessibility testing with axe-core, jest-axe, Playwright, and CI integration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -42,5 +43,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

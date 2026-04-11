@@ -1,6 +1,7 @@
 name: react-context-pattern
 version: '1.0.0'
 description: Share state across the component tree without prop drilling using React Context
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

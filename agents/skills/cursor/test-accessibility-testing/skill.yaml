@@ -1,6 +1,7 @@
 name: test-accessibility-testing
 version: "1.0.0"
 description: Automate WCAG accessibility checks using axe-core with Playwright and jest-axe
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,5 +40,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: design-gestalt-common-fate
 version: "1.0.0"
 description: Motion grouping — elements that move or change together are perceived as a unit, implications for animation, loading states, and batch operations
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -30,5 +31,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

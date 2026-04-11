@@ -1,6 +1,7 @@
 name: design-empty-error-states
 version: "1.0.0"
 description: Empty and error state design — empty states as onboarding, error states as recovery, 404 pages, zero-data states, degraded states, constructive error messages
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

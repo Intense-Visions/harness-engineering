@@ -1,6 +1,7 @@
 name: security-hsts-preloading
 version: '1.0.0'
 description: HTTP Strict Transport Security and preload lists -- eliminating the first-request HTTP downgrade window and ensuring browsers never connect over plaintext
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: ts-template-literal-types
 version: "1.0.0"
 description: Construct precise string types using template literal syntax and string manipulation types
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

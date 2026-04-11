@@ -1,6 +1,7 @@
 name: otel-performance-insights
 version: '1.0.0'
 description: Identify performance bottlenecks using trace analysis, histogram metrics, and span timing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,5 +42,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

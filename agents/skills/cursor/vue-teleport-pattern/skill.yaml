@@ -1,6 +1,7 @@
 name: vue-teleport-pattern
 version: '1.0.0'
 description: Render a component's HTML at a different location in the DOM using Vue's Teleport
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

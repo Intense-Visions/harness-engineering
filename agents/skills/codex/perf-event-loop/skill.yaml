@@ -1,6 +1,7 @@
 name: perf-event-loop
 version: '1.0.0'
 description: Event loop architecture — task queues, microtask queue, rendering steps, task prioritization
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

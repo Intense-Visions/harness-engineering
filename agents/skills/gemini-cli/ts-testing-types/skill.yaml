@@ -1,6 +1,7 @@
 name: ts-testing-types
 version: "1.0.0"
 description: Test TypeScript types at compile time using expect-type, tsd, and vitest type matchers
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

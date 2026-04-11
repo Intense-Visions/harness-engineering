@@ -1,6 +1,7 @@
 name: design-palette-construction
 version: "1.0.0"
 description: Building functional palettes — primary/secondary/accent, neutral scales, semantic colors, tint/shade generation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

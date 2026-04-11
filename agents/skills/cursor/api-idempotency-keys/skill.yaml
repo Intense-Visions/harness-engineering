@@ -1,6 +1,7 @@
 name: api-idempotency-keys
 version: '1.0.0'
 description: Idempotency key design — UUID v4 generation, key storage TTL, 24h window convention, at-least-once vs exactly-once semantics, safe retry scope
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,4 +38,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

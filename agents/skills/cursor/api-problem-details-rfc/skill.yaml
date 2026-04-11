@@ -1,6 +1,7 @@
 name: api-problem-details-rfc
 version: '1.0.0'
 description: RFC 9457 Problem Details for HTTP APIs — type URI, title, status, detail, instance fields, custom extensions, and application/problem+json content type
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,4 +36,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

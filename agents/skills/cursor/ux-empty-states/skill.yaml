@@ -1,6 +1,7 @@
 name: ux-empty-states
 version: "1.0.0"
 description: Empty states — first-use, user-cleared, and no-results patterns that motivate action, set expectations, and turn blank screens into onramps
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: prisma-schema-design
 version: "1.0.0"
 description: Design Prisma schemas with datasource, generator, models, field types, and field attributes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -21,6 +22,9 @@ related_skills:
   - prisma-migrations
   - prisma-type-generation
   - ts-utility-types
+  - db-first-normal-form
+  - db-third-normal-form
+  - db-polymorphic-associations
 stack_signals:
   - prisma
   - typescript
@@ -43,5 +47,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

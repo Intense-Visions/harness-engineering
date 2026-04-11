@@ -1,6 +1,7 @@
 name: ux-loading-states
 version: "1.0.0"
 description: Loading state copy — progress transparency, expectation setting, and writing text that reduces perceived wait time and prevents users from abandoning
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

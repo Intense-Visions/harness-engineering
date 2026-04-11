@@ -1,6 +1,7 @@
 name: design-gestalt-proximity
 version: "1.0.0"
 description: Spatial grouping — elements near each other perceived as related, controlling group membership through distance, common region as proximity amplifier
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

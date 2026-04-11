@@ -1,6 +1,7 @@
 name: svelte-server-hooks
 version: '1.0.0'
 description: Intercept requests and handle errors in SvelteKit using hooks.server.ts with handle, handleFetch, handleError, and sequence
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

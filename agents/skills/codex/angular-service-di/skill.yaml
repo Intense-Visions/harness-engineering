@@ -1,6 +1,7 @@
 name: angular-service-di
 version: '1.0.0'
 description: Design Angular services with dependency injection, providers, and injection tokens
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -42,5 +43,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

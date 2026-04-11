@@ -1,6 +1,7 @@
 name: gof-prototype-pattern
 version: "1.0.0"
 description: Clone objects using prototype registry and structured clone for deep copy scenarios
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

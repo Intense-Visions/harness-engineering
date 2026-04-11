@@ -1,6 +1,7 @@
 name: react-compound-pattern
 version: '1.0.0'
 description: Build multi-part components that share state implicitly via context
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

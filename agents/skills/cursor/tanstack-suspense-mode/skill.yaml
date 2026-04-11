@@ -1,6 +1,7 @@
 name: tanstack-suspense-mode
 version: "1.0.0"
 description: useSuspenseQuery, error boundaries, streaming, and React 18 integration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

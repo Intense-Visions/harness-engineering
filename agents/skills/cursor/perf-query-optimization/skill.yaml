@@ -1,6 +1,7 @@
 name: perf-query-optimization
 version: '1.0.0'
 description: Query optimization — EXPLAIN analysis, query plans, index usage, optimizer hints, and slow query diagnosis
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

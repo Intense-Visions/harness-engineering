@@ -1,6 +1,7 @@
 name: angular-signals-pattern
 version: '1.0.0'
 description: Manage reactive state with Angular Signals — signal(), computed(), effect(), and toSignal()
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,5 +42,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

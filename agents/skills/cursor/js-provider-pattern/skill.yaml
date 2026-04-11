@@ -1,6 +1,7 @@
 name: js-provider-pattern
 version: '1.0.0'
 description: Make shared data available to multiple child components without prop-drilling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

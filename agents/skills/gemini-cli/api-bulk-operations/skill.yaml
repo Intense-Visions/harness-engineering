@@ -1,6 +1,7 @@
 name: api-bulk-operations
 version: '1.0.0'
 description: Batch endpoints including bulk create/update/delete, partial failure semantics, transactional vs best-effort batches, and Idempotency-Key on bulk
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

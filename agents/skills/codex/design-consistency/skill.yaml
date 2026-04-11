@@ -1,6 +1,7 @@
 name: design-consistency
 version: "1.0.0"
 description: Internal vs. external consistency — consistent patterns within a product, platform convention adherence, and when to break consistency deliberately
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

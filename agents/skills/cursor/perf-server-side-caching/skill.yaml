@@ -1,6 +1,7 @@
 name: perf-server-side-caching
 version: '1.0.0'
 description: Server-side caching — Redis, Memcached, application-level caching patterns, cache-aside, write-through, and read-through strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: next-streaming-suspense
 version: "1.0.0"
 description: Streaming SSR, Suspense boundaries, and loading.tsx conventions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

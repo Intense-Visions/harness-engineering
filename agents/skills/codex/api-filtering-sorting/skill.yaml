@@ -1,6 +1,7 @@
 name: api-filtering-sorting
 version: '1.0.0'
 description: Query parameter design for filter operators (eq, gt, lt, in, contains), sort syntax, filter injection prevention, and performance hints
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,4 +38,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

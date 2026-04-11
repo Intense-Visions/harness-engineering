@@ -1,6 +1,7 @@
 name: xstate-guards-actions
 version: '1.0.0'
 description: Control transitions with guards and execute side effects with actions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: prisma-migrations
 version: "1.0.0"
 description: Manage database schema evolution with prisma migrate dev/deploy/reset and migration history
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -19,6 +20,8 @@ paths:
 related_skills:
   - prisma-schema-design
   - prisma-seeding-pattern
+  - db-zero-downtime-migration
+  - db-expand-contract
 stack_signals:
   - prisma
   - typescript
@@ -38,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

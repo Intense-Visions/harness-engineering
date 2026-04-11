@@ -1,6 +1,7 @@
 name: ux-microcopy-principles
 version: "1.0.0"
 description: Microcopy principles — clarity, brevity, human voice, active voice, and the core rules all UI text follows
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: ux-error-messages
 version: "1.0.0"
 description: Error messages — what went wrong, why it matters, how to fix it, the three-part error pattern for clear, actionable error communication
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

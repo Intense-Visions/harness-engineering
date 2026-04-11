@@ -1,6 +1,7 @@
 name: security-trust-boundaries
 version: "1.0.0"
 description: Trust boundary identification, data flow diagrams, and the principle that all security controls concentrate at boundary crossings
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

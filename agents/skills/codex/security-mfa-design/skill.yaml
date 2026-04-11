@@ -1,6 +1,7 @@
 name: security-mfa-design
 version: '1.0.0'
 description: Multi-factor authentication design -- TOTP, WebAuthn/passkeys, SMS risks, recovery flows, and step-up authentication for sensitive operations
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

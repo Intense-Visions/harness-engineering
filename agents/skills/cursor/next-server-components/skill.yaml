@@ -1,6 +1,7 @@
 name: next-server-components
 version: '1.0.0'
 description: React Server Components in Next.js — client/server boundaries, composition, and data access
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

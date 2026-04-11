@@ -1,6 +1,7 @@
 name: ux-data-table-copy
 version: "1.0.0"
 description: Data table copy — column headers, empty cells, truncation patterns, filter and sort labels, bulk action copy
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

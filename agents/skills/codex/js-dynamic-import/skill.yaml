@@ -1,6 +1,7 @@
 name: js-dynamic-import
 version: '1.0.0'
 description: Load ES modules on demand with import() to reduce initial bundle size and enable code splitting
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

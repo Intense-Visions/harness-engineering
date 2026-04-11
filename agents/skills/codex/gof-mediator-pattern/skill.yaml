@@ -1,6 +1,7 @@
 name: gof-mediator-pattern
 version: "1.0.0"
 description: Decouple components by routing communication through a central mediator or event bus
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: tanstack-optimistic-updates
 version: "1.0.0"
 description: Optimistic mutations, onMutate, rollback on error, and cache snapshot patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: react-suspense-pattern
 version: '1.0.0'
 description: Declaratively handle async loading states with React Suspense boundaries
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

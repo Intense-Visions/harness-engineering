@@ -1,6 +1,7 @@
 name: js-iterator-pattern
 version: '1.0.0'
 description: Traverse a collection sequentially without exposing its internal structure
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

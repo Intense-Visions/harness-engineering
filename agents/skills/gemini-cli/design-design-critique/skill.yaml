@@ -1,6 +1,7 @@
 name: design-design-critique
 version: "1.0.0"
 description: Structured feedback — critique frameworks (like/wish/wonder, what/why/improve), separating subjective preference from objective assessment
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -29,5 +30,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

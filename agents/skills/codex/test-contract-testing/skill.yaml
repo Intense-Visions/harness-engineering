@@ -1,6 +1,7 @@
 name: test-contract-testing
 version: "1.0.0"
 description: Verify service compatibility using Pact consumer-provider contract tests
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

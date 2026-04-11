@@ -1,6 +1,7 @@
 name: api-oauth2-flows
 version: '1.0.0'
 description: OAuth2 flows — authorization code + PKCE, client credentials, device code, implicit (deprecated), token introspection, refresh token rotation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,4 +40,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

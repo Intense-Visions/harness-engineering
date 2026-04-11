@@ -1,13 +1,17 @@
 name: perf-dom-parsing
 version: '1.0.0'
 description: HTML parsing — tokenization, tree construction, speculative parsing, parser-blocking scripts
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
 triggers:
   - manual
 platforms:
+  - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools: []
 paths: []
 related_skills:
@@ -29,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: react-2026
 version: '1.0.0'
 description: Modern React patterns for 2025-2026 including React 19, Compiler, and AI-integrated UI
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: ux-navigation-labels
 version: "1.0.0"
 description: Navigation label writing — menu item naming, breadcrumb clarity, tab labels, and sidebar organization that users scan without reading
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

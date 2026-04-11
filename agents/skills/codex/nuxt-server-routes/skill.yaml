@@ -1,6 +1,7 @@
 name: nuxt-server-routes
 version: '1.0.0'
 description: Build server-side API routes using Nitro's defineEventHandler and H3 utilities
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

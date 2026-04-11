@@ -1,6 +1,7 @@
 name: react-islands-pattern
 version: '1.0.0'
 description: Hydrate only interactive UI islands, leaving static content as HTML
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

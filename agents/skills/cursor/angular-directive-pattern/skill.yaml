@@ -1,6 +1,7 @@
 name: angular-directive-pattern
 version: '1.0.0'
 description: Create attribute and structural directives with @Directive, hostBindings, and host listeners
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,5 +42,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

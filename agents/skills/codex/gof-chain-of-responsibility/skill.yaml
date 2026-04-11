@@ -1,6 +1,7 @@
 name: gof-chain-of-responsibility
 version: "1.0.0"
 description: Pass requests along a handler chain with short-circuit and async chain support
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

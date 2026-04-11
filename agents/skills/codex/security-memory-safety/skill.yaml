@@ -1,6 +1,7 @@
 name: security-memory-safety
 version: "1.0.0"
 description: Memory safety vulnerabilities -- buffer overflows, use-after-free, double-free -- and mitigation through safe languages, bounds checking, and memory-safe abstractions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

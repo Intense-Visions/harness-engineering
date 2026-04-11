@@ -1,6 +1,7 @@
 name: ux-internationalization-writing
 version: "1.0.0"
 description: Writing for internationalization — source strings that survive translation, concatenation traps, pluralization, date and number references
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

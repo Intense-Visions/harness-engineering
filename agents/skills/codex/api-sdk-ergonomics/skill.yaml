@@ -1,6 +1,7 @@
 name: api-sdk-ergonomics
 version: '1.0.0'
 description: Client library design — method naming (verb-noun), pagination helpers (auto-cursor iteration), error surface (typed exceptions vs error objects), retry built-ins, idiomatic patterns per language, discoverability
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,4 +41,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

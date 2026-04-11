@@ -1,6 +1,7 @@
 name: state-zustand-devtools
 version: '1.0.0'
 description: Debug Zustand stores with Redux DevTools integration via the devtools middleware
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

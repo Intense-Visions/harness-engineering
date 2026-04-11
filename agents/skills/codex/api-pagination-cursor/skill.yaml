@@ -1,6 +1,7 @@
 name: api-pagination-cursor
 version: '1.0.0'
 description: Cursor-based pagination with opaque tokens, base64 encoding, forward/backward traversal, and cursor stability guarantees
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,4 +38,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

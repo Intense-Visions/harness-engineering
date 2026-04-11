@@ -1,6 +1,7 @@
 name: react-static-import
 version: '1.0.0'
 description: Bundle all dependencies at build time for predictable loading performance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

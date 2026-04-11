@@ -1,6 +1,7 @@
 name: api-content-negotiation
 version: '1.0.0'
 description: Accept/Content-Type header semantics, media-type versioning, charset and encoding negotiation, and Vary header requirements
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

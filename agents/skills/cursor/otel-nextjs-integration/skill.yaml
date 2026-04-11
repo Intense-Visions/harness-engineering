@@ -1,6 +1,7 @@
 name: otel-nextjs-integration
 version: '1.0.0'
 description: Add OpenTelemetry tracing to Next.js with instrumentation hook and edge runtime support
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

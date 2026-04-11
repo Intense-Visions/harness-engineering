@@ -1,6 +1,7 @@
 name: design-illustration-style
 version: "1.0.0"
 description: Illustration system — style consistency, spot vs hero illustrations, illustration as brand voice, abstract vs representational, illustration tokens
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

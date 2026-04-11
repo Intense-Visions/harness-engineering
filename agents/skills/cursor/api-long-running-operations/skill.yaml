@@ -1,6 +1,7 @@
 name: api-long-running-operations
 version: '1.0.0'
 description: Async request patterns — 202 Accepted + polling, operation resource pattern, callback/webhook notification, status endpoint design, Google AIP-151
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,4 +38,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

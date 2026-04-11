@@ -1,6 +1,7 @@
 name: design-dark-mode-color
 version: "1.0.0"
 description: Color adaptation for dark themes — inverted hierarchy, reduced saturation, elevation through lightness
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

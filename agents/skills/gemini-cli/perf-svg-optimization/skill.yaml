@@ -1,6 +1,7 @@
 name: perf-svg-optimization
 version: '1.0.0'
 description: SVG optimization — Minification, inline vs external strategies, sprite sheets, accessibility, and rendering performance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

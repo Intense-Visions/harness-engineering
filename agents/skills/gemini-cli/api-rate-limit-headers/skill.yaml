@@ -1,6 +1,7 @@
 name: api-rate-limit-headers
 version: '1.0.0'
 description: Rate limit response headers — X-RateLimit-Limit/Remaining/Reset, IETF RateLimit draft standard, Retry-After semantics, per-resource quota pools
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

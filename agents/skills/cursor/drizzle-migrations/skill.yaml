@@ -1,6 +1,7 @@
 name: drizzle-migrations
 version: "1.0.0"
 description: Manage Drizzle schema evolution with drizzle-kit generate/push/migrate and introspect
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -18,6 +19,8 @@ paths:
   - "**/migrations/**"
 related_skills:
   - drizzle-schema-definition
+  - db-zero-downtime-migration
+  - db-expand-contract
 stack_signals:
   - drizzle
   - typescript
@@ -36,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

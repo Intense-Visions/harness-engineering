@@ -1,6 +1,7 @@
 name: astro-multi-framework
 version: '1.0.0'
 description: Mix React, Vue, Svelte, and Solid components in one Astro project with framework isolation and shared state via nanostores
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -43,5 +44,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

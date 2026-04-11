@@ -1,6 +1,7 @@
 name: design-atomic-design
 version: '1.0.0'
 description: Composition methodology for building design systems using atoms, molecules, organisms, templates, and pages
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

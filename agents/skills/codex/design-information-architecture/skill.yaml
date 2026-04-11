@@ -1,6 +1,7 @@
 name: design-information-architecture
 version: "1.0.0"
 description: Structuring information — card sorting, tree testing, mental models, labeling systems, organization schemes, findability
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

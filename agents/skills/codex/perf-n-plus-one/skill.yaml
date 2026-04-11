@@ -1,6 +1,7 @@
 name: perf-n-plus-one
 version: '1.0.0'
 description: N+1 query detection — Identifying N+1 patterns, eager loading, DataLoader batching, and ORM-specific solutions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: db-connection-sizing
 version: '1.0.0'
 description: max_connections tuning, per-connection memory overhead, and serverless pool constraints
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

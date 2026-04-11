@@ -1,6 +1,7 @@
 name: vue-renderless-components
 version: '1.0.0'
 description: Extract behavior into components that render nothing, delegating all rendering to the consumer via slots
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

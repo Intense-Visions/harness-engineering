@@ -1,6 +1,7 @@
 name: css-performance-patterns
 version: '1.0.0'
 description: Optimize CSS performance with content-visibility, containment, and render-efficient patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -42,5 +43,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

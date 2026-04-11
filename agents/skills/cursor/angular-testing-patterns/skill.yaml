@@ -1,6 +1,7 @@
 name: angular-testing-patterns
 version: '1.0.0'
 description: Test Angular components, services, and pipes with TestBed, ComponentFixture, and service mocks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -42,5 +43,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: design-type-scale
 version: "1.0.0"
 description: Mathematical type scales — modular, major third, perfect fourth, golden ratio, custom scales
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

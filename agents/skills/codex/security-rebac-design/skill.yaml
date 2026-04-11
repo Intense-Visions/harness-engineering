@@ -1,6 +1,7 @@
 name: security-rebac-design
 version: '1.0.0'
 description: Relationship-based access control using the Zanzibar model -- modeling authorization as a graph of relationships between subjects and resources
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

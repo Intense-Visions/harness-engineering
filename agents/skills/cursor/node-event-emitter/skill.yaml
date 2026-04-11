@@ -1,6 +1,7 @@
 name: node-event-emitter
 version: "1.0.0"
 description: Use Node.js EventEmitter for typed pub-sub communication with memory leak prevention
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

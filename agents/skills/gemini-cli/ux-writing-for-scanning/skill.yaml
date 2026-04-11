@@ -1,6 +1,7 @@
 name: ux-writing-for-scanning
 version: "1.0.0"
 description: Writing for scanning — F-pattern, front-loading keywords, chunking, bullet vs prose decisions for UI text
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

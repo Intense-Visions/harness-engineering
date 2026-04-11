@@ -1,6 +1,7 @@
 name: next-error-boundaries
 version: "1.0.0"
 description: error.tsx, global-error.tsx, not-found.tsx, and error recovery patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,5 +42,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

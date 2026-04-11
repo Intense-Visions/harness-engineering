@@ -1,6 +1,7 @@
 name: api-versioning-url
 version: '1.0.0'
 description: URL path versioning (/v1/, /v2/) — when to use, URI pollution tradeoffs, major-only vs minor versioning, migration timeline patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

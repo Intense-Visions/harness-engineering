@@ -1,6 +1,7 @@
 name: react-container-presentational
 version: '1.0.0'
 description: Separate data-fetching containers from stateless presentational components
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: otel-custom-instrumentation
 version: '1.0.0'
 description: Add custom spans and attributes to business-critical code paths
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

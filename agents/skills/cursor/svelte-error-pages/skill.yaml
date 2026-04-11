@@ -1,6 +1,7 @@
 name: svelte-error-pages
 version: '1.0.0'
 description: Handle expected and unexpected errors in SvelteKit using +error.svelte, error(), and handleError hooks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,5 +40,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

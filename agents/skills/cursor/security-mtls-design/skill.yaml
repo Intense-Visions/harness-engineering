@@ -1,6 +1,7 @@
 name: security-mtls-design
 version: '1.0.0'
 description: Mutual TLS for service-to-service authentication -- both sides present certificates, eliminating the need for shared secrets or API keys between services
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: api-hateoas
 version: '1.0.0'
 description: Hypermedia as the engine of application state -- practical HAL and JSON:API link design with adoption criteria
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

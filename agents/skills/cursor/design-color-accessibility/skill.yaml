@@ -1,6 +1,7 @@
 name: design-color-accessibility
 version: "1.0.0"
 description: Color independence — conveying information without color alone, colorblind-safe palettes, perceptual uniformity
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -31,5 +32,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: api-versioning-header
 version: '1.0.0'
 description: Accept header versioning (content negotiation), custom version headers (API-Version:), vendor media types (application/vnd.company.v2+json)
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,4 +35,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

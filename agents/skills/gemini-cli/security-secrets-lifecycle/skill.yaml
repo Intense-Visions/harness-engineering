@@ -1,6 +1,7 @@
 name: security-secrets-lifecycle
 version: "1.0.0"
 description: Secret rotation, distribution, revocation, and the principle that secrets must be ephemeral, auditable, and never embedded in code
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

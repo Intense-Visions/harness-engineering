@@ -1,6 +1,7 @@
 name: design-readability
 version: "1.0.0"
 description: Optimizing for reading — line length, leading, paragraph spacing, alignment, F-pattern/Z-pattern
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

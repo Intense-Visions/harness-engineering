@@ -1,6 +1,7 @@
 name: prisma-client-queries
 version: "1.0.0"
 description: Query data with Prisma Client findUnique/findMany, create/update/delete, upsert, select, include
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -43,5 +44,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

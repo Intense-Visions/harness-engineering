@@ -1,6 +1,7 @@
 name: perf-style-calculation
 version: '1.0.0'
 description: CSS selector matching — specificity costs, style recalculation triggers, selector performance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

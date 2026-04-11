@@ -1,6 +1,7 @@
 name: nestjs-testing-patterns
 version: "1.0.0"
 description: Test NestJS apps with Test.createTestingModule, jest mocks, supertest e2e, and overrideProvider
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,5 +40,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

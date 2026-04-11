@@ -1,6 +1,7 @@
 name: ux-error-severity
 version: "1.0.0"
 description: Error severity communication — calibrating error tone to severity, from field validation to system failure to data loss
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

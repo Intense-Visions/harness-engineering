@@ -1,6 +1,7 @@
 name: security-compliance-logging
 version: '1.0.0'
 description: SOC2, GDPR, HIPAA, and PCI-DSS logging requirements -- what to log, how long to retain it, and how to prove compliance through audit trails
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

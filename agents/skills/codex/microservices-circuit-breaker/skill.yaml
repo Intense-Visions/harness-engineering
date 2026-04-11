@@ -1,6 +1,7 @@
 name: microservices-circuit-breaker
 version: "1.0.0"
 description: Prevent cascading failures with circuit breaker, half-open state, and fallback logic
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

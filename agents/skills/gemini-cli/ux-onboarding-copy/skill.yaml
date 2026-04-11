@@ -1,6 +1,7 @@
 name: ux-onboarding-copy
 version: "1.0.0"
 description: Onboarding copy — progressive disclosure, value-first framing, reducing anxiety, and welcome flows that convert sign-ups into active users
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

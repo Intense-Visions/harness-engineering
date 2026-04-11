@@ -1,6 +1,7 @@
 name: security-vault-patterns
 version: '1.0.0'
 description: Centralized secrets management using vault systems -- HashiCorp Vault, cloud KMS, sealed secrets, dynamic credentials, and the principle of secrets as cattle not pets
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

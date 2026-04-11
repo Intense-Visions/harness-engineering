@@ -1,6 +1,7 @@
 name: microservices-service-discovery
 version: "1.0.0"
 description: Implement service registration and dynamic discovery with health checks in microservices
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

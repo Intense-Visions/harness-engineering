@@ -1,13 +1,17 @@
 name: perf-long-tasks
 version: '1.0.0'
 description: Long task detection — breaking up work, yielding to the main thread, scheduler API, web workers
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
 triggers:
   - manual
 platforms:
+  - claude-code
   - gemini-cli
+  - cursor
+  - codex
 tools: []
 paths: []
 related_skills:
@@ -31,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

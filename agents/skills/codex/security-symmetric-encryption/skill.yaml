@@ -1,6 +1,7 @@
 name: security-symmetric-encryption
 version: "1.0.0"
 description: AES and ChaCha20 symmetric ciphers, modes of operation (GCM vs CBC vs CTR), key sizes, IV/nonce management, and authenticated encryption
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

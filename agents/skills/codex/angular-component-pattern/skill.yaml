@@ -1,6 +1,7 @@
 name: angular-component-pattern
 version: '1.0.0'
 description: Author Angular components with correct inputs/outputs, change detection, and lifecycle hooks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -43,5 +44,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: design-fluent-design
 version: '1.0.0'
 description: Microsoft Fluent 2 design system covering light/depth/motion/material/scale, acrylic material, reveal highlight, connected animations, responsive containers, and token theming
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

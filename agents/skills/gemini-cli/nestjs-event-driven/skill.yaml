@@ -1,6 +1,7 @@
 name: nestjs-event-driven
 version: "1.0.0"
 description: Build event-driven systems with EventEmitter2, CQRS module, CommandBus, and QueryBus
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

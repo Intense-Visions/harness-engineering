@@ -1,6 +1,7 @@
 name: drizzle-relations-pattern
 version: "1.0.0"
 description: Define Drizzle relations with relations(), one(), many(), references(), and inferred types
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

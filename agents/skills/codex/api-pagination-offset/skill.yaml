@@ -1,6 +1,7 @@
 name: api-pagination-offset
 version: '1.0.0'
 description: Offset/limit pagination including COUNT(*) costs, page drift on inserts/deletes, max offset limits, and UI implications
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

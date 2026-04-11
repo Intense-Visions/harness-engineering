@@ -1,6 +1,7 @@
 name: prisma-performance-patterns
 version: "1.0.0"
 description: Optimize Prisma queries with select, findUnique index hits, batching, and avoiding N+1
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -24,6 +25,9 @@ related_skills:
   - perf-n-plus-one
   - perf-index-strategies
   - perf-connection-pooling
+  - db-btree-index
+  - db-composite-index
+  - db-covering-index
 stack_signals:
   - prisma
   - typescript
@@ -44,5 +48,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

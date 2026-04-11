@@ -1,6 +1,7 @@
 name: js-template-method-pattern
 version: '1.0.0'
 description: Define the skeleton of an algorithm in a base class and let subclasses override specific steps
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

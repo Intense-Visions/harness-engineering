@@ -1,6 +1,7 @@
 name: next-middleware-pattern
 version: "1.0.0"
 description: Edge middleware, matchers, NextRequest/NextResponse for cross-cutting concerns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

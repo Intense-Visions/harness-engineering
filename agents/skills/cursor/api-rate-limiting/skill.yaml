@@ -1,6 +1,7 @@
 name: api-rate-limiting
 version: '1.0.0'
 description: Rate limit design as consumer contract — quota tiers, burst vs sustained limits, per-user vs per-app limits, fair-use policy, quota negotiation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,4 +39,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

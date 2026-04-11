@@ -1,6 +1,7 @@
 name: drizzle-query-builder
 version: "1.0.0"
 description: Compose type-safe SQL with Drizzle's fluent query builder for select, insert, update, and delete
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,5 +42,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

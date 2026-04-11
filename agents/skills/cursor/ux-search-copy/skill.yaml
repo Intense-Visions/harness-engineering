@@ -1,6 +1,7 @@
 name: ux-search-copy
 version: "1.0.0"
 description: Search copy — placeholder text, zero-results messaging, autocomplete hints, search scope indicators, saved search patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: trpc-nextjs-integration
 version: "1.0.0"
 description: App Router integration, createCaller, server-side caller, and RSC patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

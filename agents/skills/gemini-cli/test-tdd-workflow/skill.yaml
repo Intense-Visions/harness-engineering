@@ -1,6 +1,7 @@
 name: test-tdd-workflow
 version: "1.0.0"
 description: Drive design through tests using red-green-refactor cycle and test-first discipline
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,5 +40,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: drizzle-raw-sql
 version: "1.0.0"
 description: Execute raw SQL safely in Drizzle with the sql template tag, db.execute(), and placeholder()
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

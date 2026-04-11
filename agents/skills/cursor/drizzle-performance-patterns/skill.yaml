@@ -1,6 +1,7 @@
 name: drizzle-performance-patterns
 version: "1.0.0"
 description: Optimize Drizzle queries with prepared statements, db.batch(), explain analysis, and join-based N+1 avoidance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -24,6 +25,9 @@ related_skills:
   - perf-n-plus-one
   - perf-index-strategies
   - perf-connection-pooling
+  - db-btree-index
+  - db-composite-index
+  - db-explain-reading
 stack_signals:
   - drizzle
   - typescript
@@ -43,5 +47,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

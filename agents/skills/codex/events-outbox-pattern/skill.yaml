@@ -1,6 +1,7 @@
 name: events-outbox-pattern
 version: "1.0.0"
 description: Reliably publish domain events using the transactional outbox and CDC polling approach
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: design-imagery-photography
 version: "1.0.0"
 description: Image in design — art direction, aspect ratios, focal point, image treatments (duotone, overlay, blur), placeholder strategy, image as hero vs supporting
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

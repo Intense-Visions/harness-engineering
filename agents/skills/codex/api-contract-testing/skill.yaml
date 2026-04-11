@@ -1,6 +1,7 @@
 name: api-contract-testing
 version: '1.0.0'
 description: Consumer-driven contract testing — Pact fundamentals, provider verification, schema validation in CI (spectral, vacuum), breaking change detection (oasdiff), contract as living documentation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -39,4 +40,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

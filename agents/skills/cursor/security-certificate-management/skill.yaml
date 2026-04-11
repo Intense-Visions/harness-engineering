@@ -1,6 +1,7 @@
 name: security-certificate-management
 version: '1.0.0'
 description: CA hierarchy, certificate pinning, Certificate Transparency, ACME/Let's Encrypt, and the lifecycle of X.509 certificates from issuance to revocation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: tanstack-infinite-queries
 version: "1.0.0"
 description: useInfiniteQuery, getNextPageParam, cursor pagination, and flattening pages
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

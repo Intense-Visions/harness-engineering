@@ -1,6 +1,7 @@
 name: db-adjacency-list
 version: "1.0.0"
 description: Parent-child hierarchies via self-referencing foreign key, recursive CTEs, and depth queries
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

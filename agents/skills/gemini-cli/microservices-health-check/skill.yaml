@@ -1,6 +1,7 @@
 name: microservices-health-check
 version: "1.0.0"
 description: Implement /health and /ready endpoints for liveness and readiness probes in containers
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

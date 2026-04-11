@@ -1,6 +1,7 @@
 name: gof-proxy-pattern
 version: "1.0.0"
 description: Control access to an object using virtual, protection, logging, and caching proxy patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

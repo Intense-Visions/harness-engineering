@@ -1,6 +1,7 @@
 name: api-retry-guidance
 version: '1.0.0'
 description: Retry-After headers, exponential backoff signals, transient vs permanent error classification, 429 vs 503 semantics, and idempotency requirement for safe retries
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,4 +39,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

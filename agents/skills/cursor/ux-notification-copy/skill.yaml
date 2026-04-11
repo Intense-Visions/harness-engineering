@@ -1,6 +1,7 @@
 name: ux-notification-copy
 version: "1.0.0"
 description: Notification and alert copy — urgency calibration, actionability, toast vs banner vs modal selection, and writing messages that inform without overwhelming
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

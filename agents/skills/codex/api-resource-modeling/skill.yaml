@@ -1,6 +1,7 @@
 name: api-resource-modeling
 version: '1.0.0'
 description: Nouns vs verbs in URI design, resource identification, and URL structure for REST APIs
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: api-field-selection
 version: '1.0.0'
 description: Sparse fieldsets and partial responses via ?fields= syntax, nested field selection, and performance tradeoffs vs GraphQL
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

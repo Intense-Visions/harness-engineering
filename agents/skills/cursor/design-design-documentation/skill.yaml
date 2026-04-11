@@ -1,6 +1,7 @@
 name: design-design-documentation
 version: "1.0.0"
 description: Documenting design decisions — design rationale, spec handoff, annotating designs, living documentation, decision logs, the DESIGN.md format
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -30,5 +31,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: ts-zod-integration
 version: "1.0.0"
 description: Use Zod schemas as the single source of truth for runtime validation and TypeScript types
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

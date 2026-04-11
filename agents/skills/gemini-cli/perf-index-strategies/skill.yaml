@@ -1,6 +1,7 @@
 name: perf-index-strategies
 version: '1.0.0'
 description: Index strategies — B-tree, hash, GIN, GiST, composite, partial, and covering indexes for query optimization
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

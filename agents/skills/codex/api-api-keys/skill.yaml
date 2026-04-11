@@ -1,6 +1,7 @@
 name: api-api-keys
 version: '1.0.0'
 description: API key design — generation entropy requirements, rotation strategy, scoping permissions, transmission via Authorization header, storage hashing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,4 +39,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

@@ -1,6 +1,7 @@
 name: otel-context-propagation
 version: '1.0.0'
 description: Propagate trace context across service boundaries with W3C TraceContext and baggage
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,5 +37,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

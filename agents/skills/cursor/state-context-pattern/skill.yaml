@@ -1,6 +1,7 @@
 name: state-context-pattern
 version: '1.0.0'
 description: Manage shared state with React Context and useReducer for prop-drilling avoidance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -35,5 +36,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

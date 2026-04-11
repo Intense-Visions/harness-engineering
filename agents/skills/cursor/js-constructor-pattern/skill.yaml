@@ -1,6 +1,7 @@
 name: js-constructor-pattern
 version: '1.0.0'
 description: Use constructor functions or classes to create and initialize objects
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -33,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

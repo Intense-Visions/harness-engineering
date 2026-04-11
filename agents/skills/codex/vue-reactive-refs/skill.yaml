@@ -1,6 +1,7 @@
 name: vue-reactive-refs
 version: '1.0.0'
 description: Create and manage reactive primitive values and objects using ref and reactive
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

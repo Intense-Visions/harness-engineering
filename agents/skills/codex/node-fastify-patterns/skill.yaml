@@ -1,6 +1,7 @@
 name: node-fastify-patterns
 version: "1.0.0"
 description: Build performant APIs with Fastify using schema validation, plugins, decorators, and hooks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -37,5 +38,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

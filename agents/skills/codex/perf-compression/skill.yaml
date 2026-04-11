@@ -1,6 +1,7 @@
 name: perf-compression
 version: '1.0.0'
 description: Content compression — Brotli vs gzip comparison, compression levels, content-encoding negotiation, and static vs dynamic compression
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -34,5 +35,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: a11y-keyboard-navigation
 version: '1.0.0'
 description: Ensure all interactive elements are reachable and operable via keyboard alone
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -42,5 +43,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

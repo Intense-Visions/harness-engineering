@@ -1,6 +1,7 @@
 name: prisma-seeding-pattern
 version: "1.0.0"
 description: Seed databases idempotently with prisma/seed.ts, --seed flag, and environment branching
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

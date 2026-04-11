@@ -1,6 +1,7 @@
 name: next-auth-patterns
 version: "1.0.0"
 description: Authentication patterns, session handling, and middleware auth guards in Next.js
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -43,5 +44,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

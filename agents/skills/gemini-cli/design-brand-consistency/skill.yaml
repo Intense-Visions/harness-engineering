@@ -1,6 +1,7 @@
 name: design-brand-consistency
 version: "1.0.0"
 description: Visual coherence — brand attributes to design decisions, voice to visual mapping, consistency vs monotony, brand flex zones, multi-platform coherence
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -32,5 +33,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: api-webhook-security
 version: '1.0.0'
 description: Signature verification (HMAC-SHA256), timestamp validation (replay attack defense), tolerance windows, secret rotation, TLS requirement
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,4 +39,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

@@ -1,6 +1,7 @@
 name: zod-infer-types
 version: "1.0.0"
 description: Derive TypeScript types from Zod schemas with z.infer, input vs output types, and ZodTypeAny
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -38,5 +39,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

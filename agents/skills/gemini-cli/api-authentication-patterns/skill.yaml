@@ -1,6 +1,7 @@
 name: api-authentication-patterns
 version: '1.0.0'
 description: API auth landscape overview — when to use API keys vs OAuth2 vs JWT vs mTLS, trust levels, client types, token lifetimes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,4 +42,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

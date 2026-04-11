@@ -1,6 +1,7 @@
 name: trpc-react-query-integration
 version: "1.0.0"
 description: api.xxx.useQuery, useMutation, type inference end-to-end with TanStack Query
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: nuxt-seo-metadata
 version: '1.0.0'
 description: Configure SEO metadata, Open Graph tags, and structured data using useSeoMeta and useHead
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -40,5 +41,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []

@@ -1,6 +1,7 @@
 name: api-deprecation-strategy
 version: '1.0.0'
 description: Sunset header (RFC 8594), Deprecation header, migration guide design, compatibility windows, communication cadence
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -36,4 +37,3 @@ state:
   persistent: false
   files: []
 depends_on: []
-stability: static

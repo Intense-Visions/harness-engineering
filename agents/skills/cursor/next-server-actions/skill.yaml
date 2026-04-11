@@ -1,6 +1,7 @@
 name: next-server-actions
 version: "1.0.0"
 description: Server Actions, form mutations, progressive enhancement, and useFormState
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -41,5 +42,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []
