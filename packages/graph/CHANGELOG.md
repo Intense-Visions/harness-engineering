@@ -1,5 +1,12 @@
 # @harness-engineering/graph
 
+## 0.4.3
+
+### Patch Changes
+
+- Sync VERSION constant to match package.json
+- Document PackedSummaryCache, normalizeIntent, and CacheableEnvelope in API reference
+
 ## 0.4.2
 
 ### Patch Changes

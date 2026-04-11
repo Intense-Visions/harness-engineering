@@ -160,4 +160,4 @@ export type {
   CascadeResult,
 } from './blast-radius/index.js';
 
-export const VERSION = '0.4.1';
+export const VERSION = '0.4.3';

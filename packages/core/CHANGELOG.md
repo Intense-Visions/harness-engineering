@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.3
+
+### Patch Changes
+
+- Sync VERSION constant to match package.json
+- Document adoption, compaction, caching, and telemetry modules in API reference
+- Updated dependencies
+  - @harness-engineering/types@0.9.2
+
 ## 0.21.2
 
 ### Patch Changes

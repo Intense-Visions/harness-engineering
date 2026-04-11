@@ -2,7 +2,7 @@
 
 Knowledge graph for codebase relationships, context assembly, and entropy detection. Provides ingestion, querying, vector search, and adapter layers for constraints, entropy, and feedback.
 
-**Version:** 0.4.2
+**Version:** 0.4.3
 
 ## Installation
 
@@ -30,7 +30,7 @@ const result = query.execute({ rootNodeIds: ['file:src/index.ts'], maxDepth: 2 }
 ### `VERSION`
 
 ```typescript
-const VERSION: string; // "0.4.2"
+const VERSION: string; // "0.4.3"
 ```
 
 ### Schema Constants
@@ -106,6 +106,29 @@ Optional vector similarity store using HNSW index. Requires `hnswlib-node`.
 ### `saveGraph(store, path)` / `loadGraph(path)`
 
 Serialize/deserialize a graph store to/from disk.
+
+### `PackedSummaryCache`
+
+```typescript
+class PackedSummaryCache {
+  constructor(store: GraphStore, ttlMs?: number);
+  get(intent: string): PackedEnvelope | null;
+  set(intent: string, envelope: PackedEnvelope, sourceNodeIds: string[]): void;
+  invalidate(intent: string): void;
+}
+```
+
+Reads/writes PackedSummary nodes in the GraphStore. Validates entries via TTL and source node freshness — if any source node has been updated since the cache entry was written, the entry is stale.
+
+### `normalizeIntent(intent)`
+
+```typescript
+function normalizeIntent(intent: string): string;
+```
+
+Normalizes an intent string for deterministic cache keying.
+
+**Types:** `CacheableEnvelope`
 
 ---
 

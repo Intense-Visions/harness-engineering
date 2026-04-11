@@ -2,7 +2,7 @@
 
 Core library for the Harness Engineering toolkit. Provides validation, constraint enforcement, entropy detection, context generation, feedback, state management, security scanning, CI orchestration, and more.
 
-**Version:** 0.21.2
+**Version:** 0.21.3
 
 ## Installation
 
@@ -23,7 +23,7 @@ import { validateFileStructure, Ok, Err } from '@harness-engineering/core';
 ### `VERSION`
 
 ```typescript
-const VERSION: string; // "0.21.1"
+const VERSION: string; // "0.21.3"
 ```
 
 ## Error Types
@@ -652,6 +652,115 @@ function getUpdateNotification(currentVersion: string): string | null;
 Returns a formatted notification string if a newer version is available, or null.
 
 **Types:** `UpdateCheckState`
+
+---
+
+## Adoption Module
+
+Skill adoption tracking and analytics. Source: [`packages/core/src/adoption/`](../../packages/core/src/adoption/)
+
+### `readAdoptionRecords(projectRoot)`
+
+Reads adoption records from `.harness/metrics/adoption.jsonl`.
+
+### `aggregateBySkill(records)`
+
+Aggregates adoption records by skill name.
+
+### `aggregateByDay(records)`
+
+Aggregates adoption records by calendar day.
+
+### `topSkills(records, limit?)`
+
+Returns the most-used skills sorted by invocation count.
+
+**Types:** `DailyAdoption`
+
+---
+
+## Compaction Module
+
+Context compaction strategies for token budget management. Source: [`packages/core/src/compaction/`](../../packages/core/src/compaction/)
+
+### `CompactionPipeline`
+
+```typescript
+class CompactionPipeline {
+  constructor(strategies: CompactionStrategy[]);
+  compact(envelope: PackedEnvelope, budget: number): PackedEnvelope;
+}
+```
+
+Runs a chain of compaction strategies to fit context within a token budget.
+
+### `StructuralStrategy`
+
+Compaction strategy that removes low-priority structural elements.
+
+### `TruncationStrategy`
+
+Compaction strategy that truncates content to fit within budget.
+
+### `serializeEnvelope(envelope)`
+
+Serializes a `PackedEnvelope` to a string representation.
+
+### `estimateTokens(content)`
+
+Estimates token count for a string using a character-based heuristic.
+
+### `DEFAULT_TOKEN_BUDGET`
+
+Default token budget constant.
+
+**Types:** `CompactionStrategy`, `PackedEnvelope`
+
+---
+
+## Caching Module
+
+Provider-agnostic prompt caching adapters. Source: [`packages/core/src/caching/`](../../packages/core/src/caching/)
+
+### `resolveStability(block)`
+
+Resolves the stability classification of a context block for caching decisions.
+
+### Cache Adapters
+
+| Class                   | Provider  | Description                                        |
+| ----------------------- | --------- | -------------------------------------------------- |
+| `AnthropicCacheAdapter` | Anthropic | Maps stability tags to `cache_control` breakpoints |
+| `OpenAICacheAdapter`    | OpenAI    | Maps stability to OpenAI caching hints             |
+| `GeminiCacheAdapter`    | Gemini    | Maps stability to Gemini caching context           |
+
+**Types:** `CacheAdapter`, `StabilityTaggedBlock`, `ProviderSystemBlock`, `ProviderToolBlock`, `ToolDefinition`
+
+---
+
+## Telemetry Module
+
+Anonymous usage telemetry with consent management. Source: [`packages/core/src/telemetry/`](../../packages/core/src/telemetry/)
+
+### `resolveConsent()`
+
+Resolves the current telemetry consent state.
+
+### `readIdentity()`
+
+Reads the anonymous identity from `~/.harness/identity.json`.
+
+### `getOrCreateInstallId()`
+
+Returns the install ID, creating one if it does not exist.
+
+### `collectEvents(rootDir)`
+
+Collects telemetry events from the project.
+
+### `send(events, identity)`
+
+Sends telemetry events to the collection endpoint.
 
 ---
 
