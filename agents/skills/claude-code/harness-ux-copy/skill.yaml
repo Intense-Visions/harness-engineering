@@ -73,6 +73,13 @@ phases:
   - name: validate
     description: Verify recommended changes preserve meaning, match voice guide, and maintain i18n compatibility
     required: true
+related_skills:
+  - ux-microcopy-principles
+  - ux-voice-tone
+  - ux-error-messages
+  - ux-form-labels
+  - ux-confirmation-dialogs
+  - ux-empty-states
 state:
   persistent: false
   files: []

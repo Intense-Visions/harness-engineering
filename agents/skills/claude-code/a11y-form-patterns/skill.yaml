@@ -24,6 +24,7 @@ related_skills:
   - a11y-aria-patterns
   - design-form-ux
   - design-readability
+  - ux-form-labels
 stack_signals:
   - accessibility
   - react

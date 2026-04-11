@@ -17,6 +17,7 @@ related_skills:
   - design-state-design
   - design-motion-principles
   - design-empty-error-states
+  - ux-loading-states
 stack_signals: []
 keywords:
   - loading

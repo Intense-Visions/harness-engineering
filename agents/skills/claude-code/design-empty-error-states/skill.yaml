@@ -17,6 +17,8 @@ related_skills:
   - design-state-design
   - design-loading-patterns
   - design-feedback-patterns
+  - ux-error-messages
+  - ux-empty-states
 stack_signals: []
 keywords:
   - empty-state

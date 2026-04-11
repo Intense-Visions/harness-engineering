@@ -17,6 +17,8 @@ related_skills:
   - design-navigation-ux
   - design-content-density
   - design-visual-hierarchy
+  - ux-content-hierarchy
+  - ux-navigation-labels
 stack_signals: []
 keywords:
   - information-architecture
@@ -32,5 +34,4 @@ metadata:
 state:
   persistent: false
   files: []
-stability: static
 depends_on: []
