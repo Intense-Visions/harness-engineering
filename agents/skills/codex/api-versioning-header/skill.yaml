@@ -1,0 +1,37 @@
+name: api-versioning-header
+version: '1.0.0'
+description: Accept header versioning (content negotiation), custom version headers (API-Version:), vendor media types (application/vnd.company.v2+json)
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-versioning-url
+  - api-content-negotiation
+  - api-backward-compatibility
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - header-versioning
+  - Accept-header
+  - vendor-media-type
+  - API-Version
+  - content-negotiation-versioning
+metadata:
+  author: community
+  upstream: semver.org
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

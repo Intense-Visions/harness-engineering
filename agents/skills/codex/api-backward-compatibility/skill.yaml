@@ -1,0 +1,39 @@
+name: api-backward-compatibility
+version: '1.0.0'
+description: Additive change rules, Postel's law, breaking change taxonomy, automated breaking-change detection
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-deprecation-strategy
+  - api-versioning-url
+  - api-versioning-header
+  - api-contract-testing
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - backward-compatibility
+  - additive-changes
+  - breaking-changes
+  - Postels-law
+  - robustness-principle
+  - change-detection
+metadata:
+  author: community
+  upstream: aip.dev/180
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static
