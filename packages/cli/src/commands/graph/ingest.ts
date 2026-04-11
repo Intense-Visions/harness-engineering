@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as path from 'path';
-import type { IngestResult } from '@harness-engineering/graph';
+import type { IngestResult, GraphConnector } from '@harness-engineering/graph';
 
 async function loadConnectorConfig(
   projectPath: string,
@@ -10,10 +10,8 @@ async function loadConnectorConfig(
     const fs = await import('node:fs/promises');
     const configPath = path.join(projectPath, 'harness.config.json');
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
-    const connector = config.graph?.connectors?.find(
-      (c: { source: string }) => c.source === source
-    );
-    return connector?.config ?? {};
+    const connector = config.graph?.connectors?.[source];
+    return connector ?? {};
   } catch {
     return {};
   }
@@ -54,6 +52,8 @@ export async function runIngest(
     SyncManager,
     JiraConnector,
     SlackConnector,
+    CIConnector,
+    ConfluenceConnector,
   } = await import('@harness-engineering/graph');
   const graphDir = path.join(projectPath, '.harness', 'graph');
   const store = new GraphStore();
@@ -68,12 +68,11 @@ export async function runIngest(
 
     // Also run configured external connectors via SyncManager
     const syncManager = new SyncManager(store, graphDir);
-    const connectorMap: Record<
-      string,
-      () => InstanceType<typeof JiraConnector> | InstanceType<typeof SlackConnector>
-    > = {
+    const connectorMap: Record<string, () => GraphConnector> = {
       jira: () => new JiraConnector(),
       slack: () => new SlackConnector(),
+      ci: () => new CIConnector(),
+      confluence: () => new ConfluenceConnector(),
     };
     // Load connector configs and register
     for (const [name, factory] of Object.entries(connectorMap)) {
@@ -101,9 +100,11 @@ export async function runIngest(
       break;
     default: {
       // Check if source is a known external connector before trying to instantiate
-      const knownConnectors = ['jira', 'slack'];
+      const knownConnectors = ['jira', 'slack', 'ci', 'confluence'];
       if (!knownConnectors.includes(source)) {
-        throw new Error(`Unknown source: ${source}. Available: code, knowledge, git, jira, slack`);
+        throw new Error(
+          `Unknown source: ${source}. Available: code, knowledge, git, jira, slack, ci, confluence`
+        );
       }
       if (!SyncManager) {
         throw new Error(
@@ -112,12 +113,11 @@ export async function runIngest(
       }
       // Try to find as external connector
       const syncManager = new SyncManager(store, graphDir);
-      const extConnectorMap: Record<
-        string,
-        () => InstanceType<typeof JiraConnector> | InstanceType<typeof SlackConnector>
-      > = {
+      const extConnectorMap: Record<string, () => GraphConnector> = {
         jira: () => new JiraConnector(),
         slack: () => new SlackConnector(),
+        ci: () => new CIConnector(),
+        confluence: () => new ConfluenceConnector(),
       };
       const factory = extConnectorMap[source]!;
       const config = await loadConnectorConfig(projectPath, source);
@@ -134,7 +134,10 @@ export async function runIngest(
 export function createIngestCommand(): Command {
   return new Command('ingest')
     .description('Ingest data into the knowledge graph')
-    .option('--source <name>', 'Source to ingest (code, knowledge, git, jira, slack)')
+    .option(
+      '--source <name>',
+      'Source to ingest (code, knowledge, git, jira, slack, ci, confluence)'
+    )
     .option('--all', 'Run all sources (code, knowledge, git, and configured connectors)')
     .option('--full', 'Force full re-ingestion')
     .action(async (opts, cmd) => {
