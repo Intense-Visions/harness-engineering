@@ -124,7 +124,7 @@ P and Q = kP, finding the scalar k) is computationally infeasible. Key generatio
 a random scalar k (private key) from the curve's order, compute Q = kP (public key)
 where P is the curve's generator point. ECDSA and EdDSA signatures work by encoding a
 proof that the signer knows k without revealing it. ECDH key exchange works by having
-Alice compute k_A _ Q_B = k_A _ k_B _ P and Bob compute k_B _ Q_A = k_B _ k_A _ P,
+Alice compute k*A * Q*B = k_A * k*B * P and Bob compute k*B * Q*A = k_B * k*A * P,
 arriving at the same shared point. The best known classical attack against ECDLP on
 well-chosen curves is Pollard's rho algorithm with O(sqrt(n)) complexity, making 256-bit
 curves provide 128-bit security.

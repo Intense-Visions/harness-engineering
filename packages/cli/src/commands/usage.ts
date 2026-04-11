@@ -93,9 +93,7 @@ function registerDailyCommand(usage: Command): void {
         return;
       }
 
-      const hasCacheData = limited.some(
-        (d) => d.cacheReadTokens != null && d.cacheReadTokens > 0,
-      );
+      const hasCacheData = limited.some((d) => d.cacheReadTokens != null && d.cacheReadTokens > 0);
 
       // Table header
       const cacheHeader = hasCacheData ? ' | Cache ' : '';
@@ -123,7 +121,7 @@ function registerDailyCommand(usage: Command): void {
             })()
           : '';
         logger.info(
-          `${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}${cacheCol}`,
+          `${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}${cacheCol}`
         );
       }
     });
