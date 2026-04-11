@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { readIdentity } from '@harness-engineering/core';
 import { logger } from '../../output/logger';
 
 interface TelemetryFile {
@@ -13,20 +14,6 @@ interface TelemetryFile {
 
 function telemetryFilePath(cwd: string): string {
   return path.join(cwd, '.harness', 'telemetry.json');
-}
-
-function readTelemetryFile(cwd: string): TelemetryFile {
-  const filePath = telemetryFilePath(cwd);
-  try {
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && parsed.identity) {
-      return parsed as TelemetryFile;
-    }
-    return { identity: {} };
-  } catch {
-    return { identity: {} };
-  }
 }
 
 function writeTelemetryFile(cwd: string, data: TelemetryFile): void {
@@ -76,7 +63,8 @@ export function createIdentifyCommand(): Command {
         return;
       }
 
-      const existing = readTelemetryFile(cwd);
+      const existingIdentity = readIdentity(cwd);
+      const existing: TelemetryFile = { identity: { ...existingIdentity } };
       applyIdentityFields(opts, existing.identity);
 
       writeTelemetryFile(cwd, existing);

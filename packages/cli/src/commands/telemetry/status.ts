@@ -59,13 +59,19 @@ export function createStatusCommand(): Command {
 
       const envOverrides = gatherEnvOverrides();
       const consent = resolveConsent(cwd, undefined);
-      const identity = readIdentity(cwd);
 
+      // Only read identity and install ID when consent allows — showing
+      // this data when the user opted out undermines the privacy contract.
       let installId: string | null = null;
-      try {
-        installId = getOrCreateInstallId(cwd);
-      } catch {
-        // may fail if .harness dir cannot be created
+      let identity: StatusResult['identity'] = {};
+
+      if (consent.allowed) {
+        identity = readIdentity(cwd);
+        try {
+          installId = getOrCreateInstallId(cwd);
+        } catch {
+          // may fail if .harness dir cannot be created
+        }
       }
 
       const result: StatusResult = {
