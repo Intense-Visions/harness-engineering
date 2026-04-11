@@ -77,4 +77,9 @@ describe('paginate', () => {
       pagination: { offset: 0, limit: 1, total: 3, hasMore: true },
     });
   });
+
+  it('is re-exported from the compaction barrel', async () => {
+    const barrel = await import('../../src/compaction/index');
+    expect(barrel.paginate).toBe(paginate);
+  });
 });
