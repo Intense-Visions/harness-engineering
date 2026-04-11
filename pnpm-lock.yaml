@@ -226,6 +226,9 @@ importers:
       '@harness-engineering/graph':
         specifier: workspace:*
         version: link:../graph
+      '@harness-engineering/types':
+        specifier: workspace:*
+        version: link:../types
       '@hono/node-server':
         specifier: ^1.19.13
         version: 1.19.13(hono@4.12.12)
