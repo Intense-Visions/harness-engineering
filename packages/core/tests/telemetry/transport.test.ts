@@ -109,14 +109,19 @@ describe('send', () => {
     // AbortSignal.timeout produces a signal -- we verify it exists
   });
 
-  it('sends empty batch without error', async () => {
+  it('skips network call for empty batch', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     globalThis.fetch = mockFetch;
 
     await send([], 'phc_key');
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 
-    const body = JSON.parse(mockFetch.mock.calls[0]![1].body);
-    expect(body.batch).toEqual([]);
+  it('does not retry on 4xx client errors', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 401 });
+    globalThis.fetch = mockFetch;
+
+    await expect(send([makeEvent()], 'phc_key')).resolves.toBeUndefined();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });

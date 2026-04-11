@@ -19,6 +19,8 @@ function sleep(ms: number): Promise<void> {
  * - Silent failure: never throws, never blocks session teardown
  */
 export async function send(events: TelemetryEvent[], apiKey: string): Promise<void> {
+  if (events.length === 0) return;
+
   const payload = { api_key: apiKey, batch: events };
   const body = JSON.stringify(payload);
 
@@ -31,6 +33,7 @@ export async function send(events: TelemetryEvent[], apiKey: string): Promise<vo
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (res.ok) return;
+      if (res.status < 500) return; // 4xx = permanent failure, do not retry
     } catch {
       // Network error or timeout -- retry
     }

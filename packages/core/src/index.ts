@@ -181,4 +181,4 @@ export { resolveConsent, getOrCreateInstallId, collectEvents, send } from './tel
  * release. Kept only as a fallback for consumers that cannot resolve the CLI
  * package at runtime.
  */
-export const VERSION = '0.21.1';
+export { VERSION } from './version';

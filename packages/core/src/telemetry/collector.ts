@@ -1,7 +1,7 @@
 import type { ConsentState, TelemetryEvent } from '@harness-engineering/types';
 import type { SkillInvocationRecord } from '@harness-engineering/types';
 import { readAdoptionRecords } from '../adoption/reader';
-import { VERSION } from '../index';
+import { VERSION } from '../version';
 
 /**
  * Maps a SkillInvocationRecord outcome to the TelemetryEvent outcome union.
