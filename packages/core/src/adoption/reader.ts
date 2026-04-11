@@ -16,14 +16,14 @@ function parseLine(line: string, lineNumber: number): SkillInvocationRecord | nu
       typeof parsed.outcome !== 'string' ||
       !Array.isArray(parsed.phasesReached)
     ) {
-      console.warn(
-        `[harness adoption] Skipping malformed JSONL line ${lineNumber}: missing required fields`
+      process.stderr.write(
+        `[harness adoption] Skipping malformed JSONL line ${lineNumber}: missing required fields\n`
       );
       return null;
     }
     return parsed as SkillInvocationRecord;
   } catch {
-    console.warn(`[harness adoption] Skipping malformed JSONL line ${lineNumber}`);
+    process.stderr.write(`[harness adoption] Skipping malformed JSONL line ${lineNumber}\n`);
     return null;
   }
 }

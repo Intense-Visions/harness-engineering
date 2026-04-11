@@ -11,8 +11,8 @@ import { randomUUID } from 'node:crypto';
 import process from 'node:process';
 
 // PostHog project API key — public, write-only (cannot read data)
-// TODO: Replace with real PostHog project key before enabling telemetry in production
-const POSTHOG_API_KEY = 'phc_harness_placeholder';
+// harness-ignore SEC-SEC-002: public PostHog ingest key, write-only — cannot read data
+const POSTHOG_API_KEY = 'phc_wNTdCMcfJXZPgdNeDociZW6vwoGGo4nb7vqEfWThFfsG';
 const POSTHOG_BATCH_URL = 'https://app.posthog.com/batch';
 const MAX_ATTEMPTS = 3;
 const TIMEOUT_MS = 5000;
