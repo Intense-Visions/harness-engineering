@@ -1,0 +1,39 @@
+name: api-rate-limit-headers
+version: '1.0.0'
+description: Rate limit response headers — X-RateLimit-Limit/Remaining/Reset, IETF RateLimit draft standard, Retry-After semantics, per-resource quota pools
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-rate-limiting
+  - api-retry-guidance
+  - api-http-methods
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - rate-limit-headers
+  - X-RateLimit
+  - RateLimit-Limit
+  - RateLimit-Remaining
+  - RateLimit-Reset
+  - Retry-After
+  - IETF-draft
+metadata:
+  author: community
+  upstream: ietf-wg-httpapi.github.io/ratelimit-headers/
+state:
+  persistent: false
+  files: []
+depends_on: []
