@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-09
-last_synced: 2026-04-09T21:27:34.153Z
+updated: 2026-04-11
+last_synced: 2026-04-11T12:00:00.000Z
 last_manual_edit: 2026-04-11T03:00:54.627Z
 ---
 
@@ -804,7 +804,7 @@ last_manual_edit: 2026-04-11T03:00:54.627Z
 
 ### Database Design Knowledge Skills
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/database-design-skills/proposal.md
 - **Summary:** 42 ORM-agnostic database design knowledge skills (db-{topic} naming) covering normalization, indexing, query planning, schema patterns, ACID, transactions, concurrency, CAP/BASE, data modeling, migrations, connection management, and sharding — PostgreSQL-primary with bidirectional ORM cross-references
 - **Blockers:** —
@@ -848,7 +848,7 @@ last_manual_edit: 2026-04-11T03:00:54.627Z
 
 ### Adoption & Usage Telemetry
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/adoption-telemetry/proposal.md
 - **Summary:** Hook-based skill invocation tracking via adoption.jsonl, surfaced in CLI commands and dashboard. Local-only, on by default.
 - **Blockers:** —
@@ -859,7 +859,7 @@ last_manual_edit: 2026-04-11T03:00:54.627Z
 
 ### Pipeline Token Optimization
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/pipeline-token-optimization/proposal.md
 - **Summary:** Artifact-based agent delegation and skill compression to reduce per-session token consumption in the brainstorming-to-autopilot pipeline
 - **Blockers:** —
@@ -884,7 +884,7 @@ last_manual_edit: 2026-04-11T03:00:54.627Z
 - **Status:** planned
 - **Spec:** docs/changes/prompt-caching-provider-adapters/proposal.md
 - **Summary:** Content stability classification (static/session/ephemeral) with provider-specific cache adapters for Anthropic, OpenAI, and Gemini. Phase 5 of MCP Response Compaction.
-- **Blockers:** MCP Response Compaction
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
