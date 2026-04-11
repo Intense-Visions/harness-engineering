@@ -6,6 +6,26 @@ Complete reference for all `harness` CLI commands and subcommands. See the [Feat
 
 ## Top-Level Commands
 
+### `harness adoption skills`
+
+Show top skills by invocation count with success rate, avg duration, and last-used date
+
+**Options:**
+
+- `--limit <n>` — Number of skills to show (default: "20")
+
+### `harness adoption recent`
+
+Show recent skill invocations sorted by date descending
+
+**Options:**
+
+- `--limit <n>` — Number of invocations to show (default: "20")
+
+### `harness adoption skill <name>`
+
+Show detail for a specific skill including phase completion rates
+
 ### `harness add <type> <name>`
 
 Add a component to the project
@@ -74,6 +94,15 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 ### `harness cleanup`
 
 Detect entropy issues (doc drift, dead code, patterns)
+
+### `harness cleanup-sessions`
+
+Remove stale session directories from `.harness/sessions/` older than 24 hours
+
+**Options:**
+
+- `--dry-run` — Preview what would be removed without deleting
+- `--cwd <path>` — Project root path
 
 **Options:**
 
@@ -745,3 +774,26 @@ List recent sessions with token usage and cost
 **Options:**
 
 - `--limit` — Number of sessions to show (default: 10, max: 100) (default: "10")
+
+## Telemetry Commands
+
+Anonymous usage telemetry management
+
+### `harness telemetry identify`
+
+Set or clear telemetry identity fields in `.harness/telemetry.json`
+
+**Options:**
+
+- `--project <name>` — Project name
+- `--team <name>` — Team name
+- `--alias <name>` — User alias
+- `--clear` — Remove all identity fields
+
+### `harness telemetry status`
+
+Show current telemetry consent state, install ID, identity, and env var overrides
+
+**Options:**
+
+- `--json` — Output as JSON

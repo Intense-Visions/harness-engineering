@@ -879,6 +879,8 @@
 - [packages/cli/src/hooks/pre-compact-state.js](../../packages/cli/src/hooks/pre-compact-state.js)
 - [packages/cli/src/hooks/cost-tracker.js](../../packages/cli/src/hooks/cost-tracker.js)
 - [packages/cli/src/hooks/block-no-verify.js](../../packages/cli/src/hooks/block-no-verify.js)
+- [packages/cli/src/hooks/adoption-tracker.js](../../packages/cli/src/hooks/adoption-tracker.js)
+- [packages/cli/src/hooks/telemetry-reporter.js](../../packages/cli/src/hooks/telemetry-reporter.js)
 - [packages/cli/src/commands/usage.ts](../../packages/cli/src/commands/usage.ts)
 - [packages/cli/src/commands/traceability.ts](../../packages/cli/src/commands/traceability.ts)
 - [packages/cli/src/commands/taint.ts](../../packages/cli/src/commands/taint.ts)

@@ -664,6 +664,39 @@ To disable:
 }
 ```
 
+## `adoption`
+
+- **Type:** `AdoptionConfig`
+- **Required:** No
+
+Configures adoption tracking, which records skill invocation metrics to `.harness/metrics/adoption.jsonl` via the `adoption-tracker` stop hook.
+
+### AdoptionConfig Object
+
+| Field     | Type      | Default | Description                          |
+| --------- | --------- | ------- | ------------------------------------ |
+| `enabled` | `boolean` | `true`  | Whether adoption tracking is enabled |
+
+### Example
+
+```json
+{
+  "adoption": {
+    "enabled": true
+  }
+}
+```
+
+To disable adoption tracking:
+
+```json
+{
+  "adoption": {
+    "enabled": false
+  }
+}
+```
+
 ## `phaseGates`
 
 - **Type:** `PhaseGatesConfig`
@@ -903,7 +936,7 @@ All other fields are optional and fall back to their defaults. This is useful wh
 The configuration file is validated automatically when any Harness CLI command runs. You can also validate it explicitly:
 
 ```bash
-npx harness validate --check-config
+npx harness validate
 ```
 
 If validation fails, the error message will indicate which field has an invalid value and what was expected.

@@ -136,6 +136,10 @@ Each package has a clear responsibility:
   - `cc-parser.ts` — Parses Claude Code JSONL logs with deduplication of streaming chunks by requestId
   - `aggregator.ts` — Aggregates UsageRecords from harness and claude-code sources by session and day with cost calculation
 
+- **adoption** (`packages/core/src/adoption/`): Skill adoption tracking and aggregation.
+  - `reader.ts` — Parses `.harness/metrics/adoption.jsonl` into `SkillInvocationRecord[]`
+  - `aggregator.ts` — Aggregates records by skill (`aggregateBySkill`) and by day (`aggregateByDay`); exports `DailyAdoption` type
+
 - **state** (`packages/core/src/state/`): Session state and learnings lifecycle management.
   - `session-sections.ts` — Loader for session-state.json managing accumulative sections (terminology, decisions, constraints, risks, openQuestions, evidence)
   - `session-archive.ts` — Archives completed sessions by moving directory to `.harness/archive/sessions/<slug>-<date>`
@@ -317,6 +321,8 @@ Configuration example:
 - `dashboard.ts` — Launches the web dashboard server on configurable ports
 - `integrations/dismiss.ts` — Dismisses integrations by adding them to the dismissed list in config
 - `_registry.ts` — Auto-generated barrel export aggregating all command constructors
+- `adoption.ts` — View skill adoption telemetry (subcommands: skills, recent, skill)
+- `cleanup-sessions.ts` — Removes stale session directories from `.harness/sessions/` older than 24 hours
 - `telemetry/index.ts` — Parent command group for telemetry management (identify + status)
 - `telemetry/identify.ts` — Sets or clears identity fields in `.harness/telemetry.json`
 - `telemetry/status.ts` — Displays current consent state, install ID, identity, and env overrides
@@ -330,8 +336,9 @@ Configuration example:
 - `pre-compact-state.js` — PreCompact hook that saves a compact session summary before context compaction
 - `cost-tracker.js` — Stop hook that appends token usage to `.harness/metrics/costs.jsonl`
 - `block-no-verify.js` — PreToolUse hook that blocks git commands using `--no-verify` flag
-- `profiles.ts` — Defines hook profile tiers (minimal/standard/strict) with event matchers
+- `adoption-tracker.js` — Stop hook that reads Claude Code events.jsonl, extracts skill invocations, and appends SkillInvocationRecords to `.harness/metrics/adoption.jsonl`
 - `telemetry-reporter.js` — Stop hook that reads adoption.jsonl, resolves consent, sends anonymous events to PostHog, and shows first-run privacy notice
+- `profiles.ts` — Defines hook profile tiers (minimal/standard/strict) with event matchers
 
 **MCP Tools** (`packages/cli/src/mcp/tools/`):
 
