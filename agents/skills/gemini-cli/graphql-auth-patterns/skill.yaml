@@ -21,6 +21,8 @@ related_skills:
   - graphql-resolver-pattern
   - graphql-apollo-server
   - graphql-schema-design
+  - api-authentication-patterns
+  - api-oauth2-flows
 stack_signals:
   - graphql
   - typescript

@@ -21,6 +21,7 @@ related_skills:
   - trpc-error-handling
   - next-route-handlers
   - ts-utility-types
+  - api-validation-errors
 stack_signals:
   - trpc
   - typescript

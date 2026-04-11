@@ -19,6 +19,9 @@ related_skills:
   - graphql-schema-design
   - graphql-resolver-pattern
   - graphql-performance-patterns
+  - api-pagination-cursor
+  - api-pagination-offset
+  - api-pagination-keyset
 stack_signals:
   - graphql
   - typescript

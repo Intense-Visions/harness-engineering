@@ -168,6 +168,7 @@ https://relay.dev/graphql/connections.htm
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** graphql-schema-design, graphql-resolver-pattern, graphql-performance-patterns, api-pagination-cursor, api-pagination-offset, api-pagination-keyset
 
 ## Success Criteria
 

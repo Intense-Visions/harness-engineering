@@ -190,6 +190,7 @@ https://www.apollographql.com/docs/apollo-server/security/authentication/
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** graphql-resolver-pattern, graphql-apollo-server, graphql-schema-design, api-authentication-patterns, api-oauth2-flows
 
 ## Success Criteria
 

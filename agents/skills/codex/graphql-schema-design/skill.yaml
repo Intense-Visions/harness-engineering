@@ -20,6 +20,8 @@ related_skills:
   - graphql-resolver-pattern
   - graphql-pagination-patterns
   - graphql-federation-pattern
+  - api-resource-modeling
+  - api-field-selection
 stack_signals:
   - graphql
   - typescript

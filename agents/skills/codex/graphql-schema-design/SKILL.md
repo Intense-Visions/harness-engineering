@@ -138,6 +138,7 @@ https://graphql.org/learn/schema/
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** graphql-resolver-pattern, graphql-pagination-patterns, graphql-federation-pattern, api-resource-modeling, api-field-selection
 
 ## Success Criteria
 

@@ -125,6 +125,7 @@ https://trpc.io/docs/server/error-handling
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** trpc-router-composition, trpc-input-validation, trpc-react-query-integration, next-error-boundaries, api-error-contracts, api-status-codes
 
 ## Success Criteria
 

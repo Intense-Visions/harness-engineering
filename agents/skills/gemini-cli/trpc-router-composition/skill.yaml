@@ -21,6 +21,8 @@ related_skills:
   - trpc-middleware-pattern
   - trpc-nextjs-integration
   - next-route-handlers
+  - api-resource-modeling
+  - api-nested-vs-flat
 stack_signals:
   - trpc
   - typescript

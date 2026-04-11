@@ -20,6 +20,8 @@ related_skills:
   - graphql-resolver-pattern
   - graphql-schema-design
   - graphql-apollo-server
+  - api-error-contracts
+  - api-problem-details-rfc
 stack_signals:
   - graphql
   - typescript

@@ -21,6 +21,8 @@ related_skills:
   - trpc-input-validation
   - trpc-react-query-integration
   - next-error-boundaries
+  - api-error-contracts
+  - api-status-codes
 stack_signals:
   - trpc
   - typescript
