@@ -1,6 +1,7 @@
 import { Command } from 'commander';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
+import { promisify } from 'node:util';
 import readline from 'node:readline';
 import chalk from 'chalk';
 import { logger } from '../output/logger';
@@ -31,12 +32,22 @@ export function detectPackageManager(): PackageManager {
   return 'npm';
 }
 
+const execFileAsync = promisify(execFile);
+
 export function getLatestVersion(pkg = '@harness-engineering/cli'): string {
   const output = execFileSync('npm', ['view', pkg, 'dist-tags.latest'], {
     encoding: 'utf-8',
     timeout: 15000,
   });
   return output.trim();
+}
+
+export async function getLatestVersionAsync(pkg: string): Promise<string> {
+  const { stdout } = await execFileAsync('npm', ['view', pkg, 'dist-tags.latest'], {
+    encoding: 'utf-8',
+    timeout: 15000,
+  });
+  return stdout.trim();
 }
 
 export function getInstalledVersion(pm: PackageManager): string | null {
@@ -51,6 +62,29 @@ export function getInstalledVersion(pm: PackageManager): string | null {
   } catch {
     return null;
   }
+}
+
+export function getInstalledVersions(
+  pm: PackageManager,
+  packages: string[]
+): Record<string, string | null> {
+  const versions: Record<string, string | null> = {};
+  try {
+    const output = execFileSync(pm, ['list', '-g', '--json'], {
+      encoding: 'utf-8',
+      timeout: 15000,
+    });
+    const data = JSON.parse(output);
+    const deps = data.dependencies ?? {};
+    for (const pkg of packages) {
+      versions[pkg] = deps[pkg]?.version ?? null;
+    }
+  } catch {
+    for (const pkg of packages) {
+      versions[pkg] = null;
+    }
+  }
+  return versions;
 }
 
 export function getInstalledPackages(pm: PackageManager): string[] {
@@ -101,35 +135,37 @@ async function offerRegeneration(): Promise<void> {
   }
 }
 
-async function checkForUpdates(
-  _pm: PackageManager,
-  opts: { version?: string },
-  currentVersion: string | null
-): Promise<string | undefined> {
-  if (opts.version) return undefined;
+interface UpdateCheckResult {
+  hasUpdates: boolean;
+  outdated: Array<{ pkg: string; current: string | null; latest: string }>;
+}
 
+async function checkAllPackages(
+  packages: string[],
+  installedVersions: Record<string, string | null>
+): Promise<UpdateCheckResult> {
   logger.info('Checking for updates...');
-  let latestCliVersion: string;
-  try {
-    latestCliVersion = getLatestVersion();
-  } catch {
-    logger.error('Failed to fetch latest version from npm registry');
-    process.exit(ExitCode.ERROR);
+
+  const results = await Promise.allSettled(
+    packages.map(async (pkg) => {
+      const latest = await getLatestVersionAsync(pkg);
+      const current = installedVersions[pkg];
+      return { pkg, current, latest, outdated: !current || current !== latest };
+    })
+  );
+
+  const outdated: UpdateCheckResult['outdated'] = [];
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      // Skip packages we can't query — don't block the whole update
+      continue;
+    }
+    if (result.value.outdated) {
+      outdated.push(result.value);
+    }
   }
 
-  if (currentVersion && currentVersion === latestCliVersion) {
-    logger.success(`Already up to date (v${currentVersion})`);
-    process.exit(ExitCode.SUCCESS);
-  }
-
-  if (currentVersion) {
-    console.log('');
-    logger.info(`Current CLI version: ${chalk.dim(`v${currentVersion}`)}`);
-    logger.info(`Latest CLI version:  ${chalk.green(`v${latestCliVersion}`)}`);
-    console.log('');
-  }
-
-  return latestCliVersion;
+  return { hasUpdates: outdated.length > 0, outdated };
 }
 
 function buildInstallPackages(
@@ -148,7 +184,7 @@ function buildInstallPackages(
 }
 
 async function runUpdateAction(
-  opts: { version?: string },
+  opts: { version?: string; force?: boolean; regenerate?: boolean },
   globalOpts: Record<string, unknown>
 ): Promise<void> {
   // 1. Detect package manager
@@ -157,17 +193,40 @@ async function runUpdateAction(
     logger.info(`Detected package manager: ${pm}`);
   }
 
-  // 2. Check if already up to date (CLI package only)
-  const currentVersion = getInstalledVersion(pm);
-  await checkForUpdates(pm, opts, currentVersion);
-
-  // 3. Discover installed packages
+  // 2. Discover installed packages and their versions
   const packages = getInstalledPackages(pm);
   if (globalOpts.verbose) {
     logger.info(`Installed packages: ${packages.join(', ')}`);
   }
 
-  // 4. Build install command — each package gets @latest, except CLI if --version is specified
+  // 3. Regenerate-only mode: skip package updates entirely
+  if (opts.regenerate) {
+    await offerRegeneration();
+    process.exit(ExitCode.SUCCESS);
+  }
+
+  // 4. Check ALL installed packages for updates (not just CLI)
+  if (!opts.version && !opts.force) {
+    const installedVersions = getInstalledVersions(pm, packages);
+    const { hasUpdates, outdated } = await checkAllPackages(packages, installedVersions);
+
+    if (!hasUpdates) {
+      logger.success('All packages are up to date');
+      // Still offer regeneration — skills/agents may have changed
+      await offerRegeneration();
+      process.exit(ExitCode.SUCCESS);
+    }
+
+    console.log('');
+    for (const { pkg, current, latest } of outdated) {
+      const shortName = pkg.replace('@harness-engineering/', '');
+      const currentStr = current ? chalk.dim(`v${current}`) : chalk.dim('not installed');
+      logger.info(`${shortName}: ${currentStr} → ${chalk.green(`v${latest}`)}`);
+    }
+    console.log('');
+  }
+
+  // 5. Build install command — each package gets @latest, except CLI if --version is specified
   const { installPkgs, installCmd } = buildInstallPackages(packages, opts);
 
   if (globalOpts.verbose) {
@@ -196,6 +255,11 @@ export function createUpdateCommand(): Command {
   return new Command('update')
     .description('Update all @harness-engineering packages to the latest version')
     .option('--version <semver>', 'Pin @harness-engineering/cli to a specific version')
+    .option('--force', 'Force update even if versions match')
+    .option(
+      '--regenerate',
+      'Only regenerate slash commands and agent definitions (skip package updates)'
+    )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       await runUpdateAction(opts, globalOpts);
