@@ -1,5 +1,11 @@
 # @harness-engineering/cli
 
+## 1.24.1
+
+### Patch Changes
+
+- 5bbad27: Fix `harness update` to check all installed packages for updates, not just CLI. Adds `--force` and `--regenerate` flags.
+
 ## 1.24.0
 
 ### Minor Changes
