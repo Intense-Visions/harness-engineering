@@ -1,5 +1,6 @@
+import { paginate } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import { SEVERITY_ORDER } from '../utils/severity.js';
+import { sortFindingsBySeverity } from '../utils/severity.js';
 
 // ============ run_code_review ============
 
@@ -66,6 +67,8 @@ export async function handleRunCodeReview(input: {
   repo?: string;
   offset?: number;
   limit?: number;
+  /** Internal flag: skip pagination and return all findings. Not exposed in MCP schema. */
+  _skipPagination?: boolean;
 }) {
   try {
     const { parseDiff, runReviewPipeline } = await import('@harness-engineering/core');
@@ -114,12 +117,31 @@ export async function handleRunCodeReview(input: {
       ...(input.repo != null ? { repo: input.repo } : {}),
     });
 
-    const { paginate } = await import('@harness-engineering/core');
+    const sortedFindings = sortFindingsBySeverity(
+      result.findings as unknown[]
+    ) as typeof result.findings;
 
-    // Sort findings by severity desc before pagination
-    const sortedFindings = [...result.findings].sort(
-      (a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99)
-    );
+    if (input._skipPagination) {
+      // Internal callers (e.g. runDeepReview) need all findings before re-paginating
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              skipped: result.skipped,
+              skipReason: result.skipReason,
+              stoppedByMechanical: result.stoppedByMechanical,
+              assessment: result.assessment,
+              findings: sortedFindings,
+              findingCount: sortedFindings.length,
+              terminalOutput: result.terminalOutput,
+              githubCommentCount: result.githubCommentCount,
+              exitCode: result.exitCode,
+            }),
+          },
+        ],
+      };
+    }
 
     const paged = paginate(sortedFindings, input.offset ?? 0, input.limit ?? 20);
 

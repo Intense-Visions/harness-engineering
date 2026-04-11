@@ -1,3 +1,4 @@
+import { paginate } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { sortFindingsBySeverity } from '../utils/severity.js';
 
@@ -143,7 +144,6 @@ async function runQuickReview(
   limit?: number
 ) {
   const { handleAnalyzeDiff } = await import('./feedback.js');
-  const { paginate } = await import('@harness-engineering/core');
   const result = await handleAnalyzeDiff({ diff, path: projectPath });
   const firstContent = result.content[0];
   if (!firstContent) throw new Error('Empty analyze_diff response');
@@ -195,7 +195,6 @@ async function runStandardReview(
   limit?: number
 ) {
   const { handleAnalyzeDiff, handleCreateSelfReview } = await import('./feedback.js');
-  const { paginate } = await import('@harness-engineering/core');
   const [diffResult, reviewResult] = await Promise.all([
     handleAnalyzeDiff({ diff, path: projectPath }),
     handleCreateSelfReview({ path: projectPath, diff }),
@@ -242,11 +241,10 @@ async function runDeepReview(
   limit?: number
 ) {
   const { handleRunCodeReview } = await import('./review-pipeline.js');
-  const { paginate } = await import('@harness-engineering/core');
   const result = await handleRunCodeReview({
     path: projectPath,
     diff,
-    limit: Number.MAX_SAFE_INTEGER,
+    _skipPagination: true,
   });
   const deepContent = result.content[0];
   if (!deepContent) throw new Error('Empty code review response');
