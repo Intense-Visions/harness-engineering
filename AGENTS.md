@@ -363,6 +363,27 @@ Configuration example:
 - `slash-commands/render-codex.ts` — Renders Codex-compatible markdown and YAML files for skill distribution
 - `integrations/toml.ts` — Writes MCP server entries to TOML config files with atomic pattern preservation
 
+### Telemetry Subsystem
+
+Anonymous product analytics collection implemented across `packages/types`, `packages/core`, and `packages/cli`. Zero vendor SDK dependencies -- uses Node's built-in `fetch()` to POST events to PostHog's HTTP batch API.
+
+**Architecture:**
+
+- **Types** (`packages/types/src/telemetry.ts`): `TelemetryConfig`, `TelemetryIdentity`, `ConsentState`, `TelemetryEvent`
+- **Core** (`packages/core/src/telemetry/`):
+  - `consent.ts` -- Merges env vars (`DO_NOT_TRACK`, `HARNESS_TELEMETRY_OPTOUT`), config (`telemetry.enabled`), and `.harness/telemetry.json` identity into a `ConsentState`
+  - `install-id.ts` -- Creates/reads a persistent anonymous UUIDv4 at `.harness/.install-id`
+  - `collector.ts` -- Reads `adoption.jsonl` and formats `TelemetryEvent` payloads
+  - `transport.ts` -- HTTP POST to PostHog `/batch` with 3 retries, 5s timeout, silent failure
+- **CLI** (`packages/cli/src/commands/telemetry/`): `identify` (set/clear `.harness/telemetry.json`), `status` (display consent state, install ID, identity, env overrides)
+- **Hook** (`packages/cli/src/hooks/telemetry-reporter.js`): Stop hook that runs the full pipeline (consent check, collect, send, first-run notice)
+
+**Consent priority:** `DO_NOT_TRACK=1` > `HARNESS_TELEMETRY_OPTOUT=1` > `harness.config.json telemetry.enabled` > default (enabled)
+
+**Data sent (when enabled):** install ID, OS, Node version, harness version, skill name, duration, outcome. Identity fields (project, team, alias) only when explicitly set in `.harness/telemetry.json`.
+
+**Data NOT sent:** file paths, file contents, code, prompts, or any PII unless user opts in via identity fields.
+
 ### Dashboard Package
 
 `packages/dashboard/` is a React + Hono full-stack app providing a web-based project health dashboard.
@@ -745,6 +766,6 @@ This is the living documentation of our project - keep it accurate and comprehen
 
 ---
 
-**Last Updated**: 2026-04-09
+**Last Updated**: 2026-04-10
 **Version**: 1.2
 **Maintained By**: AI Agents and Engineering Team
