@@ -787,7 +787,8 @@ last_manual_edit: 2026-04-11T17:02:27.485Z
 - **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-07
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#128
 
