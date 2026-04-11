@@ -1,3 +1,4 @@
+import { paginate } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
 import { sanitizePath } from '../../utils/sanitize-path.js';
 import { graphNotFoundError } from './shared.js';
@@ -44,6 +45,15 @@ export const queryGraphDefinition = {
         enum: ['summary', 'detailed'],
         description:
           'Response density: summary returns node/edge counts by type + top 10 nodes by connectivity, detailed returns full arrays. Default: detailed',
+      },
+      offset: {
+        type: 'number',
+        description:
+          'Number of nodes to skip (pagination). Default: 0. Nodes are sorted by connectivity (edge count desc).',
+      },
+      limit: {
+        type: 'number',
+        description: 'Max nodes to return (pagination). Default: 50.',
       },
     },
     required: ['path', 'rootNodeIds'],
@@ -95,6 +105,8 @@ export async function handleQueryGraph(input: {
   bidirectional?: boolean;
   pruneObservability?: boolean;
   mode?: 'summary' | 'detailed';
+  offset?: number;
+  limit?: number;
 }) {
   try {
     const projectPath = sanitizePath(input.path);
@@ -121,9 +133,32 @@ export async function handleQueryGraph(input: {
       }),
     });
 
-    const text = input.mode === 'summary' ? buildSummaryText(result) : JSON.stringify(result);
+    if (input.mode === 'summary') {
+      const text = buildSummaryText(result);
+      return { content: [{ type: 'text' as const, text }] };
+    }
 
-    return { content: [{ type: 'text' as const, text }] };
+    // Detailed mode: sort nodes by connectivity (edge count desc), then paginate
+    const edgeCountByNode = new Map<string, number>();
+    for (const edge of result.edges) {
+      edgeCountByNode.set(edge.from, (edgeCountByNode.get(edge.from) ?? 0) + 1);
+      edgeCountByNode.set(edge.to, (edgeCountByNode.get(edge.to) ?? 0) + 1);
+    }
+    const sortedNodes = [...result.nodes].sort(
+      (a, b) => (edgeCountByNode.get(b.id) ?? 0) - (edgeCountByNode.get(a.id) ?? 0)
+    );
+
+    const offset = input.offset ?? 0;
+    const limit = input.limit ?? 50;
+    const paged = paginate(sortedNodes, offset, limit);
+
+    const response = {
+      nodes: paged.items,
+      edges: result.edges,
+      stats: result.stats,
+      pagination: paged.pagination,
+    };
+    return { content: [{ type: 'text' as const, text: JSON.stringify(response) }] };
   } catch (error) {
     return {
       content: [
