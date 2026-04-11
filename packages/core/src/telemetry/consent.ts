@@ -7,7 +7,7 @@ import { getOrCreateInstallId } from './install-id';
  * Reads optional identity fields from `.harness/telemetry.json`.
  * Returns empty object if the file is missing or malformed.
  */
-function readIdentity(projectRoot: string): TelemetryIdentity {
+export function readIdentity(projectRoot: string): TelemetryIdentity {
   const filePath = path.join(projectRoot, '.harness', 'telemetry.json');
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
