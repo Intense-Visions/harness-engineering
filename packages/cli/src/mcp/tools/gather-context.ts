@@ -63,6 +63,22 @@ export const gatherContextDefinition = {
         description:
           'Retrieval depth for learnings. "index" returns one-line summaries, "summary" (default) returns full entries, "full" returns entries with linked context.',
       },
+      section: {
+        type: 'string',
+        enum: ['graphContext', 'learnings', 'sessionSections'],
+        description:
+          'Section to paginate. When provided, offset/limit apply within this section only. When omitted, returns first page of each section (current behavior).',
+      },
+      offset: {
+        type: 'number',
+        description:
+          'Number of items to skip within the section (pagination). Default: 0. Requires section param.',
+      },
+      limit: {
+        type: 'number',
+        description:
+          'Max items to return within the section (pagination). Default: 20. Requires section param.',
+      },
     },
     required: ['path', 'intent'],
   },
@@ -79,6 +95,9 @@ export async function handleGatherContext(input: {
   learningsBudget?: number;
   session?: string;
   depth?: 'index' | 'summary' | 'full';
+  section?: 'graphContext' | 'learnings' | 'sessionSections';
+  offset?: number;
+  limit?: number;
 }) {
   const start = Date.now();
 
