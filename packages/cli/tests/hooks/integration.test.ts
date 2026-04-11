@@ -32,6 +32,7 @@ describe('hook scripts integration', () => {
       'quality-gate',
       'pre-compact-state',
       'cost-tracker',
+      'telemetry-reporter',
     ];
     for (const hookName of failOpenHooks) {
       const hookPath = join(HOOKS_DIR, `${hookName}.js`);
