@@ -89,7 +89,7 @@
    { "darkMode": false, "betaFeatures": [] }
    ```
 
-6. **304 Not Modified** — The server's response when a conditional GET/HEAD condition evaluates to "not changed." The response has no body; the client uses its cached copy. The response must still include relevant headers: `ETag`, `Cache-Control`, `Vary`, `Expires`. This is the primary bandwidth-saving mechanism for polling APIs and CDN revalidation.
+6. **304 Not Modified** — The server's response when a conditional GET/HEAD condition evaluates to "not changed." The response has no body; the client uses its cached copy. The response must still include relevant headers: `ETag`, `Last-Modified`, `Cache-Control`, `Vary`, `Expires`. Omitting `Last-Modified` breaks clients using `If-Modified-Since` on subsequent requests. This is the primary bandwidth-saving mechanism for polling APIs and CDN revalidation.
 
 ### Worked Example
 
