@@ -1,0 +1,35 @@
+name: ux-onboarding-copy
+version: "1.0.0"
+description: Onboarding copy — progressive disclosure, value-first framing, reducing anxiety, and welcome flows that convert sign-ups into active users
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-voice-tone
+  - ux-writing-for-scanning
+  - ux-empty-states
+stack_signals: []
+keywords:
+  - onboarding
+  - welcome-flow
+  - first-run
+  - progressive-disclosure
+  - activation
+  - setup-wizard
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

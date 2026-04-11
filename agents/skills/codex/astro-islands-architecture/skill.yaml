@@ -1,6 +1,7 @@
 name: astro-islands-architecture
 version: '1.0.0'
 description: Apply Islands Architecture with client directives and partial hydration to ship minimal JavaScript
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

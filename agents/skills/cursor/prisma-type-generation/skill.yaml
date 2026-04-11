@@ -1,6 +1,7 @@
 name: prisma-type-generation
 version: "1.0.0"
 description: Use generated Prisma types like XxxCreateInput, XxxWhereInput, $Enums, and validator utilities
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

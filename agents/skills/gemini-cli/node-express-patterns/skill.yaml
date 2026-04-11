@@ -1,6 +1,7 @@
 name: node-express-patterns
 version: "1.0.0"
 description: Structure Express applications with middleware chains, routers, and proper error handling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: harness-test-data
 version: "1.0.0"
 description: Test factories, fixtures, database seeding, and test data isolation
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

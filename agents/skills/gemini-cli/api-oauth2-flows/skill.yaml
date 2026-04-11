@@ -1,0 +1,42 @@
+name: api-oauth2-flows
+version: '1.0.0'
+description: OAuth2 flows — authorization code + PKCE, client credentials, device code, implicit (deprecated), token introspection, refresh token rotation
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-authentication-patterns
+  - owasp-auth-patterns
+  - security-authentication
+  - api-api-keys
+stack_signals:
+  - rest
+  - api
+  - oauth2
+  - jwt
+  - http
+keywords:
+  - OAuth2
+  - authorization-code
+  - PKCE
+  - client-credentials
+  - device-code
+  - refresh-token
+  - token-introspection
+metadata:
+  author: community
+  upstream: oauth.net/2/
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,6 +1,7 @@
 name: design-design-audit
 version: "1.0.0"
 description: Evaluating existing design — heuristic evaluation, consistency inventory, accessibility audit, competitive analysis, identifying design debt
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

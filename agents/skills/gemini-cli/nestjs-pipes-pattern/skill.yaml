@@ -1,6 +1,7 @@
 name: nestjs-pipes-pattern
 version: "1.0.0"
 description: Validate and transform request data with PipeTransform, ValidationPipe, and custom pipes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

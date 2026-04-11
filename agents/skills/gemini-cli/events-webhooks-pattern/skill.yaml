@@ -1,6 +1,7 @@
 name: events-webhooks-pattern
 version: "1.0.0"
 description: Implement reliable webhook delivery with retry backoff, signature verification, and queuing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -22,6 +23,8 @@ related_skills:
   - events-pubsub-pattern
   - events-idempotency
   - node-crypto-patterns
+  - api-webhook-design
+  - api-webhook-security
 stack_signals:
   - nodejs
   - typescript

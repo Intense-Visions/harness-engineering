@@ -1,6 +1,7 @@
 name: vue-pinia-pattern
 version: '1.0.0'
 description: Manage shared application state with Pinia stores in the Options or Setup style
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

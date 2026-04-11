@@ -1,6 +1,7 @@
 name: test-mock-patterns
 version: "1.0.0"
 description: Mock modules, functions, and timers in Vitest and Jest to isolate units under test
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,0 +1,41 @@
+name: db-temporal-data
+version: "1.0.0"
+description: Valid-time, transaction-time, and bitemporal tables for tracking data as it changes over time
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-audit-trail
+  - db-time-series
+  - db-denormalization
+  - microservices-event-sourcing
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - temporal
+  - valid-time
+  - transaction-time
+  - bitemporal
+  - slowly-changing-dimension
+  - SCD
+  - tstzrange
+  - time-travel-query
+metadata:
+  author: community
+  upstream: "postgresql.org/docs/current/rangetypes.html"
+state:
+  persistent: false
+  files: []
+depends_on: []

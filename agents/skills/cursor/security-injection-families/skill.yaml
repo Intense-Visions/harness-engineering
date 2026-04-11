@@ -1,0 +1,41 @@
+name: security-injection-families
+version: "1.0.0"
+description: Unified mental model for injection vulnerabilities -- SQL, command, LDAP, XSS, template, header -- all share the same root cause of mixing code and data
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-memory-safety
+  - security-deserialization-attacks
+  - security-trust-boundaries
+  - owasp-injection-prevention
+  - owasp-xss-prevention
+  - owasp-security-headers
+stack_signals: []
+keywords:
+  - injection
+  - SQL injection
+  - command injection
+  - XSS
+  - cross-site scripting
+  - LDAP injection
+  - template injection
+  - header injection
+  - code and data separation
+  - parameterized queries
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

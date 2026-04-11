@@ -1,6 +1,7 @@
 name: node-buffer-encoding
 version: "1.0.0"
 description: Handle binary data, encodings, and conversions with Node.js Buffer and TextEncoder
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

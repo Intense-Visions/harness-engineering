@@ -1,6 +1,7 @@
 name: design-visual-hierarchy
 version: "1.0.0"
 description: Directing attention — size, color, contrast, position, isolation, motion as hierarchy tools
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: ts-type-guards
 version: "1.0.0"
 description: Narrow union types safely using type guards, assertion functions, and control flow
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

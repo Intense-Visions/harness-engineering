@@ -8,8 +8,59 @@ By the end, you'll know when and why to use each harness command and skill, not 
 >
 > **Convention:** This guide uses slash commands (e.g., `/harness:verify`) for interactive agent sessions — the recommended way to work day-to-day. CLI equivalents (e.g., `harness validate`) are noted where useful for CI pipelines and shell scripts.
 
+## Quick Start
+
+If you already have a project and just want to get going, here's the 5-step flow:
+
+### Step 1: Initialize your project
+
+```
+/harness:initialize-project
+```
+
+This walks you through setup interactively — project name, adoption level, framework. It generates `harness.config.json`, `AGENTS.md`, directory structure, and MCP configuration.
+
+### Step 2: Create a roadmap
+
+```
+/harness:roadmap --create
+```
+
+Build a roadmap of the changes you plan to make. It's fine to start with an empty roadmap — harness can discover what's already been done and build from there. The roadmap updates automatically as you work.
+
+### Step 3: Pick up work
+
+**If you have a roadmap**, let harness pick the next highest-impact task:
+
+```
+/harness:roadmap-pilot
+```
+
+**If you want to work on something specific**, describe it directly:
+
+```
+/harness:brainstorming Add test cases for the authentication module
+```
+
+Either way, harness asks clarifying questions, explores the problem space, and writes a spec for your approval. Once approved, the roadmap updates and you're ready for execution.
+
+### Step 4: Execute
+
+```
+/harness:autopilot
+```
+
+This chains planning → execution → verification → code review automatically, pausing only at human decision points (plan approval, complex design choices, unrecoverable failures). If you prefer more control, you can run each phase individually — see the [detailed walkthrough](#contents) below.
+
+### Step 5: Iterate
+
+Go back to Step 3. The roadmap tracks your progress, and `/harness:roadmap-pilot` always knows what's next.
+
+---
+
 ## Contents
 
+0. [Quick Start](#quick-start) — 5-step onboarding flow
 1. [Initialize](#1-initialize)
 2. [Design](#2-design)
 3. [Plan](#3-plan)

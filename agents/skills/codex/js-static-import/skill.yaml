@@ -1,6 +1,7 @@
 name: js-static-import
 version: '1.0.0'
 description: Use static import declarations to load ES modules at parse time for tree-shaking and static analysis
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

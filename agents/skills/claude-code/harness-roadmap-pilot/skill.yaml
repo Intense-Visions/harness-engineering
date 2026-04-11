@@ -1,6 +1,7 @@
 name: harness-roadmap-pilot
 version: "1.0.0"
 description: AI-assisted selection of the next highest-impact roadmap item with scoring, assignment, and skill transition
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

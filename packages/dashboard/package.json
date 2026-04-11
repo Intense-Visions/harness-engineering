@@ -1,9 +1,16 @@
 {
   "name": "@harness-engineering/dashboard",
   "version": "0.1.2",
-  "private": true,
   "description": "Local web dashboard for harness project health and roadmap visualization",
   "type": "module",
+  "exports": {
+    "./server": "./dist/server/serve.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:client\"",
     "dev:server": "tsx watch src/server/serve.ts",
@@ -20,6 +27,7 @@
   "dependencies": {
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
+    "@harness-engineering/types": "workspace:*",
     "@hono/node-server": "^1.19.13",
     "@tremor/react": "^3.18.0",
     "glob": "^13.0.6",
@@ -45,9 +53,16 @@
     "vitest": "^4.1.2"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Intense-Visions/harness-engineering.git",
     "directory": "packages/dashboard"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/Intense-Visions/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/dashboard#readme"
 }

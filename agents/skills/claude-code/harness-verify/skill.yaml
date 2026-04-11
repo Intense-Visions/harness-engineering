@@ -1,6 +1,7 @@
 name: harness-verify
 version: "1.0.0"
 description: Binary pass/fail quick gate — runs test, lint, typecheck commands and returns structured result
+stability: static
 triggers:
   - manual
   - on_task_complete

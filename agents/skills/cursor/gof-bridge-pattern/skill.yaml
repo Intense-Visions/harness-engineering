@@ -1,6 +1,7 @@
 name: gof-bridge-pattern
 version: "1.0.0"
 description: Separate abstraction from implementation to allow them to vary independently
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

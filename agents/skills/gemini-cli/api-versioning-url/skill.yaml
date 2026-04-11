@@ -1,0 +1,39 @@
+name: api-versioning-url
+version: '1.0.0'
+description: URL path versioning (/v1/, /v2/) — when to use, URI pollution tradeoffs, major-only vs minor versioning, migration timeline patterns
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-versioning-header
+  - api-backward-compatibility
+  - api-deprecation-strategy
+  - api-rest-maturity-model
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - url-versioning
+  - path-versioning
+  - v1
+  - major-version
+  - semantic-versioning
+  - version-prefix
+metadata:
+  author: community
+  upstream: stripe.com/blog/api-versioning
+state:
+  persistent: false
+  files: []
+depends_on: []

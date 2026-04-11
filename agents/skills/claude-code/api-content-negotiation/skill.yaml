@@ -1,0 +1,39 @@
+name: api-content-negotiation
+version: '1.0.0'
+description: Accept/Content-Type header semantics, media-type versioning, charset and encoding negotiation, and Vary header requirements
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-versioning-header
+  - api-http-caching
+  - api-openapi-design
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - content-negotiation
+  - Accept
+  - Content-Type
+  - media-type
+  - MIME
+  - charset
+  - quality-factor
+metadata:
+  author: community
+  upstream: developer.mozilla.org/en-US/docs/Web/HTTP/Content_negotiation
+state:
+  persistent: false
+  files: []
+depends_on: []

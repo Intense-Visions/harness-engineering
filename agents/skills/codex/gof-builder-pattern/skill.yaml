@@ -1,6 +1,7 @@
 name: gof-builder-pattern
 version: "1.0.0"
 description: Construct complex objects step-by-step using fluent builders and director classes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: gof-abstract-factory
 version: "1.0.0"
 description: Create families of related objects through factory interfaces without coupling to concrete types
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

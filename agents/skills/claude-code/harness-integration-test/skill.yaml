@@ -1,6 +1,7 @@
 name: harness-integration-test
 version: "1.0.0"
 description: Service boundary testing, API integration testing, and consumer-driven contract validation
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

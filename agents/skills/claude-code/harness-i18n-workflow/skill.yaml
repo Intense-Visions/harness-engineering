@@ -1,6 +1,7 @@
 name: harness-i18n-workflow
 version: "1.0.0"
 description: Translation lifecycle management — configuration, scaffolding, string extraction, coverage tracking, pseudo-localization, and retrofit for existing projects
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

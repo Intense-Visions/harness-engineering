@@ -1,6 +1,7 @@
 name: zod-schema-definition
 version: "1.0.0"
 description: Define runtime-validated TypeScript schemas with z.object, primitives, enums, and composition
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

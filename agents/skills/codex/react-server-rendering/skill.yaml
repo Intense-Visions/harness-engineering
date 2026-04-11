@@ -1,6 +1,7 @@
 name: react-server-rendering
 version: '1.0.0'
 description: Pre-render React components on the server for improved SEO and initial load performance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

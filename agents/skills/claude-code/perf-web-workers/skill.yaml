@@ -1,0 +1,40 @@
+name: perf-web-workers
+version: '1.0.0'
+description: Web Workers — Dedicated workers, SharedWorker, Comlink RPC, SharedArrayBuffer, and off-main-thread computation
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-event-loop
+  - perf-long-tasks
+  - perf-interaction-to-next-paint
+  - perf-service-worker-caching
+  - perf-client-side-rendering
+stack_signals: []
+keywords:
+  - web worker
+  - dedicated worker
+  - shared worker
+  - comlink
+  - SharedArrayBuffer
+  - off-main-thread
+  - worker threads
+  - postMessage
+  - transferable
+  - atomics
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

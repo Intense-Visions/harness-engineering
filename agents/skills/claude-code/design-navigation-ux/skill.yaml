@@ -1,6 +1,7 @@
 name: design-navigation-ux
 version: "1.0.0"
 description: Wayfinding — navigation models (hub-spoke, hierarchy, flat, content-driven), persistent vs contextual nav, breadcrumbs, information scent
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -16,6 +17,7 @@ paths: []
 related_skills:
   - design-affordances
   - design-information-architecture
+  - ux-navigation-labels
 stack_signals: []
 keywords:
   - navigation

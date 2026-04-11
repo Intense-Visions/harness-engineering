@@ -1,6 +1,7 @@
 name: harness-i18n-process
 version: "1.0.0"
 description: Upstream i18n process injection — inject internationalization considerations into brainstorming, planning, and review workflows with adaptive prompt-mode or gate-mode enforcement
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - on_new_feature

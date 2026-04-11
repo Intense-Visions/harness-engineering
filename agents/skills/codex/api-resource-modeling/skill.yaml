@@ -1,0 +1,40 @@
+name: api-resource-modeling
+version: '1.0.0'
+description: Nouns vs verbs in URI design, resource identification, and URL structure for REST APIs
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-resource-granularity
+  - api-nested-vs-flat
+  - api-rest-maturity-model
+  - api-http-methods
+  - api-filtering-sorting
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - resource-modeling
+  - URI-design
+  - nouns-vs-verbs
+  - resource-identification
+  - URL-structure
+  - REST
+metadata:
+  author: community
+  upstream: restfulapi.net/resource-naming
+state:
+  persistent: false
+  files: []
+depends_on: []

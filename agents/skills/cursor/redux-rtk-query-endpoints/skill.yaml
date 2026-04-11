@@ -1,6 +1,7 @@
 name: redux-rtk-query-endpoints
 version: '1.0.0'
 description: Define query and mutation endpoints with cache tags and transformations
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

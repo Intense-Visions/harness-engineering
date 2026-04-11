@@ -1,6 +1,7 @@
 name: ts-performance-patterns
 version: "1.0.0"
 description: Reduce TypeScript compilation time and type complexity with targeted optimizations
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,10 @@ paths:
 related_skills:
   - ts-config-patterns
   - ts-generics-pattern
+  - perf-tree-shaking
+  - perf-bundle-analysis
+  - perf-code-splitting
+  - perf-profiling-methodology
 stack_signals:
   - typescript
 keywords:

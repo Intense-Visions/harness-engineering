@@ -1,6 +1,7 @@
 name: state-zustand-immer
 version: '1.0.0'
 description: Write mutable-style updates in Zustand stores with the Immer middleware
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

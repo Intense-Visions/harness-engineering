@@ -1,6 +1,7 @@
 name: prisma-relations-pattern
 version: "1.0.0"
 description: Model one-to-one, one-to-many, many-to-many, and self-relations with @relation in Prisma
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

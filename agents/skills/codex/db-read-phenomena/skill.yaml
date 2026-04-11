@@ -1,0 +1,42 @@
+name: db-read-phenomena
+version: '1.0.0'
+description: Dirty reads, non-repeatable reads, phantom reads, and serialization anomalies explained with concrete examples
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-isolation-levels
+  - db-isolation-selection
+  - db-acid-properties
+  - db-mvcc
+  - db-optimistic-locking
+  - prisma-transactions
+  - drizzle-transactions
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - dirty-read
+  - non-repeatable-read
+  - phantom-read
+  - write-skew
+  - serialization-anomaly
+  - read-phenomena
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/transaction-iso.html#XACT-READ-PHENOMENA
+state:
+  persistent: false
+  files: []
+depends_on: []

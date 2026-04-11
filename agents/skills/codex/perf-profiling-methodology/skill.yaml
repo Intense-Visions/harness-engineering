@@ -1,0 +1,44 @@
+name: perf-profiling-methodology
+version: '1.0.0'
+description: Systematic profiling workflow — bottleneck identification, measurement discipline, before/after methodology
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-performance-api
+  - perf-heap-profiling
+  - perf-long-tasks
+  - perf-largest-contentful-paint
+  - perf-interaction-to-next-paint
+  - node-performance-profiling
+  - test-performance-testing
+  - otel-performance-insights
+stack_signals: []
+keywords:
+  - profiling
+  - bottleneck
+  - flame chart
+  - Chrome DevTools
+  - Lighthouse
+  - WebPageTest
+  - performance budget
+  - regression detection
+  - performance testing
+  - synthetic monitoring
+  - RUM
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

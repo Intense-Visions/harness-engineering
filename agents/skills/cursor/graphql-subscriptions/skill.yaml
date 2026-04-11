@@ -1,6 +1,7 @@
 name: graphql-subscriptions
 version: '1.0.0'
 description: Implement real-time data streaming with GraphQL subscriptions over WebSocket
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

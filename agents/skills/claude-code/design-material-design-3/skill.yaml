@@ -1,6 +1,7 @@
 name: design-material-design-3
 version: '1.0.0'
 description: Google Material You design language covering dynamic color, tonal palettes, elevation with tonal surface color, shape theming, and motion choreography
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

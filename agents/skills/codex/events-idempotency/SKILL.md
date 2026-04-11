@@ -181,6 +181,7 @@ microservices.io/patterns/communication-style/idempotent-consumer.html
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** events-message-queue, events-outbox-pattern, microservices-outbox-pattern, api-idempotency-keys
 
 ## Success Criteria
 

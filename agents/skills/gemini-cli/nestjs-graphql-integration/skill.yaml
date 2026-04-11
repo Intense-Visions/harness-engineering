@@ -1,6 +1,7 @@
 name: nestjs-graphql-integration
 version: "1.0.0"
 description: Build GraphQL APIs with GraphQLModule, @Resolver, @Query/@Mutation, @ObjectType, and DataLoader
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

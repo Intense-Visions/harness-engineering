@@ -1,6 +1,7 @@
 name: harness-hotspot-detector
 version: "1.0.0"
 description: Identify structural risk hotspots via co-change and churn analysis
+stability: static
 cognitive_mode: analytical-reporter
 triggers:
   - manual

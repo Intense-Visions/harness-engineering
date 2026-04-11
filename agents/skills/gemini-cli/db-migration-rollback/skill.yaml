@@ -1,0 +1,40 @@
+name: db-migration-rollback
+version: '1.0.0'
+description: Forward-only vs reversible migrations, data backfill safety, and blue-green schema strategies
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-zero-downtime-migration
+  - db-expand-contract
+  - db-acid-properties
+  - db-isolation-levels
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - migration-rollback
+  - forward-only
+  - reversible-migration
+  - backfill
+  - blue-green
+  - schema-versioning
+  - data-migration
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/ddl.html
+state:
+  persistent: false
+  files: []
+depends_on: []

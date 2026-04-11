@@ -1,6 +1,7 @@
 name: js-state-pattern
 version: '1.0.0'
 description: Allow an object to alter its behavior when its internal state changes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

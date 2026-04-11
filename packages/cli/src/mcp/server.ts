@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { resolveProjectConfig } from './utils/config-resolver.js';
 import { applyInjectionGuard } from './middleware/injection-guard.js';
+import { applyCompaction } from './middleware/compaction.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
@@ -133,6 +134,7 @@ import {
 import { checkTraceabilityDefinition, handleCheckTraceability } from './tools/traceability.js';
 import { predictFailuresDefinition, handlePredictFailures } from './tools/predict-failures.js';
 import { recommendSkillsDefinition, handleRecommendSkills } from './tools/recommend-skills.js';
+import { compactToolDefinition, handleCompact } from './tools/compact.js';
 
 type ToolDefinition = {
   name: string;
@@ -204,6 +206,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   recommendSkillsDefinition,
   computeBlastRadiusDefinition,
   dispatchSkillsDefinition,
+  compactToolDefinition,
 ].map((def) => ({ ...def, trustedOutput: true }));
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
@@ -261,6 +264,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   recommend_skills: handleRecommendSkills as ToolHandler,
   compute_blast_radius: handleComputeBlastRadius as ToolHandler,
   dispatch_skills: handleDispatchSkills as ToolHandler,
+  compact: handleCompact as ToolHandler,
 };
 
 const RESOURCE_DEFINITIONS = [
@@ -270,48 +274,56 @@ const RESOURCE_DEFINITIONS = [
     description:
       'Available skills with metadata (name, description, cognitive_mode, type, triggers)',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://rules',
     name: 'Harness Rules',
     description: 'Active linter rules and constraints from harness config',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://project',
     name: 'Project Context',
     description: 'Project structure and agent instructions from AGENTS.md',
     mimeType: 'text/markdown',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://learnings',
     name: 'Learnings',
     description: 'Review learnings and anti-pattern log from .harness/',
     mimeType: 'text/markdown',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://state',
     name: 'Project State',
     description: 'Current harness state including position, progress, decisions, and blockers',
     mimeType: 'application/json',
+    _meta: { stability: 'ephemeral' },
   },
   {
     uri: 'harness://graph',
     name: 'Knowledge Graph',
     description: 'Graph statistics, node/edge counts by type, staleness',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://entities',
     name: 'Graph Entities',
     description: 'All entity nodes with types and metadata',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
   {
     uri: 'harness://relationships',
     name: 'Graph Relationships',
     description: 'All edges with types, confidence scores, and timestamps',
     mimeType: 'application/json',
+    _meta: { stability: 'session' },
   },
 ];
 
@@ -445,6 +457,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     projectRoot: resolvedRoot,
     trustedOutputTools,
   });
+  const compactedHandlers = applyCompaction(guardedHandlers);
 
   const server = new Server(
     { name: 'harness-engineering', version: '0.1.0' },
@@ -458,7 +471,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     CallToolRequestSchema,
     async (request) =>
       dispatchTool(
-        guardedHandlers,
+        compactedHandlers,
         request.params.name,
         request.params.arguments,
         resolvedRoot,

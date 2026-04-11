@@ -1,0 +1,44 @@
+name: db-optimistic-locking
+version: '1.0.0'
+description: Version columns, conditional updates, conflict detection and retry patterns for optimistic concurrency control
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-pessimistic-locking
+  - db-mvcc
+  - db-isolation-levels
+  - db-deadlock-prevention
+  - db-acid-properties
+  - prisma-transactions
+  - drizzle-transactions
+  - api-conditional-requests
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - optimistic-locking
+  - version-column
+  - conditional-update
+  - conflict-detection
+  - retry-pattern
+  - compare-and-swap
+  - OCC
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/applevel-consistency.html
+state:
+  persistent: false
+  files: []
+depends_on: []

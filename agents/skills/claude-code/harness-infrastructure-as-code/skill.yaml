@@ -1,6 +1,7 @@
 name: harness-infrastructure-as-code
 version: "1.0.0"
 description: Terraform, CloudFormation, Pulumi patterns and IaC best practices
+stability: static
 cognitive_mode: advisory-guide
 tier: 3
 internal: false

@@ -41,7 +41,13 @@ export class AgentRunner {
     let lastResult: TurnResult = {
       success: false,
       sessionId: session.sessionId,
-      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+      },
     };
 
     try {

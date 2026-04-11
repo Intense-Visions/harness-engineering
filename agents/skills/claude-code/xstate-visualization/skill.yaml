@@ -1,6 +1,7 @@
 name: xstate-visualization
 version: '1.0.0'
 description: Visualize and inspect XState machines with Stately Inspector and VS Code extension
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

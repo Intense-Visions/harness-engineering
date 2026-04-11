@@ -1,6 +1,7 @@
 name: xstate-parallel-states
 version: '1.0.0'
 description: Model concurrent state regions with parallel state nodes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

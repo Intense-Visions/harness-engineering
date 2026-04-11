@@ -1,6 +1,7 @@
 name: angular-performance-patterns
 version: '1.0.0'
 description: Optimize Angular app performance with OnPush, trackBy, virtual scrolling, and deferrable views
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -23,6 +24,11 @@ related_skills:
   - angular-signals-pattern
   - angular-lazy-loading
   - angular-pipe-pattern
+  - perf-critical-rendering-path
+  - perf-lazy-loading
+  - perf-code-splitting
+  - perf-server-side-rendering
+  - perf-largest-contentful-paint
 stack_signals:
   - angular
   - typescript

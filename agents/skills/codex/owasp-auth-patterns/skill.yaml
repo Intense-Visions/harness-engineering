@@ -1,6 +1,7 @@
 name: owasp-auth-patterns
 version: "1.0.0"
 description: Implement secure authentication with proper session management, JWT best practices, and token rotation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -21,6 +22,13 @@ related_skills:
   - nestjs-guards-pattern
   - owasp-secrets-management
   - owasp-cryptography
+  - security-credential-storage
+  - security-session-management
+  - security-mfa-design
+  - security-authentication-flows
+  - security-rbac-design
+  - api-authentication-patterns
+  - api-oauth2-flows
 stack_signals:
   - nodejs
   - typescript

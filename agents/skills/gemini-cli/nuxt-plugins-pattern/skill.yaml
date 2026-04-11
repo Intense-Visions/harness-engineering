@@ -1,6 +1,7 @@
 name: nuxt-plugins-pattern
 version: '1.0.0'
 description: Extend the Nuxt app instance with plugins using defineNuxtPlugin and provide/inject
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,0 +1,40 @@
+name: security-zero-trust-principles
+version: "1.0.0"
+description: Zero trust architecture principles -- never trust, always verify, least privilege, assume breach, and continuous verification regardless of network position
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-trust-boundaries
+  - security-microsegmentation
+  - security-identity-verification
+  - security-rbac-design
+  - security-tls-fundamentals
+  - security-mtls-design
+  - owasp-auth-patterns
+stack_signals: []
+keywords:
+  - zero trust
+  - never trust always verify
+  - least privilege
+  - assume breach
+  - continuous verification
+  - BeyondCorp
+  - network segmentation
+  - identity-based security
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

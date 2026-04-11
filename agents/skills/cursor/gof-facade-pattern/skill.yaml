@@ -1,6 +1,7 @@
 name: gof-facade-pattern
 version: "1.0.0"
 description: Provide a simplified interface to a complex subsystem to reduce coupling for clients
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

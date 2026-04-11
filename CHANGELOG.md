@@ -6,6 +6,12 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 
 ## [Unreleased]
 
+### Added
+
+- **Adoption telemetry** — `harness adoption` command group (skills, recent, skill) for viewing skill usage metrics. `adoption-tracker` stop hook records invocations to `.harness/metrics/adoption.jsonl`. New `adoption` config key to disable tracking. (`@harness-engineering/cli`, `@harness-engineering/core`, `@harness-engineering/types`)
+- **Central telemetry** — `harness telemetry` command group (identify, status) for managing anonymous usage analytics. `telemetry-reporter` stop hook sends events to PostHog. Consent via `DO_NOT_TRACK=1`, `HARNESS_TELEMETRY_OPTOUT=1`, or `telemetry.enabled: false`. (`@harness-engineering/cli`, `@harness-engineering/core`, `@harness-engineering/types`)
+- **Session cleanup** — `harness cleanup-sessions` command removes stale `.harness/sessions/` directories older than 24 hours with `--dry-run` support. (`@harness-engineering/cli`)
+
 ## 0.14.1 — 2026-04-07
 
 ### Fixed

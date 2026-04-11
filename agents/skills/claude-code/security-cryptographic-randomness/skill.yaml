@@ -1,0 +1,41 @@
+name: security-cryptographic-randomness
+version: '1.0.0'
+description: Cryptographically secure random number generation -- CSPRNG, entropy sources, nonce generation, and why Math.random() will get you breached
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-symmetric-encryption
+  - security-asymmetric-encryption
+  - security-hashing-fundamentals
+  - security-hmac-signatures
+  - security-session-management
+  - owasp-cryptography
+stack_signals: []
+keywords:
+  - CSPRNG
+  - entropy
+  - random number generation
+  - nonce
+  - initialization vector
+  - IV
+  - Math.random
+  - crypto.getRandomValues
+  - /dev/urandom
+  - token generation
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

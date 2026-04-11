@@ -1,6 +1,7 @@
 name: ts-module-patterns
 version: "1.0.0"
 description: Organize TypeScript code with ES modules, barrel exports, path aliases, and declaration files
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

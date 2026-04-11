@@ -1,6 +1,7 @@
 name: design-transitions-timing
 version: "1.0.0"
 description: Temporal design — enter/exit asymmetry, stagger patterns, easing functions (ease-out for enter, ease-in for exit), duration by element size, interruptibility
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

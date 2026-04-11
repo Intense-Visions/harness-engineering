@@ -1,0 +1,33 @@
+name: ux-loading-states
+version: "1.0.0"
+description: Loading state copy — progress transparency, expectation setting, and writing text that reduces perceived wait time and prevents users from abandoning
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-success-feedback
+  - design-loading-patterns
+stack_signals: []
+keywords:
+  - loading-state
+  - progress
+  - skeleton-screen
+  - expectation-setting
+  - wait-time
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

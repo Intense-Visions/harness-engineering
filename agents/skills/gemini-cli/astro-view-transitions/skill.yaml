@@ -1,6 +1,7 @@
 name: astro-view-transitions
 version: '1.0.0'
 description: Implement smooth page transitions and persistent islands using Astro View Transitions API
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

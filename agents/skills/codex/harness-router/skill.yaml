@@ -1,6 +1,7 @@
 name: harness-router
 version: "1.0.0"
 description: Natural language router to harness skills — classifies intent, confirms, dispatches
+stability: static
 cognitive_mode: analytical-classifier
 command_name: harness
 triggers:

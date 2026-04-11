@@ -1,6 +1,7 @@
 name: react-hoc-pattern
 version: '1.0.0'
 description: Extend component behavior by wrapping in a higher-order component
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

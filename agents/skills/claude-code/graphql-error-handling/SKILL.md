@@ -160,6 +160,7 @@ https://www.apollographql.com/docs/apollo-server/data/errors/
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** graphql-resolver-pattern, graphql-schema-design, graphql-apollo-server, api-error-contracts, api-problem-details-rfc
 
 ## Success Criteria
 

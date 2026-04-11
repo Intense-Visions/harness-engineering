@@ -1,6 +1,7 @@
 name: design-form-ux
 version: "1.0.0"
 description: Form design beyond labels — progressive disclosure, inline validation timing, smart defaults, forgiving formats, single-column superiority, error recovery
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -18,6 +19,7 @@ related_skills:
   - design-state-design
   - design-gestalt-proximity
   - a11y-form-patterns
+  - ux-form-labels
 stack_signals: []
 keywords:
   - form-design

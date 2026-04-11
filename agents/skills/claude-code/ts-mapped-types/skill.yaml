@@ -1,6 +1,7 @@
 name: ts-mapped-types
 version: "1.0.0"
 description: Transform object types by iterating over their keys with mapped type syntax
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

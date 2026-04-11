@@ -1,6 +1,7 @@
 name: ts-declaration-merging
 version: "1.0.0"
 description: Extend existing types, modules, and namespaces via declaration merging and augmentation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

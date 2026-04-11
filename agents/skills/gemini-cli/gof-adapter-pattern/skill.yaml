@@ -1,6 +1,7 @@
 name: gof-adapter-pattern
 version: "1.0.0"
 description: Wrap incompatible interfaces to make them work together without modifying source code
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

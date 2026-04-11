@@ -136,7 +136,7 @@ metadata:
 type: Opaque
 stringData:
   DATABASE_URL: 'postgresql://user:pass@postgres:5432/orders'
-  STRIPE_SECRET_KEY: 'sk_live_...'
+  STRIPE_SECRET_KEY: 'sk_example_...'
 
 ---
 # deployment.yaml — inject config into container

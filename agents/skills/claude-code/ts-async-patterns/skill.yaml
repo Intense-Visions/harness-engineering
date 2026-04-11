@@ -1,6 +1,7 @@
 name: ts-async-patterns
 version: "1.0.0"
 description: Type async/await, Promise chains, and concurrent patterns correctly in TypeScript
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

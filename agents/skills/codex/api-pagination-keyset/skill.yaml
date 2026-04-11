@@ -1,0 +1,39 @@
+name: api-pagination-keyset
+version: '1.0.0'
+description: Keyset (seek) pagination with composite key design, sort order stability, and consistent performance at 10M+ rows
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-pagination-cursor
+  - api-pagination-offset
+  - db-btree-index
+  - db-covering-index
+stack_signals:
+  - rest
+  - api
+  - pagination
+keywords:
+  - keyset-pagination
+  - seek-method
+  - after-key
+  - stable-sort
+  - composite-key
+  - deep-pagination
+metadata:
+  author: community
+  upstream: use-the-index-luke.com/no-offset/
+state:
+  persistent: false
+  files: []
+depends_on: []

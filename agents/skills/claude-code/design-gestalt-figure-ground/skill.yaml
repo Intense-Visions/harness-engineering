@@ -1,6 +1,7 @@
 name: design-gestalt-figure-ground
 version: "1.0.0"
 description: Depth perception — distinguishing foreground from background, ambiguous figure-ground as design tool, z-axis ordering, overlay and modal perception
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

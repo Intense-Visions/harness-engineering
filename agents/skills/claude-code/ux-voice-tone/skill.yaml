@@ -1,0 +1,33 @@
+name: ux-voice-tone
+version: "1.0.0"
+description: Voice and tone in UI writing — defining voice (constant) vs tone (contextual), formality calibration, and emotional register
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-plain-language
+  - ux-inclusive-language
+stack_signals: []
+keywords:
+  - voice
+  - tone
+  - formality
+  - brand-voice
+  - emotional-register
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

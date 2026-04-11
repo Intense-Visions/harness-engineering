@@ -1,6 +1,7 @@
 name: trpc-router-composition
 version: "1.0.0"
 description: Router merging, nested routers, procedure organization, and createTRPCRouter
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -21,6 +22,8 @@ related_skills:
   - trpc-middleware-pattern
   - trpc-nextjs-integration
   - next-route-handlers
+  - api-resource-modeling
+  - api-nested-vs-flat
 stack_signals:
   - trpc
   - typescript

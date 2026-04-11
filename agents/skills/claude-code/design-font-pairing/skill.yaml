@@ -1,6 +1,7 @@
 name: design-font-pairing
 version: "1.0.0"
 description: Combining typefaces — contrast principles, superfamilies, serif+sans rules, limiting to 2-3 families
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

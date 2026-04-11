@@ -1,6 +1,7 @@
 name: mobile-native-modules
 version: '1.0.0'
 description: Bridge native platform APIs into React Native with Expo Modules and Turbo Modules
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

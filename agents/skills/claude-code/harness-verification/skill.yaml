@@ -1,6 +1,7 @@
 name: harness-verification
 version: "1.0.0"
 description: Comprehensive harness verification of project health and compliance
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual
@@ -21,6 +22,9 @@ cli:
   args:
     - name: path
       description: Project root path
+      required: false
+    - name: session-slug
+      description: Session slug for scoped state/handoff (passed by autopilot)
       required: false
 mcp:
   tool: run_skill

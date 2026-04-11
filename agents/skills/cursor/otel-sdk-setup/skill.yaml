@@ -1,6 +1,7 @@
 name: otel-sdk-setup
 version: '1.0.0'
 description: Initialize the OpenTelemetry Node.js SDK with providers, exporters, and auto-instrumentation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

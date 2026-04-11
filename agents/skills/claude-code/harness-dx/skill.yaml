@@ -1,6 +1,7 @@
 name: harness-dx
 version: "1.0.0"
 description: Developer experience auditing — README quality, API documentation, getting-started guides, and example validation
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

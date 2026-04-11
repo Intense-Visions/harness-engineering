@@ -1,6 +1,7 @@
 name: js-mediator-middleware-pattern
 version: '1.0.0'
 description: Route component interactions through a central mediator to reduce coupling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,0 +1,39 @@
+name: security-secrets-lifecycle
+version: "1.0.0"
+description: Secret rotation, distribution, revocation, and the principle that secrets must be ephemeral, auditable, and never embedded in code
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-vault-patterns
+  - security-environment-variable-risks
+  - security-credential-storage
+  - security-symmetric-encryption
+  - owasp-secrets-management
+stack_signals: []
+keywords:
+  - secrets management
+  - secret rotation
+  - API keys
+  - credentials
+  - vault
+  - KMS
+  - secret distribution
+  - revocation
+  - ephemeral secrets
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

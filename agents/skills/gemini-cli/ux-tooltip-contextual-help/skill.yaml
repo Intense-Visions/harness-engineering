@@ -1,0 +1,33 @@
+name: ux-tooltip-contextual-help
+version: "1.0.0"
+description: Tooltip and contextual help writing — when to use tooltips, what to put in them, and progressive disclosure patterns that educate without interrupting
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-plain-language
+  - ux-content-hierarchy
+stack_signals: []
+keywords:
+  - tooltip
+  - contextual-help
+  - progressive-disclosure
+  - help-text
+  - hover
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

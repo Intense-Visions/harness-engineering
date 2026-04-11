@@ -1,6 +1,7 @@
 name: design-state-design
 version: "1.0.0"
 description: UI state inventory — empty, loading, partial, error, success, offline, disabled, read-only, and how each state communicates system status
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

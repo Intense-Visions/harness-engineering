@@ -1,0 +1,39 @@
+name: security-race-conditions
+version: '1.0.0'
+description: TOCTOU vulnerabilities, double-spend attacks, file system races, and the security implications of non-atomic operations in concurrent systems
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-deserialization-attacks
+  - security-injection-families
+  - security-session-management
+  - owasp-csrf-protection
+stack_signals: []
+keywords:
+  - race condition
+  - TOCTOU
+  - time of check time of use
+  - double spend
+  - concurrent vulnerability
+  - atomicity
+  - file system race
+  - check-then-act
+  - idempotency
+  - optimistic locking
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

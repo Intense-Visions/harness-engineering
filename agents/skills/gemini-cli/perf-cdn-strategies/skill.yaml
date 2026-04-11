@@ -1,0 +1,40 @@
+name: perf-cdn-strategies
+version: '1.0.0'
+description: CDN architecture — edge caching, origin shielding, cache tiers, edge compute, and multi-CDN strategies
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-cdn-cache-control
+  - perf-browser-cache
+  - perf-connection-costs
+  - perf-compression
+  - perf-edge-rendering
+  - otel-performance-insights
+stack_signals: []
+keywords:
+  - cdn
+  - edge caching
+  - origin shielding
+  - cache tier
+  - edge compute
+  - pop
+  - anycast
+  - multi-cdn
+  - cache hit ratio
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

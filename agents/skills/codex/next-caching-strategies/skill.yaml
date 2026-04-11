@@ -1,6 +1,7 @@
 name: next-caching-strategies
 version: "1.0.0"
 description: fetch cache options, revalidate, cache tags, and unstable_cache patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

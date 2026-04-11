@@ -1,0 +1,39 @@
+name: db-table-partitioning
+version: '1.0.0'
+description: Range, list, and hash partitioning -- declarative partitioning, partition pruning, and maintenance
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-horizontal-sharding
+  - db-vertical-partitioning
+  - db-btree-index
+  - db-explain-reading
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - table-partitioning
+  - range-partitioning
+  - list-partitioning
+  - hash-partitioning
+  - partition-pruning
+  - declarative-partitioning
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/ddl-partitioning.html
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,0 +1,42 @@
+name: security-asymmetric-encryption
+version: "1.0.0"
+description: RSA, elliptic curve cryptography (ECDSA, Ed25519, X25519), key exchange (ECDHE), and when to use asymmetric vs symmetric encryption
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-symmetric-encryption
+  - security-hashing-fundamentals
+  - security-hmac-signatures
+  - security-tls-fundamentals
+  - security-certificate-management
+  - owasp-cryptography
+stack_signals: []
+keywords:
+  - RSA
+  - elliptic curve
+  - ECDSA
+  - Ed25519
+  - X25519
+  - ECDHE
+  - key exchange
+  - public key
+  - private key
+  - asymmetric encryption
+  - digital signature
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

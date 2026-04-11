@@ -1,6 +1,7 @@
 name: angular-state-management
 version: '1.0.0'
 description: Manage application state with NgRx Store, createAction/createReducer/createSelector, or signal stores
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: gof-flyweight-pattern
 version: "1.0.0"
 description: Share fine-grained objects to reduce memory usage by separating intrinsic and extrinsic state
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

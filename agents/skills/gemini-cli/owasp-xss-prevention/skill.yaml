@@ -1,6 +1,7 @@
 name: owasp-xss-prevention
 version: "1.0.0"
 description: Prevent reflected, stored, and DOM-based XSS via CSP headers, output encoding, and input sanitization
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -21,6 +22,8 @@ related_skills:
   - owasp-security-headers
   - owasp-csrf-protection
   - nestjs-guards-pattern
+  - security-injection-families
+  - security-threat-modeling-stride
 stack_signals:
   - nodejs
   - typescript

@@ -1,0 +1,41 @@
+name: security-abac-design
+version: '1.0.0'
+description: Attribute-based access control -- policy engines, XACML concepts, attribute evaluation, and when ABAC is the right model over RBAC
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-rbac-design
+  - security-rebac-design
+  - security-capability-based-security
+  - security-zero-trust-principles
+  - owasp-auth-patterns
+  - owasp-idor-prevention
+stack_signals: []
+keywords:
+  - ABAC
+  - attribute-based access control
+  - policy engine
+  - XACML
+  - OPA
+  - Cedar
+  - policy as code
+  - access control policy
+  - authorization engine
+  - contextual authorization
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

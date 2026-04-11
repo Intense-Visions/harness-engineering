@@ -1,0 +1,39 @@
+name: security-post-incident-review
+version: '1.0.0'
+description: Blameless post-incident reviews for security incidents -- structured analysis, root cause identification, remediation tracking, and organizational learning
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-incident-containment
+  - security-forensics-fundamentals
+  - security-vulnerability-disclosure
+  - owasp-logging-monitoring
+stack_signals: []
+keywords:
+  - post-incident review
+  - post-mortem
+  - blameless retrospective
+  - root cause analysis
+  - remediation tracking
+  - lessons learned
+  - incident review
+  - five whys
+  - contributing factors
+  - corrective action
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

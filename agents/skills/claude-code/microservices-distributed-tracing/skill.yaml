@@ -1,6 +1,7 @@
 name: microservices-distributed-tracing
 version: "1.0.0"
 description: Propagate trace context and emit spans across services using OpenTelemetry
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

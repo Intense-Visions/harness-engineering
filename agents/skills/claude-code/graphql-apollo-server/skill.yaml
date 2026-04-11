@@ -1,6 +1,7 @@
 name: graphql-apollo-server
 version: '1.0.0'
 description: Configure and run Apollo Server with plugins, context, and data sources
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -91,6 +91,7 @@ https://trpc.io/docs/server/routers
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** trpc-input-validation, trpc-middleware-pattern, trpc-nextjs-integration, next-route-handlers, api-resource-modeling, api-nested-vs-flat
 
 ## Success Criteria
 

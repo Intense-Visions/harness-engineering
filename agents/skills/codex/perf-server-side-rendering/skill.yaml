@@ -1,0 +1,39 @@
+name: perf-server-side-rendering
+version: '1.0.0'
+description: Server-side rendering — SSR performance trade-offs, hydration cost, streaming SSR, and selective hydration strategies
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-streaming-rendering
+  - perf-client-side-rendering
+  - perf-static-generation
+  - perf-critical-rendering-path
+  - perf-largest-contentful-paint
+  - perf-interaction-to-next-paint
+stack_signals: []
+keywords:
+  - server-side rendering
+  - SSR
+  - hydration
+  - renderToString
+  - renderToPipeableStream
+  - selective hydration
+  - TTFB
+  - server components
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

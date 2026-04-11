@@ -1,6 +1,7 @@
 name: harness-execution
 version: "1.0.0"
 description: Execute a planned set of tasks with harness validation and state tracking
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual
@@ -24,6 +25,18 @@ cli:
   args:
     - name: path
       description: Project root path
+      required: false
+    - name: plan-path
+      description: Path to approved plan (from planning output or orchestrator)
+      required: false
+    - name: session-slug
+      description: Session slug for scoped state/handoff (passed by autopilot)
+      required: false
+    - name: fast
+      description: Minimal rigor — skip scratchpad, checkpoint commits only
+      required: false
+    - name: thorough
+      description: Maximum rigor — verbose scratchpad for all research
       required: false
 mcp:
   tool: run_skill

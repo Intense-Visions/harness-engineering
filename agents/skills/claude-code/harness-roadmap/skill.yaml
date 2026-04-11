@@ -1,6 +1,7 @@
 name: harness-roadmap
 version: "1.0.0"
 description: Create and manage a unified project roadmap from existing specs and plans
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

@@ -1,6 +1,7 @@
 name: redux-store-setup
 version: '1.0.0'
 description: Configure the Redux store with configureStore, middleware, and dev tools
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

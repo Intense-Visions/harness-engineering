@@ -1,6 +1,7 @@
 name: graphql-resolver-pattern
 version: '1.0.0'
 description: Implement resolvers with clean separation between data fetching and business logic
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

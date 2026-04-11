@@ -1,0 +1,42 @@
+name: db-zero-downtime-migration
+version: '1.0.0'
+description: Online schema changes without downtime -- avoiding locks, pg_repack, and gh-ost patterns
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-expand-contract
+  - db-migration-rollback
+  - db-acid-properties
+  - db-pessimistic-locking
+  - db-deadlock-prevention
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - zero-downtime
+  - online-schema-change
+  - pg_repack
+  - gh-ost
+  - DDL
+  - ACCESS-EXCLUSIVE
+  - concurrent-index
+  - migrations
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/sql-altertable.html
+state:
+  persistent: false
+  files: []
+depends_on: []

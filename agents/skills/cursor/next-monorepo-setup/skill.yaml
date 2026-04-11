@@ -1,6 +1,7 @@
 name: next-monorepo-setup
 version: "1.0.0"
 description: Next.js in monorepos, shared packages, and Turborepo integration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

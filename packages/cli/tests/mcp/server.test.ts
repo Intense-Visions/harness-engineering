@@ -11,9 +11,9 @@ describe('MCP Server', () => {
     expect(server).toBeDefined();
   });
 
-  it('registers all 55 tools', () => {
+  it('registers all 56 tools', () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(55);
+    expect(tools).toHaveLength(56);
   });
 
   it('registers all 8 resources', () => {
@@ -71,6 +71,35 @@ describe('MCP Server', () => {
     expect(uris).toContain('harness://relationships');
   });
 
+  it('resource descriptors include stability hints in _meta', () => {
+    const resources = getResourceDefinitions();
+    const byUri = Object.fromEntries(resources.map((r) => [r.uri, r]));
+
+    // state is ephemeral — changes per invocation
+    expect(byUri['harness://state']._meta?.stability).toBe('ephemeral');
+
+    // session-scoped resources — stable within a session (skills is session: filesystem-backed, changes without restart)
+    const sessionResources = [
+      'harness://skills',
+      'harness://rules',
+      'harness://project',
+      'harness://learnings',
+      'harness://graph',
+      'harness://entities',
+      'harness://relationships',
+    ];
+    for (const uri of sessionResources) {
+      expect(byUri[uri]._meta?.stability).toBe('session');
+    }
+  });
+
+  it('all resource descriptors have a _meta.stability field', () => {
+    const resources = getResourceDefinitions();
+    for (const resource of resources) {
+      expect(resource._meta?.stability).toMatch(/^(static|session|ephemeral)$/);
+    }
+  });
+
   it('registers graph tools', () => {
     const names = getToolDefinitions().map((t) => t.name);
     expect(names).toContain('query_graph');
@@ -87,5 +116,10 @@ describe('MCP Server', () => {
     expect(names).toContain('gather_context');
     expect(names).toContain('assess_project');
     expect(names).toContain('review_changes');
+  });
+
+  it('registers compact tool', () => {
+    const names = getToolDefinitions().map((t) => t.name);
+    expect(names).toContain('compact');
   });
 });

@@ -1,6 +1,7 @@
 name: trpc-context-pattern
 version: "1.0.0"
 description: createTRPCContext, request context, database injection, and session access
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

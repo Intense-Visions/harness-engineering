@@ -100,13 +100,29 @@
     "enabled": true,
     "baselinePath": ".harness/arch/baselines.json",
     "thresholds": {
-      "circular-deps": { "max": 0 },
-      "layer-violations": { "max": 0 },
-      "complexity": { "max": 15 },
-      "coupling": { "maxFanIn": 10, "maxFanOut": 8 },
-      "forbidden-imports": { "max": 0 },
-      "module-size": { "maxFiles": 30, "maxLoc": 3500 },
-      "dependency-depth": { "max": 7 }
+      "circular-deps": {
+        "max": 0
+      },
+      "layer-violations": {
+        "max": 0
+      },
+      "complexity": {
+        "max": 15
+      },
+      "coupling": {
+        "maxFanIn": 10,
+        "maxFanOut": 8
+      },
+      "forbidden-imports": {
+        "max": 0
+      },
+      "module-size": {
+        "maxFiles": 30,
+        "maxLoc": 3500
+      },
+      "dependency-depth": {
+        "max": 7
+      }
     },
     "modules": {}
   },
@@ -168,21 +184,42 @@
     "complexity": {
       "enabled": true,
       "thresholds": {
-        "cyclomaticComplexity": { "error": 15, "warn": 10 },
-        "nestingDepth": { "warn": 4 },
-        "functionLength": { "warn": 50 },
-        "parameterCount": { "warn": 5 },
-        "fileLength": { "info": 300 },
-        "hotspotPercentile": { "error": 95 }
+        "cyclomaticComplexity": {
+          "error": 15,
+          "warn": 10
+        },
+        "nestingDepth": {
+          "warn": 4
+        },
+        "functionLength": {
+          "warn": 50
+        },
+        "parameterCount": {
+          "warn": 5
+        },
+        "fileLength": {
+          "info": 300
+        },
+        "hotspotPercentile": {
+          "error": 95
+        }
       }
     },
     "coupling": {
       "enabled": true,
       "thresholds": {
-        "fanOut": { "warn": 15 },
-        "fanIn": { "info": 20 },
-        "couplingRatio": { "warn": 0.7 },
-        "transitiveDependencyDepth": { "info": 30 }
+        "fanOut": {
+          "warn": 15
+        },
+        "fanIn": {
+          "info": 20
+        },
+        "couplingRatio": {
+          "warn": 0.7
+        },
+        "transitiveDependencyDepth": {
+          "info": 30
+        }
       }
     },
     "sizeBudget": {
@@ -211,5 +248,14 @@
   "template": {
     "level": "advanced",
     "version": 1
+  },
+  "graph": {
+    "connectors": {
+      "ci": {
+        "apiKeyEnv": "GITHUB_TOKEN",
+        "repo": "Intense-Visions/harness-engineering",
+        "maxRuns": 20
+      }
+    }
   }
 }

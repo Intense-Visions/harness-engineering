@@ -1,6 +1,7 @@
 name: a11y-color-contrast
 version: '1.0.0'
 description: Ensure sufficient color contrast ratios and avoid color-only information conveyance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

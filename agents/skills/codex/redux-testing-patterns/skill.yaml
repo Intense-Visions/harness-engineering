@@ -1,6 +1,7 @@
 name: redux-testing-patterns
 version: '1.0.0'
 description: Test Redux slices, thunks, selectors, and connected components effectively
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: xstate-invoke-pattern
 version: '1.0.0'
 description: Invoke promises, callbacks, and child machines as services in state nodes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

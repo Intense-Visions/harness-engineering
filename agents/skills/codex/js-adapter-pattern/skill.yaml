@@ -1,6 +1,7 @@
 name: js-adapter-pattern
 version: '1.0.0'
 description: Convert the interface of a class into another interface that clients expect
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

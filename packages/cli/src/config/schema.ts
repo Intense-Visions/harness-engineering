@@ -340,6 +340,20 @@ export const HarnessConfigSchema = z.object({
     .optional(),
   /** Roadmap sync and tracker integration settings */
   roadmap: RoadmapConfigSchema.optional(),
+  /** Adoption telemetry settings */
+  adoption: z
+    .object({
+      /** Whether adoption tracking is enabled (default: true) */
+      enabled: z.boolean().default(true),
+    })
+    .optional(),
+  /** Central telemetry collection settings */
+  telemetry: z
+    .object({
+      /** Whether anonymous telemetry is enabled (default: true) */
+      enabled: z.boolean().default(true),
+    })
+    .optional(),
   /** How often (in ms) to check for CLI updates */
   updateCheckInterval: z.number().int().min(0).optional(),
 });

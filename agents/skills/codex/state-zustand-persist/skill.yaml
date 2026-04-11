@@ -1,6 +1,7 @@
 name: state-zustand-persist
 version: '1.0.0'
 description: Persist Zustand store to localStorage or custom storage with the persist middleware
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

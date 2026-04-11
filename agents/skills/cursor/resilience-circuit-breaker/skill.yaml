@@ -1,6 +1,7 @@
 name: resilience-circuit-breaker
 version: '1.0.0'
 description: Protect services from cascading failures with the circuit breaker pattern
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

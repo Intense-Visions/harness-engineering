@@ -1,6 +1,7 @@
 name: harness-brainstorming
 version: "1.0.0"
 description: Structured ideation and exploration with harness methodology
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual
@@ -23,6 +24,9 @@ cli:
   args:
     - name: path
       description: Project root path
+      required: false
+    - name: session-slug
+      description: Session slug for scoped state/handoff (passed by autopilot)
       required: false
 mcp:
   tool: run_skill

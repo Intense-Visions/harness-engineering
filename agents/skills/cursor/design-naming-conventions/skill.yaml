@@ -1,6 +1,7 @@
 name: design-naming-conventions
 version: '1.0.0'
 description: Design system nomenclature for semantic and descriptive names, color naming, size naming, and cross-discipline vocabulary
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

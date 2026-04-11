@@ -1,6 +1,7 @@
 name: trpc-input-validation
 version: "1.0.0"
 description: Zod integration, input/output schemas, .input()/.output(), and transformers
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -21,6 +22,7 @@ related_skills:
   - trpc-error-handling
   - next-route-handlers
   - ts-utility-types
+  - api-validation-errors
 stack_signals:
   - trpc
   - typescript

@@ -1,5 +1,11 @@
 # @harness-engineering/types
 
+## 0.9.2
+
+### Patch Changes
+
+- Document usage types (UsageRecord, ModelPricing, DailyUsage, SessionUsage) and external tracker types (ExternalTicket, ExternalTicketState, SyncResult, TrackerSyncConfig) in API reference
+
 ## 0.9.1
 
 ### Patch Changes

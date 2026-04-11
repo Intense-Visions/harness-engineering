@@ -1,6 +1,7 @@
 name: js-command-pattern
 version: '1.0.0'
 description: Encapsulate operations as objects to support undo, queue, and logging
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

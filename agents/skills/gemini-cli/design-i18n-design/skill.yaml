@@ -1,6 +1,7 @@
 name: design-i18n-design
 version: "1.0.0"
 description: Designing for internationalization — text expansion, RTL layout, icon cultural sensitivity, date/number/currency formatting, pseudolocalization
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -17,6 +18,7 @@ related_skills:
   - design-responsive-strategy
   - design-typography-fundamentals
   - design-content-density
+  - ux-internationalization-writing
 stack_signals: []
 keywords:
   - internationalization

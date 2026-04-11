@@ -1,6 +1,7 @@
 name: harness-design
 version: "1.0.0"
 description: Aesthetic direction workflow, anti-pattern enforcement, DESIGN.md generation, and strictness configuration
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

@@ -72,4 +72,25 @@ describe('normalizeSkills', () => {
       normalizeSkills([{ dir: fixturesDir, source: 'project' }], ['claude-code'])
     ).not.toThrow();
   });
+
+  it('uses command_namespace for namespace and fullName', () => {
+    const specs = normalizeSkills([{ dir: fixturesDir, source: 'project' }], ['claude-code']);
+    const spec = specs.find((s) => s.skillYamlName === 'acme-tools');
+
+    expect(spec).toBeDefined();
+    expect(spec!.namespace).toBe('acme');
+    expect(spec!.name).toBe('tools');
+    expect(spec!.fullName).toBe('acme:tools');
+    expect(spec!.customNamespace).toBe('acme');
+  });
+
+  it('defaults to harness namespace when command_namespace is not set', () => {
+    const specs = normalizeSkills([{ dir: fixturesDir, source: 'project' }], ['claude-code']);
+    const spec = specs.find((s) => s.skillYamlName === 'harness-test-skill');
+
+    expect(spec).toBeDefined();
+    expect(spec!.namespace).toBe('harness');
+    expect(spec!.fullName).toBe('harness:test-skill');
+    expect(spec!.customNamespace).toBeUndefined();
+  });
 });

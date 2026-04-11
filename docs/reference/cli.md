@@ -1984,9 +1984,9 @@ harness hooks init [options]
 
 **Profiles:**
 
-- **minimal** — Lightweight set of hooks for basic enforcement
-- **standard** — Balanced set of hooks for typical projects (default)
-- **strict** — Full enforcement with all available hook scripts
+- **minimal** — Safety floor: `block-no-verify`
+- **standard** — Balanced enforcement (default): all minimal hooks plus `protect-config`, `quality-gate`, `pre-compact-state`, `adoption-tracker`, `telemetry-reporter`
+- **strict** — Full enforcement: all standard hooks plus `cost-tracker`, `sentinel-pre`, `sentinel-post`
 
 **Examples:**
 

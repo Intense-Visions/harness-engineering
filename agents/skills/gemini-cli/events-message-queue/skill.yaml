@@ -1,6 +1,7 @@
 name: events-message-queue
 version: "1.0.0"
 description: Use message queues for reliable async delivery with competing consumers and dead letter queues
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

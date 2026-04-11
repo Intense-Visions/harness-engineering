@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-540 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+736 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (12 skills)
 
@@ -318,7 +318,7 @@ Binary pass/fail quick gate — runs test, lint, typecheck commands and returns 
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
 
-## Tier 3 — Domain (507 skills)
+## Tier 3 — Domain (703 skills)
 
 ### a11y-aria-patterns
 
@@ -555,6 +555,330 @@ Test Angular components, services, and pipes with TestBed, ComponentFixture, and
 - **Type:** knowledge
 - **Cognitive mode:** advisory-guide
 
+### api-api-keys
+
+API key design — generation entropy requirements, rotation strategy, scoping permissions, transmission via Authorization header, storage hashing
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-authentication-patterns
+
+API auth landscape overview — when to use API keys vs OAuth2 vs JWT vs mTLS, trust levels, client types, token lifetimes
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-backward-compatibility
+
+Additive change rules, Postel's law, breaking change taxonomy, automated breaking-change detection
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-bulk-operations
+
+Batch endpoints including bulk create/update/delete, partial failure semantics, transactional vs best-effort batches, and Idempotency-Key on bulk
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-conditional-requests
+
+If-None-Match, If-Modified-Since, If-Match conditional headers, 304 Not Modified, and optimistic concurrency control
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-content-negotiation
+
+Accept/Content-Type header semantics, media-type versioning, charset and encoding negotiation, and Vary header requirements
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-contract-testing
+
+Consumer-driven contract testing — Pact fundamentals, provider verification, schema validation in CI (spectral, vacuum), breaking change detection (oasdiff), contract as living documentation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-deprecation-strategy
+
+Sunset header (RFC 8594), Deprecation header, migration guide design, compatibility windows, communication cadence
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-error-contracts
+
+Consistent error response structure — machine-readable codes, human-readable messages, actionable remediation, and error taxonomies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-field-selection
+
+Sparse fieldsets and partial responses via ?fields= syntax, nested field selection, and performance tradeoffs vs GraphQL
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-filtering-sorting
+
+Query parameter design for filter operators (eq, gt, lt, in, contains), sort syntax, filter injection prevention, and performance hints
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-hateoas
+
+Hypermedia as the engine of application state -- practical HAL and JSON:API link design with adoption criteria
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-http-caching
+
+Cache-Control directives, ETag generation, Vary header strategy, CDN interaction, and cache invalidation patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-http-methods
+
+GET/POST/PUT/PATCH/DELETE semantics, safety and idempotency properties, and when to use each HTTP method
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-idempotency-keys
+
+Idempotency key design — UUID v4 generation, key storage TTL, 24h window convention, at-least-once vs exactly-once semantics, safe retry scope
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-long-running-operations
+
+Async request patterns — 202 Accepted + polling, operation resource pattern, callback/webhook notification, status endpoint design, Google AIP-151
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-nested-vs-flat
+
+Nested resource paths vs flat URLs with filters -- decision criteria and URL depth guidelines
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-oauth2-flows
+
+OAuth2 flows — authorization code + PKCE, client credentials, device code, implicit (deprecated), token introspection, refresh token rotation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-openapi-design
+
+Contract-first OpenAPI 3.1 design — schema reuse ($ref, components), discriminator for polymorphism, operationId naming conventions, AsyncAPI for event-driven APIs, code generation integration
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-pagination-cursor
+
+Cursor-based pagination with opaque tokens, base64 encoding, forward/backward traversal, and cursor stability guarantees
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-pagination-keyset
+
+Keyset (seek) pagination with composite key design, sort order stability, and consistent performance at 10M+ rows
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-pagination-offset
+
+Offset/limit pagination including COUNT(\*) costs, page drift on inserts/deletes, max offset limits, and UI implications
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-problem-details-rfc
+
+RFC 9457 Problem Details for HTTP APIs — type URI, title, status, detail, instance fields, custom extensions, and application/problem+json content type
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-rate-limit-headers
+
+Rate limit response headers — X-RateLimit-Limit/Remaining/Reset, IETF RateLimit draft standard, Retry-After semantics, per-resource quota pools
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-rate-limiting
+
+Rate limit design as consumer contract — quota tiers, burst vs sustained limits, per-user vs per-app limits, fair-use policy, quota negotiation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-resource-granularity
+
+Fine-grained vs coarse-grained resource design -- aggregation patterns and over-fetching tradeoffs
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-resource-modeling
+
+Nouns vs verbs in URI design, resource identification, and URL structure for REST APIs
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-rest-maturity-model
+
+Richardson Maturity Model levels 0-3 -- evaluating and advancing REST API design maturity
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-retry-guidance
+
+Retry-After headers, exponential backoff signals, transient vs permanent error classification, 429 vs 503 semantics, and idempotency requirement for safe retries
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-sdk-ergonomics
+
+Client library design — method naming (verb-noun), pagination helpers (auto-cursor iteration), error surface (typed exceptions vs error objects), retry built-ins, idiomatic patterns per language, discoverability
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-status-codes
+
+Status code selection by scenario, common misuses (200 for errors, 404 vs 403, 400 vs 422), and response contract design
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-validation-errors
+
+Field-level validation error design — multi-field error arrays, JSON Pointer (RFC 6901) paths, source/pointer vs source/parameter, and 422 vs 400 choice
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-versioning-header
+
+Accept header versioning (content negotiation), custom version headers (API-Version:), vendor media types (application/vnd.company.v2+json)
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-versioning-url
+
+URL path versioning (/v1/, /v2/) — when to use, URI pollution tradeoffs, major-only vs minor versioning, migration timeline patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-webhook-design
+
+Webhook registration, payload design, delivery guarantees (at-least-once), retry policy, ordering guarantees, fan-out patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### api-webhook-security
+
+Signature verification (HMAC-SHA256), timestamp validation (replay attack defense), tolerance windows, secret rotation, TLS requirement
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
 ### astro-component-pattern
 
 Structure .astro components with frontmatter, template, and scoped styles following Astro conventions
@@ -766,6 +1090,402 @@ Resolve Tailwind class conflicts with tailwind-merge for safe className composit
 ### css-tailwind-pattern
 
 Apply Tailwind CSS utility-first patterns for consistent, maintainable styling
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-acid-in-practice
+
+WAL, fsync, crash recovery, and durability guarantees across database engines
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-acid-properties
+
+Atomicity, consistency, isolation, and durability -- practical implications and failure modes
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-adjacency-list
+
+Parent-child hierarchies via self-referencing foreign key, recursive CTEs, and depth queries
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-audit-trail
+
+Change tracking via triggers or application-level logging with immutable append-only audit logs
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-btree-index
+
+B-tree index structure, range queries, ordering, and default index type behavior
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-cap-theorem
+
+Consistency, availability, partition tolerance -- practical meaning and common misunderstandings
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-closure-table
+
+Ancestor-descendant pair table for fast path queries and flexible hierarchy operations
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-composite-index
+
+Multi-column indexes, column ordering strategy, and the leftmost prefix rule
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-connection-pooling
+
+PgBouncer configuration, pool modes (session/transaction/statement), and sizing formulas
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-connection-sizing
+
+max_connections tuning, per-connection memory overhead, and serverless pool constraints
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-covering-index
+
+Index-only scans using INCLUDE columns to avoid heap table lookups
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-deadlock-prevention
+
+Lock ordering, timeout strategies, deadlock detection, and resolution patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-denormalization
+
+When and how to intentionally denormalize for performance, read-heavy patterns, and materialized views
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-document-in-relational
+
+JSONB columns for semi-structured data -- when to embed vs normalize, indexing JSON, and hybrid modeling
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-entity-attribute-value
+
+EAV pattern for dynamic attributes -- when justified, why usually avoided, and alternatives
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-eventual-consistency
+
+BASE properties, convergence strategies, and conflict resolution patterns for eventually consistent systems
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-expand-contract
+
+Add new, migrate data, remove old -- safe column and table renames using expand-contract
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-explain-reading
+
+Reading EXPLAIN and EXPLAIN ANALYZE output, understanding cost estimation, and comparing actual vs estimated rows
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-expression-index
+
+Indexes on computed expressions, functional indexes, and specialized index types (GIN, GiST)
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-first-normal-form
+
+Atomic values, no repeating groups, and primary key requirement for First Normal Form (1NF)
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-graph-in-relational
+
+Modeling graph relationships in SQL with recursive queries and knowing when to use a graph DB instead
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-hash-index
+
+Hash indexes for equality-only lookups and when to prefer them over B-tree
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-hierarchical-data
+
+Comparison of adjacency list, nested sets, closure table, and materialized path -- a selection guide
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-horizontal-sharding
+
+Shard key selection, cross-shard queries, resharding strategies, and consistent hashing
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-isolation-levels
+
+Read uncommitted through serializable -- PostgreSQL's MVCC-based isolation implementation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-isolation-selection
+
+Choosing isolation levels for specific workloads -- performance vs correctness trade-offs
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-migration-rollback
+
+Forward-only vs reversible migrations, data backfill safety, and blue-green schema strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-mvcc
+
+Multi-version concurrency control, snapshot isolation, tuple visibility, and vacuum/bloat management
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-nested-sets
+
+Left/right numbering for hierarchies -- fast reads, expensive writes, and when to use
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-optimistic-locking
+
+Version columns, conditional updates, conflict detection and retry patterns for optimistic concurrency control
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-partial-index
+
+Filtered indexes with WHERE clauses to reduce index size and target specific query patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-pessimistic-locking
+
+SELECT FOR UPDATE, lock granularity, lock duration, and row-level locking strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-polymorphic-associations
+
+Single-table inheritance, class-table inheritance, and shared foreign key patterns for polymorphic data
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-query-rewriting
+
+Rewriting queries for planner efficiency -- CTEs vs subqueries, EXISTS vs IN, and sargable predicates
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-query-statistics
+
+pg_stats, histogram bounds, selectivity estimation, and the ANALYZE command
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-read-phenomena
+
+Dirty reads, non-repeatable reads, phantom reads, and serialization anomalies explained with concrete examples
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-scan-types
+
+Sequential scan, index scan, bitmap scan, and index-only scan -- when the planner chooses each
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-second-normal-form
+
+Full functional dependency and eliminating partial dependencies for Second Normal Form (2NF)
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-table-partitioning
+
+Range, list, and hash partitioning -- declarative partitioning, partition pruning, and maintenance
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-temporal-data
+
+Valid-time, transaction-time, and bitemporal tables for tracking data as it changes over time
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-third-normal-form
+
+Eliminating transitive dependencies and knowing when 3NF is sufficient for Third Normal Form (3NF)
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-time-series
+
+Append-only tables, time-based partitioning, retention policies, and TimescaleDB patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-vertical-partitioning
+
+Table splitting, hot/cold data separation, TOAST management, and large object strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### db-zero-downtime-migration
+
+Online schema changes without downtime -- avoiding locks, pg_repack, and gh-ost patterns
 
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
@@ -3424,6 +4144,420 @@ Prevent reflected, stored, and DOM-based XSS via CSP headers, output encoding, a
 - **Type:** knowledge
 - **Cognitive mode:** advisory-guide
 
+### perf-browser-cache
+
+Browser caching — Cache-Control directives, ETag validation, immutable assets, stale-while-revalidate, and cache partitioning
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-bundle-analysis
+
+Bundle analysis — Bundle visualization, size budgets, dependency cost analysis, and CI-integrated size tracking
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-cache-invalidation
+
+Cache invalidation — TTL strategies, event-driven invalidation, cache stampede prevention, and versioned cache keys
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-cdn-cache-control
+
+CDN cache control — cache keys, Vary header strategies, surrogate control, cache purging, and edge TTL management
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-cdn-strategies
+
+CDN architecture — edge caching, origin shielding, cache tiers, edge compute, and multi-CDN strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-client-side-rendering
+
+Client-side rendering — SPA rendering optimization, skeleton screens, progressive rendering, and virtual DOM performance
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-code-splitting
+
+Code splitting — Route-based, component-based, and vendor splitting with dynamic imports for reduced initial bundle size
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-compression
+
+Content compression — Brotli vs gzip comparison, compression levels, content-encoding negotiation, and static vs dynamic compression
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-connection-costs
+
+Network connection overhead — DNS resolution, TCP handshake, TLS negotiation, connection reuse, and keep-alive strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-connection-pooling
+
+Connection pooling — Pool sizing, connection lifecycle overhead, PgBouncer, serverless pooling, and pool monitoring
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-critical-rendering-path
+
+Browser rendering pipeline — Parse, Style, Layout, Paint, Composite stages and optimization strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-cumulative-layout-shift
+
+CLS measurement — layout shift sources, impact/distance fractions, prevention strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-dom-parsing
+
+HTML parsing — tokenization, tree construction, speculative parsing, parser-blocking scripts
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-edge-rendering
+
+Edge rendering — Edge compute platforms, regional deployment, latency optimization, and edge-specific constraints
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-event-loop
+
+Event loop architecture — task queues, microtask queue, rendering steps, task prioritization
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-font-loading
+
+Font loading — font-display strategies, subsetting, variable fonts, FOIT/FOUT mitigation, and preloading critical fonts
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-garbage-collection
+
+Garbage collection — generational GC, V8 heap architecture, GC pauses, allocation pressure
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-heap-profiling
+
+Heap profiling — Chrome DevTools heap snapshots, allocation tracking, retained vs shallow size
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-http2-multiplexing
+
+HTTP/2 stream multiplexing — concurrent requests, server push, prioritization, and head-of-line blocking mitigation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-http3-quic
+
+HTTP/3 and QUIC protocol — 0-RTT connections, connection migration, stream-level flow control, and UDP-based transport
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-image-formats
+
+Image formats — WebP, AVIF, JPEG XL format selection, quality tuning, and automated conversion pipelines
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-index-strategies
+
+Index strategies — B-tree, hash, GIN, GiST, composite, partial, and covering indexes for query optimization
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-interaction-to-next-paint
+
+INP measurement — input delay, processing time, presentation delay, long task attribution
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-largest-contentful-paint
+
+LCP measurement — root causes, sub-part timing, optimization strategies for the largest visible element
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-layout-reflow
+
+Layout triggers — forced synchronous layouts, layout thrashing, containment strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-lazy-loading
+
+Lazy loading — Intersection Observer patterns, route-based loading, component-level deferral, and progressive hydration
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-lazy-loading-media
+
+Media lazy loading — Native image lazy loading, video poster strategies, placeholder techniques, and progressive image rendering
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-long-tasks
+
+Long task detection — breaking up work, yielding to the main thread, scheduler API, web workers
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-memory-leaks
+
+Memory leak patterns — detached DOM, closures, event listeners, timers, WeakRef strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-module-federation
+
+Module federation — Micro-frontend runtime sharing, remote module loading, shared dependency management, and version negotiation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-n-plus-one
+
+N+1 query detection — Identifying N+1 patterns, eager loading, DataLoader batching, and ORM-specific solutions
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-paint-compositing
+
+Paint layers and compositor — GPU compositing, will-change, layer promotion, paint complexity
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-performance-api
+
+Performance Observer and timing APIs — PerformanceEntry types, User Timing, Resource Timing, Navigation Timing
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-profiling-methodology
+
+Systematic profiling workflow — bottleneck identification, measurement discipline, before/after methodology
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-query-optimization
+
+Query optimization — EXPLAIN analysis, query plans, index usage, optimizer hints, and slow query diagnosis
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-resource-hints
+
+Resource hints — preload, prefetch, preconnect, dns-prefetch, modulepreload, and fetchpriority for optimal resource loading
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-responsive-images
+
+Responsive images — srcset, sizes, picture element, art direction, and device-appropriate image delivery
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-server-side-caching
+
+Server-side caching — Redis, Memcached, application-level caching patterns, cache-aside, write-through, and read-through strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-server-side-rendering
+
+Server-side rendering — SSR performance trade-offs, hydration cost, streaming SSR, and selective hydration strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-service-worker-caching
+
+Service Worker caching — Lifecycle management, caching strategies, offline support, background sync, and Workbox patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-static-generation
+
+Static generation — Build-time rendering, incremental static regeneration, on-demand revalidation, and hybrid rendering strategies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-streaming-rendering
+
+Streaming rendering — React Suspense streaming, chunked transfer encoding, out-of-order streaming, and progressive page delivery
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-style-calculation
+
+CSS selector matching — specificity costs, style recalculation triggers, selector performance
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-svg-optimization
+
+SVG optimization — Minification, inline vs external strategies, sprite sheets, accessibility, and rendering performance
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-tree-shaking
+
+Tree shaking — Dead code elimination, side-effect configuration, ESM requirements, and module-level optimization
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### perf-web-workers
+
+Web Workers — Dedicated workers, SharedWorker, Comlink RPC, SharedArrayBuffer, and off-main-thread computation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
 ### prisma-client-queries
 
 Query data with Prisma Client findUnique/findMany, create/update/delete, upsert, select, include
@@ -3886,6 +5020,411 @@ Handle transient failures with configurable retry strategies and backoff
 ### resilience-timeout-pattern
 
 Prevent resource exhaustion with request timeouts and AbortController
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-abac-design
+
+Attribute-based access control -- policy engines, XACML concepts, attribute evaluation, and when ABAC is the right model over RBAC
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-asymmetric-encryption
+
+RSA, elliptic curve cryptography (ECDSA, Ed25519, X25519), key exchange (ECDHE), and when to use asymmetric vs symmetric encryption
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-attack-trees
+
+Attack tree construction and analysis -- modeling multi-step adversary strategies as goal-oriented tree decompositions for prioritizing defenses
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-audit-log-design
+
+Security audit log design -- what to log, structured event format, tamper evidence, retention, and the balance between observability and privacy
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-authentication-flows
+
+Secure design of login, registration, password reset, magic link, and SSO authentication flows -- preventing account enumeration, credential theft, and session fixation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-capability-based-security
+
+Object capabilities vs ambient authority -- unforgeable tokens that grant specific rights, eliminating confused deputy attacks by construction
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-certificate-management
+
+CA hierarchy, certificate pinning, Certificate Transparency, ACME/Let's Encrypt, and the lifecycle of X.509 certificates from issuance to revocation
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-ci-security-testing
+
+SAST, DAST, SCA, and secrets scanning in CI/CD pipelines -- automated security testing that runs on every commit
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-code-signing
+
+Artifact signing, verification pipelines, Sigstore keyless signing, and ensuring that deployed software was built by trusted parties
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-compliance-logging
+
+SOC2, GDPR, HIPAA, and PCI-DSS logging requirements -- what to log, how long to retain it, and how to prove compliance through audit trails
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-credential-storage
+
+Password hashing with Argon2id, bcrypt, and scrypt -- salting, peppering, adaptive cost, and upgrade strategies for legacy hashes
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-cryptographic-randomness
+
+Cryptographically secure random number generation -- CSPRNG, entropy sources, nonce generation, and why Math.random() will get you breached
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-dependency-auditing
+
+Vulnerability scanning, lockfile integrity, update strategies, and managing the security risk of third-party dependencies
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-deserialization-attacks
+
+Insecure deserialization vulnerabilities -- gadget chains, object injection, and why accepting serialized objects from untrusted sources is inherently dangerous
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-environment-variable-risks
+
+Why environment variables leak secrets and safer alternatives -- process listings, crash dumps, child processes, logging, and the 12-factor app's blind spot
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-forensics-fundamentals
+
+Digital forensics for developers -- log analysis, artifact collection, timeline reconstruction, and maintaining chain of custody for evidence
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-hashing-fundamentals
+
+Cryptographic hash functions (SHA-256, SHA-3, BLAKE3), collision resistance, preimage resistance, and correct use cases for hashing vs encryption vs MAC
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-hmac-signatures
+
+HMAC for message authentication and digital signatures for non-repudiation -- when to use which, how they fail, and implementation pitfalls
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-hsts-preloading
+
+HTTP Strict Transport Security and preload lists -- eliminating the first-request HTTP downgrade window and ensuring browsers never connect over plaintext
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-identity-verification
+
+Continuous authentication and device trust -- verifying identity beyond the initial login using behavioral signals, device posture, and risk-adaptive challenges
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-incident-containment
+
+Incident triage, isolation strategies, evidence preservation, and the first 60 minutes of a security incident -- what to do and what not to touch
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-injection-families
+
+Unified mental model for injection vulnerabilities -- SQL, command, LDAP, XSS, template, header -- all share the same root cause of mixing code and data
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-log-correlation
+
+SIEM architecture, correlation rules, alert fatigue management, and turning raw logs into actionable security intelligence
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-memory-safety
+
+Memory safety vulnerabilities -- buffer overflows, use-after-free, double-free -- and mitigation through safe languages, bounds checking, and memory-safe abstractions
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-mfa-design
+
+Multi-factor authentication design -- TOTP, WebAuthn/passkeys, SMS risks, recovery flows, and step-up authentication for sensitive operations
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-microsegmentation
+
+Network and application-level segmentation -- isolating workloads so that compromising one service does not grant lateral movement to others
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-mtls-design
+
+Mutual TLS for service-to-service authentication -- both sides present certificates, eliminating the need for shared secrets or API keys between services
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-penetration-testing
+
+Penetration test scoping, methodology, rules of engagement, and remediation workflows -- maximizing the value of offensive security assessments
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-post-incident-review
+
+Blameless post-incident reviews for security incidents -- structured analysis, root cause identification, remediation tracking, and organizational learning
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-race-conditions
+
+TOCTOU vulnerabilities, double-spend attacks, file system races, and the security implications of non-atomic operations in concurrent systems
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-rbac-design
+
+Role-based access control modeling -- role hierarchies, permission granularity, role explosion prevention, and the principle of least privilege
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-rebac-design
+
+Relationship-based access control using the Zanzibar model -- modeling authorization as a graph of relationships between subjects and resources
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-sbom-provenance
+
+Software bill of materials, SLSA framework, and build provenance -- proving what went into your software and how it was built
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-secrets-lifecycle
+
+Secret rotation, distribution, revocation, and the principle that secrets must be ephemeral, auditable, and never embedded in code
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-security-champions
+
+Embedding security expertise in development teams through security champion programs -- scaling security knowledge without scaling the security team
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-session-management
+
+Session lifecycle design -- token generation, fixation prevention, binding, idle and absolute timeouts, revocation, and secure cookie configuration
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-shift-left-design
+
+Integrating threat modeling and security analysis into the design phase -- finding security flaws when they cost $1 to fix instead of $100 in production
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-symmetric-encryption
+
+AES and ChaCha20 symmetric ciphers, modes of operation (GCM vs CBC vs CTR), key sizes, IV/nonce management, and authenticated encryption
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-threat-modeling-process
+
+End-to-end threat modeling process -- from scoping and DFD construction through threat enumeration, risk rating, and mitigation tracking
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-threat-modeling-stride
+
+STRIDE methodology for systematic threat identification across spoofing, tampering, repudiation, information disclosure, denial of service, and elevation of privilege
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-tls-fundamentals
+
+TLS 1.3 handshake, cipher suite selection, certificate chain validation, and why TLS 1.0/1.1 must be disabled
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-trust-boundaries
+
+Trust boundary identification, data flow diagrams, and the principle that all security controls concentrate at boundary crossings
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-vault-patterns
+
+Centralized secrets management using vault systems -- HashiCorp Vault, cloud KMS, sealed secrets, dynamic credentials, and the principle of secrets as cattle not pets
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-vulnerability-disclosure
+
+Responsible disclosure, CVE process, coordinated vulnerability disclosure, and managing the lifecycle from discovery to public advisory
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### security-zero-trust-principles
+
+Zero trust architecture principles -- never trust, always verify, least privilege, assume breach, and continuous verification regardless of network position
 
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
@@ -4597,6 +6136,231 @@ Apply built-in TypeScript utility types to transform and compose types without r
 ### ts-zod-integration
 
 Use Zod schemas as the single source of truth for runtime validation and TypeScript types
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-active-voice
+
+Active voice in UI writing — active vs passive voice, when passive is acceptable, verb-first patterns for buttons and actions
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-button-cta-copy
+
+Button and CTA copy — verb-noun pattern, specificity over vagueness, context-sensitive labels, and writing buttons that tell users exactly what will happen
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-confirmation-dialogs
+
+Confirmation dialogs — destructive action writing, consequence clarity, and specific button labels that make irreversibility unmistakable
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-content-hierarchy
+
+Content hierarchy in UI — heading structure, progressive disclosure in text, inverted pyramid for interface writing
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-data-table-copy
+
+Data table copy — column headers, empty cells, truncation patterns, filter and sort labels, bulk action copy
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-destructive-action-copy
+
+Destructive action copy — irreversibility warnings, undo availability, double-confirmation patterns, cooldown messaging
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-empty-states
+
+Empty states — first-use, user-cleared, and no-results patterns that motivate action, set expectations, and turn blank screens into onramps
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-error-messages
+
+Error messages — what went wrong, why it matters, how to fix it, the three-part error pattern for clear, actionable error communication
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-error-severity
+
+Error severity communication — calibrating error tone to severity, from field validation to system failure to data loss
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-form-labels
+
+Form labels and helper text — label clarity, placeholder anti-patterns, required-field indication, and writing forms that users complete without confusion
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-inclusive-language
+
+Inclusive language in UI — gender-neutral, ability-neutral, culture-aware writing, avoiding idioms that exclude
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-internationalization-writing
+
+Writing for internationalization — source strings that survive translation, concatenation traps, pluralization, date and number references
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-loading-states
+
+Loading state copy — progress transparency, expectation setting, and writing text that reduces perceived wait time and prevents users from abandoning
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-microcopy-principles
+
+Microcopy principles — clarity, brevity, human voice, active voice, and the core rules all UI text follows
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-navigation-labels
+
+Navigation label writing — menu item naming, breadcrumb clarity, tab labels, and sidebar organization that users scan without reading
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-notification-copy
+
+Notification and alert copy — urgency calibration, actionability, toast vs banner vs modal selection, and writing messages that inform without overwhelming
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-onboarding-copy
+
+Onboarding copy — progressive disclosure, value-first framing, reducing anxiety, and welcome flows that convert sign-ups into active users
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-permission-access-copy
+
+Permission and access copy — role-based messaging, upgrade prompts, gating copy, "you don't have access" patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-plain-language
+
+Plain language for UI — reading level targeting, jargon elimination, sentence structure for scanning
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-search-copy
+
+Search copy — placeholder text, zero-results messaging, autocomplete hints, search scope indicators, saved search patterns
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-settings-preferences
+
+Settings and preferences copy — toggle descriptions, preference explanations, consequence previews, settings organization
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-success-feedback
+
+Success feedback copy — confirmation messages, celebration calibration, and next-step prompts that close the action loop and guide users forward
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-tooltip-contextual-help
+
+Tooltip and contextual help writing — when to use tooltips, what to put in them, and progressive disclosure patterns that educate without interrupting
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-voice-tone
+
+Voice and tone in UI writing — defining voice (constant) vs tone (contextual), formality calibration, and emotional register
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** knowledge
+- **Cognitive mode:** advisory-guide
+
+### ux-writing-for-scanning
+
+Writing for scanning — F-pattern, front-loading keywords, chunking, bullet vs prose decisions for UI text
 
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex

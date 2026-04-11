@@ -207,6 +207,7 @@ microservices.io/patterns/communication-style/messaging.html
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** events-pubsub-pattern, events-idempotency, node-crypto-patterns, api-webhook-design, api-webhook-security
 
 ## Success Criteria
 

@@ -1,6 +1,7 @@
 name: nuxt-modules-pattern
 version: '1.0.0'
 description: Build and configure Nuxt modules using defineNuxtModule, addComponent, and module hooks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

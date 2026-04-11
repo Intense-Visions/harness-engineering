@@ -1,6 +1,7 @@
 name: design-data-viz-design
 version: "1.0.0"
 description: Data visualization principles — chart selection, color encoding, annotation, Tufte's data-ink ratio, accessible charts, avoiding chartjunk, small multiples
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

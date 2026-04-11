@@ -1,6 +1,7 @@
 name: astro-component-pattern
 version: '1.0.0'
 description: Structure .astro components with frontmatter, template, and scoped styles following Astro conventions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

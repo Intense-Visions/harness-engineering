@@ -1,6 +1,7 @@
 name: next-deployment-optimization
 version: "1.0.0"
 description: Bundle analysis, code splitting, dynamic imports, and next/dynamic optimization
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

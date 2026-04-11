@@ -1,0 +1,41 @@
+name: api-webhook-security
+version: '1.0.0'
+description: Signature verification (HMAC-SHA256), timestamp validation (replay attack defense), tolerance windows, secret rotation, TLS requirement
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-webhook-design
+  - security-hmac
+  - owasp-auth-patterns
+  - api-authentication-patterns
+stack_signals:
+  - rest
+  - api
+  - http
+  - webhooks
+  - security
+keywords:
+  - webhook-security
+  - HMAC-SHA256
+  - signature-verification
+  - replay-attack
+  - timestamp-tolerance
+  - secret-rotation
+metadata:
+  author: community
+  upstream: docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries
+state:
+  persistent: false
+  files: []
+depends_on: []

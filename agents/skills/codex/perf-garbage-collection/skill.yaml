@@ -1,0 +1,40 @@
+name: perf-garbage-collection
+version: '1.0.0'
+description: Garbage collection — generational GC, V8 heap architecture, GC pauses, allocation pressure
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-memory-leaks
+  - perf-heap-profiling
+  - perf-event-loop
+  - perf-long-tasks
+  - node-performance-profiling
+stack_signals: []
+keywords:
+  - garbage collection
+  - GC
+  - V8
+  - generational GC
+  - Scavenge
+  - Mark-Sweep
+  - Mark-Compact
+  - heap
+  - allocation pressure
+  - GC pause
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

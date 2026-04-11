@@ -1,6 +1,7 @@
 name: design-loading-patterns
 version: "1.0.0"
 description: Perceived performance — skeleton screens, progressive loading, optimistic rendering, shimmer effects, content-first loading, perceived vs actual speed
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -17,6 +18,7 @@ related_skills:
   - design-state-design
   - design-motion-principles
   - design-empty-error-states
+  - ux-loading-states
 stack_signals: []
 keywords:
   - loading

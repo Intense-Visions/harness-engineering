@@ -1,0 +1,38 @@
+name: perf-compression
+version: '1.0.0'
+description: Content compression — Brotli vs gzip comparison, compression levels, content-encoding negotiation, and static vs dynamic compression
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-cdn-strategies
+  - perf-http2-multiplexing
+  - perf-bundle-analysis
+  - perf-cdn-cache-control
+stack_signals: []
+keywords:
+  - brotli
+  - gzip
+  - compression
+  - content-encoding
+  - transfer size
+  - zstd
+  - deflate
+  - compression ratio
+  - static compression
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,6 +1,7 @@
 name: graphql-auth-patterns
 version: '1.0.0'
 description: Implement authentication and authorization in GraphQL with directives, middleware, and field-level guards
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -21,6 +22,8 @@ related_skills:
   - graphql-resolver-pattern
   - graphql-apollo-server
   - graphql-schema-design
+  - api-authentication-patterns
+  - api-oauth2-flows
 stack_signals:
   - graphql
   - typescript

@@ -1,3 +1,4 @@
+import { setTimeout } from 'node:timers';
 import type { Result } from '@harness-engineering/core';
 import type { Persona, Step, TriggerContext } from './schema';
 import type { SkillExecutionResult, SkillExecutionContext } from './skill-executor';

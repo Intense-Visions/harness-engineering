@@ -208,6 +208,7 @@ https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.htm
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** owasp-auth-patterns, owasp-logging-monitoring, security-zero-trust-principles, security-threat-modeling-stride, api-rate-limiting, api-rate-limit-headers
 
 ## Success Criteria
 

@@ -148,6 +148,38 @@ export * from './pricing';
 export * from './usage';
 
 /**
+ * Adoption telemetry module for tracking and aggregating skill invocations.
+ */
+export {
+  readAdoptionRecords,
+  aggregateBySkill,
+  topSkills,
+  aggregateByDay as aggregateAdoptionByDay,
+  type DailyAdoption,
+} from './adoption';
+
+/**
+ * Compaction module for reducing MCP tool response token consumption.
+ */
+export * from './compaction';
+
+/**
+ * Caching module — stability classification and cache-aware utilities.
+ */
+export * from './caching';
+
+/**
+ * Telemetry module for consent resolution and install identity.
+ */
+export {
+  resolveConsent,
+  readIdentity,
+  getOrCreateInstallId,
+  collectEvents,
+  send,
+} from './telemetry';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`
@@ -155,4 +187,4 @@ export * from './usage';
  * release. Kept only as a fallback for consumers that cannot resolve the CLI
  * package at runtime.
  */
-export const VERSION = '0.21.1';
+export { VERSION } from './version';

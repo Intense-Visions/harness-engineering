@@ -1,0 +1,39 @@
+name: perf-code-splitting
+version: '1.0.0'
+description: Code splitting — Route-based, component-based, and vendor splitting with dynamic imports for reduced initial bundle size
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-tree-shaking
+  - perf-lazy-loading
+  - perf-bundle-analysis
+  - perf-module-federation
+  - perf-critical-rendering-path
+  - perf-largest-contentful-paint
+stack_signals: []
+keywords:
+  - code splitting
+  - dynamic import
+  - route splitting
+  - vendor chunk
+  - webpack splitChunks
+  - React.lazy
+  - loadable components
+  - chunk optimization
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,6 +1,7 @@
 name: a11y-image-text-alt
 version: '1.0.0'
 description: Write effective alt text for images and provide text alternatives for non-text content
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

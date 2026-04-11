@@ -24,6 +24,8 @@ export interface SlashCommandSpec {
   skillsBaseDir: string;
   source?: 'project' | 'community' | 'global';
   commandName?: string;
+  /** Custom namespace from skill.yaml command_namespace (e.g., 'acme' → /acme:ui) */
+  customNamespace?: string;
   cursor?: SkillCursor;
 
   prompt: {

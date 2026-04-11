@@ -1,6 +1,7 @@
 name: harness-security-review
 version: "1.0.0"
 description: Deep security audit with OWASP baseline and stack-adaptive analysis
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual
@@ -81,3 +82,8 @@ related_skills:
   - owasp-injection-prevention
   - owasp-xss-prevention
   - owasp-security-headers
+  - security-threat-modeling-stride
+  - security-threat-modeling-process
+  - security-zero-trust-principles
+  - security-audit-log-design
+  - security-injection-families

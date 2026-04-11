@@ -1,6 +1,7 @@
 name: redux-rtk-optimistic
 version: '1.0.0'
 description: Implement optimistic updates and pessimistic updates with RTK Query cache
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

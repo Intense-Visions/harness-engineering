@@ -1,6 +1,7 @@
 name: js-revealing-module-pattern
 version: '1.0.0'
 description: Define all logic privately and selectively expose only the public API
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

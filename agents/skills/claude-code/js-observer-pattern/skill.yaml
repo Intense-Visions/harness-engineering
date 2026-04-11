@@ -1,6 +1,7 @@
 name: js-observer-pattern
 version: '1.0.0'
 description: Notify subscribers automatically when an observable object's state changes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

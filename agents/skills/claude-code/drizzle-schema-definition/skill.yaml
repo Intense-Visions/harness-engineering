@@ -1,6 +1,7 @@
 name: drizzle-schema-definition
 version: "1.0.0"
 description: Define Drizzle ORM schemas with pgTable/mysqlTable/sqliteTable, column types, indexes, and constraints
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -22,6 +23,9 @@ related_skills:
   - drizzle-migrations
   - drizzle-query-builder
   - ts-utility-types
+  - db-first-normal-form
+  - db-third-normal-form
+  - db-polymorphic-associations
 stack_signals:
   - drizzle
   - typescript

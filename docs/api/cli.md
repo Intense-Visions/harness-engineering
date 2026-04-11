@@ -101,13 +101,13 @@ Install skills from multiple sources:
 
 ```bash
 # Install from npm registry
-harness install capillary-ui
+harness install acme-ui
 
 # Install a single skill from a local directory
 harness install my-skill --from ./path/to/skill
 
 # Install all skills from a directory (auto-discovers skill.yaml files)
-harness install . --from /path/to/harness-capillary/skills
+harness install . --from /path/to/acme-skills/skills
 
 # Install from a GitHub repository (shallow clone, discovers all skills)
 harness install . --from github:owner/repo
@@ -122,6 +122,35 @@ harness install . --from /path/to/project/skills --global
 **Global installs** place skills in `~/.harness/skills/community/` and are automatically discovered by every harness project.
 
 **Bulk install** is triggered automatically when `--from` points to a directory that has no `skill.yaml` at its root — the command recursively discovers all `skill.yaml` files up to 3 levels deep and installs each one.
+
+After installing or updating skills, regenerate slash commands so the new skills are available in your editor:
+
+```bash
+harness generate-slash-commands --global --include-global
+```
+
+**Updating third-party skills:**
+
+Re-run the install command with `--force` to pull the latest version:
+
+```bash
+# Update from npm — fetches latest published version
+harness install acme-ui --force --global
+
+# Update from GitHub — re-clones and reinstalls all skills from the repo
+harness install . --from github:owner/repo --force --global
+
+# Update from a local directory
+harness install . --from /path/to/skills --force --global
+```
+
+After updating, regenerate slash commands to pick up any changes:
+
+```bash
+harness generate-slash-commands --global --include-global
+```
+
+Skills installed from npm respect semver — use `--version` to pin a range (e.g., `--version "^2.0.0"`). For GitHub and local installs, `--force` is required because there is no version resolution; without it, the install is skipped if the skill name already exists in the lockfile.
 
 | Option              | Description                                              |
 | ------------------- | -------------------------------------------------------- |

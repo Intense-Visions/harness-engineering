@@ -1,6 +1,7 @@
 name: state-selection-patterns
 version: '1.0.0'
 description: Select and derive state efficiently across stores to minimize component re-renders
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

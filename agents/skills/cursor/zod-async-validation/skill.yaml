@@ -1,6 +1,7 @@
 name: zod-async-validation
 version: "1.0.0"
 description: Run async Zod validation with parseAsync, safeParseAsync, async refinements, and external checks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

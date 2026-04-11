@@ -79,6 +79,15 @@ Detect entropy issues (doc drift, dead code, patterns)
 
 - `-t, --type` — Issue type: drift, dead-code, patterns, all (default: "all")
 
+### `harness cleanup-sessions`
+
+Remove stale session directories from .harness/sessions/ (no write in 24h)
+
+**Options:**
+
+- `--dry-run` — List stale sessions without deleting them
+- `--path` — Project root path (default: ".")
+
 ### `harness create-skill`
 
 Scaffold a new skill with skill.yaml and SKILL.md
@@ -170,7 +179,7 @@ Ingest data into the knowledge graph
 
 **Options:**
 
-- `--source` — Source to ingest (code, knowledge, git, jira, slack)
+- `--source` — Source to ingest (code, knowledge, git, jira, slack, ci, confluence)
 - `--all` — Run all sources (code, knowledge, git, and configured connectors)
 - `--full` — Force full re-ingestion
 
@@ -346,6 +355,30 @@ Run all validation checks
 **Options:**
 
 - `--cross-check` — Run cross-artifact consistency validation
+
+## Adoption Commands
+
+View skill adoption telemetry
+
+### `harness adoption recent`
+
+Show recent skill invocations
+
+**Options:**
+
+- `--limit` — Number of invocations to show (default: 20) (default: "20")
+
+### `harness adoption skill <name>`
+
+Show detail for a specific skill
+
+### `harness adoption skills`
+
+Show top skills by invocation count
+
+**Options:**
+
+- `--limit` — Number of skills to show (default: 20) (default: "20")
 
 ## Agent Commands
 
@@ -717,6 +750,29 @@ Clear session taint — removes taint file(s) and re-enables destructive operati
 ### `harness taint status [sessionId]`
 
 Show current taint status for a session or all sessions
+
+## Telemetry Commands
+
+Telemetry identity and status management
+
+### `harness telemetry identify`
+
+Set or clear telemetry identity fields in .harness/telemetry.json
+
+**Options:**
+
+- `--project` — Project name
+- `--team` — Team name
+- `--alias` — User alias
+- `--clear` — Remove all identity fields
+
+### `harness telemetry status`
+
+Show current telemetry consent state, install ID, and identity
+
+**Options:**
+
+- `--json` — Output as JSON
 
 ## Usage Commands
 

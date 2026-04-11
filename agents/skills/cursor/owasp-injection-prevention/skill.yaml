@@ -1,6 +1,7 @@
 name: owasp-injection-prevention
 version: "1.0.0"
 description: Prevent SQL, NoSQL, and command injection via parameterized queries and input validation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -23,6 +24,9 @@ related_skills:
   - nestjs-guards-pattern
   - node-crypto-patterns
   - ts-type-guards
+  - security-injection-families
+  - security-deserialization-attacks
+  - security-memory-safety
 stack_signals:
   - nodejs
   - typescript

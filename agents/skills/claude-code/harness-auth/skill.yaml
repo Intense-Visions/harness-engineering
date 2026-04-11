@@ -1,6 +1,7 @@
 name: harness-auth
 version: "1.0.0"
 description: OAuth2, JWT, RBAC/ABAC, session management, and MFA patterns
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

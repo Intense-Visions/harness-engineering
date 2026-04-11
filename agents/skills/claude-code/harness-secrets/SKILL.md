@@ -48,7 +48,7 @@
 
    CRITICAL (2):
      src/config/database.ts:8 -- Hardcoded PostgreSQL connection string with password
-     src/services/stripe.ts:3 -- Stripe secret key (sk_live_...)
+     src/services/stripe.ts:3 -- Stripe secret key (sk_example_...)
 
    HIGH (3):
      docker-compose.yml:15 -- MySQL root password in plaintext
@@ -135,7 +135,7 @@
 
    ```typescript
    // BEFORE (hardcoded)
-   const stripe = new Stripe('sk_live_abc123...');
+   const stripe = new Stripe('sk_example_abc123...');
 
    // AFTER (externalized)
    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -218,7 +218,7 @@ Phase 1: SCAN
   Scanned: 86 files
   Findings: 4
 
-  CRITICAL: src/payments/stripe.ts:5 -- sk_live_EXAMPLE_KEY_REDACTED_0000
+  CRITICAL: src/payments/stripe.ts:5 -- sk_example_EXAMPLE_KEY_REDACTED_0000
   HIGH: docker-compose.yml:22 -- POSTGRES_PASSWORD=supersecret
   MEDIUM: src/config/jwt.ts:3 -- JWT_SECRET = "my-jwt-secret-key"
   LOW: tests/fixtures/auth.ts:8 -- fake-api-key-for-testing (false positive)

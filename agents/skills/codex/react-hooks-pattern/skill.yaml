@@ -1,6 +1,7 @@
 name: react-hooks-pattern
 version: '1.0.0'
 description: Reuse stateful logic across components via custom hooks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

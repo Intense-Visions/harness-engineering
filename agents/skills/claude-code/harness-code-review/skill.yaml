@@ -1,6 +1,7 @@
 name: harness-code-review
 version: "2.0.0"
 description: Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents
+stability: static
 cognitive_mode: adversarial-reviewer
 triggers:
   - manual
@@ -40,6 +41,12 @@ cli:
       required: false
     - name: --thorough
       description: Maximum rigor — always load learnings, full agent roster + meta-judge
+      required: false
+    - name: session-slug
+      description: Session slug for scoped state/handoff (passed by autopilot)
+      required: false
+    - name: commit-range
+      description: "Git commit range for diff scope (e.g., abc123..HEAD)"
       required: false
 mcp:
   tool: run_skill

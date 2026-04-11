@@ -1,6 +1,7 @@
 name: design-color-psychology
 version: "1.0.0"
 description: Emotional and cultural color associations — warmth/coolness, trust, urgency, industry conventions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

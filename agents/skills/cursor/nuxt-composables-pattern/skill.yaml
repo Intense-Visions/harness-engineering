@@ -1,6 +1,7 @@
 name: nuxt-composables-pattern
 version: '1.0.0'
 description: Fetch data and manage async state in Nuxt using useAsyncData, useFetch, useLazyFetch, and useNuxtApp
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

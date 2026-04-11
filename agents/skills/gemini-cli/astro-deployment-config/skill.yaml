@@ -1,6 +1,7 @@
 name: astro-deployment-config
 version: '1.0.0'
 description: Deploy Astro projects to Vercel, Node, Cloudflare, and Netlify with the correct adapter and environment variable setup
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

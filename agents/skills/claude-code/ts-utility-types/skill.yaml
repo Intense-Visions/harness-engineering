@@ -1,6 +1,7 @@
 name: ts-utility-types
 version: "1.0.0"
 description: Apply built-in TypeScript utility types to transform and compose types without redundancy
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

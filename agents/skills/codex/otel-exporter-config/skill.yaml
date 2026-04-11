@@ -1,6 +1,7 @@
 name: otel-exporter-config
 version: '1.0.0'
 description: Configure OTLP exporters for traces, metrics, and logs to observability backends
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

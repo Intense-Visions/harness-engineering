@@ -40,6 +40,8 @@ export const NODE_TYPES = [
   'design_constraint',
   // Traceability
   'requirement',
+  // Cache
+  'packed_summary',
 ] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
@@ -78,6 +80,8 @@ export const EDGE_TYPES = [
   'requires',
   'verified_by',
   'tested_by',
+  // Cache relationships
+  'caches',
 ] as const;
 
 export type EdgeType = (typeof EDGE_TYPES)[number];
@@ -171,6 +175,27 @@ export interface GraphMetadata {
 }
 
 export const CURRENT_SCHEMA_VERSION = 1;
+
+// --- Node Stability Classification (for prompt caching) ---
+
+/** Stability classification for prompt caching -- mirrors StabilityTier from @harness-engineering/types. */
+export type GraphStabilityTier = 'static' | 'session' | 'ephemeral';
+
+/**
+ * Maps graph node types to their caching stability tier.
+ * Used by provider cache adapters to determine cache directives.
+ *
+ * Node types not listed here default to 'ephemeral' at resolution time.
+ */
+export const NODE_STABILITY: Record<string, GraphStabilityTier> = {
+  File: 'session',
+  Function: 'session',
+  Class: 'session',
+  Constraint: 'session',
+  PackedSummary: 'session',
+  SkillDefinition: 'static',
+  ToolDefinition: 'static',
+};
 
 // --- Zod Schemas (for validation) ---
 

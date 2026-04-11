@@ -1,0 +1,40 @@
+name: security-capability-based-security
+version: '1.0.0'
+description: Object capabilities vs ambient authority -- unforgeable tokens that grant specific rights, eliminating confused deputy attacks by construction
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-rbac-design
+  - security-abac-design
+  - security-rebac-design
+  - security-zero-trust-principles
+  - owasp-idor-prevention
+stack_signals: []
+keywords:
+  - capability-based security
+  - object capability
+  - ocap
+  - confused deputy
+  - ambient authority
+  - principle of least authority
+  - POLA
+  - unforgeable reference
+  - capability token
+  - Deno permissions
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

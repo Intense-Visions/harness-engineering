@@ -1,6 +1,7 @@
 name: drizzle-filtering-pattern
 version: "1.0.0"
 description: Filter Drizzle queries with eq(), and(), or(), between(), sql template tag, and custom conditions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

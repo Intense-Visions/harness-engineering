@@ -1,0 +1,33 @@
+name: ux-inclusive-language
+version: "1.0.0"
+description: Inclusive language in UI — gender-neutral, ability-neutral, culture-aware writing, avoiding idioms that exclude
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-voice-tone
+  - ux-internationalization-writing
+stack_signals: []
+keywords:
+  - inclusive-language
+  - gender-neutral
+  - accessibility
+  - bias-free
+  - culture-aware
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

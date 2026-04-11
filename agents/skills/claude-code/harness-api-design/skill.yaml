@@ -1,6 +1,7 @@
 name: harness-api-design
 version: "1.0.0"
 description: REST, GraphQL, gRPC API design with OpenAPI specs and versioning strategies
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

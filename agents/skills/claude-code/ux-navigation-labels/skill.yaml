@@ -1,0 +1,35 @@
+name: ux-navigation-labels
+version: "1.0.0"
+description: Navigation label writing — menu item naming, breadcrumb clarity, tab labels, and sidebar organization that users scan without reading
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-content-hierarchy
+  - ux-microcopy-principles
+  - design-information-architecture
+  - design-navigation-ux
+stack_signals: []
+keywords:
+  - navigation
+  - menu-labels
+  - breadcrumbs
+  - tabs
+  - sidebar
+  - information-architecture
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

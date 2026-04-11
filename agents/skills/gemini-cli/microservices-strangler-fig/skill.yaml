@@ -1,6 +1,7 @@
 name: microservices-strangler-fig
 version: "1.0.0"
 description: Migrate monoliths incrementally using the strangler fig pattern with facade routing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: redux-selectors-pattern
 version: '1.0.0'
 description: Derive and memoize state with createSelector for efficient re-renders
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

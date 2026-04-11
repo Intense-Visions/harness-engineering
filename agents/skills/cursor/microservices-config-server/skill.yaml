@@ -1,6 +1,7 @@
 name: microservices-config-server
 version: "1.0.0"
 description: Centralize configuration, feature flags, and secrets management across services
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

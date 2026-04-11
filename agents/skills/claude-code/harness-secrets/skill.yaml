@@ -1,6 +1,7 @@
 name: harness-secrets
 version: "1.0.0"
 description: Vault integration, credential rotation, and environment variable hygiene
+stability: static
 cognitive_mode: meticulous-verifier
 tier: 3
 internal: false

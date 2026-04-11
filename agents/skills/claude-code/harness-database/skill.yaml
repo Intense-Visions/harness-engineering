@@ -1,6 +1,7 @@
 name: harness-database
 version: "1.0.0"
 description: Schema design, migrations, ORM patterns, and migration safety checks
+stability: static
 cognitive_mode: advisory-guide
 paths:
   - '*.sql'

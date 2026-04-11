@@ -1,6 +1,7 @@
 name: test-property-based
 version: "1.0.0"
 description: Generate exhaustive test cases automatically using fast-check property-based testing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

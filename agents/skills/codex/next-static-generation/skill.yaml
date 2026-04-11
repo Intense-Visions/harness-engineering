@@ -1,6 +1,7 @@
 name: next-static-generation
 version: "1.0.0"
 description: SSG, generateStaticParams, ISR, and revalidate strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

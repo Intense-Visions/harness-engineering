@@ -1,0 +1,39 @@
+name: db-connection-pooling
+version: '1.0.0'
+description: PgBouncer configuration, pool modes (session/transaction/statement), and sizing formulas
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-connection-sizing
+  - db-acid-in-practice
+  - db-isolation-levels
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - connection-pooling
+  - pgbouncer
+  - session-mode
+  - transaction-mode
+  - statement-mode
+  - pool-sizing
+  - connection-pool
+metadata:
+  author: community
+  upstream: pgbouncer.github.io/config.html
+state:
+  persistent: false
+  files: []
+depends_on: []

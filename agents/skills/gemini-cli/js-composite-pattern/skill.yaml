@@ -1,6 +1,7 @@
 name: js-composite-pattern
 version: '1.0.0'
 description: Compose objects into tree structures and treat individual objects and composites uniformly
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

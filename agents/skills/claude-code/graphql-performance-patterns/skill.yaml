@@ -1,6 +1,7 @@
 name: graphql-performance-patterns
 version: '1.0.0'
 description: Optimize GraphQL API performance with query complexity limits, caching, and persisted queries
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -19,6 +20,11 @@ related_skills:
   - graphql-dataloader-pattern
   - graphql-resolver-pattern
   - graphql-pagination-patterns
+  - perf-n-plus-one
+  - perf-query-optimization
+  - perf-connection-pooling
+  - perf-server-side-caching
+  - perf-cdn-cache-control
 stack_signals:
   - graphql
   - typescript

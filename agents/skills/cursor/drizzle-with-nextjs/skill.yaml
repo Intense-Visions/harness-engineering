@@ -1,6 +1,7 @@
 name: drizzle-with-nextjs
 version: "1.0.0"
 description: Integrate Drizzle with Next.js using Neon/Vercel Postgres, edge runtime, and connection pooling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

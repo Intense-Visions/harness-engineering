@@ -1,6 +1,7 @@
 name: svelte-component-composition
 version: '1.0.0'
 description: Compose Svelte 5 components with snippets, {@render}, children, and named content slots
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

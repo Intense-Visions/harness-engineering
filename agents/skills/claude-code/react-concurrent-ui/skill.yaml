@@ -1,6 +1,7 @@
 name: react-concurrent-ui
 version: '1.0.0'
 description: Build responsive UIs using React 18 concurrent features and transitions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

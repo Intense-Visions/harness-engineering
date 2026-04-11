@@ -1,6 +1,7 @@
 name: nestjs-swagger-integration
 version: "1.0.0"
 description: Document APIs with @ApiProperty, @ApiOperation, @ApiTags, and DocumentBuilder
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

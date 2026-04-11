@@ -1,6 +1,7 @@
 name: svelte-routing-pattern
 version: '1.0.0'
 description: Structure SvelteKit applications with file-based routing, +page.svelte, +layout.svelte, and route params
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

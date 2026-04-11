@@ -1,6 +1,7 @@
 name: js-strategy-pattern
 version: '1.0.0'
 description: Define a family of algorithms and make them interchangeable without altering the client
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

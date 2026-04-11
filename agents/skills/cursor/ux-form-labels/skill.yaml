@@ -1,0 +1,36 @@
+name: ux-form-labels
+version: "1.0.0"
+description: Form labels and helper text — label clarity, placeholder anti-patterns, required-field indication, and writing forms that users complete without confusion
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-plain-language
+  - ux-error-messages
+  - design-form-ux
+  - a11y-form-patterns
+stack_signals: []
+keywords:
+  - form-labels
+  - helper-text
+  - placeholder
+  - required-fields
+  - input-labels
+  - field-descriptions
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

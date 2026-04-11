@@ -1,0 +1,41 @@
+name: db-deadlock-prevention
+version: '1.0.0'
+description: Lock ordering, timeout strategies, deadlock detection, and resolution patterns
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-pessimistic-locking
+  - db-optimistic-locking
+  - db-mvcc
+  - db-isolation-levels
+  - db-acid-properties
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - deadlock
+  - lock-ordering
+  - deadlock-detection
+  - deadlock-timeout
+  - lock-timeout
+  - deadlock-prevention
+  - lock-graph
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/explicit-locking.html#LOCKING-DEADLOCKS
+state:
+  persistent: false
+  files: []
+depends_on: []

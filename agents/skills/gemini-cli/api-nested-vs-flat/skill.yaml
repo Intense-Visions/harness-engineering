@@ -1,0 +1,39 @@
+name: api-nested-vs-flat
+version: '1.0.0'
+description: Nested resource paths vs flat URLs with filters -- decision criteria and URL depth guidelines
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-resource-modeling
+  - api-filtering-sorting
+  - api-resource-granularity
+  - api-rest-maturity-model
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - nested-resources
+  - flat-URLs
+  - URL-depth
+  - resource-hierarchy
+  - path-parameters
+  - query-parameters
+metadata:
+  author: community
+  upstream: github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md
+state:
+  persistent: false
+  files: []
+depends_on: []

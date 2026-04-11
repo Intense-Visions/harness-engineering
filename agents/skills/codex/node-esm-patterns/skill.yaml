@@ -1,6 +1,7 @@
 name: node-esm-patterns
 version: "1.0.0"
 description: Write Node.js ES modules correctly using import.meta.url, package.json type, and CJS interop
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

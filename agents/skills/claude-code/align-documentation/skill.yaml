@@ -1,6 +1,7 @@
 name: align-documentation
 version: "1.0.0"
 description: Auto-fix documentation drift issues
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

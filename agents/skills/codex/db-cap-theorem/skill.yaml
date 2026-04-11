@@ -1,0 +1,38 @@
+name: db-cap-theorem
+version: '1.0.0'
+description: Consistency, availability, partition tolerance -- practical meaning and common misunderstandings
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-eventual-consistency
+  - db-acid-properties
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - CAP-theorem
+  - consistency
+  - availability
+  - partition-tolerance
+  - distributed-systems
+  - CP
+  - AP
+metadata:
+  author: community
+  upstream: arxiv.org/abs/1509.05393
+state:
+  persistent: false
+  files: []
+depends_on: []

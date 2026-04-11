@@ -1,6 +1,7 @@
 name: harness-design-system
 version: "1.0.0"
 description: Design token generation, palette selection, typography, spacing, and design intent management
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

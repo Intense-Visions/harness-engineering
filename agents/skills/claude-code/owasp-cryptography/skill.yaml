@@ -1,6 +1,7 @@
 name: owasp-cryptography
 version: '1.0.0'
 description: Apply cryptographic best practices for hashing, encryption, signing, and key management
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,11 @@ paths:
 related_skills:
   - owasp-secrets-management
   - owasp-auth-patterns
+  - security-symmetric-encryption
+  - security-asymmetric-encryption
+  - security-hashing-fundamentals
+  - security-hmac-signatures
+  - security-cryptographic-randomness
 stack_signals:
   - nodejs
   - typescript

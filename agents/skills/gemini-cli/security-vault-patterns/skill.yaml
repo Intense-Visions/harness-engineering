@@ -1,0 +1,39 @@
+name: security-vault-patterns
+version: '1.0.0'
+description: Centralized secrets management using vault systems -- HashiCorp Vault, cloud KMS, sealed secrets, dynamic credentials, and the principle of secrets as cattle not pets
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-secrets-lifecycle
+  - security-environment-variable-risks
+  - security-credential-storage
+  - owasp-secrets-management
+stack_signals: []
+keywords:
+  - vault
+  - HashiCorp Vault
+  - secrets management
+  - KMS
+  - key management
+  - sealed secrets
+  - dynamic credentials
+  - secret engine
+  - transit encryption
+  - envelope encryption
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

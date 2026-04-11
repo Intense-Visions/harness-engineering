@@ -1,6 +1,7 @@
 name: a11y-motion-animation
 version: '1.0.0'
 description: Implement animations that respect user motion preferences and avoid triggering vestibular disorders
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,0 +1,39 @@
+name: api-field-selection
+version: '1.0.0'
+description: Sparse fieldsets and partial responses via ?fields= syntax, nested field selection, and performance tradeoffs vs GraphQL
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-resource-granularity
+  - graphql-client-patterns
+  - api-filtering-sorting
+  - api-pagination-cursor
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - field-selection
+  - sparse-fieldsets
+  - partial-response
+  - "?fields"
+  - projection
+  - over-fetching
+metadata:
+  author: community
+  upstream: developers.google.com/drive/api/guides/fields-parameter
+state:
+  persistent: false
+  files: []
+depends_on: []

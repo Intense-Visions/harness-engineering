@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-07
-last_synced: 2026-04-07T21:22:00.000Z
-last_manual_edit: 2026-04-09T16:03:10.146Z
+updated: 2026-04-11
+last_synced: 2026-04-11T12:00:00.000Z
+last_manual_edit: 2026-04-11T03:00:54.627Z
 ---
 
 # Roadmap
@@ -782,7 +782,7 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Design Knowledge Skills
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/design-knowledge-skills/proposal.md
 - **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
 - **Blockers:** —
@@ -793,7 +793,7 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Performance Engineering Knowledge Skills
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
 - **Summary:** ~45 framework-agnostic performance knowledge skills covering browser rendering pipeline, Core Web Vitals, network optimization, JS runtime, caching hierarchies, bundle strategy, memory management, and rendering strategies
 - **Blockers:** —
@@ -804,9 +804,9 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Database Design Knowledge Skills
 
-- **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
-- **Summary:** ~45 ORM-agnostic database design knowledge skills covering normalization, indexing strategy, query optimization, ACID/CAP, transaction isolation, concurrency patterns, schema design, sharding, and zero-downtime migrations
+- **Status:** done
+- **Spec:** docs/changes/database-design-skills/proposal.md
+- **Summary:** 42 ORM-agnostic database design knowledge skills (db-{topic} naming) covering normalization, indexing, query planning, schema patterns, ACID, transactions, concurrency, CAP/BASE, data modeling, migrations, connection management, and sharding — PostgreSQL-primary with bidirectional ORM cross-references
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -815,8 +815,8 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Security Fundamentals Knowledge Skills
 
-- **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Status:** done
+- **Spec:** docs/changes/security-fundamentals-knowledge-skills/proposal.md
 - **Summary:** ~45 framework-agnostic security knowledge skills covering threat modeling, cryptography primitives, auth/authz design, zero-trust architecture, secrets management, transport security, supply chain security, and incident response
 - **Blockers:** —
 - **Plan:** —
@@ -826,9 +826,9 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### API Design Knowledge Skills
 
-- **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
-- **Summary:** ~35 language-agnostic API design knowledge skills covering REST principles, resource modeling, HTTP semantics, versioning, pagination, error contracts, idempotency, rate limiting, webhooks, OpenAPI, and deprecation strategy
+- **Status:** done
+- **Spec:** docs/changes/api-design-knowledge-skills/proposal.md
+- **Summary:** 36 language-agnostic API design knowledge skills across 8 clusters, all 4 platforms, with bidirectional cross-references to 17 existing skills
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -837,14 +837,58 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### UX Writing and Content Design Knowledge Skills
 
-- **Status:** planned
-- **Spec:** docs/changes/knowledge-skills-wave-2/proposal.md
+- **Status:** done
+- **Spec:** docs/changes/ux-writing-knowledge-skills/proposal.md
 - **Summary:** ~25 knowledge skills covering microcopy principles, error message design, empty states, onboarding copy, CTAs, form labels, notification copy, loading states, voice and tone, and plain language — complements the design-\* skill domain
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#133
+
+### Adoption & Usage Telemetry
+
+- **Status:** in-progress
+- **Spec:** docs/changes/adoption-telemetry/proposal.md
+- **Summary:** Hook-based skill invocation tracking via adoption.jsonl, surfaced in CLI commands and dashboard. Local-only, on by default.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#134
+
+### Pipeline Token Optimization
+
+- **Status:** done
+- **Spec:** docs/changes/pipeline-token-optimization/proposal.md
+- **Summary:** Artifact-based agent delegation and skill compression to reduce per-session token consumption in the brainstorming-to-autopilot pipeline
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#135
+
+### MCP Response Compaction
+
+- **Status:** done
+- **Spec:** docs/changes/mcp-response-compaction/proposal.md
+- **Summary:** Auto-compaction middleware on all harness MCP tool responses plus a dedicated compact tool with content/intent/ref modes, FusionLayer-backed aggregation, and graph-cached packed summaries.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#136
+
+### Prompt Caching with Content Stability Classification
+
+- **Status:** planned
+- **Spec:** docs/changes/prompt-caching-provider-adapters/proposal.md
+- **Summary:** Content stability classification (static/session/ephemeral) with provider-specific cache adapters for Anthropic, OpenAI, and Gemini. Phase 5 of MCP Response Compaction.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#137
 
 ## v3.0 Graph Intelligence
 
@@ -1050,7 +1094,7 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Knowledge Skills Category & Schema Enrichment
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/knowledge-skills-schema-enrichment/proposal.md
 - **Summary:** Add paths, related_skills, metadata fields to skill.yaml schema + progressive disclosure in SKILL.md. Add type: knowledge to skill type enum. Import 58 PatternsDev/skills (JS/React/Vue patterns) as seed knowledge catalog. Update dispatch engine for file-glob activation. ADR: .harness/architecture/patternsdev-skills-adoption/ADR-001.md
 - **Blockers:** —
@@ -1074,7 +1118,7 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Cross-Project Knowledge Federation
 
-- **Status:** planned
+- **Status:** blocked
 - **Spec:** docs/changes/cross-project-knowledge-federation/proposal.md
 - **Summary:** Decentralized knowledge sharing via package-native federation. PackageResolver interface for language-agnostic discovery. Four knowledge types (learnings, constraints, patterns, structural summaries) with visibility tags. Background sync via hooks + optional cron. [D2]
 - **Blockers:** Constraint sharing must ship first (proves cross-project sharing patterns); needs 5+ active harness-managed projects for adoption density
@@ -1243,7 +1287,7 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 
 ### Dashboard v3: Team & Stakeholder Views
 
-- **Status:** planned
+- **Status:** blocked
 - **Spec:** —
 - **Summary:** Persistent hosting option, multi-project aggregation, and presentation polish for the harness dashboard targeting team reviews and stakeholder visibility
 - **Blockers:** Dashboard v2: Orchestrator Observability
@@ -1416,3 +1460,9 @@ last_manual_edit: 2026-04-09T16:03:10.146Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#120
+
+## Assignment History
+
+| Feature                                  | Assignee    | Action   | Date       |
+| ---------------------------------------- | ----------- | -------- | ---------- |
+| Performance Engineering Knowledge Skills | Chad Warner | assigned | 2026-04-09 |

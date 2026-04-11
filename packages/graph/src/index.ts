@@ -10,6 +10,7 @@ export type {
   ProjectionSpec,
   IngestResult,
   GraphMetadata,
+  GraphStabilityTier,
 } from './types.js';
 
 export {
@@ -17,6 +18,7 @@ export {
   EDGE_TYPES,
   OBSERVABILITY_TYPES,
   CURRENT_SCHEMA_VERSION,
+  NODE_STABILITY,
   GraphNodeSchema,
   GraphEdgeSchema,
 } from './types.js';
@@ -27,6 +29,8 @@ export type { NodeQuery, EdgeQuery } from './store/GraphStore.js';
 export { VectorStore } from './store/VectorStore.js';
 export type { VectorSearchResult } from './store/VectorStore.js';
 export { saveGraph, loadGraph } from './store/Serializer.js';
+export { PackedSummaryCache, normalizeIntent } from './store/PackedSummaryCache.js';
+export type { CacheableEnvelope } from './store/PackedSummaryCache.js';
 
 // Query
 export { ContextQL } from './query/ContextQL.js';
@@ -156,4 +160,4 @@ export type {
   CascadeResult,
 } from './blast-radius/index.js';
 
-export const VERSION = '0.4.1';
+export const VERSION = '0.4.3';

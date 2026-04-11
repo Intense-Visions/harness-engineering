@@ -1,6 +1,7 @@
 name: mobile-testing-patterns
 version: '1.0.0'
 description: Test React Native apps with Jest, Testing Library, and Detox for unit, integration, and E2E coverage
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

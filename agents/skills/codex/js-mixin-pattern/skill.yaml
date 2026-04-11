@@ -1,6 +1,7 @@
 name: js-mixin-pattern
 version: '1.0.0'
 description: Add reusable behaviors to classes without deep inheritance chains
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

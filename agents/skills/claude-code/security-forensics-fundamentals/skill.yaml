@@ -1,0 +1,40 @@
+name: security-forensics-fundamentals
+version: '1.0.0'
+description: Digital forensics for developers -- log analysis, artifact collection, timeline reconstruction, and maintaining chain of custody for evidence
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-incident-containment
+  - security-post-incident-review
+  - security-audit-log-design
+  - security-log-correlation
+  - owasp-logging-monitoring
+stack_signals: []
+keywords:
+  - digital forensics
+  - log analysis
+  - artifact collection
+  - timeline reconstruction
+  - chain of custody
+  - memory forensics
+  - disk imaging
+  - evidence preservation
+  - IOC
+  - indicator of compromise
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

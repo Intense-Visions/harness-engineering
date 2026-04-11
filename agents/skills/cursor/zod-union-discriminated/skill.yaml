@@ -1,6 +1,7 @@
 name: zod-union-discriminated
 version: "1.0.0"
 description: Model variant types with z.union, z.discriminatedUnion, z.intersection, and type narrowing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

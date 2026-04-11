@@ -1,6 +1,7 @@
 name: angular-rxjs-patterns
 version: '1.0.0'
 description: Apply RxJS patterns in Angular — switchMap, takeUntilDestroyed, async pipe, and error handling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

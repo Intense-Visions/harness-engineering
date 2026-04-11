@@ -1,0 +1,40 @@
+name: db-horizontal-sharding
+version: '1.0.0'
+description: Shard key selection, cross-shard queries, resharding strategies, and consistent hashing
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-table-partitioning
+  - db-vertical-partitioning
+  - db-cap-theorem
+  - db-eventual-consistency
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - horizontal-sharding
+  - shard-key
+  - cross-shard
+  - resharding
+  - consistent-hashing
+  - citus
+  - vitess
+metadata:
+  author: community
+  upstream: docs.citusdata.com/en/stable/develop/migration.html
+state:
+  persistent: false
+  files: []
+depends_on: []

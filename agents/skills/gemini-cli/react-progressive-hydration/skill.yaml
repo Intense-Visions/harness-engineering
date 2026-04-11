@@ -1,6 +1,7 @@
 name: react-progressive-hydration
 version: '1.0.0'
 description: Delay hydration of below-fold or non-critical components to improve TTI
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

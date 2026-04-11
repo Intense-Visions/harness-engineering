@@ -1,6 +1,7 @@
 name: react-dynamic-import
 version: '1.0.0'
 description: Load modules on demand to reduce initial bundle size and improve startup performance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

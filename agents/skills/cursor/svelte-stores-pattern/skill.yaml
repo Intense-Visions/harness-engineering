@@ -1,6 +1,7 @@
 name: svelte-stores-pattern
 version: '1.0.0'
 description: Share reactive state across components with Svelte writable, readable, derived stores, and custom store contracts
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

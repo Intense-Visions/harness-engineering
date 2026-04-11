@@ -1,6 +1,7 @@
 name: resilience-timeout-pattern
 version: '1.0.0'
 description: Prevent resource exhaustion with request timeouts and AbortController
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

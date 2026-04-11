@@ -1,6 +1,7 @@
 name: prisma-soft-delete
 version: "1.0.0"
 description: Implement soft deletes in Prisma with middleware or $extends query extensions and deletedAt pattern
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

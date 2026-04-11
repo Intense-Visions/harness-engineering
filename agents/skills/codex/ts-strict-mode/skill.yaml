@@ -1,6 +1,7 @@
 name: ts-strict-mode
 version: "1.0.0"
 description: Enable and satisfy strict TypeScript checks including strictNullChecks and exactOptionalPropertyTypes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

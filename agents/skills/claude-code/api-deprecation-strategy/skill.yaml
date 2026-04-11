@@ -1,0 +1,39 @@
+name: api-deprecation-strategy
+version: '1.0.0'
+description: Sunset header (RFC 8594), Deprecation header, migration guide design, compatibility windows, communication cadence
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-backward-compatibility
+  - api-versioning-url
+  - api-sdk-ergonomics
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - deprecation
+  - Sunset-header
+  - RFC-8594
+  - Deprecation-header
+  - migration-guide
+  - compatibility-window
+  - sunset-date
+metadata:
+  author: community
+  upstream: rfc-editor.org/rfc/rfc8594
+state:
+  persistent: false
+  files: []
+depends_on: []

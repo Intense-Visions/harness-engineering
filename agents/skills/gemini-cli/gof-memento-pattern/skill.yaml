@@ -1,6 +1,7 @@
 name: gof-memento-pattern
 version: "1.0.0"
 description: Capture and restore object state using mementos for undo history and time-travel
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

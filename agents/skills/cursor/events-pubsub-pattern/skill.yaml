@@ -1,6 +1,7 @@
 name: events-pubsub-pattern
 version: "1.0.0"
 description: Implement publisher-subscriber communication with topic-based routing and fan-out delivery
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

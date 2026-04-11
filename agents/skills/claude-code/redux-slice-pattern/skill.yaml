@@ -1,6 +1,7 @@
 name: redux-slice-pattern
 version: '1.0.0'
 description: Structure Redux state with createSlice for reducers, actions, and initial state
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

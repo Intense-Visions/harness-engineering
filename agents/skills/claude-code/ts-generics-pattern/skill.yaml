@@ -1,6 +1,7 @@
 name: ts-generics-pattern
 version: "1.0.0"
 description: Write reusable, type-safe functions and interfaces using TypeScript generics
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

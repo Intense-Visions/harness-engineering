@@ -1,0 +1,41 @@
+name: db-audit-trail
+version: "1.0.0"
+description: Change tracking via triggers or application-level logging with immutable append-only audit logs
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-temporal-data
+  - db-time-series
+  - db-denormalization
+  - microservices-event-sourcing
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - audit-trail
+  - change-tracking
+  - trigger-based-audit
+  - audit-log
+  - immutable-log
+  - compliance
+  - change-data-capture
+  - CDC
+metadata:
+  author: community
+  upstream: "postgresql.org/docs/current/plpgsql-trigger.html"
+state:
+  persistent: false
+  files: []
+depends_on: []

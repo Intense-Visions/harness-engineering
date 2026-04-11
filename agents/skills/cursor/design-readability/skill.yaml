@@ -1,6 +1,7 @@
 name: design-readability
 version: "1.0.0"
 description: Optimizing for reading — line length, leading, paragraph spacing, alignment, F-pattern/Z-pattern
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -17,6 +18,8 @@ related_skills:
   - design-typography-fundamentals
   - design-content-density
   - design-responsive-type
+  - ux-plain-language
+  - ux-writing-for-scanning
 stack_signals: []
 keywords:
   - readability

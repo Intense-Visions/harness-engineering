@@ -1,6 +1,7 @@
 name: react-client-rendering
 version: '1.0.0'
 description: Render React entirely in the browser for highly interactive single-page applications
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

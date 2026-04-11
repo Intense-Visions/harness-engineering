@@ -1,6 +1,7 @@
 name: js-chain-of-responsibility-pattern
 version: '1.0.0'
 description: Pass a request along a chain of handlers until one handles it
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

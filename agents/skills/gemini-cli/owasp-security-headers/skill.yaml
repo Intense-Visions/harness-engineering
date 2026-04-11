@@ -1,6 +1,7 @@
 name: owasp-security-headers
 version: '1.0.0'
 description: Configure HTTP security headers to protect against XSS, clickjacking, MIME sniffing, and data leaks
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -19,6 +20,9 @@ paths:
 related_skills:
   - owasp-xss-prevention
   - owasp-csrf-protection
+  - security-hsts-preloading
+  - security-tls-fundamentals
+  - security-zero-trust-principles
 stack_signals:
   - nodejs
   - typescript

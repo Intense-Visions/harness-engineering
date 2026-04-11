@@ -34,12 +34,13 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
     expect(settings.hooks.PreToolUse).toHaveLength(2); // block-no-verify + protect-config
     expect(settings.hooks.PostToolUse).toHaveLength(1); // quality-gate
     expect(settings.hooks.PreCompact).toHaveLength(1); // pre-compact-state
+    expect(settings.hooks.Stop).toHaveLength(2); // adoption-tracker + telemetry-reporter
 
     // 4. List shows correct state
     const listResult = listHooks(tmpDir);
     expect(listResult.installed).toBe(true);
     expect(listResult.profile).toBe('standard');
-    expect(listResult.hooks).toHaveLength(4);
+    expect(listResult.hooks).toHaveLength(6);
 
     // 5. Remove cleans everything
     const removeResult = removeHooks(tmpDir);
@@ -76,13 +77,13 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
     initHooks({ profile: 'strict', projectDir: tmpDir });
     const strictList = listHooks(tmpDir);
     expect(strictList.profile).toBe('strict');
-    expect(strictList.hooks).toHaveLength(7);
+    expect(strictList.hooks).toHaveLength(9);
 
     // Verify settings.json reflects strict
     const settings = JSON.parse(
       fs.readFileSync(path.join(tmpDir, '.claude', 'settings.json'), 'utf-8')
     );
-    expect(settings.hooks.Stop).toHaveLength(1);
+    expect(settings.hooks.Stop).toHaveLength(3);
   });
 
   it('preserves existing .claude/settings.json content through full cycle', () => {

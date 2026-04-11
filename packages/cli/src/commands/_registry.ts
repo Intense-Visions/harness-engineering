@@ -3,6 +3,7 @@
 import type { Command } from 'commander';
 
 import { createAddCommand } from './add';
+import { createAdoptionCommand } from './adoption';
 import { createAgentCommand } from './agent';
 import { createBlueprintCommand } from './blueprint';
 import { createCheckArchCommand } from './check-arch';
@@ -12,9 +13,10 @@ import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
 import { createCheckSecurityCommand } from './check-security';
 import { createCICommand } from './ci';
-import { createDashboardCommand } from './dashboard';
 import { createCleanupCommand } from './cleanup';
+import { createCleanupSessionsCommand } from './cleanup-sessions';
 import { createCreateSkillCommand } from './create-skill';
+import { createDashboardCommand } from './dashboard';
 import { createDoctorCommand } from './doctor';
 import { createFixDriftCommand } from './fix-drift';
 import { createGenerateAgentDefinitionsCommand } from './generate-agent-definitions';
@@ -46,6 +48,7 @@ import { createSkillCommand } from './skill';
 import { createSnapshotCommand } from './snapshot';
 import { createStateCommand } from './state';
 import { createTaintCommand } from './taint';
+import { createTelemetryCommand } from './telemetry';
 import { createTraceabilityCommand } from './traceability';
 import { createUninstallCommand } from './uninstall';
 import { createUninstallConstraintsCommand } from './uninstall-constraints';
@@ -59,6 +62,7 @@ import { createValidateCommand } from './validate';
  */
 export const commandCreators: Array<() => Command> = [
   createAddCommand,
+  createAdoptionCommand,
   createAgentCommand,
   createBlueprintCommand,
   createCheckArchCommand,
@@ -69,6 +73,7 @@ export const commandCreators: Array<() => Command> = [
   createCheckSecurityCommand,
   createCICommand,
   createCleanupCommand,
+  createCleanupSessionsCommand,
   createCreateSkillCommand,
   createDashboardCommand,
   createDoctorCommand,
@@ -102,6 +107,7 @@ export const commandCreators: Array<() => Command> = [
   createSnapshotCommand,
   createStateCommand,
   createTaintCommand,
+  createTelemetryCommand,
   createTraceabilityCommand,
   createUninstallCommand,
   createUninstallConstraintsCommand,

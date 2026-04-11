@@ -1,0 +1,38 @@
+name: api-problem-details-rfc
+version: '1.0.0'
+description: RFC 9457 Problem Details for HTTP APIs — type URI, title, status, detail, instance fields, custom extensions, and application/problem+json content type
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-error-contracts
+  - api-validation-errors
+  - api-status-codes
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - problem-details
+  - RFC-9457
+  - application/problem+json
+  - type-uri
+  - problem-extension
+  - HTTP-problem
+metadata:
+  author: community
+  upstream: rfc-editor.org/rfc/rfc9457
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -1,6 +1,7 @@
 name: tanstack-query-invalidation
 version: "1.0.0"
 description: invalidateQueries, refetchType, staleTime, and gcTime tuning
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

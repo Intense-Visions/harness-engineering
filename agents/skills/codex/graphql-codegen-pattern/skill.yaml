@@ -1,6 +1,7 @@
 name: graphql-codegen-pattern
 version: '1.0.0'
 description: Generate type-safe code from GraphQL schemas and operations using GraphQL Code Generator
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

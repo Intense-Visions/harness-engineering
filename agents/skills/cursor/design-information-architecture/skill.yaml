@@ -1,6 +1,7 @@
 name: design-information-architecture
 version: "1.0.0"
 description: Structuring information — card sorting, tree testing, mental models, labeling systems, organization schemes, findability
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -17,6 +18,8 @@ related_skills:
   - design-navigation-ux
   - design-content-density
   - design-visual-hierarchy
+  - ux-content-hierarchy
+  - ux-navigation-labels
 stack_signals: []
 keywords:
   - information-architecture

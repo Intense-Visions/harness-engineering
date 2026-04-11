@@ -1,6 +1,7 @@
 name: ts-conditional-types
 version: "1.0.0"
 description: Use conditional types, infer, and distributive logic to derive types programmatically
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

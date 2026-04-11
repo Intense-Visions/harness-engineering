@@ -1,0 +1,38 @@
+name: perf-lazy-loading
+version: '1.0.0'
+description: Lazy loading — Intersection Observer patterns, route-based loading, component-level deferral, and progressive hydration
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-code-splitting
+  - perf-lazy-loading-media
+  - perf-largest-contentful-paint
+  - perf-critical-rendering-path
+  - perf-interaction-to-next-paint
+stack_signals: []
+keywords:
+  - lazy loading
+  - intersection observer
+  - dynamic import
+  - deferred loading
+  - progressive hydration
+  - below the fold
+  - on-demand loading
+  - virtual scrolling
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

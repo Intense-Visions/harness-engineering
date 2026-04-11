@@ -1,0 +1,39 @@
+name: db-partial-index
+version: '1.0.0'
+description: Filtered indexes with WHERE clauses to reduce index size and target specific query patterns
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-btree-index
+  - db-composite-index
+  - db-expression-index
+  - db-explain-reading
+  - db-scan-types
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - partial-index
+  - filtered-index
+  - conditional-index
+  - WHERE-clause-index
+  - index-size
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/indexes-partial.html
+state:
+  persistent: false
+  files: []
+depends_on: []

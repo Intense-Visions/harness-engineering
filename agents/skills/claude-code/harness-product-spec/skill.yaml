@@ -1,6 +1,7 @@
 name: harness-product-spec
 version: "1.0.0"
 description: User story generation, EARS acceptance criteria, and PRD creation from issues
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

@@ -1,6 +1,7 @@
 name: astro-image-optimization
 version: '1.0.0'
 description: Optimize images with astro:assets, the Image component, and remote image configuration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

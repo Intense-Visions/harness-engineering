@@ -1,0 +1,19 @@
+name: harness-router
+version: "1.0.0"
+description: Natural language router to harness skills
+cognitive_mode: analytical-classifier
+command_name: harness
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools:
+  - Read
+  - Glob
+  - Grep
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-router
+type: rigid
+tier: 1

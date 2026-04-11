@@ -1,6 +1,7 @@
 name: test-component-react
 version: "1.0.0"
 description: Test React components with Testing Library using user-centric queries and async utilities
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

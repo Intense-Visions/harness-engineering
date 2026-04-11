@@ -1,0 +1,12 @@
+name: acme-tools
+version: "1.0.0"
+description: Acme tools SDK code generator
+command_namespace: acme
+type: flexible
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools:
+  - Read
+  - Write

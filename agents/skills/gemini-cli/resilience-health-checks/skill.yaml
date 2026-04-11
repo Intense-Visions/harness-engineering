@@ -1,6 +1,7 @@
 name: resilience-health-checks
 version: '1.0.0'
 description: Implement health check endpoints for service readiness and liveness monitoring
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

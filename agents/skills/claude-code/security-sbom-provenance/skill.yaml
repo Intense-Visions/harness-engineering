@@ -1,0 +1,39 @@
+name: security-sbom-provenance
+version: '1.0.0'
+description: Software bill of materials, SLSA framework, and build provenance -- proving what went into your software and how it was built
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-dependency-auditing
+  - security-code-signing
+  - security-ci-security-testing
+  - owasp-dependency-security
+stack_signals: []
+keywords:
+  - SBOM
+  - software bill of materials
+  - SLSA
+  - build provenance
+  - supply chain security
+  - SPDX
+  - CycloneDX
+  - attestation
+  - in-toto
+  - artifact integrity
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

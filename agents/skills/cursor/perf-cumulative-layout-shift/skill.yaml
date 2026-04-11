@@ -1,0 +1,40 @@
+name: perf-cumulative-layout-shift
+version: '1.0.0'
+description: CLS measurement — layout shift sources, impact/distance fractions, prevention strategies
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-layout-reflow
+  - perf-paint-compositing
+  - perf-largest-contentful-paint
+  - perf-interaction-to-next-paint
+  - perf-performance-api
+  - css-performance-patterns
+stack_signals: []
+keywords:
+  - CLS
+  - cumulative layout shift
+  - Core Web Vitals
+  - layout shift
+  - aspect ratio
+  - content-visibility
+  - font loading
+  - image dimensions
+  - dynamic content
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

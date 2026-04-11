@@ -1,6 +1,7 @@
 name: angular-lazy-loading
 version: '1.0.0'
 description: Reduce initial bundle size with loadComponent, loadChildren, preloading strategies, and deferrable views
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

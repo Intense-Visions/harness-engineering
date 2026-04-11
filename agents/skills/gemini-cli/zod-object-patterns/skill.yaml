@@ -1,6 +1,7 @@
 name: zod-object-patterns
 version: "1.0.0"
 description: Shape and compose Zod objects with pick, omit, partial, required, extend, merge, strict, and passthrough
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

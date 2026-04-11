@@ -1,6 +1,7 @@
 name: resilience-bulkhead-pattern
 version: '1.0.0'
 description: Isolate failures with bulkheads to limit blast radius of failing components
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

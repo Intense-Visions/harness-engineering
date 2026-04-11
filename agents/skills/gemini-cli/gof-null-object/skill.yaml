@@ -1,6 +1,7 @@
 name: gof-null-object
 version: "1.0.0"
 description: Eliminate null checks by providing default no-op implementations of interfaces
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

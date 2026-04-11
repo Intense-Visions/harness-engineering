@@ -1,0 +1,38 @@
+name: perf-connection-pooling
+version: '1.0.0'
+description: Connection pooling — Pool sizing, connection lifecycle overhead, PgBouncer, serverless pooling, and pool monitoring
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-query-optimization
+  - perf-n-plus-one
+  - perf-index-strategies
+  - node-performance-profiling
+stack_signals: []
+keywords:
+  - connection pool
+  - connection pooling
+  - PgBouncer
+  - pool size
+  - connection overhead
+  - serverless database
+  - connection limit
+  - idle timeout
+  - pool exhaustion
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

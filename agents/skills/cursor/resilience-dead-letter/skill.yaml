@@ -1,6 +1,7 @@
 name: resilience-dead-letter
 version: '1.0.0'
 description: Handle permanently failing messages with dead letter queues for inspection and reprocessing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

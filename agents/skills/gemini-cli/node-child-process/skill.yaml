@@ -1,6 +1,7 @@
 name: node-child-process
 version: "1.0.0"
 description: Spawn and manage child processes with exec, spawn, fork, and IPC communication
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

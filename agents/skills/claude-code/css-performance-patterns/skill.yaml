@@ -1,6 +1,7 @@
 name: css-performance-patterns
 version: '1.0.0'
 description: Optimize CSS performance with content-visibility, containment, and render-efficient patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,11 @@ related_skills:
   - css-tailwind-pattern
   - css-layout-patterns
   - css-animation-pattern
+  - perf-critical-rendering-path
+  - perf-style-calculation
+  - perf-layout-reflow
+  - perf-paint-compositing
+  - perf-largest-contentful-paint
 stack_signals:
   - tailwind
   - css

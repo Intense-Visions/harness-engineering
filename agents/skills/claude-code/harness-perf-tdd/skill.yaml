@@ -1,6 +1,7 @@
 name: harness-perf-tdd
 version: "1.0.0"
 description: Performance-aware TDD with benchmark assertions in the red-green-refactor cycle
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

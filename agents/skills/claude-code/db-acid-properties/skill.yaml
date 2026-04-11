@@ -1,0 +1,38 @@
+name: db-acid-properties
+version: '1.0.0'
+description: Atomicity, consistency, isolation, and durability -- practical implications and failure modes
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-acid-in-practice
+  - db-cap-theorem
+  - db-eventual-consistency
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - ACID
+  - atomicity
+  - consistency
+  - isolation
+  - durability
+  - transactions
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/transaction-iso.html
+state:
+  persistent: false
+  files: []
+depends_on: []

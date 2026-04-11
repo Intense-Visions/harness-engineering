@@ -1,6 +1,7 @@
 name: design-responsive-type
 version: "1.0.0"
 description: Type across viewports — fluid typography (clamp), viewport scaling, minimum sizes, maintaining hierarchy
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

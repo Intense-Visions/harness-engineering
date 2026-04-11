@@ -1,0 +1,39 @@
+name: perf-image-formats
+version: '1.0.0'
+description: Image formats — WebP, AVIF, JPEG XL format selection, quality tuning, and automated conversion pipelines
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-responsive-images
+  - perf-lazy-loading-media
+  - perf-compression
+  - perf-cdn-strategies
+  - perf-largest-contentful-paint
+stack_signals: []
+keywords:
+  - webp
+  - avif
+  - jpeg xl
+  - image optimization
+  - image compression
+  - format selection
+  - sharp
+  - squoosh
+  - image quality
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

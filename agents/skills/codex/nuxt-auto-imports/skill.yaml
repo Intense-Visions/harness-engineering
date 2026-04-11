@@ -1,6 +1,7 @@
 name: nuxt-auto-imports
 version: '1.0.0'
 description: Use Nuxt's automatic import system for composables, components, and utils without explicit import statements
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

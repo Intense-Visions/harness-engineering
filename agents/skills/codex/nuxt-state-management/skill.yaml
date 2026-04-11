@@ -1,6 +1,7 @@
 name: nuxt-state-management
 version: '1.0.0'
 description: Manage SSR-safe shared state with useState and Pinia in Nuxt applications
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

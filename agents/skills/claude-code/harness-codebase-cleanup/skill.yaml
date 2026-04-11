@@ -1,6 +1,7 @@
 name: harness-codebase-cleanup
 version: "1.0.0"
 description: Orchestrate dead code removal and architecture violation fixes with shared convergence loop
+stability: static
 cognitive_mode: systematic-orchestrator
 triggers:
   - manual

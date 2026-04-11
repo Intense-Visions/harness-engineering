@@ -4,13 +4,13 @@
 
 ## When to Use
 
-- After a design spec is approved (output of harness-brainstorming) and implementation needs to be planned
-- When starting a new feature or project that needs structured task decomposition
+- After a design spec is approved (output of harness-brainstorming) and implementation needs planning
+- When starting a new feature or project needing structured task decomposition
 - When `on_new_feature` or `on_project_init` triggers fire and the work is non-trivial
 - When resuming a stalled project that needs a fresh plan
-- NOT when the task is small enough to implement directly (under 15 minutes, single file — just do it)
-- NOT when you need to explore the problem space first (use harness-brainstorming)
-- NOT when a plan already exists and needs execution (use harness-execution)
+- NOT for small tasks (under 15 minutes, single file — just do it)
+- NOT for problem exploration (use harness-brainstorming)
+- NOT when a plan exists and needs execution (use harness-execution)
 
 ## Process
 
@@ -24,36 +24,44 @@ A plan with vague tasks like "add validation" or "implement the service" is not 
 
 ### Rigor Levels
 
-The `rigorLevel` is passed to the planner by autopilot (or set via `--fast`/`--thorough` flags in standalone invocation). Default is `standard`.
+The `rigorLevel` is passed by autopilot (or set via `--fast`/`--thorough` flags). Default is `standard`.
 
-| Phase     | `fast`                                                           | `standard` (default)                                      | `thorough`                                                                      |
-| --------- | ---------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| SCOPE     | No change — always derive observable truths.                     | No change.                                                | No change.                                                                      |
-| DECOMPOSE | Skip skeleton pass. Produce full tasks directly after file map.  | Skeleton if estimated task count >= 8. Full tasks if < 8. | Always produce skeleton. Require human approval before expanding to full tasks. |
-| SEQUENCE  | No change — always order by dependency.                          | No change.                                                | No change.                                                                      |
-| VALIDATE  | No change — always run harness validate and verify completeness. | No change.                                                | No change.                                                                      |
+| Phase     | `fast`                                             | `standard` (default)                       | `thorough`                                          |
+| --------- | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
+| SCOPE     | No change.                                         | No change.                                 | No change.                                          |
+| DECOMPOSE | Skip skeleton. Full tasks directly after file map. | Skeleton if tasks >= 8; full tasks if < 8. | Always skeleton. Require approval before expanding. |
+| SEQUENCE  | No change.                                         | No change.                                 | No change.                                          |
+| VALIDATE  | No change.                                         | No change.                                 | No change.                                          |
 
-The skeleton pass is the primary rigor lever for planning. Fast mode trusts the direction and goes straight to full detail. Thorough mode always validates direction before investing tokens in full task expansion.
+The skeleton pass is the primary rigor lever. Fast mode goes straight to full detail. Thorough mode validates direction before investing tokens in expansion.
+
+---
+
+### Argument Resolution
+
+When invoked by autopilot (or with explicit arguments), resolve paths before starting:
+
+1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All handoff writes go to `{sessionDir}/handoff.json`.
+2. **Spec path:** If `spec-path` argument provided, read spec from that path. Otherwise, discover from `{sessionDir}/handoff.json` (read upstream brainstorming output) or prompt the user.
+3. **Rigor level:** If `fast`/`thorough` argument provided, use it. Otherwise default to `standard`.
+
+When no arguments are provided (standalone invocation), discover spec from context or prompt. Global `.harness/` paths used as fallback.
 
 ---
 
 ### Phase 1: SCOPE — Derive Must-Haves from Goals
 
-Work backward from the goal. Do not start with "what should we build?" Start with "what must be true when we are done?"
+Work backward from the goal. Start with "what must be true when we are done?"
 
 1. **State the goal.** One sentence. What does the system do when this plan is complete?
-
-2. **Derive observable truths.** What can be observed (by running a command, opening a browser, reading a file) that proves the goal is met? These are your acceptance criteria. Be specific:
+2. **Derive observable truths.** What can be observed (running a command, opening a browser, reading a file) that proves the goal is met? Be specific:
    - BAD: "The API handles errors"
    - GOOD: "GET /api/users/nonexistent returns 404 with `{ error: 'User not found' }` body"
+3. **Derive required artifacts.** For each truth, what files must exist? What functions? What tests pass? List exact file paths.
+4. **Identify key links.** How do artifacts connect? What imports what? What calls what?
+5. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
 
-3. **Derive required artifacts.** For each observable truth, what files must exist? What functions must be implemented? What tests must pass? List exact file paths.
-
-4. **Identify key links.** How do the artifacts connect? What imports what? What calls what? What data flows where? Draw the dependency graph mentally.
-
-5. **Apply YAGNI.** For every artifact, ask: "Is this required for an observable truth?" If not, cut it.
-
-   When scope is ambiguous and requires clarification, use `emit_interaction`:
+   When scope is ambiguous, use `emit_interaction`:
 
    ```json
    emit_interaction({
@@ -64,8 +72,8 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
        options: [
          {
            label: "A) Include Y in this plan",
-           pros: ["Complete feature in one pass", "No follow-up coordination needed"],
-           cons: ["Increases plan scope and time", "May delay delivery"],
+           pros: ["Complete feature in one pass", "No follow-up coordination"],
+           cons: ["Increases scope and time", "May delay delivery"],
            risk: "medium",
            effort: "high"
          },
@@ -86,7 +94,7 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
        ],
        recommendation: {
          optionIndex: 1,
-         reason: "Keeping the current plan focused reduces risk. Y can be addressed in a dedicated follow-up.",
+         reason: "Keeping the current plan focused reduces risk. Y can be addressed in a follow-up.",
          confidence: "medium"
        }
      }
@@ -95,15 +103,15 @@ Work backward from the goal. Do not start with "what should we build?" Start wit
 
 #### EARS Requirement Patterns
 
-When writing observable truths and acceptance criteria, use EARS (Easy Approach to Requirements Syntax) sentence patterns. These patterns eliminate ambiguity by forcing a consistent grammatical structure.
+Use EARS (Easy Approach to Requirements Syntax) when writing observable truths. These patterns eliminate ambiguity via consistent grammatical structure.
 
-| Pattern          | Template                                                 | Use When                                          |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------------- |
-| **Ubiquitous**   | The system shall [behavior].                             | Behavior that always applies, unconditionally     |
-| **Event-driven** | When [trigger], the system shall [response].             | Behavior triggered by a specific event            |
-| **State-driven** | While [state], the system shall [behavior].              | Behavior that applies only during a certain state |
-| **Optional**     | Where [feature is enabled], the system shall [behavior]. | Behavior gated by a configuration or feature flag |
-| **Unwanted**     | If [condition], then the system shall not [behavior].    | Explicitly preventing undesirable behavior        |
+| Pattern          | Template                                                 | Use When                        |
+| ---------------- | -------------------------------------------------------- | ------------------------------- |
+| **Ubiquitous**   | The system shall [behavior].                             | Always applies, unconditionally |
+| **Event-driven** | When [trigger], the system shall [response].             | Triggered by a specific event   |
+| **State-driven** | While [state], the system shall [behavior].              | Only during a certain state     |
+| **Optional**     | Where [feature is enabled], the system shall [behavior]. | Gated by config or feature flag |
+| **Unwanted**     | If [condition], then the system shall not [behavior].    | Preventing undesirable behavior |
 
 **Worked Examples:**
 
@@ -113,28 +121,24 @@ When writing observable truths and acceptance criteria, use EARS (Easy Approach 
 4. **Optional:** "Where rate limiting is enabled, the system shall reject requests exceeding 100/minute per API key with HTTP 429."
 5. **Unwanted:** "If the request body exceeds 10MB, then the system shall not attempt to parse it — return HTTP 413 immediately."
 
-**When to use EARS:** Apply these patterns when writing observable truths in Phase 1. Not every criterion needs an EARS pattern — use them when the requirement is behavioral (not structural). File existence checks ("src/types/user.ts exists with User interface") do not need EARS framing.
+Apply EARS for behavioral requirements, not structural checks (e.g., file existence does not need EARS framing).
 
 ### Graph-Enhanced Context (when available)
 
-When a knowledge graph exists at `.harness/graph/`, use graph queries for faster, more accurate context:
+When a knowledge graph exists at `.harness/graph/`, use graph queries for faster context:
 
 - `query_graph` — discover module dependencies for realistic task decomposition
-- `get_impact` — estimate which modules a feature touches and their dependencies
+- `get_impact` — estimate which modules a feature touches
 
-Enables accurate effort estimation and task sequencing. Fall back to file-based commands if no graph is available.
+Fall back to file-based commands if no graph is available.
 
 ---
 
 ### Phase 2: DECOMPOSE — Map File Structure and Create Tasks
 
-When presenting the task breakdown, use progress markers:
+Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creating tasks`
 
-```
-**[Phase 2/4]** DECOMPOSE — mapping file structure and creating tasks
-```
-
-1. **Map the file structure first.** Before writing any tasks, list every file that will be created or modified. This is where decomposition decisions are locked. Example:
+1. **Map the file structure first.** List every file to create or modify before writing tasks:
 
    ```
    CREATE src/services/notification-service.ts
@@ -144,185 +148,79 @@ When presenting the task breakdown, use progress markers:
    MODIFY src/api/routes/users.ts (add notification trigger)
    ```
 
-2. **Skeleton pass (rigor-gated).** Before writing full task details, produce a lightweight skeleton that validates direction. The skeleton is ~200 tokens and catches structural errors before investing in full expansion.
+2. **Skeleton pass (rigor-gated).** Lightweight skeleton (~200 tokens) validates direction before full expansion. Gating per Rigor Levels table.
 
-   **Gating logic:**
-   - `rigorLevel == "fast"`: Skip this step entirely. Proceed directly to full task decomposition.
-   - `rigorLevel == "standard"`: Estimate the task count from the file map. If >= 8 tasks, produce the skeleton and present for approval. If < 8 tasks, skip the skeleton and proceed to full decomposition.
-   - `rigorLevel == "thorough"`: Always produce the skeleton and require human approval before expanding.
-
-   **Skeleton format:**
+   **Format:** Numbered logical groups with task count and time. No file paths, code, or details.
 
    ```
-   ## Skeleton
-
    1. Foundation types and interfaces (~3 tasks, ~10 min)
    2. Core scoring module with TDD (~2 tasks, ~8 min)
    3. CLI integration and flag parsing (~4 tasks, ~15 min)
-   4. Integration tests and validation (~3 tasks, ~10 min)
-
-   **Estimated total:** 12 tasks, ~43 minutes
+   **Estimated total:** 8 tasks, ~33 minutes
    ```
 
-   Each line is a logical group of tasks with an estimated count and time. The skeleton does NOT contain file paths, code, or detailed instructions — those come in the expansion step.
-
-   **Approval gate:**
-
-   When the skeleton is produced, present it to the human:
-
-   ```json
-   emit_interaction({
-     path: "<project-root>",
-     type: "confirmation",
-     confirmation: {
-       text: "Approve skeleton direction?",
-       context: "<estimated task count> tasks across <group count> groups. <one-sentence summary of approach>",
-       impact: "Approving proceeds to full task expansion. Rejecting allows direction change before detail investment.",
-       risk: "low"
-     }
-   })
-   ```
-
-   - **If approved:** Proceed to full task decomposition (step 3).
-   - **If rejected:** Ask what should change. Revise the skeleton. Re-present for approval. Do not expand until approved.
+   **Approval gate:** Present via `emit_interaction` (type: `confirmation`, text: "Approve skeleton direction?"). If approved, proceed to step 3. If rejected, revise and re-present.
 
 3. **Decompose into atomic tasks.** Each task must:
-   - Be completable in 2-5 minutes
-   - Fit in a single context window
+   - Be completable in 2-5 minutes, fit in a single context window
    - Have a clear, testable outcome
    - Follow TDD: write test, fail, implement, pass, commit
    - Produce one atomic commit
 
 4. **Write complete instructions for each task.** Not summaries — complete executable instructions:
    - **Exact file paths** to create or modify
-   - **Exact code** to write (not "add validation logic" — write the actual validation code)
-   - **Exact test commands** to run (e.g., `npx vitest run src/services/notification-service.test.ts`)
-   - **Exact commit message** to use
+   - **Exact code** to write (not "add validation logic" — write the actual code)
+   - **Exact test commands** (e.g., `npx vitest run src/services/notification-service.test.ts`)
+   - **Exact commit message**
    - **`harness validate`** as the final step
 
-5. **Include checkpoints.** Mark tasks that require human verification, decisions, or actions:
+5. **Include checkpoints.** Mark tasks requiring human input:
    - `[checkpoint:human-verify]` — Pause, show result, wait for confirmation
    - `[checkpoint:decision]` — Pause, present options, wait for choice
-   - `[checkpoint:human-action]` — Pause, instruct human on what they need to do
+   - `[checkpoint:human-action]` — Pause, instruct human on required action
 
 ---
 
 ### Phase 3: SEQUENCE — Order Tasks and Identify Dependencies
 
-1. **Order by dependency.** Types before implementations. Implementations before integrations. Tests alongside their implementations (same task, TDD style).
-
-2. **Identify parallel opportunities.** Tasks that touch different subsystems with no shared state can be marked as parallelizable (for harness-parallel-agents).
-
-3. **Number tasks sequentially.** Use `Task 1`, `Task 2`, etc. Dependencies reference task numbers: "Depends on: Task 3."
-
-4. **Estimate total time.** Each task is 2-5 minutes. Sum them. If the total exceeds the available time, identify a milestone boundary where the plan can be paused with a working system.
+1. **Order by dependency.** Types before implementations. Implementations before integrations. Tests alongside implementations (same task, TDD style).
+2. **Identify parallel opportunities.** Tasks touching different subsystems with no shared state can be marked parallelizable.
+3. **Number tasks sequentially.** Use `Task 1`, `Task 2`, etc. Dependencies reference task numbers.
+4. **Estimate total time.** Sum 2-5 minutes per task. If total exceeds available time, identify a milestone boundary for pausing.
 
 ---
 
 ### Phase 4: VALIDATE — Review and Finalize the Plan
 
-1. **Verify completeness.** Every observable truth from Phase 1 must be achievable by completing the tasks. Trace each truth to the specific task(s) that deliver it.
-
-2. **Verify task sizing.** Read each task. Could an agent complete it in one context window without needing to explore or make decisions? If not, split it.
-
-3. **Verify TDD compliance.** Every task that produces code must include a test step. No task should say "write tests later."
-
+1. **Verify completeness.** Every observable truth from Phase 1 must trace to specific task(s) that deliver it.
+2. **Verify task sizing.** Could an agent complete each task in one context window without exploring or deciding? If not, split it.
+3. **Verify TDD compliance.** Every code-producing task must include a test step. No "write tests later."
 4. **Run `harness validate`** to verify project health before writing the plan.
+5. **Check failures log.** Read `.harness/failures.md`. If planned approaches match known failures, flag them.
+6. **Run soundness review.** Invoke `harness-soundness-review --mode plan` against the draft. Do not proceed until the review converges with no remaining issues.
+7. **Write the plan to `docs/plans/`.** Naming: `YYYY-MM-DD-<feature-name>-plan.md`. Create directory if needed.
+8. **Write handoff.** Write to the session-scoped path when session slug is known, otherwise fall back to global path:
+   - Session-scoped (preferred): `.harness/sessions/<session-slug>/handoff.json`
+   - Global (fallback, **deprecated**): `.harness/handoff.json`
 
-5. **Check failures log.** Read `.harness/failures.md` before finalizing. If planned approaches match known failures, flag them with warnings.
+   > **[DEPRECATED]** Writing to `.harness/handoff.json` is deprecated. In autopilot sessions, always use `.harness/sessions/<slug>/handoff.json` to prevent cross-session contamination.
 
-6. **Run soundness review.** After the plan passes completeness verification, invoke `harness-soundness-review --mode plan` against the draft. Do not proceed to write the plan until the soundness review converges with no remaining issues.
+   Fields: `fromSkill`, `phase`, `summary`, `completed`, `pending`, `concerns`, `decisions`, `contextKeywords`.
 
-7. **Write the plan to `docs/plans/`.** Use naming convention: `YYYY-MM-DD-<feature-name>-plan.md`. If the directory does not exist, create it.
+9. **Write session summary (if session is known).** Call `writeSessionSummary` with skill, status, plan path, keyContext, nextStep. Skip if no session slug.
 
-8. **Write handoff.** Save `.harness/handoff.json` with the following structure:
+10. **Request plan sign-off:** Use `emit_interaction` (type: `confirmation`) with plan path, task count, and time estimate.
 
-   ```json
-   {
-     "fromSkill": "harness-planning",
-     "phase": "VALIDATE",
-     "summary": "<one-sentence description of what was planned>",
-     "completed": [],
-     "pending": ["<task 1>", "<task 2>", "..."],
-     "concerns": ["<any concerns or risks identified>"],
-     "decisions": ["<key decisions made during planning>"],
-     "contextKeywords": ["<domain-relevant keywords>"]
-   }
-   ```
-
-9. **Write session summary (if session is known).** If running within a session (autopilot dispatch or standalone with session context), write the session summary:
-
-   ```json
-   writeSessionSummary(projectPath, sessionSlug, {
-     session: "<session-slug>",
-     lastActive: "<ISO timestamp>",
-     skill: "harness-planning",
-     status: "Plan complete. <N> tasks defined.",
-     spec: "<spec path if known>",
-     plan: "<plan file path>",
-     keyContext: "<1-2 sentences: what was planned, key decisions>",
-     nextStep: "Approve plan and begin execution."
-   })
-   ```
-
-   If no session slug is known (standalone invocation without session context), skip this step.
-
-10. **Request plan sign-off:**
-
-```json
-emit_interaction({
-  path: "<project-root>",
-  type: "confirmation",
-  confirmation: {
-    text: "Approve plan at <plan-file-path>?",
-    context: "<task count> tasks, <estimated time> minutes. <one-sentence summary>",
-    impact: "Approving unlocks task-by-task execution. Plan defines exact file paths, code, and commands.",
-    risk: "low"
-  }
-})
-```
-
-11. **Suggest transition to execution.** After the human approves the plan:
-
-    Call `emit_interaction`:
-
-    ```json
-    {
-      "type": "transition",
-      "transition": {
-        "completedPhase": "planning",
-        "suggestedNext": "execution",
-        "reason": "Plan approved with all tasks defined",
-        "artifacts": ["<plan file path>"],
-        "requiresConfirmation": true,
-        "summary": "<Plan title> -- <N> tasks, <N> checkpoints. Estimated <time>.",
-        "qualityGate": {
-          "checks": [
-            { "name": "plan-written", "passed": true, "detail": "Written to docs/plans/" },
-            { "name": "harness-validate", "passed": true },
-            { "name": "observable-truths-traced", "passed": true },
-            { "name": "human-approved", "passed": true }
-          ],
-          "allPassed": true
-        }
-      }
-    }
-    ```
-
-    If the user confirms: invoke harness-execution with the plan path.
-    If the user declines: stop. The handoff is already written for future invocation.
+11. **Suggest transition to execution.** After approval, call `emit_interaction` with type: `transition`, `completedPhase: "planning"`, `suggestedNext: "execution"`, `requiresConfirmation: true`. Include `qualityGate` with checks: plan-written, harness-validate, observable-truths-traced, human-approved. If confirmed: invoke harness-execution. If declined: stop (handoff already written).
 
 ---
 
 ### Plan Document Structure
 
-````markdown
+```markdown
 # Plan: <Feature Name>
 
-**Date:** YYYY-MM-DD
-**Spec:** docs/changes/<feature>/proposal.md (if applicable)
-**Estimated tasks:** N
-**Estimated time:** N minutes
+**Date:** YYYY-MM-DD | **Spec:** (if applicable) | **Tasks:** N | **Time:** N min
 
 ## Goal
 
@@ -331,7 +229,6 @@ One sentence.
 ## Observable Truths (Acceptance Criteria)
 
 1. [observable truth]
-2. [observable truth]
 
 ## File Map
 
@@ -341,132 +238,93 @@ One sentence.
 ## Skeleton (if produced)
 
 1. <group name> (~N tasks, ~N min)
-2. <group name> (~N tasks, ~N min)
-
-**Estimated total:** N tasks, ~N minutes
-
-_Skeleton approved: yes/no. If no, note the revision._
+   _Skeleton approved: yes/no._
 
 ## Tasks
 
 ### Task 1: <descriptive name>
 
-**Depends on:** none
-**Files:** path/to/file.ts, path/to/file.test.ts
+**Depends on:** none | **Files:** path/to/file.ts, path/to/file.test.ts
 
-1. Create test file `path/to/file.test.ts`:
-   ```typescript
-   // exact test code
-   ```
-````
-
-2. Run test: `npx vitest run path/to/file.test.ts`
-3. Observe failure: [expected failure message]
-4. Create implementation `path/to/file.ts`:
-   ```typescript
-   // exact implementation code
-   ```
-5. Run test: `npx vitest run path/to/file.test.ts`
-6. Observe: all tests pass
-7. Run: `harness validate`
-8. Commit: `feat(scope): descriptive message`
+1. Create test file with exact test code
+2. Run test — observe failure
+3. Create implementation with exact code
+4. Run test — observe pass
+5. Run: `harness validate`
+6. Commit: `feat(scope): descriptive message`
 
 ### Task 2: <descriptive name>
 
-[checkpoint:human-verify]
-...
-
-````
+[checkpoint:human-verify] ...
+```
 
 ## Session State
 
-This skill reads and writes to the following session sections via `manage_state`:
+| Section       | Read | Write | Purpose                                                           |
+| ------------- | ---- | ----- | ----------------------------------------------------------------- |
+| terminology   | yes  | no    | Consistent language in plan                                       |
+| decisions     | yes  | yes   | Brainstorming decisions; planning-phase decisions                 |
+| constraints   | yes  | yes   | Existing constraints; constraints discovered during decomposition |
+| risks         | yes  | yes   | Existing risks; implementation risks from task design             |
+| openQuestions | yes  | yes   | Unresolved questions; new questions; resolve answered ones        |
+| evidence      | yes  | yes   | Prior evidence; file:line citations for task specs                |
 
-| Section | Read | Write | Purpose |
-|---------|------|-------|---------|
-| terminology | yes | no | Reads domain terms to use consistent language in plan |
-| decisions | yes | yes | Reads brainstorming decisions; records planning-phase decisions |
-| constraints | yes | yes | Reads existing constraints; adds constraints discovered during decomposition |
-| risks | yes | yes | Reads existing risks; adds implementation risks identified during task design |
-| openQuestions | yes | yes | Reads unresolved questions; adds new questions, resolves answered ones |
-| evidence | yes | yes | Reads prior evidence from brainstorming; writes file:line citations for task specifications |
+**When to write:** Phase 1 — constraints and risks. Phase 2 — decisions about task structure. Phase 4 — resolve questions.
 
-**When to write:** During Phase 1 (SCOPE) write newly discovered constraints and risks. During Phase 2 (DECOMPOSE) write decisions about task structure and sequencing. Mark resolved questions during Phase 4 (VALIDATE).
-
-**When to read:** At the start of Phase 1 (SCOPE), read all sections via `gather_context` with `include: ["sessions"]` to inherit context from brainstorming. Use terminology for consistent naming in task descriptions.
+**When to read:** Start of Phase 1 via `gather_context` with `include: ["sessions"]` to inherit brainstorming context.
 
 ## Evidence Requirements
 
-When this skill makes claims about existing code structure, file locations, or implementation patterns in task specifications, it MUST cite evidence using one of:
+When referencing existing code in task specs, cite evidence using `file:line` format, code pattern references, or test output. Write to `evidence` session section via `manage_state`.
 
-1. **File reference:** `file:line` format (e.g., `src/services/index.ts:15` -- "barrel export exists, will add new export here")
-2. **Code pattern reference:** `file:line` format with pattern description (e.g., `src/services/user-service.ts:1-30` -- "existing service follows constructor injection pattern, new service will match")
-3. **Test output:** Include the command and its observed output when referencing current test state
-4. **Session evidence:** Write to the `evidence` session section:
-   ```json
-   manage_state({
-     action: "append_entry",
-     session: "<current-session>",
-     section: "evidence",
-     authorSkill: "harness-planning",
-     content: "src/services/index.ts:15 -- barrel export pattern confirmed for new service integration"
-   })
-   ```
+**When to cite:** Phase 1 (existing files), Phase 2 (file paths and patterns), file map (existing files for modification).
 
-**When to cite:** During Phase 1 (SCOPE) when referencing existing files for observable truths. During Phase 2 (DECOMPOSE) when specifying exact file paths and code patterns in task instructions. When the file map references existing files for modification.
-
-**Uncited claims:** Technical assertions about existing code without citations MUST be prefixed with `[UNVERIFIED]`. Example: `[UNVERIFIED] The service barrel exports all services`. Uncited claims are flagged during review (Wave 2.2).
+**Uncited claims:** Prefix with `[UNVERIFIED]`.
 
 ## Harness Integration
 
-- **`harness validate`** — Run during Phase 4 (before writing the plan) and included as a step in every task.
-- **`harness check-deps`** — Referenced in tasks that add imports or create new modules. Ensures dependency boundaries are respected.
-- **Plan location** — Plans go to `docs/plans/`. Follow the naming convention: `YYYY-MM-DD-<feature-name>-plan.md`.
-- **Handoff to harness-execution** — Once the plan is approved, invoke harness-execution to begin task-by-task implementation.
-- **Task commands** — Every task includes exact harness CLI commands to run (e.g., `harness validate`, `harness check-deps`).
-- **`emit_interaction`** -- Call at the end of Phase 4 to suggest transitioning to harness-execution. Uses confirmed transition (waits for user approval).
-- **Rigor levels** — `--fast` / `--thorough` flags control the skeleton pass in DECOMPOSE. Fast skips skeleton entirely. Standard produces skeleton for plans with >= 8 tasks. Thorough always produces skeleton and requires approval. See the Rigor Levels table for details.
-- **Two-pass planning** — Skeleton pass produces a ~200-token outline before full task expansion. Catches directional errors early. Gated by rigor level and estimated task count.
+- **`harness validate`** — Run in Phase 4 (before writing plan) and included in every task.
+- **`harness check-deps`** — Referenced in tasks adding imports or creating modules.
+- **Plan location** — `docs/plans/YYYY-MM-DD-<feature-name>-plan.md`.
+- **Handoff** — Once approved, invoke harness-execution for task-by-task implementation.
+- **Session directory** — Session-scoped writes go to `.harness/sessions/<slug>/`. Structure: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and produced file lists). Global `.harness/handoff.json` is deprecated for session-aware invocations.
+- **`emit_interaction`** — Call at end of Phase 4 to suggest transitioning to execution (confirmed transition).
+- **Rigor levels** — `--fast`/`--thorough` control skeleton pass. See Rigor Levels table.
+- **Two-pass planning** — Skeleton (~200 tokens) before full expansion. Catches directional errors early.
 
 ## Change Specifications
 
-When planning changes to existing functionality (not greenfield), express requirements as deltas from the current documented behavior. Use these markers:
+When planning changes to existing functionality (not greenfield), express requirements as deltas:
 
 - **[ADDED]** — New behavior that does not exist today
 - **[MODIFIED]** — Existing behavior that changes
 - **[REMOVED]** — Existing behavior that goes away
 
 **Example:**
+
 ```markdown
 ## Changes to User Authentication
 
-- [ADDED] Support OAuth2 refresh tokens with 7-day expiry
-- [MODIFIED] Login endpoint returns `refreshToken` field alongside existing `accessToken`
-- [MODIFIED] Token validation middleware accepts both JWT and OAuth2 tokens
+- [ADDED] OAuth2 refresh tokens with 7-day expiry
+- [MODIFIED] Login endpoint returns `refreshToken` alongside `accessToken`
+- [MODIFIED] Token validation accepts both JWT and OAuth2 tokens
 - [REMOVED] Legacy API key authentication (deprecated in v2.1)
-````
+```
 
-This is not mandatory for greenfield features. Only apply when modifying existing documented behavior.
-
-When `docs/changes/` exists in the project, produce `docs/changes/<feature>/delta.md` alongside the task plan. This keeps the change intent separate from the full spec and makes review easier.
+Only apply when modifying existing documented behavior. When `docs/changes/` exists, produce `docs/changes/<feature>/delta.md` alongside the task plan.
 
 ## Success Criteria
 
-- A plan document exists in `docs/plans/` with all required sections
-- Every task is completable in 2-5 minutes (one context window)
+- Plan document exists in `docs/plans/` with all required sections
+- Every task completable in 2-5 minutes (one context window)
 - Every task includes exact file paths, exact code, and exact commands
 - Every code-producing task follows TDD: test first, fail, implement, pass
-- Observable truths trace to specific tasks that deliver them
-- File map lists every file to be created or modified
-- Checkpoints are marked where human input is required
-- `harness validate` passes before the plan is written
-- `harness validate` is included as a step in every task
-- The human has reviewed and approved the plan
-- When `rigorLevel` is `fast`, the skeleton pass is skipped and full tasks are produced directly
-- When `rigorLevel` is `thorough`, a skeleton is always produced and requires human approval before expansion
-- When `rigorLevel` is `standard` and task count >= 8, a skeleton is produced for approval
-- When `rigorLevel` is `standard` and task count < 8, the skeleton is skipped
-- The skeleton format is lightweight (~200 tokens): numbered groups with task count and time estimates
+- Observable truths trace to specific tasks
+- File map lists every file to create or modify
+- Checkpoints marked where human input is required
+- `harness validate` passes before plan is written and is in every task
+- Human has reviewed and approved the plan
+- Rigor level rules followed: fast skips skeleton; thorough always skeletons with approval; standard skeletons at >= 8 tasks
 
 ## Rationalizations to Reject
 
@@ -487,8 +345,8 @@ When `docs/changes/` exists in the project, produce `docs/changes/<feature>/delt
 **Observable Truths:**
 
 1. `POST /api/users/:id` with changed fields triggers a notification record in the database
-2. `GET /api/notifications?userId=:id` returns the notification with type, message, and timestamp
-3. Notification email is sent via the existing email utility (verified by mock in test)
+2. `GET /api/notifications?userId=:id` returns notification with type, message, timestamp
+3. Notification email sent via existing email utility (verified by mock in test)
 4. `npx vitest run src/services/notification-service.test.ts` passes with 8+ tests
 5. `harness validate` passes
 
@@ -503,9 +361,7 @@ MODIFY src/api/routes/users.ts
 MODIFY src/api/routes/users.test.ts
 ```
 
-**Skeleton (standard mode, 6 tasks — skeleton skipped because < 8 tasks)**
-
-_Skeleton not produced — task count (6) below threshold (8)._
+**Skeleton:** _Not produced — task count (6) below threshold (8)._
 
 **Task 1: Define notification types**
 
@@ -525,65 +381,29 @@ Files: src/types/notification.ts
 3. Commit: "feat(notifications): define Notification type"
 ```
 
-**Task 2: Create notification service with create method (TDD)**
+**Task 2 (TDD):** Write test for NotificationService.create(). Observe failure. Implement. Observe pass. Validate. Commit.
 
-```
-Files: src/services/notification-service.ts, src/services/notification-service.test.ts
-1. Write test: create notification returns Notification object with correct fields
-2. Run test — observe: NotificationService is not defined
-3. Implement: NotificationService.create() stores and returns notification
-4. Run test — observe: pass
-5. Run: harness validate
-6. Commit: "feat(notifications): add NotificationService.create"
-```
+**Task 3 (TDD):** `[checkpoint:human-verify]` — Write tests for list() and isExpired(). Observe failures. Implement. Observe pass. Validate + check-deps. Commit.
 
-**Task 3: Add list and expiry methods (TDD)**
-
-```
-[checkpoint:human-verify] — verify Task 2 output before continuing
-Files: src/services/notification-service.ts, src/services/notification-service.test.ts
-1. Write tests: list by userId, filter expired
-2. Run tests — observe failures
-3. Implement: list() and isExpired() methods
-4. Run tests — observe: pass
-5. Run: harness validate, harness check-deps
-6. Commit: "feat(notifications): add list and expiry to NotificationService"
-```
-
-### Example: Planning with Skeleton (thorough mode)
+### Example: Skeleton (thorough mode)
 
 **Goal:** Add rate limiting to all API endpoints.
 
-**Skeleton (thorough mode — always produced):**
-
-```
-## Skeleton
-
-1. Rate limit types and configuration (~2 tasks, ~7 min)
-2. Rate limit middleware with Redis backend (~3 tasks, ~12 min)
-3. Route integration and per-endpoint config (~4 tasks, ~15 min)
-4. Integration tests and load verification (~3 tasks, ~10 min)
-
-**Estimated total:** 12 tasks, ~44 minutes
-```
-
-_Presented for approval. User approved. Expanded to full tasks._
+**Skeleton:** 1) Rate limit types (~2 tasks, ~7 min) 2) Middleware with Redis (~3 tasks, ~12 min) 3) Route integration (~4 tasks, ~15 min) 4) Integration tests (~3 tasks, ~10 min). **Total:** 12 tasks, ~44 min. Presented for approval. Approved. Expanded to full tasks.
 
 ## Gates
 
-These are hard stops. Violating any gate means the process has broken down.
-
-- **No vague tasks.** "Implement the service" is not a task. Every task must have exact file paths, exact code, and exact commands. If you cannot write the code in the plan, you do not understand the task well enough to plan it.
-- **No tasks larger than one context window.** If a task requires exploring the codebase, making design decisions, or touching more than 3 files, it is too large. Split it.
-- **No skipping TDD in tasks.** Every task that produces code must start with writing a test. "Add tests later" is not allowed in a plan. If tests cannot be written first, the design is unclear — go back to brainstorming.
-- **No plan without observable truths.** The plan must start with goal-backward acceptance criteria. If you cannot state what is observable when the plan is complete, you do not understand the goal.
-- **No implementation during planning.** The plan is a document, not code. Do not "just start Task 1 while we are here." Write the plan, get approval, then use harness-execution.
-- **File map must be complete.** Every file that will be created or modified must appear in the file map. Discovering new files during execution means the plan was incomplete.
+- **No vague tasks.** Every task must have exact file paths, exact code, and exact commands. If you cannot write the code, you do not understand the task well enough.
+- **No tasks larger than one context window.** If a task requires exploring, deciding, or touching more than 3 files, split it.
+- **No skipping TDD.** Every code-producing task starts with a test. "Add tests later" is not allowed.
+- **No plan without observable truths.** Must start with goal-backward acceptance criteria.
+- **No implementation during planning.** Write the plan, get approval, then use harness-execution.
+- **File map must be complete.** Every file to create or modify must appear before task decomposition.
 
 ## Escalation
 
-- **When you cannot write exact code for a task:** The design is underspecified. Go back to the spec (or brainstorm if no spec exists). Do not write a vague task as a placeholder.
-- **When task count exceeds 20:** The project may be too large for a single plan. Consider splitting into multiple plans with clear milestone boundaries.
-- **When dependencies form a cycle:** The decomposition is wrong. Re-examine the file map and find a way to break the cycle (usually by extracting a shared type or interface).
-- **When you discover the spec is missing information during planning:** Do not fill in the gaps yourself. Escalate: "The spec does not define behavior for [scenario]. This blocks Task N. We need to update the spec before continuing the plan."
-- **When estimated time exceeds available time:** Identify a milestone boundary where the plan can be paused with a working system. Propose delivering the plan in phases, each phase producing a usable increment.
+- **Cannot write exact code for a task:** Design is underspecified. Return to spec or brainstorm. Do not write vague placeholders.
+- **Task count exceeds 20:** Consider splitting into multiple plans with milestone boundaries.
+- **Dependencies form a cycle:** Re-examine file map. Break the cycle by extracting a shared type or interface.
+- **Spec is missing information:** Do not fill gaps yourself. Escalate: "The spec does not define behavior for [scenario]. This blocks Task N."
+- **Estimated time exceeds available time:** Identify a milestone boundary for pausing. Propose delivering in phases, each producing a usable increment.

@@ -1,6 +1,7 @@
 name: trpc-middleware-pattern
 version: "1.0.0"
 description: tRPC middleware, t.middleware, context enrichment, and auth guards
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

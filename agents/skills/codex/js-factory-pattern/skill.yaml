@@ -1,6 +1,7 @@
 name: js-factory-pattern
 version: '1.0.0'
 description: Create objects via a factory function without specifying the exact class
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

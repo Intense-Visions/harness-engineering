@@ -1,6 +1,7 @@
 name: harness-observability
 version: "1.0.0"
 description: Structured logging, metrics, distributed tracing, and alerting strategies
+stability: static
 cognitive_mode: advisory-guide
 tier: 3
 internal: false

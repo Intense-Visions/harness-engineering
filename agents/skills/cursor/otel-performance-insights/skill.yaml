@@ -1,6 +1,7 @@
 name: otel-performance-insights
 version: '1.0.0'
 description: Identify performance bottlenecks using trace analysis, histogram metrics, and span timing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,10 @@ related_skills:
   - otel-tracing-pattern
   - otel-metrics-pattern
   - otel-custom-instrumentation
+  - perf-performance-api
+  - perf-profiling-methodology
+  - perf-server-side-rendering
+  - perf-connection-pooling
 stack_signals:
   - opentelemetry
   - nodejs

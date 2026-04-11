@@ -1,6 +1,7 @@
 name: vue-component-events
 version: '1.0.0'
 description: Communicate from child to parent components using emits and defineEmits
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

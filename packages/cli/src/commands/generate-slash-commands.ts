@@ -152,20 +152,72 @@ function generateForPlatform(
   opts: GenerateOptions
 ): GenerateResult {
   const rendered = new Map<string, string>();
+  const parentRendered = new Map<string, string>();
+  // Custom namespace specs grouped by namespace (e.g., 'acme' → Map of files)
+  const customNamespaceRendered = new Map<string, Map<string, string>>();
+
   for (const spec of specs) {
     const [filename, content] = renderSpec(platform, spec, opts.global);
-    rendered.set(filename, content);
+    // Skills with command_name override the namespace prefix and belong at the
+    // parent directory level (e.g. ~/.claude/commands/harness.md → /harness),
+    // NOT inside the namespace subdirectory (which would give /harness:harness).
+    if (spec.commandName && (platform === 'claude-code' || platform === 'gemini-cli')) {
+      parentRendered.set(filename, content);
+    } else if (spec.customNamespace && (platform === 'claude-code' || platform === 'gemini-cli')) {
+      // Skills with a custom namespace go to their own subdirectory
+      // (e.g., ~/.claude/commands/acme/ui.md → /acme:ui)
+      let nsMap = customNamespaceRendered.get(spec.customNamespace);
+      if (!nsMap) {
+        nsMap = new Map<string, string>();
+        customNamespaceRendered.set(spec.customNamespace, nsMap);
+      }
+      nsMap.set(filename, content);
+    } else {
+      rendered.set(filename, content);
+    }
   }
+
   const plan = computeSyncPlan(outputDir, rendered);
   if (!opts.dryRun) {
     applySyncPlan(outputDir, rendered, plan, false);
   }
+
+  const allAdded = [...plan.added];
+  const allUpdated = [...plan.updated];
+  const allRemoved = [...plan.removed];
+  const allUnchanged = [...plan.unchanged];
+
+  // Handle custom namespace directories
+  const parentDir = path.dirname(outputDir);
+  for (const [ns, nsRendered] of customNamespaceRendered) {
+    const nsDir = path.join(parentDir, ns);
+    const nsPlan = computeSyncPlan(nsDir, nsRendered);
+    if (!opts.dryRun) {
+      applySyncPlan(nsDir, nsRendered, nsPlan, false);
+    }
+    allAdded.push(...nsPlan.added);
+    allUpdated.push(...nsPlan.updated);
+    allRemoved.push(...nsPlan.removed);
+    allUnchanged.push(...nsPlan.unchanged);
+  }
+
+  if (parentRendered.size > 0) {
+    const parentPlan = computeSyncPlan(parentDir, parentRendered);
+    if (!opts.dryRun) {
+      applySyncPlan(parentDir, parentRendered, parentPlan, false);
+    }
+    allAdded.push(...parentPlan.added);
+    allUpdated.push(...parentPlan.updated);
+    allRemoved.push(...parentPlan.removed);
+    allUnchanged.push(...parentPlan.unchanged);
+  }
+
   return {
     platform,
-    added: plan.added,
-    updated: plan.updated,
-    removed: plan.removed,
-    unchanged: plan.unchanged,
+    added: allAdded,
+    updated: allUpdated,
+    removed: allRemoved,
+    unchanged: allUnchanged,
     outputDir,
   };
 }

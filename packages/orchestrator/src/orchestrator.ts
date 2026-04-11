@@ -20,6 +20,9 @@ import { AgentRunner } from './agent/runner';
 import { PromptRenderer } from './prompt/renderer';
 import { MockBackend } from './agent/backends/mock';
 import { ClaudeBackend } from './agent/backends/claude';
+import { OpenAIBackend } from './agent/backends/openai';
+import { GeminiBackend } from './agent/backends/gemini';
+import { AnthropicBackend } from './agent/backends/anthropic';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
@@ -90,6 +93,21 @@ export class Orchestrator extends EventEmitter {
       return new MockBackend();
     } else if (this.config.agent.backend === 'claude') {
       return new ClaudeBackend(this.config.agent.command);
+    } else if (this.config.agent.backend === 'openai') {
+      return new OpenAIBackend({
+        ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
+        ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
+      });
+    } else if (this.config.agent.backend === 'gemini') {
+      return new GeminiBackend({
+        ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
+        ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
+      });
+    } else if (this.config.agent.backend === 'anthropic') {
+      return new AnthropicBackend({
+        ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
+        ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
+      });
     }
     throw new Error(`Unsupported agent backend: ${this.config.agent.backend}`);
   }

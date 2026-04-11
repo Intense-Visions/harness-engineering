@@ -1,0 +1,41 @@
+name: db-composite-index
+version: '1.0.0'
+description: Multi-column indexes, column ordering strategy, and the leftmost prefix rule
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-btree-index
+  - db-covering-index
+  - db-partial-index
+  - db-explain-reading
+  - db-scan-types
+  - prisma-performance-patterns
+  - drizzle-performance-patterns
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - composite-index
+  - multi-column-index
+  - leftmost-prefix
+  - column-ordering
+  - compound-index
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/indexes-multicolumn.html
+state:
+  persistent: false
+  files: []
+depends_on: []

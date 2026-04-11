@@ -1,6 +1,7 @@
 name: harness-architecture-advisor
 version: "1.0.0"
 description: Interactive architecture advisor that surfaces trade-offs and helps humans choose
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

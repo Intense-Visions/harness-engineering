@@ -1,6 +1,7 @@
 name: test-vitest-config
 version: "1.0.0"
 description: Configure Vitest with workspaces, environments, coverage, and TypeScript integration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

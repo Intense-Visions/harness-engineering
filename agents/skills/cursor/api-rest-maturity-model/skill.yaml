@@ -1,0 +1,39 @@
+name: api-rest-maturity-model
+version: '1.0.0'
+description: Richardson Maturity Model levels 0-3 -- evaluating and advancing REST API design maturity
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-hateoas
+  - api-resource-modeling
+  - api-http-methods
+  - api-status-codes
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - richardson-maturity-model
+  - REST
+  - maturity-levels
+  - hypermedia
+  - HTTP-verbs
+  - resource-oriented
+metadata:
+  author: community
+  upstream: martinfowler.com/articles/richardsonMaturityModel.html
+state:
+  persistent: false
+  files: []
+depends_on: []

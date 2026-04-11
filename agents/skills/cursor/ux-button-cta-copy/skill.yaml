@@ -1,0 +1,34 @@
+name: ux-button-cta-copy
+version: "1.0.0"
+description: Button and CTA copy — verb-noun pattern, specificity over vagueness, context-sensitive labels, and writing buttons that tell users exactly what will happen
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-active-voice
+  - ux-plain-language
+stack_signals: []
+keywords:
+  - buttons
+  - cta
+  - call-to-action
+  - verb-noun
+  - action-labels
+  - submit-buttons
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

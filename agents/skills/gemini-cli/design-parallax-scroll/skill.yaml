@@ -1,6 +1,7 @@
 name: design-parallax-scroll
 version: "1.0.0"
 description: Scroll-driven depth — rate-differential parallax, scroll-triggered reveals, sticky sections, scroll narrative, performance constraints, motion sensitivity
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

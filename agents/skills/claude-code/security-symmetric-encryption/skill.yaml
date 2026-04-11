@@ -1,0 +1,41 @@
+name: security-symmetric-encryption
+version: "1.0.0"
+description: AES and ChaCha20 symmetric ciphers, modes of operation (GCM vs CBC vs CTR), key sizes, IV/nonce management, and authenticated encryption
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-asymmetric-encryption
+  - security-hashing-fundamentals
+  - security-hmac-signatures
+  - security-cryptographic-randomness
+  - security-tls-fundamentals
+  - owasp-cryptography
+stack_signals: []
+keywords:
+  - AES
+  - ChaCha20
+  - symmetric encryption
+  - GCM
+  - CBC
+  - CTR
+  - authenticated encryption
+  - AEAD
+  - cipher
+  - encryption key
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

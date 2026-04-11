@@ -1,0 +1,41 @@
+name: db-scan-types
+version: '1.0.0'
+description: Sequential scan, index scan, bitmap scan, and index-only scan -- when the planner chooses each
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-explain-reading
+  - db-btree-index
+  - db-covering-index
+  - db-query-statistics
+  - db-query-rewriting
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - sequential-scan
+  - index-scan
+  - bitmap-scan
+  - index-only-scan
+  - scan-type
+  - table-access
+  - planner
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/using-explain.html
+state:
+  persistent: false
+  files: []
+depends_on: []

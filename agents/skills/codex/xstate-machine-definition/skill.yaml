@@ -1,6 +1,7 @@
 name: xstate-machine-definition
 version: '1.0.0'
 description: Define statecharts with createMachine for explicit state transitions and context
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

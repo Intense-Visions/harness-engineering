@@ -1,6 +1,7 @@
 name: design-contrast-ratio
 version: "1.0.0"
 description: Luminance contrast for readability and visual weight — WCAG ratios, contrast as hierarchy tool
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

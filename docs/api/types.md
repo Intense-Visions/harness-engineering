@@ -4,7 +4,7 @@ TypeScript types and interfaces for the Harness Engineering toolkit.
 
 **Source:** [index.ts](../../packages/types/src/index.ts), [orchestrator.ts](../../packages/types/src/orchestrator.ts)
 
-**Version:** 0.9.1
+**Version:** 0.9.2
 
 ## Installation
 
@@ -312,6 +312,129 @@ type CIPlatform = 'github' | 'gitlab' | 'generic';
 ```typescript
 type CIFailOnSeverity = 'error' | 'warning';
 ```
+
+## Usage Types
+
+### `UsageRecord`
+
+```typescript
+interface UsageRecord {
+  sessionId: string;
+  timestamp: string;
+  tokens: TokenUsage;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  model?: string;
+  costMicroUSD?: number;
+}
+```
+
+Extended entry for cost tracking storage and display.
+
+### `ModelPricing`
+
+```typescript
+interface ModelPricing {
+  inputPer1M: number;
+  outputPer1M: number;
+  cacheReadPer1M?: number;
+  cacheWritePer1M?: number;
+}
+```
+
+Per-model pricing rates in USD per 1 million tokens.
+
+### `DailyUsage`
+
+```typescript
+interface DailyUsage {
+  date: string;
+  sessionCount: number;
+  tokens: TokenUsage;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  costMicroUSD: number | null;
+  models: string[];
+}
+```
+
+Aggregated usage for a single calendar day.
+
+### `SessionUsage`
+
+```typescript
+interface SessionUsage {
+  sessionId: string;
+  firstTimestamp: string;
+  lastTimestamp: string;
+  tokens: TokenUsage;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  model?: string;
+  costMicroUSD: number | null;
+  source: 'harness' | 'claude-code' | 'merged';
+}
+```
+
+Aggregated usage for a single session across all its turns.
+
+---
+
+## External Tracker Types
+
+### `ExternalTicket`
+
+```typescript
+interface ExternalTicket {
+  externalId: string;
+  url: string;
+}
+```
+
+Represents a ticket created in an external tracking service.
+
+### `ExternalTicketState`
+
+```typescript
+interface ExternalTicketState {
+  externalId: string;
+  title: string;
+  status: string;
+  labels: string[];
+  assignee: string | null;
+}
+```
+
+Current state of a ticket in the external service.
+
+### `SyncResult`
+
+```typescript
+interface SyncResult {
+  created: ExternalTicket[];
+  updated: string[];
+  assignmentChanges: Array<{ feature: string; from: string | null; to: string | null }>;
+  errors: Array<{ featureOrId: string; error: Error }>;
+}
+```
+
+Result of a sync operation collecting successes and errors per-feature.
+
+### `TrackerSyncConfig`
+
+```typescript
+interface TrackerSyncConfig {
+  kind: 'github';
+  repo?: string;
+  labels?: string[];
+  statusMap: Record<FeatureStatus, string>;
+  reverseStatusMap?: Record<string, FeatureStatus>;
+}
+```
+
+Configuration for external tracker sync.
+
+---
 
 ## Roadmap Types
 

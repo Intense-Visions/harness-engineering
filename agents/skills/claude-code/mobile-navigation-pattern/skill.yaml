@@ -1,6 +1,7 @@
 name: mobile-navigation-pattern
 version: '1.0.0'
 description: Implement stack, tab, and drawer navigation in React Native with type-safe routing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

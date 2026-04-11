@@ -1,6 +1,7 @@
 name: design-affordances
 version: "1.0.0"
 description: Perceived actionability — signifiers, constraints, mappings (Don Norman), flat design's affordance problem, touch targets, hover states as affordance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

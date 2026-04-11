@@ -1,6 +1,7 @@
 name: astro-content-collections
 version: '1.0.0'
 description: Organize and validate content with Astro content collections, schema definitions, and getCollection
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

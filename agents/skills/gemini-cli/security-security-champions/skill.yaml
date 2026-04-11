@@ -1,0 +1,37 @@
+name: security-security-champions
+version: '1.0.0'
+description: Embedding security expertise in development teams through security champion programs -- scaling security knowledge without scaling the security team
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-shift-left-design
+  - security-threat-modeling-process
+  - security-ci-security-testing
+  - owasp-auth-patterns
+stack_signals: []
+keywords:
+  - security champion
+  - security culture
+  - security training
+  - developer security
+  - security advocate
+  - secure coding
+  - security awareness
+  - AppSec program
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

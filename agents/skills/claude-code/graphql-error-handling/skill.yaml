@@ -1,6 +1,7 @@
 name: graphql-error-handling
 version: '1.0.0'
 description: Handle errors in GraphQL with structured error types, union results, and formatError
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,8 @@ related_skills:
   - graphql-resolver-pattern
   - graphql-schema-design
   - graphql-apollo-server
+  - api-error-contracts
+  - api-problem-details-rfc
 stack_signals:
   - graphql
   - typescript

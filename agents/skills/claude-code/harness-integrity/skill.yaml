@@ -1,6 +1,7 @@
 name: harness-integrity
 version: "1.0.0"
 description: Unified integrity gate — chains verify (quick gate) with AI review into a single report
+stability: static
 triggers:
   - manual
   - on_pr

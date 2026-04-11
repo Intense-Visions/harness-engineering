@@ -1,0 +1,37 @@
+name: db-hash-index
+version: '1.0.0'
+description: Hash indexes for equality-only lookups and when to prefer them over B-tree
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-btree-index
+  - db-composite-index
+  - db-explain-reading
+  - db-scan-types
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - hash-index
+  - equality-lookup
+  - hash-function
+  - index-type
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/indexes-types.html
+state:
+  persistent: false
+  files: []
+depends_on: []

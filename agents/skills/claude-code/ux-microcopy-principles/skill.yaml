@@ -1,0 +1,37 @@
+name: ux-microcopy-principles
+version: "1.0.0"
+description: Microcopy principles — clarity, brevity, human voice, active voice, and the core rules all UI text follows
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-voice-tone
+  - ux-plain-language
+  - ux-active-voice
+  - ux-content-hierarchy
+  - ux-writing-for-scanning
+  - ux-inclusive-language
+  - ux-internationalization-writing
+stack_signals: []
+keywords:
+  - microcopy
+  - ui-text
+  - clarity
+  - brevity
+  - human-voice
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

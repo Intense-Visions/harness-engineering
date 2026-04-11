@@ -1,6 +1,7 @@
 name: harness-release-readiness
 version: "1.0.0"
 description: Audit npm release readiness, run maintenance checks, offer auto-fixes, track progress across sessions
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

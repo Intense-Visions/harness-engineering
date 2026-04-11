@@ -1,6 +1,7 @@
 name: nestjs-dependency-injection
 version: "1.0.0"
 description: Master NestJS DI container with tokens, useClass/useValue/useFactory providers
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

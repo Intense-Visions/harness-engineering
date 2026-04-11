@@ -1,6 +1,7 @@
 name: microservices-cqrs-pattern
 version: "1.0.0"
 description: Separate read and write models to optimize query and command performance independently
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,8 @@ paths:
 related_skills:
   - microservices-event-sourcing
   - microservices-decomposition
+  - db-eventual-consistency
+  - db-denormalization
 stack_signals:
   - microservices
   - nodejs

@@ -1,6 +1,7 @@
 name: xstate-typegen
 version: '1.0.0'
 description: Generate full type safety for XState machines with typegen and setup patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

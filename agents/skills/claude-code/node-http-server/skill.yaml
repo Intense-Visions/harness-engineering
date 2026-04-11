@@ -1,6 +1,7 @@
 name: node-http-server
 version: "1.0.0"
 description: Build low-level HTTP servers with Node.js http module and middleware pattern
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

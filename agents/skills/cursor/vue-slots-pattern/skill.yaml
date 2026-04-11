@@ -1,6 +1,7 @@
 name: vue-slots-pattern
 version: '1.0.0'
 description: Use named, scoped, and dynamic slots to build flexible, composable component APIs
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

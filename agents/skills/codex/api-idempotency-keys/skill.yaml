@@ -1,0 +1,40 @@
+name: api-idempotency-keys
+version: '1.0.0'
+description: Idempotency key design — UUID v4 generation, key storage TTL, 24h window convention, at-least-once vs exactly-once semantics, safe retry scope
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-http-methods
+  - events-idempotency-pattern
+  - api-bulk-operations
+  - api-retry-guidance
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - idempotency-keys
+  - Idempotency-Key
+  - UUID
+  - at-least-once
+  - exactly-once
+  - safe-retry
+  - idempotency-window
+metadata:
+  author: community
+  upstream: stripe.com/docs/api/idempotent_requests
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -6,7 +6,11 @@ import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { TemplateEngine, type DetectedFramework } from '../templates/engine';
 import type { TemplateMetadata } from '../templates/schema';
-import { persistToolingConfig, appendFrameworkAgents } from '../templates/post-write';
+import {
+  persistToolingConfig,
+  appendFrameworkAgents,
+  ensureHarnessGitignore,
+} from '../templates/post-write';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
@@ -144,6 +148,7 @@ function scaffoldProject(
 
   persistToolingConfig(cwd, resolveResult.value, options.framework);
   appendFrameworkAgents(cwd, options.framework, language);
+  ensureHarnessGitignore(cwd);
 
   return Ok({
     filesCreated: writeResult.value.written,

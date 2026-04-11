@@ -1,6 +1,7 @@
 name: harness-planning
 version: "1.0.0"
 description: Structured project planning with harness constraints and validation
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual
@@ -23,6 +24,12 @@ cli:
   args:
     - name: path
       description: Project root path
+      required: false
+    - name: spec-path
+      description: Path to approved spec (from brainstorming output or orchestrator)
+      required: false
+    - name: session-slug
+      description: Session slug for scoped state/handoff (passed by autopilot)
       required: false
     - name: fast
       description: Skip skeleton pass — produce full plan directly

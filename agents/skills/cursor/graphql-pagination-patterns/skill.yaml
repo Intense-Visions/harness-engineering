@@ -1,6 +1,7 @@
 name: graphql-pagination-patterns
 version: '1.0.0'
 description: Implement cursor-based and offset pagination in GraphQL using the connection spec
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -19,6 +20,9 @@ related_skills:
   - graphql-schema-design
   - graphql-resolver-pattern
   - graphql-performance-patterns
+  - api-pagination-cursor
+  - api-pagination-offset
+  - api-pagination-keyset
 stack_signals:
   - graphql
   - typescript

@@ -1,0 +1,39 @@
+name: perf-query-optimization
+version: '1.0.0'
+description: Query optimization — EXPLAIN analysis, query plans, index usage, optimizer hints, and slow query diagnosis
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-n-plus-one
+  - perf-index-strategies
+  - perf-connection-pooling
+  - prisma-performance-patterns
+  - drizzle-performance-patterns
+stack_signals: []
+keywords:
+  - query optimization
+  - EXPLAIN
+  - query plan
+  - slow query
+  - sequential scan
+  - index scan
+  - query cost
+  - optimizer
+  - execution plan
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

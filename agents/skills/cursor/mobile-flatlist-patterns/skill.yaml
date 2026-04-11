@@ -1,6 +1,7 @@
 name: mobile-flatlist-patterns
 version: '1.0.0'
 description: Build performant scrollable lists with FlatList, SectionList, and FlashList
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

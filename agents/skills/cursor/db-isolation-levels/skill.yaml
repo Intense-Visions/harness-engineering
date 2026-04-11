@@ -1,0 +1,43 @@
+name: db-isolation-levels
+version: '1.0.0'
+description: Read uncommitted through serializable -- PostgreSQL's MVCC-based isolation implementation
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-read-phenomena
+  - db-isolation-selection
+  - db-acid-properties
+  - db-mvcc
+  - db-pessimistic-locking
+  - prisma-transactions
+  - drizzle-transactions
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - isolation-levels
+  - read-uncommitted
+  - read-committed
+  - repeatable-read
+  - serializable
+  - MVCC
+  - transaction-isolation
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/transaction-iso.html
+state:
+  persistent: false
+  files: []
+depends_on: []

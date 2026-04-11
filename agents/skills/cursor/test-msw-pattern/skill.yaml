@@ -1,6 +1,7 @@
 name: test-msw-pattern
 version: "1.0.0"
 description: Intercept HTTP requests in tests using Mock Service Worker handlers at the network level
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

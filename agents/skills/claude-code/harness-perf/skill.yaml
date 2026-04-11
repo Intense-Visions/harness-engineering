@@ -1,6 +1,7 @@
 name: harness-perf
 version: "1.0.0"
 description: Performance enforcement and benchmark management
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

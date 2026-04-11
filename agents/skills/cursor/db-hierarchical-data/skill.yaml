@@ -1,0 +1,41 @@
+name: db-hierarchical-data
+version: "1.0.0"
+description: Comparison of adjacency list, nested sets, closure table, and materialized path -- a selection guide
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-adjacency-list
+  - db-nested-sets
+  - db-closure-table
+  - db-graph-in-relational
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - hierarchical-data
+  - tree-model
+  - hierarchy-selection
+  - adjacency-list
+  - nested-sets
+  - closure-table
+  - materialized-path
+  - ltree
+metadata:
+  author: community
+  upstream: "postgresql.org/docs/current/ltree.html"
+state:
+  persistent: false
+  files: []
+depends_on: []

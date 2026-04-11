@@ -1,6 +1,7 @@
 name: vue-watchers-pattern
 version: '1.0.0'
 description: React to data changes with watch and watchEffect for side effects and async operations
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

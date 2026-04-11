@@ -1,6 +1,7 @@
 name: js-bridge-pattern
 version: '1.0.0'
 description: Decouple abstraction from implementation so both can vary independently
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

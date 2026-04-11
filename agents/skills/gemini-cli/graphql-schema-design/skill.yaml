@@ -1,6 +1,7 @@
 name: graphql-schema-design
 version: '1.0.0'
 description: Design expressive, evolvable GraphQL schemas with clear type hierarchies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,8 @@ related_skills:
   - graphql-resolver-pattern
   - graphql-pagination-patterns
   - graphql-federation-pattern
+  - api-resource-modeling
+  - api-field-selection
 stack_signals:
   - graphql
   - typescript

@@ -1,6 +1,7 @@
 name: events-redis-pubsub
 version: "1.0.0"
 description: Use Redis pub/sub channels and keyspace notifications for lightweight real-time messaging
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

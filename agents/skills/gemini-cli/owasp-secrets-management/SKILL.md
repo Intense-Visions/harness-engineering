@@ -17,7 +17,7 @@
 ```typescript
 // BAD — will end up in version control
 const db = new Client({ password: 'super_secret_password' });
-const stripe = new Stripe('sk_live_abc123xyz');
+const stripe = new Stripe('sk_example_abc123xyz');
 
 // GOOD — always from environment
 const db = new Client({ password: process.env.DB_PASSWORD });
@@ -164,6 +164,7 @@ https://owasp.org/www-project-top-ten/
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** owasp-logging-monitoring, owasp-cryptography, nestjs-guards-pattern, security-secrets-lifecycle, security-vault-patterns, security-environment-variable-risks, api-api-keys
 
 ## Success Criteria
 

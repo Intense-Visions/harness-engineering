@@ -589,6 +589,114 @@ The `statusMap` keys are roadmap statuses: `"backlog"`, `"planned"`, `"in-progre
 }
 ```
 
+## `telemetry`
+
+- **Type:** `TelemetryConfig`
+- **Required:** No
+
+Configures anonymous usage telemetry. Telemetry is enabled by default and sends anonymized product analytics (skill usage, session duration, outcome) to a central PostHog instance via HTTP. No personally identifiable information is sent unless the user explicitly opts in via `.harness/telemetry.json`.
+
+### TelemetryConfig Object
+
+| Field     | Type      | Default | Description                                  |
+| --------- | --------- | ------- | -------------------------------------------- |
+| `enabled` | `boolean` | `true`  | Whether anonymous telemetry collection is on |
+
+### Opting Out
+
+There are three ways to disable telemetry (checked in this order):
+
+1. **Environment variable:** `DO_NOT_TRACK=1` (ecosystem standard)
+2. **Environment variable:** `HARNESS_TELEMETRY_OPTOUT=1`
+3. **Config file:** Set `telemetry.enabled` to `false` in `harness.config.json`
+
+Any of these disables all telemetry -- no HTTP requests are made.
+
+### Identity (Optional Opt-In)
+
+Users who want to associate telemetry with a project, team, or alias can configure identity fields in `.harness/telemetry.json` (gitignored, never committed):
+
+```json
+{
+  "identity": {
+    "project": "myapp",
+    "team": "platform",
+    "alias": "cwarner"
+  }
+}
+```
+
+Use the CLI to manage identity:
+
+```bash
+# Set identity fields
+harness telemetry identify --project myapp --team platform --alias cwarner
+
+# Clear all identity fields
+harness telemetry identify --clear
+
+# View current telemetry state
+harness telemetry status
+harness telemetry status --json
+```
+
+### First-Run Notice
+
+On first use, a one-time notice is printed to stderr explaining that anonymous telemetry is collected and how to disable it. The notice is not repeated after the flag file `.harness/.telemetry-notice-shown` is created.
+
+### Example
+
+```json
+{
+  "telemetry": {
+    "enabled": true
+  }
+}
+```
+
+To disable:
+
+```json
+{
+  "telemetry": {
+    "enabled": false
+  }
+}
+```
+
+## `adoption`
+
+- **Type:** `AdoptionConfig`
+- **Required:** No
+
+Configures adoption tracking, which records skill invocation metrics to `.harness/metrics/adoption.jsonl` via the `adoption-tracker` stop hook.
+
+### AdoptionConfig Object
+
+| Field     | Type      | Default | Description                          |
+| --------- | --------- | ------- | ------------------------------------ |
+| `enabled` | `boolean` | `true`  | Whether adoption tracking is enabled |
+
+### Example
+
+```json
+{
+  "adoption": {
+    "enabled": true
+  }
+}
+```
+
+To disable adoption tracking:
+
+```json
+{
+  "adoption": {
+    "enabled": false
+  }
+}
+```
+
 ## `phaseGates`
 
 - **Type:** `PhaseGatesConfig`
@@ -800,6 +908,9 @@ A full `harness.config.json` for a layered API project:
       }
     }
   },
+  "telemetry": {
+    "enabled": true
+  },
   "template": {
     "level": "intermediate",
     "framework": "express",
@@ -825,7 +936,7 @@ All other fields are optional and fall back to their defaults. This is useful wh
 The configuration file is validated automatically when any Harness CLI command runs. You can also validate it explicitly:
 
 ```bash
-npx harness validate --check-config
+npx harness validate
 ```
 
 If validation fails, the error message will indicate which field has an invalid value and what was expected.
@@ -839,4 +950,4 @@ If validation fails, the error message will indicate which field has an invalid 
 
 ---
 
-_Last Updated: 2026-04-06_
+_Last Updated: 2026-04-10_

@@ -1,6 +1,7 @@
 name: harness-caching
 version: "1.0.0"
 description: Cache strategies, invalidation patterns, and distributed caching
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

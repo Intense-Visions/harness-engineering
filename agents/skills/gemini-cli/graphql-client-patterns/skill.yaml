@@ -1,6 +1,7 @@
 name: graphql-client-patterns
 version: '1.0.0'
 description: Structure GraphQL client code with fragments, cache policies, and optimistic updates
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

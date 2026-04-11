@@ -25,6 +25,8 @@ export const HOOK_SCRIPTS: HookScript[] = [
   { name: 'protect-config', event: 'PreToolUse', matcher: 'Write|Edit', minProfile: 'standard' },
   { name: 'quality-gate', event: 'PostToolUse', matcher: 'Edit|Write', minProfile: 'standard' },
   { name: 'pre-compact-state', event: 'PreCompact', matcher: '*', minProfile: 'standard' },
+  { name: 'adoption-tracker', event: 'Stop', matcher: '*', minProfile: 'standard' },
+  { name: 'telemetry-reporter', event: 'Stop', matcher: '*', minProfile: 'standard' },
   { name: 'cost-tracker', event: 'Stop', matcher: '*', minProfile: 'strict' },
   { name: 'sentinel-pre', event: 'PreToolUse', matcher: '*', minProfile: 'strict' },
   { name: 'sentinel-post', event: 'PostToolUse', matcher: '*', minProfile: 'strict' },

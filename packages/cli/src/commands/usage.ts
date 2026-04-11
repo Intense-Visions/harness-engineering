@@ -39,6 +39,18 @@ function formatTokenCount(count: number): string {
   return String(count);
 }
 
+function formatPercent(ratio: number): string {
+  return (ratio * 100).toFixed(1) + '%';
+}
+
+function computeCacheHitRate(
+  cacheReadTokens: number | undefined,
+  inputTokens: number
+): number | null {
+  if (cacheReadTokens == null || cacheReadTokens === 0 || inputTokens === 0) return null;
+  return cacheReadTokens / inputTokens;
+}
+
 function formatModels(models: string[]): string {
   if (models.length === 0) return 'unknown';
   if (models.length === 1) return models[0] ?? 'unknown';
@@ -70,15 +82,28 @@ function registerDailyCommand(usage: Command): void {
       const limited = dailyData.slice(0, days);
 
       if (globalOpts.json) {
-        console.log(JSON.stringify(limited, null, 2));
+        const enriched = limited.map((day) => {
+          const hitRate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
+          return {
+            ...day,
+            ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
+          };
+        });
+        console.log(JSON.stringify(enriched, null, 2));
         return;
       }
 
+      const hasCacheData = limited.some((d) => d.cacheReadTokens != null && d.cacheReadTokens > 0);
+
       // Table header
+      const cacheHeader = hasCacheData ? ' | Cache ' : '';
+      const cacheDivider = hasCacheData ? ' | ------' : '';
       const header =
-        'Date         | Sessions | Input     | Output    | Model(s)                     | Cost';
+        'Date         | Sessions | Input     | Output    | Model(s)                     | Cost  ' +
+        cacheHeader;
       const divider =
-        '-------------|----------|-----------|-----------|------------------------------|--------';
+        '-------------|----------|-----------|-----------|------------------------------|-------' +
+        cacheDivider;
       logger.info(header);
       logger.info(divider);
 
@@ -89,7 +114,15 @@ function registerDailyCommand(usage: Command): void {
         const output = formatTokenCount(day.tokens.outputTokens).padStart(9);
         const models = formatModels(day.models).padEnd(28);
         const cost = formatMicroUSD(day.costMicroUSD);
-        logger.info(`${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}`);
+        const cacheCol = hasCacheData
+          ? (() => {
+              const rate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
+              return ' | ' + (rate != null ? formatPercent(rate).padStart(5) : '    -');
+            })()
+          : '';
+        logger.info(
+          `${date} | ${sessions} | ${input} | ${output} | ${models} | ${cost}${cacheCol}`
+        );
       }
     });
 }
@@ -188,6 +221,12 @@ function printSessionDetail(match: SessionRecord): void {
   if (match.cacheCreationTokens != null) {
     logger.info(`  Cache creation tokens: ${formatTokenCount(match.cacheCreationTokens)}`);
   }
+  const hitRate = computeCacheHitRate(match.cacheReadTokens, match.tokens.inputTokens);
+  if (hitRate != null) {
+    logger.info('');
+    logger.info('Cache Performance:');
+    logger.info(`  Cache hit rate:        ${formatPercent(hitRate)}`);
+  }
   logger.info('');
   logger.info(`Cost: ${formatMicroUSD(match.costMicroUSD)}`);
 }
@@ -213,7 +252,12 @@ function registerSessionCommand(usage: Command): void {
       }
 
       if (globalOpts.json) {
-        console.log(JSON.stringify(match, null, 2));
+        const hitRate = computeCacheHitRate(match.cacheReadTokens, match.tokens.inputTokens);
+        const enriched = {
+          ...match,
+          ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
+        };
+        console.log(JSON.stringify(enriched, null, 2));
         return;
       }
 

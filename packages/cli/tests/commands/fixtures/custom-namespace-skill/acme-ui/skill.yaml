@@ -1,0 +1,12 @@
+name: acme-ui
+version: "1.0.0"
+description: Component guidance for Acme UI library
+command_namespace: acme
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools:
+  - Read
+type: flexible
+tier: 1

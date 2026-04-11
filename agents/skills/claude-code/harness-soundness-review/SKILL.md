@@ -1,6 +1,6 @@
 # Harness Soundness Review
 
-> Deep soundness analysis of specs and plans. Auto-fixes inferrable issues, surfaces design decisions to you. Runs automatically before sign-off — no extra commands needed.
+> Deep soundness analysis of specs and plans. Auto-fixes inferrable issues, surfaces design decisions to you. Runs automatically before sign-off.
 
 ## When to Use
 
@@ -13,8 +13,8 @@
 
 ## Arguments
 
-- **`--mode spec`** — Run spec-mode checks (S1-S7) against a draft spec. Invoked by harness-brainstorming.
-- **`--mode plan`** — Run plan-mode checks (P1-P7) against a draft plan. Invoked by harness-planning.
+- **`--mode spec`** — Run spec-mode checks (S1-S7). Invoked by harness-brainstorming.
+- **`--mode plan`** — Run plan-mode checks (P1-P7). Invoked by harness-planning.
 
 ## Process
 
@@ -26,18 +26,18 @@
 
 ### Finding Schema
 
-Every finding produced by a check conforms to this structure:
+Every finding conforms to this structure:
 
 ```json
 {
-  "id": "string — unique identifier for this finding",
-  "check": "string — check ID, e.g. S1, P3",
+  "id": "string — unique identifier",
+  "check": "string — e.g. S1, P3",
   "title": "string — one-line summary",
-  "detail": "string — full explanation with evidence",
-  "severity": "error | warning — errors block sign-off, warnings are advisory",
-  "autoFixable": "boolean — whether this can be fixed without user input",
-  "suggestedFix": "string | undefined — what the auto-fix would do, or suggestion for user",
-  "evidence": ["string[] — references to spec/plan sections, codebase files"]
+  "detail": "string — explanation with evidence",
+  "severity": "error | warning — errors block sign-off",
+  "autoFixable": "boolean — whether fixable without user input",
+  "suggestedFix": "string | undefined — what the fix would do",
+  "evidence": ["string[] — references to spec/plan sections and codebase files"]
 }
 ```
 
@@ -45,141 +45,122 @@ Every finding produced by a check conforms to this structure:
 
 ### Phase 1: CHECK — Run All Checks for Current Mode
 
-Execute all checks for the active mode. Classify each finding as `autoFixable: true` or `autoFixable: false`. Record the total issue count.
+Execute all checks for the active mode. Classify each finding as `autoFixable: true` or `false`. Record total issue count.
 
 #### Graph Detection and Fallback
 
 Before running checks, determine graph availability:
 
-1. Check whether `.harness/graph/` exists in the project root.
-2. If the directory exists, the following MCP tools are available for enhanced analysis during checks S3, S5, P1, P3, and P4:
-   - `query_graph` — traverse module and dependency nodes to verify referenced patterns exist and check architectural compatibility
-   - `find_context_for` — search the graph for related design decisions and assumptions from other specs
-   - `get_relationships` — get inbound/outbound relationships for a node to verify dependency direction and layer compliance
-   - `get_impact` — analyze downstream impact of file changes to verify dependency completeness and detect indirect conflicts
-3. If the directory does not exist, use the "Without graph" path for every check. Do not block, warn, or degrade the review — all checks produce useful results from document analysis and codebase reads alone.
+1. Check whether `.harness/graph/` exists.
+2. If present, these MCP tools enhance checks S3, S5, P1, P3, P4:
+   - `query_graph` — traverse module/dependency nodes to verify referenced patterns and architectural compatibility
+   - `find_context_for` — search for related design decisions from other specs
+   - `get_relationships` — verify dependency direction and layer compliance
+   - `get_impact` — analyze downstream impact to verify dependency completeness
+3. If absent, use the "Without graph" path for every check. Do not block or warn — all checks produce useful results from document analysis and codebase reads alone.
 
-The per-check procedures below include "Without graph" and "With graph" variants. Use the variant matching the detection result from step 1.
+Per-check procedures include "Without graph" and "With graph" variants. Use whichever matches step 1.
 
 #### Spec Mode Checks (`--mode spec`)
 
-| #   | Check                      | What it detects                                                                                | Auto-fixable?                                                 |
-| --- | -------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| S1  | Internal coherence         | Contradictions between decisions, technical design, and success criteria                       | No — surface to user                                          |
-| S2  | Goal-criteria traceability | Goals without success criteria; orphan criteria not tied to any goal                           | Yes — add missing links, flag orphans                         |
-| S3  | Unstated assumptions       | Implicit assumptions in the design not called out (e.g., single-tenant, always-online)         | Partially — infer and add obvious ones, surface ambiguous     |
-| S4  | Requirement completeness   | Missing error cases, edge cases, failure modes; apply EARS patterns for unwanted-behavior gaps | Partially — add obvious error cases, surface design-dependent |
-| S5  | Feasibility red flags      | Design depends on nonexistent codebase capabilities or incompatible patterns                   | No — surface to user with evidence                            |
-| S6  | YAGNI re-scan              | Speculative features that crept in during conversation                                         | No — surface to user (removing features is a design decision) |
-| S7  | Testability                | Vague success criteria that are not observable or measurable ("should be fast")                | Yes — add thresholds/specificity where inferrable             |
+| #   | Check                      | What it detects                                                              | Auto-fixable?                                                 |
+| --- | -------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| S1  | Internal coherence         | Contradictions between decisions, technical design, and success criteria     | No — surface to user                                          |
+| S2  | Goal-criteria traceability | Goals without success criteria; orphan criteria not tied to any goal         | Yes — add missing links, flag orphans                         |
+| S3  | Unstated assumptions       | Implicit assumptions not called out (e.g., single-tenant, always-online)     | Partially — infer obvious ones, surface ambiguous             |
+| S4  | Requirement completeness   | Missing error/edge cases, failure modes; EARS unwanted-behavior gaps         | Partially — add obvious error cases, surface design-dependent |
+| S5  | Feasibility red flags      | Design depends on nonexistent codebase capabilities or incompatible patterns | No — surface with evidence                                    |
+| S6  | YAGNI re-scan              | Speculative features that crept in during conversation                       | No — surface to user                                          |
+| S7  | Testability                | Vague success criteria not observable or measurable ("should be fast")       | Yes — add thresholds where inferrable                         |
 
 ##### S1 Internal Coherence
 
-**What to analyze:** Decisions table, Technical Design section, Success Criteria section, Non-goals section.
+**Analyze:** Decisions table, Technical Design, Success Criteria, Non-goals.
 
-**How to detect:**
+**Detection:**
 
-1. For each decision in the Decisions table, verify it is consistent with the Technical Design. A decision that says "use approach A" while the Technical Design describes approach B is a contradiction.
-2. For each success criterion, verify it does not contradict a decision or a non-goal. A criterion that requires behavior explicitly excluded by a non-goal is a contradiction.
-3. For each non-goal, verify no part of the Technical Design implements it. A non-goal with a corresponding implementation section is a contradiction.
-4. Flag any pair where one section asserts X and another section asserts not-X or a conflicting approach.
+1. Verify each decision is consistent with Technical Design. "Use approach A" in decisions + "approach B" in design = contradiction.
+2. Verify no success criterion contradicts a decision or non-goal.
+3. Verify no non-goal has a corresponding implementation section.
+4. Flag any pair where one section asserts X and another asserts not-X.
 
-**Finding classification:** Always `severity: "error"`, always `autoFixable: false`. Contradictions are design decisions — the user must resolve which side is correct.
+**Classification:** Always `severity: "error"`, `autoFixable: false`. Contradictions require user judgment.
 
-**Example finding:**
+**Example:**
 
 ```json
 {
   "id": "S1-001",
   "check": "S1",
   "title": "Decision contradicts Technical Design",
-  "detail": "Decision D3 says 'use SQLite for local storage' but Technical Design section 'Data Layer' describes a PostgreSQL schema with migrations. These are incompatible storage approaches.",
+  "detail": "D3 says 'use SQLite' but Technical Design > Data Layer describes PostgreSQL with migrations.",
   "severity": "error",
   "autoFixable": false,
-  "suggestedFix": "Align the Technical Design with the decision (use SQLite) or update the decision to reflect the PostgreSQL approach.",
-  "evidence": [
-    "Decisions table, row D3: 'Use SQLite for local storage'",
-    "Technical Design > Data Layer: 'PostgreSQL schema with up/down migrations'"
-  ]
+  "suggestedFix": "Align Technical Design with decision (SQLite) or update decision to PostgreSQL.",
+  "evidence": ["Decisions D3: 'Use SQLite'", "Technical Design > Data Layer: 'PostgreSQL schema'"]
 }
 ```
 
 ##### S2 Goal-Criteria Traceability
 
-**What to analyze:** Overview section (goals), Success Criteria section.
+**Analyze:** Overview (goals), Success Criteria.
 
-**How to detect:**
+**Detection:**
 
-1. Extract the stated goals from the Overview section. Goals are typically phrased as desired outcomes or capabilities the system should have after implementation.
-2. For each goal, check that at least one success criterion covers it. A goal without a corresponding criterion is a **gap** — there is no way to verify the goal was achieved.
-3. For each success criterion, check that it traces back to a stated goal or an explicit design decision. A criterion with no corresponding goal is an **orphan** — it may be testing something that was never requested.
-4. Flag gaps (goals without criteria) and orphans (criteria without goals) separately, as they have different fix strategies.
+1. Extract goals from Overview.
+2. For each goal, check at least one success criterion covers it. No match = **gap**.
+3. For each criterion, check it traces to a goal. No match = **orphan**.
+4. Flag gaps and orphans separately (different fix strategies).
 
-**Finding classification:**
+**Classification:**
 
-- Missing traceability links (goals without criteria): `severity: "warning"`, `autoFixable: true`. The fix is to add a new success criterion that covers the uncovered goal, derived from the Technical Design context.
-- Orphan criteria (criteria without goals): `severity: "warning"`, `autoFixable: false`. Removing or reassigning criteria is a design decision — the criterion may be intentional prerequisite work.
+- Missing links (goals without criteria): `severity: "warning"`, `autoFixable: true`. Fix: add criterion derived from Technical Design.
+- Orphan criteria: `severity: "warning"`, `autoFixable: false`. Removing criteria is a design decision.
 
-**Example findings:**
+**Example:**
 
 ```json
 {
   "id": "S2-001",
   "check": "S2",
   "title": "Goal has no success criterion",
-  "detail": "Overview goal 'Support offline mode' has no corresponding success criterion. There is no way to verify this goal was achieved.",
+  "detail": "Goal 'Support offline mode' has no corresponding criterion.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Add criterion: 'The application functions without network connectivity for all read operations, returning cached data when available.'",
-  "evidence": ["Overview: 'Support offline mode'", "Success Criteria: no match found"]
-}
-```
-
-```json
-{
-  "id": "S2-002",
-  "check": "S2",
-  "title": "Orphan criterion not tied to any goal",
-  "detail": "Success criterion 7 ('All API responses include request-id headers') does not trace to any stated goal in the Overview. It may be an operational requirement that should be added as a goal, or it may be out of scope.",
-  "severity": "warning",
-  "autoFixable": false,
-  "suggestedFix": "Either add a corresponding goal to the Overview (e.g., 'Support request tracing for debugging') or remove this criterion if it is out of scope.",
-  "evidence": [
-    "Success Criteria #7: 'All API responses include request-id headers'",
-    "Overview: no matching goal found"
-  ]
+  "suggestedFix": "Add: 'App functions without network for all read operations, returning cached data.'",
+  "evidence": ["Overview: 'Support offline mode'", "Success Criteria: no match"]
 }
 ```
 
 ##### S3 Unstated Assumptions
 
-**What to analyze:** Technical Design section, Decisions table, data structures, integration points.
+**Analyze:** Technical Design, Decisions table, data structures, integration points.
 
-**How to detect:**
+**Detection:**
 
-- **Document analysis:** Scan for implicit assumptions about runtime environment (single-process, always-online, specific OS), data characteristics (fits in memory, UTF-8 only, no concurrent access), deployment model (single-tenant, monolith, specific cloud provider), and user context (has admin access, uses specific tools). Check whether the spec explicitly states or acknowledges these assumptions.
-- **Without graph (codebase reads):** Read referenced source files (from Technical Design) to identify conventions the spec assumes but does not state (e.g., "uses the existing email utility" — does that utility exist? Does it have the expected interface?). Use Grep/Glob to verify referenced patterns and modules exist.
-- **With graph:** Use `query_graph` to find related modules and their documented assumptions. Use `find_context_for` to surface design decisions from related specs that may conflict.
+- **Document analysis:** Scan for implicit assumptions about runtime (single-process, always-online), data (fits in memory, UTF-8 only), deployment (single-tenant, specific cloud), user context (admin access). Check whether spec states them.
+- **Without graph:** Read referenced source files to identify conventions the spec assumes but does not state. Use Grep/Glob to verify referenced patterns exist.
+- **With graph:** Use `query_graph` for related modules' assumptions. Use `find_context_for` to surface conflicting design decisions.
 
-**Finding classification:**
+**Classification:**
 
-- Obvious assumptions (e.g., Node.js runtime, filesystem access, UTF-8 encoding): `severity: "warning"`, `autoFixable: true`. The fix is to add them to an explicit Assumptions section in the spec.
-- Ambiguous assumptions (e.g., single-tenant vs multi-tenant, concurrency model, deployment topology): `severity: "warning"`, `autoFixable: false`. The user must decide which assumption is correct.
+- Obvious (Node.js runtime, filesystem access, UTF-8): `severity: "warning"`, `autoFixable: true`. Fix: add to Assumptions section.
+- Ambiguous (single-tenant vs multi-tenant, concurrency model): `severity: "warning"`, `autoFixable: false`. User decides.
 
-**Example findings:**
+**Example:**
 
 ```json
 {
   "id": "S3-001",
   "check": "S3",
   "title": "Implicit Node.js runtime assumption",
-  "detail": "Technical Design references 'path.join' and 'fs.readFileSync' without stating the runtime environment. The spec assumes Node.js but does not declare it.",
+  "detail": "Technical Design references 'path.join' and 'fs.readFileSync' without declaring Node.js runtime.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Add to Assumptions section: 'Runtime: Node.js >= 18.x (LTS). The implementation uses Node.js built-in modules (fs, path, child_process).'",
+  "suggestedFix": "Add to Assumptions: 'Runtime: Node.js >= 18.x (LTS).'",
   "evidence": [
-    "Technical Design > File Operations: uses path.join, fs.readFileSync",
-    "No Assumptions section found in spec"
+    "Technical Design > File Operations: path.join, fs.readFileSync",
+    "No Assumptions section"
   ]
 }
 ```
@@ -189,48 +170,47 @@ The per-check procedures below include "Without graph" and "With graph" variants
   "id": "S3-002",
   "check": "S3",
   "title": "Ambiguous concurrency model",
-  "detail": "Technical Design describes a background job processor but does not specify whether it runs in-process (setTimeout/setInterval), as a separate worker thread, or as an independent process. This affects error isolation, memory limits, and deployment.",
+  "detail": "Technical Design describes a background job processor but does not specify in-process, worker thread, or separate process. Affects error isolation and deployment.",
   "severity": "warning",
   "autoFixable": false,
-  "suggestedFix": "Add a decision to the Decisions table specifying the concurrency model: in-process event loop, worker_threads, or separate process.",
+  "suggestedFix": "Add decision specifying concurrency model: in-process event loop, worker_threads, or separate process.",
   "evidence": [
     "Technical Design > Job Processor: 'processes background jobs'",
-    "Decisions table: no entry for concurrency model"
+    "Decisions table: no concurrency entry"
   ]
 }
 ```
 
 ##### S4 Requirement Completeness
 
-**What to analyze:** Technical Design section (especially data structures, API endpoints, integration points), Success Criteria section.
+**Analyze:** Technical Design (data structures, API endpoints, integration points), Success Criteria.
 
-**How to detect:**
+**Detection:**
 
-- **Error cases:** For each data structure, identify what happens when fields are missing, null, or malformed. For each API endpoint or function, identify error responses. Flag any operation that has no defined error behavior.
-- **Edge cases:** For each numeric field, check if boundary values are specified (zero, negative, overflow). For each string field, check if empty string, very long string, and special character handling is defined. For each collection, check if empty collection behavior is defined.
-- **Failure modes:** For each external dependency (network call, file I/O, third-party service), check if timeout, unavailability, and partial failure behaviors are defined. Apply the EARS "Unwanted" pattern: "If [failure condition], then the system shall [graceful behavior]."
-- **Codebase context:** Read referenced modules to identify error patterns already established in the codebase that the spec should follow.
+- **Error cases:** For each operation, identify what happens on missing/null/malformed input. Flag operations with no defined error behavior.
+- **Edge cases:** For each numeric field, check boundary values (zero, negative, overflow). For each string field, check empty string, very long string, and special character handling. For each collection, check empty collection behavior.
+- **Failure modes:** For each external dependency, check timeout/unavailability/partial-failure behaviors. Apply EARS "Unwanted" pattern: "If [failure], then system shall [graceful behavior]."
+- **Codebase context:** Read referenced modules for established error patterns.
 
-**Finding classification:**
+**Classification:**
 
-- Obvious error cases (missing error handling for file I/O, network calls, JSON parsing): `severity: "warning"`, `autoFixable: true`. The fix is to add the error case following established codebase patterns.
-- Design-dependent error handling (what to do when a service is down — retry? cache? fail?): `severity: "warning"`, `autoFixable: false`. The user must decide the error strategy.
+- Obvious error cases (file I/O, network, JSON parsing): `severity: "warning"`, `autoFixable: true`. Fix follows codebase patterns.
+- Design-dependent error handling (retry? cache? fail?): `severity: "warning"`, `autoFixable: false`.
 
-**Example findings:**
+**Example:**
 
 ```json
 {
   "id": "S4-001",
   "check": "S4",
   "title": "Missing file-not-found error case",
-  "detail": "Technical Design describes reading a config file with fs.readFileSync but does not specify behavior when the file does not exist. The codebase convention (see packages/core/src/config.ts) is to return a default config object.",
+  "detail": "Config read with fs.readFileSync has no ENOENT handling. Codebase convention (packages/core/src/config.ts) returns defaults.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Add error case: 'If the config file does not exist (ENOENT), return the default configuration object. Log a debug message indicating defaults are being used.'",
+  "suggestedFix": "Add: 'If config file missing (ENOENT), return default config. Log debug message.'",
   "evidence": [
-    "Technical Design > Configuration: 'read config from harness.config.json'",
-    "No error handling specified for missing file",
-    "Codebase pattern: packages/core/src/config.ts returns defaults on ENOENT"
+    "Technical Design: 'read config from harness.config.json'",
+    "Codebase: config.ts returns defaults on ENOENT"
   ]
 }
 ```
@@ -240,306 +220,270 @@ The per-check procedures below include "Without graph" and "With graph" variants
   "id": "S4-002",
   "check": "S4",
   "title": "Undefined retry strategy for external service",
-  "detail": "Technical Design describes calling an external API for license validation but does not specify behavior when the API is unavailable, times out, or returns an error. This is a design decision that affects user experience (block vs. degrade gracefully).",
+  "detail": "Technical Design calls an external API for license validation but specifies no timeout, unavailability, or error behavior. Design decision affects UX (block vs degrade).",
   "severity": "warning",
   "autoFixable": false,
-  "suggestedFix": "Add a decision: 'When the license API is unavailable: (a) fail open — allow usage with a warning, (b) fail closed — block usage until validated, or (c) cache — use last known result for N hours.'",
+  "suggestedFix": "Add decision: 'When license API unavailable: (a) fail open with warning, (b) fail closed, or (c) cache last result for N hours.'",
   "evidence": [
     "Technical Design > License Check: 'call /api/validate on startup'",
-    "No timeout, retry, or fallback behavior specified"
+    "No fallback behavior specified"
   ]
 }
 ```
 
 ##### S5 Feasibility Red Flags
 
-**What to analyze:** Technical Design section (referenced modules, dependencies, patterns, APIs).
+**Analyze:** Technical Design (referenced modules, dependencies, patterns, APIs).
 
-**How to detect:**
+**Detection:**
 
-- **Without graph (codebase reads):** For each module, function, or class referenced in the Technical Design, use Glob/Grep to verify it exists in the codebase. For each API or interface referenced, read the source to verify the expected signature matches. For each pattern referenced ("uses the existing X"), verify X exists and has the capabilities assumed. Flag references to nonexistent modules, functions with different signatures than assumed, or patterns incompatible with the codebase architecture.
-- **With graph:** Use `query_graph` to verify referenced modules exist and check their dependency relationships. Use `get_relationships` to verify architectural compatibility (e.g., a module in layer A should not depend on layer B). Use `get_impact` to assess whether the proposed changes have cascading effects not accounted for in the spec.
+- **Without graph:** For each referenced module/function/class, use Glob/Grep to verify existence. Read source to verify expected signatures match. Flag nonexistent modules, wrong signatures, incompatible patterns.
+- **With graph:** Use `query_graph` to verify modules exist and check dependencies. Use `get_relationships` for architectural compatibility. Use `get_impact` for cascading effects not in spec.
 
-**Finding classification:** Always `severity: "error"`, always `autoFixable: false`. Feasibility problems require the user to revise the technical design.
+**Classification:** Always `severity: "error"`, `autoFixable: false`. Feasibility problems require design revision.
 
-**Example finding:**
+**Example:**
 
 ```json
 {
   "id": "S5-001",
   "check": "S5",
   "title": "Referenced function has different signature",
-  "detail": "Technical Design says 'call validateDependencies(projectPath)' but the actual function signature is 'validateDependencies(config: ProjectConfig): ValidationResult'. The spec assumes a simpler interface than what exists.",
+  "detail": "Spec says 'validateDependencies(projectPath)' but actual signature is 'validateDependencies(config: ProjectConfig): ValidationResult'.",
   "severity": "error",
   "autoFixable": false,
-  "suggestedFix": "Update the Technical Design to use the actual signature: validateDependencies(config) where config is a ProjectConfig object. This may require adding a config construction step before the call.",
+  "suggestedFix": "Update Technical Design to use actual signature with ProjectConfig parameter.",
   "evidence": [
-    "Technical Design > Validation: 'call validateDependencies(projectPath)'",
-    "packages/core/src/validator.ts:42: export function validateDependencies(config: ProjectConfig): ValidationResult"
+    "Technical Design: 'call validateDependencies(projectPath)'",
+    "packages/core/src/validator.ts:42: actual signature"
   ]
 }
 ```
 
 ##### S6 YAGNI Re-scan
 
-**What to analyze:** Technical Design section, Decisions table, Implementation Order.
+**Analyze:** Technical Design, Decisions table, Implementation Order.
 
-**How to detect:**
+**Detection:**
 
-1. For each technical component, interface, or configuration option described in Technical Design, check whether it is required by a stated goal or success criterion. Flag components that exist "for future use", "in case we need", or that implement functionality explicitly listed in Non-goals.
-2. Flag decision rationale that references hypothetical future requirements rather than current needs (e.g., "we might need this later", "for extensibility", "in case the requirements change").
-3. Flag configuration options that toggle features not yet defined in any goal or criterion.
-4. Flag abstraction layers or interfaces introduced solely for "flexibility" without a concrete current consumer.
+1. For each component/interface/config option, check whether a goal or criterion requires it. Flag "for future use" or "in case we need" items.
+2. Flag decision rationale referencing hypothetical future requirements.
+3. Flag config options toggling undefined features.
+4. Flag abstraction layers introduced solely for "flexibility" with no current consumer.
 
-**Finding classification:** Always `severity: "warning"`, always `autoFixable: false`. Removing speculative features is a design decision — the user must decide whether the feature is truly needed now or can be deferred.
+**Classification:** Always `severity: "warning"`, `autoFixable: false`. Removing features is a design decision.
 
-**Example finding:**
+**Example:**
 
 ```json
 {
   "id": "S6-001",
   "check": "S6",
   "title": "Speculative configuration option",
-  "detail": "Technical Design defines a 'pluginDir' configuration option for loading third-party plugins, but no goal or success criterion mentions plugins. The Non-goals section does not exclude plugins, but no current requirement needs them.",
+  "detail": "'pluginDir' config option defined but no goal/criterion mentions plugins.",
   "severity": "warning",
   "autoFixable": false,
-  "suggestedFix": "Remove the pluginDir configuration option and plugin loading logic from the Technical Design. If plugin support is needed later, it can be added in a future spec.",
-  "evidence": [
-    "Technical Design > Configuration: 'pluginDir: string — directory for third-party plugins'",
-    "Overview goals: no mention of plugins",
-    "Success Criteria: no criterion references plugins"
-  ]
+  "suggestedFix": "Remove pluginDir and plugin loading from Technical Design.",
+  "evidence": ["Technical Design: 'pluginDir: string'", "Overview/Criteria: no plugin mention"]
 }
 ```
 
 ##### S7 Testability
 
-**What to analyze:** Success Criteria section.
+**Analyze:** Success Criteria.
 
-**How to detect:**
+**Detection:**
 
-1. For each success criterion, evaluate whether it is observable and measurable. A testable criterion describes a specific behavior that can be verified with a concrete test or measurement.
-2. Flag criteria that use vague qualifiers without specific thresholds: "should be fast", "handles errors well", "is user-friendly", "scales appropriately", "is robust", "performs efficiently".
-3. Flag criteria that describe internal implementation details rather than externally observable outcomes (e.g., "uses a clean architecture" — what does "clean" mean in observable terms?).
-4. For vague criteria where the Technical Design provides context, infer a specific threshold. For example, if the Technical Design mentions a 100ms timeout, "should be fast" can be replaced with "responds within 100ms".
+1. Evaluate each criterion for observability and measurability.
+2. Flag vague qualifiers: "should be fast", "handles errors well", "is user-friendly", "scales appropriately".
+3. Flag criteria describing internal implementation rather than observable outcomes.
+4. Where Technical Design provides context, infer a specific threshold.
 
-**Finding classification:**
+**Classification:**
 
-- Vague criteria with inferrable thresholds (context in Technical Design provides a specific number or behavior): `severity: "warning"`, `autoFixable: true`. The fix is to replace the vague qualifier with the specific threshold or observable behavior derived from the Technical Design.
-- Criteria that are fundamentally unmeasurable (subjective quality, aesthetic judgment, no Technical Design context to infer from): `severity: "error"`, `autoFixable: false`. The user must rewrite the criterion to be observable.
+- Vague with inferrable threshold: `severity: "warning"`, `autoFixable: true`. Fix: replace vague qualifier with specific threshold.
+- Fundamentally unmeasurable: `severity: "error"`, `autoFixable: false`. User must rewrite.
 
-**Example findings:**
+**Example:**
 
 ```json
 {
   "id": "S7-001",
   "check": "S7",
   "title": "Vague performance criterion",
-  "detail": "Success criterion 3 says 'the build should be fast' without specifying a threshold. The Technical Design mentions a 30-second CI timeout, suggesting a concrete threshold exists.",
+  "detail": "Criterion #3 says 'build should be fast'. Technical Design mentions 30-second CI timeout.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Replace 'the build should be fast' with 'the build completes in under 30 seconds on CI (as specified in Technical Design > CI Configuration).'",
-  "evidence": [
-    "Success Criteria #3: 'the build should be fast'",
-    "Technical Design > CI Configuration: '30-second timeout'"
-  ]
-}
-```
-
-```json
-{
-  "id": "S7-002",
-  "check": "S7",
-  "title": "Unmeasurable quality criterion",
-  "detail": "Success criterion 8 says 'the code is clean and maintainable'. This is a subjective judgment with no observable behavior. There is no Technical Design context to infer specific metrics.",
-  "severity": "error",
-  "autoFixable": false,
-  "suggestedFix": "Rewrite with observable criteria, e.g., 'all functions are under 50 lines, cyclomatic complexity under 10, no eslint warnings' or remove if covered by existing linting rules.",
-  "evidence": [
-    "Success Criteria #8: 'the code is clean and maintainable'",
-    "No Technical Design context for measurable thresholds"
-  ]
+  "suggestedFix": "Replace with 'build completes in under 30 seconds on CI'.",
+  "evidence": ["Criteria #3: 'build should be fast'", "Technical Design > CI: '30-second timeout'"]
 }
 ```
 
 #### Plan Mode Checks (`--mode plan`)
 
-| #   | Check                  | What it detects                                                                     | Auto-fixable?                                                      |
-| --- | ---------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| P1  | Spec-plan coverage     | Success criteria from spec with no corresponding task(s)                            | Yes — add missing tasks                                            |
-| P2  | Task completeness      | Tasks missing clear inputs, outputs, or verification criteria                       | Yes — infer from context and fill in                               |
-| P3  | Dependency correctness | Cycles in dependency graph; task B uses output of A but does not declare dependency | Yes — add missing dependency edges                                 |
-| P4  | Ordering sanity        | Tasks touching same files scheduled in parallel; consumers before producers         | Yes — reorder                                                      |
-| P5  | Risk coverage          | Spec risks without mitigation in plan (no task or explicit acceptance)              | Partially — add mitigation tasks for obvious risks, surface others |
-| P6  | Scope drift            | Plan tasks not traceable to any spec requirement                                    | No — surface to user (might be intentional prerequisite work)      |
-| P7  | Task-level feasibility | Tasks requiring decisions not made in brainstorming; tasks too vague to execute     | No — surface to user                                               |
+| #   | Check                  | What it detects                                         | Auto-fixable?                           |
+| --- | ---------------------- | ------------------------------------------------------- | --------------------------------------- |
+| P1  | Spec-plan coverage     | Success criteria with no corresponding task(s)          | Yes — add missing tasks                 |
+| P2  | Task completeness      | Tasks missing inputs, outputs, or verification          | Yes — infer and fill in                 |
+| P3  | Dependency correctness | Cycles in dependency graph; undeclared dependencies     | Yes — add missing edges                 |
+| P4  | Ordering sanity        | Same-file tasks in parallel; consumers before producers | Yes — reorder                           |
+| P5  | Risk coverage          | Spec risks without mitigation in plan                   | Partially — add obvious, surface others |
+| P6  | Scope drift            | Plan tasks not traceable to any spec requirement        | No — surface to user                    |
+| P7  | Task-level feasibility | Undecided dependencies; tasks too vague to execute      | No — surface to user                    |
 
 ##### P1 Spec-Plan Coverage
 
-**What to analyze:** The spec's Success Criteria section and the plan's Tasks section. Requires access to both the spec document (referenced in the plan header) and the plan being reviewed.
+**Analyze:** Spec's Success Criteria and plan's Tasks. Requires both documents.
 
-**How to detect:**
+**Detection:**
 
-- Without graph: Extract each numbered success criterion from the spec. For each criterion, search the plan's task descriptions, verification steps, and observable truths for text that covers the criterion. A criterion is "covered" if at least one task's verification step or observable truth would confirm the criterion is met. Flag any criterion with no corresponding task coverage.
-- With graph: If graph traceability edges exist between spec criteria and plan tasks, use those edges to verify coverage. Flag criteria with no inbound traceability edge.
+- Without graph: Extract each criterion. Search plan tasks' descriptions, verification steps, and observable truths for coverage. Flag criteria with no task coverage.
+- With graph: Use traceability edges between criteria and tasks. Flag criteria with no inbound edge.
 
-**Finding classification:** Always `severity: "error"`, always `autoFixable: true`. The fix is to add a new task (or extend an existing task's verification step) that covers the uncovered criterion.
+**Classification:** Always `severity: "error"`, `autoFixable: true`. Fix: add task covering the criterion.
 
-**Example finding:**
+**Example:**
 
 ```json
 {
   "id": "P1-001",
   "check": "P1",
   "title": "Spec criterion not covered by any plan task",
-  "detail": "Success criterion #4 ('All API errors return structured error responses with request-id') has no corresponding task in the plan. No task's verification step or observable truth would confirm this criterion is met.",
+  "detail": "Criterion #4 ('structured error responses with request-id') has no plan task.",
   "severity": "error",
   "autoFixable": true,
-  "suggestedFix": "Add a new task that implements structured error responses and verifies request-id headers are included. Place it after the API route tasks (Task 3) with appropriate dependencies.",
-  "evidence": [
-    "Spec Success Criteria #4: 'All API errors return structured error responses with request-id'",
-    "Plan Tasks 1-8: no task references error response format or request-id"
-  ]
+  "suggestedFix": "Add task implementing structured error responses with request-id headers.",
+  "evidence": ["Spec Criteria #4", "Plan Tasks 1-8: no task references error format"]
 }
 ```
 
 ##### P2 Task Completeness
 
-**What to analyze:** Each task in the plan's Tasks section.
+**Analyze:** Each task in the Tasks section.
 
-**How to detect:** For each task, verify it has: (a) clear inputs (what files/artifacts the task reads or depends on), (b) clear outputs (what files the task creates or modifies), (c) a verification criterion (a test command, observable behavior, or check that confirms the task succeeded). Flag tasks missing any of these three elements.
+**Detection:** Verify each task has: (a) clear inputs, (b) clear outputs, (c) verification criterion. Flag tasks missing any element.
 
-**Finding classification:** Always `severity: "warning"`, always `autoFixable: true`. The fix is to infer the missing element from the task description and surrounding context (e.g., if a task says "create src/foo.ts" but has no verification, add "Run: `npx vitest run src/foo.test.ts`" if a test file exists in the plan, or "Run: `tsc --noEmit`" as a minimal verification).
+**Classification:** Always `severity: "warning"`, `autoFixable: true`. Fix: infer the missing element from context (e.g., if a task says "create src/foo.ts" but has no verification, add "Run: `npx vitest run src/foo.test.ts`" if a test file exists, or "Run: `tsc --noEmit`" as minimal verification).
 
-**Example finding:**
+**Example:**
 
 ```json
 {
   "id": "P2-001",
   "check": "P2",
   "title": "Task missing verification criterion",
-  "detail": "Task 3 ('Create notification service') specifies inputs (notification types from Task 1) and outputs (src/services/notification-service.ts) but has no verification criterion. There is no test command, observable behavior, or check that confirms the task succeeded.",
+  "detail": "Task 3 has inputs and outputs but no verification step.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Add verification: 'Run: `npx vitest run src/services/notification-service.test.ts`' (test file exists in Task 4 of the plan).",
-  "evidence": [
-    "Task 3: no 'Run:', 'Verify:', or 'Check:' step found",
-    "Task 4 creates src/services/notification-service.test.ts — can be referenced as verification"
-  ]
+  "suggestedFix": "Add: 'Run: npx vitest run src/services/notification-service.test.ts'",
+  "evidence": ["Task 3: no 'Run:' or 'Verify:' step", "Task 4 creates the test file"]
 }
 ```
 
 ##### P3 Dependency Correctness
 
-**What to analyze:** The "Depends on" declarations across all tasks, and the file paths / artifacts referenced in each task.
+**Analyze:** "Depends on" declarations across all tasks, file paths/artifacts each task references.
 
-**How to detect:**
+**Detection:**
 
-- Build a dependency graph from all "Depends on: Task N" declarations.
-- **Cycle detection:** Run a topological sort on the graph. If the sort fails, a cycle exists. Report the cycle as the set of tasks involved (e.g., "Task 3 -> Task 5 -> Task 3").
-- **Missing edges:** For each task, extract the files it reads or imports. If a file is created by another task (check the File Map), verify the creating task is declared as a dependency. Flag missing edges.
-- Without graph (static analysis): Parse file paths from task descriptions ("Create src/types/foo.ts", "Modify src/services/bar.ts") and match creators to consumers.
-- With graph: Use `get_impact` on each task's output files to verify that all downstream consumers are declared as dependents. Graph edges provide more accurate dependency data than text parsing.
+- Build dependency graph from all "Depends on: Task N" declarations.
+- **Cycle detection:** Topological sort. Failure = cycle. Report involved tasks.
+- **Missing edges:** For each task, extract files it reads/imports. If created by another task (per File Map), verify dependency is declared.
+- Without graph: Parse file paths from task descriptions and File Map.
+- With graph: Use `get_impact` on output files to verify downstream consumers are declared as dependents.
 
-**Finding classification:**
+**Classification:**
 
-- Cycles: `severity: "error"`, `autoFixable: false`. Cycles indicate a decomposition error that requires restructuring tasks. Surface to user.
-- Missing dependency edges: `severity: "warning"`, `autoFixable: true`. The fix is to add the missing "Depends on" declaration to the consuming task.
+- Cycles: `severity: "error"`, `autoFixable: false`. Requires task restructuring.
+- Missing edges: `severity: "warning"`, `autoFixable: true`. Fix: add "Depends on" declaration.
 
-**Example findings:**
-
-```json
-{
-  "id": "P3-001",
-  "check": "P3",
-  "title": "Dependency cycle detected",
-  "detail": "Tasks form a cycle: Task 3 depends on Task 5, Task 5 depends on Task 3. Topological sort fails. These tasks cannot be executed in any valid order without restructuring.",
-  "severity": "error",
-  "autoFixable": false,
-  "suggestedFix": "Break the cycle by merging Tasks 3 and 5 into a single task, or by extracting the shared dependency into a new task that both depend on.",
-  "evidence": [
-    "Task 3: 'Depends on: Task 5'",
-    "Task 5: 'Depends on: Task 3'",
-    "Topological sort failed — cycle: Task 3 -> Task 5 -> Task 3"
-  ]
-}
-```
+**Example:**
 
 ```json
 {
   "id": "P3-002",
   "check": "P3",
   "title": "Missing dependency edge",
-  "detail": "Task 5 imports from 'src/types/notification.ts' which is created by Task 1, but Task 5 does not declare 'Depends on: Task 1'. If Task 5 runs before Task 1, it will fail.",
+  "detail": "Task 5 imports src/types/notification.ts (created by Task 1) but does not declare dependency.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Add 'Depends on: Task 1' to Task 5's header.",
+  "suggestedFix": "Add 'Depends on: Task 1' to Task 5.",
   "evidence": [
-    "Task 5: imports src/types/notification.ts",
-    "File Map: src/types/notification.ts created by Task 1",
-    "Task 5 'Depends on' line: 'Depends on: Task 4' (Task 1 not listed)"
+    "Task 5: imports notification.ts",
+    "File Map: created by Task 1",
+    "Task 5 Depends on: Task 4 only"
+  ]
+}
+```
+
+```json
+{
+  "id": "P3-001",
+  "check": "P3",
+  "title": "Dependency cycle detected",
+  "detail": "Tasks form a cycle: Task 3 -> Task 5 -> Task 3. Topological sort fails.",
+  "severity": "error",
+  "autoFixable": false,
+  "suggestedFix": "Break cycle by merging Tasks 3 and 5, or extract shared dependency into a new task.",
+  "evidence": [
+    "Task 3: 'Depends on: Task 5'",
+    "Task 5: 'Depends on: Task 3'",
+    "Topological sort failed"
   ]
 }
 ```
 
 ##### P4 Ordering Sanity
 
-**What to analyze:** The task execution order (numbering and dependency graph), the file paths each task touches, and any parallel opportunities declared.
+**Analyze:** Task execution order, file paths each task touches, parallel opportunities.
 
-**How to detect:**
+**Detection:**
 
-- **File conflict detection:** Extract file paths from each task. If two tasks touch the same file and are not sequenced by a dependency edge (one could run before the other), flag them as a potential conflict. Tasks touching the same file must be ordered.
-- **Consumer-before-producer:** If Task A creates a type or export that Task B imports, but Task B has a lower number and no dependency on Task A, the consumer is scheduled before the producer. Flag the ordering violation.
-- Without graph: Parse file paths from task descriptions and the File Map. Build a file-to-task mapping and check for conflicts.
-- With graph: Use graph file ownership data to get accurate file-to-module mappings. This catches indirect conflicts (e.g., two tasks modify different files in the same module, and the module has a single barrel export that both affect).
+- **File conflict:** If two tasks touch the same file without a dependency edge, flag as potential conflict.
+- **Consumer-before-producer:** If Task A creates something Task B imports, but B is numbered before A with no dependency, flag it.
+- Without graph: Parse file paths from descriptions and File Map.
+- With graph: Use file ownership data for accurate conflict detection including indirect conflicts (barrel exports).
 
-**Finding classification:** Always `severity: "warning"`, always `autoFixable: true`. The fix is to reorder the tasks (update task numbers and "Depends on" declarations) so that producers come before consumers and file-conflicting tasks are sequenced.
+**Classification:** Always `severity: "warning"`, `autoFixable: true`. Fix: reorder tasks or add dependency edges.
 
-**Example finding:**
+**Example:**
 
 ```json
 {
   "id": "P4-001",
   "check": "P4",
-  "title": "Consumer task scheduled before producer",
-  "detail": "Task 2 imports from 'src/types/user.ts' which is created by Task 4. Task 2 has no dependency on Task 4, so it could execute first and fail on the missing import.",
+  "title": "Consumer scheduled before producer",
+  "detail": "Task 2 imports from src/types/user.ts created by Task 4, with no dependency declared.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Add 'Depends on: Task 4' to Task 2, or reorder so the type definition task (currently Task 4) comes before Task 2.",
-  "evidence": [
-    "Task 2: 'import { User } from src/types/user.ts'",
-    "Task 4: 'Create src/types/user.ts with User interface'",
-    "Task 2 'Depends on': 'none' (Task 4 not listed)"
-  ]
+  "suggestedFix": "Add 'Depends on: Task 4' to Task 2, or reorder type definition before Task 2.",
+  "evidence": ["Task 2: imports user.ts", "Task 4: creates user.ts", "Task 2 Depends on: none"]
 }
 ```
 
 ##### P5 Risk Coverage
 
-**What to analyze:** The spec's risk-related content (any section mentioning risks, caveats, concerns, open questions) and the plan's tasks and checkpoints.
+**Analyze:** Spec's risk-related content and plan's tasks/checkpoints.
 
-**How to detect:** Identify risks stated in the spec. These appear in: explicit "Risks" sections, decision rationale mentioning tradeoffs, success criteria that imply failure modes, non-goals that have adjacent risk (e.g., "not in CI" implies no automated gate). For each identified risk, check whether the plan contains: (a) a task that directly mitigates it, (b) a checkpoint that acknowledges it, or (c) an explicit "accepted risk" note. Flag risks with no coverage.
+**Detection:** Identify risks in: explicit "Risks" sections, decision rationale mentioning tradeoffs, success criteria implying failure modes, non-goals with adjacent risk. For each, check plan for: (a) mitigation task, (b) acknowledging checkpoint, or (c) explicit "accepted risk" note. Flag uncovered risks.
 
-**Finding classification:**
+**Classification:**
 
-- Obvious mitigation (the risk is technical and a straightforward task addresses it, e.g., "add error handling for X"): `severity: "warning"`, `autoFixable: true`. The fix is to add a mitigation task or extend an existing task's verification step.
-- Judgment-dependent mitigation (the risk involves a design tradeoff, e.g., "performance vs correctness" or "scope vs timeline"): `severity: "warning"`, `autoFixable: false`. Surface to user with mitigation options.
+- Obvious mitigation (technical, straightforward): `severity: "warning"`, `autoFixable: true`. Fix: add mitigation task.
+- Judgment-dependent (design tradeoff): `severity: "warning"`, `autoFixable: false`. Surface with options.
 
-**Example findings:**
+**Example:**
 
 ```json
 {
   "id": "P5-001",
   "check": "P5",
   "title": "Spec risk has no mitigation in plan",
-  "detail": "The spec identifies 'convergence loop may not terminate' as a risk in the Risks section, but no plan task tests termination behavior. The mitigation is straightforward: add a test that verifies the loop terminates on fixed-point inputs.",
+  "detail": "Risk 'convergence loop may not terminate' has no plan task testing termination.",
   "severity": "warning",
   "autoFixable": true,
-  "suggestedFix": "Add a task that tests convergence termination with inputs that produce a fixed point (zero auto-fixable findings on first pass).",
-  "evidence": [
-    "Spec Risks: 'The convergence loop may not terminate if auto-fixes oscillate'",
-    "Plan Tasks 1-8: no task references termination testing or loop bounds"
-  ]
+  "suggestedFix": "Add task testing convergence termination with fixed-point inputs.",
+  "evidence": ["Spec Risks: 'loop may not terminate'", "Plan Tasks 1-8: no termination test"]
 }
 ```
 
@@ -548,73 +492,64 @@ The per-check procedures below include "Without graph" and "With graph" variants
   "id": "P5-002",
   "check": "P5",
   "title": "Risk requires design judgment to mitigate",
-  "detail": "The spec notes 'auto-fix may introduce new issues' as a risk. Mitigation depends on a design choice: (a) add a rollback mechanism, (b) limit auto-fixes to one pass, or (c) require human approval for cascading fixes. This is a design tradeoff the user must decide.",
+  "detail": "Spec notes 'auto-fix may introduce new issues'. Mitigation depends on design choice: (a) rollback mechanism, (b) single-pass limit, or (c) human approval for cascading fixes.",
   "severity": "warning",
   "autoFixable": false,
-  "suggestedFix": "Choose a mitigation strategy: (a) rollback mechanism — add undo capability, (b) single-pass limit — simpler but less thorough, (c) human gate — safer but slower.",
+  "suggestedFix": "Choose strategy: (a) rollback — add undo capability, (b) single-pass — simpler but less thorough, (c) human gate — safer but slower.",
   "evidence": [
-    "Spec Risks: 'Auto-fixes may introduce new issues in subsequent passes'",
-    "No mitigation strategy specified in spec Decisions table"
+    "Spec Risks: 'Auto-fixes may introduce new issues'",
+    "Decisions: no mitigation strategy"
   ]
 }
 ```
 
 ##### P6 Scope Drift
 
-**What to analyze:** The plan's tasks and the spec's goals, success criteria, and technical design.
+**Analyze:** Plan tasks vs spec goals, success criteria, and technical design.
 
-**How to detect:** For each plan task, check whether it is traceable to a spec requirement. A task is traceable if it (a) directly implements a success criterion, (b) is a necessary prerequisite for a task that implements a criterion (type definitions, shared utilities), or (c) is infrastructure work explicitly called for in the spec's implementation order. Flag tasks that cannot be traced to any spec requirement.
+**Detection:** For each plan task, check traceability: (a) directly implements a criterion, (b) necessary prerequisite, or (c) infrastructure called for in spec. Flag untraceable tasks.
 
-**Finding classification:** Always `severity: "warning"`, always `autoFixable: false`. Untraceable tasks might be intentional prerequisite work that the planner identified as necessary. The user must confirm whether each flagged task is in scope or should be removed.
+**Classification:** Always `severity: "warning"`, `autoFixable: false`. User confirms whether each flagged task is in scope.
 
-**Example finding:**
+**Example:**
 
 ```json
 {
   "id": "P6-001",
   "check": "P6",
   "title": "Plan task not traceable to spec requirement",
-  "detail": "Task 8 ('Add Redis caching layer for API responses') is not traceable to any spec goal, success criterion, or technical design section. The spec does not mention caching, Redis, or response-time optimization.",
+  "detail": "Task 8 ('Add Redis caching layer') not traceable to any spec goal or criterion.",
   "severity": "warning",
   "autoFixable": false,
-  "suggestedFix": "Either (a) remove Task 8 if caching is not needed for the current scope, or (b) add a corresponding goal and success criterion to the spec if caching is a genuine requirement.",
-  "evidence": [
-    "Task 8: 'Add Redis caching layer for API responses'",
-    "Spec goals: no mention of caching or performance optimization",
-    "Spec success criteria: no criterion references response time or caching",
-    "Spec technical design: no caching architecture described"
-  ]
+  "suggestedFix": "Remove Task 8, or add corresponding goal/criterion to spec.",
+  "evidence": ["Task 8: 'Redis caching'", "Spec: no mention of caching"]
 }
 ```
 
 ##### P7 Task-Level Feasibility
 
-**What to analyze:** Each task's description, file paths, code snippets, and referenced decisions.
+**Analyze:** Each task's description, file paths, code snippets, referenced decisions.
 
-**How to detect:**
+**Detection:**
 
-- **Undecided dependencies:** Check whether any task requires a design decision that was not made during brainstorming. Indicators: task description says "depending on the approach chosen", "if we go with option A", or references a decision not present in the spec's Decisions table.
-- **Vague instructions:** Check whether any task lacks the specificity required by the harness-planning iron law ("every task must be completable in one context window"). Indicators: task says "implement the service" without specifying which functions, "add validation" without specifying what validation rules, or "handle errors" without specifying which errors and how.
-- **Oversized tasks:** Check whether any task touches more than 3 files, or combines multiple independent concerns (e.g., "create the type, implement the service, write tests, and integrate with the API" in a single task).
+- **Undecided dependencies:** Task requires a decision not in spec's Decisions table. Indicators: "depending on approach chosen", "if we go with option A".
+- **Vague instructions:** Task lacks specificity for single-context-window completion. Indicators: "implement the service" without function list, "add validation" without rules.
+- **Oversized tasks:** Task touches >3 files or combines multiple independent concerns.
 
-**Finding classification:** Always `severity: "error"`, always `autoFixable: false`. Feasibility problems require the planner to revise the task — either by making a decision, splitting the task, or adding specificity. These are judgment calls that an auto-fix cannot resolve correctly.
+**Classification:** Always `severity: "error"`, `autoFixable: false`. Requires planner revision.
 
-**Example findings:**
+**Example:**
 
 ```json
 {
   "id": "P7-001",
   "check": "P7",
   "title": "Task depends on undecided design choice",
-  "detail": "Task 7 says 'implement caching layer' but the spec's Decisions table has no entry for caching strategy (LRU, TTL, write-through, etc.). The task cannot be executed without knowing which caching approach to use.",
+  "detail": "Task 7 says 'implement caching layer' but Decisions table has no caching strategy entry.",
   "severity": "error",
   "autoFixable": false,
-  "suggestedFix": "Make the caching decision in the spec's Decisions table (e.g., 'D5: Use LRU cache with 5-minute TTL'), then update Task 7 with the specific implementation details.",
-  "evidence": [
-    "Task 7: 'Implement caching layer for API responses'",
-    "Spec Decisions table: no entry for caching strategy",
-    "Task 7 references no specific cache implementation"
-  ]
+  "suggestedFix": "Make caching decision in spec (e.g., 'D5: LRU with 5-min TTL'), then update Task 7.",
+  "evidence": ["Task 7: 'Implement caching layer'", "Decisions: no caching entry"]
 }
 ```
 
@@ -623,14 +558,14 @@ The per-check procedures below include "Without graph" and "With graph" variants
   "id": "P7-002",
   "check": "P7",
   "title": "Task too vague to execute in one context window",
-  "detail": "Task 4 says 'implement the notification service' without specifying which methods to implement, what the function signatures are, or what error handling to apply. A developer cannot complete this task without making design decisions that should have been made during planning.",
+  "detail": "Task 4 says 'implement the notification service' without specifying methods, signatures, or error handling. Cannot complete without making design decisions.",
   "severity": "error",
   "autoFixable": false,
-  "suggestedFix": "Split Task 4 into specific sub-tasks: (a) create NotificationService.create() with signature and error handling, (b) create NotificationService.list() with filtering logic, (c) create NotificationService.markRead() with idempotency handling.",
+  "suggestedFix": "Split into sub-tasks: (a) NotificationService.create() with signature/errors, (b) NotificationService.list() with filtering, (c) NotificationService.markRead() with idempotency.",
   "evidence": [
     "Task 4: 'Implement the notification service'",
-    "No function signatures, no error handling spec, no test expectations",
-    "harness-planning iron law: every task must be completable in one context window"
+    "No signatures, no error spec",
+    "Iron law: every task completable in one context window"
   ]
 }
 ```
@@ -642,409 +577,312 @@ The per-check procedures below include "Without graph" and "With graph" variants
 For every finding where `autoFixable: true`:
 
 1. Apply the fix to the spec or plan document in place.
-2. Log what changed and why (visible to the user after convergence).
-3. Do NOT prompt the user for auto-fixable issues — they are mechanical.
+2. Log what changed and why.
+3. Do NOT prompt the user — these are mechanical.
 
-For findings where `autoFixable: false`: skip them in this phase. They will be surfaced in Phase 4.
+For `autoFixable: false`: skip. They surface in Phase 4.
 
 #### Silent vs Surfaced Classification
 
-| Check | Auto-fixable findings                                       | Fix behavior                                      |
-| ----- | ----------------------------------------------------------- | ------------------------------------------------- |
-| S1    | None — all findings need user input                         | Always surfaced                                   |
-| S2    | Missing traceability links (goals without criteria)         | Silent fix                                        |
-| S2    | Orphan criteria (criteria without goals)                    | Surfaced — removing criteria is a design decision |
-| S3    | Obvious assumptions (runtime, encoding, filesystem)         | Silent fix                                        |
-| S3    | Ambiguous assumptions (concurrency, tenancy, deployment)    | Surfaced — user must choose                       |
-| S4    | Obvious error cases (file I/O, JSON parse, network timeout) | Silent fix                                        |
-| S4    | Design-dependent error handling (retry strategy, failover)  | Surfaced — user must choose strategy              |
-| S5    | None — all findings need user input                         | Always surfaced                                   |
-| S6    | None — all findings need user input                         | Always surfaced                                   |
-| S7    | Vague criteria with inferrable thresholds                   | Silent fix                                        |
-| S7    | Unmeasurable criteria (no context to infer)                 | Surfaced — user must rewrite                      |
-| P1    | Missing task for uncovered criterion                        | Silent fix                                        |
-| P2    | Missing inputs, outputs, or verification                    | Silent fix                                        |
-| P3    | Missing dependency edges                                    | Silent fix                                        |
-| P3    | Dependency cycles                                           | Surfaced — restructuring is a design decision     |
-| P4    | File conflicts or consumer-before-producer                  | Silent fix                                        |
-| P5    | Obvious risk mitigation (technical, straightforward)        | Silent fix                                        |
-| P5    | Judgment-dependent risk mitigation                          | Surfaced — user must choose strategy              |
-| P6    | None — all findings need user input                         | Always surfaced                                   |
-| P7    | None — all findings need user input                         | Always surfaced                                   |
+| Check | Auto-fixable findings                         | Fix behavior                     |
+| ----- | --------------------------------------------- | -------------------------------- |
+| S1    | None                                          | Always surfaced                  |
+| S2    | Missing traceability links                    | Silent fix                       |
+| S2    | Orphan criteria                               | Surfaced — design decision       |
+| S3    | Obvious assumptions (runtime, encoding)       | Silent fix                       |
+| S3    | Ambiguous assumptions (concurrency, tenancy)  | Surfaced — user chooses          |
+| S4    | Obvious error cases (file I/O, JSON, network) | Silent fix                       |
+| S4    | Design-dependent error handling               | Surfaced — user chooses strategy |
+| S5    | None                                          | Always surfaced                  |
+| S6    | None                                          | Always surfaced                  |
+| S7    | Vague criteria with inferrable thresholds     | Silent fix                       |
+| S7    | Unmeasurable criteria                         | Surfaced — user rewrites         |
+| P1    | Missing task for uncovered criterion          | Silent fix                       |
+| P2    | Missing inputs, outputs, or verification      | Silent fix                       |
+| P3    | Missing dependency edges                      | Silent fix                       |
+| P3    | Dependency cycles                             | Surfaced — design decision       |
+| P4    | File conflicts or consumer-before-producer    | Silent fix                       |
+| P5    | Obvious risk mitigation                       | Silent fix                       |
+| P5    | Judgment-dependent mitigation                 | Surfaced — user chooses          |
+| P6    | None                                          | Always surfaced                  |
+| P7    | None                                          | Always surfaced                  |
 
-**Rule:** A fix is silent when the correct resolution can be determined from the document context alone, with no design judgment required. If there are two or more plausible resolutions, the fix is surfaced.
+**Rule:** A fix is silent when the correct resolution requires no design judgment. If two or more plausible resolutions exist, surface it.
 
 #### Fix Procedures by Check
 
 ##### S2 Fix: Add Missing Success Criteria
 
-**When:** A goal in the Overview has no corresponding success criterion.
+**When:** A goal has no corresponding success criterion.
 
-**Procedure:**
+1. Read Technical Design for context on the uncovered goal.
+2. Draft a specific, observable, testable criterion (EARS patterns if applicable).
+3. Append to Success Criteria with next available number.
+4. Log the fix.
 
-1. Read the Technical Design section for context about the uncovered goal.
-2. Draft a success criterion that is specific, observable, and testable — following the EARS patterns if applicable.
-3. Append the new criterion to the Success Criteria section with the next available number.
-4. Record a fix log entry.
-
-**Edit operation:** Append to the Success Criteria list.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[S2-001] FIXED: Added success criterion #11 for goal 'Support offline mode':
-  'The application functions without network connectivity for all read operations,
-   returning cached data when available.'
-  Derived from: Technical Design > Offline Cache section.
+[S2-001] FIXED: Added criterion #11 for 'Support offline mode':
+  'App functions without network for all read operations, returning cached data.'
+  Derived from: Technical Design > Offline Cache.
 ```
 
-##### S7 Fix: Replace Vague Criteria with Specific Thresholds
+##### S7 Fix: Replace Vague Criteria
 
-**When:** A success criterion uses vague qualifiers ("should be fast", "handles errors well") and the Technical Design provides a concrete threshold or behavior to reference.
+**When:** Criterion uses vague qualifiers and Technical Design provides a threshold.
 
-**Procedure:**
+1. Identify vague qualifier.
+2. Find related threshold in Technical Design.
+3. Replace vague text with specific threshold, citing source.
+4. Log the fix.
 
-1. Identify the vague qualifier in the criterion.
-2. Search the Technical Design for a related threshold, timeout, limit, or behavioral specification.
-3. Replace the vague qualifier with the specific threshold, citing the Technical Design source.
-4. Record a fix log entry.
-
-**Edit operation:** Replace the vague criterion text in place.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[S7-001] FIXED: Replaced vague criterion #3 'the build should be fast' with:
-  'The build completes in under 30 seconds on CI
-   (per Technical Design > CI Configuration: 30-second timeout).'
+[S7-001] FIXED: Replaced criterion #3 'build should be fast' with:
+  'Build completes in under 30 seconds on CI (per Technical Design > CI Config).'
 ```
 
 ##### S3 Fix: Add Obvious Assumptions
 
-**When:** The Technical Design uses patterns or APIs that imply a specific runtime, encoding, or environment, and no Assumptions section exists or the assumption is missing from it.
+**When:** Technical Design implies assumptions not documented in spec.
 
-**Procedure:**
+1. Identify assumption from evidence (e.g., `fs.readFileSync` implies Node.js).
+2. Create Assumptions section if missing (after Non-goals).
+3. Add assumption as bullet with brief rationale.
+4. Log the fix.
 
-1. Identify the assumption from the Technical Design evidence (e.g., `fs.readFileSync` implies Node.js, `UTF-8` encoding implied by string operations).
-2. If no Assumptions section exists in the spec, create one after the Non-goals section.
-3. Add the assumption as a bullet point with a brief rationale.
-4. Record a fix log entry.
-
-**Edit operation:** Append to the Assumptions section (create section if missing).
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[S3-001] FIXED: Added assumption to Assumptions section:
-  'Runtime: Node.js >= 18.x (LTS). The implementation uses Node.js
-   built-in modules (fs, path, child_process).'
+[S3-001] FIXED: Added assumption: 'Runtime: Node.js >= 18.x (LTS).'
   Evidence: Technical Design references path.join, fs.readFileSync.
 ```
 
 ##### S4 Fix: Add Obvious Error Cases
 
-**When:** A Technical Design operation (file I/O, JSON parsing, network call) has no defined error behavior, and the codebase has an established pattern for that error.
+**When:** An operation has no error behavior and codebase has established pattern.
 
-**Procedure:**
+1. Identify operation missing error handling.
+2. Read codebase module for established error pattern.
+3. Add error case using EARS "Unwanted" pattern near the operation.
+4. Log the fix.
 
-1. Identify the operation missing error handling.
-2. Read the referenced codebase module (if cited) to find the established error pattern (e.g., return defaults on ENOENT, log and rethrow on parse errors).
-3. Add the error case to the Technical Design section near the operation, following EARS "Unwanted" pattern: "If [failure condition], then the system shall [graceful behavior]."
-4. Record a fix log entry.
-
-**Edit operation:** Insert error case after the operation description in Technical Design.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[S4-001] FIXED: Added error case for config file read:
-  'If the config file does not exist (ENOENT), return the default
-   configuration object. Log a debug message indicating defaults are used.'
-  Following codebase pattern: packages/core/src/config.ts returns defaults on ENOENT.
+[S4-001] FIXED: Added ENOENT error case for config read:
+  'If config missing, return defaults. Log debug message.'
+  Following: packages/core/src/config.ts pattern.
 ```
 
-##### P1 Fix: Add Missing Tasks for Uncovered Criteria
+##### P1 Fix: Add Missing Tasks
 
-**When:** A spec success criterion has no corresponding plan task.
+**When:** A spec criterion has no corresponding plan task.
 
-**Procedure:**
+1. Read criterion and Technical Design for context.
+2. Draft task with file paths, test commands, commit message.
+3. Insert at appropriate position respecting dependencies.
+4. Update File Map if needed.
+5. Log the fix.
 
-1. Read the spec criterion and Technical Design for context.
-2. Draft a new task that would verify the criterion, including file paths, test commands, and commit message.
-3. Insert the task at the appropriate position in the task list (respecting dependencies).
-4. Update the File Map if new files are introduced.
-5. Record a fix log entry.
-
-**Edit operation:** Insert new task in Tasks section; update File Map.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[P1-001] FIXED: Added Task 9 covering spec criterion #5 (error logging):
-  'Create src/utils/error-logger.ts with structured error logging.
-   Verify: npx vitest run src/utils/error-logger.test.ts'
-  Derived from: Spec criterion #5 and Technical Design > Error Handling section.
+[P1-001] FIXED: Added Task 9 for criterion #5 (error logging):
+  'Create src/utils/error-logger.ts. Verify: npx vitest run error-logger.test.ts'
 ```
 
-##### P2 Fix: Fill In Missing Task Elements
+##### P2 Fix: Fill Missing Task Elements
 
-**When:** A task is missing clear inputs, outputs, or verification criteria.
+**When:** Task missing inputs, outputs, or verification.
 
-**Procedure:**
+1. Identify missing element.
+2. Infer from task description and surrounding tasks.
+3. Add to task.
+4. Log the fix.
 
-1. Identify which element is missing (inputs, outputs, or verification).
-2. Infer from the task description and surrounding tasks.
-3. Add the missing element to the task.
-4. Record a fix log entry.
-
-**Edit operation:** Modify the task in place.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[P2-001] FIXED: Added verification step to Task 3:
+[P2-001] FIXED: Added verification to Task 3:
   'Run: npx vitest run src/services/notification-service.test.ts'
-  Inferred from: Task 4 creates the test file for the service Task 3 implements.
 ```
 
 ##### P3 Fix: Add Missing Dependency Edges
 
-**When:** Task B uses a file or artifact produced by Task A but does not declare "Depends on: Task A".
+**When:** Task B uses artifact from Task A without declaring dependency.
 
-**Procedure:**
+1. Identify producer task from File Map.
+2. Add "Depends on: Task N" to consuming task.
+3. Log the fix.
 
-1. Identify the producer task from the File Map.
-2. Add "Depends on: Task N" to the consuming task's header.
-3. Record a fix log entry.
-
-**Edit operation:** Modify the consuming task's "Depends on" line.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[P3-001] FIXED: Added 'Depends on: Task 2' to Task 5:
-  Task 5 imports src/types/notification.ts which is created by Task 2.
+[P3-001] FIXED: Added 'Depends on: Task 2' to Task 5.
+  Task 5 imports src/types/notification.ts created by Task 2.
 ```
 
 ##### P4 Fix: Reorder Conflicting Tasks
 
-**When:** Two tasks touch the same file but are not sequenced, or a consumer task is numbered before its producer.
+**When:** Two tasks touch same file without sequencing, or consumer before producer.
 
-**Procedure:**
+1. Identify conflict.
+2. Reorder via task numbers or dependency edge.
+3. Update all "Depends on" cross-references.
+4. Log the fix.
 
-1. Identify the conflict.
-2. Reorder by updating task numbers or adding a dependency edge.
-3. If reordering changes task numbers, update all "Depends on" references throughout the plan.
-4. Record a fix log entry.
-
-**Edit operation:** Reorder tasks and update cross-references.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[P4-001] FIXED: Added 'Depends on: Task 4' to Task 2:
-  Both tasks modify src/routes/index.ts. Task 4 creates the base route
-  that Task 2 extends. Sequencing prevents merge conflicts.
+[P4-001] FIXED: Added 'Depends on: Task 4' to Task 2.
+  Both modify src/routes/index.ts. Sequencing prevents conflicts.
 ```
 
 ##### P5 Fix: Add Obvious Mitigation Tasks
 
-**When:** A spec risk has no coverage in the plan and the mitigation is straightforward (e.g., add error handling, add a test for an edge case).
+**When:** Spec risk has no plan coverage and mitigation is straightforward.
 
-**Procedure:**
+1. Read risk description.
+2. Draft mitigation task or extend existing task's verification.
+3. Insert at appropriate position.
+4. Log the fix.
 
-1. Read the risk description from the spec.
-2. Draft a mitigation task or extend an existing task's verification step.
-3. Insert at the appropriate position.
-4. Record a fix log entry.
-
-**Edit operation:** Insert new task or extend existing task; update File Map if needed.
-
-**Fix log entry example:**
+**Fix log example:**
 
 ```
-[P5-001] FIXED: Added Task 10 for convergence termination testing:
-  'Add test that verifies convergence loop terminates on fixed-point inputs
-   (zero auto-fixable findings on first pass).'
-  Mitigates spec risk: 'convergence loop may not terminate'.
+[P5-001] FIXED: Added Task 10 for convergence termination testing.
+  Mitigates: 'convergence loop may not terminate'.
 ```
 
 #### Fix Log Format
 
-Every auto-fix MUST be logged. The fix log is accumulated during Phase 2 and presented to the user after convergence (in Phase 4) as an informational summary. The format is:
+Every auto-fix MUST be logged:
 
 ```
-[{finding-id}] FIXED: {one-line description of what changed}
-  {the new text or criterion that was added/modified}
-  {source/evidence for the fix}
+[{finding-id}] FIXED: {one-line description}
+  {new text added/modified}
+  {source/evidence}
 ```
 
-The fix log serves two purposes: (1) the user can review what was silently changed, and (2) if a fix introduces a new issue in the re-check, the log helps trace the cause.
+The fix log lets users review silent changes and trace causes if fixes introduce new issues.
 
 ---
 
 ### Phase 3: CONVERGE — Re-Check and Loop
 
-After auto-fixes are applied in Phase 2, the convergence loop determines whether further progress is possible.
+After Phase 2 auto-fixes, the convergence loop determines whether further progress is possible.
 
 #### Convergence Procedure
 
-1. **Record the issue count.** After Phase 2 completes, note the total number of remaining findings (both auto-fixable and non-auto-fixable) as `count_previous`.
-
-2. **Re-run all checks.** Execute every check for the current mode (S1-S7 for spec mode) against the updated document. Produce a fresh set of findings. Note the new total as `count_current`.
-
-3. **Compare counts.**
-   - If `count_current < count_previous`: progress was made. Some auto-fixes resolved issues, or a fix in one area resolved a finding in another (cascading fix). Go to Phase 2 (FIX) and apply any new auto-fixable findings, then return here.
-   - If `count_current == count_previous`: no progress. The remaining issues either need user input or cannot be resolved by auto-fix. Stop looping and proceed to Phase 4 (SURFACE).
-   - If `count_current > count_previous`: auto-fixes introduced new issues. Log a warning in the fix log ("Auto-fixes increased issue count from {previous} to {current} — review fix procedures for unintended side effects.") and proceed to Phase 4 (SURFACE). Do not continue looping.
-
-4. **Repeat.** Steps 1-3 repeat until no progress is detected. There is no arbitrary iteration cap — the "no progress" check is the termination condition.
+1. **Record issue count** after Phase 2 as `count_previous`.
+2. **Re-run all checks** against updated document. Note new total as `count_current`.
+3. **Compare:**
+   - `count_current < count_previous`: progress made. Go to Phase 2, apply new auto-fixes, return here.
+   - `count_current == count_previous`: no progress. Remaining issues need user input. Proceed to Phase 4.
+   - `count_current > count_previous`: fixes introduced new issues. Log warning, proceed to Phase 4.
+4. **Repeat** until no progress. No arbitrary cap — "no progress" is the termination condition.
 
 #### Cascading Fixes
 
-A fix applied in one pass can make a previously non-auto-fixable finding become auto-fixable in the next pass. This is called a **cascading fix**. Examples:
+A fix in one pass can make a previously non-auto-fixable finding become auto-fixable. Examples:
 
-- **S4 enables S3:** The S4 fix adds an error case that creates an Assumptions section. In the next pass, S3 finds that additional obvious assumptions can now be appended to the existing section (previously S3 could not infer whether to create the section or append to it).
-- **S2 enables S7:** The S2 fix adds a new success criterion. In the next pass, S7 checks the new criterion and finds it can be made more specific using Technical Design context.
-- **S4 enables S4:** The S4 fix adds an error case for one operation. In the next pass, S4 finds a related operation that can now follow the same error pattern (the first fix established a local convention).
+Spec-mode cascades:
 
-Plan-mode cascading fix examples:
+- **S4 enables S3:** S4 creates Assumptions section; S3 can now append obvious assumptions.
+- **S2 enables S7:** S2 adds criterion; S7 can sharpen it using Technical Design context.
+- **S4 enables S4:** First error case establishes local convention; related operations can follow it.
 
-- **P1 enables P3:** The P1 fix adds a new task (covering a missing spec criterion). In the next pass, P3 detects that existing tasks import files created by the new task but do not declare a dependency on it. P3 adds the missing dependency edges.
-- **P1 enables P4:** The P1 fix adds a new task that creates a type file. In the next pass, P4 detects that the new task should be ordered before tasks that import that type, and reorders accordingly.
-- **P2 enables P5:** The P2 fix adds a verification step to a task, making its outputs explicit. In the next pass, P5 finds that a spec risk (previously unmatched to any task) is now mitigated by the newly explicit verification step.
+Plan-mode cascades:
 
-Cascading fixes are the reason the loop re-runs all checks, not just the checks that produced auto-fixable findings in the previous pass.
+- **P1 enables P3:** New task added; P3 detects undeclared dependencies on it.
+- **P1 enables P4:** New task creates type file; P4 reorders consumers after it.
+- **P2 enables P5:** Explicit verification step now mitigates a previously unmatched risk.
 
-#### Worked Example: Two-Pass Convergence
+Cascading fixes are why the loop re-runs ALL checks, not just those that produced auto-fixable findings.
+
+#### Worked Example: Spec-Mode Two-Pass Convergence
 
 ```
-Pass 1 (initial check):
-  S1: 0 findings
-  S2: 1 finding (auto-fixable: missing criterion for 'offline mode' goal)
-  S3: 2 findings (1 auto-fixable: Node.js runtime, 1 needs user input: concurrency)
-  S4: 1 finding (auto-fixable: missing ENOENT error case)
-  S5: 0 findings
-  S6: 0 findings
-  S7: 1 finding (auto-fixable: vague 'fast' criterion)
-  Total: 5 findings, 4 auto-fixable, 1 needs user input.
-  → count_previous = 5
+Pass 1 (initial):
+  S1: 0 | S2: 1 (auto-fix) | S3: 2 (1 auto-fix, 1 user) | S4: 1 (auto-fix)
+  S5: 0 | S6: 0 | S7: 1 (auto-fix)
+  Total: 5 (4 auto-fixable, 1 user). count_previous = 5
 
-Phase 2 (FIX): Apply 4 auto-fixes.
-  [S2-001] FIXED: Added success criterion #11 for 'offline mode'.
-  [S3-001] FIXED: Added Node.js runtime assumption to new Assumptions section.
-  [S4-001] FIXED: Added ENOENT error case for config read.
-  [S7-001] FIXED: Replaced 'fast' with 'under 30 seconds on CI'.
+Phase 2: Apply 4 fixes.
+  [S2-001] Added criterion #11 for 'offline mode'.
+  [S3-001] Added Node.js runtime assumption.
+  [S4-001] Added ENOENT error case.
+  [S7-001] Replaced 'fast' with 'under 30 seconds on CI'.
 
-Pass 2 (re-check):
-  S1: 0 findings
-  S2: 0 findings (criterion added — gap closed)
-  S3: 1 finding — CASCADING: S4-001 fix created Assumptions section,
-      so the Node.js assumption that S3-001 added is confirmed,
-      BUT a new obvious assumption (UTF-8 encoding) can now be appended.
-      (1 auto-fixable)
-  S3: 1 finding (unchanged: concurrency model still needs user input)
-  S4: 0 findings (error case added)
-  S5: 0 findings
-  S6: 0 findings
-  S7: 0 findings (criterion sharpened)
-  Total: 2 findings, 1 auto-fixable, 1 needs user input.
-  → count_current = 2 < count_previous = 5. Progress made. Continue.
+Pass 2:
+  S2: 0 | S3: 1 CASCADING (UTF-8 assumption now appendable) + 1 user unchanged
+  S4: 0 | S7: 0
+  Total: 2 (1 auto-fixable, 1 user). count_current=2 < 5. Continue.
 
-Phase 2 (FIX): Apply 1 auto-fix.
-  [S3-003] FIXED: Added UTF-8 encoding assumption to Assumptions section.
+Phase 2: Apply 1 fix. [S3-003] Added UTF-8 assumption.
 
-Pass 3 (re-check):
-  S3: 1 finding (unchanged: concurrency model still needs user input)
-  Total: 1 finding, 0 auto-fixable, 1 needs user input.
-  → count_current = 1 < count_previous = 2. Progress made. Continue.
+Pass 3: Total: 1 (0 auto-fixable, 1 user). count_current=1 < 2. Continue.
+Phase 2: 0 fixes.
 
-Phase 2 (FIX): 0 auto-fixable findings. Nothing to fix.
-
-Pass 4 (re-check):
-  Total: 1 finding, 0 auto-fixable.
-  → count_current = 1 = count_previous = 1. No progress. Converged.
-  → Proceed to Phase 4 (SURFACE) with 1 remaining issue.
+Pass 4: Total: 1. count_current=1 = count_previous=1. Converged.
+  → Phase 4 with 1 remaining issue.
 ```
 
 #### Worked Example: Plan-Mode Two-Pass Convergence
 
 ```
-Pass 1 (initial check):
-  P1: 1 finding (auto-fixable: spec criterion #6 has no plan task)
-  P2: 1 finding (auto-fixable: Task 4 missing verification step)
-  P3: 0 findings
-  P4: 0 findings
-  P5: 1 finding (needs user input: performance vs correctness tradeoff)
-  P6: 0 findings
-  P7: 1 finding (needs user input: Task 7 depends on undecided caching strategy)
-  Total: 4 findings, 2 auto-fixable, 2 need user input.
-  → count_previous = 4
+Pass 1 (initial):
+  P1: 1 (auto-fix) | P2: 1 (auto-fix) | P3: 0 | P4: 0
+  P5: 1 (user) | P6: 0 | P7: 1 (user)
+  Total: 4 (2 auto-fixable, 2 user). count_previous = 4
 
-Phase 2 (FIX): Apply 2 auto-fixes.
-  [P1-001] FIXED: Added Task 9 covering spec criterion #6 (structured error logging).
-    Creates src/utils/error-logger.ts and src/utils/error-logger.test.ts.
-  [P2-001] FIXED: Added verification step to Task 4:
-    'Run: npx vitest run src/services/notification-service.test.ts'
+Phase 2: Apply 2 fixes.
+  [P1-001] Added Task 9 for criterion #6 (error logging).
+  [P2-001] Added verification to Task 4.
 
-Pass 2 (re-check):
-  P1: 0 findings (criterion now covered by Task 9)
-  P2: 0 findings (Task 4 now has verification)
-  P3: 1 finding — CASCADING: Task 9 (added by P1-001) creates
-      src/utils/error-logger.ts, but Task 6 imports from it without
-      declaring 'Depends on: Task 9'. (1 auto-fixable)
-  P4: 0 findings
-  P5: 1 finding (unchanged: performance tradeoff still needs user input)
-  P6: 0 findings
-  P7: 1 finding (unchanged: caching decision still needed)
-  Total: 3 findings, 1 auto-fixable, 2 need user input.
-  → count_current = 3 < count_previous = 4. Progress made. Continue.
+Pass 2:
+  P1: 0 | P2: 0 | P3: 1 CASCADING (Task 6 needs 'Depends on: Task 9')
+  P5: 1 user | P7: 1 user
+  Total: 3 (1 auto-fixable, 2 user). count_current=3 < 4. Continue.
 
-Phase 2 (FIX): Apply 1 auto-fix.
-  [P3-001] FIXED: Added 'Depends on: Task 9' to Task 6.
+Phase 2: [P3-001] Added 'Depends on: Task 9' to Task 6.
 
-Pass 3 (re-check):
-  P5: 1 finding (unchanged: performance tradeoff)
-  P7: 1 finding (unchanged: caching decision)
-  Total: 2 findings, 0 auto-fixable, 2 need user input.
-  → count_current = 2 < count_previous = 3. Progress made. Continue.
+Pass 3: Total: 2 (0 auto-fixable). count_current=2 < 3. Continue.
+Phase 2: 0 fixes.
 
-Phase 2 (FIX): 0 auto-fixable findings. Nothing to fix.
-
-Pass 4 (re-check):
-  Total: 2 findings, 0 auto-fixable.
-  → count_current = 2 = count_previous = 2. No progress. Converged.
-  → Proceed to Phase 4 (SURFACE) with 2 remaining issues.
+Pass 4: Total: 2. count_current=2 = count_previous=2. Converged.
+  → Phase 4 with 2 remaining issues.
 ```
 
 #### Termination Guarantee
 
 The loop terminates because:
 
-1. Each pass can only fix auto-fixable findings. The set of auto-fixable findings is finite (bounded by the document size).
-2. Each fix modifies the document, so the "same" finding cannot be auto-fixed twice (the context has changed).
-3. If no auto-fixable findings remain, Phase 2 applies zero fixes, and the re-check produces the same count — triggering the "no progress" exit.
-4. Cascading fixes can only occur a finite number of times because each adds content to the document, and the checks that detect missing content will eventually find nothing missing.
+1. Auto-fixable findings are finite (bounded by document size).
+2. Each fix modifies the document, so the same finding cannot be fixed twice.
+3. Zero auto-fixable findings = zero fixes = same count = "no progress" exit.
+4. Cascading fixes are finite — each adds content, and checks eventually find nothing missing.
 
 ---
 
 ### Phase 4: SURFACE — Present Remaining Issues
 
-When findings remain after the convergence loop (Phase 3 determined no further auto-fix progress), present them to the user. If no `needs-user-input` findings remain (all were resolved by auto-fix), skip this phase entirely and proceed to Clean Exit.
+When findings remain after convergence, present them. If no `needs-user-input` findings remain, skip to Clean Exit.
 
-#### Step 1: Group and Prioritize Findings
+#### Step 1: Group and Prioritize
 
-Organize remaining findings for presentation:
-
-1. **Group by severity.** Present all `error` findings before `warning` findings. Errors block sign-off; warnings are advisory.
-2. **Within each severity group, order by check ID.** S1 before S2 before S3 (spec mode); P1 before P2 before P3 (plan mode). This gives the user a predictable reading order.
-3. **Count and announce.** State the total: `N remaining issues need your input (X errors, Y warnings).`
+1. Present `error` findings before `warning` findings. Errors block sign-off.
+2. Within severity, order by check ID (S1 before S2; P1 before P2).
+3. Announce: `N remaining issues need your input (X errors, Y warnings).`
 
 #### Step 2: Present Each Finding
 
-For each finding, present exactly three sections:
+For each finding, present three sections:
 
-**What is wrong** — Use the finding's `title` as a heading, followed by the `detail` field. Include the `evidence` references so the user can locate the problem in context.
+**What is wrong:**
 
 ```
 [{id}] {title} ({severity})
@@ -1052,110 +890,98 @@ For each finding, present exactly three sections:
 Evidence: {evidence[0]}, {evidence[1]}, ...
 ```
 
-**Why it matters** — Explain the consequence of leaving this unresolved:
+**Why it matters:**
 
-- For `error` severity: "This blocks sign-off. The spec/plan cannot be finalized until this is resolved."
-- For `warning` severity: "This is advisory. You may dismiss it with a reason, but the concern will be logged."
+- `error`: "Blocks sign-off. Must be resolved."
+- `warning`: "Advisory. May dismiss with reason (logged)."
 
-**Suggested resolution** — Present the `suggestedFix` as the primary option, then list alternative resolution paths:
+**Suggested resolution:**
 
-- **Option A (recommended):** The suggested fix from the finding.
-- **Option B:** An alternative approach if one is apparent from context.
-- **Option C (warnings only):** "Dismiss with reason — explain why this is acceptable."
+- **Option A (recommended):** The suggested fix.
+- **Option B:** Alternative if apparent.
+- **Option C (warnings only):** "Dismiss with reason."
 
 #### Step 3: User Interaction
 
-Wait for the user to respond to each finding. Accepted responses:
+Accepted responses:
 
-1. **Resolve:** The user makes the suggested change (or an alternative). Mark the finding as `resolved`. The user may edit the spec/plan directly, add a decision to the Decisions table, add a task, or modify an existing task.
+1. **Resolve:** User makes the change. Mark `resolved`.
+2. **Dismiss with reason (warnings only):** Log `[{id}] DISMISSED: {reason}`. Not re-surfaced.
+3. **Clarify:** Provide more context. Wait for resolve/dismiss.
 
-2. **Dismiss with reason (warnings only):** The user provides a reason why the warning is acceptable. Mark the finding as `dismissed` and log: `[{id}] DISMISSED by user: {reason}`. Dismissed findings are not re-surfaced in subsequent loop iterations.
+Error findings cannot be dismissed.
 
-3. **Clarify:** The user asks for more context about the finding. Provide additional detail from the evidence and codebase reads. Do not mark the finding as resolved — wait for a resolve or dismiss response.
-
-Error-severity findings cannot be dismissed. They must be resolved before sign-off.
-
-#### Step 4: Track Resolution Progress
-
-Maintain a running status of all surfaced findings:
+#### Step 4: Track Resolution
 
 ```
 Surfaced findings: N total
-  Resolved: X
-  Dismissed: Y (warnings only)
-  Pending: Z
+  Resolved: X | Dismissed: Y | Pending: Z
 ```
 
-After each user resolution or dismissal, update the count and present the next pending finding. When all findings are either resolved or dismissed, proceed to Step 5.
+Update after each response. When all addressed, proceed to Step 5.
 
 #### Step 5: Re-Check After Resolution
 
-After all surfaced findings have been addressed:
-
-1. Loop back to Phase 1 (CHECK) to verify that user resolutions are correct and catch any cascading issues introduced by the changes.
-2. Previously dismissed findings (logged with reason) are excluded from this re-check. They do not re-appear.
-3. If the re-check produces new findings, the full convergence loop runs again (Phase 1 through Phase 4). This is expected — user changes can introduce new issues.
-4. If the re-check produces zero findings, proceed to Clean Exit.
+1. Loop back to Phase 1 to verify user resolutions and catch cascading issues.
+2. Dismissed findings excluded from re-check.
+3. New findings trigger full convergence loop again.
+4. Zero findings → Clean Exit.
 
 #### Clean Exit
 
-Clean Exit occurs when ALL of the following are true:
+All of the following must be true:
 
 - All checks pass with zero findings (excluding dismissed warnings).
-- No `error`-severity findings are pending or dismissed (errors cannot be dismissed).
-- The convergence loop has terminated (issue count stopped decreasing or reached zero).
+- No `error` findings pending or dismissed.
+- Convergence loop terminated.
 
 On clean exit:
 
 1. Announce: `CLEAN EXIT — all checks pass. Returning control to {parent skill} for sign-off.`
-2. If any warnings were dismissed, include a summary: `Note: {N} warnings were dismissed by user. See log for reasons.`
-3. Return control to the parent skill (harness-brainstorming or harness-planning).
+2. If warnings dismissed, summarize: `Note: {N} warnings dismissed. See log.`
+3. Return control to parent skill.
 
 ---
 
 ### Codebase and Graph Integration
 
-Checks that benefit from codebase awareness (S3, S5, P1, P3, P4) use these tools:
+| Check | Without graph                        | With graph                                                                   |
+| ----- | ------------------------------------ | ---------------------------------------------------------------------------- |
+| S5    | Grep/glob for referenced patterns    | `query_graph` + `get_relationships` for dependency/architecture verification |
+| S3    | Infer from codebase conventions      | `find_context_for` for related design decisions                              |
+| P1    | Text matching criteria to tasks      | Graph traceability edges                                                     |
+| P3    | Static analysis of task descriptions | `get_impact` for dependency completeness                                     |
+| P4    | Parse file paths, detect conflicts   | Graph file ownership for accurate conflict detection                         |
 
-| Check | Without graph                        | With graph                                                                                |
-| ----- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
-| S5    | Grep/glob for referenced patterns    | `query_graph` + `get_relationships` to verify dependencies and architecture compatibility |
-| S3    | Infer from codebase conventions      | `find_context_for` to surface related design decisions                                    |
-| P1    | Text matching criteria to tasks      | Graph traceability edges if available                                                     |
-| P3    | Static analysis of task descriptions | `get_impact` to verify dependency completeness                                            |
-| P4    | Parse file paths, detect conflicts   | Graph file ownership for accurate conflict detection                                      |
-
-All checks produce useful results from document analysis and basic codebase reads alone. Graph adds precision but is never required.
+All checks work from document analysis and codebase reads alone. Graph adds precision but is never required.
 
 ## Harness Integration
 
-- **`harness validate`** — Run by the parent skill (harness-brainstorming or harness-planning) before and after the soundness review. This skill does not invoke validate directly.
-- **Parent skill invocation** — harness-brainstorming invokes `--mode spec` before sign-off; harness-planning invokes `--mode plan` before sign-off.
-- **No new user commands** — Users invoke brainstorming and planning exactly as before. The soundness review is invisible until it surfaces an issue.
-- **Graph queries** — When `.harness/graph/` exists, use `query_graph` and `get_impact` for enhanced feasibility and dependency checks. Fall back to file-based reads when no graph is available.
+- **`harness validate`** — Run by parent skill before/after soundness review. This skill does not invoke validate directly.
+- **Parent skill invocation** — harness-brainstorming invokes `--mode spec`; harness-planning invokes `--mode plan`.
+- **No new user commands** — Users invoke brainstorming/planning as before. Soundness review is invisible until it surfaces an issue.
+- **Graph queries** — When `.harness/graph/` exists, use `query_graph` and `get_impact` for enhanced checks. Fall back to file-based reads otherwise.
 
 ## Success Criteria
-
-These criteria validate the skill implementation artifacts. The behavioral success criteria from the spec (automatic invocation, coherence detection, convergence termination, etc.) are verified by running the skill against real specs and plans.
 
 1. The skill.yaml passes schema validation with all required fields
 2. The SKILL.md contains all required sections and passes structure tests
 3. Both platform copies (claude-code, gemini-cli) are byte-identical and pass parity tests
-4. The two modes (spec, plan) are defined with their check tables (S1-S7, P1-P7)
-5. The `SoundnessFinding` schema is defined in the SKILL.md
+4. Both modes (spec, plan) defined with check tables (S1-S7, P1-P7)
+5. The `SoundnessFinding` schema is defined in SKILL.md
 6. The convergence loop structure (CHECK, FIX, CONVERGE, SURFACE, CLEAN EXIT) is documented
 7. `harness validate` passes after all files are written
 8. The skill test suite passes (structure, schema, platform-parity, references)
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                                          | Reality                                                                                                                                                                        |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "The spec looks coherent to me, so I can skip running the S1 internal coherence check"                   | Every check in the mode must run. S1 detects contradictions between decisions, technical design, and success criteria that human review frequently misses.                     |
-| "This unstated assumption is obvious, so documenting it would be pedantic"                               | S3 exists because "obvious" assumptions cause the most damage when they turn out to be wrong. Obvious assumptions are the cheapest to document and the most expensive to miss. |
-| "The success criterion is somewhat vague but the team will know what it means"                           | S7 flags vague criteria like "should be fast" because they are untestable. Vague criteria survive brainstorming and planning only to fail at verification.                     |
-| "This auto-fixable finding is minor, so I will just note it rather than applying the fix"                | Auto-fixable findings should be applied silently -- that is the design intent. Skipping them means the spec ships with known inferrable gaps.                                  |
-| "The feasibility check found a signature mismatch but the code can probably be adapted during execution" | S5 feasibility red flags are always severity "error" and always surface to the user. A spec that references nonexistent modules will produce a broken plan.                    |
+| Rationalization                                                                                          | Reality                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The spec looks coherent to me, so I can skip running the S1 internal coherence check"                   | Every check in the mode must run. S1 detects contradictions that human review frequently misses.                                              |
+| "This unstated assumption is obvious, so documenting it would be pedantic"                               | S3 exists because "obvious" assumptions cause the most damage when wrong. Cheapest to document, most expensive to miss.                       |
+| "The success criterion is somewhat vague but the team will know what it means"                           | S7 flags vague criteria like "should be fast" because they are untestable. Vague criteria survive brainstorming only to fail at verification. |
+| "This auto-fixable finding is minor, so I will just note it rather than applying the fix"                | Auto-fixable findings should be applied silently — that is the design intent. Skipping them ships known inferrable gaps.                      |
+| "The feasibility check found a signature mismatch but the code can probably be adapted during execution" | S5 red flags are always severity "error" and always surfaced. A spec referencing nonexistent modules produces a broken plan.                  |
 
 ## Examples
 
@@ -1167,41 +993,38 @@ These criteria validate the skill implementation artifacts. The behavioral succe
 Invoking harness-soundness-review --mode spec...
 
 Phase 1: CHECK
-  Running S1 (internal coherence)... 0 findings
-  Running S2 (goal-criteria traceability)... 1 finding (auto-fixable)
-  Running S3 (unstated assumptions)... 2 findings (2 need user input)
-  Running S4 (requirement completeness)... 1 finding (auto-fixable)
-  Running S5 (feasibility red flags)... 0 findings
-  Running S6 (YAGNI re-scan)... 0 findings
-  Running S7 (testability)... 1 finding (auto-fixable)
-
+  S1 (internal coherence)... 0 findings
+  S2 (goal-criteria traceability)... 1 finding (auto-fixable)
+  S3 (unstated assumptions)... 2 findings (2 need user input)
+  S4 (requirement completeness)... 1 finding (auto-fixable)
+  S5 (feasibility red flags)... 0 findings
+  S6 (YAGNI re-scan)... 0 findings
+  S7 (testability)... 1 finding (auto-fixable)
   5 findings total: 3 auto-fixable, 2 need user input.
 
 Phase 2: FIX
   [S2-001] FIXED: Added success criterion for 'Support offline mode' goal.
-  [S4-001] FIXED: Added ENOENT error case for config file read (following codebase pattern).
+  [S4-001] FIXED: Added ENOENT error case for config file read.
   [S7-001] FIXED: Replaced 'build should be fast' with 'completes in under 30 seconds on CI'.
   3 auto-fixes applied.
 
 Phase 3: CONVERGE
   Re-running checks...
-  S3-001 (implicit Node.js assumption) — now auto-fixable (S4-001 fix added
-    Assumptions section, so S3-001 can append to it instead of creating one).
-  [S3-001] FIXED: Added Node.js runtime assumption to Assumptions section.
-  1 additional fix applied. Re-checking...
+  S3-001 now auto-fixable (S4-001 created Assumptions section).
+  [S3-001] FIXED: Added Node.js runtime assumption.
+  1 additional fix. Re-checking...
   Issue count: 1 (was 2). Decreased — continuing.
-  Re-running checks...
-  Issue count: 1 (unchanged). Converged.
+  Re-checking... Issue count: 1 (unchanged). Converged.
 
 Phase 4: SURFACE
-  1 remaining issue needs your input:
+  1 remaining issue:
 
   [S3-002] Ambiguous concurrency model (warning)
-  Technical Design describes a background job processor but does not specify
-  whether it runs in-process, as a worker thread, or as a separate process.
-  → Add a decision to the Decisions table specifying the concurrency model.
+  Technical Design describes background job processor without specifying
+  in-process, worker thread, or separate process.
+  → Add decision to Decisions table.
 
-  User resolves S3-002 → adds decision: "in-process event loop"
+  User resolves → adds decision: "in-process event loop"
   Re-running checks... 0 findings.
 
 CLEAN EXIT — returning control to harness-brainstorming for sign-off.
@@ -1215,44 +1038,37 @@ CLEAN EXIT — returning control to harness-brainstorming for sign-off.
 Invoking harness-soundness-review --mode plan...
 
 Phase 1: CHECK
-  Running P1 (spec-plan coverage)... 1 finding (auto-fixable)
-  Running P2 (task completeness)... 2 findings (auto-fixable)
-  Running P3 (dependency correctness)... 1 finding (auto-fixable)
-  Running P4 (ordering sanity)... 0 findings
-  Running P5 (risk coverage)... 1 finding (1 needs user input)
-  Running P6 (scope drift)... 0 findings
-  Running P7 (task-level feasibility)... 1 finding (needs user input)
-
+  P1 (spec-plan coverage)... 1 finding (auto-fixable)
+  P2 (task completeness)... 2 findings (auto-fixable)
+  P3 (dependency correctness)... 1 finding (auto-fixable)
+  P4 (ordering sanity)... 0 findings
+  P5 (risk coverage)... 1 finding (needs user input)
+  P6 (scope drift)... 0 findings
+  P7 (task-level feasibility)... 1 finding (needs user input)
   6 findings total: 4 auto-fixable, 2 need user input.
 
 Phase 2: FIX
-  [P1-001] FIXED: Added Task 9 covering spec criterion #5 (error logging).
-  [P2-001] FIXED: Added verification step to Task 3 (run vitest).
-  [P2-002] FIXED: Added outputs to Task 6 (creates src/utils/helper.ts).
-  [P3-001] FIXED: Added 'Depends on: Task 2' to Task 5 (uses types from Task 2).
+  [P1-001] FIXED: Added Task 9 covering criterion #5 (error logging).
+  [P2-001] FIXED: Added verification step to Task 3.
+  [P2-002] FIXED: Added outputs to Task 6.
+  [P3-001] FIXED: Added 'Depends on: Task 2' to Task 5.
   4 auto-fixes applied.
 
 Phase 3: CONVERGE
-  Re-running checks...
-  Issue count: 2 (was 6). Decreased — continuing.
-  Re-running checks...
-  Issue count: 2 (unchanged). Converged.
+  Re-checking... Issue count: 2 (was 6). Decreased — continuing.
+  Re-checking... Issue count: 2 (unchanged). Converged.
 
 Phase 4: SURFACE
-  2 remaining issues need your input:
+  2 remaining issues:
 
-  [P5-001] Spec risk 'performance vs correctness tradeoff' has no mitigation (warning)
-  The spec notes that strict validation may impact throughput, but no plan task
-  addresses performance testing or defines an acceptable latency threshold.
-  -> Add a performance benchmark task, relax validation, or accept the risk.
+  [P5-001] Spec risk 'performance vs correctness' has no mitigation (warning)
+  → Add performance benchmark task, relax validation, or accept risk.
 
   [P7-001] Task 7 depends on undecided caching strategy (error)
-  Task 7 says 'implement caching layer' but the spec Decisions table has no
-  entry for caching strategy. This task cannot be executed without a decision.
-  -> Make the caching decision in the spec, then update Task 7 with specifics.
+  → Make caching decision in spec, then update Task 7.
 
-  User resolves P5-001 -> adds Task 10 for performance benchmark at 100ms threshold.
-  User resolves P7-001 -> updates spec with LRU cache decision, updates Task 7.
+  User resolves P5-001 → adds Task 10 for performance benchmark.
+  User resolves P7-001 → adds LRU cache decision, updates Task 7.
   Re-running checks... 0 findings.
 
 CLEAN EXIT — returning control to harness-planning for sign-off.
@@ -1273,5 +1089,5 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When a check produces false positives:** Log the false positive and skip it. Do not block sign-off on a finding that the user has explicitly dismissed.
 - **When the convergence loop makes no progress on the first iteration:** All remaining findings need user input. Skip directly to Phase 4 (SURFACE) without looping.
 - **When graph queries are unavailable:** Fall back to document analysis and codebase reads. All checks are designed to work without graph. Do not block or warn about missing graph — just use the fallback path.
+- **When codebase files referenced in the spec cannot be read:** Skip the feasibility sub-check for that file. Log the skip and continue. Do not block the review on inaccessible files.
 - **When user resolutions repeatedly introduce new errors:** After 2 consecutive resolution attempts that each introduce a new error-severity finding, suggest pausing the soundness review to revisit the spec design holistically rather than fixing issues one at a time.
-- **When codebase files referenced in the spec cannot be read:** Skip the feasibility sub-check for that file. Log the skip and continue with the remaining checks. Do not block the review on inaccessible files.

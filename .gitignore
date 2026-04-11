@@ -42,7 +42,7 @@ temp/
 .worktrees/
 .claude/worktrees/
 
-# Harness runtime artifacts
+# Harness runtime artifacts (see .harness/.gitignore)
 .harness/graph/
 .harness/debug/
 .harness/sessions/
@@ -50,7 +50,8 @@ temp/
 .harness/handoff.json
 .harness/state.json
 .harness/state/
+.harness/dispatch-last-head.txt
 
 .vitepress
 *.tsbuildinfo
-.harness/state/pre-compact-summary.json
+

@@ -1,6 +1,7 @@
 name: react-state-management-pattern
 version: '1.0.0'
 description: Choose the right state management approach for your React application scale
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

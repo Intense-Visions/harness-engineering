@@ -1,0 +1,40 @@
+name: perf-index-strategies
+version: '1.0.0'
+description: Index strategies — B-tree, hash, GIN, GiST, composite, partial, and covering indexes for query optimization
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-query-optimization
+  - perf-n-plus-one
+  - perf-connection-pooling
+  - prisma-performance-patterns
+  - drizzle-performance-patterns
+stack_signals: []
+keywords:
+  - database index
+  - b-tree
+  - composite index
+  - partial index
+  - covering index
+  - GIN index
+  - GiST index
+  - index strategy
+  - index bloat
+  - multi-column index
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

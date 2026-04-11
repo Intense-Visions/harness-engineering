@@ -1,0 +1,39 @@
+name: perf-critical-rendering-path
+version: '1.0.0'
+description: Browser rendering pipeline — Parse, Style, Layout, Paint, Composite stages and optimization strategies
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-dom-parsing
+  - perf-style-calculation
+  - perf-layout-reflow
+  - perf-paint-compositing
+  - perf-largest-contentful-paint
+  - css-performance-patterns
+stack_signals: []
+keywords:
+  - critical rendering path
+  - rendering pipeline
+  - render blocking
+  - CSSOM
+  - DOM construction
+  - first paint
+  - pixel pipeline
+  - browser rendering
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

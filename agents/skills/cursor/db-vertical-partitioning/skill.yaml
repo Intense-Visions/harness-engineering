@@ -1,0 +1,40 @@
+name: db-vertical-partitioning
+version: '1.0.0'
+description: Table splitting, hot/cold data separation, TOAST management, and large object strategies
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-table-partitioning
+  - db-horizontal-sharding
+  - db-denormalization
+  - db-btree-index
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - vertical-partitioning
+  - table-splitting
+  - hot-cold
+  - TOAST
+  - large-objects
+  - narrow-table
+  - wide-table
+metadata:
+  author: community
+  upstream: postgresql.org/docs/current/storage-toast.html
+state:
+  persistent: false
+  files: []
+depends_on: []

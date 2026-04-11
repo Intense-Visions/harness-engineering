@@ -1,6 +1,7 @@
 name: harness-parallel-agents
 version: "1.0.0"
 description: Coordinate multiple agents working in parallel on a harness project
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

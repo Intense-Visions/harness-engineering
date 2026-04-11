@@ -1,6 +1,7 @@
 name: nuxt-middleware-pattern
 version: '1.0.0'
 description: Guard and transform routes using Nuxt route middleware and server middleware
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

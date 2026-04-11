@@ -1,6 +1,7 @@
 name: angular-schematics
 version: '1.0.0'
 description: Use ng generate, custom schematics, and angular.json workspace config for scaffolding and configuration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

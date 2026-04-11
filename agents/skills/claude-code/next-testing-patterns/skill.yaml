@@ -1,6 +1,7 @@
 name: next-testing-patterns
 version: "1.0.0"
 description: Component testing with App Router, mocking server components, and MSW integration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

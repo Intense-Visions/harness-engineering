@@ -1,0 +1,40 @@
+name: security-incident-containment
+version: '1.0.0'
+description: Incident triage, isolation strategies, evidence preservation, and the first 60 minutes of a security incident -- what to do and what not to touch
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-forensics-fundamentals
+  - security-vulnerability-disclosure
+  - security-post-incident-review
+  - security-log-correlation
+  - owasp-logging-monitoring
+stack_signals: []
+keywords:
+  - incident response
+  - incident containment
+  - triage
+  - isolation
+  - evidence preservation
+  - breach response
+  - security incident
+  - IR playbook
+  - NIST incident response
+  - containment strategy
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

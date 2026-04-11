@@ -1,0 +1,40 @@
+name: security-code-signing
+version: '1.0.0'
+description: Artifact signing, verification pipelines, Sigstore keyless signing, and ensuring that deployed software was built by trusted parties
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - security-sbom-provenance
+  - security-hmac-signatures
+  - security-asymmetric-encryption
+  - security-dependency-auditing
+  - owasp-dependency-security
+stack_signals: []
+keywords:
+  - code signing
+  - artifact signing
+  - Sigstore
+  - cosign
+  - Fulcio
+  - Rekor
+  - GPG signing
+  - container signing
+  - software verification
+  - trusted publisher
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

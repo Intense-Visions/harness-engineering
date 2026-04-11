@@ -93,6 +93,7 @@ https://trpc.io/docs/server/validators
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
 - **No tools or state** — consumed as context by other skills and agents.
+- **related_skills:** trpc-router-composition, trpc-error-handling, next-route-handlers, ts-utility-types, api-validation-errors
 
 ## Success Criteria
 

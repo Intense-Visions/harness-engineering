@@ -1,6 +1,7 @@
 name: gof-template-method
 version: "1.0.0"
 description: Define an algorithm skeleton in a base class with abstract steps filled by subclasses
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

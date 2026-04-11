@@ -1,0 +1,33 @@
+name: ux-search-copy
+version: "1.0.0"
+description: Search copy — placeholder text, zero-results messaging, autocomplete hints, search scope indicators, saved search patterns
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-empty-states
+  - ux-microcopy-principles
+  - ux-plain-language
+stack_signals: []
+keywords:
+  - search
+  - placeholder
+  - zero-results
+  - autocomplete
+  - search-scope
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

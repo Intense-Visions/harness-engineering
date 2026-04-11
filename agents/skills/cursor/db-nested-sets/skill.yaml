@@ -1,0 +1,38 @@
+name: db-nested-sets
+version: "1.0.0"
+description: Left/right numbering for hierarchies -- fast reads, expensive writes, and when to use
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - db-adjacency-list
+  - db-closure-table
+  - db-hierarchical-data
+stack_signals:
+  - postgresql
+  - mysql
+  - database
+keywords:
+  - nested-sets
+  - left-right
+  - MPTT
+  - modified-preorder-tree-traversal
+  - hierarchy
+  - tree-reads
+metadata:
+  author: community
+  upstream: "en.wikipedia.org/wiki/Nested_set_model"
+state:
+  persistent: false
+  files: []
+depends_on: []

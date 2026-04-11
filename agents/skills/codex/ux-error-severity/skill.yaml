@@ -1,0 +1,35 @@
+name: ux-error-severity
+version: "1.0.0"
+description: Error severity communication — calibrating error tone to severity, from field validation to system failure to data loss
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-error-messages
+  - ux-microcopy-principles
+  - ux-voice-tone
+  - design-feedback-patterns
+stack_signals: []
+keywords:
+  - error-severity
+  - validation
+  - system-errors
+  - data-loss
+  - warning-levels
+  - tone-calibration
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

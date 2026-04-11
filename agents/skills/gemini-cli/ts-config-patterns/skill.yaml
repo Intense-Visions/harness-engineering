@@ -1,6 +1,7 @@
 name: ts-config-patterns
 version: "1.0.0"
 description: Configure tsconfig with extends, project references, composite builds, and incremental compilation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

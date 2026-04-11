@@ -1,6 +1,7 @@
 name: angular-routing-guards
 version: '1.0.0'
 description: Protect and preload routes with functional CanActivateFn, CanDeactivateFn, and ResolveFn guards
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

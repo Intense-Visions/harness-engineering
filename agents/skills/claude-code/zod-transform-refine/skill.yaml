@@ -1,6 +1,7 @@
 name: zod-transform-refine
 version: "1.0.0"
 description: Transform and validate data with Zod's transform, refine, superRefine, and preprocess APIs
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

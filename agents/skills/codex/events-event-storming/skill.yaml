@@ -1,6 +1,7 @@
 name: events-event-storming
 version: "1.0.0"
 description: Run event storming workshops to discover domain events, commands, and bounded contexts
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

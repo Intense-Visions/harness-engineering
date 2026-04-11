@@ -1,6 +1,7 @@
 name: owasp-dependency-security
 version: '1.0.0'
 description: Manage third-party dependency risks with auditing, lockfiles, and vulnerability scanning
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
@@ -20,6 +21,9 @@ paths:
 related_skills:
   - owasp-secrets-management
   - owasp-logging-monitoring
+  - security-dependency-auditing
+  - security-sbom-provenance
+  - security-code-signing
 stack_signals:
   - nodejs
   - typescript

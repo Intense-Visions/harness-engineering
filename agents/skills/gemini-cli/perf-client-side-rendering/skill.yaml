@@ -1,0 +1,40 @@
+name: perf-client-side-rendering
+version: '1.0.0'
+description: Client-side rendering — SPA rendering optimization, skeleton screens, progressive rendering, and virtual DOM performance
+stability: static
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - perf-server-side-rendering
+  - perf-code-splitting
+  - perf-critical-rendering-path
+  - perf-interaction-to-next-paint
+  - perf-long-tasks
+  - perf-event-loop
+stack_signals: []
+keywords:
+  - client-side rendering
+  - CSR
+  - SPA
+  - skeleton screen
+  - progressive rendering
+  - virtual DOM
+  - React performance
+  - re-render
+  - memoization
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
