@@ -75,7 +75,7 @@ Content-Type: application/json
 
 ```http
 POST /v1/payment_intents
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 Stripe-Version: 2023-10-16
 Content-Type: application/x-www-form-urlencoded
 

@@ -17,7 +17,7 @@
 ```typescript
 // BAD — will end up in version control
 const db = new Client({ password: 'super_secret_password' });
-const stripe = new Stripe('sk_live_abc123xyz');
+const stripe = new Stripe('sk_example_abc123xyz');
 
 // GOOD — always from environment
 const db = new Client({ password: process.env.DB_PASSWORD });

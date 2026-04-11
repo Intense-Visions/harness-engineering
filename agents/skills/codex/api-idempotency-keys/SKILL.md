@@ -35,7 +35,7 @@ Client generates a UUID v4 before the request:
 
 ```http
 POST /v1/payment_intents
-Authorization: Bearer sk_live_xxx
+Authorization: Bearer sk_example_xxx
 Content-Type: application/x-www-form-urlencoded
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 

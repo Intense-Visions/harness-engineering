@@ -79,7 +79,7 @@ Stripe's payment API demonstrates correct method semantics across the full lifec
 ```http
 POST /v1/payment_intents
 Content-Type: application/x-www-form-urlencoded
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 
 amount=2000&currency=usd&customer=cus_99
 ```
@@ -102,7 +102,7 @@ Stripe returns `200 OK` (not `201`) here because the PaymentIntent is not yet a 
 
 ```http
 GET /v1/payment_intents/pi_abc123
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 ```
 
 **Update amount (POST with explicit action — Stripe uses POST for mutations on sub-resources):**

@@ -37,7 +37,7 @@ Stripe's error contract is one of the most studied in production APIs. It uses a
 
 ```http
 POST /v1/charges
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 Content-Type: application/x-www-form-urlencoded
 
 amount=2000&currency=usd&source=tok_chargeDeclined
@@ -69,7 +69,7 @@ Content-Type: application/json
   "error": {
     "type": "authentication_error",
     "code": "api_key_invalid",
-    "message": "No such API key: sk_live_****abc.",
+    "message": "No such API key: sk_example_****abc.",
     "doc_url": "https://stripe.com/docs/error-codes/api-key-invalid"
   }
 }

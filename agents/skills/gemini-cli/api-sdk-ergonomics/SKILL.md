@@ -36,8 +36,8 @@
 import stripe
 
 # Configuration — idiomatic keyword arguments, not a config object
-stripe.api_key = "sk_live_..."
-client = stripe.StripeClient(api_key="sk_live_...", max_network_retries=2)
+stripe.api_key = "sk_example_..."
+client = stripe.StripeClient(api_key="sk_example_...", max_network_retries=2)
 
 # Method naming — verb-noun, resource namespaced
 # client.{resource}.{action}(params)

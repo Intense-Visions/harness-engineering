@@ -53,7 +53,7 @@ Stripe's Events API exposes a high-volume append-only log of all events for an a
 
 ```http
 GET /v1/events?limit=3&type=payment_intent.succeeded
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 ```
 
 ```http
@@ -76,7 +76,7 @@ Content-Type: application/json
 
 ```http
 GET /v1/events?limit=3&type=payment_intent.succeeded&starting_after=evt_003
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 ```
 
 ```http

@@ -36,7 +36,7 @@ Stripe's API is the canonical example of production URL versioning at scale. The
 
 ```http
 GET /v1/customers?limit=10
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 ```
 
 ```http

@@ -66,7 +66,7 @@ Installation tokens expire in 1 hour and are scoped to the repositories the app 
 
 1. **Using a single admin API key for all integrations.** Issuing one key with full access to every partner, CI pipeline, and internal service means any single compromise grants full access. Every integration must receive its own credential scoped to only the operations it requires.
 
-2. **Passing credentials in query parameters.** `GET /api/orders?api_key=sk_live_...` logs the key in every access log, CDN log, browser history entry, and referrer header. This is a data breach waiting for a log aggregator. Always use `Authorization` headers.
+2. **Passing credentials in query parameters.** `GET /api/orders?api_key=sk_example_...` logs the key in every access log, CDN log, browser history entry, and referrer header. This is a data breach waiting for a log aggregator. Always use `Authorization` headers.
 
 3. **JWTs without expiry or revocation.** A JWT with `"exp": null` or a 10-year expiry is an irrevocable credential. If the signing key leaks, all issued tokens are permanently compromised until the key rotates. Use 15–60 minute expiry with refresh token rotation, or maintain a server-side revocation list.
 

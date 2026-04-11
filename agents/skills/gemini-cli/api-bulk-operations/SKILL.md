@@ -59,7 +59,7 @@ Stripe's Bulk operations pattern via the Batch API demonstrates the design of a 
 ```http
 POST /v1/batch
 Content-Type: application/json
-Authorization: Bearer sk_live_...
+Authorization: Bearer sk_example_...
 Idempotency-Key: batch_20240315_import_001
 
 {

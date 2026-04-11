@@ -16,11 +16,11 @@
 
 ### Key Concepts
 
-1. **Entropy requirements** — A secure API key must contain at least 128 bits of cryptographic randomness, generating a key of at least 32 characters when base-62 encoded. Use a cryptographically secure random number generator (CSPRNG): `crypto.randomBytes(32)` in Node.js, `secrets.token_urlsafe(32)` in Python, or `SecureRandom` in Java. Dictionary words, sequential IDs, and UUIDs v4 have known entropy floors and predictable structure that makes offline attacks feasible. Prefix the key with a service identifier (`sk_live_`, `ghp_`, `stripe_`) to enable secret scanning tools (GitHub Advanced Security, truffleHog) to detect accidental exposure.
+1. **Entropy requirements** — A secure API key must contain at least 128 bits of cryptographic randomness, generating a key of at least 32 characters when base-62 encoded. Use a cryptographically secure random number generator (CSPRNG): `crypto.randomBytes(32)` in Node.js, `secrets.token_urlsafe(32)` in Python, or `SecureRandom` in Java. Dictionary words, sequential IDs, and UUIDs v4 have known entropy floors and predictable structure that makes offline attacks feasible. Prefix the key with a service identifier (`sk_test_`, `ghp_`, `stripe_`) to enable secret scanning tools (GitHub Advanced Security, truffleHog) to detect accidental exposure.
 
 2. **Key scoping and permissions** — Every key must be issued with an explicit permission scope, not as a global admin credential. Scopes should be granular enough to express the minimum privilege needed: `orders:read`, `inventory:write`, `webhooks:manage`. At issuance, the consumer selects the scopes required for their integration; the server enforces them on every request. A key scoped to `orders:read` must not be accepted on a `POST /orders` endpoint. Scoped keys contain breach impact to only the operations the key was authorized for.
 
-3. **Transmission — Authorization header only** — API keys must be transmitted in the `Authorization` header: `Authorization: Bearer sk_live_...` or `Authorization: ApiKey sk_live_...`. Query parameter transmission (`?api_key=...`) exposes the key in access logs, CDN logs, browser history, referrer headers, and URL-sharing patterns. TLS protects header values from eavesdropping; it does not protect query parameters from being logged. Any API accepting credentials via query parameters must be treated as compromised until migrated.
+3. **Transmission — Authorization header only** — API keys must be transmitted in the `Authorization` header: `Authorization: Bearer sk_test_...` or `Authorization: ApiKey sk_test_...`. Query parameter transmission (`?api_key=...`) exposes the key in access logs, CDN logs, browser history, referrer headers, and URL-sharing patterns. TLS protects header values from eavesdropping; it does not protect query parameters from being logged. Any API accepting credentials via query parameters must be treated as compromised until migrated.
 
 4. **Storage — hash, never store plaintext** — The server must store a one-way hash of the API key, never the key itself. Use HMAC-SHA256 or bcrypt against the key value; store the hash in the database. When validating, hash the incoming key and compare against the stored hash. The full key is shown to the user exactly once at creation time — after that it is irrecoverable. This means a database dump does not give an attacker working credentials. Stripe, GitHub, and Twilio all follow this pattern: their support teams cannot retrieve a key, only revoke it.
 
@@ -36,7 +36,7 @@
 
 ```http
 POST /v1/restricted_keys
-Authorization: Bearer sk_live_master_...
+Authorization: Bearer sk_example_master_...
 Content-Type: application/x-www-form-urlencoded
 
 name=CI+Pipeline&permissions[orders][read]=true
@@ -44,28 +44,28 @@ name=CI+Pipeline&permissions[orders][read]=true
 
 ```json
 {
-  "id": "rk_live_abc123",
+  "id": "rk_example_abc123",
   "name": "CI Pipeline",
-  "secret": "rk_live_abc123xxxxxxxxxxxxxxxxxxx",
+  "secret": "rk_example_abc123xxxxxxxxxxxxxxxxxxx",
   "permissions": { "orders": ["read"] },
   "created": 1704067200
 }
 ```
 
-The `secret` field is returned only in this response. Stripe's database stores `HMAC-SHA256(secret)`. A subsequent `GET /v1/restricted_keys/rk_live_abc123` returns metadata but never the `secret` field.
+The `secret` field is returned only in this response. Stripe's database stores `HMAC-SHA256(secret)`. A subsequent `GET /v1/restricted_keys/rk_example_abc123` returns metadata but never the `secret` field.
 
 **Key transmission — Authorization header:**
 
 ```http
 GET /v1/charges?limit=10
-Authorization: Bearer rk_live_abc123xxxxxxxxxxxxxxxxxxx
+Authorization: Bearer rk_example_abc123xxxxxxxxxxxxxxxxxxx
 ```
 
 **Key rotation — overlapping validity:**
 
 ```http
-POST /v1/restricted_keys/rk_live_abc123/rotate
-Authorization: Bearer sk_live_master_...
+POST /v1/restricted_keys/rk_example_abc123/rotate
+Authorization: Bearer sk_example_master_...
 Content-Type: application/x-www-form-urlencoded
 
 grace_period_hours=48
@@ -73,8 +73,8 @@ grace_period_hours=48
 
 ```json
 {
-  "new_key": { "id": "rk_live_def456", "secret": "rk_live_def456..." },
-  "old_key": { "id": "rk_live_abc123", "expires_at": 1704240000 }
+  "new_key": { "id": "rk_example_def456", "secret": "rk_example_def456..." },
+  "old_key": { "id": "rk_example_abc123", "expires_at": 1704240000 }
 }
 ```
 
@@ -94,7 +94,7 @@ Both keys are valid for 48 hours, giving the consumer time to update their confi
 
 ### Secret Scanning Integration
 
-The `sk_live_` / `ghp_` / `AIza` prefix patterns used by major API providers enable automated secret scanning to detect accidental key exposure in version control, CI logs, and issue trackers. GitHub Advanced Security, truffleHog, and GitLeaks all ship with detection patterns for known prefixes. When designing a key prefix, register the pattern with the GitHub Secret Scanning Partner Program — GitHub will notify your platform when matching patterns are detected in public repositories, enabling proactive revocation before exploitation. Stripe's partner integration with GitHub has prevented thousands of key exposures since its introduction.
+The `sk_example_` / `ghp_` / `AIza` prefix patterns used by major API providers enable automated secret scanning to detect accidental key exposure in version control, CI logs, and issue trackers. GitHub Advanced Security, truffleHog, and GitLeaks all ship with detection patterns for known prefixes. When designing a key prefix, register the pattern with the GitHub Secret Scanning Partner Program — GitHub will notify your platform when matching patterns are detected in public repositories, enabling proactive revocation before exploitation. Stripe's partner integration with GitHub has prevented thousands of key exposures since its introduction.
 
 ### HMAC Request Signing as an Alternative
 
