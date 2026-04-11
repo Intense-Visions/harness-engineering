@@ -348,6 +348,11 @@ Remove a previously installed constraints package
 
 Update all @harness-engineering packages to the latest version
 
+**Options:**
+
+- `--force` — Force update even if versions match
+- `--regenerate` — Only regenerate slash commands and agent definitions (skip package updates)
+
 ### `harness validate`
 
 Run all validation checks

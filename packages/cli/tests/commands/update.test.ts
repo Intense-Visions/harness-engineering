@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   detectPackageManager,
   getInstalledVersion,
+  getInstalledVersions,
   getInstalledPackages,
   createUpdateCommand,
 } from '../../src/commands/update';
@@ -44,6 +45,18 @@ describe('update command', () => {
     it('has --version option', () => {
       const cmd = createUpdateCommand();
       const opt = cmd.options.find((o) => o.long === '--version');
+      expect(opt).toBeDefined();
+    });
+
+    it('has --force option', () => {
+      const cmd = createUpdateCommand();
+      const opt = cmd.options.find((o) => o.long === '--force');
+      expect(opt).toBeDefined();
+    });
+
+    it('has --regenerate option', () => {
+      const cmd = createUpdateCommand();
+      const opt = cmd.options.find((o) => o.long === '--regenerate');
       expect(opt).toBeDefined();
     });
 
@@ -117,6 +130,55 @@ describe('update command', () => {
         throw new Error('command failed');
       });
       expect(getInstalledVersion('npm')).toBeNull();
+    });
+  });
+
+  describe('getInstalledVersions', () => {
+    it('returns versions for all requested packages', () => {
+      mockedExecFileSync.mockReturnValue(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.24.0' },
+            '@harness-engineering/core': { version: '0.21.3' },
+          },
+        })
+      );
+      const versions = getInstalledVersions('npm', [
+        '@harness-engineering/cli',
+        '@harness-engineering/core',
+      ]);
+      expect(versions).toEqual({
+        '@harness-engineering/cli': '1.24.0',
+        '@harness-engineering/core': '0.21.3',
+      });
+    });
+
+    it('returns null for packages not in global list', () => {
+      mockedExecFileSync.mockReturnValue(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.24.0' },
+          },
+        })
+      );
+      const versions = getInstalledVersions('npm', [
+        '@harness-engineering/cli',
+        '@harness-engineering/core',
+      ]);
+      expect(versions['@harness-engineering/cli']).toBe('1.24.0');
+      expect(versions['@harness-engineering/core']).toBeNull();
+    });
+
+    it('returns all nulls when execFileSync throws', () => {
+      mockedExecFileSync.mockImplementation(() => {
+        throw new Error('command failed');
+      });
+      const versions = getInstalledVersions('npm', [
+        '@harness-engineering/cli',
+        '@harness-engineering/core',
+      ]);
+      expect(versions['@harness-engineering/cli']).toBeNull();
+      expect(versions['@harness-engineering/core']).toBeNull();
     });
   });
 
