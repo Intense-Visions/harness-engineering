@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-09
 last_synced: 2026-04-09T21:27:34.153Z
-last_manual_edit: 2026-04-10T17:36:33.967Z
+last_manual_edit: 2026-04-11T03:00:54.627Z
 ---
 
 # Roadmap
@@ -826,9 +826,9 @@ last_manual_edit: 2026-04-10T17:36:33.967Z
 
 ### API Design Knowledge Skills
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/api-design-knowledge-skills/proposal.md
-- **Summary:** 36 language-agnostic API design knowledge skills across 8 topic clusters (REST foundations, HTTP semantics, request/response design, error handling, versioning, security, async/events, contract/tooling) with bidirectional cross-references to existing graphql-_, trpc-_, owasp-_, events-_, security-_, perf-_, and db-\* skills
+- **Summary:** 36 language-agnostic API design knowledge skills across 8 clusters, all 4 platforms, with bidirectional cross-references to 17 existing skills
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -837,7 +837,7 @@ last_manual_edit: 2026-04-10T17:36:33.967Z
 
 ### UX Writing and Content Design Knowledge Skills
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/ux-writing-knowledge-skills/proposal.md
 - **Summary:** ~25 knowledge skills covering microcopy principles, error message design, empty states, onboarding copy, CTAs, form labels, notification copy, loading states, voice and tone, and plain language — complements the design-\* skill domain
 - **Blockers:** —
