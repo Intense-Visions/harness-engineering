@@ -1,0 +1,34 @@
+name: ux-error-messages
+version: "1.0.0"
+description: Error messages — what went wrong, why it matters, how to fix it, the three-part error pattern for clear, actionable error communication
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-voice-tone
+  - ux-plain-language
+  - design-empty-error-states
+  - design-feedback-patterns
+stack_signals: []
+keywords:
+  - error-messages
+  - validation
+  - user-feedback
+  - error-recovery
+  - inline-errors
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

@@ -60,7 +60,7 @@
    { "bio": "Engineer at Acme Corp" }
    ```
 
-7. **DELETE** — Remove a resource. Idempotent but not safe. Idempotency means the server state is identical after N calls as after one — not that the response code must be identical. Return `204 No Content` on success. A second DELETE should return `404 Not Found` (the resource genuinely does not exist); returning `204` again is a pragmatic convention that hides this information from callers and should not be chosen by default.
+7. **DELETE** — Remove a resource. Idempotent but not safe. A second DELETE to a resource that no longer exists should return `404 Not Found` or `204 No Content` depending on your API contract — both are defensible. Return `204 No Content` on success.
 
    ```http
    DELETE /orders/ord_abc123

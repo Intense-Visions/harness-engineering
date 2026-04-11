@@ -62,7 +62,7 @@ Authorization: Bearer ghp_...
 
 ```http
 HTTP/1.1 200 OK
-Cache-Control: private, max-age=60
+Cache-Control: private, max-age=60, s-maxage=60
 ETag: "abc123def456"
 Last-Modified: Thu, 10 Apr 2026 12:00:00 GMT
 Vary: Accept, Authorization

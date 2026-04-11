@@ -1,0 +1,43 @@
+name: api-http-caching
+version: '1.0.0'
+description: Cache-Control directives, ETag generation, Vary header strategy, CDN interaction, and cache invalidation patterns
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-conditional-requests
+  - api-content-negotiation
+  - perf-cdn-cache-control
+  - perf-http2-multiplexing
+stack_signals:
+  - rest
+  - api
+  - http
+  - cdn
+keywords:
+  - http-caching
+  - Cache-Control
+  - ETag
+  - Vary
+  - max-age
+  - no-cache
+  - no-store
+  - CDN
+  - cache-invalidation
+metadata:
+  author: community
+  upstream: developer.mozilla.org/en-US/docs/Web/HTTP/Caching
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

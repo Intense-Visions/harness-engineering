@@ -1,0 +1,43 @@
+name: api-http-methods
+version: '1.0.0'
+description: GET/POST/PUT/PATCH/DELETE semantics, safety and idempotency properties, and when to use each HTTP method
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-status-codes
+  - api-idempotency-keys
+  - api-rest-maturity-model
+  - api-conditional-requests
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - http-methods
+  - GET
+  - POST
+  - PUT
+  - PATCH
+  - DELETE
+  - safety
+  - idempotency
+  - HEAD
+  - OPTIONS
+metadata:
+  author: community
+  upstream: developer.mozilla.org/en-US/docs/Web/HTTP/Methods
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static

@@ -63,7 +63,7 @@ Content-Type: application/json
 { "id": 123456, "name": "my-project", "full_name": "alice/my-project", ... }
 ```
 
-**Create duplicate repository (422 Unprocessable Entity — GitHub's choice):**
+**Create duplicate repository (409 Conflict):**
 
 ```http
 POST /user/repos

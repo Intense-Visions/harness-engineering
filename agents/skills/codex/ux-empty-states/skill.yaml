@@ -1,0 +1,35 @@
+name: ux-empty-states
+version: "1.0.0"
+description: Empty states — first-use, user-cleared, and no-results patterns that motivate action, set expectations, and turn blank screens into onramps
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-microcopy-principles
+  - ux-onboarding-copy
+  - ux-writing-for-scanning
+  - design-empty-error-states
+  - design-loading-patterns
+stack_signals: []
+keywords:
+  - empty-states
+  - first-use
+  - zero-data
+  - no-results
+  - onboarding
+  - blank-slate
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []

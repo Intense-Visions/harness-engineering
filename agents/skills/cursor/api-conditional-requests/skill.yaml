@@ -1,0 +1,41 @@
+name: api-conditional-requests
+version: '1.0.0'
+description: If-None-Match, If-Modified-Since, If-Match conditional headers, 304 Not Modified, and optimistic concurrency control
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - api-http-caching
+  - api-http-methods
+  - db-optimistic-locking
+  - api-status-codes
+stack_signals:
+  - rest
+  - api
+  - http
+keywords:
+  - conditional-requests
+  - If-None-Match
+  - If-Modified-Since
+  - If-Match
+  - ETag
+  - Last-Modified
+  - '304'
+  - optimistic-concurrency
+metadata:
+  author: community
+  upstream: developer.mozilla.org/en-US/docs/Web/HTTP/Conditional_requests
+state:
+  persistent: false
+  files: []
+depends_on: []
+stability: static
