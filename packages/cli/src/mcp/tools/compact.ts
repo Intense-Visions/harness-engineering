@@ -300,21 +300,22 @@ export async function handleCompact(input: {
   // Mode A: content
   if (input.content && !input.intent) {
     const result = handleContentMode(input.content, pipeline, budget, 'content');
-    if (strategyWarning) result.content[0].text += strategyWarning;
+    if (strategyWarning && result.content?.[0]) result.content[0].text += strategyWarning;
     return result;
   }
 
   // Mode C: ref
   if (input.ref) {
     const result = handleContentMode(input.ref.content, pipeline, budget, input.ref.source);
-    if (strategyWarning) result.content[0].text += strategyWarning;
+    if (strategyWarning && result.content?.[0]) result.content[0].text += strategyWarning;
     return result;
   }
 
   // Mode B: intent (with optional content filter)
   if (input.intent) {
     const result = await handleIntentMode(safePath!, input.intent, pipeline, budget, input.content);
-    if (strategyWarning && !result.isError) result.content[0].text += strategyWarning;
+    if (strategyWarning && !result.isError && result.content?.[0])
+      result.content[0].text += strategyWarning;
     return result;
   }
 

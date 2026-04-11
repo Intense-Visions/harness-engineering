@@ -87,12 +87,12 @@ describe('readAdoptionRecords', () => {
     };
     fs.writeFileSync(adoptionFile, 'not json\n' + JSON.stringify(valid) + '\n{broken\n');
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const records = readAdoptionRecords(tmpDir);
     expect(records).toHaveLength(1);
     expect(records[0]!.skill).toBe('harness-execution');
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping malformed'));
-    warnSpy.mockRestore();
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping malformed'));
+    stderrSpy.mockRestore();
   });
 
   it('skips blank lines without warning', () => {
