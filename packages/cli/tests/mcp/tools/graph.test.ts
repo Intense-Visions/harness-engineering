@@ -390,6 +390,41 @@ describe('handleGetRelationships', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('No graph found');
   });
+
+  it('includes pagination metadata in detailed mode', async () => {
+    await createTestGraph(tmpDir);
+    const result = await handleGetRelationships({
+      path: tmpDir,
+      nodeId: 'file:src/index.ts',
+      direction: 'outbound',
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+    expect(data.pagination).toBeDefined();
+    expect(data.pagination.offset).toBe(0);
+    expect(data.pagination.limit).toBe(50);
+    expect(data.pagination.total).toBe(data.edges.length);
+    expect(data.pagination.hasMore).toBe(false);
+  });
+
+  it('respects offset and limit for edge pagination', async () => {
+    await createTestGraph(tmpDir);
+    const result = await handleGetRelationships({
+      path: tmpDir,
+      nodeId: 'file:src/index.ts',
+      direction: 'outbound',
+      offset: 0,
+      limit: 1,
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+    expect(data.edges.length).toBe(1);
+    expect(data.pagination.offset).toBe(0);
+    expect(data.pagination.limit).toBe(1);
+    expect(data.pagination.hasMore).toBe(true);
+  });
 });
 
 // ── handleGetImpact ─────────────────────────────────────────────────
