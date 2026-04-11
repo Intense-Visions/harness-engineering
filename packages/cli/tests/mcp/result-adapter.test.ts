@@ -19,9 +19,15 @@ describe('resultToMcpResponse', () => {
     expect(response.content[0].text).toContain('Validation failed');
   });
 
-  it('handles string values', () => {
+  it('handles string values without JSON-wrapping', () => {
     const result = Ok('simple string');
     const response = resultToMcpResponse(result);
-    expect(response.content[0].text).toBe('"simple string"');
+    expect(response.content[0].text).toBe('simple string');
+  });
+
+  it('JSON-stringifies non-string values', () => {
+    const result = Ok({ count: 42 });
+    const response = resultToMcpResponse(result);
+    expect(response.content[0].text).toBe('{"count":42}');
   });
 });

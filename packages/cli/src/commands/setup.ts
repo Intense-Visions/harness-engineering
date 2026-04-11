@@ -10,6 +10,8 @@ import { checkNodeVersion as checkNode } from '../utils/node-version';
 import { ExitCode } from '../utils/errors';
 import { readMcpConfig, writeMcpEntry } from '../integrations/config';
 import { INTEGRATION_REGISTRY } from '../integrations/registry';
+import { initHooks } from './hooks/init';
+import type { HookProfile } from '../hooks/profiles';
 
 export interface StepResult {
   status: 'pass' | 'warn' | 'fail';
@@ -133,6 +135,52 @@ export function configureTier0Integrations(cwd: string): StepResult {
   }
 }
 
+function ensureHooks(cwd: string): StepResult {
+  // Only initialize hooks if this is a harness project
+  const configPath = path.join(cwd, 'harness.config.json');
+  if (!fs.existsSync(configPath)) {
+    return { status: 'warn', message: 'Not a harness project — skipped hook installation' };
+  }
+
+  // Detect existing profile or default to standard
+  let profile: HookProfile = 'standard';
+  const profilePath = path.join(cwd, '.harness', 'hooks', 'profile.json');
+  try {
+    const data = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
+    if (data.profile && ['minimal', 'standard', 'strict'].includes(data.profile)) {
+      profile = data.profile;
+    }
+  } catch {
+    // No existing profile — use standard
+  }
+
+  try {
+    const result = initHooks({ profile, projectDir: cwd });
+    return {
+      status: 'pass',
+      message: `Installed ${result.copiedScripts.length} hooks (${profile} profile)`,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { status: 'warn', message: `Hook installation skipped — ${msg}` };
+  }
+}
+
+async function runInitialGraphScan(cwd: string): Promise<StepResult> {
+  try {
+    // Dynamic import to avoid cycles or failing immediately if graph framework isn't fully available yet
+    const { runScan } = await import('./graph/scan.js');
+    const result = await runScan(cwd);
+    return {
+      status: 'pass',
+      message: `Built knowledge graph: ${result.nodeCount} nodes, ${result.edgeCount} edges`,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { status: 'warn', message: `Knowledge graph creation skipped — ${msg}` };
+  }
+}
+
 export async function runSetup(cwd: string): Promise<{ steps: StepResult[]; success: boolean }> {
   const steps: StepResult[] = [];
 
@@ -154,6 +202,14 @@ export async function runSetup(cwd: string): Promise<{ steps: StepResult[]; succ
   // Step 4: Configure Tier 0 integrations
   const tier0Result = configureTier0Integrations(cwd);
   steps.push(tier0Result);
+
+  // Step 5: Ensure hooks are installed (telemetry, adoption tracking, etc.)
+  const hooksResult = ensureHooks(cwd);
+  steps.push(hooksResult);
+
+  // Step 6: Initial Knowledge Graph scan
+  const graphResult = await runInitialGraphScan(cwd);
+  steps.push(graphResult);
 
   // Determine success: no 'fail' status in any step
   const success = steps.every((s) => s.status !== 'fail');

@@ -1,3 +1,4 @@
+import { paginate } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const getDecayTrendsDefinition = {
@@ -29,6 +30,16 @@ export const getDecayTrendsDefinition = {
           'dependency-depth',
         ],
       },
+      offset: {
+        type: 'number',
+        description:
+          'Number of trend entries to skip (pagination). Default: 0. Trends are sorted by decay magnitude (absolute delta) desc. Ignored when category is set (category filter returns a single entry).',
+      },
+      limit: {
+        type: 'number',
+        description:
+          'Max trend entries to return (pagination). Default: 20. Ignored when category is set (category filter returns a single entry).',
+      },
     },
     required: ['path'],
   },
@@ -39,6 +50,8 @@ export async function handleGetDecayTrends(input: {
   last?: number;
   since?: string;
   category?: string;
+  offset?: number;
+  limit?: number;
 }) {
   let projectPath: string;
   try {
@@ -77,10 +90,18 @@ export async function handleGetDecayTrends(input: {
     if (input.since !== undefined) trendOptions.since = input.since;
     const trends = manager.trends(trendOptions);
 
-    // If category filter, extract just that category
+    // Convert categories record to sorted array for pagination
+    const categoryEntries = Object.entries(trends.categories).map(([name, trend]) => ({
+      category: name,
+      ...trend,
+    }));
+    // Sort by decay magnitude (absolute delta) descending
+    categoryEntries.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+    // If category filter, find it in the sorted array
     if (input.category) {
-      const categoryTrend = trends.categories[input.category as keyof typeof trends.categories];
-      if (!categoryTrend) {
+      const match = categoryEntries.find((e) => e.category === input.category);
+      if (!match) {
         return {
           content: [
             {
@@ -98,7 +119,12 @@ export async function handleGetDecayTrends(input: {
             text: JSON.stringify(
               {
                 category: input.category,
-                trend: categoryTrend,
+                trend: {
+                  current: match.current,
+                  previous: match.previous,
+                  delta: match.delta,
+                  direction: match.direction,
+                },
                 snapshotCount: trends.snapshotCount,
                 from: trends.from,
                 to: trends.to,
@@ -111,11 +137,24 @@ export async function handleGetDecayTrends(input: {
       };
     }
 
+    const paged = paginate(categoryEntries, input.offset ?? 0, input.limit ?? 20);
+
     return {
       content: [
         {
           type: 'text' as const,
-          text: JSON.stringify(trends, null, 2),
+          text: JSON.stringify(
+            {
+              stability: trends.stability,
+              categories: paged.items,
+              snapshotCount: trends.snapshotCount,
+              from: trends.from,
+              to: trends.to,
+              pagination: paged.pagination,
+            },
+            null,
+            2
+          ),
         },
       ],
     };

@@ -11,3 +11,6 @@ export { CompactionPipeline } from './pipeline';
 
 export type { PackedEnvelope } from './envelope';
 export { serializeEnvelope, estimateTokens } from './envelope';
+
+export type { PaginationMeta, PaginatedSlice } from './pagination';
+export { paginate } from './pagination';

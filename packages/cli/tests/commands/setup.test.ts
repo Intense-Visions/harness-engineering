@@ -99,7 +99,7 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(7);
+    expect(steps).toHaveLength(9);
     expect(steps[0].status).toBe('pass');
     expect(steps[0].message).toContain('Node.js');
     expect(steps[1].status).toBe('pass');
@@ -142,7 +142,7 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(7);
+    expect(steps).toHaveLength(9);
     const geminiStep = steps[3];
     expect(geminiStep.status).toBe('warn');
     expect(geminiStep.message).toContain('Gemini CLI not detected');

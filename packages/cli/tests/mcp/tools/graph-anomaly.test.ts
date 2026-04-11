@@ -159,4 +159,62 @@ describe('handleDetectAnomalies', () => {
     expect(data.summary.warnings).toContain('madeUpMetric');
     expect(data.summary.metricsAnalyzed).toEqual(['cyclomaticComplexity']);
   });
+
+  it('includes pagination metadata with default limit', async () => {
+    await createAnomalyTestGraph(tmpDir);
+    const result = await handleDetectAnomalies({ path: tmpDir });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+    expect(data.pagination).toBeDefined();
+    expect(data.pagination.offset).toBe(0);
+    expect(data.pagination.limit).toBe(30);
+    expect(typeof data.pagination.total).toBe('number');
+    expect(typeof data.pagination.hasMore).toBe('boolean');
+  });
+
+  it('respects offset and limit for anomaly pagination', async () => {
+    await createAnomalyTestGraph(tmpDir);
+
+    // First get all outliers to know the count
+    const full = await handleDetectAnomalies({
+      path: tmpDir,
+      metrics: ['cyclomaticComplexity'],
+      limit: 100,
+    });
+    const fullData = parseResult(full);
+    const totalOutliers = fullData.pagination.total;
+
+    // Now request with limit=1
+    const paged = await handleDetectAnomalies({
+      path: tmpDir,
+      metrics: ['cyclomaticComplexity'],
+      offset: 0,
+      limit: 1,
+    });
+
+    const pagedData = parseResult(paged);
+    expect(pagedData.statisticalOutliers.length).toBeLessThanOrEqual(1);
+    expect(pagedData.pagination.offset).toBe(0);
+    expect(pagedData.pagination.limit).toBe(1);
+    expect(pagedData.pagination.total).toBe(totalOutliers);
+    if (totalOutliers > 1) {
+      expect(pagedData.pagination.hasMore).toBe(true);
+    }
+  });
+
+  it('outliers are sorted by Z-score desc (page 1 has highest Z-score)', async () => {
+    await createAnomalyTestGraph(tmpDir);
+    const result = await handleDetectAnomalies({
+      path: tmpDir,
+      metrics: ['cyclomaticComplexity'],
+      limit: 100,
+    });
+
+    const data = parseResult(result);
+    const zScores = data.statisticalOutliers.map((o: { zScore: number }) => o.zScore);
+    for (let i = 1; i < zScores.length; i++) {
+      expect(zScores[i - 1]).toBeGreaterThanOrEqual(zScores[i]);
+    }
+  });
 });
