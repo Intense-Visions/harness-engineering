@@ -1,0 +1,33 @@
+name: ux-destructive-action-copy
+version: "1.0.0"
+description: Destructive action copy — irreversibility warnings, undo availability, double-confirmation patterns, cooldown messaging
+cognitive_mode: advisory-guide
+type: knowledge
+tier: 3
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools: []
+paths: []
+related_skills:
+  - ux-confirmation-dialogs
+  - ux-button-cta-copy
+  - ux-microcopy-principles
+stack_signals: []
+keywords:
+  - destructive-action
+  - irreversibility
+  - undo
+  - double-confirmation
+  - data-loss
+  - warning-copy
+metadata:
+  author: community
+state:
+  persistent: false
+  files: []
+depends_on: []
