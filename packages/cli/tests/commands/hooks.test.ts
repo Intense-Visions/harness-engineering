@@ -31,23 +31,25 @@ describe('buildSettingsHooks', () => {
     expect(hooks.Stop).toBeUndefined();
   });
 
-  it('builds standard profile with 5 hooks across 4 events', () => {
+  it('builds standard profile with 6 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('standard');
     expect(hooks.PreToolUse).toHaveLength(2);
     expect(hooks.PostToolUse).toHaveLength(1);
     expect(hooks.PreCompact).toHaveLength(1);
-    expect(hooks.Stop).toHaveLength(1);
+    expect(hooks.Stop).toHaveLength(2);
     expect(hooks.Stop[0].hooks[0].command).toContain('adoption-tracker.js');
+    expect(hooks.Stop[1].hooks[0].command).toContain('telemetry-reporter.js');
   });
 
-  it('builds strict profile with all 8 hooks across 4 events', () => {
+  it('builds strict profile with all 9 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('strict');
     expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config (from standard), sentinel-pre
     expect(hooks.PostToolUse).toHaveLength(2); // quality-gate (from standard), sentinel-post
     expect(hooks.PreCompact).toHaveLength(1);
-    expect(hooks.Stop).toHaveLength(2);
+    expect(hooks.Stop).toHaveLength(3);
     expect(hooks.Stop[0].hooks[0].command).toContain('adoption-tracker.js');
-    expect(hooks.Stop[1].hooks[0].command).toContain('cost-tracker.js');
+    expect(hooks.Stop[1].hooks[0].command).toContain('telemetry-reporter.js');
+    expect(hooks.Stop[2].hooks[0].command).toContain('cost-tracker.js');
   });
 });
 
@@ -162,7 +164,7 @@ describe('listHooks', () => {
     const result = listHooks(tmpDir);
     expect(result.installed).toBe(true);
     expect(result.profile).toBe('strict');
-    expect(result.hooks).toHaveLength(8); // all hooks including adoption-tracker, sentinel-pre, and sentinel-post
+    expect(result.hooks).toHaveLength(9); // all hooks including adoption-tracker, telemetry-reporter, sentinel-pre, and sentinel-post
   });
 
   it('returns correct hook metadata', () => {
