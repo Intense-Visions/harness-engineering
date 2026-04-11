@@ -1,6 +1,7 @@
 name: harness-diagnostics
 version: "1.0.0"
 description: Classify errors into taxonomy categories and route to resolution strategies
+stability: static
 cognitive_mode: diagnostic-investigator
 triggers:
   - manual

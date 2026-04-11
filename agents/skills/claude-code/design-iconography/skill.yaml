@@ -1,6 +1,7 @@
 name: design-iconography
 version: "1.0.0"
 description: Icon design principles — optical sizing, stroke consistency, pixel grid alignment, metaphor clarity, icon families, filled vs outlined, icon as language
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

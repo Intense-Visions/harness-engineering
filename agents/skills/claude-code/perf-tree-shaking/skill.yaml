@@ -1,6 +1,7 @@
 name: perf-tree-shaking
 version: '1.0.0'
 description: Tree shaking — Dead code elimination, side-effect configuration, ESM requirements, and module-level optimization
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

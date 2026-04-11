@@ -1,6 +1,7 @@
 name: prisma-raw-queries
 version: "1.0.0"
 description: Execute type-safe raw SQL with $queryRaw, $executeRaw, and Prisma.sql template tag
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

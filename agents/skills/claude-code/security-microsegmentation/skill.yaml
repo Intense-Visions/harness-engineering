@@ -1,6 +1,7 @@
 name: security-microsegmentation
 version: '1.0.0'
 description: Network and application-level segmentation -- isolating workloads so that compromising one service does not grant lateral movement to others
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: perf-garbage-collection
 version: '1.0.0'
 description: Garbage collection — generational GC, V8 heap architecture, GC pauses, allocation pressure
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

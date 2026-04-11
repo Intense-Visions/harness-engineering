@@ -1,6 +1,7 @@
 name: security-shift-left-design
 version: '1.0.0'
 description: Integrating threat modeling and security analysis into the design phase -- finding security flaws when they cost $1 to fix instead of $100 in production
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

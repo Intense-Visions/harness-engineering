@@ -1,6 +1,7 @@
 name: drizzle-performance-patterns
 version: "1.0.0"
 description: Optimize Drizzle queries with prepared statements, db.batch(), explain analysis, and join-based N+1 avoidance
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

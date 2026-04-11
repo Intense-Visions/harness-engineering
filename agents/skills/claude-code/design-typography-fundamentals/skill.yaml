@@ -1,6 +1,7 @@
 name: design-typography-fundamentals
 version: "1.0.0"
 description: Anatomy of type — x-height, ascenders, counters, serifs, stroke contrast, optical sizing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

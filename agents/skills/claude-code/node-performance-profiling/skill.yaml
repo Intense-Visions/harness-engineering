@@ -1,6 +1,7 @@
 name: node-performance-profiling
 version: "1.0.0"
 description: Profile Node.js applications using --prof, clinic.js, memory snapshots, and event loop lag
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

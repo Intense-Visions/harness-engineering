@@ -1,6 +1,7 @@
 name: db-query-rewriting
 version: '1.0.0'
 description: Rewriting queries for planner efficiency -- CTEs vs subqueries, EXISTS vs IN, and sargable predicates
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

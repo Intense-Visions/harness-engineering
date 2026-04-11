@@ -1,6 +1,7 @@
 name: harness-security-review
 version: "1.0.0"
 description: Deep security audit with OWASP baseline and stack-adaptive analysis
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

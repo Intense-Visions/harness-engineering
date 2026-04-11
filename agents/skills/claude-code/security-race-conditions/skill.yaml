@@ -1,6 +1,7 @@
 name: security-race-conditions
 version: '1.0.0'
 description: TOCTOU vulnerabilities, double-spend attacks, file system races, and the security implications of non-atomic operations in concurrent systems
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

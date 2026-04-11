@@ -1,6 +1,7 @@
 name: perf-browser-cache
 version: '1.0.0'
 description: Browser caching — Cache-Control directives, ETag validation, immutable assets, stale-while-revalidate, and cache partitioning
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

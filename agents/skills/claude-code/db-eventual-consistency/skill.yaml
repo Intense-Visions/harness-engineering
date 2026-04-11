@@ -1,6 +1,7 @@
 name: db-eventual-consistency
 version: '1.0.0'
 description: BASE properties, convergence strategies, and conflict resolution patterns for eventually consistent systems
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

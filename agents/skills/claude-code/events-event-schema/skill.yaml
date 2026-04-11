@@ -1,6 +1,7 @@
 name: events-event-schema
 version: "1.0.0"
 description: Define and evolve event schemas using a schema registry with Avro, Protobuf, or JSON Schema
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: node-environment-config
 version: "1.0.0"
 description: Manage environment configuration with process.env, dotenv, and validation for 12-factor apps
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

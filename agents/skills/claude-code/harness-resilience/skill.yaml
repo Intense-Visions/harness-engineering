@@ -1,6 +1,7 @@
 name: harness-resilience
 version: "1.0.0"
 description: Circuit breakers, rate limiting, bulkheads, retry patterns, and fault tolerance
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

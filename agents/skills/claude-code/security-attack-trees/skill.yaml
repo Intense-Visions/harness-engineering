@@ -1,6 +1,7 @@
 name: security-attack-trees
 version: '1.0.0'
 description: Attack tree construction and analysis -- modeling multi-step adversary strategies as goal-oriented tree decompositions for prioritizing defenses
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

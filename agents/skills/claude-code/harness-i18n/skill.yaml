@@ -1,6 +1,7 @@
 name: harness-i18n
 version: "1.0.0"
 description: Internationalization scanning — detect hardcoded strings, missing translations, locale-sensitive formatting, RTL issues, and generate actionable reports across web, mobile, and backend
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

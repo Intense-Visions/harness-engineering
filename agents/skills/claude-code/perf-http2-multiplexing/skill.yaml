@@ -1,6 +1,7 @@
 name: perf-http2-multiplexing
 version: '1.0.0'
 description: HTTP/2 stream multiplexing — concurrent requests, server push, prioritization, and head-of-line blocking mitigation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

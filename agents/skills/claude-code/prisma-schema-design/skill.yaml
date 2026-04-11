@@ -1,6 +1,7 @@
 name: prisma-schema-design
 version: "1.0.0"
 description: Design Prisma schemas with datasource, generator, models, field types, and field attributes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: perf-code-splitting
 version: '1.0.0'
 description: Code splitting — Route-based, component-based, and vendor splitting with dynamic imports for reduced initial bundle size
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: perf-streaming-rendering
 version: '1.0.0'
 description: Streaming rendering — React Suspense streaming, chunked transfer encoding, out-of-order streaming, and progressive page delivery
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

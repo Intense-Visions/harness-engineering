@@ -1,6 +1,7 @@
 name: perf-edge-rendering
 version: '1.0.0'
 description: Edge rendering — Edge compute platforms, regional deployment, latency optimization, and edge-specific constraints
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

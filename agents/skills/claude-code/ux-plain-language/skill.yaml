@@ -1,6 +1,7 @@
 name: ux-plain-language
 version: "1.0.0"
 description: Plain language for UI — reading level targeting, jargon elimination, sentence structure for scanning
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

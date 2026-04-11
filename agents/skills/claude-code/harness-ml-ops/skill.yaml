@@ -1,6 +1,7 @@
 name: harness-ml-ops
 version: "1.0.0"
 description: Model serving patterns, experiment tracking, prompt evaluation, and ML pipeline management
+stability: static
 cognitive_mode: advisory-guide
 paths:
   - '*.ipynb'

@@ -1,6 +1,7 @@
 name: security-environment-variable-risks
 version: '1.0.0'
 description: Why environment variables leak secrets and safer alternatives -- process listings, crash dumps, child processes, logging, and the 12-factor app's blind spot
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

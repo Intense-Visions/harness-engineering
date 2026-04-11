@@ -1,6 +1,7 @@
 name: mobile-performance-patterns
 version: '1.0.0'
 description: Optimize React Native app performance with profiling, memoization, and native thread management
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

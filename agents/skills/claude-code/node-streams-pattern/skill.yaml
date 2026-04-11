@@ -1,6 +1,7 @@
 name: node-streams-pattern
 version: "1.0.0"
 description: Process large data efficiently using Node.js Readable, Writable, and Transform streams
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

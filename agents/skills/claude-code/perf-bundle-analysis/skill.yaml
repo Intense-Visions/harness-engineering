@@ -1,6 +1,7 @@
 name: perf-bundle-analysis
 version: '1.0.0'
 description: Bundle analysis — Bundle visualization, size budgets, dependency cost analysis, and CI-integrated size tracking
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

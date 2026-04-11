@@ -1,6 +1,7 @@
 name: perf-interaction-to-next-paint
 version: '1.0.0'
 description: INP measurement — input delay, processing time, presentation delay, long task attribution
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

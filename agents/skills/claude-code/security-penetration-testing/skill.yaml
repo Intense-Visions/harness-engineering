@@ -1,6 +1,7 @@
 name: security-penetration-testing
 version: '1.0.0'
 description: Penetration test scoping, methodology, rules of engagement, and remediation workflows -- maximizing the value of offensive security assessments
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

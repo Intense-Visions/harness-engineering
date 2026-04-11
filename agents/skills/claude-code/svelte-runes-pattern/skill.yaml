@@ -1,6 +1,7 @@
 name: svelte-runes-pattern
 version: '1.0.0'
 description: Write reactive Svelte 5 components using $state, $derived, $effect, $props, and $bindable
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

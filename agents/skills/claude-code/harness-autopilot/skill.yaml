@@ -1,6 +1,7 @@
 name: harness-autopilot
 version: "1.0.0"
 description: Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

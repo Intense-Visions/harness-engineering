@@ -1,6 +1,7 @@
 name: security-log-correlation
 version: '1.0.0'
 description: SIEM architecture, correlation rules, alert fatigue management, and turning raw logs into actionable security intelligence
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

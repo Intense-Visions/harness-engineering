@@ -1,6 +1,7 @@
 name: css-animation-pattern
 version: '1.0.0'
 description: Create performant CSS animations with Tailwind transitions and keyframe utilities
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

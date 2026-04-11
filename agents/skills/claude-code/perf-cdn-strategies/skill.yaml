@@ -1,6 +1,7 @@
 name: perf-cdn-strategies
 version: '1.0.0'
 description: CDN architecture — edge caching, origin shielding, cache tiers, edge compute, and multi-CDN strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

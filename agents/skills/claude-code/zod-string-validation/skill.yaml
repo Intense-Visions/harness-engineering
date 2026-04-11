@@ -1,6 +1,7 @@
 name: zod-string-validation
 version: "1.0.0"
 description: Validate and transform strings with Zod's min, max, email, url, regex, trim, and custom messages
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

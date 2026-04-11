@@ -1,6 +1,7 @@
 name: harness-impact-analysis
 version: "1.0.0"
 description: Graph-based impact analysis — answers "if I change X, what breaks?"
+stability: static
 cognitive_mode: analytical-reporter
 triggers:
   - manual

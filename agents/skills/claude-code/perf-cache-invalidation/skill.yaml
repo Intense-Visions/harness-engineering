@@ -1,6 +1,7 @@
 name: perf-cache-invalidation
 version: '1.0.0'
 description: Cache invalidation — TTL strategies, event-driven invalidation, cache stampede prevention, and versioned cache keys
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

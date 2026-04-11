@@ -1,6 +1,7 @@
 name: db-nested-sets
 version: "1.0.0"
 description: Left/right numbering for hierarchies -- fast reads, expensive writes, and when to use
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

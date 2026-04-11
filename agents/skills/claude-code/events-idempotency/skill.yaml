@@ -1,6 +1,7 @@
 name: events-idempotency
 version: "1.0.0"
 description: Handle duplicate message delivery safely using idempotency keys and deduplication stores
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

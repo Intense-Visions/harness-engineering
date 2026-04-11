@@ -1,6 +1,7 @@
 name: security-rbac-design
 version: "1.0.0"
 description: Role-based access control modeling -- role hierarchies, permission granularity, role explosion prevention, and the principle of least privilege
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

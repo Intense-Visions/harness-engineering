@@ -1,6 +1,7 @@
 name: perf-font-loading
 version: '1.0.0'
 description: Font loading — font-display strategies, subsetting, variable fonts, FOIT/FOUT mitigation, and preloading critical fonts
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: harness-code-review
 version: "2.0.0"
 description: Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents
+stability: static
 cognitive_mode: adversarial-reviewer
 triggers:
   - manual

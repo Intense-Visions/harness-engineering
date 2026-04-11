@@ -1,6 +1,7 @@
 name: db-vertical-partitioning
 version: '1.0.0'
 description: Table splitting, hot/cold data separation, TOAST management, and large object strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

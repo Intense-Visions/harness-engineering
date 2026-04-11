@@ -1,6 +1,7 @@
 name: angular-reactive-forms
 version: '1.0.0'
 description: Build type-safe reactive forms with FormGroup, FormControl, Validators, and dynamic form arrays
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

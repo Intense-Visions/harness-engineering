@@ -1,6 +1,7 @@
 name: owasp-secrets-management
 version: "1.0.0"
 description: Manage secrets safely via env vars and secrets managers, never logging or hardcoding credentials
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: vue-provide-inject
 version: '1.0.0'
 description: Share data across a component tree without prop-drilling using provide/inject
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

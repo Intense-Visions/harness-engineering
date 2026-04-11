@@ -1,6 +1,7 @@
 name: security-session-management
 version: "1.0.0"
 description: Session lifecycle design -- token generation, fixation prevention, binding, idle and absolute timeouts, revocation, and secure cookie configuration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

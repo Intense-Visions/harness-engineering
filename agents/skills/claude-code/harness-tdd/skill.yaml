@@ -1,6 +1,7 @@
 name: harness-tdd
 version: "1.0.0"
 description: Test-driven development integrated with harness validation
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

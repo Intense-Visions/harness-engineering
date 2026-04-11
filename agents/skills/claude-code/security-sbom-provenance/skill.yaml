@@ -1,6 +1,7 @@
 name: security-sbom-provenance
 version: '1.0.0'
 description: Software bill of materials, SLSA framework, and build provenance -- proving what went into your software and how it was built
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

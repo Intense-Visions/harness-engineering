@@ -1,6 +1,7 @@
 name: owasp-idor-prevention
 version: "1.0.0"
 description: Prevent insecure direct object references by enforcing ownership checks and indirect reference maps
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

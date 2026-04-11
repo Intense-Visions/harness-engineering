@@ -1,6 +1,7 @@
 name: harness-incident-response
 version: "1.0.0"
 description: Runbook generation, postmortem analysis, and SLO/SLA tracking
+stability: static
 cognitive_mode: diagnostic-investigator
 triggers:
   - manual

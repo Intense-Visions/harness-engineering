@@ -1,6 +1,7 @@
 name: initialize-harness-project
 version: "1.0.0"
 description: Scaffold a new harness-compliant project
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

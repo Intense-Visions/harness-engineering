@@ -1,6 +1,7 @@
 name: harness-data-validation
 version: "1.0.0"
 description: Schema validation, data contracts, and pipeline data quality
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

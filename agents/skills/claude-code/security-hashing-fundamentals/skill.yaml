@@ -1,6 +1,7 @@
 name: security-hashing-fundamentals
 version: "1.0.0"
 description: Cryptographic hash functions (SHA-256, SHA-3, BLAKE3), collision resistance, preimage resistance, and correct use cases for hashing vs encryption vs MAC
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

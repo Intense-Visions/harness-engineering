@@ -1,6 +1,7 @@
 name: svelte-state-management
 version: '1.0.0'
 description: Manage local, shared, and cross-component state in SvelteKit using runes, context API, and module-level state
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

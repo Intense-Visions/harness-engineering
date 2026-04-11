@@ -1,6 +1,7 @@
 name: security-forensics-fundamentals
 version: '1.0.0'
 description: Digital forensics for developers -- log analysis, artifact collection, timeline reconstruction, and maintaining chain of custody for evidence
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

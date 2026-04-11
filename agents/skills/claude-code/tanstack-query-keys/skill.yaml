@@ -1,6 +1,7 @@
 name: tanstack-query-keys
 version: "1.0.0"
 description: Query key factories, key hierarchies, colocated keys, and invalidation scope
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

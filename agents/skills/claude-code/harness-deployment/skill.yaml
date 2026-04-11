@@ -1,6 +1,7 @@
 name: harness-deployment
 version: "1.0.0"
 description: CI/CD pipelines, blue-green, canary, and environment management
+stability: static
 cognitive_mode: advisory-guide
 tier: 3
 internal: false

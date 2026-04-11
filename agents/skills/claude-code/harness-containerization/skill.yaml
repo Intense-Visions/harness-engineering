@@ -1,6 +1,7 @@
 name: harness-containerization
 version: "1.0.0"
 description: Dockerfile review, Kubernetes manifests, container registry management
+stability: static
 cognitive_mode: meticulous-verifier
 tier: 3
 internal: false

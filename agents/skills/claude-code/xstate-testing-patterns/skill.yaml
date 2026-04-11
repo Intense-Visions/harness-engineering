@@ -1,6 +1,7 @@
 name: xstate-testing-patterns
 version: '1.0.0'
 description: Test XState machines with model-based testing and direct state assertions
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

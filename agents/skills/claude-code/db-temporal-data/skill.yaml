@@ -1,6 +1,7 @@
 name: db-temporal-data
 version: "1.0.0"
 description: Valid-time, transaction-time, and bitemporal tables for tracking data as it changes over time
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

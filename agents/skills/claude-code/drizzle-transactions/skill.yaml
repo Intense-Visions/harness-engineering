@@ -1,6 +1,7 @@
 name: drizzle-transactions
 version: "1.0.0"
 description: Execute atomic Drizzle operations with db.transaction(), nested transactions, and rollback semantics
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

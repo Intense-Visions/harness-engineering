@@ -1,6 +1,7 @@
 name: harness-design-mobile
 version: "1.0.0"
 description: Token-bound mobile component generation with React Native, SwiftUI, Flutter, and Compose patterns and platform-specific design rules
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

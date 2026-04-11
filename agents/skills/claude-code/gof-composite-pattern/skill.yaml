@@ -1,6 +1,7 @@
 name: gof-composite-pattern
 version: "1.0.0"
 description: Compose objects into tree structures and treat individual and composite objects uniformly
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: css-css-modules
 version: '1.0.0'
 description: Scope CSS to components with CSS Modules for collision-free class names
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: css-tailwind-pattern
 version: '1.0.0'
 description: Apply Tailwind CSS utility-first patterns for consistent, maintainable styling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

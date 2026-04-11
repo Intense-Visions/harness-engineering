@@ -1,6 +1,7 @@
 name: security-ci-security-testing
 version: '1.0.0'
 description: SAST, DAST, SCA, and secrets scanning in CI/CD pipelines -- automated security testing that runs on every commit
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

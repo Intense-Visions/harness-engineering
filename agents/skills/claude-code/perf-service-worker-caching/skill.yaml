@@ -1,6 +1,7 @@
 name: perf-service-worker-caching
 version: '1.0.0'
 description: Service Worker caching — Lifecycle management, caching strategies, offline support, background sync, and Workbox patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

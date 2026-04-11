@@ -1,6 +1,7 @@
 name: harness-security-scan
 version: "1.0.0"
 description: Lightweight mechanical security scan for health checks
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

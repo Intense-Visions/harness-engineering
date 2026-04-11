@@ -1,6 +1,7 @@
 name: security-hmac-signatures
 version: '1.0.0'
 description: HMAC for message authentication and digital signatures for non-repudiation -- when to use which, how they fail, and implementation pitfalls
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

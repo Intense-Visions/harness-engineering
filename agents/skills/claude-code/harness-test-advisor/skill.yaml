@@ -1,6 +1,7 @@
 name: harness-test-advisor
 version: "1.0.0"
 description: Graph-based test selection — answers "what tests should I run?"
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

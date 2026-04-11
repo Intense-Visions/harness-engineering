@@ -1,6 +1,7 @@
 name: design-token-architecture
 version: '1.0.0'
 description: Token taxonomy covering primitive, semantic, and component tokens with naming conventions, aliasing, and theme switching
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

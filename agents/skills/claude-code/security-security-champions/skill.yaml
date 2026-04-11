@@ -1,6 +1,7 @@
 name: security-security-champions
 version: '1.0.0'
 description: Embedding security expertise in development teams through security champion programs -- scaling security knowledge without scaling the security team
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

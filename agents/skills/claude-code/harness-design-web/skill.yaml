@@ -1,6 +1,7 @@
 name: harness-design-web
 version: "1.0.0"
 description: Token-bound web component generation with Tailwind/CSS, React/Vue/Svelte patterns, and design constraint verification
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

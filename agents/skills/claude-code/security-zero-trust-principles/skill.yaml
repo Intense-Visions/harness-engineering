@@ -1,6 +1,7 @@
 name: security-zero-trust-principles
 version: "1.0.0"
 description: Zero trust architecture principles -- never trust, always verify, least privilege, assume breach, and continuous verification regardless of network position
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

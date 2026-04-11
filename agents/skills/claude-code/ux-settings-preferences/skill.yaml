@@ -1,6 +1,7 @@
 name: ux-settings-preferences
 version: "1.0.0"
 description: Settings and preferences copy — toggle descriptions, preference explanations, consequence previews, settings organization
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

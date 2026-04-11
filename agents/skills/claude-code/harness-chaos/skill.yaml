@@ -1,6 +1,7 @@
 name: harness-chaos
 version: "1.0.0"
 description: Chaos engineering, fault injection, and resilience validation
+stability: static
 cognitive_mode: adversarial-reviewer
 triggers:
   - manual

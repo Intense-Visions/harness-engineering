@@ -1,6 +1,7 @@
 name: perf-image-formats
 version: '1.0.0'
 description: Image formats — WebP, AVIF, JPEG XL format selection, quality tuning, and automated conversion pipelines
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: db-document-in-relational
 version: "1.0.0"
 description: JSONB columns for semi-structured data -- when to embed vs normalize, indexing JSON, and hybrid modeling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: db-deadlock-prevention
 version: '1.0.0'
 description: Lock ordering, timeout strategies, deadlock detection, and resolution patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

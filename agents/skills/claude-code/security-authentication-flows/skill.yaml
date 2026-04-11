@@ -1,6 +1,7 @@
 name: security-authentication-flows
 version: '1.0.0'
 description: Secure design of login, registration, password reset, magic link, and SSO authentication flows -- preventing account enumeration, credential theft, and session fixation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

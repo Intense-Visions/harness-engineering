@@ -1,6 +1,7 @@
 name: db-isolation-levels
 version: '1.0.0'
 description: Read uncommitted through serializable -- PostgreSQL's MVCC-based isolation implementation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

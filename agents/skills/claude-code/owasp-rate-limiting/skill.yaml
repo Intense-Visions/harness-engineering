@@ -1,6 +1,7 @@
 name: owasp-rate-limiting
 version: '1.0.0'
 description: Protect APIs with rate limiting, throttling, and abuse prevention strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

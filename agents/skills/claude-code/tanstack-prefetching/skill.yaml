@@ -1,6 +1,7 @@
 name: tanstack-prefetching
 version: "1.0.0"
 description: prefetchQuery, dehydrate/hydrate, SSR with Next.js, and router-level prefetch
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

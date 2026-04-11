@@ -1,6 +1,7 @@
 name: design-alignment
 version: "1.0.0"
 description: Visual order — edge, center, optical vs. mathematical alignment, alignment as invisible structure
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

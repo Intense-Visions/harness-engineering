@@ -1,6 +1,7 @@
 name: perf-connection-costs
 version: '1.0.0'
 description: Network connection overhead — DNS resolution, TCP handshake, TLS negotiation, connection reuse, and keep-alive strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

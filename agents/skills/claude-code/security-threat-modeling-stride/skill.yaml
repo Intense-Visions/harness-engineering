@@ -1,6 +1,7 @@
 name: security-threat-modeling-stride
 version: "1.0.0"
 description: STRIDE methodology for systematic threat identification across spoofing, tampering, repudiation, information disclosure, denial of service, and elevation of privilege
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

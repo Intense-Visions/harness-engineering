@@ -1,6 +1,7 @@
 name: harness-git-workflow
 version: "1.0.0"
 description: Git workflow best practices integrated with harness validation
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

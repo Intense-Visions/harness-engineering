@@ -1,6 +1,7 @@
 name: db-first-normal-form
 version: '1.0.0'
 description: Atomic values, no repeating groups, and primary key requirement for First Normal Form (1NF)
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

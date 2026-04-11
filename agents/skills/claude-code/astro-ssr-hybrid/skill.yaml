@@ -1,6 +1,7 @@
 name: astro-ssr-hybrid
 version: '1.0.0'
 description: Configure SSR and hybrid rendering with output modes, adapters, and per-page prerender control
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

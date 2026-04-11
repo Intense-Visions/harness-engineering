@@ -1,6 +1,7 @@
 name: mobile-expo-setup
 version: '1.0.0'
 description: Set up and configure Expo projects with managed workflow, EAS Build, and development builds
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

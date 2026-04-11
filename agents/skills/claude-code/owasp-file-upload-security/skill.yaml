@@ -1,6 +1,7 @@
 name: owasp-file-upload-security
 version: '1.0.0'
 description: Secure file upload endpoints against malicious files, path traversal, and resource exhaustion
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: ux-inclusive-language
 version: "1.0.0"
 description: Inclusive language in UI — gender-neutral, ability-neutral, culture-aware writing, avoiding idioms that exclude
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

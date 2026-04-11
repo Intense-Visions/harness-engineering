@@ -1,6 +1,7 @@
 name: node-error-handling
 version: "1.0.0"
 description: Handle uncaught exceptions, promise rejections, and errors across async Node.js code
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

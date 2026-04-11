@@ -1,6 +1,7 @@
 name: security-injection-families
 version: "1.0.0"
 description: Unified mental model for injection vulnerabilities -- SQL, command, LDAP, XSS, template, header -- all share the same root cause of mixing code and data
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

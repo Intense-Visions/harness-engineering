@@ -1,6 +1,7 @@
 name: microservices-api-gateway
 version: "1.0.0"
 description: Route, aggregate, and secure client requests through an API gateway or BFF pattern
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

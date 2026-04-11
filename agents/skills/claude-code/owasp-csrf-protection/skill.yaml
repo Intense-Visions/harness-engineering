@@ -1,6 +1,7 @@
 name: owasp-csrf-protection
 version: "1.0.0"
 description: Defend state-changing endpoints with CSRF tokens, SameSite cookies, and origin validation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

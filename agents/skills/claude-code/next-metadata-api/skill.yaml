@@ -1,6 +1,7 @@
 name: next-metadata-api
 version: "1.0.0"
 description: generateMetadata, static and dynamic metadata, Open Graph images
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

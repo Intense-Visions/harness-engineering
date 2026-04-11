@@ -1,6 +1,7 @@
 name: harness-property-test
 version: "1.0.0"
 description: Property-based and generative testing with fast-check, hypothesis, and automatic shrinking
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

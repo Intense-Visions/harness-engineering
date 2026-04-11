@@ -1,6 +1,7 @@
 name: security-audit-log-design
 version: "1.0.0"
 description: Security audit log design -- what to log, structured event format, tamper evidence, retention, and the balance between observability and privacy
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

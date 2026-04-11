@@ -1,6 +1,7 @@
 name: microservices-outbox-pattern
 version: "1.0.0"
 description: Guarantee at-least-once event delivery using a transactional outbox and polling publisher
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

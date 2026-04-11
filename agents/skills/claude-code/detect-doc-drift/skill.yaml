@@ -1,6 +1,7 @@
 name: detect-doc-drift
 version: "1.0.0"
 description: Detect documentation that has drifted from code
+stability: static
 cognitive_mode: diagnostic-investigator
 triggers:
   - manual

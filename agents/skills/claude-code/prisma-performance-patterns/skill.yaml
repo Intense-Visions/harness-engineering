@@ -1,6 +1,7 @@
 name: prisma-performance-patterns
 version: "1.0.0"
 description: Optimize Prisma queries with select, findUnique index hits, batching, and avoiding N+1
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

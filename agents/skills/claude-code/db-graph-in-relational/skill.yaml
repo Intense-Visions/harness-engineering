@@ -1,6 +1,7 @@
 name: db-graph-in-relational
 version: "1.0.0"
 description: Modeling graph relationships in SQL with recursive queries and knowing when to use a graph DB instead
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

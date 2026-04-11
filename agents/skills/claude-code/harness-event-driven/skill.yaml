@@ -1,6 +1,7 @@
 name: harness-event-driven
 version: "1.0.0"
 description: Message queues, event sourcing, CQRS, and saga patterns
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

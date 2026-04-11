@@ -1,6 +1,7 @@
 name: next-image-optimization
 version: "1.0.0"
 description: next/image component, responsive images, priority loading, and sizes configuration
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

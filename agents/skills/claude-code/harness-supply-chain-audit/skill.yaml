@@ -1,6 +1,7 @@
 name: harness-supply-chain-audit
 version: "1.0.0"
 description: 6-factor dependency risk evaluation for supply chain security
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

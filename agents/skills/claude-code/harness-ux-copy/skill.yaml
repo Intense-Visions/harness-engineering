@@ -1,6 +1,7 @@
 name: harness-ux-copy
 version: "1.0.0"
 description: Microcopy auditing, error message quality, voice/tone guides, and UI string consistency
+stability: static
 cognitive_mode: advisory-guide
 triggers:
   - manual

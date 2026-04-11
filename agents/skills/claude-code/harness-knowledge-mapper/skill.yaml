@@ -1,6 +1,7 @@
 name: harness-knowledge-mapper
 version: "1.0.0"
 description: Auto-generate always-current knowledge maps from graph topology
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

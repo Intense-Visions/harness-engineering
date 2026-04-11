@@ -1,6 +1,7 @@
 name: trpc-input-validation
 version: "1.0.0"
 description: Zod integration, input/output schemas, .input()/.output(), and transformers
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

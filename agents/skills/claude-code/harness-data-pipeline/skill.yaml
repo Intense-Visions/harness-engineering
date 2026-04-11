@@ -1,6 +1,7 @@
 name: harness-data-pipeline
 version: "1.0.0"
 description: ETL/ELT patterns, data quality checks, pipeline testing, and data workflow management
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

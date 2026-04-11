@@ -1,6 +1,7 @@
 name: prisma-migrations
 version: "1.0.0"
 description: Manage database schema evolution with prisma migrate dev/deploy/reset and migration history
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

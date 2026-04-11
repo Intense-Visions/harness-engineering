@@ -1,6 +1,7 @@
 name: otel-metrics-pattern
 version: '1.0.0'
 description: Record application metrics with OpenTelemetry counters, histograms, and gauges
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

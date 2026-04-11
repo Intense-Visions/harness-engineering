@@ -1,6 +1,7 @@
 name: mobile-network-patterns
 version: '1.0.0'
 description: Handle network requests, offline support, and connectivity monitoring in React Native
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: harness-compliance
 version: "1.0.0"
 description: SOC2, HIPAA, GDPR compliance checks, audit trails, and regulatory checklists
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

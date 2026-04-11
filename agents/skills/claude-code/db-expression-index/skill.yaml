@@ -1,6 +1,7 @@
 name: db-expression-index
 version: '1.0.0'
 description: Indexes on computed expressions, functional indexes, and specialized index types (GIN, GiST)
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: security-identity-verification
 version: '1.0.0'
 description: Continuous authentication and device trust -- verifying identity beyond the initial login using behavioral signals, device posture, and risk-adaptive challenges
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

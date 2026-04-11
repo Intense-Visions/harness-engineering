@@ -1,6 +1,7 @@
 name: harness-feature-flags
 version: "1.0.0"
 description: Flag lifecycle management, A/B testing infrastructure, and gradual rollouts
+stability: static
 cognitive_mode: advisory-guide
 tier: 3
 internal: false

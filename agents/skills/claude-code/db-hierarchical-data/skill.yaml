@@ -1,6 +1,7 @@
 name: db-hierarchical-data
 version: "1.0.0"
 description: Comparison of adjacency list, nested sets, closure table, and materialized path -- a selection guide
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

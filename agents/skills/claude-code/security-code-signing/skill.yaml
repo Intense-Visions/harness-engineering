@@ -1,6 +1,7 @@
 name: security-code-signing
 version: '1.0.0'
 description: Artifact signing, verification pipelines, Sigstore keyless signing, and ensuring that deployed software was built by trusted parties
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

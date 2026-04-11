@@ -1,6 +1,7 @@
 name: ts-branded-types
 version: "1.0.0"
 description: Prevent mixing semantically distinct primitives using branded opaque types
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

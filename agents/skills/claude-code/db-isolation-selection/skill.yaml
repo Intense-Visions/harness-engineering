@@ -1,6 +1,7 @@
 name: db-isolation-selection
 version: '1.0.0'
 description: Choosing isolation levels for specific workloads -- performance vs correctness trade-offs
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

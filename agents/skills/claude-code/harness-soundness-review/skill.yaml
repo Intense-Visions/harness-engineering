@@ -1,6 +1,7 @@
 name: harness-soundness-review
 version: "1.0.0"
 description: Deep soundness analysis of specs and plans with auto-fix and convergence loop
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

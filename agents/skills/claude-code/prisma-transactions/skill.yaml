@@ -1,6 +1,7 @@
 name: prisma-transactions
 version: "1.0.0"
 description: Execute atomic operations with Prisma $transaction, interactive transactions, and nested writes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

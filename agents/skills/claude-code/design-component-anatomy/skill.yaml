@@ -1,6 +1,7 @@
 name: design-component-anatomy
 version: '1.0.0'
 description: Anatomy of reusable components covering slots, variants, states, sizes, composition patterns, and compound components
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: harness-load-testing
 version: "1.0.0"
 description: Stress testing, capacity planning, and performance benchmarking with k6/Artillery/Gatling
+stability: static
 cognitive_mode: meticulous-verifier
 triggers:
   - manual

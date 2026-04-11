@@ -1,6 +1,7 @@
 name: perf-http3-quic
 version: '1.0.0'
 description: HTTP/3 and QUIC protocol — 0-RTT connections, connection migration, stream-level flow control, and UDP-based transport
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

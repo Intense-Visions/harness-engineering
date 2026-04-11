@@ -1,6 +1,7 @@
 name: microservices-cqrs-pattern
 version: "1.0.0"
 description: Separate read and write models to optimize query and command performance independently
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

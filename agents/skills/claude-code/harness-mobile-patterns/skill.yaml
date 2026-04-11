@@ -1,6 +1,7 @@
 name: harness-mobile-patterns
 version: "1.0.0"
 description: Mobile platform lifecycle, permissions, deep linking, push notifications, and app store submission
+stability: static
 cognitive_mode: advisory-guide
 paths:
   - 'app.json'

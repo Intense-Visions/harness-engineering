@@ -1,6 +1,7 @@
 name: otel-logging-pattern
 version: '1.0.0'
 description: Correlate structured logs with traces using OpenTelemetry log signals
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

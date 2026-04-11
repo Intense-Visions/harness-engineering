@@ -1,6 +1,7 @@
 name: microservices-event-sourcing
 version: "1.0.0"
 description: Store state as an immutable sequence of events with projections, snapshots, and replay
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

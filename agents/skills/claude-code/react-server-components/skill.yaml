@@ -1,6 +1,7 @@
 name: react-server-components
 version: '1.0.0'
 description: Run components on the server to eliminate client JavaScript and enable direct data access
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

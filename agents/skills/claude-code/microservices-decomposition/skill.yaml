@@ -1,6 +1,7 @@
 name: microservices-decomposition
 version: "1.0.0"
 description: Design service boundaries using bounded contexts, DDD, and functional cohesion principles
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

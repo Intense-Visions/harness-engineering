@@ -1,6 +1,7 @@
 name: perf-responsive-images
 version: '1.0.0'
 description: Responsive images — srcset, sizes, picture element, art direction, and device-appropriate image delivery
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

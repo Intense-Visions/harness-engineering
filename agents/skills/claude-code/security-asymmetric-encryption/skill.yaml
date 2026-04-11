@@ -1,6 +1,7 @@
 name: security-asymmetric-encryption
 version: "1.0.0"
 description: RSA, elliptic curve cryptography (ECDSA, Ed25519, X25519), key exchange (ECDHE), and when to use asymmetric vs symmetric encryption
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

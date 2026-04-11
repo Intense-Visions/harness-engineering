@@ -1,6 +1,7 @@
 name: perf-web-workers
 version: '1.0.0'
 description: Web Workers — Dedicated workers, SharedWorker, Comlink RPC, SharedArrayBuffer, and off-main-thread computation
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

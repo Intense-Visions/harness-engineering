@@ -1,6 +1,7 @@
 name: db-time-series
 version: "1.0.0"
 description: Append-only tables, time-based partitioning, retention policies, and TimescaleDB patterns
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

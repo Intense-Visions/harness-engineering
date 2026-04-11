@@ -1,6 +1,7 @@
 name: db-btree-index
 version: '1.0.0'
 description: B-tree index structure, range queries, ordering, and default index type behavior
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

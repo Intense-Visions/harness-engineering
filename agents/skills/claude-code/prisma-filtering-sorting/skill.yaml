@@ -1,6 +1,7 @@
 name: prisma-filtering-sorting
 version: "1.0.0"
 description: Filter and sort Prisma queries with where, AND/OR/NOT, orderBy, and cursor/offset pagination
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

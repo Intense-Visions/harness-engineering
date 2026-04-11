@@ -1,6 +1,7 @@
 name: db-audit-trail
 version: "1.0.0"
 description: Change tracking via triggers or application-level logging with immutable append-only audit logs
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

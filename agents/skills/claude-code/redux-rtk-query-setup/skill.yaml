@@ -1,6 +1,7 @@
 name: redux-rtk-query-setup
 version: '1.0.0'
 description: Configure RTK Query API service with createApi and fetchBaseQuery
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: harness-docs-pipeline
 version: "1.0.0"
 description: Orchestrator composing 4 documentation skills into a sequential pipeline with convergence-based remediation and qualitative health reporting
+stability: static
 cognitive_mode: constructive-architect
 triggers:
   - manual

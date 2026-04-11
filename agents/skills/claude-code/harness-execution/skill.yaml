@@ -1,6 +1,7 @@
 name: harness-execution
 version: "1.0.0"
 description: Execute a planned set of tasks with harness validation and state tracking
+stability: static
 cognitive_mode: meticulous-implementer
 triggers:
   - manual

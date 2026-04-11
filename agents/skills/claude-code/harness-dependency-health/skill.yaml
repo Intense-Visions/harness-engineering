@@ -1,6 +1,7 @@
 name: harness-dependency-health
 version: "1.0.0"
 description: Analyze structural health of the codebase using graph metrics
+stability: static
 cognitive_mode: analytical-reporter
 triggers:
   - manual

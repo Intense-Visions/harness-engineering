@@ -1,6 +1,7 @@
 name: angular-standalone-components
 version: '1.0.0'
 description: Build module-free Angular apps with standalone components, bootstrapApplication, and lazy routes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

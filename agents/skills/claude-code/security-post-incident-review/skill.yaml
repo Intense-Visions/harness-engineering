@@ -1,6 +1,7 @@
 name: security-post-incident-review
 version: '1.0.0'
 description: Blameless post-incident reviews for security incidents -- structured analysis, root cause identification, remediation tracking, and organizational learning
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

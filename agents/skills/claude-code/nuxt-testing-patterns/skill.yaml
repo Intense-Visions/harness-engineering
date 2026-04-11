@@ -1,6 +1,7 @@
 name: nuxt-testing-patterns
 version: '1.0.0'
 description: Test Nuxt components and pages using @nuxt/test-utils, mountSuspended, and mockNuxtImport
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

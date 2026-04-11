@@ -1,6 +1,7 @@
 name: db-denormalization
 version: '1.0.0'
 description: When and how to intentionally denormalize for performance, read-heavy patterns, and materialized views
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

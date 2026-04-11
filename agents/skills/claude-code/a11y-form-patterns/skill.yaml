@@ -1,6 +1,7 @@
 name: a11y-form-patterns
 version: '1.0.0'
 description: Build accessible forms with proper labeling, validation, and error handling
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

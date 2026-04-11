@@ -1,6 +1,7 @@
 name: db-read-phenomena
 version: '1.0.0'
 description: Dirty reads, non-repeatable reads, phantom reads, and serialization anomalies explained with concrete examples
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

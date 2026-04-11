@@ -1,6 +1,7 @@
 name: db-acid-properties
 version: '1.0.0'
 description: Atomicity, consistency, isolation, and durability -- practical implications and failure modes
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

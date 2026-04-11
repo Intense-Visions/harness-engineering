@@ -1,6 +1,7 @@
 name: perf-cumulative-layout-shift
 version: '1.0.0'
 description: CLS measurement — layout shift sources, impact/distance fractions, prevention strategies
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

@@ -1,6 +1,7 @@
 name: harness-mutation-test
 version: "1.0.0"
 description: Test quality validation through mutation testing with Stryker and mutation scoring
+stability: static
 cognitive_mode: adversarial-reviewer
 triggers:
   - manual

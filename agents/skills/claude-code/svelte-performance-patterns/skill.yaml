@@ -1,6 +1,7 @@
 name: svelte-performance-patterns
 version: '1.0.0'
 description: Optimize SvelteKit performance with code splitting, preloading, virtualization, and lazy loading
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

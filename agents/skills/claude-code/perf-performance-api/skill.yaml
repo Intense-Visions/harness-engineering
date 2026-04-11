@@ -1,6 +1,7 @@
 name: perf-performance-api
 version: '1.0.0'
 description: Performance Observer and timing APIs — PerformanceEntry types, User Timing, Resource Timing, Navigation Timing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

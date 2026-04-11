@@ -1,6 +1,7 @@
 name: ts-discriminated-unions
 version: "1.0.0"
 description: Model mutually exclusive states with discriminated unions and exhaustive narrowing
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3

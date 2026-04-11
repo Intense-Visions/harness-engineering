@@ -1,6 +1,7 @@
 name: harness-pre-commit-review
 version: "1.0.0"
 description: Lightweight pre-commit quality gate combining mechanical checks and AI review
+stability: static
 triggers: [manual, on_commit]
 platforms: [claude-code, gemini-cli, cursor, codex]
 tools: [Bash, Read, Glob, Grep]

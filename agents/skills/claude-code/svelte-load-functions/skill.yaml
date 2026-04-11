@@ -1,6 +1,7 @@
 name: svelte-load-functions
 version: '1.0.0'
 description: Fetch and stream data for SvelteKit pages using load(), server load, universal load, and depends()
+stability: static
 cognitive_mode: advisory-guide
 type: knowledge
 tier: 3
