@@ -93,7 +93,15 @@ export class Orchestrator extends EventEmitter {
       : null;
 
     if (config.server?.port) {
-      this.server = new OrchestratorServer(this, config.server.port);
+      this.server = new OrchestratorServer(this, config.server.port, {
+        interactionQueue: this.interactionQueue,
+        plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
+      });
+
+      // Wire interaction push -> WebSocket broadcast
+      this.interactionQueue.onPush((interaction) => {
+        this.server?.broadcastInteraction(interaction);
+      });
     }
   }
 

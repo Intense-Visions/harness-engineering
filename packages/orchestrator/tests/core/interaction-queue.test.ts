@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -115,6 +115,34 @@ describe('InteractionQueue', () => {
 
     it('throws when interaction does not exist', async () => {
       await expect(queue.updateStatus('nonexistent', 'resolved')).rejects.toThrow();
+    });
+  });
+
+  describe('onPush listener', () => {
+    it('calls registered listeners when an interaction is pushed', async () => {
+      const listener = vi.fn();
+      queue.onPush(listener);
+
+      const interaction: PendingInteraction = {
+        id: 'int-callback-1',
+        issueId: 'issue-cb',
+        type: 'needs-human',
+        reasons: ['test callback'],
+        context: {
+          issueTitle: 'Callback Test',
+          issueDescription: null,
+          specPath: null,
+          planPath: null,
+          relatedFiles: [],
+        },
+        createdAt: '2026-01-01T00:00:00Z',
+        status: 'pending',
+      };
+
+      await queue.push(interaction);
+
+      expect(listener).toHaveBeenCalledOnce();
+      expect(listener).toHaveBeenCalledWith(interaction);
     });
   });
 

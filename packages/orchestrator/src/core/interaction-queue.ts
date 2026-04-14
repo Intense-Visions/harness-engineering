@@ -33,6 +33,7 @@ export interface PendingInteraction {
  */
 export class InteractionQueue {
   private dir: string;
+  private pushListeners: Array<(interaction: PendingInteraction) => void> = [];
 
   /**
    * @param dir - Directory path for storing interaction JSON files
@@ -42,12 +43,22 @@ export class InteractionQueue {
   }
 
   /**
+   * Register a listener that fires after each push.
+   */
+  onPush(listener: (interaction: PendingInteraction) => void): void {
+    this.pushListeners.push(listener);
+  }
+
+  /**
    * Push a new interaction to the queue.
    */
   async push(interaction: PendingInteraction): Promise<void> {
     await fs.mkdir(this.dir, { recursive: true });
     const filePath = path.join(this.dir, `${interaction.id}.json`);
     await fs.writeFile(filePath, JSON.stringify(interaction, null, 2), 'utf-8');
+    for (const listener of this.pushListeners) {
+      listener(interaction);
+    }
   }
 
   /**
