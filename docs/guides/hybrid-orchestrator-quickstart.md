@@ -17,25 +17,32 @@ brew install ollama
 ollama serve
 ```
 
-### Choosing a Model
+### Choosing a Model (Updated for 2026)
 
-Pick a model based on your available system RAM:
+Modern guidance: prioritize reasoning-capable general models over coder-specific models.
 
-| RAM       | Model                  | Size   | Command                             | Notes                                       |
-| --------- | ---------------------- | ------ | ----------------------------------- | ------------------------------------------- |
-| **8GB**   | Qwen2.5-Coder 3B       | ~2GB   | `ollama pull qwen2.5-coder:3b`      | Fits easily, good for quick-fix tasks       |
-| **16GB**  | Qwen2.5-Coder 7B       | ~4.5GB | `ollama pull qwen2.5-coder:7b`      | Best balance of quality and speed           |
-| **16GB**  | DeepSeek-Coder-V2 Lite | ~9GB   | `ollama pull deepseek-coder-v2:16b` | Better at multi-file changes, uses more RAM |
-| **32GB**  | Codestral 22B          | ~13GB  | `ollama pull codestral:22b`         | Strongest code quality at this size         |
-| **32GB+** | Qwen2.5-Coder 32B      | ~20GB  | `ollama pull qwen2.5-coder:32b`     | Near-frontier quality, needs headroom       |
+#### Recommended Models by RAM
 
-**Recommendation for 16GB systems:** Start with `qwen2.5-coder:7b`. It uses under a third of your RAM, leaving plenty for context window and OS. Step up to `deepseek-coder-v2:16b` if you find it struggling with larger tasks.
+| RAM       | Model         | Size  | Command                     | Notes                            |
+| --------- | ------------- | ----- | --------------------------- | -------------------------------- |
+| **8GB**   | qwen3:4b      | ~3GB  | `ollama pull qwen3:4b`      | Best lightweight reasoning model |
+| **16GB**  | qwen3:8b      | ~5GB  | `ollama pull qwen3:8b`      | Recommended default              |
+| **16GB**  | qwen3:14b     | ~9GB  | `ollama pull qwen3:14b`     | Stronger reasoning               |
+| **32GB**  | codestral:22b | ~13GB | `ollama pull codestral:22b` | Strong code generation           |
+| **32GB+** | qwen3:32b     | ~20GB | `ollama pull qwen3:32b`     | Near-frontier local quality      |
 
-**Avoid:** Models 34B+ on 16GB systems — they'll either not fit or swap heavily.
+#### Legacy Models (Still Supported, Not Recommended as Default)
+
+| Model                   | When to Use            |
+| ----------------------- | ---------------------- |
+| `qwen2.5-coder:7b`      | Backward compatibility |
+| `deepseek-coder-v2:16b` | Large multi-file edits |
+
+**Key Shift (Important):** The best local model is now a reasoning model that can code, not a pure "coder model."
 
 ```bash
 # Pull your chosen model
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3:8b
 ```
 
 ### Other Servers
@@ -57,8 +64,11 @@ agent:
 
   # Local model configuration
   localBackend: openai-compatible
-  localModel: qwen2.5-coder:7b # must match a model available on your server
+  localModel: qwen3:8b # must match a model available on your server
   localEndpoint: http://localhost:11434/v1
+
+  # Optional fallback
+  fallbackModel: codestral:22b
 
   # Escalation routing
   escalation:
@@ -206,4 +216,11 @@ The orchestrator server must be running on the configured port (default 8080). C
 This is expected — the dev script uses `--headless` to avoid this. If running the orchestrator directly through `concurrently` or other non-TTY tools, add the `--headless` flag.
 
 **Model runs slowly or system swaps:**
-Your model is too large for available RAM. Switch to a smaller model (see the model table above). Check memory usage with `ollama ps`.
+Your model is too large for available RAM. Switch to a smaller model (see the model table above, e.g., `qwen3:4b`). Check memory usage with `ollama ps`.
+
+## Final Recommendation
+
+```yaml
+localModel: qwen3:8b
+fallbackModel: codestral:22b
+```

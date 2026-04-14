@@ -19,7 +19,7 @@ agent:
   command: claude
   # Local model for autonomous execution of simple tasks
   localBackend: openai-compatible
-  localModel: qwen2.5-coder:7b
+  localModel: qwen3:8b
   localEndpoint: http://localhost:11434/v1
   # Escalation routing — controls what runs locally vs needs human
   escalation:

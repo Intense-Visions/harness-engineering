@@ -48,7 +48,16 @@ export function handleChatProxyRoute(
           Connection: 'keep-alive',
         });
 
-        const args = ['--print', '-p', prompt, '--output-format', 'stream-json', '--verbose'];
+        const args = [
+          '--print',
+          '-p',
+          prompt,
+          '--output-format',
+          'stream-json',
+          '--verbose',
+          '--permission-mode',
+          'bypassPermissions',
+        ];
 
         child = spawn(command, args, { env: process.env });
         child.stdin?.end();
