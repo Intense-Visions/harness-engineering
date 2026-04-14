@@ -1,2 +1,14 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+
+@theme {
+  --color-neutral-bg: #09090b;
+  --color-neutral-surface: #18181b;
+  --color-neutral-text: #fafafa;
+  --color-neutral-muted: #71717a;
+  --color-neutral-border: #27272a;
+  --color-primary-500: #4f46e5;
+  --color-secondary-400: #22d3ee;
+  --color-accent-500: #d946ef;
+  --font-mono: "JetBrains Mono", monospace;
+}
