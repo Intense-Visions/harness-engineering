@@ -21,7 +21,7 @@
     "bench": "turbo run bench",
     "test:platform-parity": "vitest run tests/platform-parity.test.ts",
     "orchestrator": "node packages/cli/dist/bin/harness.js orchestrator run",
-    "orchestrator:dev": "concurrently --names orch,dash --prefix-colors blue,green \"node packages/cli/dist/bin/harness.js orchestrator run\" \"pnpm --filter @harness-engineering/dashboard dev\"",
+    "orchestrator:dev": "concurrently --names orch,dash --prefix-colors blue,green \"node packages/cli/dist/bin/harness.js orchestrator run --headless\" \"pnpm --filter @harness-engineering/dashboard dev\"",
     "dashboard:dev": "pnpm --filter @harness-engineering/dashboard dev",
     "dashboard:build": "pnpm --filter @harness-engineering/dashboard build",
     "docs:dev": "pnpm --filter docs dev",
