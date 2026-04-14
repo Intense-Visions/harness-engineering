@@ -531,11 +531,13 @@ export function Chat() {
       {saveError && <p className="mb-2 text-xs text-red-400">{saveError}</p>}
 
       {/* Context */}
-      <div className="mb-4 rounded border border-gray-800 bg-gray-900 p-3">
-        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-500">Context</p>
-        <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+      <div className="mb-4 rounded border border-neutral-border bg-neutral-surface p-3">
+        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-neutral-muted">
+          Context
+        </p>
+        <div className="flex flex-wrap gap-3 text-xs text-neutral-muted">
           {interaction.reasons.map((r, i) => (
-            <span key={i} className="rounded bg-yellow-900/30 px-2 py-0.5 text-yellow-400">
+            <span key={i} className="rounded bg-accent-500/10 px-2 py-0.5 text-accent-500">
               {r}
             </span>
           ))}
@@ -551,9 +553,9 @@ export function Chat() {
       </div>
 
       {/* Message stream */}
-      <div className="flex-1 overflow-y-auto rounded border border-gray-800 bg-gray-950 p-4">
+      <div className="flex-1 overflow-y-auto rounded border border-neutral-border bg-neutral-bg p-4">
         {messages.length === 0 && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-neutral-muted">
             Start a conversation. The context from the escalated issue is pre-loaded.
           </p>
         )}
@@ -561,14 +563,14 @@ export function Chat() {
           <div key={i} className="mb-4">
             {msg.role === 'user' ? (
               <div className="text-right">
-                <span className="mb-1 block text-xs text-gray-500">You</span>
-                <div className="inline-block max-w-[80%] rounded-lg bg-blue-900 px-4 py-2 text-sm text-white">
+                <span className="mb-1 block text-xs text-neutral-muted">You</span>
+                <div className="inline-block max-w-[80%] rounded-lg bg-primary-500 px-4 py-2 text-sm text-neutral-text">
                   <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
                 </div>
               </div>
             ) : (
               <div>
-                <span className="mb-1 block text-xs text-gray-500">Claude</span>
+                <span className="mb-1 block text-xs text-neutral-muted">Claude</span>
                 <div className="max-w-[90%]">
                   <AssistantBlocks
                     blocks={msg.blocks}
@@ -596,12 +598,12 @@ export function Chat() {
           }}
           placeholder="Type your message..."
           disabled={streaming}
-          className="flex-1 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+          className="flex-1 rounded border border-neutral-border bg-neutral-surface px-3 py-2 text-sm text-neutral-text placeholder-neutral-muted focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
         />
         <button
           onClick={() => void handleSend()}
           disabled={streaming || !input.trim()}
-          className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded bg-primary-500 px-4 py-2 text-sm font-medium text-neutral-text hover:bg-primary-500/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {streaming ? 'Streaming...' : 'Send'}
         </button>
