@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
+import Markdown from 'react-markdown';
 import type { PendingInteraction, ChatSSEEvent } from '../types/orchestrator';
 
 interface ChatMessage {
@@ -357,9 +358,15 @@ export function Chat() {
                 msg.role === 'user' ? 'bg-blue-900 text-white' : 'bg-gray-800 text-gray-100',
               ].join(' ')}
             >
-              <pre className="whitespace-pre-wrap font-sans">
-                {msg.content || (streaming && i === messages.length - 1 ? '...' : '')}
-              </pre>
+              {msg.role === 'assistant' ? (
+                <div className="prose prose-invert prose-sm max-w-none">
+                  <Markdown>
+                    {msg.content || (streaming && i === messages.length - 1 ? '...' : '')}
+                  </Markdown>
+                </div>
+              ) : (
+                <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+              )}
             </div>
           </div>
         ))}

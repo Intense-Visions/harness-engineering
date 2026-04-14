@@ -29,11 +29,13 @@
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/types": "workspace:*",
     "@hono/node-server": "^1.19.13",
+    "@tailwindcss/typography": "^0.5.19",
     "@tremor/react": "^3.18.0",
     "glob": "^13.0.6",
     "hono": "^4.12.12",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
     "react-router": "^7.5.0"
   },
   "devDependencies": {
