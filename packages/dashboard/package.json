@@ -38,7 +38,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
-    "react-router": "^7.5.0"
+    "react-router": "^7.5.0",
+    "react-syntax-highlighter": "^16.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
@@ -46,6 +47,7 @@
     "@types/node": "^22.19.15",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^4.5.2",
     "@vitest/coverage-v8": "^4.1.2",
     "concurrently": "^9.1.0",

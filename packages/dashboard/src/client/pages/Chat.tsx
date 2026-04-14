@@ -227,10 +227,53 @@ function StatusBlockView({ block }: { block: StatusBlock }) {
   );
 }
 
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
 function TextBlockView({ block }: { block: TextBlock }) {
   return (
-    <div className="prose prose-invert prose-sm max-w-none py-1">
-      <Markdown>{block.text}</Markdown>
+    <div className="prose prose-invert prose-sm max-w-none py-1 selection:bg-primary-500/30">
+      <Markdown
+        components={{
+          code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || '');
+            return !inline && match ? (
+              <div className="relative group my-4">
+                <div className="absolute -inset-2 bg-gradient-to-r from-primary-500/10 to-secondary-400/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative rounded-lg border border-neutral-border overflow-hidden shadow-2xl">
+                  <div className="flex items-center justify-between px-4 py-2 bg-neutral-surface/80 border-b border-neutral-border">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-muted">
+                      {match[1]}
+                    </span>
+                    <div className="flex gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-neutral-border" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-neutral-border" />
+                    </div>
+                  </div>
+                  <SyntaxHighlighter
+                    {...props}
+                    style={vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    className="!bg-neutral-surface/40 !m-0 !p-4 !text-[11px] font-mono leading-relaxed"
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                </div>
+              </div>
+            ) : (
+              <code
+                className={`${className} bg-neutral-surface/60 px-1.5 py-0.5 rounded text-secondary-400 font-mono text-[11px] border border-neutral-border`}
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+        }}
+      >
+        {block.text}
+      </Markdown>
     </div>
   );
 }

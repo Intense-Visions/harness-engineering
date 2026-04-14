@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuraBackground } from './NeonAI/AuraBackground';
@@ -21,6 +21,13 @@ const NAV_ITEMS = [
 export function Layout({ children }: Props) {
   const location = useLocation();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  useEffect(() => {
+    setIsNavigating(true);
+    const timer = setTimeout(() => setIsNavigating(false), 800);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
@@ -33,6 +40,19 @@ export function Layout({ children }: Props) {
     >
       <div className="neural-noise" />
       <AuraBackground mouseX={mousePos.x} mouseY={mousePos.y} />
+
+      {/* Global Neural Progress Bar */}
+      <AnimatePresence>
+        {isNavigating && (
+          <motion.div
+            initial={{ scaleX: 0, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'circOut' }}
+            className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary-500 via-secondary-400 to-primary-500 z-[100] origin-left shadow-[0_0_15px_var(--color-primary-500)]"
+          />
+        )}
+      </AnimatePresence>
 
       <header className="sticky top-0 z-50 border-b border-neutral-border bg-neutral-bg/60 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center gap-8 px-6 py-3">
@@ -51,11 +71,11 @@ export function Layout({ children }: Props) {
                 background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.05), transparent 40%)`,
               }}
             />
-            {NAV_ITEMS.map(({ to, label }) => (
+            {NAV_ITEMS.map(({ to, label, end }) => (
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/'}
+                end={end}
                 className={({ isActive }) =>
                   [
                     'relative rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200',
