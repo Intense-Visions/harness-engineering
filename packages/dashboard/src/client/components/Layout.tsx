@@ -18,10 +18,10 @@ const NAV_ITEMS = [
 
 export function Layout({ children }: Props) {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <header className="border-b border-gray-800 bg-gray-900">
+    <div className="min-h-screen bg-neutral-bg text-neutral-text">
+      <header className="border-b border-neutral-border bg-neutral-surface">
         <div className="mx-auto flex max-w-7xl items-center gap-8 px-6 py-3">
-          <span className="text-sm font-semibold tracking-tight text-white">Harness</span>
+          <span className="text-sm font-semibold tracking-tight text-neutral-text">Harness</span>
           <nav className="flex gap-4">
             {NAV_ITEMS.map(({ to, label }) => (
               <NavLink
@@ -31,7 +31,7 @@ export function Layout({ children }: Props) {
                 className={({ isActive }) =>
                   [
                     'text-sm transition-colors',
-                    isActive ? 'text-white' : 'text-gray-400 hover:text-gray-200',
+                    isActive ? 'text-primary-500' : 'text-neutral-muted hover:text-neutral-text',
                   ].join(' ')
                 }
               >
