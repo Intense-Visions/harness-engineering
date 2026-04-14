@@ -10,9 +10,12 @@ interface ThinkingBlock {
   text: string;
 }
 
-interface ToolBlock {
-  kind: 'tool';
-  text: string;
+interface ToolUseBlock {
+  kind: 'tool_use';
+  tool: string;
+  args?: string;
+  result?: string;
+  isError?: boolean;
 }
 
 interface StatusBlock {
@@ -25,7 +28,7 @@ interface TextBlock {
   text: string;
 }
 
-type ContentBlock = ThinkingBlock | ToolBlock | StatusBlock | TextBlock;
+type ContentBlock = ThinkingBlock | ToolUseBlock | StatusBlock | TextBlock;
 
 interface UserMessage {
   role: 'user';
@@ -74,38 +77,27 @@ function buildSystemPrompt(interaction: PendingInteraction): string {
   return parts.join('\n');
 }
 
-// --- Streaming ---
+// --- Streaming with session support ---
 
 interface StreamCallbacks {
-  onChunk: (chunk: { type: string; text: string }) => void;
+  onSession: (sessionId: string) => void;
+  onChunk: (event: ChatSSEEvent) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }
 
 async function streamChat(
-  messages: ChatMessage[],
-  system: string,
+  prompt: string,
+  system: string | undefined,
+  sessionId: string | undefined,
   callbacks: StreamCallbacks,
   signal: AbortSignal
 ): Promise<void> {
-  // Convert block-based messages to flat format for the API
-  const apiMessages = messages.map((m) =>
-    m.role === 'user'
-      ? { role: 'user' as const, content: m.content }
-      : {
-          role: 'assistant' as const,
-          content: m.blocks
-            .filter((b): b is TextBlock => b.kind === 'text')
-            .map((b) => b.text)
-            .join(''),
-        }
-  );
-
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: apiMessages, system }),
+      body: JSON.stringify({ prompt, system, sessionId }),
       signal,
     });
 
@@ -135,12 +127,13 @@ async function streamChat(
         }
         try {
           const event = JSON.parse(payload) as ChatSSEEvent;
-          if (event.type === 'error') {
+          if (event.type === 'session') {
+            callbacks.onSession(event.sessionId);
+          } else if (event.type === 'error') {
             callbacks.onError(event.error);
             return;
-          }
-          if ('text' in event && event.text) {
-            callbacks.onChunk({ type: event.type, text: event.text });
+          } else {
+            callbacks.onChunk(event);
           }
         } catch {
           // skip malformed SSE lines
@@ -156,33 +149,58 @@ async function streamChat(
   }
 }
 
-// --- Block rendering ---
+// --- Block rendering components ---
 
 function ThinkingBlockView({ block }: { block: ThinkingBlock }) {
   return (
-    <details className="rounded border border-gray-700 bg-gray-900/50">
-      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-400 select-none">
+    <details className="rounded border border-gray-700/50 bg-gray-900/30">
+      <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-gray-500 select-none">
         Thinking...
       </summary>
-      <div className="border-t border-gray-700 px-3 py-2">
+      <div className="border-t border-gray-700/50 px-3 py-2">
         <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-500">{block.text}</p>
       </div>
     </details>
   );
 }
 
-function ToolBlockView({ block }: { block: ToolBlock }) {
+function ToolUseBlockView({ block }: { block: ToolUseBlock }) {
+  const hasResult = block.result !== undefined;
   return (
-    <div className="flex items-center gap-2 rounded border border-gray-700 bg-gray-900/50 px-3 py-2">
-      <span className="text-xs text-blue-400">&#9655;</span>
-      <span className="font-mono text-xs text-gray-400">{block.text}</span>
-    </div>
+    <details className="rounded border border-gray-700/50 bg-gray-900/30" open={block.isError}>
+      <summary className="flex cursor-pointer items-center gap-2 px-3 py-1.5 select-none">
+        <span className="text-xs text-blue-400">&#9655;</span>
+        <span className="font-mono text-xs font-medium text-gray-300">{block.tool}</span>
+        {block.args && (
+          <span className="truncate font-mono text-xs text-gray-600" title={block.args}>
+            {block.args.slice(0, 80)}
+            {block.args.length > 80 ? '...' : ''}
+          </span>
+        )}
+        {hasResult && (
+          <span
+            className={`ml-auto text-xs ${block.isError ? 'text-red-400' : 'text-emerald-400'}`}
+          >
+            {block.isError ? 'error' : 'done'}
+          </span>
+        )}
+      </summary>
+      {hasResult && (
+        <div className="border-t border-gray-700/50 px-3 py-2">
+          <pre
+            className={`max-h-40 overflow-auto whitespace-pre-wrap text-xs ${block.isError ? 'text-red-400' : 'text-gray-500'}`}
+          >
+            {block.result}
+          </pre>
+        </div>
+      )}
+    </details>
   );
 }
 
 function StatusBlockView({ block }: { block: StatusBlock }) {
   return (
-    <div className="flex items-center gap-2 px-1 py-1">
+    <div className="flex items-center gap-2 px-1 py-0.5">
       <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-500" />
       <span className="font-mono text-xs italic text-gray-500">{block.text}</span>
     </div>
@@ -191,12 +209,39 @@ function StatusBlockView({ block }: { block: StatusBlock }) {
 
 function TextBlockView({ block }: { block: TextBlock }) {
   return (
-    <div className="prose prose-invert prose-sm max-w-none">
+    <div className="prose prose-invert prose-sm max-w-none py-1">
       <Markdown>{block.text}</Markdown>
     </div>
   );
 }
 
+/** Group and render sequential tool blocks as a collapsible section. */
+function ToolGroup({ tools, startIndex }: { tools: ToolUseBlock[]; startIndex: number }) {
+  if (tools.length <= 2) {
+    return (
+      <>
+        {tools.map((t, i) => (
+          <ToolUseBlockView key={startIndex + i} block={t} />
+        ))}
+      </>
+    );
+  }
+  return (
+    <details className="rounded border border-gray-700/30">
+      <summary className="cursor-pointer px-3 py-1.5 text-xs text-gray-400 select-none">
+        Used {tools.length} tools
+        <span className="ml-2 text-gray-600">{tools.map((t) => t.tool).join(', ')}</span>
+      </summary>
+      <div className="flex flex-col gap-1 border-t border-gray-700/30 p-2">
+        {tools.map((t, i) => (
+          <ToolUseBlockView key={startIndex + i} block={t} />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/** Render assistant blocks with tool grouping. */
 function AssistantBlocks({
   blocks,
   isStreaming,
@@ -207,22 +252,49 @@ function AssistantBlocks({
   if (blocks.length === 0 && isStreaming) {
     return <span className="inline-block h-4 w-2 animate-pulse bg-gray-500" />;
   }
-  return (
-    <div className="flex flex-col gap-2">
-      {blocks.map((block, i) => {
-        switch (block.kind) {
-          case 'thinking':
-            return <ThinkingBlockView key={i} block={block} />;
-          case 'tool':
-            return <ToolBlockView key={i} block={block} />;
-          case 'status':
-            return <StatusBlockView key={i} block={block} />;
-          case 'text':
-            return <TextBlockView key={i} block={block} />;
-        }
-      })}
-    </div>
-  );
+
+  // Group consecutive tool_use blocks (with their results interleaved)
+  const elements: React.ReactNode[] = [];
+  let toolGroup: ToolUseBlock[] = [];
+  let toolGroupStart = 0;
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]!;
+
+    if (block.kind === 'tool_use') {
+      if (toolGroup.length === 0) toolGroupStart = i;
+      toolGroup.push(block);
+    } else {
+      // Flush any accumulated tool group
+      if (toolGroup.length > 0) {
+        elements.push(
+          <ToolGroup key={`tg-${toolGroupStart}`} tools={toolGroup} startIndex={toolGroupStart} />
+        );
+        toolGroup = [];
+      }
+
+      switch (block.kind) {
+        case 'thinking':
+          elements.push(<ThinkingBlockView key={i} block={block} />);
+          break;
+        case 'status':
+          elements.push(<StatusBlockView key={i} block={block} />);
+          break;
+        case 'text':
+          elements.push(<TextBlockView key={i} block={block} />);
+          break;
+      }
+    }
+  }
+
+  // Flush trailing tool group
+  if (toolGroup.length > 0) {
+    elements.push(
+      <ToolGroup key={`tg-${toolGroupStart}`} tools={toolGroup} startIndex={toolGroupStart} />
+    );
+  }
+
+  return <div className="flex flex-col gap-1.5">{elements}</div>;
 }
 
 // --- Main component ---
@@ -237,27 +309,25 @@ export function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [savingPlan, setSavingPlan] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Abort any in-flight stream on unmount
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
     };
   }, []);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  // Fetch interaction on mount
   useEffect(() => {
     if (!interactionId) {
       setLoading(false);
@@ -294,54 +364,31 @@ export function Chat() {
   const handleSend = useCallback(async () => {
     if (!input.trim() || streaming || !interaction) return;
 
-    const userMessage: UserMessage = { role: 'user', content: input.trim() };
-    const updatedMessages: ChatMessage[] = [...messages, userMessage];
-    setMessages(updatedMessages);
+    const prompt = input.trim();
+    const userMessage: UserMessage = { role: 'user', content: prompt };
+    setMessages((prev) => [...prev, userMessage, { role: 'assistant', blocks: [] }]);
     setInput('');
     setStreaming(true);
-
-    // Add empty assistant message
-    const assistantMsg: AssistantMessage = { role: 'assistant', blocks: [] };
-    setMessages((prev) => [...prev, assistantMsg]);
 
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const isFirstTurn = !sessionId;
+
     await streamChat(
-      updatedMessages,
-      buildSystemPrompt(interaction),
+      prompt,
+      isFirstTurn ? buildSystemPrompt(interaction) : undefined,
+      sessionId,
       {
-        onChunk: ({ type, text }) => {
+        onSession: (id) => setSessionId(id),
+        onChunk: (event) => {
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
             if (!last || last.role !== 'assistant') return prev;
 
             const blocks = [...last.blocks];
-            const lastBlock = blocks[blocks.length - 1];
-            const kind = mapChunkKind(type);
-
-            // Status blocks always replace (show latest activity)
-            if (kind === 'status') {
-              if (lastBlock?.kind === 'status') {
-                blocks[blocks.length - 1] = { kind: 'status', text };
-              } else {
-                blocks.push({ kind: 'status', text });
-              }
-            }
-            // Same-kind blocks get appended to (streaming accumulation)
-            else if (lastBlock && lastBlock.kind === kind) {
-              blocks[blocks.length - 1] = { ...lastBlock, text: lastBlock.text + text };
-            }
-            // Different kind = new block
-            else {
-              // Remove trailing status block when real content arrives
-              if (lastBlock?.kind === 'status') {
-                blocks.pop();
-              }
-              blocks.push({ kind, text });
-            }
-
+            applyChunk(blocks, event);
             updated[updated.length - 1] = { role: 'assistant', blocks };
             return updated;
           });
@@ -354,7 +401,7 @@ export function Chat() {
             if (last?.role === 'assistant') {
               updated[updated.length - 1] = {
                 role: 'assistant',
-                blocks: [...last.blocks, { kind: 'text', text: `\n\n**Error:** ${error}` }],
+                blocks: [...last.blocks, { kind: 'text', text: `**Error:** ${error}` }],
               };
             }
             return updated;
@@ -364,12 +411,11 @@ export function Chat() {
       },
       controller.signal
     );
-  }, [input, streaming, messages, interaction]);
+  }, [input, streaming, interaction, sessionId]);
 
   const handleSavePlan = useCallback(async () => {
     if (!interaction) return;
 
-    // Find the last assistant message's text blocks as plan content
     const lastAssistant = [...messages]
       .reverse()
       .find((m): m is AssistantMessage => m.role === 'assistant');
@@ -450,7 +496,12 @@ export function Chat() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{interaction.context.issueTitle}</h1>
-          <p className="text-xs text-gray-500">{interaction.issueId} · Claude Chat Pane</p>
+          <p className="text-xs text-gray-500">
+            {interaction.issueId} · Claude Chat Pane
+            {sessionId && (
+              <span className="ml-2 text-gray-600">session: {sessionId.slice(0, 8)}</span>
+            )}
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -559,16 +610,46 @@ export function Chat() {
   );
 }
 
-/** Map SSE event type to block kind. */
-function mapChunkKind(type: string): ContentBlock['kind'] {
-  switch (type) {
-    case 'thinking':
-      return 'thinking';
-    case 'tool':
-      return 'tool';
-    case 'status':
-      return 'status';
-    default:
-      return 'text';
+// --- Block update logic ---
+
+/** Apply an SSE chunk to the block list. */
+function applyChunk(blocks: ContentBlock[], event: ChatSSEEvent): void {
+  if (event.type === 'session') return;
+  if (event.type === 'error') return;
+
+  const lastBlock = blocks[blocks.length - 1];
+
+  if (event.type === 'text') {
+    if (lastBlock?.kind === 'text') {
+      blocks[blocks.length - 1] = { kind: 'text', text: lastBlock.text + event.text };
+    } else {
+      // Remove trailing status when text arrives
+      if (lastBlock?.kind === 'status') blocks.pop();
+      blocks.push({ kind: 'text', text: event.text });
+    }
+  } else if (event.type === 'thinking') {
+    if (lastBlock?.kind === 'thinking') {
+      blocks[blocks.length - 1] = { kind: 'thinking', text: lastBlock.text + event.text };
+    } else {
+      blocks.push({ kind: 'thinking', text: event.text });
+    }
+  } else if (event.type === 'tool_use') {
+    blocks.push({ kind: 'tool_use', tool: event.tool, args: event.args });
+  } else if (event.type === 'tool_result') {
+    // Attach result to the most recent tool_use block
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const b = blocks[i]!;
+      if (b.kind === 'tool_use' && b.result === undefined) {
+        blocks[i] = { ...b, result: event.content, isError: event.isError };
+        break;
+      }
+    }
+  } else if (event.type === 'status') {
+    // Status blocks replace each other
+    if (lastBlock?.kind === 'status') {
+      blocks[blocks.length - 1] = { kind: 'status', text: event.text };
+    } else {
+      blocks.push({ kind: 'status', text: event.text });
+    }
   }
 }

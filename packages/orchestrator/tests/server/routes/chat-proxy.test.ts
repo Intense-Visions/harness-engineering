@@ -20,7 +20,7 @@ function createMockChild(events: Array<Record<string, unknown>>) {
     pid: 12345,
     exitCode: null as number | null,
     kill: vi.fn(),
-    on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+    on: vi.fn((event: string, _cb: (...args: unknown[]) => void) => {
       if (event === 'error') {
         // store error handler but don't fire
       }
@@ -28,7 +28,6 @@ function createMockChild(events: Array<Record<string, unknown>>) {
     }),
   });
 
-  // Stream events then close
   setTimeout(() => {
     for (const evt of events) {
       stdout.write(JSON.stringify(evt) + '\n');
@@ -79,7 +78,7 @@ function postRequest(
   });
 }
 
-describe('chat proxy route (Claude Code subprocess)', () => {
+describe('chat proxy route (Claude Code session mode)', () => {
   let server: http.Server;
   let port: number;
   const mockSpawn = vi.mocked(child_process.spawn);
@@ -95,36 +94,46 @@ describe('chat proxy route (Claude Code subprocess)', () => {
     vi.restoreAllMocks();
   });
 
-  it('POST /api/chat streams SSE responses from Claude Code', async () => {
+  it('streams SSE responses with session ID', async () => {
     const child = createMockChild([
-      { type: 'progress', content: 'Hello' },
-      { type: 'progress', content: ' world' },
-      { type: 'result', result: 'Done', usage: { input_tokens: 10, output_tokens: 5 } },
+      {
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'thinking', thinking: 'Let me think...' },
+            { type: 'text', text: 'Hello world' },
+          ],
+        },
+      },
     ]);
     mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
 
-    const res = await postRequest(port, '/api/chat', {
-      messages: [{ role: 'user', content: 'Hello' }],
-    });
+    const res = await postRequest(port, '/api/chat', { prompt: 'Hello' });
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toBe('text/event-stream');
-    expect(res.body).toContain('Hello');
-    expect(res.body).toContain(' world');
+    // Should contain session ID event
+    expect(res.body).toContain('"type":"session"');
+    expect(res.body).toContain('"sessionId"');
+    // Should contain thinking and text
+    expect(res.body).toContain('"type":"thinking"');
+    expect(res.body).toContain('Let me think...');
+    expect(res.body).toContain('"type":"text"');
+    expect(res.body).toContain('Hello world');
     expect(res.body).toContain('[DONE]');
   });
 
-  it('POST /api/chat returns 400 when messages are missing', async () => {
+  it('returns 400 when prompt is missing', async () => {
     const res = await postRequest(port, '/api/chat', {});
     expect(res.statusCode).toBe(400);
   });
 
-  it('POST /api/chat includes system prompt in CLI args', async () => {
-    const child = createMockChild([{ type: 'progress', content: 'Response' }]);
+  it('includes system prompt on first turn and uses --session-id', async () => {
+    const child = createMockChild([{ type: 'result', result: 'OK' }]);
     mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
 
     await postRequest(port, '/api/chat', {
-      messages: [{ role: 'user', content: 'Hi' }],
+      prompt: 'Hi',
       system: 'You are a helpful assistant.',
     });
 
@@ -134,9 +143,51 @@ describe('chat proxy route (Claude Code subprocess)', () => {
         '--print',
         '-p',
         expect.stringContaining('You are a helpful assistant.'),
+        '--session-id',
       ]),
       expect.any(Object)
     );
+  });
+
+  it('uses --resume on subsequent turns', async () => {
+    const child = createMockChild([{ type: 'result', result: 'OK' }]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
+    await postRequest(port, '/api/chat', {
+      prompt: 'Continue',
+      sessionId: 'test-session-123',
+    });
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'claude',
+      expect.arrayContaining(['--resume', 'test-session-123']),
+      expect.any(Object)
+    );
+  });
+
+  it('emits tool_use and tool_result events', async () => {
+    const child = createMockChild([
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/foo.ts' } }],
+        },
+      },
+      {
+        type: 'user',
+        message: {
+          content: [{ type: 'tool_result', content: 'file contents here', tool_use_id: 'x' }],
+        },
+      },
+    ]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
+    const res = await postRequest(port, '/api/chat', { prompt: 'Read a file' });
+
+    expect(res.body).toContain('"type":"tool_use"');
+    expect(res.body).toContain('"tool":"Read"');
+    expect(res.body).toContain('"type":"tool_result"');
+    expect(res.body).toContain('file contents here');
   });
 
   it('returns false for non-matching routes', async () => {
