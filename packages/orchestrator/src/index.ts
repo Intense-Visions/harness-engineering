@@ -17,6 +17,7 @@ export * from './tracker/extensions/linear';
 export * from './workspace/manager';
 export * from './workspace/hooks';
 export * from './agent/backends/mock';
+export * from './agent/backends/local';
 export * from './agent/backends/claude';
 export * from './agent/backends/openai';
 export * from './agent/backends/gemini';
