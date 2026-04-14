@@ -9,11 +9,12 @@ export default defineConfig({
   server: {
     port: Number(process.env['DASHBOARD_CLIENT_PORT'] ?? 3700),
     proxy: {
-      '/api': {
-        target: `http://localhost:${process.env['DASHBOARD_API_PORT'] ?? '3701'}`,
+      // Orchestrator routes — must be listed before the catch-all /api
+      '/api/v1': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
         changeOrigin: true,
       },
-      '/api/v1': {
+      '/api/state': {
         target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
         changeOrigin: true,
       },
@@ -32,6 +33,11 @@ export default defineConfig({
       '/ws': {
         target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
         ws: true,
+      },
+      // Dashboard API — catch-all for remaining /api routes (must be last)
+      '/api': {
+        target: `http://localhost:${process.env['DASHBOARD_API_PORT'] ?? '3701'}`,
+        changeOrigin: true,
       },
     },
   },
