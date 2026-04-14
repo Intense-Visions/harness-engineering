@@ -6,8 +6,12 @@ import {
   Issue,
   IssueTrackerClient,
   AgentBackend,
+  ConcernSignal,
 } from '@harness-engineering/types';
 import { writeTaint } from '@harness-engineering/core';
+import { IntelligencePipeline, AnthropicAnalysisProvider } from '@harness-engineering/intelligence';
+import type { EnrichedSpec } from '@harness-engineering/intelligence';
+import { GraphStore } from '@harness-engineering/graph';
 import {
   OrchestratorState,
   OrchestratorEvent,
@@ -15,6 +19,8 @@ import {
   applyEvent,
   createEmptyState,
   LiveSession,
+  detectScopeTier,
+  resolveEscalationConfig,
 } from './core/index';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
@@ -56,6 +62,9 @@ export class Orchestrator extends EventEmitter {
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
+  private pipeline: IntelligencePipeline | null;
+  private graphStore: GraphStore | null = null;
+  private graphLoaded = false;
 
   /**
    * Creates a new Orchestrator instance.
@@ -92,6 +101,8 @@ export class Orchestrator extends EventEmitter {
     this.localRunner = localBackend
       ? new AgentRunner(localBackend, { maxTurns: config.agent.maxTurns })
       : null;
+
+    this.pipeline = this.createIntelligencePipeline();
 
     if (config.server?.port) {
       this.server = new OrchestratorServer(this, config.server.port, {
@@ -148,7 +159,52 @@ export class Orchestrator extends EventEmitter {
     return null;
   }
 
+  private createIntelligencePipeline(): IntelligencePipeline | null {
+    const intel = this.config.intelligence;
+    if (!intel?.enabled) return null;
+
+    if (intel.provider.kind !== 'anthropic') {
+      this.logger.warn('Intelligence pipeline only supports anthropic provider currently');
+      return null;
+    }
+
+    const apiKey = intel.provider.apiKey ?? process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        'Intelligence pipeline enabled but no API key provided. ' +
+          'Set intelligence.provider.apiKey in config or ANTHROPIC_API_KEY env var.'
+      );
+    }
+
+    const provider = new AnthropicAnalysisProvider({
+      apiKey,
+      ...(intel.models.sel !== undefined && { defaultModel: intel.models.sel }),
+    });
+    const store = new GraphStore();
+    this.graphStore = store;
+    return new IntelligencePipeline(provider, store);
+  }
+
   public async asyncTick(): Promise<void> {
+    // Load persisted graph data on first tick (can't await in constructor)
+    if (this.pipeline && this.graphStore && !this.graphLoaded) {
+      this.graphLoaded = true;
+      try {
+        const graphDir = path.join(this.config.workspace.root, '..', 'graph');
+        const loaded = await this.graphStore.load(graphDir);
+        if (loaded) {
+          this.logger.info('Graph store loaded from disk');
+        } else {
+          this.logger.info('No persisted graph data found, starting with empty graph');
+        }
+      } catch (err) {
+        // Graph load failure is non-fatal — empty graph is a valid fallback
+        this.logger.warn('Failed to load graph store, starting with empty graph', {
+          error: String(err),
+        });
+      }
+    }
+
     const nowMs = Date.now();
 
     // 1. Fetch candidates from tracker
@@ -170,12 +226,47 @@ export class Orchestrator extends EventEmitter {
       return;
     }
 
-    // 3. Dispatch tick event to state machine
+    // 3. Pre-process candidates through intelligence pipeline (if enabled)
+    let concernSignals: Map<string, ConcernSignal[]> | undefined;
+    let enrichedSpecs: Map<string, EnrichedSpec> | undefined;
+
+    if (this.pipeline) {
+      concernSignals = new Map();
+      enrichedSpecs = new Map();
+      const escalationConfig = resolveEscalationConfig(this.config);
+
+      for (const issue of candidatesResult.value) {
+        const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+
+        // Skip autoExecute tiers entirely — no LLM cost
+        if (escalationConfig.autoExecute.includes(scopeTier)) continue;
+
+        try {
+          const result = await this.pipeline.preprocessIssue(issue, scopeTier, escalationConfig);
+          if (result.signals.length > 0) {
+            concernSignals.set(issue.id, result.signals);
+          }
+          if (result.spec) {
+            enrichedSpecs.set(issue.id, result.spec);
+          }
+        } catch (err) {
+          this.logger.error(`Intelligence pipeline failed for ${issue.identifier}`, {
+            issueId: issue.id,
+            error: String(err),
+          });
+          // Pipeline failure is non-fatal — continue with empty signals
+        }
+      }
+    }
+
+    // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
-      type: 'tick',
+      type: 'tick' as const,
       candidates: candidatesResult.value,
       runningStates: runningStatesResult.value,
       nowMs,
+      ...(concernSignals !== undefined && { concernSignals }),
+      ...(enrichedSpecs !== undefined && { enrichedSpecs }),
     };
 
     let { nextState, effects } = applyEvent(this.state, tickEvent, this.config);
@@ -259,6 +350,16 @@ export class Orchestrator extends EventEmitter {
         specPath: null,
         planPath: null,
         relatedFiles: [],
+        ...(effect.enrichedSpec !== undefined && {
+          enrichedSpec: {
+            intent: effect.enrichedSpec.intent,
+            summary: effect.enrichedSpec.summary,
+            affectedSystems: effect.enrichedSpec.affectedSystems,
+            unknowns: effect.enrichedSpec.unknowns,
+            ambiguities: effect.enrichedSpec.ambiguities,
+            riskSignals: effect.enrichedSpec.riskSignals,
+          },
+        }),
       },
       createdAt: new Date().toISOString(),
       status: 'pending',

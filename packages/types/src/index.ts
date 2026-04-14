@@ -116,4 +116,5 @@ export type {
   ConcernSignal,
   RoutingDecision,
   EscalationConfig,
+  IntelligenceConfig,
 } from './orchestrator';

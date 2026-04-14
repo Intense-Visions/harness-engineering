@@ -322,6 +322,8 @@ export interface WorkflowConfig {
   agent: AgentConfig;
   /** Server settings */
   server: ServerConfig;
+  /** Intelligence pipeline settings */
+  intelligence?: IntelligenceConfig;
 }
 
 /**
@@ -371,4 +373,24 @@ export interface EscalationConfig {
   signalGated: ScopeTier[];
   /** Max retries for diagnostic issues before escalating (default: 1) */
   diagnosticRetryBudget: number;
+}
+
+/**
+ * Configuration for the intelligence pipeline (SEL/CML/PESL).
+ */
+export interface IntelligenceConfig {
+  /** Whether the intelligence pipeline is enabled */
+  enabled: boolean;
+  /** LLM provider configuration */
+  provider: {
+    kind: 'anthropic' | 'openai-compatible';
+    apiKey?: string;
+    baseUrl?: string;
+  };
+  /** Per-layer model assignments */
+  models: {
+    sel?: string;
+    cml?: string;
+    pesl?: string;
+  };
 }

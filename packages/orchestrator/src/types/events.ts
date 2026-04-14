@@ -1,4 +1,5 @@
-import type { Issue, AgentEvent, TokenUsage } from '@harness-engineering/types';
+import type { Issue, AgentEvent, TokenUsage, ConcernSignal } from '@harness-engineering/types';
+import type { EnrichedSpec } from '@harness-engineering/intelligence';
 
 /**
  * Discriminated union of events that drive the orchestrator state machine.
@@ -17,6 +18,10 @@ export interface TickEvent {
   runningStates: Map<string, Issue>;
   /** Caller-supplied wall clock (ms since epoch). Keeps state machine pure. */
   nowMs: number;
+  /** Pre-computed concern signals from intelligence pipeline (issueId → signals) */
+  concernSignals?: Map<string, ConcernSignal[]>;
+  /** Pre-computed enriched specs from intelligence pipeline (issueId → spec) */
+  enrichedSpecs?: Map<string, EnrichedSpec>;
 }
 
 export interface WorkerExitEvent {
@@ -116,4 +121,6 @@ export interface EscalateEffect {
   issueTitle?: string;
   /** Issue description for context in the interaction queue */
   issueDescription?: string | null;
+  /** Enriched spec from intelligence pipeline, if available */
+  enrichedSpec?: EnrichedSpec;
 }

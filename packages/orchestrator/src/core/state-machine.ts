@@ -5,7 +5,7 @@ import type {
   EscalationConfig,
 } from '@harness-engineering/types';
 import type { OrchestratorState } from '../types/internal';
-import type { OrchestratorEvent, SideEffect, EscalateEffect } from '../types/events';
+import type { OrchestratorEvent, SideEffect, EscalateEffect, TickEvent } from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
@@ -37,7 +37,7 @@ function cloneState(state: OrchestratorState): OrchestratorState {
   };
 }
 
-function resolveEscalationConfig(config: WorkflowConfig): EscalationConfig {
+export function resolveEscalationConfig(config: WorkflowConfig): EscalationConfig {
   const partial = config.agent.escalation;
   return {
     alwaysHuman: partial?.alwaysHuman ?? ['full-exploration'],
@@ -47,13 +47,37 @@ function resolveEscalationConfig(config: WorkflowConfig): EscalationConfig {
   };
 }
 
+function tryEscalate(
+  issue: Issue,
+  event: TickEvent,
+  config: WorkflowConfig,
+  escalationConfig: import('@harness-engineering/types').EscalationConfig
+): EscalateEffect | null {
+  if (!config.agent.localBackend) return null;
+  // TODO(phase2): Wire artifact presence detection from orchestrator layer instead of hardcoded defaults
+  const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+  const signals = event.concernSignals?.get(issue.id) ?? [];
+  const decision = routeIssue(scopeTier, signals, escalationConfig);
+  if (decision.action !== 'needs-human') return null;
+
+  const enrichedSpec = event.enrichedSpecs?.get(issue.id);
+  return {
+    type: 'escalate',
+    issueId: issue.id,
+    identifier: issue.identifier,
+    reasons: decision.reasons,
+    issueTitle: issue.title,
+    issueDescription: issue.description,
+    ...(enrichedSpec !== undefined && { enrichedSpec }),
+  };
+}
+
 function handleTick(
   state: OrchestratorState,
-  candidates: Issue[],
-  runningStates: ReadonlyMap<string, Issue>,
-  config: WorkflowConfig,
-  nowMs: number
+  event: TickEvent,
+  config: WorkflowConfig
 ): ApplyEventResult {
+  const { candidates, runningStates, nowMs } = event;
   const next = cloneState(state);
   const effects: SideEffect[] = [];
 
@@ -91,24 +115,11 @@ function handleTick(
       break; // No more slots available
     }
 
-    if (config.agent.localBackend) {
-      // TODO(phase2): Wire artifact presence detection from orchestrator layer instead of hardcoded defaults
-      const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
-      // TODO(phase2): Wire concern signal detection from issue metadata; empty signals means guided-change always dispatches locally
-      const decision = routeIssue(scopeTier, [], escalationConfig);
-
-      if (decision.action === 'needs-human') {
-        next.claimed.add(issue.id);
-        effects.push({
-          type: 'escalate',
-          issueId: issue.id,
-          identifier: issue.identifier,
-          reasons: decision.reasons,
-          issueTitle: issue.title,
-          issueDescription: issue.description,
-        });
-        continue;
-      }
+    const escalation = tryEscalate(issue, event, config, escalationConfig);
+    if (escalation) {
+      next.claimed.add(issue.id);
+      effects.push(escalation);
+      continue;
     }
 
     next.claimed.add(issue.id);
@@ -340,6 +351,8 @@ function handleRetryFired(
   }
 
   // Re-route through model router to preserve backend assignment (only when local backend is configured)
+  // Note: retry path does not have intelligence pipeline signals — retries use empty signals
+  // (retries are diagnostic-tier which is autoExecute, so signals wouldn't affect routing)
   if (config.agent.localBackend) {
     const escalationConfig = resolveEscalationConfig(config);
     const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
@@ -428,7 +441,7 @@ export function applyEvent(
 ): ApplyEventResult {
   switch (event.type) {
     case 'tick':
-      return handleTick(state, event.candidates, event.runningStates, config, event.nowMs);
+      return handleTick(state, event, config);
     case 'worker_exit':
       return handleWorkerExit(
         state,

@@ -20,6 +20,15 @@ export interface PendingInteraction {
     specPath: string | null;
     planPath: string | null;
     relatedFiles: string[];
+    /** Enriched spec from intelligence pipeline, if available */
+    enrichedSpec?: {
+      intent: string;
+      summary: string;
+      affectedSystems: unknown[];
+      unknowns: string[];
+      ambiguities: string[];
+      riskSignals: string[];
+    };
   };
   /** ISO timestamp of creation */
   createdAt: string;

@@ -1,10 +1,14 @@
 {
-  "name": "@harness-engineering/orchestrator",
-  "version": "0.2.7",
-  "description": "Orchestrator daemon for dispatching coding agents to issues",
+  "name": "@harness-engineering/intelligence",
+  "version": "0.1.0",
+  "description": "Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -17,23 +21,17 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
+    "clean": "node ../../scripts/clean.mjs dist",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "clean": "node ../../scripts/clean.mjs dist",
-    "validate": "harness validate",
-    "check-deps": "harness check-deps",
-    "check-docs": "harness check-docs"
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "harness",
-    "orchestrator",
-    "agent",
-    "daemon"
-  ],
-  "files": [
-    "dist",
-    "README.md"
+    "engineering",
+    "intelligence",
+    "enrichment",
+    "complexity"
   ],
   "license": "MIT",
   "publishConfig": {
@@ -42,30 +40,20 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Intense-Visions/harness-engineering.git",
-    "directory": "packages/orchestrator"
+    "directory": "packages/intelligence"
   },
   "bugs": {
     "url": "https://github.com/Intense-Visions/harness-engineering/issues"
   },
-  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/orchestrator#readme",
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/intelligence#readme",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.87.0",
-    "@google/generative-ai": "^0.24.0",
-    "@harness-engineering/core": "workspace:*",
-    "@harness-engineering/graph": "workspace:*",
-    "@harness-engineering/intelligence": "workspace:*",
     "@harness-engineering/types": "workspace:*",
-    "ink": "^4.4.1",
-    "liquidjs": "^10.25.3",
-    "openai": "^4.0.0",
-    "react": "^18.3.1",
-    "ws": "^8.20.0",
-    "yaml": "^2.8.3"
+    "@harness-engineering/graph": "workspace:*",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
-    "@types/react": "^18.3.28",
-    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.2",
     "tsup": "^8.5.1",
     "vitest": "^4.1.2"

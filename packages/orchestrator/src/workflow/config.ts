@@ -1,16 +1,22 @@
 import { WorkflowConfig, Result, Ok, Err } from '@harness-engineering/types';
 
+const REQUIRED_SECTIONS = ['tracker', 'polling', 'workspace', 'hooks', 'agent', 'server'] as const;
+
 export function validateWorkflowConfig(config: unknown): Result<WorkflowConfig, Error> {
   if (!config || typeof config !== 'object')
     return Err(new Error('Config is missing or not an object'));
 
   const c = config as Record<string, unknown>;
-  if (!c.tracker) return Err(new Error('Config is missing tracker section'));
-  if (!c.polling) return Err(new Error('Config is missing polling section'));
-  if (!c.workspace) return Err(new Error('Config is missing workspace section'));
-  if (!c.hooks) return Err(new Error('Config is missing hooks section'));
-  if (!c.agent) return Err(new Error('Config is missing agent section'));
-  if (!c.server) return Err(new Error('Config is missing server section'));
+  for (const section of REQUIRED_SECTIONS) {
+    if (!c[section]) return Err(new Error(`Config is missing ${section} section`));
+  }
+
+  if (
+    c.intelligence !== undefined &&
+    (typeof c.intelligence !== 'object' || c.intelligence === null)
+  ) {
+    return Err(new Error('Config intelligence section must be an object if present'));
+  }
 
   return Ok(config as WorkflowConfig);
 }
@@ -54,6 +60,11 @@ export function getDefaultConfig(): WorkflowConfig {
     },
     server: {
       port: 8080,
+    },
+    intelligence: {
+      enabled: false,
+      provider: { kind: 'anthropic' as const },
+      models: {},
     },
   };
 }
