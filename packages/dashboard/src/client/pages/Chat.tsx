@@ -3,14 +3,43 @@ import { useSearchParams, useNavigate } from 'react-router';
 import Markdown from 'react-markdown';
 import type { PendingInteraction, ChatSSEEvent } from '../types/orchestrator';
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  /** Collapsed thinking content for assistant messages */
-  thinking?: string;
-  /** Status updates (tool use, progress) */
-  status?: string;
+// --- Block-based message model ---
+
+interface ThinkingBlock {
+  kind: 'thinking';
+  text: string;
 }
+
+interface ToolBlock {
+  kind: 'tool';
+  text: string;
+}
+
+interface StatusBlock {
+  kind: 'status';
+  text: string;
+}
+
+interface TextBlock {
+  kind: 'text';
+  text: string;
+}
+
+type ContentBlock = ThinkingBlock | ToolBlock | StatusBlock | TextBlock;
+
+interface UserMessage {
+  role: 'user';
+  content: string;
+}
+
+interface AssistantMessage {
+  role: 'assistant';
+  blocks: ContentBlock[];
+}
+
+type ChatMessage = UserMessage | AssistantMessage;
+
+// --- System prompt ---
 
 function buildSystemPrompt(interaction: PendingInteraction): string {
   const { context, reasons } = interaction;
@@ -45,10 +74,10 @@ function buildSystemPrompt(interaction: PendingInteraction): string {
   return parts.join('\n');
 }
 
+// --- Streaming ---
+
 interface StreamCallbacks {
-  onText: (text: string) => void;
-  onThinking: (text: string) => void;
-  onStatus: (text: string) => void;
+  onChunk: (chunk: { type: string; text: string }) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }
@@ -59,11 +88,24 @@ async function streamChat(
   callbacks: StreamCallbacks,
   signal: AbortSignal
 ): Promise<void> {
+  // Convert block-based messages to flat format for the API
+  const apiMessages = messages.map((m) =>
+    m.role === 'user'
+      ? { role: 'user' as const, content: m.content }
+      : {
+          role: 'assistant' as const,
+          content: m.blocks
+            .filter((b): b is TextBlock => b.kind === 'text')
+            .map((b) => b.text)
+            .join(''),
+        }
+  );
+
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, system }),
+      body: JSON.stringify({ messages: apiMessages, system }),
       signal,
     });
 
@@ -93,15 +135,12 @@ async function streamChat(
         }
         try {
           const event = JSON.parse(payload) as ChatSSEEvent;
-          if (event.type === 'text') {
-            callbacks.onText(event.text);
-          } else if (event.type === 'thinking') {
-            callbacks.onThinking(event.text);
-          } else if (event.type === 'status' || event.type === 'tool') {
-            callbacks.onStatus(event.text);
-          } else if (event.type === 'error') {
+          if (event.type === 'error') {
             callbacks.onError(event.error);
             return;
+          }
+          if ('text' in event && event.text) {
+            callbacks.onChunk({ type: event.type, text: event.text });
           }
         } catch {
           // skip malformed SSE lines
@@ -109,13 +148,84 @@ async function streamChat(
       }
     }
 
-    onDone();
+    callbacks.onDone();
   } catch (err) {
     if ((err as Error).name !== 'AbortError') {
-      onError((err as Error).message ?? 'Stream failed');
+      callbacks.onError((err as Error).message ?? 'Stream failed');
     }
   }
 }
+
+// --- Block rendering ---
+
+function ThinkingBlockView({ block }: { block: ThinkingBlock }) {
+  return (
+    <details className="rounded border border-gray-700 bg-gray-900/50">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-400 select-none">
+        Thinking...
+      </summary>
+      <div className="border-t border-gray-700 px-3 py-2">
+        <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-500">{block.text}</p>
+      </div>
+    </details>
+  );
+}
+
+function ToolBlockView({ block }: { block: ToolBlock }) {
+  return (
+    <div className="flex items-center gap-2 rounded border border-gray-700 bg-gray-900/50 px-3 py-2">
+      <span className="text-xs text-blue-400">&#9655;</span>
+      <span className="font-mono text-xs text-gray-400">{block.text}</span>
+    </div>
+  );
+}
+
+function StatusBlockView({ block }: { block: StatusBlock }) {
+  return (
+    <div className="flex items-center gap-2 px-1 py-1">
+      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-500" />
+      <span className="font-mono text-xs italic text-gray-500">{block.text}</span>
+    </div>
+  );
+}
+
+function TextBlockView({ block }: { block: TextBlock }) {
+  return (
+    <div className="prose prose-invert prose-sm max-w-none">
+      <Markdown>{block.text}</Markdown>
+    </div>
+  );
+}
+
+function AssistantBlocks({
+  blocks,
+  isStreaming,
+}: {
+  blocks: ContentBlock[];
+  isStreaming: boolean;
+}) {
+  if (blocks.length === 0 && isStreaming) {
+    return <span className="inline-block h-4 w-2 animate-pulse bg-gray-500" />;
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {blocks.map((block, i) => {
+        switch (block.kind) {
+          case 'thinking':
+            return <ThinkingBlockView key={i} block={block} />;
+          case 'tool':
+            return <ToolBlockView key={i} block={block} />;
+          case 'status':
+            return <StatusBlockView key={i} block={block} />;
+          case 'text':
+            return <TextBlockView key={i} block={block} />;
+        }
+      })}
+    </div>
+  );
+}
+
+// --- Main component ---
 
 export function Chat() {
   const [searchParams] = useSearchParams();
@@ -154,15 +264,15 @@ export function Chat() {
       return;
     }
 
+    const controller = new AbortController();
     void (async () => {
       try {
-        const res = await fetch('/api/interactions');
+        const res = await fetch('/api/interactions', { signal: controller.signal });
         if (res.ok) {
           const all = (await res.json()) as PendingInteraction[];
           const found = all.find((i) => i.id === interactionId);
           if (found) {
             setInteraction(found);
-            // Claim the interaction
             if (found.status === 'pending') {
               await fetch(`/api/interactions/${found.id}`, {
                 method: 'PATCH',
@@ -172,55 +282,83 @@ export function Chat() {
             }
           }
         }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
       } finally {
         setLoading(false);
       }
     })();
+    return () => controller.abort();
   }, [interactionId]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || streaming || !interaction) return;
 
-    const userMessage: ChatMessage = { role: 'user', content: input.trim() };
-    const updatedMessages = [...messages, userMessage];
+    const userMessage: UserMessage = { role: 'user', content: input.trim() };
+    const updatedMessages: ChatMessage[] = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
     setStreaming(true);
 
-    // Add placeholder for assistant response
-    setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+    // Add empty assistant message
+    const assistantMsg: AssistantMessage = { role: 'assistant', blocks: [] };
+    setMessages((prev) => [...prev, assistantMsg]);
 
     const controller = new AbortController();
     abortRef.current = controller;
-
-    const updateLastAssistant = (updater: (msg: ChatMessage) => ChatMessage) => {
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last && last.role === 'assistant') {
-          updated[updated.length - 1] = updater(last);
-        }
-        return updated;
-      });
-    };
 
     await streamChat(
       updatedMessages,
       buildSystemPrompt(interaction),
       {
-        onText: (text) => updateLastAssistant((msg) => ({ ...msg, content: msg.content + text })),
-        onThinking: (text) =>
-          updateLastAssistant((msg) => ({
-            ...msg,
-            thinking: (msg.thinking ?? '') + text,
-          })),
-        onStatus: (text) => updateLastAssistant((msg) => ({ ...msg, status: text })),
+        onChunk: ({ type, text }) => {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (!last || last.role !== 'assistant') return prev;
+
+            const blocks = [...last.blocks];
+            const lastBlock = blocks[blocks.length - 1];
+            const kind = mapChunkKind(type);
+
+            // Status blocks always replace (show latest activity)
+            if (kind === 'status') {
+              if (lastBlock?.kind === 'status') {
+                blocks[blocks.length - 1] = { kind: 'status', text };
+              } else {
+                blocks.push({ kind: 'status', text });
+              }
+            }
+            // Same-kind blocks get appended to (streaming accumulation)
+            else if (lastBlock && lastBlock.kind === kind) {
+              blocks[blocks.length - 1] = { ...lastBlock, text: lastBlock.text + text };
+            }
+            // Different kind = new block
+            else {
+              // Remove trailing status block when real content arrives
+              if (lastBlock?.kind === 'status') {
+                blocks.pop();
+              }
+              blocks.push({ kind, text });
+            }
+
+            updated[updated.length - 1] = { role: 'assistant', blocks };
+            return updated;
+          });
+        },
         onDone: () => setStreaming(false),
         onError: (error) => {
-          updateLastAssistant((msg) => ({
-            ...msg,
-            content: msg.content + `\n\n[Error: ${error}]`,
-          }));
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = {
+                role: 'assistant',
+                blocks: [...last.blocks, { kind: 'text', text: `\n\n**Error:** ${error}` }],
+              };
+            }
+            return updated;
+          });
           setStreaming(false);
         },
       },
@@ -231,9 +369,15 @@ export function Chat() {
   const handleSavePlan = useCallback(async () => {
     if (!interaction) return;
 
-    // Find the last assistant message as the plan content
-    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
-    if (!lastAssistant?.content) return;
+    // Find the last assistant message's text blocks as plan content
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m): m is AssistantMessage => m.role === 'assistant');
+    const planContent = lastAssistant?.blocks
+      .filter((b): b is TextBlock => b.kind === 'text')
+      .map((b) => b.text)
+      .join('\n\n');
+    if (!planContent) return;
 
     setSavingPlan(true);
     setSaveError(null);
@@ -246,7 +390,7 @@ export function Chat() {
       const res = await fetch('/api/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, content: lastAssistant.content }),
+        body: JSON.stringify({ filename, content: planContent }),
       });
 
       if (!res.ok) {
@@ -255,7 +399,6 @@ export function Chat() {
         return;
       }
 
-      // Resolve the interaction
       await fetch(`/api/interactions/${interaction.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -269,6 +412,8 @@ export function Chat() {
       setSavingPlan(false);
     }
   }, [interaction, messages]);
+
+  // --- Render ---
 
   if (!interactionId) {
     return (
@@ -334,7 +479,7 @@ export function Chat() {
 
       {saveError && <p className="mb-2 text-xs text-red-400">{saveError}</p>}
 
-      {/* Context sidebar */}
+      {/* Context */}
       <div className="mb-4 rounded border border-gray-800 bg-gray-900 p-3">
         <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-500">Context</p>
         <div className="flex flex-wrap gap-3 text-xs text-gray-400">
@@ -354,7 +499,7 @@ export function Chat() {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Message stream */}
       <div className="flex-1 overflow-y-auto rounded border border-gray-800 bg-gray-950 p-4">
         {messages.length === 0 && (
           <p className="text-sm text-gray-500">
@@ -362,44 +507,25 @@ export function Chat() {
           </p>
         )}
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={['mb-4', msg.role === 'user' ? 'text-right' : 'text-left'].join(' ')}
-          >
-            <span className="mb-1 block text-xs text-gray-500">
-              {msg.role === 'user' ? 'You' : 'Claude'}
-            </span>
-            <div
-              className={[
-                'inline-block max-w-[80%] rounded-lg px-4 py-2 text-sm',
-                msg.role === 'user' ? 'bg-blue-900 text-white' : 'bg-gray-800 text-gray-100',
-              ].join(' ')}
-            >
-              {msg.role === 'assistant' ? (
-                <>
-                  {msg.thinking && (
-                    <details className="mb-2 rounded border border-gray-700 bg-gray-900 p-2">
-                      <summary className="cursor-pointer text-xs text-gray-400">
-                        Thinking...
-                      </summary>
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-gray-500">
-                        {msg.thinking}
-                      </p>
-                    </details>
-                  )}
-                  {msg.status && streaming && i === messages.length - 1 && (
-                    <p className="mb-2 text-xs italic text-gray-500">{msg.status}</p>
-                  )}
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    <Markdown>
-                      {msg.content || (streaming && i === messages.length - 1 ? '...' : '')}
-                    </Markdown>
-                  </div>
-                </>
-              ) : (
-                <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
-              )}
-            </div>
+          <div key={i} className="mb-4">
+            {msg.role === 'user' ? (
+              <div className="text-right">
+                <span className="mb-1 block text-xs text-gray-500">You</span>
+                <div className="inline-block max-w-[80%] rounded-lg bg-blue-900 px-4 py-2 text-sm text-white">
+                  <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <span className="mb-1 block text-xs text-gray-500">Claude</span>
+                <div className="max-w-[90%]">
+                  <AssistantBlocks
+                    blocks={msg.blocks}
+                    isStreaming={streaming && i === messages.length - 1}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ))}
         <div ref={messagesEndRef} />
@@ -431,4 +557,18 @@ export function Chat() {
       </div>
     </div>
   );
+}
+
+/** Map SSE event type to block kind. */
+function mapChunkKind(type: string): ContentBlock['kind'] {
+  switch (type) {
+    case 'thinking':
+      return 'thinking';
+    case 'tool':
+      return 'tool';
+    case 'status':
+      return 'status';
+    default:
+      return 'text';
+  }
 }
