@@ -118,6 +118,13 @@ export function Chat() {
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Abort any in-flight stream on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (typeof messagesEndRef.current?.scrollIntoView === 'function') {

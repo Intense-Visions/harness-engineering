@@ -110,18 +110,22 @@ export function Attention() {
 
   // Fetch initial interactions from API
   useEffect(() => {
+    const controller = new AbortController();
     void (async () => {
       try {
-        const res = await fetch('/api/interactions');
+        const res = await fetch('/api/interactions', { signal: controller.signal });
         if (res.ok) {
           const data = (await res.json()) as PendingInteraction[];
           setInteractions(data);
           setAllInteractions(data);
         }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
       } finally {
         setLoaded(true);
       }
     })();
+    return () => controller.abort();
   }, [setInteractions]);
 
   // Merge WebSocket interactions into local state
@@ -137,11 +141,12 @@ export function Attention() {
 
   const handleDismiss = useCallback(
     async (id: string) => {
-      await fetch(`/api/interactions/${id}`, {
+      const res = await fetch(`/api/interactions/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'resolved' }),
       });
+      if (!res.ok) return;
       removeInteraction(id);
       setAllInteractions((prev) => prev.filter((i) => i.id !== id));
     },
