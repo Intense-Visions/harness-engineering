@@ -130,11 +130,11 @@ export class Orchestrator extends EventEmitter {
 
   private createLocalBackend(): AgentBackend | null {
     if (this.config.agent.localBackend === 'openai-compatible') {
-      return new LocalBackend({
-        endpoint: this.config.agent.localEndpoint,
-        model: this.config.agent.localModel,
-        apiKey: this.config.agent.localApiKey,
-      });
+      const localConfig: import('./agent/backends/local').LocalBackendConfig = {};
+      if (this.config.agent.localEndpoint) localConfig.endpoint = this.config.agent.localEndpoint;
+      if (this.config.agent.localModel) localConfig.model = this.config.agent.localModel;
+      if (this.config.agent.localApiKey) localConfig.apiKey = this.config.agent.localApiKey;
+      return new LocalBackend(localConfig);
     }
     return null;
   }
@@ -505,86 +505,6 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
-  }
-
-  /**
-   * Applies rate-limit throttling for an agent session.
-   *
-   * @param identifier - The issue identifier for logging
-   */
-  private async throttleAgent(identifier: string): Promise<void> {
-    while (true) {
-      const now = Date.now();
-      let waitTime = 0;
-
-      if (this.state.globalCooldownUntilMs && now < this.state.globalCooldownUntilMs) {
-        waitTime = this.state.globalCooldownUntilMs - now;
-      } else {
-        waitTime = this.calculateWaitTime(now);
-      }
-
-      if (waitTime > 0) {
-        this.logger.info(`Rate limit throttling active, pausing ${identifier} for ${waitTime}ms`);
-        await new Promise((r) => setTimeout(r, waitTime));
-      } else {
-        break;
-      }
-    }
-  }
-
-  /**
-   * Calculates the required wait time based on current usage and limits.
-   *
-   * @param now - Current timestamp
-   * @returns Wait time in milliseconds
-   */
-  private calculateWaitTime(now: number): number {
-    // recentRequestTimestamps is already pruned to 60s in state machine
-    const recentCountMin = this.state.recentRequestTimestamps.length;
-    // We still need to filter for the 1s window
-    const recentCountSec = this.state.recentRequestTimestamps.filter(
-      (ts) => now - ts < 1000
-    ).length;
-
-    // recentInputTokens and recentOutputTokens are already pruned to 60s in state machine
-    const minInputTokens = this.state.recentInputTokens.reduce((sum, t) => sum + t.tokens, 0);
-    const minOutputTokens = this.state.recentOutputTokens.reduce((sum, t) => sum + t.tokens, 0);
-
-    if (recentCountMin > this.state.maxRequestsPerMinute) {
-      return this.getBackoffTime(this.state.recentRequestTimestamps, now, 60000);
-    }
-
-    if (recentCountSec >= this.state.maxRequestsPerSecond) {
-      return this.getBackoffTime(this.state.recentRequestTimestamps, now, 1000);
-    }
-
-    if (
-      this.state.maxInputTokensPerMinute > 0 &&
-      minInputTokens >= this.state.maxInputTokensPerMinute
-    ) {
-      const sorted = [...this.state.recentInputTokens].sort((a, b) => a.timestamp - b.timestamp);
-      const oldest = sorted[0]?.timestamp;
-      return oldest !== undefined ? 60000 - (now - oldest) : 1000;
-    }
-
-    if (
-      this.state.maxOutputTokensPerMinute > 0 &&
-      minOutputTokens >= this.state.maxOutputTokensPerMinute
-    ) {
-      const sorted = [...this.state.recentOutputTokens].sort((a, b) => a.timestamp - b.timestamp);
-      const oldest = sorted[0]?.timestamp;
-      return oldest !== undefined ? 60000 - (now - oldest) : 1000;
-    }
-
-    return 0;
-  }
-
-  private getBackoffTime(timestamps: number[], now: number, windowMs: number): number {
-    // Only filter if the window is smaller than the 60s pruned window
-    const relevant = windowMs < 60000 ? timestamps.filter((ts) => now - ts < windowMs) : timestamps;
-    const sorted = [...relevant].sort((a, b) => a - b);
-    const oldest = sorted[0];
-    return oldest !== undefined ? windowMs - (now - oldest) : 1000;
   }
 
   /**
