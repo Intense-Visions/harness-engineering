@@ -87,5 +87,8 @@ export type WebSocketMessage =
 /** SSE event types from the chat proxy endpoint. */
 export type ChatSSEEvent =
   | { type: 'text'; text: string }
+  | { type: 'thinking'; text: string }
+  | { type: 'tool'; text: string }
+  | { type: 'status'; text: string }
   | { type: 'usage'; inputTokens: number; outputTokens: number }
   | { type: 'error'; error: string };

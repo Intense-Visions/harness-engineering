@@ -6,6 +6,10 @@ import type { PendingInteraction, ChatSSEEvent } from '../types/orchestrator';
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /** Collapsed thinking content for assistant messages */
+  thinking?: string;
+  /** Status updates (tool use, progress) */
+  status?: string;
 }
 
 function buildSystemPrompt(interaction: PendingInteraction): string {
@@ -41,12 +45,18 @@ function buildSystemPrompt(interaction: PendingInteraction): string {
   return parts.join('\n');
 }
 
+interface StreamCallbacks {
+  onText: (text: string) => void;
+  onThinking: (text: string) => void;
+  onStatus: (text: string) => void;
+  onDone: () => void;
+  onError: (error: string) => void;
+}
+
 async function streamChat(
   messages: ChatMessage[],
   system: string,
-  onChunk: (text: string) => void,
-  onDone: () => void,
-  onError: (error: string) => void,
+  callbacks: StreamCallbacks,
   signal: AbortSignal
 ): Promise<void> {
   try {
@@ -58,7 +68,7 @@ async function streamChat(
     });
 
     if (!res.ok || !res.body) {
-      onError(`Chat request failed: HTTP ${res.status}`);
+      callbacks.onError(`Chat request failed: HTTP ${res.status}`);
       return;
     }
 
@@ -78,15 +88,19 @@ async function streamChat(
         if (!line.startsWith('data: ')) continue;
         const payload = line.slice(6).trim();
         if (payload === '[DONE]') {
-          onDone();
+          callbacks.onDone();
           return;
         }
         try {
           const event = JSON.parse(payload) as ChatSSEEvent;
           if (event.type === 'text') {
-            onChunk(event.text);
+            callbacks.onText(event.text);
+          } else if (event.type === 'thinking') {
+            callbacks.onThinking(event.text);
+          } else if (event.type === 'status' || event.type === 'tool') {
+            callbacks.onStatus(event.text);
           } else if (event.type === 'error') {
-            onError(event.error);
+            callbacks.onError(event.error);
             return;
           }
         } catch {
@@ -179,33 +193,36 @@ export function Chat() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const updateLastAssistant = (updater: (msg: ChatMessage) => ChatMessage) => {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last && last.role === 'assistant') {
+          updated[updated.length - 1] = updater(last);
+        }
+        return updated;
+      });
+    };
+
     await streamChat(
       updatedMessages,
       buildSystemPrompt(interaction),
-      (text) => {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.role === 'assistant') {
-            updated[updated.length - 1] = { ...last, content: last.content + text };
-          }
-          return updated;
-        });
-      },
-      () => setStreaming(false),
-      (error) => {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.role === 'assistant') {
-            updated[updated.length - 1] = {
-              ...last,
-              content: last.content + `\n\n[Error: ${error}]`,
-            };
-          }
-          return updated;
-        });
-        setStreaming(false);
+      {
+        onText: (text) => updateLastAssistant((msg) => ({ ...msg, content: msg.content + text })),
+        onThinking: (text) =>
+          updateLastAssistant((msg) => ({
+            ...msg,
+            thinking: (msg.thinking ?? '') + text,
+          })),
+        onStatus: (text) => updateLastAssistant((msg) => ({ ...msg, status: text })),
+        onDone: () => setStreaming(false),
+        onError: (error) => {
+          updateLastAssistant((msg) => ({
+            ...msg,
+            content: msg.content + `\n\n[Error: ${error}]`,
+          }));
+          setStreaming(false);
+        },
       },
       controller.signal
     );
@@ -359,11 +376,26 @@ export function Chat() {
               ].join(' ')}
             >
               {msg.role === 'assistant' ? (
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <Markdown>
-                    {msg.content || (streaming && i === messages.length - 1 ? '...' : '')}
-                  </Markdown>
-                </div>
+                <>
+                  {msg.thinking && (
+                    <details className="mb-2 rounded border border-gray-700 bg-gray-900 p-2">
+                      <summary className="cursor-pointer text-xs text-gray-400">
+                        Thinking...
+                      </summary>
+                      <p className="mt-1 whitespace-pre-wrap text-xs text-gray-500">
+                        {msg.thinking}
+                      </p>
+                    </details>
+                  )}
+                  {msg.status && streaming && i === messages.length - 1 && (
+                    <p className="mb-2 text-xs italic text-gray-500">{msg.status}</p>
+                  )}
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <Markdown>
+                      {msg.content || (streaming && i === messages.length - 1 ? '...' : '')}
+                    </Markdown>
+                  </div>
+                </>
               ) : (
                 <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
               )}

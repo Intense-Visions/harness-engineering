@@ -78,9 +78,8 @@ export function handleChatProxyRoute(
           try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const event = JSON.parse(line) as any;
-            const text = extractText(event);
-            if (text) {
-              res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`);
+            for (const chunk of extractChunks(event)) {
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
             }
           } catch {
             // Non-JSON output — forward as plain text if non-empty
@@ -150,43 +149,40 @@ function buildPrompt(
   return parts.join('\n\n');
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EventExtractor = (event: any) => string | null;
+interface SSEChunk {
+  type: 'text' | 'thinking' | 'tool' | 'status';
+  text: string;
+}
 
-/** Ordered extractors for Claude Code stream-json event shapes. */
-const TEXT_EXTRACTORS: EventExtractor[] = [
-  // content_block_delta — streaming text chunks (most common)
-  (e) => (e.type === 'content_block_delta' ? (e.delta?.text ?? null) : null),
-  // progress — streaming content
-  (e) => (e.type === 'progress' && typeof e.content === 'string' ? e.content : null),
-  // result / turn_complete — final text
-  (e) =>
-    e.type === 'result' || e.type === 'turn_complete'
-      ? typeof (e.result ?? e.content?.result) === 'string'
-        ? (e.result ?? e.content.result)
-        : null
-      : null,
-  // assistant — initial message with content blocks
-  (e) => {
-    if (e.type !== 'assistant' || !Array.isArray(e.message?.content)) return null;
-    const text = e.message.content
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((b: any) => b.type === 'text' && b.text)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((b: any) => b.text as string)
-      .join('');
-    return text || null;
-  },
-  // content_block_start with text
-  (e) => (e.type === 'content_block_start' ? (e.content_block?.text ?? null) : null),
-];
-
-/** Extract displayable text from a Claude Code stream-json event. */
+/** Map a single content block from an assistant message to an SSEChunk. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractText(event: any): string | null {
-  for (const extract of TEXT_EXTRACTORS) {
-    const text = extract(event);
-    if (text) return text;
-  }
+function mapContentBlock(block: any): SSEChunk | null {
+  if (block.type === 'thinking' && block.thinking)
+    return { type: 'thinking', text: block.thinking };
+  if (block.type === 'text' && block.text) return { type: 'text', text: block.text };
+  if (block.type === 'tool_use' && block.name)
+    return { type: 'tool', text: `Using tool: ${block.name}` };
   return null;
+}
+
+/** Extract displayable chunks from a Claude Code stream-json event. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractChunks(event: any): SSEChunk[] {
+  if (event.type === 'assistant' && Array.isArray(event.message?.content)) {
+    return event.message.content.map(mapContentBlock).filter(Boolean) as SSEChunk[];
+  }
+  if (event.type === 'content_block_delta' && event.delta?.text) {
+    return [{ type: 'text', text: event.delta.text }];
+  }
+  if (event.type === 'progress' && typeof event.content === 'string') {
+    return [{ type: 'text', text: event.content }];
+  }
+  if (event.type === 'result' || event.type === 'turn_complete') {
+    const text = event.result ?? event.content?.result;
+    if (typeof text === 'string') return [{ type: 'text', text }];
+  }
+  if (event.type === 'system' && event.subtype === 'task_progress' && event.description) {
+    return [{ type: 'status', text: event.description }];
+  }
+  return [];
 }
