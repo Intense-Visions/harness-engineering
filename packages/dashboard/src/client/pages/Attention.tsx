@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
+import { useNotifications } from '../hooks/useNotifications';
 import type { PendingInteraction } from '../types/orchestrator';
 
 function InteractionCard({
@@ -103,6 +104,9 @@ export function Attention() {
   } = useOrchestratorSocket();
   const [loaded, setLoaded] = useState(false);
   const [allInteractions, setAllInteractions] = useState<PendingInteraction[]>([]);
+
+  // Fire browser notifications for new escalations
+  useNotifications(allInteractions);
 
   // Fetch initial interactions from API
   useEffect(() => {
