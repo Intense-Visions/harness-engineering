@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuraBackground } from './NeonAI/AuraBackground';
@@ -20,19 +20,37 @@ const NAV_ITEMS = [
 
 export function Layout({ children }: Props) {
   const location = useLocation();
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setMousePos({ x: e.clientX, y: e.clientY });
+  };
 
   return (
-    <div className="min-h-screen text-neutral-text selection:bg-primary-500/30">
-      <AuraBackground />
+    <div
+      className="min-h-screen text-neutral-text selection:bg-primary-500/30 overflow-x-hidden"
+      onMouseMove={handleMouseMove}
+    >
+      <div className="neural-noise" />
+      <AuraBackground mouseX={mousePos.x} mouseY={mousePos.y} />
 
-      <header className="sticky top-0 z-50 border-b border-neutral-border bg-neutral-surface/60 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-neutral-border bg-neutral-bg/60 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center gap-8 px-6 py-3">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 animate-pulse rounded-full bg-primary-500 shadow-[0_0_10px_var(--color-primary-500)]" />
-            <span className="text-sm font-bold tracking-tighter uppercase text-white">Harness</span>
+          <div className="flex items-center gap-2 group cursor-pointer">
+            <div className="h-2 w-2 animate-pulse rounded-full bg-primary-500 shadow-[0_0_15px_var(--color-primary-500)] group-hover:scale-125 transition-transform" />
+            <span className="text-sm font-black tracking-tighter uppercase text-white group-hover:text-glow-primary transition-all">
+              Harness
+            </span>
           </div>
 
-          <nav className="flex gap-1">
+          <nav className="flex gap-1 relative group/nav">
+            {/* Nav Spotlight */}
+            <div
+              className="pointer-events-none absolute -inset-2 z-0 opacity-0 transition-opacity duration-500 group-hover/nav:opacity-100"
+              style={{
+                background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.05), transparent 40%)`,
+              }}
+            />
             {NAV_ITEMS.map(({ to, label }) => (
               <NavLink
                 key={to}

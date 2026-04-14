@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 import type { BlastRadiusData, BlastRadiusNode } from '@shared/types';
 
 // --- Layout constants ---
@@ -132,6 +133,7 @@ interface BlastRadiusGraphProps {
 
 export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
   const layout = computeBlastRadiusLayout(data);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   if (!layout) {
     return (
@@ -199,7 +201,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
             );
           })}
 
-          {/* Edges with Path Drawing Animation */}
+          {/* Edges with Path Drawing and Hover Surge */}
           {layout.edges.map((edge, i) => {
             const from = nodeMap.get(edge.fromId);
             const to = nodeMap.get(edge.toId);
@@ -208,18 +210,24 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
             const y1 = from.y + NODE_H / 2;
             const x2 = to.x;
             const y2 = to.y + NODE_H / 2;
+
+            const isHighlighted = hoveredNode === edge.fromId || hoveredNode === edge.toId;
+
             return (
               <motion.line
                 key={`${edge.fromId}-${edge.toId}`}
                 initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: clampOpacity(to.probability) }}
-                transition={{ duration: 0.8, delay: i * 0.05 }}
+                animate={{
+                  pathLength: 1,
+                  opacity: isHighlighted ? 1 : clampOpacity(to.probability),
+                  stroke: isHighlighted ? 'var(--color-primary-500)' : 'rgba(79, 70, 229, 0.2)',
+                  strokeWidth: isHighlighted ? 2 : 1.5,
+                }}
+                transition={{ duration: 0.4 }}
                 x1={x1}
                 y1={y1}
                 x2={x2 - 4}
                 y2={y2}
-                strokeWidth={1.5}
-                className="stroke-primary-500/30"
                 markerEnd="url(#blast-arrow)"
               />
             );
@@ -230,13 +238,19 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
             <motion.g
               key={n.nodeId}
               initial={{ opacity: 0, scale: 0.9, x: n.x - 10 }}
-              animate={{ opacity: clampOpacity(n.probability), scale: 1, x: n.x }}
-              transition={{ duration: 0.4, delay: i * 0.03 }}
-              whileHover={{ scale: 1.05, filter: 'url(#neon-glow)' }}
+              animate={{
+                opacity:
+                  hoveredNode && hoveredNode !== n.nodeId ? 0.3 : clampOpacity(n.probability),
+                scale: hoveredNode === n.nodeId ? 1.05 : 1,
+                x: n.x,
+              }}
+              onMouseEnter={() => setHoveredNode(n.nodeId)}
+              onMouseLeave={() => setHoveredNode(null)}
+              transition={{ duration: 0.2 }}
               className="cursor-pointer"
             >
               <rect
-                x={n.x}
+                x={0}
                 y={n.y}
                 width={NODE_W}
                 height={NODE_H}
@@ -245,7 +259,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 strokeWidth={1}
               />
               <motion.rect
-                x={n.x}
+                x={0}
                 y={n.y}
                 width={NODE_W}
                 height={NODE_H}
@@ -258,7 +272,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 transition={{ duration: 1, delay: i * 0.05 }}
               />
               <text
-                x={n.x + NODE_W / 2}
+                x={NODE_W / 2}
                 y={n.y + NODE_H / 2}
                 dominantBaseline="middle"
                 textAnchor="middle"
@@ -267,7 +281,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 {n.name.length > 16 ? n.name.slice(0, 15) + '\u2026' : n.name}
               </text>
               <text
-                x={n.x + NODE_W - 6}
+                x={NODE_W - 6}
                 y={n.y + NODE_H - 6}
                 textAnchor="end"
                 className="text-[8px] font-mono fill-neutral-muted pointer-events-none"

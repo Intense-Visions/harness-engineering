@@ -185,20 +185,30 @@ export function Overview() {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto">
-      <div className="mb-10 flex items-end justify-between border-b border-neutral-border pb-6">
+      <div className="mb-10 flex items-end justify-between border-b border-neutral-border pb-8">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter">Command Center</h1>
-          <p className="text-sm text-neutral-muted mt-1">
-            Real-time telemetry and project intelligence.
-          </p>
+          <h1 className="text-5xl font-black tracking-tighter text-gradient-neon pb-1">
+            Command Center
+          </h1>
+          <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary-500/10 border border-primary-500/20">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary-500 animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-primary-500">
+                Live Telemetry
+              </span>
+            </div>
+            <p className="text-sm text-neutral-muted">
+              Neural link established. Monitoring project intelligence.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <StaleIndicator lastUpdated={lastUpdated} stale={stale} error={error} />
-          <div className="h-8 w-px bg-neutral-border mx-2" />
+          <div className="h-10 w-px bg-neutral-border mx-2" />
           <ActionButton
             url="/api/actions/validate"
-            label="Initialize Scan"
-            loadingLabel="Scanning..."
+            label="Initialize Tactical Scan"
+            loadingLabel="Scanning Neural Mesh..."
           />
         </div>
       </div>
