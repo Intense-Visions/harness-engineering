@@ -5,7 +5,7 @@ Run the orchestrator with local model routing and the web dashboard.
 ## Prerequisites
 
 - Node.js 22+
-- A local model server (Ollama, vLLM, LM Studio, or any OpenAI-compatible endpoint)
+- [Ollama](https://ollama.ai) (or any OpenAI-compatible model server)
 - Claude Code CLI installed and authenticated (for the Claude Chat Pane — no separate API key needed)
 
 ## 1. Set Up a Local Model Server
@@ -14,18 +14,37 @@ Run the orchestrator with local model routing and the web dashboard.
 
 ```bash
 brew install ollama
-ollama pull deepseek-coder-v2
 ollama serve
-# Serves at http://localhost:11434/v1
 ```
 
-### Other servers
+### Choosing a Model
+
+Pick a model based on your available system RAM:
+
+| RAM       | Model                  | Size   | Command                             | Notes                                       |
+| --------- | ---------------------- | ------ | ----------------------------------- | ------------------------------------------- |
+| **8GB**   | Qwen2.5-Coder 3B       | ~2GB   | `ollama pull qwen2.5-coder:3b`      | Fits easily, good for quick-fix tasks       |
+| **16GB**  | Qwen2.5-Coder 7B       | ~4.5GB | `ollama pull qwen2.5-coder:7b`      | Best balance of quality and speed           |
+| **16GB**  | DeepSeek-Coder-V2 Lite | ~9GB   | `ollama pull deepseek-coder-v2:16b` | Better at multi-file changes, uses more RAM |
+| **32GB**  | Codestral 22B          | ~13GB  | `ollama pull codestral:22b`         | Strongest code quality at this size         |
+| **32GB+** | Qwen2.5-Coder 32B      | ~20GB  | `ollama pull qwen2.5-coder:32b`     | Near-frontier quality, needs headroom       |
+
+**Recommendation for 16GB systems:** Start with `qwen2.5-coder:7b`. It uses under a third of your RAM, leaving plenty for context window and OS. Step up to `deepseek-coder-v2:16b` if you find it struggling with larger tasks.
+
+**Avoid:** Models 34B+ on 16GB systems — they'll either not fit or swap heavily.
+
+```bash
+# Pull your chosen model
+ollama pull qwen2.5-coder:7b
+```
+
+### Other Servers
 
 Any server that implements the OpenAI-compatible chat completions API works. Point `localEndpoint` to its base URL:
 
 - **vLLM:** `http://localhost:8000/v1`
 - **LM Studio:** `http://localhost:1234/v1`
-- **llama.cpp server:** `http://localhost:8080/v1`
+- **llama.cpp server:** `http://localhost:8080/v1` (note: conflicts with default orchestrator port)
 
 ## 2. Configure WORKFLOW.md
 
@@ -33,12 +52,12 @@ Add the local backend and escalation config to the `agent:` section in your proj
 
 ```yaml
 agent:
-  backend: claude # primary backend (used for human-escalated work)
+  backend: claude
   command: claude
 
   # Local model configuration
   localBackend: openai-compatible
-  localModel: deepseek-coder-v2 # must match a model available on your server
+  localModel: qwen2.5-coder:7b # must match a model available on your server
   localEndpoint: http://localhost:11434/v1
 
   # Escalation routing
@@ -51,18 +70,9 @@ agent:
     signalGated:
       - guided-change # has a plan, runs locally unless concern signals fire
     diagnosticRetryBudget: 1 # escalate after 1 failed fix attempt
-
-  # Keep your existing settings
-  maxConcurrentAgents: 1
-  maxTurns: 10
-  maxRetryBackoffMs: 5000
-  turnTimeoutMs: 300000
-  readTimeoutMs: 30000
-  stallTimeoutMs: 60000
-
-server:
-  port: 8080
 ```
+
+The rest of your existing `agent:` settings (rate limits, timeouts, etc.) remain unchanged.
 
 ## 3. Label Roadmap Issues
 
@@ -88,36 +98,57 @@ Example in `docs/roadmap.md`:
 
 **Important:** Without a `scope:` label, issues default to `full-exploration` and escalate to the human. This is because artifact presence detection (checking for spec/plan files) is not yet wired in the state machine.
 
-## 4. Build and Run
+## 4. Run
+
+### Development (recommended)
+
+Starts the orchestrator in headless mode and the dashboard with hot reload in one command:
+
+```bash
+pnpm orchestrator:dev
+```
+
+This runs:
+
+- **Orchestrator** on port 8080 (headless — no TUI, server only)
+- **Dashboard** on port 3700 (Vite dev server, proxies API/WebSocket to 8080)
+
+Open `http://localhost:3700` in your browser.
+
+### Production
 
 ```bash
 # Build the dashboard
-cd packages/dashboard
-npm run build
-cd ../..
+pnpm dashboard:build
 
-# Start the orchestrator (Claude Chat Pane uses your local claude CLI — no API key needed)
-npx harness orchestrator run
+# Start the orchestrator with TUI
+pnpm orchestrator
 ```
 
-The orchestrator starts polling the roadmap every 30 seconds. The TUI shows agent status in the terminal. The web dashboard is available at `http://localhost:8080`.
+The orchestrator serves the built dashboard at `http://localhost:8080`.
+
+### Headless (CI / remote)
+
+```bash
+pnpm orchestrator -- --headless
+```
+
+Runs the orchestrator server without the TUI. Useful when stdin doesn't support raw mode (SSH, Docker, CI).
 
 ## 5. Use the Web Dashboard
 
-Open `http://localhost:8080` in your browser. Three pages are available:
-
 ### Agent Monitor (`/orchestrator`)
 
-Shows real-time orchestrator state:
+Real-time orchestrator state:
 
-- **Running agents** with issue, backend (local/primary), turn count, tokens used
-- **Rate limits** (requests/min, requests/sec, input/output tokens per minute)
-- **Concurrency** (active agents, retry queue)
-- **Token usage** (cumulative input, output, total)
+- **Running agents** — issue, backend (local/primary), turn count, tokens used
+- **Rate limits** — requests/min, requests/sec, input/output tokens per minute
+- **Concurrency** — active agents vs max, retry queue
+- **Token usage** — cumulative input, output, total
 
 ### Needs Attention (`/orchestrator/attention`)
 
-Lists issues that were escalated to the human:
+Issues escalated to the human:
 
 - Each card shows the issue title, escalation reasons, and available context
 - **Claim** opens the Claude Chat Pane with pre-loaded context
@@ -129,25 +160,9 @@ Lists issues that were escalated to the human:
 Interactive chat with Claude for reasoning through complex work:
 
 - Pre-loaded with issue context (title, description, escalation reasons, related files)
-- Streams Claude responses via SSE in real-time
+- Streams Claude Code responses in real-time (uses your local `claude` CLI — no API key needed)
 - **Save Plan** writes the last assistant response as a plan to `docs/plans/`
 - Saving a plan automatically resolves the interaction and the orchestrator picks it up on the next tick
-
-## 6. Development Mode
-
-For hot-reload during dashboard development:
-
-```bash
-# Terminal 1: Start the orchestrator
-npx harness orchestrator run
-
-# Terminal 2: Start the dashboard dev server
-cd packages/dashboard
-npm run dev
-# Dashboard at http://localhost:3700 (proxies API to :8080)
-```
-
-The Vite dev server proxies all `/api/*` and `/ws` requests to the orchestrator server.
 
 ## How Routing Works
 
@@ -179,10 +194,16 @@ diagnostic change
 Make sure issues have `scope:` labels. Without labels, the default is `full-exploration` which always escalates.
 
 **Local model not connecting:**
-Check that your model server is running and the `localEndpoint` URL is correct. The orchestrator logs connection failures at startup.
+Verify Ollama is running (`ollama serve`) and the model is pulled (`ollama list`). Check that `localEndpoint` in WORKFLOW.md matches your server URL.
 
 **Chat Pane not responding:**
 Make sure `claude` CLI is installed and authenticated. Run `claude --version` to verify. The chat proxy spawns `claude` as a subprocess — no separate API key is needed.
 
 **Dashboard shows "Connecting..." permanently:**
 The orchestrator server must be running on the configured port (default 8080). Check that `server.port` is set in `WORKFLOW.md`.
+
+**Ink raw mode error when using `pnpm orchestrator:dev`:**
+This is expected — the dev script uses `--headless` to avoid this. If running the orchestrator directly through `concurrently` or other non-TTY tools, add the `--headless` flag.
+
+**Model runs slowly or system swaps:**
+Your model is too large for available RAM. Switch to a smaller model (see the model table above). Check memory usage with `ollama ps`.
