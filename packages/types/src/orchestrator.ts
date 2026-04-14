@@ -286,6 +286,16 @@ export interface AgentConfig {
   readTimeoutMs: number;
   /** Timeout for agent inactivity */
   stallTimeoutMs: number;
+  /** Local backend type (currently only 'openai-compatible') */
+  localBackend?: 'openai-compatible';
+  /** Model name for local backend */
+  localModel?: string;
+  /** Endpoint URL for local backend (e.g., http://localhost:11434/v1) */
+  localEndpoint?: string;
+  /** API key for local backend (some servers require a dummy key) */
+  localApiKey?: string;
+  /** Escalation routing configuration */
+  escalation?: Partial<EscalationConfig>;
 }
 
 /**
@@ -322,4 +332,43 @@ export interface WorkflowDefinition {
   config: WorkflowConfig;
   /** Template used to generate agent prompts */
   promptTemplate: string;
+}
+
+// --- Model Routing ---
+
+/**
+ * Scope tier determines the routing default for an issue.
+ * Detected from plan/spec presence or label override.
+ */
+export type ScopeTier = 'quick-fix' | 'guided-change' | 'full-exploration' | 'diagnostic';
+
+/**
+ * A concern signal that may gate routing for signal-gated scope tiers.
+ */
+export interface ConcernSignal {
+  /** Machine-readable signal name (e.g., 'highComplexity', 'securitySensitive') */
+  name: string;
+  /** Human-readable reason */
+  reason: string;
+}
+
+/**
+ * Result of the routeIssue() pure function.
+ */
+export type RoutingDecision =
+  | { action: 'dispatch-local' }
+  | { action: 'needs-human'; reasons: string[] };
+
+/**
+ * Configuration for escalation routing behavior.
+ */
+export interface EscalationConfig {
+  /** Scope tiers that always escalate to human (default: ['full-exploration']) */
+  alwaysHuman: ScopeTier[];
+  /** Scope tiers that always dispatch to local backend (default: ['quick-fix', 'diagnostic']) */
+  autoExecute: ScopeTier[];
+  /** Scope tiers that dispatch locally only when no concern signals fire (default: ['guided-change']) */
+  signalGated: ScopeTier[];
+  /** Max retries for diagnostic issues before escalating (default: 1) */
+  diagnosticRetryBudget: number;
 }
