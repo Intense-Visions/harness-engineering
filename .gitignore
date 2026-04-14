@@ -51,6 +51,8 @@ temp/
 .harness/state.json
 .harness/state/
 .harness/dispatch-last-head.txt
+.harness/interactions/
+.harness/workspaces/
 
 .vitepress
 *.tsbuildinfo

@@ -48,7 +48,7 @@ export function handleChatProxyRoute(
           Connection: 'keep-alive',
         });
 
-        const args = ['--print', '-p', prompt, '--output-format', 'stream-json'];
+        const args = ['--print', '-p', prompt, '--output-format', 'stream-json', '--verbose'];
 
         child = spawn(command, args, { env: process.env });
         child.stdin?.end();
