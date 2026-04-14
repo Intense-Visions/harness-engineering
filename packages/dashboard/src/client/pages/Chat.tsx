@@ -229,11 +229,13 @@ function StatusBlockView({ block }: { block: StatusBlock }) {
 
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import remarkGfm from 'remark-gfm';
 
 function TextBlockView({ block }: { block: TextBlock }) {
   return (
     <div className="prose prose-invert prose-sm max-w-none py-1 selection:bg-primary-500/30">
       <Markdown
+        remarkPlugins={[remarkGfm]}
         components={{
           code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
