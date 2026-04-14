@@ -153,12 +153,14 @@ async function streamChat(
 
 function ThinkingBlockView({ block }: { block: ThinkingBlock }) {
   return (
-    <details className="rounded border border-gray-700/50 bg-gray-900/30">
-      <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-gray-500 select-none">
+    <details className="rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm">
+      <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-neutral-muted select-none">
         Thinking...
       </summary>
-      <div className="border-t border-gray-700/50 px-3 py-2">
-        <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-500">{block.text}</p>
+      <div className="border-t border-neutral-border/50 px-3 py-2">
+        <p className="whitespace-pre-wrap text-xs leading-relaxed text-neutral-muted">
+          {block.text}
+        </p>
       </div>
     </details>
   );
@@ -167,12 +169,15 @@ function ThinkingBlockView({ block }: { block: ThinkingBlock }) {
 function ToolUseBlockView({ block }: { block: ToolUseBlock }) {
   const hasResult = block.result !== undefined;
   return (
-    <details className="rounded border border-gray-700/50 bg-gray-900/30" open={block.isError}>
+    <details
+      className="rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm"
+      open={block.isError}
+    >
       <summary className="flex cursor-pointer items-center gap-2 px-3 py-1.5 select-none">
-        <span className="text-xs text-blue-400">&#9655;</span>
-        <span className="font-mono text-xs font-medium text-gray-300">{block.tool}</span>
+        <span className="text-xs text-secondary-400">&#9655;</span>
+        <span className="font-mono text-xs font-medium text-neutral-text">{block.tool}</span>
         {block.args && (
-          <span className="truncate font-mono text-xs text-gray-600" title={block.args}>
+          <span className="truncate font-mono text-xs text-neutral-muted" title={block.args}>
             {block.args.slice(0, 80)}
             {block.args.length > 80 ? '...' : ''}
           </span>
@@ -186,9 +191,9 @@ function ToolUseBlockView({ block }: { block: ToolUseBlock }) {
         )}
       </summary>
       {hasResult && (
-        <div className="border-t border-gray-700/50 px-3 py-2">
+        <div className="border-t border-neutral-border/50 px-3 py-2">
           <pre
-            className={`max-h-40 overflow-auto whitespace-pre-wrap text-xs ${block.isError ? 'text-red-400' : 'text-gray-500'}`}
+            className={`max-h-40 overflow-auto whitespace-pre-wrap font-mono text-xs ${block.isError ? 'text-red-400' : 'text-neutral-muted'}`}
           >
             {block.result}
           </pre>
