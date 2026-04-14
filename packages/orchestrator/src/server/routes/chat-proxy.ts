@@ -78,38 +78,16 @@ export function handleChatProxyRoute(
           try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const event = JSON.parse(line) as any;
-
-            if (event.type === 'assistant' && event.message?.content) {
-              // Initial assistant message with content blocks
-              for (const block of event.message.content) {
-                if (block.type === 'text' && block.text) {
-                  res.write(`data: ${JSON.stringify({ type: 'text', text: block.text })}\n\n`);
-                }
-              }
-            } else if (event.type === 'content_block_delta' && event.delta?.text) {
-              res.write(`data: ${JSON.stringify({ type: 'text', text: event.delta.text })}\n\n`);
-            } else if (event.type === 'result' || event.type === 'turn_complete') {
-              // Final result — extract usage if available
-              const usage = event.usage || event.content?.usage;
-              if (usage) {
-                res.write(
-                  `data: ${JSON.stringify({ type: 'usage', inputTokens: usage.input_tokens ?? usage.inputTokens ?? 0, outputTokens: usage.output_tokens ?? usage.outputTokens ?? 0 })}\n\n`
-                );
-              }
-              // Extract the result text
-              const resultText =
-                event.result || event.content?.result || event.message || event.content;
-              if (resultText && typeof resultText === 'string') {
-                res.write(`data: ${JSON.stringify({ type: 'text', text: resultText })}\n\n`);
-              }
-            } else if (event.type === 'progress' && event.content) {
-              // Streaming text content
-              res.write(
-                `data: ${JSON.stringify({ type: 'text', text: typeof event.content === 'string' ? event.content : JSON.stringify(event.content) })}\n\n`
-              );
+            const text = extractText(event);
+            if (text) {
+              res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`);
             }
           } catch {
-            // Ignore non-JSON lines
+            // Non-JSON output — forward as plain text if non-empty
+            const trimmed = line.trim();
+            if (trimmed) {
+              res.write(`data: ${JSON.stringify({ type: 'text', text: trimmed })}\n\n`);
+            }
           }
         }
 
@@ -170,4 +148,45 @@ function buildPrompt(
   }
 
   return parts.join('\n\n');
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type EventExtractor = (event: any) => string | null;
+
+/** Ordered extractors for Claude Code stream-json event shapes. */
+const TEXT_EXTRACTORS: EventExtractor[] = [
+  // content_block_delta — streaming text chunks (most common)
+  (e) => (e.type === 'content_block_delta' ? (e.delta?.text ?? null) : null),
+  // progress — streaming content
+  (e) => (e.type === 'progress' && typeof e.content === 'string' ? e.content : null),
+  // result / turn_complete — final text
+  (e) =>
+    e.type === 'result' || e.type === 'turn_complete'
+      ? typeof (e.result ?? e.content?.result) === 'string'
+        ? (e.result ?? e.content.result)
+        : null
+      : null,
+  // assistant — initial message with content blocks
+  (e) => {
+    if (e.type !== 'assistant' || !Array.isArray(e.message?.content)) return null;
+    const text = e.message.content
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((b: any) => b.type === 'text' && b.text)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((b: any) => b.text as string)
+      .join('');
+    return text || null;
+  },
+  // content_block_start with text
+  (e) => (e.type === 'content_block_start' ? (e.content_block?.text ?? null) : null),
+];
+
+/** Extract displayable text from a Claude Code stream-json event. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractText(event: any): string | null {
+  for (const extract of TEXT_EXTRACTORS) {
+    const text = extract(event);
+    if (text) return text;
+  }
+  return null;
 }
