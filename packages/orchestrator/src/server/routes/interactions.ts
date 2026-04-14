@@ -32,7 +32,7 @@ export function handleInteractionsRoute(
 
   // PATCH /api/interactions/:id
   const patchMatch = method === 'PATCH' && url?.match(/^\/api\/interactions\/([^/]+)$/);
-  if (patchMatch) {
+  if (patchMatch && patchMatch[1]) {
     const id = patchMatch[1];
     void (async () => {
       try {

@@ -26,7 +26,7 @@ export class OrchestratorServer {
   private httpServer: http.Server;
   private broadcaster: WebSocketBroadcaster;
   private orchestrator: Snapshotable;
-  private interactionQueue?: InteractionQueue;
+  private interactionQueue: InteractionQueue | undefined;
   private plansDir: string;
   private dashboardDir: string;
   private port: number;
