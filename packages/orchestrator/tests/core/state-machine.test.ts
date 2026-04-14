@@ -3,7 +3,7 @@ import { applyEvent } from '../../src/core/state-machine';
 import { createEmptyState } from '../../src/core/state-helpers';
 import type { Issue, WorkflowConfig } from '@harness-engineering/types';
 import type { OrchestratorState, RunningEntry } from '../../src/types/internal';
-import type { OrchestratorEvent, SideEffect } from '../../src/types/events';
+import type { OrchestratorEvent, SideEffect, DispatchEffect } from '../../src/types/events';
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
@@ -630,5 +630,211 @@ describe('applyEvent - agent_update', () => {
     expect(entry!.session!.lastEvent).toBe('system');
     expect(entry!.session!.lastTimestamp).toBe('2026-01-01T00:01:00Z');
     expect(effects.filter((e) => e.type === 'updateTokens')).toHaveLength(0);
+  });
+});
+
+describe('applyEvent - tick with routing', () => {
+  function makeRoutingConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
+    return makeConfig({
+      agent: {
+        ...makeConfig().agent,
+        localBackend: 'openai-compatible' as const,
+        localModel: 'deepseek-coder-v2',
+        localEndpoint: 'http://localhost:11434/v1',
+        escalation: {
+          alwaysHuman: ['full-exploration'],
+          autoExecute: ['quick-fix', 'diagnostic'],
+          signalGated: ['guided-change'],
+          diagnosticRetryBudget: 1,
+        },
+      },
+      ...overrides,
+    });
+  }
+
+  it('should escalate full-exploration issues to needs-human (SC3)', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    // No scope label, no artifacts -> full-exploration -> needs-human
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1' })];
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const escalations = effects.filter((e) => e.type === 'escalate');
+    expect(escalations).toHaveLength(1);
+    if (escalations[0] && escalations[0].type === 'escalate') {
+      expect(escalations[0].issueId).toBe('1');
+      expect(escalations[0].reasons).toContain('full-exploration tier always requires human');
+    }
+    // No dispatch effects
+    const dispatches = effects.filter((e) => e.type === 'dispatch');
+    expect(dispatches).toHaveLength(0);
+  });
+
+  it('should dispatch quick-fix issues to local backend (SC2)', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:quick-fix'] })];
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
+    expect(dispatches).toHaveLength(1);
+    expect(dispatches[0].backend).toBe('local');
+  });
+
+  it('should dispatch diagnostic issues to local backend (SC2)', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:diagnostic'] })];
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
+    expect(dispatches).toHaveLength(1);
+    expect(dispatches[0].backend).toBe('local');
+  });
+
+  it('should not route when localBackend is not configured', () => {
+    const config = makeConfig(); // No localBackend
+    const state = createEmptyState(config);
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1' })];
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
+    expect(dispatches).toHaveLength(1);
+    // backend should be 'primary' (or undefined for backward compat)
+    expect(dispatches[0].backend).not.toBe('local');
+  });
+});
+
+describe('applyEvent - worker_exit with diagnostic escalation', () => {
+  function makeRoutingConfig(): WorkflowConfig {
+    return makeConfig({
+      agent: {
+        ...makeConfig().agent,
+        localBackend: 'openai-compatible' as const,
+        escalation: {
+          diagnosticRetryBudget: 1,
+        },
+      },
+    });
+  }
+
+  it('should escalate diagnostic after 1 failed retry (SC5)', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1', labels: ['scope:diagnostic'] }),
+      attempt: 1,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'worker_exit',
+      issueId: 'id-1',
+      reason: 'error',
+      error: 'agent failed to fix bug',
+      attempt: 1,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const escalations = effects.filter((e) => e.type === 'escalate');
+    expect(escalations).toHaveLength(1);
+    if (escalations[0] && escalations[0].type === 'escalate') {
+      expect(escalations[0].reasons[0]).toContain('diagnostic exceeded retry budget');
+    }
+    // Should NOT produce a scheduleRetry effect
+    const retries = effects.filter((e) => e.type === 'scheduleRetry');
+    expect(retries).toHaveLength(0);
+  });
+
+  it('should NOT escalate diagnostic on first attempt failure (allows 1 retry)', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1', labels: ['scope:diagnostic'] }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'worker_exit',
+      issueId: 'id-1',
+      reason: 'error',
+      error: 'first failure',
+      attempt: null,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    // First failure: nextAttempt = 1, budget = 1, so 1 <= 1 means do NOT escalate yet
+    const retries = effects.filter((e) => e.type === 'scheduleRetry');
+    expect(retries).toHaveLength(1);
+    const escalations = effects.filter((e) => e.type === 'escalate');
+    expect(escalations).toHaveLength(0);
+  });
+
+  it('should NOT escalate non-diagnostic issues', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1', labels: ['scope:guided-change'] }),
+      attempt: 1,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: null,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'worker_exit',
+      issueId: 'id-1',
+      reason: 'error',
+      error: 'agent failed',
+      attempt: 1,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const retries = effects.filter((e) => e.type === 'scheduleRetry');
+    expect(retries).toHaveLength(1);
+    const escalations = effects.filter((e) => e.type === 'escalate');
+    expect(escalations).toHaveLength(0);
   });
 });
