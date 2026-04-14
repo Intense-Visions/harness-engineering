@@ -16,6 +16,7 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
   'in-progress',
   'done',
   'blocked',
+  'needs-human',
 ]);
 
 const EM_DASH = '\u2014';

@@ -1,7 +1,13 @@
 /**
  * Valid statuses for a roadmap feature.
  */
-export type FeatureStatus = 'backlog' | 'planned' | 'in-progress' | 'done' | 'blocked';
+export type FeatureStatus =
+  | 'backlog'
+  | 'planned'
+  | 'in-progress'
+  | 'done'
+  | 'blocked'
+  | 'needs-human';
 
 /**
  * Priority override levels for roadmap features.
