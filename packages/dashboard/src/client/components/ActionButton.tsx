@@ -34,10 +34,12 @@ export function ActionButton({ url, label, body, loadingLabel, onSuccess }: Prop
         disabled={isLoading}
         className={[
           'inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-medium transition-colors',
-          isLoading ? 'cursor-not-allowed bg-gray-700 text-gray-400' : '',
+          isLoading ? 'cursor-not-allowed bg-neutral-surface text-neutral-muted' : '',
           isSuccess ? 'bg-emerald-800 text-emerald-200' : '',
           isError ? 'bg-red-900 text-red-200 hover:bg-red-800' : '',
-          !isLoading && !isSuccess && !isError ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' : '',
+          !isLoading && !isSuccess && !isError
+            ? 'bg-primary-500 text-neutral-text hover:bg-primary-500/90'
+            : '',
         ]
           .filter(Boolean)
           .join(' ')}
