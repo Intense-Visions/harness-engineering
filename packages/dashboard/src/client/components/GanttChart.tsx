@@ -24,7 +24,7 @@ export function GanttChart({ features, filterMilestone, filterStatus }: Props) {
   });
 
   if (filtered.length === 0) {
-    return <p className="text-sm text-gray-500">No features match the current filters.</p>;
+    return <p className="text-sm text-neutral-muted">No features match the current filters.</p>;
   }
 
   // Group by milestone
@@ -61,7 +61,7 @@ export function GanttChart({ features, filterMilestone, filterStatus }: Props) {
         dominantBaseline="middle"
         fontSize={11}
         fontWeight={600}
-        fill="#d1d5db"
+        fill="#fafafa"
       >
         {milestone}
       </text>
@@ -70,7 +70,7 @@ export function GanttChart({ features, filterMilestone, filterStatus }: Props) {
 
     for (const feat of feats) {
       const barX = LABEL_WIDTH + colIndex * barUnitWidth;
-      const color = STATUS_COLOR[feat.status] ?? '#6b7280';
+      const color = STATUS_COLOR[feat.status] ?? '#71717a';
       const barY = y + (ROW_HEIGHT - BAR_HEIGHT) / 2;
 
       rows.push(
@@ -81,7 +81,7 @@ export function GanttChart({ features, filterMilestone, filterStatus }: Props) {
             dominantBaseline="middle"
             textAnchor="end"
             fontSize={11}
-            fill="#9ca3af"
+            fill="#71717a"
           >
             {feat.name.length > 24 ? feat.name.slice(0, 23) + '…' : feat.name}
           </text>
