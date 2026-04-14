@@ -112,4 +112,8 @@ export interface EscalateEffect {
   issueId: string;
   identifier: string;
   reasons: string[];
+  /** Issue title for context in the interaction queue */
+  issueTitle?: string;
+  /** Issue description for context in the interaction queue */
+  issueDescription?: string | null;
 }

@@ -234,10 +234,6 @@ export class Orchestrator extends EventEmitter {
    * Handles an escalation effect by writing to the interaction queue and logging.
    */
   private async handleEscalation(effect: EscalateEffect): Promise<void> {
-    const issue = Array.from(this.state.running.values()).find(
-      (e) => e.issueId === effect.issueId
-    )?.issue;
-
     this.logger.warn(
       `Escalating ${effect.identifier} to needs-human: ${effect.reasons.join('; ')}`,
       { issueId: effect.issueId }
@@ -249,8 +245,8 @@ export class Orchestrator extends EventEmitter {
       type: 'needs-human',
       reasons: effect.reasons,
       context: {
-        issueTitle: issue?.title ?? effect.identifier,
-        issueDescription: issue?.description ?? null,
+        issueTitle: effect.issueTitle ?? effect.identifier,
+        issueDescription: effect.issueDescription ?? null,
         specPath: null,
         planPath: null,
         relatedFiles: [],

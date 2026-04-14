@@ -5,7 +5,7 @@ import type {
   EscalationConfig,
 } from '@harness-engineering/types';
 import type { OrchestratorState } from '../types/internal';
-import type { OrchestratorEvent, SideEffect } from '../types/events';
+import type { OrchestratorEvent, SideEffect, EscalateEffect } from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
@@ -92,7 +92,9 @@ function handleTick(
     }
 
     if (config.agent.localBackend) {
+      // TODO(phase2): Wire artifact presence detection from orchestrator layer instead of hardcoded defaults
       const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+      // TODO(phase2): Wire concern signal detection from issue metadata; empty signals means guided-change always dispatches locally
       const decision = routeIssue(scopeTier, [], escalationConfig);
 
       if (decision.action === 'needs-human') {
@@ -102,6 +104,8 @@ function handleTick(
           issueId: issue.id,
           identifier: issue.identifier,
           reasons: decision.reasons,
+          issueTitle: issue.title,
+          issueDescription: issue.description,
         });
         continue;
       }
@@ -172,12 +176,16 @@ function handleWorkerExit(
     const scopeLabel = entry?.issue.labels.find((l) => l.startsWith('scope:'));
     const isDiagnostic = scopeLabel === 'scope:diagnostic';
     if (isDiagnostic && nextAttempt > escalationConfig.diagnosticRetryBudget) {
-      effects.push({
+      const escalateEffect: SideEffect = {
         type: 'escalate',
         issueId,
         identifier: entry?.identifier ?? issueId,
         reasons: [`diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget})`],
-      });
+      };
+      if (entry?.issue.title) (escalateEffect as EscalateEffect).issueTitle = entry.issue.title;
+      if (entry?.issue.description)
+        (escalateEffect as EscalateEffect).issueDescription = entry.issue.description;
+      effects.push(escalateEffect);
       return { nextState: next, effects };
     }
 
@@ -331,12 +339,36 @@ function handleRetryFired(
     return { nextState: next, effects };
   }
 
-  // Dispatch
-  effects.push({
-    type: 'dispatch',
-    issue,
-    attempt: retryEntry.attempt,
-  });
+  // Re-route through model router to preserve backend assignment (only when local backend is configured)
+  if (config.agent.localBackend) {
+    const escalationConfig = resolveEscalationConfig(config);
+    const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+    const decision = routeIssue(scopeTier, [], escalationConfig);
+
+    if (decision.action === 'needs-human') {
+      effects.push({
+        type: 'escalate',
+        issueId: issue.id,
+        identifier: issue.identifier,
+        reasons: decision.reasons,
+        issueTitle: issue.title,
+        issueDescription: issue.description,
+      });
+    } else {
+      effects.push({
+        type: 'dispatch',
+        issue,
+        attempt: retryEntry.attempt,
+        backend: 'local',
+      });
+    }
+  } else {
+    effects.push({
+      type: 'dispatch',
+      issue,
+      attempt: retryEntry.attempt,
+    });
+  }
 
   return { nextState: next, effects };
 }
