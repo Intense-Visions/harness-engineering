@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import { motion, useMotionTemplate, useMotionValue } from 'framer-motion';
+import { type MouseEvent, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -8,19 +8,51 @@ interface Props {
 }
 
 export function GlowCard({ children, className = '', delay = 0 }: Props) {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  function onMouseMove({ currentTarget, clientX, clientY }: MouseEvent) {
+    const { left, top } = currentTarget.getBoundingClientRect();
+    mouseX.set(clientX - left);
+    mouseY.set(clientY - top);
+  }
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay }}
-      className={`group relative overflow-hidden rounded-xl border border-neutral-border bg-neutral-surface/40 p-1 backdrop-blur-md ${className}`}
+      initial={{ opacity: 0, y: 15, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+      onMouseMove={onMouseMove}
+      className={`group relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-surface/30 p-[1px] backdrop-blur-xl shadow-2xl shadow-black/50 ${className}`}
     >
-      {/* Animated Gradient Border Beam */}
-      <div className="absolute inset-0 z-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-        <div className="animate-glow absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0deg,var(--color-primary-500)_90deg,transparent_180deg,var(--color-secondary-400)_270deg,transparent_360deg)] opacity-20" />
-      </div>
+      {/* Animated Spotlight Border */}
+      <motion.div
+        className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+        style={{
+          background: useMotionTemplate`
+            radial-gradient(
+              350px circle at ${mouseX}px ${mouseY}px,
+              rgba(99, 102, 241, 0.4),
+              transparent 80%
+            )
+          `,
+        }}
+      />
+      {/* Inner Hover Highlight (Glass Reflection) */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 z-10 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+        style={{
+          background: useMotionTemplate`
+            radial-gradient(
+              400px circle at ${mouseX}px ${mouseY}px,
+              rgba(99, 102, 241, 0.08),
+              transparent 80%
+            )
+          `,
+        }}
+      />
 
-      <div className="relative z-10 h-full w-full rounded-[10px] bg-neutral-surface/90 p-4">
+      <div className="relative z-20 h-full w-full rounded-[15px] bg-neutral-surface/70 p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] transition-colors duration-500 group-hover:bg-neutral-surface/50">
         {children}
       </div>
     </motion.div>

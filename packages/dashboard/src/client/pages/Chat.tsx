@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
 import Markdown from 'react-markdown';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Cpu, Sparkles, Send, ArrowLeft, Save } from 'lucide-react';
 import type { PendingInteraction, ChatSSEEvent } from '../types/orchestrator';
 
 // --- Block-based message model ---
@@ -153,8 +155,9 @@ async function streamChat(
 
 function ThinkingBlockView({ block }: { block: ThinkingBlock }) {
   return (
-    <details className="rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm">
-      <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-neutral-muted select-none">
+    <details className="rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm group">
+      <summary className="cursor-pointer px-3 py-1.5 text-xs font-medium text-neutral-muted select-none flex items-center gap-2">
+        <div className="h-1 w-1 rounded-full bg-secondary-400 group-open:animate-pulse" />
         Thinking...
       </summary>
       <div className="border-t border-neutral-border/50 px-3 py-2">
@@ -170,30 +173,40 @@ function ToolUseBlockView({ block }: { block: ToolUseBlock }) {
   const hasResult = block.result !== undefined;
   return (
     <details
-      className="rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm"
+      className="relative overflow-hidden rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm"
       open={block.isError}
     >
-      <summary className="flex cursor-pointer items-center gap-2 px-3 py-1.5 select-none">
+      {/* Scanning Line Animation for Active Tools */}
+      {!hasResult && (
+        <motion.div
+          initial={{ top: '-10%' }}
+          animate={{ top: '110%' }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+          className="absolute left-0 right-0 h-4 bg-gradient-to-b from-transparent via-secondary-400/20 to-transparent pointer-events-none z-10"
+        />
+      )}
+
+      <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 select-none relative z-20">
         <span className="text-xs text-secondary-400">&#9655;</span>
-        <span className="font-mono text-xs font-medium text-neutral-text">{block.tool}</span>
+        <span className="font-mono text-[11px] font-bold text-neutral-text">{block.tool}</span>
         {block.args && (
-          <span className="truncate font-mono text-xs text-neutral-muted" title={block.args}>
+          <span className="truncate font-mono text-[10px] text-neutral-muted" title={block.args}>
             {block.args.slice(0, 80)}
             {block.args.length > 80 ? '...' : ''}
           </span>
         )}
         {hasResult && (
           <span
-            className={`ml-auto text-xs ${block.isError ? 'text-red-400' : 'text-emerald-400'}`}
+            className={`ml-auto text-[10px] font-bold uppercase tracking-wider ${block.isError ? 'text-red-400' : 'text-emerald-400'}`}
           >
-            {block.isError ? 'error' : 'done'}
+            {block.isError ? 'ERR' : 'OK'}
           </span>
         )}
       </summary>
       {hasResult && (
-        <div className="border-t border-neutral-border/50 px-3 py-2">
+        <div className="border-t border-neutral-border/50 bg-neutral-bg/50 px-3 py-2 relative z-20">
           <pre
-            className={`max-h-40 overflow-auto whitespace-pre-wrap font-mono text-xs ${block.isError ? 'text-red-400' : 'text-neutral-muted'}`}
+            className={`max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-tight ${block.isError ? 'text-red-400' : 'text-neutral-muted'}`}
           >
             {block.result}
           </pre>
@@ -206,8 +219,10 @@ function ToolUseBlockView({ block }: { block: ToolUseBlock }) {
 function StatusBlockView({ block }: { block: StatusBlock }) {
   return (
     <div className="flex items-center gap-2 px-1 py-0.5">
-      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-500" />
-      <span className="font-mono text-xs italic text-gray-500">{block.text}</span>
+      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" />
+      <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-muted">
+        {block.text}
+      </span>
     </div>
   );
 }
@@ -232,12 +247,16 @@ function ToolGroup({ tools, startIndex }: { tools: ToolUseBlock[]; startIndex: n
     );
   }
   return (
-    <details className="rounded border border-gray-700/30">
-      <summary className="cursor-pointer px-3 py-1.5 text-xs text-gray-400 select-none">
+    <details className="rounded border border-neutral-border/50">
+      <summary className="cursor-pointer px-3 py-1.5 text-xs text-neutral-muted select-none flex items-center gap-2">
+        <div className="flex -space-x-1">
+          <div className="h-2 w-2 rounded-full bg-secondary-400/50" />
+          <div className="h-2 w-2 rounded-full bg-secondary-400/70" />
+          <div className="h-2 w-2 rounded-full bg-secondary-400" />
+        </div>
         Used {tools.length} tools
-        <span className="ml-2 text-gray-600">{tools.map((t) => t.tool).join(', ')}</span>
       </summary>
-      <div className="flex flex-col gap-1 border-t border-gray-700/30 p-2">
+      <div className="flex flex-col gap-1 border-t border-neutral-border/50 p-2">
         {tools.map((t, i) => (
           <ToolUseBlockView key={startIndex + i} block={t} />
         ))}
@@ -255,7 +274,17 @@ function AssistantBlocks({
   isStreaming: boolean;
 }) {
   if (blocks.length === 0 && isStreaming) {
-    return <span className="inline-block h-4 w-2 animate-pulse bg-gray-500" />;
+    return (
+      <motion.div
+        animate={{ opacity: [0.4, 1, 0.4] }}
+        transition={{ duration: 1.5, repeat: Infinity }}
+        className="flex gap-1 py-2"
+      >
+        <div className="h-1.5 w-1.5 rounded-full bg-secondary-400 shadow-[0_0_8px_var(--color-secondary-400)]" />
+        <div className="h-1.5 w-1.5 rounded-full bg-secondary-400 shadow-[0_0_8px_var(--color-secondary-400)] delay-100" />
+        <div className="h-1.5 w-1.5 rounded-full bg-secondary-400 shadow-[0_0_8px_var(--color-secondary-400)] delay-200" />
+      </motion.div>
+    );
   }
 
   // Group consecutive tool_use blocks (with their results interleaved)
@@ -280,13 +309,25 @@ function AssistantBlocks({
 
       switch (block.kind) {
         case 'thinking':
-          elements.push(<ThinkingBlockView key={i} block={block} />);
+          elements.push(
+            <motion.div key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+              <ThinkingBlockView block={block} />
+            </motion.div>
+          );
           break;
         case 'status':
-          elements.push(<StatusBlockView key={i} block={block} />);
+          elements.push(
+            <motion.div key={i} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }}>
+              <StatusBlockView block={block} />
+            </motion.div>
+          );
           break;
         case 'text':
-          elements.push(<TextBlockView key={i} block={block} />);
+          elements.push(
+            <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <TextBlockView block={block} />
+            </motion.div>
+          );
           break;
       }
     }
@@ -299,7 +340,7 @@ function AssistantBlocks({
     );
   }
 
-  return <div className="flex flex-col gap-1.5">{elements}</div>;
+  return <div className="flex flex-col gap-2">{elements}</div>;
 }
 
 // --- Main component ---
@@ -468,89 +509,120 @@ export function Chat() {
 
   if (!interactionId) {
     return (
-      <div>
-        <h1 className="mb-6 text-2xl font-bold">Claude Chat</h1>
-        <p className="text-sm text-gray-500">
-          No interaction selected. Go to Needs Attention to claim one.
-        </p>
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <h1 className="mb-2 text-3xl font-black tracking-tighter">Neural Link Offline</h1>
+          <p className="text-sm text-neutral-muted font-mono uppercase tracking-widest">
+            Select an interaction to initiate uplink.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div>
-        <h1 className="mb-6 text-2xl font-bold">Claude Chat</h1>
-        <p className="text-sm text-gray-500">Loading interaction context...</p>
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent shadow-[0_0_15px_var(--color-primary-500)]" />
       </div>
     );
   }
 
   if (!interaction) {
     return (
-      <div>
-        <h1 className="mb-6 text-2xl font-bold">Claude Chat</h1>
-        <p className="text-sm text-red-400">Interaction not found.</p>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-red-400 font-mono tracking-widest uppercase">
+          Interaction Error
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-120px)] flex-col">
+    <div className="flex h-[calc(100vh-140px)] flex-col gap-4">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{interaction.context.issueTitle}</h1>
-          <p className="text-xs text-gray-500">
-            {interaction.issueId} · Claude Chat Pane
-            {sessionId && (
-              <span className="ml-2 text-gray-600">session: {sessionId.slice(0, 8)}</span>
-            )}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => void navigate('/orchestrator/attention')}
+            className="rounded-full p-2 text-neutral-muted transition-colors hover:bg-neutral-surface hover:text-neutral-text"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{interaction.context.issueTitle}</h1>
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-neutral-muted">
+              <span>{interaction.issueId}</span>
+              <span className="text-primary-500/50">/</span>
+              <span className="flex items-center gap-1 text-primary-500">
+                <Sparkles size={12} />
+                AI Augmented
+              </span>
+              {sessionId && (
+                <>
+                  <span className="text-primary-500/50">/</span>
+                  <span>Session:{sessionId.slice(0, 8)}</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
         <div className="flex gap-2">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => void handleSavePlan()}
             disabled={savingPlan || streaming || messages.length === 0}
             className={[
-              'rounded px-3 py-1.5 text-xs font-medium',
+              'flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all',
               saveSuccess
-                ? 'bg-emerald-800 text-emerald-200'
-                : 'bg-blue-700 text-white hover:bg-blue-600',
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'bg-primary-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:shadow-[0_0_20px_rgba(79,70,229,0.5)]',
               (savingPlan || streaming) && !saveSuccess ? 'cursor-not-allowed opacity-50' : '',
             ]
               .filter(Boolean)
               .join(' ')}
           >
+            {saveSuccess ? <Sparkles size={14} /> : <Save size={14} />}
             {savingPlan ? 'Saving...' : saveSuccess ? 'Plan Saved' : 'Save Plan'}
-          </button>
-          <button
-            onClick={() => void navigate('/orchestrator/attention')}
-            className="rounded bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600"
-          >
-            Back
-          </button>
+          </motion.button>
         </div>
       </div>
 
-      {saveError && <p className="mb-2 text-xs text-red-400">{saveError}</p>}
+      {saveError && (
+        <motion.p
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="text-xs font-mono text-red-400"
+        >
+          {saveError}
+        </motion.p>
+      )}
 
-      {/* Context */}
-      <div className="mb-4 rounded border border-neutral-border bg-neutral-surface p-3">
-        <p className="mb-1 text-xs font-medium uppercase tracking-widest text-neutral-muted">
-          Context
-        </p>
-        <div className="flex flex-wrap gap-3 text-xs text-neutral-muted">
+      {/* Context Bar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-border bg-neutral-surface/40 p-2 backdrop-blur-md">
+        <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-neutral-muted">
+          Telemetry
+        </span>
+        <div className="flex flex-wrap gap-1.5">
           {interaction.reasons.map((r, i) => (
-            <span key={i} className="rounded bg-accent-500/10 px-2 py-0.5 text-accent-500">
+            <span
+              key={i}
+              className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500 border border-amber-500/20"
+            >
               {r}
             </span>
           ))}
           {interaction.context.specPath && (
-            <span className="font-mono">{interaction.context.specPath}</span>
+            <span className="rounded-md bg-neutral-surface px-2 py-0.5 font-mono text-[10px] text-neutral-muted border border-neutral-border">
+              {interaction.context.specPath}
+            </span>
           )}
           {interaction.context.relatedFiles.map((f) => (
-            <span key={f} className="font-mono">
+            <span
+              key={f}
+              className="rounded-md bg-neutral-surface px-2 py-0.5 font-mono text-[10px] text-neutral-muted border border-neutral-border"
+            >
               {f}
             </span>
           ))}
@@ -558,41 +630,73 @@ export function Chat() {
       </div>
 
       {/* Message stream */}
-      <div className="flex-1 overflow-y-auto rounded border border-neutral-border bg-neutral-bg p-4">
-        {messages.length === 0 && (
-          <p className="text-sm text-neutral-muted">
-            Start a conversation. The context from the escalated issue is pre-loaded.
-          </p>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className="mb-4">
-            {msg.role === 'user' ? (
-              <div className="text-right">
-                <span className="mb-1 block text-xs text-neutral-muted">You</span>
-                <div className="inline-block max-w-[80%] rounded-lg bg-primary-500 px-4 py-2 text-sm text-neutral-text">
-                  <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+      <div className="flex-1 overflow-y-auto scroll-smooth rounded-2xl border border-neutral-border bg-neutral-bg/40 p-6 backdrop-blur-sm shadow-inner">
+        <AnimatePresence initial={false}>
+          {messages.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex h-full flex-col items-center justify-center text-center"
+            >
+              <div className="mb-4 rounded-full bg-primary-500/10 p-4 text-primary-500">
+                <Cpu size={32} className="drop-shadow-[0_0_10px_var(--color-primary-500)]" />
+              </div>
+              <h2 className="mb-1 text-lg font-bold">Neural Engine Ready</h2>
+              <p className="max-w-xs text-xs text-neutral-muted">
+                Initiate prompt sequence. The context from the escalated issue is pre-loaded into
+                working memory.
+              </p>
+            </motion.div>
+          )}
+          {messages.map((msg, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              className={`mb-6 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`max-w-[85%] ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                <div className="mb-1 flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-neutral-muted">
+                  {msg.role === 'user' ? (
+                    <>
+                      <span>Operator</span>
+                      <div className="h-1.5 w-1.5 rounded-full bg-neutral-muted" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary-500 shadow-[0_0_5px_var(--color-primary-500)]" />
+                      <span>Harness Agent</span>
+                    </>
+                  )}
+                </div>
+                <div
+                  className={[
+                    'rounded-2xl px-5 py-3 text-sm leading-relaxed',
+                    msg.role === 'user'
+                      ? 'bg-primary-500 text-white shadow-lg'
+                      : 'bg-neutral-surface/60 border border-neutral-border backdrop-blur-xl text-neutral-text',
+                  ].join(' ')}
+                >
+                  {msg.role === 'user' ? (
+                    <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+                  ) : (
+                    <AssistantBlocks
+                      blocks={msg.blocks}
+                      isStreaming={streaming && i === messages.length - 1}
+                    />
+                  )}
                 </div>
               </div>
-            ) : (
-              <div>
-                <span className="mb-1 block text-xs text-neutral-muted">Claude</span>
-                <div className="max-w-[90%]">
-                  <AssistantBlocks
-                    blocks={msg.blocks}
-                    isStreaming={streaming && i === messages.length - 1}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+            </motion.div>
+          ))}
+        </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="mt-3 flex gap-2">
-        <input
-          type="text"
+      {/* Input Section */}
+      <div className="relative mt-2">
+        <textarea
+          rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -601,16 +705,20 @@ export function Chat() {
               void handleSend();
             }
           }}
-          placeholder="Type your message..."
+          placeholder="Execute command or query neural link..."
           disabled={streaming}
-          className="flex-1 rounded border border-neutral-border bg-neutral-surface px-3 py-2 text-sm text-neutral-text placeholder-neutral-muted focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          className="w-full resize-none rounded-2xl border border-neutral-border bg-neutral-surface/60 px-5 py-4 pr-14 text-sm text-neutral-text placeholder-neutral-muted/50 backdrop-blur-xl transition-all focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 disabled:opacity-50 shadow-lg"
         />
         <button
           onClick={() => void handleSend()}
           disabled={streaming || !input.trim()}
-          className="rounded bg-primary-500 px-4 py-2 text-sm font-medium text-neutral-text hover:bg-primary-500/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl bg-primary-500 p-2.5 text-white transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 shadow-[0_0_15px_rgba(79,70,229,0.3)]"
         >
-          {streaming ? 'Streaming...' : 'Send'}
+          {streaming ? (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          ) : (
+            <Send size={18} />
+          )}
         </button>
       </div>
     </div>
