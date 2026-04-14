@@ -6,6 +6,9 @@ import { Health } from './pages/Health';
 import { Graph } from './pages/Graph';
 import { CI } from './pages/CI';
 import { Impact } from './pages/Impact';
+import { Orchestrator } from './pages/Orchestrator';
+import { Attention } from './pages/Attention';
+import { Chat } from './pages/Chat';
 
 export function App() {
   return (
@@ -18,6 +21,9 @@ export function App() {
           <Route path="/graph" element={<Graph />} />
           <Route path="/ci" element={<CI />} />
           <Route path="/impact" element={<Impact />} />
+          <Route path="/orchestrator" element={<Orchestrator />} />
+          <Route path="/orchestrator/attention" element={<Attention />} />
+          <Route path="/orchestrator/chat" element={<Chat />} />
         </Routes>
       </Layout>
     </BrowserRouter>

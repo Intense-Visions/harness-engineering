@@ -12,6 +12,8 @@ const NAV_ITEMS = [
   { to: '/graph', label: 'Graph' },
   { to: '/ci', label: 'CI' },
   { to: '/impact', label: 'Impact' },
+  { to: '/orchestrator', label: 'Agents' },
+  { to: '/orchestrator/attention', label: 'Attention' },
 ] as const;
 
 export function Layout({ children }: Props) {
