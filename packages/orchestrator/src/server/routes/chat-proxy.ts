@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readBody } from '../utils';
 import type Anthropic from '@anthropic-ai/sdk';
 
 interface ChatRequest {
@@ -54,7 +55,15 @@ export function handleChatProxyRoute(
           streamParams as Parameters<typeof client.messages.stream>[0]
         );
 
+        // Abort the Anthropic stream if the client disconnects mid-stream
+        let clientDisconnected = false;
+        res.on('close', () => {
+          clientDisconnected = true;
+          stream.abort();
+        });
+
         for await (const event of stream) {
+          if (clientDisconnected) break;
           if (
             event.type === 'content_block_delta' &&
             'delta' in event &&
@@ -67,14 +76,16 @@ export function handleChatProxyRoute(
           }
         }
 
-        // Send final usage
-        const finalMessage = await stream.finalMessage();
-        const usage = finalMessage.usage;
-        res.write(
-          `data: ${JSON.stringify({ type: 'usage', inputTokens: usage.input_tokens, outputTokens: usage.output_tokens })}\n\n`
-        );
-        res.write('data: [DONE]\n\n');
-        res.end();
+        if (!clientDisconnected) {
+          // Send final usage
+          const finalMessage = await stream.finalMessage();
+          const usage = finalMessage.usage;
+          res.write(
+            `data: ${JSON.stringify({ type: 'usage', inputTokens: usage.input_tokens, outputTokens: usage.output_tokens })}\n\n`
+          );
+          res.write('data: [DONE]\n\n');
+          res.end();
+        }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Chat proxy error';
         if (!res.headersSent) {
@@ -90,13 +101,4 @@ export function handleChatProxyRoute(
   }
 
   return false;
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => (body += chunk));
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
 }

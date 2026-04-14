@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-11
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-11T17:02:27.485Z
+last_manual_edit: 2026-04-14T15:55:17.091Z
 ---
 
 # Roadmap
@@ -788,7 +788,6 @@ last_manual_edit: 2026-04-11T17:02:27.485Z
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** Chad Warner
-- **Assigned:** 2026-04-07
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#128
 
@@ -912,6 +911,14 @@ last_manual_edit: 2026-04-11T17:02:27.485Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#145
+
+### Hybrid Orchestrator: Local Model Routing with Web Dashboard
+
+- **Status:** planned
+- **Spec:** docs/changes/hybrid-orchestrator/proposal.md
+- **Summary:** Local LLM routing for autonomous execution of simple tasks, signal-gated escalation to humans for complex work, web dashboard with Claude chat pane for human reasoning, OpenAI-compatible local backend.
+- **Blockers:** —
+- **Plan:** —
 
 ## v3.0 Graph Intelligence
 

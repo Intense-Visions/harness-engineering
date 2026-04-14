@@ -32,6 +32,8 @@ export class OrchestratorServer {
   private port: number;
   private anthropicClient: Anthropic | null;
   private planWatcher: PlanWatcher | null = null;
+  private stateChangeListener: (snapshot: unknown) => void;
+  private agentEventListener: (event: unknown) => void;
 
   constructor(orchestrator: Snapshotable, port: number, deps?: ServerDependencies) {
     this.orchestrator = orchestrator;
@@ -49,13 +51,15 @@ export class OrchestratorServer {
         ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
         : null);
 
-    // Wire orchestrator events to WebSocket broadcasts
-    this.orchestrator.on('state_change', (snapshot: unknown) => {
+    // Wire orchestrator events to WebSocket broadcasts (store refs for cleanup)
+    this.stateChangeListener = (snapshot: unknown) => {
       this.broadcaster.broadcast('state_change', snapshot);
-    });
-    this.orchestrator.on('agent_event', (event: unknown) => {
+    };
+    this.agentEventListener = (event: unknown) => {
       this.broadcaster.broadcast('agent_event', event);
-    });
+    };
+    this.orchestrator.on('state_change', this.stateChangeListener);
+    this.orchestrator.on('agent_event', this.agentEventListener);
   }
 
   /**
@@ -120,6 +124,8 @@ export class OrchestratorServer {
   }
 
   public stop(): void {
+    this.orchestrator.removeListener('state_change', this.stateChangeListener);
+    this.orchestrator.removeListener('agent_event', this.agentEventListener);
     if (this.planWatcher) {
       this.planWatcher.stop();
       this.planWatcher = null;

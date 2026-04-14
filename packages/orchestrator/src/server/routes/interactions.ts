@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readBody } from '../utils';
 import type { InteractionQueue } from '../../core/interaction-queue';
 
 const VALID_STATUSES = new Set(['pending', 'claimed', 'resolved']);
@@ -64,13 +65,4 @@ export function handleInteractionsRoute(
   }
 
   return false;
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => (body += chunk));
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
 }

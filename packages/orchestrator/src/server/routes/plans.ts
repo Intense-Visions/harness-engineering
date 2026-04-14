@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readBody } from '../utils';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -47,7 +48,7 @@ export function handlePlansRoute(
         await fs.writeFile(filePath, parsed.content, 'utf-8');
 
         res.writeHead(201, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, path: filePath }));
+        res.end(JSON.stringify({ ok: true, filename: basename }));
       } catch {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Failed to write plan' }));
@@ -57,13 +58,4 @@ export function handlePlansRoute(
   }
 
   return false;
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => (body += chunk));
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
 }
