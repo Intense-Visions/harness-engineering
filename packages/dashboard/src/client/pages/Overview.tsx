@@ -2,9 +2,9 @@ import { useSSE } from '../hooks/useSSE';
 import { GlowCard } from '../components/NeonAI/GlowCard';
 import { StaleIndicator } from '../components/StaleIndicator';
 import { ActionButton } from '../components/ActionButton';
-import { motion } from 'framer-motion';
+import { motion, animate } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { Activity, ShieldCheck, Zap, Layers, Share2, Compass } from 'lucide-react';
-import type { OverviewData } from '@shared/types';
 import { SSE_ENDPOINT } from '@shared/constants';
 import {
   isRoadmapData,
@@ -12,7 +12,6 @@ import {
   isGraphData,
   isSecurityData,
   isPerfData,
-  isArchData,
 } from '../utils/typeGuards';
 
 function SectionHeader({ title, icon: Icon }: { title: string; icon: any }) {
@@ -139,12 +138,36 @@ function Stat({
   color?: string;
   sub?: string;
 }) {
+  const [displayValue, setDisplayValue] = useState<string | number>(
+    typeof value === 'number' ? 0 : value
+  );
+
+  useEffect(() => {
+    if (typeof value === 'number') {
+      const controls = animate(0, value, {
+        duration: 1.2,
+        ease: 'circOut',
+        onUpdate: (latest) => setDisplayValue(Math.floor(latest)),
+      });
+      return () => controls.stop();
+    } else {
+      setDisplayValue(value);
+    }
+  }, [value]);
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-muted">
         {label}
       </span>
-      <span className={`text-2xl font-bold tracking-tight ${color}`}>{value}</span>
+      <motion.span
+        key={value}
+        initial={{ opacity: 0, filter: 'blur(4px)', y: 5 }}
+        animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+        className={`text-2xl font-bold tracking-tight ${color}`}
+      >
+        {displayValue}
+      </motion.span>
       {sub && <span className="text-[10px] text-neutral-muted font-mono">{sub}</span>}
     </div>
   );
@@ -159,7 +182,6 @@ export function Overview() {
   const graph = data ? data.graph : null;
   const security = checksData ? checksData.security : null;
   const perf = checksData ? checksData.perf : null;
-  const arch = checksData ? checksData.arch : null;
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto">

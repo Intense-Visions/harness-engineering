@@ -11,4 +11,51 @@
   --color-secondary-400: #22d3ee;
   --color-accent-500: #d946ef;
   --font-mono: "JetBrains Mono", monospace;
+
+  --animate-glow: glow 4s linear infinite;
+  --animate-pulse-neon: pulse-neon 2s ease-in-out infinite;
+
+  @keyframes glow {
+    0%, 100% { opacity: 0.3; filter: brightness(100%); }
+    50% { opacity: 1; filter: brightness(150%); }
+  }
+
+  @keyframes pulse-neon {
+    0%, 100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+  }
+}
+
+/* --- High-Fidelity Global Overrides --- */
+
+::selection {
+  background: rgba(79, 70, 229, 0.3);
+  color: #fff;
+  text-shadow: 0 0 8px rgba(79, 70, 229, 0.5);
+}
+
+/* Custom Neon Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4f46e5;
+  box-shadow: 0 0 10px #4f46e5;
+}
+
+/* Smooth internal scrolling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #27272a #09090b;
 }

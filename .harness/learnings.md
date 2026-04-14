@@ -136,3 +136,19 @@
 - [skill:harness-autopilot] [outcome:observation] Phase 2 review caught a critical bug: --tools args written to .cursor/mcp.json but harness mcp command didn't accept --tools. The picker feature was entirely non-functional at runtime. Review-then-fix cycle prevented a broken feature from shipping.
 - [skill:harness-autopilot] [outcome:observation] ALL_MCP_TOOLS sync guard test (Phase 4) validates that the manually-maintained tool list matches TOOL_DEFINITIONS at test time — mitigates the maintenance hazard of a static array without introducing a runtime import coupling.
 - [skill:harness-autopilot] [outcome:gotcha] @clack/prompts ^0.9.0 resolves to 0.9.1 — semver 0.x range means minor versions can have breaking changes. Pin or verify API shape in CI.
+
+<!-- hash:a168a0a3 -->
+
+- **2026-04-14:** Completed Task 1: Inject Neon AI tokens into Tailwind Theme. Moving to Task 2.
+
+<!-- hash:ccb7d006 -->
+
+- **2026-04-14:** Completed Task 2: Redesign Core Layout & Global Styles. Moving to Task 3.
+
+<!-- hash:80dfca46 -->
+
+- **2026-04-14:** Completed Task 3: Redesign ActionButton. Moving to Task 4.
+
+<!-- hash:7caa77f9 -->
+
+- **2026-04-14:** Completed Task 4: Redesign KPI Cards. Moving to Task 5.
