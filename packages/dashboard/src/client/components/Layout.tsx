@@ -101,7 +101,7 @@ export function Layout({ children }: Props) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-12">
+      <main className="mx-auto max-w-7xl px-6 pt-32 pb-12">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}

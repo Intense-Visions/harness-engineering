@@ -56,6 +56,8 @@ const item = {
   show: { opacity: 1, y: 0, scale: 1 },
 };
 
+import { HoloTooltip } from '../components/NeonAI/HoloTooltip';
+
 function RoadmapSection({ roadmap }: { roadmap: unknown }) {
   return (
     <motion.section variants={item}>
@@ -67,8 +69,11 @@ function RoadmapSection({ roadmap }: { roadmap: unknown }) {
             delay={0.1}
             className="col-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-center"
           >
-            <Stat label="Total Features" value={roadmap.totalFeatures} size="text-5xl" />
+            <HoloTooltip content="Aggregated feature count across all active milestones and backlog.">
+              <Stat label="Total Features" value={roadmap.totalFeatures} size="text-5xl" />
+            </HoloTooltip>
           </GlowCard>
+
           <GlowCard uid="RM_STAT_02" delay={0.2} className="col-span-1 lg:col-span-2">
             <Stat label="Done" value={roadmap.totalDone} color="text-emerald-400" />
           </GlowCard>
@@ -219,7 +224,7 @@ export function Overview() {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto">
-      <div className="mb-10 flex items-end justify-between border-b border-neutral-border pb-8 pt-16">
+      <div className="mb-10 flex items-end justify-between border-b border-neutral-border pb-8">
         <div>
           <h1 className="text-5xl font-black tracking-tighter text-gradient-neon pb-1">
             <ScrambleText text="Command Center" />
