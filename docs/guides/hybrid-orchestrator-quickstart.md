@@ -6,7 +6,7 @@ Run the orchestrator with local model routing and the web dashboard.
 
 - Node.js 22+
 - A local model server (Ollama, vLLM, LM Studio, or any OpenAI-compatible endpoint)
-- `ANTHROPIC_API_KEY` environment variable (for the Claude Chat Pane)
+- Claude Code CLI installed and authenticated (for the Claude Chat Pane — no separate API key needed)
 
 ## 1. Set Up a Local Model Server
 
@@ -96,10 +96,7 @@ cd packages/dashboard
 npm run build
 cd ../..
 
-# Set your Anthropic API key (for the Claude Chat Pane)
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# Start the orchestrator
+# Start the orchestrator (Claude Chat Pane uses your local claude CLI — no API key needed)
 npx harness orchestrator run
 ```
 
@@ -184,8 +181,8 @@ Make sure issues have `scope:` labels. Without labels, the default is `full-expl
 **Local model not connecting:**
 Check that your model server is running and the `localEndpoint` URL is correct. The orchestrator logs connection failures at startup.
 
-**Chat Pane shows "Chat proxy unavailable":**
-Set the `ANTHROPIC_API_KEY` environment variable. The chat proxy is disabled when the key is absent.
+**Chat Pane not responding:**
+Make sure `claude` CLI is installed and authenticated. Run `claude --version` to verify. The chat proxy spawns `claude` as a subprocess — no separate API key is needed.
 
 **Dashboard shows "Connecting..." permanently:**
 The orchestrator server must be running on the configured port (default 8080). Check that `server.port` is set in `WORKFLOW.md`.

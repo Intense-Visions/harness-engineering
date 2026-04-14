@@ -1,30 +1,33 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { spawn, type ChildProcess } from 'node:child_process';
+import * as readline from 'node:readline';
 import { readBody } from '../utils';
-import type Anthropic from '@anthropic-ai/sdk';
 
 interface ChatRequest {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   system?: string;
-  model?: string;
-  maxTokens?: number;
 }
 
 /**
- * Handle the chat proxy route. Proxies to the Anthropic API and streams
- * responses back as Server-Sent Events (SSE).
+ * Handle the chat proxy route. Spawns Claude Code CLI as a subprocess
+ * and streams responses back as Server-Sent Events (SSE).
  *
- * @param client - Anthropic SDK client instance (or compatible mock)
+ * Uses the locally installed `claude` command — no API key required.
+ * Claude Code manages its own authentication (OAuth or configured key).
+ *
+ * @param command - Claude CLI command name (default: 'claude')
  * @returns true if the route was handled, false otherwise
  */
 export function handleChatProxyRoute(
   req: IncomingMessage,
   res: ServerResponse,
-  client: Anthropic
+  command = 'claude'
 ): boolean {
   const { method, url } = req;
 
   if (method === 'POST' && url === '/api/chat') {
     void (async () => {
+      let child: ChildProcess | null = null;
       try {
         const body = await readBody(req);
         const parsed = JSON.parse(body) as ChatRequest;
@@ -35,6 +38,9 @@ export function handleChatProxyRoute(
           return;
         }
 
+        // Build prompt from messages (Claude Code takes a single prompt string)
+        const prompt = buildPrompt(parsed.messages, parsed.system);
+
         // Set SSE headers
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -42,51 +48,81 @@ export function handleChatProxyRoute(
           Connection: 'keep-alive',
         });
 
-        const streamParams: Record<string, unknown> = {
-          model: parsed.model ?? 'claude-sonnet-4-20250514',
-          max_tokens: parsed.maxTokens ?? 8192,
-          messages: parsed.messages,
-        };
-        if (parsed.system) {
-          streamParams.system = parsed.system;
-        }
+        const args = ['--print', '-p', prompt, '--output-format', 'stream-json'];
 
-        const stream = client.messages.stream(
-          streamParams as Parameters<typeof client.messages.stream>[0]
-        );
+        child = spawn(command, args, { env: process.env });
+        child.stdin?.end();
 
-        // Abort the Anthropic stream if the client disconnects mid-stream
+        // Kill the subprocess if the client disconnects
         let clientDisconnected = false;
         res.on('close', () => {
           clientDisconnected = true;
-          if (typeof stream.abort === 'function') stream.abort();
+          if (child && child.exitCode === null) {
+            child.kill('SIGTERM');
+          }
         });
 
-        for await (const event of stream) {
+        child.on('error', (err) => {
+          if (!clientDisconnected) {
+            res.write(
+              `data: ${JSON.stringify({ type: 'error', error: `Failed to start claude: ${err.message}` })}\n\n`
+            );
+            res.end();
+          }
+        });
+
+        const rl = readline.createInterface({ input: child.stdout!, terminal: false });
+
+        for await (const line of rl) {
           if (clientDisconnected) break;
-          if (
-            event.type === 'content_block_delta' &&
-            'delta' in event &&
-            event.delta &&
-            typeof event.delta === 'object' &&
-            'text' in event.delta
-          ) {
-            const text = (event.delta as { text: string }).text;
-            res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`);
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const event = JSON.parse(line) as any;
+
+            if (event.type === 'assistant' && event.message?.content) {
+              // Initial assistant message with content blocks
+              for (const block of event.message.content) {
+                if (block.type === 'text' && block.text) {
+                  res.write(`data: ${JSON.stringify({ type: 'text', text: block.text })}\n\n`);
+                }
+              }
+            } else if (event.type === 'content_block_delta' && event.delta?.text) {
+              res.write(`data: ${JSON.stringify({ type: 'text', text: event.delta.text })}\n\n`);
+            } else if (event.type === 'result' || event.type === 'turn_complete') {
+              // Final result — extract usage if available
+              const usage = event.usage || event.content?.usage;
+              if (usage) {
+                res.write(
+                  `data: ${JSON.stringify({ type: 'usage', inputTokens: usage.input_tokens ?? usage.inputTokens ?? 0, outputTokens: usage.output_tokens ?? usage.outputTokens ?? 0 })}\n\n`
+                );
+              }
+              // Extract the result text
+              const resultText =
+                event.result || event.content?.result || event.message || event.content;
+              if (resultText && typeof resultText === 'string') {
+                res.write(`data: ${JSON.stringify({ type: 'text', text: resultText })}\n\n`);
+              }
+            } else if (event.type === 'progress' && event.content) {
+              // Streaming text content
+              res.write(
+                `data: ${JSON.stringify({ type: 'text', text: typeof event.content === 'string' ? event.content : JSON.stringify(event.content) })}\n\n`
+              );
+            }
+          } catch {
+            // Ignore non-JSON lines
           }
         }
 
+        rl.close();
+
         if (!clientDisconnected) {
-          // Send final usage
-          const finalMessage = await stream.finalMessage();
-          const usage = finalMessage.usage;
-          res.write(
-            `data: ${JSON.stringify({ type: 'usage', inputTokens: usage.input_tokens, outputTokens: usage.output_tokens })}\n\n`
-          );
           res.write('data: [DONE]\n\n');
           res.end();
         }
       } catch (err) {
+        if (child && child.exitCode === null) {
+          child.kill('SIGTERM');
+        }
         const errorMsg = err instanceof Error ? err.message : 'Chat proxy error';
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -101,4 +137,37 @@ export function handleChatProxyRoute(
   }
 
   return false;
+}
+
+/**
+ * Build a single prompt string from a messages array and optional system prompt.
+ * Claude Code CLI takes a single `-p` prompt, so we format the conversation.
+ */
+function buildPrompt(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  system?: string
+): string {
+  const parts: string[] = [];
+
+  if (system) {
+    parts.push(system);
+    parts.push('');
+  }
+
+  // For single-turn, just use the last user message
+  if (messages.length === 1) {
+    const firstMsg = messages[0]!;
+    return system ? `${system}\n\n${firstMsg.content}` : firstMsg.content;
+  }
+
+  // For multi-turn, format as conversation context
+  for (const msg of messages) {
+    if (msg.role === 'user') {
+      parts.push(`User: ${msg.content}`);
+    } else {
+      parts.push(`Assistant: ${msg.content}`);
+    }
+  }
+
+  return parts.join('\n\n');
 }

@@ -1,37 +1,48 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
+import * as child_process from 'node:child_process';
+import { PassThrough } from 'node:stream';
 import { handleChatProxyRoute } from '../../../src/server/routes/chat-proxy';
 
-// Mock Anthropic client to avoid real API calls
-const mockStream = {
-  async *[Symbol.asyncIterator]() {
-    yield {
-      type: 'content_block_delta' as const,
-      index: 0,
-      delta: { type: 'text_delta' as const, text: 'Hello' },
-    };
-    yield {
-      type: 'content_block_delta' as const,
-      index: 0,
-      delta: { type: 'text_delta' as const, text: ' world' },
-    };
-  },
-  async finalMessage() {
-    return {
-      usage: { input_tokens: 10, output_tokens: 5 },
-    };
-  },
-};
+// Mock child_process.spawn to avoid launching real claude processes
+vi.mock('node:child_process', async () => {
+  const actual = await vi.importActual<typeof child_process>('node:child_process');
+  return { ...actual, spawn: vi.fn() };
+});
 
-const mockAnthropicClient = {
-  messages: {
-    stream: vi.fn().mockReturnValue(mockStream),
-  },
-};
+function createMockChild(events: Array<Record<string, unknown>>) {
+  const stdout = new PassThrough();
+  const stdin = new PassThrough();
+  const child = Object.assign(new PassThrough(), {
+    stdout,
+    stderr: new PassThrough(),
+    stdin,
+    pid: 12345,
+    exitCode: null as number | null,
+    kill: vi.fn(),
+    on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+      if (event === 'error') {
+        // store error handler but don't fire
+      }
+      return child;
+    }),
+  });
 
-function createServer(): http.Server {
+  // Stream events then close
+  setTimeout(() => {
+    for (const evt of events) {
+      stdout.write(JSON.stringify(evt) + '\n');
+    }
+    stdout.end();
+    child.exitCode = 0;
+  }, 10);
+
+  return child;
+}
+
+function createServer(command = 'claude'): http.Server {
   return http.createServer((req, res) => {
-    if (!handleChatProxyRoute(req, res, mockAnthropicClient as any)) {
+    if (!handleChatProxyRoute(req, res, command)) {
       res.writeHead(404);
       res.end();
     }
@@ -68,29 +79,36 @@ function postRequest(
   });
 }
 
-describe('chat proxy route', () => {
+describe('chat proxy route (Claude Code subprocess)', () => {
   let server: http.Server;
   let port: number;
+  const mockSpawn = vi.mocked(child_process.spawn);
 
   beforeEach(async () => {
     port = Math.floor(Math.random() * 10000) + 32000;
-    mockAnthropicClient.messages.stream.mockReturnValue(mockStream);
     server = createServer();
     await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
   });
 
   afterEach(() => {
     server.close();
+    vi.restoreAllMocks();
   });
 
-  it('POST /api/chat streams SSE responses', async () => {
+  it('POST /api/chat streams SSE responses from Claude Code', async () => {
+    const child = createMockChild([
+      { type: 'progress', content: 'Hello' },
+      { type: 'progress', content: ' world' },
+      { type: 'result', result: 'Done', usage: { input_tokens: 10, output_tokens: 5 } },
+    ]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
     const res = await postRequest(port, '/api/chat', {
       messages: [{ role: 'user', content: 'Hello' }],
     });
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toBe('text/event-stream');
-    expect(res.body).toContain('data: ');
     expect(res.body).toContain('Hello');
     expect(res.body).toContain(' world');
     expect(res.body).toContain('[DONE]');
@@ -101,16 +119,23 @@ describe('chat proxy route', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('POST /api/chat passes system prompt when provided', async () => {
+  it('POST /api/chat includes system prompt in CLI args', async () => {
+    const child = createMockChild([{ type: 'progress', content: 'Response' }]);
+    mockSpawn.mockReturnValue(child as unknown as child_process.ChildProcess);
+
     await postRequest(port, '/api/chat', {
       messages: [{ role: 'user', content: 'Hi' }],
       system: 'You are a helpful assistant.',
     });
 
-    expect(mockAnthropicClient.messages.stream).toHaveBeenCalledWith(
-      expect.objectContaining({
-        system: 'You are a helpful assistant.',
-      })
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'claude',
+      expect.arrayContaining([
+        '--print',
+        '-p',
+        expect.stringContaining('You are a helpful assistant.'),
+      ]),
+      expect.any(Object)
     );
   });
 

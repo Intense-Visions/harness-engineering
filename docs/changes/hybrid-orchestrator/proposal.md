@@ -198,7 +198,7 @@ Three additions to the existing HTTP server:
 - `GET /api/interactions` — list pending interactions
 - `PATCH /api/interactions/:id` — claim or resolve an interaction
 - `GET /api/state` — current orchestrator state snapshot
-- `POST /api/chat` — proxy to Anthropic API for Claude chat pane
+- `POST /api/chat` — spawns Claude Code CLI subprocess, streams responses as SSE (no API key required)
 - `POST /api/plans` — write plan file to `docs/plans/`
 
 **Static file serving:**

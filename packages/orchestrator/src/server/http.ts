@@ -1,6 +1,5 @@
 import * as http from 'node:http';
 import * as path from 'node:path';
-import Anthropic from '@anthropic-ai/sdk';
 import { WebSocketBroadcaster } from './websocket';
 import { handleInteractionsRoute } from './routes/interactions';
 import { handlePlansRoute } from './routes/plans';
@@ -19,7 +18,8 @@ export interface ServerDependencies {
   interactionQueue?: InteractionQueue;
   plansDir?: string;
   dashboardDir?: string;
-  anthropicClient?: Anthropic;
+  /** Claude CLI command name (default: 'claude') */
+  claudeCommand?: string;
 }
 
 export class OrchestratorServer {
@@ -30,7 +30,7 @@ export class OrchestratorServer {
   private plansDir: string;
   private dashboardDir: string;
   private port: number;
-  private anthropicClient: Anthropic | null;
+  private claudeCommand: string;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener: (snapshot: unknown) => void;
   private agentEventListener: (event: unknown) => void;
@@ -42,15 +42,9 @@ export class OrchestratorServer {
     this.plansDir = deps?.plansDir ?? path.resolve('docs', 'plans');
     this.dashboardDir =
       deps?.dashboardDir ?? path.resolve('packages', 'dashboard', 'dist', 'client');
+    this.claudeCommand = deps?.claudeCommand ?? 'claude';
     this.httpServer = http.createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(this.httpServer);
-
-    // Only create Anthropic client if API key is available
-    this.anthropicClient =
-      deps?.anthropicClient ??
-      (process.env.ANTHROPIC_API_KEY
-        ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-        : null);
 
     // Wire orchestrator events to WebSocket broadcasts (store refs for cleanup)
     this.stateChangeListener = (snapshot: unknown) => {
@@ -91,8 +85,8 @@ export class OrchestratorServer {
       return;
     }
 
-    // Chat proxy route
-    if (this.anthropicClient && handleChatProxyRoute(req, res, this.anthropicClient)) {
+    // Chat proxy route (spawns Claude Code CLI — no API key required)
+    if (handleChatProxyRoute(req, res, this.claudeCommand)) {
       return;
     }
 
