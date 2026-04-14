@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-11
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-14T15:55:17.091Z
+last_manual_edit: 2026-04-14T18:05:37.915Z
 ---
 
 # Roadmap
@@ -917,6 +917,14 @@ last_manual_edit: 2026-04-14T15:55:17.091Z
 - **Status:** planned
 - **Spec:** docs/changes/hybrid-orchestrator/proposal.md
 - **Summary:** Local LLM routing for autonomous execution of simple tasks, signal-gated escalation to humans for complex work, web dashboard with Claude chat pane for human reasoning, OpenAI-compatible local backend.
+- **Blockers:** —
+- **Plan:** —
+
+### Intelligence Pipeline
+
+- **Status:** planned
+- **Spec:** docs/changes/intelligence-pipeline/proposal.md
+- **Summary:** Spec enrichment (SEL), complexity modeling (CML), and pre-execution simulation (PESL) layers in packages/intelligence/. Augments hybrid orchestrator routing with graph-backed complexity scoring and tiered simulation.
 - **Blockers:** —
 - **Plan:** —
 

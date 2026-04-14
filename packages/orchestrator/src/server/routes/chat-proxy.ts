@@ -59,7 +59,7 @@ export function handleChatProxyRoute(
         let clientDisconnected = false;
         res.on('close', () => {
           clientDisconnected = true;
-          stream.abort();
+          if (typeof stream.abort === 'function') stream.abort();
         });
 
         for await (const event of stream) {

@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import {
   WorkflowConfig,
   Issue,
@@ -248,7 +249,7 @@ export class Orchestrator extends EventEmitter {
     );
 
     await this.interactionQueue.push({
-      id: `interaction-${Date.now()}-${effect.issueId.slice(0, 8)}`,
+      id: `interaction-${randomUUID()}`,
       issueId: effect.issueId,
       type: 'needs-human',
       reasons: effect.reasons,

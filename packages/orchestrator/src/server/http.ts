@@ -74,8 +74,8 @@ export class OrchestratorServer {
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
     const { method, url } = req;
 
-    // Existing state endpoint
-    if (method === 'GET' && url === '/api/v1/state') {
+    // State endpoint (supports both /api/state and legacy /api/v1/state)
+    if (method === 'GET' && (url === '/api/state' || url === '/api/v1/state')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(this.orchestrator.getSnapshot()));
       return;
