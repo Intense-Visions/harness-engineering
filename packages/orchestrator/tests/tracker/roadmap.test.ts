@@ -66,6 +66,41 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
     }
   });
 
+  it('should include needs-human status issues when fetched by state', async () => {
+    const roadmapWithNeedsHuman = `---
+project: Test Project
+version: 1
+last_synced: '2026-03-24T00:00:00.000Z'
+last_manual_edit: '2026-03-24T00:00:00.000Z'
+---
+
+## Milestone: MVP
+### Feature: Task 1
+- **Status:** planned
+- **Summary:** First task
+- **Blocked by:** none
+
+### Feature: Task 2
+- **Status:** needs-human
+- **Summary:** Needs human review
+- **Blocked by:** none
+`;
+    vi.mocked(fs.readFile).mockResolvedValue(roadmapWithNeedsHuman);
+    const adapter = new RoadmapTrackerAdapter({
+      ...mockConfig,
+      activeStates: ['planned', 'needs-human'],
+    });
+    const result = await adapter.fetchCandidateIssues();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(2);
+      const needsHuman = result.value.find((i) => i.title === 'Task 2');
+      expect(needsHuman).toBeDefined();
+      expect(needsHuman?.state).toBe('needs-human');
+    }
+  });
+
   it('fetches issue states by ids', async () => {
     vi.mocked(fs.readFile).mockResolvedValue(mockRoadmapContent);
     const adapter = new RoadmapTrackerAdapter(mockConfig);
