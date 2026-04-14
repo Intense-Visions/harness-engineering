@@ -12,7 +12,7 @@ const SOURCE_COL_X = PADDING.left;
 export const RISK_COLORS = {
   high: '#ef4444',
   medium: '#f59e0b',
-  low: '#6b7280',
+  low: '#71717a',
 } as const;
 
 export type RiskLevel = keyof typeof RISK_COLORS;
@@ -101,7 +101,7 @@ export function computeBlastRadiusLayout(data: BlastRadiusData): GraphLayout | n
 function SummaryBar({ data }: { data: BlastRadiusData }) {
   const { summary } = data;
   const badges: { label: string; count: number; color: string }[] = [
-    { label: 'Total Affected', count: summary.totalAffected, color: '#d1d5db' },
+    { label: 'Total Affected', count: summary.totalAffected, color: '#fafafa' },
     { label: 'High Risk', count: summary.highRisk, color: RISK_COLORS.high },
     { label: 'Medium Risk', count: summary.mediumRisk, color: RISK_COLORS.medium },
     { label: 'Low Risk', count: summary.lowRisk, color: RISK_COLORS.low },
@@ -112,13 +112,13 @@ function SummaryBar({ data }: { data: BlastRadiusData }) {
       {badges.map((b) => (
         <div key={b.label} className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: b.color }} />
-          <span className="text-sm tabular-nums text-gray-300">{b.count}</span>
-          <span className="text-xs text-gray-500">{b.label}</span>
+          <span className="text-sm tabular-nums text-neutral-text">{b.count}</span>
+          <span className="text-xs text-neutral-muted">{b.label}</span>
         </div>
       ))}
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-gray-500">Max Depth:</span>
-        <span className="text-sm tabular-nums text-gray-300">{summary.maxDepth}</span>
+        <span className="text-xs text-neutral-muted">Max Depth:</span>
+        <span className="text-sm tabular-nums text-neutral-text">{summary.maxDepth}</span>
       </div>
     </div>
   );
@@ -134,8 +134,8 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
 
   if (!layout) {
     return (
-      <div className="flex h-32 items-center justify-center rounded border border-gray-800 bg-gray-950">
-        <p className="text-sm text-gray-500">No affected nodes</p>
+      <div className="flex h-32 items-center justify-center rounded border border-neutral-border bg-neutral-bg">
+        <p className="text-sm text-neutral-muted">No affected nodes</p>
       </div>
     );
   }
@@ -146,7 +146,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
   return (
     <div>
       <SummaryBar data={data} />
-      <div className="overflow-x-auto rounded border border-gray-700 bg-gray-950 p-4">
+      <div className="overflow-x-auto rounded border border-neutral-border bg-neutral-bg p-4">
         <svg width={layout.width} height={layout.height} className="overflow-visible">
           <defs>
             <marker
@@ -157,7 +157,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
               refY="3"
               orient="auto"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="#4b5563" />
+              <path d="M0,0 L0,6 L8,3 z" fill="#27272a" />
             </marker>
           </defs>
 
@@ -167,7 +167,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
             y={PADDING.top - 14}
             textAnchor="middle"
             fontSize={10}
-            fill="#6b7280"
+            fill="#71717a"
           >
             Source
           </text>
@@ -180,7 +180,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 y={PADDING.top - 14}
                 textAnchor="middle"
                 fontSize={10}
-                fill="#6b7280"
+                fill="#71717a"
               >
                 Depth {d}
               </text>
@@ -203,7 +203,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 y1={y1}
                 x2={x2 - 2}
                 y2={y2}
-                stroke="#4b5563"
+                stroke="#27272a"
                 strokeWidth={1}
                 strokeOpacity={clampOpacity(to.probability)}
                 markerEnd="url(#blast-arrow)"
@@ -220,7 +220,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 width={NODE_W}
                 height={NODE_H}
                 rx={4}
-                fill="#1f2937"
+                fill="#18181b"
                 stroke={RISK_COLORS[n.risk]}
                 strokeWidth={1.5}
               />
@@ -230,7 +230,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 dominantBaseline="middle"
                 textAnchor="middle"
                 fontSize={10}
-                fill="#d1d5db"
+                fill="#fafafa"
               >
                 {n.name.length > 16 ? n.name.slice(0, 15) + '\u2026' : n.name}
               </text>
@@ -239,7 +239,7 @@ export function BlastRadiusGraph({ data }: BlastRadiusGraphProps) {
                 y={n.y + NODE_H - 4}
                 textAnchor="end"
                 fontSize={8}
-                fill="#9ca3af"
+                fill="#71717a"
               >
                 {n.type === 'source' ? '' : `${(n.probability * 100).toFixed(0)}%`}
               </text>

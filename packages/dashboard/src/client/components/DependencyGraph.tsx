@@ -120,16 +120,18 @@ export function DependencyGraph({ features }: Props) {
 
   return (
     <div>
-      <p className="mb-2 text-xs text-gray-500">Blocker relationships (arrow: blocker → blocked)</p>
+      <p className="mb-2 text-xs text-neutral-muted">
+        Blocker relationships (arrow: blocker → blocked)
+      </p>
       {cycleNodes.length > 0 && (
-        <p className="mb-2 text-xs text-yellow-400">
+        <p className="mb-2 text-xs text-secondary-400">
           Cyclic dependencies detected: {cycleNodes.join(', ')}
         </p>
       )}
       <svg width={maxX} height={maxY} className="overflow-visible">
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#6b7280" />
+            <path d="M0,0 L0,6 L8,3 z" fill="#27272a" />
           </marker>
         </defs>
 
@@ -149,7 +151,7 @@ export function DependencyGraph({ features }: Props) {
               y1={y1}
               x2={x2 - 2}
               y2={y2}
-              stroke="#6b7280"
+              stroke="#27272a"
               strokeWidth={1.5}
               markerEnd="url(#arrow)"
             />
@@ -165,8 +167,8 @@ export function DependencyGraph({ features }: Props) {
               width={NODE_W}
               height={NODE_H}
               rx={4}
-              fill="#1f2937"
-              stroke={STATUS_COLOR[n.status] ?? '#6b7280'}
+              fill="#18181b"
+              stroke={STATUS_COLOR[n.status] ?? '#27272a'}
               strokeWidth={1.5}
             />
             <text
@@ -175,7 +177,7 @@ export function DependencyGraph({ features }: Props) {
               dominantBaseline="middle"
               textAnchor="middle"
               fontSize={10}
-              fill="#d1d5db"
+              fill="#fafafa"
             >
               {n.id.length > 18 ? n.id.slice(0, 17) + '…' : n.id}
             </text>
