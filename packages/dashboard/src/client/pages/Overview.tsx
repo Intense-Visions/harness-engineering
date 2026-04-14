@@ -7,6 +7,7 @@ import { motion, animate } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { Activity, ShieldCheck, Zap, Share2, Compass } from 'lucide-react';
 import { SSE_ENDPOINT } from '@shared/constants';
+import { useProjectPulse } from '../hooks/useProjectPulse';
 import {
   isRoadmapData,
   isHealthData,
@@ -62,21 +63,22 @@ function RoadmapSection({ roadmap }: { roadmap: unknown }) {
       {roadmap && isRoadmapData(roadmap) ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
           <GlowCard
+            uid="RM_CORE_01"
             delay={0.1}
             className="col-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-center"
           >
             <Stat label="Total Features" value={roadmap.totalFeatures} size="text-5xl" />
           </GlowCard>
-          <GlowCard delay={0.2} className="col-span-1 lg:col-span-2">
+          <GlowCard uid="RM_STAT_02" delay={0.2} className="col-span-1 lg:col-span-2">
             <Stat label="Done" value={roadmap.totalDone} color="text-emerald-400" />
           </GlowCard>
-          <GlowCard delay={0.3} className="col-span-1 lg:col-span-2">
+          <GlowCard uid="RM_STAT_03" delay={0.3} className="col-span-1 lg:col-span-2">
             <Stat label="In Progress" value={roadmap.totalInProgress} color="text-primary-500" />
           </GlowCard>
-          <GlowCard delay={0.4} className="col-span-1 lg:col-span-2">
+          <GlowCard uid="RM_STAT_04" delay={0.4} className="col-span-1 lg:col-span-2">
             <Stat label="Planned" value={roadmap.totalPlanned} />
           </GlowCard>
-          <GlowCard delay={0.5} className="col-span-1 lg:col-span-2">
+          <GlowCard uid="RM_STAT_05" delay={0.5} className="col-span-1 lg:col-span-2">
             <Stat
               label="Blocked"
               value={roadmap.totalBlocked}
@@ -98,6 +100,7 @@ function HealthSection({ health }: { health: unknown }) {
       {health && isHealthData(health) ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <GlowCard
+            uid="HLTH_CORE_99"
             delay={0.1}
             className="col-span-2 lg:col-span-2 lg:row-span-2 flex flex-col justify-center bg-gradient-to-br from-neutral-surface/40 to-primary-500/5"
           >
@@ -108,21 +111,21 @@ function HealthSection({ health }: { health: unknown }) {
               size="text-6xl"
             />
           </GlowCard>
-          <GlowCard delay={0.2} className="col-span-1 lg:col-span-2">
+          <GlowCard uid="HLTH_ERR_01" delay={0.2} className="col-span-1 lg:col-span-2">
             <Stat
               label="Errors"
               value={health.errors}
               color={health.errors > 0 ? 'text-red-400' : 'text-neutral-text'}
             />
           </GlowCard>
-          <GlowCard delay={0.3} className="col-span-1">
+          <GlowCard uid="HLTH_WRN_02" delay={0.3} className="col-span-1">
             <Stat
               label="Warnings"
               value={health.warnings}
               color={health.warnings > 0 ? 'text-amber-400' : 'text-neutral-text'}
             />
           </GlowCard>
-          <GlowCard delay={0.4} className="col-span-2 lg:col-span-1">
+          <GlowCard uid="HLTH_FIX_03" delay={0.4} className="col-span-2 lg:col-span-1">
             <Stat
               label="Auto-fixable"
               value={health.fixableCount}
@@ -174,7 +177,7 @@ function Stat({
       </span>
       <motion.span
         key={value}
-        initial={{ opacity: 0, filter: 'blur(8px)', y: 10 }}
+        initial={{ opacity: 0, filter: 'blur(4px)', y: 10 }}
         animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
         transition={{ duration: 0.6 }}
         className={`${size} font-black tracking-tighter ${color}`}
@@ -193,6 +196,7 @@ function Stat({
 export function Overview() {
   const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
   const { data: checksData } = useSSE(SSE_ENDPOINT, 'checks');
+  const { setPulse } = useProjectPulse();
 
   const roadmap = data ? data.roadmap : null;
   const health = data ? data.health : null;
@@ -200,9 +204,22 @@ export function Overview() {
   const security = checksData ? checksData.security : null;
   const perf = checksData ? checksData.perf : null;
 
+  // Broadcast Project Pulse
+  useEffect(() => {
+    if (health && isHealthData(health)) {
+      const issues = health.totalIssues || 0;
+      const stress = Math.min(issues / 20, 1); // Normalize stress (20 issues = max stress)
+      setPulse({
+        stressLevel: stress,
+        isHealthy: issues === 0,
+        totalIssues: issues,
+      });
+    }
+  }, [health, setPulse]);
+
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="max-w-6xl mx-auto">
-      <div className="mb-10 flex items-end justify-between border-b border-neutral-border pb-8">
+      <div className="mb-10 flex items-end justify-between border-b border-neutral-border pb-8 pt-16">
         <div>
           <h1 className="text-5xl font-black tracking-tighter text-gradient-neon pb-1">
             <ScrambleText text="Command Center" />
@@ -259,7 +276,7 @@ export function Overview() {
               <SectionHeader title="Security Audit" icon={ShieldCheck} />
               {security && isSecurityData(security) ? (
                 <div className="grid grid-cols-2 gap-4 flex-1">
-                  <GlowCard delay={0.1} className="h-full">
+                  <GlowCard uid="SEC_TRUST_01" delay={0.1} className="h-full">
                     <Stat
                       label="System Trust"
                       value={security.valid ? 'Verified' : 'Compromised'}
@@ -268,7 +285,7 @@ export function Overview() {
                       }
                     />
                   </GlowCard>
-                  <GlowCard delay={0.2} className="h-full">
+                  <GlowCard uid="SEC_THR_02" delay={0.2} className="h-full">
                     <Stat
                       label="Threats"
                       value={security.stats.errorCount}
@@ -285,14 +302,14 @@ export function Overview() {
               <SectionHeader title="System Perf" icon={Zap} />
               {perf && isPerfData(perf) ? (
                 <div className="grid grid-cols-2 gap-4 flex-1">
-                  <GlowCard delay={0.1} className="h-full">
+                  <GlowCard uid="PRF_EFF_01" delay={0.1} className="h-full">
                     <Stat
                       label="Efficiency"
                       value={perf.valid ? 'Optimal' : 'Degraded'}
                       color={perf.valid ? 'text-emerald-400' : 'text-amber-400'}
                     />
                   </GlowCard>
-                  <GlowCard delay={0.2} className="h-full">
+                  <GlowCard uid="PRF_ANM_02" delay={0.2} className="h-full">
                     <Stat
                       label="Anomalies"
                       value={perf.stats.violationCount}
@@ -310,13 +327,13 @@ export function Overview() {
             <SectionHeader title="Knowledge Mesh" icon={Share2} />
             {graph && isGraphData(graph) ? (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <GlowCard delay={0.1} className="col-span-2 lg:col-span-1">
+                <GlowCard uid="GRPH_NOD_01" delay={0.1} className="col-span-2 lg:col-span-1">
                   <Stat label="Neurons" value={graph.nodeCount} />
                 </GlowCard>
-                <GlowCard delay={0.2} className="col-span-2 lg:col-span-1">
+                <GlowCard uid="GRPH_EDG_02" delay={0.2} className="col-span-2 lg:col-span-1">
                   <Stat label="Synapses" value={graph.edgeCount} />
                 </GlowCard>
-                <GlowCard delay={0.3} className="col-span-2 lg:col-span-2">
+                <GlowCard uid="GRPH_TOP_03" delay={0.3} className="col-span-2 lg:col-span-2">
                   <Stat
                     label="Topology"
                     value={`${graph.nodesByType.length} Types`}

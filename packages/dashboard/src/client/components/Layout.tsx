@@ -54,11 +54,11 @@ export function Layout({ children }: Props) {
         )}
       </AnimatePresence>
 
-      <header className="sticky top-0 z-50 border-b border-neutral-border bg-neutral-bg/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-8 px-6 py-3">
-          <div className="flex items-center gap-2 group cursor-pointer">
+      <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+        <div className="flex items-center gap-6 px-6 py-2 rounded-full border border-white/10 bg-neutral-bg/60 backdrop-blur-2xl shadow-2xl shadow-black/50">
+          <div className="flex items-center gap-2 group cursor-pointer border-r border-white/10 pr-4">
             <div className="h-2 w-2 animate-pulse rounded-full bg-primary-500 shadow-[0_0_15px_var(--color-primary-500)] group-hover:scale-125 transition-transform" />
-            <span className="text-sm font-black tracking-tighter uppercase text-white group-hover:text-glow-primary transition-all">
+            <span className="text-[10px] font-black tracking-[0.2em] uppercase text-white group-hover:text-glow-primary transition-all">
               Harness
             </span>
           </div>
@@ -68,7 +68,7 @@ export function Layout({ children }: Props) {
             <div
               className="pointer-events-none absolute -inset-2 z-0 opacity-0 transition-opacity duration-500 group-hover/nav:opacity-100"
               style={{
-                background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.05), transparent 40%)`,
+                background: `radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.1), transparent 40%)`,
               }}
             />
             {NAV_ITEMS.map(({ to, label, end }) => (
@@ -78,25 +78,20 @@ export function Layout({ children }: Props) {
                 end={end}
                 className={({ isActive }) =>
                   [
-                    'relative rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200',
-                    isActive
-                      ? 'text-white'
-                      : 'text-neutral-muted hover:bg-neutral-surface hover:text-neutral-text',
+                    'relative rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all duration-300',
+                    isActive ? 'text-white' : 'text-neutral-muted hover:text-neutral-text',
                   ].join(' ')
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {label}
+                    <span className="relative z-10">{label}</span>
                     {isActive && (
                       <motion.div
                         layoutId="nav-pill"
-                        className="absolute inset-0 z-[-1] rounded-md bg-white/5"
+                        className="absolute inset-0 z-0 rounded-full bg-white/5 border border-white/10"
                         transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                       />
-                    )}
-                    {isActive && (
-                      <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary-500 shadow-[0_0_8px_var(--color-primary-500)]" />
                     )}
                   </>
                 )}
