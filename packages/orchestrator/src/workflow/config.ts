@@ -45,6 +45,12 @@ export function getDefaultConfig(): WorkflowConfig {
       turnTimeoutMs: 300000,
       readTimeoutMs: 30000,
       stallTimeoutMs: 60000,
+      escalation: {
+        alwaysHuman: ['full-exploration'],
+        autoExecute: ['quick-fix', 'diagnostic'],
+        signalGated: ['guided-change'],
+        diagnosticRetryBudget: 1,
+      },
     },
     server: {
       port: 8080,
