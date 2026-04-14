@@ -1,10 +1,16 @@
-import type { Issue, WorkflowConfig, AgentEvent } from '@harness-engineering/types';
+import type {
+  Issue,
+  WorkflowConfig,
+  AgentEvent,
+  EscalationConfig,
+} from '@harness-engineering/types';
 import type { OrchestratorState, RunningEntry, LiveSession } from '../types/internal';
 import type { OrchestratorEvent, SideEffect } from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
 import { calculateRetryDelay } from './retry';
+import { detectScopeTier, routeIssue } from './model-router';
 
 export interface ApplyEventResult {
   nextState: OrchestratorState;
@@ -28,6 +34,16 @@ function cloneState(state: OrchestratorState): OrchestratorState {
     completed: new Set(state.completed),
     tokenTotals: { ...state.tokenTotals },
     rateLimits: { ...state.rateLimits },
+  };
+}
+
+function resolveEscalationConfig(config: WorkflowConfig): EscalationConfig {
+  const partial = config.agent.escalation;
+  return {
+    alwaysHuman: partial?.alwaysHuman ?? ['full-exploration'],
+    autoExecute: partial?.autoExecute ?? ['quick-fix', 'diagnostic'],
+    signalGated: partial?.signalGated ?? ['guided-change'],
+    diagnosticRetryBudget: partial?.diagnosticRetryBudget ?? 1,
   };
 }
 
@@ -68,9 +84,27 @@ function handleTick(
     config.tracker.terminalStates
   );
 
+  const escalationConfig = resolveEscalationConfig(config);
+
   for (const issue of eligible) {
     if (!canDispatch(next, issue.state, config.agent.maxConcurrentAgentsByState)) {
       break; // No more slots available
+    }
+
+    if (config.agent.localBackend) {
+      const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+      const decision = routeIssue(scopeTier, [], escalationConfig);
+
+      if (decision.action === 'needs-human') {
+        next.claimed.add(issue.id);
+        effects.push({
+          type: 'escalate',
+          issueId: issue.id,
+          identifier: issue.identifier,
+          reasons: decision.reasons,
+        });
+        continue;
+      }
     }
 
     next.claimed.add(issue.id);
@@ -89,6 +123,7 @@ function handleTick(
       type: 'dispatch',
       issue,
       attempt: null,
+      backend: config.agent.localBackend ? 'local' : 'primary',
     });
   }
 
@@ -131,6 +166,21 @@ function handleWorkerExit(
     });
   } else {
     const nextAttempt = (attempt ?? 0) + 1;
+    const escalationConfig = resolveEscalationConfig(config);
+
+    // Check if this is a diagnostic issue that has exceeded its retry budget
+    const scopeLabel = entry?.issue.labels.find((l) => l.startsWith('scope:'));
+    const isDiagnostic = scopeLabel === 'scope:diagnostic';
+    if (isDiagnostic && nextAttempt > escalationConfig.diagnosticRetryBudget) {
+      effects.push({
+        type: 'escalate',
+        issueId,
+        identifier: entry?.identifier ?? issueId,
+        reasons: [`diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget})`],
+      });
+      return { nextState: next, effects };
+    }
+
     const delayMs = calculateRetryDelay(nextAttempt, 'failure', config.agent.maxRetryBackoffMs);
     next.retryAttempts.set(issueId, {
       issueId,
@@ -223,7 +273,7 @@ function handleAgentUpdate(
   return { nextState: next, effects };
 }
 
-function updateRateLimits(state: OrchestratorState, event: AgentEvent): void {
+function _updateRateLimits(state: OrchestratorState, event: AgentEvent): void {
   if (event.type === 'rate_limit') {
     state.globalCooldownUntilMs = Date.now() + state.globalCooldownMs;
   } else if (event.type === 'turn_start') {
@@ -233,7 +283,7 @@ function updateRateLimits(state: OrchestratorState, event: AgentEvent): void {
   }
 }
 
-function updateSessionFromEvent(
+function _updateSessionFromEvent(
   entry: RunningEntry,
   event: AgentEvent,
   state: OrchestratorState,
