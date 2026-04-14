@@ -57,12 +57,15 @@ export type SideEffect =
   | ReleaseClaimEffect
   | CleanWorkspaceEffect
   | UpdateTokensEffect
-  | EmitLogEffect;
+  | EmitLogEffect
+  | EscalateEffect;
 
 export interface DispatchEffect {
   type: 'dispatch';
   issue: Issue;
   attempt: number | null;
+  /** Which backend to dispatch to. Defaults to 'primary' for backward compat. */
+  backend?: 'local' | 'primary';
 }
 
 export interface StopEffect {
@@ -102,4 +105,11 @@ export interface EmitLogEffect {
   level: 'info' | 'warn' | 'error';
   message: string;
   context?: Record<string, unknown>;
+}
+
+export interface EscalateEffect {
+  type: 'escalate';
+  issueId: string;
+  identifier: string;
+  reasons: string[];
 }
