@@ -40,7 +40,8 @@ export class OrchestratorServer {
     this.port = port;
     this.interactionQueue = deps?.interactionQueue;
     this.plansDir = deps?.plansDir ?? path.resolve('docs', 'plans');
-    this.dashboardDir = deps?.dashboardDir ?? path.resolve('packages', 'dashboard', 'dist');
+    this.dashboardDir =
+      deps?.dashboardDir ?? path.resolve('packages', 'dashboard', 'dist', 'client');
     this.httpServer = http.createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(this.httpServer);
 

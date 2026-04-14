@@ -13,6 +13,26 @@ export default defineConfig({
         target: `http://localhost:${process.env['DASHBOARD_API_PORT'] ?? '3701'}`,
         changeOrigin: true,
       },
+      '/api/v1': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
+        changeOrigin: true,
+      },
+      '/api/interactions': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
+        changeOrigin: true,
+      },
+      '/api/chat': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
+        changeOrigin: true,
+      },
+      '/api/plans': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
+        ws: true,
+      },
     },
   },
   build: {
