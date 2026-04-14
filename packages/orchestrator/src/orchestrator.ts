@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import * as path from 'node:path';
 import {
   WorkflowConfig,
   Issue,
@@ -24,9 +25,12 @@ import { ClaudeBackend } from './agent/backends/claude';
 import { OpenAIBackend } from './agent/backends/openai';
 import { GeminiBackend } from './agent/backends/gemini';
 import { AnthropicBackend } from './agent/backends/anthropic';
+import { LocalBackend } from './agent/backends/local';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
+import { InteractionQueue } from './core/interaction-queue';
+import type { EscalateEffect } from './types/events';
 
 /**
  * The central orchestrator that manages the lifecycle of coding agents.
@@ -49,6 +53,8 @@ export class Orchestrator extends EventEmitter {
   private server?: OrchestratorServer;
   private interval?: NodeJS.Timeout | undefined;
   private logger: StructuredLogger;
+  private interactionQueue: InteractionQueue;
+  private localRunner: AgentRunner | null;
 
   /**
    * Creates a new Orchestrator instance.
@@ -76,6 +82,15 @@ export class Orchestrator extends EventEmitter {
     this.runner = new AgentRunner(overrides?.backend || this.createBackend(), {
       maxTurns: config.agent.maxTurns,
     });
+
+    this.interactionQueue = new InteractionQueue(
+      path.join(config.workspace.root, '..', 'interactions')
+    );
+
+    const localBackend = this.createLocalBackend();
+    this.localRunner = localBackend
+      ? new AgentRunner(localBackend, { maxTurns: config.agent.maxTurns })
+      : null;
 
     if (config.server?.port) {
       this.server = new OrchestratorServer(this, config.server.port);
@@ -111,6 +126,17 @@ export class Orchestrator extends EventEmitter {
       });
     }
     throw new Error(`Unsupported agent backend: ${this.config.agent.backend}`);
+  }
+
+  private createLocalBackend(): AgentBackend | null {
+    if (this.config.agent.localBackend === 'openai-compatible') {
+      return new LocalBackend({
+        endpoint: this.config.agent.localEndpoint,
+        model: this.config.agent.localModel,
+        apiKey: this.config.agent.localApiKey,
+      });
+    }
+    return null;
   }
 
   public async asyncTick(): Promise<void> {
@@ -181,7 +207,7 @@ export class Orchestrator extends EventEmitter {
   private async handleEffect(effect: SideEffect): Promise<void> {
     switch (effect.type) {
       case 'dispatch':
-        await this.dispatchIssue(effect.issue, effect.attempt);
+        await this.dispatchIssue(effect.issue, effect.attempt, effect.backend);
         break;
       case 'stop':
         await this.stopIssue(effect.issueId);
@@ -198,7 +224,40 @@ export class Orchestrator extends EventEmitter {
       case 'cleanWorkspace':
         await this.workspace.removeWorkspace(effect.identifier);
         break;
+      case 'escalate':
+        await this.handleEscalation(effect as EscalateEffect);
+        break;
     }
+  }
+
+  /**
+   * Handles an escalation effect by writing to the interaction queue and logging.
+   */
+  private async handleEscalation(effect: EscalateEffect): Promise<void> {
+    const issue = Array.from(this.state.running.values()).find(
+      (e) => e.issueId === effect.issueId
+    )?.issue;
+
+    this.logger.warn(
+      `Escalating ${effect.identifier} to needs-human: ${effect.reasons.join('; ')}`,
+      { issueId: effect.issueId }
+    );
+
+    await this.interactionQueue.push({
+      id: `interaction-${Date.now()}-${effect.issueId.slice(0, 8)}`,
+      issueId: effect.issueId,
+      type: 'needs-human',
+      reasons: effect.reasons,
+      context: {
+        issueTitle: issue?.title ?? effect.identifier,
+        issueDescription: issue?.description ?? null,
+        specPath: null,
+        planPath: null,
+        relatedFiles: [],
+      },
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+    });
   }
 
   /**
@@ -207,7 +266,11 @@ export class Orchestrator extends EventEmitter {
    * @param issue - The issue to resolve
    * @param attempt - The retry attempt number
    */
-  private async dispatchIssue(issue: Issue, attempt: number | null): Promise<void> {
+  private async dispatchIssue(
+    issue: Issue,
+    attempt: number | null,
+    backend?: 'local' | 'primary'
+  ): Promise<void> {
     this.logger.info(`Dispatching issue: ${issue.identifier} (attempt ${attempt})`, {
       issueId: issue.id,
     });
@@ -303,7 +366,8 @@ export class Orchestrator extends EventEmitter {
         });
       }
 
-      this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt);
+      const activeRunner = backend === 'local' && this.localRunner ? this.localRunner : this.runner;
+      this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
     } catch (error) {
       this.logger.error(`Dispatch failed for ${issue.identifier}`, { error: String(error) });
       await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
@@ -314,13 +378,15 @@ export class Orchestrator extends EventEmitter {
     issue: Issue,
     workspacePath: string,
     prompt: string,
-    attempt: number | null
+    attempt: number | null,
+    runner?: AgentRunner
   ): void {
+    const activeRunner = runner ?? this.runner;
     this.logger.info(`Starting background task for ${issue.identifier}`);
     (async () => {
       try {
         this.logger.info(`Calling runner.runSession for ${issue.identifier}`);
-        const sessionGen = this.runner.runSession(issue, workspacePath, prompt);
+        const sessionGen = activeRunner.runSession(issue, workspacePath, prompt);
         for await (const event of sessionGen) {
           this.logger.info(`Received event from ${issue.identifier}: ${event.type}`);
           // 1. Update internal state machine
