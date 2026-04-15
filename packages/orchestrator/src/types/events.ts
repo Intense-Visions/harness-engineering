@@ -1,5 +1,5 @@
 import type { Issue, AgentEvent, TokenUsage, ConcernSignal } from '@harness-engineering/types';
-import type { EnrichedSpec } from '@harness-engineering/intelligence';
+import type { EnrichedSpec, SimulationResult } from '@harness-engineering/intelligence';
 
 /**
  * Discriminated union of events that drive the orchestrator state machine.
@@ -22,6 +22,8 @@ export interface TickEvent {
   concernSignals?: Map<string, ConcernSignal[]>;
   /** Pre-computed enriched specs from intelligence pipeline (issueId → spec) */
   enrichedSpecs?: Map<string, EnrichedSpec>;
+  /** Pre-computed PESL simulation results from intelligence pipeline (issueId -> result) */
+  simulationResults?: Map<string, SimulationResult>;
 }
 
 export interface WorkerExitEvent {

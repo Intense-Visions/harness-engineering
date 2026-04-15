@@ -10,7 +10,11 @@ import {
 } from '@harness-engineering/types';
 import { writeTaint } from '@harness-engineering/core';
 import { IntelligencePipeline, AnthropicAnalysisProvider } from '@harness-engineering/intelligence';
-import type { EnrichedSpec } from '@harness-engineering/intelligence';
+import type {
+  EnrichedSpec,
+  SimulationResult,
+  ComplexityScore,
+} from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
 import {
   OrchestratorState,
@@ -182,7 +186,35 @@ export class Orchestrator extends EventEmitter {
     });
     const store = new GraphStore();
     this.graphStore = store;
-    return new IntelligencePipeline(provider, store);
+    return new IntelligencePipeline(provider, store, {
+      ...(intel.models.pesl !== undefined && { peslModel: intel.models.pesl }),
+    });
+  }
+
+  private async runPeslSimulations(
+    candidates: Issue[],
+    enrichedSpecs: Map<string, EnrichedSpec>,
+    complexityScores: Map<string, ComplexityScore>
+  ): Promise<Map<string, SimulationResult>> {
+    const results = new Map<string, SimulationResult>();
+    for (const issue of candidates) {
+      const spec = enrichedSpecs.get(issue.id);
+      const score = complexityScores.get(issue.id);
+      if (!spec || !score) continue;
+
+      const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+      try {
+        const simResult = await this.pipeline!.simulate(spec, score, scopeTier);
+        results.set(issue.id, simResult);
+      } catch (err) {
+        this.logger.error(`PESL simulation failed for ${issue.identifier}`, {
+          issueId: issue.id,
+          error: String(err),
+        });
+        // Simulation failure is non-fatal — issue proceeds without simulation
+      }
+    }
+    return results;
   }
 
   public async asyncTick(): Promise<void> {
@@ -229,10 +261,12 @@ export class Orchestrator extends EventEmitter {
     // 3. Pre-process candidates through intelligence pipeline (if enabled)
     let concernSignals: Map<string, ConcernSignal[]> | undefined;
     let enrichedSpecs: Map<string, EnrichedSpec> | undefined;
+    let simulationResults: Map<string, SimulationResult> | undefined;
 
     if (this.pipeline) {
       concernSignals = new Map();
       enrichedSpecs = new Map();
+      const complexityScores = new Map<string, ComplexityScore>();
       const escalationConfig = resolveEscalationConfig(this.config);
 
       for (const issue of candidatesResult.value) {
@@ -249,14 +283,23 @@ export class Orchestrator extends EventEmitter {
           if (result.spec) {
             enrichedSpecs.set(issue.id, result.spec);
           }
+          if (result.score) {
+            complexityScores.set(issue.id, result.score);
+          }
         } catch (err) {
           this.logger.error(`Intelligence pipeline failed for ${issue.identifier}`, {
             issueId: issue.id,
             error: String(err),
           });
-          // Pipeline failure is non-fatal — continue with empty signals
         }
       }
+
+      // Run PESL simulation for candidates with enriched specs and scores
+      simulationResults = await this.runPeslSimulations(
+        candidatesResult.value,
+        enrichedSpecs,
+        complexityScores
+      );
     }
 
     // 4. Dispatch tick event to state machine
@@ -267,6 +310,7 @@ export class Orchestrator extends EventEmitter {
       nowMs,
       ...(concernSignals !== undefined && { concernSignals }),
       ...(enrichedSpecs !== undefined && { enrichedSpecs }),
+      ...(simulationResults !== undefined && { simulationResults }),
     };
 
     let { nextState, effects } = applyEvent(this.state, tickEvent, this.config);

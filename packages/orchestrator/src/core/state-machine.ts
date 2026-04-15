@@ -72,6 +72,26 @@ function tryEscalate(
   };
 }
 
+function tryPeslAbort(issue: Issue, event: TickEvent): EscalateEffect | null {
+  const simulation = event.simulationResults?.get(issue.id);
+  if (!simulation?.abort) return null;
+
+  const enrichedSpec = event.enrichedSpecs?.get(issue.id);
+  return {
+    type: 'escalate',
+    issueId: issue.id,
+    identifier: issue.identifier,
+    reasons: [
+      `PESL simulation recommends abort (confidence: ${simulation.executionConfidence.toFixed(2)})`,
+      ...simulation.predictedFailures.slice(0, 3).map((f) => `Predicted failure: ${f}`),
+      ...simulation.testGaps.slice(0, 2).map((g) => `Test gap: ${g}`),
+    ],
+    issueTitle: issue.title,
+    issueDescription: issue.description,
+    ...(enrichedSpec !== undefined && { enrichedSpec }),
+  };
+}
+
 function handleTick(
   state: OrchestratorState,
   event: TickEvent,
@@ -119,6 +139,14 @@ function handleTick(
     if (escalation) {
       next.claimed.add(issue.id);
       effects.push(escalation);
+      continue;
+    }
+
+    // Check PESL simulation result for abort recommendation
+    const peslAbort = tryPeslAbort(issue, event);
+    if (peslAbort) {
+      next.claimed.add(issue.id);
+      effects.push(peslAbort);
       continue;
     }
 
