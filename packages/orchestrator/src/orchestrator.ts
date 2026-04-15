@@ -14,6 +14,7 @@ import type {
   EnrichedSpec,
   SimulationResult,
   ComplexityScore,
+  ExecutionOutcome,
 } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
 import {
@@ -69,6 +70,7 @@ export class Orchestrator extends EventEmitter {
   private pipeline: IntelligencePipeline | null;
   private graphStore: GraphStore | null = null;
   private graphLoaded = false;
+  private enrichedSpecsByIssue: Map<string, EnrichedSpec> = new Map();
 
   /**
    * Creates a new Orchestrator instance.
@@ -283,6 +285,7 @@ export class Orchestrator extends EventEmitter {
           }
           if (result.spec) {
             enrichedSpecs.set(issue.id, result.spec);
+            this.enrichedSpecsByIssue.set(issue.id, result.spec);
           }
           if (result.score) {
             complexityScores.set(issue.id, result.score);
@@ -667,6 +670,47 @@ export class Orchestrator extends EventEmitter {
     attempt: number | null,
     error?: string
   ): Promise<void> {
+    // Record execution outcome in graph (if pipeline is enabled)
+    if (this.pipeline) {
+      const entry = this.state.running.get(issueId);
+      const enrichedSpec = this.enrichedSpecsByIssue.get(issueId);
+      const affectedSystemNodeIds = enrichedSpec
+        ? enrichedSpec.affectedSystems
+            .filter((s) => s.graphNodeId !== null)
+            .map((s) => s.graphNodeId!)
+        : [];
+
+      const outcome: ExecutionOutcome = {
+        id: `outcome:${issueId}:${attempt ?? 0}`,
+        issueId,
+        identifier: entry?.identifier ?? issueId,
+        result: reason === 'normal' ? 'success' : 'failure',
+        retryCount: attempt ?? 0,
+        failureReasons: error ? [error] : [],
+        durationMs: entry ? Date.now() - new Date(entry.startedAt).getTime() : 0,
+        linkedSpecId: enrichedSpec?.id ?? null,
+        affectedSystemNodeIds,
+        timestamp: new Date().toISOString(),
+      };
+
+      try {
+        this.pipeline.recordOutcome(outcome);
+        this.logger.info(`Recorded execution outcome for ${issueId}: ${reason}`, {
+          issueId,
+          result: outcome.result,
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to record execution outcome for ${issueId}`, {
+          error: String(err),
+        });
+      }
+
+      // Clean up enriched spec cache for completed issues
+      if (reason === 'normal') {
+        this.enrichedSpecsByIssue.delete(issueId);
+      }
+    }
+
     const event: OrchestratorEvent = {
       type: 'worker_exit',
       issueId,
