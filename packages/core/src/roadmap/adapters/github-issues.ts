@@ -496,7 +496,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     }
   }
 
-  async fetchComments(_externalId: string): Promise<Result<TrackerComment[], Error>> {
+  async fetchComments(_externalId: string): Promise<Result<TrackerComment[]>> {
     return Err(new Error('fetchComments not implemented — see Phase 2 of analysis-tracker-sync'));
   }
 }

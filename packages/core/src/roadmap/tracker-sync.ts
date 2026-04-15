@@ -38,7 +38,7 @@ export interface TrackerSyncAdapter {
   addComment(externalId: string, markdownBody: string): Promise<Result<void>>;
 
   /** Fetch all comments on an external ticket */
-  fetchComments(externalId: string): Promise<Result<TrackerComment[], Error>>;
+  fetchComments(externalId: string): Promise<Result<TrackerComment[]>>;
 }
 
 /**

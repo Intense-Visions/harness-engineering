@@ -74,4 +74,6 @@ export interface TrackerComment {
   createdAt: string;
   /** Author who posted the comment */
   author: string;
+  /** ISO timestamp when the comment was last updated, or null if tracker does not support it */
+  updatedAt: string | null;
 }
