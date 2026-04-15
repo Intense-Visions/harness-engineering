@@ -103,6 +103,36 @@ describe('extractAnalysisFromComments', () => {
     expect(extractAnalysisFromComments([])).toBeNull();
   });
 
+  it('handles CRLF line endings in the JSON fence', () => {
+    const record = {
+      issueId: 'crlf-1',
+      identifier: 'crlf-feature',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#50',
+    };
+    // Build body with \r\n line endings
+    const body = [
+      '## Harness Analysis: crlf-feature',
+      '',
+      '<details>',
+      '<summary>Full Analysis Data</summary>',
+      '',
+      '```json',
+      JSON.stringify({ _harness_analysis: true, _version: 1, ...record }, null, 2),
+      '```',
+      '',
+      '</details>',
+    ].join('\r\n');
+    const comments = [makeComment({ body })];
+    const result = extractAnalysisFromComments(comments);
+    expect(result).not.toBeNull();
+    expect(result!.issueId).toBe('crlf-1');
+    expect(result!.identifier).toBe('crlf-feature');
+  });
+
   it('strips _harness_analysis and _version discriminator fields from the returned record', () => {
     const record = {
       issueId: 'issue-1',
