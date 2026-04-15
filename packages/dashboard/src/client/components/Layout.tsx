@@ -80,11 +80,11 @@ export function Layout({ children }: Props) {
                   background: `radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.1), transparent 40%)`,
                 }}
               />
-              {NAV_ITEMS.map(({ to, label, end }) => (
+              {NAV_ITEMS.map((item) => (
                 <NavLink
-                  key={to}
-                  to={to}
-                  end={end}
+                  key={item.to}
+                  to={item.to}
+                  {...('end' in item ? { end: item.end } : {})}
                   className={({ isActive }) =>
                     [
                       'relative rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all duration-300',
@@ -94,7 +94,7 @@ export function Layout({ children }: Props) {
                 >
                   {({ isActive }) => (
                     <>
-                      <span className="relative z-10">{label}</span>
+                      <span className="relative z-10">{item.label}</span>
                       {isActive && (
                         <motion.div
                           layoutId="nav-pill"

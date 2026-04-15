@@ -13,7 +13,7 @@ export function NeuralDecryptionLoader() {
     { x: 50, y: 50 }, // Core
   ];
 
-  const connections = [
+  const connections: [number, number][] = [
     [0, 1],
     [1, 2],
     [2, 3],
@@ -117,20 +117,20 @@ export function NeuralDecryptionLoader() {
           <g key={`mesh-group-${i}`}>
             {/* Background static line */}
             <line
-              x1={points[a].x}
-              y1={points[a].y}
-              x2={points[b].x}
-              y2={points[b].y}
+              x1={points[a]!.x}
+              y1={points[a]!.y}
+              x2={points[b]!.x}
+              y2={points[b]!.y}
               stroke="var(--color-primary-500)"
               strokeWidth="0.2"
               strokeOpacity="0.1"
             />
             {/* Active flow highlights */}
             <motion.line
-              x1={points[a].x}
-              y1={points[a].y}
-              x2={points[b].x}
-              y2={points[b].y}
+              x1={points[a]!.x}
+              y1={points[a]!.y}
+              x2={points[b]!.x}
+              y2={points[b]!.y}
               stroke="url(#neural-gradient-v3)"
               strokeWidth="0.5"
               strokeOpacity="0.4"
@@ -143,8 +143,9 @@ export function NeuralDecryptionLoader() {
 
         {/* --- Data Packet Flow --- */}
         {packets.map((p) => {
-          const start = points[connections[p.connection][0]];
-          const end = points[connections[p.connection][1]];
+          const conn = connections[p.connection]!;
+          const start = points[conn[0]!]!;
+          const end = points[conn[1]!]!;
           return (
             <motion.rect
               key={`packet-${p.id}`}

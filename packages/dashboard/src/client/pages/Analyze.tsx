@@ -613,11 +613,10 @@ function ActionButton({
 }) {
   return (
     <motion.button
-      whileHover={!disabled ? { scale: 1.02 } : undefined}
-      whileTap={!disabled ? { scale: 0.98 } : undefined}
+      {...(!disabled ? { whileHover: { scale: 1.02 }, whileTap: { scale: 0.98 } } : {})}
       onClick={onClick}
       disabled={disabled || pending || done}
-      title={tooltip}
+      {...(tooltip != null ? { title: tooltip } : {})}
       className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all disabled:cursor-not-allowed disabled:opacity-30 ${
         done ? 'border-emerald-500/30 text-emerald-400' : color
       }`}
@@ -1004,11 +1003,9 @@ export function Analyze() {
                 }
                 pending={actionState === 'dispatch-pending'}
                 done={actionState === 'dispatch-done'}
-                title={
-                  cmlResult?.recommendedRoute !== 'local'
-                    ? 'Only available for local-route items'
-                    : undefined
-                }
+                {...(cmlResult?.recommendedRoute !== 'local'
+                  ? { title: 'Only available for local-route items' }
+                  : {})}
                 color="border-gray-700 text-gray-400 hover:border-emerald-500/50 hover:text-emerald-400"
               />
               <ActionButton

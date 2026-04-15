@@ -28,7 +28,11 @@ function handleThought(blocks: ContentBlock[], content: string): void {
 function handleCall(blocks: ContentBlock[], content: string): void {
   const match = content.match(/^Calling (\S+)\(([\s\S]*)\)$/);
   if (match) {
-    blocks.push({ kind: 'tool_use', tool: match[1]!, args: match[2] });
+    blocks.push({
+      kind: 'tool_use',
+      tool: match[1]!,
+      ...(match[2] != null ? { args: match[2] } : {}),
+    });
   } else {
     blocks.push({ kind: 'tool_use', tool: content });
   }

@@ -84,7 +84,11 @@ export function applyChunk(blocks: ContentBlock[], event: ChatSSEEvent): void {
       handleThinkingBlock(blocks, lastBlock, event.text);
       break;
     case 'tool_use':
-      blocks.push({ kind: 'tool_use', tool: event.tool, args: event.args });
+      blocks.push({
+        kind: 'tool_use',
+        tool: event.tool,
+        ...(event.args != null ? { args: event.args } : {}),
+      });
       break;
     case 'tool_result':
       handleToolResultBlock(blocks, event.content, event.isError);
@@ -124,7 +128,7 @@ function handleToolResultBlock(blocks: ContentBlock[], content: string, isError?
   for (let i = blocks.length - 1; i >= 0; i--) {
     const b = blocks[i]!;
     if (b.kind === 'tool_use' && b.result === undefined) {
-      blocks[i] = { ...b, result: content, isError };
+      blocks[i] = { ...b, result: content, ...(isError != null ? { isError } : {}) };
       break;
     }
   }
