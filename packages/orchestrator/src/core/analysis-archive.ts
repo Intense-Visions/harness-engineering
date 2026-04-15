@@ -54,7 +54,9 @@ export class AnalysisArchive {
     const filePath = path.join(this.dir, `${issueId}.json`);
     try {
       const raw = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(raw) as AnalysisRecord;
+      const record = JSON.parse(raw) as AnalysisRecord;
+      record.externalId ??= null;
+      return record;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw err;
@@ -73,7 +75,9 @@ export class AnalysisArchive {
       for (const file of jsonFiles) {
         const filePath = path.join(this.dir, file);
         const raw = await fs.readFile(filePath, 'utf-8');
-        records.push(JSON.parse(raw) as AnalysisRecord);
+        const record = JSON.parse(raw) as AnalysisRecord;
+        record.externalId ??= null;
+        records.push(record);
       }
 
       return records;

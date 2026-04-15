@@ -346,7 +346,7 @@ export class Orchestrator extends EventEmitter {
           score,
           simulation,
           analyzedAt: new Date().toISOString(),
-          externalId: null, // TODO(analysis-tracker-sync): populate from issue.externalId in Phase 2
+          externalId: issue.externalId ?? null,
         });
       } catch (err) {
         this.logger.warn(`Failed to archive analysis for ${issue.identifier}`, {
