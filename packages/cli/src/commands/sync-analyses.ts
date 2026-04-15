@@ -20,8 +20,8 @@ export function extractAnalysisFromComments(
   );
 
   for (const comment of sorted) {
-    // Match ```json ... ``` fences
-    const fenceRegex = /```json\n([\s\S]*?)\n```/g;
+    // Match ```json ... ``` fences (handle both LF and CRLF line endings)
+    const fenceRegex = /```json\s*\r?\n([\s\S]*?)\r?\n```/g;
     let match: RegExpExecArray | null;
 
     while ((match = fenceRegex.exec(comment.body)) !== null) {
@@ -30,6 +30,17 @@ export function extractAnalysisFromComments(
         if (parsed._harness_analysis === true) {
           // Strip discriminator fields before returning
           const { _harness_analysis, _version, ...record } = parsed;
+
+          // Validate required fields to prevent incomplete records or path traversal
+          if (
+            typeof record.issueId !== 'string' || !record.issueId ||
+            typeof record.identifier !== 'string' || !record.identifier ||
+            typeof record.analyzedAt !== 'string' ||
+            /[/\\]/.test(record.issueId)
+          ) {
+            continue;
+          }
+
           return record as AnalysisRecord;
         }
       } catch {

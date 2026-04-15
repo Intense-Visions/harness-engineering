@@ -47,8 +47,8 @@ import { createSetupMcpCommand } from './setup-mcp';
 import { createShareCommand } from './share';
 import { createSkillCommand } from './skill';
 import { createSnapshotCommand } from './snapshot';
-import { createSyncAnalysesCommand } from './sync-analyses';
 import { createStateCommand } from './state';
+import { createSyncAnalysesCommand } from './sync-analyses';
 import { createTaintCommand } from './taint';
 import { createTelemetryCommand } from './telemetry';
 import { createTraceabilityCommand } from './traceability';
@@ -108,8 +108,8 @@ export const commandCreators: Array<() => Command> = [
   createShareCommand,
   createSkillCommand,
   createSnapshotCommand,
-  createSyncAnalysesCommand,
   createStateCommand,
+  createSyncAnalysesCommand,
   createTaintCommand,
   createTelemetryCommand,
   createTraceabilityCommand,
