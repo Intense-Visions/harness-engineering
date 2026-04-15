@@ -4,6 +4,7 @@ import type {
   ExternalTicket,
   ExternalTicketState,
   TrackerSyncConfig,
+  TrackerComment,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerSyncAdapter } from '../tracker-sync';
@@ -466,5 +467,36 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  async addComment(externalId: string, markdownBody: string): Promise<Result<void>> {
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+
+      const response = await fetchWithRetry(
+        this.fetchFn,
+        `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments`,
+        {
+          method: 'POST',
+          headers: this.headers(),
+          body: JSON.stringify({ body: markdownBody }),
+        },
+        this.retryOpts
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        return Err(new Error(`GitHub API error ${response.status}: ${text}`));
+      }
+
+      return Ok(undefined);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async fetchComments(_externalId: string): Promise<Result<TrackerComment[], Error>> {
+    return Err(new Error('fetchComments not implemented — see Phase 2 of analysis-tracker-sync'));
   }
 }

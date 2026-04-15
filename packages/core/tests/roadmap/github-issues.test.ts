@@ -425,4 +425,67 @@ describe('GitHubIssuesSyncAdapter', () => {
       expect(body.assignees).toEqual(['cwarner']);
     });
   });
+
+  describe('addComment', () => {
+    it('posts a comment to the issue', async () => {
+      const fetchFn = mockFetch(201, {});
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.addComment('github:owner/repo#42', 'My comment body');
+      expect(result.ok).toBe(true);
+
+      const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      expect(url).toBe('https://api.github.com/repos/owner/repo/issues/42/comments');
+      expect(opts.method).toBe('POST');
+      const body = JSON.parse(opts.body as string);
+      expect(body.body).toBe('My comment body');
+    });
+
+    it('returns Err for invalid externalId', async () => {
+      const fetchFn = mockFetch(201, {});
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.addComment('invalid', 'My comment body');
+      expect(result.ok).toBe(false);
+    });
+
+    it('returns Err on API failure', async () => {
+      const fetchFn = mockFetch(403, { message: 'Forbidden' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+        maxRetries: 0,
+      });
+
+      const result = await adapter.addComment('github:owner/repo#42', 'My comment body');
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toMatch(/403/);
+    });
+  });
+
+  describe('fetchComments', () => {
+    it('returns Err with not-implemented message (Phase 1 stub)', async () => {
+      const fetchFn = mockFetch(200, []);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toMatch(/not implemented/i);
+    });
+  });
 });

@@ -4,6 +4,7 @@ import type {
   ExternalTicket,
   ExternalTicketState,
   TrackerSyncConfig,
+  TrackerComment,
 } from '@harness-engineering/types';
 
 /**
@@ -32,6 +33,12 @@ export interface TrackerSyncAdapter {
 
   /** Get the authenticated user's login (e.g., "@octocat"). Cached after first call. */
   getAuthenticatedUser(): Promise<Result<string>>;
+
+  /** Post a markdown comment to the external ticket */
+  addComment(externalId: string, markdownBody: string): Promise<Result<void>>;
+
+  /** Fetch all comments on an external ticket */
+  fetchComments(externalId: string): Promise<Result<TrackerComment[], Error>>;
 }
 
 /**
