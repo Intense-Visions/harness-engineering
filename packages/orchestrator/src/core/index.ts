@@ -16,3 +16,4 @@ export type { OrchestratorEvent, SideEffect } from '../types/events';
 export { renderAnalysisComment } from './analysis-comment';
 export { loadPublishedIndex, savePublishedIndex } from './published-index';
 export type { PublishedIndex } from './published-index';
+export { loadTrackerSyncConfig } from './tracker-config';
