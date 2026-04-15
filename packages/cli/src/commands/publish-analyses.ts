@@ -8,6 +8,7 @@ import {
   loadPublishedIndex,
   savePublishedIndex,
 } from '@harness-engineering/orchestrator';
+import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 
 interface BootstrapResult {
   token: string;
@@ -72,7 +73,7 @@ function buildNameToExternalIdMap(projectPath: string): Map<string, string> | nu
 }
 
 function resolveExternalId(
-  record: { identifier: string; externalId?: string },
+  record: { identifier: string; externalId?: string | null },
   nameToExternalId: Map<string, string>
 ): string | null {
   if (record.externalId) return record.externalId;
@@ -88,7 +89,7 @@ function resolveExternalId(
 }
 
 async function publishUnpublishedAnalyses(
-  analyses: Array<{ issueId: string; identifier: string; [k: string]: unknown }>,
+  analyses: AnalysisRecord[],
   adapter: {
     addComment: (
       id: string,
