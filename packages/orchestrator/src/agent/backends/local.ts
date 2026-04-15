@@ -19,7 +19,11 @@ export interface LocalBackendConfig {
   model?: string;
   /** Optional API key (some servers require a dummy key). */
   apiKey?: string;
+  /** Request timeout in ms (default: 90000). */
+  timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 90_000;
 
 export interface LocalSession extends AgentSession {
   systemPrompt?: string;
@@ -35,10 +39,12 @@ export class LocalBackend implements AgentBackend {
       endpoint: config.endpoint ?? 'http://localhost:11434/v1',
       model: config.model ?? 'deepseek-coder-v2',
       apiKey: config.apiKey ?? 'ollama',
+      timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     };
     this.client = new OpenAI({
       apiKey: this.config.apiKey,
       baseURL: this.config.endpoint,
+      timeout: this.config.timeoutMs,
     });
   }
 

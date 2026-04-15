@@ -246,6 +246,17 @@ intelligence:
     pesl: deepseek-r1 # reasoning model for simulation
 ```
 
+For thinking models (Qwen3, DeepSeek-R1), disable reasoning for structured output:
+
+```yaml
+intelligence:
+  enabled: true
+  promptSuffix: '/no_think' # Qwen3 — disable thinking for structured output
+  jsonMode: false # Qwen3 hangs with Ollama's JSON grammar constraint
+  requestTimeoutMs: 90000 # fail fast instead of waiting 10 min
+  failureCacheTtlMs: 300000 # don't retry failed analyses for 5 min
+```
+
 When `enabled: false` (default), the pipeline is completely skipped. See the [Intelligence Pipeline Guide](../../docs/guides/intelligence-pipeline.md) for full configuration reference.
 
 ## Dependencies

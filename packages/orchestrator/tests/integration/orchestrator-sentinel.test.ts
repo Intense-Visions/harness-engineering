@@ -53,6 +53,8 @@ describe('Orchestrator Sentinel Integration', () => {
     url: null,
     labels: [],
     blockedBy: [],
+    spec: null,
+    plans: [],
     createdAt: null,
     updatedAt: null,
   };

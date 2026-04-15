@@ -63,6 +63,8 @@ export function getDefaultConfig(): WorkflowConfig {
     },
     intelligence: {
       enabled: false,
+      requestTimeoutMs: 90_000,
+      failureCacheTtlMs: 300_000,
     },
   };
 }

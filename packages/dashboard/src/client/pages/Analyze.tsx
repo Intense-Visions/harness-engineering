@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles, MapPin, Zap, Edit3, Download, Check } from 'lucide-react';
 import type { AnalyzeSSEEvent } from '../types/orchestrator';
 
 // --- Result types ---
@@ -484,6 +484,139 @@ function SignalsBadges({ signals }: { signals: Signal[] }) {
   );
 }
 
+// --- Export spec markdown builder ---
+
+function buildSpecMarkdown(
+  title: string,
+  sel: SELResult | null,
+  cml: CMLResult | null,
+  pesl: PESLResult | null
+): string {
+  const lines: string[] = [`# Spec: ${title}`, ''];
+  lines.push(`**Generated:** ${new Date().toISOString()}`);
+  if (cml) {
+    lines.push(`**Route Recommendation:** ${cml.recommendedRoute}`);
+    lines.push(`**Risk Level:** ${cml.riskLevel}`);
+  }
+  lines.push('');
+
+  if (sel) {
+    lines.push('## Intent', '', sel.intent, '');
+    lines.push('## Summary', '', sel.summary, '');
+    if (sel.affectedSystems.length > 0) {
+      lines.push('## Affected Systems', '');
+      for (const sys of sel.affectedSystems) lines.push(`- ${sys.name}`);
+      lines.push('');
+    }
+  }
+
+  if (cml) {
+    lines.push('## Complexity Score', '');
+    lines.push(`- **Overall:** ${Math.round(cml.overall * 100)}%`);
+    lines.push(`- **Structural:** ${Math.round(cml.dimensions.structural * 100)}%`);
+    lines.push(`- **Semantic:** ${Math.round(cml.dimensions.semantic * 100)}%`);
+    lines.push(`- **Historical:** ${Math.round(cml.dimensions.historical * 100)}%`);
+    lines.push(
+      `- **Blast Radius:** ${cml.blastRadius.services} services, ${cml.blastRadius.modules} modules, ~${cml.blastRadius.filesEstimated} files`
+    );
+    lines.push('');
+  }
+
+  if (sel) {
+    if (sel.unknowns.length > 0) {
+      lines.push('## Unknowns', '');
+      for (const u of sel.unknowns) lines.push(`- ${u}`);
+      lines.push('');
+    }
+    if (sel.ambiguities.length > 0) {
+      lines.push('## Ambiguities', '');
+      for (const a of sel.ambiguities) lines.push(`- ${a}`);
+      lines.push('');
+    }
+    if (sel.riskSignals.length > 0) {
+      lines.push('## Risk Signals', '');
+      for (const r of sel.riskSignals) lines.push(`- ${r}`);
+      lines.push('');
+    }
+  }
+
+  if (pesl) {
+    lines.push('## Simulation (PESL)', '');
+    lines.push(`**Execution Confidence:** ${Math.round(pesl.executionConfidence * 100)}%`);
+    lines.push('');
+    if (pesl.simulatedPlan.length > 0) {
+      lines.push('### Simulated Plan', '');
+      pesl.simulatedPlan.forEach((s, i) => lines.push(`${i + 1}. ${s}`));
+      lines.push('');
+    }
+    if (pesl.predictedFailures.length > 0) {
+      lines.push('### Predicted Failures', '');
+      for (const f of pesl.predictedFailures) lines.push(`- ${f}`);
+      lines.push('');
+    }
+    if (pesl.recommendedChanges.length > 0) {
+      lines.push('### Recommended Changes', '');
+      for (const c of pesl.recommendedChanges) lines.push(`- ${c}`);
+      lines.push('');
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// --- Action bar ---
+
+type ActionState =
+  | 'idle'
+  | 'roadmap-pending'
+  | 'roadmap-done'
+  | 'dispatch-pending'
+  | 'dispatch-done';
+
+function ActionButton({
+  icon,
+  label,
+  doneLabel,
+  onClick,
+  disabled,
+  pending,
+  done,
+  title: tooltip,
+  color = 'border-gray-700 text-gray-400 hover:border-primary-500/50 hover:text-primary-400',
+}: {
+  icon: React.ReactNode;
+  label: string;
+  doneLabel: string;
+  onClick: () => void;
+  disabled: boolean;
+  pending: boolean;
+  done: boolean;
+  title?: string;
+  color?: string;
+}) {
+  return (
+    <motion.button
+      whileHover={!disabled ? { scale: 1.02 } : undefined}
+      whileTap={!disabled ? { scale: 0.98 } : undefined}
+      onClick={onClick}
+      disabled={disabled || pending || done}
+      title={tooltip}
+      className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all disabled:cursor-not-allowed disabled:opacity-30 ${
+        done ? 'border-emerald-500/30 text-emerald-400' : color
+      }`}
+    >
+      {pending ? (
+        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+      ) : done ? (
+        <Check size={14} />
+      ) : (
+        icon
+      )}
+      {done ? doneLabel : label}
+    </motion.button>
+  );
+}
+
 // --- Main component ---
 
 export function Analyze() {
@@ -497,9 +630,20 @@ export function Analyze() {
   const [cmlResult, setCmlResult] = useState<CMLResult | null>(null);
   const [peslResult, setPeslResult] = useState<PESLResult | null>(null);
   const [signals, setSignals] = useState<Signal[] | null>(null);
+  const [actionState, setActionState] = useState<ActionState>('idle');
+  const [actionError, setActionError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const hasResults = selResult || cmlResult || peslResult || signals;
+  const isDone = !streaming && hasResults;
+
+  // Auto-reset action state after 3 seconds
+  useEffect(() => {
+    if (actionState === 'roadmap-done' || actionState === 'dispatch-done') {
+      const timer = setTimeout(() => setActionState('idle'), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionState]);
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim() || streaming) return;
@@ -566,6 +710,106 @@ export function Analyze() {
     setStreaming(false);
     setStatus(null);
   }, []);
+
+  const handleAddToRoadmap = useCallback(async () => {
+    setActionState('roadmap-pending');
+    setActionError(null);
+    try {
+      const res = await fetch('/api/roadmap/append', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          summary: selResult?.summary,
+          enrichedSpec: selResult
+            ? {
+                intent: selResult.intent,
+                unknowns: selResult.unknowns,
+                ambiguities: selResult.ambiguities,
+                riskSignals: selResult.riskSignals,
+                affectedSystems: selResult.affectedSystems.map((s) => ({ name: s.name })),
+              }
+            : undefined,
+          cmlRecommendedRoute: cmlResult?.recommendedRoute,
+        }),
+      });
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: string };
+        throw new Error(json.error ?? `HTTP ${res.status}`);
+      }
+      setActionState('roadmap-done');
+    } catch (err) {
+      setActionError((err as Error).message);
+      setActionState('idle');
+    }
+  }, [title, selResult, cmlResult]);
+
+  const handleDispatchNow = useCallback(async () => {
+    setActionState('dispatch-pending');
+    setActionError(null);
+    try {
+      const parsedLabels = labels
+        .split(',')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const res = await fetch('/api/dispatch/adhoc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() || undefined,
+          labels: parsedLabels.length > 0 ? parsedLabels : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: string };
+        throw new Error(json.error ?? `HTTP ${res.status}`);
+      }
+      setActionState('dispatch-done');
+    } catch (err) {
+      setActionError((err as Error).message);
+      setActionState('idle');
+    }
+  }, [title, description, labels]);
+
+  const handleRefine = useCallback(() => {
+    if (!selResult) return;
+    const parts: string[] = [];
+    if (description.trim()) parts.push(description.trim());
+    const clarifications: string[] = [];
+    for (const u of selResult.unknowns) clarifications.push(`- Unknown: ${u}`);
+    for (const a of selResult.ambiguities) clarifications.push(`- Ambiguity: ${a}`);
+    if (clarifications.length > 0) {
+      parts.push('', '---', 'Suggested clarifications from analysis:', ...clarifications);
+    }
+    setDescription(parts.join('\n'));
+    // Reset results so the user can re-analyze
+    setSelResult(null);
+    setCmlResult(null);
+    setPeslResult(null);
+    setSignals(null);
+    setActionState('idle');
+    setActionError(null);
+    // Focus the description field
+    document.getElementById('analyze-description')?.focus();
+  }, [selResult, description]);
+
+  const handleExportSpec = useCallback(() => {
+    const markdown = buildSpecMarkdown(title.trim(), selResult, cmlResult, peslResult);
+    const slug = title
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .slice(0, 40);
+    const date = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `spec-${slug}-${date}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [title, selResult, cmlResult, peslResult]);
 
   return (
     <div className="space-y-6">
@@ -709,6 +953,74 @@ export function Analyze() {
             </div>
           )}
           {peslResult && <PESLCard data={peslResult} />}
+
+          {/* Action bar */}
+          {isDone && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-800 bg-gray-900 p-4"
+            >
+              <ActionButton
+                icon={<MapPin size={14} />}
+                label="Add to Roadmap"
+                doneLabel="Added"
+                onClick={() => void handleAddToRoadmap()}
+                disabled={
+                  actionState !== 'idle' &&
+                  actionState !== 'roadmap-done' &&
+                  actionState !== 'dispatch-done'
+                }
+                pending={actionState === 'roadmap-pending'}
+                done={actionState === 'roadmap-done'}
+              />
+              <ActionButton
+                icon={<Zap size={14} />}
+                label="Dispatch Now"
+                doneLabel="Dispatched"
+                onClick={() => void handleDispatchNow()}
+                disabled={
+                  cmlResult?.recommendedRoute !== 'local' ||
+                  (actionState !== 'idle' &&
+                    actionState !== 'roadmap-done' &&
+                    actionState !== 'dispatch-done')
+                }
+                pending={actionState === 'dispatch-pending'}
+                done={actionState === 'dispatch-done'}
+                title={
+                  cmlResult?.recommendedRoute !== 'local'
+                    ? 'Only available for local-route items'
+                    : undefined
+                }
+                color="border-gray-700 text-gray-400 hover:border-emerald-500/50 hover:text-emerald-400"
+              />
+              <ActionButton
+                icon={<Edit3 size={14} />}
+                label="Refine"
+                doneLabel="Refine"
+                onClick={handleRefine}
+                disabled={
+                  !selResult ||
+                  (selResult.unknowns.length === 0 && selResult.ambiguities.length === 0)
+                }
+                pending={false}
+                done={false}
+                title="Pre-populate description with unknowns and ambiguities for re-analysis"
+                color="border-gray-700 text-gray-400 hover:border-amber-500/50 hover:text-amber-400"
+              />
+              <ActionButton
+                icon={<Download size={14} />}
+                label="Export Spec"
+                doneLabel="Export Spec"
+                onClick={handleExportSpec}
+                disabled={!selResult}
+                pending={false}
+                done={false}
+                color="border-gray-700 text-gray-400 hover:border-blue-500/50 hover:text-blue-400"
+              />
+              {actionError && <span className="text-xs text-red-400">{actionError}</span>}
+            </motion.div>
+          )}
         </div>
       )}
 

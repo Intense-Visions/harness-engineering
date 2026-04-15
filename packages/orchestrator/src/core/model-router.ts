@@ -14,6 +14,16 @@ export interface ArtifactPresence {
   hasPlans: boolean;
 }
 
+/**
+ * Derive artifact presence from an Issue's spec and plans fields.
+ */
+export function artifactPresenceFromIssue(issue: Issue): ArtifactPresence {
+  return {
+    hasSpec: issue.spec !== null,
+    hasPlans: issue.plans.length > 0,
+  };
+}
+
 const SCOPE_LABEL_PREFIX = 'scope:';
 const VALID_SCOPE_TIERS: ReadonlySet<string> = new Set([
   'quick-fix',

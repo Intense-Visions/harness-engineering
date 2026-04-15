@@ -17,6 +17,8 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
       { id: 'blocker-1', identifier: 'CORE-10', state: 'done' },
       { id: 'blocker-2', identifier: 'CORE-11', state: 'in_progress' },
     ],
+    spec: null,
+    plans: [],
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-04-14T12:00:00Z',
     ...overrides,

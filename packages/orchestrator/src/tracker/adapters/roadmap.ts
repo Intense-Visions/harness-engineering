@@ -111,6 +111,8 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       branchName: null,
       url: null,
       labels: [],
+      spec: feature.spec,
+      plans: feature.plans,
       blockedBy: feature.blockedBy.map((b: string) => ({
         id: this.generateId(b),
         identifier: b,

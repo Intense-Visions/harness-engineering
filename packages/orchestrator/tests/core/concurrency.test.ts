@@ -42,6 +42,8 @@ function makeRunningEntry(overrides: Partial<RunningEntry> = {}): RunningEntry {
       url: null,
       labels: [],
       blockedBy: [],
+      spec: null,
+      plans: [],
       createdAt: null,
       updatedAt: null,
     },

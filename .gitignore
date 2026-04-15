@@ -56,3 +56,4 @@ temp/
 
 .vitepress
 *.tsbuildinfo
+.playwright-mcp/

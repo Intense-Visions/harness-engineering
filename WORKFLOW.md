@@ -19,8 +19,8 @@ agent:
   command: claude
   # Local model for autonomous execution of simple tasks
   localBackend: openai-compatible
-  localModel: qwen3:8b
-  localEndpoint: http://localhost:11434/v1
+  localEndpoint: http://localhost:1234/v1
+  localModel: gemma-4-e4b
   # Escalation routing — controls what runs locally vs needs human
   escalation:
     alwaysHuman: [full-exploration]
@@ -46,6 +46,8 @@ agent:
   stallTimeoutMs: 60000
 intelligence:
   enabled: true
+  requestTimeoutMs: 180000
+
 server:
   port: 8080
 ---

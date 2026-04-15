@@ -5,9 +5,14 @@ import { handleInteractionsRoute } from './routes/interactions';
 import { handlePlansRoute } from './routes/plans';
 import { handleChatProxyRoute } from './routes/chat-proxy';
 import { handleAnalyzeRoute } from './routes/analyze';
+import { handleRoadmapActionsRoute } from './routes/roadmap-actions';
+import { handleDispatchActionsRoute } from './routes/dispatch-actions';
+import type { DispatchAdHocFn } from './routes/dispatch-actions';
+import { handleAnalysesRoute } from './routes/analyses';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
 import type { InteractionQueue, PendingInteraction } from '../core/interaction-queue';
+import type { AnalysisArchive } from '../core/analysis-archive';
 import type { IntelligencePipeline } from '@harness-engineering/intelligence';
 
 export interface Snapshotable {
@@ -24,6 +29,12 @@ export interface ServerDependencies {
   claudeCommand?: string;
   /** Intelligence pipeline instance (null if disabled) */
   pipeline?: IntelligencePipeline | null;
+  /** Analysis archive for persisted intelligence results */
+  analysisArchive?: AnalysisArchive;
+  /** Path to the roadmap markdown file (for append action) */
+  roadmapPath?: string | null;
+  /** Callback to dispatch a work item immediately, bypassing the tick loop */
+  dispatchAdHoc?: DispatchAdHocFn | null;
 }
 
 export class OrchestratorServer {
@@ -36,6 +47,9 @@ export class OrchestratorServer {
   private port: number;
   private claudeCommand: string;
   private pipeline: IntelligencePipeline | null;
+  private analysisArchive: AnalysisArchive | undefined;
+  private roadmapPath: string | null;
+  private dispatchAdHoc: DispatchAdHocFn | null;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener: (snapshot: unknown) => void;
   private agentEventListener: (event: unknown) => void;
@@ -49,6 +63,9 @@ export class OrchestratorServer {
       deps?.dashboardDir ?? path.resolve('packages', 'dashboard', 'dist', 'client');
     this.claudeCommand = deps?.claudeCommand ?? 'claude';
     this.pipeline = deps?.pipeline ?? null;
+    this.analysisArchive = deps?.analysisArchive;
+    this.roadmapPath = deps?.roadmapPath ?? null;
+    this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.httpServer = http.createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(this.httpServer);
 
@@ -93,6 +110,21 @@ export class OrchestratorServer {
 
     // Analyze route (intelligence pipeline)
     if (handleAnalyzeRoute(req, res, this.pipeline)) {
+      return;
+    }
+
+    // Analyses archive route
+    if (handleAnalysesRoute(req, res, this.analysisArchive)) {
+      return;
+    }
+
+    // Roadmap append route
+    if (handleRoadmapActionsRoute(req, res, this.roadmapPath)) {
+      return;
+    }
+
+    // Ad-hoc dispatch route
+    if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
       return;
     }
 

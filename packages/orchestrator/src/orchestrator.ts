@@ -30,7 +30,9 @@ import {
   createEmptyState,
   LiveSession,
   detectScopeTier,
+  artifactPresenceFromIssue,
   resolveEscalationConfig,
+  AnalysisArchive,
 } from './core/index';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
@@ -73,11 +75,14 @@ export class Orchestrator extends EventEmitter {
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
   private pipeline: IntelligencePipeline | null;
+  private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
   private graphLoaded = false;
   private enrichedSpecsByIssue: Map<string, EnrichedSpec> = new Map();
   /** Tracks recently-failed intelligence analysis to avoid re-requesting every tick */
   private analysisFailureCache: Map<string, number> = new Map();
+  /** Guards against overlapping ticks when a tick takes longer than the polling interval */
+  private tickInProgress = false;
 
   /**
    * Creates a new Orchestrator instance.
@@ -110,6 +115,8 @@ export class Orchestrator extends EventEmitter {
       path.join(config.workspace.root, '..', 'interactions')
     );
 
+    this.analysisArchive = new AnalysisArchive(path.join(config.workspace.root, '..', 'analyses'));
+
     const localBackend = this.createLocalBackend();
     this.localRunner = localBackend
       ? new AgentRunner(localBackend, { maxTurns: config.agent.maxTurns })
@@ -122,6 +129,11 @@ export class Orchestrator extends EventEmitter {
         interactionQueue: this.interactionQueue,
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
+        analysisArchive: this.analysisArchive,
+        roadmapPath: config.tracker.filePath
+          ? path.resolve(config.workspace.root, '..', config.tracker.filePath)
+          : null,
+        dispatchAdHoc: this.dispatchAdHoc.bind(this),
       });
 
       // Wire interaction push -> WebSocket broadcast
@@ -219,6 +231,7 @@ export class Orchestrator extends EventEmitter {
         ...(model !== undefined && { defaultModel: model }),
         ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
         ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
+        ...(intel?.jsonMode !== undefined && { jsonMode: intel.jsonMode }),
       });
     }
 
@@ -285,6 +298,7 @@ export class Orchestrator extends EventEmitter {
       ...(selModel !== undefined && { defaultModel: selModel }),
       ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
       ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
+      ...(intel?.jsonMode !== undefined && { jsonMode: intel.jsonMode }),
     });
   }
 
@@ -300,7 +314,7 @@ export class Orchestrator extends EventEmitter {
       const score = complexityScores.get(issue.id);
       if (!spec || !score) continue;
 
-      const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
       try {
         const simResult = await this.pipeline.simulate(spec, score, scopeTier);
         results.set(issue.id, simResult);
@@ -313,6 +327,92 @@ export class Orchestrator extends EventEmitter {
       }
     }
     return results;
+  }
+
+  private async archiveAnalysisResults(
+    candidates: Issue[],
+    enrichedSpecs: Map<string, EnrichedSpec>,
+    complexityScores: Map<string, ComplexityScore>,
+    simulationResults: Map<string, SimulationResult>
+  ): Promise<void> {
+    for (const issue of candidates) {
+      const spec = enrichedSpecs.get(issue.id) ?? null;
+      const score = complexityScores.get(issue.id) ?? null;
+      const simulation = simulationResults.get(issue.id) ?? null;
+      if (!spec && !score && !simulation) continue;
+      try {
+        await this.analysisArchive.save({
+          issueId: issue.id,
+          identifier: issue.identifier,
+          spec,
+          score,
+          simulation,
+          analyzedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        this.logger.warn(`Failed to archive analysis for ${issue.identifier}`, {
+          issueId: issue.id,
+          error: String(err),
+        });
+      }
+    }
+  }
+
+  private async runIntelligencePipeline(candidates: Issue[]): Promise<{
+    concernSignals: Map<string, ConcernSignal[]>;
+    enrichedSpecs: Map<string, EnrichedSpec>;
+    simulationResults: Map<string, SimulationResult>;
+  }> {
+    const concernSignals = new Map<string, ConcernSignal[]>();
+    const enrichedSpecs = new Map<string, EnrichedSpec>();
+    const complexityScores = new Map<string, ComplexityScore>();
+    const escalationConfig = resolveEscalationConfig(this.config);
+    const failureTtl = this.config.intelligence?.failureCacheTtlMs ?? 300_000;
+    const nowForCache = Date.now();
+
+    // Evict expired failure cache entries
+    for (const [id, failedAt] of this.analysisFailureCache) {
+      if (nowForCache - failedAt >= failureTtl) {
+        this.analysisFailureCache.delete(id);
+      }
+    }
+
+    for (const issue of candidates) {
+      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
+      if (escalationConfig.autoExecute.includes(scopeTier)) continue;
+      if (this.analysisFailureCache.has(issue.id)) continue;
+
+      try {
+        const result = await this.pipeline!.preprocessIssue(issue, scopeTier, escalationConfig);
+        if (result.signals.length > 0) concernSignals.set(issue.id, result.signals);
+        if (result.spec) {
+          enrichedSpecs.set(issue.id, result.spec);
+          this.enrichedSpecsByIssue.set(issue.id, result.spec);
+        }
+        if (result.score) complexityScores.set(issue.id, result.score);
+      } catch (err) {
+        this.analysisFailureCache.set(issue.id, nowForCache);
+        this.logger.error(
+          `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
+          { issueId: issue.id, error: String(err) }
+        );
+      }
+    }
+
+    const simulationResults = await this.runPeslSimulations(
+      candidates,
+      enrichedSpecs,
+      complexityScores
+    );
+
+    await this.archiveAnalysisResults(
+      candidates,
+      enrichedSpecs,
+      complexityScores,
+      simulationResults
+    );
+
+    return { concernSignals, enrichedSpecs, simulationResults };
   }
 
   public async asyncTick(): Promise<void> {
@@ -357,65 +457,10 @@ export class Orchestrator extends EventEmitter {
     }
 
     // 3. Pre-process candidates through intelligence pipeline (if enabled)
-    let concernSignals: Map<string, ConcernSignal[]> | undefined;
-    let enrichedSpecs: Map<string, EnrichedSpec> | undefined;
-    let simulationResults: Map<string, SimulationResult> | undefined;
-
-    if (this.pipeline) {
-      concernSignals = new Map();
-      enrichedSpecs = new Map();
-      const complexityScores = new Map<string, ComplexityScore>();
-      const escalationConfig = resolveEscalationConfig(this.config);
-      const failureTtl = this.config.intelligence?.failureCacheTtlMs ?? 300_000;
-      const nowForCache = Date.now();
-
-      // Evict expired failure cache entries
-      for (const [id, failedAt] of this.analysisFailureCache) {
-        if (nowForCache - failedAt >= failureTtl) {
-          this.analysisFailureCache.delete(id);
-        }
-      }
-
-      for (const issue of candidatesResult.value) {
-        const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
-
-        // Skip autoExecute tiers entirely — no LLM cost
-        if (escalationConfig.autoExecute.includes(scopeTier)) continue;
-
-        // Skip recently-failed issues to avoid re-requesting every tick
-        if (this.analysisFailureCache.has(issue.id)) continue;
-
-        try {
-          const result = await this.pipeline.preprocessIssue(issue, scopeTier, escalationConfig);
-          if (result.signals.length > 0) {
-            concernSignals.set(issue.id, result.signals);
-          }
-          if (result.spec) {
-            enrichedSpecs.set(issue.id, result.spec);
-            this.enrichedSpecsByIssue.set(issue.id, result.spec);
-          }
-          if (result.score) {
-            complexityScores.set(issue.id, result.score);
-          }
-        } catch (err) {
-          this.analysisFailureCache.set(issue.id, nowForCache);
-          this.logger.error(
-            `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
-            {
-              issueId: issue.id,
-              error: String(err),
-            }
-          );
-        }
-      }
-
-      // Run PESL simulation for candidates with enriched specs and scores
-      simulationResults = await this.runPeslSimulations(
-        candidatesResult.value,
-        enrichedSpecs,
-        complexityScores
-      );
-    }
+    const pipelineResult = this.pipeline
+      ? await this.runIntelligencePipeline(candidatesResult.value)
+      : undefined;
+    const { concernSignals, enrichedSpecs, simulationResults } = pipelineResult ?? {};
 
     // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
@@ -455,7 +500,16 @@ export class Orchestrator extends EventEmitter {
   }
 
   public async tick(): Promise<void> {
-    await this.asyncTick();
+    if (this.tickInProgress) {
+      this.logger.info('Tick skipped — previous tick still in progress');
+      return;
+    }
+    this.tickInProgress = true;
+    try {
+      await this.asyncTick();
+    } finally {
+      this.tickInProgress = false;
+    }
   }
 
   /**
@@ -810,6 +864,12 @@ export class Orchestrator extends EventEmitter {
           issueId,
           result: outcome.result,
         });
+
+        // Persist graph to disk so historical complexity data survives restarts
+        if (this.graphStore) {
+          const graphDir = path.join(this.config.workspace.root, '..', 'graph');
+          await this.graphStore.save(graphDir);
+        }
       } catch (err) {
         this.logger.warn(`Failed to record execution outcome for ${issueId}`, {
           error: String(err),
@@ -847,6 +907,30 @@ export class Orchestrator extends EventEmitter {
   private async stopIssue(issueId: string): Promise<void> {
     this.logger.info(`Stopping issue: ${issueId}`);
     // Implementation for stopping active runs
+  }
+
+  /**
+   * Dispatch a work item immediately, bypassing the normal tick → roadmap cycle.
+   * Used by the dashboard's "Dispatch Now" action.
+   */
+  public async dispatchAdHoc(issue: Issue): Promise<void> {
+    // Mark as claimed so the next tick doesn't also dispatch it
+    this.state.claimed.add(issue.id);
+
+    // Add a placeholder running entry
+    this.state.running.set(issue.id, {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      issue,
+      attempt: 1,
+      workspacePath: '',
+      startedAt: new Date().toISOString(),
+      phase: 'PreparingWorkspace',
+      session: null,
+    });
+
+    this.emit('state_change', this.getSnapshot());
+    await this.dispatchIssue(issue, 1, 'local');
   }
 
   /**

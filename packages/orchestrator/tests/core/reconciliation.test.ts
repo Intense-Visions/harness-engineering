@@ -16,6 +16,8 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
     url: null,
     labels: [],
     blockedBy: [],
+    spec: null,
+    plans: [],
     createdAt: null,
     updatedAt: null,
     ...overrides,

@@ -10,7 +10,7 @@ import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
 import { calculateRetryDelay } from './retry';
-import { detectScopeTier, routeIssue } from './model-router';
+import { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
 
 export interface ApplyEventResult {
   nextState: OrchestratorState;
@@ -54,8 +54,7 @@ function tryEscalate(
   escalationConfig: import('@harness-engineering/types').EscalationConfig
 ): EscalateEffect | null {
   if (!config.agent.localBackend) return null;
-  // TODO(phase2): Wire artifact presence detection from orchestrator layer instead of hardcoded defaults
-  const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+  const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
   const signals = event.concernSignals?.get(issue.id) ?? [];
   const decision = routeIssue(scopeTier, signals, escalationConfig);
   if (decision.action !== 'needs-human') return null;
@@ -383,7 +382,7 @@ function handleRetryFired(
   // (retries are diagnostic-tier which is autoExecute, so signals wouldn't affect routing)
   if (config.agent.localBackend) {
     const escalationConfig = resolveEscalationConfig(config);
-    const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
+    const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
     const decision = routeIssue(scopeTier, [], escalationConfig);
 
     if (decision.action === 'needs-human') {

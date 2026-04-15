@@ -9,10 +9,24 @@ export interface OpenAICompatibleProviderOptions {
   baseUrl: string;
   /** Default model name (e.g., 'deepseek-coder-v2'). */
   defaultModel?: string;
+  /** Request timeout in ms (default: 90000). */
+  timeoutMs?: number;
+  /**
+   * String appended to user prompts for structured-output requests.
+   * Useful for disabling thinking/reasoning modes (e.g., '/no_think' for Qwen3).
+   */
+  promptSuffix?: string;
+  /**
+   * Whether to send `response_format: { type: 'json_schema' }` with the full
+   * schema to the server for grammar-constrained decoding. When false, relies
+   * on the system prompt alone to produce valid JSON. Default: true.
+   */
+  jsonMode?: boolean;
 }
 
 const DEFAULT_MODEL = 'deepseek-coder-v2';
 const DEFAULT_MAX_TOKENS = 4096;
+const DEFAULT_TIMEOUT_MS = 90_000;
 
 /**
  * AnalysisProvider for OpenAI-compatible endpoints (Ollama, LM Studio, vLLM, etc.).
@@ -24,13 +38,18 @@ const DEFAULT_MAX_TOKENS = 4096;
 export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
   private readonly client: OpenAI;
   private readonly defaultModel: string;
+  private readonly promptSuffix: string | null;
+  private readonly jsonMode: boolean;
 
   constructor(options: OpenAICompatibleProviderOptions) {
     this.client = new OpenAI({
       apiKey: options.apiKey,
       baseURL: options.baseUrl,
+      timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
     this.defaultModel = options.defaultModel ?? DEFAULT_MODEL;
+    this.promptSuffix = options.promptSuffix ?? null;
+    this.jsonMode = options.jsonMode ?? true;
   }
 
   async analyze<T>(request: AnalysisRequest): Promise<AnalysisResponse<T>> {
@@ -40,21 +59,37 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
 
     const systemParts: string[] = [];
     if (request.systemPrompt) systemParts.push(request.systemPrompt);
-    systemParts.push(
-      'You MUST respond with valid JSON matching this schema:\n' +
-        JSON.stringify(jsonSchema, null, 2) +
-        '\n\nRespond ONLY with the JSON object, no other text.'
-    );
+    if (this.jsonMode) {
+      // Schema is enforced server-side via response_format — keep prompt lean
+      systemParts.push('Respond ONLY with the JSON object, no other text.');
+    } else {
+      // No server-side enforcement — include full schema in prompt
+      systemParts.push(
+        'You MUST respond with valid JSON matching this schema:\n' +
+          JSON.stringify(jsonSchema, null, 2) +
+          '\n\nRespond ONLY with the JSON object, no other text.'
+      );
+    }
 
     const startMs = performance.now();
+
+    const responseFormat = this.jsonMode
+      ? {
+          type: 'json_schema' as const,
+          json_schema: { name: 'analysis_response', strict: true, schema: jsonSchema },
+        }
+      : undefined;
 
     const response = await this.client.chat.completions.create({
       model,
       max_tokens: maxTokens,
-      response_format: { type: 'json_object' },
+      ...(responseFormat && { response_format: responseFormat }),
       messages: [
         { role: 'system', content: systemParts.join('\n\n') },
-        { role: 'user', content: request.prompt },
+        {
+          role: 'user',
+          content: this.promptSuffix ? `${request.prompt}\n\n${this.promptSuffix}` : request.prompt,
+        },
       ],
     });
 

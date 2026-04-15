@@ -56,6 +56,10 @@ export interface Issue {
   labels: string[];
   /** References to issues that block this one */
   blockedBy: BlockerRef[];
+  /** Relative path to the spec file, or null if none */
+  spec: string | null;
+  /** Relative paths to plan files */
+  plans: string[];
   /** ISO timestamp of creation */
   createdAt: string | null;
   /** ISO timestamp of last update */
@@ -294,6 +298,8 @@ export interface AgentConfig {
   localEndpoint?: string;
   /** API key for local backend (some servers require a dummy key) */
   localApiKey?: string;
+  /** Request timeout in ms for local backend calls (default: 90000) */
+  localTimeoutMs?: number;
   /** Escalation routing configuration */
   escalation?: Partial<EscalationConfig>;
 }
@@ -400,4 +406,20 @@ export interface IntelligenceConfig {
     cml?: string;
     pesl?: string;
   };
+  /** Request timeout in ms for intelligence LLM calls (default: 90000) */
+  requestTimeoutMs?: number;
+  /**
+   * String appended to user prompts for structured-output requests.
+   * Use to disable thinking/reasoning in models that enable it by default
+   * (e.g., '/no_think' for Qwen3, '<think>\n</think>' for DeepSeek-R1).
+   */
+  promptSuffix?: string;
+  /** How long to cache analysis failures before retrying, in ms (default: 300000) */
+  failureCacheTtlMs?: number;
+  /**
+   * Whether to send `response_format: { type: 'json_schema' }` with the full
+   * schema for grammar-constrained decoding. Disable for models that hang with
+   * JSON grammar constraints (e.g., Qwen3 on Ollama). Default: true.
+   */
+  jsonMode?: boolean;
 }
