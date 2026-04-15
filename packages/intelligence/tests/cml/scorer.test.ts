@@ -238,4 +238,86 @@ describe('CML scorer', () => {
       expect(result.recommendedRoute).toBe('local');
     });
   });
+
+  describe('historical dimension integration', () => {
+    it('historical dimension is 0 when no outcomes exist', () => {
+      const store = new GraphStore();
+      const spec = makeSpec({
+        affectedSystems: [makeSystem({ name: 'auth', graphNodeId: 'auth-node', confidence: 0.9 })],
+      });
+      store.addNode({ id: 'auth-node', type: 'module', name: 'auth', metadata: {} });
+
+      const result = score(spec, store);
+      expect(result.dimensions.historical).toBe(0);
+    });
+
+    it('historical dimension is > 0 when past failures exist for affected system', () => {
+      const store = new GraphStore();
+      store.addNode({ id: 'auth-node', type: 'module', name: 'auth', metadata: {} });
+
+      // Add 3 failure outcomes linked to auth-node
+      for (let i = 0; i < 3; i++) {
+        store.addNode({
+          id: `outcome:f${i}`,
+          type: 'execution_outcome',
+          name: `failure: T-${i}`,
+          metadata: {
+            result: 'failure',
+            issueId: `i${i}`,
+            identifier: `T-${i}`,
+            retryCount: 0,
+            failureReasons: [],
+            durationMs: 1000,
+            linkedSpecId: null,
+            timestamp: '2026-04-14T12:00:00Z',
+          },
+        });
+        store.addEdge({ from: `outcome:f${i}`, to: 'auth-node', type: 'outcome_of' });
+      }
+
+      const spec = makeSpec({
+        affectedSystems: [makeSystem({ name: 'auth', graphNodeId: 'auth-node', confidence: 0.9 })],
+      });
+
+      const result = score(spec, store);
+      expect(result.dimensions.historical).toBeGreaterThan(0);
+      expect(result.reasoning.some((r) => r.includes('Historical complexity'))).toBe(true);
+    });
+
+    it('historical data increases overall score', () => {
+      // Without outcomes
+      const storeEmpty = new GraphStore();
+      storeEmpty.addNode({ id: 'mod-a', type: 'module', name: 'mod-a', metadata: {} });
+      const specA = makeSpec({
+        affectedSystems: [makeSystem({ name: 'mod-a', graphNodeId: 'mod-a', confidence: 0.9 })],
+        unknowns: ['u1'],
+      });
+      const scoreWithout = score(specA, storeEmpty);
+
+      // With failure outcomes
+      const storeWithFailures = new GraphStore();
+      storeWithFailures.addNode({ id: 'mod-a', type: 'module', name: 'mod-a', metadata: {} });
+      for (let i = 0; i < 5; i++) {
+        storeWithFailures.addNode({
+          id: `outcome:f${i}`,
+          type: 'execution_outcome',
+          name: `failure: T-${i}`,
+          metadata: {
+            result: 'failure',
+            issueId: `i${i}`,
+            identifier: `T-${i}`,
+            retryCount: 0,
+            failureReasons: [],
+            durationMs: 1000,
+            linkedSpecId: null,
+            timestamp: '2026-04-14T12:00:00Z',
+          },
+        });
+        storeWithFailures.addEdge({ from: `outcome:f${i}`, to: 'mod-a', type: 'outcome_of' });
+      }
+      const scoreWith = score(specA, storeWithFailures);
+
+      expect(scoreWith.overall).toBeGreaterThan(scoreWithout.overall);
+    });
+  });
 });
