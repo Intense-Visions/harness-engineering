@@ -8,7 +8,6 @@ import {
   loadPublishedIndex,
   savePublishedIndex,
 } from '@harness-engineering/orchestrator';
-import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 
 export function createPublishAnalysesCommand(): Command {
   const command = new Command('publish-analyses')
