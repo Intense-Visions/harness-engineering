@@ -20,8 +20,6 @@ export interface PreprocessResult {
   score: ComplexityScore | null;
   /** Concern signals derived from complexity score (empty if CML skipped) */
   signals: ConcernSignal[];
-  /** Simulation result from PESL, or null if simulation was not run */
-  simulation: SimulationResult | null;
 }
 
 /**
@@ -89,7 +87,7 @@ export class IntelligencePipeline {
   ): Promise<PreprocessResult> {
     // autoExecute: skip everything — no LLM cost for obvious dispatch
     if (escalationConfig.autoExecute.includes(scopeTier)) {
-      return { spec: null, score: null, signals: [], simulation: null };
+      return { spec: null, score: null, signals: [] };
     }
 
     // Both alwaysHuman and signalGated run SEL
@@ -98,12 +96,12 @@ export class IntelligencePipeline {
 
     // alwaysHuman: SEL for context, skip CML (routing already decided)
     if (escalationConfig.alwaysHuman.includes(scopeTier)) {
-      return { spec, score: null, signals: [], simulation: null };
+      return { spec, score: null, signals: [] };
     }
 
     // signalGated: full pipeline
     const complexityScore = this.score(spec);
     const signals = scoreToConcernSignals(complexityScore);
-    return { spec, score: complexityScore, signals, simulation: null };
+    return { spec, score: complexityScore, signals };
   }
 }

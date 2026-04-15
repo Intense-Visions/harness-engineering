@@ -196,6 +196,7 @@ export class Orchestrator extends EventEmitter {
     enrichedSpecs: Map<string, EnrichedSpec>,
     complexityScores: Map<string, ComplexityScore>
   ): Promise<Map<string, SimulationResult>> {
+    if (!this.pipeline) return new Map();
     const results = new Map<string, SimulationResult>();
     for (const issue of candidates) {
       const spec = enrichedSpecs.get(issue.id);
@@ -204,7 +205,7 @@ export class Orchestrator extends EventEmitter {
 
       const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
       try {
-        const simResult = await this.pipeline!.simulate(spec, score, scopeTier);
+        const simResult = await this.pipeline.simulate(spec, score, scopeTier);
         results.set(issue.id, simResult);
       } catch (err) {
         this.logger.error(`PESL simulation failed for ${issue.identifier}`, {

@@ -3,7 +3,13 @@ import { applyEvent } from '../../src/core/state-machine';
 import { createEmptyState } from '../../src/core/state-helpers';
 import type { Issue, WorkflowConfig } from '@harness-engineering/types';
 import type { OrchestratorState, RunningEntry } from '../../src/types/internal';
-import type { OrchestratorEvent, SideEffect, DispatchEffect } from '../../src/types/events';
+import type {
+  OrchestratorEvent,
+  SideEffect,
+  DispatchEffect,
+  EscalateEffect,
+} from '../../src/types/events';
+import type { SimulationResult } from '@harness-engineering/intelligence';
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
@@ -836,5 +842,96 @@ describe('applyEvent - worker_exit with diagnostic escalation', () => {
     expect(retries).toHaveLength(1);
     const escalations = effects.filter((e) => e.type === 'escalate');
     expect(escalations).toHaveLength(0);
+  });
+
+  // --- PESL abort tests ---
+
+  function makeAbortSimulation(): SimulationResult {
+    return {
+      simulatedPlan: ['step 1'],
+      predictedFailures: ['DB migration will fail', 'API contract break', 'Auth token mismatch'],
+      riskHotspots: ['core/auth'],
+      missingSteps: ['rollback plan'],
+      testGaps: ['No integration tests for auth flow', 'Missing edge case coverage'],
+      executionConfidence: 0.15,
+      recommendedChanges: ['Add rollback'],
+      abort: true,
+      tier: 'full-simulation',
+    };
+  }
+
+  it('should escalate when PESL simulation recommends abort (SC9)', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:guided-change'] })];
+    const simResults = new Map<string, SimulationResult>();
+    simResults.set('1', makeAbortSimulation());
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+      simulationResults: simResults,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const escalations = effects.filter((e) => e.type === 'escalate') as EscalateEffect[];
+    expect(escalations).toHaveLength(1);
+    expect(escalations[0]!.issueId).toBe('1');
+    expect(escalations[0]!.reasons[0]).toContain('PESL simulation recommends abort');
+    expect(escalations[0]!.reasons[0]).toContain('0.15');
+    // Should include truncated predicted failures and test gaps
+    expect(escalations[0]!.reasons.some((r) => r.includes('Predicted failure'))).toBe(true);
+    expect(escalations[0]!.reasons.some((r) => r.includes('Test gap'))).toBe(true);
+
+    const dispatches = effects.filter((e) => e.type === 'dispatch');
+    expect(dispatches).toHaveLength(0);
+  });
+
+  it('should dispatch normally when PESL simulation does not abort', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:guided-change'] })];
+    const simResults = new Map<string, SimulationResult>();
+    simResults.set('1', {
+      ...makeAbortSimulation(),
+      executionConfidence: 0.7,
+      abort: false,
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+      simulationResults: simResults,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
+    expect(dispatches).toHaveLength(1);
+    expect(dispatches[0]!.issue.id).toBe('1');
+    const escalations = effects.filter((e) => e.type === 'escalate');
+    expect(escalations).toHaveLength(0);
+  });
+
+  it('should dispatch when no simulationResults are provided', () => {
+    const config = makeRoutingConfig();
+    const state = createEmptyState(config);
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:guided-change'] })];
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+      // No simulationResults
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
+    expect(dispatches).toHaveLength(1);
+    expect(dispatches[0]!.issue.id).toBe('1');
   });
 });

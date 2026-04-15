@@ -81,9 +81,6 @@ describe('IntelligencePipeline', () => {
     // Signals derived from score
     expect(Array.isArray(result.signals)).toBe(true);
 
-    // Simulation not run during preprocessing
-    expect(result.simulation).toBeNull();
-
     // Provider was called (SEL)
     expect(provider.analyze).toHaveBeenCalledOnce();
   });
@@ -102,7 +99,6 @@ describe('IntelligencePipeline', () => {
     expect(result.spec).toBeNull();
     expect(result.score).toBeNull();
     expect(result.signals).toEqual([]);
-    expect(result.simulation).toBeNull();
 
     // No LLM calls
     expect(provider.analyze).not.toHaveBeenCalled();
@@ -122,7 +118,6 @@ describe('IntelligencePipeline', () => {
     expect(result.spec).toBeNull();
     expect(result.score).toBeNull();
     expect(result.signals).toEqual([]);
-    expect(result.simulation).toBeNull();
     expect(provider.analyze).not.toHaveBeenCalled();
   });
 
@@ -148,9 +143,6 @@ describe('IntelligencePipeline', () => {
 
     // No signals (routing already decided)
     expect(result.signals).toEqual([]);
-
-    // Simulation not run during preprocessing
-    expect(result.simulation).toBeNull();
 
     // Provider was called exactly once (SEL only)
     expect(provider.analyze).toHaveBeenCalledOnce();
