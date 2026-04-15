@@ -81,6 +81,9 @@ describe('IntelligencePipeline', () => {
     // Signals derived from score
     expect(Array.isArray(result.signals)).toBe(true);
 
+    // Simulation not run during preprocessing
+    expect(result.simulation).toBeNull();
+
     // Provider was called (SEL)
     expect(provider.analyze).toHaveBeenCalledOnce();
   });
@@ -99,6 +102,7 @@ describe('IntelligencePipeline', () => {
     expect(result.spec).toBeNull();
     expect(result.score).toBeNull();
     expect(result.signals).toEqual([]);
+    expect(result.simulation).toBeNull();
 
     // No LLM calls
     expect(provider.analyze).not.toHaveBeenCalled();
@@ -118,6 +122,7 @@ describe('IntelligencePipeline', () => {
     expect(result.spec).toBeNull();
     expect(result.score).toBeNull();
     expect(result.signals).toEqual([]);
+    expect(result.simulation).toBeNull();
     expect(provider.analyze).not.toHaveBeenCalled();
   });
 
@@ -144,7 +149,28 @@ describe('IntelligencePipeline', () => {
     // No signals (routing already decided)
     expect(result.signals).toEqual([]);
 
+    // Simulation not run during preprocessing
+    expect(result.simulation).toBeNull();
+
     // Provider was called exactly once (SEL only)
+    expect(provider.analyze).toHaveBeenCalledOnce();
+  });
+
+  it('simulate() delegates to PeslSimulator for graph-only tier', async () => {
+    const provider = makeMockProvider();
+    const store = new GraphStore();
+    const pipeline = new IntelligencePipeline(provider, store);
+
+    const result = await pipeline.preprocessIssue(
+      makeIssue(),
+      'guided-change',
+      defaultEscalationConfig
+    );
+
+    const simResult = await pipeline.simulate(result.spec!, result.score!, 'quick-fix');
+    expect(simResult.tier).toBe('graph-only');
+    expect(simResult.abort).toBe(false);
+    // Only SEL call from preprocessing -- no additional LLM call for graph-only sim
     expect(provider.analyze).toHaveBeenCalledOnce();
   });
 

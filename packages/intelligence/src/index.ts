@@ -34,6 +34,11 @@ export { computeSemanticComplexity } from './cml/semantic.js';
 // Signals
 export { scoreToConcernSignals } from './cml/signals.js';
 
+// PESL -- Pre-Execution Simulation Layer
+export { runGraphOnlyChecks } from './pesl/graph-checks.js';
+export { runLlmSimulation } from './pesl/llm-simulation.js';
+export { PeslSimulator } from './pesl/simulator.js';
+
 // Pipeline
 export { IntelligencePipeline } from './pipeline.js';
 export type { PreprocessResult } from './pipeline.js';

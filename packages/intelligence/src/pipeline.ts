@@ -1,12 +1,14 @@
 import type { Issue, ConcernSignal, EscalationConfig } from '@harness-engineering/types';
+import type { ScopeTier } from '@harness-engineering/types';
 import type { GraphStore } from '@harness-engineering/graph';
 import type { AnalysisProvider } from './analysis-provider/interface.js';
-import type { EnrichedSpec, ComplexityScore } from './types.js';
+import type { EnrichedSpec, ComplexityScore, SimulationResult } from './types.js';
 import { toRawWorkItem } from './adapter.js';
 import { enrich } from './sel/enricher.js';
 import { GraphValidator } from './sel/graph-validator.js';
 import { score as scoreCML } from './cml/scorer.js';
 import { scoreToConcernSignals } from './cml/signals.js';
+import { PeslSimulator } from './pesl/simulator.js';
 
 /**
  * Result of preprocessing an issue through the intelligence pipeline.
@@ -18,6 +20,8 @@ export interface PreprocessResult {
   score: ComplexityScore | null;
   /** Concern signals derived from complexity score (empty if CML skipped) */
   signals: ConcernSignal[];
+  /** Simulation result from PESL, or null if simulation was not run */
+  simulation: SimulationResult | null;
 }
 
 /**
@@ -32,11 +36,15 @@ export class IntelligencePipeline {
   private readonly provider: AnalysisProvider;
   private readonly graphValidator: GraphValidator;
   private readonly store: GraphStore;
+  private readonly simulator: PeslSimulator;
 
-  constructor(provider: AnalysisProvider, store: GraphStore) {
+  constructor(provider: AnalysisProvider, store: GraphStore, options?: { peslModel?: string }) {
     this.provider = provider;
     this.store = store;
     this.graphValidator = new GraphValidator(store);
+    this.simulator = new PeslSimulator(provider, store, {
+      ...(options?.peslModel !== undefined && { model: options.peslModel }),
+    });
   }
 
   /**
@@ -55,6 +63,17 @@ export class IntelligencePipeline {
   }
 
   /**
+   * Run pre-execution simulation for a spec.
+   */
+  async simulate(
+    spec: EnrichedSpec,
+    score: ComplexityScore,
+    tier: ScopeTier = 'guided-change'
+  ): Promise<SimulationResult> {
+    return this.simulator.simulate(spec, score, tier);
+  }
+
+  /**
    * Preprocess an issue through the intelligence pipeline.
    *
    * Behavior depends on which escalation tier the issue's scope falls into:
@@ -70,7 +89,7 @@ export class IntelligencePipeline {
   ): Promise<PreprocessResult> {
     // autoExecute: skip everything — no LLM cost for obvious dispatch
     if (escalationConfig.autoExecute.includes(scopeTier)) {
-      return { spec: null, score: null, signals: [] };
+      return { spec: null, score: null, signals: [], simulation: null };
     }
 
     // Both alwaysHuman and signalGated run SEL
@@ -79,12 +98,12 @@ export class IntelligencePipeline {
 
     // alwaysHuman: SEL for context, skip CML (routing already decided)
     if (escalationConfig.alwaysHuman.includes(scopeTier)) {
-      return { spec, score: null, signals: [] };
+      return { spec, score: null, signals: [], simulation: null };
     }
 
     // signalGated: full pipeline
     const complexityScore = this.score(spec);
     const signals = scoreToConcernSignals(complexityScore);
-    return { spec, score: complexityScore, signals };
+    return { spec, score: complexityScore, signals, simulation: null };
   }
 }
