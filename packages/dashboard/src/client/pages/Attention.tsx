@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useNotifications } from '../hooks/useNotifications';
+import { useChatPanel } from '../hooks/useChatPanel';
 import type {
   PendingInteraction,
   InteractionEnrichedSpec,
@@ -198,9 +198,11 @@ function ComplexityScorePanel({ score }: { score: InteractionComplexityScore }) 
 function InteractionCard({
   interaction,
   onDismiss,
+  onClaim,
 }: {
   interaction: PendingInteraction;
   onDismiss: (id: string) => void;
+  onClaim: (id: string) => void;
 }) {
   const { context, reasons, status, createdAt } = interaction;
   const isPending = status === 'pending';
@@ -328,12 +330,12 @@ function InteractionCard({
 
       {(isPending || isClaimed) && (
         <div className="flex gap-2">
-          <Link
-            to={`/orchestrator/chat?interactionId=${interaction.id}`}
+          <button
+            onClick={() => onClaim(interaction.id)}
             className="rounded bg-blue-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600"
           >
             Claim
-          </Link>
+          </button>
           <button
             onClick={() => onDismiss(interaction.id)}
             className="rounded bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-600"
@@ -354,6 +356,7 @@ export function Attention() {
   } = useOrchestratorSocket();
   const [loaded, setLoaded] = useState(false);
   const [allInteractions, setAllInteractions] = useState<PendingInteraction[]>([]);
+  const { open: openChat } = useChatPanel();
 
   // Fire browser notifications for new escalations
   useNotifications(allInteractions);
@@ -403,6 +406,14 @@ export function Attention() {
     [removeInteraction]
   );
 
+  const handleClaim = useCallback((id: string) => {
+    // We pass interactionId via URL search params to the global panel state
+    const url = new URL(window.location.href);
+    url.searchParams.set('interactionId', id);
+    window.history.pushState({}, '', url);
+    openChat();
+  }, [openChat]);
+
   // Show non-resolved interactions, sorted newest first
   const visible = allInteractions
     .filter((i) => i.status !== 'resolved')
@@ -424,6 +435,7 @@ export function Attention() {
             key={interaction.id}
             interaction={interaction}
             onDismiss={(id) => void handleDismiss(id)}
+            onClaim={handleClaim}
           />
         ))}
       </div>

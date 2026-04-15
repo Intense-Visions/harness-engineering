@@ -154,6 +154,19 @@ async function streamAnalyze(
 
 function ScoreBar({ value, label, color }: { value: number; label: string; color: string }) {
   const pct = Math.round(value * 100);
+
+  const bgClasses: Record<string, string> = {
+    'text-primary-500': 'bg-primary-500',
+    'text-secondary-400': 'bg-secondary-400',
+    'text-accent-500': 'bg-accent-500',
+    'text-blue-400': 'bg-blue-400',
+    'text-purple-400': 'bg-purple-400',
+    'text-yellow-400': 'bg-yellow-400',
+    'text-emerald-400': 'bg-emerald-400',
+  };
+
+  const bgClass = bgClasses[color] || 'bg-gray-600';
+
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
@@ -165,7 +178,7 @@ function ScoreBar({ value, label, color }: { value: number; label: string; color
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
-          className={`h-full rounded-full ${color.replace('text-', 'bg-')}`}
+          className={`h-full rounded-full ${bgClass}`}
         />
       </div>
     </div>
@@ -318,8 +331,8 @@ function CMLCard({ data }: { data: CMLResult }) {
       </div>
       <div className="space-y-2">
         <ScoreBar value={data.overall} label="Overall" color="text-primary-500" />
-        <ScoreBar value={data.dimensions.structural} label="Structural" color="text-blue-400" />
-        <ScoreBar value={data.dimensions.semantic} label="Semantic" color="text-purple-400" />
+        <ScoreBar value={data.dimensions.structural} label="Structural" color="text-secondary-400" />
+        <ScoreBar value={data.dimensions.semantic} label="Semantic" color="text-accent-500" />
         <ScoreBar value={data.dimensions.historical} label="Historical" color="text-yellow-400" />
         <ScoreBar value={data.confidence} label="Confidence" color="text-emerald-400" />
       </div>

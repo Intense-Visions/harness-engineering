@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router';
 import { useSSE } from '../hooks/useSSE';
 import { KpiCard } from '../components/KpiCard';
 import { StaleIndicator } from '../components/StaleIndicator';
@@ -20,24 +21,41 @@ function CollapsibleSection({
   title,
   defaultOpen = false,
   children,
+  action,
 }: {
   title: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
+  action?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <section>
-      <button
-        onClick={() => setOpen(!open)}
-        className="mb-3 flex w-full items-center gap-2 text-left"
-        aria-expanded={open}
-      >
-        <span className="text-xs text-gray-500">{open ? '\u25BC' : '\u25B6'}</span>
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">{title}</h2>
-      </button>
+      <div className="mb-3 flex w-full items-center justify-between">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-2 text-left"
+          aria-expanded={open}
+        >
+          <span className="text-xs text-gray-500">{open ? '\u25BC' : '\u25B6'}</span>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">{title}</h2>
+        </button>
+        {action}
+      </div>
       {open && children}
     </section>
+  );
+}
+
+function FixButton({ command }: { command: string }) {
+  const [, setSearchParams] = useSearchParams();
+  return (
+    <button
+      onClick={() => setSearchParams({ command })}
+      className="rounded bg-primary-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-400 border border-primary-500/20 hover:bg-primary-500 hover:text-white transition-all"
+    >
+      Fix It
+    </button>
   );
 }
 
@@ -169,9 +187,14 @@ function ArchSection({ data }: { data: ArchData }) {
 function EntropySection({ healthData }: { healthData: HealthData }) {
   return (
     <section>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-        Entropy Analysis
-      </h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+          Entropy Analysis
+        </h2>
+        {healthData.totalIssues > 0 && (
+          <FixButton command="harness:validate" />
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiCard
           label="Total Issues"
@@ -236,11 +259,13 @@ function CheckSection<T>({
   raw,
   guard,
   Section,
+  fixCommand,
 }: {
   title: string;
   raw: unknown;
   guard: (v: unknown) => v is T;
   Section: React.ComponentType<{ data: T }>;
+  fixCommand?: string;
 }) {
   if (raw === undefined || raw === null) {
     return (
@@ -249,6 +274,15 @@ function CheckSection<T>({
       </CollapsibleSection>
     );
   }
+
+  const hasIssues = guard(raw) && (
+    ('stats' in (raw as any) && (raw as any).stats.errorCount + (raw as any).stats.warningCount > 0) ||
+    ('totalViolations' in (raw as any) && (raw as any).totalViolations > 0) ||
+    ('stats' in (raw as any) && (raw as any).stats.violationCount > 0)
+  );
+
+  const action = hasIssues && fixCommand ? <FixButton command={fixCommand} /> : undefined;
+
   if (!guard(raw)) {
     return (
       <CollapsibleSection title={title}>
@@ -261,7 +295,7 @@ function CheckSection<T>({
     );
   }
   return (
-    <CollapsibleSection title={title}>
+    <CollapsibleSection title={title} action={action}>
       <Section data={raw} />
     </CollapsibleSection>
   );
@@ -293,9 +327,22 @@ function HealthDetails({
         raw={security}
         guard={isSecurityData}
         Section={SecuritySection}
+        fixCommand="harness:security-scan"
       />
-      <CheckSection title="Performance" raw={perf} guard={isPerfData} Section={PerfSection} />
-      <CheckSection title="Architecture" raw={arch} guard={isArchData} Section={ArchSection} />
+      <CheckSection 
+        title="Performance" 
+        raw={perf} 
+        guard={isPerfData} 
+        Section={PerfSection} 
+        fixCommand="harness:perf"
+      />
+      <CheckSection 
+        title="Architecture" 
+        raw={arch} 
+        guard={isArchData} 
+        Section={ArchSection} 
+        fixCommand="harness:enforce-architecture"
+      />
     </div>
   );
 }

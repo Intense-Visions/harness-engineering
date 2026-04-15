@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuraBackground } from './NeonAI/AuraBackground';
 import { useChatPanel } from '../hooks/useChatPanel';
+import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
 import { ChatPanel } from './chat/ChatPanel';
 import { ChatPanelTrigger } from './chat/ChatPanelTrigger';
 
@@ -26,6 +27,8 @@ export function Layout({ children }: Props) {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isNavigating, setIsNavigating] = useState(false);
   const { isOpen: isChatOpen, toggle: toggleChat } = useChatPanel();
+
+  useKeyboardShortcut('j', toggleChat, { meta: true, ctrl: true });
 
   useEffect(() => {
     setIsNavigating(true);
@@ -125,7 +128,7 @@ export function Layout({ children }: Props) {
       </div>
 
       {/* Chat Panel and Trigger */}
-      <ChatPanel isOpen={isChatOpen} />
+      <ChatPanel isOpen={isChatOpen} onClose={toggleChat} />
       <ChatPanelTrigger isOpen={isChatOpen} onClick={toggleChat} />
 
       {/* Dynamic spacing when panel is open */}

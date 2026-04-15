@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Activity, ShieldCheck, Zap, Share2, Compass } from 'lucide-react';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { useProjectPulse } from '../hooks/useProjectPulse';
+import { NeuralDecryptionLoader } from '../components/NeuralDecryptionLoader';
 import {
   isRoadmapData,
   isHealthData,
@@ -255,16 +256,7 @@ export function Overview() {
       {!data && !error && (
         <div className="flex flex-col items-center justify-center py-32 text-neutral-muted relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.1),transparent_50%)] animate-pulse" />
-          <motion.div
-            animate={{ rotate: 360, scale: [1, 1.1, 1] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-            className="mb-6 relative z-10"
-          >
-            <Zap
-              size={48}
-              className="text-primary-500 drop-shadow-[0_0_15px_var(--color-primary-500)]"
-            />
-          </motion.div>
+          <NeuralDecryptionLoader />
           <p className="text-sm font-mono tracking-widest uppercase relative z-10">
             <ScrambleText text="Decrypting Telemetry..." />
           </p>

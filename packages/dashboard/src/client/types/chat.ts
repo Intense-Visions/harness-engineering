@@ -1,3 +1,5 @@
+export * from './chat-session';
+
 export interface ThinkingBlock {
   kind: 'thinking';
   text: string;
