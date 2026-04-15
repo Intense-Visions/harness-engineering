@@ -60,3 +60,18 @@ export interface TrackerSyncConfig {
    */
   reverseStatusMap?: Record<string, FeatureStatus>;
 }
+
+/**
+ * A comment on an external tracker ticket.
+ * Used by fetchComments to return raw comment data for analysis sync.
+ */
+export interface TrackerComment {
+  /** Tracker-native comment ID */
+  id: string;
+  /** Raw markdown body of the comment */
+  body: string;
+  /** ISO timestamp when the comment was created */
+  createdAt: string;
+  /** Author who posted the comment */
+  author: string;
+}

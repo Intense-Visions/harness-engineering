@@ -67,6 +67,7 @@ export type {
   ExternalTicketState,
   SyncResult,
   TrackerSyncConfig,
+  TrackerComment,
 } from './tracker-sync';
 
 // --- Usage & Cost Tracking ---
