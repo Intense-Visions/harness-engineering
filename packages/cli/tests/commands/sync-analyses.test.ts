@@ -205,6 +205,37 @@ describe('extractAnalysisFromComments', () => {
     const comments = [makeComment({ body })];
     expect(extractAnalysisFromComments(comments)).toBeNull();
   });
+
+  it('finds analysis fence among multiple JSON fences in a single comment', () => {
+    const body = [
+      '## Status Update',
+      '',
+      '```json',
+      JSON.stringify({ status: 'in-progress', estimate: 5 }),
+      '```',
+      '',
+      'And here is the analysis:',
+      '',
+      '```json',
+      JSON.stringify({
+        _harness_analysis: true,
+        _version: 1,
+        issueId: 'multi-fence-1',
+        identifier: 'multi-fence-feature',
+        spec: null,
+        score: null,
+        simulation: null,
+        analyzedAt: '2026-04-15T12:00:00Z',
+        externalId: 'github:owner/repo#77',
+      }, null, 2),
+      '```',
+    ].join('\n');
+    const comments = [makeComment({ body })];
+    const result = extractAnalysisFromComments(comments);
+    expect(result).not.toBeNull();
+    expect(result!.issueId).toBe('multi-fence-1');
+    expect(result!.identifier).toBe('multi-fence-feature');
+  });
 });
 
 describe('createSyncAnalysesCommand', () => {
