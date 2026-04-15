@@ -22,6 +22,8 @@ export interface AnalysisRecord {
   simulation: SimulationResult | null;
   /** ISO timestamp when this analysis was recorded */
   analyzedAt: string;
+  /** External tracker ID (e.g., "github:owner/repo#42"), populated at analysis time. Null if no tracker configured. */
+  externalId: string | null;
 }
 
 /**
