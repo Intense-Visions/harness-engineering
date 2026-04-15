@@ -50,8 +50,8 @@ async function runPipeline(
   emit(res, { type: 'status', text: 'Converting to work item...' });
   const rawItem = manualToRawWorkItem({
     title: parsed.title,
-    description: parsed.description,
-    labels: parsed.labels,
+    description: parsed.description ?? '',
+    labels: parsed.labels ?? [],
   });
   if (disconnected) return;
 
