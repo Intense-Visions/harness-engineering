@@ -28,5 +28,8 @@ export function loadPublishedIndex(projectRoot: string): PublishedIndex {
 export function savePublishedIndex(projectRoot: string, index: PublishedIndex): void {
   const p = path.join(projectRoot, PUBLISHED_INDEX_RELATIVE);
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(index, null, 2), 'utf-8');
+  // Write to temp file then rename for crash-safe atomicity
+  const tmp = p + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(index, null, 2), 'utf-8');
+  fs.renameSync(tmp, p);
 }
