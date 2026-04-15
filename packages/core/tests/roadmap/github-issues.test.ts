@@ -603,5 +603,28 @@ describe('GitHubIssuesSyncAdapter', () => {
       if (result.ok) return;
       expect(result.error.message).toMatch(/404/);
     });
+
+    it('maps user to "ghost" when comment has null user', async () => {
+      const fetchFn = mockFetch(200, [
+        {
+          id: 200,
+          body: 'Orphaned comment',
+          created_at: '2026-01-05T00:00:00Z',
+          updated_at: null,
+          user: null,
+        },
+      ]);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]!.author).toBe('ghost');
+    });
   });
 });
