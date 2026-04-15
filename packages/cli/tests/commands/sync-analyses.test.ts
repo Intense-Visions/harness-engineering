@@ -149,6 +149,62 @@ describe('extractAnalysisFromComments', () => {
     expect((result as any)._harness_analysis).toBeUndefined();
     expect((result as any)._version).toBeUndefined();
   });
+
+  it('rejects records where issueId contains path traversal characters', () => {
+    const body = makeAnalysisBody({
+      issueId: '../etc/passwd',
+      identifier: 'traversal-feature',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    });
+    const comments = [makeComment({ body })];
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
+
+  it('rejects records where issueId contains backslash path traversal', () => {
+    const body = makeAnalysisBody({
+      issueId: '..\\windows\\system32',
+      identifier: 'traversal-feature',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    });
+    const comments = [makeComment({ body })];
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
+
+  it('rejects records with empty issueId', () => {
+    const body = makeAnalysisBody({
+      issueId: '',
+      identifier: 'missing-id-feature',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    });
+    const comments = [makeComment({ body })];
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
+
+  it('rejects records with missing identifier', () => {
+    const body = makeAnalysisBody({
+      issueId: 'issue-1',
+      identifier: '',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    });
+    const comments = [makeComment({ body })];
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
 });
 
 describe('createSyncAnalysesCommand', () => {
