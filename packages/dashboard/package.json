@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/dashboard",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "Local web dashboard for harness project health and roadmap visualization",
   "type": "module",
   "exports": {

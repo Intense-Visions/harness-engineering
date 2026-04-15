@@ -28,7 +28,9 @@ function lineScore(line: string): number {
   return score;
 }
 
-/** Select lines to keep within charBudget, preserving original order. */
+/** Select lines to keep within charBudget, preserving original order.
+ *  Lines that exceed the remaining budget are truncated rather than skipped,
+ *  so long lines (JSON, minified code, wide markdown) still contribute content. */
 function selectLines(lines: string[], charBudget: number): Array<{ line: string; idx: number }> {
   const scored = lines.map((line, idx) => ({ line, idx, score: lineScore(line) }));
 
@@ -39,10 +41,19 @@ function selectLines(lines: string[], charBudget: number): Array<{ line: string;
   let used = 0;
 
   for (const item of scored) {
+    const remaining = charBudget - used;
+    if (remaining <= 0) break;
+
     const lineLen = item.line.length + 1; // +1 for newline
-    if (used + lineLen > charBudget) continue;
-    kept.push({ line: item.line, idx: item.idx });
-    used += lineLen;
+    if (lineLen <= remaining) {
+      // Line fits entirely
+      kept.push({ line: item.line, idx: item.idx });
+      used += lineLen;
+    } else if (remaining > 1) {
+      // Truncate long line to fill remaining budget rather than skipping it
+      kept.push({ line: item.line.slice(0, remaining - 1), idx: item.idx });
+      used += remaining;
+    }
   }
 
   // Restore original order for readability
@@ -70,12 +81,18 @@ export class TruncationStrategy implements CompactionStrategy {
     if (content.length <= charBudget) return content;
 
     const lines = content.split('\n');
-    const available = charBudget - TRUNCATION_MARKER.length;
-    const kept =
-      available > 0
-        ? selectLines(lines, available)
-        : [{ line: (lines[0] ?? '').slice(0, charBudget), idx: 0 }];
 
-    return kept.map((k) => k.line).join('\n') + TRUNCATION_MARKER;
+    // Reserve space for the marker, but never let it consume more than half the budget
+    const markerCost = Math.min(TRUNCATION_MARKER.length, Math.floor(charBudget / 2));
+    const available = Math.max(charBudget - markerCost, 0);
+
+    const kept = selectLines(lines, available);
+    const body = kept.map((k) => k.line).join('\n');
+
+    // Only append marker if we actually have room for it
+    if (charBudget - body.length >= TRUNCATION_MARKER.length) {
+      return body + TRUNCATION_MARKER;
+    }
+    return body;
   }
 }

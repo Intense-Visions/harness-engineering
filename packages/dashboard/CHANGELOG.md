@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.1.4
+
+### Patch Changes
+
+- 46999c5: Fix `harness dashboard` returning 404 on all routes by serving built client static files from the Hono API server with SPA fallback.
+- Updated dependencies [802a1dd]
+  - @harness-engineering/core@0.21.4
+
 ## 0.1.2
 
 ### Patch Changes

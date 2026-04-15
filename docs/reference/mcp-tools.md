@@ -120,6 +120,8 @@ Get a structural skeleton of a file or files matching a glob: exports, classes, 
 
 - `path` (string, required) — Absolute file path or directory path. When a directory, outlines all supported files within it.
 - `glob` (string, optional) — Optional glob pattern to filter files (e.g. "_.ts", "src/\*\*/_.py"). Only used when path is a directory.
+- `offset` (number, optional) — Number of file entries to skip (pagination, directory mode only). Default: 0. Files are sorted by modification time desc.
+- `limit` (number, optional) — Max file entries to return (pagination, directory mode only). Default: 30.
 
 ### `code_search`
 
@@ -190,6 +192,8 @@ Detect structural anomalies — statistical outliers across code metrics and top
 - `path` (string, required) — Path to project root
 - `threshold` (number, optional) — Z-score threshold (default 2.0)
 - `metrics` (array, optional) — Metrics to analyze (default: cyclomaticComplexity, fanIn, fanOut, hotspotScore, transitiveDepth)
+- `offset` (number, optional) — Number of anomaly entries to skip (pagination). Default: 0. Anomalies are sorted by Z-score desc.
+- `limit` (number, optional) — Max anomaly entries to return (pagination). Default: 30.
 
 ### `detect_entropy`
 
@@ -383,6 +387,9 @@ Assemble all working context an agent needs in a single call: state, learnings, 
 - `learningsBudget` (number, optional) — Token budget for learnings slice (default 1000). Separate from graph tokenBudget.
 - `session` (string, optional) — Session slug for session-scoped state. When provided, state/learnings/handoff/failures are read from .harness/sessions/&lt;session>/ instead of .harness/. Omit for global fallback.
 - `depth` (string, optional) — Retrieval depth for learnings. "index" returns one-line summaries, "summary" (default) returns full entries, "full" returns entries with linked context.
+- `section` (string, optional) — Section to paginate. When provided, offset/limit apply within this section only and the response contains only { section, items, pagination, meta }. Note: section=graphContext requires mode=detailed (summary mode has no paginatable blocks). When omitted, returns the full response.
+- `offset` (number, optional) — Number of items to skip within the section (pagination). Default: 0. Requires section param.
+- `limit` (number, optional) — Max items to return within the section (pagination). Default: 20. Requires section param.
 
 ### `init_project`
 
@@ -461,6 +468,8 @@ Get architecture decay trends over time. Returns stability score history and per
 - `last` (number, optional) — Number of recent snapshots to analyze (default: 10)
 - `since` (string, optional) — Show trends since this ISO date (e.g., 2026-01-01)
 - `category` (string, optional) — Filter to a single metric category
+- `offset` (number, optional) — Number of trend entries to skip (pagination). Default: 0. Trends are sorted by decay magnitude (absolute delta) desc. Ignored when category is set (category filter returns a single entry).
+- `limit` (number, optional) — Max trend entries to return (pagination). Default: 20. Ignored when category is set (category filter returns a single entry).
 
 ### `get_impact`
 
@@ -494,6 +503,8 @@ Get relationships for a specific node in the knowledge graph, with configurable 
 - `direction` (string, optional) — Direction of relationships to include (default both)
 - `depth` (number, optional) — Traversal depth (default 1)
 - `mode` (string, optional) — Response density: summary returns neighbor counts by type + direct neighbors only, detailed returns full traversal. Default: detailed
+- `offset` (number, optional) — Number of edges to skip (pagination). Default: 0. Edges are sorted by weight (confidence desc).
+- `limit` (number, optional) — Max edges to return (pagination). Default: 50.
 
 ### `query_graph`
 
@@ -510,6 +521,8 @@ Query the project knowledge graph using ContextQL. Traverses from root nodes out
 - `bidirectional` (boolean, optional) — Traverse edges in both directions (default false)
 - `pruneObservability` (boolean, optional) — Prune observability nodes like spans/metrics/logs (default true)
 - `mode` (string, optional) — Response density: summary returns node/edge counts by type + top 10 nodes by connectivity, detailed returns full arrays. Default: detailed
+- `offset` (number, optional) — Number of nodes to skip (pagination). Default: 0. Nodes are sorted by connectivity (edge count desc).
+- `limit` (number, optional) — Max nodes to return (pagination). Default: 50.
 
 **CLI equivalent:** [`harness query`](cli-commands.md#harness-query-rootnodeid)
 
@@ -546,6 +559,8 @@ Review code changes at configurable depth: quick (diff analysis), standard (+ se
 - `diff` (string, optional) — Raw git diff string. If omitted, auto-detects from git.
 - `depth` (string, required) — Review depth: quick, standard, or deep
 - `mode` (string, optional) — Response density. Default: summary
+- `offset` (number, optional) — Number of findings to skip (pagination). Default: 0. Findings are sorted by severity desc (error > warning > info).
+- `limit` (number, optional) — Max findings to return (pagination). Default: 20.
 
 ### `run_agent_task`
 
@@ -574,6 +589,8 @@ Run the unified 7-phase code review pipeline: gate, mechanical checks, context s
 - `noMechanical` (boolean, optional) — Skip mechanical checks (useful if already run)
 - `prNumber` (number, optional) — PR number (required for --comment and CI gate)
 - `repo` (string, optional) — Repository in owner/repo format (required for --comment)
+- `offset` (number, optional) — Number of findings to skip (pagination). Default: 0. Findings are sorted by severity desc (critical > important > suggestion).
+- `limit` (number, optional) — Max findings to return (pagination). Default: 20.
 
 ### `run_persona`
 

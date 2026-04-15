@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-11
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-11T03:00:54.627Z
+last_manual_edit: 2026-04-11T17:02:27.485Z
 ---
 
 # Roadmap
@@ -787,7 +787,8 @@ last_manual_edit: 2026-04-11T03:00:54.627Z
 - **Summary:** 55 framework-agnostic design knowledge skills across 10 domains (Color, Typography, Layout, Gestalt, Interaction, Depth/Motion, Design Systems, Platform Languages, Visual Craft, Design Process) with cross-references to existing css-_/a11y-_ skills
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
+- **Assigned:** 2026-04-07
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#128
 
@@ -889,6 +890,28 @@ last_manual_edit: 2026-04-11T03:00:54.627Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#137
+
+### Paged MCP tool responses
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Replace lossy truncation with cursor-based paging for tools where agents may need content past the budget (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Return hasMore + cursor/offset instead of truncation marker so agents can request more.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#145
+
+### Paged MCP Tool Responses
+
+- **Status:** planned
+- **Spec:** docs/changes/paged-mcp-tool-responses/proposal.md
+- **Summary:** Replace lossy truncation with offset/limit pagination for 8 MCP tools (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Shared PaginationMeta contract, relevance-sorted pages, per-tool defaults.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#145
 
 ## v3.0 Graph Intelligence
 

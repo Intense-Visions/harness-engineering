@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { buildHealthCheckRouter } from './routes/health-check';
 import { buildOverviewRouter } from './routes/overview';
 import { buildRoadmapRouter } from './routes/roadmap';
@@ -40,6 +41,14 @@ export function buildApp(ctx: ServerContext): Hono {
   app.route('/api', buildActionsRouter(ctx));
   app.route('/api', buildCIRouter(ctx));
   app.route('/api', buildImpactRouter(ctx));
+
+  // Serve built client static files (assets, etc.)
+  const clientRoot = process.env['DASHBOARD_CLIENT_ROOT'];
+  if (clientRoot) {
+    app.use('/assets/*', serveStatic({ root: clientRoot }));
+    // SPA fallback: serve index.html for all non-API routes
+    app.get('*', serveStatic({ root: clientRoot, path: '/index.html' }));
+  }
 
   return app;
 }
