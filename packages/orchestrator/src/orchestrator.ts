@@ -130,9 +130,7 @@ export class Orchestrator extends EventEmitter {
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
         pipeline: this.pipeline,
         analysisArchive: this.analysisArchive,
-        roadmapPath: config.tracker.filePath
-          ? path.resolve(config.workspace.root, '..', config.tracker.filePath)
-          : null,
+        roadmapPath: config.tracker.filePath ?? null,
         dispatchAdHoc: this.dispatchAdHoc.bind(this),
       });
 
