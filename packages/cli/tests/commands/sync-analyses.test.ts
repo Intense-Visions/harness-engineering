@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { extractAnalysisFromComments } from '../../src/commands/sync-analyses';
 import { renderAnalysisComment } from '@harness-engineering/orchestrator';
 import type { TrackerComment } from '@harness-engineering/types';
@@ -284,5 +284,140 @@ describe('round-trip: renderAnalysisComment -> extractAnalysisFromComments', () 
     expect(extracted!.score?.riskLevel).toBe(original.score!.riskLevel);
     expect(extracted!.score?.confidence).toBe(original.score!.confidence);
     expect(extracted!.score?.recommendedRoute).toBe(original.score!.recommendedRoute);
+  });
+});
+
+describe('full round-trip: render -> addComment -> fetchComments -> extract', () => {
+  it('publishes via addComment mock, fetches back, and extracts a matching record', async () => {
+    const { GitHubIssuesSyncAdapter } = await import('@harness-engineering/core');
+
+    const original: AnalysisRecord = {
+      issueId: 'full-rt-1',
+      identifier: 'full-roundtrip-feature',
+      spec: null,
+      score: {
+        overall: 0.72,
+        confidence: 0.88,
+        riskLevel: 'medium',
+        blastRadius: { filesEstimated: 4, modules: 2, services: 1 },
+        dimensions: { structural: 0.6, semantic: 0.75, historical: 0.55 },
+        reasoning: ['Modifies shared interface', 'Limited test coverage in target module'],
+        recommendedRoute: 'human',
+      },
+      simulation: null,
+      analyzedAt: '2026-04-15T16:00:00Z',
+      externalId: 'github:owner/repo#88',
+    };
+
+    // Step 1: Render the comment as the publish flow would
+    const commentBody = renderAnalysisComment(original);
+
+    // Step 2: Simulate addComment capturing the body, then fetchComments returning it
+    // We create one adapter for addComment (POST mock) and one for fetchComments (GET mock)
+    let capturedBody = '';
+    const addCommentFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      headers: new Headers(),
+      text: async () => '{}',
+      json: async () => ({}),
+    });
+
+    const publishAdapter = new GitHubIssuesSyncAdapter({
+      token: 'tok',
+      config: {
+        kind: 'github' as const,
+        repo: 'owner/repo',
+        labels: ['harness'],
+        statusMap: {
+          backlog: 'open',
+          planned: 'open',
+          'in-progress': 'open',
+          done: 'closed',
+          blocked: 'open',
+        },
+      },
+      fetchFn: addCommentFetch,
+    });
+
+    const addResult = await publishAdapter.addComment(original.externalId!, commentBody);
+    expect(addResult.ok).toBe(true);
+
+    // Extract what was POSTed
+    const postCall = addCommentFetch.mock.calls[0]!;
+    capturedBody = JSON.parse(postCall[1].body as string).body;
+    expect(capturedBody).toBe(commentBody);
+
+    // Step 3: Simulate fetchComments returning the published comment
+    const fetchCommentsFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      text: async () => JSON.stringify([
+        {
+          id: 500,
+          body: capturedBody,
+          created_at: '2026-04-15T16:01:00Z',
+          updated_at: null,
+          user: { login: 'harness-bot' },
+        },
+      ]),
+      json: async () => [
+        {
+          id: 500,
+          body: capturedBody,
+          created_at: '2026-04-15T16:01:00Z',
+          updated_at: null,
+          user: { login: 'harness-bot' },
+        },
+      ],
+    });
+
+    const pullAdapter = new GitHubIssuesSyncAdapter({
+      token: 'tok',
+      config: {
+        kind: 'github' as const,
+        repo: 'owner/repo',
+        labels: ['harness'],
+        statusMap: {
+          backlog: 'open',
+          planned: 'open',
+          'in-progress': 'open',
+          done: 'closed',
+          blocked: 'open',
+        },
+      },
+      fetchFn: fetchCommentsFetch,
+    });
+
+    const fetchResult = await pullAdapter.fetchComments(original.externalId!);
+    expect(fetchResult.ok).toBe(true);
+    if (!fetchResult.ok) return;
+
+    // Step 4: Extract the analysis from the fetched comments
+    const extracted = extractAnalysisFromComments(fetchResult.value);
+    expect(extracted).not.toBeNull();
+
+    // Step 5: Compare every AnalysisRecord field
+    expect(extracted!.issueId).toBe(original.issueId);
+    expect(extracted!.identifier).toBe(original.identifier);
+    expect(extracted!.spec).toBe(original.spec);
+    expect(extracted!.analyzedAt).toBe(original.analyzedAt);
+    expect(extracted!.externalId).toBe(original.externalId);
+    expect(extracted!.simulation).toBe(original.simulation);
+
+    // Deep-compare score
+    expect(extracted!.score).not.toBeNull();
+    expect(extracted!.score!.overall).toBe(original.score!.overall);
+    expect(extracted!.score!.confidence).toBe(original.score!.confidence);
+    expect(extracted!.score!.riskLevel).toBe(original.score!.riskLevel);
+    expect(extracted!.score!.recommendedRoute).toBe(original.score!.recommendedRoute);
+    expect(extracted!.score!.reasoning).toEqual(original.score!.reasoning);
+    expect(extracted!.score!.blastRadius).toEqual(original.score!.blastRadius);
+    expect(extracted!.score!.dimensions).toEqual(original.score!.dimensions);
+
+    // Ensure discriminator fields are stripped
+    expect((extracted as any)._harness_analysis).toBeUndefined();
+    expect((extracted as any)._version).toBeUndefined();
   });
 });
