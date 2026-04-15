@@ -33,12 +33,13 @@ import {
   artifactPresenceFromIssue,
   resolveEscalationConfig,
   AnalysisArchive,
+  renderAnalysisComment,
+  loadPublishedIndex,
+  savePublishedIndex,
+  loadTrackerSyncConfig,
 } from './core/index';
-import { renderAnalysisComment } from './core/analysis-comment';
-import { loadPublishedIndex, savePublishedIndex } from './core/published-index';
-import { loadTrackerSyncConfig } from './core/tracker-config';
+import type { AnalysisRecord } from './core/index';
 import { GitHubIssuesSyncAdapter, type TrackerSyncAdapter } from '@harness-engineering/core';
-import type { AnalysisRecord } from './core/analysis-archive';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
