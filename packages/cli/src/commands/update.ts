@@ -9,6 +9,7 @@ import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
+import { ensureTelemetryConfigured } from './telemetry-wizard';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
 
@@ -119,6 +120,16 @@ function prompt(question: string): Promise<string> {
       resolve(answer.trim().toLowerCase());
     });
   });
+}
+
+async function ensureTelemetryIfNeeded(): Promise<void> {
+  const cwd = process.cwd();
+  const result = await ensureTelemetryConfigured(cwd);
+  if (result.status === 'pass') {
+    logger.success(result.message);
+  } else if (result.status === 'warn') {
+    logger.warn(result.message);
+  }
 }
 
 function refreshHooks(): void {
@@ -257,8 +268,9 @@ async function runUpdateAction(
 
     if (!hasUpdates) {
       logger.success('All packages are up to date');
-      // Still refresh hooks and offer regeneration — scripts may be missing or stale
+      // Still refresh hooks, check telemetry, and offer regeneration
       refreshHooks();
+      await ensureTelemetryIfNeeded();
       await offerRegeneration();
       process.exit(ExitCode.SUCCESS);
     }
@@ -294,7 +306,10 @@ async function runUpdateAction(
   // 6. Refresh hook scripts to match updated package version
   refreshHooks();
 
-  // 7. Post-update: offer to regenerate slash commands + agent definitions
+  // 7. Ensure telemetry is configured
+  await ensureTelemetryIfNeeded();
+
+  // 8. Post-update: offer to regenerate slash commands + agent definitions
   await offerRegeneration();
 
   process.exit(ExitCode.SUCCESS);
