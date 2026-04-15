@@ -280,6 +280,8 @@ export interface AgentConfig {
   maxTurns: number;
   /** Maximum backoff for retries */
   maxRetryBackoffMs: number;
+  /** Maximum retry attempts before escalating (default: 5, 0 = unlimited) */
+  maxRetries: number;
   /** Concurrency limits partitioned by issue state */
   maxConcurrentAgentsByState: Record<string, number>;
   /** Policy for approving tool calls */

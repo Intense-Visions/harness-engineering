@@ -63,16 +63,20 @@ describe('WorkspaceManager', () => {
     expect(worktreeCall!.cwd).toBe('/repo');
   });
 
-  it('removes stale empty dir before creating worktree', async () => {
-    vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
-    vi.mocked(fs.readdir).mockResolvedValue(
-      [] as unknown as Awaited<ReturnType<typeof fs.readdir>>
-    );
-    vi.mocked(fs.rmdir).mockResolvedValue(undefined);
+  it('removes stale directory before creating worktree', async () => {
+    // First access (.git check) rejects; second access (dir exists check) resolves
+    vi.mocked(fs.access)
+      .mockRejectedValueOnce(new Error('ENOENT'))
+      .mockResolvedValueOnce(undefined);
 
     const result = await manager.ensureWorkspace('test-issue');
     expect(result.ok).toBe(true);
-    expect(fs.rmdir).toHaveBeenCalled();
+    // Should have called git worktree remove --force for the stale directory
+    const removeCall = manager.gitCalls.find(
+      (c) => c.args[0] === 'worktree' && c.args[1] === 'remove'
+    );
+    expect(removeCall).toBeDefined();
+    expect(removeCall!.args).toContain('--force');
   });
 
   it('reuses existing worktree when .git is present', async () => {

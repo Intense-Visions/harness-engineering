@@ -93,6 +93,12 @@ export class Orchestrator extends EventEmitter {
   private analysisFailureCache: Map<string, number> = new Map();
   /** Guards against overlapping ticks when a tick takes longer than the polling interval */
   private tickInProgress = false;
+  /** Current tick-phase activity visible to the dashboard */
+  private tickActivity: {
+    phase: 'idle' | 'fetching' | 'analyzing' | 'dispatching';
+    detail: string | null;
+    progress: { current: number; total: number } | null;
+  } = { phase: 'idle', detail: null, progress: null };
 
   /**
    * Creates a new Orchestrator instance.
@@ -464,6 +470,11 @@ export class Orchestrator extends EventEmitter {
     const concernSignals = new Map<string, ConcernSignal[]>();
     const enrichedSpecs = new Map<string, EnrichedSpec>();
     const complexityScores = new Map<string, ComplexityScore>();
+
+    // Seed with previously-cached specs so routing still has enrichment context
+    for (const [id, spec] of this.enrichedSpecsByIssue) {
+      enrichedSpecs.set(id, spec);
+    }
     const escalationConfig = resolveEscalationConfig(this.config);
     const failureTtl = this.config.intelligence?.failureCacheTtlMs ?? 300_000;
     const nowForCache = Date.now();
@@ -475,11 +486,25 @@ export class Orchestrator extends EventEmitter {
       }
     }
 
-    for (const issue of candidates) {
+    const eligibleCandidates = candidates.filter((issue) => {
       const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-      if (escalationConfig.autoExecute.includes(scopeTier)) continue;
-      if (this.analysisFailureCache.has(issue.id)) continue;
+      if (escalationConfig.autoExecute.includes(scopeTier)) return false;
+      if (this.analysisFailureCache.has(issue.id)) return false;
+      // Skip issues already successfully analyzed (cache cleared on completion)
+      if (this.enrichedSpecsByIssue.has(issue.id)) return false;
+      return true;
+    });
 
+    let processed = 0;
+    for (const issue of eligibleCandidates) {
+      processed++;
+      this.setTickActivity(
+        'analyzing',
+        `SEL/CML: ${issue.identifier} — ${issue.title}`,
+        { current: processed, total: eligibleCandidates.length }
+      );
+
+      const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
       try {
         const result = await this.pipeline!.preprocessIssue(issue, scopeTier, escalationConfig);
         if (result.signals.length > 0) concernSignals.set(issue.id, result.signals);
@@ -497,12 +522,14 @@ export class Orchestrator extends EventEmitter {
       }
     }
 
+    this.setTickActivity('analyzing', 'PESL: Running simulations');
     const simulationResults = await this.runPeslSimulations(
       candidates,
       enrichedSpecs,
       complexityScores
     );
 
+    this.setTickActivity('analyzing', 'Archiving analysis results');
     await this.archiveAnalysisResults(
       candidates,
       enrichedSpecs,
@@ -512,6 +539,7 @@ export class Orchestrator extends EventEmitter {
 
     // Auto-publish to external tracker (non-fatal)
     try {
+      this.setTickActivity('analyzing', 'Publishing to tracker');
       await this.autoPublishAnalyses(candidates, enrichedSpecs, complexityScores, simulationResults);
     } catch (err) {
       this.logger.warn('Auto-publish analyses failed', { error: String(err) });
@@ -521,7 +549,7 @@ export class Orchestrator extends EventEmitter {
   }
 
   public async asyncTick(): Promise<void> {
-    // Load persisted graph data on first tick (can't await in constructor)
+    // Load persisted data on first tick (can't await in constructor)
     if (this.pipeline && this.graphStore && !this.graphLoaded) {
       this.graphLoaded = true;
       try {
@@ -538,11 +566,29 @@ export class Orchestrator extends EventEmitter {
           error: String(err),
         });
       }
+
+      // Hydrate enriched spec cache from analysis archive
+      try {
+        const archived = await this.analysisArchive.list();
+        for (const record of archived) {
+          if (record.spec && !this.enrichedSpecsByIssue.has(record.issueId)) {
+            this.enrichedSpecsByIssue.set(record.issueId, record.spec);
+          }
+        }
+        if (archived.length > 0) {
+          this.logger.info(`Loaded ${this.enrichedSpecsByIssue.size} cached analyses from archive`);
+        }
+      } catch (err) {
+        this.logger.warn('Failed to load analysis archive, will re-analyze on demand', {
+          error: String(err),
+        });
+      }
     }
 
     const nowMs = Date.now();
 
     // 1. Fetch candidates from tracker
+    this.setTickActivity('fetching', 'Polling tracker for candidates');
     const candidatesResult = await this.tracker.fetchCandidateIssues();
     if (!candidatesResult.ok) {
       this.logger.error('Failed to fetch candidate issues', {
@@ -565,6 +611,7 @@ export class Orchestrator extends EventEmitter {
     const pipelineResult = this.pipeline
       ? await this.runIntelligencePipeline(candidatesResult.value)
       : undefined;
+    this.setTickActivity('dispatching', 'Applying state machine');
     const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
       pipelineResult ?? {};
 
@@ -603,7 +650,7 @@ export class Orchestrator extends EventEmitter {
       await this.handleEffect(effect);
     }
 
-    this.emit('state_change', this.getSnapshot());
+    this.setTickActivity('idle');
   }
 
   public async tick(): Promise<void> {
@@ -616,6 +663,9 @@ export class Orchestrator extends EventEmitter {
       await this.asyncTick();
     } finally {
       this.tickInProgress = false;
+      if (this.tickActivity.phase !== 'idle') {
+        this.setTickActivity('idle');
+      }
     }
   }
 
@@ -1079,6 +1129,16 @@ export class Orchestrator extends EventEmitter {
     this.logger.info('Orchestrator stopped.');
   }
 
+  /** Update tick activity and broadcast the change to connected clients. */
+  private setTickActivity(
+    phase: 'idle' | 'fetching' | 'analyzing' | 'dispatching',
+    detail?: string,
+    progress?: { current: number; total: number }
+  ): void {
+    this.tickActivity = { phase, detail: detail ?? null, progress: progress ?? null };
+    this.emit('state_change', this.getSnapshot());
+  }
+
   /**
    * Returns a point-in-time snapshot of the orchestrator's internal state.
    */
@@ -1097,6 +1157,7 @@ export class Orchestrator extends EventEmitter {
       maxRequestsPerSecond: this.state.maxRequestsPerSecond,
       maxInputTokensPerMinute: this.state.maxInputTokensPerMinute,
       maxOutputTokensPerMinute: this.state.maxOutputTokensPerMinute,
+      tickActivity: this.tickActivity,
     };
   }
 }

@@ -47,6 +47,7 @@ export function getDefaultConfig(): WorkflowConfig {
       maxConcurrentAgents: 1,
       maxTurns: 10,
       maxRetryBackoffMs: 5000,
+      maxRetries: 5,
       maxConcurrentAgentsByState: {},
       turnTimeoutMs: 300000,
       readTimeoutMs: 30000,

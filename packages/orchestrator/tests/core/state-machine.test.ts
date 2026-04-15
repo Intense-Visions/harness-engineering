@@ -32,6 +32,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
       maxConcurrentAgents: 3,
       maxTurns: 20,
       maxRetryBackoffMs: 300000,
+      maxRetries: 5,
       maxConcurrentAgentsByState: {},
       turnTimeoutMs: 3600000,
       readTimeoutMs: 5000,

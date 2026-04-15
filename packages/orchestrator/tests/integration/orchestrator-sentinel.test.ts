@@ -34,6 +34,7 @@ describe('Orchestrator Sentinel Integration', () => {
       maxConcurrentAgents: 2,
       maxTurns: 3,
       maxRetryBackoffMs: 1000,
+      maxRetries: 5,
       maxConcurrentAgentsByState: { planned: 1 },
       turnTimeoutMs: 5000,
       readTimeoutMs: 5000,

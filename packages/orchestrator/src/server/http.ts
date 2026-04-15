@@ -9,6 +9,7 @@ import { handleRoadmapActionsRoute } from './routes/roadmap-actions';
 import { handleDispatchActionsRoute } from './routes/dispatch-actions';
 import type { DispatchAdHocFn } from './routes/dispatch-actions';
 import { handleAnalysesRoute } from './routes/analyses';
+import { handleSessionsRoute } from './routes/sessions';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
 import type { InteractionQueue, PendingInteraction } from '../core/interaction-queue';
@@ -67,7 +68,9 @@ export class OrchestratorServer {
     this.roadmapPath = deps?.roadmapPath ?? null;
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
     this.httpServer = http.createServer(this.handleRequest.bind(this));
-    this.broadcaster = new WebSocketBroadcaster(this.httpServer);
+    this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
+      this.orchestrator.getSnapshot()
+    );
 
     // Wire orchestrator events to WebSocket broadcasts (store refs for cleanup)
     this.stateChangeListener = (snapshot: unknown) => {
@@ -125,6 +128,11 @@ export class OrchestratorServer {
 
     // Ad-hoc dispatch route
     if (handleDispatchActionsRoute(req, res, this.dispatchAdHoc)) {
+      return;
+    }
+
+    // Chat session metadata route
+    if (handleSessionsRoute(req, res)) {
       return;
     }
 

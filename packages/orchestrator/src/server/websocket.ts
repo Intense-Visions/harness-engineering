@@ -7,12 +7,27 @@ import type { Duplex } from 'node:stream';
  *
  * Attaches to an existing HTTP server via the 'upgrade' event.
  * Only accepts connections to the /ws path.
+ *
+ * When a `getSnapshot` callback is provided, each newly connected client
+ * immediately receives the current orchestrator state so the dashboard
+ * doesn't have to wait for the next event-driven broadcast.
  */
 export class WebSocketBroadcaster {
   private wss: WebSocketServer;
+  private getSnapshot: (() => Record<string, unknown>) | null;
 
-  constructor(httpServer: HttpServer) {
+  constructor(httpServer: HttpServer, getSnapshot?: () => Record<string, unknown>) {
     this.wss = new WebSocketServer({ noServer: true });
+    this.getSnapshot = getSnapshot ?? null;
+
+    this.wss.on('connection', (ws) => {
+      if (this.getSnapshot) {
+        const msg = JSON.stringify({ type: 'state_change', data: this.getSnapshot() });
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(msg);
+        }
+      }
+    });
 
     httpServer.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
       const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);

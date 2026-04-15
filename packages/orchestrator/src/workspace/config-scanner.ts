@@ -14,11 +14,11 @@ import type { ScanConfigFileResult, ScanConfigResult } from '@harness-engineerin
 /** Files to scan for injection patterns and SEC-AGT rule violations. */
 const CONFIG_FILES = ['CLAUDE.md', 'AGENTS.md', '.gemini/settings.json', 'skill.yaml'];
 
-function scanSingleFile(
+async function scanSingleFile(
   filePath: string,
   targetDir: string,
   scanner: SecurityScanner
-): ScanConfigFileResult | null {
+): Promise<ScanConfigFileResult | null> {
   if (!existsSync(filePath)) return null;
 
   let content: string;
@@ -31,7 +31,10 @@ function scanSingleFile(
   const injectionFindings = scanForInjection(content);
   const findings = mapInjectionFindings(injectionFindings);
 
-  const secFindings = scanner.scanContent(content, filePath);
+  // Use scanFile (not scanContent) so fileGlob filtering is applied.
+  // Without this, rules like SEC-AGT-007 (hooks.json only) and SEC-MCP-002
+  // (.mcp.json only) would fire on CLAUDE.md/AGENTS.md, causing false positives.
+  const secFindings = await scanner.scanFile(filePath);
   findings.push(...mapSecurityFindings(secFindings, findings));
 
   return {
@@ -55,7 +58,7 @@ export async function scanWorkspaceConfig(workspacePath: string): Promise<ScanCo
   const results: ScanConfigFileResult[] = [];
 
   for (const configFile of CONFIG_FILES) {
-    const result = scanSingleFile(join(workspacePath, configFile), workspacePath, scanner);
+    const result = await scanSingleFile(join(workspacePath, configFile), workspacePath, scanner);
     if (result) results.push(result);
   }
 

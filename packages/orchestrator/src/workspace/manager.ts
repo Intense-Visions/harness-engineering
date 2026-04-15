@@ -65,11 +65,17 @@ export class WorkspaceManager {
         // Not yet created — fall through to create it.
       }
 
-      // Remove stale empty directory if a previous run left one behind.
+      // Remove stale directory if a previous run left one behind.
+      // The directory may be non-empty from a partially-failed dispatch.
       try {
-        const entries = await fs.readdir(workspacePath);
-        if (entries.length === 0) {
-          await fs.rmdir(workspacePath);
+        await fs.access(workspacePath);
+        // Directory exists but is not a valid worktree — clean it up.
+        const repoRoot = await this.getRepoRoot();
+        try {
+          await this.git(['worktree', 'remove', '--force', workspacePath], repoRoot);
+        } catch {
+          // Not registered as a git worktree; remove the directory directly.
+          await fs.rm(workspacePath, { recursive: true, force: true });
         }
       } catch {
         // Directory doesn't exist — that's fine.

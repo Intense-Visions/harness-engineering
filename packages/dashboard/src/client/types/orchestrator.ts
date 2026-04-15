@@ -1,6 +1,8 @@
 /** Minimal session info for display in the agent monitor. */
 export interface AgentSession {
   backendName: string;
+  inputTokens: number;
+  outputTokens: number;
   totalTokens: number;
   turnCount: number;
   lastMessage: string | null;
@@ -11,6 +13,11 @@ export interface RunningAgent {
   issueId: string;
   identifier: string;
   phase: string;
+  startedAt: string;
+  issue: {
+    title: string;
+    description: string | null;
+  };
   session: AgentSession | null;
 }
 
@@ -37,6 +44,13 @@ export interface RetryEntry {
   error: string | null;
 }
 
+/** Current tick-cycle activity (intelligence pipeline, fetching, etc.). */
+export interface TickActivity {
+  phase: 'idle' | 'fetching' | 'analyzing' | 'dispatching';
+  detail: string | null;
+  progress: { current: number; total: number } | null;
+}
+
 /**
  * Point-in-time orchestrator state snapshot.
  * Shape matches the JSON returned by GET /api/v1/state
@@ -56,6 +70,7 @@ export interface OrchestratorSnapshot {
   maxRequestsPerSecond: number;
   maxInputTokensPerMinute: number;
   maxOutputTokensPerMinute: number;
+  tickActivity?: TickActivity;
 }
 
 /** Enriched spec subset attached to escalated interactions. */

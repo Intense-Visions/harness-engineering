@@ -213,16 +213,21 @@ function handleWorkerExit(
   } else {
     const nextAttempt = (attempt ?? 0) + 1;
     const escalationConfig = resolveEscalationConfig(config);
+    const maxRetries = config.agent.maxRetries ?? 5;
 
     // Check if this is a diagnostic issue that has exceeded its retry budget
     const scopeLabel = entry?.issue.labels.find((l) => l.startsWith('scope:'));
     const isDiagnostic = scopeLabel === 'scope:diagnostic';
-    if (isDiagnostic && nextAttempt > escalationConfig.diagnosticRetryBudget) {
+    const retryBudget = isDiagnostic ? escalationConfig.diagnosticRetryBudget : maxRetries;
+    if (maxRetries > 0 && nextAttempt > retryBudget) {
+      const reason = isDiagnostic
+        ? `diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget})`
+        : `exceeded max retries (${maxRetries})`;
       const escalateEffect: SideEffect = {
         type: 'escalate',
         issueId,
         identifier: entry?.identifier ?? issueId,
-        reasons: [`diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget})`],
+        reasons: [reason],
       };
       if (entry?.issue.title) (escalateEffect as EscalateEffect).issueTitle = entry.issue.title;
       if (entry?.issue.description)
@@ -362,6 +367,18 @@ function handleRetryFired(
   if (!canDispatch(next, issue.state, config.agent.maxConcurrentAgentsByState)) {
     // Requeue with incremented attempt
     const nextAttempt = retryEntry.attempt + 1;
+    const maxRetries = config.agent.maxRetries ?? 5;
+    if (maxRetries > 0 && nextAttempt > maxRetries) {
+      effects.push({
+        type: 'escalate',
+        issueId,
+        identifier: retryEntry.identifier,
+        reasons: [`exceeded max retries (${maxRetries}) while waiting for slots`],
+        issueTitle: issue.title,
+        issueDescription: issue.description,
+      });
+      return { nextState: next, effects };
+    }
     const delayMs = calculateRetryDelay(nextAttempt, 'failure', config.agent.maxRetryBackoffMs);
     next.retryAttempts.set(issueId, {
       issueId,
@@ -428,7 +445,28 @@ function handleStallDetected(
   const entry = next.running.get(issueId);
   next.running.delete(issueId);
 
+  effects.push({
+    type: 'stop',
+    issueId,
+    reason: 'stall_detected',
+  });
+
   const attempt = (entry?.attempt ?? 0) + 1;
+  const maxRetries = config.agent.maxRetries ?? 5;
+  if (maxRetries > 0 && attempt > maxRetries) {
+    const escalateEffect: SideEffect = {
+      type: 'escalate',
+      issueId,
+      identifier: entry?.identifier ?? issueId,
+      reasons: [`exceeded max retries (${maxRetries}) after stall`],
+    };
+    if (entry?.issue.title) (escalateEffect as EscalateEffect).issueTitle = entry.issue.title;
+    if (entry?.issue.description)
+      (escalateEffect as EscalateEffect).issueDescription = entry.issue.description;
+    effects.push(escalateEffect);
+    return { nextState: next, effects };
+  }
+
   const delayMs = calculateRetryDelay(attempt, 'failure', config.agent.maxRetryBackoffMs);
   const nowMs = Date.now();
 
@@ -438,12 +476,6 @@ function handleStallDetected(
     attempt,
     dueAtMs: nowMs + delayMs,
     error: 'stall detected',
-  });
-
-  effects.push({
-    type: 'stop',
-    issueId,
-    reason: 'stall_detected',
   });
 
   effects.push({
