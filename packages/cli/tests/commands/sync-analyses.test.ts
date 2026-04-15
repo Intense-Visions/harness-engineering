@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { extractAnalysisFromComments } from '../../src/commands/sync-analyses';
+import { renderAnalysisComment } from '../../src/commands/publish-analyses';
 import type { TrackerComment } from '@harness-engineering/types';
+import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 
 function makeComment(overrides: Partial<TrackerComment> = {}): TrackerComment {
   return {
@@ -124,5 +126,46 @@ describe('createSyncAnalysesCommand', () => {
     const { createSyncAnalysesCommand } = await import('../../src/commands/sync-analyses');
     const cmd = createSyncAnalysesCommand();
     expect(cmd.name()).toBe('sync-analyses');
+  });
+});
+
+describe('round-trip: renderAnalysisComment -> extractAnalysisFromComments', () => {
+  it('extracts a record that matches the original after publish rendering', () => {
+    const original: AnalysisRecord = {
+      issueId: 'roundtrip-1',
+      identifier: 'roundtrip-feature',
+      spec: null,
+      score: {
+        overall: 0.7,
+        confidence: 0.85,
+        riskLevel: 'medium',
+        blastRadius: { filesEstimated: 3, modules: 1, services: 1 },
+        dimensions: { structural: 0.6, semantic: 0.7, historical: 0.5 },
+        reasoning: ['Touches core module'],
+        recommendedRoute: 'human',
+      },
+      simulation: null,
+      analyzedAt: '2026-04-15T14:00:00Z',
+      externalId: 'github:owner/repo#99',
+    };
+
+    const commentBody = renderAnalysisComment(original);
+    const fakeComment: TrackerComment = {
+      id: '100',
+      body: commentBody,
+      createdAt: '2026-04-15T14:00:00Z',
+      updatedAt: null,
+      author: 'harness-bot',
+    };
+
+    const extracted = extractAnalysisFromComments([fakeComment]);
+    expect(extracted).not.toBeNull();
+    expect(extracted!.issueId).toBe(original.issueId);
+    expect(extracted!.identifier).toBe(original.identifier);
+    expect(extracted!.externalId).toBe(original.externalId);
+    expect(extracted!.analyzedAt).toBe(original.analyzedAt);
+    expect(extracted!.score?.riskLevel).toBe(original.score!.riskLevel);
+    expect(extracted!.score?.confidence).toBe(original.score!.confidence);
+    expect(extracted!.score?.recommendedRoute).toBe(original.score!.recommendedRoute);
   });
 });
