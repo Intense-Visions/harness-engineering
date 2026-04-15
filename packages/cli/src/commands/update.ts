@@ -1,11 +1,15 @@
 import { Command } from 'commander';
 import { execFile, execFileSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { realpathSync, existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import readline from 'node:readline';
 import chalk from 'chalk';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
+import { initHooks } from './hooks/init';
+import type { HookProfile } from '../hooks/profiles';
+import { ensureTelemetryConfigured } from './telemetry-wizard';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
 
@@ -118,9 +122,57 @@ function prompt(question: string): Promise<string> {
   });
 }
 
+async function ensureTelemetryIfNeeded(): Promise<void> {
+  const cwd = process.cwd();
+  const result = await ensureTelemetryConfigured(cwd);
+  if (result.status === 'pass') {
+    logger.success(result.message);
+  } else if (result.status === 'warn') {
+    logger.warn(result.message);
+  }
+}
+
+function refreshHooks(): void {
+  const cwd = process.cwd();
+  const configPath = join(cwd, 'harness.config.json');
+  if (!existsSync(configPath)) return;
+
+  // Detect existing profile or default to standard
+  let profile: HookProfile = 'standard';
+  const profilePath = join(cwd, '.harness', 'hooks', 'profile.json');
+  try {
+    const data = JSON.parse(readFileSync(profilePath, 'utf-8'));
+    if (data.profile && ['minimal', 'standard', 'strict'].includes(data.profile)) {
+      profile = data.profile;
+    }
+  } catch {
+    // No existing profile — use standard
+  }
+
+  try {
+    const result = initHooks({ profile, projectDir: cwd });
+    logger.success(`Refreshed ${result.copiedScripts.length} hooks (${profile} profile)`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn(`Hook refresh failed: ${msg}`);
+  }
+}
+
+function runLocalGraphScan(): void {
+  try {
+    logger.info('Scanning codebase to rebuild knowledge graph...');
+    execFileSync('harness', ['graph', 'scan', '.'], { stdio: 'inherit' });
+  } catch {
+    logger.warn('Graph scan failed. Run manually:');
+    console.log(`  ${chalk.cyan('harness graph scan .')}`);
+  }
+}
+
 async function offerRegeneration(): Promise<void> {
   console.log('');
-  const regenAnswer = await prompt('Regenerate slash commands and agent definitions? (Y/n) ');
+  const regenAnswer = await prompt(
+    'Regenerate slash commands, agent definitions, and knowledge graph? (Y/n) '
+  );
   if (regenAnswer === 'n' || regenAnswer === 'no') return;
 
   const scopeAnswer = await prompt('Generate for (G)lobal or (l)ocal project? (G/l) ');
@@ -132,6 +184,10 @@ async function offerRegeneration(): Promise<void> {
   } catch {
     logger.warn('Generation failed. Run manually:');
     console.log(`  ${chalk.cyan(`harness generate${isGlobal ? ' --global' : ''}`)}`);
+  }
+
+  if (!isGlobal) {
+    runLocalGraphScan();
   }
 }
 
@@ -212,7 +268,9 @@ async function runUpdateAction(
 
     if (!hasUpdates) {
       logger.success('All packages are up to date');
-      // Still offer regeneration — skills/agents may have changed
+      // Still refresh hooks, check telemetry, and offer regeneration
+      refreshHooks();
+      await ensureTelemetryIfNeeded();
       await offerRegeneration();
       process.exit(ExitCode.SUCCESS);
     }
@@ -245,7 +303,13 @@ async function runUpdateAction(
     process.exit(ExitCode.ERROR);
   }
 
-  // 6. Post-update: offer to regenerate slash commands + agent definitions
+  // 6. Refresh hook scripts to match updated package version
+  refreshHooks();
+
+  // 7. Ensure telemetry is configured
+  await ensureTelemetryIfNeeded();
+
+  // 8. Post-update: offer to regenerate slash commands + agent definitions
   await offerRegeneration();
 
   process.exit(ExitCode.SUCCESS);
