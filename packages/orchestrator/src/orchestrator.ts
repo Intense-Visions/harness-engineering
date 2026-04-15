@@ -34,6 +34,11 @@ import {
   resolveEscalationConfig,
   AnalysisArchive,
 } from './core/index';
+import { renderAnalysisComment } from './core/analysis-comment';
+import { loadPublishedIndex, savePublishedIndex } from './core/published-index';
+import { loadTrackerSyncConfig } from './core/tracker-config';
+import { GitHubIssuesSyncAdapter, type TrackerSyncAdapter } from '@harness-engineering/core';
+import type { AnalysisRecord } from './core/analysis-archive';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
@@ -357,6 +362,95 @@ export class Orchestrator extends EventEmitter {
     }
   }
 
+  /**
+   * Auto-publish analysis results to the external tracker as structured comments.
+   * Fires only when:
+   * - A tracker is configured in harness.config.json (roadmap.tracker)
+   * - GITHUB_TOKEN env var is available
+   * - The record has a non-null externalId
+   * - The record has not already been published (per the published index)
+   *
+   * Errors are non-fatal: a failed publish logs a warning but does not block
+   * the orchestrator tick.
+   */
+  private async autoPublishAnalyses(
+    candidates: Issue[],
+    enrichedSpecs: Map<string, EnrichedSpec>,
+    complexityScores: Map<string, ComplexityScore>,
+    simulationResults: Map<string, SimulationResult>
+  ): Promise<void> {
+    const projectRoot = path.resolve(this.config.workspace.root, '..', '..');
+    const trackerConfig = loadTrackerSyncConfig(projectRoot);
+    if (!trackerConfig) return;
+
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) return;
+
+    let adapter: TrackerSyncAdapter;
+    try {
+      adapter = new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
+    } catch (err) {
+      this.logger.warn('Failed to create tracker adapter for auto-publish', {
+        error: String(err),
+      });
+      return;
+    }
+
+    const publishedIndex = loadPublishedIndex(projectRoot);
+    let publishedCount = 0;
+
+    for (const issue of candidates) {
+      const spec = enrichedSpecs.get(issue.id) ?? null;
+      const score = complexityScores.get(issue.id) ?? null;
+      const simulation = simulationResults.get(issue.id) ?? null;
+      if (!spec && !score && !simulation) continue;
+
+      const externalId = issue.externalId ?? null;
+      if (!externalId) continue;
+      if (publishedIndex[issue.id]) continue;
+
+      const record: AnalysisRecord = {
+        issueId: issue.id,
+        identifier: issue.identifier,
+        spec,
+        score,
+        simulation,
+        analyzedAt: new Date().toISOString(),
+        externalId,
+      };
+
+      try {
+        const commentBody = renderAnalysisComment(record);
+        const result = await adapter.addComment(externalId, commentBody);
+
+        if (result.ok) {
+          publishedIndex[issue.id] = new Date().toISOString();
+          publishedCount++;
+          this.logger.info(`Auto-published analysis for ${issue.identifier} to ${externalId}`);
+        } else {
+          this.logger.warn(`Auto-publish failed for ${issue.identifier}: ${result.error.message}`, {
+            issueId: issue.id,
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Auto-publish error for ${issue.identifier}`, {
+          issueId: issue.id,
+          error: String(err),
+        });
+      }
+    }
+
+    if (publishedCount > 0) {
+      try {
+        savePublishedIndex(projectRoot, publishedIndex);
+      } catch (err) {
+        this.logger.warn('Failed to persist published index after auto-publish', {
+          error: String(err),
+        });
+      }
+    }
+  }
+
   private async runIntelligencePipeline(candidates: Issue[]): Promise<{
     concernSignals: Map<string, ConcernSignal[]>;
     enrichedSpecs: Map<string, EnrichedSpec>;
@@ -411,6 +505,13 @@ export class Orchestrator extends EventEmitter {
       complexityScores,
       simulationResults
     );
+
+    // Auto-publish to external tracker (non-fatal)
+    try {
+      await this.autoPublishAnalyses(candidates, enrichedSpecs, complexityScores, simulationResults);
+    } catch (err) {
+      this.logger.warn('Auto-publish analyses failed', { error: String(err) });
+    }
 
     return { concernSignals, enrichedSpecs, complexityScores, simulationResults };
   }
