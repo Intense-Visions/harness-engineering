@@ -39,6 +39,14 @@ export { runGraphOnlyChecks } from './pesl/graph-checks.js';
 export { runLlmSimulation } from './pesl/llm-simulation.js';
 export { PeslSimulator } from './pesl/simulator.js';
 
+// Outcome
+export { ExecutionOutcomeConnector } from './outcome/connector.js';
+export type { ExecutionOutcome } from './outcome/types.js';
+export type { OutcomeIngestResult } from './outcome/connector.js';
+
+// CML Historical
+export { computeHistoricalComplexity } from './cml/historical.js';
+
 // Pipeline
 export { IntelligencePipeline } from './pipeline.js';
 export type { PreprocessResult } from './pipeline.js';

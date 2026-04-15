@@ -9,6 +9,9 @@ import { GraphValidator } from './sel/graph-validator.js';
 import { score as scoreCML } from './cml/scorer.js';
 import { scoreToConcernSignals } from './cml/signals.js';
 import { PeslSimulator } from './pesl/simulator.js';
+import { ExecutionOutcomeConnector } from './outcome/connector.js';
+import type { ExecutionOutcome } from './outcome/types.js';
+import type { OutcomeIngestResult } from './outcome/connector.js';
 
 /**
  * Result of preprocessing an issue through the intelligence pipeline.
@@ -35,6 +38,7 @@ export class IntelligencePipeline {
   private readonly graphValidator: GraphValidator;
   private readonly store: GraphStore;
   private readonly simulator: PeslSimulator;
+  private readonly outcomeConnector: ExecutionOutcomeConnector;
 
   constructor(provider: AnalysisProvider, store: GraphStore, options?: { peslModel?: string }) {
     this.provider = provider;
@@ -43,6 +47,7 @@ export class IntelligencePipeline {
     this.simulator = new PeslSimulator(provider, store, {
       ...(options?.peslModel !== undefined && { model: options.peslModel }),
     });
+    this.outcomeConnector = new ExecutionOutcomeConnector(store);
   }
 
   /**
@@ -69,6 +74,14 @@ export class IntelligencePipeline {
     tier: ScopeTier = 'guided-change'
   ): Promise<SimulationResult> {
     return this.simulator.simulate(spec, score, tier);
+  }
+
+  /**
+   * Record an execution outcome in the knowledge graph.
+   * Called by the orchestrator after a worker exits.
+   */
+  recordOutcome(outcome: ExecutionOutcome): OutcomeIngestResult {
+    return this.outcomeConnector.ingest(outcome);
   }
 
   /**
