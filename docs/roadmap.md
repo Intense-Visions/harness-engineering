@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-11
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-14T18:10:24.120Z
+last_manual_edit: 2026-04-15T14:09:57.974Z
 ---
 
 # Roadmap
@@ -1498,6 +1498,14 @@ last_manual_edit: 2026-04-14T18:10:24.120Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#120
+
+### Dashboard graph chart
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Implement a scalable visual charting component on the graph dashboard to derive and display insights from the underlying core graph structure.
+- **Blockers:** —
+- **Plan:** —
 
 ## Assignment History
 

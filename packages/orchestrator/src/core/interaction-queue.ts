@@ -29,6 +29,25 @@ export interface PendingInteraction {
       ambiguities: string[];
       riskSignals: string[];
     };
+    /** Complexity score from intelligence pipeline, if available */
+    complexityScore?: {
+      overall: number;
+      confidence: number;
+      riskLevel: string;
+      blastRadius: {
+        services: number;
+        modules: number;
+        filesEstimated: number;
+        testFilesAffected: number;
+      };
+      dimensions: {
+        structural: number;
+        semantic: number;
+        historical: number;
+      };
+      reasoning: string[];
+      recommendedRoute: string;
+    };
   };
   /** ISO timestamp of creation */
   createdAt: string;

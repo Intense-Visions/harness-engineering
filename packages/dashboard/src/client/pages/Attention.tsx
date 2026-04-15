@@ -2,7 +2,196 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useNotifications } from '../hooks/useNotifications';
-import type { PendingInteraction } from '../types/orchestrator';
+import type {
+  PendingInteraction,
+  InteractionEnrichedSpec,
+  InteractionComplexityScore,
+} from '../types/orchestrator';
+
+function EnrichedSpecPanel({ spec }: { spec: InteractionEnrichedSpec }) {
+  return (
+    <div className="space-y-3 rounded-md border border-primary-500/20 bg-primary-500/5 p-4">
+      <h4 className="text-xs font-semibold uppercase tracking-widest text-primary-500">
+        Enriched Spec (SEL)
+      </h4>
+      <div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+          Intent
+        </span>
+        <p className="mt-1 text-sm text-white">{spec.intent}</p>
+      </div>
+      <div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+          Summary
+        </span>
+        <p className="mt-1 text-sm leading-relaxed text-gray-300">{spec.summary}</p>
+      </div>
+      {spec.affectedSystems.length > 0 && (
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+            Affected Systems
+          </span>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {spec.affectedSystems.map((sys) => (
+              <span
+                key={sys.name}
+                className="rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-400"
+                title={`Confidence: ${Math.round(sys.confidence * 100)}% | Tests: ${sys.testCoverage} | Deps: ${sys.transitiveDeps.length}`}
+              >
+                {sys.name}
+                {sys.graphNodeId && (
+                  <span className="ml-1 text-blue-500/50">{Math.round(sys.confidence * 100)}%</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {spec.unknowns.length > 0 && (
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
+              Unknowns ({spec.unknowns.length})
+            </span>
+            <ul className="mt-1 space-y-0.5">
+              {spec.unknowns.map((u, i) => (
+                <li key={i} className="text-xs text-gray-400">
+                  {u}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {spec.ambiguities.length > 0 && (
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500">
+              Ambiguities ({spec.ambiguities.length})
+            </span>
+            <ul className="mt-1 space-y-0.5">
+              {spec.ambiguities.map((a, i) => (
+                <li key={i} className="text-xs text-gray-400">
+                  {a}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {spec.riskSignals.length > 0 && (
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-red-500">
+              Risk Signals ({spec.riskSignals.length})
+            </span>
+            <ul className="mt-1 space-y-0.5">
+              {spec.riskSignals.map((r, i) => (
+                <li key={i} className="text-xs text-gray-400">
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const RISK_COLORS: Record<string, string> = {
+  low: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  medium: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  high: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  critical: 'bg-red-500/10 text-red-400 border-red-500/20',
+};
+
+const ROUTE_COLORS: Record<string, string> = {
+  local: 'text-emerald-400',
+  human: 'text-amber-400',
+  'simulation-required': 'text-purple-400',
+};
+
+function ScoreBar({ value, label, color }: { value: number; label: string; color: string }) {
+  const pct = Math.round(value * 100);
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-400">{label}</span>
+        <span className={color}>{pct}%</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-gray-800">
+        <div
+          className={`h-full rounded-full ${color.replace('text-', 'bg-')}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ComplexityScorePanel({ score }: { score: InteractionComplexityScore }) {
+  return (
+    <div className="space-y-3 rounded-md border border-secondary-400/20 bg-secondary-400/5 p-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold uppercase tracking-widest text-secondary-400">
+          Complexity Model (CML)
+        </h4>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${RISK_COLORS[score.riskLevel] ?? RISK_COLORS.medium}`}
+          >
+            {score.riskLevel}
+          </span>
+          <span
+            className={`text-xs font-mono font-bold ${ROUTE_COLORS[score.recommendedRoute] ?? 'text-gray-400'}`}
+          >
+            {score.recommendedRoute}
+          </span>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <ScoreBar value={score.overall} label="Overall" color="text-primary-500" />
+        <ScoreBar value={score.dimensions.structural} label="Structural" color="text-blue-400" />
+        <ScoreBar value={score.dimensions.semantic} label="Semantic" color="text-purple-400" />
+        <ScoreBar value={score.dimensions.historical} label="Historical" color="text-yellow-400" />
+        <ScoreBar value={score.confidence} label="Confidence" color="text-emerald-400" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 border-t border-gray-800 pt-2 md:grid-cols-4">
+        <div className="text-center">
+          <span className="block text-lg font-bold text-white">{score.blastRadius.services}</span>
+          <span className="text-[10px] uppercase tracking-widest text-gray-500">Services</span>
+        </div>
+        <div className="text-center">
+          <span className="block text-lg font-bold text-white">{score.blastRadius.modules}</span>
+          <span className="text-[10px] uppercase tracking-widest text-gray-500">Modules</span>
+        </div>
+        <div className="text-center">
+          <span className="block text-lg font-bold text-white">
+            {score.blastRadius.filesEstimated}
+          </span>
+          <span className="text-[10px] uppercase tracking-widest text-gray-500">Files</span>
+        </div>
+        <div className="text-center">
+          <span className="block text-lg font-bold text-white">
+            {score.blastRadius.testFilesAffected}
+          </span>
+          <span className="text-[10px] uppercase tracking-widest text-gray-500">Test Files</span>
+        </div>
+      </div>
+      {score.reasoning.length > 0 && (
+        <div className="border-t border-gray-800 pt-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+            Reasoning
+          </span>
+          <ul className="mt-1 space-y-0.5">
+            {score.reasoning.map((r, i) => (
+              <li key={i} className="text-xs text-gray-400">
+                {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function InteractionCard({
   interaction,
@@ -14,12 +203,23 @@ function InteractionCard({
   const { context, reasons, status, createdAt } = interaction;
   const isPending = status === 'pending';
   const isClaimed = status === 'claimed';
+  const hasSpec = !!context.enrichedSpec;
+  const hasScore = !!context.complexityScore;
+  const hasAnalysis = hasSpec || hasScore;
+  const [specExpanded, setSpecExpanded] = useState(false);
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
       <div className="mb-3 flex items-start justify-between">
         <div>
-          <h3 className="text-base font-semibold text-white">{context.issueTitle}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-white">{context.issueTitle}</h3>
+            {hasAnalysis && (
+              <span className="rounded-md border border-primary-500/20 bg-primary-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-primary-500">
+                Analyzed
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-xs text-gray-500">
             {new Date(createdAt).toLocaleString()} · {interaction.issueId}
           </p>
@@ -54,6 +254,51 @@ function InteractionCard({
           ))}
         </ul>
       </div>
+
+      {hasAnalysis && (
+        <div className="mb-3">
+          <button
+            onClick={() => setSpecExpanded((prev) => !prev)}
+            className={[
+              'flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-xs transition-colors',
+              specExpanded
+                ? 'border-primary-500/30 bg-primary-500/10'
+                : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800',
+            ].join(' ')}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block text-[10px] text-gray-500 transition-transform"
+                style={{ transform: specExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+              >
+                &#9654;
+              </span>
+              <span className="font-medium text-gray-300">
+                {specExpanded ? 'Hide' : 'View'} Analysis
+              </span>
+              {hasSpec && (
+                <span className="text-gray-500">
+                  {context.enrichedSpec!.affectedSystems.length} system
+                  {context.enrichedSpec!.affectedSystems.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            {hasScore && (
+              <span
+                className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${RISK_COLORS[context.complexityScore!.riskLevel] ?? RISK_COLORS.medium}`}
+              >
+                {context.complexityScore!.riskLevel} risk
+              </span>
+            )}
+          </button>
+          {specExpanded && (
+            <div className="mt-2 space-y-3">
+              {hasSpec && <EnrichedSpecPanel spec={context.enrichedSpec!} />}
+              {hasScore && <ComplexityScorePanel score={context.complexityScore!} />}
+            </div>
+          )}
+        </div>
+      )}
 
       {context.relatedFiles.length > 0 && (
         <div className="mb-3">

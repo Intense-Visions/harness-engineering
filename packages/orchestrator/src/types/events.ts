@@ -1,5 +1,9 @@
 import type { Issue, AgentEvent, TokenUsage, ConcernSignal } from '@harness-engineering/types';
-import type { EnrichedSpec, SimulationResult } from '@harness-engineering/intelligence';
+import type {
+  EnrichedSpec,
+  ComplexityScore,
+  SimulationResult,
+} from '@harness-engineering/intelligence';
 
 /**
  * Discriminated union of events that drive the orchestrator state machine.
@@ -22,6 +26,8 @@ export interface TickEvent {
   concernSignals?: Map<string, ConcernSignal[]>;
   /** Pre-computed enriched specs from intelligence pipeline (issueId → spec) */
   enrichedSpecs?: Map<string, EnrichedSpec>;
+  /** Pre-computed complexity scores from intelligence pipeline (issueId → score) */
+  complexityScores?: Map<string, ComplexityScore>;
   /** Pre-computed PESL simulation results from intelligence pipeline (issueId -> result) */
   simulationResults?: Map<string, SimulationResult>;
 }
@@ -125,4 +131,6 @@ export interface EscalateEffect {
   issueDescription?: string | null;
   /** Enriched spec from intelligence pipeline, if available */
   enrichedSpec?: EnrichedSpec;
+  /** Complexity score from intelligence pipeline, if available */
+  complexityScore?: ComplexityScore;
 }

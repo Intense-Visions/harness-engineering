@@ -860,12 +860,12 @@ export function Analyze() {
           </label>
           <textarea
             id="analyze-description"
-            rows={3}
+            rows={8}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Additional context, requirements, constraints..."
             disabled={streaming}
-            className="w-full resize-none rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50"
           />
         </div>
         <div>

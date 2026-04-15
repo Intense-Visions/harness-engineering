@@ -25,7 +25,7 @@ export interface OpenAICompatibleProviderOptions {
 }
 
 const DEFAULT_MODEL = 'deepseek-coder-v2';
-const DEFAULT_MAX_TOKENS = 4096;
+const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_TIMEOUT_MS = 90_000;
 
 /**
@@ -61,7 +61,9 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
     if (request.systemPrompt) systemParts.push(request.systemPrompt);
     if (this.jsonMode) {
       // Schema is enforced server-side via response_format — keep prompt lean
-      systemParts.push('Respond ONLY with the JSON object, no other text.');
+      systemParts.push(
+        'Respond ONLY with the JSON object, no other text. Be concise — use short sentences in string fields and limit arrays to the most important items.'
+      );
     } else {
       // No server-side enforcement — include full schema in prompt
       systemParts.push(
@@ -95,11 +97,20 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
 
     const latencyMs = Math.round(performance.now() - startMs);
 
-    const content = response.choices[0]?.message?.content;
+    const choice = response.choices[0];
+    const content = choice?.message?.content;
     if (!content) {
       throw new Error(
         'OpenAI-compatible response did not contain content. ' +
-          `Finish reason: ${response.choices[0]?.finish_reason}`
+          `Finish reason: ${choice?.finish_reason}`
+      );
+    }
+
+    // Detect truncation before attempting JSON parse
+    if (choice.finish_reason === 'length') {
+      throw new Error(
+        `Response truncated at max_tokens (${maxTokens}). ` +
+          'Increase max_tokens or simplify the request.'
       );
     }
 

@@ -60,6 +60,7 @@ function tryEscalate(
   if (decision.action !== 'needs-human') return null;
 
   const enrichedSpec = event.enrichedSpecs?.get(issue.id);
+  const complexityScore = event.complexityScores?.get(issue.id);
   return {
     type: 'escalate',
     issueId: issue.id,
@@ -68,6 +69,7 @@ function tryEscalate(
     issueTitle: issue.title,
     issueDescription: issue.description,
     ...(enrichedSpec !== undefined && { enrichedSpec }),
+    ...(complexityScore !== undefined && { complexityScore }),
   };
 }
 
@@ -76,6 +78,7 @@ function tryPeslAbort(issue: Issue, event: TickEvent): EscalateEffect | null {
   if (!simulation?.abort) return null;
 
   const enrichedSpec = event.enrichedSpecs?.get(issue.id);
+  const complexityScore = event.complexityScores?.get(issue.id);
   return {
     type: 'escalate',
     issueId: issue.id,
@@ -88,6 +91,7 @@ function tryPeslAbort(issue: Issue, event: TickEvent): EscalateEffect | null {
     issueTitle: issue.title,
     issueDescription: issue.description,
     ...(enrichedSpec !== undefined && { enrichedSpec }),
+    ...(complexityScore !== undefined && { complexityScore }),
   };
 }
 

@@ -103,17 +103,17 @@ export class IntelligencePipeline {
       return { spec: null, score: null, signals: [] };
     }
 
-    // Both alwaysHuman and signalGated run SEL
+    // Both alwaysHuman and signalGated run SEL + CML
     const workItem = toRawWorkItem(issue);
     const spec = await this.enrich(workItem);
+    const complexityScore = this.score(spec);
 
-    // alwaysHuman: SEL for context, skip CML (routing already decided)
+    // alwaysHuman: return score for display, but no signals (routing already decided)
     if (escalationConfig.alwaysHuman.includes(scopeTier)) {
-      return { spec, score: null, signals: [] };
+      return { spec, score: complexityScore, signals: [] };
     }
 
-    // signalGated: full pipeline
-    const complexityScore = this.score(spec);
+    // signalGated: full pipeline — signals may gate routing
     const signals = scoreToConcernSignals(complexityScore);
     return { spec, score: complexityScore, signals };
   }

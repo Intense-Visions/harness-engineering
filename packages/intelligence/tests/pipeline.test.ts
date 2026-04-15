@@ -123,7 +123,7 @@ describe('IntelligencePipeline', () => {
     expect(provider.analyze).not.toHaveBeenCalled();
   });
 
-  it('runs SEL but skips CML for alwaysHuman tier (full-exploration)', async () => {
+  it('runs SEL and CML but skips signals for alwaysHuman tier (full-exploration)', async () => {
     const provider = makeMockProvider();
     const store = new GraphStore();
     const pipeline = new IntelligencePipeline(provider, store);
@@ -140,13 +140,14 @@ describe('IntelligencePipeline', () => {
     expect(result.spec!.affectedSystems).toHaveLength(1);
     expect(result.spec!.unknowns).toContain('Performance impact unclear');
 
-    // CML skipped — no score
-    expect(result.score).toBeNull();
+    // CML ran — score is present for display
+    expect(result.score).not.toBeNull();
+    expect(result.score!.overall).toBeGreaterThanOrEqual(0);
 
-    // No signals (routing already decided)
+    // No signals (routing already decided for alwaysHuman)
     expect(result.signals).toEqual([]);
 
-    // Provider was called exactly once (SEL only)
+    // Provider was called exactly once (SEL only — CML is synchronous)
     expect(provider.analyze).toHaveBeenCalledOnce();
   });
 

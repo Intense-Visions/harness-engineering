@@ -58,6 +58,43 @@ export interface OrchestratorSnapshot {
   maxOutputTokensPerMinute: number;
 }
 
+/** Enriched spec subset attached to escalated interactions. */
+export interface InteractionEnrichedSpec {
+  intent: string;
+  summary: string;
+  affectedSystems: Array<{
+    name: string;
+    graphNodeId: string | null;
+    confidence: number;
+    transitiveDeps: string[];
+    testCoverage: number;
+    owner: string | null;
+  }>;
+  unknowns: string[];
+  ambiguities: string[];
+  riskSignals: string[];
+}
+
+/** Complexity score subset attached to escalated interactions. */
+export interface InteractionComplexityScore {
+  overall: number;
+  confidence: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  blastRadius: {
+    services: number;
+    modules: number;
+    filesEstimated: number;
+    testFilesAffected: number;
+  };
+  dimensions: {
+    structural: number;
+    semantic: number;
+    historical: number;
+  };
+  reasoning: string[];
+  recommendedRoute: 'local' | 'human' | 'simulation-required';
+}
+
 /** Interaction context provided for human review. */
 export interface InteractionContext {
   issueTitle: string;
@@ -65,6 +102,8 @@ export interface InteractionContext {
   specPath: string | null;
   planPath: string | null;
   relatedFiles: string[];
+  enrichedSpec?: InteractionEnrichedSpec;
+  complexityScore?: InteractionComplexityScore;
 }
 
 /** A pending human interaction from the interaction queue. */

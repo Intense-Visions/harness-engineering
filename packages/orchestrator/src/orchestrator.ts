@@ -359,6 +359,7 @@ export class Orchestrator extends EventEmitter {
   private async runIntelligencePipeline(candidates: Issue[]): Promise<{
     concernSignals: Map<string, ConcernSignal[]>;
     enrichedSpecs: Map<string, EnrichedSpec>;
+    complexityScores: Map<string, ComplexityScore>;
     simulationResults: Map<string, SimulationResult>;
   }> {
     const concernSignals = new Map<string, ConcernSignal[]>();
@@ -410,7 +411,7 @@ export class Orchestrator extends EventEmitter {
       simulationResults
     );
 
-    return { concernSignals, enrichedSpecs, simulationResults };
+    return { concernSignals, enrichedSpecs, complexityScores, simulationResults };
   }
 
   public async asyncTick(): Promise<void> {
@@ -458,7 +459,8 @@ export class Orchestrator extends EventEmitter {
     const pipelineResult = this.pipeline
       ? await this.runIntelligencePipeline(candidatesResult.value)
       : undefined;
-    const { concernSignals, enrichedSpecs, simulationResults } = pipelineResult ?? {};
+    const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
+      pipelineResult ?? {};
 
     // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
@@ -468,6 +470,7 @@ export class Orchestrator extends EventEmitter {
       nowMs,
       ...(concernSignals !== undefined && { concernSignals }),
       ...(enrichedSpecs !== undefined && { enrichedSpecs }),
+      ...(complexityScores !== undefined && { complexityScores }),
       ...(simulationResults !== undefined && { simulationResults }),
     };
 
@@ -569,6 +572,17 @@ export class Orchestrator extends EventEmitter {
             unknowns: effect.enrichedSpec.unknowns,
             ambiguities: effect.enrichedSpec.ambiguities,
             riskSignals: effect.enrichedSpec.riskSignals,
+          },
+        }),
+        ...(effect.complexityScore !== undefined && {
+          complexityScore: {
+            overall: effect.complexityScore.overall,
+            confidence: effect.complexityScore.confidence,
+            riskLevel: effect.complexityScore.riskLevel,
+            blastRadius: effect.complexityScore.blastRadius,
+            dimensions: effect.complexityScore.dimensions,
+            reasoning: effect.complexityScore.reasoning,
+            recommendedRoute: effect.complexityScore.recommendedRoute,
           },
         }),
       },
