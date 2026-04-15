@@ -132,11 +132,23 @@ export interface PendingInteraction {
   status: 'pending' | 'claimed' | 'resolved';
 }
 
+/** An event emitted by a running agent, forwarded via WebSocket. */
+export interface AgentEventMessage {
+  issueId: string;
+  event: {
+    type: string;
+    timestamp: string;
+    subtype?: string;
+    content?: string;
+    sessionId?: string;
+  };
+}
+
 /** Discriminated union for WebSocket messages from the orchestrator server. */
 export type WebSocketMessage =
   | { type: 'state_change'; data: OrchestratorSnapshot }
   | { type: 'interaction_new'; data: PendingInteraction }
-  | { type: 'agent_event'; data: unknown };
+  | { type: 'agent_event'; data: AgentEventMessage };
 
 /** SSE event types from the chat proxy endpoint. */
 export type ChatSSEEvent =

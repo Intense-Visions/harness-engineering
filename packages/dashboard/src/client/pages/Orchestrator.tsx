@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
+import { AgentStreamDrawer } from '../components/agents/AgentStreamDrawer';
+import { AssistantBlocks } from '../components/chat/AssistantBlocks';
+import type { ContentBlock } from '../types/chat';
 import type { OrchestratorSnapshot, RunningAgent, TickActivity } from '../types/orchestrator';
 
 function SectionHeader({ title }: { title: string }) {
@@ -54,9 +57,7 @@ function PhaseBadge({ phase }: { phase: string }) {
   };
   const color = colorMap[phase] ?? 'bg-gray-800 text-gray-400';
   return (
-    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${color}`}>
-      {phase}
-    </span>
+    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${color}`}>{phase}</span>
   );
 }
 
@@ -216,8 +217,18 @@ function PipelineActivity({ activity }: { activity: TickActivity }) {
 }
 
 /** Expandable row showing what an individual agent is working on. */
-function AgentCard({ agent }: { agent: RunningAgent }) {
+function AgentCard({
+  agent,
+  blocks,
+  onViewStream,
+}: {
+  agent: RunningAgent;
+  blocks: ContentBlock[];
+  onViewStream: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
+  // Show last few blocks as a preview
+  const previewBlocks = blocks.slice(-5);
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900/60">
@@ -241,7 +252,9 @@ function AgentCard({ agent }: { agent: RunningAgent }) {
         {/* Main content */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate font-medium text-white">{agent.issue?.title ?? agent.identifier}</span>
+            <span className="truncate font-medium text-white">
+              {agent.issue?.title ?? agent.identifier}
+            </span>
             <PhaseBadge phase={agent.phase} />
           </div>
           <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
@@ -260,23 +273,21 @@ function AgentCard({ agent }: { agent: RunningAgent }) {
             )}
           </div>
           {agent.session?.lastMessage && (
-            <p className="mt-1.5 truncate text-xs text-gray-400">
-              {agent.session.lastMessage}
-            </p>
+            <p className="mt-1.5 truncate text-xs text-gray-400">{agent.session.lastMessage}</p>
           )}
         </div>
 
         {/* Expand chevron */}
-        <span className="mt-1 flex-shrink-0 text-gray-600">
-          {expanded ? '\u25B2' : '\u25BC'}
-        </span>
+        <span className="mt-1 flex-shrink-0 text-gray-600">{expanded ? '\u25B2' : '\u25BC'}</span>
       </button>
 
       {expanded && (
         <div className="border-t border-gray-800 px-4 py-3 text-sm">
           {agent.issue?.description ? (
             <div className="mb-3">
-              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Description</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                Description
+              </span>
               <p className="mt-1 whitespace-pre-wrap text-gray-300">{agent.issue.description}</p>
             </div>
           ) : (
@@ -285,11 +296,15 @@ function AgentCard({ agent }: { agent: RunningAgent }) {
           <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-500">Input Tokens</span>
-              <span className="text-yellow-400">{formatNumber(agent.session?.inputTokens ?? 0)}</span>
+              <span className="text-yellow-400">
+                {formatNumber(agent.session?.inputTokens ?? 0)}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Output Tokens</span>
-              <span className="text-yellow-400">{formatNumber(agent.session?.outputTokens ?? 0)}</span>
+              <span className="text-yellow-400">
+                {formatNumber(agent.session?.outputTokens ?? 0)}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Backend</span>
@@ -300,9 +315,39 @@ function AgentCard({ agent }: { agent: RunningAgent }) {
               <span className="text-gray-300">{agent.session?.turnCount ?? 0}</span>
             </div>
           </div>
-          {agent.session?.lastMessage && (
+
+          {/* Live activity preview */}
+          {previewBlocks.length > 0 && (
             <div className="mt-3">
-              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">Latest Activity</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                  Live Activity
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewStream();
+                  }}
+                  className="text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
+                >
+                  View Full Stream
+                </button>
+              </div>
+              <div className="mt-2 max-h-48 overflow-hidden rounded-lg border border-gray-800 bg-gray-950/60 px-3 py-2 text-xs">
+                <AssistantBlocks
+                  blocks={previewBlocks}
+                  isStreaming={agent.phase === 'StreamingTurn'}
+                />
+              </div>
+            </div>
+          )}
+
+          {previewBlocks.length === 0 && agent.session?.lastMessage && (
+            <div className="mt-3">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                Latest Activity
+              </span>
               <p className="mt-1 whitespace-pre-wrap text-gray-300">{agent.session.lastMessage}</p>
             </div>
           )}
@@ -312,7 +357,15 @@ function AgentCard({ agent }: { agent: RunningAgent }) {
   );
 }
 
-function AgentsList({ agents }: { agents: RunningAgent[] }) {
+function AgentsList({
+  agents,
+  agentEvents,
+  onViewStream,
+}: {
+  agents: RunningAgent[];
+  agentEvents: Record<string, ContentBlock[]>;
+  onViewStream: (agent: RunningAgent) => void;
+}) {
   if (agents.length === 0) {
     return <p className="text-sm italic text-gray-500">No active agents.</p>;
   }
@@ -320,7 +373,12 @@ function AgentsList({ agents }: { agents: RunningAgent[] }) {
   return (
     <div className="space-y-2">
       {agents.map((agent) => (
-        <AgentCard key={agent.issueId} agent={agent} />
+        <AgentCard
+          key={agent.issueId}
+          agent={agent}
+          blocks={agentEvents[agent.issueId] ?? []}
+          onViewStream={() => onViewStream(agent)}
+        />
       ))}
     </div>
   );
@@ -344,11 +402,15 @@ function RetryQueue({ snapshot }: { snapshot: OrchestratorSnapshot }) {
               className="flex items-center justify-between rounded border border-gray-800 bg-gray-900/40 px-3 py-2 text-sm"
             >
               <div className="flex items-center gap-2">
-                <span className={`inline-flex h-2 w-2 rounded-full ${dueIn > 0 ? 'bg-orange-500' : 'bg-orange-400 animate-pulse'}`} />
+                <span
+                  className={`inline-flex h-2 w-2 rounded-full ${dueIn > 0 ? 'bg-orange-500' : 'bg-orange-400 animate-pulse'}`}
+                />
                 <span className="font-mono text-gray-300">{entry.identifier}</span>
                 <span className="text-gray-500">attempt {entry.attempt}</span>
               </div>
-              <span className={`text-xs ${dueIn > 0 ? 'text-gray-500' : 'text-orange-400 font-medium'}`}>
+              <span
+                className={`text-xs ${dueIn > 0 ? 'text-gray-500' : 'text-orange-400 font-medium'}`}
+              >
                 {dueIn > 0 ? `retries in ${dueIn}s` : 'due now'}
               </span>
             </div>
@@ -360,7 +422,8 @@ function RetryQueue({ snapshot }: { snapshot: OrchestratorSnapshot }) {
 }
 
 export function Orchestrator() {
-  const { snapshot, connected } = useOrchestratorSocket();
+  const { snapshot, agentEvents, connected } = useOrchestratorSocket();
+  const [drawerAgent, setDrawerAgent] = useState<RunningAgent | null>(null);
 
   if (!snapshot) {
     return (
@@ -402,10 +465,16 @@ export function Orchestrator() {
 
       <section>
         <SectionHeader title="Active Agents" />
-        <AgentsList agents={agents} />
+        <AgentsList agents={agents} agentEvents={agentEvents} onViewStream={setDrawerAgent} />
       </section>
 
       <RetryQueue snapshot={snapshot} />
+
+      <AgentStreamDrawer
+        agent={drawerAgent}
+        blocks={drawerAgent ? (agentEvents[drawerAgent.issueId] ?? []) : []}
+        onClose={() => setDrawerAgent(null)}
+      />
     </div>
   );
 }

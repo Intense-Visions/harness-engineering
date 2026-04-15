@@ -6,6 +6,22 @@ interface Options {
   shift?: boolean;
 }
 
+function matchesPlatformModifier(e: KeyboardEvent, options: Options): boolean {
+  if (options.meta && options.ctrl) {
+    return e.metaKey || e.ctrlKey;
+  }
+  if (options.meta !== undefined && e.metaKey !== options.meta) return false;
+  if (options.ctrl !== undefined && e.ctrlKey !== options.ctrl) return false;
+  return true;
+}
+
+function matchesShortcut(e: KeyboardEvent, key: string, options: Options): boolean {
+  if (e.key.toLowerCase() !== key.toLowerCase()) return false;
+  if (!matchesPlatformModifier(e, options)) return false;
+  if (options.shift !== undefined && e.shiftKey !== options.shift) return false;
+  return true;
+}
+
 /**
  * Hook to register a global keyboard shortcut.
  * If both ctrl and meta are true, it acts as "Cmd on Mac OR Ctrl on other platforms".
@@ -13,21 +29,9 @@ interface Options {
 export function useKeyboardShortcut(key: string, callback: () => void, options: Options = {}) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isKey = e.key.toLowerCase() === key.toLowerCase();
-      
-      // If both are true, we want EITHER Cmd OR Ctrl (platform agnostic "Primary")
-      const platformMatch = (options.meta && options.ctrl) 
-        ? (e.metaKey || e.ctrlKey)
-        : ((options.meta === undefined || e.metaKey === options.meta) && 
-           (options.ctrl === undefined || e.ctrlKey === options.ctrl));
-
-      const isShift = options.shift === undefined || e.shiftKey === options.shift;
-
-      if (isKey && platformMatch && isShift) {
-        // Only prevent default if we matched everything
-        e.preventDefault();
-        callback();
-      }
+      if (!matchesShortcut(e, key, options)) return;
+      e.preventDefault();
+      callback();
     };
 
     window.addEventListener('keydown', handleKeyDown);

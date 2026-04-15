@@ -496,6 +496,60 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     }
   }
 
+  private toTrackerComment(comment: {
+    id: number;
+    body: string;
+    created_at: string;
+    updated_at: string | null;
+    user: { login: string };
+  }): TrackerComment {
+    return {
+      id: String(comment.id),
+      body: comment.body,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at ?? null,
+      author: comment.user?.login ?? 'ghost',
+    };
+  }
+
+  private async fetchCommentPage(
+    parsed: { owner: string; repo: string; number: number },
+    page: number
+  ): Promise<
+    Result<
+      Array<{
+        id: number;
+        body: string;
+        created_at: string;
+        updated_at: string | null;
+        user: { login: string };
+      }>
+    >
+  > {
+    const perPage = 100;
+    const response = await fetchWithRetry(
+      this.fetchFn,
+      `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments?per_page=${perPage}&page=${page}`,
+      { method: 'GET', headers: this.headers() },
+      this.retryOpts
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      return Err(new Error(`GitHub API error ${response.status}: ${text}`));
+    }
+
+    return Ok(
+      (await response.json()) as Array<{
+        id: number;
+        body: string;
+        created_at: string;
+        updated_at: string | null;
+        user: { login: string };
+      }>
+    );
+  }
+
   async fetchComments(externalId: string): Promise<Result<TrackerComment[]>> {
     try {
       const parsed = parseExternalId(externalId);
@@ -506,37 +560,14 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       let page = 1;
 
       while (true) {
-        const response = await fetchWithRetry(
-          this.fetchFn,
-          `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments?per_page=${perPage}&page=${page}`,
-          { method: 'GET', headers: this.headers() },
-          this.retryOpts
-        );
+        const pageResult = await this.fetchCommentPage(parsed, page);
+        if (!pageResult.ok) return pageResult;
 
-        if (!response.ok) {
-          const text = await response.text();
-          return Err(new Error(`GitHub API error ${response.status}: ${text}`));
+        for (const comment of pageResult.value) {
+          comments.push(this.toTrackerComment(comment));
         }
 
-        const data = (await response.json()) as Array<{
-          id: number;
-          body: string;
-          created_at: string;
-          updated_at: string | null;
-          user: { login: string };
-        }>;
-
-        for (const comment of data) {
-          comments.push({
-            id: String(comment.id),
-            body: comment.body,
-            createdAt: comment.created_at,
-            updatedAt: comment.updated_at ?? null,
-            author: comment.user?.login ?? 'ghost',
-          });
-        }
-
-        if (data.length < perPage) break;
+        if (pageResult.value.length < perPage) break;
         page++;
       }
 

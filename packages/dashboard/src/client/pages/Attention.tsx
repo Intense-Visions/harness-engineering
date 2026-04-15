@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import { useChatPanel } from '../hooks/useChatPanel';
+import { Search, X, Loader2 } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 import type {
   PendingInteraction,
   InteractionEnrichedSpec,
@@ -356,6 +358,7 @@ export function Attention() {
   } = useOrchestratorSocket();
   const [loaded, setLoaded] = useState(false);
   const [allInteractions, setAllInteractions] = useState<PendingInteraction[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const { open: openChat } = useChatPanel();
 
   // Fire browser notifications for new escalations
@@ -406,39 +409,107 @@ export function Attention() {
     [removeInteraction]
   );
 
-  const handleClaim = useCallback((id: string) => {
-    // We pass interactionId via URL search params to the global panel state
-    const url = new URL(window.location.href);
-    url.searchParams.set('interactionId', id);
-    window.history.pushState({}, '', url);
-    openChat();
-  }, [openChat]);
+  const handleClaim = useCallback(
+    (id: string) => {
+      // We pass interactionId via URL search params to the global panel state
+      const url = new URL(window.location.href);
+      url.searchParams.set('interactionId', id);
+      window.history.pushState({}, '', url);
+      openChat();
+    },
+    [openChat]
+  );
 
-  // Show non-resolved interactions, sorted newest first
-  const visible = allInteractions
-    .filter((i) => i.status !== 'resolved')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Filter and sort interactions
+  const filtered = allInteractions.filter((i) => {
+    if (i.status === 'resolved') return false;
+    if (!searchQuery.trim()) return true;
+
+    const query = searchQuery.toLowerCase();
+    const matchesTitle = i.context.issueTitle?.toLowerCase().includes(query);
+    const matchesDescription = i.context.issueDescription?.toLowerCase().includes(query);
+    const matchesReasons = i.reasons.some((r) => r.toLowerCase().includes(query));
+    const matchesId = i.id.toLowerCase().includes(query) || i.issueId.toLowerCase().includes(query);
+
+    return matchesTitle || matchesDescription || matchesReasons || matchesId;
+  });
+
+  const visible = filtered.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   return (
-    <div>
-      <h1 className="mb-6 text-2xl font-bold">Needs Attention</h1>
+    <div className="flex h-full flex-col">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold">Needs Attention</h1>
+        <div className="relative w-full max-w-sm">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <Search className="h-4 w-4 text-gray-500" />
+          </div>
+          <input
+            type="text"
+            className="block w-full rounded-lg border border-gray-800 bg-gray-900 py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 transition-all focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="Search escalations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-300"
+              onClick={() => setSearchQuery('')}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
 
-      {!loaded && <p className="text-sm text-gray-500">Loading interactions...</p>}
-
-      {loaded && visible.length === 0 && (
-        <p className="text-sm text-gray-500">No interactions require attention.</p>
+      {!loaded && (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-gray-500">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-sm">Loading interactions...</p>
+          </div>
+        </div>
       )}
 
-      <div className="space-y-4">
-        {visible.map((interaction) => (
-          <InteractionCard
-            key={interaction.id}
-            interaction={interaction}
-            onDismiss={(id) => void handleDismiss(id)}
-            onClaim={handleClaim}
+      {loaded && visible.length === 0 && (
+        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-gray-800 bg-gray-900/20 p-12 text-center">
+          <div>
+            <p className="text-sm text-gray-500">
+              {searchQuery
+                ? 'No interactions match your search.'
+                : 'No interactions require attention.'}
+            </p>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="mt-2 text-xs font-semibold text-primary-500 hover:text-primary-400"
+              >
+                Clear search
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {loaded && visible.length > 0 && (
+        <div className="flex-1 overflow-hidden">
+          <Virtuoso
+            style={{ height: '100%' }}
+            data={visible}
+            itemContent={(_index, interaction) => (
+              <div className="pb-4 pr-4">
+                <InteractionCard
+                  interaction={interaction}
+                  onDismiss={(id) => void handleDismiss(id)}
+                  onClaim={handleClaim}
+                />
+              </div>
+            )}
           />
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

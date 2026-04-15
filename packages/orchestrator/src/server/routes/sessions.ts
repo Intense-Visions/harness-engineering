@@ -5,127 +5,115 @@ import { readBody } from '../utils';
 
 const SESSIONS_DIR = path.resolve('.harness', 'sessions');
 
+function jsonResponse(res: ServerResponse, status: number, data: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}
+
+function extractSessionId(url: string): string | null {
+  const segments = new URL(url, 'http://localhost').pathname.split(path.posix.sep);
+  const id = segments.pop();
+  return id && id !== 'sessions' ? id : null;
+}
+
+async function handleList(res: ServerResponse): Promise<void> {
+  try {
+    const entries = await fs.readdir(SESSIONS_DIR, { withFileTypes: true });
+    const sessions = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const content = await fs.readFile(
+          path.join(SESSIONS_DIR, entry.name, 'session.json'),
+          'utf-8'
+        );
+        sessions.push(JSON.parse(content));
+      } catch {
+        /* skip directories without valid session.json */
+      }
+    }
+    sessions.sort(
+      (a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
+    );
+    jsonResponse(res, 200, sessions);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      jsonResponse(res, 200, []);
+      return;
+    }
+    jsonResponse(res, 500, { error: 'Failed to list sessions' });
+  }
+}
+
+async function handleCreate(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const body = await readBody(req);
+    const session = JSON.parse(body);
+    if (!session.sessionId) {
+      jsonResponse(res, 400, { error: 'Missing sessionId' });
+      return;
+    }
+    const sessionDir = path.join(SESSIONS_DIR, session.sessionId);
+    await fs.mkdir(sessionDir, { recursive: true });
+    await fs.writeFile(path.join(sessionDir, 'session.json'), JSON.stringify(session, null, 2));
+    jsonResponse(res, 200, { ok: true });
+  } catch {
+    jsonResponse(res, 500, { error: 'Failed to save session' });
+  }
+}
+
+async function handleUpdate(req: IncomingMessage, res: ServerResponse, url: string): Promise<void> {
+  try {
+    const id = extractSessionId(url);
+    if (!id) {
+      jsonResponse(res, 400, { error: 'Missing sessionId' });
+      return;
+    }
+    const body = await readBody(req);
+    const updates = JSON.parse(body);
+    const sessionFilePath = path.join(SESSIONS_DIR, id, 'session.json');
+    const current = JSON.parse(await fs.readFile(sessionFilePath, 'utf-8'));
+    await fs.writeFile(sessionFilePath, JSON.stringify({ ...current, ...updates }, null, 2));
+    jsonResponse(res, 200, { ok: true });
+  } catch {
+    jsonResponse(res, 500, { error: 'Failed to update session' });
+  }
+}
+
+async function handleDelete(res: ServerResponse, url: string): Promise<void> {
+  try {
+    const id = extractSessionId(url);
+    if (!id) {
+      jsonResponse(res, 400, { error: 'Missing sessionId' });
+      return;
+    }
+    await fs.rm(path.join(SESSIONS_DIR, id), { recursive: true, force: true });
+    jsonResponse(res, 200, { ok: true });
+  } catch {
+    jsonResponse(res, 500, { error: 'Failed to delete session' });
+  }
+}
+
+const API_PREFIX = '/api/sessions';
+
 export function handleSessionsRoute(req: IncomingMessage, res: ServerResponse): boolean {
   const { method, url } = req;
-  if (url?.startsWith('/api/sessions')) {
-    if (method === 'GET') {
-      void (async () => {
-        try {
-          const entries = await fs.readdir(SESSIONS_DIR, { withFileTypes: true });
-          const sessions = [];
-          for (const entry of entries) {
-            if (entry.isDirectory()) {
-              try {
-                const sessionFilePath = path.join(SESSIONS_DIR, entry.name, 'session.json');
-                const content = await fs.readFile(sessionFilePath, 'utf-8');
-                sessions.push(JSON.parse(content));
-              } catch { 
-                /* skip non-chat sessions or directories without session.json */ 
-              }
-            }
-          }
-          // Sort by lastActiveAt descending
-          sessions.sort((a, b) => 
-            new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
-          );
-          
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(sessions));
-        } catch (err) {
-          // If dir doesn't exist yet, return empty list
-          if ((err as any).code === 'ENOENT') {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify([]));
-            return;
-          }
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to list sessions' }));
-        }
-      })();
+  if (!url?.startsWith(API_PREFIX)) return false;
+
+  switch (method) {
+    case 'GET':
+      void handleList(res);
       return true;
-    }
-    
-    if (method === 'POST') {
-      void (async () => {
-        try {
-          const body = await readBody(req);
-          const session = JSON.parse(body);
-          
-          if (!session.sessionId) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Missing sessionId' }));
-            return;
-          }
-
-          const sessionDir = path.join(SESSIONS_DIR, session.sessionId);
-          await fs.mkdir(sessionDir, { recursive: true });
-          await fs.writeFile(
-            path.join(sessionDir, 'session.json'), 
-            JSON.stringify(session, null, 2)
-          );
-          
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to save session' }));
-        }
-      })();
+    case 'POST':
+      void handleCreate(req, res);
       return true;
-    }
-
-    if (method === 'PATCH') {
-      void (async () => {
-        try {
-          const id = url.split('/').pop();
-          if (!id || id === 'sessions') {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Missing sessionId' }));
-            return;
-          }
-
-          const body = await readBody(req);
-          const updates = JSON.parse(body);
-          const sessionFilePath = path.join(SESSIONS_DIR, id, 'session.json');
-          
-          const currentContent = await fs.readFile(sessionFilePath, 'utf-8');
-          const current = JSON.parse(currentContent);
-          const updated = { ...current, ...updates };
-          
-          await fs.writeFile(sessionFilePath, JSON.stringify(updated, null, 2));
-          
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to update session' }));
-        }
-      })();
+    case 'PATCH':
+      void handleUpdate(req, res, url);
       return true;
-    }
-
-    if (method === 'DELETE') {
-      void (async () => {
-        try {
-          const id = url.split('/').pop();
-          if (!id || id === 'sessions') {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Missing sessionId' }));
-            return;
-          }
-
-          const sessionDir = path.join(SESSIONS_DIR, id);
-          await fs.rm(sessionDir, { recursive: true, force: true });
-          
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to delete session' }));
-        }
-      })();
+    case 'DELETE':
+      void handleDelete(res, url);
       return true;
-    }
+    default:
+      return false;
   }
-  return false;
 }

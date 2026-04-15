@@ -1,9 +1,26 @@
 import { useState, useEffect } from 'react';
 
 export interface ChatContextState {
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   isLoading: boolean;
   error: string | null;
+}
+
+async function fetchSource(source: string): Promise<{ source: string; data: unknown }> {
+  const response = await fetch(source);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch context from ${source}: ${response.statusText}`);
+  }
+  const json = await response.json();
+  return { source, data: json };
+}
+
+function toContextMap(results: { source: string; data: unknown }[]): Record<string, unknown> {
+  const map: Record<string, unknown> = {};
+  for (const { source, data } of results) {
+    map[source] = data;
+  }
+  return map;
 }
 
 /**
@@ -11,12 +28,11 @@ export interface ChatContextState {
  * This is used to populate the BriefingPanel before a skill is executed.
  */
 export function useChatContext(sources?: string[]): ChatContextState {
-  const [data, setData] = useState<Record<string, any>>({});
+  const [data, setData] = useState<Record<string, unknown>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Return early if no sources or sources are same as previous (handled by deps array)
     if (!sources || sources.length === 0) {
       setData({});
       setIsLoading(false);
@@ -26,45 +42,25 @@ export function useChatContext(sources?: string[]): ChatContextState {
 
     let mounted = true;
 
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const results = await Promise.all(
-          sources.map(async (source) => {
-            const response = await fetch(source);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch context from ${source}: ${response.statusText}`);
-            }
-            const json = await response.json();
-            return { source, data: json };
-          })
-        );
+    setIsLoading(true);
+    setError(null);
 
-        if (!mounted) return;
-
-        const contextMap = results.reduce((acc, { source, data }) => {
-          acc[source] = data;
-          return acc;
-        }, {} as Record<string, any>);
-
-        setData(contextMap);
-      } catch (err) {
-        if (!mounted) return;
-        setError(err instanceof Error ? err.message : 'Unknown error fetching chat context');
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchData();
+    Promise.all(sources.map(fetchSource))
+      .then((results) => {
+        if (mounted) setData(toContextMap(results));
+      })
+      .catch((err) => {
+        if (mounted)
+          setError(err instanceof Error ? err.message : 'Unknown error fetching chat context');
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
 
     return () => {
       mounted = false;
     };
-  }, [sources]); // NOTE: This depends on the array reference. If sources is recreacted on every render, it will refetch.
+  }, [sources]);
 
   return { data, isLoading, error };
 }

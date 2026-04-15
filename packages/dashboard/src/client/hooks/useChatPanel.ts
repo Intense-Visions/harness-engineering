@@ -4,20 +4,71 @@ import type { ChatSession } from '../types/chat-session';
 
 const STORAGE_KEY = 'chat-panel-open';
 
-export function useChatPanel() {
-  const [isOpen, setIsOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === 'true';
-  });
+function readInitialOpen(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(STORAGE_KEY) === 'true';
+}
 
-  const { 
-    sessions, 
-    activeSessionId, 
-    setActiveSessionId, 
+function buildNewSession(params: {
+  command?: string;
+  label?: string;
+  interactionId?: string;
+}): ChatSession {
+  const sessionId = crypto.randomUUID();
+  const defaultLabel = params.command
+    ? params.command.split(':').pop() || 'New Session'
+    : 'New Session';
+
+  return {
+    sessionId,
+    command: params.command || null,
+    interactionId: params.interactionId || null,
+    label: params.label || defaultLabel,
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    artifacts: [],
+    status: 'active',
+    messages: [],
+    input: '',
+  };
+}
+
+function persistNewSession(session: ChatSession): void {
+  fetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(session),
+  }).catch((err) => console.error('Failed to persist new session:', err));
+}
+
+function deleteSessionOnServer(id: string): void {
+  fetch(`/api/sessions/${id}`, { method: 'DELETE' }).catch((err) =>
+    console.error('Failed to delete session on server:', err)
+  );
+}
+
+function removeSession(
+  prev: ChatSession[],
+  id: string,
+  activeId: string | null,
+  setActive: (id: string | null) => void
+): ChatSession[] {
+  const remaining = prev.filter((s) => s.sessionId !== id);
+  if (activeId === id) {
+    setActive(remaining[0]?.sessionId ?? null);
+  }
+  return remaining;
+}
+
+export function useChatPanel() {
+  const [isOpen, setIsOpen] = useState<boolean>(readInitialOpen);
+  const {
+    sessions,
+    activeSessionId,
+    setActiveSessionId,
     updateSession,
     patchSession,
-    setSessions
+    setSessions,
   } = useChatSessions();
 
   useEffect(() => {
@@ -27,67 +78,43 @@ export function useChatPanel() {
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
+  const renameSession = useCallback(
+    (id: string, label: string) => patchSession(id, { label }),
+    [patchSession]
+  );
 
-  const renameSession = useCallback((id: string, label: string) => {
-    patchSession(id, { label });
-  }, [patchSession]);
+  const createNewSession = useCallback(
+    (params: { command?: string; label?: string; interactionId?: string } = {}) => {
+      const s = buildNewSession(params);
+      setSessions((prev) => [...prev, s]);
+      setActiveSessionId(s.sessionId);
+      setIsOpen(true);
+      persistNewSession(s);
+      return s.sessionId;
+    },
+    [setSessions, setActiveSessionId]
+  );
 
-  const createNewSession = useCallback((params: { command?: string; label?: string; interactionId?: string } = {}) => {
-    const sessionId = crypto.randomUUID();
-    const newSession: ChatSession = {
-      sessionId,
-      command: params.command || null,
-      interactionId: params.interactionId || null,
-      label: params.label || (params.command ? params.command.split(':').pop() || 'New Session' : 'New Session'),
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString(),
-      artifacts: [],
-      status: 'active',
-      messages: [],
-      input: '',
-    };
+  const closeSession = useCallback(
+    (id: string) => {
+      setSessions((prev) => removeSession(prev, id, activeSessionId, setActiveSessionId));
+      deleteSessionOnServer(id);
+    },
+    [activeSessionId, setActiveSessionId, setSessions]
+  );
 
-    setSessions(prev => [...prev, newSession]);
-    setActiveSessionId(sessionId);
-    setIsOpen(true);
-    
-    // Persist new session to server
-    fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSession)
-    }).catch(err => console.error('Failed to persist new session:', err));
-
-    return sessionId;
-  }, [setSessions, setActiveSessionId]);
-
-  const closeSession = useCallback((id: string) => {
-    setSessions(prev => {
-      const remaining = prev.filter(s => s.sessionId !== id);
-      if (activeSessionId === id) {
-        setActiveSessionId(remaining.length > 0 ? remaining[0]!.sessionId : null);
-      }
-      return remaining;
-    });
-    
-    // Persist deletion to server
-    fetch(`/api/sessions/${id}`, {
-      method: 'DELETE',
-    }).catch(err => console.error('Failed to delete session on server:', err));
-  }, [activeSessionId, setActiveSessionId, setSessions]);
-
-  return { 
-    isOpen, 
-    toggle, 
-    open, 
-    close, 
-    sessions, 
-    activeSessionId, 
-    setActiveSessionId, 
+  return {
+    isOpen,
+    toggle,
+    open,
+    close,
+    sessions,
+    activeSessionId,
+    setActiveSessionId,
     updateSession,
     patchSession,
     createNewSession,
     closeSession,
-    renameSession
+    renameSession,
   };
 }
