@@ -12,10 +12,10 @@ const NAV_ITEMS = [
   { to: '/roadmap', label: 'Roadmap' },
   { to: '/health', label: 'Health' },
   { to: '/graph', label: 'Graph' },
-  { to: '/ci', label: 'CI' },
   { to: '/impact', label: 'Impact' },
   { to: '/orchestrator', label: 'Agents', end: true },
   { to: '/orchestrator/attention', label: 'Attention' },
+  { to: '/orchestrator/analyze', label: 'Analyze' },
 ] as const;
 
 export function Layout({ children }: Props) {

@@ -44,6 +44,8 @@ agent:
   turnTimeoutMs: 300000
   readTimeoutMs: 30000
   stallTimeoutMs: 60000
+intelligence:
+  enabled: true
 server:
   port: 8080
 ---

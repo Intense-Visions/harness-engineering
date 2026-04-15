@@ -63,8 +63,6 @@ export function getDefaultConfig(): WorkflowConfig {
     },
     intelligence: {
       enabled: false,
-      provider: { kind: 'anthropic' as const },
-      models: {},
     },
   };
 }

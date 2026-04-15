@@ -30,6 +30,10 @@ export default defineConfig({
         target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
         changeOrigin: true,
       },
+      '/api/analyze': {
+        target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
+        changeOrigin: true,
+      },
       '/ws': {
         target: `http://localhost:${process.env['ORCHESTRATOR_PORT'] ?? '8080'}`,
         ws: true,

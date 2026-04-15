@@ -1,0 +1,307 @@
+# @harness-engineering/intelligence
+
+Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation. Augments the hybrid orchestrator's routing with graph-backed analysis and tiered simulation.
+
+## Architecture
+
+```
+                         ┌─────────────────────┐
+                         │    Work Item Input   │
+                         │  Roadmap · JIRA ·    │
+                         │  GitHub · Linear ·   │
+                         │  Manual text         │
+                         └──────────┬──────────┘
+                                    ▼
+                         ┌─────────────────────┐
+                         │      Adapters        │
+                         │  toRawWorkItem()     │
+                         │  jiraToRawWorkItem() │
+                         │  githubToRawWorkItem │
+                         │  linearToRawWorkItem │
+                         │  manualToRawWorkItem │
+                         └──────────┬──────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    IntelligencePipeline                        │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  SEL — Spec Enrichment Layer                             │  │
+│  │  LLM analysis + graph-validated system discovery         │  │
+│  │  → EnrichedSpec (intent, affected systems, unknowns)     │  │
+│  └──────────────────────┬───────────────────────────────────┘  │
+│                         ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  CML — Complexity Modeling Layer                         │  │
+│  │  Structural (graph blast radius) + Semantic (ambiguity)  │  │
+│  │  + Historical (past outcome failure rate)                │  │
+│  │  → ComplexityScore → ConcernSignal[]                     │  │
+│  └──────────────────────┬───────────────────────────────────┘  │
+│                         ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  PESL — Pre-Execution Simulation Layer                   │  │
+│  │  Graph-only checks (quick-fix) or full LLM simulation    │  │
+│  │  (guided-change) with abort on low confidence            │  │
+│  │  → SimulationResult (confidence, abort flag)             │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Outcome Recording                                       │  │
+│  │  ExecutionOutcomeConnector → graph nodes + edges         │  │
+│  │  Feeds back into CML historical dimension                │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+```ts
+import {
+  IntelligencePipeline,
+  AnthropicAnalysisProvider,
+  toRawWorkItem,
+} from '@harness-engineering/intelligence';
+import { GraphStore } from '@harness-engineering/graph';
+
+// 1. Create the pipeline
+const provider = new AnthropicAnalysisProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+});
+const store = new GraphStore();
+await store.load('.harness/graph');
+
+const pipeline = new IntelligencePipeline(provider, store);
+
+// 2. Preprocess an issue (SEL → CML → signals)
+const result = await pipeline.preprocessIssue(issue, scopeTier, escalationConfig);
+// result.spec    — EnrichedSpec with intent, affected systems, unknowns
+// result.score   — ComplexityScore with overall 0-1, risk level, reasoning
+// result.signals — ConcernSignal[] for routeIssue()
+
+// 3. Simulate before dispatch (PESL)
+if (result.spec && result.score) {
+  const simulation = await pipeline.simulate(result.spec, result.score, scopeTier);
+  // simulation.abort — true if confidence too low
+  // simulation.predictedFailures — what might go wrong
+  // simulation.testGaps — missing test coverage
+}
+
+// 4. Record execution outcomes (feedback loop)
+await pipeline.recordOutcome({
+  issueId: 'CORE-42',
+  result: 'success',
+  retryCount: 0,
+  failureReasons: [],
+  durationMs: 45000,
+  affectedSystemNodeIds: ['node-abc'],
+});
+```
+
+## Tier-Based Behavior
+
+The pipeline adapts its behavior based on the orchestrator's scope tier:
+
+| Scope Tier                            | SEL  | CML  | PESL                | Routing                                 |
+| ------------------------------------- | ---- | ---- | ------------------- | --------------------------------------- |
+| `autoExecute` (quick-fix, diagnostic) | Skip | Skip | Graph-only          | Always dispatch locally                 |
+| `signalGated` (guided-change)         | Run  | Run  | Full LLM simulation | Dispatch if no concern signals          |
+| `alwaysHuman` (full-exploration)      | Run  | Skip | Skip                | Always escalate (enrichment as context) |
+
+## Layers
+
+### SEL — Spec Enrichment Layer
+
+Converts raw work items into structured `EnrichedSpec` objects via LLM analysis and graph validation.
+
+```ts
+import { enrich, GraphValidator } from '@harness-engineering/intelligence';
+
+const validator = new GraphValidator(store);
+const spec = await enrich(rawWorkItem, provider, validator);
+// spec.intent — what the task is trying to accomplish
+// spec.affectedSystems — graph-validated system references
+// spec.unknowns — explicitly identified knowledge gaps
+// spec.ambiguities — areas needing clarification
+```
+
+### CML — Complexity Modeling Layer
+
+Scores task complexity across three dimensions:
+
+- **Structural** — Graph blast radius via `CascadeSimulator`, normalized to 0-1
+- **Semantic** — Unknowns, ambiguities, and risk signals from SEL enrichment
+- **Historical** — Smoothed failure rate from past execution outcomes on the same affected systems
+
+```ts
+import { scoreCML, scoreToConcernSignals } from '@harness-engineering/intelligence';
+
+const score = scoreCML(enrichedSpec, store);
+// score.overall — 0-1 weighted composite
+// score.riskLevel — 'low' | 'medium' | 'high' | 'critical'
+// score.recommendedRoute — 'local' | 'human' | 'simulation-required'
+
+const signals = scoreToConcernSignals(score);
+// signals fed into existing routeIssue() for signalGated tiers
+```
+
+### PESL — Pre-Execution Simulation Layer
+
+Simulates execution before code is written. Tiered by cost:
+
+- **Graph-only** (quick-fix/diagnostic) — `CascadeSimulator` blast radius + test gap detection. Fast (<2s), no LLM cost.
+- **Full simulation** (guided-change) — LLM-assisted plan expansion, failure injection, test projection. Merged with graph baseline.
+
+```ts
+import { PeslSimulator } from '@harness-engineering/intelligence';
+
+const simulator = new PeslSimulator(provider, store);
+const result = await simulator.simulate(spec, score, scopeTier);
+
+if (result.abort) {
+  // Confidence too low — escalate to human instead of dispatching
+  console.log('Predicted failures:', result.predictedFailures);
+  console.log('Test gaps:', result.testGaps);
+}
+```
+
+### Adapters
+
+Pure mapping functions for converting external data into `RawWorkItem`:
+
+```ts
+import {
+  toRawWorkItem, // Roadmap Issue → RawWorkItem
+  jiraToRawWorkItem, // JIRA issue → RawWorkItem
+  githubToRawWorkItem, // GitHub issue/PR → RawWorkItem
+  linearToRawWorkItem, // Linear issue → RawWorkItem
+  manualToRawWorkItem, // Free text → RawWorkItem
+} from '@harness-engineering/intelligence';
+```
+
+Each adapter accepts a pre-fetched data object and produces a `RawWorkItem`. No API clients are included — adapters are pure functions.
+
+### Outcome Recording
+
+Execution results feed back into the graph for future CML scoring:
+
+```ts
+import { ExecutionOutcomeConnector } from '@harness-engineering/intelligence';
+
+const connector = new ExecutionOutcomeConnector(store);
+await connector.ingest({
+  issueId: 'CORE-42',
+  result: 'failure',
+  retryCount: 2,
+  failureReasons: ['Migration script failed'],
+  durationMs: 120000,
+  affectedSystemNodeIds: ['module-auth'],
+});
+// Creates execution_outcome node with outcome_of edges to affected systems
+// Future CML scoring queries these outcomes for historical failure rates
+```
+
+## Orchestrator Integration
+
+The intelligence pipeline integrates into the orchestrator's tick cycle at two points:
+
+1. **Pre-routing** (in `asyncTick`) — `preprocessIssue()` runs SEL + CML, producing concern signals that feed into `routeIssue()`. For `alwaysHuman` tiers, the enriched spec is attached to the `EscalateEffect` as context for the human reviewer.
+
+2. **Post-routing** (in `asyncTick`) — `simulate()` runs PESL for locally-routed issues. If simulation recommends abort (`confidence < 0.3`), the dispatch is converted to an `EscalateEffect` instead.
+
+3. **Post-execution** (in `emitWorkerExit`) — `recordOutcome()` ingests the execution result into the graph, feeding the CML historical dimension for future scoring.
+
+### Dashboard
+
+The dashboard's **Attention** page displays escalated interactions. When the intelligence pipeline is enabled, escalations include enriched context:
+
+- **Enriched spec summary** — Intent, affected systems, unknowns
+- **Concern signals** — What triggered the escalation (high complexity, large blast radius, high ambiguity)
+- **PESL abort reasons** — Predicted failures and test gaps (when simulation recommends abort)
+
+This context helps human reviewers make faster, more informed decisions about escalated work items.
+
+## Configuration
+
+The pipeline uses the same LLM connection as the orchestrator's agent backend — Anthropic API, OpenAI API, or a local LLM (Ollama, LM Studio, etc.):
+
+```yaml
+intelligence:
+  enabled: true
+```
+
+No separate API key needed. The pipeline derives its provider from the existing agent config:
+
+| Agent Backend                     | Intelligence Uses                 |
+| --------------------------------- | --------------------------------- |
+| `anthropic` / `claude`            | Anthropic Messages API (same key) |
+| `openai`                          | OpenAI Chat API (same key)        |
+| `localBackend: openai-compatible` | Local endpoint (same URL)         |
+
+Override models per-layer:
+
+```yaml
+intelligence:
+  enabled: true
+  models:
+    sel: llama3.2 # fast model for enrichment
+    pesl: deepseek-r1 # reasoning model for simulation
+```
+
+When `enabled: false` (default), the pipeline is completely skipped. See the [Intelligence Pipeline Guide](../../docs/guides/intelligence-pipeline.md) for full configuration reference.
+
+## Dependencies
+
+```
+@harness-engineering/types  → shared type definitions
+@harness-engineering/graph  → GraphStore, CascadeSimulator, node/edge types
+@anthropic-ai/sdk           → LLM calls via AnalysisProvider
+zod                         → response schema validation
+```
+
+The intelligence package has **no dependency** on `@harness-engineering/orchestrator`. The dependency flows one way: `orchestrator → intelligence → graph → types`.
+
+## API Reference
+
+### Pipeline
+
+| Export                 | Description                                  |
+| ---------------------- | -------------------------------------------- |
+| `IntelligencePipeline` | Main pipeline class composing SEL, CML, PESL |
+| `PreprocessResult`     | Return type of `preprocessIssue()`           |
+
+### Adapters
+
+| Export                | Description                     |
+| --------------------- | ------------------------------- |
+| `toRawWorkItem`       | Roadmap `Issue` → `RawWorkItem` |
+| `jiraToRawWorkItem`   | JIRA issue → `RawWorkItem`      |
+| `githubToRawWorkItem` | GitHub issue/PR → `RawWorkItem` |
+| `linearToRawWorkItem` | Linear issue → `RawWorkItem`    |
+| `manualToRawWorkItem` | Free text → `RawWorkItem`       |
+
+### Types
+
+| Export             | Description                                          |
+| ------------------ | ---------------------------------------------------- |
+| `RawWorkItem`      | Generic work item input                              |
+| `EnrichedSpec`     | SEL output with intent, affected systems, unknowns   |
+| `ComplexityScore`  | CML output with overall score, risk level, reasoning |
+| `SimulationResult` | PESL output with confidence, abort flag, predictions |
+| `ExecutionOutcome` | Outcome data for graph ingestion                     |
+
+### Analysis
+
+| Export                             | Description                                |
+| ---------------------------------- | ------------------------------------------ |
+| `AnthropicAnalysisProvider`        | Anthropic-backed `AnalysisProvider`        |
+| `OpenAICompatibleAnalysisProvider` | OpenAI/local LLM-backed `AnalysisProvider` |
+| `enrich`                           | SEL enrichment function                    |
+| `GraphValidator`                   | Graph-based affected system resolver       |
+| `scoreCML`                         | CML scoring function                       |
+| `scoreToConcernSignals`            | Score → `ConcernSignal[]` conversion       |
+| `PeslSimulator`                    | Tiered simulation facade                   |
+| `ExecutionOutcomeConnector`        | Outcome graph ingestion                    |
+| `computeHistoricalComplexity`      | CML historical dimension                   |
+
+## License
+
+MIT

@@ -1,6 +1,7 @@
 import { EntropyAnalyzer } from '@harness-engineering/core';
 import type { EntropyConfig } from '@harness-engineering/core';
 import type { HealthResult } from '../../shared/types';
+import { discoverEntryPoints } from './entry-points';
 
 const DEFAULT_INCLUDE = ['src/**/*.ts', 'src/**/*.tsx'];
 const DEFAULT_EXCLUDE = ['node_modules/**', 'dist/**', '**/*.test.ts', '**/*.spec.ts'];
@@ -15,8 +16,11 @@ export async function gatherHealth(
   configOverride?: Partial<Omit<EntropyConfig, 'rootDir'>>
 ): Promise<HealthResult> {
   try {
+    const entryPoints = configOverride?.entryPoints ?? (await discoverEntryPoints(projectPath));
+
     const config: EntropyConfig = {
       rootDir: projectPath,
+      ...(entryPoints.length > 0 ? { entryPoints } : {}),
       include: configOverride?.include ?? DEFAULT_INCLUDE,
       exclude: configOverride?.exclude ?? DEFAULT_EXCLUDE,
       analyze: configOverride?.analyze ?? {

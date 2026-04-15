@@ -28,6 +28,7 @@ export type {
   AnalysisProvider,
 } from './analysis-provider/interface.js';
 export { AnthropicAnalysisProvider } from './analysis-provider/anthropic.js';
+export { OpenAICompatibleAnalysisProvider } from './analysis-provider/openai-compatible.js';
 
 // SEL — Spec Enrichment Layer
 export { enrich } from './sel/enricher.js';

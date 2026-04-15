@@ -9,7 +9,12 @@ import {
   ConcernSignal,
 } from '@harness-engineering/types';
 import { writeTaint } from '@harness-engineering/core';
-import { IntelligencePipeline, AnthropicAnalysisProvider } from '@harness-engineering/intelligence';
+import {
+  IntelligencePipeline,
+  AnthropicAnalysisProvider,
+  OpenAICompatibleAnalysisProvider,
+} from '@harness-engineering/intelligence';
+import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import type {
   EnrichedSpec,
   SimulationResult,
@@ -71,6 +76,8 @@ export class Orchestrator extends EventEmitter {
   private graphStore: GraphStore | null = null;
   private graphLoaded = false;
   private enrichedSpecsByIssue: Map<string, EnrichedSpec> = new Map();
+  /** Tracks recently-failed intelligence analysis to avoid re-requesting every tick */
+  private analysisFailureCache: Map<string, number> = new Map();
 
   /**
    * Creates a new Orchestrator instance.
@@ -114,6 +121,7 @@ export class Orchestrator extends EventEmitter {
       this.server = new OrchestratorServer(this, config.server.port, {
         interactionQueue: this.interactionQueue,
         plansDir: path.resolve(config.workspace.root, '..', 'docs', 'plans'),
+        pipeline: this.pipeline,
       });
 
       // Wire interaction push -> WebSocket broadcast
@@ -160,6 +168,8 @@ export class Orchestrator extends EventEmitter {
       if (this.config.agent.localEndpoint) localConfig.endpoint = this.config.agent.localEndpoint;
       if (this.config.agent.localModel) localConfig.model = this.config.agent.localModel;
       if (this.config.agent.localApiKey) localConfig.apiKey = this.config.agent.localApiKey;
+      if (this.config.agent.localTimeoutMs)
+        localConfig.timeoutMs = this.config.agent.localTimeoutMs;
       return new LocalBackend(localConfig);
     }
     return null;
@@ -169,27 +179,112 @@ export class Orchestrator extends EventEmitter {
     const intel = this.config.intelligence;
     if (!intel?.enabled) return null;
 
-    if (intel.provider.kind !== 'anthropic') {
-      this.logger.warn('Intelligence pipeline only supports anthropic provider currently');
-      return null;
-    }
+    const provider = this.createAnalysisProvider();
+    if (!provider) return null;
 
-    const apiKey = intel.provider.apiKey ?? process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        'Intelligence pipeline enabled but no API key provided. ' +
-          'Set intelligence.provider.apiKey in config or ANTHROPIC_API_KEY env var.'
-      );
-    }
-
-    const provider = new AnthropicAnalysisProvider({
-      apiKey,
-      ...(intel.models.sel !== undefined && { defaultModel: intel.models.sel }),
-    });
+    const peslModel = intel.models?.pesl ?? this.config.agent.model;
     const store = new GraphStore();
     this.graphStore = store;
     return new IntelligencePipeline(provider, store, {
-      ...(intel.models.pesl !== undefined && { peslModel: intel.models.pesl }),
+      ...(peslModel !== undefined && { peslModel }),
+    });
+  }
+
+  /**
+   * Create the AnalysisProvider for the intelligence pipeline.
+   *
+   * Resolution order:
+   * 1. Explicit `intelligence.provider` config (separate key/endpoint)
+   * 2. Local backend config (agent.localBackend + localEndpoint/localModel)
+   * 3. Primary agent backend config (agent.apiKey + agent.backend)
+   */
+  private createAnalysisProvider(): AnalysisProvider | null {
+    const intel = this.config.intelligence;
+    const selModel = intel?.models?.sel ?? this.config.agent.model;
+
+    // 1. Explicit intelligence provider override
+    if (intel?.provider) {
+      return this.createProviderFromExplicitConfig(intel.provider, selModel);
+    }
+
+    // 2. Local backend (OpenAI-compatible endpoint like Ollama)
+    if (this.config.agent.localBackend === 'openai-compatible') {
+      const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
+      const apiKey = this.config.agent.localApiKey ?? 'ollama';
+      const model = selModel ?? this.config.agent.localModel;
+      this.logger.info(`Intelligence pipeline using local backend at ${endpoint}`);
+      return new OpenAICompatibleAnalysisProvider({
+        apiKey,
+        baseUrl: endpoint,
+        ...(model !== undefined && { defaultModel: model }),
+        ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
+        ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
+      });
+    }
+
+    // 3. Primary agent backend
+    const backend = this.config.agent.backend;
+    if (backend === 'anthropic' || backend === 'claude') {
+      const apiKey = this.config.agent.apiKey ?? process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error(
+          'Intelligence pipeline enabled but no API key found. ' +
+            'Set agent.apiKey in config or ANTHROPIC_API_KEY env var.'
+        );
+      }
+      return new AnthropicAnalysisProvider({
+        apiKey,
+        ...(selModel !== undefined && { defaultModel: selModel }),
+      });
+    }
+
+    if (backend === 'openai') {
+      const apiKey = this.config.agent.apiKey ?? process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error(
+          'Intelligence pipeline enabled but no OpenAI API key found. ' +
+            'Set agent.apiKey in config or OPENAI_API_KEY env var.'
+        );
+      }
+      return new OpenAICompatibleAnalysisProvider({
+        apiKey,
+        baseUrl: 'https://api.openai.com/v1',
+        ...(selModel !== undefined && { defaultModel: selModel }),
+      });
+    }
+
+    this.logger.warn(
+      `Intelligence pipeline: unsupported backend "${backend}". ` +
+        'Supported: anthropic, claude, openai, or localBackend: openai-compatible.'
+    );
+    return null;
+  }
+
+  private createProviderFromExplicitConfig(
+    provider: NonNullable<NonNullable<typeof this.config.intelligence>['provider']>,
+    selModel: string | undefined
+  ): AnalysisProvider {
+    if (provider.kind === 'anthropic') {
+      const apiKey = provider.apiKey ?? this.config.agent.apiKey ?? process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error('Intelligence pipeline: no Anthropic API key found.');
+      }
+      return new AnthropicAnalysisProvider({
+        apiKey,
+        ...(selModel !== undefined && { defaultModel: selModel }),
+      });
+    }
+
+    // openai-compatible
+    const apiKey = provider.apiKey ?? this.config.agent.apiKey ?? 'ollama';
+    const baseUrl = provider.baseUrl ?? 'http://localhost:11434/v1';
+    const intel = this.config.intelligence;
+    return new OpenAICompatibleAnalysisProvider({
+      apiKey,
+      baseUrl,
+      ...(selModel !== undefined && { defaultModel: selModel }),
+      ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
+      ...(intel?.promptSuffix !== undefined && { promptSuffix: intel.promptSuffix }),
     });
   }
 
@@ -271,12 +366,24 @@ export class Orchestrator extends EventEmitter {
       enrichedSpecs = new Map();
       const complexityScores = new Map<string, ComplexityScore>();
       const escalationConfig = resolveEscalationConfig(this.config);
+      const failureTtl = this.config.intelligence?.failureCacheTtlMs ?? 300_000;
+      const nowForCache = Date.now();
+
+      // Evict expired failure cache entries
+      for (const [id, failedAt] of this.analysisFailureCache) {
+        if (nowForCache - failedAt >= failureTtl) {
+          this.analysisFailureCache.delete(id);
+        }
+      }
 
       for (const issue of candidatesResult.value) {
         const scopeTier = detectScopeTier(issue, { hasSpec: false, hasPlans: false });
 
         // Skip autoExecute tiers entirely — no LLM cost
         if (escalationConfig.autoExecute.includes(scopeTier)) continue;
+
+        // Skip recently-failed issues to avoid re-requesting every tick
+        if (this.analysisFailureCache.has(issue.id)) continue;
 
         try {
           const result = await this.pipeline.preprocessIssue(issue, scopeTier, escalationConfig);
@@ -291,10 +398,14 @@ export class Orchestrator extends EventEmitter {
             complexityScores.set(issue.id, result.score);
           }
         } catch (err) {
-          this.logger.error(`Intelligence pipeline failed for ${issue.identifier}`, {
-            issueId: issue.id,
-            error: String(err),
-          });
+          this.analysisFailureCache.set(issue.id, nowForCache);
+          this.logger.error(
+            `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
+            {
+              issueId: issue.id,
+              error: String(err),
+            }
+          );
         }
       }
 

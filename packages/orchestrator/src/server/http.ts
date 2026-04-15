@@ -4,9 +4,11 @@ import { WebSocketBroadcaster } from './websocket';
 import { handleInteractionsRoute } from './routes/interactions';
 import { handlePlansRoute } from './routes/plans';
 import { handleChatProxyRoute } from './routes/chat-proxy';
+import { handleAnalyzeRoute } from './routes/analyze';
 import { handleStaticFile } from './static';
 import { PlanWatcher } from './plan-watcher';
 import type { InteractionQueue, PendingInteraction } from '../core/interaction-queue';
+import type { IntelligencePipeline } from '@harness-engineering/intelligence';
 
 export interface Snapshotable {
   getSnapshot(): Record<string, unknown>;
@@ -20,6 +22,8 @@ export interface ServerDependencies {
   dashboardDir?: string;
   /** Claude CLI command name (default: 'claude') */
   claudeCommand?: string;
+  /** Intelligence pipeline instance (null if disabled) */
+  pipeline?: IntelligencePipeline | null;
 }
 
 export class OrchestratorServer {
@@ -31,6 +35,7 @@ export class OrchestratorServer {
   private dashboardDir: string;
   private port: number;
   private claudeCommand: string;
+  private pipeline: IntelligencePipeline | null;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener: (snapshot: unknown) => void;
   private agentEventListener: (event: unknown) => void;
@@ -43,6 +48,7 @@ export class OrchestratorServer {
     this.dashboardDir =
       deps?.dashboardDir ?? path.resolve('packages', 'dashboard', 'dist', 'client');
     this.claudeCommand = deps?.claudeCommand ?? 'claude';
+    this.pipeline = deps?.pipeline ?? null;
     this.httpServer = http.createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(this.httpServer);
 
@@ -82,6 +88,11 @@ export class OrchestratorServer {
 
     // Plans route
     if (handlePlansRoute(req, res, this.plansDir)) {
+      return;
+    }
+
+    // Analyze route (intelligence pipeline)
+    if (handleAnalyzeRoute(req, res, this.pipeline)) {
       return;
     }
 

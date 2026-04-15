@@ -6,10 +6,10 @@ import { Overview } from './pages/Overview';
 import { Roadmap } from './pages/Roadmap';
 import { Health } from './pages/Health';
 import { Graph } from './pages/Graph';
-import { CI } from './pages/CI';
 import { Impact } from './pages/Impact';
 import { Orchestrator } from './pages/Orchestrator';
 import { Attention } from './pages/Attention';
+import { Analyze } from './pages/Analyze';
 import { Chat } from './pages/Chat';
 import { ProjectPulseProvider } from './hooks/useProjectPulse';
 import './index.css';
@@ -26,10 +26,10 @@ if (root) {
               <Route path="/roadmap" element={<Roadmap />} />
               <Route path="/health" element={<Health />} />
               <Route path="/graph" element={<Graph />} />
-              <Route path="/ci" element={<CI />} />
               <Route path="/impact" element={<Impact />} />
               <Route path="/orchestrator" element={<Orchestrator />} />
               <Route path="/orchestrator/attention" element={<Attention />} />
+              <Route path="/orchestrator/analyze" element={<Analyze />} />
               <Route path="/orchestrator/chat" element={<Chat />} />
             </Routes>
           </Layout>

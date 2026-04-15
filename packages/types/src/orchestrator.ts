@@ -377,18 +377,25 @@ export interface EscalationConfig {
 
 /**
  * Configuration for the intelligence pipeline (SEL/CML/PESL).
+ *
+ * When `provider` is omitted, the pipeline derives its LLM connection
+ * from the orchestrator's existing `agent` backend config (same API key,
+ * same provider). This is the recommended setup — no separate API key needed.
  */
 export interface IntelligenceConfig {
   /** Whether the intelligence pipeline is enabled */
   enabled: boolean;
-  /** LLM provider configuration */
-  provider: {
+  /**
+   * Explicit LLM provider override. When omitted, uses the orchestrator's
+   * agent backend config (agent.apiKey, agent.backend).
+   */
+  provider?: {
     kind: 'anthropic' | 'openai-compatible';
     apiKey?: string;
     baseUrl?: string;
   };
-  /** Per-layer model assignments */
-  models: {
+  /** Per-layer model assignments (defaults to the agent's configured model) */
+  models?: {
     sel?: string;
     cml?: string;
     pesl?: string;

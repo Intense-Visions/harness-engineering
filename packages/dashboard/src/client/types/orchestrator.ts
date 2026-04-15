@@ -93,3 +93,12 @@ export type ChatSSEEvent =
   | { type: 'tool_result'; content: string; isError?: boolean }
   | { type: 'status'; text: string }
   | { type: 'error'; error: string };
+
+/** SSE event types from the /api/analyze endpoint. */
+export type AnalyzeSSEEvent =
+  | { type: 'status'; text: string }
+  | { type: 'sel_result'; data: Record<string, unknown> }
+  | { type: 'cml_result'; data: Record<string, unknown> }
+  | { type: 'pesl_result'; data: Record<string, unknown> }
+  | { type: 'signals'; data: Array<{ name: string; reason: string }> }
+  | { type: 'error'; error: string };
