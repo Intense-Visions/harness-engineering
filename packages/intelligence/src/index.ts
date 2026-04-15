@@ -1,8 +1,15 @@
 // @harness-engineering/intelligence
 // Intelligence pipeline: spec enrichment, complexity modeling, pre-execution simulation
 
-// Adapter
+// Adapters
 export { toRawWorkItem } from './adapter.js';
+export {
+  jiraToRawWorkItem,
+  githubToRawWorkItem,
+  linearToRawWorkItem,
+  manualToRawWorkItem,
+} from './adapters/index.js';
+export type { JiraIssue, GitHubIssue, LinearIssue, ManualInput } from './adapters/index.js';
 
 // Types
 export type {
