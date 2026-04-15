@@ -1,0 +1,120 @@
+import { describe, it, expect } from 'vitest';
+import { extractAnalysisFromComments } from '../../src/commands/sync-analyses';
+import type { TrackerComment } from '@harness-engineering/types';
+
+function makeComment(overrides: Partial<TrackerComment> = {}): TrackerComment {
+  return {
+    id: '1',
+    body: '',
+    createdAt: '2026-04-15T12:00:00Z',
+    updatedAt: null,
+    author: 'bot',
+    ...overrides,
+  };
+}
+
+function makeAnalysisBody(record: Record<string, unknown>): string {
+  return [
+    '## Harness Analysis: test-feature',
+    '',
+    '<details>',
+    '<summary>Full Analysis Data</summary>',
+    '',
+    '```json',
+    JSON.stringify({ _harness_analysis: true, _version: 1, ...record }, null, 2),
+    '```',
+    '',
+    '</details>',
+  ].join('\n');
+}
+
+describe('extractAnalysisFromComments', () => {
+  it('extracts AnalysisRecord from a valid analysis comment', () => {
+    const record = {
+      issueId: 'issue-1',
+      identifier: 'test-feature',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    };
+    const comments = [makeComment({ body: makeAnalysisBody(record) })];
+    const result = extractAnalysisFromComments(comments);
+    expect(result).not.toBeNull();
+    expect(result!.issueId).toBe('issue-1');
+    expect(result!.identifier).toBe('test-feature');
+    expect(result!.externalId).toBe('github:owner/repo#1');
+  });
+
+  it('returns null when no comments contain _harness_analysis', () => {
+    const comments = [
+      makeComment({ body: 'Just a regular comment' }),
+      makeComment({ body: '```json\n{ "something": true }\n```' }),
+    ];
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
+
+  it('takes the most recent analysis comment when multiple exist', () => {
+    const olderRecord = {
+      issueId: 'issue-1',
+      identifier: 'old-analysis',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-10T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    };
+    const newerRecord = {
+      issueId: 'issue-1',
+      identifier: 'new-analysis',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    };
+    const comments = [
+      makeComment({ id: '1', body: makeAnalysisBody(olderRecord), createdAt: '2026-04-10T12:00:00Z' }),
+      makeComment({ id: '2', body: makeAnalysisBody(newerRecord), createdAt: '2026-04-15T12:00:00Z' }),
+    ];
+    const result = extractAnalysisFromComments(comments);
+    expect(result).not.toBeNull();
+    expect(result!.identifier).toBe('new-analysis');
+  });
+
+  it('warns and returns null on malformed JSON in analysis fence', () => {
+    const body = [
+      '## Harness Analysis: broken',
+      '',
+      '```json',
+      '{ "_harness_analysis": true, INVALID JSON',
+      '```',
+    ].join('\n');
+    const comments = [makeComment({ body })];
+    // Should not throw -- returns null (malformed)
+    const result = extractAnalysisFromComments(comments);
+    expect(result).toBeNull();
+  });
+
+  it('returns null for empty comments array', () => {
+    expect(extractAnalysisFromComments([])).toBeNull();
+  });
+
+  it('strips _harness_analysis and _version discriminator fields from the returned record', () => {
+    const record = {
+      issueId: 'issue-1',
+      identifier: 'test-feature',
+      spec: null,
+      score: null,
+      simulation: null,
+      analyzedAt: '2026-04-15T12:00:00Z',
+      externalId: 'github:owner/repo#1',
+    };
+    const comments = [makeComment({ body: makeAnalysisBody(record) })];
+    const result = extractAnalysisFromComments(comments);
+    expect(result).not.toBeNull();
+    expect((result as any)._harness_analysis).toBeUndefined();
+    expect((result as any)._version).toBeUndefined();
+  });
+});
