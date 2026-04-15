@@ -89,6 +89,9 @@ export function createSyncAnalysesCommand(): Command {
         }
 
         const { AnalysisArchive } = await import('@harness-engineering/orchestrator');
+        const { loadPublishedIndex, savePublishedIndex } = await import(
+          '@harness-engineering/orchestrator'
+        );
         const { GitHubIssuesSyncAdapter } = await import('@harness-engineering/core');
         const { parseRoadmap } = await import('@harness-engineering/core');
 
@@ -122,6 +125,7 @@ export function createSyncAnalysesCommand(): Command {
 
         const adapter = new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
         const archive = new AnalysisArchive(path.join(projectPath, '.harness', 'analyses'));
+        const publishedIndex = loadPublishedIndex(projectPath);
 
         let syncedCount = 0;
         let skippedCount = 0;
@@ -146,11 +150,13 @@ export function createSyncAnalysesCommand(): Command {
           }
 
           await archive.save(record);
+          publishedIndex[record.issueId] = record.analyzedAt;
           syncedCount++;
           logger.info(`Synced analysis for "${name}" (${record.identifier})`);
         }
 
         if (syncedCount > 0) {
+          savePublishedIndex(projectPath, publishedIndex);
           logger.success(
             `Synced ${syncedCount} analysis record(s). Skipped ${skippedCount} (no analysis). Warnings: ${warnCount}.`
           );

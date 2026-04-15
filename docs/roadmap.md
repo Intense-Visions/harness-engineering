@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-11
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-15T15:28:39.264Z
+last_manual_edit: 2026-04-15T17:14:30.890Z
 ---
 
 # Roadmap
@@ -936,6 +936,14 @@ last_manual_edit: 2026-04-15T15:28:39.264Z
 - **Blockers:** —
 - **Plan:** —
 
+### Bidirectional Analysis Sync via Tracker Comments
+
+- **Status:** planned
+- **Spec:** docs/changes/analysis-tracker-sync/proposal.md
+- **Summary:** Auto-publish analysis results as structured tracker comments and pull them back locally via sync-analyses
+- **Blockers:** —
+- **Plan:** —
+
 ## v3.0 Graph Intelligence
 
 ### Graph Anomaly Detection
@@ -1516,7 +1524,6 @@ last_manual_edit: 2026-04-15T15:28:39.264Z
 - **Plan:** —
 
 ## Assignment History
-
-| Feature                                  | Assignee    | Action   | Date       |
-| ---------------------------------------- | ----------- | -------- | ---------- |
+| Feature | Assignee | Action | Date |
+|---------|----------|--------|------|
 | Performance Engineering Knowledge Skills | Chad Warner | assigned | 2026-04-09 |
