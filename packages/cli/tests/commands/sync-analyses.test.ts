@@ -118,3 +118,11 @@ describe('extractAnalysisFromComments', () => {
     expect((result as any)._version).toBeUndefined();
   });
 });
+
+describe('createSyncAnalysesCommand', () => {
+  it('exports a Commander command named sync-analyses', async () => {
+    const { createSyncAnalysesCommand } = await import('../../src/commands/sync-analyses');
+    const cmd = createSyncAnalysesCommand();
+    expect(cmd.name()).toBe('sync-analyses');
+  });
+});
