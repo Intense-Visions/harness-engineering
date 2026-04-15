@@ -532,7 +532,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
             body: comment.body,
             createdAt: comment.created_at,
             updatedAt: comment.updated_at ?? null,
-            author: comment.user.login,
+            author: comment.user?.login ?? 'ghost',
           });
         }
 

@@ -148,22 +148,23 @@ export function createPublishAnalysesCommand(): Command {
             continue;
           }
 
-          // In RoadmapTrackerAdapter, issue identifiers hash the name.
-          // Because we don't have the hash function here directly easily, 
-          // we match by `identifier` prefix since identifier is derived from `feature.name`.
-          // `record.identifier` is exactly the derived name (e.g. `adoption-usage-telem-51b4a863`)
-          let externalId: string | null = null;
-          
-          for (const [featName, extId] of nameToExternalId) {
-            const prefix = featName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20);
-            if (record.identifier.startsWith(prefix)) {
-              externalId = extId;
-              break;
+          // Prefer the externalId wired at analysis time (Phase 2+).
+          // Fall back to prefix matching for legacy records that predate the externalId field.
+          let externalId: string | null = record.externalId ?? null;
+
+          if (!externalId) {
+            for (const [featName, extId] of nameToExternalId) {
+              const prefix = featName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20);
+              if (record.identifier.startsWith(prefix)) {
+                externalId = extId;
+                break;
+              }
             }
           }
 
           if (!externalId) {
-            continue; // Could not map to external issue
+            logger.dim(`Skipping ${record.identifier}: could not resolve externalId from roadmap`);
+            continue;
           }
 
           logger.info(`Publishing analysis for ${record.identifier} to ${externalId}...`);
