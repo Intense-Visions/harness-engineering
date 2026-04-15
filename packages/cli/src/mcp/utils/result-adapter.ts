@@ -9,7 +9,12 @@ export interface McpToolResponse {
 export function resultToMcpResponse(result: Result<unknown, { message: string }>): McpToolResponse {
   if (result.ok) {
     return {
-      content: [{ type: 'text', text: JSON.stringify(result.value) }],
+      content: [
+        {
+          type: 'text',
+          text: typeof result.value === 'string' ? result.value : JSON.stringify(result.value),
+        },
+      ],
     };
   }
   return {

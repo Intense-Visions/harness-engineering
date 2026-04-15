@@ -176,6 +176,76 @@ describe('handleQueryGraph', () => {
       expect(n.type).toBe('function');
     }
   });
+
+  it('paginates nodes in detailed mode with default limit', async () => {
+    await createTestGraph(tmpDir);
+    const result = await handleQueryGraph({
+      path: tmpDir,
+      rootNodeIds: ['file:src/index.ts'],
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+    expect(data.pagination).toBeDefined();
+    expect(data.pagination.offset).toBe(0);
+    expect(data.pagination.limit).toBe(50);
+    expect(data.pagination.total).toBe(data.pagination.total); // sanity
+    expect(typeof data.pagination.hasMore).toBe('boolean');
+  });
+
+  it('respects offset and limit for node pagination', async () => {
+    await createTestGraph(tmpDir);
+    const full = await handleQueryGraph({
+      path: tmpDir,
+      rootNodeIds: ['file:src/index.ts'],
+      limit: 100,
+    });
+    const fullData = parseResult(full);
+    const totalNodes = fullData.pagination.total;
+
+    // Request page with limit=2, offset=1
+    const paged = await handleQueryGraph({
+      path: tmpDir,
+      rootNodeIds: ['file:src/index.ts'],
+      offset: 1,
+      limit: 2,
+    });
+
+    const pagedData = parseResult(paged);
+    expect(pagedData.nodes.length).toBe(2);
+    expect(pagedData.pagination.offset).toBe(1);
+    expect(pagedData.pagination.limit).toBe(2);
+    expect(pagedData.pagination.total).toBe(totalNodes);
+    expect(pagedData.pagination.hasMore).toBe(1 + 2 < totalNodes);
+  });
+
+  it('sorts nodes by connectivity (edge count desc) in detailed mode', async () => {
+    await createTestGraph(tmpDir);
+    const result = await handleQueryGraph({
+      path: tmpDir,
+      rootNodeIds: ['file:src/index.ts'],
+      limit: 100,
+    });
+
+    const data = parseResult(result);
+    // file:src/index.ts has 4 edges (3 outbound + 1 inbound from adr)
+    // It should appear first or near the top
+    expect(data.nodes[0].id).toBe('file:src/index.ts');
+  });
+
+  it('does not include pagination in summary mode', async () => {
+    await createTestGraph(tmpDir);
+    const result = await handleQueryGraph({
+      path: tmpDir,
+      rootNodeIds: ['file:src/index.ts'],
+      mode: 'summary',
+    });
+
+    expect(result.isError).toBeUndefined();
+    // Summary mode returns plain text, not JSON with pagination
+    expect(result.content[0].text).toContain('Nodes (');
+    expect(result.content[0].text).not.toContain('"pagination"');
+  });
 });
 
 // ── handleSearchSimilar ─────────────────────────────────────────────
@@ -319,6 +389,41 @@ describe('handleGetRelationships', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('No graph found');
+  });
+
+  it('includes pagination metadata in detailed mode', async () => {
+    await createTestGraph(tmpDir);
+    const result = await handleGetRelationships({
+      path: tmpDir,
+      nodeId: 'file:src/index.ts',
+      direction: 'outbound',
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+    expect(data.pagination).toBeDefined();
+    expect(data.pagination.offset).toBe(0);
+    expect(data.pagination.limit).toBe(50);
+    expect(data.pagination.total).toBe(data.edges.length);
+    expect(data.pagination.hasMore).toBe(false);
+  });
+
+  it('respects offset and limit for edge pagination', async () => {
+    await createTestGraph(tmpDir);
+    const result = await handleGetRelationships({
+      path: tmpDir,
+      nodeId: 'file:src/index.ts',
+      direction: 'outbound',
+      offset: 0,
+      limit: 1,
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+    expect(data.edges.length).toBe(1);
+    expect(data.pagination.offset).toBe(0);
+    expect(data.pagination.limit).toBe(1);
+    expect(data.pagination.hasMore).toBe(true);
   });
 });
 

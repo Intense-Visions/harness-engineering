@@ -1,4 +1,6 @@
+import { paginate } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { sortFindingsBySeverity } from '../utils/severity.js';
 
 // ============ run_code_review ============
 
@@ -39,6 +41,15 @@ export const runCodeReviewDefinition = {
         type: 'string',
         description: 'Repository in owner/repo format (required for --comment)',
       },
+      offset: {
+        type: 'number',
+        description:
+          'Number of findings to skip (pagination). Default: 0. Findings are sorted by severity desc (critical > important > suggestion).',
+      },
+      limit: {
+        type: 'number',
+        description: 'Max findings to return (pagination). Default: 20.',
+      },
     },
     required: ['path', 'diff'],
   },
@@ -54,6 +65,10 @@ export async function handleRunCodeReview(input: {
   noMechanical?: boolean;
   prNumber?: number;
   repo?: string;
+  offset?: number;
+  limit?: number;
+  /** Internal flag: skip pagination and return all findings. Not exposed in MCP schema. */
+  _skipPagination?: boolean;
 }) {
   try {
     const { parseDiff, runReviewPipeline } = await import('@harness-engineering/core');
@@ -102,6 +117,34 @@ export async function handleRunCodeReview(input: {
       ...(input.repo != null ? { repo: input.repo } : {}),
     });
 
+    const sortedFindings = sortFindingsBySeverity(
+      result.findings as unknown[]
+    ) as typeof result.findings;
+
+    if (input._skipPagination) {
+      // Internal callers (e.g. runDeepReview) need all findings before re-paginating
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              skipped: result.skipped,
+              skipReason: result.skipReason,
+              stoppedByMechanical: result.stoppedByMechanical,
+              assessment: result.assessment,
+              findings: sortedFindings,
+              findingCount: sortedFindings.length,
+              terminalOutput: result.terminalOutput,
+              githubCommentCount: result.githubComments.length,
+              exitCode: result.exitCode,
+            }),
+          },
+        ],
+      };
+    }
+
+    const paged = paginate(sortedFindings, input.offset ?? 0, input.limit ?? 20);
+
     return {
       content: [
         {
@@ -112,7 +155,9 @@ export async function handleRunCodeReview(input: {
               skipReason: result.skipReason,
               stoppedByMechanical: result.stoppedByMechanical,
               assessment: result.assessment,
+              findings: paged.items,
               findingCount: result.findings.length,
+              pagination: paged.pagination,
               terminalOutput: result.terminalOutput,
               githubCommentCount: result.githubComments.length,
               exitCode: result.exitCode,

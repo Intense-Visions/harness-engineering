@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { computeSkillsDirHash } from '../../src/skill/index-builder';
+import { computeSkillsDirHash, buildIndex } from '../../src/skill/index-builder';
+import { resolveAllSkillsDirs } from '../../src/utils/paths';
+
+vi.mock('../../src/utils/paths', () => ({
+  resolveAllSkillsDirs: vi.fn(() => []),
+}));
 
 describe('computeSkillsDirHash', () => {
   let tmpDir: string;
@@ -160,5 +165,67 @@ describe('buildIndex — SkillIndexEntry new fields', () => {
     expect(entry.type).toBe('knowledge');
     expect(entry.paths).toEqual(['**/*.tsx']);
     expect(entry.relatedSkills).toEqual(['react-compound-pattern']);
+  });
+});
+
+describe('buildIndex — tier gating', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'index-builder-tier-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeSkillYaml(name: string, extra: Record<string, unknown> = {}): void {
+    const skillDir = path.join(tmpDir, name);
+    fs.mkdirSync(skillDir, { recursive: true });
+    const { stringify } = require('yaml');
+    const yaml = stringify({
+      name,
+      version: '1.0.0',
+      description: `Test skill ${name}`,
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: ['Read'],
+      type: 'flexible',
+      tier: 3,
+      ...extra,
+    });
+    fs.writeFileSync(path.join(skillDir, 'skill.yaml'), yaml);
+  }
+
+  function buildWithTmpDir(tierOverrides?: Record<string, number>) {
+    vi.mocked(resolveAllSkillsDirs).mockReturnValue([tmpDir]);
+    return buildIndex('claude-code', '/tmp/fake-project', tierOverrides);
+  }
+
+  it('includes tier 1 bundled skills', () => {
+    writeSkillYaml('tier1-skill', { tier: 1 });
+    const index = buildWithTmpDir();
+    expect(index.skills['tier1-skill']).toBeDefined();
+    expect(index.skills['tier1-skill'].tier).toBe(1);
+  });
+
+  it('includes tier 2 bundled skills', () => {
+    writeSkillYaml('tier2-skill', { tier: 2 });
+    const index = buildWithTmpDir();
+    expect(index.skills['tier2-skill']).toBeDefined();
+    expect(index.skills['tier2-skill'].tier).toBe(2);
+  });
+
+  it('excludes internal skills', () => {
+    writeSkillYaml('internal-skill', { internal: true });
+    const index = buildWithTmpDir();
+    expect(index.skills['internal-skill']).toBeUndefined();
+  });
+
+  it('applies tier overrides and still indexes the skill', () => {
+    writeSkillYaml('overridden-skill', { tier: 3 });
+    const index = buildWithTmpDir({ 'overridden-skill': 1 });
+    expect(index.skills['overridden-skill']).toBeDefined();
+    expect(index.skills['overridden-skill'].tier).toBe(1);
   });
 });
