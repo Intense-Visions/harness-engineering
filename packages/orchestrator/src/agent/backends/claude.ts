@@ -124,7 +124,10 @@ export class ClaudeBackend implements AgentBackend {
             sessionId: session.sessionId,
           };
 
-          if (rawEvent.type === 'progress' && rawEvent.content) {
+          if (rawEvent.type === 'text') {
+            event.type = 'text';
+            event.content = rawEvent.content ?? rawEvent.text ?? '';
+          } else if (rawEvent.type === 'progress' && rawEvent.content) {
             event.type = 'thought';
             event.content = rawEvent.content;
           } else if (rawEvent.type === 'call') {
@@ -138,6 +141,18 @@ export class ClaudeBackend implements AgentBackend {
             const resultData = rawEvent.content || rawEvent;
             event.content = resultData.result || resultData.message || JSON.stringify(resultData);
             lastResult = resultData as TurnResult;
+
+            // Capture token usage from the result event
+            if (rawEvent.usage) {
+              lastResult.usage = {
+                inputTokens: rawEvent.usage.input_tokens ?? 0,
+                outputTokens: rawEvent.usage.output_tokens ?? 0,
+                totalTokens:
+                  (rawEvent.usage.input_tokens ?? 0) + (rawEvent.usage.output_tokens ?? 0),
+                cacheCreationTokens: rawEvent.usage.cache_creation_input_tokens ?? 0,
+                cacheReadTokens: rawEvent.usage.cache_read_input_tokens ?? 0,
+              };
+            }
           } else {
             // Fallback for other event types (system, assistant, etc)
             event.type = 'status';

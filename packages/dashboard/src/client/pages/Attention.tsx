@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useOrchestratorSocket } from '../hooks/useOrchestratorSocket';
 import { useNotifications } from '../hooks/useNotifications';
 import type {
@@ -246,13 +248,16 @@ function InteractionCard({
         <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-500">
           Escalation Reasons
         </p>
-        <ul className="space-y-1">
+        <div className="space-y-1">
           {reasons.map((reason, i) => (
-            <li key={i} className="text-sm text-yellow-400">
-              {reason}
-            </li>
+            <div
+              key={i}
+              className="text-sm text-yellow-400 [&_p]:m-0 [&_strong]:font-bold [&_strong]:text-yellow-200"
+            >
+              <Markdown remarkPlugins={[remarkGfm]}>{reason}</Markdown>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
 
       {hasAnalysis && (

@@ -4,7 +4,7 @@ version: 1
 created: 2026-03-21
 updated: 2026-04-11
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-15T14:09:57.974Z
+last_manual_edit: 2026-04-15T15:28:39.264Z
 ---
 
 # Roadmap
@@ -925,6 +925,14 @@ last_manual_edit: 2026-04-15T14:09:57.974Z
 - **Status:** planned
 - **Spec:** docs/changes/intelligence-pipeline/proposal.md
 - **Summary:** Spec enrichment (SEL), complexity modeling (CML), and pre-execution simulation (PESL) layers in packages/intelligence/. Augments hybrid orchestrator routing with graph-backed complexity scoring and tiered simulation.
+- **Blockers:** —
+- **Plan:** —
+
+### Dashboard Chat Panel
+
+- **Status:** planned
+- **Spec:** docs/changes/dashboard-chat-panel/proposal.md
+- **Summary:** Collapsible side panel on every dashboard page providing full interactive Claude sessions with command palette, contextual launch, multi-session tabs, and .harness artifact linkage
 - **Blockers:** —
 - **Plan:** —
 

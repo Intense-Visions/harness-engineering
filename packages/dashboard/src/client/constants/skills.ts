@@ -31,6 +31,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Scan codebase for secrets, vulnerabilities, and misconfigurations.',
     category: 'security',
     slashCommand: '/harness:security-scan',
+    contextSources: ['/api/checks'],
   },
   {
     id: 'harness:supply-chain-audit',
@@ -47,6 +48,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Analyze performance bottlenecks and resource utilization.',
     category: 'performance',
     slashCommand: '/harness:perf',
+    contextSources: ['/api/checks'],
   },
 
   // Architecture
@@ -56,6 +58,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Check for architectural violations and boundary drift.',
     category: 'architecture',
     slashCommand: '/harness:enforce-architecture',
+    contextSources: ['/api/checks'],
   },
   {
     id: 'harness:dependency-health',
