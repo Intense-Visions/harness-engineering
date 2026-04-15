@@ -474,7 +474,94 @@ describe('GitHubIssuesSyncAdapter', () => {
   });
 
   describe('fetchComments', () => {
-    it('returns Err with not-implemented message (Phase 1 stub)', async () => {
+    it('fetches and maps comments from a single page', async () => {
+      const fetchFn = mockFetch(200, [
+        {
+          id: 101,
+          body: 'First comment',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-02T00:00:00Z',
+          user: { login: 'alice' },
+        },
+        {
+          id: 102,
+          body: 'Second comment',
+          created_at: '2026-01-03T00:00:00Z',
+          updated_at: null,
+          user: { login: 'bob' },
+        },
+      ]);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toHaveLength(2);
+      expect(result.value[0]).toEqual({
+        id: '101',
+        body: 'First comment',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-02T00:00:00Z',
+        author: 'alice',
+      });
+      expect(result.value[1]).toEqual({
+        id: '102',
+        body: 'Second comment',
+        createdAt: '2026-01-03T00:00:00Z',
+        updatedAt: null,
+        author: 'bob',
+      });
+
+      const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      expect(url).toBe(
+        'https://api.github.com/repos/owner/repo/issues/42/comments?per_page=100&page=1'
+      );
+      expect(opts.method).toBe('GET');
+    });
+
+    it('paginates when first page returns 100 results', async () => {
+      const page1 = Array.from({ length: 100 }, (_, i) => ({
+        id: i + 1,
+        body: `Comment ${i + 1}`,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: null,
+        user: { login: 'user' },
+      }));
+      const page2 = [
+        {
+          id: 101,
+          body: 'Last comment',
+          created_at: '2026-01-02T00:00:00Z',
+          updated_at: null,
+          user: { login: 'user' },
+        },
+      ];
+      const fetchFn = mockFetchSequence(
+        { status: 200, body: page1 },
+        { status: 200, body: page2 }
+      );
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toHaveLength(101);
+      expect(result.value[100]!.id).toBe('101');
+
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+      const [url2] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[1]!;
+      expect(url2).toContain('page=2');
+    });
+
+    it('returns empty array when issue has no comments', async () => {
       const fetchFn = mockFetch(200, []);
       const adapter = new GitHubIssuesSyncAdapter({
         token: 'tok',
@@ -483,9 +570,38 @@ describe('GitHubIssuesSyncAdapter', () => {
       });
 
       const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]);
+    });
+
+    it('returns Err for invalid externalId', async () => {
+      const fetchFn = mockFetch(200, []);
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+      });
+
+      const result = await adapter.fetchComments('invalid-id');
       expect(result.ok).toBe(false);
       if (result.ok) return;
-      expect(result.error.message).toMatch(/not implemented/i);
+      expect(result.error.message).toMatch(/Invalid externalId/);
+    });
+
+    it('returns Err on API failure', async () => {
+      const fetchFn = mockFetch(404, { message: 'Not Found' });
+      const adapter = new GitHubIssuesSyncAdapter({
+        token: 'tok',
+        config: DEFAULT_CONFIG,
+        fetchFn,
+        maxRetries: 0,
+      });
+
+      const result = await adapter.fetchComments('github:owner/repo#42');
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toMatch(/404/);
     });
   });
 });

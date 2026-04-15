@@ -496,7 +496,53 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     }
   }
 
-  async fetchComments(_externalId: string): Promise<Result<TrackerComment[]>> {
-    return Err(new Error('fetchComments not implemented — see Phase 2 of analysis-tracker-sync'));
+  async fetchComments(externalId: string): Promise<Result<TrackerComment[]>> {
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+
+      const comments: TrackerComment[] = [];
+      const perPage = 100;
+      let page = 1;
+
+      while (true) {
+        const response = await fetchWithRetry(
+          this.fetchFn,
+          `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments?per_page=${perPage}&page=${page}`,
+          { method: 'GET', headers: this.headers() },
+          this.retryOpts
+        );
+
+        if (!response.ok) {
+          const text = await response.text();
+          return Err(new Error(`GitHub API error ${response.status}: ${text}`));
+        }
+
+        const data = (await response.json()) as Array<{
+          id: number;
+          body: string;
+          created_at: string;
+          updated_at: string | null;
+          user: { login: string };
+        }>;
+
+        for (const comment of data) {
+          comments.push({
+            id: String(comment.id),
+            body: comment.body,
+            createdAt: comment.created_at,
+            updatedAt: comment.updated_at ?? null,
+            author: comment.user.login,
+          });
+        }
+
+        if (data.length < perPage) break;
+        page++;
+      }
+
+      return Ok(comments);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 }
