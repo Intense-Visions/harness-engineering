@@ -1,3 +1,4 @@
+import { paginate } from '@harness-engineering/core';
 import { loadOrRebuildIndex } from '../../skill/index-builder.js';
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js';
 import { scoreSkill } from '../../skill/dispatcher.js';
@@ -23,6 +24,14 @@ export const searchSkillsDefinition = {
         type: 'string',
         enum: ['claude-code', 'gemini-cli'],
         description: 'Target platform (defaults to claude-code)',
+      },
+      offset: {
+        type: 'number',
+        description: 'Number of results to skip (default 0)',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum results to return (default 5)',
       },
     },
     required: ['query'],
@@ -82,13 +91,17 @@ export async function handleSearchSkills(
   }
 
   results.sort((a, b) => b.score - a.score);
-  const top5 = results.slice(0, 5);
+  const { items, pagination } = paginate(
+    results,
+    (input.offset as number) ?? 0,
+    (input.limit as number) ?? 5
+  );
 
   return {
     content: [
       {
         type: 'text',
-        text: JSON.stringify({ results: top5 }, null, 2),
+        text: JSON.stringify({ results: items, pagination }, null, 2),
       },
     ],
   };

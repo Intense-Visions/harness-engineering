@@ -11,6 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const clientDir = resolve(__dirname, '..', 'client');
 if (existsSync(join(clientDir, 'index.html')) && existsSync(join(clientDir, 'assets'))) {
   process.env['DASHBOARD_CLIENT_ROOT'] = clientDir;
+  console.log(`Serving dashboard client from ${clientDir}`);
 }
 
 // Import app after setting env so buildApp() picks it up

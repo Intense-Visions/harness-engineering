@@ -54,8 +54,10 @@ export function writeTelemetryConfig(cwd: string, result: TelemetryWizardResult)
     raw.telemetry = { enabled: result.telemetryEnabled };
     raw.adoption = { enabled: result.adoptionEnabled };
     fs.writeFileSync(configPath, JSON.stringify(raw, null, 2) + '\n');
-  } catch {
-    // Config not parsable — skip
+  } catch (err) {
+    console.warn(
+      `⚠ Could not update ${configPath}: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   // Write identity if any fields are set
