@@ -20,6 +20,7 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
     plans: [],
     createdAt: null,
     updatedAt: null,
+    externalId: null,
     ...overrides,
   };
 }

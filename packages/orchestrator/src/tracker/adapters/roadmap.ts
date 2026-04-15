@@ -120,6 +120,7 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
       })) as BlockerRef[],
       createdAt: null,
       updatedAt: null,
+      externalId: feature.externalId ?? null,
     };
   }
 

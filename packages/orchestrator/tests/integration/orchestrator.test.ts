@@ -48,6 +48,7 @@ const mockIssue: Issue = {
   plans: [],
   createdAt: null,
   updatedAt: null,
+  externalId: null,
 };
 
 describe('Orchestrator Integration', () => {

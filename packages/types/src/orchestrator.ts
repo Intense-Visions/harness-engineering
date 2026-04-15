@@ -64,6 +64,8 @@ export interface Issue {
   createdAt: string | null;
   /** ISO timestamp of last update */
   updatedAt: string | null;
+  /** External tracker ID (e.g., "github:owner/repo#42"), null if not synced */
+  externalId: string | null;
 }
 
 // --- Agent Backend Protocol ---

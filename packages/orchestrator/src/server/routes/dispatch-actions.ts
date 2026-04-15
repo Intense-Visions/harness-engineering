@@ -71,6 +71,7 @@ export function handleDispatchActionsRoute(
         plans: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        externalId: null,
       };
 
       await dispatchFn(issue);

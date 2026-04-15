@@ -57,6 +57,7 @@ describe('Orchestrator Sentinel Integration', () => {
     plans: [],
     createdAt: null,
     updatedAt: null,
+    externalId: null,
   };
 
   beforeEach(() => {
