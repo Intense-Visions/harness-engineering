@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderAnalysisComment } from '../../src/commands/publish-analyses';
+import { renderAnalysisComment } from '@harness-engineering/orchestrator';
 import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 
 function makeRecord(overrides: Partial<AnalysisRecord> = {}): AnalysisRecord {

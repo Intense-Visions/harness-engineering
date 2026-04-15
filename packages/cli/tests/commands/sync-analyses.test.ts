@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractAnalysisFromComments } from '../../src/commands/sync-analyses';
-import { renderAnalysisComment } from '../../src/commands/publish-analyses';
+import { renderAnalysisComment } from '@harness-engineering/orchestrator';
 import type { TrackerComment } from '@harness-engineering/types';
 import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 

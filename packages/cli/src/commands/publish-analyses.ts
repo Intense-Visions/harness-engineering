@@ -3,74 +3,12 @@ import * as path from 'path';
 import { Command } from 'commander';
 import { logger } from '../output/logger';
 import { loadTrackerConfig } from '../mcp/tools/roadmap-auto-sync';
+import {
+  renderAnalysisComment,
+  loadPublishedIndex,
+  savePublishedIndex,
+} from '@harness-engineering/orchestrator';
 import type { AnalysisRecord } from '@harness-engineering/orchestrator';
-
-const PUBLISHED_INDEX_PATH = '.harness/metrics/published-analyses.json';
-
-interface PublishedIndex {
-  [issueId: string]: string; // iso string of when published
-}
-
-function loadPublishedIndex(projectRoot: string): PublishedIndex {
-  const p = path.join(projectRoot, PUBLISHED_INDEX_PATH);
-  if (!fs.existsSync(p)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(p, 'utf-8'));
-  } catch {
-    return {};
-  }
-}
-
-function savePublishedIndex(projectRoot: string, index: PublishedIndex): void {
-  const p = path.join(projectRoot, PUBLISHED_INDEX_PATH);
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(index, null, 2), 'utf-8');
-}
-
-/**
- * Renders an AnalysisRecord as a structured markdown comment.
- * Format: summary header + reasoning bullets + collapsible JSON with discriminator.
- */
-export function renderAnalysisComment(record: AnalysisRecord): string {
-  const lines: string[] = [];
-
-  lines.push(`## Harness Analysis: ${record.identifier}`);
-  lines.push('');
-
-  if (record.score) {
-    lines.push(
-      `**Risk:** ${record.score.riskLevel} (${(record.score.confidence * 100).toFixed(0)}% confidence)`
-    );
-    lines.push(`**Route:** ${record.score.recommendedRoute}`);
-  }
-  lines.push(`**Analyzed:** ${record.analyzedAt}`);
-  lines.push('');
-
-  if (record.score && record.score.reasoning.length > 0) {
-    for (const r of record.score.reasoning) {
-      lines.push(`- ${r}`);
-    }
-    lines.push('');
-  }
-
-  // Collapsible details block with full AnalysisRecord + discriminator fields
-  const jsonPayload = {
-    _harness_analysis: true,
-    _version: 1,
-    ...record,
-  };
-
-  lines.push('<details>');
-  lines.push('<summary>Full Analysis Data</summary>');
-  lines.push('');
-  lines.push('```json');
-  lines.push(JSON.stringify(jsonPayload, null, 2));
-  lines.push('```');
-  lines.push('');
-  lines.push('</details>');
-
-  return lines.join('\n');
-}
 
 export function createPublishAnalysesCommand(): Command {
   const command = new Command('publish-analyses')
