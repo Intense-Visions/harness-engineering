@@ -79,9 +79,21 @@ export class InteractionQueue {
 
   /**
    * Push a new interaction to the queue.
+   * If a pending interaction for the same issueId already exists, it is
+   * replaced (upsert) so the directory never accumulates duplicates.
    */
   async push(interaction: PendingInteraction): Promise<void> {
     await fs.mkdir(this.dir, { recursive: true });
+
+    // Remove any existing pending interaction for the same issueId
+    const existing = await this.list();
+    for (const prev of existing) {
+      if (prev.issueId === interaction.issueId && prev.status === 'pending') {
+        const oldPath = path.join(this.dir, `${prev.id}.json`);
+        await fs.unlink(oldPath).catch(() => {});
+      }
+    }
+
     const filePath = path.join(this.dir, `${interaction.id}.json`);
     await fs.writeFile(filePath, JSON.stringify(interaction, null, 2), 'utf-8');
     for (const listener of this.pushListeners) {
