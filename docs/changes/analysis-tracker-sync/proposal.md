@@ -11,14 +11,14 @@ Centralize intelligence pipeline analysis results by using the external issue tr
 
 ## Decisions
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| 1 | Summary header + collapsible `<details>` with full `AnalysisRecord` JSON | Engineers need complete data to avoid re-running analysis locally. Summary for triage scanning, JSON for machine consumption and pull-back. |
-| 2 | Dual-mode distribution (publish + pull) | Tracker-only excludes local-only workflows. Bidirectional sync makes the tracker the shared source of truth without git bloat. |
-| 3 | Auto-publish by default when tracker is configured | Extra config flags add friction. If you've configured a tracker, sharing intent is implicit. |
-| 4 | `"_harness_analysis": true` discriminator in JSON fence | Marker and payload are the same artifact. Tracker-agnostic — any system that stores markdown comments works. No separate tag to drift. |
-| 5 | Store `externalId` on `AnalysisRecord` at analysis time | Eliminates fragile prefix-matching. Direct lookup at publish time. Features without `externalId` are naturally excluded. |
-| 6 | Full dual-mode in one pass | Ship the complete feature — publish + pull + auto-publish — together to enable round-trip integration testing. |
+| #   | Decision                                                                 | Rationale                                                                                                                                   |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Summary header + collapsible `<details>` with full `AnalysisRecord` JSON | Engineers need complete data to avoid re-running analysis locally. Summary for triage scanning, JSON for machine consumption and pull-back. |
+| 2   | Dual-mode distribution (publish + pull)                                  | Tracker-only excludes local-only workflows. Bidirectional sync makes the tracker the shared source of truth without git bloat.              |
+| 3   | Auto-publish by default when tracker is configured                       | Extra config flags add friction. If you've configured a tracker, sharing intent is implicit.                                                |
+| 4   | `"_harness_analysis": true` discriminator in JSON fence                  | Marker and payload are the same artifact. Tracker-agnostic — any system that stores markdown comments works. No separate tag to drift.      |
+| 5   | Store `externalId` on `AnalysisRecord` at analysis time                  | Eliminates fragile prefix-matching. Direct lookup at publish time. Features without `externalId` are naturally excluded.                    |
+| 6   | Full dual-mode in one pass                                               | Ship the complete feature — publish + pull + auto-publish — together to enable round-trip integration testing.                              |
 
 ## Technical Design
 
@@ -27,7 +27,7 @@ Centralize intelligence pipeline analysis results by using the external issue tr
 `AnalysisRecord` — add field:
 
 ```typescript
-externalId: string | null;  // e.g. "github:owner/repo#42", populated at analysis time
+externalId: string | null; // e.g. "github:owner/repo#42", populated at analysis time
 ```
 
 `TrackerSyncAdapter` interface — add method:
@@ -41,10 +41,10 @@ New type:
 
 ```typescript
 interface TrackerComment {
-  id: string;        // tracker-native comment ID
-  body: string;      // raw markdown body
+  id: string; // tracker-native comment ID
+  body: string; // raw markdown body
   createdAt: string; // ISO timestamp
-  author: string;    // who posted it
+  author: string; // who posted it
 }
 ```
 
@@ -96,28 +96,28 @@ Auto-publish fires in the orchestrator after analysis. `publish-analyses` CLI re
 
 ### Pull Flow (`sync-analyses` CLI)
 
-```
+````
 For each roadmap feature with externalId:
   -> adapter.fetchComments(externalId)
   -> scan comment bodies for ```json fence containing "_harness_analysis": true
   -> parse AnalysisRecord from JSON
   -> take the most recent if multiple exist
   -> write to .harness/analyses/{issueId}.json
-```
+````
 
 Skip features without `externalId`. Skip issues with no analysis comments. Warn on JSON parse failures but continue.
 
 ### File Layout
 
-| File | Action |
-|------|--------|
-| `packages/types/src/tracker-sync.ts` | Add `fetchComments`, `TrackerComment` |
-| `packages/orchestrator/src/core/analysis-archive.ts` | Add `externalId` to `AnalysisRecord` |
-| `packages/core/src/roadmap/adapters/github-issues.ts` | Implement `fetchComments` |
-| `packages/cli/src/commands/publish-analyses.ts` | Rework: use `record.externalId`, new comment format with discriminator |
-| `packages/cli/src/commands/sync-analyses.ts` | New: pull command |
-| `packages/cli/src/commands/_registry.ts` | Register `sync-analyses` |
-| Orchestrator pipeline (where analysis completes) | Wire auto-publish hook |
+| File                                                  | Action                                                                 |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| `packages/types/src/tracker-sync.ts`                  | Add `fetchComments`, `TrackerComment`                                  |
+| `packages/orchestrator/src/core/analysis-archive.ts`  | Add `externalId` to `AnalysisRecord`                                   |
+| `packages/core/src/roadmap/adapters/github-issues.ts` | Implement `fetchComments`                                              |
+| `packages/cli/src/commands/publish-analyses.ts`       | Rework: use `record.externalId`, new comment format with discriminator |
+| `packages/cli/src/commands/sync-analyses.ts`          | New: pull command                                                      |
+| `packages/cli/src/commands/_registry.ts`              | Register `sync-analyses`                                               |
+| Orchestrator pipeline (where analysis completes)      | Wire auto-publish hook                                                 |
 
 ## Success Criteria
 
@@ -133,23 +133,28 @@ Skip features without `externalId`. Skip issues with no analysis comments. Warn 
 ## Implementation Order
 
 ### Wave 1 — Type foundations
+
 - Add `externalId: string | null` to `AnalysisRecord`
 - Add `fetchComments()` and `TrackerComment` to `TrackerSyncAdapter` interface
 
 ### Wave 2 — Adapter + rendering (parallelizable)
+
 - Implement `fetchComments` on `GitHubIssuesSyncAdapter`
 - Rework `renderAnalysisComment()` — summary header + `<details>` with discriminator JSON
 - Update analysis pipeline to populate `externalId` on records at analysis time
 
 ### Wave 3 — CLI commands (parallelizable)
+
 - Rework `publish-analyses` — use `externalId` directly, new comment format
 - New `sync-analyses` — fetch comments, parse JSON fence, hydrate local archive
 - Register `sync-analyses` in command registry
 
 ### Wave 4 — Orchestrator integration
+
 - Wire auto-publish after analysis completion when tracker is configured
 
 ### Wave 5 — Tests
+
 - `fetchComments` unit tests (mock fetch, pagination, error handling)
 - `renderAnalysisComment` format tests (discriminator present, valid JSON in fence)
 - `sync-analyses` parsing tests (happy path, no analysis comment, malformed JSON, multiple comments)

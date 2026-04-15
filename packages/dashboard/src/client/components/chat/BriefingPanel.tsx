@@ -26,12 +26,12 @@ export function BriefingPanel({ skill, context, onExecute, onCancel }: Props) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 text-primary-400">
           <Sparkles size={16} />
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Strategy Briefing</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+            Strategy Briefing
+          </span>
         </div>
         <h2 className="text-2xl font-bold text-white">{skill.name}</h2>
-        <p className="text-sm text-neutral-muted leading-relaxed">
-          {skill.description}
-        </p>
+        <p className="text-sm text-neutral-muted leading-relaxed">{skill.description}</p>
       </div>
 
       {/* Context Summary Card */}
@@ -40,9 +40,7 @@ export function BriefingPanel({ skill, context, onExecute, onCancel }: Props) {
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-muted">
             Telemetry Findings
           </h3>
-          {context.isLoading && (
-            <Loader2 size={14} className="animate-spin text-primary-500" />
-          )}
+          {context.isLoading && <Loader2 size={14} className="animate-spin text-primary-500" />}
         </div>
 
         {context.error ? (
@@ -57,9 +55,7 @@ export function BriefingPanel({ skill, context, onExecute, onCancel }: Props) {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-white leading-relaxed font-medium">
-              {summary}
-            </p>
+            <p className="text-sm text-white leading-relaxed font-medium">{summary}</p>
             <div className="flex items-center gap-2 text-[10px] font-mono text-neutral-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               <span>Context automatically extracted from latest dashboard telemetry</span>
@@ -80,7 +76,7 @@ export function BriefingPanel({ skill, context, onExecute, onCancel }: Props) {
           <Play size={18} fill="currentColor" />
           Execute {skill.name}
         </motion.button>
-        
+
         {onCancel && (
           <button
             onClick={onCancel}

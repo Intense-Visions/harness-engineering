@@ -77,8 +77,16 @@ describe('extractAnalysisFromComments', () => {
       externalId: 'github:owner/repo#1',
     };
     const comments = [
-      makeComment({ id: '1', body: makeAnalysisBody(olderRecord), createdAt: '2026-04-10T12:00:00Z' }),
-      makeComment({ id: '2', body: makeAnalysisBody(newerRecord), createdAt: '2026-04-15T12:00:00Z' }),
+      makeComment({
+        id: '1',
+        body: makeAnalysisBody(olderRecord),
+        createdAt: '2026-04-10T12:00:00Z',
+      }),
+      makeComment({
+        id: '2',
+        body: makeAnalysisBody(newerRecord),
+        createdAt: '2026-04-15T12:00:00Z',
+      }),
     ];
     const result = extractAnalysisFromComments(comments);
     expect(result).not.toBeNull();
@@ -217,17 +225,21 @@ describe('extractAnalysisFromComments', () => {
       'And here is the analysis:',
       '',
       '```json',
-      JSON.stringify({
-        _harness_analysis: true,
-        _version: 1,
-        issueId: 'multi-fence-1',
-        identifier: 'multi-fence-feature',
-        spec: null,
-        score: null,
-        simulation: null,
-        analyzedAt: '2026-04-15T12:00:00Z',
-        externalId: 'github:owner/repo#77',
-      }, null, 2),
+      JSON.stringify(
+        {
+          _harness_analysis: true,
+          _version: 1,
+          issueId: 'multi-fence-1',
+          identifier: 'multi-fence-feature',
+          spec: null,
+          score: null,
+          simulation: null,
+          analyzedAt: '2026-04-15T12:00:00Z',
+          externalId: 'github:owner/repo#77',
+        },
+        null,
+        2
+      ),
       '```',
     ].join('\n');
     const comments = [makeComment({ body })];
@@ -353,15 +365,16 @@ describe('full round-trip: render -> addComment -> fetchComments -> extract', ()
       ok: true,
       status: 200,
       headers: new Headers(),
-      text: async () => JSON.stringify([
-        {
-          id: 500,
-          body: capturedBody,
-          created_at: '2026-04-15T16:01:00Z',
-          updated_at: null,
-          user: { login: 'harness-bot' },
-        },
-      ]),
+      text: async () =>
+        JSON.stringify([
+          {
+            id: 500,
+            body: capturedBody,
+            created_at: '2026-04-15T16:01:00Z',
+            updated_at: null,
+            user: { login: 'harness-bot' },
+          },
+        ]),
       json: async () => [
         {
           id: 500,

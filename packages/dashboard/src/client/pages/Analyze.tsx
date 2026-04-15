@@ -331,7 +331,11 @@ function CMLCard({ data }: { data: CMLResult }) {
       </div>
       <div className="space-y-2">
         <ScoreBar value={data.overall} label="Overall" color="text-primary-500" />
-        <ScoreBar value={data.dimensions.structural} label="Structural" color="text-secondary-400" />
+        <ScoreBar
+          value={data.dimensions.structural}
+          label="Structural"
+          color="text-secondary-400"
+        />
         <ScoreBar value={data.dimensions.semantic} label="Semantic" color="text-accent-500" />
         <ScoreBar value={data.dimensions.historical} label="Historical" color="text-yellow-400" />
         <ScoreBar value={data.confidence} label="Confidence" color="text-emerald-400" />

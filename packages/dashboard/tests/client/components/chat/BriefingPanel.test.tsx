@@ -9,7 +9,7 @@ const mockSkill: SkillEntry = {
   name: 'Security Scan',
   description: 'Scan codebase for security issues.',
   category: 'security',
-  slashCommand: '/harness:security-scan'
+  slashCommand: '/harness:security-scan',
 };
 
 const mockContext = {
@@ -17,12 +17,12 @@ const mockContext = {
     '/api/checks': {
       security: {
         stats: { filesScanned: 5, errorCount: 1, warningCount: 0 },
-        findings: []
-      }
-    }
+        findings: [],
+      },
+    },
   },
   isLoading: false,
-  error: null
+  error: null,
 };
 
 describe('BriefingPanel', () => {
@@ -40,14 +40,16 @@ describe('BriefingPanel', () => {
   it('calls onExecute when button clicked', () => {
     const onExecute = vi.fn();
     render(<BriefingPanel skill={mockSkill} context={mockContext} onExecute={onExecute} />);
-    
+
     fireEvent.click(screen.getByText(/Execute Security Scan/i));
     expect(onExecute).toHaveBeenCalled();
   });
 
   it('shows loader when loading', () => {
     const loadingContext = { ...mockContext, isLoading: true };
-    const { container } = render(<BriefingPanel skill={mockSkill} context={loadingContext} onExecute={() => {}} />);
+    const { container } = render(
+      <BriefingPanel skill={mockSkill} context={loadingContext} onExecute={() => {}} />
+    );
     // Check for lucide loader icon (has animate-spin class)
     expect(container.querySelector('.animate-spin')).not.toBeNull();
   });

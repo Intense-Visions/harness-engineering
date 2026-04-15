@@ -46,7 +46,10 @@ describe('published-index', () => {
 
     it('overwrites existing index', () => {
       savePublishedIndex(tmpDir, { 'issue-1': '2026-04-15T12:00:00Z' });
-      savePublishedIndex(tmpDir, { 'issue-1': '2026-04-15T12:00:00Z', 'issue-2': '2026-04-15T13:00:00Z' });
+      savePublishedIndex(tmpDir, {
+        'issue-1': '2026-04-15T12:00:00Z',
+        'issue-2': '2026-04-15T13:00:00Z',
+      });
       const indexPath = path.join(tmpDir, '.harness', 'metrics', 'published-analyses.json');
       const loaded = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
       expect(Object.keys(loaded)).toHaveLength(2);

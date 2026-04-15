@@ -540,10 +540,7 @@ describe('GitHubIssuesSyncAdapter', () => {
           user: { login: 'user' },
         },
       ];
-      const fetchFn = mockFetchSequence(
-        { status: 200, body: page1 },
-        { status: 200, body: page2 }
-      );
+      const fetchFn = mockFetchSequence({ status: 200, body: page1 }, { status: 200, body: page2 });
       const adapter = new GitHubIssuesSyncAdapter({
         token: 'tok',
         config: DEFAULT_CONFIG,

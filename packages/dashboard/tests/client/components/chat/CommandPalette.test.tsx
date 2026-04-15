@@ -5,7 +5,7 @@ import { CommandPalette } from '../../../../src/client/components/chat/CommandPa
 
 // Mock GlowCard to avoid complex animation/mouse logic in jsdom
 vi.mock('../../../../src/client/components/NeonAI/GlowCard', () => ({
-  GlowCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
+  GlowCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 describe('CommandPalette', () => {
@@ -19,10 +19,10 @@ describe('CommandPalette', () => {
   it('filters skills based on search input', () => {
     render(<CommandPalette onSelect={() => {}} />);
     const input = screen.getByPlaceholderText(/search skills/i);
-    
+
     // Search for "Security"
     fireEvent.change(input, { target: { value: 'Security Scan' } });
-    
+
     expect(screen.getByText('Security Scan')).toBeDefined();
     // Workflow category should be gone if no workflow skill matches "Security Scan"
     expect(screen.queryByText('Workflow')).toBeNull();
@@ -31,23 +31,25 @@ describe('CommandPalette', () => {
   it('shows "no results" state when no skills match', () => {
     render(<CommandPalette onSelect={() => {}} />);
     const input = screen.getByPlaceholderText(/search skills/i);
-    
+
     fireEvent.change(input, { target: { value: 'nonexistent-skill-name' } });
-    
+
     expect(screen.getByText('No skills match your search')).toBeDefined();
   });
 
   it('calls onSelect when a skill is clicked', () => {
     const onSelect = vi.fn();
     render(<CommandPalette onSelect={onSelect} />);
-    
+
     // Click "Validate Project" (should be in Health or Workflow depending on registry)
     const skillButton = screen.getByText('Validate Project').closest('button');
     expect(skillButton).not.toBeNull();
     fireEvent.click(skillButton!);
-    
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'harness:validate'
-    }));
+
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'harness:validate',
+      })
+    );
   });
 });

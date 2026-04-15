@@ -1,17 +1,17 @@
 import type { SkillEntry } from '../types/skills';
-import type { 
-  ChecksData, 
-  SecurityResult, 
-  PerfResult, 
+import type {
+  ChecksData,
+  SecurityResult,
+  PerfResult,
   ArchResult,
   SecurityFindingSummary,
-  PerfViolationSummary
+  PerfViolationSummary,
 } from '../../shared/types';
 
 /**
  * Transforms raw context data into a human-readable summary for the BriefingPanel.
  */
-export function generateBriefingSummary(skill: SkillEntry, data: Record<string, any>): string {
+export function generateBriefingSummary(skill: SkillEntry, data: Record<string, unknown>): string {
   const checks = data['/api/checks'] as ChecksData | undefined;
   if (!checks) return 'No specific context data found for this skill.';
 
@@ -32,7 +32,7 @@ export function generateBriefingSummary(skill: SkillEntry, data: Record<string, 
 /**
  * Transforms raw context data into a detailed system prompt for the AI.
  */
-export function generateSystemPrompt(skill: SkillEntry, data: Record<string, any>): string {
+export function generateSystemPrompt(skill: SkillEntry, data: Record<string, unknown>): string {
   const checks = data['/api/checks'] as ChecksData | undefined;
   const parts: string[] = [
     `You are launching the harness skill: ${skill.name} (${skill.id}).`,
@@ -72,9 +72,12 @@ function formatSecuritySummary(res: SecurityResult): string {
 
 function formatSecurityDetails(res: SecurityResult): string {
   if ('error' in res) return `Error: ${res.error}`;
-  return res.findings.map((f: SecurityFindingSummary) => 
-    `- [${f.severity}] ${f.ruleId} in ${f.file}:${f.line}: ${f.message}`
-  ).join('\n');
+  return res.findings
+    .map(
+      (f: SecurityFindingSummary) =>
+        `- [${f.severity}] ${f.ruleId} in ${f.file}:${f.line}: ${f.message}`
+    )
+    .join('\n');
 }
 
 function formatPerfSummary(res: PerfResult): string {
@@ -87,9 +90,12 @@ function formatPerfSummary(res: PerfResult): string {
 
 function formatPerfDetails(res: PerfResult): string {
   if ('error' in res) return `Error: ${res.error}`;
-  return res.violations.map((v: PerfViolationSummary) => 
-    `- [${v.severity}] ${v.metric} in ${v.file}: ${v.value} (threshold: ${v.threshold})`
-  ).join('\n');
+  return res.violations
+    .map(
+      (v: PerfViolationSummary) =>
+        `- [${v.severity}] ${v.metric} in ${v.file}: ${v.value} (threshold: ${v.threshold})`
+    )
+    .join('\n');
 }
 
 function formatArchSummary(res: ArchResult): string {
@@ -102,7 +108,5 @@ function formatArchSummary(res: ArchResult): string {
 
 function formatArchDetails(res: ArchResult): string {
   if ('error' in res) return `Error: ${res.error}`;
-  return res.newViolations.map(v => 
-    `- [${v.severity}] ${v.file}: ${v.detail}`
-  ).join('\n');
+  return res.newViolations.map((v) => `- [${v.severity}] ${v.file}: ${v.detail}`).join('\n');
 }

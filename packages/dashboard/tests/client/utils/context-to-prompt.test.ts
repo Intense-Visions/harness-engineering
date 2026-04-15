@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { generateBriefingSummary, generateSystemPrompt } from '../../../src/client/utils/context-to-prompt';
+import {
+  generateBriefingSummary,
+  generateSystemPrompt,
+} from '../../../src/client/utils/context-to-prompt';
 import type { SkillEntry } from '../../../src/client/types/skills';
 
 const mockSecuritySkill: SkillEntry = {
@@ -7,7 +10,7 @@ const mockSecuritySkill: SkillEntry = {
   name: 'Security Scan',
   description: 'Scan codebase for security issues.',
   category: 'security',
-  slashCommand: '/harness:security-scan'
+  slashCommand: '/harness:security-scan',
 };
 
 const mockData = {
@@ -16,16 +19,16 @@ const mockData = {
       stats: {
         filesScanned: 10,
         errorCount: 2,
-        warningCount: 1
+        warningCount: 1,
       },
       findings: [
         { severity: 'high', ruleId: 'rule-1', file: 'file1.ts', line: 10, message: 'Broken' },
-        { severity: 'medium', ruleId: 'rule-2', file: 'file2.ts', line: 20, message: 'Weak' }
-      ]
+        { severity: 'medium', ruleId: 'rule-2', file: 'file2.ts', line: 20, message: 'Weak' },
+      ],
     },
     perf: { stats: { violationCount: 0, filesAnalyzed: 10 }, violations: [] },
-    arch: { totalViolations: 0, newViolations: [] }
-  }
+    arch: { totalViolations: 0, newViolations: [] },
+  },
 };
 
 describe('context-to-prompt', () => {

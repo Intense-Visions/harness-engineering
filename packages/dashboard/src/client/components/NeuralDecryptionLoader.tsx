@@ -14,8 +14,18 @@ export function NeuralDecryptionLoader() {
   ];
 
   const connections = [
-    [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0],
-    [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6]
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [4, 5],
+    [5, 0],
+    [0, 6],
+    [1, 6],
+    [2, 6],
+    [3, 6],
+    [4, 6],
+    [5, 6],
   ];
 
   // Particle data packets
@@ -24,7 +34,7 @@ export function NeuralDecryptionLoader() {
     connection: i % connections.length,
     delay: Math.random() * 5,
     duration: 2 + Math.random() * 2,
-    size: 0.5 + Math.random() * 1.5
+    size: 0.5 + Math.random() * 1.5,
   }));
 
   // Background Hex Grid
@@ -48,7 +58,7 @@ export function NeuralDecryptionLoader() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(79,70,229,0.2),transparent_75%)] rounded-full animate-pulse" />
       <div className="absolute inset-4 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.1),transparent_60%)] rounded-full animate-glow" />
       <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,rgba(34,211,238,0.03),transparent)] rounded-full animate-[spin_12s_linear_infinite]" />
-      
+
       {/* 2. Main Neural Engine */}
       <svg viewBox="0 0 100 100" className="w-full h-full relative z-10 overflow-visible">
         <defs>
@@ -56,7 +66,7 @@ export function NeuralDecryptionLoader() {
             <feGaussianBlur stdDeviation="2" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
-          
+
           <linearGradient id="neural-gradient-v3" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="var(--color-primary-500)" />
             <stop offset="100%" stopColor="var(--color-secondary-400)" />
@@ -64,17 +74,17 @@ export function NeuralDecryptionLoader() {
 
           <mask id="scanning-light-mask">
             <motion.rect
-              width="100" height="100" fill="white"
+              width="100"
+              height="100"
+              fill="white"
               animate={{ x: [-100, 100] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
             />
           </mask>
         </defs>
 
         {/* --- Background Plane --- */}
-        <g opacity="0.15">
-          {hexGrid}
-        </g>
+        <g opacity="0.15">{hexGrid}</g>
 
         {/* --- Mid Plane: Circuitry Branching --- */}
         <g stroke="var(--color-primary-500)" strokeWidth="0.2" fill="none" opacity="0.3">
@@ -91,7 +101,9 @@ export function NeuralDecryptionLoader() {
 
         {/* --- Scanning Beam --- */}
         <motion.circle
-          cx="50" cy="50" r="45"
+          cx="50"
+          cy="50"
+          r="45"
           fill="none"
           stroke="rgba(34,211,238,0.05)"
           strokeWidth="10"
@@ -105,16 +117,20 @@ export function NeuralDecryptionLoader() {
           <g key={`mesh-group-${i}`}>
             {/* Background static line */}
             <line
-              x1={points[a].x} y1={points[a].y}
-              x2={points[b].x} y2={points[b].y}
+              x1={points[a].x}
+              y1={points[a].y}
+              x2={points[b].x}
+              y2={points[b].y}
               stroke="var(--color-primary-500)"
               strokeWidth="0.2"
               strokeOpacity="0.1"
             />
             {/* Active flow highlights */}
             <motion.line
-              x1={points[a].x} y1={points[a].y}
-              x2={points[b].x} y2={points[b].y}
+              x1={points[a].x}
+              y1={points[a].y}
+              x2={points[b].x}
+              y2={points[b].y}
               stroke="url(#neural-gradient-v3)"
               strokeWidth="0.5"
               strokeOpacity="0.4"
@@ -136,17 +152,17 @@ export function NeuralDecryptionLoader() {
               height="0.4"
               fill="var(--color-secondary-400)"
               filter="url(#ultra-glow)"
-              animate={{ 
+              animate={{
                 x: [start.x, end.x],
                 y: [start.y, end.y],
                 opacity: [0, 1, 0],
-                rotate: Math.atan2(end.y - start.y, end.x - start.x) * (180 / Math.PI)
+                rotate: Math.atan2(end.y - start.y, end.x - start.x) * (180 / Math.PI),
               }}
               transition={{
                 duration: p.duration,
                 repeat: Infinity,
                 delay: p.delay,
-                ease: "linear"
+                ease: 'linear',
               }}
             />
           );
@@ -160,19 +176,21 @@ export function NeuralDecryptionLoader() {
               d="M -3 0 L -1.5 -2.6 L 1.5 -2.6 L 3 0 L 1.5 2.6 L -1.5 2.6 Z"
               transform={`translate(${p.x}, ${p.y})`}
               fill="rgba(9,9,11,0.8)"
-              stroke={i === 6 ? "var(--color-secondary-400)" : "var(--color-primary-500)"}
+              stroke={i === 6 ? 'var(--color-secondary-400)' : 'var(--color-primary-500)'}
               strokeWidth="0.4"
               initial={{ rotate: 0 }}
-              animate={{ 
+              animate={{
                 rotate: [0, 360],
                 scale: [1, 1.1, 1],
-                strokeOpacity: [0.4, 1, 0.4]
+                strokeOpacity: [0.4, 1, 0.4],
               }}
               transition={{ duration: 6, repeat: Infinity, delay: i * 0.3 }}
             />
             {/* Inner "Data Core" */}
             <motion.circle
-              cx={p.x} cy={p.y} r="0.8"
+              cx={p.x}
+              cy={p.y}
+              r="0.8"
               fill="var(--color-secondary-400)"
               animate={{ opacity: [0.2, 1, 0.2] }}
               transition={{ duration: 2, repeat: Infinity, delay: i * 0.4 }}
@@ -186,7 +204,10 @@ export function NeuralDecryptionLoader() {
           {Array.from({ length: 12 }).map((_, i) => (
             <motion.line
               key={`tick-${i}`}
-              x1="42" y1="0" x2="44" y2="0"
+              x1="42"
+              y1="0"
+              x2="44"
+              y2="0"
               stroke="var(--color-neutral-muted)"
               strokeWidth="0.2"
               transform={`rotate(${i * 30})`}
@@ -198,7 +219,8 @@ export function NeuralDecryptionLoader() {
           {['00', '90', '18', '27'].map((deg, i) => (
             <text
               key={`deg-${i}`}
-              x="36" y="1"
+              x="36"
+              y="1"
               fontSize="2"
               fontFamily="monospace"
               fill="var(--color-neutral-muted)"
@@ -212,17 +234,20 @@ export function NeuralDecryptionLoader() {
 
         {/* --- Periodic Pulse Ripple --- */}
         <motion.circle
-          cx="50" cy="50" r="0"
+          cx="50"
+          cy="50"
+          r="0"
           fill="none"
           stroke="var(--color-secondary-400)"
           strokeWidth="0.5"
           animate={{ r: [0, 60], opacity: [0, 0.3, 0] }}
-          transition={{ duration: 4, repeat: Infinity, delay: 2, ease: "easeOut" }}
+          transition={{ duration: 4, repeat: Infinity, delay: 2, ease: 'easeOut' }}
         />
 
         {/* --- Binary HUD Scrap --- */}
         <text
-          x="50" y="98"
+          x="50"
+          y="98"
           fontSize="2"
           textAnchor="middle"
           fontFamily="monospace"
@@ -231,7 +256,7 @@ export function NeuralDecryptionLoader() {
         >
           <motion.tspan
             animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+            transition={{ duration: 0.5, repeat: Infinity, repeatType: 'reverse' }}
           >
             Encryption Established // Level 7
           </motion.tspan>

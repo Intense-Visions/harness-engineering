@@ -52,6 +52,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
 2. Open `packages/types/src/index.ts`. In the `// --- Tracker Sync ---` section (line 64-70), add `TrackerComment` to the type re-exports:
 
    Change:
+
    ```typescript
    export type {
      ExternalTicket,
@@ -62,6 +63,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
    ```
 
    To:
+
    ```typescript
    export type {
      ExternalTicket,
@@ -82,6 +84,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
 1. Open `packages/core/src/roadmap/tracker-sync.ts`. Add `TrackerComment` to the import on line 1:
 
    Change:
+
    ```typescript
    import type {
      RoadmapFeature,
@@ -93,6 +96,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
    ```
 
    To:
+
    ```typescript
    import type {
      RoadmapFeature,
@@ -121,6 +125,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
 1. Open `packages/core/src/roadmap/adapters/github-issues.ts`. Add `TrackerComment` to the import on line 1:
 
    Change:
+
    ```typescript
    import type {
      RoadmapFeature,
@@ -132,6 +137,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
    ```
 
    To:
+
    ```typescript
    import type {
      RoadmapFeature,
@@ -154,21 +160,21 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
 3. Write a test in `packages/core/tests/roadmap/github-issues.test.ts`. Add a new `describe` block at the end, before the final closing `});`:
 
    ```typescript
-     describe('fetchComments', () => {
-       it('returns Err with not-implemented message (Phase 1 stub)', async () => {
-         const fetchFn = mockFetch(200, []);
-         const adapter = new GitHubIssuesSyncAdapter({
-           token: 'tok',
-           config: DEFAULT_CONFIG,
-           fetchFn,
-         });
-
-         const result = await adapter.fetchComments('github:owner/repo#42');
-         expect(result.ok).toBe(false);
-         if (result.ok) return;
-         expect(result.error.message).toMatch(/not implemented/i);
+   describe('fetchComments', () => {
+     it('returns Err with not-implemented message (Phase 1 stub)', async () => {
+       const fetchFn = mockFetch(200, []);
+       const adapter = new GitHubIssuesSyncAdapter({
+         token: 'tok',
+         config: DEFAULT_CONFIG,
+         fetchFn,
        });
+
+       const result = await adapter.fetchComments('github:owner/repo#42');
+       expect(result.ok).toBe(false);
+       if (result.ok) return;
+       expect(result.error.message).toMatch(/not implemented/i);
      });
+   });
    ```
 
 4. Run: `cd packages/core && npx vitest run tests/roadmap/github-issues.test.ts` -- should pass (all existing tests + new stub test).
@@ -184,6 +190,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
 1. Open `packages/orchestrator/src/core/analysis-archive.ts`. In the `AnalysisRecord` interface (line 12-25), add `externalId` after `analyzedAt`:
 
    Change:
+
    ```typescript
    export interface AnalysisRecord {
      /** Issue ID this analysis belongs to */
@@ -202,6 +209,7 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
    ```
 
    To:
+
    ```typescript
    export interface AnalysisRecord {
      /** Issue ID this analysis belongs to */
@@ -224,28 +232,30 @@ Add the type-level foundations for bidirectional analysis sync: `externalId` fie
 2. Fix the existing `AnalysisRecord` construction in `packages/orchestrator/src/orchestrator.ts` at line 342-349. Add `externalId: null` (Phase 2 will populate this from the issue's externalId):
 
    Change:
+
    ```typescript
-        await this.analysisArchive.save({
-          issueId: issue.id,
-          identifier: issue.identifier,
-          spec,
-          score,
-          simulation,
-          analyzedAt: new Date().toISOString(),
-        });
+   await this.analysisArchive.save({
+     issueId: issue.id,
+     identifier: issue.identifier,
+     spec,
+     score,
+     simulation,
+     analyzedAt: new Date().toISOString(),
+   });
    ```
 
    To:
+
    ```typescript
-        await this.analysisArchive.save({
-          issueId: issue.id,
-          identifier: issue.identifier,
-          spec,
-          score,
-          simulation,
-          analyzedAt: new Date().toISOString(),
-          externalId: null, // TODO(analysis-tracker-sync): populate from issue.externalId in Phase 2
-        });
+   await this.analysisArchive.save({
+     issueId: issue.id,
+     identifier: issue.identifier,
+     spec,
+     score,
+     simulation,
+     analyzedAt: new Date().toISOString(),
+     externalId: null, // TODO(analysis-tracker-sync): populate from issue.externalId in Phase 2
+   });
    ```
 
 3. Run: `cd packages/orchestrator && npx tsc --noEmit` -- should pass.

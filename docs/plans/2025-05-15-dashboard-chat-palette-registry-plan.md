@@ -35,6 +35,7 @@ Implement a searchable command palette and skill registry for the dashboard chat
 **Depends on:** none | **Files:** packages/dashboard/src/client/types/skills.ts, packages/dashboard/src/client/constants/skills.ts
 
 1. Create `packages/dashboard/src/client/types/skills.ts`:
+
    ```typescript
    export type SkillCategory =
      | 'health'
@@ -53,6 +54,7 @@ Implement a searchable command palette and skill registry for the dashboard chat
      contextSources?: string[];
    }
    ```
+
 2. Create `packages/dashboard/src/client/constants/skills.ts` with the full registry defined in the spec.
 3. Run: `harness validate`
 4. Commit: `feat(dashboard-chat): define SkillEntry types and registry`
@@ -119,7 +121,7 @@ Implement a searchable command palette and skill registry for the dashboard chat
 
 ### Task 7: Final Verification and Polish
 
-**Depends on:** Task 6 | **Files:** packages/dashboard/src/client/components/chat/*.tsx
+**Depends on:** Task 6 | **Files:** packages/dashboard/src/client/components/chat/\*.tsx
 
 1. Perform a final pass on styling, transitions, and accessibility.
 2. Ensure all tests in the dashboard pass.

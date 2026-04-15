@@ -42,7 +42,7 @@ MODIFY  packages/cli/tests/commands/publish-analyses.test.ts (update import path
 
 1. Create `packages/orchestrator/src/core/analysis-comment.ts` with the `renderAnalysisComment` function moved from `packages/cli/src/commands/publish-analyses.ts`:
 
-```typescript
+````typescript
 import type { AnalysisRecord } from './analysis-archive';
 
 /**
@@ -91,11 +91,11 @@ export function renderAnalysisComment(record: AnalysisRecord): string {
 
   return lines.join('\n');
 }
-```
+````
 
 2. Create `packages/orchestrator/tests/core/analysis-comment.test.ts` — migrate the 5 existing tests from `packages/cli/tests/commands/publish-analyses.test.ts`, updating the import to the new location:
 
-```typescript
+````typescript
 import { describe, it, expect } from 'vitest';
 import { renderAnalysisComment } from '../../src/core/analysis-comment';
 import type { AnalysisRecord } from '../../src/core/analysis-archive';
@@ -176,7 +176,7 @@ describe('renderAnalysisComment', () => {
     expect(result).toContain('**Route:** simulation-required');
   });
 });
-```
+````
 
 3. Add exports to `packages/orchestrator/src/core/index.ts` — append:
 
@@ -281,7 +281,10 @@ describe('published-index', () => {
 
     it('overwrites existing index', () => {
       savePublishedIndex(tmpDir, { 'issue-1': '2026-04-15T12:00:00Z' });
-      savePublishedIndex(tmpDir, { 'issue-1': '2026-04-15T12:00:00Z', 'issue-2': '2026-04-15T13:00:00Z' });
+      savePublishedIndex(tmpDir, {
+        'issue-1': '2026-04-15T12:00:00Z',
+        'issue-2': '2026-04-15T13:00:00Z',
+      });
       const indexPath = path.join(tmpDir, '.harness', 'metrics', 'published-analyses.json');
       const loaded = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
       expect(Object.keys(loaded)).toHaveLength(2);
@@ -504,12 +507,12 @@ import { GitHubIssuesSyncAdapter, type TrackerSyncAdapter } from '@harness-engin
 3. In the `runIntelligencePipeline` method, add the `autoPublishAnalyses` call after the existing `archiveAnalysisResults` call (after line 413):
 
 ```typescript
-    // Auto-publish to external tracker (non-fatal)
-    try {
-      await this.autoPublishAnalyses(candidates, enrichedSpecs, complexityScores, simulationResults);
-    } catch (err) {
-      this.logger.warn('Auto-publish analyses failed', { error: String(err) });
-    }
+// Auto-publish to external tracker (non-fatal)
+try {
+  await this.autoPublishAnalyses(candidates, enrichedSpecs, complexityScores, simulationResults);
+} catch (err) {
+  this.logger.warn('Auto-publish analyses failed', { error: String(err) });
+}
 ```
 
 4. Add the `AnalysisRecord` import at the top if not already present (it's imported via `./core/index` as a type — verify and add explicit import if needed). The type is already re-exported from `./core/index` so it's accessible. Add to the existing destructured import from `'./core/index'`:
@@ -761,6 +764,7 @@ describe('autoPublishAnalyses', () => {
 Note: This test depends on the intelligence pipeline being enabled (`intelligence: { enabled: true }`) but the pipeline creation might fail without a valid API key. The `autoPublishAnalyses` method is called from `runIntelligencePipeline`, which only runs when `this.pipeline` is non-null. If the pipeline is null (no API key), the whole pipeline is skipped and auto-publish never fires.
 
 This means the test needs to either:
+
 - Mock the intelligence pipeline to return analysis results, OR
 - Test the `autoPublishAnalyses` method more directly
 

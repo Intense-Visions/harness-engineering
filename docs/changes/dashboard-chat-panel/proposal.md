@@ -21,18 +21,18 @@ The dashboard gains a collapsible side panel available on every page, providing 
 
 ## Decisions
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | Extend existing Chat page as dual-purpose (interaction-driven + command-driven) rather than creating a new page | Reuses existing block renderers, SSE streaming, and chat-proxy infrastructure. The "Neural Link Offline" empty state becomes the command palette. |
-| D2 | Expose all harness skills, not just maintenance commands | User wants full manual access. Categories provide organization; search provides fast access at scale. |
-| D3 | Command in URL + fresh data fetch on mount for contextual launches | Keeps URLs clean and shareable (`?command=harness:security-scan`). Chat page fetches latest findings from existing dashboard API endpoints to build system prompt. No new server state for context passing. |
-| D4 | Briefing panel before auto-send | Mirrors attention chat's context bar. Shows fetched findings and command description. User clicks "Execute" to initiate — intentional, not surprising. |
-| D5 | Search-first command palette with categorized cards | Handles 20+ skills without scrolling fatigue. Categories provide discovery; search provides speed. |
-| D6 | Slash-triggered autocomplete at input start | Familiar pattern (Slack/Discord/GitHub). Filters same client-side skill registry as palette. Only at input start — typing `/` mid-sentence is a message, not a command. |
-| D7 | Collapsible right side panel available on every page | First-class treatment. Page content resizes so findings/graph/roadmap stay visible alongside chat. Persistent trigger button in layout. |
-| D8 | Explicit session management with tabs | Multiple concurrent sessions, user-controlled. Each session maps to a Claude Code `sessionId`. Tabs show session name, command, and status. |
-| D9 | Client-side session tracking with `.harness/sessions/<id>/session.json` persistence | `localStorage` for active UI state. `.harness` file links session to artifacts (interaction, spec, plan). Claude Code handles conversation persistence natively via `--session-id`/`--resume`. No server-side session registry. |
-| D10 | Context-aware seeding per page | `useChatContext()` hook reads current route and fetches relevant data. Health -> findings. Overview -> project pulse. Attention -> interaction context. Generic elsewhere. |
+| #   | Decision                                                                                                        | Rationale                                                                                                                                                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Extend existing Chat page as dual-purpose (interaction-driven + command-driven) rather than creating a new page | Reuses existing block renderers, SSE streaming, and chat-proxy infrastructure. The "Neural Link Offline" empty state becomes the command palette.                                                                               |
+| D2  | Expose all harness skills, not just maintenance commands                                                        | User wants full manual access. Categories provide organization; search provides fast access at scale.                                                                                                                           |
+| D3  | Command in URL + fresh data fetch on mount for contextual launches                                              | Keeps URLs clean and shareable (`?command=harness:security-scan`). Chat page fetches latest findings from existing dashboard API endpoints to build system prompt. No new server state for context passing.                     |
+| D4  | Briefing panel before auto-send                                                                                 | Mirrors attention chat's context bar. Shows fetched findings and command description. User clicks "Execute" to initiate — intentional, not surprising.                                                                          |
+| D5  | Search-first command palette with categorized cards                                                             | Handles 20+ skills without scrolling fatigue. Categories provide discovery; search provides speed.                                                                                                                              |
+| D6  | Slash-triggered autocomplete at input start                                                                     | Familiar pattern (Slack/Discord/GitHub). Filters same client-side skill registry as palette. Only at input start — typing `/` mid-sentence is a message, not a command.                                                         |
+| D7  | Collapsible right side panel available on every page                                                            | First-class treatment. Page content resizes so findings/graph/roadmap stay visible alongside chat. Persistent trigger button in layout.                                                                                         |
+| D8  | Explicit session management with tabs                                                                           | Multiple concurrent sessions, user-controlled. Each session maps to a Claude Code `sessionId`. Tabs show session name, command, and status.                                                                                     |
+| D9  | Client-side session tracking with `.harness/sessions/<id>/session.json` persistence                             | `localStorage` for active UI state. `.harness` file links session to artifacts (interaction, spec, plan). Claude Code handles conversation persistence natively via `--session-id`/`--resume`. No server-side session registry. |
+| D10 | Context-aware seeding per page                                                                                  | `useChatContext()` hook reads current route and fetches relevant data. Health -> findings. Overview -> project pulse. Attention -> interaction context. Generic elsewhere.                                                      |
 
 ## Technical Design
 
@@ -72,13 +72,13 @@ Persisted to `.harness/sessions/<id>/session.json`:
 
 ```typescript
 interface ChatSession {
-  sessionId: string;            // Claude Code session ID
-  command: string | null;       // Skill that seeded it, e.g. "harness:security-scan"
+  sessionId: string; // Claude Code session ID
+  command: string | null; // Skill that seeded it, e.g. "harness:security-scan"
   interactionId: string | null; // Link to escalated interaction if applicable
-  label: string;                // User-visible name (auto-generated or user-renamed)
-  createdAt: string;            // ISO timestamp
-  lastActiveAt: string;         // Updated on each message
-  artifacts: string[];          // Paths to specs, plans, etc. produced during session
+  label: string; // User-visible name (auto-generated or user-renamed)
+  createdAt: string; // ISO timestamp
+  lastActiveAt: string; // Updated on each message
+  artifacts: string[]; // Paths to specs, plans, etc. produced during session
   status: 'active' | 'idle' | 'completed';
 }
 ```
@@ -106,21 +106,21 @@ Client-side hardcoded registry, filterable by search and category:
 
 ```typescript
 interface SkillEntry {
-  id: string;                   // e.g. "harness:security-scan"
-  name: string;                 // e.g. "Security Scan"
-  description: string;          // One-liner
+  id: string; // e.g. "harness:security-scan"
+  name: string; // e.g. "Security Scan"
+  description: string; // One-liner
   category: SkillCategory;
-  slashCommand: string;         // e.g. "/harness:security-scan"
-  contextSources?: string[];    // API endpoints to fetch for briefing
+  slashCommand: string; // e.g. "/harness:security-scan"
+  contextSources?: string[]; // API endpoints to fetch for briefing
 }
 
 type SkillCategory =
-  | 'health'         // validate, verify, integrity
-  | 'security'       // security-scan, supply-chain-audit
-  | 'performance'    // perf
-  | 'architecture'   // enforce-architecture, dependency-health
-  | 'code-quality'   // code-review, codebase-cleanup, cleanup-dead-code, detect-doc-drift
-  | 'workflow';      // brainstorming, planning, execution, tdd, debugging, refactoring, onboarding
+  | 'health' // validate, verify, integrity
+  | 'security' // security-scan, supply-chain-audit
+  | 'performance' // perf
+  | 'architecture' // enforce-architecture, dependency-health
+  | 'code-quality' // code-review, codebase-cleanup, cleanup-dead-code, detect-doc-drift
+  | 'workflow'; // brainstorming, planning, execution, tdd, debugging, refactoring, onboarding
 ```
 
 ### Layout Resize Strategy
@@ -156,20 +156,20 @@ The Chat page detects `interactionId` and behaves as today. The session created 
 
 ## Success Criteria
 
-| # | Criterion | Verification |
-|---|-----------|-------------|
-| SC1 | Chat panel opens/closes from every dashboard page via persistent trigger button | Manual: navigate to each route, toggle panel, verify page content resizes and panel renders |
-| SC2 | Command palette displays all harness skills grouped by category with working search filter | Test: render CommandPalette, verify all skill entries present, type filter text, verify filtered results match |
-| SC3 | Selecting a command from palette fetches relevant context and shows briefing panel | Test: select "harness:security-scan", verify fetch to dashboard API, verify briefing renders findings summary |
-| SC4 | Clicking "Execute" on briefing panel sends slash command + system prompt as first message and streams response | Integration test: mock chat-proxy, verify POST /api/chat payload contains system prompt with context and slash command, verify SSE blocks render |
-| SC5 | Slash autocomplete appears when typing `/` at input start, filters skills, and inserts selection | Test: type `/sec` in ChatInput, verify dropdown shows matching skills, select one, verify input value updates |
-| SC6 | Session tabs allow creating, switching, and managing multiple concurrent sessions | Test: create two sessions with different commands, switch between tabs, verify each shows its own message history and resumes with correct sessionId |
-| SC7 | Session metadata persisted to `.harness/sessions/<id>/session.json` via API | Integration test: create session, verify POST /api/sessions, verify file written with correct schema |
-| SC8 | Sessions created from interactions include `interactionId` in metadata | Test: open chat with `?interactionId=xxx`, verify session.json contains the interaction link |
-| SC9 | Health page "Fix" buttons open chat panel with command and findings pre-loaded | Manual + test: click fix button next to security findings, verify panel opens with briefing showing those findings |
-| SC10 | Existing attention chat flow continues to work (Claim -> Chat with interaction context) | Regression test: existing Chat.test.tsx passes, attention -> chat flow produces identical behavior |
-| SC11 | Panel state (open/closed) and active sessions persist across page navigation and browser refresh | Test: open panel, create session, refresh page, verify panel state and session list restored from localStorage |
-| SC12 | Chat panel renders message blocks identically to existing Chat page (thinking, tool_use, status, text) | Visual regression: compare block rendering in panel vs standalone, verify shared components produce same output |
+| #    | Criterion                                                                                                      | Verification                                                                                                                                         |
+| ---- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SC1  | Chat panel opens/closes from every dashboard page via persistent trigger button                                | Manual: navigate to each route, toggle panel, verify page content resizes and panel renders                                                          |
+| SC2  | Command palette displays all harness skills grouped by category with working search filter                     | Test: render CommandPalette, verify all skill entries present, type filter text, verify filtered results match                                       |
+| SC3  | Selecting a command from palette fetches relevant context and shows briefing panel                             | Test: select "harness:security-scan", verify fetch to dashboard API, verify briefing renders findings summary                                        |
+| SC4  | Clicking "Execute" on briefing panel sends slash command + system prompt as first message and streams response | Integration test: mock chat-proxy, verify POST /api/chat payload contains system prompt with context and slash command, verify SSE blocks render     |
+| SC5  | Slash autocomplete appears when typing `/` at input start, filters skills, and inserts selection               | Test: type `/sec` in ChatInput, verify dropdown shows matching skills, select one, verify input value updates                                        |
+| SC6  | Session tabs allow creating, switching, and managing multiple concurrent sessions                              | Test: create two sessions with different commands, switch between tabs, verify each shows its own message history and resumes with correct sessionId |
+| SC7  | Session metadata persisted to `.harness/sessions/<id>/session.json` via API                                    | Integration test: create session, verify POST /api/sessions, verify file written with correct schema                                                 |
+| SC8  | Sessions created from interactions include `interactionId` in metadata                                         | Test: open chat with `?interactionId=xxx`, verify session.json contains the interaction link                                                         |
+| SC9  | Health page "Fix" buttons open chat panel with command and findings pre-loaded                                 | Manual + test: click fix button next to security findings, verify panel opens with briefing showing those findings                                   |
+| SC10 | Existing attention chat flow continues to work (Claim -> Chat with interaction context)                        | Regression test: existing Chat.test.tsx passes, attention -> chat flow produces identical behavior                                                   |
+| SC11 | Panel state (open/closed) and active sessions persist across page navigation and browser refresh               | Test: open panel, create session, refresh page, verify panel state and session list restored from localStorage                                       |
+| SC12 | Chat panel renders message blocks identically to existing Chat page (thinking, tool_use, status, text)         | Visual regression: compare block rendering in panel vs standalone, verify shared components produce same output                                      |
 
 ## Implementation Order
 

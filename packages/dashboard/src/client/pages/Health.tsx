@@ -191,9 +191,7 @@ function EntropySection({ healthData }: { healthData: HealthData }) {
         <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
           Entropy Analysis
         </h2>
-        {healthData.totalIssues > 0 && (
-          <FixButton command="harness:validate" />
-        )}
+        {healthData.totalIssues > 0 && <FixButton command="harness:validate" />}
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiCard
@@ -275,11 +273,12 @@ function CheckSection<T>({
     );
   }
 
-  const hasIssues = guard(raw) && (
-    ('stats' in (raw as any) && (raw as any).stats.errorCount + (raw as any).stats.warningCount > 0) ||
-    ('totalViolations' in (raw as any) && (raw as any).totalViolations > 0) ||
-    ('stats' in (raw as any) && (raw as any).stats.violationCount > 0)
-  );
+  const hasIssues =
+    guard(raw) &&
+    (('stats' in (raw as any) &&
+      (raw as any).stats.errorCount + (raw as any).stats.warningCount > 0) ||
+      ('totalViolations' in (raw as any) && (raw as any).totalViolations > 0) ||
+      ('stats' in (raw as any) && (raw as any).stats.violationCount > 0));
 
   const action = hasIssues && fixCommand ? <FixButton command={fixCommand} /> : undefined;
 
@@ -329,18 +328,18 @@ function HealthDetails({
         Section={SecuritySection}
         fixCommand="harness:security-scan"
       />
-      <CheckSection 
-        title="Performance" 
-        raw={perf} 
-        guard={isPerfData} 
-        Section={PerfSection} 
+      <CheckSection
+        title="Performance"
+        raw={perf}
+        guard={isPerfData}
+        Section={PerfSection}
         fixCommand="harness:perf"
       />
-      <CheckSection 
-        title="Architecture" 
-        raw={arch} 
-        guard={isArchData} 
-        Section={ArchSection} 
+      <CheckSection
+        title="Architecture"
+        raw={arch}
+        guard={isArchData}
+        Section={ArchSection}
         fixCommand="harness:enforce-architecture"
       />
     </div>

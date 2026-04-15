@@ -109,7 +109,9 @@ export function CommandPalette({ onSelect }: Props) {
                 <Search size={32} />
               </div>
               <h4 className="text-sm font-bold text-white mb-1">No skills match your search</h4>
-              <p className="text-xs text-neutral-muted">Try using different keywords or categories.</p>
+              <p className="text-xs text-neutral-muted">
+                Try using different keywords or categories.
+              </p>
             </motion.div>
           )}
         </AnimatePresence>

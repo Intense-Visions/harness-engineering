@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Heart, 
-  Shield, 
-  Activity, 
-  Layers, 
-  Code, 
-  Zap, 
-  type LucideIcon 
-} from 'lucide-react';
+import { Heart, Shield, Activity, Layers, Code, Zap, type LucideIcon } from 'lucide-react';
 import { SKILL_REGISTRY } from '../../constants/skills';
 import type { SkillEntry, SkillCategory } from '../../types/skills';
 
@@ -116,9 +108,7 @@ export function SlashAutocomplete({ filter, onSelect, onClose }: Props) {
                 </div>
               </div>
               {isSelected && (
-                <div className="text-[10px] font-mono text-primary-400 animate-pulse">
-                  ↵
-                </div>
+                <div className="text-[10px] font-mono text-primary-400 animate-pulse">↵</div>
               )}
             </button>
           );

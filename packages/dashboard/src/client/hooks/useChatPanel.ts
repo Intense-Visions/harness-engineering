@@ -47,17 +47,32 @@ function deleteSessionOnServer(id: string): void {
   );
 }
 
+type SetSessions = React.Dispatch<React.SetStateAction<ChatSession[]>>;
+type SetActiveId = (id: string | null) => void;
+
 function removeSession(
   prev: ChatSession[],
   id: string,
   activeId: string | null,
-  setActive: (id: string | null) => void
+  setActive: SetActiveId
 ): ChatSession[] {
   const remaining = prev.filter((s) => s.sessionId !== id);
-  if (activeId === id) {
-    setActive(remaining[0]?.sessionId ?? null);
-  }
+  if (activeId === id) setActive(remaining[0]?.sessionId ?? null);
   return remaining;
+}
+
+function addSession(
+  setSessions: SetSessions,
+  setActiveId: SetActiveId,
+  setOpen: (v: boolean) => void,
+  params: { command?: string; label?: string; interactionId?: string }
+): string {
+  const s = buildNewSession(params);
+  setSessions((prev) => [...prev, s]);
+  setActiveId(s.sessionId);
+  setOpen(true);
+  persistNewSession(s);
+  return s.sessionId;
 }
 
 export function useChatPanel() {
@@ -82,19 +97,11 @@ export function useChatPanel() {
     (id: string, label: string) => patchSession(id, { label }),
     [patchSession]
   );
-
   const createNewSession = useCallback(
-    (params: { command?: string; label?: string; interactionId?: string } = {}) => {
-      const s = buildNewSession(params);
-      setSessions((prev) => [...prev, s]);
-      setActiveSessionId(s.sessionId);
-      setIsOpen(true);
-      persistNewSession(s);
-      return s.sessionId;
-    },
+    (params: { command?: string; label?: string; interactionId?: string } = {}) =>
+      addSession(setSessions, setActiveSessionId, setIsOpen, params),
     [setSessions, setActiveSessionId]
   );
-
   const closeSession = useCallback(
     (id: string) => {
       setSessions((prev) => removeSession(prev, id, activeSessionId, setActiveSessionId));

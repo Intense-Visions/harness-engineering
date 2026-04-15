@@ -20,32 +20,36 @@ describe('SlashAutocomplete', () => {
   it('calls onSelect when a skill is clicked', () => {
     const onSelect = vi.fn();
     render(<SlashAutocomplete filter="/" onSelect={onSelect} onClose={() => {}} />);
-    
+
     fireEvent.click(screen.getByText('Validate Project').closest('button')!);
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'harness:validate'
-    }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'harness:validate',
+      })
+    );
   });
 
   it('navigates with arrow keys and selects with enter', () => {
     const onSelect = vi.fn();
     render(<SlashAutocomplete filter="/" onSelect={onSelect} onClose={() => {}} />);
-    
+
     // Initial selection is index 0 (Validate Project)
     // Press ArrowDown to move to next skill (Verify Implementation or similar)
     fireEvent.keyDown(window, { key: 'ArrowDown' });
     fireEvent.keyDown(window, { key: 'Enter' });
-    
+
     // Verify Implementation is usually the 2nd health skill in registry
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'harness:verify'
-    }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'harness:verify',
+      })
+    );
   });
 
   it('calls onClose when Escape is pressed', () => {
     const onClose = vi.fn();
     render(<SlashAutocomplete filter="/" onSelect={() => {}} onClose={onClose} />);
-    
+
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });

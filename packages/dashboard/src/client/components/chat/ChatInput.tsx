@@ -37,7 +37,7 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
           onClose={() => setShowAutocomplete(false)}
         />
       )}
-      
+
       <textarea
         rows={1}
         value={value}
@@ -46,18 +46,22 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
           if (showAutocomplete) {
             // Autocomplete handles arrows and enter/esc via global listeners
             // but we might want to prevent default for some to avoid double-processing
-            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || (e.key === 'Enter' && value.startsWith('/'))) {
+            if (
+              e.key === 'ArrowUp' ||
+              e.key === 'ArrowDown' ||
+              (e.key === 'Enter' && value.startsWith('/'))
+            ) {
               // Let Autocomplete handle it
               return;
             }
           }
-          
+
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             onSend();
           }
         }}
-        placeholder={placeholder ?? "Execute command or query neural link..."}
+        placeholder={placeholder ?? 'Execute command or query neural link...'}
         disabled={disabled}
         className="w-full resize-none rounded-2xl border border-neutral-border bg-neutral-surface/60 px-5 py-4 pr-14 text-sm text-neutral-text placeholder-neutral-muted/50 backdrop-blur-xl transition-all focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10 disabled:opacity-50 shadow-lg"
       />

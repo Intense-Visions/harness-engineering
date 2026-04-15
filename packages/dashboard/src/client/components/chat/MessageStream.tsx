@@ -15,7 +15,9 @@ export function MessageStream({ messages, streaming, className }: Props) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   return (
-    <div className={`flex-1 overflow-hidden rounded-2xl border border-neutral-border bg-neutral-bg/40 backdrop-blur-sm shadow-inner relative ${className}`}>
+    <div
+      className={`flex-1 overflow-hidden rounded-2xl border border-neutral-border bg-neutral-bg/40 backdrop-blur-sm shadow-inner relative ${className}`}
+    >
       {messages.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}

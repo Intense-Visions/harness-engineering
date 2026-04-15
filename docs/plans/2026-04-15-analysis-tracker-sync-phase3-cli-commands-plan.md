@@ -34,7 +34,7 @@ This task creates the pure extraction logic as a testable exported function, sep
 
 1. Create test file `packages/cli/tests/commands/sync-analyses.test.ts` with the following content:
 
-```typescript
+````typescript
 import { describe, it, expect } from 'vitest';
 import { extractAnalysisFromComments } from '../../src/commands/sync-analyses';
 import type { TrackerComment } from '@harness-engineering/types';
@@ -112,8 +112,16 @@ describe('extractAnalysisFromComments', () => {
       externalId: 'github:owner/repo#1',
     };
     const comments = [
-      makeComment({ id: '1', body: makeAnalysisBody(olderRecord), createdAt: '2026-04-10T12:00:00Z' }),
-      makeComment({ id: '2', body: makeAnalysisBody(newerRecord), createdAt: '2026-04-15T12:00:00Z' }),
+      makeComment({
+        id: '1',
+        body: makeAnalysisBody(olderRecord),
+        createdAt: '2026-04-10T12:00:00Z',
+      }),
+      makeComment({
+        id: '2',
+        body: makeAnalysisBody(newerRecord),
+        createdAt: '2026-04-15T12:00:00Z',
+      }),
     ];
     const result = extractAnalysisFromComments(comments);
     expect(result).not.toBeNull();
@@ -155,11 +163,11 @@ describe('extractAnalysisFromComments', () => {
     expect((result as any)._version).toBeUndefined();
   });
 });
-```
+````
 
 2. Create the implementation file `packages/cli/src/commands/sync-analyses.ts` with the extraction helper only (command shell added in Task 2):
 
-```typescript
+````typescript
 import type { TrackerComment } from '@harness-engineering/types';
 import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 
@@ -168,9 +176,7 @@ import type { AnalysisRecord } from '@harness-engineering/orchestrator';
  * a ```json fence with `"_harness_analysis": true`. Parse and return
  * the AnalysisRecord, or null if none found / all malformed.
  */
-export function extractAnalysisFromComments(
-  comments: TrackerComment[]
-): AnalysisRecord | null {
+export function extractAnalysisFromComments(comments: TrackerComment[]): AnalysisRecord | null {
   // Sort by createdAt descending so we check the most recent first
   const sorted = [...comments].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -198,9 +204,10 @@ export function extractAnalysisFromComments(
 
   return null;
 }
-```
+````
 
 3. Run tests -- observe pass:
+
    ```
    npx vitest run packages/cli/tests/commands/sync-analyses.test.ts
    ```
@@ -337,9 +344,7 @@ export function createSyncAnalysesCommand(): Command {
           );
         }
       } catch (err) {
-        logger.error(
-          `Error syncing analyses: ${err instanceof Error ? err.message : String(err)}`
-        );
+        logger.error(`Error syncing analyses: ${err instanceof Error ? err.message : String(err)}`);
         process.exit(1);
       }
     });
@@ -363,6 +368,7 @@ describe('createSyncAnalysesCommand', () => {
 ```
 
 3. Run tests -- observe pass:
+
    ```
    npx vitest run packages/cli/tests/commands/sync-analyses.test.ts
    ```
@@ -455,6 +461,7 @@ import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 ```
 
 3. Run tests -- observe pass:
+
    ```
    npx vitest run packages/cli/tests/commands/sync-analyses.test.ts
    ```

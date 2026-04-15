@@ -88,4 +88,3 @@ export async function triggerExternalSync(projectPath: string, roadmapFile: stri
     );
   }
 }
-

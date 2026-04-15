@@ -12,12 +12,12 @@ interface Props {
   onRename: (id: string, label: string) => void;
 }
 
-function EditableLabel({ 
-  label, 
-  onRename, 
-  isActive 
-}: { 
-  label: string; 
+function EditableLabel({
+  label,
+  onRename,
+  isActive,
+}: {
+  label: string;
   onRename: (val: string) => void;
   isActive: boolean;
 }) {
@@ -60,7 +60,7 @@ function EditableLabel({
   }
 
   return (
-    <span 
+    <span
       className="max-w-[100px] truncate flex items-center gap-1 group/label"
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -68,9 +68,9 @@ function EditableLabel({
       }}
     >
       {label || 'New Session'}
-      <Edit2 
-        size={8} 
-        className="opacity-0 group-hover/label:opacity-50 hover:!opacity-100 transition-opacity cursor-pointer" 
+      <Edit2
+        size={8}
+        className="opacity-0 group-hover/label:opacity-50 hover:!opacity-100 transition-opacity cursor-pointer"
         onClick={(e) => {
           e.stopPropagation();
           setIsEditing(true);
@@ -80,13 +80,20 @@ function EditableLabel({
   );
 }
 
-export function SessionTabBar({ sessions, activeSessionId, onSelect, onNew, onClose, onRename }: Props) {
+export function SessionTabBar({
+  sessions,
+  activeSessionId,
+  onSelect,
+  onNew,
+  onClose,
+  onRename,
+}: Props) {
   return (
     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-white/5 bg-black/20 px-2 pt-2">
       <AnimatePresence mode="popLayout">
         {sessions.map((session) => {
           const isActive = session.sessionId === activeSessionId;
-          
+
           return (
             <motion.div
               key={session.sessionId}
@@ -99,25 +106,31 @@ export function SessionTabBar({ sessions, activeSessionId, onSelect, onNew, onCl
               <button
                 onClick={() => onSelect(session.sessionId)}
                 className={`flex h-9 items-center gap-2 rounded-t-lg px-4 text-xs font-medium transition-all ${
-                  isActive 
-                    ? 'bg-neutral-bg/60 text-white border-x border-t border-white/10 shadow-[0_-4px_10px_rgba(0,0,0,0.3)]' 
+                  isActive
+                    ? 'bg-neutral-bg/60 text-white border-x border-t border-white/10 shadow-[0_-4px_10px_rgba(0,0,0,0.3)]'
                     : 'text-neutral-muted hover:bg-white/5 hover:text-neutral-text'
                 }`}
               >
                 {session.command ? (
-                  <Terminal size={12} className={isActive ? 'text-primary-400' : 'text-neutral-muted'} />
+                  <Terminal
+                    size={12}
+                    className={isActive ? 'text-primary-400' : 'text-neutral-muted'}
+                  />
                 ) : (
-                  <MessageSquare size={12} className={isActive ? 'text-primary-400' : 'text-neutral-muted'} />
+                  <MessageSquare
+                    size={12}
+                    className={isActive ? 'text-primary-400' : 'text-neutral-muted'}
+                  />
                 )}
-                
-                <EditableLabel 
-                  label={session.label} 
+
+                <EditableLabel
+                  label={session.label}
                   onRename={(val) => onRename(session.sessionId, val)}
                   isActive={isActive}
                 />
-                
+
                 {/* Close Button - visible on hover or if active */}
-                <span 
+                <span
                   onClick={(e) => {
                     e.stopPropagation();
                     onClose(session.sessionId);
@@ -129,7 +142,7 @@ export function SessionTabBar({ sessions, activeSessionId, onSelect, onNew, onCl
                   <X size={10} />
                 </span>
               </button>
-              
+
               {isActive && (
                 <motion.div
                   layoutId="active-tab-indicator"

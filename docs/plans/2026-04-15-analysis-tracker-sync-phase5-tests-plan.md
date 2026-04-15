@@ -36,28 +36,28 @@ _Not produced -- task count (5) below threshold (8)._
 2. Inside the `describe('fetchComments', ...)` block, after the existing "returns Err on API failure" test, add:
 
 ```typescript
-    it('maps user to "ghost" when comment has null user', async () => {
-      const fetchFn = mockFetch(200, [
-        {
-          id: 200,
-          body: 'Orphaned comment',
-          created_at: '2026-01-05T00:00:00Z',
-          updated_at: null,
-          user: null,
-        },
-      ]);
-      const adapter = new GitHubIssuesSyncAdapter({
-        token: 'tok',
-        config: DEFAULT_CONFIG,
-        fetchFn,
-      });
+it('maps user to "ghost" when comment has null user', async () => {
+  const fetchFn = mockFetch(200, [
+    {
+      id: 200,
+      body: 'Orphaned comment',
+      created_at: '2026-01-05T00:00:00Z',
+      updated_at: null,
+      user: null,
+    },
+  ]);
+  const adapter = new GitHubIssuesSyncAdapter({
+    token: 'tok',
+    config: DEFAULT_CONFIG,
+    fetchFn,
+  });
 
-      const result = await adapter.fetchComments('github:owner/repo#42');
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.value).toHaveLength(1);
-      expect(result.value[0]!.author).toBe('ghost');
-    });
+  const result = await adapter.fetchComments('github:owner/repo#42');
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.value).toHaveLength(1);
+  expect(result.value[0]!.author).toBe('ghost');
+});
 ```
 
 3. Run: `cd packages/core && npx vitest run tests/roadmap/github-issues.test.ts`
@@ -69,39 +69,39 @@ _Not produced -- task count (5) below threshold (8)._
 **Depends on:** none | **Files:** `packages/cli/tests/commands/sync-analyses.test.ts`
 
 1. Open `packages/cli/tests/commands/sync-analyses.test.ts`
-2. Inside the `describe('extractAnalysisFromComments', ...)` block, after the existing "strips _harness_analysis and _version" test, add:
+2. Inside the `describe('extractAnalysisFromComments', ...)` block, after the existing "strips \_harness_analysis and \_version" test, add:
 
-```typescript
-  it('handles CRLF line endings in the JSON fence', () => {
-    const record = {
-      issueId: 'crlf-1',
-      identifier: 'crlf-feature',
-      spec: null,
-      score: null,
-      simulation: null,
-      analyzedAt: '2026-04-15T12:00:00Z',
-      externalId: 'github:owner/repo#50',
-    };
-    // Build body with \r\n line endings
-    const body = [
-      '## Harness Analysis: crlf-feature',
-      '',
-      '<details>',
-      '<summary>Full Analysis Data</summary>',
-      '',
-      '```json',
-      JSON.stringify({ _harness_analysis: true, _version: 1, ...record }, null, 2),
-      '```',
-      '',
-      '</details>',
-    ].join('\r\n');
-    const comments = [makeComment({ body })];
-    const result = extractAnalysisFromComments(comments);
-    expect(result).not.toBeNull();
-    expect(result!.issueId).toBe('crlf-1');
-    expect(result!.identifier).toBe('crlf-feature');
-  });
-```
+````typescript
+it('handles CRLF line endings in the JSON fence', () => {
+  const record = {
+    issueId: 'crlf-1',
+    identifier: 'crlf-feature',
+    spec: null,
+    score: null,
+    simulation: null,
+    analyzedAt: '2026-04-15T12:00:00Z',
+    externalId: 'github:owner/repo#50',
+  };
+  // Build body with \r\n line endings
+  const body = [
+    '## Harness Analysis: crlf-feature',
+    '',
+    '<details>',
+    '<summary>Full Analysis Data</summary>',
+    '',
+    '```json',
+    JSON.stringify({ _harness_analysis: true, _version: 1, ...record }, null, 2),
+    '```',
+    '',
+    '</details>',
+  ].join('\r\n');
+  const comments = [makeComment({ body })];
+  const result = extractAnalysisFromComments(comments);
+  expect(result).not.toBeNull();
+  expect(result!.issueId).toBe('crlf-1');
+  expect(result!.identifier).toBe('crlf-feature');
+});
+````
 
 3. Run: `cd packages/cli && npx vitest run tests/commands/sync-analyses.test.ts`
 4. Observe: 9 tests pass (8 existing + 1 new)
@@ -115,61 +115,61 @@ _Not produced -- task count (5) below threshold (8)._
 2. After the test added in Task 2, add:
 
 ```typescript
-  it('rejects records where issueId contains path traversal characters', () => {
-    const body = makeAnalysisBody({
-      issueId: '../etc/passwd',
-      identifier: 'traversal-feature',
-      spec: null,
-      score: null,
-      simulation: null,
-      analyzedAt: '2026-04-15T12:00:00Z',
-      externalId: 'github:owner/repo#1',
-    });
-    const comments = [makeComment({ body })];
-    expect(extractAnalysisFromComments(comments)).toBeNull();
+it('rejects records where issueId contains path traversal characters', () => {
+  const body = makeAnalysisBody({
+    issueId: '../etc/passwd',
+    identifier: 'traversal-feature',
+    spec: null,
+    score: null,
+    simulation: null,
+    analyzedAt: '2026-04-15T12:00:00Z',
+    externalId: 'github:owner/repo#1',
   });
+  const comments = [makeComment({ body })];
+  expect(extractAnalysisFromComments(comments)).toBeNull();
+});
 
-  it('rejects records where issueId contains backslash path traversal', () => {
-    const body = makeAnalysisBody({
-      issueId: '..\\windows\\system32',
-      identifier: 'traversal-feature',
-      spec: null,
-      score: null,
-      simulation: null,
-      analyzedAt: '2026-04-15T12:00:00Z',
-      externalId: 'github:owner/repo#1',
-    });
-    const comments = [makeComment({ body })];
-    expect(extractAnalysisFromComments(comments)).toBeNull();
+it('rejects records where issueId contains backslash path traversal', () => {
+  const body = makeAnalysisBody({
+    issueId: '..\\windows\\system32',
+    identifier: 'traversal-feature',
+    spec: null,
+    score: null,
+    simulation: null,
+    analyzedAt: '2026-04-15T12:00:00Z',
+    externalId: 'github:owner/repo#1',
   });
+  const comments = [makeComment({ body })];
+  expect(extractAnalysisFromComments(comments)).toBeNull();
+});
 
-  it('rejects records with empty issueId', () => {
-    const body = makeAnalysisBody({
-      issueId: '',
-      identifier: 'missing-id-feature',
-      spec: null,
-      score: null,
-      simulation: null,
-      analyzedAt: '2026-04-15T12:00:00Z',
-      externalId: 'github:owner/repo#1',
-    });
-    const comments = [makeComment({ body })];
-    expect(extractAnalysisFromComments(comments)).toBeNull();
+it('rejects records with empty issueId', () => {
+  const body = makeAnalysisBody({
+    issueId: '',
+    identifier: 'missing-id-feature',
+    spec: null,
+    score: null,
+    simulation: null,
+    analyzedAt: '2026-04-15T12:00:00Z',
+    externalId: 'github:owner/repo#1',
   });
+  const comments = [makeComment({ body })];
+  expect(extractAnalysisFromComments(comments)).toBeNull();
+});
 
-  it('rejects records with missing identifier', () => {
-    const body = makeAnalysisBody({
-      issueId: 'issue-1',
-      identifier: '',
-      spec: null,
-      score: null,
-      simulation: null,
-      analyzedAt: '2026-04-15T12:00:00Z',
-      externalId: 'github:owner/repo#1',
-    });
-    const comments = [makeComment({ body })];
-    expect(extractAnalysisFromComments(comments)).toBeNull();
+it('rejects records with missing identifier', () => {
+  const body = makeAnalysisBody({
+    issueId: 'issue-1',
+    identifier: '',
+    spec: null,
+    score: null,
+    simulation: null,
+    analyzedAt: '2026-04-15T12:00:00Z',
+    externalId: 'github:owner/repo#1',
   });
+  const comments = [makeComment({ body })];
+  expect(extractAnalysisFromComments(comments)).toBeNull();
+});
 ```
 
 3. Run: `cd packages/cli && npx vitest run tests/commands/sync-analyses.test.ts`
@@ -183,19 +183,20 @@ _Not produced -- task count (5) below threshold (8)._
 1. Open `packages/cli/tests/commands/sync-analyses.test.ts`
 2. After the tests added in Task 3, add:
 
-```typescript
-  it('finds analysis fence among multiple JSON fences in a single comment', () => {
-    const body = [
-      '## Status Update',
-      '',
-      '```json',
-      JSON.stringify({ status: 'in-progress', estimate: 5 }),
-      '```',
-      '',
-      'And here is the analysis:',
-      '',
-      '```json',
-      JSON.stringify({
+````typescript
+it('finds analysis fence among multiple JSON fences in a single comment', () => {
+  const body = [
+    '## Status Update',
+    '',
+    '```json',
+    JSON.stringify({ status: 'in-progress', estimate: 5 }),
+    '```',
+    '',
+    'And here is the analysis:',
+    '',
+    '```json',
+    JSON.stringify(
+      {
         _harness_analysis: true,
         _version: 1,
         issueId: 'multi-fence-1',
@@ -205,16 +206,19 @@ _Not produced -- task count (5) below threshold (8)._
         simulation: null,
         analyzedAt: '2026-04-15T12:00:00Z',
         externalId: 'github:owner/repo#77',
-      }, null, 2),
-      '```',
-    ].join('\n');
-    const comments = [makeComment({ body })];
-    const result = extractAnalysisFromComments(comments);
-    expect(result).not.toBeNull();
-    expect(result!.issueId).toBe('multi-fence-1');
-    expect(result!.identifier).toBe('multi-fence-feature');
-  });
-```
+      },
+      null,
+      2
+    ),
+    '```',
+  ].join('\n');
+  const comments = [makeComment({ body })];
+  const result = extractAnalysisFromComments(comments);
+  expect(result).not.toBeNull();
+  expect(result!.issueId).toBe('multi-fence-1');
+  expect(result!.identifier).toBe('multi-fence-feature');
+});
+````
 
 3. Run: `cd packages/cli && npx vitest run tests/commands/sync-analyses.test.ts`
 4. Observe: 14 tests pass (13 from Task 3 + 1 new)
@@ -230,10 +234,13 @@ This is the key spec Wave 5 requirement: "publish -> fetchComments -> parse -> c
 2. Add the following imports at the top (if not already present, verify `vi` is imported):
 
 Change the import line from:
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 ```
+
 to:
+
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
 ```
@@ -307,15 +314,16 @@ describe('full round-trip: render -> addComment -> fetchComments -> extract', ()
       ok: true,
       status: 200,
       headers: new Headers(),
-      text: async () => JSON.stringify([
-        {
-          id: 500,
-          body: capturedBody,
-          created_at: '2026-04-15T16:01:00Z',
-          updated_at: null,
-          user: { login: 'harness-bot' },
-        },
-      ]),
+      text: async () =>
+        JSON.stringify([
+          {
+            id: 500,
+            body: capturedBody,
+            created_at: '2026-04-15T16:01:00Z',
+            updated_at: null,
+            user: { login: 'harness-bot' },
+          },
+        ]),
       json: async () => [
         {
           id: 500,

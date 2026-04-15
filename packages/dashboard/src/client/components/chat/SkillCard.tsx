@@ -1,13 +1,13 @@
 import React from 'react';
-import { 
-  Heart, 
-  Shield, 
-  Activity, 
-  Layers, 
-  Code, 
-  Zap, 
+import {
+  Heart,
+  Shield,
+  Activity,
+  Layers,
+  Code,
+  Zap,
   ChevronRight,
-  type LucideIcon 
+  type LucideIcon,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { GlowCard } from '../NeonAI/GlowCard';
@@ -48,7 +48,11 @@ export function SkillCard({ skill, onClick, delay = 0 }: Props) {
       onClick={onClick}
       className="text-left w-full h-full"
     >
-      <GlowCard delay={delay} uid={skill.id.toUpperCase().replace('HARNESS:', '')} className="h-full">
+      <GlowCard
+        delay={delay}
+        uid={skill.id.toUpperCase().replace('HARNESS:', '')}
+        className="h-full"
+      >
         <div className="flex flex-col h-full gap-4">
           <div className="flex items-start justify-between">
             <div className={`p-2 rounded-lg border ${colorClass}`}>
@@ -58,14 +62,12 @@ export function SkillCard({ skill, onClick, delay = 0 }: Props) {
               <ChevronRight size={16} />
             </div>
           </div>
-          
+
           <div className="flex-1">
             <h4 className="text-sm font-bold text-white mb-1 group-hover:text-glow-primary transition-all">
               {skill.name}
             </h4>
-            <p className="text-[11px] leading-relaxed text-neutral-muted">
-              {skill.description}
-            </p>
+            <p className="text-[11px] leading-relaxed text-neutral-muted">{skill.description}</p>
           </div>
 
           <div className="flex items-center gap-2 mt-auto pt-2 border-t border-white/5 font-mono text-[9px] uppercase tracking-widest text-neutral-muted/50 group-hover:text-neutral-muted transition-colors">

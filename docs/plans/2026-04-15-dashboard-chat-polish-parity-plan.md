@@ -40,76 +40,84 @@ Polish the Dashboard Chat Panel with responsive design, keyboard shortcuts, sess
    - Tab renaming logic and UI in `SessionTabBar`.
 5. **Standalone & Attention Parity** (~3 tasks, ~15 min)
    - Refactor `Chat.tsx` and update `Attention.tsx` Claim behavior.
-**Estimated total:** 11 tasks, ~55 minutes
+     **Estimated total:** 11 tasks, ~55 minutes
 
 ## Tasks
 
 ### Task 1: Implement PATCH endpoint for Sessions
+
 **Depends on:** none | **Files:** `packages/orchestrator/src/server/routes/sessions.ts`
 
 1. Modify `packages/orchestrator/src/server/routes/sessions.ts` to add `PATCH` method handler:
-```typescript
-    if (method === 'PATCH') {
-      void (async () => {
-        try {
-          const id = url.split('/').pop();
-          if (!id || id === 'sessions') {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Missing sessionId' }));
-            return;
-          }
 
-          const body = await readBody(req);
-          const updates = JSON.parse(body);
-          const sessionFilePath = path.join(SESSIONS_DIR, id, 'session.json');
-          
-          const currentContent = await fs.readFile(sessionFilePath, 'utf-8');
-          const current = JSON.parse(currentContent);
-          const updated = { ...current, ...updates };
-          
-          await fs.writeFile(sessionFilePath, JSON.stringify(updated, null, 2));
-          
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to update session' }));
-        }
-      })();
-      return true;
+```typescript
+if (method === 'PATCH') {
+  void (async () => {
+    try {
+      const id = url.split('/').pop();
+      if (!id || id === 'sessions') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing sessionId' }));
+        return;
+      }
+
+      const body = await readBody(req);
+      const updates = JSON.parse(body);
+      const sessionFilePath = path.join(SESSIONS_DIR, id, 'session.json');
+
+      const currentContent = await fs.readFile(sessionFilePath, 'utf-8');
+      const current = JSON.parse(currentContent);
+      const updated = { ...current, ...updates };
+
+      await fs.writeFile(sessionFilePath, JSON.stringify(updated, null, 2));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to update session' }));
     }
+  })();
+  return true;
+}
 ```
+
 2. Run: `harness validate`
 3. Commit: `feat(orchestrator): add PATCH support for chat sessions`
 
 ### Task 2: Integrate PATCH into useChatSessions hook
+
 **Depends on:** Task 1 | **Files:** `packages/dashboard/src/client/hooks/useChatSessions.ts`
 
 1. Update `packages/dashboard/src/client/hooks/useChatSessions.ts` to use `PATCH` for partial updates:
+
 ```typescript
-  /** Partial update session on the server */
-  const patchSession = useCallback(async (id: string, data: Partial<ChatSession>) => {
-    setSessions(prev => prev.map(s => s.sessionId === id ? { ...s, ...data } : s));
-    
-    try {
-      await fetch(`/api/sessions/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-    } catch (err) {
-      console.error('Failed to patch session update:', err);
-    }
-  }, []);
+/** Partial update session on the server */
+const patchSession = useCallback(async (id: string, data: Partial<ChatSession>) => {
+  setSessions((prev) => prev.map((s) => (s.sessionId === id ? { ...s, ...data } : s)));
+
+  try {
+    await fetch(`/api/sessions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  } catch (err) {
+    console.error('Failed to patch session update:', err);
+  }
+}, []);
 ```
+
 2. Ensure `updateSession` still exists for full rewrites (if needed) but `patchSession` is preferred for metadata.
 3. Run: `harness validate`
 4. Commit: `feat(chat): add patchSession helper to useChatSessions`
 
 ### Task 3: Create useKeyboardShortcut hook
+
 **Depends on:** none | **Files:** `packages/dashboard/src/client/hooks/useKeyboardShortcut.ts`
 
 1. Create `packages/dashboard/src/client/hooks/useKeyboardShortcut.ts`:
+
 ```typescript
 import { useEffect } from 'react';
 
@@ -128,10 +136,11 @@ export function useKeyboardShortcut(key: string, callback: () => void, options: 
       const isShift = options.shift ? e.shiftKey : true;
 
       // Special handling for Cmd on Mac vs Ctrl on Windows/Linux if both provided
-      const platformMatch = (options.meta && options.ctrl) 
-        ? (e.metaKey || e.ctrlKey)
-        : ((options.meta === undefined || e.metaKey === options.meta) && 
-           (options.ctrl === undefined || e.ctrlKey === options.ctrl));
+      const platformMatch =
+        options.meta && options.ctrl
+          ? e.metaKey || e.ctrlKey
+          : (options.meta === undefined || e.metaKey === options.meta) &&
+            (options.ctrl === undefined || e.ctrlKey === options.ctrl);
 
       if (isKey && platformMatch && (options.shift === undefined || e.shiftKey === options.shift)) {
         e.preventDefault();
@@ -144,24 +153,30 @@ export function useKeyboardShortcut(key: string, callback: () => void, options: 
   }, [key, callback, options]);
 }
 ```
+
 2. Run: `harness validate`
 3. Commit: `feat(dashboard): add useKeyboardShortcut hook`
 
 ### Task 4: Register Cmd+J Shortcut in Layout
+
 **Depends on:** Task 3 | **Files:** `packages/dashboard/src/client/components/Layout.tsx`
 
 1. Update `packages/dashboard/src/client/components/Layout.tsx` to use the `useChatPanel` hook's `toggle` method with `useKeyboardShortcut`:
+
 ```typescript
-  const { toggle } = useChatPanel();
-  useKeyboardShortcut('j', toggle, { meta: true, ctrl: true }); // Cmd+J or Ctrl+J
+const { toggle } = useChatPanel();
+useKeyboardShortcut('j', toggle, { meta: true, ctrl: true }); // Cmd+J or Ctrl+J
 ```
+
 2. Run: `harness validate`
 3. Commit: `feat(layout): toggle chat panel with Cmd+J`
 
 ### Task 5: Responsive & Maximized mode in ChatPanel
+
 **Depends on:** none | **Files:** `packages/dashboard/src/client/components/chat/ChatPanel.tsx`
 
 1. Update `ChatPanel.tsx` to accept a `maximized` prop:
+
 ```typescript
 interface Props {
   isOpen: boolean;
@@ -169,33 +184,43 @@ interface Props {
   maximized?: boolean;
 }
 ```
+
 2. Update the `motion.div` classes for responsiveness and maximized mode:
+
 ```typescript
 className={[
   "fixed inset-y-0 right-0 z-50 flex flex-col border-white/10 bg-neutral-bg/60 backdrop-blur-3xl shadow-2xl",
-  maximized 
-    ? "left-0 w-full" 
+  maximized
+    ? "left-0 w-full"
     : "w-full sm:w-[420px] border-l"
 ].join(' ')}
 ```
+
 3. Hide the `X` (close) button if `maximized` and no `onClose` provided.
 4. Run: `harness validate`
 5. Commit: `feat(chat): support maximized mode and responsive width in ChatPanel`
 
 ### Task 6: Implement Rename logic in useChatPanel
+
 **Depends on:** Task 2 | **Files:** `packages/dashboard/src/client/hooks/useChatPanel.ts`
 
 1. Add `renameSession(id, label)` to `useChatPanel` which calls `patchSession`:
+
 ```typescript
-  const renameSession = useCallback((id: string, label: string) => {
+const renameSession = useCallback(
+  (id: string, label: string) => {
     patchSession(id, { label });
-  }, [patchSession]);
+  },
+  [patchSession]
+);
 ```
+
 2. Export it from the hook.
 3. Run: `harness validate`
 4. Commit: `feat(chat): add renameSession to useChatPanel`
 
 ### Task 7: Tab Renaming UI in SessionTabBar
+
 **Depends on:** Task 6 | **Files:** `packages/dashboard/src/client/components/chat/SessionTabBar.tsx`
 
 1. Update `SessionTabBar.tsx` to allow renaming tabs.
@@ -205,6 +230,7 @@ className={[
 5. Commit: `feat(chat): allow renaming session tabs in UI`
 
 ### Task 8: Update Chat.tsx to use maximized ChatPanel
+
 **Depends on:** Task 5 | **Files:** `packages/dashboard/src/client/pages/Chat.tsx`
 
 1. Refactor `packages/dashboard/src/client/pages/Chat.tsx` to simply render `ChatPanel` with `maximized={true}` and `isOpen={true}`.
@@ -215,6 +241,7 @@ className={[
 5. Commit: `refactor(chat): unify interaction chat with ChatPanel in maximized mode`
 
 ### Task 9: Refine Session Metadata Linkage
+
 **Depends on:** Task 8 | **Files:** `packages/dashboard/src/client/components/chat/ChatPanel.tsx`
 
 1. Ensure that when an `interactionId` is present in the URL, `ChatPanel` finds or creates a session linked to it.
@@ -223,10 +250,12 @@ className={[
 4. Commit: `feat(chat): restore Save Plan functionality in ChatPanel for interactions`
 
 ### Task 10: Update Attention page "Claim" links
+
 **Depends on:** Task 9 | **Files:** `packages/dashboard/src/client/pages/Attention.tsx`
 
 1. Modify `packages/dashboard/src/client/pages/Attention.tsx` to use a button for "Claim" instead of a `Link`.
 2. Use the `useChatPanel` hook to open the panel with the interaction context:
+
 ```typescript
   const { createNewSession } = useChatPanel();
   // ...
@@ -237,10 +266,12 @@ className={[
     Claim
   </button>
 ```
+
 3. Run: `harness validate`
 4. Commit: `feat(attention): open side panel on claim instead of navigating`
 
 ### Task 11: Final Polish and Regression Testing
+
 **Depends on:** Task 10 | **Files:** `packages/dashboard/src/client/components/chat/ChatPanel.tsx`, `packages/dashboard/src/client/pages/Chat.tsx`
 
 1. Verify that both side panel and full-page `/orchestrator/chat` work identically.

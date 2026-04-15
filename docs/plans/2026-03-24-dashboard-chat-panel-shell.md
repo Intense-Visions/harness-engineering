@@ -37,14 +37,16 @@ Integrate a collapsible chat panel shell into the dashboard layout that persists
    - Update `Chat.tsx` to use extracted parts.
 4. Layout and Panel Integration (~3 tasks, ~15 min)
    - `useChatPanel` hook, `ChatPanel` and `ChatPanelTrigger` shell, `Layout.tsx` flex integration.
-**Estimated total:** 9 tasks, ~45 minutes
+     **Estimated total:** 9 tasks, ~45 minutes
 
 ## Tasks
 
 ### Task 1: Define Chat Types
+
 **Files:** `packages/dashboard/src/client/types/chat.ts`
 
 1. Create `packages/dashboard/src/client/types/chat.ts` with the following content:
+
 ```typescript
 export interface ThinkingBlock {
   kind: 'thinking';
@@ -83,13 +85,16 @@ export interface AssistantMessage {
 
 export type ChatMessage = UserMessage | AssistantMessage;
 ```
+
 2. Run: `harness validate`
 3. Commit: `feat(chat): define chat message and block types`
 
 ### Task 2: Extract Chat Stream Logic
+
 **Files:** `packages/dashboard/src/client/utils/chat-stream.ts`
 
 1. Create `packages/dashboard/src/client/utils/chat-stream.ts`:
+
 ```typescript
 import type { ChatSSEEvent } from '../types/orchestrator';
 import type { ContentBlock } from '../types/chat';
@@ -202,10 +207,12 @@ export function applyChunk(blocks: ContentBlock[], event: ChatSSEEvent): void {
   }
 }
 ```
+
 2. Run: `harness validate`
 3. Commit: `feat(chat): extract streamChat and applyChunk logic`
 
 ### Task 3: Extract AssistantBlocks Component
+
 **Files:** `packages/dashboard/src/client/components/chat/AssistantBlocks.tsx`
 
 1. Create `packages/dashboard/src/client/components/chat/AssistantBlocks.tsx` and move all block rendering components from `Chat.tsx` into it. Ensure all imports are correct.
@@ -213,9 +220,11 @@ export function applyChunk(blocks: ContentBlock[], event: ChatSSEEvent): void {
 3. Commit: `feat(chat): extract AssistantBlocks component`
 
 ### Task 4: Extract ChatInput Component
+
 **Files:** `packages/dashboard/src/client/components/chat/ChatInput.tsx`
 
 1. Create `packages/dashboard/src/client/components/chat/ChatInput.tsx`:
+
 ```typescript
 import { Send } from 'lucide-react';
 
@@ -259,10 +268,12 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
   );
 }
 ```
+
 2. Run: `harness validate`
 3. Commit: `feat(chat): extract ChatInput component`
 
 ### Task 5: Create MessageStream Component
+
 **Files:** `packages/dashboard/src/client/components/chat/MessageStream.tsx`
 
 1. Create `packages/dashboard/src/client/components/chat/MessageStream.tsx` using `Virtuoso`, `motion`, and `AssistantBlocks`.
@@ -270,6 +281,7 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
 3. Commit: `feat(chat): create MessageStream component`
 
 ### Task 6: Refactor Chat.tsx
+
 **Files:** `packages/dashboard/src/client/pages/Chat.tsx`
 
 1. Refactor `Chat.tsx` to use the new types, components, and utils.
@@ -277,6 +289,7 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
 3. Commit: `refactor(chat): use extracted chat components and utils`
 
 ### Task 7: Create useChatPanel Hook
+
 **Files:** `packages/dashboard/src/client/hooks/useChatPanel.ts`
 
 1. Create `packages/dashboard/src/client/hooks/useChatPanel.ts` with `localStorage` persistence.
@@ -284,6 +297,7 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
 3. Commit: `feat(chat): create useChatPanel hook`
 
 ### Task 8: Create ChatPanel and ChatPanelTrigger
+
 **Files:** `packages/dashboard/src/client/components/chat/ChatPanel.tsx`, `packages/dashboard/src/client/components/chat/ChatPanelTrigger.tsx`
 
 1. Create `ChatPanel` component.
@@ -292,6 +306,7 @@ export function ChatInput({ value, onChange, onSend, disabled, placeholder }: Pr
 4. Commit: `feat(chat): create chat panel and trigger components`
 
 ### Task 9: Integrate Chat Panel into Layout
+
 **Files:** `packages/dashboard/src/client/components/Layout.tsx`
 
 1. Update `Layout.tsx` to implement a flex row container when the chat panel is open.

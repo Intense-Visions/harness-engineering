@@ -48,6 +48,7 @@ Implement the GitHub `fetchComments` adapter, rework `renderAnalysisComment()` t
 1. In `packages/types/src/orchestrator.ts`, add `externalId` to the `Issue` interface after the `updatedAt` field (line 66):
 
    Change:
+
    ```typescript
      /** ISO timestamp of last update */
      updatedAt: string | null;
@@ -55,6 +56,7 @@ Implement the GitHub `fetchComments` adapter, rework `renderAnalysisComment()` t
    ```
 
    To:
+
    ```typescript
      /** ISO timestamp of last update */
      updatedAt: string | null;
@@ -66,6 +68,7 @@ Implement the GitHub `fetchComments` adapter, rework `renderAnalysisComment()` t
 2. In `packages/orchestrator/src/tracker/adapters/roadmap.ts`, update `mapFeatureToIssue` (line 102-124) to include `externalId`:
 
    Change:
+
    ```typescript
        createdAt: null,
        updatedAt: null,
@@ -73,6 +76,7 @@ Implement the GitHub `fetchComments` adapter, rework `renderAnalysisComment()` t
    ```
 
    To:
+
    ```typescript
        createdAt: null,
        updatedAt: null,
@@ -83,6 +87,7 @@ Implement the GitHub `fetchComments` adapter, rework `renderAnalysisComment()` t
 3. In `packages/orchestrator/src/server/routes/dispatch-actions.ts`, update the Issue literal (line 59-74) to include `externalId`:
 
    Change:
+
    ```typescript
          createdAt: new Date().toISOString(),
          updatedAt: new Date().toISOString(),
@@ -90,6 +95,7 @@ Implement the GitHub `fetchComments` adapter, rework `renderAnalysisComment()` t
    ```
 
    To:
+
    ```typescript
          createdAt: new Date().toISOString(),
          updatedAt: new Date().toISOString(),
@@ -141,6 +147,7 @@ After all edits:
 2. In `packages/orchestrator/src/core/analysis-archive.ts`, update the `get()` method (line 53-61) to backfill `externalId`:
 
    Change:
+
    ```typescript
      async get(issueId: string): Promise<AnalysisRecord | null> {
        const filePath = path.join(this.dir, `${issueId}.json`);
@@ -155,6 +162,7 @@ After all edits:
    ```
 
    To:
+
    ```typescript
      async get(issueId: string): Promise<AnalysisRecord | null> {
        const filePath = path.join(this.dir, `${issueId}.json`);
@@ -173,17 +181,19 @@ After all edits:
 3. In the same file, update `list()` (line 67-84) to backfill `externalId`:
 
    Change:
+
    ```typescript
-         const raw = await fs.readFile(filePath, 'utf-8');
-         records.push(JSON.parse(raw) as AnalysisRecord);
+   const raw = await fs.readFile(filePath, 'utf-8');
+   records.push(JSON.parse(raw) as AnalysisRecord);
    ```
 
    To:
+
    ```typescript
-         const raw = await fs.readFile(filePath, 'utf-8');
-         const record = JSON.parse(raw) as AnalysisRecord;
-         record.externalId ??= null;
-         records.push(record);
+   const raw = await fs.readFile(filePath, 'utf-8');
+   const record = JSON.parse(raw) as AnalysisRecord;
+   record.externalId ??= null;
+   records.push(record);
    ```
 
 4. Run: `cd packages/orchestrator && npx tsc --noEmit` -- expect pass (pre-existing analyze.ts:51 failure is unrelated).
@@ -197,137 +207,137 @@ After all edits:
 1. In `packages/core/tests/roadmap/github-issues.test.ts`, replace the existing `fetchComments` describe block (lines 476-490) with the following comprehensive tests:
 
    ```typescript
-     describe('fetchComments', () => {
-       it('fetches and maps comments from a single page', async () => {
-         const fetchFn = mockFetch(200, [
-           {
-             id: 101,
-             body: 'First comment',
-             created_at: '2026-01-01T00:00:00Z',
-             updated_at: '2026-01-02T00:00:00Z',
-             user: { login: 'alice' },
-           },
-           {
-             id: 102,
-             body: 'Second comment',
-             created_at: '2026-01-03T00:00:00Z',
-             updated_at: null,
-             user: { login: 'bob' },
-           },
-         ]);
-         const adapter = new GitHubIssuesSyncAdapter({
-           token: 'tok',
-           config: DEFAULT_CONFIG,
-           fetchFn,
-         });
-
-         const result = await adapter.fetchComments('github:owner/repo#42');
-         expect(result.ok).toBe(true);
-         if (!result.ok) return;
-         expect(result.value).toHaveLength(2);
-         expect(result.value[0]).toEqual({
-           id: '101',
+   describe('fetchComments', () => {
+     it('fetches and maps comments from a single page', async () => {
+       const fetchFn = mockFetch(200, [
+         {
+           id: 101,
            body: 'First comment',
-           createdAt: '2026-01-01T00:00:00Z',
-           updatedAt: '2026-01-02T00:00:00Z',
-           author: 'alice',
-         });
-         expect(result.value[1]).toEqual({
-           id: '102',
+           created_at: '2026-01-01T00:00:00Z',
+           updated_at: '2026-01-02T00:00:00Z',
+           user: { login: 'alice' },
+         },
+         {
+           id: 102,
            body: 'Second comment',
-           createdAt: '2026-01-03T00:00:00Z',
-           updatedAt: null,
-           author: 'bob',
-         });
-
-         const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
-         expect(url).toBe(
-           'https://api.github.com/repos/owner/repo/issues/42/comments?per_page=100&page=1'
-         );
-         expect(opts.method).toBe('GET');
+           created_at: '2026-01-03T00:00:00Z',
+           updated_at: null,
+           user: { login: 'bob' },
+         },
+       ]);
+       const adapter = new GitHubIssuesSyncAdapter({
+         token: 'tok',
+         config: DEFAULT_CONFIG,
+         fetchFn,
        });
 
-       it('paginates when first page returns 100 results', async () => {
-         const page1 = Array.from({ length: 100 }, (_, i) => ({
-           id: i + 1,
-           body: `Comment ${i + 1}`,
-           created_at: '2026-01-01T00:00:00Z',
+       const result = await adapter.fetchComments('github:owner/repo#42');
+       expect(result.ok).toBe(true);
+       if (!result.ok) return;
+       expect(result.value).toHaveLength(2);
+       expect(result.value[0]).toEqual({
+         id: '101',
+         body: 'First comment',
+         createdAt: '2026-01-01T00:00:00Z',
+         updatedAt: '2026-01-02T00:00:00Z',
+         author: 'alice',
+       });
+       expect(result.value[1]).toEqual({
+         id: '102',
+         body: 'Second comment',
+         createdAt: '2026-01-03T00:00:00Z',
+         updatedAt: null,
+         author: 'bob',
+       });
+
+       const [url, opts] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[0]!;
+       expect(url).toBe(
+         'https://api.github.com/repos/owner/repo/issues/42/comments?per_page=100&page=1'
+       );
+       expect(opts.method).toBe('GET');
+     });
+
+     it('paginates when first page returns 100 results', async () => {
+       const page1 = Array.from({ length: 100 }, (_, i) => ({
+         id: i + 1,
+         body: `Comment ${i + 1}`,
+         created_at: '2026-01-01T00:00:00Z',
+         updated_at: null,
+         user: { login: 'user' },
+       }));
+       const page2 = [
+         {
+           id: 101,
+           body: 'Last comment',
+           created_at: '2026-01-02T00:00:00Z',
            updated_at: null,
            user: { login: 'user' },
-         }));
-         const page2 = [
-           {
-             id: 101,
-             body: 'Last comment',
-             created_at: '2026-01-02T00:00:00Z',
-             updated_at: null,
-             user: { login: 'user' },
-           },
-         ];
-         const fetchFn = mockFetchSequence(
-           { status: 200, body: page1 },
-           { status: 200, body: page2 }
-         );
-         const adapter = new GitHubIssuesSyncAdapter({
-           token: 'tok',
-           config: DEFAULT_CONFIG,
-           fetchFn,
-         });
-
-         const result = await adapter.fetchComments('github:owner/repo#42');
-         expect(result.ok).toBe(true);
-         if (!result.ok) return;
-         expect(result.value).toHaveLength(101);
-         expect(result.value[100]!.id).toBe('101');
-
-         expect(fetchFn).toHaveBeenCalledTimes(2);
-         const [url2] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[1]!;
-         expect(url2).toContain('page=2');
+         },
+       ];
+       const fetchFn = mockFetchSequence(
+         { status: 200, body: page1 },
+         { status: 200, body: page2 }
+       );
+       const adapter = new GitHubIssuesSyncAdapter({
+         token: 'tok',
+         config: DEFAULT_CONFIG,
+         fetchFn,
        });
 
-       it('returns empty array when issue has no comments', async () => {
-         const fetchFn = mockFetch(200, []);
-         const adapter = new GitHubIssuesSyncAdapter({
-           token: 'tok',
-           config: DEFAULT_CONFIG,
-           fetchFn,
-         });
+       const result = await adapter.fetchComments('github:owner/repo#42');
+       expect(result.ok).toBe(true);
+       if (!result.ok) return;
+       expect(result.value).toHaveLength(101);
+       expect(result.value[100]!.id).toBe('101');
 
-         const result = await adapter.fetchComments('github:owner/repo#42');
-         expect(result.ok).toBe(true);
-         if (!result.ok) return;
-         expect(result.value).toEqual([]);
-       });
-
-       it('returns Err for invalid externalId', async () => {
-         const fetchFn = mockFetch(200, []);
-         const adapter = new GitHubIssuesSyncAdapter({
-           token: 'tok',
-           config: DEFAULT_CONFIG,
-           fetchFn,
-         });
-
-         const result = await adapter.fetchComments('invalid-id');
-         expect(result.ok).toBe(false);
-         if (result.ok) return;
-         expect(result.error.message).toMatch(/Invalid externalId/);
-       });
-
-       it('returns Err on API failure', async () => {
-         const fetchFn = mockFetch(404, { message: 'Not Found' });
-         const adapter = new GitHubIssuesSyncAdapter({
-           token: 'tok',
-           config: DEFAULT_CONFIG,
-           fetchFn,
-           maxRetries: 0,
-         });
-
-         const result = await adapter.fetchComments('github:owner/repo#42');
-         expect(result.ok).toBe(false);
-         if (result.ok) return;
-         expect(result.error.message).toMatch(/404/);
-       });
+       expect(fetchFn).toHaveBeenCalledTimes(2);
+       const [url2] = (fetchFn as ReturnType<typeof vi.fn>).mock.calls[1]!;
+       expect(url2).toContain('page=2');
      });
+
+     it('returns empty array when issue has no comments', async () => {
+       const fetchFn = mockFetch(200, []);
+       const adapter = new GitHubIssuesSyncAdapter({
+         token: 'tok',
+         config: DEFAULT_CONFIG,
+         fetchFn,
+       });
+
+       const result = await adapter.fetchComments('github:owner/repo#42');
+       expect(result.ok).toBe(true);
+       if (!result.ok) return;
+       expect(result.value).toEqual([]);
+     });
+
+     it('returns Err for invalid externalId', async () => {
+       const fetchFn = mockFetch(200, []);
+       const adapter = new GitHubIssuesSyncAdapter({
+         token: 'tok',
+         config: DEFAULT_CONFIG,
+         fetchFn,
+       });
+
+       const result = await adapter.fetchComments('invalid-id');
+       expect(result.ok).toBe(false);
+       if (result.ok) return;
+       expect(result.error.message).toMatch(/Invalid externalId/);
+     });
+
+     it('returns Err on API failure', async () => {
+       const fetchFn = mockFetch(404, { message: 'Not Found' });
+       const adapter = new GitHubIssuesSyncAdapter({
+         token: 'tok',
+         config: DEFAULT_CONFIG,
+         fetchFn,
+         maxRetries: 0,
+       });
+
+       const result = await adapter.fetchComments('github:owner/repo#42');
+       expect(result.ok).toBe(false);
+       if (result.ok) return;
+       expect(result.error.message).toMatch(/404/);
+     });
+   });
    ```
 
 2. Run: `cd packages/core && npx vitest run tests/roadmap/github-issues.test.ts` -- the new tests should FAIL (stub still returns Err). The stub test and the new "fetches and maps" test should both fail. This confirms TDD red phase.
@@ -340,6 +350,7 @@ After all edits:
 1. In `packages/core/src/roadmap/adapters/github-issues.ts`, replace the stub `fetchComments` method (lines 499-501) with the real implementation:
 
    Change:
+
    ```typescript
      async fetchComments(_externalId: string): Promise<Result<TrackerComment[]>> {
        return Err(new Error('fetchComments not implemented — see Phase 2 of analysis-tracker-sync'));
@@ -347,6 +358,7 @@ After all edits:
    ```
 
    To:
+
    ```typescript
      async fetchComments(externalId: string): Promise<Result<TrackerComment[]>> {
        try {
@@ -423,7 +435,7 @@ First, export `renderAnalysisComment` from the publish-analyses module so it can
 
 2. Create `packages/cli/tests/commands/publish-analyses.test.ts`:
 
-   ```typescript
+   ````typescript
    import { describe, it, expect } from 'vitest';
    import { renderAnalysisComment } from '../../src/commands/publish-analyses';
    import type { AnalysisRecord } from '@harness-engineering/orchestrator';
@@ -509,7 +521,7 @@ First, export `renderAnalysisComment` from the publish-analyses module so it can
        expect(result).toContain('**Route:** simulation-required');
      });
    });
-   ```
+   ````
 
 3. Run: `cd packages/cli && npx vitest run tests/commands/publish-analyses.test.ts` -- tests should FAIL because the old `renderAnalysisComment` does not match the new format. This is the TDD red phase.
 4. Do NOT commit yet -- Task 7 implements the rework.
@@ -520,7 +532,7 @@ First, export `renderAnalysisComment` from the publish-analyses module so it can
 
 1. In `packages/cli/src/commands/publish-analyses.ts`, replace the entire `renderAnalysisComment` function (lines 33-81) with:
 
-   ```typescript
+   ````typescript
    /**
     * Renders an AnalysisRecord as a structured markdown comment.
     * Format: summary header + reasoning bullets + collapsible JSON with discriminator.
@@ -565,7 +577,7 @@ First, export `renderAnalysisComment` from the publish-analyses module so it can
 
      return lines.join('\n');
    }
-   ```
+   ````
 
 2. Run: `cd packages/cli && npx vitest run tests/commands/publish-analyses.test.ts` -- ALL tests should now pass.
 3. Run: `cd packages/cli && npx tsc --noEmit` -- must pass.

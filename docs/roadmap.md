@@ -1524,6 +1524,7 @@ last_manual_edit: 2026-04-15T17:14:30.890Z
 - **Plan:** —
 
 ## Assignment History
-| Feature | Assignee | Action | Date |
-|---------|----------|--------|------|
+
+| Feature                                  | Assignee    | Action   | Date       |
+| ---------------------------------------- | ----------- | -------- | ---------- |
 | Performance Engineering Knowledge Skills | Chad Warner | assigned | 2026-04-09 |

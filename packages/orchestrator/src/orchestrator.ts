@@ -38,7 +38,11 @@ import {
   savePublishedIndex,
 } from './core/index';
 import type { AnalysisRecord } from './core/index';
-import { GitHubIssuesSyncAdapter, loadTrackerSyncConfig, type TrackerSyncAdapter } from '@harness-engineering/core';
+import {
+  GitHubIssuesSyncAdapter,
+  loadTrackerSyncConfig,
+  type TrackerSyncAdapter,
+} from '@harness-engineering/core';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
@@ -498,11 +502,10 @@ export class Orchestrator extends EventEmitter {
     let processed = 0;
     for (const issue of eligibleCandidates) {
       processed++;
-      this.setTickActivity(
-        'analyzing',
-        `SEL/CML: ${issue.identifier} — ${issue.title}`,
-        { current: processed, total: eligibleCandidates.length }
-      );
+      this.setTickActivity('analyzing', `SEL/CML: ${issue.identifier} — ${issue.title}`, {
+        current: processed,
+        total: eligibleCandidates.length,
+      });
 
       const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
       try {
@@ -540,7 +543,12 @@ export class Orchestrator extends EventEmitter {
     // Auto-publish to external tracker (non-fatal)
     try {
       this.setTickActivity('analyzing', 'Publishing to tracker');
-      await this.autoPublishAnalyses(candidates, enrichedSpecs, complexityScores, simulationResults);
+      await this.autoPublishAnalyses(
+        candidates,
+        enrichedSpecs,
+        complexityScores,
+        simulationResults
+      );
     } catch (err) {
       this.logger.warn('Auto-publish analyses failed', { error: String(err) });
     }
