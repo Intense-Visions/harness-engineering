@@ -36,10 +36,9 @@ import {
   renderAnalysisComment,
   loadPublishedIndex,
   savePublishedIndex,
-  loadTrackerSyncConfig,
 } from './core/index';
 import type { AnalysisRecord } from './core/index';
-import { GitHubIssuesSyncAdapter, type TrackerSyncAdapter } from '@harness-engineering/core';
+import { GitHubIssuesSyncAdapter, loadTrackerSyncConfig, type TrackerSyncAdapter } from '@harness-engineering/core';
 import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
@@ -83,6 +82,11 @@ export class Orchestrator extends EventEmitter {
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
+
+  /** Project root directory, derived from workspace root. */
+  private get projectRoot(): string {
+    return path.resolve(this.config.workspace.root, '..', '..');
+  }
   private graphLoaded = false;
   private enrichedSpecsByIssue: Map<string, EnrichedSpec> = new Map();
   /** Tracks recently-failed intelligence analysis to avoid re-requesting every tick */
@@ -380,8 +384,7 @@ export class Orchestrator extends EventEmitter {
     complexityScores: Map<string, ComplexityScore>,
     simulationResults: Map<string, SimulationResult>
   ): Promise<void> {
-    const projectRoot = path.resolve(this.config.workspace.root, '..', '..');
-    const trackerConfig = loadTrackerSyncConfig(projectRoot);
+    const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
     if (!trackerConfig) return;
 
     const token = process.env.GITHUB_TOKEN;
@@ -397,7 +400,7 @@ export class Orchestrator extends EventEmitter {
       return;
     }
 
-    const publishedIndex = loadPublishedIndex(projectRoot);
+    const publishedIndex = loadPublishedIndex(this.projectRoot);
     let publishedCount = 0;
 
     for (const issue of candidates) {
@@ -443,7 +446,7 @@ export class Orchestrator extends EventEmitter {
 
     if (publishedCount > 0) {
       try {
-        savePublishedIndex(projectRoot, publishedIndex);
+        savePublishedIndex(this.projectRoot, publishedIndex);
       } catch (err) {
         this.logger.warn('Failed to persist published index after auto-publish', {
           error: String(err),

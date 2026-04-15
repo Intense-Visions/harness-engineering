@@ -3,13 +3,9 @@ import * as path from 'node:path';
 import type { TrackerSyncConfig } from '@harness-engineering/types';
 
 /**
- * Lightweight loader for tracker sync config from harness.config.json.
- * Returns null if the file does not exist, has no roadmap.tracker section,
- * or the tracker config is malformed.
- *
- * This intentionally avoids a Zod dependency — the CLI's schema validation
- * covers that; the orchestrator just needs to detect presence and extract
- * the minimum fields needed for auto-publish.
+ * Load tracker sync config from harness.config.json at the given project root.
+ * Returns null if the file is missing, the tracker section is absent, or the
+ * config is malformed. Performs runtime validation without requiring Zod.
  */
 export function loadTrackerSyncConfig(projectRoot: string): TrackerSyncConfig | null {
   try {
@@ -23,8 +19,15 @@ export function loadTrackerSyncConfig(projectRoot: string): TrackerSyncConfig | 
     if (!tracker || typeof tracker !== 'object') return null;
 
     const t = tracker as Record<string, unknown>;
+
+    // Validate required fields
     if (t.kind !== 'github') return null;
     if (typeof t.statusMap !== 'object' || t.statusMap === null) return null;
+
+    // Validate statusMap values are strings
+    for (const val of Object.values(t.statusMap as Record<string, unknown>)) {
+      if (typeof val !== 'string') return null;
+    }
 
     return tracker as TrackerSyncConfig;
   } catch {

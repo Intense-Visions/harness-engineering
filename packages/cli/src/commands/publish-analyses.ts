@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Command } from 'commander';
 import { logger } from '../output/logger';
-import { loadTrackerConfig } from '../mcp/tools/roadmap-auto-sync';
+import { loadTrackerSyncConfig } from '@harness-engineering/core';
 import {
   renderAnalysisComment,
   loadPublishedIndex,
@@ -17,7 +17,7 @@ export function createPublishAnalysesCommand(): Command {
       const projectPath = path.resolve(opts.dir);
 
       try {
-        const trackerConfig = loadTrackerConfig(projectPath);
+        const trackerConfig = loadTrackerSyncConfig(projectPath);
         if (!trackerConfig) {
           logger.error('No tracker config found in harness.config.json. Cannot publish.');
           process.exit(1);

@@ -6,8 +6,8 @@ import {
   renderAnalysisComment,
   loadPublishedIndex,
   savePublishedIndex,
-  loadTrackerSyncConfig,
 } from '../../src/core/index';
+import { loadTrackerSyncConfig } from '@harness-engineering/core';
 import type { AnalysisRecord } from '../../src/core/analysis-archive';
 
 /**
