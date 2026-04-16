@@ -13,12 +13,14 @@ const DEFAULT_CONFIG: TrackerSyncConfig = {
     'in-progress': 'open',
     done: 'closed',
     blocked: 'open',
+    'needs-human': 'open',
   },
   reverseStatusMap: {
     closed: 'done',
     'open:in-progress': 'in-progress',
     'open:blocked': 'blocked',
     'open:planned': 'planned',
+    'open:needs-human': 'needs-human',
   },
 };
 
@@ -87,6 +89,12 @@ describe('resolveReverseStatus()', () => {
   it('maps "open" + "blocked" label to "blocked"', () => {
     expect(resolveReverseStatus('open', ['harness-managed', 'blocked'], DEFAULT_CONFIG)).toBe(
       'blocked'
+    );
+  });
+
+  it('maps "open" + "needs-human" label to "needs-human"', () => {
+    expect(resolveReverseStatus('open', ['harness-managed', 'needs-human'], DEFAULT_CONFIG)).toBe(
+      'needs-human'
     );
   });
 
