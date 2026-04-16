@@ -1361,7 +1361,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### CI/CD & Issue Tracker Integration
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/ci-cd-issue-tracker-integration/proposal.md
 - **Summary:** Automated CI/CD pipeline and issue tracker integration for harness workflows
 - **Blockers:** —

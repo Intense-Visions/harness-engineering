@@ -294,47 +294,102 @@ function ActivityGroup({
       {/* Subtle timeline track indicator */}
       <div className="absolute left-[0.4rem] top-2 bottom-2 w-0.5 rounded-full bg-neutral-border/40" />
 
-      {blocks.map((block, i) => {
-        const isLast = isLastGroup && i === blocks.length - 1;
-        switch (block.kind) {
-          case 'tool_use':
-            return (
-              <ToolUseBlockView
-                key={startIndex + i}
-                block={block}
-                isPending={isLast && isStreaming}
-              />
-            );
-          case 'thinking':
-            return (
-              <motion.div
-                key={startIndex + i}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
+      {(() => {
+        const elements: React.ReactNode[] = [];
+        let toolCluster: { block: ContentBlock; localIndex: number }[] = [];
+
+        const flushCluster = () => {
+          if (toolCluster.length === 0) return;
+          if (toolCluster.length >= 3) {
+            elements.push(
+              <details
+                key={`cluster-${elements.length}`}
+                className="rounded border border-neutral-border/50 bg-neutral-bg/30 my-1"
               >
-                <ThinkingBlockView block={block as ThinkingBlock} />
-              </motion.div>
+                <summary className="cursor-pointer px-3 py-1.5 text-xs text-neutral-muted select-none flex items-center gap-2">
+                  <div className="flex -space-x-1">
+                    <div className="h-2 w-2 rounded-full bg-secondary-400/50" />
+                    <div className="h-2 w-2 rounded-full bg-secondary-400/70" />
+                    <div className="h-2 w-2 rounded-full bg-secondary-400" />
+                  </div>
+                  Used {toolCluster.length} tools
+                </summary>
+                <div className="flex flex-col gap-[2px] border-t border-neutral-border/50 p-2">
+                  {toolCluster.map(({ block, localIndex }) => {
+                    const isLast = isLastGroup && localIndex === blocks.length - 1;
+                    return (
+                      <ToolUseBlockView
+                        key={startIndex + localIndex}
+                        block={block as ToolUseBlock}
+                        isPending={isLast && isStreaming}
+                      />
+                    );
+                  })}
+                </div>
+              </details>
             );
-          case 'status':
-            return (
-              <motion.div
-                key={startIndex + i}
-                initial={{ opacity: 0, x: -5 }}
-                animate={{ opacity: 1, x: 0 }}
-              >
-                <StatusBlockView block={block as StatusBlock} />
-              </motion.div>
-            );
-          case 'text':
-            return (
-              <motion.div key={startIndex + i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <TextBlockView block={block} />
-              </motion.div>
-            );
-          default:
-            return null;
+          } else {
+            toolCluster.forEach(({ block, localIndex }) => {
+              const isLast = isLastGroup && localIndex === blocks.length - 1;
+              elements.push(
+                <ToolUseBlockView
+                  key={startIndex + localIndex}
+                  block={block as ToolUseBlock}
+                  isPending={isLast && isStreaming}
+                />
+              );
+            });
+          }
+          toolCluster = [];
+        };
+
+        for (let i = 0; i < blocks.length; i++) {
+          const block = blocks[i]!;
+          if (block.kind === 'tool_use') {
+            toolCluster.push({ block, localIndex: i });
+          } else {
+            flushCluster();
+
+            switch (block.kind) {
+              case 'thinking':
+                elements.push(
+                  <motion.div
+                    key={startIndex + i}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <ThinkingBlockView block={block as ThinkingBlock} />
+                  </motion.div>
+                );
+                break;
+              case 'status':
+                elements.push(
+                  <motion.div
+                    key={startIndex + i}
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
+                  >
+                    <StatusBlockView block={block as StatusBlock} />
+                  </motion.div>
+                );
+                break;
+              case 'text':
+                elements.push(
+                  <motion.div
+                    key={startIndex + i}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <TextBlockView block={block as TextBlock} />
+                  </motion.div>
+                );
+                break;
+            }
+          }
         }
-      })}
+        flushCluster();
+        return elements;
+      })()}
     </div>
   );
 }
