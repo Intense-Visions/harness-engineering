@@ -253,48 +253,89 @@ function TextBlockView({ block }: { block: TextBlock }) {
   );
 }
 
-function ToolGroup({
-  tools,
+function ActivityGroup({
+  blocks,
   startIndex,
   isStreaming,
   isLastGroup,
 }: {
-  tools: ToolUseBlock[];
+  blocks: ContentBlock[];
   startIndex: number;
   isStreaming: boolean;
   isLastGroup: boolean;
 }) {
-  if (tools.length <= 2) {
-    return (
-      <>
-        {tools.map((t, i) => {
-          const isLast = isLastGroup && i === tools.length - 1;
-          return (
-            <ToolUseBlockView key={startIndex + i} block={t} isPending={isLast && isStreaming} />
-          );
-        })}
-      </>
-    );
+  const toolCount = blocks.filter((b) => b.kind === 'tool_use').length;
+
+  if (blocks.length === 0) return null;
+
+  // Don't wrap if it's just a single thinking or status block
+  if (blocks.length === 1) {
+    const block = blocks[0]!;
+    if (block.kind !== 'tool_use' && block.kind !== 'text') {
+      if (block.kind === 'thinking') {
+        return (
+          <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+            <ThinkingBlockView block={block as ThinkingBlock} />
+          </motion.div>
+        );
+      }
+      if (block.kind === 'status') {
+        return (
+          <motion.div initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }}>
+            <StatusBlockView block={block as StatusBlock} />
+          </motion.div>
+        );
+      }
+    }
   }
+
   return (
-    <details className="rounded border border-neutral-border/50">
-      <summary className="cursor-pointer px-3 py-1.5 text-xs text-neutral-muted select-none flex items-center gap-2">
-        <div className="flex -space-x-1">
-          <div className="h-2 w-2 rounded-full bg-secondary-400/50" />
-          <div className="h-2 w-2 rounded-full bg-secondary-400/70" />
-          <div className="h-2 w-2 rounded-full bg-secondary-400" />
-        </div>
-        Used {tools.length} tools
-      </summary>
-      <div className="flex flex-col gap-1 border-t border-neutral-border/50 p-2">
-        {tools.map((t, i) => {
-          const isLast = isLastGroup && i === tools.length - 1;
-          return (
-            <ToolUseBlockView key={startIndex + i} block={t} isPending={isLast && isStreaming} />
-          );
-        })}
-      </div>
-    </details>
+    <div className="relative flex flex-col gap-[2px] pl-[1.25rem] my-1">
+      {/* Subtle timeline track indicator */}
+      <div className="absolute left-[0.4rem] top-2 bottom-2 w-0.5 rounded-full bg-neutral-border/40" />
+
+      {blocks.map((block, i) => {
+        const isLast = isLastGroup && i === blocks.length - 1;
+        switch (block.kind) {
+          case 'tool_use':
+            return (
+              <ToolUseBlockView
+                key={startIndex + i}
+                block={block}
+                isPending={isLast && isStreaming}
+              />
+            );
+          case 'thinking':
+            return (
+              <motion.div
+                key={startIndex + i}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <ThinkingBlockView block={block as ThinkingBlock} />
+              </motion.div>
+            );
+          case 'status':
+            return (
+              <motion.div
+                key={startIndex + i}
+                initial={{ opacity: 0, x: -5 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                <StatusBlockView block={block as StatusBlock} />
+              </motion.div>
+            );
+          case 'text':
+            return (
+              <motion.div key={startIndex + i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <TextBlockView block={block} />
+              </motion.div>
+            );
+          default:
+            return null;
+        }
+      })}
+    </div>
   );
 }
 
@@ -320,14 +361,15 @@ export function AssistantBlocks({
   }
 
   const elements: React.ReactNode[] = [];
-  let toolGroup: ToolUseBlock[] = [];
-  let toolGroupStart = 0;
+  let activityGroup: ContentBlock[] = [];
+  let activityGroupStart = 0;
 
   for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i]!;
+    let block = blocks[i]!;
+    let isActivity = false;
 
     if (block.kind === 'tool_use') {
-      const currentIdx = i;
+      isActivity = true;
       const nextBlock = blocks[i + 1];
       let forceResult: string | undefined;
 
@@ -341,58 +383,48 @@ export function AssistantBlocks({
         }
       }
 
-      if (toolGroup.length === 0) toolGroupStart = currentIdx;
       const resolvedResult = block.result ?? forceResult;
-      toolGroup.push({
+      block = {
         ...block,
         ...(resolvedResult !== undefined && { result: resolvedResult }),
-      });
+      };
+    } else if (block.kind === 'thinking' || block.kind === 'status') {
+      isActivity = true;
+    } else if (block.kind === 'text' && isLogOutput(block.text)) {
+      isActivity = true;
+    }
+
+    if (isActivity) {
+      if (activityGroup.length === 0) activityGroupStart = i;
+      activityGroup.push(block);
     } else {
-      if (toolGroup.length > 0) {
+      if (activityGroup.length > 0) {
         elements.push(
-          <ToolGroup
-            key={`tg-${toolGroupStart}`}
-            tools={toolGroup}
-            startIndex={toolGroupStart}
+          <ActivityGroup
+            key={`ag-${activityGroupStart}`}
+            blocks={activityGroup}
+            startIndex={activityGroupStart}
             isStreaming={isStreaming}
             isLastGroup={false}
           />
         );
-        toolGroup = [];
+        activityGroup = [];
       }
 
-      switch (block.kind) {
-        case 'thinking':
-          elements.push(
-            <motion.div key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
-              <ThinkingBlockView block={block} />
-            </motion.div>
-          );
-          break;
-        case 'status':
-          elements.push(
-            <motion.div key={i} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }}>
-              <StatusBlockView block={block} />
-            </motion.div>
-          );
-          break;
-        case 'text':
-          elements.push(
-            <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <TextBlockView block={block} />
-            </motion.div>
-          );
-          break;
-      }
+      elements.push(
+        <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <TextBlockView block={block as TextBlock} />
+        </motion.div>
+      );
     }
   }
 
-  if (toolGroup.length > 0) {
+  if (activityGroup.length > 0) {
     elements.push(
-      <ToolGroup
-        key={`tg-${toolGroupStart}`}
-        tools={toolGroup}
-        startIndex={toolGroupStart}
+      <ActivityGroup
+        key={`ag-${activityGroupStart}`}
+        blocks={activityGroup}
+        startIndex={activityGroupStart}
         isStreaming={isStreaming}
         isLastGroup={true}
       />

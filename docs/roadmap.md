@@ -1291,7 +1291,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Agent Effectiveness Introspection
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Domain-specific accuracy tracking and blind spot detection with automatic persona switching triggers. Identifies where agents consistently fail and routes to better-suited personas automatically. [L7]
 - **Blockers:** —
@@ -1416,7 +1416,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Agent Config Validation
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** harness validate --agent-configs with agnix hybrid approach — shell out to agnix binary when available (385 rules), fall back to ~20 highest-value TypeScript rules (broken agents, invalid hooks, unreachable skills, oversized CLAUDE.md). Ship .agnix.toml template in harness init. [ACE-B2]
 - **Blockers:** —
@@ -1482,7 +1482,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Advanced Review Pipeline
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Meta-judge pre-generation for --thorough review mode (task-specific rubric before seeing implementation). Two-stage isolated review splitting spec-compliance from code-quality with separate context. findParallelGroups algorithm for automatic parallelization from dependency graphs. Tiered MCP tool loading (core/standard/full, measure first). Triage routing for orchestrator dispatch. Inspired by Context Engineering Kit, Superpowers, sudocode, and Claude Task Master. [ACE-Batch6]
 - **Blockers:** —
