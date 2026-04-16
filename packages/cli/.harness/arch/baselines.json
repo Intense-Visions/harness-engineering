@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-16T23:01:10.170Z",
-  "updatedFrom": "87ec0935",
+  "updatedAt": "2026-04-16T23:30:12.804Z",
+  "updatedFrom": "d1244601",
   "metrics": {
     "circular-deps": {
       "value": 0,
@@ -35,11 +35,11 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 25699,
+      "value": 80196,
       "violationIds": []
     },
     "dependency-depth": {
-      "value": 69,
+      "value": 327,
       "violationIds": []
     }
   }
