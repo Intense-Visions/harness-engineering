@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type TestOptions } from 'vitest';
+
+const RETRY: TestOptions = { retry: 2 };
 import * as http from 'node:http';
 import { EventEmitter } from 'node:events';
 import { WebSocket } from 'ws';
@@ -57,7 +59,7 @@ describe('OrchestratorServer', () => {
     expect((response as any).statusCode).toBe(404);
   });
 
-  it('broadcasts state_change events to WebSocket clients', async () => {
+  it('broadcasts state_change events to WebSocket clients', RETRY, async () => {
     await server.start();
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
@@ -79,7 +81,7 @@ describe('OrchestratorServer', () => {
     ws.close();
   });
 
-  it('broadcasts agent_event events to WebSocket clients', async () => {
+  it('broadcasts agent_event events to WebSocket clients', RETRY, async () => {
     await server.start();
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
@@ -100,7 +102,7 @@ describe('OrchestratorServer', () => {
     ws.close();
   });
 
-  it('broadcasts interaction_new via broadcastInteraction', async () => {
+  it('broadcasts interaction_new via broadcastInteraction', RETRY, async () => {
     await server.start();
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);

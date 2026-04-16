@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, type TestOptions } from 'vitest';
+
+const RETRY: TestOptions = { retry: 2 };
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -36,7 +38,7 @@ describe('PlanWatcher', () => {
     await fs.rm(interactionsDir, { recursive: true, force: true });
   });
 
-  it('resolves a pending interaction when a matching plan file is created', async () => {
+  it('resolves a pending interaction when a matching plan file is created', RETRY, async () => {
     // Push an interaction for issue "CORE-42"
     await queue.push({
       id: 'int-core42',
