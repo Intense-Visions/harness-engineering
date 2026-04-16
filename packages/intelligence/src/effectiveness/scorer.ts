@@ -1,7 +1,7 @@
 import type { GraphStore } from '@harness-engineering/graph';
 import type { PersonaEffectivenessScore, BlindSpot, PersonaRecommendation } from './types.js';
 
-/** Laplace smoothing constant (α = 1). Matches the prior used by `computeHistoricalComplexity`. */
+/** Laplace smoothing constant (α = 1). Shares the +2 denominator adjustment with `computeHistoricalComplexity`. */
 const LAPLACE_ALPHA = 1;
 
 /**
@@ -49,6 +49,10 @@ function bucket(
  * Traverse the graph once and collect persona-attributed outcomes grouped by
  * `(persona, systemNodeId)`. Outcomes missing `agentPersona` or without any
  * `outcome_of` edges are ignored.
+ *
+ * Note: each call traverses all execution_outcome nodes. If calling multiple
+ * exported functions on the same store, consider a future optimisation to
+ * share the result.
  */
 function gatherOutcomes(store: GraphStore): PersonaSystemCounts {
   const map: PersonaSystemCounts = new Map();
@@ -105,7 +109,8 @@ export function computePersonaEffectiveness(
   }
 
   rows.sort((a, b) => {
-    if (b.successRate !== a.successRate) return b.successRate - a.successRate;
+    const rateDiff = b.successRate - a.successRate;
+    if (Math.abs(rateDiff) > 1e-10) return rateDiff;
     return b.sampleSize - a.sampleSize;
   });
   return rows;
@@ -148,7 +153,8 @@ export function detectBlindSpots(
   }
 
   spots.sort((a, b) => {
-    if (b.failureRate !== a.failureRate) return b.failureRate - a.failureRate;
+    const rateDiff = b.failureRate - a.failureRate;
+    if (Math.abs(rateDiff) > 1e-10) return rateDiff;
     return b.failures - a.failures;
   });
   return spots;
@@ -217,7 +223,8 @@ export function recommendPersona(
   }
 
   recommendations.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
+    const scoreDiff = b.score - a.score;
+    if (Math.abs(scoreDiff) > 1e-10) return scoreDiff;
     return b.totalSamples - a.totalSamples;
   });
   return recommendations;

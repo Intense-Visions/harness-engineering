@@ -314,23 +314,48 @@ describe('recommendPersona', () => {
     expect(recs[0].totalSamples).toBeGreaterThan(recs[1].totalSamples);
   });
 
-  it('tiebreak uses totalSamples when scores match exactly', () => {
+  it('preserves stable ordering when scores and totalSamples are equal', () => {
     const store = new GraphStore();
-    // Identical outcomes -> identical smoothed rates. Different totalSamples via
-    // observations on a second system that is NOT in the query set.
+    // Identical outcomes on the requested system -> identical smoothed rates
+    // and identical totalSamples. Sort is stable (ES2019+), so insertion
+    // order from Map.keys() is preserved.
     seed(store, 'module:api', [
       { agentPersona: 'a', result: 'success' },
       { agentPersona: 'b', result: 'success' },
     ]);
-    // "a" also has extra outcomes on module:other, still counted in totalSamples
-    // because totalSamples is computed over requestedSystems, not all systems.
     seed(store, 'module:other', [{ agentPersona: 'a', result: 'success' }]);
 
     const recs = recommendPersona(store, { systemNodeIds: ['module:api'] });
-    // Scores tie on module:api (both 0.667); tiebreak should be stable -- both
-    // have totalSamples = 1 over the requested set, so preserve source order.
     expect(recs).toHaveLength(2);
     expect(recs[0].score).toBeCloseTo(recs[1].score, 5);
+    expect(recs[0].totalSamples).toBe(recs[1].totalSamples);
+  });
+
+  it('breaks ties by totalSamples desc when mean scores are equal', () => {
+    const store = new GraphStore();
+    // Construct two personas with identical mean smoothed scores but different sample sizes.
+    // 'a': api=(1s,0f)->(2/3), db=(0s,1f)->(1/3), mean = 0.5, totalSamples = 2
+    // 'b': api=(2s,1f)->(3/5), db=(1s,2f)->(2/5), mean = 0.5, totalSamples = 6
+    seed(store, 'module:api', [
+      { agentPersona: 'a', result: 'success' },
+      { agentPersona: 'b', result: 'success' },
+      { agentPersona: 'b', result: 'success' },
+      { agentPersona: 'b', result: 'failure' },
+    ]);
+    seed(store, 'module:db', [
+      { agentPersona: 'a', result: 'failure' },
+      { agentPersona: 'b', result: 'success' },
+      { agentPersona: 'b', result: 'failure' },
+      { agentPersona: 'b', result: 'failure' },
+    ]);
+
+    const recs = recommendPersona(store, { systemNodeIds: ['module:api', 'module:db'] });
+    expect(recs).toHaveLength(2);
+    expect(recs[0].score).toBeCloseTo(recs[1].score, 5);
+    // 'b' has more samples (6 vs 2), so it wins the tiebreak.
+    expect(recs[0].persona).toBe('b');
+    expect(recs[0].totalSamples).toBe(6);
+    expect(recs[1].totalSamples).toBe(2);
   });
 
   it('returns [] when no candidates can be found', () => {
