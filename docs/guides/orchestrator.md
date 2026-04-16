@@ -35,7 +35,7 @@ Every issue handled by the Orchestrator gets its own isolated workspace director
 The Orchestrator uses a pluggable architecture for both issue tracking and agent execution:
 
 - **Trackers**: Currently supports local `Roadmap` files, with Linear and GitHub support planned.
-- **Backends**: Supports `Claude` (spawning the Claude Code CLI) and a `Mock` backend for testing and CI environments.
+- **Backends**: Supports `Claude` (spawning the Claude Code CLI), `Pi` (embedded pi coding agent SDK for local models with full tool capabilities), `OpenAI-compatible` (chat-only local models), and a `Mock` backend for testing and CI environments.
 
 ## Observability
 

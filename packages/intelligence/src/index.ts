@@ -29,6 +29,7 @@ export type {
 } from './analysis-provider/interface.js';
 export { AnthropicAnalysisProvider } from './analysis-provider/anthropic.js';
 export { OpenAICompatibleAnalysisProvider } from './analysis-provider/openai-compatible.js';
+export { ClaudeCliAnalysisProvider } from './analysis-provider/claude-cli.js';
 
 // SEL — Spec Enrichment Layer
 export { enrich } from './sel/enricher.js';

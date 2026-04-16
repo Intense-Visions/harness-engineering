@@ -63,12 +63,9 @@ agent:
   command: claude
 
   # Local model configuration
-  localBackend: openai-compatible
+  localBackend: pi
   localModel: qwen3:8b # must match a model available on your server
   localEndpoint: http://localhost:11434/v1
-
-  # Optional fallback
-  fallbackModel: codestral:22b
 
   # Escalation routing
   escalation:
@@ -77,12 +74,22 @@ agent:
     autoExecute:
       - quick-fix # simple fixes run locally
       - diagnostic # bug fixes run locally (1 retry before escalation)
-    signalGated:
-      - guided-change # has a plan, runs locally unless concern signals fire
+    primaryExecute:
+      - guided-change # complex tasks route to Claude
+    signalGated: []
     diagnosticRetryBudget: 1 # escalate after 1 failed fix attempt
 ```
 
 The rest of your existing `agent:` settings (rate limits, timeouts, etc.) remain unchanged.
+
+### Local Backend Options
+
+| `localBackend`      | What it does                                                                                                                           | When to use                                                 |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `pi`                | Embeds the [pi coding agent](https://github.com/badlogic/pi-mono) SDK — full agentic tool use (file read/write/edit, bash, grep, find) | **Recommended.** Local model can actually make code changes |
+| `openai-compatible` | Chat-only completions — no tools, no file access                                                                                       | Lightweight analysis tasks only                             |
+
+No global installation is required — `pi` is pulled in automatically as a dependency.
 
 ## 3. Label Roadmap Issues
 
@@ -182,21 +189,22 @@ Roadmap issue picked up by orchestrator
         v
   Detect scope tier (from label or artifact presence)
         |
-   +----+----+----+
-   |         |    |
-quick-fix  guided  full-exploration
-diagnostic change
-   |         |          |
-   v         v          v
- LOCAL    SIGNAL     NEEDS
- MODEL    CHECK      HUMAN
-   |      /    \       |
-   |   clear  fires    |
-   |     |      |      |
-   v     v      v      v
- Execute Execute Dashboard
- locally locally  alert
+   +----+------+----+
+   |           |     |
+quick-fix   guided   full-exploration
+diagnostic  change
+   |           |          |
+   v           v          v
+ LOCAL      PRIMARY    NEEDS
+ MODEL      (Claude)   HUMAN
+ (pi)          |          |
+   |           v          v
+   v        Execute    Dashboard
+ Execute    via CLI      alert
+ locally
 ```
+
+Routing is fully configurable via the `escalation` block in WORKFLOW.md. Move scope tiers between `autoExecute` (local), `primaryExecute` (Claude), `signalGated`, and `alwaysHuman` to control where each type of work runs.
 
 ## Troubleshooting
 
@@ -221,6 +229,7 @@ Your model is too large for available RAM. Switch to a smaller model (see the mo
 ## Final Recommendation
 
 ```yaml
+localBackend: pi
 localModel: qwen3:8b
-fallbackModel: codestral:22b
+localEndpoint: http://localhost:11434/v1
 ```

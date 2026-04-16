@@ -45,11 +45,14 @@ intelligence:
 
 That's it. The pipeline automatically uses whatever backend your orchestrator is configured with:
 
-| Agent Backend                                   | Intelligence Provider       | How It Connects                                                |
-| ----------------------------------------------- | --------------------------- | -------------------------------------------------------------- |
-| `anthropic` or `claude`                         | Anthropic Messages API      | Uses `agent.apiKey` or `ANTHROPIC_API_KEY` env var             |
-| `openai`                                        | OpenAI Chat Completions API | Uses `agent.apiKey` or `OPENAI_API_KEY` env var                |
-| Local (`agent.localBackend: openai-compatible`) | OpenAI-compatible endpoint  | Uses `agent.localEndpoint` (e.g., `http://localhost:11434/v1`) |
+| Agent Backend                                           | Intelligence Provider       | How It Connects                                               |
+| ------------------------------------------------------- | --------------------------- | ------------------------------------------------------------- |
+| Local (`agent.localBackend: pi` or `openai-compatible`) | OpenAI-compatible endpoint  | Uses `agent.localEndpoint` (e.g., `http://localhost:1234/v1`) |
+| `anthropic` or `claude` (with API key)                  | Anthropic Messages API      | Uses `agent.apiKey` or `ANTHROPIC_API_KEY` env var            |
+| `claude` (without API key)                              | Claude CLI                  | Spawns `claude --print` — uses the CLI's own auth             |
+| `openai`                                                | OpenAI Chat Completions API | Uses `agent.apiKey` or `OPENAI_API_KEY` env var               |
+
+The resolution order is: local backend → API key → Claude CLI fallback. This means the pipeline works without any API key if you have a local model server running.
 
 ### Using a local LLM (Ollama, LM Studio, etc.)
 
@@ -57,15 +60,26 @@ If you have a local backend configured for agent dispatch, the intelligence pipe
 
 ```yaml
 agent:
-  localBackend: openai-compatible
-  localEndpoint: http://localhost:11434/v1
-  localModel: deepseek-coder-v2
+  localBackend: pi
+  localEndpoint: http://localhost:1234/v1
+  localModel: gemma-4-e4b
 
 intelligence:
   enabled: true
 ```
 
 The pipeline will call your local LLM for SEL enrichment and PESL simulation — no cloud API key needed.
+
+### Using the Claude CLI (no API key)
+
+If no local backend is configured and no API key is available, the pipeline falls back to the Claude CLI. This uses whatever authentication the `claude` CLI has (from `claude login`):
+
+```yaml
+intelligence:
+  enabled: true
+  provider:
+    kind: claude-cli
+```
 
 ### Override models per layer
 

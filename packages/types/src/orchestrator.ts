@@ -403,7 +403,7 @@ export interface IntelligenceConfig {
    * agent backend config (agent.apiKey, agent.backend).
    */
   provider?: {
-    kind: 'anthropic' | 'openai-compatible';
+    kind: 'anthropic' | 'openai-compatible' | 'claude-cli';
     apiKey?: string;
     baseUrl?: string;
   };

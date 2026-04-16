@@ -13,6 +13,7 @@ import {
   IntelligencePipeline,
   AnthropicAnalysisProvider,
   OpenAICompatibleAnalysisProvider,
+  ClaudeCliAnalysisProvider,
 } from '@harness-engineering/intelligence';
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import type {
@@ -245,8 +246,11 @@ export class Orchestrator extends EventEmitter {
       return this.createProviderFromExplicitConfig(intel.provider, selModel);
     }
 
-    // 2. Local backend (OpenAI-compatible endpoint like Ollama)
-    if (this.config.agent.localBackend === 'openai-compatible') {
+    // 2. Local backend (OpenAI-compatible endpoint like Ollama / LM Studio)
+    if (
+      this.config.agent.localBackend === 'openai-compatible' ||
+      this.config.agent.localBackend === 'pi'
+    ) {
       const endpoint = this.config.agent.localEndpoint ?? 'http://localhost:11434/v1';
       const apiKey = this.config.agent.localApiKey ?? 'ollama';
       const model = selModel ?? this.config.agent.localModel;
@@ -261,40 +265,43 @@ export class Orchestrator extends EventEmitter {
       });
     }
 
-    // 3. Primary agent backend
+    // 3. Primary agent backend (API key)
     const backend = this.config.agent.backend;
     if (backend === 'anthropic' || backend === 'claude') {
       const apiKey = this.config.agent.apiKey ?? process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error(
-          'Intelligence pipeline enabled but no API key found. ' +
-            'Set agent.apiKey in config or ANTHROPIC_API_KEY env var.'
-        );
+      if (apiKey) {
+        return new AnthropicAnalysisProvider({
+          apiKey,
+          ...(selModel !== undefined && { defaultModel: selModel }),
+        });
       }
-      return new AnthropicAnalysisProvider({
-        apiKey,
-        ...(selModel !== undefined && { defaultModel: selModel }),
-      });
+      // No API key — fall through to Claude CLI fallback
     }
 
     if (backend === 'openai') {
       const apiKey = this.config.agent.apiKey ?? process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        throw new Error(
-          'Intelligence pipeline enabled but no OpenAI API key found. ' +
-            'Set agent.apiKey in config or OPENAI_API_KEY env var.'
-        );
+      if (apiKey) {
+        return new OpenAICompatibleAnalysisProvider({
+          apiKey,
+          baseUrl: 'https://api.openai.com/v1',
+          ...(selModel !== undefined && { defaultModel: selModel }),
+        });
       }
-      return new OpenAICompatibleAnalysisProvider({
-        apiKey,
-        baseUrl: 'https://api.openai.com/v1',
+    }
+
+    // 4. Claude CLI fallback — uses the CLI's own auth, no API key needed
+    if (backend === 'claude' || backend === 'anthropic') {
+      this.logger.info('Intelligence pipeline using Claude CLI (no API key configured)');
+      return new ClaudeCliAnalysisProvider({
+        command: this.config.agent.command,
         ...(selModel !== undefined && { defaultModel: selModel }),
+        ...(intel?.requestTimeoutMs !== undefined && { timeoutMs: intel.requestTimeoutMs }),
       });
     }
 
     this.logger.warn(
       `Intelligence pipeline: unsupported backend "${backend}". ` +
-        'Supported: anthropic, claude, openai, or localBackend: openai-compatible.'
+        'Supported: anthropic, claude, openai, or localBackend: openai-compatible / pi.'
     );
     return null;
   }
@@ -311,6 +318,16 @@ export class Orchestrator extends EventEmitter {
       return new AnthropicAnalysisProvider({
         apiKey,
         ...(selModel !== undefined && { defaultModel: selModel }),
+      });
+    }
+
+    if (provider.kind === 'claude-cli') {
+      return new ClaudeCliAnalysisProvider({
+        command: this.config.agent.command,
+        ...(selModel !== undefined && { defaultModel: selModel }),
+        ...(this.config.intelligence?.requestTimeoutMs !== undefined && {
+          timeoutMs: this.config.intelligence.requestTimeoutMs,
+        }),
       });
     }
 
