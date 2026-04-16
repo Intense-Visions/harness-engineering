@@ -53,11 +53,37 @@ describe('computeRateLimitDelay', () => {
     expect(result).toBeGreaterThan(0);
   });
 
-  it('returns delay when per-second request limit is reached', () => {
+  it('returns delay when per-second request limit is exceeded', () => {
     const now = Date.now();
-    // 2 requests in the last 500ms (limit is 2/sec)
-    const recentRequestTimestamps = [now - 100, now - 200];
+    // 3 requests in the last 500ms (limit is 2/sec) — the state machine pushes
+    // the current turn's timestamp before this function is called, so the
+    // snapshot already includes it. We exceed only when length > max.
+    const recentRequestTimestamps = [now, now - 100, now - 200];
     const result = computeRateLimitDelay({ ...emptySnapshot, recentRequestTimestamps }, baseConfig);
+    expect(result).toBeGreaterThan(0);
+    expect(result).toBeLessThanOrEqual(1_000);
+  });
+
+  it('does not throttle the first request when per-second limit is 1', () => {
+    // Regression: the orchestrator pushes the turn_start timestamp into the
+    // snapshot before calling computeRateLimitDelay. With maxRequestsPerSecond=1
+    // and a fresh state, the snapshot contains exactly one timestamp (the
+    // current request). An off-by-one `>=` check previously throttled this
+    // single request for ~999ms on every fresh dispatch.
+    const now = Date.now();
+    const result = computeRateLimitDelay(
+      { ...emptySnapshot, recentRequestTimestamps: [now] },
+      { ...baseConfig, maxRequestsPerSecond: 1 }
+    );
+    expect(result).toBe(0);
+  });
+
+  it('throttles the second request within the same second when limit is 1', () => {
+    const now = Date.now();
+    const result = computeRateLimitDelay(
+      { ...emptySnapshot, recentRequestTimestamps: [now - 100, now] },
+      { ...baseConfig, maxRequestsPerSecond: 1 }
+    );
     expect(result).toBeGreaterThan(0);
     expect(result).toBeLessThanOrEqual(1_000);
   });
