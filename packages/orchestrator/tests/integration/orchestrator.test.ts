@@ -49,7 +49,7 @@ const mockIssue: Issue = {
   state: 'planned',
   branchName: 'feat/test',
   url: null,
-  labels: [],
+  labels: ['scope:quick-fix'],
   blockedBy: [],
   spec: null,
   plans: [],

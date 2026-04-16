@@ -294,8 +294,8 @@ export interface AgentConfig {
   readTimeoutMs: number;
   /** Timeout for agent inactivity */
   stallTimeoutMs: number;
-  /** Local backend type (currently only 'openai-compatible') */
-  localBackend?: 'openai-compatible';
+  /** Local backend type */
+  localBackend?: 'openai-compatible' | 'pi';
   /** Model name for local backend */
   localModel?: string;
   /** Endpoint URL for local backend (e.g., http://localhost:11434/v1) */
@@ -369,6 +369,7 @@ export interface ConcernSignal {
  */
 export type RoutingDecision =
   | { action: 'dispatch-local' }
+  | { action: 'dispatch-primary' }
   | { action: 'needs-human'; reasons: string[] };
 
 /**
@@ -379,6 +380,8 @@ export interface EscalationConfig {
   alwaysHuman: ScopeTier[];
   /** Scope tiers that always dispatch to local backend (default: ['quick-fix', 'diagnostic']) */
   autoExecute: ScopeTier[];
+  /** Scope tiers that always dispatch to the primary backend (default: []) */
+  primaryExecute: ScopeTier[];
   /** Scope tiers that dispatch locally only when no concern signals fire (default: ['guided-change']) */
   signalGated: ScopeTier[];
   /** Max retries for diagnostic issues before escalating (default: 1) */

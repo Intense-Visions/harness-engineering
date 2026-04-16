@@ -53,7 +53,7 @@ describe('Orchestrator Sentinel Integration', () => {
     state: 'planned',
     branchName: 'feat/sentinel-test',
     url: null,
-    labels: [],
+    labels: ['scope:quick-fix'],
     blockedBy: [],
     spec: null,
     plans: [],

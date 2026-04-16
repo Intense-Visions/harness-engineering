@@ -26,6 +26,7 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
 const defaultConfig: EscalationConfig = {
   alwaysHuman: ['full-exploration'],
   autoExecute: ['quick-fix', 'diagnostic'],
+  primaryExecute: [],
   signalGated: ['guided-change'],
   diagnosticRetryBudget: 1,
 };
@@ -128,10 +129,41 @@ describe('routeIssue', () => {
     expect(result.action).toBe('needs-human');
   });
 
+  it('returns dispatch-primary for guided-change when in primaryExecute', () => {
+    const config: EscalationConfig = {
+      ...defaultConfig,
+      primaryExecute: ['guided-change'],
+      signalGated: [],
+    };
+    const result = routeIssue('guided-change', [], config);
+    expect(result.action).toBe('dispatch-primary');
+  });
+
+  it('primaryExecute takes precedence over autoExecute for same tier', () => {
+    const config: EscalationConfig = {
+      ...defaultConfig,
+      primaryExecute: ['quick-fix'],
+      autoExecute: ['quick-fix'],
+    };
+    const result = routeIssue('quick-fix', [], config);
+    expect(result.action).toBe('dispatch-primary');
+  });
+
+  it('alwaysHuman takes precedence over primaryExecute', () => {
+    const config: EscalationConfig = {
+      ...defaultConfig,
+      alwaysHuman: ['guided-change'],
+      primaryExecute: ['guided-change'],
+    };
+    const result = routeIssue('guided-change', [], config);
+    expect(result.action).toBe('needs-human');
+  });
+
   it('returns dispatch-local for scope tier not in any config list', () => {
     const emptyConfig: EscalationConfig = {
       alwaysHuman: [],
       autoExecute: [],
+      primaryExecute: [],
       signalGated: [],
       diagnosticRetryBudget: 1,
     };

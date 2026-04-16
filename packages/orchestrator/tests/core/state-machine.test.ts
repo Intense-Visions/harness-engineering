@@ -69,10 +69,10 @@ describe('applyEvent - tick', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
     const candidates = [
-      makeIssue({ id: '1', identifier: 'A-1', priority: 1 }),
-      makeIssue({ id: '2', identifier: 'A-2', priority: 2 }),
-      makeIssue({ id: '3', identifier: 'A-3', priority: 3 }),
-      makeIssue({ id: '4', identifier: 'A-4', priority: 4 }),
+      makeIssue({ id: '1', identifier: 'A-1', priority: 1, labels: ['scope:quick-fix'] }),
+      makeIssue({ id: '2', identifier: 'A-2', priority: 2, labels: ['scope:quick-fix'] }),
+      makeIssue({ id: '3', identifier: 'A-3', priority: 3, labels: ['scope:quick-fix'] }),
+      makeIssue({ id: '4', identifier: 'A-4', priority: 4, labels: ['scope:quick-fix'] }),
     ];
 
     const event: OrchestratorEvent = {
@@ -100,8 +100,8 @@ describe('applyEvent - tick', () => {
     state.claimed.add('1');
 
     const candidates = [
-      makeIssue({ id: '1', identifier: 'A-1', priority: 1 }),
-      makeIssue({ id: '2', identifier: 'A-2', priority: 2 }),
+      makeIssue({ id: '1', identifier: 'A-1', priority: 1, labels: ['scope:quick-fix'] }),
+      makeIssue({ id: '2', identifier: 'A-2', priority: 2, labels: ['scope:quick-fix'] }),
     ];
 
     const event: OrchestratorEvent = {
@@ -152,7 +152,7 @@ describe('applyEvent - tick', () => {
   it('should dispatch with null attempt for fresh issues', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
-    const candidates = [makeIssue({ id: '1', identifier: 'A-1' })];
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:quick-fix'] })];
 
     const event: OrchestratorEvent = {
       type: 'tick',
@@ -173,8 +173,8 @@ describe('applyEvent - tick', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
     const candidates = [
-      makeIssue({ id: '1', identifier: 'A-1', state: 'Done' }),
-      makeIssue({ id: '2', identifier: 'A-2', state: 'Todo' }),
+      makeIssue({ id: '1', identifier: 'A-1', state: 'Done', labels: ['scope:quick-fix'] }),
+      makeIssue({ id: '2', identifier: 'A-2', state: 'Todo', labels: ['scope:quick-fix'] }),
     ];
 
     const event: OrchestratorEvent = {
@@ -307,7 +307,9 @@ describe('applyEvent - retry_fired', () => {
       error: null,
     });
 
-    const candidates = [makeIssue({ id: 'id-1', identifier: 'TEST-1', state: 'Todo' })];
+    const candidates = [
+      makeIssue({ id: 'id-1', identifier: 'TEST-1', state: 'Todo', labels: ['scope:quick-fix'] }),
+    ];
     const event: OrchestratorEvent = {
       type: 'retry_fired',
       issueId: 'id-1',
@@ -654,6 +656,7 @@ describe('applyEvent - tick with routing', () => {
         escalation: {
           alwaysHuman: ['full-exploration'],
           autoExecute: ['quick-fix', 'diagnostic'],
+          primaryExecute: [],
           signalGated: ['guided-change'],
           diagnosticRetryBudget: 1,
         },
@@ -723,10 +726,10 @@ describe('applyEvent - tick with routing', () => {
     expect(dispatches[0].backend).toBe('local');
   });
 
-  it('should not route when localBackend is not configured', () => {
+  it('should dispatch to primary when localBackend is not configured', () => {
     const config = makeConfig(); // No localBackend
     const state = createEmptyState(config);
-    const candidates = [makeIssue({ id: '1', identifier: 'A-1' })];
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:quick-fix'] })];
 
     const event: OrchestratorEvent = {
       type: 'tick',
@@ -738,8 +741,37 @@ describe('applyEvent - tick with routing', () => {
     const { effects } = applyEvent(state, event, config);
     const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
     expect(dispatches).toHaveLength(1);
-    // backend should be 'primary' (or undefined for backward compat)
-    expect(dispatches[0].backend).not.toBe('local');
+    // Without localBackend, even autoExecute tiers dispatch to primary
+    expect(dispatches[0].backend).toBe('primary');
+  });
+
+  it('should dispatch guided-change to primary backend when in primaryExecute', () => {
+    const config = makeRoutingConfig({
+      agent: {
+        ...makeRoutingConfig().agent,
+        escalation: {
+          alwaysHuman: ['full-exploration'],
+          autoExecute: ['quick-fix', 'diagnostic'],
+          primaryExecute: ['guided-change'],
+          signalGated: [],
+          diagnosticRetryBudget: 1,
+        },
+      },
+    });
+    const state = createEmptyState(config);
+    const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:guided-change'] })];
+
+    const event: OrchestratorEvent = {
+      type: 'tick',
+      candidates,
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { effects } = applyEvent(state, event, config);
+    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
+    expect(dispatches).toHaveLength(1);
+    expect(dispatches[0].backend).toBe('primary');
   });
 });
 

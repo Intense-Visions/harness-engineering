@@ -42,34 +42,9 @@ export function resolveEscalationConfig(config: WorkflowConfig): EscalationConfi
   return {
     alwaysHuman: partial?.alwaysHuman ?? ['full-exploration'],
     autoExecute: partial?.autoExecute ?? ['quick-fix', 'diagnostic'],
+    primaryExecute: partial?.primaryExecute ?? [],
     signalGated: partial?.signalGated ?? ['guided-change'],
     diagnosticRetryBudget: partial?.diagnosticRetryBudget ?? 1,
-  };
-}
-
-function tryEscalate(
-  issue: Issue,
-  event: TickEvent,
-  config: WorkflowConfig,
-  escalationConfig: import('@harness-engineering/types').EscalationConfig
-): EscalateEffect | null {
-  if (!config.agent.localBackend) return null;
-  const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-  const signals = event.concernSignals?.get(issue.id) ?? [];
-  const decision = routeIssue(scopeTier, signals, escalationConfig);
-  if (decision.action !== 'needs-human') return null;
-
-  const enrichedSpec = event.enrichedSpecs?.get(issue.id);
-  const complexityScore = event.complexityScores?.get(issue.id);
-  return {
-    type: 'escalate',
-    issueId: issue.id,
-    identifier: issue.identifier,
-    reasons: decision.reasons,
-    issueTitle: issue.title,
-    issueDescription: issue.description,
-    ...(enrichedSpec !== undefined && { enrichedSpec }),
-    ...(complexityScore !== undefined && { complexityScore }),
   };
 }
 
@@ -138,13 +113,6 @@ function handleTick(
       break; // No more slots available
     }
 
-    const escalation = tryEscalate(issue, event, config, escalationConfig);
-    if (escalation) {
-      next.claimed.add(issue.id);
-      effects.push(escalation);
-      continue;
-    }
-
     // Check PESL simulation result for abort recommendation
     const peslAbort = tryPeslAbort(issue, event);
     if (peslAbort) {
@@ -152,6 +120,36 @@ function handleTick(
       effects.push(peslAbort);
       continue;
     }
+
+    // Route via model router (three-way: local / primary / human)
+    const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
+    const signals = event.concernSignals?.get(issue.id) ?? [];
+    const decision = routeIssue(scopeTier, signals, escalationConfig);
+
+    if (decision.action === 'needs-human') {
+      const enrichedSpec = event.enrichedSpecs?.get(issue.id);
+      const complexityScore = event.complexityScores?.get(issue.id);
+      const escalation: EscalateEffect = {
+        type: 'escalate',
+        issueId: issue.id,
+        identifier: issue.identifier,
+        reasons: decision.reasons,
+        issueTitle: issue.title,
+        issueDescription: issue.description,
+        ...(enrichedSpec !== undefined && { enrichedSpec }),
+        ...(complexityScore !== undefined && { complexityScore }),
+      };
+      next.claimed.add(issue.id);
+      effects.push(escalation);
+      continue;
+    }
+
+    const backend: 'local' | 'primary' =
+      decision.action === 'dispatch-primary'
+        ? 'primary'
+        : config.agent.localBackend
+          ? 'local'
+          : 'primary';
 
     next.claimed.add(issue.id);
     // Add a placeholder RunningEntry so canDispatch sees the correct count
@@ -169,7 +167,7 @@ function handleTick(
       type: 'dispatch',
       issue,
       attempt: null,
-      backend: config.agent.localBackend ? 'local' : 'primary',
+      backend,
     });
   }
 
@@ -398,36 +396,33 @@ function handleRetryFired(
     return { nextState: next, effects };
   }
 
-  // Re-route through model router to preserve backend assignment (only when local backend is configured)
+  // Re-route through model router to preserve backend assignment
   // Note: retry path does not have intelligence pipeline signals — retries use empty signals
-  // (retries are diagnostic-tier which is autoExecute, so signals wouldn't affect routing)
-  if (config.agent.localBackend) {
-    const escalationConfig = resolveEscalationConfig(config);
-    const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
-    const decision = routeIssue(scopeTier, [], escalationConfig);
+  const escalationConfig = resolveEscalationConfig(config);
+  const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
+  const decision = routeIssue(scopeTier, [], escalationConfig);
 
-    if (decision.action === 'needs-human') {
-      effects.push({
-        type: 'escalate',
-        issueId: issue.id,
-        identifier: issue.identifier,
-        reasons: decision.reasons,
-        issueTitle: issue.title,
-        issueDescription: issue.description,
-      });
-    } else {
-      effects.push({
-        type: 'dispatch',
-        issue,
-        attempt: retryEntry.attempt,
-        backend: 'local',
-      });
-    }
+  if (decision.action === 'needs-human') {
+    effects.push({
+      type: 'escalate',
+      issueId: issue.id,
+      identifier: issue.identifier,
+      reasons: decision.reasons,
+      issueTitle: issue.title,
+      issueDescription: issue.description,
+    });
   } else {
+    const backend: 'local' | 'primary' =
+      decision.action === 'dispatch-primary'
+        ? 'primary'
+        : config.agent.localBackend
+          ? 'local'
+          : 'primary';
     effects.push({
       type: 'dispatch',
       issue,
       attempt: retryEntry.attempt,
+      backend,
     });
   }
 

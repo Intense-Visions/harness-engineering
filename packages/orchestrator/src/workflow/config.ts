@@ -55,6 +55,7 @@ export function getDefaultConfig(): WorkflowConfig {
       escalation: {
         alwaysHuman: ['full-exploration'],
         autoExecute: ['quick-fix', 'diagnostic'],
+        primaryExecute: [],
         signalGated: ['guided-change'],
         diagnosticRetryBudget: 1,
       },

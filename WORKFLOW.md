@@ -18,14 +18,15 @@ agent:
   backend: claude
   command: claude
   # Local model for autonomous execution of simple tasks
-  localBackend: openai-compatible
+  localBackend: pi
   localEndpoint: http://localhost:1234/v1
   localModel: gemma-4-e4b
-  # Escalation routing — controls what runs locally vs needs human
+  # Escalation routing — controls what runs locally vs primary vs human
   escalation:
     alwaysHuman: [full-exploration]
     autoExecute: [quick-fix, diagnostic]
-    signalGated: [guided-change]
+    primaryExecute: [guided-change]
+    signalGated: []
     diagnosticRetryBudget: 1
   maxConcurrentAgents: 1
   maxTurns: 10

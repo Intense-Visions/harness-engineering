@@ -111,7 +111,7 @@ export function Layout({ children }: Props) {
         </header>
 
         <main
-          className={`mx-auto w-full max-w-7xl px-6 pt-32 pb-12 transition-all duration-500 ${isChatOpen ? 'mr-0 ml-auto' : 'mx-auto'}`}
+          className={`mx-auto w-full max-w-7xl px-6 pt-32 pb-12 flex-1 flex flex-col transition-all duration-500 ${isChatOpen ? 'mr-0 ml-auto' : 'mx-auto'}`}
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -120,6 +120,7 @@ export function Layout({ children }: Props) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
               transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="flex-1 flex flex-col"
             >
               {children}
             </motion.div>

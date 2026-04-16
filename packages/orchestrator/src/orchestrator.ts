@@ -54,6 +54,7 @@ import { OpenAIBackend } from './agent/backends/openai';
 import { GeminiBackend } from './agent/backends/gemini';
 import { AnthropicBackend } from './agent/backends/anthropic';
 import { LocalBackend } from './agent/backends/local';
+import { PiBackend } from './agent/backends/pi';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
@@ -201,6 +202,13 @@ export class Orchestrator extends EventEmitter {
       if (this.config.agent.localTimeoutMs)
         localConfig.timeoutMs = this.config.agent.localTimeoutMs;
       return new LocalBackend(localConfig);
+    }
+    if (this.config.agent.localBackend === 'pi') {
+      return new PiBackend({
+        model: this.config.agent.localModel,
+        endpoint: this.config.agent.localEndpoint,
+        apiKey: this.config.agent.localApiKey,
+      });
     }
     return null;
   }

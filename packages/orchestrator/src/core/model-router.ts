@@ -61,13 +61,14 @@ export function detectScopeTier(issue: Issue, artifacts: ArtifactPresence): Scop
 
 /**
  * Pure routing function. Determines whether an issue should be dispatched
- * to the local backend or escalated to needs-human.
+ * to the local backend, the primary backend, or escalated to needs-human.
  *
  * Routing rules (in order):
  * 1. If tier is in alwaysHuman -> needs-human
- * 2. If tier is in autoExecute -> dispatch-local
- * 3. If tier is in signalGated -> check concern signals
- * 4. Otherwise -> dispatch-local (safe default)
+ * 2. If tier is in primaryExecute -> dispatch-primary
+ * 3. If tier is in autoExecute -> dispatch-local
+ * 4. If tier is in signalGated -> check concern signals
+ * 5. Otherwise -> dispatch-local (safe default)
  */
 export function routeIssue(
   scopeTier: ScopeTier,
@@ -82,12 +83,17 @@ export function routeIssue(
     };
   }
 
-  // Rule 2: Auto execute
+  // Rule 2: Primary backend (complex tasks that need a capable model)
+  if (config.primaryExecute.includes(scopeTier)) {
+    return { action: 'dispatch-primary' };
+  }
+
+  // Rule 3: Auto execute (simple tasks for local model)
   if (config.autoExecute.includes(scopeTier)) {
     return { action: 'dispatch-local' };
   }
 
-  // Rule 3: Signal gated
+  // Rule 4: Signal gated
   if (config.signalGated.includes(scopeTier)) {
     if (concernSignals.length > 0) {
       return {
@@ -98,6 +104,6 @@ export function routeIssue(
     return { action: 'dispatch-local' };
   }
 
-  // Rule 4: Default - dispatch locally
+  // Rule 5: Default - dispatch locally
   return { action: 'dispatch-local' };
 }
