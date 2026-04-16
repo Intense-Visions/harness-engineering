@@ -5,6 +5,19 @@ import * as os from 'node:os';
 import { PlanWatcher } from '../../src/server/plan-watcher';
 import { InteractionQueue } from '../../src/core/interaction-queue';
 
+/** Poll until a condition is met or timeout expires. */
+async function waitFor(
+  fn: () => Promise<boolean>,
+  timeoutMs = 5000,
+  intervalMs = 100
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (await fn()) return;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
 describe('PlanWatcher', () => {
   let plansDir: string;
   let interactionsDir: string;
@@ -50,8 +63,11 @@ describe('PlanWatcher', () => {
       '# Plan for CORE-42'
     );
 
-    // Wait for the watcher to detect and process
-    await new Promise((r) => setTimeout(r, 1500));
+    // Poll until the watcher detects and processes the file
+    await waitFor(async () => {
+      const list = await queue.list();
+      return list.find((i) => i.id === 'int-core42')?.status === 'resolved';
+    });
 
     const interactions = await queue.list();
     const resolved = interactions.find((i) => i.id === 'int-core42');
