@@ -6,6 +6,7 @@ import { Health } from './pages/Health';
 import { Graph } from './pages/Graph';
 import { CI } from './pages/CI';
 import { Impact } from './pages/Impact';
+import { Adoption } from './pages/Adoption';
 
 export function App() {
   return (
@@ -18,6 +19,7 @@ export function App() {
           <Route path="/graph" element={<Graph />} />
           <Route path="/ci" element={<CI />} />
           <Route path="/impact" element={<Impact />} />
+          <Route path="/adoption" element={<Adoption />} />
         </Routes>
       </Layout>
     </BrowserRouter>

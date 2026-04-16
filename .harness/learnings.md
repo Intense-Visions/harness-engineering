@@ -1,5 +1,11 @@
 # Learnings
 
+## 2026-04-16 — Adoption & Usage Telemetry: Dashboard UI Completion
+
+- [skill:harness-execution] [outcome:success] Types, core reader/aggregator, Stop hook, CLI commands (`harness adoption skills/recent/skill`), and the `/api/adoption` route were already implemented (commit c2f57471). Proposal success criterion #9 ("adoption appears on the dashboard") was the only remaining gap: the API existed but no UI consumed it.
+- [skill:harness-execution] [outcome:decision] Chose a dedicated `/adoption` page over an Overview section because the data model (ranked skill list with per-skill metrics) does not reduce cleanly to a KPI card and warrants its own surface. Pattern mirrors `Impact` page structure.
+- [skill:harness-execution] [outcome:gotcha] Client code imports types via `@shared/types`, not `@harness-engineering/types` directly — vite alias is `@shared` only. Re-exported `AdoptionSnapshot` and `SkillAdoptionSummary` through `packages/dashboard/src/shared/types.ts` to keep the pattern consistent with `FeatureStatus`.
+
 ## 2026-03-24 — Constraint Sharing Merge Engine
 
 - [skill:harness-execution] [outcome:gotcha] Zod inferred types with optional fields produce `string | undefined` which conflicts with `exactOptionalPropertyTypes: true` in tsconfig. When pushing Zod-inferred objects into typed arrays, construct the entry explicitly and conditionally assign optional fields only when defined.
