@@ -251,7 +251,7 @@ Publishes locally generated intelligence analyses to the external issue tracker 
 
 **Options:**
 
-- `-d, --dir` — Workspace directory (default: "/Users/cwarner/Projects/Intense Visions/harness-engineering")
+- `-d, --dir` — Workspace directory (default: "/Users/cwarner/Projects/harness-engineering")
 
 ### `harness query <rootNodeId>`
 
@@ -326,7 +326,7 @@ Pull published intelligence analyses from the external issue tracker into the lo
 
 **Options:**
 
-- `-d, --dir` — Workspace directory (default: "/Users/cwarner/Projects/Intense Visions/harness-engineering")
+- `-d, --dir` — Workspace directory (default: "/Users/cwarner/Projects/harness-engineering")
 
 ### `harness traceability`
 
