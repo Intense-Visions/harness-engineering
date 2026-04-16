@@ -50,6 +50,11 @@ export interface ReviewFinding {
   remediation?: string;
   /** Links to CWE/OWASP reference docs (security domain only) */
   references?: string[];
+  /**
+   * ID of the RubricItem this finding was produced against (thorough mode only).
+   * Lets consumers trace a finding back to the pre-generated criterion.
+   */
+  rubricItemId?: string;
 }
 
 /**

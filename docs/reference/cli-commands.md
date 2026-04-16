@@ -234,6 +234,8 @@ Start the MCP (Model Context Protocol) server on stdio
 **Options:**
 
 - `--tools` — Only register the specified tools (used by Cursor integration)
+- `--tier` — Load a preset tool tier instead of all tools
+- `--budget-tokens` — Auto-select tier to fit this baseline token budget
 
 ### `harness predict`
 
@@ -416,6 +418,8 @@ Run unified code review pipeline on current changes
 - `--ci` — Enable eligibility gate, non-interactive output
 - `--deep` — Add threat modeling pass to security agent
 - `--no-mechanical` — Skip mechanical checks
+- `--thorough` — Generate task-specific rubric before reading implementation
+- `--isolated` — Two-stage review: spec-compliance then code-quality with disjoint context
 
 ### `harness agent run [task]`
 

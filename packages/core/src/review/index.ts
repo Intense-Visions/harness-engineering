@@ -99,3 +99,15 @@ export { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
 // Pipeline orchestrator
 export { runReviewPipeline } from './pipeline-orchestrator';
 export type { RunPipelineOptions } from './pipeline-orchestrator';
+
+// Parallel-group scheduling (reusable beyond review)
+export { findParallelGroups } from './parallel-groups';
+export type { GraphNode, ParallelGroups } from './types';
+
+// Meta-judge rubric
+export { generateRubric } from './meta-judge';
+export type { GenerateRubricOptions } from './meta-judge';
+export type { Rubric, RubricItem, ReviewStage } from './types';
+
+// Two-stage isolation
+export { splitBundlesByStage, stageDomains } from './two-stage';

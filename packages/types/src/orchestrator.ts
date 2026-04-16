@@ -244,6 +244,14 @@ export interface PollingConfig {
 export interface WorkspaceConfig {
   /** Root directory where agent workspaces are created */
   root: string;
+  /**
+   * Git ref to base new worktrees on. When unset, the orchestrator attempts
+   * to resolve the repository's default branch (via `origin/HEAD`, then
+   * `origin/main`, `origin/master`, `main`, `master`), falling back to the
+   * current `HEAD`. Set explicitly to opt out of auto-detection (e.g. to
+   * branch agents off a long-running integration branch).
+   */
+  baseRef?: string;
 }
 
 /**
