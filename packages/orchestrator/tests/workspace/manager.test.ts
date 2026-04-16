@@ -57,10 +57,142 @@ describe('WorkspaceManager', () => {
     }
 
     // Should have called git worktree add
-    const worktreeCall = manager.gitCalls.find((c) => c.args[0] === 'worktree');
+    const worktreeCall = manager.gitCalls.find(
+      (c) => c.args[0] === 'worktree' && c.args[1] === 'add'
+    );
     expect(worktreeCall).toBeDefined();
     expect(worktreeCall!.args).toContain('--detach');
     expect(worktreeCall!.cwd).toBe('/repo');
+  });
+
+  describe('base ref resolution', () => {
+    beforeEach(() => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
+      vi.mocked(fs.readdir).mockRejectedValue(new Error('ENOENT'));
+    });
+
+    function worktreeAddRef(m: TestableWorkspaceManager): string | undefined {
+      const call = m.gitCalls.find((c) => c.args[0] === 'worktree' && c.args[1] === 'add');
+      // args: ['worktree', 'add', '--detach', <path>, <ref>]
+      return call?.args[4];
+    }
+
+    it('uses origin/main by default when origin/HEAD points there', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') return 'origin/main\n';
+        return '';
+      });
+
+      await manager.ensureWorkspace('test-issue');
+      expect(worktreeAddRef(manager)).toBe('origin/main');
+    });
+
+    it('bases the worktree on origin/main, NOT on the current HEAD', async () => {
+      // Regression: with the old behavior, the agent worktree inherited the
+      // user's currently-checked-out branch tip, causing agent-created PRs
+      // to include all of that branch's commits as "changed".
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') return 'origin/main\n';
+        return '';
+      });
+
+      await manager.ensureWorkspace('test-issue');
+      expect(worktreeAddRef(manager)).not.toBe('HEAD');
+    });
+
+    it('honors an explicit workspace.baseRef when provided', async () => {
+      const configured = new TestableWorkspaceManager({
+        root: '/tmp/workspaces',
+        baseRef: 'origin/release-candidate',
+      });
+      configured.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        // rev-parse --verify succeeds (returns empty) → ref exists
+        return '';
+      });
+
+      await configured.ensureWorkspace('test-issue');
+      expect(worktreeAddRef(configured)).toBe('origin/release-candidate');
+    });
+
+    it('throws when an explicit baseRef does not resolve', async () => {
+      const configured = new TestableWorkspaceManager({
+        root: '/tmp/workspaces',
+        baseRef: 'origin/no-such-branch',
+      });
+      configured.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'rev-parse' && args[1] === '--verify') {
+          throw new Error('fatal: Needed a single revision');
+        }
+        return '';
+      });
+
+      const result = await configured.ensureWorkspace('test-issue');
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toContain('origin/no-such-branch');
+      }
+    });
+
+    it('falls back through common defaults when origin/HEAD is not set', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') {
+          throw new Error('fatal: ref refs/remotes/origin/HEAD is not a symbolic ref');
+        }
+        // origin/main missing, origin/master exists
+        if (args[0] === 'rev-parse' && args[1] === '--verify' && args[3] === 'origin/main') {
+          throw new Error('not found');
+        }
+        if (args[0] === 'rev-parse' && args[1] === '--verify' && args[3] === 'origin/master') {
+          return '';
+        }
+        return '';
+      });
+
+      await manager.ensureWorkspace('test-issue');
+      expect(worktreeAddRef(manager)).toBe('origin/master');
+    });
+
+    it('ultimately falls back to HEAD when no default ref can be resolved', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') throw new Error('not symbolic');
+        if (args[0] === 'rev-parse' && args[1] === '--verify') throw new Error('missing');
+        return '';
+      });
+
+      await manager.ensureWorkspace('test-issue');
+      expect(worktreeAddRef(manager)).toBe('HEAD');
+    });
+
+    it('attempts a best-effort fetch before resolving the base ref', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') return 'origin/main\n';
+        return '';
+      });
+
+      await manager.ensureWorkspace('test-issue');
+      const fetchCall = manager.gitCalls.find((c) => c.args[0] === 'fetch');
+      expect(fetchCall).toBeDefined();
+    });
+
+    it('proceeds with local state when fetch fails (offline)', async () => {
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'fetch') throw new Error('fatal: unable to access remote');
+        if (args[0] === 'symbolic-ref') return 'origin/main\n';
+        return '';
+      });
+
+      const result = await manager.ensureWorkspace('test-issue');
+      expect(result.ok).toBe(true);
+      expect(worktreeAddRef(manager)).toBe('origin/main');
+    });
   });
 
   it('removes stale directory before creating worktree', async () => {

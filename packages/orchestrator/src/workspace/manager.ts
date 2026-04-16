@@ -89,13 +89,79 @@ export class WorkspaceManager {
 
       const repoRoot = await this.getRepoRoot();
 
-      // Create the worktree from HEAD in detached mode so we don't
-      // collide with checked-out branches.
-      await this.git(['worktree', 'add', '--detach', workspacePath, 'HEAD'], repoRoot);
+      // Best-effort fetch so origin/<default> reflects the latest remote
+      // state. Silent on failure so offline / no-remote setups still work.
+      await this.tryFetch(repoRoot);
+
+      // Resolve the base ref (configured → auto-detected → fallbacks). We
+      // create the worktree in detached mode so it can't collide with a
+      // branch that is already checked out elsewhere.
+      const baseRef = await this.resolveBaseRef(repoRoot);
+      await this.git(['worktree', 'add', '--detach', workspacePath, baseRef], repoRoot);
 
       return Ok(workspacePath);
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Best-effort `git fetch origin` so subsequent ref resolution sees the
+   * latest remote state. Failures (offline, no remote, auth errors) are
+   * swallowed — dispatch should not be blocked by transient network issues.
+   */
+  private async tryFetch(repoRoot: string): Promise<void> {
+    try {
+      await this.git(['fetch', 'origin', '--quiet'], repoRoot);
+    } catch {
+      // Intentional: proceed with whatever refs already exist locally.
+    }
+  }
+
+  /**
+   * Resolves the ref that new worktrees should be based on.
+   *
+   * Priority order:
+   *   1. `config.baseRef` (explicit override). Throws if it doesn't resolve.
+   *   2. Default branch via `git symbolic-ref --short refs/remotes/origin/HEAD`.
+   *   3. Common fallbacks: `origin/main`, `origin/master`, `main`, `master`.
+   *   4. `HEAD` as an ultimate fallback (preserves old behavior for unusual
+   *      repos without any of the above).
+   */
+  private async resolveBaseRef(repoRoot: string): Promise<string> {
+    const configured = this.config.baseRef;
+    if (configured) {
+      if (await this.refExists(configured, repoRoot)) return configured;
+      throw new Error(
+        `Configured workspace.baseRef "${configured}" does not resolve in this repository`
+      );
+    }
+
+    try {
+      const stdout = await this.git(
+        ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
+        repoRoot
+      );
+      const detected = stdout.trim();
+      if (detected) return detected;
+    } catch {
+      // origin/HEAD not set — fall through to known-name lookups.
+    }
+
+    for (const candidate of ['origin/main', 'origin/master', 'main', 'master']) {
+      if (await this.refExists(candidate, repoRoot)) return candidate;
+    }
+
+    return 'HEAD';
+  }
+
+  /** Returns true iff `git rev-parse --verify` accepts the ref. */
+  private async refExists(ref: string, repoRoot: string): Promise<boolean> {
+    try {
+      await this.git(['rev-parse', '--verify', '--quiet', ref], repoRoot);
+      return true;
+    } catch {
+      return false;
     }
   }
 
