@@ -44,11 +44,13 @@ export function readLastHead(projectPath: string): string | null {
  * Write the current HEAD to the dispatch tracking file.
  */
 export function writeLastHead(projectPath: string, head: string): void {
-  const filePath = path.join(projectPath, LAST_HEAD_FILE);
+  const resolved = path.resolve(projectPath);
+  const filePath = path.join(resolved, LAST_HEAD_FILE);
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+  // harness-ignore SEC-PTH-001: filePath is path.join(resolved, constant); concatenation is file content, not path
   fs.writeFileSync(filePath, head + '\n', 'utf8');
 }
 

@@ -546,6 +546,8 @@ Search the skill catalog for domain-specific skills. Returns ranked results base
 - `query` (string, required) — Natural language or keyword query to search for skills
 - `path` (string, optional) — Project root path (defaults to cwd)
 - `platform` (string, optional) — Target platform (defaults to claude-code)
+- `offset` (number, optional) — Number of results to skip (default 0)
+- `limit` (number, optional) — Maximum results to return (default 5)
 
 ## Runners & Reviewers
 
