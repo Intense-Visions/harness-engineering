@@ -1,5 +1,11 @@
 # Learnings
 
+## 2026-04-16 — Adoption & Usage Telemetry: Roadmap Closure
+
+- [skill:harness-verification] [outcome:success] Verified all 13 spec success criteria satisfied against origin/main: types in `packages/types/src/adoption.ts`, core reader/aggregator in `packages/core/src/adoption/`, Stop hook `packages/cli/src/hooks/adoption-tracker.js` registered under `standard` profile, CLI `harness adoption skills|recent|skill` with `--json`, `/api/adoption` endpoint, dedicated `/adoption` dashboard page wired into route table and nav. `harness validate` passes.
+- [skill:harness-verification] [outcome:observation] Issue #134 / roadmap entry remained `in-progress` after all underlying code landed across PRs #147 and #149. Roadmap closure (status flip to `done`) is a separate manual step from implementation landing — useful reminder that tracker state can lag behind the code.
+- [skill:harness-verification] [outcome:decision] Scoped this PR to the roadmap status update only. Re-shipping code that is already merged on main would be churn; the honest completion of the issue is updating the tracking surface to reflect reality.
+
 ## 2026-04-16 — Adoption & Usage Telemetry: Dashboard UI Completion
 
 - [skill:harness-execution] [outcome:success] Types, core reader/aggregator, Stop hook, CLI commands (`harness adoption skills/recent/skill`), and the `/api/adoption` route were already implemented (commit c2f57471). Proposal success criterion #9 ("adoption appears on the dashboard") was the only remaining gap: the API existed but no UI consumed it.
