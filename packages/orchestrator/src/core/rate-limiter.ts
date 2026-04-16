@@ -36,9 +36,13 @@ export function computeRateLimitDelay(
     return 60_000 - (now - oldest);
   }
 
-  // Per-second request limit
+  // Per-second request limit. The state machine pushes the current turn's
+  // timestamp into recentRequestTimestamps *before* this function runs, so the
+  // snapshot already includes the in-flight request. We only throttle when the
+  // count exceeds the limit — matching the per-minute check above and
+  // preventing a spurious ~999ms stall on the first dispatch when max=1.
   const recentSec = snapshot.recentRequestTimestamps.filter((ts) => now - ts < 1_000);
-  if (recentSec.length >= config.maxRequestsPerSecond) {
+  if (recentSec.length > config.maxRequestsPerSecond) {
     const oldest = Math.min(...recentSec);
     return 1_000 - (now - oldest);
   }
