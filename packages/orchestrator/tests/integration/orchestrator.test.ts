@@ -1,38 +1,44 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Orchestrator } from '../../src/orchestrator';
 import { WorkflowConfig, Issue, Ok } from '@harness-engineering/types';
 import { MockBackend } from '../../src/agent/backends/mock';
 import path from 'node:path';
 import os from 'node:os';
+import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 
-const mockConfig: WorkflowConfig = {
-  tracker: {
-    kind: 'mock',
-    activeStates: ['planned'],
-    terminalStates: ['done'],
-  },
-  polling: { intervalMs: 1000 },
-  workspace: { root: path.join(os.tmpdir(), 'harness-test') },
-  hooks: {
-    afterCreate: null,
-    beforeRun: null,
-    afterRun: null,
-    beforeRemove: null,
-    timeoutMs: 1000,
-  },
-  agent: {
-    backend: 'mock',
-    maxConcurrentAgents: 2,
-    maxTurns: 3,
-    maxRetryBackoffMs: 1000,
-    maxRetries: 5,
-    maxConcurrentAgentsByState: { planned: 1 },
-    turnTimeoutMs: 5000,
-    readTimeoutMs: 5000,
-    stallTimeoutMs: 5000,
-  },
-  server: { port: null },
-};
+let tmpDir: string;
+
+function createMockConfig(): WorkflowConfig {
+  return {
+    tracker: {
+      kind: 'mock',
+      activeStates: ['planned'],
+      terminalStates: ['done'],
+    },
+    polling: { intervalMs: 1000 },
+    workspace: { root: path.join(tmpDir, '.harness', 'workspaces') },
+    hooks: {
+      afterCreate: null,
+      beforeRun: null,
+      afterRun: null,
+      beforeRemove: null,
+      timeoutMs: 1000,
+    },
+    agent: {
+      backend: 'mock',
+      maxConcurrentAgents: 2,
+      maxTurns: 3,
+      maxRetryBackoffMs: 1000,
+      maxRetries: 5,
+      maxConcurrentAgentsByState: { planned: 1 },
+      turnTimeoutMs: 5000,
+      readTimeoutMs: 5000,
+      stallTimeoutMs: 5000,
+    },
+    server: { port: null },
+  };
+}
 
 const mockIssue: Issue = {
   id: 'issue-1',
@@ -58,16 +64,26 @@ describe('Orchestrator Integration', () => {
   let mockBackend: MockBackend;
 
   beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-orch-'));
+    execSync('git init && git commit --allow-empty -m "init"', { cwd: tmpDir, stdio: 'ignore' });
+    // Ensure workspace root exists so WorkspaceManager can run git commands in it
+    fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
+
     mockTracker = {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
     };
     mockBackend = new MockBackend();
-    orchestrator = new Orchestrator(mockConfig, 'Prompt', {
+    orchestrator = new Orchestrator(createMockConfig(), 'Prompt', {
       tracker: mockTracker,
       backend: mockBackend,
     });
+  });
+
+  afterEach(async () => {
+    if (orchestrator) await orchestrator.stop();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('should poll, dispatch, and run an agent session', async () => {

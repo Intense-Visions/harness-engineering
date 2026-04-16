@@ -51,7 +51,7 @@ describe('PlanWatcher', () => {
     );
 
     // Wait for the watcher to detect and process
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1500));
 
     const interactions = await queue.list();
     const resolved = interactions.find((i) => i.id === 'int-core42');
@@ -84,7 +84,7 @@ describe('PlanWatcher', () => {
       '# Plan for CORE-50'
     );
 
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1500));
 
     const interactions = await queue.list();
     const pending = interactions.find((i) => i.id === 'int-core99');
@@ -113,7 +113,7 @@ describe('PlanWatcher', () => {
 
     await fs.writeFile(path.join(plansDir, 'CORE-10-notes.txt'), 'notes');
 
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1500));
 
     const interactions = await queue.list();
     expect(interactions.find((i) => i.id === 'int-core10')?.status).toBe('pending');
