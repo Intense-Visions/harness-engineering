@@ -46,9 +46,10 @@ function formatIssueDetails(checks: CICheckResult[]): string {
 export function formatCIReportAsMarkdown(report: CICheckReport): string {
   const { summary, checks } = report;
 
-  const header = report.exitCode === 0
-    ? '## \u2705 Harness CI — All Checks Passed'
-    : '## \u274C Harness CI — Checks Failed';
+  const header =
+    report.exitCode === 0
+      ? '## \u2705 Harness CI — All Checks Passed'
+      : '## \u274C Harness CI — Checks Failed';
 
   const summaryLine = `**${summary.passed}** passed, **${summary.failed}** failed, **${summary.warnings}** warnings, **${summary.skipped}** skipped`;
 

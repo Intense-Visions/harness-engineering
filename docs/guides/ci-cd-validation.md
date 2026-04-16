@@ -99,12 +99,12 @@ harness ci notify <report.json> --target <pr-comment|issue> [options]
 
 **Options:**
 
-| Flag               | Default                    | Description                                        |
-| ------------------ | -------------------------- | -------------------------------------------------- |
-| `--target <type>`  | (required)                 | `pr-comment` to comment on a PR, `issue` to create |
-| `--pr <number>`    | (required for pr-comment)  | PR number to comment on                            |
-| `--title <title>`  | Auto-generated from report | Custom title for created issues                    |
-| `--labels <labels>`| none                       | Comma-separated labels for created issues          |
+| Flag                | Default                    | Description                                        |
+| ------------------- | -------------------------- | -------------------------------------------------- |
+| `--target <type>`   | (required)                 | `pr-comment` to comment on a PR, `issue` to create |
+| `--pr <number>`     | (required for pr-comment)  | PR number to comment on                            |
+| `--title <title>`   | Auto-generated from report | Custom title for created issues                    |
+| `--labels <labels>` | none                       | Comma-separated labels for created issues          |
 
 **Requirements:**
 
@@ -128,6 +128,7 @@ harness ci notify report.json --target issue
 ### Output
 
 The formatted markdown includes:
+
 - Summary header (pass/fail)
 - Per-check status table with issue counts and duration
 - Detailed issue listings with file paths and line numbers

@@ -39,8 +39,7 @@ export class CINotifier {
     }
 
     const title =
-      options?.issueTitle ??
-      `CI: ${report.summary.failed} check(s) failed in ${report.project}`;
+      options?.issueTitle ?? `CI: ${report.summary.failed} check(s) failed in ${report.project}`;
     const markdown = formatCIReportAsMarkdown(report);
 
     const feature = {

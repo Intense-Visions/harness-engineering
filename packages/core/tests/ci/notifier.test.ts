@@ -6,9 +6,17 @@ import type { TrackerSyncAdapter } from '../../src/roadmap/tracker-sync';
 
 function makeAdapter(overrides: Partial<TrackerSyncAdapter> = {}): TrackerSyncAdapter {
   return {
-    createTicket: vi.fn().mockResolvedValue(Ok({ externalId: 'github:org/repo#99', url: 'https://github.com/org/repo/issues/99' })),
+    createTicket: vi
+      .fn()
+      .mockResolvedValue(
+        Ok({ externalId: 'github:org/repo#99', url: 'https://github.com/org/repo/issues/99' })
+      ),
     updateTicket: vi.fn().mockResolvedValue(Ok({ externalId: 'github:org/repo#99', url: '' })),
-    fetchTicketState: vi.fn().mockResolvedValue(Ok({ externalId: '', title: '', status: 'open', labels: [], assignee: null })),
+    fetchTicketState: vi
+      .fn()
+      .mockResolvedValue(
+        Ok({ externalId: '', title: '', status: 'open', labels: [], assignee: null })
+      ),
     fetchAllTickets: vi.fn().mockResolvedValue(Ok([])),
     assignTicket: vi.fn().mockResolvedValue(Ok(undefined)),
     getAuthenticatedUser: vi.fn().mockResolvedValue(Ok('@bot')),
@@ -24,7 +32,12 @@ function makeReport(overrides: Partial<CICheckReport> = {}): CICheckReport {
     project: 'test-project',
     timestamp: '2026-04-16T12:00:00.000Z',
     checks: [
-      { name: 'validate', status: 'fail', issues: [{ severity: 'error', message: 'fail' }], durationMs: 10 },
+      {
+        name: 'validate',
+        status: 'fail',
+        issues: [{ severity: 'error', message: 'fail' }],
+        durationMs: 10,
+      },
     ],
     summary: { total: 1, passed: 0, failed: 1, warnings: 0, skipped: 0 },
     exitCode: 1,
