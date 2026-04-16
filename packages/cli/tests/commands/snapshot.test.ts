@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createSnapshotCommand, runSnapshotCapture } from '../../src/commands/snapshot';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -207,6 +207,256 @@ describe('snapshot command', () => {
       const manager = new TimelineManager(tmpDir);
       const timeline = manager.load();
       expect(timeline.snapshots).toHaveLength(0);
+    });
+  });
+
+  describe('snapshot capture command prints summary', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'snapshot-print-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('capture action prints text summary with stability score', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createSnapshotCommand();
+      cmd.option('--config <path>', 'Config path');
+
+      const origCwd = process.cwd;
+      process.cwd = () => tmpDir;
+
+      try {
+        await cmd.parseAsync(['--config', path.join(tmpDir, 'harness.config.json'), 'capture'], {
+          from: 'user',
+        });
+      } catch {
+        // Commander may throw on exit
+      }
+
+      const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(allOutput).toContain('Stability');
+      expect(allOutput).toContain('/100');
+      expect(allOutput).toContain('Architecture Snapshot captured');
+
+      logSpy.mockRestore();
+      process.cwd = origCwd;
+    });
+
+    it('capture action prints JSON when --json flag is set', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createSnapshotCommand();
+      cmd.option('--json', 'JSON output');
+      cmd.option('--config <path>', 'Config path');
+
+      const origCwd = process.cwd;
+      process.cwd = () => tmpDir;
+
+      try {
+        await cmd.parseAsync(
+          ['--json', '--config', path.join(tmpDir, 'harness.config.json'), 'capture'],
+          { from: 'user' }
+        );
+      } catch {
+        // Commander may throw
+      }
+
+      const jsonCalls = logSpy.mock.calls.filter((call) => {
+        try {
+          const parsed = JSON.parse(String(call[0]));
+          return parsed.snapshot !== undefined;
+        } catch {
+          return false;
+        }
+      });
+      expect(jsonCalls.length).toBeGreaterThan(0);
+      const parsed = JSON.parse(String(jsonCalls[0][0]));
+      expect(parsed.snapshot.stabilityScore).toBeDefined();
+      expect(parsed.snapshot.metrics).toBeDefined();
+
+      logSpy.mockRestore();
+      process.cwd = origCwd;
+    });
+
+    it('capture summary prints delta from previous snapshot', async () => {
+      // First capture
+      await runSnapshotCapture({
+        cwd: tmpDir,
+        configPath: path.join(tmpDir, 'harness.config.json'),
+      });
+
+      // Modify timeline to have a different commit so we get a real "previous"
+      const timelinePath = path.join(tmpDir, '.harness', 'arch', 'timeline.json');
+      const timeline = JSON.parse(fs.readFileSync(timelinePath, 'utf-8'));
+      timeline.snapshots[0].commitHash = 'prev1234';
+      fs.writeFileSync(timelinePath, JSON.stringify(timeline, null, 2));
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createSnapshotCommand();
+      cmd.option('--config <path>', 'Config path');
+
+      const origCwd = process.cwd;
+      process.cwd = () => tmpDir;
+
+      try {
+        await cmd.parseAsync(['--config', path.join(tmpDir, 'harness.config.json'), 'capture'], {
+          from: 'user',
+        });
+      } catch {
+        // Commander may throw
+      }
+
+      const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(allOutput).toContain('from last');
+
+      logSpy.mockRestore();
+      process.cwd = origCwd;
+    });
+  });
+
+  describe('snapshot list command prints snapshot list', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'snapshot-list-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('list prints warning when no snapshots exist', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createSnapshotCommand();
+      const origCwd = process.cwd;
+      process.cwd = () => tmpDir;
+
+      try {
+        await cmd.parseAsync(['list'], { from: 'user' });
+      } catch {
+        // Commander may throw
+      }
+
+      const allOutput = logSpy.mock.calls.map((c) => String(c.join(' '))).join('\n');
+      expect(allOutput).toContain('No snapshots found');
+
+      logSpy.mockRestore();
+      process.cwd = origCwd;
+    });
+
+    it('list prints snapshot table when snapshots exist', async () => {
+      // First capture a snapshot
+      await runSnapshotCapture({
+        cwd: tmpDir,
+        configPath: path.join(tmpDir, 'harness.config.json'),
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createSnapshotCommand();
+      const origCwd = process.cwd;
+      process.cwd = () => tmpDir;
+
+      try {
+        await cmd.parseAsync(['list'], { from: 'user' });
+      } catch {
+        // Commander may throw
+      }
+
+      const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(allOutput).toContain('Architecture Snapshots');
+      expect(allOutput).toContain('/100');
+
+      logSpy.mockRestore();
+      process.cwd = origCwd;
+    });
+  });
+
+  describe('snapshot trends command prints trends summary', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'snapshot-trends-cmd-'));
+      fs.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('trends prints warning when no snapshots exist', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createSnapshotCommand();
+      const origCwd = process.cwd;
+      process.cwd = () => tmpDir;
+
+      try {
+        await cmd.parseAsync(['trends'], { from: 'user' });
+      } catch {
+        // Commander may throw
+      }
+
+      const allOutput = logSpy.mock.calls.map((c) => String(c.join(' '))).join('\n');
+      expect(allOutput).toContain('No snapshots found');
+
+      logSpy.mockRestore();
+      process.cwd = origCwd;
+    });
+
+    it('trends prints trend table when snapshots exist', async () => {
+      // Create two snapshots with different commits
+      await runSnapshotCapture({
+        cwd: tmpDir,
+        configPath: path.join(tmpDir, 'harness.config.json'),
+      });
+      const timelinePath = path.join(tmpDir, '.harness', 'arch', 'timeline.json');
+      const timeline = JSON.parse(fs.readFileSync(timelinePath, 'utf-8'));
+      timeline.snapshots[0].commitHash = 'aaa1111';
+      timeline.snapshots[0].capturedAt = '2026-01-01T00:00:00.000Z';
+      fs.writeFileSync(timelinePath, JSON.stringify(timeline, null, 2));
+
+      await runSnapshotCapture({
+        cwd: tmpDir,
+        configPath: path.join(tmpDir, 'harness.config.json'),
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createSnapshotCommand();
+      const origCwd = process.cwd;
+      process.cwd = () => tmpDir;
+
+      try {
+        await cmd.parseAsync(['trends'], { from: 'user' });
+      } catch {
+        // Commander may throw
+      }
+
+      const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(allOutput).toContain('Architecture Trends');
+      expect(allOutput).toContain('Stability');
+
+      logSpy.mockRestore();
+      process.cwd = origCwd;
     });
   });
 });

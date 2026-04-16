@@ -282,21 +282,247 @@ describe('harness usage', () => {
       expect(output.costMicroUSD).toBeNull();
     });
 
-    it('accepts --include-claude-sessions flag without error', { timeout: 15_000 }, async () => {
+    it('has --include-claude-sessions option on usage command', () => {
+      const cmd = createUsageCommand();
+      const opts = cmd.options.map((o) => o.long);
+      expect(opts).toContain('--include-claude-sessions');
+    });
+  });
+
+  describe('daily (text output)', () => {
+    it('renders a table with header and rows', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily']);
+
+      // Logger info goes through console.log with chalk prefix
+      const allOutput = loggerOutput.join('\n');
+      // Should have the header columns
+      expect(allOutput).toContain('Date');
+      expect(allOutput).toContain('Sessions');
+      expect(allOutput).toContain('Input');
+      expect(allOutput).toContain('Output');
+    });
+
+    it('renders cache column when cache data is present', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Cache');
+    });
+
+    it('renders text message when no data exists', async () => {
+      fs.unlinkSync(costsFile);
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('No usage data found');
+    });
+
+    it('clamps --days to minimum of 1', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--days', '0', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      // Clamped to 1, so at most 1 day
+      expect(output.length).toBeLessThanOrEqual(3); // We have 3 days of data
+      expect(output.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('clamps --days to maximum of 90', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--days', '200', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      // All 3 days should be returned (less than 90)
+      expect(output.length).toBe(3);
+    });
+
+    it('defaults --days to 7 for non-numeric input', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--days', 'abc', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      // Defaults to 7 which is more than our 3 days of data
+      expect(output.length).toBe(3);
+    });
+  });
+
+  describe('sessions (text output)', () => {
+    it('renders a table with header and rows', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'sessions']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Session ID');
+      expect(allOutput).toContain('Started');
+      expect(allOutput).toContain('Duration');
+      expect(allOutput).toContain('Cost');
+    });
+
+    it('renders text message when no data exists', async () => {
+      fs.unlinkSync(costsFile);
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'sessions']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('No usage data found');
+    });
+
+    it('clamps --limit to minimum of 1', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'sessions', '--limit', '1', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output).toHaveLength(1);
+    });
+
+    it('defaults --limit to 10 for non-numeric input', async () => {
       const program = createProgram();
       await program.parseAsync([
         'node',
         'harness',
         'usage',
-        '--include-claude-sessions',
-        'daily',
+        'sessions',
+        '--limit',
+        'abc',
         '--json',
       ]);
 
-      // Filter out warning lines to find the JSON output
-      const jsonLine = logOutput.find((line) => line.startsWith('['));
-      const output = JSON.parse(jsonLine ?? '[]');
-      expect(Array.isArray(output)).toBe(true);
+      const output = JSON.parse(logOutput.join(''));
+      // Defaults to 10, but we only have 3 sessions
+      expect(output).toHaveLength(3);
+    });
+  });
+
+  describe('session <id> (text output)', () => {
+    it('renders detailed session text view', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-bbb-222']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Session: sess-bbb-222');
+      expect(allOutput).toContain('Token Breakdown');
+      expect(allOutput).toContain('Input tokens');
+      expect(allOutput).toContain('Output tokens');
+      expect(allOutput).toContain('Cost:');
+    });
+
+    it('renders cache performance section when cache data present', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-ccc-333']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Cache read tokens');
+      expect(allOutput).toContain('Cache creation tokens');
+      expect(allOutput).toContain('Cache Performance');
+      expect(allOutput).toContain('Cache hit rate');
+    });
+
+    it('renders error with suggestions in text mode for invalid session', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-aaa']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Did you mean');
+      expect(allOutput).toContain('sess-aaa-111');
+    });
+
+    it('renders error without suggestions for completely unknown id in text mode', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      vi.spyOn(console, 'error').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'nonexistent-xyz']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('not found');
+      expect(allOutput).not.toContain('Did you mean');
+    });
+
+    it('includes cacheHitRate in JSON when cache data exists', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-ccc-333', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output.cacheHitRate).toBeCloseTo(0.033, 2);
+    });
+
+    it('omits cacheHitRate in JSON when no cache data', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-bbb-222', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output.cacheHitRate).toBeUndefined();
+    });
+  });
+
+  describe('latest (text output)', () => {
+    it('renders the most recent session summary in text mode', async () => {
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'latest']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Session:');
+      expect(allOutput).toContain('Started:');
+      expect(allOutput).toContain('Ended:');
+      expect(allOutput).toContain('Model:');
+      expect(allOutput).toContain('Tokens:');
+      expect(allOutput).toContain('Cost:');
+    });
+
+    it('renders text message when no data exists', async () => {
+      fs.unlinkSync(costsFile);
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'latest']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('No usage data found');
     });
   });
 

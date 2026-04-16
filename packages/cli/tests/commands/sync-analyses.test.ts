@@ -1,5 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
-import { extractAnalysisFromComments } from '../../src/commands/sync-analyses';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Command } from 'commander';
+import {
+  extractAnalysisFromComments,
+  createSyncAnalysesCommand,
+} from '../../src/commands/sync-analyses';
 import { renderAnalysisComment } from '@harness-engineering/orchestrator';
 import type { TrackerComment } from '@harness-engineering/types';
 import type { AnalysisRecord } from '@harness-engineering/orchestrator';
@@ -296,6 +300,80 @@ describe('round-trip: renderAnalysisComment -> extractAnalysisFromComments', () 
     expect(extracted!.score?.riskLevel).toBe(original.score!.riskLevel);
     expect(extracted!.score?.confidence).toBe(original.score!.confidence);
     expect(extracted!.score?.recommendedRoute).toBe(original.score!.recommendedRoute);
+  });
+});
+
+describe('syncAnalyses command action', () => {
+  // The sync-analyses module imports loadTrackerSyncConfig at the top level from
+  // @harness-engineering/core. Since the module has already been imported without
+  // mocking that dependency, we need to test the internal functions indirectly.
+  // Instead, let's test the isValidRecord function logic through extractAnalysisFromComments
+  // and the bootstrapTrackerCommand error paths by testing the extracted behavior.
+
+  it('isValidRecord rejects records with missing analyzedAt', () => {
+    const body = [
+      '```json',
+      JSON.stringify({
+        _harness_analysis: true,
+        _version: 1,
+        issueId: 'id-1',
+        identifier: 'feat-1',
+      }),
+      '```',
+    ].join('\n');
+    const comments = [makeComment({ body })];
+    // Missing analyzedAt means isValidRecord fails
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
+
+  it('isValidRecord rejects records with non-string issueId', () => {
+    const body = [
+      '```json',
+      JSON.stringify({
+        _harness_analysis: true,
+        _version: 1,
+        issueId: 123,
+        identifier: 'feat-1',
+        analyzedAt: '2026-04-15T12:00:00Z',
+      }),
+      '```',
+    ].join('\n');
+    const comments = [makeComment({ body })];
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
+
+  it('isValidRecord rejects records with non-string identifier', () => {
+    const body = [
+      '```json',
+      JSON.stringify({
+        _harness_analysis: true,
+        _version: 1,
+        issueId: 'id-1',
+        identifier: 42,
+        analyzedAt: '2026-04-15T12:00:00Z',
+      }),
+      '```',
+    ].join('\n');
+    const comments = [makeComment({ body })];
+    expect(extractAnalysisFromComments(comments)).toBeNull();
+  });
+
+  it('isValidRecord accepts valid records with all required fields', () => {
+    const body = [
+      '```json',
+      JSON.stringify({
+        _harness_analysis: true,
+        _version: 1,
+        issueId: 'valid-1',
+        identifier: 'valid-feat',
+        analyzedAt: '2026-04-15T12:00:00Z',
+      }),
+      '```',
+    ].join('\n');
+    const comments = [makeComment({ body })];
+    const result = extractAnalysisFromComments(comments);
+    expect(result).not.toBeNull();
+    expect(result!.issueId).toBe('valid-1');
   });
 });
 
