@@ -66,6 +66,20 @@ function mkEvent(type: string, content: unknown, sessionId: string): AgentEvent 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractUsage(usage: any): import('@harness-engineering/types').TokenUsage | null {
+  if (!usage) return null;
+  const inputTokens = usage.input_tokens ?? 0;
+  const outputTokens = usage.output_tokens ?? 0;
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractToolResultText(blockContent: any): string {
   if (typeof blockContent === 'string') return blockContent;
   if (!Array.isArray(blockContent)) return '';
@@ -233,19 +247,10 @@ export class ClaudeBackend implements AgentBackend {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rawEvent = JSON.parse(line) as any;
 
-          // Capture token usage and lastResult from result events
           if (rawEvent.type === 'result' || rawEvent.type === 'turn_complete') {
             lastResult = rawEvent as TurnResult;
-            if (rawEvent.usage) {
-              lastResult.usage = {
-                inputTokens: rawEvent.usage.input_tokens ?? 0,
-                outputTokens: rawEvent.usage.output_tokens ?? 0,
-                totalTokens:
-                  (rawEvent.usage.input_tokens ?? 0) + (rawEvent.usage.output_tokens ?? 0),
-                cacheCreationTokens: rawEvent.usage.cache_creation_input_tokens ?? 0,
-                cacheReadTokens: rawEvent.usage.cache_read_input_tokens ?? 0,
-              };
-            }
+            const usage = extractUsage(rawEvent.usage);
+            if (usage) lastResult.usage = usage;
           }
 
           for (const mapped of mapClaudeEvent(rawEvent, session.sessionId)) {
