@@ -48,7 +48,6 @@ agent:
 intelligence:
   enabled: true
   requestTimeoutMs: 180000
-
 server:
   port: 8080
 ---
