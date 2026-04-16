@@ -59,3 +59,15 @@ export { computeHistoricalComplexity } from './cml/historical.js';
 // Pipeline
 export { IntelligencePipeline } from './pipeline.js';
 export type { PreprocessResult } from './pipeline.js';
+
+// Effectiveness — agent introspection and persona routing
+export {
+  computePersonaEffectiveness,
+  detectBlindSpots,
+  recommendPersona,
+} from './effectiveness/scorer.js';
+export type {
+  PersonaEffectivenessScore,
+  BlindSpot,
+  PersonaRecommendation,
+} from './effectiveness/types.js';

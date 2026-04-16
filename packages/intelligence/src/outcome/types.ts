@@ -23,4 +23,11 @@ export interface ExecutionOutcome {
   affectedSystemNodeIds: string[];
   /** ISO timestamp of when the outcome was recorded */
   timestamp: string;
+  /**
+   * Optional persona or agent identifier that produced this outcome
+   * (e.g. 'task-executor'). When present the ingestor records it in
+   * the graph node's metadata so effectiveness analytics can attribute
+   * successes and failures to the responsible agent.
+   */
+  agentPersona?: string;
 }
