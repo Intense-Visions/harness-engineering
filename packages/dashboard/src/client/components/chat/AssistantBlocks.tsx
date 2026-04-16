@@ -319,7 +319,11 @@ export function AssistantBlocks({
       }
 
       if (toolGroup.length === 0) toolGroupStart = currentIdx;
-      toolGroup.push({ ...block, result: block.result || forceResult });
+      const resolvedResult = block.result ?? forceResult;
+      toolGroup.push({
+        ...block,
+        ...(resolvedResult !== undefined && { result: resolvedResult }),
+      });
     } else {
       if (toolGroup.length > 0) {
         elements.push(
