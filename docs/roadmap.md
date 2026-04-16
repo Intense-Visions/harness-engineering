@@ -1225,7 +1225,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Anti-Pattern Inference
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Failure feature extraction and clustering to auto-discover constraints from project history. Identifies patterns like 'when files matching X are changed without updating Y, failures occur 80% of the time.' Learned constraints, not hand-coded ones. [D7]
 - **Blockers:** —
@@ -1236,7 +1236,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Architectural Debt Quantification
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Cost model mapping violation types to developer-hours based on historical fix times. Compound interest calculation for deferred fixes. ROI scoring that translates abstract code quality into concrete dollar amounts. [J4]
 - **Blockers:** —

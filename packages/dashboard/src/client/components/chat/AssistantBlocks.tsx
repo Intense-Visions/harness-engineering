@@ -363,27 +363,47 @@ export function AssistantBlocks({
   const elements: React.ReactNode[] = [];
   let activityGroup: ContentBlock[] = [];
   let activityGroupStart = 0;
+  const consumedIndices = new Set<number>();
 
   for (let i = 0; i < blocks.length; i++) {
+    if (consumedIndices.has(i)) continue;
     let block = blocks[i]!;
     let isActivity = false;
 
     if (block.kind === 'tool_use') {
       isActivity = true;
-      const nextBlock = blocks[i + 1];
-      let forceResult: string | undefined;
+      let forceResultChunks: string[] = [];
 
-      // Aggressively pair text blocks following tool_use as results
-      // unless they are very likely to be separate conversational text
-      if (block.result === undefined && nextBlock?.kind === 'text') {
-        const isLikelyOutput = isLogOutput(nextBlock.text, block.tool);
-        if (isLikelyOutput) {
-          forceResult = nextBlock.text;
-          i++; // Consume the next block
+      // Look ahead to aggressively pair ALL text/status log chunks following tool_use as results,
+      let lookAhead = i + 1;
+      while (lookAhead < blocks.length) {
+        if (consumedIndices.has(lookAhead)) {
+          lookAhead++;
+          continue;
         }
+        const nextB = blocks[lookAhead]!;
+        if (nextB.kind === 'tool_use' || nextB.kind === 'thinking') break; // Next tool_use or thinking interrupts pairing
+
+        if (nextB.kind === 'text') {
+          if (isLogOutput(nextB.text, block.tool)) {
+            forceResultChunks.push(nextB.text);
+            consumedIndices.add(lookAhead);
+          } else {
+            break; // Stop at first conversational text block
+          }
+        } else if (nextB.kind === 'status') {
+          forceResultChunks.push(nextB.text);
+          consumedIndices.add(lookAhead);
+        }
+        lookAhead++;
       }
 
-      const resolvedResult = block.result ?? forceResult;
+      const chunkString = forceResultChunks.length > 0 ? forceResultChunks.join('\n\n') : undefined;
+      const resolvedResult = chunkString
+        ? block.result
+          ? `${chunkString}\n\n${block.result}`
+          : chunkString
+        : block.result;
       block = {
         ...block,
         ...(resolvedResult !== undefined && { result: resolvedResult }),
