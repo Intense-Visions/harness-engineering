@@ -55,6 +55,13 @@ vi.mock('../../src/integrations/config', () => ({
   writeMcpEntry: vi.fn(),
 }));
 
+vi.mock('../../src/commands/telemetry-wizard', () => ({
+  ensureTelemetryConfigured: vi.fn(() => ({
+    status: 'warn',
+    message: 'Not a harness project — skipped telemetry configuration',
+  })),
+}));
+
 // Mock fs.existsSync for client detection
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
@@ -99,7 +106,7 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(9);
+    expect(steps).toHaveLength(10);
     expect(steps[0].status).toBe('pass');
     expect(steps[0].message).toContain('Node.js');
     expect(steps[1].status).toBe('pass');
@@ -142,7 +149,7 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(9);
+    expect(steps).toHaveLength(10);
     const geminiStep = steps[3];
     expect(geminiStep.status).toBe('warn');
     expect(geminiStep.message).toContain('Gemini CLI not detected');

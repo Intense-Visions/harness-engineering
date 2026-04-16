@@ -9,6 +9,7 @@ import { Orchestrator } from './pages/Orchestrator';
 import { Attention } from './pages/Attention';
 import { Analyze } from './pages/Analyze';
 import { Chat } from './pages/Chat';
+import { Adoption } from './pages/Adoption';
 
 export function App() {
   return (
@@ -24,6 +25,7 @@ export function App() {
           <Route path="/orchestrator/attention" element={<Attention />} />
           <Route path="/orchestrator/analyze" element={<Analyze />} />
           <Route path="/orchestrator/chat" element={<Chat />} />
+          <Route path="/adoption" element={<Adoption />} />
         </Routes>
       </Layout>
     </BrowserRouter>

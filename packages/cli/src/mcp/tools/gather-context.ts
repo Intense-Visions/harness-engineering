@@ -459,8 +459,8 @@ export async function handleGatherContext(input: {
 
   // Compute token estimate from final output (avoid double serialization)
   const outputText = JSON.stringify(output);
-  const tokenEstimate = Math.ceil(outputText.length / 4);
-  output.meta.tokenEstimate = tokenEstimate;
+  const totalTokenEstimate = Math.ceil(outputText.length / 4);
+  output.meta.tokenEstimate = totalTokenEstimate;
 
   // Section-aware pagination
   if (input.section) {
@@ -478,8 +478,10 @@ export async function handleGatherContext(input: {
       > | null,
       meta: output.meta as unknown as Record<string, unknown>,
     });
+    // Clarify that tokenEstimate reflects the full assembly, not the returned section
+    const wrapped = { ...(result as Record<string, unknown>), totalTokenEstimate };
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+      content: [{ type: 'text' as const, text: JSON.stringify(wrapped) }],
     };
   }
 

@@ -12,6 +12,7 @@ import { readMcpConfig, writeMcpEntry } from '../integrations/config';
 import { INTEGRATION_REGISTRY } from '../integrations/registry';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
+import { ensureTelemetryConfigured } from './telemetry-wizard';
 
 export interface StepResult {
   status: 'pass' | 'warn' | 'fail';
@@ -207,7 +208,11 @@ export async function runSetup(cwd: string): Promise<{ steps: StepResult[]; succ
   const hooksResult = ensureHooks(cwd);
   steps.push(hooksResult);
 
-  // Step 6: Initial Knowledge Graph scan
+  // Step 6: Ensure telemetry is configured (interactive wizard if not)
+  const telemetryResult = await ensureTelemetryConfigured(cwd);
+  steps.push(telemetryResult);
+
+  // Step 7: Initial Knowledge Graph scan
   const graphResult = await runInitialGraphScan(cwd);
   steps.push(graphResult);
 

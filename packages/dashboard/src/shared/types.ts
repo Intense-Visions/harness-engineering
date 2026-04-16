@@ -1,5 +1,6 @@
 import type { FeatureStatus } from '@harness-engineering/core';
-export type { FeatureStatus };
+import type { AdoptionSnapshot, SkillAdoptionSummary } from '@harness-engineering/types';
+export type { FeatureStatus, AdoptionSnapshot, SkillAdoptionSummary };
 
 /** Health check response shape */
 export interface HealthCheckResponse {

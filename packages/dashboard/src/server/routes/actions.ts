@@ -203,6 +203,7 @@ async function handleRegenCharts(c: Context, ctx: ServerContext): Promise<Respon
     try {
       const existing = await readFile(chartsPath, 'utf-8').catch(() => '# Roadmap Charts\n');
       const stripped = existing.replace(/\n<!-- charts regenerated at .+? -->\n/g, '');
+      // harness-ignore SEC-PTH-001: chartsPath from ctx.chartsPath (server config); concatenation is file content, not path
       await writeFile(chartsPath, stripped + marker, 'utf-8');
     } catch {
       // Non-fatal: caches already invalidated

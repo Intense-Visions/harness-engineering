@@ -78,6 +78,30 @@ describe('paginate', () => {
     });
   });
 
+  it('sets hasMore true when limit is 0 but items exist', () => {
+    const result = paginate([1, 2, 3], 0, 0);
+    expect(result).toEqual({
+      items: [],
+      pagination: { offset: 0, limit: 0, total: 3, hasMore: true },
+    });
+  });
+
+  it('sets hasMore false when limit is 0 and array is empty', () => {
+    const result = paginate([], 0, 0);
+    expect(result).toEqual({
+      items: [],
+      pagination: { offset: 0, limit: 0, total: 0, hasMore: false },
+    });
+  });
+
+  it('sets hasMore false when limit is 0 and offset is beyond array length', () => {
+    const result = paginate([1, 2], 5, 0);
+    expect(result).toEqual({
+      items: [],
+      pagination: { offset: 5, limit: 0, total: 2, hasMore: false },
+    });
+  });
+
   it('is re-exported from the compaction barrel', async () => {
     const barrel = await import('../../src/compaction/index');
     expect(barrel.paginate).toBe(paginate);

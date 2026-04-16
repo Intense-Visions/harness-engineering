@@ -45,7 +45,9 @@ export function paginate<T>(items: T[], offset: number, limit: number): Paginate
       offset: safeOffset,
       limit: safeLimit,
       total: items.length,
-      hasMore: safeOffset + safeLimit < items.length,
+      hasMore:
+        safeOffset + (safeLimit || 1) < items.length ||
+        (safeLimit === 0 && safeOffset < items.length),
     },
   };
 }

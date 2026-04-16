@@ -69,11 +69,13 @@ describe('search_skills definition', () => {
     expect(searchSkillsDefinition.name).toBe('search_skills');
   });
 
-  it('has query, path, and platform properties', () => {
+  it('has query, path, platform, offset, and limit properties', () => {
     const props = searchSkillsDefinition.inputSchema.properties;
     expect(props).toHaveProperty('query');
     expect(props).toHaveProperty('path');
     expect(props).toHaveProperty('platform');
+    expect(props).toHaveProperty('offset');
+    expect(props).toHaveProperty('limit');
   });
 
   it('requires query parameter', () => {
@@ -202,22 +204,68 @@ describe('handleSearchSkills — sorting', () => {
   });
 });
 
-// ── Top 5 limit tests ────────────────────────────────────────────
+// ── Pagination tests ─────────────────────────────────────────────
 
-describe('handleSearchSkills — result limit', () => {
-  it('returns at most 5 results', async () => {
+describe('handleSearchSkills — pagination', () => {
+  it('returns at most 5 results by default', async () => {
     const skills: Record<string, ReturnType<typeof makeSkillEntry>> = {};
     for (let i = 0; i < 8; i++) {
       skills[`skill-${i}`] = makeSkillEntry({ description: `Skill ${i}` });
     }
     const index = makeIndex(skills);
     (loadOrRebuildIndex as ReturnType<typeof vi.fn>).mockReturnValue(index);
-    // All score above threshold
     (scoreSkill as ReturnType<typeof vi.fn>).mockReturnValue(0.5);
 
     const result = await handleSearchSkills({ query: 'testing', path: '/tmp/test' });
     const parsed = JSON.parse(result.content[0].text);
 
     expect(parsed.results).toHaveLength(5);
+    expect(parsed.pagination).toEqual({
+      offset: 0,
+      limit: 5,
+      total: 8,
+      hasMore: true,
+    });
+  });
+
+  it('respects custom offset and limit', async () => {
+    const skills: Record<string, ReturnType<typeof makeSkillEntry>> = {};
+    for (let i = 0; i < 8; i++) {
+      skills[`skill-${i}`] = makeSkillEntry({ description: `Skill ${i}` });
+    }
+    const index = makeIndex(skills);
+    (loadOrRebuildIndex as ReturnType<typeof vi.fn>).mockReturnValue(index);
+    (scoreSkill as ReturnType<typeof vi.fn>).mockReturnValue(0.5);
+
+    const result = await handleSearchSkills({
+      query: 'testing',
+      path: '/tmp/test',
+      offset: 5,
+      limit: 3,
+    });
+    const parsed = JSON.parse(result.content[0].text);
+
+    expect(parsed.results).toHaveLength(3);
+    expect(parsed.pagination).toEqual({
+      offset: 5,
+      limit: 3,
+      total: 8,
+      hasMore: false,
+    });
+  });
+
+  it('returns hasMore false when all results fit in one page', async () => {
+    const index = makeIndex({
+      'skill-a': makeSkillEntry({ description: 'A' }),
+      'skill-b': makeSkillEntry({ description: 'B' }),
+    });
+    (loadOrRebuildIndex as ReturnType<typeof vi.fn>).mockReturnValue(index);
+    (scoreSkill as ReturnType<typeof vi.fn>).mockReturnValue(0.5);
+
+    const result = await handleSearchSkills({ query: 'testing', path: '/tmp/test' });
+    const parsed = JSON.parse(result.content[0].text);
+
+    expect(parsed.results).toHaveLength(2);
+    expect(parsed.pagination.hasMore).toBe(false);
   });
 });

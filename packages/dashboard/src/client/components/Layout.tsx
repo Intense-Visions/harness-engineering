@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { to: '/orchestrator', label: 'Agents', end: true },
   { to: '/orchestrator/attention', label: 'Attention' },
   { to: '/orchestrator/analyze', label: 'Analyze' },
+  { to: '/adoption', label: 'Adoption' },
 ] as const;
 
 export function Layout({ children }: Props) {
