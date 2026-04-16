@@ -196,6 +196,16 @@ export interface IssueTrackerClient {
   fetchIssuesByStates(stateNames: string[]): Promise<Result<Issue[], Error>>;
   /** Fetches current state for a set of issue IDs */
   fetchIssueStatesByIds(issueIds: string[]): Promise<Result<Map<string, Issue>, Error>>;
+  /**
+   * Marks an issue as complete in the underlying tracker by transitioning it
+   * to a terminal state. Called by the orchestrator after a successful agent
+   * exit so the issue is no longer returned by `fetchCandidateIssues` on
+   * subsequent ticks (and across restarts). Adapters that cannot write —
+   * e.g., a read-only file or remote tracker without auth — should return
+   * `Ok` (no-op) rather than `Err`, so completion semantics are preserved
+   * in-process via `OrchestratorState.completed`.
+   */
+  markIssueComplete(issueId: string): Promise<Result<void, Error>>;
 }
 
 // --- Workflow Config ---

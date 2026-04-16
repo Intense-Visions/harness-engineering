@@ -12,6 +12,14 @@ import { reconcile } from './reconciliation';
 import { calculateRetryDelay } from './retry';
 import { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
 
+/**
+ * Bound on retained completion records. Without this, `state.completed`
+ * grows unbounded across the orchestrator's lifetime. The pruning logic in
+ * handleTick uses the same threshold to decide when to drop entries that
+ * also have no pending claim/run/retry activity.
+ */
+const COMPLETED_PRUNE_THRESHOLD = 100;
+
 export interface ApplyEventResult {
   nextState: OrchestratorState;
   effects: SideEffect[];
@@ -172,7 +180,7 @@ function handleTick(
   }
 
   // Prune completed entries that no longer have pending retries or running tasks
-  if (next.completed.size > 100) {
+  if (next.completed.size > COMPLETED_PRUNE_THRESHOLD) {
     for (const id of next.completed) {
       if (!next.retryAttempts.has(id) && !next.running.has(id) && !next.claimed.has(id)) {
         next.completed.delete(id);
@@ -200,23 +208,14 @@ function handleWorkerExit(
   const nowMs = Date.now();
 
   if (reason === 'normal') {
+    // Successful completion is terminal. Record it in `completed` and release
+    // the dispatch claim so the slot frees up. Previously this path also
+    // scheduled a 1000ms "continuation retry" which, combined with the lack
+    // of a `completed` check in handleRetryFired/isEligible, caused completed
+    // issues to be re-dispatched as soon as a slot reopened.
     next.completed.add(issueId);
-    const delayMs = calculateRetryDelay(1, 'continuation');
-    next.retryAttempts.set(issueId, {
-      issueId,
-      identifier: entry?.identifier ?? issueId,
-      attempt: 1,
-      dueAtMs: nowMs + delayMs,
-      error: null,
-    });
-    effects.push({
-      type: 'scheduleRetry',
-      issueId,
-      identifier: entry?.identifier ?? issueId,
-      attempt: 1,
-      delayMs,
-      error: null,
-    });
+    next.claimed.delete(issueId);
+    return { nextState: next, effects };
   } else {
     const nextAttempt = (attempt ?? 0) + 1;
     const escalationConfig = resolveEscalationConfig(config);
@@ -364,6 +363,15 @@ function handleRetryFired(
   next.retryAttempts.delete(issueId);
 
   if (!retryEntry) {
+    return { nextState: next, effects };
+  }
+
+  // Defense-in-depth: if a successful run already marked this issue completed,
+  // do not re-dispatch even if a stale retry entry survived. Release the claim
+  // so the tracker state can advance.
+  if (next.completed.has(issueId)) {
+    next.claimed.delete(issueId);
+    effects.push({ type: 'releaseClaim', issueId });
     return { nextState: next, effects };
   }
 

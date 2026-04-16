@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { parseRoadmap } from '@harness-engineering/core';
+import { parseRoadmap, serializeRoadmap } from '@harness-engineering/core';
 import {
   Result,
   Ok,
@@ -9,6 +9,7 @@ import {
   IssueTrackerClient,
   TrackerConfig,
   BlockerRef,
+  FeatureStatus,
   RoadmapFeature,
 } from '@harness-engineering/types';
 
@@ -66,6 +67,57 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * Transitions a roadmap feature into the first configured terminal state
+   * and rewrites the markdown file. Idempotent: if the feature is already
+   * in a terminal state, this is a no-op.
+   *
+   * The orchestrator calls this after a successful agent exit so the feature
+   * is no longer returned by `fetchCandidateIssues` on the next tick — and,
+   * critically, after an orchestrator restart.
+   */
+  async markIssueComplete(issueId: string): Promise<Result<void, Error>> {
+    try {
+      if (!this.config.filePath) return Err(new Error('Missing filePath'));
+      const terminal = this.config.terminalStates[0];
+      if (!terminal) {
+        return Err(new Error('Tracker config has no terminalStates; cannot mark complete'));
+      }
+
+      const content = await fs.readFile(this.config.filePath, 'utf-8');
+      const roadmapResult = parseRoadmap(content);
+      if (!roadmapResult.ok) return roadmapResult as unknown as Result<void, Error>;
+
+      const roadmap = roadmapResult.value;
+      const target = this.findFeatureById(roadmap.milestones, issueId);
+
+      // Missing target (removed between dispatch and completion) and
+      // already-terminal both mean nothing to write. In-memory `completed`
+      // still prevents intra-session re-dispatch in both cases.
+      if (!target) return Ok(undefined);
+      const normalizedTerminal = this.config.terminalStates.map((s) => s.toLowerCase());
+      if (normalizedTerminal.includes(target.status.toLowerCase())) return Ok(undefined);
+
+      target.status = terminal as FeatureStatus;
+      await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
+      return Ok(undefined);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private findFeatureById(
+    milestones: { features: RoadmapFeature[] }[],
+    issueId: string
+  ): RoadmapFeature | null {
+    for (const milestone of milestones) {
+      for (const feature of milestone.features) {
+        if (this.generateId(feature.name) === issueId) return feature;
+      }
+    }
+    return null;
   }
 
   /**

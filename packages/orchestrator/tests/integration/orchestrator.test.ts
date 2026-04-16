@@ -73,6 +73,7 @@ describe('Orchestrator Integration', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(createMockConfig(), 'Prompt', {
@@ -102,13 +103,11 @@ describe('Orchestrator Integration', () => {
     // Verify worker exit resulted in state change
     const finalSnapshot = orchestrator.getSnapshot();
     expect(finalSnapshot.running.length).toBe(0);
-    // Since mock exit for success triggers a continuation retry in handleWorkerExit,
-    // we expect it to be in claimed or completed.
-    // Actually, state-machine.ts handles it like this:
-    // next.completed.add(issueId);
-    // effects.push({ type: 'scheduleRetry', ... attempt: 1, ... });
-
-    expect(finalSnapshot.claimed.includes(mockIssue.id)).toBe(true);
+    // Successful completion is terminal: handleWorkerExit removes the running
+    // entry, releases the claim, and adds the issue to `completed`. No retry
+    // is scheduled — the issue should not re-appear in claimed or running.
+    expect(finalSnapshot.claimed.includes(mockIssue.id)).toBe(false);
+    expect((finalSnapshot.completed as string[]).includes(mockIssue.id)).toBe(true);
   });
 
   it('should stop active runs when orchestrator stops', async () => {

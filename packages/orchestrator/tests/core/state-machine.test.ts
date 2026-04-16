@@ -194,7 +194,7 @@ describe('applyEvent - tick', () => {
 });
 
 describe('applyEvent - worker_exit', () => {
-  it('should schedule continuation retry (1000ms) on normal exit', () => {
+  it('treats normal exit as terminal: marks completed, releases claim, no retry scheduled', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
     const entry: RunningEntry = {
@@ -221,14 +221,66 @@ describe('applyEvent - worker_exit', () => {
 
     expect(nextState.running.has('id-1')).toBe(false);
     expect(nextState.completed.has('id-1')).toBe(true);
+    expect(nextState.claimed.has('id-1')).toBe(false);
+    expect(nextState.retryAttempts.has('id-1')).toBe(false);
+    expect(effects.find((e) => e.type === 'scheduleRetry')).toBeUndefined();
+  });
 
-    const retry = effects.find((e) => e.type === 'scheduleRetry');
-    expect(retry).toBeDefined();
-    if (retry && retry.type === 'scheduleRetry') {
-      expect(retry.delayMs).toBe(1000);
-      expect(retry.attempt).toBe(1);
-      expect(retry.error).toBeNull();
-    }
+  it('does not re-dispatch an issue already in completed even when present in candidates', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    const issue = makeIssue({
+      id: 'id-1',
+      identifier: 'TEST-1',
+      state: 'in-progress',
+      labels: ['scope:quick-fix'],
+    });
+    state.completed.add('id-1');
+
+    const tickEvent: OrchestratorEvent = {
+      type: 'tick',
+      candidates: [issue],
+      runningStates: new Map(),
+      nowMs: 1706745600000,
+    };
+
+    const { effects } = applyEvent(state, tickEvent, config);
+    expect(effects.find((e) => e.type === 'dispatch')).toBeUndefined();
+  });
+
+  it('handleRetryFired short-circuits when issue already completed', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.completed.add('id-1');
+    state.claimed.add('id-1');
+    state.retryAttempts.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      attempt: 1,
+      dueAtMs: 1706745600000,
+      error: null,
+    });
+
+    const candidates = [
+      makeIssue({
+        id: 'id-1',
+        identifier: 'TEST-1',
+        state: 'in-progress',
+        labels: ['scope:quick-fix'],
+      }),
+    ];
+    const event: OrchestratorEvent = {
+      type: 'retry_fired',
+      issueId: 'id-1',
+      candidates,
+      nowMs: 1706745600000,
+    };
+
+    const { nextState, effects } = applyEvent(state, event, config);
+    expect(effects.find((e) => e.type === 'dispatch')).toBeUndefined();
+    expect(effects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
+    expect(nextState.claimed.has('id-1')).toBe(false);
+    expect(nextState.retryAttempts.has('id-1')).toBe(false);
   });
 
   it('should schedule exponential backoff retry on error exit', () => {

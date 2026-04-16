@@ -87,6 +87,7 @@ describe('Orchestrator Sentinel Integration', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {
@@ -123,6 +124,7 @@ describe('Orchestrator Sentinel Integration', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {
@@ -148,10 +150,14 @@ describe('Orchestrator Sentinel Integration', () => {
     expect(taintResult.state?.severity).toBe('medium');
     expect(taintResult.state?.findings.length).toBeGreaterThan(0);
 
-    // Agent should have been dispatched (running or already completed)
+    // Agent should have been dispatched (running or already completed).
+    // Since handleWorkerExit on success releases `claimed` and adds to
+    // `completed`, accept either as evidence the dispatch path ran.
     const snapshot = orchestrator.getSnapshot();
-    // Issue should be claimed (dispatch happened)
-    expect(snapshot.claimed.includes(mockIssue.id)).toBe(true);
+    const dispatchHappened =
+      (snapshot.claimed as string[]).includes(mockIssue.id) ||
+      (snapshot.completed as string[]).includes(mockIssue.id);
+    expect(dispatchHappened).toBe(true);
   });
 
   it('continues normally when workspace has clean config files', async () => {
@@ -160,6 +166,7 @@ describe('Orchestrator Sentinel Integration', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {
@@ -181,9 +188,13 @@ describe('Orchestrator Sentinel Integration', () => {
     const taintResult = checkTaint(workspacePath, mockIssue.id);
     expect(taintResult.tainted).toBe(false);
 
-    // Agent should have been dispatched
+    // Agent should have been dispatched; post-completion it migrates from
+    // claimed -> completed.
     const snapshot = orchestrator.getSnapshot();
-    expect(snapshot.claimed.includes(mockIssue.id)).toBe(true);
+    const dispatchHappened =
+      (snapshot.claimed as string[]).includes(mockIssue.id) ||
+      (snapshot.completed as string[]).includes(mockIssue.id);
+    expect(dispatchHappened).toBe(true);
   });
 
   it('continues normally when no config files exist in workspace', async () => {
@@ -192,6 +203,7 @@ describe('Orchestrator Sentinel Integration', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {
@@ -202,8 +214,12 @@ describe('Orchestrator Sentinel Integration', () => {
     await orchestrator.tick();
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // Agent should have been dispatched
+    // Agent should have been dispatched; post-completion it migrates from
+    // claimed -> completed.
     const snapshot = orchestrator.getSnapshot();
-    expect(snapshot.claimed.includes(mockIssue.id)).toBe(true);
+    const dispatchHappened =
+      (snapshot.claimed as string[]).includes(mockIssue.id) ||
+      (snapshot.completed as string[]).includes(mockIssue.id);
+    expect(dispatchHappened).toBe(true);
   });
 });

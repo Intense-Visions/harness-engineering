@@ -1044,6 +1044,26 @@ export class Orchestrator extends EventEmitter {
       }
     }
 
+    // Persist completion to the tracker so the issue is no longer a candidate
+    // on subsequent ticks — including across orchestrator restarts. Failures
+    // are logged but do not block: the in-memory `completed` set still
+    // prevents re-dispatch within this process.
+    if (reason === 'normal') {
+      try {
+        const result = await this.tracker.markIssueComplete(issueId);
+        if (!result.ok) {
+          this.logger.warn(`Tracker write-back failed for ${issueId}: ${String(result.error)}`, {
+            issueId,
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Tracker write-back threw for ${issueId}`, {
+          issueId,
+          error: String(err),
+        });
+      }
+    }
+
     const event: OrchestratorEvent = {
       type: 'worker_exit',
       issueId,
@@ -1152,6 +1172,7 @@ export class Orchestrator extends EventEmitter {
       running: Array.from(this.state.running.entries()),
       retryAttempts: Array.from(this.state.retryAttempts.entries()),
       claimed: Array.from(this.state.claimed),
+      completed: Array.from(this.state.completed),
       tokenTotals: this.state.tokenTotals,
       maxConcurrentAgents: this.state.maxConcurrentAgents,
       globalCooldownUntilMs: this.state.globalCooldownUntilMs,
