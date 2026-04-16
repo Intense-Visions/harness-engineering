@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-11
-last_synced: 2026-04-11T12:00:00.000Z
+updated: 2026-04-16
+last_synced: 2026-04-16T00:00:00.000Z
 last_manual_edit: 2026-04-15T17:14:30.890Z
 ---
 
@@ -922,27 +922,30 @@ last_manual_edit: 2026-04-15T17:14:30.890Z
 
 ### Intelligence Pipeline
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/intelligence-pipeline/proposal.md
 - **Summary:** Spec enrichment (SEL), complexity modeling (CML), and pre-execution simulation (PESL) layers in packages/intelligence/. Augments hybrid orchestrator routing with graph-backed complexity scoring and tiered simulation.
 - **Blockers:** —
 - **Plan:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#152
 
 ### Dashboard Chat Panel
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/dashboard-chat-panel/proposal.md
 - **Summary:** Collapsible side panel on every dashboard page providing full interactive Claude sessions with command palette, contextual launch, multi-session tabs, and .harness artifact linkage
 - **Blockers:** —
 - **Plan:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#151
 
 ### Bidirectional Analysis Sync via Tracker Comments
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/analysis-tracker-sync/proposal.md
 - **Summary:** Auto-publish analysis results as structured tracker comments and pull them back locally via sync-analyses
 - **Blockers:** —
 - **Plan:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#150
 
 ## v3.0 Graph Intelligence
 
