@@ -10,6 +10,9 @@ pnpm-lock.yaml
 # Generated slash commands (YAML frontmatter must not be reformatted)
 agents/commands/**
 
+# Generated/local harness state files
+.harness/health-snapshot.json
+
 # Intentional syntax-error test fixtures
 packages/core/tests/fixtures/typescript-samples/syntax-error.ts
 packages/core/tests/fixtures/code-nav/syntax-error.ts
