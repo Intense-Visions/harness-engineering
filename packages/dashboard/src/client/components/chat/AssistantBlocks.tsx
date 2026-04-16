@@ -48,15 +48,22 @@ function formatToolArgs(tool: string, args?: string) {
   }
 }
 
-function ToolUseBlockView({ block, forceResult }: { block: ToolUseBlock; forceResult?: string }) {
+function ToolUseBlockView({
+  block,
+  forceResult,
+  isPending = false,
+}: {
+  block: ToolUseBlock;
+  forceResult?: string;
+  isPending?: boolean;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const result = block.result || forceResult;
   const hasResult = result !== undefined;
-  const isActuallyPending = !hasResult;
 
   return (
     <div className="relative overflow-hidden rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm transition-all duration-200">
-      {isActuallyPending && (
+      {isPending && !hasResult && (
         <motion.div
           initial={{ top: '-10%' }}
           animate={{ top: '110%' }}
@@ -246,13 +253,26 @@ function TextBlockView({ block }: { block: TextBlock }) {
   );
 }
 
-function ToolGroup({ tools, startIndex }: { tools: ToolUseBlock[]; startIndex: number }) {
+function ToolGroup({
+  tools,
+  startIndex,
+  isStreaming,
+  isLastGroup,
+}: {
+  tools: ToolUseBlock[];
+  startIndex: number;
+  isStreaming: boolean;
+  isLastGroup: boolean;
+}) {
   if (tools.length <= 2) {
     return (
       <>
-        {tools.map((t, i) => (
-          <ToolUseBlockView key={startIndex + i} block={t} />
-        ))}
+        {tools.map((t, i) => {
+          const isLast = isLastGroup && i === tools.length - 1;
+          return (
+            <ToolUseBlockView key={startIndex + i} block={t} isPending={isLast && isStreaming} />
+          );
+        })}
       </>
     );
   }
@@ -267,9 +287,12 @@ function ToolGroup({ tools, startIndex }: { tools: ToolUseBlock[]; startIndex: n
         Used {tools.length} tools
       </summary>
       <div className="flex flex-col gap-1 border-t border-neutral-border/50 p-2">
-        {tools.map((t, i) => (
-          <ToolUseBlockView key={startIndex + i} block={t} />
-        ))}
+        {tools.map((t, i) => {
+          const isLast = isLastGroup && i === tools.length - 1;
+          return (
+            <ToolUseBlockView key={startIndex + i} block={t} isPending={isLast && isStreaming} />
+          );
+        })}
       </div>
     </details>
   );
@@ -327,7 +350,13 @@ export function AssistantBlocks({
     } else {
       if (toolGroup.length > 0) {
         elements.push(
-          <ToolGroup key={`tg-${toolGroupStart}`} tools={toolGroup} startIndex={toolGroupStart} />
+          <ToolGroup
+            key={`tg-${toolGroupStart}`}
+            tools={toolGroup}
+            startIndex={toolGroupStart}
+            isStreaming={isStreaming}
+            isLastGroup={false}
+          />
         );
         toolGroup = [];
       }
@@ -360,7 +389,13 @@ export function AssistantBlocks({
 
   if (toolGroup.length > 0) {
     elements.push(
-      <ToolGroup key={`tg-${toolGroupStart}`} tools={toolGroup} startIndex={toolGroupStart} />
+      <ToolGroup
+        key={`tg-${toolGroupStart}`}
+        tools={toolGroup}
+        startIndex={toolGroupStart}
+        isStreaming={isStreaming}
+        isLastGroup={true}
+      />
     );
   }
 

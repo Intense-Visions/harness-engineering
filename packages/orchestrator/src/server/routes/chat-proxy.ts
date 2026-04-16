@@ -179,6 +179,32 @@ function mapContentBlock(block: any): SSEEvent | null {
   return null;
 }
 
+/**
+ * Normalize a tool_result block's `content`, which Claude Code may emit as a
+ * string, an array of `{type:"text", text:"..."}` blocks, or (rarely) another
+ * value. Always returns a string.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeToolResultContent(content: any): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return content.map((c: any) => (typeof c === 'string' ? c : (c.text ?? ''))).join('\n');
+  }
+  return String(content ?? '');
+}
+
+/** Map a content block from a user message to an SSE event. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapUserBlock(block: any): SSEEvent | null {
+  if (block.type !== 'tool_result') return null;
+  return {
+    type: 'tool_result',
+    content: normalizeToolResultContent(block.content).slice(0, 1000),
+    isError: block.is_error ?? false,
+  };
+}
+
 /** Extract SSE events from a Claude Code stream-json line. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractChunks(event: any): SSEEvent[] {
@@ -189,17 +215,7 @@ function extractChunks(event: any): SSEEvent[] {
 
   // tool results from user messages
   if (event.type === 'user' && Array.isArray(event.message?.content)) {
-    const results: SSEEvent[] = [];
-    for (const block of event.message.content) {
-      if (block.type === 'tool_result' && typeof block.content === 'string') {
-        results.push({
-          type: 'tool_result',
-          content: block.content.slice(0, 1000),
-          isError: block.is_error ?? false,
-        });
-      }
-    }
-    return results;
+    return event.message.content.map(mapUserBlock).filter(Boolean) as SSEEvent[];
   }
 
   // content_block_delta — streaming text
