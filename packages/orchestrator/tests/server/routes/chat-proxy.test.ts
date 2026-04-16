@@ -155,12 +155,12 @@ describe('chat proxy route (Claude Code session mode)', () => {
 
     await postRequest(port, '/api/chat', {
       prompt: 'Continue',
-      sessionId: 'test-session-123',
+      sessionId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     });
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'claude',
-      expect.arrayContaining(['--resume', 'test-session-123']),
+      expect.arrayContaining(['--resume', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890']),
       expect.any(Object)
     );
   });

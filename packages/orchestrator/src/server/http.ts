@@ -36,6 +36,8 @@ export interface ServerDependencies {
   roadmapPath?: string | null;
   /** Callback to dispatch a work item immediately, bypassing the tick loop */
   dispatchAdHoc?: DispatchAdHocFn | null;
+  /** Directory for chat session metadata (default: <cwd>/.harness/sessions) */
+  sessionsDir?: string;
 }
 
 export class OrchestratorServer {
@@ -51,6 +53,7 @@ export class OrchestratorServer {
   private analysisArchive: AnalysisArchive | undefined;
   private roadmapPath: string | null;
   private dispatchAdHoc: DispatchAdHocFn | null;
+  private sessionsDir: string;
   private planWatcher: PlanWatcher | null = null;
   private stateChangeListener: (snapshot: unknown) => void;
   private agentEventListener: (event: unknown) => void;
@@ -67,6 +70,7 @@ export class OrchestratorServer {
     this.analysisArchive = deps?.analysisArchive;
     this.roadmapPath = deps?.roadmapPath ?? null;
     this.dispatchAdHoc = deps?.dispatchAdHoc ?? null;
+    this.sessionsDir = deps?.sessionsDir ?? path.resolve('.harness', 'sessions');
     this.httpServer = http.createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(this.httpServer, () =>
       this.orchestrator.getSnapshot()
@@ -132,7 +136,7 @@ export class OrchestratorServer {
     }
 
     // Chat session metadata route
-    if (handleSessionsRoute(req, res)) {
+    if (handleSessionsRoute(req, res, this.sessionsDir)) {
       return;
     }
 

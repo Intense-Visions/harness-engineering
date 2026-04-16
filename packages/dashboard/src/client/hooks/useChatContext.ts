@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 export interface ChatContextState {
   data: Record<string, unknown>;
@@ -32,8 +32,12 @@ export function useChatContext(sources?: string[]): ChatContextState {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Stable dependency key so passing a fresh array literal doesn't re-fire the effect
+  const sourcesKey = useMemo(() => (sources ?? []).join('|'), [sources]);
+
   useEffect(() => {
-    if (!sources || sources.length === 0) {
+    const list = sourcesKey ? sourcesKey.split('|') : [];
+    if (list.length === 0) {
       setData({});
       setIsLoading(false);
       setError(null);
@@ -45,7 +49,7 @@ export function useChatContext(sources?: string[]): ChatContextState {
     setIsLoading(true);
     setError(null);
 
-    Promise.all(sources.map(fetchSource))
+    Promise.all(list.map(fetchSource))
       .then((results) => {
         if (mounted) setData(toContextMap(results));
       })
@@ -60,7 +64,7 @@ export function useChatContext(sources?: string[]): ChatContextState {
     return () => {
       mounted = false;
     };
-  }, [sources]);
+  }, [sourcesKey]);
 
   return { data, isLoading, error };
 }

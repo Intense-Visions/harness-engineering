@@ -25,9 +25,9 @@ export function handleAnalysesRoute(
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(records));
       })
-      .catch((err) => {
+      .catch(() => {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(err) }));
+        res.end(JSON.stringify({ error: 'Failed to list analyses' }));
       });
     return true;
   }
@@ -36,6 +36,11 @@ export function handleAnalysesRoute(
   const match = url?.match(/^\/api\/analyses\/([^/]+)$/);
   if (match) {
     const issueId = decodeURIComponent(match[1]!);
+    if (issueId.includes('..') || issueId.includes('/') || issueId.includes('\\')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid issueId' }));
+      return true;
+    }
     archive
       .get(issueId)
       .then((record) => {
@@ -47,9 +52,9 @@ export function handleAnalysesRoute(
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(record));
       })
-      .catch((err) => {
+      .catch(() => {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(err) }));
+        res.end(JSON.stringify({ error: 'Failed to retrieve analysis' }));
       });
     return true;
   }

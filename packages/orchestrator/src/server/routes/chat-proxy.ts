@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import * as readline from 'node:readline';
 import { readBody } from '../utils';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface ChatRequest {
   /** The user's message for this turn */
   prompt: string;
@@ -51,6 +53,11 @@ export function handleChatProxyRoute(
           return;
         }
 
+        if (parsed.sessionId && !UUID_RE.test(parsed.sessionId)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid sessionId format' }));
+          return;
+        }
         const sessionId = parsed.sessionId ?? randomUUID();
         const isFirstTurn = !parsed.sessionId;
 
@@ -65,7 +72,7 @@ export function handleChatProxyRoute(
         emit(res, { type: 'session', sessionId });
 
         const args = buildArgs(parsed.prompt, sessionId, isFirstTurn, parsed.system);
-        child = spawn(command, args, { env: process.env });
+        child = spawn(command, args, { env: process.env, stdio: 'pipe' });
         child.stdin?.end();
 
         let clientDisconnected = false;
@@ -82,6 +89,7 @@ export function handleChatProxyRoute(
         });
 
         const rl = readline.createInterface({ input: child.stdout!, terminal: false });
+        child.stderr?.resume(); // drain stderr to prevent backpressure
 
         for await (const line of rl) {
           if (clientDisconnected) break;

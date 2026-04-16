@@ -38,12 +38,20 @@ export class AnalysisArchive {
     this.dir = dir;
   }
 
+  private safePath(id: string): string | null {
+    const filePath = path.join(this.dir, `${id}.json`);
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(path.resolve(this.dir) + path.sep)) return null;
+    return filePath;
+  }
+
   /**
    * Write an analysis record to disk, overwriting any previous record for the same issue.
    */
   async save(record: AnalysisRecord): Promise<void> {
+    const filePath = this.safePath(record.issueId);
+    if (!filePath) throw new Error('Invalid issueId');
     await fs.mkdir(this.dir, { recursive: true });
-    const filePath = path.join(this.dir, `${record.issueId}.json`);
     await fs.writeFile(filePath, JSON.stringify(record, null, 2), 'utf-8');
   }
 
@@ -51,7 +59,8 @@ export class AnalysisArchive {
    * Read the analysis record for a specific issue.
    */
   async get(issueId: string): Promise<AnalysisRecord | null> {
-    const filePath = path.join(this.dir, `${issueId}.json`);
+    const filePath = this.safePath(issueId);
+    if (!filePath) return null;
     try {
       const raw = await fs.readFile(filePath, 'utf-8');
       const record = JSON.parse(raw) as AnalysisRecord;

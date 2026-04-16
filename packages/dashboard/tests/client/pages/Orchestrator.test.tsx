@@ -8,6 +8,7 @@ const mockHook = {
   snapshot: null as OrchestratorSnapshot | null,
   interactions: [],
   connected: false,
+  agentEvents: {} as Record<string, unknown[]>,
   removeInteraction: vi.fn(),
   setInteractions: vi.fn(),
 };
@@ -100,9 +101,10 @@ describe('Orchestrator (Agent Monitor) page', () => {
     });
     mockHook.connected = true;
     render(<Orchestrator />);
-    expect(screen.getByText('fix-login-bug')).toBeDefined();
-    expect(screen.getByText('local')).toBeDefined();
-    expect(screen.getByText('StreamingTurn')).toBeDefined();
+    // Identifier appears in both the agent card and the snapshot table; use getAllByText
+    expect(screen.getAllByText('fix-login-bug').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('local').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('StreamingTurn').length).toBeGreaterThan(0);
   });
 
   it('shows COOLDOWN status when globalCooldownUntilMs is in the future', () => {

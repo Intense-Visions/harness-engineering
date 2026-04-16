@@ -114,11 +114,11 @@ describe('SSEManager on-demand gather', () => {
     // gatherSecurity should NOT have been called again
     expect((gatherSecurity as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterFirst);
 
-    // Second tick should only emit overview, not checks
+    // Second tick emits overview + cached checks (replay for late-connecting clients)
     const calls = stream.writeSSE.mock.calls;
     const events = calls.map((c: unknown[]) => JSON.parse((c[0] as { data: string }).data));
     const types = events.map((e: { type: string }) => e.type);
     expect(types).toContain('overview');
-    expect(types).not.toContain('checks');
+    expect(types).toContain('checks');
   });
 });

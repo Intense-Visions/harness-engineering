@@ -371,7 +371,9 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
   private buildLabelsParam(): string {
     const filterLabels = this.config.labels ?? [];
-    return filterLabels.length > 0 ? `&labels=${filterLabels.join(',')}` : '';
+    return filterLabels.length > 0
+      ? `&labels=${filterLabels.map(encodeURIComponent).join(',')}`
+      : '';
   }
 
   private issueToTicketState(issue: {

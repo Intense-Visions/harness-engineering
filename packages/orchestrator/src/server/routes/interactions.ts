@@ -3,6 +3,7 @@ import { readBody } from '../utils';
 import type { InteractionQueue } from '../../core/interaction-queue';
 
 const VALID_STATUSES = new Set(['pending', 'claimed', 'resolved']);
+const SAFE_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
 /**
  * Handle interactions API routes.
@@ -35,6 +36,11 @@ export function handleInteractionsRoute(
   const patchMatch = method === 'PATCH' && url?.match(/^\/api\/interactions\/([^/]+)$/);
   if (patchMatch && patchMatch[1]) {
     const id = patchMatch[1];
+    if (!SAFE_ID_RE.test(id)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid interaction id' }));
+      return true;
+    }
     void (async () => {
       try {
         const body = await readBody(req);

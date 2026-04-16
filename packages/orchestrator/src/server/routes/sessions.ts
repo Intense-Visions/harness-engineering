@@ -3,7 +3,11 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { readBody } from '../utils';
 
-const SESSIONS_DIR = path.resolve('.harness', 'sessions');
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isSafeId(id: string): boolean {
+  return UUID_RE.test(id) || (path.basename(id) === id && !id.includes('..'));
+}
 
 function jsonResponse(res: ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -16,15 +20,15 @@ function extractSessionId(url: string): string | null {
   return id && id !== 'sessions' ? id : null;
 }
 
-async function handleList(res: ServerResponse): Promise<void> {
+async function handleList(res: ServerResponse, sessionsDir: string): Promise<void> {
   try {
-    const entries = await fs.readdir(SESSIONS_DIR, { withFileTypes: true });
+    const entries = await fs.readdir(sessionsDir, { withFileTypes: true });
     const sessions = [];
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       try {
         const content = await fs.readFile(
-          path.join(SESSIONS_DIR, entry.name, 'session.json'),
+          path.join(sessionsDir, entry.name, 'session.json'),
           'utf-8'
         );
         sessions.push(JSON.parse(content));
@@ -45,7 +49,11 @@ async function handleList(res: ServerResponse): Promise<void> {
   }
 }
 
-async function handleCreate(req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function handleCreate(
+  req: IncomingMessage,
+  res: ServerResponse,
+  sessionsDir: string
+): Promise<void> {
   try {
     const body = await readBody(req);
     const session = JSON.parse(body);
@@ -53,7 +61,11 @@ async function handleCreate(req: IncomingMessage, res: ServerResponse): Promise<
       jsonResponse(res, 400, { error: 'Missing sessionId' });
       return;
     }
-    const sessionDir = path.join(SESSIONS_DIR, session.sessionId);
+    if (!isSafeId(session.sessionId)) {
+      jsonResponse(res, 400, { error: 'Invalid sessionId' });
+      return;
+    }
+    const sessionDir = path.join(sessionsDir, session.sessionId);
     await fs.mkdir(sessionDir, { recursive: true });
     await fs.writeFile(path.join(sessionDir, 'session.json'), JSON.stringify(session, null, 2));
     jsonResponse(res, 200, { ok: true });
@@ -62,16 +74,21 @@ async function handleCreate(req: IncomingMessage, res: ServerResponse): Promise<
   }
 }
 
-async function handleUpdate(req: IncomingMessage, res: ServerResponse, url: string): Promise<void> {
+async function handleUpdate(
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: string,
+  sessionsDir: string
+): Promise<void> {
   try {
     const id = extractSessionId(url);
-    if (!id) {
-      jsonResponse(res, 400, { error: 'Missing sessionId' });
+    if (!id || !isSafeId(id)) {
+      jsonResponse(res, 400, { error: 'Missing or invalid sessionId' });
       return;
     }
     const body = await readBody(req);
     const updates = JSON.parse(body);
-    const sessionFilePath = path.join(SESSIONS_DIR, id, 'session.json');
+    const sessionFilePath = path.join(sessionsDir, id, 'session.json');
     const current = JSON.parse(await fs.readFile(sessionFilePath, 'utf-8'));
     await fs.writeFile(sessionFilePath, JSON.stringify({ ...current, ...updates }, null, 2));
     jsonResponse(res, 200, { ok: true });
@@ -80,14 +97,14 @@ async function handleUpdate(req: IncomingMessage, res: ServerResponse, url: stri
   }
 }
 
-async function handleDelete(res: ServerResponse, url: string): Promise<void> {
+async function handleDelete(res: ServerResponse, url: string, sessionsDir: string): Promise<void> {
   try {
     const id = extractSessionId(url);
-    if (!id) {
-      jsonResponse(res, 400, { error: 'Missing sessionId' });
+    if (!id || !isSafeId(id)) {
+      jsonResponse(res, 400, { error: 'Missing or invalid sessionId' });
       return;
     }
-    await fs.rm(path.join(SESSIONS_DIR, id), { recursive: true, force: true });
+    await fs.rm(path.join(sessionsDir, id), { recursive: true, force: true });
     jsonResponse(res, 200, { ok: true });
   } catch {
     jsonResponse(res, 500, { error: 'Failed to delete session' });
@@ -96,22 +113,26 @@ async function handleDelete(res: ServerResponse, url: string): Promise<void> {
 
 const API_PREFIX = '/api/sessions';
 
-export function handleSessionsRoute(req: IncomingMessage, res: ServerResponse): boolean {
+export function handleSessionsRoute(
+  req: IncomingMessage,
+  res: ServerResponse,
+  sessionsDir: string
+): boolean {
   const { method, url } = req;
   if (!url?.startsWith(API_PREFIX)) return false;
 
   switch (method) {
     case 'GET':
-      void handleList(res);
+      void handleList(res, sessionsDir);
       return true;
     case 'POST':
-      void handleCreate(req, res);
+      void handleCreate(req, res, sessionsDir);
       return true;
     case 'PATCH':
-      void handleUpdate(req, res, url);
+      void handleUpdate(req, res, url, sessionsDir);
       return true;
     case 'DELETE':
-      void handleDelete(res, url);
+      void handleDelete(res, url, sessionsDir);
       return true;
     default:
       return false;

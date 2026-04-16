@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
@@ -15,6 +16,40 @@ const mockSocket = {
 
 vi.mock('../../../src/client/hooks/useOrchestratorSocket', () => ({
   useOrchestratorSocket: () => mockSocket,
+}));
+
+// Mock Virtuoso to render all items directly (avoids jsdom viewport issues)
+vi.mock('react-virtuoso', () => ({
+  Virtuoso: ({
+    data,
+    itemContent,
+  }: {
+    data: unknown[];
+    itemContent: (index: number, item: unknown) => React.ReactNode;
+  }) => (
+    <div>
+      {data.map((item, i) => (
+        <div key={i}>{itemContent(i, item)}</div>
+      ))}
+    </div>
+  ),
+}));
+
+vi.mock('../../../src/client/hooks/useChatPanel', () => ({
+  useChatPanel: () => ({
+    isOpen: false,
+    toggle: vi.fn(),
+    open: vi.fn(),
+    close: vi.fn(),
+    sessions: [],
+    activeSessionId: null,
+    setActiveSessionId: vi.fn(),
+    updateSession: vi.fn(),
+    patchSession: vi.fn(),
+    createNewSession: vi.fn(),
+    closeSession: vi.fn(),
+    renameSession: vi.fn(),
+  }),
 }));
 
 // Mock fetch
@@ -132,7 +167,7 @@ describe('Attention (Needs Attention) page', () => {
     });
   });
 
-  it('has a Claim button that links to the chat page', async () => {
+  it('Claim button updates URL with interactionId and opens chat panel', async () => {
     const interaction = makeInteraction();
     mockFetch.mockResolvedValue({
       ok: true,
@@ -146,10 +181,13 @@ describe('Attention (Needs Attention) page', () => {
     );
 
     await waitFor(() => {
-      const claimLink = screen.getByText('Claim');
-      expect(claimLink.closest('a')?.getAttribute('href')).toBe(
-        '/orchestrator/chat?interactionId=int-1'
-      );
+      expect(screen.getByText('Claim')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Claim'));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('interactionId=int-1');
     });
   });
 });
