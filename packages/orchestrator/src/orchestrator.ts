@@ -23,13 +23,12 @@ import type {
   ExecutionOutcome,
 } from '@harness-engineering/intelligence';
 import { GraphStore } from '@harness-engineering/graph';
+import type { OrchestratorState, LiveSession } from './types/internal';
 import {
-  OrchestratorState,
   OrchestratorEvent,
   SideEffect,
   applyEvent,
   createEmptyState,
-  LiveSession,
   detectScopeTier,
   artifactPresenceFromIssue,
   resolveEscalationConfig,
@@ -60,6 +59,7 @@ import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
+import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect } from './types/events';
 
 /**
@@ -663,19 +663,20 @@ export class Orchestrator extends EventEmitter {
     let { nextState, effects } = applyEvent(this.state, tickEvent, this.config);
     this.state = nextState;
 
-    // 4. Check for due retries
-    for (const [issueId, retry] of nextState.retryAttempts.entries()) {
-      if (nowMs >= retry.dueAtMs) {
-        const retryEvent: OrchestratorEvent = {
-          type: 'retry_fired',
-          issueId,
-          candidates: candidatesResult.value,
-          nowMs,
-        };
-        const result = applyEvent(this.state, retryEvent, this.config);
-        this.state = result.nextState;
-        effects.push(...result.effects);
-      }
+    // 5. Check for due retries (snapshot IDs before iterating to avoid stale-state issues)
+    const dueRetryIds = [...nextState.retryAttempts.entries()]
+      .filter(([, r]) => nowMs >= r.dueAtMs)
+      .map(([id]) => id);
+    for (const issueId of dueRetryIds) {
+      const retryEvent: OrchestratorEvent = {
+        type: 'retry_fired',
+        issueId,
+        candidates: candidatesResult.value,
+        nowMs,
+      };
+      const result = applyEvent(this.state, retryEvent, this.config);
+      this.state = result.nextState;
+      effects.push(...result.effects);
     }
 
     // 5. Handle effects
@@ -930,80 +931,7 @@ export class Orchestrator extends EventEmitter {
           // 4. Pause if we need to before starting a new turn
           if (event.type === 'turn_start') {
             while (true) {
-              const now = Date.now();
-              let waitTime = 0;
-
-              if (this.state.globalCooldownUntilMs && now < this.state.globalCooldownUntilMs) {
-                waitTime = this.state.globalCooldownUntilMs - now;
-              } else {
-                const recentCountMin = this.state.recentRequestTimestamps.filter(
-                  (ts) => now - ts < 60000
-                ).length;
-                const recentCountSec = this.state.recentRequestTimestamps.filter(
-                  (ts) => now - ts < 1000
-                ).length;
-
-                const recentInputTokensFilter = this.state.recentInputTokens.filter(
-                  (t) => now - t.timestamp < 60000
-                );
-                const recentOutputTokensFilter = this.state.recentOutputTokens.filter(
-                  (t) => now - t.timestamp < 60000
-                );
-
-                const minInputTokens = recentInputTokensFilter.reduce(
-                  (sum, t) => sum + t.tokens,
-                  0
-                );
-                const minOutputTokens = recentOutputTokensFilter.reduce(
-                  (sum, t) => sum + t.tokens,
-                  0
-                );
-
-                if (recentCountMin > this.state.maxRequestsPerMinute) {
-                  const timestamps = this.state.recentRequestTimestamps
-                    .filter((ts) => now - ts < 60000)
-                    .sort((a, b) => a - b);
-                  const oldest = timestamps[0];
-                  if (oldest !== undefined) {
-                    waitTime = 60000 - (now - oldest);
-                  } else {
-                    waitTime = 1000;
-                  }
-                } else if (recentCountSec >= this.state.maxRequestsPerSecond) {
-                  const timestamps = this.state.recentRequestTimestamps
-                    .filter((ts) => now - ts < 1000)
-                    .sort((a, b) => a - b);
-                  const oldest = timestamps[0];
-                  if (oldest !== undefined) {
-                    waitTime = 1000 - (now - oldest);
-                  } else {
-                    waitTime = 1000;
-                  }
-                } else if (
-                  this.state.maxInputTokensPerMinute > 0 &&
-                  minInputTokens >= this.state.maxInputTokensPerMinute
-                ) {
-                  const sorted = recentInputTokensFilter.sort((a, b) => a.timestamp - b.timestamp);
-                  const oldest = sorted[0]?.timestamp;
-                  if (oldest !== undefined) {
-                    waitTime = 60000 - (now - oldest);
-                  } else {
-                    waitTime = 1000;
-                  }
-                } else if (
-                  this.state.maxOutputTokensPerMinute > 0 &&
-                  minOutputTokens >= this.state.maxOutputTokensPerMinute
-                ) {
-                  const sorted = recentOutputTokensFilter.sort((a, b) => a.timestamp - b.timestamp);
-                  const oldest = sorted[0]?.timestamp;
-                  if (oldest !== undefined) {
-                    waitTime = 60000 - (now - oldest);
-                  } else {
-                    waitTime = 1000;
-                  }
-                }
-              }
-
+              const waitTime = computeRateLimitDelay(this.state, this.state);
               if (waitTime > 0) {
                 this.logger.info(
                   `Rate limit throttling active, pausing ${issue.identifier} for ${waitTime}ms`
@@ -1115,11 +1043,21 @@ export class Orchestrator extends EventEmitter {
    * Used by the dashboard's "Dispatch Now" action.
    */
   public async dispatchAdHoc(issue: Issue): Promise<void> {
-    // Mark as claimed so the next tick doesn't also dispatch it
-    this.state.claimed.add(issue.id);
-
-    // Add a placeholder running entry
-    this.state.running.set(issue.id, {
+    // Clone state to avoid racing with a concurrent tick
+    const next = {
+      ...this.state,
+      claimed: new Set(this.state.claimed),
+      running: new Map(this.state.running),
+      retryAttempts: new Map(this.state.retryAttempts),
+      completed: new Set(this.state.completed),
+      recentRequestTimestamps: [...this.state.recentRequestTimestamps],
+      recentInputTokens: [...this.state.recentInputTokens],
+      recentOutputTokens: [...this.state.recentOutputTokens],
+      tokenTotals: { ...this.state.tokenTotals },
+      rateLimits: { ...this.state.rateLimits },
+    };
+    next.claimed.add(issue.id);
+    next.running.set(issue.id, {
       issueId: issue.id,
       identifier: issue.identifier,
       issue,
@@ -1129,6 +1067,7 @@ export class Orchestrator extends EventEmitter {
       phase: 'PreparingWorkspace',
       session: null,
     });
+    this.state = next;
 
     this.emit('state_change', this.getSnapshot());
     await this.dispatchIssue(issue, 1, 'local');

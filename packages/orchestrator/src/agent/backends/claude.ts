@@ -38,6 +38,37 @@ function resolveSpawnError(
   resolve(Err({ category: 'agent_not_found', message: `Claude command '${command}' not found` }));
 }
 
+/**
+ * Extract a human-readable summary from a Claude result event.
+ * The content field can be a string, an array of content blocks, or the full response object.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summarizeResultContent(rawEvent: any): string {
+  // Direct string result
+  if (typeof rawEvent.result === 'string') return rawEvent.result;
+
+  // Content is an array of blocks — extract text blocks
+  const content = rawEvent.content;
+  if (Array.isArray(content)) {
+    const textParts = content
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((b: any) => b.type === 'text' && typeof b.text === 'string')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((b: any) => b.text as string);
+    if (textParts.length > 0) return textParts.join('\n');
+
+    // No text blocks — summarize what's there (e.g., tool_use blocks)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toolNames = content.filter((b: any) => b.type === 'tool_use').map((b: any) => b.name);
+    if (toolNames.length > 0) return `Tool calls: ${toolNames.join(', ')}`;
+  }
+
+  // Content is a plain string
+  if (typeof content === 'string') return content;
+
+  return 'Turn completed';
+}
+
 export class ClaudeBackend implements AgentBackend {
   readonly name = 'claude';
   private command: string;
@@ -138,9 +169,8 @@ export class ClaudeBackend implements AgentBackend {
             event.content = 'Rate limit hit - waiting...';
           } else if (rawEvent.type === 'result' || rawEvent.type === 'turn_complete') {
             event.type = 'result';
-            const resultData = rawEvent.content || rawEvent;
-            event.content = resultData.result || resultData.message || JSON.stringify(resultData);
-            lastResult = resultData as TurnResult;
+            event.content = summarizeResultContent(rawEvent);
+            lastResult = rawEvent as TurnResult;
 
             // Capture token usage from the result event
             if (rawEvent.usage) {
@@ -153,10 +183,15 @@ export class ClaudeBackend implements AgentBackend {
                 cacheReadTokens: rawEvent.usage.cache_read_input_tokens ?? 0,
               };
             }
+          } else if (rawEvent.type === 'message') {
+            // Full Claude API message object — skip (content arrives via text/call events)
+            continue;
           } else {
-            // Fallback for other event types (system, assistant, etc)
             event.type = 'status';
-            event.content = rawEvent.message || rawEvent.type;
+            event.content =
+              typeof rawEvent.message === 'string'
+                ? rawEvent.message
+                : (rawEvent.type ?? 'unknown');
           }
 
           yield event;

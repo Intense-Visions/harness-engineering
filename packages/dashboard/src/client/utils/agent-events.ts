@@ -3,7 +3,9 @@ import type { AgentEventMessage } from '../types/orchestrator';
 
 function resolveContent(msg: AgentEventMessage['event']): string {
   if (typeof msg.content === 'string') return msg.content;
-  return msg.content ? String(msg.content) : '';
+  if (msg.content == null) return '';
+  if (typeof msg.content === 'object') return JSON.stringify(msg.content);
+  return String(msg.content);
 }
 
 function handleText(blocks: ContentBlock[], content: string): void {

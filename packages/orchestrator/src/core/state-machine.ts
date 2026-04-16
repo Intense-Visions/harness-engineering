@@ -171,6 +171,15 @@ function handleTick(
     });
   }
 
+  // Prune completed entries that no longer have pending retries or running tasks
+  if (next.completed.size > 100) {
+    for (const id of next.completed) {
+      if (!next.retryAttempts.has(id) && !next.running.has(id) && !next.claimed.has(id)) {
+        next.completed.delete(id);
+      }
+    }
+  }
+
   return { nextState: next, effects };
 }
 

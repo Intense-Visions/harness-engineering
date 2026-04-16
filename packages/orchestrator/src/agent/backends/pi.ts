@@ -237,6 +237,10 @@ export class PiBackend implements AgentBackend {
           }),
       });
     } finally {
+      // Unblock any suspended waitForEvent() to prevent dangling promises
+      // resolveWait is assigned inside a closure, so TS can't track it — cast is safe
+      (resolveWait as (() => void) | null)?.();
+      resolveWait = null;
       unsubscribe();
       (session as PiSession).unsubscribe = null;
       await promptPromise.catch(() => {});
