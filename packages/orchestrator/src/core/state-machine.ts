@@ -4,7 +4,7 @@ import type {
   AgentEvent,
   EscalationConfig,
 } from '@harness-engineering/types';
-import type { OrchestratorState } from '../types/internal';
+import type { OrchestratorState, LiveSession, RunAttemptPhase } from '../types/internal';
 import type { OrchestratorEvent, SideEffect, EscalateEffect, TickEvent } from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
@@ -264,6 +264,62 @@ function handleWorkerExit(
   return { nextState: next, effects };
 }
 
+function deriveSessionPatch(
+  session: LiveSession,
+  event: AgentEvent
+): { session: LiveSession; nextPhase: RunAttemptPhase | null } {
+  const updated = { ...session };
+  updated.lastEvent = event.type;
+  updated.lastTimestamp = event.timestamp;
+
+  let nextPhase: RunAttemptPhase | null = null;
+
+  if (event.type === 'turn_start') {
+    updated.turnCount += 1;
+  } else if (
+    event.type === 'thought' ||
+    event.type === 'call' ||
+    event.type === 'status' ||
+    event.type === 'rate_limit'
+  ) {
+    nextPhase = 'StreamingTurn';
+    updated.lastMessage =
+      typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+  } else if (event.type === 'result') {
+    updated.lastMessage =
+      typeof event.content === 'string'
+        ? event.content
+        : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (event.content as any)?.result || JSON.stringify(event.content);
+  }
+
+  if (event.sessionId) {
+    updated.sessionId = event.sessionId;
+  }
+
+  return { session: updated, nextPhase };
+}
+
+function accrueUsage(
+  next: OrchestratorState,
+  session: LiveSession,
+  issueId: string,
+  usage: NonNullable<AgentEvent['usage']>,
+  effects: SideEffect[]
+): void {
+  session.inputTokens += usage.inputTokens;
+  session.outputTokens += usage.outputTokens;
+  session.totalTokens += usage.totalTokens;
+
+  const now = Date.now();
+  next.recentInputTokens.push({ timestamp: now, tokens: usage.inputTokens });
+  next.recentOutputTokens.push({ timestamp: now, tokens: usage.outputTokens });
+  next.recentInputTokens = next.recentInputTokens.filter((t) => now - t.timestamp < 60000);
+  next.recentOutputTokens = next.recentOutputTokens.filter((t) => now - t.timestamp < 60000);
+
+  effects.push({ type: 'updateTokens', issueId, usage });
+}
+
 function handleAgentUpdate(
   state: OrchestratorState,
   issueId: string,
@@ -282,54 +338,13 @@ function handleAgentUpdate(
 
   const entry = next.running.get(issueId);
   if (entry && entry.session) {
-    const updatedSession = { ...entry.session };
-    updatedSession.lastEvent = event.type;
-    updatedSession.lastTimestamp = event.timestamp;
-
-    let nextPhase = entry.phase;
-
-    if (
-      event.type === 'thought' ||
-      event.type === 'call' ||
-      event.type === 'status' ||
-      event.type === 'rate_limit'
-    ) {
-      nextPhase = 'StreamingTurn';
-      updatedSession.lastMessage =
-        typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
-    } else if (event.type === 'result') {
-      updatedSession.lastMessage =
-        typeof event.content === 'string'
-          ? event.content
-          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (event.content as any)?.result || JSON.stringify(event.content);
-    }
-
-    if (event.usage) {
-      updatedSession.inputTokens += event.usage.inputTokens;
-      updatedSession.outputTokens += event.usage.outputTokens;
-      updatedSession.totalTokens += event.usage.totalTokens;
-
-      const now = Date.now();
-      next.recentInputTokens.push({ timestamp: now, tokens: event.usage.inputTokens });
-      next.recentOutputTokens.push({ timestamp: now, tokens: event.usage.outputTokens });
-
-      // Prune
-      next.recentInputTokens = next.recentInputTokens.filter((t) => now - t.timestamp < 60000);
-      next.recentOutputTokens = next.recentOutputTokens.filter((t) => now - t.timestamp < 60000);
-
-      effects.push({
-        type: 'updateTokens',
-        issueId,
-        usage: event.usage,
-      });
-    }
-
-    if (event.sessionId) {
-      updatedSession.sessionId = event.sessionId;
-    }
-
-    next.running.set(issueId, { ...entry, phase: nextPhase, session: updatedSession });
+    const { session: updatedSession, nextPhase } = deriveSessionPatch(entry.session, event);
+    if (event.usage) accrueUsage(next, updatedSession, issueId, event.usage, effects);
+    next.running.set(issueId, {
+      ...entry,
+      phase: nextPhase ?? entry.phase,
+      session: updatedSession,
+    });
   }
 
   return { nextState: next, effects };

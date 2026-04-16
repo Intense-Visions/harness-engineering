@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Markdown from 'react-markdown';
 import { motion } from 'framer-motion';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -28,14 +28,35 @@ function ThinkingBlockView({ block }: { block: ThinkingBlock }) {
   );
 }
 
-function ToolUseBlockView({ block }: { block: ToolUseBlock }) {
-  const hasResult = block.result !== undefined;
+function formatToolArgs(tool: string, args?: string) {
+  if (!args) return '';
+  const toolLower = tool.toLowerCase();
+  try {
+    const parsed = JSON.parse(args);
+    if (toolLower === 'bash' && (parsed.command || parsed.args)) {
+      const cmd = parsed.command || parsed.args;
+      // Clean up common long paths in bash commands if they exist
+      return cmd.replace(/cd\s+("[^"]+"|'[^']+'|[^\s]+)\s*&&\s*/g, '').slice(0, 100);
+    }
+    if (parsed.path || parsed.file_path || parsed.filePath) {
+      const p = parsed.path || parsed.file_path || parsed.filePath;
+      return p.split('/').slice(-2).join('/');
+    }
+    return JSON.stringify(parsed).slice(0, 100);
+  } catch (e) {
+    return args.slice(0, 100);
+  }
+}
+
+function ToolUseBlockView({ block, forceResult }: { block: ToolUseBlock; forceResult?: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const result = block.result || forceResult;
+  const hasResult = result !== undefined;
+  const isActuallyPending = !hasResult;
+
   return (
-    <details
-      className="relative overflow-hidden rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm"
-      open={block.isError}
-    >
-      {!hasResult && (
+    <div className="relative overflow-hidden rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm transition-all duration-200">
+      {isActuallyPending && (
         <motion.div
           initial={{ top: '-10%' }}
           animate={{ top: '110%' }}
@@ -44,33 +65,123 @@ function ToolUseBlockView({ block }: { block: ToolUseBlock }) {
         />
       )}
 
-      <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 select-none relative z-20">
-        <span className="text-xs text-secondary-400">&#9655;</span>
-        <span className="font-mono text-[11px] font-bold text-neutral-text">{block.tool}</span>
+      <div
+        className="flex cursor-pointer items-center gap-2 px-3 py-2 select-none relative z-20 hover:bg-white/5 active:bg-white/10 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <motion.span
+          animate={{ rotate: isOpen ? 90 : 0 }}
+          className="text-[9px] text-secondary-400 font-bold"
+        >
+          &#9654;
+        </motion.span>
+        <span className="text-[10px] font-black tracking-[0.2em] text-neutral-text capitalize">
+          {block.tool.replace(/_/g, ' ')}
+        </span>
         {block.args && (
-          <span className="truncate font-mono text-[10px] text-neutral-muted" title={block.args}>
-            {block.args.slice(0, 80)}
-            {block.args.length > 80 ? '...' : ''}
+          <span className="truncate font-mono text-[9px] text-neutral-muted/60" title={block.args}>
+            {formatToolArgs(block.tool, block.args)}
           </span>
         )}
         {hasResult && (
-          <span
-            className={`ml-auto text-[10px] font-bold uppercase tracking-wider ${block.isError ? 'text-red-400' : 'text-emerald-400'}`}
+          <div className="ml-auto flex items-center gap-2">
+            <span
+              className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${
+                block.isError
+                  ? 'text-red-400 border-red-400/30 bg-red-400/5'
+                  : 'text-emerald-400 border-emerald-400/30 bg-emerald-400/5'
+              }`}
+            >
+              {block.isError ? 'ERR' : 'OK'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {isOpen && hasResult && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          className="border-t border-neutral-border/50 bg-neutral-bg/50 relative z-20 px-3 py-2"
+        >
+          <div
+            className={`max-h-[60vh] overflow-auto prose prose-invert prose-xs selection:bg-secondary-400/20 ${
+              block.isError ? 'text-red-400' : ''
+            }`}
           >
-            {block.isError ? 'ERR' : 'OK'}
+            <Markdown remarkPlugins={[remarkGfm]}>{result}</Markdown>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+function isLogOutput(text: string, tool?: string) {
+  const toolLower = tool?.toLowerCase();
+  const isCodeTool = toolLower === 'read' || toolLower === 'read_file' || toolLower === 'bash';
+
+  // For code/bash tools, we are very aggressive about pairing/collapsing
+  if (isCodeTool) return true;
+
+  const logMarkers = [
+    /^>\s/,
+    /^\$\s/,
+    /^RUN\s/,
+    /^[@\w-]+\/@?[\w-]+/,
+    /\[\d{1,2}m/,
+    /\[\]\s\[\d{2}/,
+    /^(\s*\||\s*\+|-{3,})/,
+    /^(\s*[✔✘ℹ⚠]\s)/,
+    /^\s*\d+\s+import\s+/i,
+    /^\s*\d+\s+export\s+/i,
+    /^\s*\d+\s+\w+/,
+    /import\s+.*\s+from\s+['"]/,
+    /const\s+.*\s+=\s+require\(/,
+  ];
+
+  const lines = text.trim().split('\n');
+  if (lines.length === 0) return false;
+
+  const matches = lines.filter((l) => logMarkers.some((m) => m.test(l.trim()))).length;
+  return matches / lines.length > 0.1 || matches > 0 || text.length > 100;
+}
+
+function LogOutputView({ text }: { text: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="my-1 rounded border border-neutral-border/30 bg-neutral-surface/30 backdrop-blur-sm overflow-hidden transition-all duration-200">
+      <div
+        className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-neutral-surface/50 active:bg-neutral-surface transition-colors select-none"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <motion.span
+          animate={{ rotate: isOpen ? 90 : 0 }}
+          className="text-[9px] text-neutral-muted"
+        >
+          &#9654;
+        </motion.span>
+        <span className="text-[10px] font-black tracking-[0.2em] text-neutral-muted/60">
+          Terminal Output
+        </span>
+        {!isOpen && (
+          <span className="truncate text-[9px] text-neutral-muted/50 italic ml-2">
+            {text.trim().slice(0, 60)}...
           </span>
         )}
-      </summary>
-      {hasResult && (
-        <div className="border-t border-neutral-border/50 bg-neutral-bg/50 px-3 py-2 relative z-20">
-          <pre
-            className={`max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-tight ${block.isError ? 'text-red-400' : 'text-neutral-muted'}`}
-          >
-            {block.result}
-          </pre>
-        </div>
+      </div>
+      {isOpen && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          className="border-t border-neutral-border/20 bg-neutral-bg/30 px-3 py-2"
+        >
+          <div className="max-h-[50vh] overflow-auto prose prose-invert prose-xs selection:bg-secondary-400/20">
+            <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+          </div>
+        </motion.div>
       )}
-    </details>
+    </div>
   );
 }
 
@@ -78,14 +189,15 @@ function StatusBlockView({ block }: { block: StatusBlock }) {
   return (
     <div className="flex items-center gap-2 px-1 py-0.5">
       <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" />
-      <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-muted">
-        {block.text}
-      </span>
+      <span className="font-mono text-[10px] tracking-widest text-neutral-muted">{block.text}</span>
     </div>
   );
 }
 
 function TextBlockView({ block }: { block: TextBlock }) {
+  if (isLogOutput(block.text)) {
+    return <LogOutputView text={block.text} />;
+  }
   return (
     <div className="prose prose-invert prose-sm max-w-none py-1 selection:bg-primary-500/30">
       <Markdown
@@ -192,8 +304,22 @@ export function AssistantBlocks({
     const block = blocks[i]!;
 
     if (block.kind === 'tool_use') {
-      if (toolGroup.length === 0) toolGroupStart = i;
-      toolGroup.push(block);
+      const currentIdx = i;
+      const nextBlock = blocks[i + 1];
+      let forceResult: string | undefined;
+
+      // Aggressively pair text blocks following tool_use as results
+      // unless they are very likely to be separate conversational text
+      if (block.result === undefined && nextBlock?.kind === 'text') {
+        const isLikelyOutput = isLogOutput(nextBlock.text, block.tool);
+        if (isLikelyOutput) {
+          forceResult = nextBlock.text;
+          i++; // Consume the next block
+        }
+      }
+
+      if (toolGroup.length === 0) toolGroupStart = currentIdx;
+      toolGroup.push({ ...block, result: block.result || forceResult });
     } else {
       if (toolGroup.length > 0) {
         elements.push(

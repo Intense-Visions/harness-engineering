@@ -248,6 +248,56 @@ describe('PiBackend', () => {
       expect(thoughtEvents[0].content).toBe('Considering options...');
     });
 
+    // Regression: pi emits per-turn usage on `turn_end` events. The backend
+    // previously fed usage only into a local accumulator and returned it in
+    // TurnResult — which the orchestrator's for-await-of loop discards.
+    // Each turn_end must yield a usage event so the state machine's `+=`
+    // accumulator sees each turn's tokens exactly once.
+    it('yields a usage event for each turn_end carrying message.usage', async () => {
+      mockSubscribe.mockImplementation((listener: (event: unknown) => void) => {
+        setTimeout(() => {
+          listener({ type: 'agent_start' });
+          listener({ type: 'turn_start' });
+          listener({
+            type: 'message_update',
+            assistantMessageEvent: { type: 'text_delta', delta: 'Hi' },
+          });
+          listener({
+            type: 'turn_end',
+            message: { usage: { input_tokens: 42, output_tokens: 8 } },
+          });
+          listener({ type: 'agent_end', messages: [] });
+        }, 10);
+        return vi.fn();
+      });
+      mockPrompt.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+      const sessionResult = await backend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const events: AgentEvent[] = [];
+      const gen = backend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'Say hi',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        events.push(next.value);
+        next = await gen.next();
+      }
+
+      const withUsage = events.filter((e) => e.usage);
+      expect(withUsage).toHaveLength(1);
+      expect(withUsage[0]!.usage!.inputTokens).toBe(42);
+      expect(withUsage[0]!.usage!.outputTokens).toBe(8);
+      expect(withUsage[0]!.usage!.totalTokens).toBe(50);
+    });
+
     it('returns failed TurnResult when prompt rejects', async () => {
       mockSubscribe.mockImplementation(() => vi.fn());
       mockPrompt.mockRejectedValue(new Error('Model connection failed'));

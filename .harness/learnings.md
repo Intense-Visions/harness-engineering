@@ -152,3 +152,9 @@
 <!-- hash:7caa77f9 -->
 
 - **2026-04-14:** Completed Task 4: Redesign KPI Cards. Moving to Task 5.
+
+## 2026-04-16 — Orchestrator dashboard tokens/turns not updating
+
+- **[skill:harness-debugging] [outcome:fixed]:** `AsyncGenerator<AgentEvent, TurnResult>` return values are silently discarded by `for await (const x of gen)`. When per-turn data (like usage) belongs in a state-machine reducer keyed on yielded events, it MUST ride on the yielded event — not the generator's return value. Backends (`claude.ts`, `pi.ts`, `anthropic.ts`, `openai.ts`, `gemini.ts`, `mock.ts`) all packed usage into `TurnResult` only; orchestrator's `runAgentInBackgroundTask` uses for-await-of, so tokens never reached `state-machine.ts`'s `if (event.usage)` accumulator. Fix: extract `message.usage` (final chunk, `stop_reason !== null`) and `rawEvent.usage` (on result events) and attach to the yielded AgentEvent.
+- **[skill:harness-debugging] [outcome:gotcha]:** Claude stream-json chunks carry cumulative-ish usage on every assistant entry for a given requestId — only the final chunk (`stop_reason !== null`) has authoritative totals. Use the stop_reason guard when feeding an additive accumulator to avoid double-counting. This matches the `requestId` dedup logic in `packages/core/src/usage/cc-parser.ts`.
+- **[skill:harness-debugging] [outcome:gotcha]:** `session.turnCount` was dead-initialized to 0 in `orchestrator.ts:877` with no increment path in production code. Tests set it to 1/3 directly, masking the gap. Grepping for all references (not just definitions) confirmed no production mutation. Fix: bump in the state-machine's `turn_start` branch where `recentRequestTimestamps` is already updated.

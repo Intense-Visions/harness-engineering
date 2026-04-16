@@ -72,11 +72,18 @@ Follow these steps exactly, using the corresponding slash commands to ensure hig
 3. **Execution:** Use `/harness:execution` to implement the changes task-by-task, following TDD principles.
 4. **Verification:** Use `/harness:verification` to ensure the implementation is complete, wired correctly, and meets all requirements.
 5. **Code Review:** Use `/harness:code-review` and `/harness:pre-commit-review` to perform a final quality check before completing the task.
+6. **Ship:** When the review is clean, you are pre-authorized to ship without asking:
+   - Create a topic branch if you are still on `main`/`master` (e.g. `feat/{{ issue.identifier }}`).
+   - Stage your changes and create a descriptive commit (Conventional Commits style).
+   - Push the branch with `git push -u origin HEAD`.
+   - Open a pull request with `gh pr create --fill` (or `--title`/`--body` for a custom message).
+   - Report the PR URL as your final output, then stop. Do not await further instructions — this is the terminal step of the workflow.
 
 ## Rules
 
 - Always verify your changes with `harness validate`.
 - Adhere to the architectural constraints defined in `harness.config.json`.
 - Document your progress and any learnings in `.harness/learnings.md`.
+- Step 6 (Ship) is part of the standard workflow. Do not pause to ask for commit authorization — completing the issue means the PR has been opened.
 
 Attempt Number: {{ attempt }}

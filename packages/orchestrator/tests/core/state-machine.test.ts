@@ -643,6 +643,53 @@ describe('applyEvent - agent_update', () => {
     expect(entry!.session!.lastTimestamp).toBe('2026-01-01T00:01:00Z');
     expect(effects.filter((e) => e.type === 'updateTokens')).toHaveLength(0);
   });
+
+  // Regression for dashboard showing "Turns 0" / "T0" indefinitely:
+  // `session.turnCount` was initialized to 0 at dispatch but never incremented.
+  // AgentRunner yields a `turn_start` event before each turn — the state machine
+  // uses this to update the per-minute request window for rate limiting, and
+  // must also bump the session's turnCount so the dashboard reflects progress.
+  it('should increment session.turnCount on turn_start event', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: {
+        sessionId: 'sess-1',
+        backendName: 'claude',
+        agentPid: null,
+        startedAt: '2026-01-01T00:00:00Z',
+        lastEvent: null,
+        lastTimestamp: null,
+        lastMessage: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        lastReportedInputTokens: 0,
+        lastReportedOutputTokens: 0,
+        lastReportedTotalTokens: 0,
+        turnCount: 2,
+      },
+    });
+
+    const event: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: { type: 'turn_start', timestamp: '2026-01-01T00:01:00Z' },
+    };
+
+    const { nextState } = applyEvent(state, event, config);
+    const entry = nextState.running.get('id-1');
+    expect(entry!.session!.turnCount).toBe(3);
+    // Turn_start should also continue populating the rate-limiter request window
+    expect(nextState.recentRequestTimestamps.length).toBeGreaterThan(0);
+  });
 });
 
 describe('applyEvent - tick with routing', () => {

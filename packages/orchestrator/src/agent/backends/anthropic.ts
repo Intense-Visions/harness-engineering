@@ -102,16 +102,28 @@ export class AnthropicBackend implements AgentBackend {
       const { input_tokens, output_tokens } = finalMessage.usage;
       const cacheUsage = this.cacheAdapter.parseCacheUsage(finalMessage);
 
+      const usage = {
+        inputTokens: input_tokens,
+        outputTokens: output_tokens,
+        totalTokens: input_tokens + output_tokens,
+        cacheCreationTokens: cacheUsage.cacheCreationTokens,
+        cacheReadTokens: cacheUsage.cacheReadTokens,
+      };
+
+      // Surface usage on a yielded event so the orchestrator state machine can
+      // advance session totals and rate-limit windows. TurnResult.usage alone is
+      // dropped by the for-await-of consumption loop in runAgentInBackgroundTask.
+      yield {
+        type: 'usage',
+        timestamp: new Date().toISOString(),
+        sessionId: session.sessionId,
+        usage,
+      };
+
       return {
         success: true,
         sessionId: session.sessionId,
-        usage: {
-          inputTokens: input_tokens,
-          outputTokens: output_tokens,
-          totalTokens: input_tokens + output_tokens,
-          cacheCreationTokens: cacheUsage.cacheCreationTokens,
-          cacheReadTokens: cacheUsage.cacheReadTokens,
-        },
+        usage,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Anthropic request failed';

@@ -45,6 +45,31 @@ const DELTA_TYPE_MAP: Record<string, string> = {
   toolcall_delta: 'status',
 };
 
+/**
+ * Surface per-turn usage on a yielded event so the orchestrator state machine's
+ * `+=` accumulator sees each turn's tokens. TurnResult.usage alone is invisible —
+ * the for-await-of loop drops the generator's return value.
+ */
+function maybeUsageEvent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rawEvent: any,
+  sessionId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onUsage: (usage: any) => void
+): AgentEvent | null {
+  if (rawEvent.type !== 'turn_end' || !rawEvent.message?.usage) return null;
+  const raw = rawEvent.message.usage;
+  onUsage(raw);
+  const inputTokens = raw.inputTokens ?? raw.input_tokens ?? 0;
+  const outputTokens = raw.outputTokens ?? raw.output_tokens ?? 0;
+  return {
+    type: 'usage',
+    timestamp: new Date().toISOString(),
+    sessionId,
+    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function stringify(value: any): string {
   return typeof value === 'string' ? value : JSON.stringify(value ?? '');
@@ -279,22 +304,20 @@ export class PiBackend implements AgentBackend {
     }
   ): AsyncGenerator<AgentEvent, void, void> {
     while (true) {
-      if (queue.length > 0) {
-        const rawEvent = queue.shift();
-
-        if (rawEvent.type === 'turn_end' && rawEvent.message?.usage) {
-          hooks.onUsage(rawEvent.message.usage);
-        }
-
-        const mapped = mapPiEvent(rawEvent, sessionId);
-        if (mapped) yield mapped;
-
-        if (rawEvent.type === 'agent_end') return;
-      } else if (isDone()) {
-        return;
-      } else {
+      if (queue.length === 0) {
+        if (isDone()) return;
         await hooks.waitForEvent();
+        continue;
       }
+
+      const rawEvent = queue.shift();
+      const usageEvent = maybeUsageEvent(rawEvent, sessionId, hooks.onUsage);
+      if (usageEvent) yield usageEvent;
+
+      const mapped = mapPiEvent(rawEvent, sessionId);
+      if (mapped) yield mapped;
+
+      if (rawEvent.type === 'agent_end') return;
     }
   }
 

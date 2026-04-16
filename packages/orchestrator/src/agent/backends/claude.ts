@@ -115,9 +115,33 @@ function mapAssistantBlock(block: any, sessionId: string): AgentEvent | null {
 function mapAssistantBlocks(rawEvent: any, sessionId: string): AgentEvent[] {
   const blocks = rawEvent.message?.content;
   if (!Array.isArray(blocks)) return [];
-  return blocks
+  const events = blocks
     .map((b) => mapAssistantBlock(b, sessionId))
     .filter((e): e is AgentEvent => e !== null);
+
+  // Claude streams multiple assistant events per API request (same requestId,
+  // cumulative-ish usage on each chunk). Only the terminal chunk carries a
+  // non-null stop_reason — attach usage there so the state machine's
+  // additive `+=` accumulator sees each request exactly once.
+  const stopReason = rawEvent.message?.stop_reason;
+  if (stopReason !== null && stopReason !== undefined) {
+    const usage = extractUsage(rawEvent.message?.usage);
+    if (usage) {
+      if (events.length > 0) {
+        events[0] = { ...events[0]!, usage };
+      } else {
+        // Final chunk with no renderable content — still surface the usage so
+        // token totals and ITPM/OTPM windows advance.
+        events.push({
+          type: 'usage',
+          timestamp: new Date().toISOString(),
+          sessionId,
+          usage,
+        });
+      }
+    }
+  }
+  return events;
 }
 
 /** Walk a user message's tool_result blocks. */
@@ -139,13 +163,22 @@ function mapUserBlocks(rawEvent: any, sessionId: string): AgentEvent[] {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ClaudeEventHandler = (rawEvent: any, sessionId: string) => AgentEvent[];
 
+/** Build a terminal `result` event, attaching any top-level usage for token accounting. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapResultEvent(rawEvent: any, sessionId: string): AgentEvent[] {
+  const event = mkEvent('result', summarizeResultContent(rawEvent), sessionId);
+  const usage = extractUsage(rawEvent.usage);
+  if (usage) event.usage = usage;
+  return [event];
+}
+
 const CLAUDE_EVENT_HANDLERS: Record<string, ClaudeEventHandler> = {
   text: (e, s) => [mkEvent('text', e.content ?? e.text ?? '', s)],
   progress: (e, s) => (e.content ? [mkEvent('thought', e.content, s)] : []),
   call: (e, s) => [mkEvent('call', `Calling ${e.tool}(${JSON.stringify(e.args)})`, s)],
   rate_limit_event: (_e, s) => [mkEvent('rate_limit', 'Rate limit hit - waiting...', s)],
-  result: (e, s) => [mkEvent('result', summarizeResultContent(e), s)],
-  turn_complete: (e, s) => [mkEvent('result', summarizeResultContent(e), s)],
+  result: mapResultEvent,
+  turn_complete: mapResultEvent,
   assistant: mapAssistantBlocks,
   user: mapUserBlocks,
   system: () => [],
@@ -248,9 +281,22 @@ export class ClaudeBackend implements AgentBackend {
           const rawEvent = JSON.parse(line) as any;
 
           if (rawEvent.type === 'result' || rawEvent.type === 'turn_complete') {
-            lastResult = rawEvent as TurnResult;
-            const usage = extractUsage(rawEvent.usage);
-            if (usage) lastResult.usage = usage;
+            // Claude stream-json result events use { subtype, is_error } rather than
+            // { success }. Translate explicitly so AgentRunner's early-termination
+            // check (if lastResult.success) actually fires — otherwise the runner
+            // loops sending "Continue your work." until maxTurns is exhausted.
+            const isSuccess =
+              rawEvent.is_error === false ||
+              (rawEvent.is_error === undefined && rawEvent.subtype === 'success');
+            lastResult = {
+              success: isSuccess,
+              sessionId: session.sessionId,
+              usage: extractUsage(rawEvent.usage) ?? {
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+              },
+            };
           }
 
           for (const mapped of mapClaudeEvent(rawEvent, session.sessionId)) {
