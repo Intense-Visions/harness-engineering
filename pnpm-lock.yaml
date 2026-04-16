@@ -367,6 +367,37 @@ importers:
         specifier: ^4.1.2
         version: 4.1.2(@types/node@22.19.15)(jsdom@29.0.1)(vite@6.4.2)
 
+  packages/intelligence:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.39.0
+        version: 0.39.0
+      '@harness-engineering/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@harness-engineering/types':
+        specifier: workspace:*
+        version: link:../types
+      openai:
+        specifier: ^4.0.0
+        version: 4.104.0(zod@3.25.76)
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.15
+        version: 22.19.15
+      '@vitest/coverage-v8':
+        specifier: ^4.1.2
+        version: 4.1.2(vitest@4.1.2)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.2(@types/node@22.19.15)(jsdom@29.0.1)(vite@6.4.2)
+
   packages/linter-gen:
     dependencies:
       handlebars:
@@ -417,7 +448,7 @@ importers:
         version: 10.25.5
       openai:
         specifier: ^4.0.0
-        version: 4.104.0
+        version: 4.104.0(zod@3.25.76)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -632,6 +663,20 @@ packages:
     dependencies:
       '@algolia/client-common': 5.50.1
     dev: true
+
+  /@anthropic-ai/sdk@0.39.0:
+    resolution: {integrity: sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==}
+    dependencies:
+      '@types/node': 18.19.130
+      '@types/node-fetch': 2.6.13
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0
+    transitivePeerDependencies:
+      - encoding
+    dev: false
 
   /@anthropic-ai/sdk@0.87.0:
     resolution: {integrity: sha512-ZvBWT5VkPTW6b8LIpugpuAkpcYPSLOXdWTcgQrpUqf4IeJ5ZrH5rT8sTsUDvxPCHAlRG3nF4VIWfjw6uLhJ18g==}
@@ -5841,7 +5886,7 @@ packages:
       regex-recursion: 6.0.2
     dev: true
 
-  /openai@4.104.0:
+  /openai@4.104.0(zod@3.25.76):
     resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
     hasBin: true
     peerDependencies:
@@ -5860,6 +5905,7 @@ packages:
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
       node-fetch: 2.7.0
+      zod: 3.25.76
     transitivePeerDependencies:
       - encoding
     dev: false

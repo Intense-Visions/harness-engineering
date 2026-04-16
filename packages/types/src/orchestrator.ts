@@ -302,6 +302,8 @@ export interface WorkflowConfig {
   agent: AgentConfig;
   /** Server settings */
   server: ServerConfig;
+  /** Intelligence pipeline settings */
+  intelligence?: IntelligenceConfig;
 }
 
 /**
@@ -312,4 +314,94 @@ export interface WorkflowDefinition {
   config: WorkflowConfig;
   /** Template used to generate agent prompts */
   promptTemplate: string;
+}
+
+// --- Model Routing ---
+
+/**
+ * Scope tier determines the routing default for an issue.
+ * Detected from plan/spec presence or label override.
+ */
+export type ScopeTier = 'quick-fix' | 'guided-change' | 'full-exploration' | 'diagnostic';
+
+/**
+ * A concern signal that may gate routing for signal-gated scope tiers.
+ */
+export interface ConcernSignal {
+  /** Machine-readable signal name (e.g., 'highComplexity', 'securitySensitive') */
+  name: string;
+  /** Human-readable reason */
+  reason: string;
+}
+
+/**
+ * Result of the routeIssue() pure function.
+ */
+export type RoutingDecision =
+  | { action: 'dispatch-local' }
+  | { action: 'dispatch-primary' }
+  | { action: 'needs-human'; reasons: string[] };
+
+/**
+ * Configuration for escalation routing behavior.
+ */
+export interface EscalationConfig {
+  /** Scope tiers that always escalate to human (default: ['full-exploration']) */
+  alwaysHuman: ScopeTier[];
+  /** Scope tiers that always dispatch to local backend (default: ['quick-fix', 'diagnostic']) */
+  autoExecute: ScopeTier[];
+  /** Scope tiers that always dispatch to the primary backend (default: []) */
+  primaryExecute: ScopeTier[];
+  /** Scope tiers that dispatch locally only when no concern signals fire (default: ['guided-change']) */
+  signalGated: ScopeTier[];
+  /** Max retries for diagnostic issues before escalating (default: 1) */
+  diagnosticRetryBudget: number;
+}
+
+/**
+ * Configuration for the intelligence pipeline (SEL/CML/PESL).
+ *
+ * When `provider` is omitted, the pipeline derives its LLM connection
+ * from the orchestrator's existing `agent` backend config (same API key,
+ * same provider). This is the recommended setup — no separate API key needed.
+ */
+export interface IntelligenceConfig {
+  /** Whether the intelligence pipeline is enabled */
+  enabled: boolean;
+  /**
+   * Explicit LLM provider override. When omitted, uses the orchestrator's
+   * agent backend config (agent.apiKey, agent.backend).
+   */
+  provider?: {
+    kind: 'anthropic' | 'openai-compatible' | 'claude-cli';
+    apiKey?: string;
+    baseUrl?: string;
+  };
+  /** Per-layer model assignments (defaults to the agent's configured model) */
+  models?: {
+    sel?: string;
+    cml?: string;
+    pesl?: string;
+  };
+  /** Request timeout in ms for intelligence LLM calls (default: 90000) */
+  requestTimeoutMs?: number;
+  /**
+   * String appended to user prompts for structured-output requests.
+   * Use to disable thinking/reasoning in models that enable it by default
+   * (e.g., '/no_think' for Qwen3, '<think>\n</think>' for DeepSeek-R1).
+   */
+  promptSuffix?: string;
+  /** How long to cache analysis failures before retrying, in ms (default: 300000) */
+  failureCacheTtlMs?: number;
+  /**
+   * Number of consecutive connection errors before the pipeline short-circuits
+   * and skips remaining issues for the current tick. Default: 2.
+   */
+  circuitBreakerThreshold?: number;
+  /**
+   * Whether to send `response_format: { type: 'json_schema' }` with the full
+   * schema for grammar-constrained decoding. Disable for models that hang with
+   * JSON grammar constraints (e.g., Qwen3 on Ollama). Default: true.
+   */
+  jsonMode?: boolean;
 }

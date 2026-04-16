@@ -42,6 +42,8 @@ export const NODE_TYPES = [
   'requirement',
   // Cache
   'packed_summary',
+  // Intelligence
+  'execution_outcome',
 ] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
@@ -82,6 +84,8 @@ export const EDGE_TYPES = [
   'tested_by',
   // Cache relationships
   'caches',
+  // Intelligence relationships
+  'outcome_of',
 ] as const;
 
 export type EdgeType = (typeof EDGE_TYPES)[number];

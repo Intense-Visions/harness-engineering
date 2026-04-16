@@ -112,4 +112,9 @@ export type {
   ServerConfig,
   WorkflowConfig,
   WorkflowDefinition,
+  ScopeTier,
+  ConcernSignal,
+  RoutingDecision,
+  EscalationConfig,
+  IntelligenceConfig,
 } from './orchestrator';
