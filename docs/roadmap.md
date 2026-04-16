@@ -683,7 +683,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Migration Toolkit
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** none
 - **Summary:** Config version codemods, breaking-change detection, and upgrade scripts for users moving between harness versions
 - **Blockers:** —
