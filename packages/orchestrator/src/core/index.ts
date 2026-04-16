@@ -4,6 +4,8 @@ export { getAvailableSlots, getPerStateCount, canDispatch } from './concurrency'
 export { reconcile } from './reconciliation';
 export { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
 export type { ArtifactPresence } from './model-router';
+export { triageIssue, extractTitlePrefix } from './triage-router';
+export type { TriageSkill, TriageSignals, TriageDecision, TriageConfig } from './triage-router';
 export { InteractionQueue } from './interaction-queue';
 export type { PendingInteraction } from './interaction-queue';
 export { AnalysisArchive } from './analysis-archive';
