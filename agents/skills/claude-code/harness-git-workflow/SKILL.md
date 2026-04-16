@@ -158,6 +158,14 @@ git worktree remove <worktree-path>
 git branch -D <branch-name>
 ```
 
+#### Step 3.5: Cross-Reference Conventions for Commit Messages and PR Bodies
+
+GitHub auto-links any `#N` token in commit messages, PR titles, and PR bodies to the issue or PR with that number. Treat `#N` as a reserved sigil — never use it for non-issue references.
+
+- **Do not** use `#N` for proposal success criteria, list ordinals, footnote refs, table rows, or any other in-document numbering. Write "criterion 9", "item 9", "step 3" instead. Using `#9` to mean "criterion 9" will silently cross-reference issue #9 — which is almost certainly an unrelated issue — and add a misleading back-reference to that issue's timeline.
+- **Do** reference the actual roadmap/tracker issue when finishing work tied to one. Use `Refs #<issue>` for context-only links and `Closes #<issue>` / `Fixes #<issue>` only when the merge should auto-close that issue.
+- **Before pushing or opening the PR**, scan the commit messages and PR body for stray `#N` tokens. For each one, confirm it points to the intended issue/PR — or rewrite it as plain text.
+
 #### Step 4: Clean Up
 
 1. **Remove the worktree** (unless keeping as-is or waiting for PR merge):
@@ -199,6 +207,7 @@ git branch -D <branch-name>
 | "The worktree directory isn't gitignored, but it's inside a nested folder that's unlikely to be committed accidentally."                              | The `.gitignore` check is not about likelihood — it is about preventing accidental commits of worktree state that would corrupt the repository. If the worktree directory is not gitignored, add it before creating the worktree. No exceptions.               |
 | "The user chose to discard — I'll delete the branch and worktree immediately without showing the commits that will be lost."                          | The discard path requires showing the commit list from `git log main..HEAD --oneline` and receiving explicit confirmation before running `git worktree remove` and `git branch -D`. Work is being permanently deleted; the user must see what they are losing. |
 | "There's already a worktree for this branch at a different path — I'll create a second one since the user asked for a fresh setup."                   | Git does not allow two worktrees checked out to the same branch. Attempting to create a duplicate will fail. Instead, ask the user whether to use the existing worktree or create a new branch. Never assume a second worktree is the right answer.            |
+| "I'll use `#9` in the commit message to refer to 'success criterion 9' in the proposal — it's obviously an in-document reference."                    | `#N` is GitHub's reserved syntax for issue/PR links in commits and PR bodies. It will auto-link to issue/PR #9 regardless of intent and post a misleading back-reference on that unrelated issue. Write "criterion 9" (no `#`) and cite the real roadmap issue separately with `Refs #<n>`. |
 
 ## Examples
 
