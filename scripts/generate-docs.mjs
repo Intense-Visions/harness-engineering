@@ -80,6 +80,20 @@ async function generateCliReference() {
   return lines.join('');
 }
 
+/**
+ * Render an option's default value for the reference docs.
+ * Absolute-path defaults (e.g. process.cwd() captured at generate time) are
+ * machine-specific and would otherwise cause the check-generated-docs
+ * pre-push hook to fire on every developer's machine. Replace them with a
+ * stable placeholder so the output is deterministic across worktrees.
+ */
+function formatDefaultValue(value) {
+  if (typeof value === 'string' && /^(\/|[A-Za-z]:\\)/.test(value)) {
+    return '"<project root>"';
+  }
+  return JSON.stringify(value);
+}
+
 function formatCommand(cmd, prefix) {
   const lines = [];
   const args = cmd._args || [];
@@ -111,7 +125,7 @@ function formatCommand(cmd, prefix) {
     for (const opt of options) {
       const flags = opt.short ? `\`${opt.short}, ${opt.long}\`` : `\`${opt.long}\``;
       const defaultStr = opt.defaultValue !== undefined && opt.defaultValue !== false
-        ? ` (default: ${JSON.stringify(opt.defaultValue)})`
+        ? ` (default: ${formatDefaultValue(opt.defaultValue)})`
         : '';
       lines.push(`- ${flags} — ${opt.description}${defaultStr}\n`);
     }
