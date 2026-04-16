@@ -2,9 +2,9 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-04-11
+updated: 2026-04-16
 last_synced: 2026-04-11T12:00:00.000Z
-last_manual_edit: 2026-04-11T17:02:27.485Z
+last_manual_edit: 2026-04-16T16:30:00.000Z
 ---
 
 # Roadmap
@@ -849,7 +849,7 @@ last_manual_edit: 2026-04-11T17:02:27.485Z
 
 ### Adoption & Usage Telemetry
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/adoption-telemetry/proposal.md
 - **Summary:** Hook-based skill invocation tracking via adoption.jsonl, surfaced in CLI commands and dashboard. Local-only, on by default.
 - **Blockers:** —
