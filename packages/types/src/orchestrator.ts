@@ -424,6 +424,11 @@ export interface IntelligenceConfig {
   /** How long to cache analysis failures before retrying, in ms (default: 300000) */
   failureCacheTtlMs?: number;
   /**
+   * Number of consecutive connection errors before the pipeline short-circuits
+   * and skips remaining issues for the current tick. Default: 2.
+   */
+  circuitBreakerThreshold?: number;
+  /**
    * Whether to send `response_format: { type: 'json_schema' }` with the full
    * schema for grammar-constrained decoding. Disable for models that hang with
    * JSON grammar constraints (e.g., Qwen3 on Ollama). Default: true.

@@ -62,6 +62,19 @@ import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect } from './types/events';
 
+const CONNECTION_ERROR_PATTERNS = [
+  'Connection error',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'fetch failed',
+];
+
+function isConnectionError(err: unknown): boolean {
+  const msg = String(err);
+  return CONNECTION_ERROR_PATTERNS.some((p) => msg.includes(p));
+}
+
 /**
  * The central orchestrator that manages the lifecycle of coding agents.
  *
@@ -524,6 +537,9 @@ export class Orchestrator extends EventEmitter {
       return true;
     });
 
+    const circuitBreakerThreshold = this.config.intelligence?.circuitBreakerThreshold ?? 2;
+    let consecutiveConnectionErrors = 0;
+
     let processed = 0;
     for (const issue of eligibleCandidates) {
       processed++;
@@ -541,8 +557,25 @@ export class Orchestrator extends EventEmitter {
           this.enrichedSpecsByIssue.set(issue.id, result.spec);
         }
         if (result.score) complexityScores.set(issue.id, result.score);
+        consecutiveConnectionErrors = 0;
       } catch (err) {
         this.analysisFailureCache.set(issue.id, nowForCache);
+
+        if (isConnectionError(err)) {
+          consecutiveConnectionErrors++;
+          if (consecutiveConnectionErrors >= circuitBreakerThreshold) {
+            const remaining = eligibleCandidates.slice(processed);
+            for (const skipped of remaining) {
+              this.analysisFailureCache.set(skipped.id, nowForCache);
+            }
+            this.logger.warn(
+              `Intelligence pipeline unreachable, skipping remaining ${remaining.length} issues (${consecutiveConnectionErrors} consecutive connection errors)`,
+              { error: String(err), cachedForMs: failureTtl }
+            );
+            break;
+          }
+        }
+
         this.logger.error(
           `Intelligence pipeline failed for ${issue.identifier}, cached for ${failureTtl}ms`,
           { issueId: issue.id, error: String(err) }
