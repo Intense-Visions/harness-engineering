@@ -44,7 +44,13 @@ export class WorkspaceManager {
    */
   private async getRepoRoot(): Promise<string> {
     if (this.repoRoot) return this.repoRoot;
-    const stdout = await this.git(['rev-parse', '--show-toplevel'], path.resolve(this.config.root));
+    // Ensure the workspace root exists before using it as cwd for git.
+    // On a fresh machine the directory may not have been created yet,
+    // and execFile throws a misleading ENOENT ("spawn git ENOENT") when
+    // the cwd doesn't exist.
+    const root = path.resolve(this.config.root);
+    await fs.mkdir(root, { recursive: true });
+    const stdout = await this.git(['rev-parse', '--show-toplevel'], root);
     this.repoRoot = stdout.trim();
     return this.repoRoot;
   }

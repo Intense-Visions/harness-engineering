@@ -104,6 +104,17 @@ describe('WorkspaceManager', () => {
     expect(removeCall).toBeDefined();
   });
 
+  it('creates workspace root directory before resolving repo root', async () => {
+    // .git check fails → workspace does not exist yet
+    vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
+
+    const result = await manager.ensureWorkspace('test-issue');
+    expect(result.ok).toBe(true);
+
+    // getRepoRoot should have called fs.mkdir to ensure the workspace root exists
+    expect(fs.mkdir).toHaveBeenCalledWith(path.resolve('/tmp/workspaces'), { recursive: true });
+  });
+
   it('falls back to fs.rm if git worktree remove fails', async () => {
     vi.mocked(fs.rm).mockResolvedValue(undefined);
     manager.setGitImpl((args) => {
