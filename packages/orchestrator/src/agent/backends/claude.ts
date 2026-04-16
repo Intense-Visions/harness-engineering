@@ -44,29 +44,114 @@ function resolveSpawnError(
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function summarizeResultContent(rawEvent: any): string {
-  // Direct string result
   if (typeof rawEvent.result === 'string') return rawEvent.result;
 
-  // Content is an array of blocks — extract text blocks
   const content = rawEvent.content;
   if (Array.isArray(content)) {
     const textParts = content
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((b: any) => b.type === 'text' && typeof b.text === 'string')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((b: any) => b.text as string);
+      .filter((b) => b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text as string);
     if (textParts.length > 0) return textParts.join('\n');
 
-    // No text blocks — summarize what's there (e.g., tool_use blocks)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const toolNames = content.filter((b: any) => b.type === 'tool_use').map((b: any) => b.name);
+    const toolNames = content.filter((b) => b.type === 'tool_use').map((b) => b.name);
     if (toolNames.length > 0) return `Tool calls: ${toolNames.join(', ')}`;
   }
 
-  // Content is a plain string
   if (typeof content === 'string') return content;
-
   return 'Turn completed';
+}
+
+function mkEvent(type: string, content: unknown, sessionId: string): AgentEvent {
+  return { type, timestamp: new Date().toISOString(), content, sessionId };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractToolResultText(blockContent: any): string {
+  if (typeof blockContent === 'string') return blockContent;
+  if (!Array.isArray(blockContent)) return '';
+  return (
+    blockContent
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((c: any) => (typeof c === 'string' ? c : (c.text ?? '')))
+      .join('\n')
+  );
+}
+
+/** Map a single assistant content block to an AgentEvent, or null to skip. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAssistantBlock(block: any, sessionId: string): AgentEvent | null {
+  if (block.type === 'text' && typeof block.text === 'string') {
+    return mkEvent('text', block.text, sessionId);
+  }
+  if (block.type === 'tool_use') {
+    return mkEvent(
+      'call',
+      `Calling ${block.name}(${JSON.stringify(block.input ?? {})})`,
+      sessionId
+    );
+  }
+  if (block.type === 'thinking' && typeof block.thinking === 'string') {
+    return mkEvent('thought', block.thinking, sessionId);
+  }
+  return null;
+}
+
+/** Walk an assistant message's content blocks, emitting granular events. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAssistantBlocks(rawEvent: any, sessionId: string): AgentEvent[] {
+  const blocks = rawEvent.message?.content;
+  if (!Array.isArray(blocks)) return [];
+  return blocks
+    .map((b) => mapAssistantBlock(b, sessionId))
+    .filter((e): e is AgentEvent => e !== null);
+}
+
+/** Walk a user message's tool_result blocks. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapUserBlocks(rawEvent: any, sessionId: string): AgentEvent[] {
+  const blocks = rawEvent.message?.content;
+  if (!Array.isArray(blocks)) return [];
+
+  const events: AgentEvent[] = [];
+  for (const block of blocks) {
+    if (block.type === 'tool_result') {
+      const text = extractToolResultText(block.content).slice(0, 500);
+      events.push(mkEvent('status', text, sessionId));
+    }
+  }
+  return events;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ClaudeEventHandler = (rawEvent: any, sessionId: string) => AgentEvent[];
+
+const CLAUDE_EVENT_HANDLERS: Record<string, ClaudeEventHandler> = {
+  text: (e, s) => [mkEvent('text', e.content ?? e.text ?? '', s)],
+  progress: (e, s) => (e.content ? [mkEvent('thought', e.content, s)] : []),
+  call: (e, s) => [mkEvent('call', `Calling ${e.tool}(${JSON.stringify(e.args)})`, s)],
+  rate_limit_event: (_e, s) => [mkEvent('rate_limit', 'Rate limit hit - waiting...', s)],
+  result: (e, s) => [mkEvent('result', summarizeResultContent(e), s)],
+  turn_complete: (e, s) => [mkEvent('result', summarizeResultContent(e), s)],
+  assistant: mapAssistantBlocks,
+  user: mapUserBlocks,
+  system: () => [],
+  message: () => [],
+};
+
+/**
+ * Map a Claude stream-json event to one or more AgentEvents.
+ *
+ * Claude's stream-json emits: system (init), assistant (model response with
+ * content blocks), user (tool results), result (final summary). Each assistant
+ * message may contain multiple content blocks.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapClaudeEvent(rawEvent: any, sessionId: string): AgentEvent[] {
+  const handler = CLAUDE_EVENT_HANDLERS[rawEvent.type];
+  if (handler) return handler(rawEvent, sessionId);
+  return typeof rawEvent.message === 'string'
+    ? [mkEvent('status', rawEvent.message, sessionId)]
+    : [];
 }
 
 export class ClaudeBackend implements AgentBackend {
@@ -148,31 +233,9 @@ export class ClaudeBackend implements AgentBackend {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rawEvent = JSON.parse(line) as any;
 
-          // Map Claude's stream-json events to our AgentEvent interface
-          const event: AgentEvent = {
-            type: 'status',
-            timestamp: new Date().toISOString(),
-            sessionId: session.sessionId,
-          };
-
-          if (rawEvent.type === 'text') {
-            event.type = 'text';
-            event.content = rawEvent.content ?? rawEvent.text ?? '';
-          } else if (rawEvent.type === 'progress' && rawEvent.content) {
-            event.type = 'thought';
-            event.content = rawEvent.content;
-          } else if (rawEvent.type === 'call') {
-            event.type = 'call';
-            event.content = `Calling ${rawEvent.tool}(${JSON.stringify(rawEvent.args)})`;
-          } else if (rawEvent.type === 'rate_limit_event') {
-            event.type = 'rate_limit';
-            event.content = 'Rate limit hit - waiting...';
-          } else if (rawEvent.type === 'result' || rawEvent.type === 'turn_complete') {
-            event.type = 'result';
-            event.content = summarizeResultContent(rawEvent);
+          // Capture token usage and lastResult from result events
+          if (rawEvent.type === 'result' || rawEvent.type === 'turn_complete') {
             lastResult = rawEvent as TurnResult;
-
-            // Capture token usage from the result event
             if (rawEvent.usage) {
               lastResult.usage = {
                 inputTokens: rawEvent.usage.input_tokens ?? 0,
@@ -183,18 +246,11 @@ export class ClaudeBackend implements AgentBackend {
                 cacheReadTokens: rawEvent.usage.cache_read_input_tokens ?? 0,
               };
             }
-          } else if (rawEvent.type === 'message') {
-            // Full Claude API message object — skip (content arrives via text/call events)
-            continue;
-          } else {
-            event.type = 'status';
-            event.content =
-              typeof rawEvent.message === 'string'
-                ? rawEvent.message
-                : (rawEvent.type ?? 'unknown');
           }
 
-          yield event;
+          for (const mapped of mapClaudeEvent(rawEvent, session.sessionId)) {
+            yield mapped;
+          }
         } catch {
           // Ignore non-JSON output
         }
