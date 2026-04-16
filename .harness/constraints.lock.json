@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "packages": {
+    "test-bundle": {
+      "version": "1.0.0",
+      "source": "/var/folders/hr/gz705xt97jj2_8536h4c29yh0000gn/T/harness-install-cmd-wUajmT/test-bundle.harness-constraints.json",
+      "installedAt": "2026-04-16T14:55:25.476Z",
+      "contributions": {
+        "layers": ["shared"]
+      }
+    },
+    "conflict-bundle": {
+      "version": "1.0.0",
+      "source": "/var/folders/hr/gz705xt97jj2_8536h4c29yh0000gn/T/harness-install-cmd-91OeAN/test-bundle.harness-constraints.json",
+      "installedAt": "2026-04-16T15:14:16.084Z",
+      "contributions": {}
+    }
+  }
+}
