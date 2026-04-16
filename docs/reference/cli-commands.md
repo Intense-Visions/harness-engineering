@@ -191,6 +191,7 @@ Initialize a new harness-engineering project
 
 - `-n, --name` — Project name
 - `-l, --level` — Adoption level (basic, intermediate, advanced) (default: "basic")
+- `-t, --template` — Specific template name (e.g. orchestrator)
 - `--framework` — Framework overlay (nextjs)
 - `--language` — Target language (typescript, python, go, rust, java)
 - `-f, --force` — Overwrite existing files
@@ -243,6 +244,14 @@ Predict which architectural constraints will break and when
 - `--category` — Filter to a single metric category
 - `--no-roadmap` — Baseline only — skip roadmap spec impact
 - `--horizon` — Forecast horizon in weeks (default: 12) (default: "12")
+
+### `harness publish-analyses`
+
+Publishes locally generated intelligence analyses to the external issue tracker (e.g., GitHub)
+
+**Options:**
+
+- `-d, --dir` — Workspace directory (default: "/Users/cwarner/Projects/Intense Visions/harness-engineering")
 
 ### `harness query <rootNodeId>`
 
@@ -310,6 +319,14 @@ Extract and publish a constraints bundle from constraints.yaml
 **Options:**
 
 - `-o, --output` — Output directory for the bundle (default: ".")
+
+### `harness sync-analyses`
+
+Pull published intelligence analyses from the external issue tracker into the local .harness/analyses/ directory
+
+**Options:**
+
+- `-d, --dir` — Workspace directory (default: "/Users/cwarner/Projects/Intense Visions/harness-engineering")
 
 ### `harness traceability`
 
@@ -560,6 +577,7 @@ Run the orchestrator daemon
 **Options:**
 
 - `-w, --workflow` — Path to WORKFLOW.md (default: "WORKFLOW.md")
+- `--headless` — Run without TUI (server-only mode for use with web dashboard)
 
 ## Perf Commands
 
