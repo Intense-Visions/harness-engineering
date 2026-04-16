@@ -53,6 +53,13 @@ export class AgentRunner {
     try {
       while (currentTurn < this.options.maxTurns) {
         currentTurn++;
+
+        yield {
+          type: 'turn_start',
+          timestamp: new Date().toISOString(),
+          sessionId: session.sessionId,
+        };
+
         const turnParams: TurnParams = {
           sessionId: session.sessionId,
           prompt: currentTurn === 1 ? prompt : 'Continue your work.',
@@ -63,9 +70,28 @@ export class AgentRunner {
 
         // Manual iteration to capture the return value (TurnResult)
         let next = await turnGen.next();
+        let hitRateLimit = false;
+
         while (!next.done) {
-          yield next.value;
+          const event = next.value;
+          yield event;
+
+          if (event.type === 'rate_limit') {
+            hitRateLimit = true;
+          }
+
+          // If the agent reports its own sessionId, update our local session state
+          // so the next turn's --resume flag uses the correct ID.
+          if (event.sessionId && event.sessionId !== session.sessionId) {
+            session.sessionId = event.sessionId;
+          }
+
           next = await turnGen.next();
+        }
+
+        if (hitRateLimit) {
+          // Do not consume a turn if the API was rate limited
+          currentTurn--;
         }
 
         lastResult = next.value;

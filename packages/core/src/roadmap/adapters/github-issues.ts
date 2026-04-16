@@ -4,6 +4,7 @@ import type {
   ExternalTicket,
   ExternalTicketState,
   TrackerSyncConfig,
+  TrackerComment,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerSyncAdapter } from '../tracker-sync';
@@ -370,7 +371,9 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
   private buildLabelsParam(): string {
     const filterLabels = this.config.labels ?? [];
-    return filterLabels.length > 0 ? `&labels=${filterLabels.join(',')}` : '';
+    return filterLabels.length > 0
+      ? `&labels=${filterLabels.map(encodeURIComponent).join(',')}`
+      : '';
   }
 
   private issueToTicketState(issue: {
@@ -463,6 +466,114 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
       }
 
       return Ok(undefined);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async addComment(externalId: string, markdownBody: string): Promise<Result<void>> {
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+
+      const response = await fetchWithRetry(
+        this.fetchFn,
+        `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments`,
+        {
+          method: 'POST',
+          headers: this.headers(),
+          body: JSON.stringify({ body: markdownBody }),
+        },
+        this.retryOpts
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        return Err(new Error(`GitHub API error ${response.status}: ${text}`));
+      }
+
+      return Ok(undefined);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private toTrackerComment(comment: {
+    id: number;
+    body: string;
+    created_at: string;
+    updated_at: string | null;
+    user: { login: string };
+  }): TrackerComment {
+    return {
+      id: String(comment.id),
+      body: comment.body,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at ?? null,
+      author: comment.user?.login ?? 'ghost',
+    };
+  }
+
+  private async fetchCommentPage(
+    parsed: { owner: string; repo: string; number: number },
+    page: number
+  ): Promise<
+    Result<
+      Array<{
+        id: number;
+        body: string;
+        created_at: string;
+        updated_at: string | null;
+        user: { login: string };
+      }>
+    >
+  > {
+    const perPage = 100;
+    const response = await fetchWithRetry(
+      this.fetchFn,
+      `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments?per_page=${perPage}&page=${page}`,
+      { method: 'GET', headers: this.headers() },
+      this.retryOpts
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      return Err(new Error(`GitHub API error ${response.status}: ${text}`));
+    }
+
+    return Ok(
+      (await response.json()) as Array<{
+        id: number;
+        body: string;
+        created_at: string;
+        updated_at: string | null;
+        user: { login: string };
+      }>
+    );
+  }
+
+  async fetchComments(externalId: string): Promise<Result<TrackerComment[]>> {
+    try {
+      const parsed = parseExternalId(externalId);
+      if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+
+      const comments: TrackerComment[] = [];
+      const perPage = 100;
+      let page = 1;
+
+      while (true) {
+        const pageResult = await this.fetchCommentPage(parsed, page);
+        if (!pageResult.ok) return pageResult;
+
+        for (const comment of pageResult.value) {
+          comments.push(this.toTrackerComment(comment));
+        }
+
+        if (pageResult.value.length < perPage) break;
+        page++;
+      }
+
+      return Ok(comments);
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
     }

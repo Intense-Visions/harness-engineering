@@ -202,6 +202,7 @@ export function createInitCommand(): Command {
     .description('Initialize a new harness-engineering project')
     .option('-n, --name <name>', 'Project name')
     .option('-l, --level <level>', 'Adoption level (basic, intermediate, advanced)', 'basic')
+    .option('-t, --template <template>', 'Specific template name (e.g. orchestrator)')
     .option('--framework <framework>', 'Framework overlay (nextjs)')
     .option('--language <language>', 'Target language (typescript, python, go, rust, java)')
     .option('-f, --force', 'Overwrite existing files')
@@ -210,7 +211,7 @@ export function createInitCommand(): Command {
       const globalOpts = cmd.optsWithGlobals();
       await runInitAction({
         name: opts.name,
-        level: opts.level,
+        level: opts.template ?? opts.level,
         framework: opts.framework,
         language: opts.language,
         force: opts.force,

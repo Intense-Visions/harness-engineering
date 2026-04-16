@@ -37,6 +37,7 @@ import { createOrchestratorCommand } from './orchestrator';
 import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
+import { createPublishAnalysesCommand } from './publish-analyses';
 import { createQueryCommand } from './graph/query';
 import { createRecommendCommand } from './recommend';
 import { createScanCommand } from './graph/scan';
@@ -47,6 +48,7 @@ import { createShareCommand } from './share';
 import { createSkillCommand } from './skill';
 import { createSnapshotCommand } from './snapshot';
 import { createStateCommand } from './state';
+import { createSyncAnalysesCommand } from './sync-analyses';
 import { createTaintCommand } from './taint';
 import { createTelemetryCommand } from './telemetry';
 import { createTraceabilityCommand } from './traceability';
@@ -96,6 +98,7 @@ export const commandCreators: Array<() => Command> = [
   createPerfCommand,
   createPersonaCommand,
   createPredictCommand,
+  createPublishAnalysesCommand,
   createQueryCommand,
   createRecommendCommand,
   createScanCommand,
@@ -106,6 +109,7 @@ export const commandCreators: Array<() => Command> = [
   createSkillCommand,
   createSnapshotCommand,
   createStateCommand,
+  createSyncAnalysesCommand,
   createTaintCommand,
   createTelemetryCommand,
   createTraceabilityCommand,

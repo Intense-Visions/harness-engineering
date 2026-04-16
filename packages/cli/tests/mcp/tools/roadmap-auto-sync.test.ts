@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { autoSyncRoadmap, loadTrackerConfig } from '../../../src/mcp/tools/roadmap-auto-sync';
+import { autoSyncRoadmap } from '../../../src/mcp/tools/roadmap-auto-sync';
+import { loadTrackerSyncConfig as loadTrackerConfig } from '@harness-engineering/core';
 
 // Minimal valid roadmap
 const TEST_ROADMAP = `---

@@ -4,6 +4,7 @@ import type {
   ExternalTicket,
   ExternalTicketState,
   TrackerSyncConfig,
+  TrackerComment,
 } from '@harness-engineering/types';
 
 /**
@@ -32,6 +33,12 @@ export interface TrackerSyncAdapter {
 
   /** Get the authenticated user's login (e.g., "@octocat"). Cached after first call. */
   getAuthenticatedUser(): Promise<Result<string>>;
+
+  /** Post a markdown comment to the external ticket */
+  addComment(externalId: string, markdownBody: string): Promise<Result<void>>;
+
+  /** Fetch all comments on an external ticket */
+  fetchComments(externalId: string): Promise<Result<TrackerComment[]>>;
 }
 
 /**
@@ -62,7 +69,7 @@ export function resolveReverseStatus(
   }
 
   // Compound key match: "open:label"
-  const statusLabels = ['in-progress', 'blocked', 'planned'];
+  const statusLabels = ['in-progress', 'blocked', 'planned', 'needs-human'];
   const matchingLabels = labels.filter((l) => statusLabels.includes(l));
 
   if (matchingLabels.length === 1) {

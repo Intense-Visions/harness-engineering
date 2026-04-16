@@ -6,4 +6,5 @@ export const STATUS_COLOR: Record<FeatureStatus, string> = {
   planned: '#6b7280',
   blocked: '#ef4444',
   backlog: '#374151',
+  'needs-human': '#f59e0b',
 };

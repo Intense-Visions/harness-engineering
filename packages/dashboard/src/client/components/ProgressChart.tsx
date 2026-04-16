@@ -42,7 +42,7 @@ export function ProgressChart({ milestones }: Props) {
 
   return (
     <div>
-      <p className="mb-2 text-xs text-gray-500">
+      <p className="mb-2 text-xs text-neutral-muted">
         Per-milestone progress (done / in-progress / blocked / remaining)
       </p>
       <svg
@@ -61,7 +61,7 @@ export function ProgressChart({ milestones }: Props) {
                   dominantBaseline="middle"
                   textAnchor="end"
                   fontSize={11}
-                  fill="#9ca3af"
+                  fill="#71717a"
                 >
                   {m.name.length > 18 ? m.name.slice(0, 17) + '…' : m.name}
                 </text>
@@ -71,7 +71,7 @@ export function ProgressChart({ milestones }: Props) {
                   y={y}
                   width={barAreaWidth}
                   height={BAR_HEIGHT}
-                  fill="#1f2937"
+                  fill="#18181b"
                   rx={3}
                 />
                 {stackedBars(m, y)}
@@ -80,7 +80,7 @@ export function ProgressChart({ milestones }: Props) {
                   y={y + BAR_HEIGHT / 2}
                   dominantBaseline="middle"
                   fontSize={10}
-                  fill="#6b7280"
+                  fill="#71717a"
                 >
                   {m.done}/{m.total}
                 </text>
@@ -94,7 +94,7 @@ export function ProgressChart({ milestones }: Props) {
         {Object.entries(STATUS_COLOR).map(([label, color]) => (
           <div key={label} className="flex items-center gap-1">
             <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
-            <span className="text-xs capitalize text-gray-500">{label.replace('-', ' ')}</span>
+            <span className="text-xs capitalize text-neutral-muted">{label.replace('-', ' ')}</span>
           </div>
         ))}
       </div>

@@ -209,6 +209,39 @@ describe('OpenAIBackend', () => {
       expect(result.usage.cacheCreationTokens).toBe(0);
     });
 
+    // Regression: dashboard session.inputTokens/outputTokens and the rate-limiter
+    // ITPM/OTPM windows are only fed by events whose `usage` field is set
+    // (state-machine.ts:308). Without a yielded usage event, the TurnResult's
+    // cumulative usage is lost when the orchestrator consumes the generator via
+    // for-await-of. Backends must surface usage on at least one yielded event.
+    it('yields a terminal usage event so state machine sees token totals', async () => {
+      const sessionResult = await backend.startSession({
+        workspacePath: '/tmp/workspace',
+        permissionMode: 'full',
+      });
+      if (!sessionResult.ok) return;
+
+      const session = sessionResult.value;
+      const events: import('@harness-engineering/types').AgentEvent[] = [];
+      const gen = backend.runTurn(session, {
+        sessionId: session.sessionId,
+        prompt: 'Say hello',
+        isContinuation: false,
+      });
+      let next = await gen.next();
+      while (!next.done) {
+        events.push(next.value);
+        next = await gen.next();
+      }
+
+      const withUsage = events.filter((e) => e.usage);
+      expect(withUsage.length).toBeGreaterThanOrEqual(1);
+      const last = withUsage.at(-1)!;
+      expect(last.usage!.inputTokens).toBe(50);
+      expect(last.usage!.outputTokens).toBe(10);
+      expect(last.usage!.totalTokens).toBe(60);
+    });
+
     it('returns zero usage when stream yields no usage chunk', async () => {
       const openaiModule = await import('openai');
       const mockInstance = (openaiModule.default as ReturnType<typeof vi.fn>).mock.results.at(

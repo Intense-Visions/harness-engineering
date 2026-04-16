@@ -1,4 +1,9 @@
-import type { Issue, AgentEvent, TokenUsage } from '@harness-engineering/types';
+import type { Issue, AgentEvent, TokenUsage, ConcernSignal } from '@harness-engineering/types';
+import type {
+  EnrichedSpec,
+  ComplexityScore,
+  SimulationResult,
+} from '@harness-engineering/intelligence';
 
 /**
  * Discriminated union of events that drive the orchestrator state machine.
@@ -17,6 +22,14 @@ export interface TickEvent {
   runningStates: Map<string, Issue>;
   /** Caller-supplied wall clock (ms since epoch). Keeps state machine pure. */
   nowMs: number;
+  /** Pre-computed concern signals from intelligence pipeline (issueId → signals) */
+  concernSignals?: Map<string, ConcernSignal[]>;
+  /** Pre-computed enriched specs from intelligence pipeline (issueId → spec) */
+  enrichedSpecs?: Map<string, EnrichedSpec>;
+  /** Pre-computed complexity scores from intelligence pipeline (issueId → score) */
+  complexityScores?: Map<string, ComplexityScore>;
+  /** Pre-computed PESL simulation results from intelligence pipeline (issueId -> result) */
+  simulationResults?: Map<string, SimulationResult>;
 }
 
 export interface WorkerExitEvent {
@@ -57,12 +70,15 @@ export type SideEffect =
   | ReleaseClaimEffect
   | CleanWorkspaceEffect
   | UpdateTokensEffect
-  | EmitLogEffect;
+  | EmitLogEffect
+  | EscalateEffect;
 
 export interface DispatchEffect {
   type: 'dispatch';
   issue: Issue;
   attempt: number | null;
+  /** Which backend to dispatch to. Defaults to 'primary' for backward compat. */
+  backend?: 'local' | 'primary';
 }
 
 export interface StopEffect {
@@ -102,4 +118,19 @@ export interface EmitLogEffect {
   level: 'info' | 'warn' | 'error';
   message: string;
   context?: Record<string, unknown>;
+}
+
+export interface EscalateEffect {
+  type: 'escalate';
+  issueId: string;
+  identifier: string;
+  reasons: string[];
+  /** Issue title for context in the interaction queue */
+  issueTitle?: string;
+  /** Issue description for context in the interaction queue */
+  issueDescription?: string | null;
+  /** Enriched spec from intelligence pipeline, if available */
+  enrichedSpec?: EnrichedSpec;
+  /** Complexity score from intelligence pipeline, if available */
+  complexityScore?: ComplexityScore;
 }

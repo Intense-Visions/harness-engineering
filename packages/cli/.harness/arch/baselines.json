@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-11T19:53:46.440Z",
-  "updatedFrom": "22dd345f",
+  "updatedAt": "2026-04-16T21:56:08.112Z",
+  "updatedFrom": "472cafd9",
   "metrics": {
     "circular-deps": {
       "value": 0,
@@ -12,7 +12,7 @@
       "violationIds": []
     },
     "complexity": {
-      "value": 9,
+      "value": 10,
       "violationIds": [
         "39e8004af4f9abbff2d010731dc511fa5528c38d9d7c0b6baa5d4ecfcfb030a8",
         "e68f61ff42c83a4d05b76c3decdf82e87d1342888c3a00b344e846f5a61a237a",
@@ -22,6 +22,7 @@
         "0f5f3b45355e915c87896c1e259108826fb0d392636db20558e15f3a06605033",
         "7bd411727604fed60bdb72ef0df2d82b5e596bf22323caba71b4a09dffccbdaa",
         "482d0366444a7392a74e3971fd51c7e6e58895e42aaf96c3278cafb49815a879",
+        "b966e8d3abfeee3427bfe8a948d1d83ce1e6bffe473e72edb57aab9c0bb95c69",
         "f685f2882a0af0a5ea9370005bff93b7333fece6e7d171581d4127c62c6e25f8"
       ]
     },
@@ -34,16 +35,11 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 25027,
-      "violationIds": [
-        "cba1811e335b66195ba021d63e89ed26858e6b46da743bfd86d86c33c9fc5cc9",
-        "d2d6c67287841bd9c47bfe71d0241f6e0297d479c54786fdc44ddf9634f9e40b",
-        "c4c68fd38743e566faecdfb27c0f3a54faf33534d5773c95077dd34e4158276b",
-        "0aa4aaf7a2c8a325c70e73c72d9b8dddc7f151e8a34a929e477cc793bc89d37f"
-      ]
+      "value": 25699,
+      "violationIds": []
     },
     "dependency-depth": {
-      "value": 70,
+      "value": 69,
       "violationIds": []
     }
   }

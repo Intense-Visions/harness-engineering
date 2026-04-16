@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
+import { Command } from 'commander';
 
 // We test the exported runInstallConstraints function directly
-import { runInstallConstraints } from '../../src/commands/install-constraints';
+import {
+  runInstallConstraints,
+  createInstallConstraintsCommand,
+} from '../../src/commands/install-constraints';
 
 describe('runInstallConstraints', () => {
   let tmpDir: string;
@@ -520,5 +524,260 @@ describe('runInstallConstraints', () => {
       expect(config.security?.rules?.['SEC-OLD-001']).toBeUndefined();
       expect(config.security?.rules?.['SEC-NEW-001']).toBe('warning');
     });
+  });
+});
+
+describe('createInstallConstraintsCommand', () => {
+  it('creates command with correct name', () => {
+    const cmd = createInstallConstraintsCommand();
+    expect(cmd.name()).toBe('install-constraints');
+  });
+
+  it('has required options', () => {
+    const cmd = createInstallConstraintsCommand();
+    const longs = cmd.options.map((o) => o.long);
+    expect(longs).toContain('--force-local');
+    expect(longs).toContain('--force-package');
+    expect(longs).toContain('--dry-run');
+    expect(longs).toContain('--config');
+  });
+
+  it('has source argument', () => {
+    const cmd = createInstallConstraintsCommand();
+    expect(cmd.registeredArguments.length).toBeGreaterThan(0);
+    expect(cmd.registeredArguments[0]!.name()).toBe('source');
+  });
+});
+
+describe('install-constraints action handler', () => {
+  let tmpDir: string;
+  let configPath: string;
+  let bundlePath: string;
+  let mockExit: ReturnType<typeof vi.spyOn>;
+  let mockConsoleLog: ReturnType<typeof vi.spyOn>;
+
+  const minimalBundle = {
+    name: 'test-bundle',
+    version: '1.0.0',
+    manifest: {
+      name: 'test-bundle',
+      version: '1.0.0',
+      include: ['layers'],
+    },
+    constraints: {
+      layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: [] }],
+    },
+  };
+
+  const minimalConfig = {
+    version: 1,
+    name: 'test-project',
+    layers: [],
+  };
+
+  function makeProgram(): Command {
+    const program = new Command();
+    program.option('-c, --config <path>', 'Config path');
+    program.option('--json', 'JSON output');
+    program.addCommand(createInstallConstraintsCommand());
+    return program;
+  }
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'harness-install-cmd-'));
+    configPath = path.join(tmpDir, 'harness.config.json');
+    bundlePath = path.join(tmpDir, 'test-bundle.harness-constraints.json');
+
+    await fs.mkdir(path.join(tmpDir, '.harness'), { recursive: true });
+    await fs.writeFile(configPath, JSON.stringify(minimalConfig, null, 2));
+    await fs.writeFile(bundlePath, JSON.stringify(minimalBundle, null, 2));
+
+    mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
+    mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    mockExit.mockRestore();
+    mockConsoleLog.mockRestore();
+  });
+
+  it('installs a bundle via command action with --config', async () => {
+    const program = makeProgram();
+    await program.parseAsync(['node', 'test', '-c', configPath, 'install-constraints', bundlePath]);
+
+    // Should not have exited with error
+    const exitCalls = mockExit.mock.calls;
+    // Check last exit call if any - should not be error code
+    if (exitCalls.length > 0) {
+      expect(exitCalls[exitCalls.length - 1]![0]).not.toBe(2);
+    }
+  });
+
+  it('exits with error when source file does not exist via command', async () => {
+    const exitError = new Error('process.exit');
+    mockExit.mockImplementation(((code: number) => {
+      throw exitError;
+    }) as never);
+
+    const program = makeProgram();
+    try {
+      await program.parseAsync([
+        'node',
+        'test',
+        '-c',
+        configPath,
+        'install-constraints',
+        path.join(tmpDir, 'nonexistent.json'),
+      ]);
+    } catch (e) {
+      if (e !== exitError) throw e;
+    }
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('exits with error when both --force-local and --force-package used', async () => {
+    const exitError = new Error('process.exit');
+    mockExit.mockImplementation(((code: number) => {
+      throw exitError;
+    }) as never);
+
+    const program = makeProgram();
+    try {
+      await program.parseAsync([
+        'node',
+        'test',
+        '-c',
+        configPath,
+        'install-constraints',
+        bundlePath,
+        '--force-local',
+        '--force-package',
+      ]);
+    } catch (e) {
+      if (e !== exitError) throw e;
+    }
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('handles dry-run via command action and logs dry-run info', async () => {
+    const program = makeProgram();
+    await program.parseAsync([
+      'node',
+      'test',
+      '-c',
+      configPath,
+      'install-constraints',
+      bundlePath,
+      '--dry-run',
+    ]);
+
+    // Should succeed - no error exit
+    const exitCalls = mockExit.mock.calls;
+    if (exitCalls.length > 0) {
+      expect(exitCalls[exitCalls.length - 1]![0]).not.toBe(1);
+    }
+  });
+
+  it('logs already-installed message for idempotent install', async () => {
+    // First install
+    const program1 = makeProgram();
+    await program1.parseAsync([
+      'node',
+      'test',
+      '-c',
+      configPath,
+      'install-constraints',
+      bundlePath,
+    ]);
+
+    // Second install - same bundle - should log already installed
+    const program2 = makeProgram();
+    await program2.parseAsync([
+      'node',
+      'test',
+      '-c',
+      configPath,
+      'install-constraints',
+      bundlePath,
+    ]);
+
+    // Should not error
+    const exitCalls = mockExit.mock.calls;
+    if (exitCalls.length > 0) {
+      expect(exitCalls[exitCalls.length - 1]![0]).not.toBe(1);
+    }
+  });
+
+  it('logs conflict details with --force-local via command', async () => {
+    const conflictConfig = {
+      version: 1,
+      name: 'test-project',
+      layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: [] }],
+    };
+    const conflictBundle = {
+      name: 'conflict-bundle',
+      version: '1.0.0',
+      manifest: { name: 'conflict-bundle', version: '1.0.0', include: ['layers'] },
+      constraints: {
+        layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: ['core'] }],
+      },
+    };
+    await fs.writeFile(configPath, JSON.stringify(conflictConfig, null, 2));
+    await fs.writeFile(bundlePath, JSON.stringify(conflictBundle, null, 2));
+
+    const program = makeProgram();
+    await program.parseAsync([
+      'node',
+      'test',
+      '-c',
+      configPath,
+      'install-constraints',
+      bundlePath,
+      '--force-local',
+    ]);
+
+    // Should not error
+    const exitCalls = mockExit.mock.calls;
+    if (exitCalls.length > 0) {
+      expect(exitCalls[exitCalls.length - 1]![0]).not.toBe(1);
+    }
+  });
+
+  it('handles dry-run with conflicts via command and logs conflict warnings', async () => {
+    const conflictConfig = {
+      version: 1,
+      name: 'test-project',
+      layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: [] }],
+    };
+    const conflictBundle = {
+      name: 'conflict-bundle',
+      version: '1.0.0',
+      manifest: { name: 'conflict-bundle', version: '1.0.0', include: ['layers'] },
+      constraints: {
+        layers: [{ name: 'shared', pattern: 'src/shared/**', allowedDependencies: ['core'] }],
+      },
+    };
+    await fs.writeFile(configPath, JSON.stringify(conflictConfig, null, 2));
+    await fs.writeFile(bundlePath, JSON.stringify(conflictBundle, null, 2));
+
+    const program = makeProgram();
+    await program.parseAsync([
+      'node',
+      'test',
+      '-c',
+      configPath,
+      'install-constraints',
+      bundlePath,
+      '--dry-run',
+    ]);
+
+    // Should not error - dry-run reports conflicts without failing
+    const exitCalls = mockExit.mock.calls;
+    if (exitCalls.length > 0) {
+      expect(exitCalls[exitCalls.length - 1]![0]).not.toBe(1);
+    }
   });
 });

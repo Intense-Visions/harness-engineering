@@ -1,5 +1,6 @@
 import { EntropyAnalyzer } from '@harness-engineering/core';
 import type { PerfResult, PerfViolationSummary } from '../../shared/types';
+import { discoverEntryPoints } from './entry-points';
 
 interface ViolationLike {
   metric: string;
@@ -55,8 +56,10 @@ function collectViolations(report: {
  */
 export async function gatherPerf(projectPath: string): Promise<PerfResult> {
   try {
+    const entryPoints = await discoverEntryPoints(projectPath);
     const analyzer = new EntropyAnalyzer({
       rootDir: projectPath,
+      ...(entryPoints.length > 0 ? { entryPoints } : {}),
       analyze: { complexity: true, coupling: true, sizeBudget: true },
     });
 

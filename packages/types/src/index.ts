@@ -67,6 +67,7 @@ export type {
   ExternalTicketState,
   SyncResult,
   TrackerSyncConfig,
+  TrackerComment,
 } from './tracker-sync';
 
 // --- Usage & Cost Tracking ---
@@ -112,4 +113,9 @@ export type {
   ServerConfig,
   WorkflowConfig,
   WorkflowDefinition,
+  ScopeTier,
+  ConcernSignal,
+  RoutingDecision,
+  EscalationConfig,
+  IntelligenceConfig,
 } from './orchestrator';

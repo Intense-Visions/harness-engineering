@@ -2,5 +2,6 @@
   "name": "orchestrator",
   "description": "Standard WORKFLOW.md for the Harness Orchestrator",
   "level": "basic",
+  "extends": "base",
   "version": 1
 }

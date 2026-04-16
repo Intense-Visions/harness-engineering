@@ -51,7 +51,10 @@ temp/
 .harness/state.json
 .harness/state/
 .harness/dispatch-last-head.txt
+.harness/interactions/
+.harness/analyses/
+.harness/workspaces/
 
 .vitepress
 *.tsbuildinfo
-
+.playwright-mcp/

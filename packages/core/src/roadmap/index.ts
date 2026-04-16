@@ -35,6 +35,11 @@ export { STATUS_RANK, isRegression } from './status-rank';
 export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
 
 /**
+ * Shared tracker config loader for harness.config.json.
+ */
+export { loadTrackerSyncConfig } from './tracker-config';
+
+/**
  * Sync engine for bidirectional sync between roadmap and external trackers.
  */
 export { syncToExternal, syncFromExternal, fullSync } from './sync-engine';

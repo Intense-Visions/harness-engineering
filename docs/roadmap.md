@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-16
-last_synced: 2026-04-11T12:00:00.000Z
+last_synced: 2026-04-16T00:00:00.000Z
 last_manual_edit: 2026-04-16T16:30:00.000Z
 ---
 
@@ -683,7 +683,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Migration Toolkit
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** none
 - **Summary:** Config version codemods, breaking-change detection, and upgrade scripts for users moving between harness versions
 - **Blockers:** —
@@ -788,7 +788,6 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** Chad Warner
-- **Assigned:** 2026-04-07
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#128
 
@@ -912,6 +911,47 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#145
+
+### Hybrid Orchestrator: Local Model Routing with Web Dashboard
+
+- **Status:** done
+- **Spec:** docs/changes/hybrid-orchestrator/proposal.md
+- **Summary:** Local LLM routing for autonomous execution of simple tasks, signal-gated escalation to humans for complex work, web dashboard with Claude chat pane for human reasoning, OpenAI-compatible local backend.
+- **Blockers:** —
+- **Plan:** —
+
+### Intelligence Pipeline
+
+- **Status:** in-progress
+- **Spec:** docs/changes/intelligence-pipeline/proposal.md
+- **Summary:** Spec enrichment (SEL), complexity modeling (CML), and pre-execution simulation (PESL) layers in packages/intelligence/. Augments hybrid orchestrator routing with graph-backed complexity scoring and tiered simulation.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#152
+
+### Dashboard Chat Panel
+
+- **Status:** done
+- **Spec:** docs/changes/dashboard-chat-panel/proposal.md
+- **Summary:** Collapsible side panel on every dashboard page providing full interactive Claude sessions with command palette, contextual launch, multi-session tabs, and .harness artifact linkage
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#151
+
+### Bidirectional Analysis Sync via Tracker Comments
+
+- **Status:** done
+- **Spec:** docs/changes/analysis-tracker-sync/proposal.md
+- **Summary:** Auto-publish analysis results as structured tracker comments and pull them back locally via sync-analyses
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#150
 
 ## v3.0 Graph Intelligence
 
@@ -1475,7 +1515,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### MCP Degraded Mode
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** Degraded mode spec in SKILL.md documenting fallback behavior for each MCP tool call. Skills remain functional (with reduced capabilities) without MCP server, enabling multi-platform export to Cursor, Gemini CLI, Windsurf.
 - **Blockers:** —
@@ -1483,6 +1523,14 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#120
+
+### Dashboard graph chart
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Implement a scalable visual charting component on the graph dashboard to derive and display insights from the underlying core graph structure.
+- **Blockers:** —
+- **Plan:** —
 
 ## Assignment History
 

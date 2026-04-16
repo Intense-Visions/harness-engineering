@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import * as readline from 'node:readline';
+import { randomUUID } from 'node:crypto';
 import {
   AgentBackend,
   SessionStartParams,
@@ -37,6 +38,169 @@ function resolveSpawnError(
   resolve(Err({ category: 'agent_not_found', message: `Claude command '${command}' not found` }));
 }
 
+/**
+ * Extract a human-readable summary from a Claude result event.
+ * The content field can be a string, an array of content blocks, or the full response object.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summarizeResultContent(rawEvent: any): string {
+  if (typeof rawEvent.result === 'string') return rawEvent.result;
+
+  const content = rawEvent.content;
+  if (Array.isArray(content)) {
+    const textParts = content
+      .filter((b) => b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text as string);
+    if (textParts.length > 0) return textParts.join('\n');
+
+    const toolNames = content.filter((b) => b.type === 'tool_use').map((b) => b.name);
+    if (toolNames.length > 0) return `Tool calls: ${toolNames.join(', ')}`;
+  }
+
+  if (typeof content === 'string') return content;
+  return 'Turn completed';
+}
+
+function mkEvent(type: string, content: unknown, sessionId: string): AgentEvent {
+  return { type, timestamp: new Date().toISOString(), content, sessionId };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractUsage(usage: any): import('@harness-engineering/types').TokenUsage | null {
+  if (!usage) return null;
+  const inputTokens = usage.input_tokens ?? 0;
+  const outputTokens = usage.output_tokens ?? 0;
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractToolResultText(blockContent: any): string {
+  if (typeof blockContent === 'string') return blockContent;
+  if (!Array.isArray(blockContent)) return '';
+  return (
+    blockContent
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((c: any) => (typeof c === 'string' ? c : (c.text ?? '')))
+      .join('\n')
+  );
+}
+
+/** Map a single assistant content block to an AgentEvent, or null to skip. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAssistantBlock(block: any, sessionId: string): AgentEvent | null {
+  if (block.type === 'text' && typeof block.text === 'string') {
+    return mkEvent('text', block.text, sessionId);
+  }
+  if (block.type === 'tool_use') {
+    return mkEvent(
+      'call',
+      `Calling ${block.name}(${JSON.stringify(block.input ?? {})})`,
+      sessionId
+    );
+  }
+  if (block.type === 'thinking' && typeof block.thinking === 'string') {
+    return mkEvent('thought', block.thinking, sessionId);
+  }
+  return null;
+}
+
+/** Walk an assistant message's content blocks, emitting granular events. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAssistantBlocks(rawEvent: any, sessionId: string): AgentEvent[] {
+  const blocks = rawEvent.message?.content;
+  if (!Array.isArray(blocks)) return [];
+  const events = blocks
+    .map((b) => mapAssistantBlock(b, sessionId))
+    .filter((e): e is AgentEvent => e !== null);
+
+  // Claude streams multiple assistant events per API request (same requestId,
+  // cumulative-ish usage on each chunk). Only the terminal chunk carries a
+  // non-null stop_reason — attach usage there so the state machine's
+  // additive `+=` accumulator sees each request exactly once.
+  const stopReason = rawEvent.message?.stop_reason;
+  if (stopReason !== null && stopReason !== undefined) {
+    const usage = extractUsage(rawEvent.message?.usage);
+    if (usage) {
+      if (events.length > 0) {
+        events[0] = { ...events[0]!, usage };
+      } else {
+        // Final chunk with no renderable content — still surface the usage so
+        // token totals and ITPM/OTPM windows advance.
+        events.push({
+          type: 'usage',
+          timestamp: new Date().toISOString(),
+          sessionId,
+          usage,
+        });
+      }
+    }
+  }
+  return events;
+}
+
+/** Walk a user message's tool_result blocks. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapUserBlocks(rawEvent: any, sessionId: string): AgentEvent[] {
+  const blocks = rawEvent.message?.content;
+  if (!Array.isArray(blocks)) return [];
+
+  const events: AgentEvent[] = [];
+  for (const block of blocks) {
+    if (block.type === 'tool_result') {
+      const text = extractToolResultText(block.content).slice(0, 500);
+      events.push(mkEvent('status', text, sessionId));
+    }
+  }
+  return events;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ClaudeEventHandler = (rawEvent: any, sessionId: string) => AgentEvent[];
+
+/** Build a terminal `result` event, attaching any top-level usage for token accounting. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapResultEvent(rawEvent: any, sessionId: string): AgentEvent[] {
+  const event = mkEvent('result', summarizeResultContent(rawEvent), sessionId);
+  const usage = extractUsage(rawEvent.usage);
+  if (usage) event.usage = usage;
+  return [event];
+}
+
+const CLAUDE_EVENT_HANDLERS: Record<string, ClaudeEventHandler> = {
+  text: (e, s) => [mkEvent('text', e.content ?? e.text ?? '', s)],
+  progress: (e, s) => (e.content ? [mkEvent('thought', e.content, s)] : []),
+  call: (e, s) => [mkEvent('call', `Calling ${e.tool}(${JSON.stringify(e.args)})`, s)],
+  rate_limit_event: (_e, s) => [mkEvent('rate_limit', 'Rate limit hit - waiting...', s)],
+  result: mapResultEvent,
+  turn_complete: mapResultEvent,
+  assistant: mapAssistantBlocks,
+  user: mapUserBlocks,
+  system: () => [],
+  message: () => [],
+};
+
+/**
+ * Map a Claude stream-json event to one or more AgentEvents.
+ *
+ * Claude's stream-json emits: system (init), assistant (model response with
+ * content blocks), user (tool results), result (final summary). Each assistant
+ * message may contain multiple content blocks.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapClaudeEvent(rawEvent: any, sessionId: string): AgentEvent[] {
+  const handler = CLAUDE_EVENT_HANDLERS[rawEvent.type];
+  if (handler) return handler(rawEvent, sessionId);
+  return typeof rawEvent.message === 'string'
+    ? [mkEvent('status', rawEvent.message, sessionId)]
+    : [];
+}
+
 export class ClaudeBackend implements AgentBackend {
   readonly name = 'claude';
   private command: string;
@@ -47,7 +211,7 @@ export class ClaudeBackend implements AgentBackend {
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
     const session: AgentSession = {
-      sessionId: `claude-session-${Date.now()}`,
+      sessionId: randomUUID(),
       workspacePath: params.workspacePath,
       backendName: this.name,
       startedAt: new Date().toISOString(),
@@ -59,10 +223,21 @@ export class ClaudeBackend implements AgentBackend {
     session: AgentSession,
     params: TurnParams
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
-    const args = ['-p', params.prompt, '--output-format', 'json'];
+    const args = [
+      '--print',
+      '-p',
+      params.prompt,
+      '--output-format',
+      'stream-json',
+      '--verbose',
+      '--permission-mode',
+      'bypassPermissions',
+    ];
 
     if (params.isContinuation) {
       args.push('--resume', session.sessionId);
+    } else {
+      args.push('--session-id', session.sessionId);
     }
 
     const child = spawn(this.command, args, {
@@ -70,23 +245,65 @@ export class ClaudeBackend implements AgentBackend {
       env: process.env,
     });
 
+    // Close stdin to signal no input is coming
+    child.stdin.end();
+
+    child.on('error', (err) => {
+      console.error(`[claude spawn error] ${err.message}`);
+    });
+
     const rl = readline.createInterface({
       input: child.stdout,
       terminal: false,
     });
 
+    const errRl = readline.createInterface({
+      input: child.stderr,
+      terminal: false,
+    });
+
+    // Log stderr for debugging
+    errRl.on('line', (line) => {
+      console.error(`[claude stderr] ${line}`);
+    });
+
     let lastResult: TurnResult | null = null;
+    let exitCode: number | null = null;
+
+    child.on('exit', (code) => {
+      exitCode = code;
+    });
 
     try {
       for await (const line of rl) {
         try {
-          const event = JSON.parse(line) as AgentEvent;
-          yield event;
-          if (event.type === 'result') {
-            lastResult = event.content as TurnResult;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawEvent = JSON.parse(line) as any;
+
+          if (rawEvent.type === 'result' || rawEvent.type === 'turn_complete') {
+            // Claude stream-json result events use { subtype, is_error } rather than
+            // { success }. Translate explicitly so AgentRunner's early-termination
+            // check (if lastResult.success) actually fires — otherwise the runner
+            // loops sending "Continue your work." until maxTurns is exhausted.
+            const isSuccess =
+              rawEvent.is_error === false ||
+              (rawEvent.is_error === undefined && rawEvent.subtype === 'success');
+            lastResult = {
+              success: isSuccess,
+              sessionId: session.sessionId,
+              usage: extractUsage(rawEvent.usage) ?? {
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+              },
+            };
+          }
+
+          for (const mapped of mapClaudeEvent(rawEvent, session.sessionId)) {
+            yield mapped;
           }
         } catch {
-          // Ignore non-JSON output (e.g. streaming thoughts)
+          // Ignore non-JSON output
         }
       }
     } finally {
@@ -94,6 +311,26 @@ export class ClaudeBackend implements AgentBackend {
         child.kill('SIGTERM');
       }
       rl.close();
+      errRl.close();
+    }
+
+    // Wait briefly for exit event if not already set
+    if (exitCode === null) {
+      await new Promise((resolve) => {
+        child.on('exit', (code) => {
+          exitCode = code;
+          resolve(null);
+        });
+      });
+    }
+
+    if (exitCode !== 0 && !lastResult) {
+      return {
+        success: false,
+        sessionId: session.sessionId,
+        error: `Claude process exited with code ${exitCode}`,
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      };
     }
 
     return (

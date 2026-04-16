@@ -129,6 +129,43 @@ describe('writeTelemetryConfig', () => {
 
     expect(fs.existsSync(path.join(tmpDir, '.harness', 'telemetry.json'))).toBe(false);
   });
+
+  it('writes identity with alias field', () => {
+    writeTelemetryConfig(tmpDir, {
+      telemetryEnabled: false,
+      adoptionEnabled: false,
+      identity: { alias: 'dev1' },
+    });
+
+    const telemetry = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.harness', 'telemetry.json'), 'utf-8')
+    );
+    expect(telemetry.identity).toEqual({ alias: 'dev1' });
+  });
+
+  it('handles missing config file gracefully', () => {
+    const emptyDir = path.join(tmpDir, 'no-config');
+    fs.mkdirSync(emptyDir, { recursive: true });
+
+    // Should not throw
+    writeTelemetryConfig(emptyDir, {
+      telemetryEnabled: true,
+      adoptionEnabled: true,
+      identity: {},
+    });
+  });
+
+  it('writes disabled telemetry and adoption', () => {
+    writeTelemetryConfig(tmpDir, {
+      telemetryEnabled: false,
+      adoptionEnabled: false,
+      identity: {},
+    });
+
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.telemetry).toEqual({ enabled: false });
+    expect(config.adoption).toEqual({ enabled: false });
+  });
 });
 
 describe('ensureTelemetryConfigured', () => {

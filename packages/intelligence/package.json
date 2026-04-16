@@ -1,0 +1,62 @@
+{
+  "name": "@harness-engineering/intelligence",
+  "version": "0.1.0",
+  "description": "Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "node ../../scripts/clean.mjs dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "harness",
+    "engineering",
+    "intelligence",
+    "enrichment",
+    "complexity"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
+    "directory": "packages/intelligence"
+  },
+  "bugs": {
+    "url": "https://github.com/Intense-Visions/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/intelligence#readme",
+  "dependencies": {
+    "@harness-engineering/types": "workspace:*",
+    "@harness-engineering/graph": "workspace:*",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "openai": "^4.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "@vitest/coverage-v8": "^4.1.2",
+    "tsup": "^8.5.1",
+    "vitest": "^4.1.2"
+  }
+}

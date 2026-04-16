@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { generateSlashCommands } from '../../src/commands/generate-slash-commands';
+import {
+  generateSlashCommands,
+  handleOrphanDeletion,
+  createGenerateSlashCommandsCommand,
+} from '../../src/commands/generate-slash-commands';
+import type { GenerateResult } from '../../src/commands/generate-slash-commands';
 
 function makeTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'gen-slash-test-'));
@@ -158,5 +163,267 @@ describe('generateSlashCommands - command_namespace routing', () => {
 
     const claudeResult = results.find((r) => r.platform === 'claude-code');
     expect(claudeResult?.added).toContain('ui.md');
+  });
+});
+
+describe('createGenerateSlashCommandsCommand', () => {
+  it('creates a command named "generate-slash-commands"', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    expect(cmd.name()).toBe('generate-slash-commands');
+  });
+
+  it('has a description', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    expect(cmd.description()).toContain('Generate');
+  });
+
+  it('has --platforms option with default value', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    const opt = cmd.options.find((o) => o.long === '--platforms');
+    expect(opt).toBeDefined();
+    expect(opt?.defaultValue).toBe('claude-code,gemini-cli');
+  });
+
+  it('has --global option defaulting to false', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    const opt = cmd.options.find((o) => o.long === '--global');
+    expect(opt).toBeDefined();
+  });
+
+  it('has --include-global option', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    const opt = cmd.options.find((o) => o.long === '--include-global');
+    expect(opt).toBeDefined();
+  });
+
+  it('has --output option', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    const opt = cmd.options.find((o) => o.long === '--output');
+    expect(opt).toBeDefined();
+  });
+
+  it('has --skills-dir option', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    const opt = cmd.options.find((o) => o.long === '--skills-dir');
+    expect(opt).toBeDefined();
+  });
+
+  it('has --dry-run option', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    const opt = cmd.options.find((o) => o.long === '--dry-run');
+    expect(opt).toBeDefined();
+  });
+
+  it('has --yes option', () => {
+    const cmd = createGenerateSlashCommandsCommand();
+    const opt = cmd.options.find((o) => o.long === '--yes');
+    expect(opt).toBeDefined();
+  });
+});
+
+describe('generateSlashCommands - dry run', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does not write files when dry-run is true', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'command-name-skill');
+    generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: true,
+      yes: false,
+    });
+
+    // No files should have been written
+    expect(fs.existsSync(path.join(tmpDir, 'harness.md'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'harness'))).toBe(false);
+  });
+
+  it('still returns results describing what would change', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'command-name-skill');
+    const results = generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: true,
+      yes: false,
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    const claudeResult = results.find((r) => r.platform === 'claude-code');
+    expect(claudeResult).toBeDefined();
+    expect(claudeResult!.outputDir).toBe(path.join(tmpDir, 'harness'));
+  });
+});
+
+describe('generateSlashCommands - multi-platform', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns results for each requested platform', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'command-name-skill');
+    const results = generateSlashCommands({
+      platforms: ['claude-code', 'gemini-cli'],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: true,
+      yes: false,
+    });
+
+    expect(results).toHaveLength(2);
+    expect(results.map((r) => r.platform)).toEqual(['claude-code', 'gemini-cli']);
+  });
+});
+
+describe('generateSlashCommands - update detection', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reports unchanged files on second run', () => {
+    const skillsDir = path.join(__dirname, 'fixtures', 'command-name-skill');
+    const opts = {
+      platforms: ['claude-code'] as const,
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      output: tmpDir,
+      dryRun: false,
+      yes: false,
+    };
+
+    // First run: added
+    const first = generateSlashCommands({ ...opts, platforms: ['claude-code'] });
+    const firstResult = first.find((r) => r.platform === 'claude-code');
+    expect(firstResult!.added.length).toBeGreaterThan(0);
+
+    // Second run: unchanged
+    const second = generateSlashCommands({ ...opts, platforms: ['claude-code'] });
+    const secondResult = second.find((r) => r.platform === 'claude-code');
+    expect(secondResult!.unchanged.length).toBeGreaterThan(0);
+    expect(secondResult!.added).toHaveLength(0);
+  });
+});
+
+describe('handleOrphanDeletion', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does nothing when dry-run is true', async () => {
+    const result: GenerateResult = {
+      platform: 'claude-code',
+      added: [],
+      updated: [],
+      removed: ['orphan.md'],
+      unchanged: [],
+      outputDir: tmpDir,
+    };
+
+    // Create the file
+    fs.writeFileSync(path.join(tmpDir, 'orphan.md'), 'content');
+
+    await handleOrphanDeletion([result], { yes: true, dryRun: true });
+
+    // File should still exist
+    expect(fs.existsSync(path.join(tmpDir, 'orphan.md'))).toBe(true);
+  });
+
+  it('deletes files when yes is true and not dry-run', async () => {
+    const result: GenerateResult = {
+      platform: 'claude-code',
+      added: [],
+      updated: [],
+      removed: ['orphan.md'],
+      unchanged: [],
+      outputDir: tmpDir,
+    };
+
+    fs.writeFileSync(path.join(tmpDir, 'orphan.md'), 'content');
+
+    await handleOrphanDeletion([result], { yes: true, dryRun: false });
+
+    expect(fs.existsSync(path.join(tmpDir, 'orphan.md'))).toBe(false);
+  });
+
+  it('deletes directories recursively when yes is true', async () => {
+    const subDir = path.join(tmpDir, 'sub-dir');
+    fs.mkdirSync(subDir, { recursive: true });
+    fs.writeFileSync(path.join(subDir, 'file.txt'), 'content');
+
+    const result: GenerateResult = {
+      platform: 'claude-code',
+      added: [],
+      updated: [],
+      removed: ['sub-dir'],
+      unchanged: [],
+      outputDir: tmpDir,
+    };
+
+    await handleOrphanDeletion([result], { yes: true, dryRun: false });
+
+    expect(fs.existsSync(subDir)).toBe(false);
+  });
+
+  it('does nothing when removed list is empty', async () => {
+    const result: GenerateResult = {
+      platform: 'claude-code',
+      added: ['new.md'],
+      updated: [],
+      removed: [],
+      unchanged: [],
+      outputDir: tmpDir,
+    };
+
+    await handleOrphanDeletion([result], { yes: true, dryRun: false });
+    // Should not throw
+  });
+
+  it('handles non-existent files in removed list gracefully', async () => {
+    const result: GenerateResult = {
+      platform: 'claude-code',
+      added: [],
+      updated: [],
+      removed: ['does-not-exist.md'],
+      unchanged: [],
+      outputDir: tmpDir,
+    };
+
+    // Should not throw
+    await handleOrphanDeletion([result], { yes: true, dryRun: false });
   });
 });

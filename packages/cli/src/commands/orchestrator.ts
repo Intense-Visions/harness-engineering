@@ -11,6 +11,7 @@ export function createOrchestratorCommand(): Command {
     .command('run')
     .description('Run the orchestrator daemon')
     .option('-w, --workflow <path>', 'Path to WORKFLOW.md', 'WORKFLOW.md')
+    .option('--headless', 'Run without TUI (server-only mode for use with web dashboard)')
     .action(async (opts) => {
       const workflowPath = path.resolve(process.cwd(), opts.workflow);
       const loader = new WorkflowLoader();
@@ -35,8 +36,16 @@ export function createOrchestratorCommand(): Command {
 
       daemon.start();
 
-      const { waitUntilExit } = launchTUI(daemon);
-      await waitUntilExit();
+      if (opts.headless) {
+        logger.info(
+          'Orchestrator running in headless mode (no TUI). Use the web dashboard or Ctrl+C to stop.'
+        );
+        // Keep the process alive until a signal is received
+        await new Promise(() => {});
+      } else {
+        const { waitUntilExit } = launchTUI(daemon);
+        await waitUntilExit();
+      }
 
       process.exit(ExitCode.SUCCESS);
     });

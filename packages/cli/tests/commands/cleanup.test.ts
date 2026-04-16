@@ -1,59 +1,148 @@
 // packages/cli/tests/commands/cleanup.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const defaultAnalyzeResult = {
+  ok: true as const,
+  value: {
+    drift: {
+      drifts: [{ docFile: 'docs/api.md', issue: 'outdated', details: 'missing new endpoints' }],
+    },
+    deadCode: {
+      deadFiles: [{ path: 'src/old.ts' }],
+      deadExports: [{ file: 'src/utils.ts', name: 'unusedHelper' }],
+    },
+    patterns: {
+      violations: [{ file: 'src/hack.ts', pattern: 'no-any', message: 'Using any type' }],
+    },
+  },
+};
+
+const analyzeResultHolder = { current: defaultAnalyzeResult as unknown };
+
+vi.mock('@harness-engineering/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness-engineering/core')>();
+  return {
+    ...actual,
+    Ok: actual.Ok,
+    Err: actual.Err,
+    EntropyAnalyzer: class {
+      config: unknown;
+      constructor(config: unknown) {
+        this.config = config;
+      }
+      async analyze() {
+        return analyzeResultHolder.current;
+      }
+    },
+  };
+});
+
+vi.mock('../../src/config/loader', () => ({
+  resolveConfig: vi.fn().mockReturnValue({
+    ok: true,
+    value: {
+      version: 1,
+      rootDir: '.',
+      docsDir: './docs',
+      entropy: { excludePatterns: [] },
+    },
+  }),
+}));
+
 import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup';
-import * as path from 'path';
+import { resolveConfig } from '../../src/config/loader';
 
 describe('cleanup command', () => {
-  const validProjectPath = path.join(__dirname, '../fixtures/valid-project');
+  beforeEach(() => {
+    vi.clearAllMocks();
+    analyzeResultHolder.current = defaultAnalyzeResult;
+  });
 
   describe('runCleanup', () => {
-    it('returns entropy report', async () => {
-      const result = await runCleanup({
-        cwd: validProjectPath,
-        configPath: path.join(validProjectPath, 'harness.config.json'),
-      });
+    it('returns entropy report with all issue types', async () => {
+      const result = await runCleanup({ cwd: '/tmp/test' });
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveProperty('driftIssues');
-        expect(result.value).toHaveProperty('deadCode');
+        expect(result.value.driftIssues).toHaveLength(1);
+        expect(result.value.driftIssues[0].file).toBe('docs/api.md');
+        expect(result.value.driftIssues[0].issue).toContain('outdated');
+
+        expect(result.value.deadCode).toHaveLength(2);
+        expect(result.value.deadCode[0].file).toBe('src/old.ts');
+        expect(result.value.deadCode[1].file).toBe('src/utils.ts');
+        expect(result.value.deadCode[1].symbol).toBe('unusedHelper');
+
+        expect(result.value.patternViolations).toHaveLength(1);
+        expect(result.value.patternViolations[0].pattern).toBe('no-any');
+
+        expect(result.value.totalIssues).toBe(4);
       }
     });
 
-    it('can filter by type', async () => {
-      const result = await runCleanup({
-        cwd: validProjectPath,
-        configPath: path.join(validProjectPath, 'harness.config.json'),
-        type: 'drift',
-      });
+    it('defaults to type all when not specified', async () => {
+      const result = await runCleanup({ cwd: '/tmp/test' });
       expect(result.ok).toBe(true);
     });
 
-    it('returns pattern violations when type is patterns', async () => {
-      const result = await runCleanup({
-        cwd: validProjectPath,
-        configPath: path.join(validProjectPath, 'harness.config.json'),
-        type: 'patterns',
-      });
+    it('filters by drift type', async () => {
+      const result = await runCleanup({ cwd: '/tmp/test', type: 'drift' });
       expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value).toHaveProperty('patternViolations');
+    });
+
+    it('filters by dead-code type', async () => {
+      const result = await runCleanup({ cwd: '/tmp/test', type: 'dead-code' });
+      expect(result.ok).toBe(true);
+    });
+
+    it('filters by patterns type', async () => {
+      const result = await runCleanup({ cwd: '/tmp/test', type: 'patterns' });
+      expect(result.ok).toBe(true);
+    });
+
+    it('returns error when config loading fails', async () => {
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: false,
+        error: { message: 'Config not found', exitCode: 2 },
+      } as never);
+
+      const result = await runCleanup({ cwd: '/tmp/test' });
+      expect(result.ok).toBe(false);
+    });
+
+    it('returns error when analysis fails', async () => {
+      analyzeResultHolder.current = {
+        ok: false,
+        error: new Error('Analysis failed'),
+      };
+
+      const result = await runCleanup({ cwd: '/tmp/test' });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toContain('Entropy analysis failed');
       }
     });
 
-    it('returns all issues when type is all', async () => {
-      const result = await runCleanup({
-        cwd: validProjectPath,
-        configPath: path.join(validProjectPath, 'harness.config.json'),
-        type: 'all',
-      });
+    it('handles missing drift section in report', async () => {
+      analyzeResultHolder.current = {
+        ok: true,
+        value: {
+          // no drift, deadCode, or patterns keys
+        },
+      };
+
+      const result = await runCleanup({ cwd: '/tmp/test' });
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveProperty('driftIssues');
-        expect(result.value).toHaveProperty('deadCode');
-        expect(result.value).toHaveProperty('patternViolations');
-        expect(result.value).toHaveProperty('totalIssues');
-        expect(typeof result.value.totalIssues).toBe('number');
+        expect(result.value.driftIssues).toHaveLength(0);
+        expect(result.value.deadCode).toHaveLength(0);
+        expect(result.value.patternViolations).toHaveLength(0);
+        expect(result.value.totalIssues).toBe(0);
       }
+    });
+
+    it('uses process.cwd() when cwd not provided', async () => {
+      const result = await runCleanup({});
+      expect(result.ok).toBe(true);
     });
   });
 
@@ -72,6 +161,12 @@ describe('cleanup command', () => {
     it('has correct description', () => {
       const cmd = createCleanupCommand();
       expect(cmd.description()).toContain('entropy');
+    });
+
+    it('type option defaults to all', () => {
+      const cmd = createCleanupCommand();
+      const typeOption = cmd.options.find((opt) => opt.long === '--type');
+      expect(typeOption?.defaultValue).toBe('all');
     });
   });
 });

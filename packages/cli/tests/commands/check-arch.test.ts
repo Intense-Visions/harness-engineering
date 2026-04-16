@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Command } from 'commander';
 import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch';
 import * as path from 'path';
 
@@ -172,6 +173,145 @@ describe('check-arch command', () => {
         expect(passing.value.passed).toBe(true);
         // Exit code 0 is determined by passed=true in the action handler
       }
+    });
+  });
+
+  describe('action handler', () => {
+    let mockExit: ReturnType<typeof vi.spyOn>;
+    let mockConsoleLog: ReturnType<typeof vi.spyOn>;
+    const exitError = new Error('process.exit');
+
+    beforeEach(() => {
+      mockExit = vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
+        throw exitError;
+      }) as never);
+      mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      mockExit.mockRestore();
+      mockConsoleLog.mockRestore();
+    });
+
+    async function safeParseAsync(program: Command, args: string[]) {
+      try {
+        await program.parseAsync(args);
+      } catch (e) {
+        if (e !== exitError) throw e;
+      }
+    }
+
+    function makeProgram(): Command {
+      const program = new Command();
+      program.option('--json', 'JSON output');
+      program.option('--quiet', 'Quiet output');
+      program.option('--verbose', 'Verbose');
+      program.option('-c, --config <path>', 'Config');
+      program.addCommand(createCheckArchCommand());
+      return program;
+    }
+
+    it('exits with error when config is invalid', async () => {
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '-c',
+        '/nonexistent/harness.config.json',
+        'check-arch',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(2);
+    });
+
+    it('outputs JSON error when --json and config fails', async () => {
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '--json',
+        '-c',
+        '/nonexistent/harness.config.json',
+        'check-arch',
+      ]);
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('error'));
+    });
+
+    it('handles --update-baseline and exits with SUCCESS', async () => {
+      const fsSync = await import('node:fs');
+      const osModule = await import('node:os');
+      const tmpDir = fsSync.mkdtempSync(path.join(osModule.tmpdir(), 'check-arch-action-'));
+
+      fsSync.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '-c',
+        path.join(tmpDir, 'harness.config.json'),
+        'check-arch',
+        '--update-baseline',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+
+      fsSync.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('handles --update-baseline with JSON output', async () => {
+      const fsSync = await import('node:fs');
+      const osModule = await import('node:os');
+      const tmpDir = fsSync.mkdtempSync(path.join(osModule.tmpdir(), 'check-arch-json-'));
+
+      fsSync.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '--json',
+        '-c',
+        path.join(tmpDir, 'harness.config.json'),
+        'check-arch',
+        '--update-baseline',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('baselineUpdated'));
+
+      fsSync.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('exits with SUCCESS for disabled architecture', async () => {
+      const fsSync = await import('node:fs');
+      const osModule = await import('node:os');
+      const tmpDir = fsSync.mkdtempSync(path.join(osModule.tmpdir(), 'check-arch-disabled-'));
+
+      fsSync.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: false } })
+      );
+
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '-c',
+        path.join(tmpDir, 'harness.config.json'),
+        'check-arch',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+
+      fsSync.rmSync(tmpDir, { recursive: true, force: true });
     });
   });
 });
