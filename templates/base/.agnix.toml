@@ -1,0 +1,16 @@
+# agnix configuration — validates CLAUDE.md, hooks, skills, and agent configs.
+# Reference: https://agent-sh.github.io/agnix/docs/configuration
+#
+# Harness runs this config via `harness validate --agent-configs` (hybrid mode):
+#   - If the `agnix` binary is on PATH, harness shells out to it (385+ rules).
+#   - Otherwise, harness runs a built-in fallback rule set covering the
+#     highest-value checks (CLAUDE.md size, invalid hooks, unreachable skills).
+# Install agnix for the full rule catalogue: `cargo install agnix-cli`.
+
+target = "claude-code"
+strict = false
+max_files = 10000
+locale = "en"
+
+[rules]
+disabled_rules = []
