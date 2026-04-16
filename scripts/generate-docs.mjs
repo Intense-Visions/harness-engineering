@@ -86,10 +86,12 @@ async function generateCliReference() {
  * machine-specific and would otherwise cause the check-generated-docs
  * pre-push hook to fire on every developer's machine. Replace them with a
  * stable placeholder so the output is deterministic across worktrees.
+ * Avoids angle brackets because the reference docs are parsed as Vue SFCs
+ * by vitepress, which would read `<project root>` as an HTML element.
  */
 function formatDefaultValue(value) {
   if (typeof value === 'string' && /^(\/|[A-Za-z]:\\)/.test(value)) {
-    return '"<project root>"';
+    return 'current working directory';
   }
   return JSON.stringify(value);
 }
