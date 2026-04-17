@@ -195,27 +195,21 @@ async function handleAppendEntry(projectPath: string, input: StateInput) {
     return resultToMcpResponse(result);
   }
 
-  // Fallback: append to global state.json decisions array when no session is available
-  // (e.g., standalone brainstorming invocation without a session slug)
-  if (input.section === 'decisions') {
-    const { loadState, saveState } = await import('@harness-engineering/core');
-    const loadResult = await loadState(projectPath, input.stream);
-    if (!loadResult.ok) return resultToMcpResponse(loadResult);
-    const state = loadResult.value;
-    state.decisions.push({
-      date: new Date().toISOString(),
-      decision: input.content,
-      context: input.authorSkill,
-    });
-    const saveResult = await saveState(projectPath, state, input.stream);
-    if (!saveResult.ok) return resultToMcpResponse(saveResult);
-    return resultToMcpResponse(Ok({ appended: true, target: 'global-state' }));
+  // Fallback: append to global state.json decisions when no session
+  if (input.section !== 'decisions') {
+    return mcpError('Error: session is required for non-decisions sections');
   }
-
-  return mcpError(
-    'Error: session is required for append_entry on non-decisions sections. ' +
-      'Pass a session slug or use the decisions section for sessionless fallback.'
-  );
+  const { loadState, saveState } = await import('@harness-engineering/core');
+  const lr = await loadState(projectPath, input.stream);
+  if (!lr.ok) return resultToMcpResponse(lr);
+  lr.value.decisions.push({
+    date: new Date().toISOString(),
+    decision: input.content,
+    context: input.authorSkill,
+  });
+  const sr = await saveState(projectPath, lr.value, input.stream);
+  if (!sr.ok) return resultToMcpResponse(sr);
+  return resultToMcpResponse(Ok({ appended: true, target: 'global-state' }));
 }
 
 async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {

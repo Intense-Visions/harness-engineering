@@ -203,9 +203,7 @@ describe('manage_state tool', () => {
       content: 'Test constraint',
     });
     expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain(
-      'session is required for append_entry on non-decisions'
-    );
+    expect(response.content[0].text).toContain('session is required for non-decisions');
   });
 
   it('update_entry_status returns error when session is missing', async () => {
