@@ -5,7 +5,7 @@ import type {
   EscalationConfig,
 } from '@harness-engineering/types';
 import type { OrchestratorState, LiveSession, RunAttemptPhase } from '../types/internal';
-import type { OrchestratorEvent, SideEffect, EscalateEffect, TickEvent, ClaimEffect } from '../types/events';
+import type { OrchestratorEvent, SideEffect, EscalateEffect, TickEvent } from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';

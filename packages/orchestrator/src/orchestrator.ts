@@ -63,6 +63,8 @@ import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect } from './types/events';
+import { ClaimManager } from './core/claim-manager';
+import { resolveOrchestratorId } from './core/orchestrator-identity';
 
 const CONNECTION_ERROR_PATTERNS = [
   'Connection error',
@@ -103,6 +105,8 @@ export class Orchestrator extends EventEmitter {
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
+  private claimManager: ClaimManager | null = null;
+  private orchestratorIdPromise: Promise<string>;
 
   /** Project root directory, derived from workspace root. */
   private get projectRoot(): string {
@@ -160,6 +164,8 @@ export class Orchestrator extends EventEmitter {
       : null;
 
     this.pipeline = this.createIntelligencePipeline();
+
+    this.orchestratorIdPromise = resolveOrchestratorId(config.orchestratorId);
 
     if (config.server?.port) {
       this.server = new OrchestratorServer(this, config.server.port, {
@@ -617,6 +623,13 @@ export class Orchestrator extends EventEmitter {
   }
 
   public async asyncTick(): Promise<void> {
+    // Lazy-init ClaimManager (can't await in constructor)
+    if (!this.claimManager) {
+      const orchestratorId = await this.orchestratorIdPromise;
+      this.claimManager = new ClaimManager(this.tracker, orchestratorId);
+      this.logger.info(`Orchestrator identity resolved: ${orchestratorId}`);
+    }
+
     // Load persisted data on first tick (can't await in constructor)
     if (this.pipeline && this.graphStore && !this.graphLoaded) {
       this.graphLoaded = true;
