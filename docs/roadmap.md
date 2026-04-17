@@ -1225,7 +1225,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Anti-Pattern Inference
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Failure feature extraction and clustering to auto-discover constraints from project history. Identifies patterns like 'when files matching X are changed without updating Y, failures occur 80% of the time.' Learned constraints, not hand-coded ones. [D7]
 - **Blockers:** —
@@ -1236,7 +1236,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Architectural Debt Quantification
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Cost model mapping violation types to developer-hours based on historical fix times. Compound interest calculation for deferred fixes. ROI scoring that translates abstract code quality into concrete dollar amounts. [J4]
 - **Blockers:** —
@@ -1291,7 +1291,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Agent Effectiveness Introspection
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Domain-specific accuracy tracking and blind spot detection with automatic persona switching triggers. Identifies where agents consistently fail and routes to better-suited personas automatically. [L7]
 - **Blockers:** —
@@ -1361,7 +1361,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### CI/CD & Issue Tracker Integration
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/ci-cd-issue-tracker-integration/proposal.md
 - **Summary:** Automated CI/CD pipeline and issue tracker integration for harness workflows
 - **Blockers:** —
@@ -1482,7 +1482,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Advanced Review Pipeline
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Meta-judge pre-generation for --thorough review mode (task-specific rubric before seeing implementation). Two-stage isolated review splitting spec-compliance from code-quality with separate context. findParallelGroups algorithm for automatic parallelization from dependency graphs. Tiered MCP tool loading (core/standard/full, measure first). Triage routing for orchestrator dispatch. Inspired by Context Engineering Kit, Superpowers, sudocode, and Claude Task Master. [ACE-Batch6]
 - **Blockers:** —

@@ -224,6 +224,15 @@ describe('applyEvent - worker_exit', () => {
     expect(nextState.claimed.has('id-1')).toBe(false);
     expect(nextState.retryAttempts.has('id-1')).toBe(false);
     expect(effects.find((e) => e.type === 'scheduleRetry')).toBeUndefined();
+
+    // Worktree should be cleaned up after successful completion
+    const cleans = effects.filter((e) => e.type === 'cleanWorkspace');
+    expect(cleans).toHaveLength(1);
+    expect(cleans[0]).toMatchObject({
+      type: 'cleanWorkspace',
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+    });
   });
 
   it('does not re-dispatch an issue already in completed even when present in candidates', () => {
