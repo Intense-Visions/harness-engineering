@@ -66,6 +66,8 @@ export interface Issue {
   updatedAt: string | null;
   /** External tracker ID (e.g., "github:owner/repo#42"), null if not synced */
   externalId: string | null;
+  /** Assignee identity (orchestrator ID, username, etc.), null if unassigned */
+  assignee?: string | null;
 }
 
 // --- Agent Backend Protocol ---
@@ -206,6 +208,17 @@ export interface IssueTrackerClient {
    * in-process via `OrchestratorState.completed`.
    */
   markIssueComplete(issueId: string): Promise<Result<void, Error>>;
+  /**
+   * Claims an issue for the given orchestrator by transitioning it to
+   * "in-progress" and recording the orchestrator identity. Idempotent
+   * if already claimed by the same orchestratorId.
+   */
+  claimIssue(issueId: string, orchestratorId: string): Promise<Result<void, Error>>;
+  /**
+   * Releases a previously claimed issue by transitioning it back to an
+   * active state and clearing the orchestrator identity.
+   */
+  releaseIssue(issueId: string): Promise<Result<void, Error>>;
 }
 
 // --- Workflow Config ---
@@ -236,6 +249,8 @@ export interface TrackerConfig {
 export interface PollingConfig {
   /** Interval in milliseconds */
   intervalMs: number;
+  /** Optional random jitter in ms. Each tick offsets by a random value in [-jitterMs, +jitterMs]. Default: 0 */
+  jitterMs?: number;
 }
 
 /**
@@ -352,6 +367,8 @@ export interface WorkflowConfig {
   server: ServerConfig;
   /** Intelligence pipeline settings */
   intelligence?: IntelligenceConfig;
+  /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
+  orchestratorId?: string;
 }
 
 /**

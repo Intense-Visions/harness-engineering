@@ -178,19 +178,38 @@ async function handleLoadHandoff(projectPath: string, input: StateInput) {
 }
 
 async function handleAppendEntry(projectPath: string, input: StateInput) {
-  if (!input.session) return mcpError('Error: session is required for append_entry action');
   if (!input.section) return mcpError('Error: section is required for append_entry action');
   if (!input.authorSkill) return mcpError('Error: authorSkill is required for append_entry action');
   if (!input.content) return mcpError('Error: content is required for append_entry action');
-  const { appendSessionEntry } = await import('@harness-engineering/core');
-  const result = await appendSessionEntry(
-    projectPath,
-    input.session,
-    input.section as import('@harness-engineering/types').SessionSectionName,
-    input.authorSkill,
-    input.content
-  );
-  return resultToMcpResponse(result);
+
+  // Session-scoped path (preferred)
+  if (input.session) {
+    const { appendSessionEntry } = await import('@harness-engineering/core');
+    const result = await appendSessionEntry(
+      projectPath,
+      input.session,
+      input.section as import('@harness-engineering/types').SessionSectionName,
+      input.authorSkill,
+      input.content
+    );
+    return resultToMcpResponse(result);
+  }
+
+  // Fallback: append to global state.json decisions when no session
+  if (input.section !== 'decisions') {
+    return mcpError('Error: session is required for non-decisions sections');
+  }
+  const { loadState, saveState } = await import('@harness-engineering/core');
+  const lr = await loadState(projectPath, input.stream);
+  if (!lr.ok) return resultToMcpResponse(lr);
+  lr.value.decisions.push({
+    date: new Date().toISOString(),
+    decision: input.content,
+    context: input.authorSkill,
+  });
+  const sr = await saveState(projectPath, lr.value, input.stream);
+  if (!sr.ok) return resultToMcpResponse(sr);
+  return resultToMcpResponse(Ok({ appended: true, target: 'global-state' }));
 }
 
 async function handleUpdateEntryStatus(projectPath: string, input: StateInput) {
