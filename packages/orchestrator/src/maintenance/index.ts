@@ -3,8 +3,8 @@
  *
  * Phase 1 exports types and the task registry.
  * Phase 2 adds MaintenanceScheduler and cron matching.
+ * Phase 3 adds TaskRunner with four execution paths.
  * Subsequent phases add:
- * - TaskRunner (Phase 3)
  * - PRManager (Phase 4)
  * - Reporter (Phase 5)
  */
@@ -27,3 +27,13 @@ export type {
 } from './scheduler';
 
 export { cronMatchesNow } from './cron-matcher';
+
+export { TaskRunner } from './task-runner';
+export type {
+  CheckCommandRunner,
+  CheckCommandResult,
+  AgentDispatcher,
+  AgentDispatchResult,
+  CommandExecutor,
+  TaskRunnerOptions,
+} from './task-runner';
