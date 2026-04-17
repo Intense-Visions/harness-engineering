@@ -3,8 +3,8 @@ import { BUILT_IN_TASKS } from '../../src/maintenance/task-registry';
 import type { TaskDefinition, TaskType } from '../../src/maintenance/types';
 
 describe('task-registry', () => {
-  it('exports exactly 17 built-in task definitions', () => {
-    expect(BUILT_IN_TASKS).toHaveLength(17);
+  it('exports exactly 18 built-in task definitions', () => {
+    expect(BUILT_IN_TASKS).toHaveLength(18);
   });
 
   it('every task has a unique id', () => {
@@ -50,7 +50,7 @@ describe('task-registry', () => {
 
   it('report-only tasks have checkCommand and null branch', () => {
     const reportOnly = BUILT_IN_TASKS.filter((t) => t.type === 'report-only');
-    expect(reportOnly.length).toBe(4);
+    expect(reportOnly.length).toBe(5);
     for (const task of reportOnly) {
       expect(task.checkCommand).toBeDefined();
       expect(task.branch).toBeNull();
