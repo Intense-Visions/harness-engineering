@@ -76,15 +76,16 @@ export async function handleRunSkill(input: {
     sharedIndex = loadOrRebuildIndex('claude-code', projectRoot, skillsConfig?.tierOverrides);
 
     const plan = computeLoadPlan(
-      Object.entries(sharedIndex.skills).map(([name, entry]) => ({
-        name,
-        budget: entry.contextBudget
-          ? {
-              max_tokens: entry.contextBudget.maxTokens,
-              priority: entry.contextBudget.priority,
-            }
-          : undefined,
-      }))
+      Object.entries(sharedIndex.skills).map(([name, entry]) => {
+        const skill: { name: string; budget?: { max_tokens: number; priority: number } } = { name };
+        if (entry.contextBudget) {
+          skill.budget = {
+            max_tokens: entry.contextBudget.maxTokens,
+            priority: entry.contextBudget.priority,
+          };
+        }
+        return skill;
+      })
     );
 
     const skillPlan = plan.find((p) => p.skillName === input.skill);
