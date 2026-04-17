@@ -3,18 +3,7 @@ import { violationId, constraintRuleId } from './hash';
 import { validateDependencies } from '../../constraints/dependencies';
 import type { DependencyViolation } from '../../constraints/types';
 import { relativePosix } from '../../shared/fs-utils';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring deferred
-function makeLayerStubParser(): any {
-  return {
-    name: 'typescript',
-    extensions: ['.ts', '.tsx'],
-    parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }),
-    extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
-    extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
-    health: async () => ({ ok: true, value: { available: true } }),
-  };
-}
+import { getDefaultRegistry } from '../../shared/parsers/registry';
 
 function mapLayerViolations(
   layerViolations: DependencyViolation[],
@@ -51,10 +40,12 @@ export class LayerViolationCollector implements Collector {
   }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const registry = getDefaultRegistry();
+    const parser = registry.getByLanguage('typescript') ?? registry.getByLanguage('javascript');
     const result = await validateDependencies({
       layers: [],
       rootDir,
-      parser: makeLayerStubParser(),
+      parser: parser as import('../../shared/parsers').LanguageParser,
       fallbackBehavior: 'skip',
     });
 

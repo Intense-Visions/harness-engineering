@@ -1,7 +1,7 @@
 /**
  * Supported languages for AST code navigation.
  */
-export type SupportedLanguage = 'typescript' | 'javascript' | 'python';
+export type SupportedLanguage = 'typescript' | 'javascript' | 'python' | 'go' | 'rust' | 'java';
 
 /**
  * Kind of code symbol extracted from AST.
@@ -85,6 +85,9 @@ export const EXTENSION_MAP: Record<string, SupportedLanguage> = {
   '.mjs': 'javascript',
   '.cjs': 'javascript',
   '.py': 'python',
+  '.go': 'go',
+  '.rs': 'rust',
+  '.java': 'java',
 };
 
 /**
