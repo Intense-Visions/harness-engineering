@@ -181,8 +181,7 @@ describe('cleanup command', () => {
 
       await runCleanup({ cwd: '/tmp/test' });
       expect(capturedConfigs).toHaveLength(1);
-      const config = capturedConfigs[0] as { entryPoints?: string[] };
-      expect(config.entryPoints).toBeUndefined();
+      expect(capturedConfigs[0]).not.toHaveProperty('entryPoints');
     });
   });
 

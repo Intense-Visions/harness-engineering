@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-16
-last_synced: 2026-04-16T17:00:00.000Z
+last_synced: 2026-04-17T00:00:00.000Z
 last_manual_edit: 2026-04-17T02:12:22.357Z
 ---
 
@@ -944,12 +944,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Multi-Orchestrator Claim Coordination
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/multi-orchestrator-claim-coordination/proposal.md
 - **Summary:** Claim-based coordination layer that uses the external tracker to prevent duplicate dispatch when multiple orchestrators run against the same issue source
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** —
 

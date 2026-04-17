@@ -270,11 +270,9 @@ describe('fix-drift command', () => {
       } as never);
 
       await runFixDrift({ cwd: '/tmp/test' });
-      expect(buildSnapshot).toHaveBeenCalledWith(
-        expect.objectContaining({
-          entryPoints: undefined,
-        })
-      );
+      expect(buildSnapshot).toHaveBeenCalledTimes(1);
+      const passedConfig = vi.mocked(buildSnapshot).mock.calls[0][0] as Record<string, unknown>;
+      expect(passedConfig).not.toHaveProperty('entryPoints');
     });
   });
 
