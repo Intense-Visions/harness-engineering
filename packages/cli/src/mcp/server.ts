@@ -136,7 +136,7 @@ import { predictFailuresDefinition, handlePredictFailures } from './tools/predic
 import { recommendSkillsDefinition, handleRecommendSkills } from './tools/recommend-skills.js';
 import { compactToolDefinition, handleCompact } from './tools/compact.js';
 
-type ToolDefinition = {
+export type ToolDefinition = {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;

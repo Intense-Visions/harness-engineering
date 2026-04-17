@@ -10,12 +10,13 @@ Harness Engineering provides a stable CLI interface for integrating validation, 
 
 ### CLI Contract
 
-All CI automation flows through two commands:
+All CI automation flows through three commands:
 
-| Command            | Purpose                                           |
-| ------------------ | ------------------------------------------------- |
-| `harness ci check` | Run all harness checks, return structured results |
-| `harness ci init`  | Generate CI config for your platform              |
+| Command             | Purpose                                           |
+| ------------------- | ------------------------------------------------- |
+| `harness ci check`  | Run all harness checks, return structured results |
+| `harness ci init`   | Generate CI config for your platform              |
+| `harness ci notify` | Post CI results to GitHub (PR comment or issue)   |
 
 ### `harness ci check`
 

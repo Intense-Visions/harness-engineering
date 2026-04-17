@@ -17,6 +17,8 @@ interface ReviewOptions {
   ci?: boolean;
   deep?: boolean;
   noMechanical?: boolean;
+  thorough?: boolean;
+  isolated?: boolean;
 }
 
 export async function runAgentReview(options: ReviewOptions): Promise<
@@ -89,6 +91,8 @@ export async function runAgentReview(options: ReviewOptions): Promise<
       ci: options.ci ?? false,
       deep: options.deep ?? false,
       noMechanical: options.noMechanical ?? false,
+      ...(options.thorough ? { thorough: true } : {}),
+      ...(options.isolated ? { isolated: true } : {}),
     },
     config: config as unknown as Record<string, unknown>,
   });
@@ -149,6 +153,11 @@ export function createReviewCommand(): Command {
     .option('--ci', 'Enable eligibility gate, non-interactive output')
     .option('--deep', 'Add threat modeling pass to security agent')
     .option('--no-mechanical', 'Skip mechanical checks')
+    .option('--thorough', 'Generate task-specific rubric before reading implementation')
+    .option(
+      '--isolated',
+      'Two-stage review: spec-compliance then code-quality with disjoint context'
+    )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode = resolveReviewMode(globalOpts);
@@ -162,6 +171,8 @@ export function createReviewCommand(): Command {
         ci: opts.ci,
         deep: opts.deep,
         noMechanical: opts.mechanical === false,
+        thorough: opts.thorough,
+        isolated: opts.isolated,
       });
 
       if (!result.ok) {

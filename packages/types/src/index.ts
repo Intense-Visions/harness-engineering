@@ -50,6 +50,9 @@ export type {
   CIInitOptions,
 } from './ci';
 
+// --- CI Notify ---
+export type { CINotifyTarget, CINotifyOptions } from './ci-notify';
+
 // --- Roadmap ---
 export type {
   FeatureStatus,

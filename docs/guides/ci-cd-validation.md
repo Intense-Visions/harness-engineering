@@ -87,6 +87,53 @@ interface CICheckReport {
 }
 ```
 
+## The `harness ci notify` Command
+
+Post CI results to GitHub as a PR comment or create a tracking issue. This bridges CI checks with the issue tracker — no manual `jq` piping required.
+
+### Full Reference
+
+```bash
+harness ci notify <report.json> --target <pr-comment|issue> [options]
+```
+
+**Options:**
+
+| Flag                | Default                    | Description                                        |
+| ------------------- | -------------------------- | -------------------------------------------------- |
+| `--target <type>`   | (required)                 | `pr-comment` to comment on a PR, `issue` to create |
+| `--pr <number>`     | (required for pr-comment)  | PR number to comment on                            |
+| `--title <title>`   | Auto-generated from report | Custom title for created issues                    |
+| `--labels <labels>` | none                       | Comma-separated labels for created issues          |
+
+**Requirements:**
+
+- `GITHUB_TOKEN` or `GH_TOKEN` environment variable set
+- `roadmap.tracker` configured in `harness.config.json` with `kind: "github"` and `repo: "owner/repo"`
+
+### Examples
+
+```bash
+# Post CI results as a PR comment
+harness ci check --json > report.json
+harness ci notify report.json --target pr-comment --pr 42
+
+# Create a tracking issue from failures
+harness ci notify report.json --target issue --title "CI failure on main"
+
+# Skip issue creation when all checks pass (exits silently)
+harness ci notify report.json --target issue
+```
+
+### Output
+
+The formatted markdown includes:
+
+- Summary header (pass/fail)
+- Per-check status table with issue counts and duration
+- Detailed issue listings with file paths and line numbers
+- Timestamp and generation metadata
+
 ## Platform-Agnostic Patterns
 
 Every CI platform supports running shell commands and checking exit codes. The universal pattern:

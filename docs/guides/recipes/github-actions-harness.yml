@@ -44,9 +44,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SUMMARY=$(jq -r '"**Harness CI Report**\n\n| Check | Status | Issues |\n|-------|--------|--------|\n" + ([.checks[] | "| " + .name + " | " + .status + " | " + (.issues | length | tostring) + " |"] | join("\n")) + "\n\n**Summary:** " + (.summary.passed | tostring) + " passed, " + (.summary.failed | tostring) + " failed, " + (.summary.warnings | tostring) + " warnings"' harness-report.json)
-          gh pr comment ${{ github.event.number }} --body "$SUMMARY"
+        run: harness ci notify harness-report.json --target pr-comment --pr ${{ github.event.number }}
 
       - name: Label PR on failure
         if: github.event_name == 'pull_request' && steps.harness.outputs.exit_code != '0'
