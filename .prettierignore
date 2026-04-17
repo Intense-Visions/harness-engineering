@@ -5,6 +5,7 @@ coverage
 .turbo
 .next
 out
+.tmp-*
 pnpm-lock.yaml
 *.min.js
 # Generated slash commands (YAML frontmatter must not be reformatted)

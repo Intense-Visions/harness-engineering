@@ -179,6 +179,49 @@ export class WorkspaceManager {
   }
 
   /**
+   * Checks whether a worktree has commits ahead of the base branch that have
+   * been pushed to a remote branch. Returns the remote branch name if found,
+   * or null if the worktree is on a detached HEAD with no pushed branch.
+   */
+  public async findPushedBranch(identifier: string): Promise<string | null> {
+    try {
+      const workspacePath = path.resolve(this.resolvePath(identifier));
+      try {
+        await fs.access(path.join(workspacePath, '.git'));
+      } catch {
+        return null;
+      }
+
+      // In detached HEAD worktrees the agent creates and pushes a branch.
+      // Detect it by looking for remote branches whose tip matches HEAD.
+      const head = (await this.git(['rev-parse', 'HEAD'], workspacePath)).trim();
+      const refs = (
+        await this.git(
+          ['for-each-ref', '--format=%(refname:short) %(objectname)', 'refs/remotes/origin/'],
+          workspacePath
+        )
+      ).trim();
+
+      if (!refs) return null;
+
+      for (const line of refs.split('\n')) {
+        const [refName, sha] = line.split(' ');
+        if (!refName || !sha) continue;
+        // Skip the default branch pointer
+        if (refName === 'origin/HEAD') continue;
+        if (sha === head) {
+          // Strip the 'origin/' prefix to get the branch name
+          return refName.replace(/^origin\//, '');
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Removes a workspace directory and its git worktree registration.
    */
   public async removeWorkspace(identifier: string): Promise<Result<void, Error>> {

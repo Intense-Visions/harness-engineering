@@ -1,5 +1,7 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import {
   WorkflowConfig,
@@ -759,11 +761,70 @@ export class Orchestrator extends EventEmitter {
         // Pure state update
         break;
       case 'cleanWorkspace':
-        await this.workspace.removeWorkspace(effect.identifier);
+        await this.cleanWorkspaceWithGuard(effect.identifier, effect.issueId);
         break;
       case 'escalate':
         await this.handleEscalation(effect as EscalateEffect);
         break;
+    }
+  }
+
+  /**
+   * Guards workspace cleanup by checking whether the agent pushed a branch
+   * that does not yet have a pull request. If so, the worktree is preserved
+   * and an interaction is queued so a human can create the PR manually.
+   */
+  private async cleanWorkspaceWithGuard(identifier: string, issueId: string): Promise<void> {
+    const branch = await this.workspace.findPushedBranch(identifier);
+    if (branch) {
+      const hasPR = await this.branchHasPullRequest(branch);
+      if (!hasPR) {
+        this.logger.warn(
+          `Preserving worktree for ${identifier}: branch "${branch}" was pushed but no PR exists`,
+          { issueId }
+        );
+        await this.interactionQueue.push({
+          id: `interaction-${randomUUID()}`,
+          issueId,
+          type: 'needs-human',
+          reasons: [`Agent pushed branch "${branch}" but did not create a PR. Worktree preserved.`],
+          context: {
+            issueTitle: identifier,
+            issueDescription: null,
+            specPath: null,
+            planPath: null,
+            relatedFiles: [],
+          },
+          createdAt: new Date().toISOString(),
+          status: 'pending',
+        });
+        return;
+      }
+    }
+    await this.workspace.removeWorkspace(identifier);
+  }
+
+  /**
+   * Checks whether a remote branch has an open pull request via `gh`.
+   * Returns true if a PR exists, false otherwise. Failures are treated
+   * as "no PR" to err on the side of preserving work.
+   */
+  private async branchHasPullRequest(branch: string): Promise<boolean> {
+    try {
+      const exec = promisify(execFile);
+      const { stdout } = await exec(
+        'gh',
+        ['pr', 'list', '--head', branch, '--json', 'number', '--jq', 'length'],
+        {
+          cwd: this.projectRoot,
+          timeout: 10_000,
+        }
+      );
+      return parseInt(stdout.trim(), 10) > 0;
+    } catch {
+      // If gh fails (not installed, no auth, network error), assume no PR
+      // so the worktree is preserved rather than lost.
+      return false;
     }
   }
 
