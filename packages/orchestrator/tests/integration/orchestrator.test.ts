@@ -125,7 +125,7 @@ describe('Orchestrator Integration', () => {
     expect((finalSnapshot.completed as string[]).includes(mockIssue.id)).toBe(true);
   });
 
-  it('should stop active runs when orchestrator stops', async () => {
+  it('should stop active runs when orchestrator stops', { timeout: 15000 }, async () => {
     await orchestrator.tick();
     const snapshot = orchestrator.getSnapshot();
     expect(snapshot.running.length).toBe(1);

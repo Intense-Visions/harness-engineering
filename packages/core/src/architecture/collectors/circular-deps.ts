@@ -4,7 +4,7 @@ import { buildDependencyGraph } from '../../constraints/dependencies';
 import { detectCircularDeps } from '../../constraints/circular-deps';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring in Phase 4
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring via graph pipeline
 function makeStubParser(): any {
   return {
     name: 'typescript',

@@ -5,7 +5,26 @@ import { readFileContent } from '../fs-utils';
 import type { AST, Import, Export, ParseError, LanguageParser, HealthCheckResult } from './base';
 import { createParseError } from './base';
 import { getParser } from '../../code-nav/parser';
-import type { SupportedLanguage } from '../../code-nav/types';
+import type { SupportedLanguage, OutlineResult, UnfoldResult } from '../../code-nav/types';
+import type { CodeSymbol } from '../../code-nav/types';
+import { extractOutlineFromTree } from '../../code-nav/outline';
+
+/**
+ * Find a symbol by name in an outline's symbol list (including children).
+ */
+function findSymbolByName(
+  symbols: CodeSymbol[],
+  name: string
+): { line: number; endLine: number } | null {
+  for (const sym of symbols) {
+    if (sym.name === name) return { line: sym.line, endLine: sym.endLine };
+    if (sym.children) {
+      const found = findSymbolByName(sym.children, name);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 /**
  * Strategy for extracting imports from a tree-sitter AST.
@@ -327,22 +346,30 @@ export class TreeSitterParser implements LanguageParser {
     }
   }
 
-  outline(filePath: string, _ast: AST): import('../../code-nav/types').OutlineResult {
-    return {
-      file: filePath,
-      language: this.lang,
-      totalLines: 0,
-      symbols: [],
-      error: '[parse-failed]',
-    };
+  outline(filePath: string, ast: AST): OutlineResult {
+    const { tree, source } = ast.body as { tree: Parser.Tree; source: string };
+    return extractOutlineFromTree(tree.rootNode, this.lang, source, filePath);
   }
 
-  unfold(
-    _filePath: string,
-    _ast: AST,
-    _symbolName: string
-  ): import('../../code-nav/types').UnfoldResult | null {
-    return null;
+  unfold(filePath: string, ast: AST, symbolName: string): UnfoldResult | null {
+    const outlineResult = this.outline(filePath, ast);
+    if (outlineResult.error || !outlineResult.symbols.length) return null;
+
+    const { source } = ast.body as { tree: Parser.Tree; source: string };
+    const match = findSymbolByName(outlineResult.symbols, symbolName);
+    if (!match) return null;
+
+    const lines = source.split('\n');
+    const content = lines.slice(match.line - 1, match.endLine).join('\n');
+    return {
+      file: filePath,
+      symbolName,
+      startLine: match.line,
+      endLine: match.endLine,
+      content,
+      language: this.lang,
+      fallback: false,
+    };
   }
 }
 
