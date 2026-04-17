@@ -24,6 +24,12 @@ When no arguments are provided (standalone invocation), session slug is unknown 
 
 ## Process
 
+### Iron Law
+
+**Review identifies issues. Review never fixes them.**
+
+A reviewer who applies fixes is no longer reviewing — they are editing with reviewer authority and no review. Suggest the fix in the finding. Do not apply it. If you catch yourself writing production code during review, STOP. You have crossed the boundary.
+
 The review runs as a 7-phase pipeline. Each phase has a clear input, output, and exit condition.
 
 ```
@@ -560,6 +566,31 @@ Every `ReviewFinding.evidence` array MUST include citations using one of:
 
 **Uncited claims:** Findings without evidence discarded in Phase 5. Observations without file:line references prefixed `[UNVERIFIED]` and downgraded to `suggestion`.
 
+## Rubric Compression
+
+Review rubrics passed to subagents in Phase 4 MUST use compressed single-line format to minimize token consumption. Each rubric entry is one line with pipe-delimited fields:
+
+```
+domain|check-name|severity|one-sentence-criterion
+```
+
+**Example (Compliance Agent rubric):**
+
+```
+compliance|spec-alignment|critical|Implementation matches all behaviors specified in the approved spec
+compliance|api-surface|important|New exports are minimal and well-named; internal symbols stay unexported
+compliance|backward-compat|critical|No breaking changes to existing callers without documented migration path
+compliance|naming|suggestion|Names follow project conventions (check AGENTS.md or .eslintrc)
+```
+
+**Why:** Verbose rubric prose inflates context by 2-5x without improving review accuracy. Dense single-line rubrics give the agent the same signal in fewer tokens, leaving more budget for actual code analysis.
+
+**Rules:**
+- Maximum 80 characters per criterion text
+- Domain must match the subagent's scope (compliance, bug, security, architecture)
+- Severity must be one of: critical, important, suggestion
+- Rubric entries are guidance, not exhaustive — agents may surface findings outside the rubric
+
 ## Harness Integration
 
 - **`assess_project`** — Phase 2: run validate/deps/docs in parallel. Failures are Critical and stop pipeline.
@@ -644,6 +675,7 @@ Every `ReviewFinding.evidence` array MUST include citations using one of:
 - **Never implement feedback without verification.** Verify correctness before changing code. Do not blindly comply.
 - **Never agree performatively.** "Sure, I'll change that" without understanding is forbidden.
 - **Never skip the YAGNI check.** Every suggestion must serve a current, concrete need. Speculative improvements rejected.
+- **Never apply fixes during review.** Review output is findings, not code changes. Suggest fixes in finding text; never edit production code. Iron Law violation.
 
 ## Red Flags
 
@@ -659,6 +691,7 @@ Every `ReviewFinding.evidence` array MUST include citations using one of:
 - **"Let me fix this issue I found"** -- Stop. Review identifies; it does not fix. Suggest the fix.
 - **"This is a minor style issue"** -- Stop. Style or readability/maintainability? Classify accurately.
 - **"The author probably meant to..."** -- Stop. Do not infer intent. Flag ambiguity as a question.
+- **Comment replacing code** -- If a diff removes functional code and adds a comment (e.g., `// removed`, `// TODO: re-add`, `// no longer needed`), flag as Critical. Comments are not fixes. The code was either needed (removal is a bug) or not (remove silently). A comment replacing code is technical debt disguised as a change.
 
 ## Rationalizations to Reject
 
@@ -667,6 +700,7 @@ Every `ReviewFinding.evidence` array MUST include citations using one of:
 | "The tests pass, so the logic must be correct"      | Tests can be incomplete. Review the logic independently of test results.                    |
 | "This is how it was done elsewhere in the codebase" | Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent. |
 | "It's just a refactor, low risk"                    | Refactors change behavior surfaces. Review them with the same rigor as feature changes.     |
+| "The fix is trivial, I'll just apply it inline"     | Trivial fixes still skip review when applied by the reviewer. Suggest the fix; let the author apply and re-review. Iron Law. |
 
 ## Escalation
 
