@@ -151,4 +151,126 @@ describe('PRManager', () => {
       expect(result).toEqual({ created: false, recreated: true });
     });
   });
+
+  describe('ensurePR', () => {
+    it('creates new PR when none exists', async () => {
+      const gh = createMockGh();
+      const git = createMockGit();
+      // gh pr list returns empty (no existing PR)
+      (gh.run as ReturnType<typeof vi.fn>).mockImplementation(async (args: string[]) => {
+        if (args[0] === 'pr' && args[1] === 'list') return '';
+        if (args[0] === 'pr' && args[1] === 'create')
+          return 'https://github.com/org/repo/pull/42\n';
+        return '';
+      });
+      const { prManager } = createPRManager({ git, gh });
+
+      const result = await prManager.ensurePR(ARCH_TASK, 'Found 3 violations, fixed 2');
+
+      expect(result).toEqual({
+        prUrl: 'https://github.com/org/repo/pull/42',
+        prUpdated: false,
+      });
+      expect(git.run).toHaveBeenCalledWith(
+        ['push', 'origin', 'harness-maint/arch-fixes', '--force-with-lease'],
+        '/test/project'
+      );
+      expect(gh.run).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          'pr',
+          'create',
+          '--title',
+          '[Maintenance] Detect and fix architecture violations',
+        ]),
+        '/test/project'
+      );
+      // Verify labels
+      const createCall = (gh.run as ReturnType<typeof vi.fn>).mock.calls.find(
+        (call: [string[], string]) => call[0][0] === 'pr' && call[0][1] === 'create'
+      );
+      expect(createCall![0]).toContain('--label');
+      expect(createCall![0]).toContain('harness-maintenance');
+      expect(createCall![0]).toContain('arch-violations');
+    });
+
+    it('updates existing PR when one exists', async () => {
+      const gh = createMockGh();
+      const git = createMockGit();
+      (gh.run as ReturnType<typeof vi.fn>).mockImplementation(async (args: string[]) => {
+        if (args[0] === 'pr' && args[1] === 'list') return 'https://github.com/org/repo/pull/42';
+        return '';
+      });
+      const { prManager } = createPRManager({ git, gh });
+
+      const result = await prManager.ensurePR(ARCH_TASK, 'Found 1 violation, fixed 1');
+
+      expect(result).toEqual({
+        prUrl: 'https://github.com/org/repo/pull/42',
+        prUpdated: true,
+      });
+      expect(gh.run).toHaveBeenCalledWith(
+        expect.arrayContaining(['pr', 'edit', 'https://github.com/org/repo/pull/42', '--body']),
+        '/test/project'
+      );
+    });
+
+    it('PR body contains task metadata and run summary', async () => {
+      const gh = createMockGh();
+      const git = createMockGit();
+      (gh.run as ReturnType<typeof vi.fn>).mockImplementation(async (args: string[]) => {
+        if (args[0] === 'pr' && args[1] === 'list') return '';
+        if (args[0] === 'pr' && args[1] === 'create')
+          return 'https://github.com/org/repo/pull/99\n';
+        return '';
+      });
+      const { prManager } = createPRManager({ git, gh });
+
+      await prManager.ensurePR(ARCH_TASK, 'Found 5 violations');
+
+      const createCall = (gh.run as ReturnType<typeof vi.fn>).mock.calls.find(
+        (call: [string[], string]) => call[0][0] === 'pr' && call[0][1] === 'create'
+      );
+      const bodyIdx = createCall![0].indexOf('--body');
+      const body = createCall![0][bodyIdx + 1] as string;
+      expect(body).toContain('arch-violations');
+      expect(body).toContain('mechanical-ai');
+      expect(body).toContain('Found 5 violations');
+      expect(body).toContain('harness maintenance scheduler');
+    });
+
+    it('handles gh pr list failure gracefully (treats as no PR)', async () => {
+      const gh = createMockGh();
+      const git = createMockGit();
+      (gh.run as ReturnType<typeof vi.fn>).mockImplementation(async (args: string[]) => {
+        if (args[0] === 'pr' && args[1] === 'list') throw new Error('gh auth error');
+        if (args[0] === 'pr' && args[1] === 'create')
+          return 'https://github.com/org/repo/pull/50\n';
+        return '';
+      });
+      const { prManager } = createPRManager({ git, gh });
+
+      const result = await prManager.ensurePR(ARCH_TASK, 'summary');
+
+      expect(result.prUpdated).toBe(false);
+      expect(result.prUrl).toBe('https://github.com/org/repo/pull/50');
+    });
+
+    it('uses --force-with-lease for push safety', async () => {
+      const git = createMockGit();
+      const gh = createMockGh();
+      (gh.run as ReturnType<typeof vi.fn>).mockImplementation(async (args: string[]) => {
+        if (args[0] === 'pr' && args[1] === 'list') return '';
+        if (args[0] === 'pr' && args[1] === 'create') return 'https://github.com/org/repo/pull/1\n';
+        return '';
+      });
+      const { prManager } = createPRManager({ git, gh });
+
+      await prManager.ensurePR(ARCH_TASK, 'summary');
+
+      expect(git.run).toHaveBeenCalledWith(
+        ['push', 'origin', 'harness-maint/arch-fixes', '--force-with-lease'],
+        '/test/project'
+      );
+    });
+  });
 });
