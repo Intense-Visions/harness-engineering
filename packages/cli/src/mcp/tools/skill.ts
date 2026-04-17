@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse as parseYaml } from 'yaml';
-import { Ok, Err } from '@harness-engineering/core';
+import { Ok, Err, extractLevel, computeLoadPlan } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
 import { resolveSkillsDir } from '../../utils/paths.js';
@@ -65,6 +65,37 @@ export async function handleRunSkill(input: {
 
   let content = fs.readFileSync(skillMdPath, 'utf-8');
 
+  // Progressive loading: apply on raw SKILL.md before any content mutations.
+  // Load the index once and reuse it for both progressive loading and dispatcher.
+  const projectRoot = input.path ? sanitizePath(input.path) : process.cwd();
+  const configResult = resolveConfig();
+  const skillsConfig = configResult.ok ? configResult.value.skills : undefined;
+  let sharedIndex: ReturnType<typeof loadOrRebuildIndex> | undefined;
+
+  try {
+    sharedIndex = loadOrRebuildIndex('claude-code', projectRoot, skillsConfig?.tierOverrides);
+
+    const plan = computeLoadPlan(
+      Object.entries(sharedIndex.skills).map(([name, entry]) => {
+        const skill: { name: string; budget?: { max_tokens: number; priority: number } } = { name };
+        if (entry.contextBudget) {
+          skill.budget = {
+            max_tokens: entry.contextBudget.maxTokens,
+            priority: entry.contextBudget.priority,
+          };
+        }
+        return skill;
+      })
+    );
+
+    const skillPlan = plan.find((p) => p.skillName === input.skill);
+    if (skillPlan && skillPlan.level < 5) {
+      content = extractLevel(content, skillPlan.level);
+    }
+  } catch {
+    // Progressive loading failure must never block skill loading
+  }
+
   // Optionally inject project state context
   if (input.path) {
     const projectPath = sanitizePath(input.path);
@@ -96,11 +127,8 @@ export async function handleRunSkill(input: {
   // Dispatcher: inject domain skill suggestions for Tier 1 workflow skills
   if (isTier1Skill(input.skill)) {
     try {
-      const projectRoot = input.path ? sanitizePath(input.path) : process.cwd();
-      const platform = 'claude-code';
-      const configResult = resolveConfig();
-      const skillsConfig = configResult.ok ? configResult.value.skills : undefined;
-      const index = loadOrRebuildIndex(platform, projectRoot, skillsConfig?.tierOverrides);
+      const index =
+        sharedIndex ?? loadOrRebuildIndex('claude-code', projectRoot, skillsConfig?.tierOverrides);
       const profile = loadOrGenerateProfile(projectRoot);
       const taskDesc = [input.skill, input.phase].filter(Boolean).join(' ');
       const result = suggest(index, taskDesc, profile, [], skillsConfig);

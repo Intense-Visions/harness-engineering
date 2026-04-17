@@ -1,4 +1,5 @@
 import type { Result } from './result';
+import type { ContainerConfig, SecretConfig } from './container';
 
 // --- Token Usage ---
 
@@ -339,6 +340,10 @@ export interface AgentConfig {
   localTimeoutMs?: number;
   /** Escalation routing configuration */
   escalation?: Partial<EscalationConfig>;
+  /** Container execution configuration (used when sandboxPolicy is 'docker') */
+  container?: ContainerConfig;
+  /** Secret injection configuration */
+  secrets?: SecretConfig;
 }
 
 /**
