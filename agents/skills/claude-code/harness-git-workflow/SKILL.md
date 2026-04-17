@@ -139,7 +139,14 @@ git branch -d <branch-name>
 ```bash
 cd <worktree-path>
 git push -u origin <branch-name>
-gh pr create --title "<title>" --body "<description>"
+gh pr create --title "<title>" --body "$(cat <<'EOF'
+## Summary
+<PR body with real newlines — never use \n escape sequences>
+
+## Test plan
+<checklist>
+EOF
+)"
 # Report the PR URL to the user
 # Leave worktree in place until PR is merged
 ```
@@ -260,9 +267,14 @@ npm test                # still passes after rebase
 
 # User chooses: Push and create PR
 git push -u origin feat/notifications
-gh pr create --title "feat(notifications): email and in-app notifications" \
-  --body "Implements notification service with create, list, and expiry.
-  16 new tests. All passing."
+gh pr create --title "feat(notifications): email and in-app notifications" --body "$(cat <<'EOF'
+## Summary
+Implements notification service with create, list, and expiry.
+
+## Test plan
+- [x] 16 new tests, all passing
+EOF
+)"
 
 # Report: "PR created: https://github.com/org/repo/pull/42
 #  Worktree at .worktrees/notifications kept until PR merges."
