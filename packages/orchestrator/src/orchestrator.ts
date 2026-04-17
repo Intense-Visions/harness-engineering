@@ -1,5 +1,7 @@
 import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import {
   WorkflowConfig,
@@ -63,7 +65,9 @@ import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
-import type { EscalateEffect } from './types/events';
+import type { EscalateEffect, ClaimEffect } from './types/events';
+import { ClaimManager } from './core/claim-manager';
+import { resolveOrchestratorId } from './core/orchestrator-identity';
 
 const CONNECTION_ERROR_PATTERNS = [
   'Connection error',
@@ -97,13 +101,16 @@ export class Orchestrator extends EventEmitter {
   private renderer: PromptRenderer;
   private promptTemplate: string;
   private server?: OrchestratorServer;
-  private interval?: NodeJS.Timeout | undefined;
+  private interval?: ReturnType<typeof setTimeout> | undefined;
+  private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
   private pipeline: IntelligencePipeline | null;
   private analysisArchive: AnalysisArchive;
   private graphStore: GraphStore | null = null;
+  private claimManager: ClaimManager | null = null;
+  private orchestratorIdPromise: Promise<string>;
 
   /** Project root directory, derived from workspace root. */
   private get projectRoot(): string {
@@ -161,6 +168,8 @@ export class Orchestrator extends EventEmitter {
       : null;
 
     this.pipeline = this.createIntelligencePipeline();
+
+    this.orchestratorIdPromise = resolveOrchestratorId(config.orchestratorId);
 
     if (config.server?.port) {
       this.server = new OrchestratorServer(this, config.server.port, {
@@ -638,7 +647,22 @@ export class Orchestrator extends EventEmitter {
     return { concernSignals, enrichedSpecs, complexityScores, simulationResults };
   }
 
+  /**
+   * Lazily initializes the ClaimManager if it hasn't been created yet.
+   * Called from both start() and asyncTick() to avoid duplicating the init block.
+   */
+  private async ensureClaimManager(): Promise<void> {
+    if (!this.claimManager) {
+      const orchestratorId = await this.orchestratorIdPromise;
+      this.claimManager = new ClaimManager(this.tracker, orchestratorId);
+      this.logger.info(`Orchestrator identity resolved: ${orchestratorId}`);
+    }
+  }
+
   public async asyncTick(): Promise<void> {
+    // Ensure ClaimManager is initialized (no-op if start() already ran)
+    await this.ensureClaimManager();
+
     // Load persisted data on first tick (can't await in constructor)
     if (this.pipeline && this.graphStore && !this.graphLoaded) {
       this.graphLoaded = true;
@@ -687,6 +711,12 @@ export class Orchestrator extends EventEmitter {
       return;
     }
 
+    // 1b. Filter out candidates with open PRs
+    const candidates = await this.filterCandidatesWithOpenPRs(candidatesResult.value);
+
+    // 1c. Check for stale claims from dead orchestrators and release them
+    await this.releaseStaleClaims(candidates);
+
     // 2. Fetch current status for running issues
     const runningIds = Array.from(this.state.running.keys());
     const runningStatesResult = await this.tracker.fetchIssueStatesByIds(runningIds);
@@ -699,7 +729,7 @@ export class Orchestrator extends EventEmitter {
 
     // 3. Pre-process candidates through intelligence pipeline (if enabled)
     const pipelineResult = this.pipeline
-      ? await this.runIntelligencePipeline(candidatesResult.value)
+      ? await this.runIntelligencePipeline(candidates)
       : undefined;
     this.setTickActivity('dispatching', 'Applying state machine');
     const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
@@ -708,7 +738,7 @@ export class Orchestrator extends EventEmitter {
     // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
       type: 'tick' as const,
-      candidates: candidatesResult.value,
+      candidates,
       runningStates: runningStatesResult.value,
       nowMs,
       ...(concernSignals !== undefined && { concernSignals }),
@@ -728,7 +758,7 @@ export class Orchestrator extends EventEmitter {
       const retryEvent: OrchestratorEvent = {
         type: 'retry_fired',
         issueId,
-        candidates: candidatesResult.value,
+        candidates,
         nowMs,
       };
       const result = applyEvent(this.state, retryEvent, this.config);
@@ -783,11 +813,235 @@ export class Orchestrator extends EventEmitter {
         // Pure state update
         break;
       case 'cleanWorkspace':
-        await this.workspace.removeWorkspace(effect.identifier);
+        await this.cleanWorkspaceWithGuard(effect.identifier, effect.issueId);
         break;
       case 'escalate':
         await this.handleEscalation(effect as EscalateEffect);
         break;
+      case 'claim':
+        await this.handleClaimEffect(effect as ClaimEffect);
+        break;
+    }
+  }
+
+  /**
+   * Guards workspace cleanup by checking whether the agent pushed a branch
+   * that does not yet have a pull request. If so, the worktree is preserved
+   * and an interaction is queued so a human can create the PR manually.
+   */
+  private async cleanWorkspaceWithGuard(identifier: string, issueId: string): Promise<void> {
+    const branch = await this.workspace.findPushedBranch(identifier);
+    if (branch) {
+      const hasPR = await this.branchHasPullRequest(branch);
+      if (!hasPR) {
+        this.logger.warn(
+          `Preserving worktree for ${identifier}: branch "${branch}" was pushed but no PR exists`,
+          { issueId }
+        );
+        await this.interactionQueue.push({
+          id: `interaction-${randomUUID()}`,
+          issueId,
+          type: 'needs-human',
+          reasons: [`Agent pushed branch "${branch}" but did not create a PR. Worktree preserved.`],
+          context: {
+            issueTitle: identifier,
+            issueDescription: null,
+            specPath: null,
+            planPath: null,
+            relatedFiles: [],
+          },
+          createdAt: new Date().toISOString(),
+          status: 'pending',
+        });
+        return;
+      }
+    }
+    await this.workspace.removeWorkspace(identifier);
+  }
+
+  /**
+   * Checks whether a remote branch has an open pull request via `gh`.
+   * Returns true if a PR exists, false otherwise. Failures are treated
+   * as "no PR" to err on the side of preserving work.
+   */
+  private async branchHasPullRequest(branch: string): Promise<boolean> {
+    try {
+      const exec = promisify(execFile);
+      const { stdout } = await exec(
+        'gh',
+        ['pr', 'list', '--head', branch, '--json', 'number', '--jq', 'length'],
+        {
+          cwd: this.projectRoot,
+          timeout: 10_000,
+        }
+      );
+      return parseInt(stdout.trim(), 10) > 0;
+    } catch {
+      // If gh fails (not installed, no auth, network error), assume no PR
+      // so the worktree is preserved rather than lost.
+      return false;
+    }
+  }
+
+  /**
+   * Parse a `github:owner/repo#N` externalId into its parts.
+   * Returns null for invalid or non-GitHub formats.
+   */
+  private parseExternalId(
+    externalId: string
+  ): { owner: string; repo: string; number: number } | null {
+    const match = externalId.match(/^github:([^/]+)\/([^#]+)#(\d+)$/);
+    if (!match) return null;
+    return { owner: match[1]!, repo: match[2]!, number: parseInt(match[3]!, 10) };
+  }
+
+  /**
+   * Checks whether a GitHub issue (identified by externalId) has an open PR
+   * linked to it via `closes #N` or similar keywords. Fail-open on API errors
+   * or non-GitHub externalId formats.
+   */
+  private async hasOpenPRForExternalId(externalId: string): Promise<boolean> {
+    const parsed = this.parseExternalId(externalId);
+    if (!parsed) return false;
+
+    try {
+      const exec = promisify(execFile);
+      const { stdout } = await exec(
+        'gh',
+        [
+          'pr',
+          'list',
+          '--repo',
+          `${parsed.owner}/${parsed.repo}`,
+          '--search',
+          `closes #${parsed.number}`,
+          '--state',
+          'open',
+          '--json',
+          'number',
+          '--jq',
+          'length',
+        ],
+        {
+          cwd: this.projectRoot,
+          timeout: 10_000,
+        }
+      );
+      return parseInt(stdout.trim(), 10) > 0;
+    } catch (err) {
+      this.logger.warn(`Failed to check open PRs for externalId ${externalId}`, {
+        error: String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Checks whether an issue identifier has an open GitHub PR by searching
+   * for a branch matching the `feat/<identifier>` naming convention used
+   * by dispatched agents. Fail-open on API errors.
+   */
+  private async hasOpenPRForIdentifier(identifier: string): Promise<boolean> {
+    try {
+      const exec = promisify(execFile);
+      const { stdout } = await exec(
+        'gh',
+        [
+          'pr',
+          'list',
+          '--head',
+          `feat/${identifier}`,
+          '--state',
+          'open',
+          '--json',
+          'number',
+          '--jq',
+          'length',
+        ],
+        {
+          cwd: this.projectRoot,
+          timeout: 10_000,
+        }
+      );
+      return parseInt(stdout.trim(), 10) > 0;
+    } catch (err) {
+      this.logger.warn(`Failed to check open PRs for ${identifier}`, {
+        error: String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Filters out candidates that already have an open GitHub PR, running
+   * checks in parallel via Promise.allSettled. For candidates with an
+   * externalId, searches for PRs linked to the GitHub issue. Falls back
+   * to `feat/<identifier>` branch lookup otherwise. Fail-open on API errors.
+   */
+  private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
+    const results = await Promise.allSettled(
+      candidates.map(async (candidate) => {
+        const hasOpenPR = candidate.externalId
+          ? await this.hasOpenPRForExternalId(candidate.externalId)
+          : await this.hasOpenPRForIdentifier(candidate.identifier);
+        return { candidate, hasOpenPR };
+      })
+    );
+
+    const filtered: Issue[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (!result || result.status === 'rejected') {
+        filtered.push(candidates[i]!);
+        continue;
+      }
+      const { candidate, hasOpenPR } = result.value;
+      if (hasOpenPR) {
+        const via = candidate.externalId
+          ? `externalId ${candidate.externalId}`
+          : `feat/${candidate.identifier}`;
+        this.logger.info(`Skipping ${candidate.title}: open PR exists (${via})`);
+      } else {
+        filtered.push(candidate);
+      }
+    }
+    return filtered;
+  }
+
+  /**
+   * Scans candidate issues for stale claims from other orchestrators.
+   * An issue is considered stale if:
+   * - It is in an "in-progress" state
+   * - It has an assignee that is NOT this orchestrator
+   * - Its updatedAt timestamp exceeds the heartbeat TTL
+   *
+   * Stale claims are released so the issue becomes available on subsequent ticks.
+   */
+  private async releaseStaleClaims(candidates: Issue[]): Promise<void> {
+    if (!this.claimManager) return;
+
+    const orchestratorId = await this.orchestratorIdPromise;
+    const ttlMs = (this.config.polling.intervalMs || 30000) * 20; // Default: ~10 minutes (20x interval)
+
+    for (const issue of candidates) {
+      // Only consider in-progress issues assigned to a different orchestrator
+      const normalizedState = issue.state.toLowerCase();
+      if (normalizedState !== 'in-progress') continue;
+      if (!issue.assignee) continue;
+      if (issue.assignee === orchestratorId) continue;
+
+      if (this.claimManager.isStale(issue, ttlMs)) {
+        this.logger.warn(
+          `Releasing stale claim on ${issue.identifier} (assigned to ${issue.assignee}, last updated ${issue.updatedAt})`,
+          { issueId: issue.id }
+        );
+        await this.claimManager.release(issue.id).catch((err) => {
+          this.logger.warn(`Failed to release stale claim for ${issue.identifier}`, {
+            issueId: issue.id,
+            error: String(err),
+          });
+        });
+      }
     }
   }
 
@@ -836,6 +1090,57 @@ export class Orchestrator extends EventEmitter {
       createdAt: new Date().toISOString(),
       status: 'pending',
     });
+  }
+
+  /**
+   * Handles a claim effect by calling claimAndVerify on the ClaimManager.
+   * If claimed, proceeds to dispatch. If rejected, emits a claim_rejected
+   * event to clean up the state machine.
+   */
+  private async handleClaimEffect(effect: ClaimEffect): Promise<void> {
+    if (!this.claimManager) {
+      this.logger.error('ClaimManager not initialized when handling claim effect');
+      return;
+    }
+
+    const result = await this.claimManager.claimAndVerify(effect.issue.id);
+
+    if (!result.ok) {
+      this.logger.warn(`Claim failed for ${effect.issue.identifier}: ${result.error.message}`, {
+        issueId: effect.issue.id,
+      });
+      // Treat claim errors as rejections to avoid blocking
+      const rejectEvent: OrchestratorEvent = {
+        type: 'claim_rejected',
+        issueId: effect.issue.id,
+      };
+      const { nextState, effects } = applyEvent(this.state, rejectEvent, this.config);
+      this.state = nextState;
+      for (const e of effects) {
+        await this.handleEffect(e);
+      }
+      return;
+    }
+
+    if (result.value === 'rejected') {
+      this.logger.warn(
+        `Claim rejected for ${effect.issue.identifier} — another orchestrator won the race`,
+        { issueId: effect.issue.id }
+      );
+      const rejectEvent: OrchestratorEvent = {
+        type: 'claim_rejected',
+        issueId: effect.issue.id,
+      };
+      const { nextState, effects } = applyEvent(this.state, rejectEvent, this.config);
+      this.state = nextState;
+      for (const e of effects) {
+        await this.handleEffect(e);
+      }
+      return;
+    }
+
+    // Claim succeeded — proceed to dispatch
+    await this.dispatchIssue(effect.issue, effect.attempt, effect.backend);
   }
 
   /**
@@ -1152,16 +1457,57 @@ export class Orchestrator extends EventEmitter {
 
   /**
    * Starts the polling loop and the internal HTTP server.
+   * Runs startup reconciliation to release orphaned claims before the first tick.
    */
-  public start(): void {
+  public async start(): Promise<void> {
     if (this.server) {
       void this.server.start();
     }
+
+    // Resolve orchestrator identity and initialize ClaimManager before first tick
+    await this.ensureClaimManager();
+
+    // Startup reconciliation: release orphaned claims from previous crash
+    const runningIssueIds = new Set(this.state.running.keys());
+    const reconcileResult = await this.claimManager!.reconcileOnStartup(runningIssueIds);
+    if (!reconcileResult.ok) {
+      this.logger.warn('Startup reconciliation failed, proceeding with first tick', {
+        error: String(reconcileResult.error),
+      });
+    } else if (reconcileResult.value.length > 0) {
+      this.logger.info(
+        `Startup reconciliation released ${reconcileResult.value.length} orphaned claim(s)`,
+        { releasedIds: reconcileResult.value }
+      );
+    }
+
     const intervalMs = this.config.polling.intervalMs || 30000;
-    this.interval = setInterval(() => {
-      void this.tick();
-    }, intervalMs);
-    void this.tick(); // Initial tick
+    const jitterMs = this.config.polling.jitterMs ?? 0;
+
+    const scheduleNextTick = () => {
+      const jitter = jitterMs > 0 ? Math.round((Math.random() * 2 - 1) * jitterMs) : 0;
+      const delay = Math.max(0, intervalMs + jitter);
+      this.interval = setTimeout(() => {
+        void this.tick().finally(() => scheduleNextTick());
+      }, delay);
+    };
+
+    scheduleNextTick();
+    void this.tick(); // Initial tick (no jitter)
+
+    // Heartbeat: refresh claims for all running issues on a separate interval.
+    // Default interval is half the polling interval so claims stay fresh between ticks.
+    const heartbeatMs = Math.max(5000, Math.floor(intervalMs / 2));
+    this.heartbeatInterval = setInterval(() => {
+      if (this.claimManager) {
+        const runningIds = Array.from(this.state.running.keys());
+        if (runningIds.length > 0) {
+          void this.claimManager.heartbeat(runningIds).catch((err) => {
+            this.logger.warn('Heartbeat failed', { error: String(err) });
+          });
+        }
+      }
+    }, heartbeatMs);
   }
 
   /**
@@ -1169,8 +1515,12 @@ export class Orchestrator extends EventEmitter {
    */
   public async stop(): Promise<void> {
     if (this.interval) {
-      clearInterval(this.interval);
+      clearTimeout(this.interval);
       this.interval = undefined;
+    }
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
     }
     if (this.server) {
       this.server.stop();
@@ -1192,12 +1542,18 @@ export class Orchestrator extends EventEmitter {
    * Returns a point-in-time snapshot of the orchestrator's internal state.
    */
   public getSnapshot(): Record<string, unknown> {
+    const now = Date.now();
+    let secondsRunning = 0;
+    for (const [, entry] of this.state.running) {
+      secondsRunning += (now - new Date(entry.startedAt).getTime()) / 1000;
+    }
+
     return {
       running: Array.from(this.state.running.entries()),
       retryAttempts: Array.from(this.state.retryAttempts.entries()),
       claimed: Array.from(this.state.claimed),
       completed: Array.from(this.state.completed),
-      tokenTotals: this.state.tokenTotals,
+      tokenTotals: { ...this.state.tokenTotals, secondsRunning },
       maxConcurrentAgents: this.state.maxConcurrentAgents,
       globalCooldownUntilMs: this.state.globalCooldownUntilMs,
       recentRequestTimestamps: this.state.recentRequestTimestamps,
@@ -1207,6 +1563,7 @@ export class Orchestrator extends EventEmitter {
       maxRequestsPerSecond: this.state.maxRequestsPerSecond,
       maxInputTokensPerMinute: this.state.maxInputTokensPerMinute,
       maxOutputTokensPerMinute: this.state.maxOutputTokensPerMinute,
+      claimRejections: this.state.claimRejections,
       tickActivity: this.tickActivity,
     };
   }

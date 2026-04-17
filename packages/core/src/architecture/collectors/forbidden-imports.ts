@@ -3,18 +3,7 @@ import { violationId, constraintRuleId } from './hash';
 import { validateDependencies } from '../../constraints/dependencies';
 import type { DependencyViolation } from '../../constraints/types';
 import { relativePosix } from '../../shared/fs-utils';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring deferred
-function makeForbiddenStubParser(): any {
-  return {
-    name: 'typescript',
-    extensions: ['.ts', '.tsx'],
-    parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: '' } }),
-    extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
-    extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: '' } }),
-    health: async () => ({ ok: true, value: { available: true } }),
-  };
-}
+import { getDefaultRegistry } from '../../shared/parsers/registry';
 
 function mapForbiddenImportViolations(
   forbidden: DependencyViolation[],
@@ -51,10 +40,14 @@ export class ForbiddenImportCollector implements Collector {
   }
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const registry = getDefaultRegistry();
+    // Use TypeScript parser as the default single parser for health check,
+    // but the registry enables multi-language file resolution
+    const parser = registry.getByLanguage('typescript') ?? registry.getByLanguage('javascript');
     const result = await validateDependencies({
       layers: [],
       rootDir,
-      parser: makeForbiddenStubParser(),
+      parser: parser as import('../../shared/parsers').LanguageParser,
       fallbackBehavior: 'skip',
     });
 

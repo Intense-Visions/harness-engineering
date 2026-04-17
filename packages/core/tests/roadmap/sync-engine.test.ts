@@ -48,6 +48,7 @@ function makeFeature(overrides?: Partial<RoadmapFeature>): RoadmapFeature {
     assignee: null,
     priority: null,
     externalId: null,
+    updatedAt: null,
     ...overrides,
   };
 }

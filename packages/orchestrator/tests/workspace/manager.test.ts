@@ -259,4 +259,58 @@ describe('WorkspaceManager', () => {
     expect(result.ok).toBe(true);
     expect(fs.rm).toHaveBeenCalled();
   });
+
+  describe('findPushedBranch', () => {
+    it('returns branch name when HEAD matches a remote branch', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
+        if (args[0] === 'for-each-ref') {
+          return 'origin/HEAD abc999\norigin/main def456\norigin/feat/my-feature abc123\n';
+        }
+        return '';
+      });
+
+      const branch = await manager.findPushedBranch('test-issue');
+      expect(branch).toBe('feat/my-feature');
+    });
+
+    it('returns null when no remote branch matches HEAD', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
+        if (args[0] === 'for-each-ref') {
+          return 'origin/main def456\n';
+        }
+        return '';
+      });
+
+      const branch = await manager.findPushedBranch('test-issue');
+      expect(branch).toBeNull();
+    });
+
+    it('returns null when worktree does not exist', async () => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
+
+      const branch = await manager.findPushedBranch('test-issue');
+      expect(branch).toBeNull();
+    });
+
+    it('skips origin/HEAD when matching', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') return 'abc123\n';
+        if (args[0] === 'for-each-ref') {
+          return 'origin/HEAD abc123\n';
+        }
+        return '';
+      });
+
+      const branch = await manager.findPushedBranch('test-issue');
+      expect(branch).toBeNull();
+    });
+  });
 });

@@ -40,6 +40,11 @@ export * from './context';
 export * from './constraints';
 
 /**
+ * Annotations module for protected code regions and harness-ignore directives.
+ */
+export * from './annotations';
+
+/**
  * Entropy module for detecting and remediating codebase drift, dead code, and complexity.
  */
 export * from './entropy';

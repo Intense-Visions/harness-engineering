@@ -285,6 +285,15 @@ async function applySingleFix(
   }
 }
 
+/** Check if a fix targets a protected region and should be skipped. */
+function isFixProtected(fix: Fix, config: FixConfig): boolean {
+  if (!config.protectedRegions) return false;
+  const pr = config.protectedRegions;
+  if (fix.action === 'delete-file') return pr.getRegions(fix.file).length > 0;
+  if (fix.line !== undefined) return pr.isProtected(fix.file, fix.line, 'entropy');
+  return false;
+}
+
 /**
  * Apply fixes to codebase
  */
@@ -305,6 +314,12 @@ export async function applyFixes(
   for (const fix of fixes) {
     // Filter by fixTypes
     if (!fullConfig.fixTypes.includes(fix.type)) {
+      skipped.push(fix);
+      continue;
+    }
+
+    // Skip fixes in protected regions
+    if (isFixProtected(fix, fullConfig)) {
       skipped.push(fix);
       continue;
     }

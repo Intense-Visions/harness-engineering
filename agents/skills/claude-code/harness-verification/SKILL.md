@@ -259,6 +259,31 @@ Every verification claim MUST use one of:
 
 **Uncited claims:** Any verification assertion without direct evidence is a verification failure. This skill does not use `[UNVERIFIED]` -- if evidence cannot be produced, verdict is FAIL or INCOMPLETE.
 
+## Rubric Compression
+
+Verification checklists passed to subagents or used internally MUST use compressed single-line format. Each check is one line with pipe-delimited fields:
+
+```
+level|check-name|pass-criterion
+```
+
+**Example (Level 2 SUBSTANTIVE rubric):**
+
+```
+L2|no-stubs|No TODO/FIXME/throw-not-implemented in production code
+L2|no-empty-bodies|No empty function bodies, () => {}, or return null as sole logic
+L2|spec-complete|All behaviors specified in spec have corresponding implementation
+L2|real-logic|Functions contain meaningful logic, not just hardcoded returns
+```
+
+**Why:** Verbose checklist prose inflates verification context without improving accuracy. Dense single-line rubrics give the same signal in fewer tokens, leaving more budget for reading and analyzing actual file content.
+
+**Rules:**
+
+- Level prefix must be L1 (EXISTS), L2 (SUBSTANTIVE), or L3 (WIRED)
+- Maximum 80 characters per criterion text
+- Rubric entries are guidance — the verification levels define the authoritative checks
+
 ## Non-Determinism Tolerance
 
 Mechanical checks (tests, lint, types) are binary pass/fail. No tolerance.

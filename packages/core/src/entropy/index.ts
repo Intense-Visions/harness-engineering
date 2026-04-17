@@ -23,6 +23,23 @@ export type { GraphCouplingData } from './detectors/coupling';
 export { detectSizeBudgetViolations, parseSize } from './detectors/size-budget';
 
 /**
+ * Annotation-based protected regions for code that must not be modified.
+ */
+export {
+  parseProtectedRegions,
+  parseFileRegions,
+  createRegionMap,
+  VALID_SCOPES,
+} from '../annotations';
+export type {
+  ProtectionScope,
+  ProtectedRegion,
+  ProtectedRegionMap,
+  AnnotationIssue,
+  AnnotationIssueType,
+} from '../annotations';
+
+/**
  * Fixers for automated remediation of detected issues.
  */
 export {
@@ -39,6 +56,7 @@ export type { ForbiddenImportViolation } from './fixers/architecture-fixes';
 export {
   classifyFinding,
   applyHotspotDowngrade,
+  markProtectedFindings,
   deduplicateCleanupFindings,
 } from './fixers/cleanup-finding';
 

@@ -17,7 +17,7 @@ export type ReviewStage = 'spec-compliance' | 'code-quality';
 /**
  * Review domain — each gets its own scoped context bundle.
  */
-export type ReviewDomain = 'compliance' | 'bug' | 'security' | 'architecture';
+export type ReviewDomain = 'compliance' | 'bug' | 'security' | 'architecture' | 'learnings';
 
 /**
  * A file included in a context bundle with its content.

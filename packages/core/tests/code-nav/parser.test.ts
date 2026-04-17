@@ -25,6 +25,21 @@ describe('code-nav parser', () => {
       expect(parser).toBeDefined();
     });
 
+    it('should return a parser for go', async () => {
+      const parser = await getParser('go');
+      expect(parser).toBeDefined();
+    });
+
+    it('should return a parser for rust', async () => {
+      const parser = await getParser('rust');
+      expect(parser).toBeDefined();
+    });
+
+    it('should return a parser for java', async () => {
+      const parser = await getParser('java');
+      expect(parser).toBeDefined();
+    });
+
     it('should cache parser instances', async () => {
       const p1 = await getParser('typescript');
       const p2 = await getParser('typescript');
@@ -59,8 +74,32 @@ describe('code-nav parser', () => {
       }
     });
 
+    it('should parse a Go file', async () => {
+      const result = await parseFile(path.join(FIXTURES, 'sample.go'));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.language).toBe('go');
+      }
+    });
+
+    it('should parse a Rust file', async () => {
+      const result = await parseFile(path.join(FIXTURES, 'sample.rs'));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.language).toBe('rust');
+      }
+    });
+
+    it('should parse a Java file', async () => {
+      const result = await parseFile(path.join(FIXTURES, 'sample.java'));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.language).toBe('java');
+      }
+    });
+
     it('should return error for unsupported extension', async () => {
-      const result = await parseFile('/tmp/test.rs');
+      const result = await parseFile('/tmp/test.xyz');
       expect(result.ok).toBe(false);
     });
 

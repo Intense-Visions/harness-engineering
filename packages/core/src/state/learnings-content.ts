@@ -20,6 +20,8 @@ export interface LearningsIndexEntry {
   tags: string[];
   summary: string;
   fullText: string;
+  rootCause?: string;
+  triedAndFailed?: string[];
 }
 
 /** Content hash index: maps content hash -> metadata */
@@ -56,19 +58,29 @@ export function parseDateFromEntry(entry: string): string | null {
  * Summary = first line only. Tags extracted from [skill:X] and [outcome:Y] markers.
  * Hash computed from full entry text.
  */
+/** Extract a bracketed tag value from text, e.g. [skill:foo] -> "foo". */
+function extractBracketTag(text: string, tag: string): string | undefined {
+  return text.match(new RegExp(`\\[${tag}:([^\\]]+)\\]`))?.[1];
+}
+
 export function extractIndexEntry(entry: string): LearningsIndexEntry {
-  const lines = entry.split('\n');
-  const summary = lines[0] ?? entry;
+  const summary = entry.split('\n')[0] ?? entry;
   const tags: string[] = [];
-  const skillMatch = entry.match(/\[skill:([^\]]+)\]/);
-  if (skillMatch?.[1]) tags.push(skillMatch[1]);
-  const outcomeMatch = entry.match(/\[outcome:([^\]]+)\]/);
-  if (outcomeMatch?.[1]) tags.push(outcomeMatch[1]);
+  const skill = extractBracketTag(entry, 'skill');
+  if (skill) tags.push(skill);
+  const outcome = extractBracketTag(entry, 'outcome');
+  if (outcome) tags.push(outcome);
+
+  const rootCause = extractBracketTag(entry, 'root_cause');
+  const triedRaw = extractBracketTag(entry, 'tried');
+
   return {
     hash: computeEntryHash(entry),
     tags,
     summary,
     fullText: entry,
+    ...(rootCause ? { rootCause } : {}),
+    ...(triedRaw ? { triedAndFailed: triedRaw.split(',').map((s) => s.trim()) } : {}),
   };
 }
 
@@ -88,9 +100,11 @@ export function normalizeLearningContent(text: string): string {
   let normalized = text;
   // Strip date prefix (YYYY-MM-DD)
   normalized = normalized.replace(/\d{4}-\d{2}-\d{2}/g, '');
-  // Strip skill/outcome tags
+  // Strip skill/outcome/root_cause/tried tags
   normalized = normalized.replace(/\[skill:[^\]]*\]/g, '');
   normalized = normalized.replace(/\[outcome:[^\]]*\]/g, '');
+  normalized = normalized.replace(/\[root_cause:[^\]]*\]/g, '');
+  normalized = normalized.replace(/\[tried:[^\]]*\]/g, '');
   // Strip list markers (- or *)
   normalized = normalized.replace(/^[\s]*[-*]\s+/gm, '');
   // Strip bold markers

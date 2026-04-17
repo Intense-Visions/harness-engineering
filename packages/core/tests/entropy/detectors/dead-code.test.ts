@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildReachabilityMap, detectDeadCode } from '../../../src/entropy/detectors/dead-code';
 import { buildSnapshot } from '../../../src/entropy/snapshot';
+import { createRegionMap } from '../../../src/annotations';
 import { TypeScriptParser } from '../../../src/shared/parsers';
 import { join } from 'path';
 
@@ -138,5 +139,112 @@ describe('detectDeadCode', () => {
       expect(unusedImport).toBeDefined();
       expect(unusedImport?.specifiers).toContain('anotherHelper');
     }
+  });
+});
+
+describe('detectDeadCode with protectedRegions', () => {
+  it('should skip dead exports on protected lines', async () => {
+    const snapshot = {
+      files: [],
+      dependencyGraph: { nodes: [], edges: [] },
+      exportMap: { byFile: new Map(), byName: new Map() },
+      docs: [],
+      codeReferences: [],
+      entryPoints: [],
+      rootDir: '/tmp',
+      config: { rootDir: '/tmp', analyze: { deadCode: true } },
+      buildTime: 0,
+    } as never;
+
+    const graphData = {
+      reachableNodeIds: new Set(['node-1']),
+      unreachableNodes: [
+        { id: 'fn-1', type: 'function', name: 'protectedFn', path: 'src/protected.ts' },
+        { id: 'fn-2', type: 'function', name: 'unprotectedFn', path: 'src/open.ts' },
+      ],
+    };
+
+    const regions = createRegionMap([
+      {
+        file: 'src/protected.ts',
+        startLine: 1,
+        endLine: 10,
+        scopes: ['entropy'],
+        reason: 'compliance',
+        type: 'block',
+      },
+    ]);
+
+    const result = await detectDeadCode(snapshot, graphData, regions);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.deadExports.some((e) => e.name === 'unprotectedFn')).toBe(true);
+  });
+
+  it('should skip dead files with any protected region', async () => {
+    const snapshot = {
+      files: [],
+      dependencyGraph: { nodes: [], edges: [] },
+      exportMap: { byFile: new Map(), byName: new Map() },
+      docs: [],
+      codeReferences: [],
+      entryPoints: [],
+      rootDir: '/tmp',
+      config: { rootDir: '/tmp', analyze: { deadCode: true } },
+      buildTime: 0,
+    } as never;
+
+    const graphData = {
+      reachableNodeIds: new Set(['node-1']),
+      unreachableNodes: [
+        { id: 'file-1', type: 'file', name: 'protected-file', path: 'src/protected.ts' },
+        { id: 'file-2', type: 'file', name: 'open-file', path: 'src/open.ts' },
+      ],
+    };
+
+    const regions = createRegionMap([
+      {
+        file: 'src/protected.ts',
+        startLine: 5,
+        endLine: 10,
+        scopes: ['all'],
+        reason: 'vendor lock-in',
+        type: 'block',
+      },
+    ]);
+
+    const result = await detectDeadCode(snapshot, graphData, regions);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.deadFiles.some((f) => f.path === 'src/protected.ts')).toBe(false);
+    expect(result.value.deadFiles.some((f) => f.path === 'src/open.ts')).toBe(true);
+  });
+
+  it('should behave unchanged when no protectedRegions provided', async () => {
+    const snapshot = {
+      files: [],
+      dependencyGraph: { nodes: [], edges: [] },
+      exportMap: { byFile: new Map(), byName: new Map() },
+      docs: [],
+      codeReferences: [],
+      entryPoints: [],
+      rootDir: '/tmp',
+      config: { rootDir: '/tmp', analyze: { deadCode: true } },
+      buildTime: 0,
+    } as never;
+
+    const graphData = {
+      reachableNodeIds: new Set(['node-1']),
+      unreachableNodes: [{ id: 'file-1', type: 'file', name: 'dead-file', path: 'src/dead.ts' }],
+    };
+
+    const result = await detectDeadCode(snapshot, graphData);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.deadFiles).toHaveLength(1);
+    expect(result.value.deadFiles[0].path).toBe('src/dead.ts');
   });
 });

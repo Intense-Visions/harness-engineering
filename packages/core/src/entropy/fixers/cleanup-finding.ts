@@ -1,4 +1,5 @@
 import type { CleanupFinding, HotspotContext, SafetyLevel } from '../types';
+import type { ProtectedRegionMap, ProtectionScope } from '../../annotations';
 
 interface FindingInput {
   concern: 'dead-code' | 'architecture';
@@ -178,6 +179,35 @@ function mergeGroup(group: CleanupFinding[]): CleanupFinding[] {
   }
 
   return group;
+}
+
+/**
+ * Mark findings that fall within protected regions with safety: 'protected'.
+ * Acts as a post-processing step similar to applyHotspotDowngrade.
+ */
+export function markProtectedFindings(
+  findings: CleanupFinding[],
+  regions: ProtectedRegionMap
+): CleanupFinding[] {
+  return findings.map((finding) => {
+    const scope: ProtectionScope = finding.concern === 'dead-code' ? 'entropy' : 'architecture';
+    if (finding.line !== undefined && regions.isProtected(finding.file, finding.line, scope)) {
+      return {
+        ...finding,
+        safety: 'protected' as SafetyLevel,
+        safetyReason: `In protected region: ${regions.getRegions(finding.file).find((r) => finding.line! >= r.startLine && finding.line! <= r.endLine)?.reason ?? 'no reason given'}`,
+      };
+    }
+    // For file-level findings (no line), check if file has any protected region
+    if (finding.line === undefined && regions.getRegions(finding.file).length > 0) {
+      return {
+        ...finding,
+        safety: 'protected' as SafetyLevel,
+        safetyReason: 'File contains protected regions',
+      };
+    }
+    return finding;
+  });
 }
 
 /**

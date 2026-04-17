@@ -33,12 +33,46 @@ const TOP_LEVEL_TYPES: Record<SupportedLanguage, Record<string, SymbolKind>> = {
     import_statement: 'import',
     import_from_statement: 'import',
   },
+  go: {
+    function_declaration: 'function',
+    method_declaration: 'method',
+    type_declaration: 'type',
+    var_declaration: 'variable',
+    const_declaration: 'variable',
+    import_declaration: 'import',
+    short_var_declaration: 'variable',
+  },
+  rust: {
+    function_item: 'function',
+    struct_item: 'class',
+    enum_item: 'type',
+    trait_item: 'interface',
+    impl_item: 'class',
+    mod_item: 'variable',
+    const_item: 'variable',
+    static_item: 'variable',
+    type_item: 'type',
+    use_declaration: 'import',
+  },
+  java: {
+    class_declaration: 'class',
+    interface_declaration: 'interface',
+    method_declaration: 'function',
+    field_declaration: 'variable',
+    import_declaration: 'import',
+    enum_declaration: 'type',
+    record_declaration: 'class',
+    annotation_type_declaration: 'interface',
+  },
 };
 
 const METHOD_TYPES: Record<SupportedLanguage, string[]> = {
   typescript: ['method_definition', 'public_field_definition'],
   javascript: ['method_definition'],
   python: ['function_definition'],
+  go: ['method_declaration'],
+  rust: ['function_item'],
+  java: ['method_declaration', 'constructor_declaration'],
 };
 
 const IDENTIFIER_TYPES = new Set(['identifier', 'property_identifier', 'type_identifier']);
@@ -70,14 +104,50 @@ function getAssignmentName(node: Parser.SyntaxNode): string {
   return left?.text ?? '<anonymous>';
 }
 
+function getGoTypeSpecName(node: Parser.SyntaxNode): string {
+  const typeSpec = node.children.find((c) => c.type === 'type_spec');
+  if (typeSpec) {
+    const id = findIdentifier(typeSpec);
+    if (id) return id.text;
+  }
+  return '<anonymous>';
+}
+
+function getRustImplName(node: Parser.SyntaxNode): string {
+  const typeId = node.childForFieldName('type');
+  if (typeId) return typeId.text;
+  const id = node.children.find((c) => IDENTIFIER_TYPES.has(c.type));
+  return id?.text ?? '<anonymous>';
+}
+
+function getGoVarName(node: Parser.SyntaxNode): string {
+  const spec = node.children.find((c) => c.type === 'var_spec' || c.type === 'const_spec');
+  if (spec) {
+    const id = findIdentifier(spec);
+    if (id) return id.text;
+  }
+  return '<anonymous>';
+}
+
+type NameExtractor = (node: Parser.SyntaxNode, source: string) => string | null;
+
+const NAME_EXTRACTORS: Record<string, NameExtractor> = {
+  lexical_declaration: (n) => getVariableDeclarationName(n),
+  variable_declaration: (n) => getVariableDeclarationName(n),
+  export_statement: (n, s) => getExportName(n, s),
+  assignment: (n) => getAssignmentName(n),
+  type_declaration: (n) => getGoTypeSpecName(n),
+  impl_item: (n) => getRustImplName(n),
+  var_declaration: (n) => getGoVarName(n),
+  const_declaration: (n) => getGoVarName(n),
+};
+
 function getNodeName(node: Parser.SyntaxNode, source: string): string {
   const id = findIdentifier(node);
   if (id) return id.text;
 
-  const isVarDecl = node.type === 'lexical_declaration' || node.type === 'variable_declaration';
-  if (isVarDecl) return getVariableDeclarationName(node) ?? '<anonymous>';
-  if (node.type === 'export_statement') return getExportName(node, source);
-  if (node.type === 'assignment') return getAssignmentName(node);
+  const extractor = NAME_EXTRACTORS[node.type];
+  if (extractor) return extractor(node, source) ?? '<anonymous>';
 
   return '<anonymous>';
 }
@@ -97,7 +167,13 @@ function extractMethods(
   const methodTypes = METHOD_TYPES[language] ?? [];
   const body =
     classNode.childForFieldName('body') ??
-    classNode.children.find((c) => c.type === 'class_body' || c.type === 'block');
+    classNode.children.find(
+      (c) =>
+        c.type === 'class_body' ||
+        c.type === 'block' ||
+        c.type === 'declaration_list' ||
+        c.type === 'field_declaration_list'
+    );
 
   if (!body) return [];
 
@@ -183,6 +259,21 @@ function extractSymbols(
 
 function buildFailedResult(filePath: string, lang: SupportedLanguage | 'unknown'): OutlineResult {
   return { file: filePath, language: lang, totalLines: 0, symbols: [], error: '[parse-failed]' };
+}
+
+/**
+ * Extract outline from an already-parsed tree-sitter tree.
+ * Used by TreeSitterParser to avoid re-parsing files.
+ */
+export function extractOutlineFromTree(
+  rootNode: Parser.SyntaxNode,
+  lang: SupportedLanguage,
+  source: string,
+  filePath: string
+): OutlineResult {
+  const totalLines = source.split('\n').length;
+  const symbols = extractSymbols(rootNode, lang, source, filePath);
+  return { file: filePath, language: lang, totalLines, symbols };
 }
 
 /**

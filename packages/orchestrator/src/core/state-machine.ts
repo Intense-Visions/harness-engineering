@@ -11,6 +11,7 @@ import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
 import { calculateRetryDelay } from './retry';
 import { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
+import { extractRateLimitReset } from './rate-limit-events';
 
 /**
  * Bound on retained completion records. Without this, `state.completed`
@@ -172,10 +173,10 @@ function handleTick(
       session: null,
     });
     effects.push({
-      type: 'dispatch',
+      type: 'claim',
       issue,
-      attempt: null,
       backend,
+      attempt: null,
     });
   }
 
@@ -215,6 +216,12 @@ function handleWorkerExit(
     // issues to be re-dispatched as soon as a slot reopened.
     next.completed.add(issueId);
     next.claimed.delete(issueId);
+    // Clean up the worktree now that the agent has finished and shipped a PR.
+    effects.push({
+      type: 'cleanWorkspace',
+      issueId,
+      identifier: entry?.identifier ?? issueId,
+    });
     return { nextState: next, effects };
   } else {
     const nextAttempt = (attempt ?? 0) + 1;
@@ -273,17 +280,25 @@ function deriveSessionPatch(
 
   let nextPhase: RunAttemptPhase | null = null;
 
-  if (event.type === 'turn_start') {
-    updated.turnCount += 1;
-  } else if (
-    event.type === 'thought' ||
-    event.type === 'call' ||
-    event.type === 'status' ||
-    event.type === 'rate_limit'
-  ) {
-    nextPhase = 'StreamingTurn';
+  // Hoist the lastMessage assignment so we don't restate it in every
+  // streaming branch below. Only the result branch uses a different shape.
+  const streamingTypes = new Set(['thought', 'call', 'status', 'rate_limit', 'rate_limit_sleep']);
+  if (streamingTypes.has(event.type)) {
     updated.lastMessage =
       typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+  }
+
+  if (event.type === 'turn_start') {
+    updated.turnCount += 1;
+  } else if (event.type === 'thought' || event.type === 'call' || event.type === 'status') {
+    nextPhase = 'StreamingTurn';
+  } else if (event.type === 'rate_limit') {
+    // Subscription-level rate limits include resetsAtMs in their content.
+    // Per-request limits carry only a message — treat those as streaming.
+    nextPhase = extractRateLimitReset(event) !== null ? 'RateLimitSleeping' : 'StreamingTurn';
+  } else if (event.type === 'rate_limit_sleep') {
+    // Runner is sleeping until the subscription limit resets
+    nextPhase = 'RateLimitSleeping';
   } else if (event.type === 'result') {
     updated.lastMessage =
       typeof event.content === 'string'
@@ -310,6 +325,10 @@ function accrueUsage(
   session.outputTokens += usage.outputTokens;
   session.totalTokens += usage.totalTokens;
 
+  next.tokenTotals.inputTokens += usage.inputTokens;
+  next.tokenTotals.outputTokens += usage.outputTokens;
+  next.tokenTotals.totalTokens += usage.totalTokens;
+
   const now = Date.now();
   next.recentInputTokens.push({ timestamp: now, tokens: usage.inputTokens });
   next.recentOutputTokens.push({ timestamp: now, tokens: usage.outputTokens });
@@ -328,7 +347,14 @@ function handleAgentUpdate(
   const effects: SideEffect[] = [];
 
   if (event.type === 'rate_limit') {
-    next.globalCooldownUntilMs = Date.now() + next.globalCooldownMs;
+    // Subscription-level limits include resetsAtMs — use that for global cooldown.
+    // Per-request limits use the configured globalCooldownMs fallback.
+    const resetsAtMs = extractRateLimitReset(event);
+    if (resetsAtMs !== null && resetsAtMs > Date.now()) {
+      next.globalCooldownUntilMs = resetsAtMs;
+    } else {
+      next.globalCooldownUntilMs = Date.now() + next.globalCooldownMs;
+    }
   } else if (event.type === 'turn_start') {
     const now = Date.now();
     next.recentRequestTimestamps.push(now);
@@ -451,10 +477,10 @@ function handleRetryFired(
           ? 'local'
           : 'primary';
     effects.push({
-      type: 'dispatch',
+      type: 'claim',
       issue,
-      attempt: retryEntry.attempt,
       backend,
+      attempt: retryEntry.attempt,
     });
   }
 
@@ -517,6 +543,14 @@ function handleStallDetected(
   return { nextState: next, effects };
 }
 
+function handleClaimRejected(state: OrchestratorState, issueId: string): ApplyEventResult {
+  const next = cloneState(state);
+  next.claimed.delete(issueId);
+  next.running.delete(issueId);
+  next.claimRejections += 1;
+  return { nextState: next, effects: [] };
+}
+
 /**
  * Pure state machine transition function.
  *
@@ -547,5 +581,7 @@ export function applyEvent(
       return handleRetryFired(state, event.issueId, event.candidates, config, event.nowMs);
     case 'stall_detected':
       return handleStallDetected(state, event.issueId, config);
+    case 'claim_rejected':
+      return handleClaimRejected(state, event.issueId);
   }
 }

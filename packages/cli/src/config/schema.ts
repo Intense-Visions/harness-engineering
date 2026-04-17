@@ -49,6 +49,8 @@ export const AgentConfigSchema = z.object({
  * Schema for entropy (drift/stale code) management configuration.
  */
 export const EntropyConfigSchema = z.object({
+  /** Explicit entry points for reachability analysis (overrides auto-detection) */
+  entryPoints: z.array(z.string()).optional(),
   /** Patterns to exclude from entropy analysis */
   excludePatterns: z.array(z.string()).default(['**/node_modules/**', '**/*.test.ts']),
   /** Whether to automatically attempt to fix simple entropy issues */
