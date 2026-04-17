@@ -187,8 +187,8 @@ describe('setup-mcp command', () => {
 });
 
 describe('CURSOR_CURATED_TOOLS', () => {
-  it('has exactly 25 entries', () => {
-    expect(CURSOR_CURATED_TOOLS).toHaveLength(25);
+  it('has exactly 26 entries', () => {
+    expect(CURSOR_CURATED_TOOLS).toHaveLength(26);
   });
 
   it('contains expected core tools', () => {

@@ -61,3 +61,47 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - run: pnpm test:platform-parity
+
+  # Regenerate auto-generated baselines on main after merge to prevent drift.
+  # These files use merge=ours in .gitattributes, so they need a post-merge
+  # refresh to stay accurate.
+  refresh-baselines:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # Regenerate coverage baselines
+      - run: pnpm test:ci
+      - run: node scripts/coverage-ratchet.mjs --update
+
+      # Regenerate architecture baselines
+      - run: npx harness check-arch --update-baseline
+      - run: npx harness check-arch --update-baseline --module packages/cli
+
+      # Regenerate benchmark baselines
+      - run: node scripts/benchmark-check.mjs --update
+
+      # Commit and push if anything changed
+      - name: Commit refreshed baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .harness/arch/baselines.json packages/cli/.harness/arch/baselines.json coverage-baselines.json benchmark-baselines.json
+          git diff --cached --quiet || git commit -m "chore: refresh baselines after merge [skip ci]"
+          git push

@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 // ============ run_security_scan ============
@@ -70,6 +71,19 @@ export async function handleRunSecurityScan(input: {
 
     const result = await scanner.scanFiles(filesToScan);
 
+    // Best-effort timeline capture — never break the scan response
+    try {
+      const commitHash = execSync('git rev-parse HEAD', {
+        cwd: projectRoot,
+        encoding: 'utf-8',
+      }).trim();
+      const timelineManager = new core.SecurityTimelineManager(projectRoot);
+      timelineManager.capture(result, commitHash);
+      timelineManager.updateLifecycles(result.findings, commitHash);
+    } catch {
+      // Timeline capture is best-effort
+    }
+
     return {
       content: [
         {
@@ -86,6 +100,65 @@ export async function handleRunSecurityScan(input: {
                 .length,
             },
           }),
+        },
+      ],
+    };
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+// ============ get_security_trends ============
+
+export const getSecurityTrendsDefinition = {
+  name: 'get_security_trends',
+  description:
+    'Get security posture trends showing how security score, findings, and supply chain metrics are changing over time.',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      path: { type: 'string', description: 'Path to project root' },
+      last: {
+        type: 'number',
+        description: 'Return trends from the last N snapshots',
+      },
+      since: {
+        type: 'string',
+        description: 'Return trends since this ISO date (e.g. 2025-01-01)',
+      },
+    },
+    required: ['path'],
+  },
+};
+
+export async function handleGetSecurityTrends(input: {
+  path: string;
+  last?: number;
+  since?: string;
+}) {
+  try {
+    const core = await import('@harness-engineering/core');
+
+    const projectRoot = sanitizePath(input.path);
+    const manager = new core.SecurityTimelineManager(projectRoot);
+    const trendOptions: { last?: number; since?: string } = {};
+    if (input.last !== undefined) trendOptions.last = input.last;
+    if (input.since !== undefined) trendOptions.since = input.since;
+    const trends = manager.trends(trendOptions);
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify(trends),
         },
       ],
     };
