@@ -33,6 +33,9 @@ function formatToolArgs(tool: string, args?: string) {
   const toolLower = tool.toLowerCase();
   try {
     const parsed = JSON.parse(args);
+    if (toolLower.includes('todo') && parsed.todos && Array.isArray(parsed.todos)) {
+      return `Updating ${parsed.todos.length} tasks`;
+    }
     if (toolLower === 'bash' && (parsed.command || parsed.args)) {
       const cmd = parsed.command || parsed.args;
       // Clean up common long paths in bash commands if they exist
@@ -60,6 +63,21 @@ function ToolUseBlockView({
   const [isOpen, setIsOpen] = useState(false);
   const result = block.result || forceResult;
   const hasResult = result !== undefined;
+
+  const isTodoWrite = block.tool.toLowerCase().includes('todo');
+  let todos: { content: string; status: string; activeForm?: string }[] | null = null;
+  if (isTodoWrite && block.args) {
+    try {
+      const parsed = JSON.parse(block.args);
+      if (parsed.todos && Array.isArray(parsed.todos)) {
+        todos = parsed.todos;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const hasExpandedContent = hasResult || todos !== null;
 
   return (
     <div className="relative overflow-hidden rounded border border-neutral-border/50 bg-neutral-surface/50 backdrop-blur-sm transition-all duration-200">
@@ -124,6 +142,101 @@ function ToolUseBlockView({
   );
 }
 
+function TodoBlockView({ block }: { block: ToolUseBlock }) {
+  let todos: { content: string; status: string; activeForm?: string }[] | null = null;
+  if (block.args) {
+    try {
+      const parsed = JSON.parse(block.args);
+      if (parsed.todos && Array.isArray(parsed.todos)) {
+        todos = parsed.todos;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!todos) {
+    return <ToolUseBlockView block={block} isPending={false} />;
+  }
+
+  return (
+    <div className="my-3 rounded border border-primary-500/20 bg-primary-500/5 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-primary-500/10 bg-primary-500/10">
+        <svg
+          className="w-3 h-3 text-primary-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+          />
+        </svg>
+        <span className="font-bold tracking-widest uppercase text-[10px] text-primary-300">
+          Todo Plan
+        </span>
+        {block.isError && <span className="ml-auto text-[10px] text-red-400">Error Parsing</span>}
+      </div>
+
+      <div className="flex flex-col p-3 gap-2">
+        {todos.map((todo, idx) => {
+          const isCompleted = todo.status === 'completed' || todo.status === 'done';
+          const isInProgress = todo.status === 'in_progress';
+          return (
+            <div key={idx} className="flex items-start gap-3 text-sm">
+              <div className="pt-1 shrink-0">
+                {isCompleted ? (
+                  <div className="h-3.5 w-3.5 rounded bg-emerald-500/20 border border-emerald-500 flex items-center justify-center">
+                    <svg
+                      className="w-2.5 h-2.5 text-emerald-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                ) : isInProgress ? (
+                  <div className="h-3.5 w-3.5 rounded bg-secondary-400/20 border border-secondary-400 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-secondary-400 animate-pulse" />
+                  </div>
+                ) : (
+                  <div className="h-3.5 w-3.5 rounded border border-neutral-border bg-neutral-surface/50" />
+                )}
+              </div>
+              <div className="flex flex-col leading-snug pt-[1px]">
+                <span
+                  className={`text-neutral-text text-[13px] ${isCompleted ? 'line-through text-neutral-muted' : ''}`}
+                >
+                  {todo.content}
+                </span>
+                {todo.activeForm && isInProgress && (
+                  <span className="text-xs text-secondary-400 mt-1 font-mono">
+                    ▶ {todo.activeForm}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {block.result && (
+          <div className="mt-2 pt-2 border-t border-primary-500/10 text-xs text-neutral-muted">
+            <Markdown remarkPlugins={[remarkGfm]}>{block.result}</Markdown>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function isLogOutput(text: string, tool?: string) {
   const toolLower = tool?.toLowerCase();
   const isCodeTool = toolLower === 'read' || toolLower === 'read_file' || toolLower === 'bash';
@@ -151,7 +264,7 @@ function isLogOutput(text: string, tool?: string) {
   if (lines.length === 0) return false;
 
   const matches = lines.filter((l) => logMarkers.some((m) => m.test(l.trim()))).length;
-  return matches / lines.length > 0.1 || matches > 0 || text.length > 100;
+  return matches / lines.length > 0.1 || matches > 0;
 }
 
 function LogOutputView({ text }: { text: string }) {
@@ -290,10 +403,7 @@ function ActivityGroup({
   }
 
   return (
-    <div className="relative flex flex-col gap-[2px] pl-[1.25rem] my-1">
-      {/* Subtle timeline track indicator */}
-      <div className="absolute left-[0.4rem] top-2 bottom-2 w-0.5 rounded-full bg-neutral-border/40" />
-
+    <div className="relative flex flex-col gap-[2px] my-1">
       {(() => {
         const elements: React.ReactNode[] = [];
         let toolCluster: { block: ContentBlock; localIndex: number }[] = [];
@@ -301,18 +411,31 @@ function ActivityGroup({
         const flushCluster = () => {
           if (toolCluster.length === 0) return;
           if (toolCluster.length >= 3) {
+            const lastTool = toolCluster[toolCluster.length - 1]!.block as ToolUseBlock;
+
             elements.push(
               <details
                 key={`cluster-${elements.length}`}
                 className="rounded border border-neutral-border/50 bg-neutral-bg/30 my-1"
               >
-                <summary className="cursor-pointer px-3 py-1.5 text-xs text-neutral-muted select-none flex items-center gap-2">
-                  <div className="flex -space-x-1">
+                <summary className="cursor-pointer px-3 py-2 text-xs text-neutral-muted select-none flex items-center gap-2">
+                  <div className="flex -space-x-1 shrink-0">
                     <div className="h-2 w-2 rounded-full bg-secondary-400/50" />
                     <div className="h-2 w-2 rounded-full bg-secondary-400/70" />
                     <div className="h-2 w-2 rounded-full bg-secondary-400" />
                   </div>
-                  Used {toolCluster.length} tools
+                  <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+                    <span className="shrink-0">Used {toolCluster.length} tools</span>
+                    <span className="shrink-0 opacity-30 text-lg leading-none mt-[-2px]">·</span>
+                    <span className="truncate opacity-75 capitalize tracking-widest text-[9px] font-black text-neutral-text">
+                      {lastTool.tool.replace(/_/g, ' ')}
+                      {lastTool.args && (
+                        <span className="font-mono text-[9px] font-normal normal-case tracking-normal ml-2 text-neutral-muted/80">
+                          {formatToolArgs(lastTool.tool, lastTool.args)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 </summary>
                 <div className="flex flex-col gap-[2px] border-t border-neutral-border/50 p-2">
                   {toolCluster.map(({ block, localIndex }) => {
@@ -463,6 +586,11 @@ export function AssistantBlocks({
         ...block,
         ...(resolvedResult !== undefined && { result: resolvedResult }),
       };
+
+      const isTodoWrite = block.tool.toLowerCase().includes('todo');
+      if (isTodoWrite) {
+        isActivity = false;
+      }
     } else if (block.kind === 'thinking' || block.kind === 'status') {
       isActivity = true;
     } else if (block.kind === 'text' && isLogOutput(block.text)) {
@@ -486,11 +614,19 @@ export function AssistantBlocks({
         activityGroup = [];
       }
 
-      elements.push(
-        <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <TextBlockView block={block as TextBlock} />
-        </motion.div>
-      );
+      if (block.kind === 'tool_use' && block.tool.toLowerCase().includes('todo')) {
+        elements.push(
+          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <TodoBlockView block={block as ToolUseBlock} />
+          </motion.div>
+        );
+      } else {
+        elements.push(
+          <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <TextBlockView block={block as TextBlock} />
+          </motion.div>
+        );
+      }
     }
   }
 

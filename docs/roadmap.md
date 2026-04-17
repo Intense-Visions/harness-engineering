@@ -1146,7 +1146,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Community Detection
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Label propagation algorithm over import/call graph to auto-discover natural module boundaries. Validates or challenges existing layer definitions by revealing the actual clustering in the codebase. [C6]
 - **Blockers:** —
@@ -1304,7 +1304,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Community Infrastructure
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Discord community server, built-with-harness showcase gallery, social media presence, educational content series, GitHub Sponsors/Open Collective, and contribution gamification with badges and milestones. [H2/H4-H8]
 - **Blockers:** —
