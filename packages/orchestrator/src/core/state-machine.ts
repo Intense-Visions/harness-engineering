@@ -5,7 +5,7 @@ import type {
   EscalationConfig,
 } from '@harness-engineering/types';
 import type { OrchestratorState, LiveSession, RunAttemptPhase } from '../types/internal';
-import type { OrchestratorEvent, SideEffect, EscalateEffect, TickEvent } from '../types/events';
+import type { OrchestratorEvent, SideEffect, EscalateEffect, TickEvent, ClaimEffect } from '../types/events';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch } from './concurrency';
 import { reconcile } from './reconciliation';
@@ -173,10 +173,11 @@ function handleTick(
       session: null,
     });
     effects.push({
-      type: 'dispatch',
+      type: 'claim',
       issue,
-      attempt: null,
+      orchestratorId: config.orchestratorId ?? '',
       backend,
+      attempt: null,
     });
   }
 
@@ -539,6 +540,16 @@ function handleStallDetected(
   return { nextState: next, effects };
 }
 
+function handleClaimRejected(
+  state: OrchestratorState,
+  issueId: string
+): ApplyEventResult {
+  const next = cloneState(state);
+  next.claimed.delete(issueId);
+  next.running.delete(issueId);
+  return { nextState: next, effects: [] };
+}
+
 /**
  * Pure state machine transition function.
  *
@@ -569,5 +580,7 @@ export function applyEvent(
       return handleRetryFired(state, event.issueId, event.candidates, config, event.nowMs);
     case 'stall_detected':
       return handleStallDetected(state, event.issueId, config);
+    case 'claim_rejected':
+      return handleClaimRejected(state, event.issueId);
   }
 }
