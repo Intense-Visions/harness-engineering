@@ -892,7 +892,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Paged MCP Tool Responses
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/paged-mcp-tool-responses/proposal.md
 - **Summary:** Replace lossy truncation with offset/limit pagination for 8 MCP tools (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Shared PaginationMeta contract, relevance-sorted pages, per-tool defaults.
 - **Blockers:** —
