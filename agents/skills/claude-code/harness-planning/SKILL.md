@@ -61,6 +61,21 @@ Work backward from the goal. Start with "what must be true when we are done?"
 4. **Identify key links.** How do artifacts connect? What imports what? What calls what?
 5. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
 
+6. **Surface uncertainties.** Before proceeding to Phase 2, explicitly list what you do NOT know. For each uncertainty, classify it:
+   - **Blocking:** Cannot decompose tasks without resolving this. Escalate to user.
+   - **Assumption:** Can proceed with a stated assumption. Document it. If wrong, specific tasks will need revision.
+   - **Deferrable:** Does not affect task decomposition. Note for execution phase.
+
+   Format:
+   ```
+   ## Uncertainties
+   - [BLOCKING] How should the API handle partial failures? (Spec does not define.)
+   - [ASSUMPTION] Database supports transactions. (If not, Task 3 needs redesign.)
+   - [DEFERRABLE] Exact error message wording. (Can be finalized during implementation.)
+   ```
+
+   **Read-only constraint:** Steps 1-5 above are research and analysis. Do not propose task structure, file organization, or implementation approaches during SCOPE. Record what must be true (observable truths) and what you do not know (uncertainties). Solutions belong in DECOMPOSE.
+
    When scope is ambiguous, use `emit_interaction`:
 
    ```json
@@ -335,6 +350,8 @@ Only apply when modifying existing documented behavior. When `docs/changes/` exi
 | "Tests for this task can be added in a follow-up task since the implementation is straightforward"            | No skipping TDD in tasks. Every code-producing task must start with writing a test. "Add tests later" is explicitly forbidden.                                          |
 | "The spec does not cover this edge case, but I can fill in the gap during planning"                           | When the spec is missing information, do not fill in the gaps yourself. Escalate. Filling gaps silently creates undocumented design decisions that no one reviewed.     |
 | "I discovered we need an additional file during decomposition, but updating the file map is just bookkeeping" | The file map must be complete. Every file that will be created or modified must appear in the file map before task decomposition.                                       |
+| "There are no real uncertainties — the spec is clear enough"                                                  | Every plan has unknowns. If you listed zero uncertainties, you skipped the step. Re-read the spec and list what is assumed but not stated.                              |
+| "I already know how to structure this, no need to finish scoping"                                             | Premature decomposition anchors on the first approach found. Complete SCOPE (observable truths + uncertainties) before proposing any task structure.                    |
 
 ## Examples
 
@@ -399,6 +416,7 @@ Files: src/types/notification.ts
 - **No plan without observable truths.** Must start with goal-backward acceptance criteria.
 - **No implementation during planning.** Write the plan, get approval, then use harness-execution.
 - **File map must be complete.** Every file to create or modify must appear before task decomposition.
+- **Uncertainties must be surfaced.** Phase 1 must produce an uncertainties list. Zero uncertainties means the step was skipped. Blocking uncertainties must be resolved before Phase 2.
 
 ## Escalation
 
