@@ -132,6 +132,7 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
 
       target.status = 'in-progress' as FeatureStatus;
       target.assignee = orchestratorId;
+      target.updatedAt = new Date().toISOString();
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);
     } catch (error) {
@@ -167,6 +168,7 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
 
       target.status = activeState as FeatureStatus;
       target.assignee = null;
+      target.updatedAt = null;
       await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
       return Ok(undefined);
     } catch (error) {
@@ -237,7 +239,7 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
         state: null,
       })) as BlockerRef[],
       createdAt: null,
-      updatedAt: null,
+      updatedAt: feature.updatedAt ?? null,
       externalId: feature.externalId ?? null,
       assignee: feature.assignee ?? null,
     };

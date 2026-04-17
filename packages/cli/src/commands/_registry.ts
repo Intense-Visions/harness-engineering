@@ -5,6 +5,7 @@ import type { Command } from 'commander';
 import { createAddCommand } from './add';
 import { createAdoptionCommand } from './adoption';
 import { createAgentCommand } from './agent';
+import { createAuditProtectedCommand } from './audit-protected';
 import { createBlueprintCommand } from './blueprint';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
@@ -66,6 +67,7 @@ export const commandCreators: Array<() => Command> = [
   createAddCommand,
   createAdoptionCommand,
   createAgentCommand,
+  createAuditProtectedCommand,
   createBlueprintCommand,
   createCheckArchCommand,
   createCheckDepsCommand,

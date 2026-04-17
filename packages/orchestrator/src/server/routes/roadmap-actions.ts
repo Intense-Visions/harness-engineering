@@ -86,6 +86,7 @@ export function handleRoadmapActionsRoute(
         assignee: null,
         priority: null,
         externalId: null,
+        updatedAt: null,
       });
 
       roadmap.frontmatter.lastManualEdit = new Date().toISOString();

@@ -1501,12 +1501,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Protected Code Regions
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** harness-ignore annotation system for code-modifying skills — block-level protection preventing agent modification of performance-critical, compliance-required, or legally-sensitive code during refactoring and cleanup operations
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#118
 
