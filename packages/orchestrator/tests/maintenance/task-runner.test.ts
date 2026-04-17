@@ -5,6 +5,7 @@ import type {
   AgentDispatcher,
   CommandExecutor,
   TaskRunnerOptions,
+  PRLifecycleManager,
 } from '../../src/maintenance/task-runner';
 import type { MaintenanceConfig } from '@harness-engineering/types';
 import type { TaskDefinition } from '../../src/maintenance/types';
@@ -35,6 +36,16 @@ function createMockAgentDispatcher(
 function createMockCommandExecutor(): CommandExecutor {
   return {
     exec: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createMockPRManager(prUrl?: string): PRLifecycleManager {
+  return {
+    ensureBranch: vi.fn().mockResolvedValue({ created: true, recreated: false }),
+    ensurePR: vi.fn().mockResolvedValue({
+      prUrl: prUrl ?? 'https://github.com/org/repo/pull/42',
+      prUpdated: false,
+    }),
   };
 }
 
@@ -122,6 +133,45 @@ describe('TaskRunner', () => {
 
       expect(result.status).toBe('failure');
       expect(result.error).toContain('missing branch');
+    });
+
+    it('calls prManager.ensureBranch and ensurePR when findings and agent commits exist', async () => {
+      const prManager = createMockPRManager();
+      const runner = new TaskRunner(
+        createRunnerOptions({
+          checkRunner: createMockCheckRunner({ findings: 3 }),
+          agentDispatcher: createMockAgentDispatcher({ producedCommits: true, fixed: 2 }),
+          prManager,
+        })
+      );
+
+      const result = await runner.run(ARCH_TASK);
+
+      expect(prManager.ensureBranch).toHaveBeenCalledWith('harness-maint/arch-fixes', 'main');
+      expect(prManager.ensurePR).toHaveBeenCalledWith(
+        ARCH_TASK,
+        expect.stringContaining('Findings: 3')
+      );
+      expect(result.prUrl).toBe('https://github.com/org/repo/pull/42');
+      expect(result.prUpdated).toBe(false);
+      expect(result.status).toBe('success');
+    });
+
+    it('does not call ensurePR when agent produces no commits', async () => {
+      const prManager = createMockPRManager();
+      const runner = new TaskRunner(
+        createRunnerOptions({
+          checkRunner: createMockCheckRunner({ findings: 3 }),
+          agentDispatcher: createMockAgentDispatcher({ producedCommits: false, fixed: 0 }),
+          prManager,
+        })
+      );
+
+      const result = await runner.run(ARCH_TASK);
+
+      expect(prManager.ensureBranch).toHaveBeenCalled();
+      expect(prManager.ensurePR).not.toHaveBeenCalled();
+      expect(result.prUrl).toBeNull();
     });
   });
 
@@ -220,6 +270,34 @@ describe('TaskRunner', () => {
 
       expect(result.status).toBe('failure');
       expect(result.error).toContain('missing fixSkill');
+    });
+
+    it('calls prManager.ensureBranch and ensurePR when agent produces commits', async () => {
+      const prManager = createMockPRManager('https://github.com/org/repo/pull/99');
+      const pureAITask: TaskDefinition = {
+        id: 'dead-code',
+        type: 'pure-ai',
+        description: 'Remove dead code',
+        schedule: '0 2 * * 0',
+        branch: 'harness-maint/dead-code',
+        fixSkill: 'cleanup-dead-code',
+      };
+      const runner = new TaskRunner(
+        createRunnerOptions({
+          agentDispatcher: createMockAgentDispatcher({ producedCommits: true, fixed: 5 }),
+          prManager,
+        })
+      );
+
+      const result = await runner.run(pureAITask);
+
+      expect(prManager.ensureBranch).toHaveBeenCalledWith('harness-maint/dead-code', 'main');
+      expect(prManager.ensurePR).toHaveBeenCalledWith(
+        pureAITask,
+        expect.stringContaining('Fixed: 5')
+      );
+      expect(result.prUrl).toBe('https://github.com/org/repo/pull/99');
+      expect(result.status).toBe('success');
     });
   });
 
@@ -370,6 +448,21 @@ describe('TaskRunner', () => {
       expect(new Date(result.startedAt).getTime()).toBeLessThanOrEqual(
         new Date(result.completedAt).getTime()
       );
+    });
+
+    it('returns prUrl: null when no prManager is provided (backward compat)', async () => {
+      const runner = new TaskRunner(
+        createRunnerOptions({
+          checkRunner: createMockCheckRunner({ findings: 3 }),
+          agentDispatcher: createMockAgentDispatcher({ producedCommits: true, fixed: 2 }),
+          // No prManager
+        })
+      );
+
+      const result = await runner.run(ARCH_TASK);
+
+      expect(result.prUrl).toBeNull();
+      expect(result.status).toBe('success');
     });
 
     it('includes taskId in all results', async () => {
