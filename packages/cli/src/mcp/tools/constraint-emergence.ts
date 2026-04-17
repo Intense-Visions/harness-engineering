@@ -92,11 +92,15 @@ export async function handleDetectConstraintEmergence(input: {
     const manager = new ViolationHistoryManager(historyPath);
     const history = manager.load();
 
-    const result = detectEmergentConstraints(history, {
-      windowWeeks,
-      minOccurrences,
-      category: input.category as ArchMetricCategory | undefined,
-    });
+    const options: {
+      windowWeeks: number;
+      minOccurrences: number;
+      category?: ArchMetricCategory;
+    } = { windowWeeks, minOccurrences };
+    if (input.category) {
+      options.category = input.category as ArchMetricCategory;
+    }
+    const result = detectEmergentConstraints(history, options);
 
     return {
       content: [
