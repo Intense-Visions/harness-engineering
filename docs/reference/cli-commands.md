@@ -379,6 +379,9 @@ Run all validation checks
 **Options:**
 
 - `--cross-check` — Run cross-artifact consistency validation
+- `--agent-configs` — Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
+- `--strict` — Treat warnings as errors (applies to --agent-configs)
+- `--agnix-bin` — Override the agnix binary path discovered on PATH
 
 ## Adoption Commands
 
@@ -456,6 +459,21 @@ Generate CI configuration for harness checks
 
 - `--platform` — CI platform: github, gitlab, or generic
 - `--checks` — Comma-separated list of checks to include
+
+### `harness ci notify <report>`
+
+Post CI check results to GitHub (PR comment or issue)
+
+**Arguments:**
+
+- `report` (required) — Path to CI check report JSON file (from harness ci check --json)
+
+**Options:**
+
+- `--target` — Notification target: pr-comment or issue
+- `--pr` — PR number (required for pr-comment target)
+- `--title` — Custom issue title (for issue target)
+- `--labels` — Comma-separated labels for created issues
 
 ## Graph Commands
 
