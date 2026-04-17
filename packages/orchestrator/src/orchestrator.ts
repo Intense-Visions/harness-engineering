@@ -253,7 +253,9 @@ export class Orchestrator extends EventEmitter {
    * Provides stub implementations for check/agent/command execution.
    * Phase 4 (PRManager) and Phase 5 (Reporter) will enhance these.
    */
-  private createMaintenanceTaskRunner(): TaskRunner {
+  private createMaintenanceTaskRunner(
+    maintenanceConfig: import('@harness-engineering/types').MaintenanceConfig
+  ): TaskRunner {
     const checkRunner: CheckCommandRunner = {
       run: async (command: string[], cwd: string) => {
         // Stub: Phase 4 will integrate with real check commands.
@@ -284,7 +286,7 @@ export class Orchestrator extends EventEmitter {
     };
 
     return new TaskRunner({
-      config: this.config.maintenance!,
+      config: maintenanceConfig,
       checkRunner,
       agentDispatcher,
       commandExecutor,
@@ -1746,7 +1748,7 @@ export class Orchestrator extends EventEmitter {
 
     // Start maintenance scheduler if enabled
     if (this.config.maintenance?.enabled) {
-      const taskRunner = this.createMaintenanceTaskRunner();
+      const taskRunner = this.createMaintenanceTaskRunner(this.config.maintenance);
       this.maintenanceScheduler = new MaintenanceScheduler({
         config: this.config.maintenance,
         claimManager: this.claimManager!,

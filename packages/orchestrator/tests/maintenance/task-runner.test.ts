@@ -320,8 +320,8 @@ describe('TaskRunner', () => {
       expect(result.error).toContain('check-arch crashed');
     });
 
-    it('catches agent dispatcher errors and returns failure', async () => {
-      const checkRunner = createMockCheckRunner({ findings: 2 });
+    it('catches agent dispatcher errors for mechanical-ai and preserves findings count', async () => {
+      const checkRunner = createMockCheckRunner({ findings: 5 });
       const agentDispatcher: AgentDispatcher = {
         dispatch: vi.fn().mockRejectedValue(new Error('agent session failed')),
       };
@@ -331,6 +331,29 @@ describe('TaskRunner', () => {
 
       expect(result.status).toBe('failure');
       expect(result.error).toContain('agent session failed');
+      expect(result.findings).toBe(5);
+      expect(result.fixed).toBe(0);
+    });
+
+    it('catches agent dispatcher errors for pure-ai and returns failure', async () => {
+      const agentDispatcher: AgentDispatcher = {
+        dispatch: vi.fn().mockRejectedValue(new Error('local model unavailable')),
+      };
+      const runner = new TaskRunner(createRunnerOptions({ agentDispatcher }));
+
+      const DEAD_CODE_TASK: TaskDefinition = {
+        id: 'dead-code',
+        type: 'pure-ai',
+        description: 'Find and remove dead code',
+        schedule: '0 2 * * 0',
+        branch: 'harness-maint/dead-code',
+        fixSkill: 'harness-codebase-cleanup',
+      };
+
+      const result = await runner.run(DEAD_CODE_TASK);
+
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('local model unavailable');
     });
 
     it('populates startedAt and completedAt timestamps', async () => {

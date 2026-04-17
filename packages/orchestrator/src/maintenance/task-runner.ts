@@ -154,12 +154,28 @@ export class TaskRunner {
     }
 
     const backendName = this.resolveBackend(task.id);
-    const agentResult = await this.agentDispatcher.dispatch(
-      task.fixSkill,
-      task.branch,
-      backendName,
-      this.cwd
-    );
+
+    let agentResult;
+    try {
+      agentResult = await this.agentDispatcher.dispatch(
+        task.fixSkill,
+        task.branch,
+        backendName,
+        this.cwd
+      );
+    } catch (err) {
+      return {
+        taskId: task.id,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        status: 'failure',
+        findings: checkResult.findings,
+        fixed: 0,
+        prUrl: null,
+        prUpdated: false,
+        error: `Agent dispatch failed: ${String(err)}`,
+      };
+    }
 
     return {
       taskId: task.id,
