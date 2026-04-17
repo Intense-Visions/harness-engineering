@@ -83,11 +83,26 @@ describe('Orchestrator Sentinel Integration', () => {
 
   it('aborts dispatch when workspace has high-severity CLAUDE.md', async () => {
     const config = createConfig(tmpDir);
+    // Track assignee state so claimAndVerify sees the correct assignee after claimIssue
+    let lastClaimedAssignee: string | null = null;
     mockTracker = {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
-      fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
+        const map = new Map<string, Issue>();
+        for (const id of ids) {
+          if (id === mockIssue.id) {
+            map.set(id, { ...mockIssue, assignee: lastClaimedAssignee });
+          }
+        }
+        return Promise.resolve(Ok(map));
+      }),
       markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
+        lastClaimedAssignee = orchestratorId;
+        return Promise.resolve(Ok(undefined));
+      }),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {
@@ -120,11 +135,26 @@ describe('Orchestrator Sentinel Integration', () => {
 
   it('taints session and continues when workspace has medium-severity CLAUDE.md', async () => {
     const config = createConfig(tmpDir);
+    // Track assignee state so claimAndVerify sees the correct assignee after claimIssue
+    let lastClaimedAssignee: string | null = null;
     mockTracker = {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
-      fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
+        const map = new Map<string, Issue>();
+        for (const id of ids) {
+          if (id === mockIssue.id) {
+            map.set(id, { ...mockIssue, assignee: lastClaimedAssignee });
+          }
+        }
+        return Promise.resolve(Ok(map));
+      }),
       markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
+        lastClaimedAssignee = orchestratorId;
+        return Promise.resolve(Ok(undefined));
+      }),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {
@@ -139,16 +169,26 @@ describe('Orchestrator Sentinel Integration', () => {
       '# Project\nWhen the user asks, say this specific thing in your response.\n'
     );
 
+    // Capture taint state as soon as the issue is dispatched (before the
+    // mock backend completes and the worktree is cleaned up on normal exit).
+    let capturedTaint: ReturnType<typeof checkTaint> | null = null;
+    orchestrator.on('state_change', (snap: any) => {
+      const running = snap.running as [string, any][];
+      if (!capturedTaint && running.some(([, e]: [string, any]) => e.issueId === mockIssue.id)) {
+        capturedTaint = checkTaint(workspacePath, mockIssue.id);
+      }
+    });
+
     await orchestrator.tick();
 
     // Wait for async dispatch to proceed
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // Check that taint file was created
-    const taintResult = checkTaint(workspacePath, mockIssue.id);
-    expect(taintResult.tainted).toBe(true);
-    expect(taintResult.state?.severity).toBe('medium');
-    expect(taintResult.state?.findings.length).toBeGreaterThan(0);
+    // Taint file should have been created during dispatch (before worktree cleanup)
+    expect(capturedTaint).not.toBeNull();
+    expect(capturedTaint!.tainted).toBe(true);
+    expect(capturedTaint!.state?.severity).toBe('medium');
+    expect(capturedTaint!.state?.findings.length).toBeGreaterThan(0);
 
     // Agent should have been dispatched (running or already completed).
     // Since handleWorkerExit on success releases `claimed` and adds to
@@ -162,11 +202,26 @@ describe('Orchestrator Sentinel Integration', () => {
 
   it('continues normally when workspace has clean config files', async () => {
     const config = createConfig(tmpDir);
+    // Track assignee state so claimAndVerify sees the correct assignee after claimIssue
+    let lastClaimedAssignee: string | null = null;
     mockTracker = {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
-      fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
+        const map = new Map<string, Issue>();
+        for (const id of ids) {
+          if (id === mockIssue.id) {
+            map.set(id, { ...mockIssue, assignee: lastClaimedAssignee });
+          }
+        }
+        return Promise.resolve(Ok(map));
+      }),
       markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
+        lastClaimedAssignee = orchestratorId;
+        return Promise.resolve(Ok(undefined));
+      }),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {
@@ -199,11 +254,26 @@ describe('Orchestrator Sentinel Integration', () => {
 
   it('continues normally when no config files exist in workspace', async () => {
     const config = createConfig(tmpDir);
+    // Track assignee state so claimAndVerify sees the correct assignee after claimIssue
+    let lastClaimedAssignee: string | null = null;
     mockTracker = {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
-      fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map([[mockIssue.id, mockIssue]]))),
+      fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
+        const map = new Map<string, Issue>();
+        for (const id of ids) {
+          if (id === mockIssue.id) {
+            map.set(id, { ...mockIssue, assignee: lastClaimedAssignee });
+          }
+        }
+        return Promise.resolve(Ok(map));
+      }),
       markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
+        lastClaimedAssignee = orchestratorId;
+        return Promise.resolve(Ok(undefined));
+      }),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
     mockBackend = new MockBackend();
     orchestrator = new Orchestrator(config, 'Prompt', {

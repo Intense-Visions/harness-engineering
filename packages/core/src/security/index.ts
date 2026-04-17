@@ -100,3 +100,38 @@ export type {
   ScanConfigFileResult,
   ScanConfigResult,
 } from './scan-config-shared';
+
+/**
+ * Security posture timeline — historical tracking of security metrics over time.
+ */
+export {
+  SecurityCategorySnapshotSchema,
+  SupplyChainSnapshotSchema,
+  SecurityTimelineSnapshotSchema,
+  FindingLifecycleSchema,
+  SecurityTimelineFileSchema,
+  DirectionSchema as SecurityDirectionSchema,
+  SecurityTrendLineSchema,
+  TrendAttributionSchema,
+  SecurityTrendResultSchema,
+  TimeToFixStatsSchema,
+  TimeToFixResultSchema,
+  securityFindingId,
+  EMPTY_SUPPLY_CHAIN,
+} from './security-timeline-types';
+
+export type {
+  SecurityCategorySnapshot,
+  SupplyChainSnapshot,
+  SecurityTimelineSnapshot,
+  FindingLifecycle,
+  SecurityTimelineFile,
+  Direction as SecurityDirection,
+  SecurityTrendLine,
+  TrendAttribution,
+  SecurityTrendResult,
+  TimeToFixStats,
+  TimeToFixResult,
+} from './security-timeline-types';
+
+export { SecurityTimelineManager } from './security-timeline-manager';

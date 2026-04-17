@@ -30,9 +30,27 @@ describe('code_unfold', () => {
     });
 
     it('should fall back to raw content for unsupported files', async () => {
-      const result = await unfoldSymbol('/tmp/test.rs', 'foo');
+      const result = await unfoldSymbol('/tmp/test.xyz', 'foo');
       expect(result.fallback).toBe(true);
       expect(result.warning).toBe('[fallback: raw content]');
+    });
+
+    it('should extract a function from Go', async () => {
+      const result = await unfoldSymbol(path.join(FIXTURES, 'sample.go'), 'NewAuthMiddleware');
+      expect(result.fallback).toBe(false);
+      expect(result.content).toContain('func NewAuthMiddleware');
+    });
+
+    it('should extract a function from Rust', async () => {
+      const result = await unfoldSymbol(path.join(FIXTURES, 'sample.rs'), 'create_middleware');
+      expect(result.fallback).toBe(false);
+      expect(result.content).toContain('fn create_middleware');
+    });
+
+    it('should extract a class from Java', async () => {
+      const result = await unfoldSymbol(path.join(FIXTURES, 'sample.java'), 'AuthMiddleware');
+      expect(result.fallback).toBe(false);
+      expect(result.content).toContain('class AuthMiddleware');
     });
 
     it('should fall back when symbol not found', async () => {

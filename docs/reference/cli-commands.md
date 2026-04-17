@@ -15,6 +15,10 @@ Add a component to the project
 - `type` (required) — Component type (layer, module, doc, skill, persona)
 - `name` (required) — Component name
 
+### `harness audit-protected`
+
+Report all harness-ignore protected code regions
+
 ### `harness blueprint [path]`
 
 Generate a self-contained, interactive blueprint of the codebase
@@ -379,6 +383,9 @@ Run all validation checks
 **Options:**
 
 - `--cross-check` — Run cross-artifact consistency validation
+- `--agent-configs` — Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
+- `--strict` — Treat warnings as errors (applies to --agent-configs)
+- `--agnix-bin` — Override the agnix binary path discovered on PATH
 
 ## Adoption Commands
 

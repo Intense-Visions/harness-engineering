@@ -103,13 +103,13 @@ async function runNotifyAction(
       return;
     }
 
-    const notifyOptions: Pick<
+    const issueOpts: Pick<
       import('@harness-engineering/types').CINotifyOptions,
       'issueTitle' | 'labels'
     > = {};
-    if (opts.title) notifyOptions.issueTitle = opts.title;
-    if (opts.labels) notifyOptions.labels = opts.labels.split(',').map((l) => l.trim());
-    const result = await notifier.notifyIssue(report, notifyOptions);
+    if (opts.title) issueOpts.issueTitle = opts.title;
+    if (opts.labels) issueOpts.labels = opts.labels.split(',').map((l) => l.trim());
+    const result = await notifier.notifyIssue(report, issueOpts);
     if (!result.ok) {
       logger.error(`Failed to create issue: ${result.error.message}`);
       process.exit(ExitCode.ERROR);
@@ -121,7 +121,7 @@ async function runNotifyAction(
       logger.success(`Created issue: ${result.value.url}`);
     }
   } else {
-    logger.error(`Unknown target: ${String(target)}. Use "pr-comment" or "issue".`);
+    logger.error(`Unknown target: ${target as string}. Use "pr-comment" or "issue".`);
     process.exit(ExitCode.ERROR);
   }
 }

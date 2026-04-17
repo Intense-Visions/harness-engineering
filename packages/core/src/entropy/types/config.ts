@@ -1,5 +1,6 @@
 // packages/core/src/entropy/types/config.ts
 import type { LanguageParser } from '../../shared/parsers';
+import type { ProtectedRegionMap } from '../../annotations';
 import type { ComplexityConfig } from './complexity';
 import type { CouplingConfig } from './coupling';
 import type { SizeBudgetConfig } from './size-budget';
@@ -36,4 +37,6 @@ export interface EntropyConfig {
   include?: string[];
   exclude?: string[];
   docPaths?: string[];
+  /** When provided, dead code findings in protected regions are excluded from reports. */
+  protectedRegions?: ProtectedRegionMap;
 }

@@ -96,6 +96,9 @@ export {
 // Evidence gate
 export { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
 
+// Phase 5.5: Trust scoring
+export { computeTrustScores, getTrustLevel } from './trust-score';
+
 // Pipeline orchestrator
 export { runReviewPipeline } from './pipeline-orchestrator';
 export type { RunPipelineOptions } from './pipeline-orchestrator';

@@ -30,6 +30,7 @@ import {
   getExitCode,
 } from './output';
 import { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
+import { computeTrustScores } from './trust-score';
 import { readSessionSection } from '../state/session-sections';
 
 /**
@@ -183,15 +184,17 @@ export async function runReviewPipeline(
     });
   } catch {
     // Context scoping failed -- create minimal bundles
-    contextBundles = (['compliance', 'bug', 'security', 'architecture'] as const).map((domain) => ({
-      domain,
-      changeType: 'feature' as const,
-      changedFiles: [],
-      contextFiles: [],
-      commitHistory: [],
-      diffLines: diff.totalDiffLines,
-      contextLines: 0,
-    }));
+    contextBundles = (['compliance', 'bug', 'security', 'architecture', 'learnings'] as const).map(
+      (domain) => ({
+        domain,
+        changeType: 'feature' as const,
+        changedFiles: [],
+        contextFiles: [],
+        commitHistory: [],
+        diffLines: diff.totalDiffLines,
+        contextLines: 0,
+      })
+    );
   }
 
   // Attach rubric to every bundle so agents can reference it.
@@ -231,14 +234,17 @@ export async function runReviewPipeline(
     fileContents,
   });
 
-  // --- Evidence Check (between Phase 5 and Phase 6) ---
+  // --- Phase 5.5: TRUST SCORING ---
+  const scoredFindings = computeTrustScores(validatedFindings);
+
+  // --- Evidence Check (between Phase 5.5 and Phase 6) ---
   let evidenceCoverage: EvidenceCoverageReport | undefined;
   if (sessionSlug) {
     try {
       const evidenceResult = await readSessionSection(projectRoot, sessionSlug, 'evidence');
       if (evidenceResult.ok) {
-        evidenceCoverage = checkEvidenceCoverage(validatedFindings, evidenceResult.value);
-        tagUncitedFindings(validatedFindings, evidenceResult.value);
+        evidenceCoverage = checkEvidenceCoverage(scoredFindings, evidenceResult.value);
+        tagUncitedFindings(scoredFindings, evidenceResult.value);
       }
     } catch {
       // Evidence checking is optional — continue without it
@@ -246,7 +252,7 @@ export async function runReviewPipeline(
   }
 
   // --- Phase 6: DEDUP+MERGE ---
-  const dedupedFindings = deduplicateFindings({ findings: validatedFindings });
+  const dedupedFindings = deduplicateFindings({ findings: scoredFindings });
 
   // --- Phase 7: OUTPUT ---
   const strengths: ReviewStrength[] = [];

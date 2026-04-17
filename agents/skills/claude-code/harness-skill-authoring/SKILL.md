@@ -273,6 +273,40 @@ metadata: # Provenance and authorship metadata
 
 3. **Test by running the skill:** `harness skill run <name>`. Verify it loads correctly and the process instructions make sense in context.
 
+### Phase 5B: TDD FOR SKILLS — Test Before Signing Off
+
+Apply test-driven thinking to skill authoring. A skill is not complete until it has been tested against scenarios that exercise its discipline sections.
+
+1. **Write a test scenario.** Before declaring the skill complete, define 2-3 concrete scenarios that should trigger the skill's discipline mechanisms:
+   - One scenario that should trigger a Red Flag (if the skill has Red Flags)
+   - One scenario that should trigger a Rationalization rejection
+   - One scenario that should trigger a Gate (for rigid skills)
+
+   ```markdown
+   ## Skill Test Scenarios
+
+   ### Scenario 1: Red Flag — [quoted phrase from Red Flags section]
+
+   Input: [describe the situation]
+   Expected: Agent stops, cites the Red Flag, and takes corrective action
+
+   ### Scenario 2: Rationalization — [quoted phrase from Rationalizations section]
+
+   Input: [describe the tempting shortcut]
+   Expected: Agent rejects the rationalization and follows the prescribed process
+
+   ### Scenario 3: Gate — [gate condition]
+
+   Input: [describe a state that violates the gate]
+   Expected: Agent halts and does not proceed past the gate
+   ```
+
+2. **Mentally execute each scenario.** Walk through the skill's process with the test input. Does the skill's prose clearly direct the agent to the correct behavior? If not, the skill needs revision — not the test.
+
+3. **Check for gaps.** If you cannot construct a scenario that triggers a discipline section, the section may be too abstract. Revise it to include a concrete quoted phrase or condition.
+
+4. **Document test scenarios** in a comment block at the end of SKILL.md or in a companion `tests.md` file. These serve as regression tests for future skill edits.
+
 ### Skill Quality Checklist
 
 Evaluate every skill along two dimensions:
@@ -312,13 +346,14 @@ Use this checklist as a final quality gate before declaring a skill complete.
 
 ## Rationalizations to Reject
 
-| Rationalization                                                         | Reality                                                                                                                                  |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| "This skill is too simple to need all required sections"                | Every section exists for a reason. A short section is fine; a missing section means the skill was not fully thought through.             |
-| "The process section covers it — no need for explicit success criteria" | Process describes what to do. Success criteria describe how to know it worked. They serve different purposes.                            |
-| "Rationalizations to Reject is meta — this skill does not need it"      | This section is required for all user-facing skills, including this one. No exceptions.                                                  |
-| "I will add examples later once the skill is proven"                    | Examples are a required section. A skill without examples forces the agent to guess at correct behavior. Write at least one example now. |
-| "The When to Use section is obvious from the name"                      | Negative conditions (when NOT to use) prevent misapplication. The skill name conveys nothing about boundary conditions.                  |
+| Rationalization                                                         | Reality                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This skill is too simple to need all required sections"                | Every section exists for a reason. A short section is fine; a missing section means the skill was not fully thought through.                                                                             |
+| "The process section covers it — no need for explicit success criteria" | Process describes what to do. Success criteria describe how to know it worked. They serve different purposes.                                                                                            |
+| "Rationalizations to Reject is meta — this skill does not need it"      | This section is required for all user-facing skills, including this one. No exceptions.                                                                                                                  |
+| "I will add examples later once the skill is proven"                    | Examples are a required section. A skill without examples forces the agent to guess at correct behavior. Write at least one example now.                                                                 |
+| "The When to Use section is obvious from the name"                      | Negative conditions (when NOT to use) prevent misapplication. The skill name conveys nothing about boundary conditions.                                                                                  |
+| "The skill works — I tested it by running it once"                      | A single happy-path run does not test discipline sections. Write scenarios that trigger Red Flags, Gates, and Rationalizations. A skill that passes happy path but fails discipline scenarios is a trap. |
 
 ## Examples
 

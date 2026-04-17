@@ -517,6 +517,16 @@ Get relationships for a specific node in the knowledge graph, with configurable 
 - `offset` (number, optional) — Number of edges to skip (pagination). Default: 0. Edges are sorted by weight (confidence desc).
 - `limit` (number, optional) — Max edges to return (pagination). Default: 50.
 
+### `get_security_trends`
+
+Get security posture trends showing how security score, findings, and supply chain metrics are changing over time.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `last` (number, optional) — Return trends from the last N snapshots
+- `since` (string, optional) — Return trends since this ISO date (e.g. 2025-01-01)
+
 ### `query_graph`
 
 Query the project knowledge graph using ContextQL. Traverses from root nodes outward, filtering by node/edge types.

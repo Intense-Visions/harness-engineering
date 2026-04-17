@@ -14,7 +14,8 @@ export type OrchestratorEvent =
   | WorkerExitEvent
   | AgentUpdateEvent
   | RetryFiredEvent
-  | StallDetectedEvent;
+  | StallDetectedEvent
+  | ClaimRejectedEvent;
 
 export interface TickEvent {
   type: 'tick';
@@ -59,6 +60,11 @@ export interface StallDetectedEvent {
   issueId: string;
 }
 
+export interface ClaimRejectedEvent {
+  type: 'claim_rejected';
+  issueId: string;
+}
+
 /**
  * Discriminated union of side effects returned by the state machine.
  * These are data describing what to do -- the orchestrator loop executes them.
@@ -71,7 +77,8 @@ export type SideEffect =
   | CleanWorkspaceEffect
   | UpdateTokensEffect
   | EmitLogEffect
-  | EscalateEffect;
+  | EscalateEffect
+  | ClaimEffect;
 
 export interface DispatchEffect {
   type: 'dispatch';
@@ -133,4 +140,13 @@ export interface EscalateEffect {
   enrichedSpec?: EnrichedSpec;
   /** Complexity score from intelligence pipeline, if available */
   complexityScore?: ComplexityScore;
+}
+
+export interface ClaimEffect {
+  type: 'claim';
+  issue: Issue;
+  /** Which backend to dispatch to after a successful claim */
+  backend?: 'local' | 'primary';
+  /** Retry attempt number, if this is a retry dispatch */
+  attempt: number | null;
 }

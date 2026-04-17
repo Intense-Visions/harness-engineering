@@ -27,15 +27,26 @@ describe('code-nav types', () => {
       expect(detectLanguage('foo.py')).toBe('python');
     });
 
+    it('should detect Go files', () => {
+      expect(detectLanguage('foo.go')).toBe('go');
+    });
+
+    it('should detect Rust files', () => {
+      expect(detectLanguage('foo.rs')).toBe('rust');
+    });
+
+    it('should detect Java files', () => {
+      expect(detectLanguage('foo.java')).toBe('java');
+    });
+
     it('should return null for unsupported extensions', () => {
-      expect(detectLanguage('foo.rs')).toBeNull();
-      expect(detectLanguage('foo.go')).toBeNull();
       expect(detectLanguage('foo.md')).toBeNull();
+      expect(detectLanguage('foo.xyz')).toBeNull();
     });
   });
 
   it('should have all expected extensions in EXTENSION_MAP', () => {
-    expect(Object.keys(EXTENSION_MAP)).toHaveLength(9);
+    expect(Object.keys(EXTENSION_MAP)).toHaveLength(12);
   });
 
   it('should allow constructing CodeSymbol', () => {

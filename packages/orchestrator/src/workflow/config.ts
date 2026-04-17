@@ -31,6 +31,7 @@ export function getDefaultConfig(): WorkflowConfig {
     },
     polling: {
       intervalMs: 30000,
+      jitterMs: 0,
     },
     workspace: {
       root: '.harness/workspaces',

@@ -7,6 +7,7 @@ import type {
   OrchestratorEvent,
   SideEffect,
   DispatchEffect,
+  ClaimEffect,
   EscalateEffect,
 } from '../../src/types/events';
 import type { SimulationResult } from '@harness-engineering/intelligence';
@@ -84,9 +85,9 @@ describe('applyEvent - tick', () => {
 
     const { nextState, effects } = applyEvent(state, event, config);
 
-    // Max concurrent is 3, so 3 dispatches
-    const dispatches = effects.filter((e) => e.type === 'dispatch');
-    expect(dispatches).toHaveLength(3);
+    // Max concurrent is 3, so 3 claims
+    const claims = effects.filter((e) => e.type === 'claim');
+    expect(claims).toHaveLength(3);
     expect(nextState.claimed.size).toBe(3);
     expect(nextState.claimed.has('1')).toBe(true);
     expect(nextState.claimed.has('2')).toBe(true);
@@ -112,9 +113,9 @@ describe('applyEvent - tick', () => {
     };
 
     const { nextState, effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch');
-    expect(dispatches).toHaveLength(1);
-    expect(dispatches[0]!.type === 'dispatch' && dispatches[0].issue.id).toBe('2');
+    const claims = effects.filter((e) => e.type === 'claim');
+    expect(claims).toHaveLength(1);
+    expect(claims[0]!.type === 'claim' && (claims[0] as ClaimEffect).issue.id).toBe('2');
   });
 
   it('should reconcile before dispatching', () => {
@@ -149,7 +150,7 @@ describe('applyEvent - tick', () => {
     expect(cleans).toHaveLength(1);
   });
 
-  it('should dispatch with null attempt for fresh issues', () => {
+  it('should claim with null attempt for fresh issues', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
     const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:quick-fix'] })];
@@ -162,10 +163,10 @@ describe('applyEvent - tick', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatch = effects.find((e) => e.type === 'dispatch');
-    expect(dispatch).toBeDefined();
-    if (dispatch && dispatch.type === 'dispatch') {
-      expect(dispatch.attempt).toBeNull();
+    const claim = effects.find((e) => e.type === 'claim');
+    expect(claim).toBeDefined();
+    if (claim && claim.type === 'claim') {
+      expect(claim.attempt).toBeNull();
     }
   });
 
@@ -185,10 +186,10 @@ describe('applyEvent - tick', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch');
-    expect(dispatches).toHaveLength(1);
-    if (dispatches[0] && dispatches[0].type === 'dispatch') {
-      expect(dispatches[0].issue.id).toBe('2');
+    const claims = effects.filter((e) => e.type === 'claim');
+    expect(claims).toHaveLength(1);
+    if (claims[0] && claims[0].type === 'claim') {
+      expect((claims[0] as ClaimEffect).issue.id).toBe('2');
     }
   });
 });
@@ -224,6 +225,15 @@ describe('applyEvent - worker_exit', () => {
     expect(nextState.claimed.has('id-1')).toBe(false);
     expect(nextState.retryAttempts.has('id-1')).toBe(false);
     expect(effects.find((e) => e.type === 'scheduleRetry')).toBeUndefined();
+
+    // Worktree should be cleaned up after successful completion
+    const cleans = effects.filter((e) => e.type === 'cleanWorkspace');
+    expect(cleans).toHaveLength(1);
+    expect(cleans[0]).toMatchObject({
+      type: 'cleanWorkspace',
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+    });
   });
 
   it('does not re-dispatch an issue already in completed even when present in candidates', () => {
@@ -245,7 +255,7 @@ describe('applyEvent - worker_exit', () => {
     };
 
     const { effects } = applyEvent(state, tickEvent, config);
-    expect(effects.find((e) => e.type === 'dispatch')).toBeUndefined();
+    expect(effects.find((e) => e.type === 'dispatch' || e.type === 'claim')).toBeUndefined();
   });
 
   it('handleRetryFired short-circuits when issue already completed', () => {
@@ -278,6 +288,7 @@ describe('applyEvent - worker_exit', () => {
 
     const { nextState, effects } = applyEvent(state, event, config);
     expect(effects.find((e) => e.type === 'dispatch')).toBeUndefined();
+    expect(effects.find((e) => e.type === 'claim')).toBeUndefined();
     expect(effects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
     expect(nextState.claimed.has('id-1')).toBe(false);
     expect(nextState.retryAttempts.has('id-1')).toBe(false);
@@ -347,7 +358,7 @@ describe('applyEvent - worker_exit', () => {
 });
 
 describe('applyEvent - retry_fired', () => {
-  it('should dispatch issue if found in candidates and slots available', () => {
+  it('should claim issue if found in candidates and slots available', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
     state.claimed.add('id-1');
@@ -370,11 +381,11 @@ describe('applyEvent - retry_fired', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatch = effects.find((e) => e.type === 'dispatch');
-    expect(dispatch).toBeDefined();
-    if (dispatch && dispatch.type === 'dispatch') {
-      expect(dispatch.issue.id).toBe('id-1');
-      expect(dispatch.attempt).toBe(1);
+    const claim = effects.find((e) => e.type === 'claim');
+    expect(claim).toBeDefined();
+    if (claim && claim.type === 'claim') {
+      expect((claim as ClaimEffect).issue.id).toBe('id-1');
+      expect((claim as ClaimEffect).attempt).toBe(1);
     }
   });
 
@@ -609,6 +620,69 @@ describe('applyEvent - agent_update', () => {
 
     const tokenEffect = effects.find((e) => e.type === 'updateTokens');
     expect(tokenEffect).toBeDefined();
+
+    // Global tokenTotals must also be accumulated
+    expect(nextState.tokenTotals.inputTokens).toBe(200);
+    expect(nextState.tokenTotals.outputTokens).toBe(100);
+    expect(nextState.tokenTotals.totalTokens).toBe(300);
+  });
+
+  it('should accumulate tokenTotals across multiple usage events', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: {
+        sessionId: 'sess-1',
+        backendName: 'mock',
+        agentPid: null,
+        startedAt: '2026-01-01T00:00:00Z',
+        lastEvent: null,
+        lastTimestamp: null,
+        lastMessage: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        lastReportedInputTokens: 0,
+        lastReportedOutputTokens: 0,
+        lastReportedTotalTokens: 0,
+        turnCount: 1,
+      },
+    });
+
+    // First usage event
+    const event1: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: {
+        type: 'assistant',
+        timestamp: '2026-01-01T00:01:00Z',
+        usage: { inputTokens: 500, outputTokens: 200, totalTokens: 700 },
+      },
+    };
+    const { nextState: state2 } = applyEvent(state, event1, config);
+
+    // Second usage event
+    const event2: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: {
+        type: 'assistant',
+        timestamp: '2026-01-01T00:02:00Z',
+        usage: { inputTokens: 300, outputTokens: 100, totalTokens: 400 },
+      },
+    };
+    const { nextState: state3 } = applyEvent(state2, event2, config);
+
+    expect(state3.tokenTotals.inputTokens).toBe(800);
+    expect(state3.tokenTotals.outputTokens).toBe(300);
+    expect(state3.tokenTotals.totalTokens).toBe(1100);
   });
 
   it('should be a no-op when issue is not in running map', () => {
@@ -784,12 +858,12 @@ describe('applyEvent - tick with routing', () => {
       expect(escalations[0].issueId).toBe('1');
       expect(escalations[0].reasons).toContain('full-exploration tier always requires human');
     }
-    // No dispatch effects
-    const dispatches = effects.filter((e) => e.type === 'dispatch');
+    // No dispatch or claim effects
+    const dispatches = effects.filter((e) => e.type === 'dispatch' || e.type === 'claim');
     expect(dispatches).toHaveLength(0);
   });
 
-  it('should dispatch quick-fix issues to local backend (SC2)', () => {
+  it('should claim quick-fix issues with local backend (SC2)', () => {
     const config = makeRoutingConfig();
     const state = createEmptyState(config);
     const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:quick-fix'] })];
@@ -802,12 +876,12 @@ describe('applyEvent - tick with routing', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
-    expect(dispatches).toHaveLength(1);
-    expect(dispatches[0].backend).toBe('local');
+    const claims = effects.filter((e) => e.type === 'claim') as ClaimEffect[];
+    expect(claims).toHaveLength(1);
+    expect(claims[0].backend).toBe('local');
   });
 
-  it('should dispatch diagnostic issues to local backend (SC2)', () => {
+  it('should claim diagnostic issues with local backend (SC2)', () => {
     const config = makeRoutingConfig();
     const state = createEmptyState(config);
     const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:diagnostic'] })];
@@ -820,12 +894,12 @@ describe('applyEvent - tick with routing', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
-    expect(dispatches).toHaveLength(1);
-    expect(dispatches[0].backend).toBe('local');
+    const claims = effects.filter((e) => e.type === 'claim') as ClaimEffect[];
+    expect(claims).toHaveLength(1);
+    expect(claims[0].backend).toBe('local');
   });
 
-  it('should dispatch to primary when localBackend is not configured', () => {
+  it('should claim to primary when localBackend is not configured', () => {
     const config = makeConfig(); // No localBackend
     const state = createEmptyState(config);
     const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:quick-fix'] })];
@@ -838,13 +912,13 @@ describe('applyEvent - tick with routing', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
-    expect(dispatches).toHaveLength(1);
-    // Without localBackend, even autoExecute tiers dispatch to primary
-    expect(dispatches[0].backend).toBe('primary');
+    const claims = effects.filter((e) => e.type === 'claim') as ClaimEffect[];
+    expect(claims).toHaveLength(1);
+    // Without localBackend, even autoExecute tiers claim with primary backend
+    expect(claims[0].backend).toBe('primary');
   });
 
-  it('should dispatch guided-change to primary backend when in primaryExecute', () => {
+  it('should claim guided-change with primary backend when in primaryExecute', () => {
     const config = makeRoutingConfig({
       agent: {
         ...makeRoutingConfig().agent,
@@ -868,9 +942,9 @@ describe('applyEvent - tick with routing', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
-    expect(dispatches).toHaveLength(1);
-    expect(dispatches[0].backend).toBe('primary');
+    const claims = effects.filter((e) => e.type === 'claim') as ClaimEffect[];
+    expect(claims).toHaveLength(1);
+    expect(claims[0].backend).toBe('primary');
   });
 });
 
@@ -1020,7 +1094,7 @@ describe('applyEvent - worker_exit with diagnostic escalation', () => {
     expect(escalations[0]!.reasons.some((r) => r.includes('Predicted failure'))).toBe(true);
     expect(escalations[0]!.reasons.some((r) => r.includes('Test gap'))).toBe(true);
 
-    const dispatches = effects.filter((e) => e.type === 'dispatch');
+    const dispatches = effects.filter((e) => e.type === 'dispatch' || e.type === 'claim');
     expect(dispatches).toHaveLength(0);
   });
 
@@ -1044,14 +1118,14 @@ describe('applyEvent - worker_exit with diagnostic escalation', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
-    expect(dispatches).toHaveLength(1);
-    expect(dispatches[0]!.issue.id).toBe('1');
+    const claims = effects.filter((e) => e.type === 'claim') as ClaimEffect[];
+    expect(claims).toHaveLength(1);
+    expect(claims[0]!.issue.id).toBe('1');
     const escalations = effects.filter((e) => e.type === 'escalate');
     expect(escalations).toHaveLength(0);
   });
 
-  it('should dispatch when no simulationResults are provided', () => {
+  it('should claim when no simulationResults are provided', () => {
     const config = makeRoutingConfig();
     const state = createEmptyState(config);
     const candidates = [makeIssue({ id: '1', identifier: 'A-1', labels: ['scope:guided-change'] })];
@@ -1065,8 +1139,70 @@ describe('applyEvent - worker_exit with diagnostic escalation', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatches = effects.filter((e) => e.type === 'dispatch') as DispatchEffect[];
-    expect(dispatches).toHaveLength(1);
-    expect(dispatches[0]!.issue.id).toBe('1');
+    const claims = effects.filter((e) => e.type === 'claim') as ClaimEffect[];
+    expect(claims).toHaveLength(1);
+    expect(claims[0]!.issue.id).toBe('1');
+  });
+});
+
+describe('applyEvent - claim_rejected', () => {
+  it('removes issue from claimed and running sets and increments claimRejections', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.claimed.add('id-1');
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue(),
+      attempt: null,
+      workspacePath: '',
+      startedAt: new Date().toISOString(),
+      phase: 'PreparingWorkspace',
+      session: null,
+    });
+
+    const event: OrchestratorEvent = { type: 'claim_rejected', issueId: 'id-1' };
+    const { nextState, effects } = applyEvent(state, event, config);
+
+    expect(nextState.claimed.has('id-1')).toBe(false);
+    expect(nextState.running.has('id-1')).toBe(false);
+    expect(nextState.claimRejections).toBe(1);
+    expect(effects).toHaveLength(0);
+  });
+
+  it('accumulates claimRejections across multiple rejections', () => {
+    const config = makeConfig();
+    let state = createEmptyState(config);
+
+    // First rejection
+    state.claimed.add('id-1');
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue(),
+      attempt: null,
+      workspacePath: '',
+      startedAt: new Date().toISOString(),
+      phase: 'PreparingWorkspace',
+      session: null,
+    });
+    const result1 = applyEvent(state, { type: 'claim_rejected', issueId: 'id-1' }, config);
+    state = result1.nextState;
+
+    // Second rejection
+    state.claimed.add('id-2');
+    state.running.set('id-2', {
+      issueId: 'id-2',
+      identifier: 'TEST-2',
+      issue: makeIssue({ id: 'id-2', identifier: 'TEST-2' }),
+      attempt: null,
+      workspacePath: '',
+      startedAt: new Date().toISOString(),
+      phase: 'PreparingWorkspace',
+      session: null,
+    });
+    const result2 = applyEvent(state, { type: 'claim_rejected', issueId: 'id-2' }, config);
+
+    expect(result2.nextState.claimRejections).toBe(2);
   });
 });

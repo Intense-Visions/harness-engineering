@@ -9,7 +9,8 @@ export function formatFindingBlock(finding: ReviewFinding): string {
   const lines: string[] = [];
   const location = `${finding.file}:L${finding.lineRange[0]}-${finding.lineRange[1]}`;
 
-  lines.push(`  [${finding.domain}] ${finding.title}`);
+  const trustBadge = finding.trustScore != null ? ` [${finding.trustScore}%]` : '';
+  lines.push(`  [${finding.domain}] ${finding.title}${trustBadge}`);
   lines.push(`    Location: ${location}`);
   lines.push(`    Rationale: ${finding.rationale}`);
 

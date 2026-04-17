@@ -52,6 +52,7 @@ export class CINotifier {
       assignee: null,
       priority: null,
       externalId: null,
+      updatedAt: null,
     };
 
     const result = await this.adapter.createTicket(feature, 'CI Issues');
