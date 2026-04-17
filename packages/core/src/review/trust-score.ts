@@ -19,9 +19,9 @@ const DOMAIN_BASELINES: Record<ReviewDomain, number> = {
 /** Weight of each factor in the final score. Sums to 1.0. */
 const FACTOR_WEIGHTS = {
   validation: 0.35,
-  evidence: 0.30,
+  evidence: 0.3,
   agreement: 0.15,
-  historical: 0.20,
+  historical: 0.2,
 } as const;
 
 /** Evidence items needed for maximum evidence factor. */

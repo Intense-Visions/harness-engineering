@@ -15,13 +15,13 @@ Add a quantified trust score (0-100%) to every `ReviewFinding` in the review pip
 
 ## Decisions
 
-| Decision | Rationale |
-|----------|-----------|
+| Decision                                          | Rationale                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Standalone Phase 5.5 (between validate and dedup) | Clean separation from validation; cross-agent agreement detectable pre-dedup |
-| `trustScore: number` (0-100) on ReviewFinding | Issue requires "visible confidence percentage"; integer is human-friendly |
-| Weighted linear combination of 4 factors | Transparent, debuggable, tunable without statistical expertise |
-| Deprecate categorical `confidence` field | Replaced by `trustScore`; `getTrustLevel()` utility for backwards compat |
-| Baseline historical constants with optional graph | Works standalone; improves with PersonaEffectiveness data |
+| `trustScore: number` (0-100) on ReviewFinding     | Issue requires "visible confidence percentage"; integer is human-friendly    |
+| Weighted linear combination of 4 factors          | Transparent, debuggable, tunable without statistical expertise               |
+| Deprecate categorical `confidence` field          | Replaced by `trustScore`; `getTrustLevel()` utility for backwards compat     |
+| Baseline historical constants with optional graph | Works standalone; improves with PersonaEffectiveness data                    |
 
 ## Technical Design
 
@@ -32,15 +32,15 @@ Add a quantified trust score (0-100%) to every `ReviewFinding` in the review pip
 
 /** Individual factor scores, each normalized to [0, 1]. */
 interface TrustFactors {
-  validation: number;   // Based on validatedBy: mechanical=1.0, graph=0.8, heuristic=0.5
-  evidence: number;     // Based on evidence array length: min(1.0, count / 3)
-  agreement: number;    // 1.0 if corroborated by another agent, 0.6 if standalone
-  historical: number;   // Domain baseline, optionally enriched by graph effectiveness data
+  validation: number; // Based on validatedBy: mechanical=1.0, graph=0.8, heuristic=0.5
+  evidence: number; // Based on evidence array length: min(1.0, count / 3)
+  agreement: number; // 1.0 if corroborated by another agent, 0.6 if standalone
+  historical: number; // Domain baseline, optionally enriched by graph effectiveness data
 }
 
 /** Result of trust score computation for a single finding. */
 interface TrustScoreResult {
-  score: number;        // 0-100 integer
+  score: number; // 0-100 integer
   factors: TrustFactors;
 }
 ```
@@ -57,8 +57,8 @@ const VALIDATION_SCORES: Record<ReviewFinding['validatedBy'], number> = {
 
 /** Per-domain historical accuracy baselines (used when graph is unavailable). */
 const DOMAIN_BASELINES: Record<ReviewDomain, number> = {
-  security: 0.70,
-  bug: 0.60,
+  security: 0.7,
+  bug: 0.6,
   architecture: 0.65,
   compliance: 0.75,
 };
@@ -67,8 +67,8 @@ const DOMAIN_BASELINES: Record<ReviewDomain, number> = {
 const FACTOR_WEIGHTS = {
   validation: 0.35,
   evidence: 0.25,
-  agreement: 0.20,
-  historical: 0.20,
+  agreement: 0.2,
+  historical: 0.2,
 } as const;
 
 /** Evidence items needed for maximum evidence factor score. */
@@ -93,6 +93,7 @@ trustScore = round(
 ```
 
 Where:
+
 - `validationScore = VALIDATION_SCORES[finding.validatedBy]`
 - `evidenceScore = min(1.0, finding.evidence.length / EVIDENCE_SATURATION)`
 - `agreementScore = CORROBORATED_AGREEMENT if overlapping finding from different domain exists, else STANDALONE_AGREEMENT`
@@ -105,6 +106,7 @@ Before dedup merges overlapping findings, scan for findings from different domai
 ### Type Changes
 
 **`ReviewFinding` (fan-out.ts):**
+
 - Add: `trustScore?: number` — 0-100 integer, set in Phase 5.5
 - Deprecate: `confidence?: 'high' | 'medium' | 'low'` — kept for backwards compat, derived from `trustScore`
 
@@ -120,6 +122,7 @@ const scoredFindings = computeTrustScores(validatedFindings, { graph });
 ### Output Changes
 
 **Terminal (`format-terminal.ts`):**
+
 ```
   [security] SQL injection via unsanitized input [85%]
     Location: src/db.ts:L42-45
@@ -127,11 +130,13 @@ const scoredFindings = computeTrustScores(validatedFindings, { graph });
 ```
 
 **GitHub inline (`format-github.ts`):**
+
 ```
 **CRITICAL** [security] SQL injection via unsanitized input (confidence: 85%)
 ```
 
 **GitHub summary (`format-github.ts`):**
+
 ```
 - **SQL injection via unsanitized input** at `src/db.ts:L42-45` — 85% confidence
 ```
@@ -153,16 +158,16 @@ When merging two findings in Phase 6, the merged finding gets `trustScore = max(
 
 ### File Layout
 
-| File | Change |
-|------|--------|
-| `packages/core/src/review/types/fan-out.ts` | Add `trustScore` field |
-| `packages/core/src/review/trust-score.ts` | New — score computation |
-| `packages/core/src/review/pipeline-orchestrator.ts` | Integrate Phase 5.5 |
-| `packages/core/src/review/deduplicate-findings.ts` | Merge trust scores |
-| `packages/core/src/review/output/format-terminal.ts` | Display `[N%]` |
-| `packages/core/src/review/output/format-github.ts` | Display confidence % |
-| `packages/core/src/review/constants.ts` | Export trust-related constants |
-| `packages/core/src/review/index.ts` | Re-export trust-score module |
+| File                                                 | Change                         |
+| ---------------------------------------------------- | ------------------------------ |
+| `packages/core/src/review/types/fan-out.ts`          | Add `trustScore` field         |
+| `packages/core/src/review/trust-score.ts`            | New — score computation        |
+| `packages/core/src/review/pipeline-orchestrator.ts`  | Integrate Phase 5.5            |
+| `packages/core/src/review/deduplicate-findings.ts`   | Merge trust scores             |
+| `packages/core/src/review/output/format-terminal.ts` | Display `[N%]`                 |
+| `packages/core/src/review/output/format-github.ts`   | Display confidence %           |
+| `packages/core/src/review/constants.ts`              | Export trust-related constants |
+| `packages/core/src/review/index.ts`                  | Re-export trust-score module   |
 
 ## Success Criteria
 
