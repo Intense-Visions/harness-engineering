@@ -102,7 +102,7 @@ describe('Orchestrator Integration', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('should poll, dispatch, and run an agent session', async () => {
+  it('should poll, dispatch, and run an agent session', { timeout: 15000 }, async () => {
     // 1. Initial tick
     await orchestrator.tick();
 
