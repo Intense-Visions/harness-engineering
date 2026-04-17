@@ -89,4 +89,138 @@ describe('MaintenanceScheduler', () => {
       expect(scheduler.getResolvedTasks()).toHaveLength(18);
     });
   });
+
+  describe('leader election', () => {
+    it('skips evaluation when leader claim is rejected', async () => {
+      const config: MaintenanceConfig = { enabled: true, checkIntervalMs: 60_000 };
+      const onTaskDue = vi.fn();
+      const claimManager = createMockClaimManager('rejected');
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: claimManager as any,
+        logger: createMockLogger() as any,
+        onTaskDue,
+      });
+
+      // Evaluate at a time when daily-2am tasks would be due
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+
+      expect(claimManager.claimAndVerify).toHaveBeenCalledWith('maintenance-leader');
+      expect(onTaskDue).not.toHaveBeenCalled();
+    });
+
+    it('proceeds with evaluation when leader claim succeeds', async () => {
+      const config: MaintenanceConfig = { enabled: true };
+      const onTaskDue = vi.fn().mockResolvedValue(undefined);
+      const claimManager = createMockClaimManager('claimed');
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: claimManager as any,
+        logger: createMockLogger() as any,
+        onTaskDue,
+      });
+
+      // 2am daily: arch-violations, dep-violations should be due
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+
+      expect(onTaskDue).toHaveBeenCalled();
+      const calledTaskIds = onTaskDue.mock.calls.map((c: any) => c[0].id);
+      expect(calledTaskIds).toContain('arch-violations');
+      expect(calledTaskIds).toContain('dep-violations');
+    });
+
+    it('sets isLeader to false when claim fails with error', async () => {
+      const config: MaintenanceConfig = { enabled: true };
+      const claimManager = {
+        claimAndVerify: vi
+          .fn()
+          .mockResolvedValue({ ok: false, error: { message: 'network error' } }),
+      };
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: claimManager as any,
+        logger: createMockLogger() as any,
+        onTaskDue: vi.fn(),
+      });
+
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+
+      const status = scheduler.getStatus();
+      expect(status.isLeader).toBe(false);
+    });
+  });
+
+  describe('cron evaluation and deduplication', () => {
+    it('does not re-run a task in the same calendar minute', async () => {
+      const config: MaintenanceConfig = { enabled: true };
+      const onTaskDue = vi.fn().mockResolvedValue(undefined);
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: createMockClaimManager() as any,
+        logger: createMockLogger() as any,
+        onTaskDue,
+      });
+
+      const time = new Date('2026-04-17T02:00:00');
+
+      await scheduler.evaluate(time);
+      const firstCallCount = onTaskDue.mock.calls.length;
+      expect(firstCallCount).toBeGreaterThan(0);
+
+      // Same minute again
+      await scheduler.evaluate(time);
+      expect(onTaskDue.mock.calls.length).toBe(firstCallCount); // No new calls
+    });
+
+    it('runs the task again in the next matching minute', async () => {
+      const config: MaintenanceConfig = {
+        enabled: true,
+        tasks: {
+          // Disable all except one for easier counting
+          ...Object.fromEntries(
+            [
+              'arch-violations',
+              'dep-violations',
+              'doc-drift',
+              'security-findings',
+              'entropy',
+              'traceability',
+              'cross-check',
+              'dead-code',
+              'dependency-health',
+              'hotspot-remediation',
+              'security-review',
+              'perf-check',
+              'decay-trends',
+              'project-health',
+              'stale-constraints',
+              'graph-refresh',
+              'session-cleanup',
+              'perf-baselines',
+            ].map((id) => [id, { enabled: false }])
+          ),
+          // Re-enable just one with a per-minute schedule for testing
+          'arch-violations': { enabled: true, schedule: '* * * * *' },
+        },
+      };
+      const onTaskDue = vi.fn().mockResolvedValue(undefined);
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: createMockClaimManager() as any,
+        logger: createMockLogger() as any,
+        onTaskDue,
+      });
+
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+      expect(onTaskDue).toHaveBeenCalledTimes(1);
+
+      await scheduler.evaluate(new Date('2026-04-17T02:01:00'));
+      expect(onTaskDue).toHaveBeenCalledTimes(2);
+    });
+  });
 });
