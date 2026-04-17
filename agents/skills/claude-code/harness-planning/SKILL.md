@@ -67,6 +67,7 @@ Work backward from the goal. Start with "what must be true when we are done?"
    - **Deferrable:** Does not affect task decomposition. Note for execution phase.
 
    Format:
+
    ```
    ## Uncertainties
    - [BLOCKING] How should the API handle partial failures? (Spec does not define.)

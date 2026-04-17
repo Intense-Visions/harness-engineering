@@ -586,6 +586,7 @@ compliance|naming|suggestion|Names follow project conventions (check AGENTS.md o
 **Why:** Verbose rubric prose inflates context by 2-5x without improving review accuracy. Dense single-line rubrics give the agent the same signal in fewer tokens, leaving more budget for actual code analysis.
 
 **Rules:**
+
 - Maximum 80 characters per criterion text
 - Domain must match the subagent's scope (compliance, bug, security, architecture)
 - Severity must be one of: critical, important, suggestion
@@ -695,11 +696,11 @@ compliance|naming|suggestion|Names follow project conventions (check AGENTS.md o
 
 ## Rationalizations to Reject
 
-| Rationalization                                     | Reality                                                                                     |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| "The tests pass, so the logic must be correct"      | Tests can be incomplete. Review the logic independently of test results.                    |
-| "This is how it was done elsewhere in the codebase" | Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent. |
-| "It's just a refactor, low risk"                    | Refactors change behavior surfaces. Review them with the same rigor as feature changes.     |
+| Rationalization                                     | Reality                                                                                                                      |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| "The tests pass, so the logic must be correct"      | Tests can be incomplete. Review the logic independently of test results.                                                     |
+| "This is how it was done elsewhere in the codebase" | Existing patterns can be wrong. Evaluate the pattern on its merits, not just its precedent.                                  |
+| "It's just a refactor, low risk"                    | Refactors change behavior surfaces. Review them with the same rigor as feature changes.                                      |
 | "The fix is trivial, I'll just apply it inline"     | Trivial fixes still skip review when applied by the reviewer. Suggest the fix; let the author apply and re-review. Iron Law. |
 
 ## Escalation

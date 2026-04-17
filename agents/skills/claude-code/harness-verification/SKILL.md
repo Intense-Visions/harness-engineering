@@ -279,6 +279,7 @@ L2|real-logic|Functions contain meaningful logic, not just hardcoded returns
 **Why:** Verbose checklist prose inflates verification context without improving accuracy. Dense single-line rubrics give the same signal in fewer tokens, leaving more budget for reading and analyzing actual file content.
 
 **Rules:**
+
 - Level prefix must be L1 (EXISTS), L2 (SUBSTANTIVE), or L3 (WIRED)
 - Maximum 80 characters per criterion text
 - Rubric entries are guidance — the verification levels define the authoritative checks

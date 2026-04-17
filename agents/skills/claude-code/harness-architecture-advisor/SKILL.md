@@ -312,11 +312,11 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
-| Rationalization                   | Reality                                                                                             |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| "This will be easier to maintain" | Easier for whom, and compared to what? Cite the maintenance burden with evidence from the codebase. |
-| "It's the modern approach"        | Modernity is not a design criterion. Fitness for purpose is. State the specific benefit.            |
-| "Other teams do it this way"      | Other teams have different constraints. Evaluate the option on this codebase's specific merits.     |
+| Rationalization                                              | Reality                                                                                                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This will be easier to maintain"                            | Easier for whom, and compared to what? Cite the maintenance burden with evidence from the codebase.                                                                       |
+| "It's the modern approach"                                   | Modernity is not a design criterion. Fitness for purpose is. State the specific benefit.                                                                                  |
+| "Other teams do it this way"                                 | Other teams have different constraints. Evaluate the option on this codebase's specific merits.                                                                           |
 | "I can see the solution already, no need to finish research" | Premature convergence anchors on the first viable option. Complete Phase 2 research before proposing anything in Phase 3. The best option may not be the first one found. |
 
 ## Escalation
