@@ -838,12 +838,13 @@ export class Orchestrator extends EventEmitter {
     const match = externalId.match(/^github:([^/]+\/[^#]+)#(\d+)$/);
     if (!match) return false;
 
-    const [, repo, number] = match;
+    const [, repo, prNumber] = match;
+    if (!repo || !prNumber) return false;
     try {
       const exec = promisify(execFile);
       const { stdout } = await exec(
         'gh',
-        ['pr', 'view', number, '--repo', repo, '--json', 'state', '--jq', '.state'],
+        ['pr', 'view', prNumber, '--repo', repo, '--json', 'state', '--jq', '.state'],
         {
           cwd: this.projectRoot,
           timeout: 10_000,
@@ -873,9 +874,11 @@ export class Orchestrator extends EventEmitter {
     );
 
     const filtered: Issue[] = [];
-    for (const result of results) {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
       if (result.status === 'rejected') {
-        // Promise.allSettled should not reject, but fail-open just in case
+        // Unreachable: isExternalPROpen catches internally. Fail-open defensively.
+        filtered.push(candidates[i]);
         continue;
       }
       const { candidate, isOpen } = result.value;

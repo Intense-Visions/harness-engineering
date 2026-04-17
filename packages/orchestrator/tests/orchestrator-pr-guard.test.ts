@@ -133,6 +133,35 @@ describe('isExternalPROpen', () => {
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['github:owner/repo#1; echo pwned', false],
+    ['github:owner repo#1', false],
+  ])('rejects malformed input without calling gh: %s', async (input, _) => {
+    const result = await (orchestrator as any).isExternalPROpen(input);
+    expect(result).toBe(false);
+    expect(mockExecFile).not.toHaveBeenCalled();
+  });
+
+  it('safely passes adversarial but regex-matching input to execFile (no shell)', async () => {
+    // Inputs like "github:--flag/repo#1" match the regex but are safe
+    // because execFile passes args as an array, not through a shell
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(new Error('not found'), { stdout: '', stderr: '' });
+      }
+    );
+
+    const result = await (orchestrator as any).isExternalPROpen('github:--flag/repo#1');
+    expect(result).toBe(false);
+    // execFile was called safely with args array (no shell injection possible)
+    expect(mockExecFile).toHaveBeenCalledWith(
+      'gh',
+      expect.arrayContaining(['--repo', '--flag/repo']),
+      expect.any(Object),
+      expect.any(Function)
+    );
+  });
+
   it('returns false and logs warning when gh command fails', async () => {
     mockExecFile.mockImplementation(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
@@ -184,6 +213,12 @@ describe('filterCandidatesWithOpenPRs', () => {
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('2');
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping Open PR'));
+  });
+
+  it('returns empty array for empty candidates', async () => {
+    const result = await (orchestrator as any).filterCandidatesWithOpenPRs([]);
+    expect(result).toHaveLength(0);
+    expect(mockExecFile).not.toHaveBeenCalled();
   });
 
   it('passes through candidates with null externalId', async () => {
