@@ -22,8 +22,21 @@ function countBraces(line: string): number {
 }
 
 /**
- * Ingests TypeScript/JavaScript files into the graph via regex-based parsing.
- * Future: upgrade to tree-sitter for full AST parsing.
+ * Supported source file extensions for multi-language ingestion.
+ */
+const SUPPORTED_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java']);
+
+const SKIP_EXTENSIONS = new Set(['.d.ts']);
+
+function isSupportedSourceFile(name: string): boolean {
+  if (SKIP_EXTENSIONS.has(name.slice(name.lastIndexOf('.')))) return false;
+  const ext = name.slice(name.lastIndexOf('.'));
+  return SUPPORTED_EXTENSIONS.has(ext);
+}
+
+/**
+ * Ingests source files into the graph via regex-based parsing.
+ * Supports TypeScript, JavaScript, Python, Go, Rust, and Java.
  */
 export class CodeIngestor {
   constructor(private readonly store: GraphStore) {}
@@ -139,11 +152,7 @@ export class CodeIngestor {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== 'dist') {
         results.push(...(await this.findSourceFiles(fullPath)));
-      } else if (
-        entry.isFile() &&
-        /\.(ts|tsx|js|jsx)$/.test(entry.name) &&
-        !entry.name.endsWith('.d.ts')
-      ) {
+      } else if (entry.isFile() && isSupportedSourceFile(entry.name)) {
         results.push(fullPath);
       }
     }
@@ -425,20 +434,17 @@ export class CodeIngestor {
     relativePath: string,
     rootDir: string
   ): Promise<GraphEdge[]> {
+    const lang = this.detectLanguage(relativePath);
     const edges: GraphEdge[] = [];
-    const importRegex = /import\s+(?:type\s+)?(?:\{[^}]*\}|[\w*]+)\s+from\s+['"]([^'"]+)['"]/g;
-    let match: RegExpExecArray | null;
 
-    while ((match = importRegex.exec(content)) !== null) {
-      const importPath = match[1]!;
-
-      // Only resolve relative imports
-      if (!importPath.startsWith('.')) continue;
+    const importPaths = this.extractImportPaths(content, lang);
+    for (const { importPath, isTypeOnly } of importPaths) {
+      // Only resolve relative imports for TS/JS; all imports for other languages
+      if ((lang === 'typescript' || lang === 'javascript') && !importPath.startsWith('.')) continue;
 
       const resolvedPath = await this.resolveImportPath(relativePath, importPath, rootDir);
       if (resolvedPath) {
         const targetId = `file:${resolvedPath}`;
-        const isTypeOnly = match[0]!.includes('import type');
         edges.push({
           from: fileId,
           to: targetId,
@@ -451,6 +457,57 @@ export class CodeIngestor {
     return edges;
   }
 
+  private extractImportPaths(
+    content: string,
+    lang: string
+  ): Array<{ importPath: string; isTypeOnly: boolean }> {
+    const results: Array<{ importPath: string; isTypeOnly: boolean }> = [];
+
+    if (lang === 'typescript' || lang === 'javascript') {
+      const importRegex = /import\s+(?:type\s+)?(?:\{[^}]*\}|[\w*]+)\s+from\s+['"]([^'"]+)['"]/g;
+      let match: RegExpExecArray | null;
+      while ((match = importRegex.exec(content)) !== null) {
+        results.push({
+          importPath: match[1]!,
+          isTypeOnly: match[0]!.includes('import type'),
+        });
+      }
+    } else if (lang === 'python') {
+      // from X import Y  or  import X
+      const fromImport = /(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))/g;
+      let match: RegExpExecArray | null;
+      while ((match = fromImport.exec(content)) !== null) {
+        const importPath = (match[1] ?? match[2])!;
+        // Convert dotted to relative path for local imports
+        if (importPath.startsWith('.')) {
+          results.push({ importPath, isTypeOnly: false });
+        } else {
+          results.push({ importPath: importPath.replace(/\./g, '/'), isTypeOnly: false });
+        }
+      }
+    } else if (lang === 'go') {
+      const goImport = /"([^"]+)"/g;
+      let match: RegExpExecArray | null;
+      while ((match = goImport.exec(content)) !== null) {
+        results.push({ importPath: match[1]!, isTypeOnly: false });
+      }
+    } else if (lang === 'rust') {
+      const useDecl = /use\s+((?:crate|super|self)(?:::\w+)+)/g;
+      let match: RegExpExecArray | null;
+      while ((match = useDecl.exec(content)) !== null) {
+        results.push({ importPath: match[1]!, isTypeOnly: false });
+      }
+    } else if (lang === 'java') {
+      const javaImport = /import\s+(?:static\s+)?([\w.]+(?:\.\*)?)\s*;/g;
+      let match: RegExpExecArray | null;
+      while ((match = javaImport.exec(content)) !== null) {
+        results.push({ importPath: match[1]!, isTypeOnly: false });
+      }
+    }
+
+    return results;
+  }
+
   private async resolveImportPath(
     fromFile: string,
     importPath: string,
@@ -460,7 +517,7 @@ export class CodeIngestor {
     const resolved = path.normalize(path.join(fromDir, importPath)).replace(/\\/g, '/');
 
     // Try with extensions
-    const extensions = ['.ts', '.tsx', '.js', '.jsx'];
+    const extensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java'];
     for (const ext of extensions) {
       const candidate = resolved.replace(/\.js$/, '') + ext;
       const fullPath = path.join(rootDir, candidate);
@@ -473,7 +530,8 @@ export class CodeIngestor {
     }
 
     // Try as directory with index
-    for (const ext of extensions) {
+    const indexExtensions = ['.ts', '.tsx', '.js', '.jsx'];
+    for (const ext of indexExtensions) {
       const candidate = path.join(resolved, `index${ext}`).replace(/\\/g, '/');
       const fullPath = path.join(rootDir, candidate);
       try {
@@ -482,6 +540,15 @@ export class CodeIngestor {
       } catch {
         // File does not exist, try next
       }
+    }
+
+    // Try as directory with __init__.py (Python)
+    const pyInit = path.join(resolved, '__init__.py').replace(/\\/g, '/');
+    try {
+      await fs.access(path.join(rootDir, pyInit));
+      return pyInit;
+    } catch {
+      // Not found
     }
 
     return null;
@@ -533,6 +600,10 @@ export class CodeIngestor {
   private detectLanguage(filePath: string): string {
     if (/\.tsx?$/.test(filePath)) return 'typescript';
     if (/\.jsx?$/.test(filePath)) return 'javascript';
+    if (/\.py$/.test(filePath)) return 'python';
+    if (/\.go$/.test(filePath)) return 'go';
+    if (/\.rs$/.test(filePath)) return 'rust';
+    if (/\.java$/.test(filePath)) return 'java';
     return 'unknown';
   }
 
@@ -542,7 +613,8 @@ export class CodeIngestor {
    * Format: // @req <feature-name>#<index>
    */
   private extractReqAnnotations(fileContents: Map<string, string>, rootDir: string): number {
-    const REQ_TAG = /\/\/\s*@req\s+([\w-]+)#(\d+)/g;
+    // Matches // @req, # @req (Python), and /* @req */ style comments
+    const REQ_TAG = /(?:\/\/|#|\/\*)\s*@req\s+([\w-]+)#(\d+)/g;
     const reqNodes = this.store.findNodes({ type: 'requirement' });
     let edgesAdded = 0;
 
