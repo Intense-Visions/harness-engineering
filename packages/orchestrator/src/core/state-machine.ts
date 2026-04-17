@@ -215,6 +215,12 @@ function handleWorkerExit(
     // issues to be re-dispatched as soon as a slot reopened.
     next.completed.add(issueId);
     next.claimed.delete(issueId);
+    // Clean up the worktree now that the agent has finished and shipped a PR.
+    effects.push({
+      type: 'cleanWorkspace',
+      issueId,
+      identifier: entry?.identifier ?? issueId,
+    });
     return { nextState: next, effects };
   } else {
     const nextAttempt = (attempt ?? 0) + 1;
