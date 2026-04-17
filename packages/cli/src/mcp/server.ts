@@ -104,7 +104,12 @@ import {
   generateAgentDefinitionsDefinition,
   handleGenerateAgentDefinitions,
 } from './tools/agent-definitions.js';
-import { runSecurityScanDefinition, handleRunSecurityScan } from './tools/security.js';
+import {
+  runSecurityScanDefinition,
+  handleRunSecurityScan,
+  getSecurityTrendsDefinition,
+  handleGetSecurityTrends,
+} from './tools/security.js';
 import { manageRoadmapDefinition, handleManageRoadmap } from './tools/roadmap.js';
 import { emitInteractionDefinition, handleEmitInteraction } from './tools/interaction.js';
 import { runCodeReviewDefinition, handleRunCodeReview } from './tools/review-pipeline.js';
@@ -180,6 +185,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   ingestSourceDefinition,
   generateAgentDefinitionsDefinition,
   runSecurityScanDefinition,
+  getSecurityTrendsDefinition,
   checkPerformanceDefinition,
   getPerfBaselinesDefinition,
   updatePerfBaselinesDefinition,
@@ -238,6 +244,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   ingest_source: handleIngestSource as ToolHandler,
   generate_agent_definitions: handleGenerateAgentDefinitions as ToolHandler,
   run_security_scan: handleRunSecurityScan as ToolHandler,
+  get_security_trends: handleGetSecurityTrends as ToolHandler,
   check_performance: handleCheckPerformance as ToolHandler,
   get_perf_baselines: handleGetPerfBaselines as ToolHandler,
   update_perf_baselines: handleUpdatePerfBaselines as ToolHandler,
