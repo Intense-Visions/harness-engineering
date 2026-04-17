@@ -99,6 +99,7 @@ export class Orchestrator extends EventEmitter {
   private promptTemplate: string;
   private server?: OrchestratorServer;
   private interval?: ReturnType<typeof setTimeout> | undefined;
+  private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
   private localRunner: AgentRunner | null;
@@ -1340,6 +1341,20 @@ export class Orchestrator extends EventEmitter {
 
     scheduleNextTick();
     void this.tick(); // Initial tick (no jitter)
+
+    // Heartbeat: refresh claims for all running issues on a separate interval.
+    // Default interval is half the polling interval so claims stay fresh between ticks.
+    const heartbeatMs = Math.max(5000, Math.floor(intervalMs / 2));
+    this.heartbeatInterval = setInterval(() => {
+      if (this.claimManager) {
+        const runningIds = Array.from(this.state.running.keys());
+        if (runningIds.length > 0) {
+          void this.claimManager.heartbeat(runningIds).catch((err) => {
+            this.logger.warn('Heartbeat failed', { error: String(err) });
+          });
+        }
+      }
+    }, heartbeatMs);
   }
 
   /**
@@ -1349,6 +1364,10 @@ export class Orchestrator extends EventEmitter {
     if (this.interval) {
       clearTimeout(this.interval);
       this.interval = undefined;
+    }
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
     }
     if (this.server) {
       this.server.stop();
