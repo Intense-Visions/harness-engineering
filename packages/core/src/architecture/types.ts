@@ -113,6 +113,48 @@ export const ConstraintRuleSchema = z.object({
 
 export type ConstraintRule = z.infer<typeof ConstraintRuleSchema>;
 
+// --- Violation History (Constraint Emergence) ---
+
+export const ViolationSnapshotSchema = z.object({
+  timestamp: z.string().datetime(),
+  violations: z.array(ViolationSchema),
+});
+
+export type ViolationSnapshot = z.infer<typeof ViolationSnapshotSchema>;
+
+export const ViolationHistorySchema = z.object({
+  version: z.literal(1),
+  snapshots: z.array(ViolationSnapshotSchema),
+});
+
+export type ViolationHistory = z.infer<typeof ViolationHistorySchema>;
+
+// --- Emergent Constraint Suggestion ---
+
+export const EmergenceConfidenceSchema = z.enum(['low', 'medium', 'high']);
+export type EmergenceConfidence = z.infer<typeof EmergenceConfidenceSchema>;
+
+export const EmergentConstraintSuggestionSchema = z.object({
+  suggestedRule: ConstraintRuleSchema,
+  confidence: EmergenceConfidenceSchema,
+  occurrences: z.number(),
+  uniqueFiles: z.number(),
+  pattern: z.string(),
+  sampleViolations: z.array(ViolationSchema),
+  rationale: z.string(),
+});
+
+export type EmergentConstraintSuggestion = z.infer<typeof EmergentConstraintSuggestionSchema>;
+
+export const EmergenceResultSchema = z.object({
+  suggestions: z.array(EmergentConstraintSuggestionSchema),
+  totalViolationsAnalyzed: z.number(),
+  windowWeeks: z.number(),
+  minOccurrences: z.number(),
+});
+
+export type EmergenceResult = z.infer<typeof EmergenceResultSchema>;
+
 // --- Collector Interface ---
 
 /**
