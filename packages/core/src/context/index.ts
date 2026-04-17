@@ -25,6 +25,18 @@ export { contextBudget } from './budget';
 export type { TokenBudget, TokenBudgetOverrides } from './budget.types';
 
 /**
+ * Section parser for progressive skill content loading.
+ */
+export { parseSections, extractLevel } from './section-parser';
+export type { ParsedSection } from './section-parser';
+
+/**
+ * Progressive skill loading with token budget management.
+ */
+export { computeLoadPlan, DEFAULT_LOADER_CONFIG } from './progressive-loader';
+export type { LoaderConfig, SkillLoadPlan } from './progressive-loader';
+
+/**
  * Context filtering to select relevant files and information for specific workflow phases.
  */
 export { contextFilter, getPhaseCategories } from './filter';
