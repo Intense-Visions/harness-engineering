@@ -108,6 +108,72 @@ export class RoadmapTrackerAdapter implements IssueTrackerClient {
     }
   }
 
+  /**
+   * Claims an issue by transitioning its status to "in-progress" and
+   * writing the orchestratorId into the assignee field. Idempotent if
+   * already claimed by the same orchestratorId.
+   */
+  async claimIssue(issueId: string, orchestratorId: string): Promise<Result<void, Error>> {
+    try {
+      if (!this.config.filePath) return Err(new Error('Missing filePath'));
+
+      const content = await fs.readFile(this.config.filePath, 'utf-8');
+      const roadmapResult = parseRoadmap(content);
+      if (!roadmapResult.ok) return roadmapResult as unknown as Result<void, Error>;
+
+      const roadmap = roadmapResult.value;
+      const target = this.findFeatureById(roadmap.milestones, issueId);
+      if (!target) return Ok(undefined);
+
+      // Idempotent: already claimed by same orchestrator
+      if (target.status === 'in-progress' && target.assignee === orchestratorId) {
+        return Ok(undefined);
+      }
+
+      target.status = 'in-progress' as FeatureStatus;
+      target.assignee = orchestratorId;
+      await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
+      return Ok(undefined);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * Releases a claimed issue by transitioning back to the first active
+   * state and clearing the assignee field.
+   */
+  async releaseIssue(issueId: string): Promise<Result<void, Error>> {
+    try {
+      if (!this.config.filePath) return Err(new Error('Missing filePath'));
+
+      const activeState = this.config.activeStates[0];
+      if (!activeState) {
+        return Err(new Error('Tracker config has no activeStates; cannot release'));
+      }
+
+      const content = await fs.readFile(this.config.filePath, 'utf-8');
+      const roadmapResult = parseRoadmap(content);
+      if (!roadmapResult.ok) return roadmapResult as unknown as Result<void, Error>;
+
+      const roadmap = roadmapResult.value;
+      const target = this.findFeatureById(roadmap.milestones, issueId);
+      if (!target) return Ok(undefined);
+
+      // Already in an active state and unassigned -- no-op
+      if (this.config.activeStates.includes(target.status) && target.assignee === null) {
+        return Ok(undefined);
+      }
+
+      target.status = activeState as FeatureStatus;
+      target.assignee = null;
+      await fs.writeFile(this.config.filePath, serializeRoadmap(roadmap), 'utf-8');
+      return Ok(undefined);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
   private findFeatureById(
     milestones: { features: RoadmapFeature[] }[],
     issueId: string
