@@ -37,6 +37,8 @@ export interface RoadmapFeature {
   priority: Priority | null;
   /** External tracker ID (e.g., "github:owner/repo#42") — null if not synced */
   externalId: string | null;
+  /** ISO timestamp of last claim/heartbeat update — null if never set */
+  updatedAt: string | null;
 }
 
 /**

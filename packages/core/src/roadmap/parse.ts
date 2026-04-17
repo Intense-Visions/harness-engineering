@@ -224,6 +224,7 @@ function parseFeatureFields(name: string, body: string): Result<RoadmapFeature> 
     assignee: optionalField(fieldMap, 'Assignee'),
     priority: priorityResult.value,
     externalId: optionalField(fieldMap, 'External-ID'),
+    updatedAt: optionalField(fieldMap, 'Updated-At'),
   });
 }
 

@@ -1482,6 +1482,7 @@ export class Orchestrator extends EventEmitter {
       maxRequestsPerSecond: this.state.maxRequestsPerSecond,
       maxInputTokensPerMinute: this.state.maxInputTokensPerMinute,
       maxOutputTokensPerMinute: this.state.maxOutputTokensPerMinute,
+      claimRejections: this.state.claimRejections,
       tickActivity: this.tickActivity,
     };
   }
