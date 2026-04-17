@@ -238,6 +238,117 @@ describe('Multi-language dependency graph', () => {
     }
   });
 
+  it('should skip external package imports (no relative path)', async () => {
+    const tsParser = makeMockParser('typescript', ['.ts'], {
+      typescript: [
+        {
+          source: 'lodash',
+          specifiers: ['get'],
+          location: { file: '', line: 1, column: 0 },
+          kind: 'value' as const,
+        },
+      ],
+    });
+
+    const result = await buildDependencyGraph(['/project/src/index.ts'], tsParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // External packages should be skipped
+      expect(result.value.edges).toHaveLength(0);
+    }
+  });
+
+  it('should handle absolute path imports', async () => {
+    const tsParser = makeMockParser('typescript', ['.ts'], {
+      typescript: [
+        {
+          source: '/absolute/path/module',
+          specifiers: [],
+          location: { file: '', line: 1, column: 0 },
+          kind: 'value' as const,
+        },
+      ],
+    });
+
+    const result = await buildDependencyGraph(['/project/src/index.ts'], tsParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.edges).toHaveLength(1);
+      expect(result.value.edges[0]?.to).toContain('.ts');
+    }
+  });
+
+  it('should use graph dependency data when provided', async () => {
+    const tsParser = makeMockParser('typescript', ['.ts'], { typescript: [] });
+
+    const result = await buildDependencyGraph([], tsParser, {
+      nodes: ['a.ts', 'b.ts'],
+      edges: [{ from: 'a.ts', to: 'b.ts', importType: 'static', line: 1 }],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.nodes).toEqual(['a.ts', 'b.ts']);
+      expect(result.value.edges).toHaveLength(1);
+    }
+  });
+
+  it('should handle parser that fails to parse files', async () => {
+    const failParser: LanguageParser = {
+      name: 'typescript',
+      extensions: ['.ts'],
+      parseFile: async () => ({
+        ok: false as const,
+        error: {
+          code: 'SYNTAX_ERROR' as const,
+          message: 'Parse failed',
+          details: {},
+          suggestions: [],
+        },
+      }),
+      extractImports: () => Ok([] as Import[]),
+      extractExports: () => Ok([] as Export[]),
+      health: async () => Ok({ available: true }),
+    };
+
+    const result = await buildDependencyGraph(['/project/src/broken.ts'], failParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // File should be skipped but still in nodes
+      expect(result.value.nodes).toHaveLength(1);
+      expect(result.value.edges).toHaveLength(0);
+    }
+  });
+
+  it('should handle parser that fails to extract imports', async () => {
+    const failExtractParser: LanguageParser = {
+      name: 'typescript',
+      extensions: ['.ts'],
+      parseFile: async () => Ok({ type: 'Program', body: {}, language: 'typescript' } as AST),
+      extractImports: () => ({
+        ok: false as const,
+        error: {
+          code: 'SYNTAX_ERROR' as const,
+          message: 'Extract failed',
+          details: {},
+          suggestions: [],
+        },
+      }),
+      extractExports: () => Ok([] as Export[]),
+      health: async () => Ok({ available: true }),
+    };
+
+    const result = await buildDependencyGraph(['/project/src/index.ts'], failExtractParser);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.edges).toHaveLength(0);
+    }
+  });
+
   it('should still accept a single LanguageParser for backward compat', async () => {
     const parser = makeMockParser('typescript', ['.ts', '.tsx'], {
       typescript: [],
