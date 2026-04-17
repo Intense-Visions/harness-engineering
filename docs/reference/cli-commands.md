@@ -15,6 +15,10 @@ Add a component to the project
 - `type` (required) — Component type (layer, module, doc, skill, persona)
 - `name` (required) — Component name
 
+### `harness audit-protected`
+
+Report all harness-ignore protected code regions
+
 ### `harness blueprint [path]`
 
 Generate a self-contained, interactive blueprint of the codebase
