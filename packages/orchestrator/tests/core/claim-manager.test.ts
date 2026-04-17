@@ -49,9 +49,7 @@ describe('ClaimManager', () => {
   describe('claimAndVerify', () => {
     it('returns claimed when assignee matches after verification', async () => {
       const issue = makeIssue({ assignee: orchestratorId, state: 'in-progress' });
-      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(
-        Ok(new Map([['id-1', issue]]))
-      );
+      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(Ok(new Map([['id-1', issue]])));
 
       const result = await manager.claimAndVerify('id-1');
       expect(result.ok).toBe(true);
@@ -62,9 +60,7 @@ describe('ClaimManager', () => {
 
     it('returns rejected when assignee does not match', async () => {
       const issue = makeIssue({ assignee: 'other-orch', state: 'in-progress' });
-      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(
-        Ok(new Map([['id-1', issue]]))
-      );
+      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(Ok(new Map([['id-1', issue]])));
 
       const result = await manager.claimAndVerify('id-1');
       expect(result.ok).toBe(true);
@@ -72,9 +68,7 @@ describe('ClaimManager', () => {
     });
 
     it('returns rejected when issue not found after claim', async () => {
-      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(
-        Ok(new Map())
-      );
+      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(Ok(new Map()));
 
       const result = await manager.claimAndVerify('id-1');
       expect(result.ok).toBe(true);
@@ -82,18 +76,14 @@ describe('ClaimManager', () => {
     });
 
     it('returns error when claimIssue fails', async () => {
-      vi.mocked(tracker.claimIssue).mockResolvedValue(
-        Err(new Error('write failed'))
-      );
+      vi.mocked(tracker.claimIssue).mockResolvedValue(Err(new Error('write failed')));
 
       const result = await manager.claimAndVerify('id-1');
       expect(result.ok).toBe(false);
     });
 
     it('returns error when fetchIssueStatesByIds fails', async () => {
-      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(
-        Err(new Error('read failed'))
-      );
+      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(Err(new Error('read failed')));
 
       const result = await manager.claimAndVerify('id-1');
       expect(result.ok).toBe(false);
@@ -101,9 +91,7 @@ describe('ClaimManager', () => {
 
     it('returns rejected when assignee is null (claimed by nobody)', async () => {
       const issue = makeIssue({ assignee: null, state: 'in-progress' });
-      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(
-        Ok(new Map([['id-1', issue]]))
-      );
+      vi.mocked(tracker.fetchIssueStatesByIds).mockResolvedValue(Ok(new Map([['id-1', issue]])));
 
       const result = await manager.claimAndVerify('id-1');
       expect(result.ok).toBe(true);
@@ -119,9 +107,7 @@ describe('ClaimManager', () => {
     });
 
     it('propagates tracker errors', async () => {
-      vi.mocked(tracker.releaseIssue).mockResolvedValue(
-        Err(new Error('release failed'))
-      );
+      vi.mocked(tracker.releaseIssue).mockResolvedValue(Err(new Error('release failed')));
       const result = await manager.release('id-1');
       expect(result.ok).toBe(false);
     });
@@ -169,6 +155,89 @@ describe('ClaimManager', () => {
     it('returns true when updatedAt is null', () => {
       const issue = makeIssue({ updatedAt: null });
       expect(manager.isStale(issue, 600_000)).toBe(true);
+    });
+  });
+
+  describe('reconcileOnStartup', () => {
+    it('releases orphaned issues assigned to this orchestrator', async () => {
+      const orphan1 = makeIssue({ id: 'id-1', assignee: orchestratorId, state: 'in-progress' });
+      const orphan2 = makeIssue({ id: 'id-2', assignee: orchestratorId, state: 'in-progress' });
+      vi.mocked(tracker.fetchIssuesByStates).mockResolvedValue(Ok([orphan1, orphan2]));
+
+      const result = await manager.reconcileOnStartup(new Set());
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value).toEqual(['id-1', 'id-2']);
+      }
+      expect(tracker.releaseIssue).toHaveBeenCalledWith('id-1');
+      expect(tracker.releaseIssue).toHaveBeenCalledWith('id-2');
+    });
+
+    it('skips issues assigned to a different orchestrator', async () => {
+      const otherOrch = makeIssue({ id: 'id-1', assignee: 'other-orch', state: 'in-progress' });
+      vi.mocked(tracker.fetchIssuesByStates).mockResolvedValue(Ok([otherOrch]));
+
+      const result = await manager.reconcileOnStartup(new Set());
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value).toEqual([]);
+      }
+      expect(tracker.releaseIssue).not.toHaveBeenCalled();
+    });
+
+    it('skips issues that are still in the running set', async () => {
+      const running = makeIssue({ id: 'id-1', assignee: orchestratorId, state: 'in-progress' });
+      vi.mocked(tracker.fetchIssuesByStates).mockResolvedValue(Ok([running]));
+
+      const result = await manager.reconcileOnStartup(new Set(['id-1']));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value).toEqual([]);
+      }
+      expect(tracker.releaseIssue).not.toHaveBeenCalled();
+    });
+
+    it('returns Err when fetchIssuesByStates fails', async () => {
+      vi.mocked(tracker.fetchIssuesByStates).mockResolvedValue(Err(new Error('fetch failed')));
+
+      const result = await manager.reconcileOnStartup(new Set());
+      expect(result.ok).toBe(false);
+    });
+
+    it('continues releasing remaining issues when one release fails', async () => {
+      const orphan1 = makeIssue({ id: 'id-1', assignee: orchestratorId, state: 'in-progress' });
+      const orphan2 = makeIssue({ id: 'id-2', assignee: orchestratorId, state: 'in-progress' });
+      vi.mocked(tracker.fetchIssuesByStates).mockResolvedValue(Ok([orphan1, orphan2]));
+      vi.mocked(tracker.releaseIssue)
+        .mockResolvedValueOnce(Err(new Error('release failed')))
+        .mockResolvedValueOnce(Ok(undefined));
+
+      const result = await manager.reconcileOnStartup(new Set());
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // Only id-2 was successfully released
+        expect(result.value).toEqual(['id-2']);
+      }
+      expect(tracker.releaseIssue).toHaveBeenCalledTimes(2);
+    });
+
+    it('skips issues with null assignee', async () => {
+      const unassigned = makeIssue({ id: 'id-1', assignee: null, state: 'in-progress' });
+      vi.mocked(tracker.fetchIssuesByStates).mockResolvedValue(Ok([unassigned]));
+
+      const result = await manager.reconcileOnStartup(new Set());
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value).toEqual([]);
+      }
+      expect(tracker.releaseIssue).not.toHaveBeenCalled();
+    });
+
+    it('calls fetchIssuesByStates with in-progress state', async () => {
+      vi.mocked(tracker.fetchIssuesByStates).mockResolvedValue(Ok([]));
+
+      await manager.reconcileOnStartup(new Set());
+      expect(tracker.fetchIssuesByStates).toHaveBeenCalledWith(['in-progress']);
     });
   });
 });
