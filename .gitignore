@@ -54,6 +54,7 @@ temp/
 .harness/interactions/
 .harness/analyses/
 .harness/workspaces/
+.harness/security/
 
 .vitepress
 *.tsbuildinfo
