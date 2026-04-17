@@ -13,6 +13,8 @@ agents/commands/**
 
 # Generated/local harness state files
 .harness/health-snapshot.json
+.harness/skills-index.json
+.harness/stack-profile.json
 .harness/metrics/
 .harness/security/
 **/fixtures/**/.harness/
