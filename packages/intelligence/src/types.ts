@@ -83,7 +83,6 @@ export interface ComplexityScore {
 
 /**
  * Simulation result — output of the Pre-Execution Simulation Layer (PESL).
- * Placeholder for Phase 2.
  */
 export interface SimulationResult {
   simulatedPlan: string[];
