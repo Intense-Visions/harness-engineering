@@ -60,6 +60,21 @@ export interface CommandExecutor {
   exec(command: string[], cwd: string): Promise<void>;
 }
 
+/**
+ * Interface for managing branches and PRs for maintenance tasks.
+ * Matches PRManager's public API shape for DI.
+ */
+export interface PRLifecycleManager {
+  ensureBranch(
+    branchName: string,
+    baseBranch: string
+  ): Promise<{ created: boolean; recreated: boolean }>;
+  ensurePR(
+    task: TaskDefinition,
+    runSummary: string
+  ): Promise<{ prUrl: string; prUpdated: boolean }>;
+}
+
 export interface TaskRunnerOptions {
   config: MaintenanceConfig;
   checkRunner: CheckCommandRunner;
@@ -67,6 +82,10 @@ export interface TaskRunnerOptions {
   commandExecutor: CommandExecutor;
   /** Project root directory for running commands */
   cwd: string;
+  /** Optional PR lifecycle manager for branch/PR operations */
+  prManager?: PRLifecycleManager;
+  /** Base branch for PR operations (defaults to 'main') */
+  baseBranch?: string;
 }
 
 /**
@@ -84,6 +103,8 @@ export class TaskRunner {
   private agentDispatcher: AgentDispatcher;
   private commandExecutor: CommandExecutor;
   private cwd: string;
+  private prManager: PRLifecycleManager | null;
+  private baseBranch: string;
 
   constructor(options: TaskRunnerOptions) {
     this.config = options.config;
@@ -91,6 +112,8 @@ export class TaskRunner {
     this.agentDispatcher = options.agentDispatcher;
     this.commandExecutor = options.commandExecutor;
     this.cwd = options.cwd;
+    this.prManager = options.prManager ?? null;
+    this.baseBranch = options.baseBranch ?? 'main';
   }
 
   /**
@@ -153,6 +176,10 @@ export class TaskRunner {
       };
     }
 
+    if (this.prManager) {
+      await this.prManager.ensureBranch(task.branch, this.baseBranch);
+    }
+
     const backendName = this.resolveBackend(task.id);
 
     let agentResult;
@@ -177,6 +204,15 @@ export class TaskRunner {
       };
     }
 
+    let prUrl: string | null = null;
+    let prUpdated = false;
+    if (this.prManager && agentResult.producedCommits) {
+      const summary = `Findings: ${checkResult.findings}, Fixed: ${agentResult.fixed}`;
+      const prResult = await this.prManager.ensurePR(task, summary);
+      prUrl = prResult.prUrl;
+      prUpdated = prResult.prUpdated;
+    }
+
     return {
       taskId: task.id,
       startedAt,
@@ -184,8 +220,8 @@ export class TaskRunner {
       status: 'success',
       findings: checkResult.findings,
       fixed: agentResult.fixed,
-      prUrl: null, // PR creation is handled by PRManager in Phase 4
-      prUpdated: false,
+      prUrl,
+      prUpdated,
     };
   }
 
@@ -200,6 +236,10 @@ export class TaskRunner {
       return this.failureResult(task.id, startedAt, 'pure-ai task missing branch');
     }
 
+    if (this.prManager) {
+      await this.prManager.ensureBranch(task.branch!, this.baseBranch);
+    }
+
     const backendName = this.resolveBackend(task.id);
     const agentResult = await this.agentDispatcher.dispatch(
       task.fixSkill,
@@ -208,6 +248,15 @@ export class TaskRunner {
       this.cwd
     );
 
+    let prUrl: string | null = null;
+    let prUpdated = false;
+    if (this.prManager && agentResult.producedCommits) {
+      const summary = `Fixed: ${agentResult.fixed}`;
+      const prResult = await this.prManager.ensurePR(task, summary);
+      prUrl = prResult.prUrl;
+      prUpdated = prResult.prUpdated;
+    }
+
     return {
       taskId: task.id,
       startedAt,
@@ -215,8 +264,8 @@ export class TaskRunner {
       status: agentResult.producedCommits ? 'success' : 'no-issues',
       findings: 0,
       fixed: agentResult.fixed,
-      prUrl: null, // PR creation is handled by PRManager in Phase 4
-      prUpdated: false,
+      prUrl,
+      prUpdated,
     };
   }
 
