@@ -57,6 +57,9 @@ import { GeminiBackend } from './agent/backends/gemini';
 import { AnthropicBackend } from './agent/backends/anthropic';
 import { LocalBackend } from './agent/backends/local';
 import { PiBackend } from './agent/backends/pi';
+import { ContainerBackend } from './agent/backends/container';
+import { DockerRuntime } from './agent/runtime/docker';
+import { createSecretBackend } from './agent/secrets/index';
 import { OrchestratorServer } from './server/http';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
@@ -193,27 +196,48 @@ export class Orchestrator extends EventEmitter {
   }
 
   private createBackend(): AgentBackend {
+    let backend: AgentBackend;
+
     if (this.config.agent.backend === 'mock') {
-      return new MockBackend();
+      backend = new MockBackend();
     } else if (this.config.agent.backend === 'claude') {
-      return new ClaudeBackend(this.config.agent.command);
+      backend = new ClaudeBackend(this.config.agent.command);
     } else if (this.config.agent.backend === 'openai') {
-      return new OpenAIBackend({
+      backend = new OpenAIBackend({
         ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
         ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
       });
     } else if (this.config.agent.backend === 'gemini') {
-      return new GeminiBackend({
+      backend = new GeminiBackend({
         ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
         ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
       });
     } else if (this.config.agent.backend === 'anthropic') {
-      return new AnthropicBackend({
+      backend = new AnthropicBackend({
         ...(this.config.agent.model !== undefined && { model: this.config.agent.model }),
         ...(this.config.agent.apiKey !== undefined && { apiKey: this.config.agent.apiKey }),
       });
+    } else {
+      throw new Error(`Unsupported agent backend: ${this.config.agent.backend}`);
     }
-    throw new Error(`Unsupported agent backend: ${this.config.agent.backend}`);
+
+    // Wrap with container sandboxing when configured
+    if (this.config.agent.sandboxPolicy === 'docker' && this.config.agent.container) {
+      const runtime = new DockerRuntime();
+      const secretBackend = this.config.agent.secrets
+        ? createSecretBackend(this.config.agent.secrets)
+        : null;
+      const secretKeys = this.config.agent.secrets?.keys ?? [];
+      backend = new ContainerBackend(
+        backend,
+        runtime,
+        secretBackend,
+        this.config.agent.container,
+        secretKeys
+      );
+    }
+
+    return backend;
   }
 
   private createLocalBackend(): AgentBackend | null {

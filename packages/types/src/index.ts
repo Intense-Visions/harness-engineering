@@ -124,3 +124,18 @@ export type {
   EscalationConfig,
   IntelligenceConfig,
 } from './orchestrator';
+
+// --- Container & Secrets ---
+export type {
+  ContainerErrorCategory,
+  ContainerError,
+  ContainerCreateOpts,
+  ContainerExecOpts,
+  ContainerHandle,
+  ContainerRuntime,
+  SecretErrorCategory,
+  SecretError,
+  SecretBackend,
+  ContainerConfig,
+  SecretConfig,
+} from './container';
