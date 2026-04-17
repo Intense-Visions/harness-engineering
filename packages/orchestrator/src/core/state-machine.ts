@@ -175,7 +175,6 @@ function handleTick(
     effects.push({
       type: 'claim',
       issue,
-      orchestratorId: config.orchestratorId ?? '',
       backend,
       attempt: null,
     });
@@ -474,10 +473,10 @@ function handleRetryFired(
           ? 'local'
           : 'primary';
     effects.push({
-      type: 'dispatch',
+      type: 'claim',
       issue,
-      attempt: retryEntry.attempt,
       backend,
+      attempt: retryEntry.attempt,
     });
   }
 
@@ -540,10 +539,7 @@ function handleStallDetected(
   return { nextState: next, effects };
 }
 
-function handleClaimRejected(
-  state: OrchestratorState,
-  issueId: string
-): ApplyEventResult {
+function handleClaimRejected(state: OrchestratorState, issueId: string): ApplyEventResult {
   const next = cloneState(state);
   next.claimed.delete(issueId);
   next.running.delete(issueId);

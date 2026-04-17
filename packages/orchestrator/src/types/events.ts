@@ -145,7 +145,6 @@ export interface EscalateEffect {
 export interface ClaimEffect {
   type: 'claim';
   issue: Issue;
-  orchestratorId: string;
   /** Which backend to dispatch to after a successful claim */
   backend?: 'local' | 'primary';
   /** Retry attempt number, if this is a retry dispatch */

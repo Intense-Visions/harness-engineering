@@ -623,13 +623,21 @@ export class Orchestrator extends EventEmitter {
     return { concernSignals, enrichedSpecs, complexityScores, simulationResults };
   }
 
-  public async asyncTick(): Promise<void> {
-    // Lazy-init ClaimManager (can't await in constructor)
+  /**
+   * Lazily initializes the ClaimManager if it hasn't been created yet.
+   * Called from both start() and asyncTick() to avoid duplicating the init block.
+   */
+  private async ensureClaimManager(): Promise<void> {
     if (!this.claimManager) {
       const orchestratorId = await this.orchestratorIdPromise;
       this.claimManager = new ClaimManager(this.tracker, orchestratorId);
       this.logger.info(`Orchestrator identity resolved: ${orchestratorId}`);
     }
+  }
+
+  public async asyncTick(): Promise<void> {
+    // Ensure ClaimManager is initialized (no-op if start() already ran)
+    await this.ensureClaimManager();
 
     // Load persisted data on first tick (can't await in constructor)
     if (this.pipeline && this.graphStore && !this.graphLoaded) {
@@ -1371,11 +1379,7 @@ export class Orchestrator extends EventEmitter {
     }
 
     // Resolve orchestrator identity and initialize ClaimManager before first tick
-    if (!this.claimManager) {
-      const orchestratorId = await this.orchestratorIdPromise;
-      this.claimManager = new ClaimManager(this.tracker, orchestratorId);
-      this.logger.info(`Orchestrator identity resolved: ${orchestratorId}`);
-    }
+    await this.ensureClaimManager();
 
     // Startup reconciliation: release orphaned claims from previous crash
     const runningIssueIds = new Set(this.state.running.keys());

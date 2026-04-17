@@ -288,6 +288,7 @@ describe('applyEvent - worker_exit', () => {
 
     const { nextState, effects } = applyEvent(state, event, config);
     expect(effects.find((e) => e.type === 'dispatch')).toBeUndefined();
+    expect(effects.find((e) => e.type === 'claim')).toBeUndefined();
     expect(effects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
     expect(nextState.claimed.has('id-1')).toBe(false);
     expect(nextState.retryAttempts.has('id-1')).toBe(false);
@@ -357,7 +358,7 @@ describe('applyEvent - worker_exit', () => {
 });
 
 describe('applyEvent - retry_fired', () => {
-  it('should dispatch issue if found in candidates and slots available', () => {
+  it('should claim issue if found in candidates and slots available', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
     state.claimed.add('id-1');
@@ -380,11 +381,11 @@ describe('applyEvent - retry_fired', () => {
     };
 
     const { effects } = applyEvent(state, event, config);
-    const dispatch = effects.find((e) => e.type === 'dispatch');
-    expect(dispatch).toBeDefined();
-    if (dispatch && dispatch.type === 'dispatch') {
-      expect(dispatch.issue.id).toBe('id-1');
-      expect(dispatch.attempt).toBe(1);
+    const claim = effects.find((e) => e.type === 'claim');
+    expect(claim).toBeDefined();
+    if (claim && claim.type === 'claim') {
+      expect((claim as ClaimEffect).issue.id).toBe('id-1');
+      expect((claim as ClaimEffect).attempt).toBe(1);
     }
   });
 

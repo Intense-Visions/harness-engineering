@@ -4,6 +4,8 @@ import { Ok } from '@harness-engineering/types';
 export interface ClaimManagerConfig {
   /** Delay in ms between claim write and verification read. Default: 2000 */
   verifyDelayMs?: number;
+  /** State name used for claimed/in-progress issues. Default: 'in-progress' */
+  claimedState?: string;
 }
 
 /**
@@ -16,6 +18,7 @@ export class ClaimManager {
   private tracker: IssueTrackerClient;
   private orchestratorId: string;
   private verifyDelayMs: number;
+  private claimedState: string;
 
   constructor(
     tracker: IssueTrackerClient,
@@ -25,6 +28,7 @@ export class ClaimManager {
     this.tracker = tracker;
     this.orchestratorId = orchestratorId;
     this.verifyDelayMs = config.verifyDelayMs ?? 2000;
+    this.claimedState = config.claimedState ?? 'in-progress';
   }
 
   /**
@@ -85,7 +89,7 @@ export class ClaimManager {
    * owning orchestrator may have crashed).
    */
   isStale(issue: Issue, ttlMs: number): boolean {
-    if (!issue.updatedAt) return true;
+    if (!issue.updatedAt) return false; // Unknown freshness = not stale (conservative)
     const age = Date.now() - new Date(issue.updatedAt).getTime();
     return age > ttlMs;
   }
@@ -101,7 +105,7 @@ export class ClaimManager {
    * @returns List of issue IDs that were released
    */
   async reconcileOnStartup(runningIssueIds: ReadonlySet<string>): Promise<Result<string[], Error>> {
-    const fetchResult = await this.tracker.fetchIssuesByStates(['in-progress']);
+    const fetchResult = await this.tracker.fetchIssuesByStates([this.claimedState]);
     if (!fetchResult.ok) return fetchResult as Result<never, Error>;
 
     const released: string[] = [];
