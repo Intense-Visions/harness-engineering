@@ -68,6 +68,12 @@ import { computeRateLimitDelay } from './core/rate-limiter';
 import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
 import { MaintenanceScheduler } from './maintenance/scheduler';
+import { TaskRunner } from './maintenance/task-runner';
+import type {
+  CheckCommandRunner,
+  AgentDispatcher,
+  CommandExecutor,
+} from './maintenance/task-runner';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 
 const CONNECTION_ERROR_PATTERNS = [
@@ -240,6 +246,50 @@ export class Orchestrator extends EventEmitter {
     }
 
     return backend;
+  }
+
+  /**
+   * Creates a TaskRunner for the maintenance scheduler.
+   * Provides stub implementations for check/agent/command execution.
+   * Phase 4 (PRManager) and Phase 5 (Reporter) will enhance these.
+   */
+  private createMaintenanceTaskRunner(): TaskRunner {
+    const checkRunner: CheckCommandRunner = {
+      run: async (command: string[], cwd: string) => {
+        // Stub: Phase 4 will integrate with real check commands.
+        // For now, return no findings so mechanical-ai tasks skip AI dispatch.
+        this.logger.info('Maintenance check runner invoked (stub)', { command, cwd });
+        return { passed: true, findings: 0, output: '' };
+      },
+    };
+
+    const agentDispatcher: AgentDispatcher = {
+      dispatch: async (skill: string, branch: string, backendName: string, cwd: string) => {
+        // Stub: Phase 4 will integrate with real AgentRunner dispatch.
+        this.logger.info('Maintenance agent dispatcher invoked (stub)', {
+          skill,
+          branch,
+          backendName,
+          cwd,
+        });
+        return { producedCommits: false, fixed: 0 };
+      },
+    };
+
+    const commandExecutor: CommandExecutor = {
+      exec: async (command: string[], cwd: string) => {
+        // Stub: Phase 4 will integrate with real command execution.
+        this.logger.info('Maintenance command executor invoked (stub)', { command, cwd });
+      },
+    };
+
+    return new TaskRunner({
+      config: this.config.maintenance!,
+      checkRunner,
+      agentDispatcher,
+      commandExecutor,
+      cwd: this.projectRoot,
+    });
   }
 
   private createLocalBackend(): AgentBackend | null {
@@ -1696,13 +1746,21 @@ export class Orchestrator extends EventEmitter {
 
     // Start maintenance scheduler if enabled
     if (this.config.maintenance?.enabled) {
+      const taskRunner = this.createMaintenanceTaskRunner();
       this.maintenanceScheduler = new MaintenanceScheduler({
         config: this.config.maintenance,
         claimManager: this.claimManager!,
         logger: this.logger,
         onTaskDue: async (task) => {
           this.logger.info(`Maintenance task due: ${task.id}`, { taskId: task.id });
-          // Phase 3 will wire this to TaskRunner.run(task)
+          const result = await taskRunner.run(task);
+          this.maintenanceScheduler!.recordRun(result);
+          this.logger.info(`Maintenance task completed: ${task.id}`, {
+            taskId: task.id,
+            status: result.status,
+            findings: result.findings,
+            fixed: result.fixed,
+          });
         },
       });
       this.maintenanceScheduler.start();
