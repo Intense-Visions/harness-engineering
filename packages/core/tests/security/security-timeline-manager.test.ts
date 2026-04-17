@@ -406,4 +406,199 @@ describe('SecurityTimelineManager', () => {
       expect(id).toMatch(/^[0-9a-f]{16}$/);
     });
   });
+
+  // --- Additional branch coverage ---
+
+  describe('edge cases', () => {
+    it('load() handles schema-invalid JSON (valid JSON, wrong shape)', () => {
+      const p = timelinePath(root);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, JSON.stringify({ version: 99, bad: true }));
+      const result = manager.load();
+      expect(result).toEqual({ version: 1, snapshots: [], findingLifecycles: [] });
+    });
+
+    it('trends() with since filter', () => {
+      // Write snapshots with explicit timestamps to avoid timing issues
+      const now = Date.now();
+      const timeline: SecurityTimelineFile = {
+        version: 1,
+        snapshots: [
+          {
+            capturedAt: new Date(now - 10000).toISOString(),
+            commitHash: 'h1',
+            securityScore: 100,
+            totalFindings: 0,
+            bySeverity: { error: 0, warning: 0, info: 0 },
+            byCategory: {},
+            supplyChain: { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 },
+            suppressionCount: 0,
+            findingIds: [],
+          },
+          {
+            capturedAt: new Date(now).toISOString(),
+            commitHash: 'h2',
+            securityScore: 97,
+            totalFindings: 1,
+            bySeverity: { error: 1, warning: 0, info: 0 },
+            byCategory: {},
+            supplyChain: { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 },
+            suppressionCount: 0,
+            findingIds: ['abc'],
+          },
+        ],
+        findingLifecycles: [],
+      };
+      manager.save(timeline);
+
+      // since between the two snapshots — should only include second
+      const since = new Date(now - 5000).toISOString();
+      const result = manager.trends({ since });
+      expect(result.snapshotCount).toBe(1);
+    });
+
+    it('computeTimeToFix() with category filter', () => {
+      const now = Date.now();
+      const timeline: SecurityTimelineFile = {
+        version: 1,
+        snapshots: [],
+        findingLifecycles: [
+          {
+            findingId: 'f1',
+            ruleId: 'SEC-INJ-001',
+            category: 'injection',
+            severity: 'error',
+            file: 'src/a.ts',
+            firstSeenAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: new Date(now).toISOString(),
+            resolvedCommit: 'c2',
+          },
+          {
+            findingId: 'f2',
+            ruleId: 'SEC-XSS-001',
+            category: 'xss',
+            severity: 'warning',
+            file: 'src/b.ts',
+            firstSeenAt: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: new Date(now).toISOString(),
+            resolvedCommit: 'c3',
+          },
+        ],
+      };
+      manager.save(timeline);
+
+      const result = manager.computeTimeToFix({ category: 'injection' });
+      expect(result.overall.count).toBe(1);
+      expect(result.overall.mean).toBe(3);
+    });
+
+    it('computeTimeToFix() with since filter', () => {
+      const now = Date.now();
+      const timeline: SecurityTimelineFile = {
+        version: 1,
+        snapshots: [],
+        findingLifecycles: [
+          {
+            findingId: 'f1',
+            ruleId: 'SEC-INJ-001',
+            category: 'injection',
+            severity: 'error',
+            file: 'src/a.ts',
+            firstSeenAt: new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: new Date(now).toISOString(),
+            resolvedCommit: 'c2',
+          },
+          {
+            findingId: 'f2',
+            ruleId: 'SEC-XSS-001',
+            category: 'xss',
+            severity: 'warning',
+            file: 'src/b.ts',
+            firstSeenAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            firstSeenCommit: 'c3',
+            resolvedAt: new Date(now).toISOString(),
+            resolvedCommit: 'c4',
+          },
+        ],
+      };
+      manager.save(timeline);
+
+      // since 5 days ago — should only include f2
+      const since = new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString();
+      const result = manager.computeTimeToFix({ since });
+      expect(result.overall.count).toBe(1);
+      expect(result.overall.mean).toBe(2);
+    });
+
+    it('capture() with supply chain data', () => {
+      const supply = { critical: 2, high: 1, moderate: 3, low: 0, info: 0, total: 6 };
+      const snapshot = manager.capture(makeScanResult([]), 'sc', supply);
+      expect(snapshot.supplyChain).toEqual(supply);
+      // penalty: 2*5 + 1*3 + 3*1 = 16 → score 84
+      expect(snapshot.securityScore).toBe(84);
+    });
+
+    it('trends() with improving direction (fewer findings over time)', () => {
+      const findings = Array.from({ length: 5 }, (_, i) =>
+        makeFinding({ severity: 'error', ruleId: `r${i}`, match: `m${i}` })
+      );
+      manager.capture(makeScanResult(findings), 'bad');
+      manager.capture(makeScanResult([]), 'good');
+
+      const result = manager.trends();
+      expect(result.score.direction).toBe('improving');
+      expect(result.totalFindings.direction).toBe('improving');
+    });
+
+    it('computeTimeToFix() median with odd number of values', () => {
+      const now = Date.now();
+      const timeline: SecurityTimelineFile = {
+        version: 1,
+        snapshots: [],
+        findingLifecycles: [
+          {
+            findingId: 'f1',
+            ruleId: 'r1',
+            category: 'injection',
+            severity: 'error',
+            file: 'a.ts',
+            firstSeenAt: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: new Date(now).toISOString(),
+            resolvedCommit: 'c2',
+          },
+          {
+            findingId: 'f2',
+            ruleId: 'r2',
+            category: 'injection',
+            severity: 'error',
+            file: 'b.ts',
+            firstSeenAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: new Date(now).toISOString(),
+            resolvedCommit: 'c3',
+          },
+          {
+            findingId: 'f3',
+            ruleId: 'r3',
+            category: 'injection',
+            severity: 'error',
+            file: 'c.ts',
+            firstSeenAt: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(),
+            firstSeenCommit: 'c1',
+            resolvedAt: new Date(now).toISOString(),
+            resolvedCommit: 'c4',
+          },
+        ],
+      };
+      manager.save(timeline);
+
+      const result = manager.computeTimeToFix();
+      expect(result.overall.count).toBe(3);
+      expect(result.overall.median).toBe(3); // sorted: [1, 3, 5], median = 3
+    });
+  });
 });
