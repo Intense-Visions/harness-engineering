@@ -306,4 +306,59 @@ describe('TaskRunner', () => {
       expect(result.error).toContain('missing checkCommand');
     });
   });
+
+  describe('error handling', () => {
+    it('catches check runner errors and returns failure', async () => {
+      const checkRunner: CheckCommandRunner = {
+        run: vi.fn().mockRejectedValue(new Error('check-arch crashed')),
+      };
+      const runner = new TaskRunner(createRunnerOptions({ checkRunner }));
+
+      const result = await runner.run(ARCH_TASK);
+
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('check-arch crashed');
+    });
+
+    it('catches agent dispatcher errors and returns failure', async () => {
+      const checkRunner = createMockCheckRunner({ findings: 2 });
+      const agentDispatcher: AgentDispatcher = {
+        dispatch: vi.fn().mockRejectedValue(new Error('agent session failed')),
+      };
+      const runner = new TaskRunner(createRunnerOptions({ checkRunner, agentDispatcher }));
+
+      const result = await runner.run(ARCH_TASK);
+
+      expect(result.status).toBe('failure');
+      expect(result.error).toContain('agent session failed');
+    });
+
+    it('populates startedAt and completedAt timestamps', async () => {
+      const runner = new TaskRunner(
+        createRunnerOptions({
+          checkRunner: createMockCheckRunner({ findings: 0 }),
+        })
+      );
+
+      const result = await runner.run(ARCH_TASK);
+
+      expect(result.startedAt).toBeTruthy();
+      expect(result.completedAt).toBeTruthy();
+      expect(new Date(result.startedAt).getTime()).toBeLessThanOrEqual(
+        new Date(result.completedAt).getTime()
+      );
+    });
+
+    it('includes taskId in all results', async () => {
+      const runner = new TaskRunner(
+        createRunnerOptions({
+          checkRunner: createMockCheckRunner({ findings: 0 }),
+        })
+      );
+
+      const result = await runner.run(ARCH_TASK);
+
+      expect(result.taskId).toBe('arch-violations');
+    });
+  });
 });
