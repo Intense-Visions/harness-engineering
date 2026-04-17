@@ -1363,11 +1363,34 @@ export class Orchestrator extends EventEmitter {
 
   /**
    * Starts the polling loop and the internal HTTP server.
+   * Runs startup reconciliation to release orphaned claims before the first tick.
    */
-  public start(): void {
+  public async start(): Promise<void> {
     if (this.server) {
       void this.server.start();
     }
+
+    // Resolve orchestrator identity and initialize ClaimManager before first tick
+    if (!this.claimManager) {
+      const orchestratorId = await this.orchestratorIdPromise;
+      this.claimManager = new ClaimManager(this.tracker, orchestratorId);
+      this.logger.info(`Orchestrator identity resolved: ${orchestratorId}`);
+    }
+
+    // Startup reconciliation: release orphaned claims from previous crash
+    const runningIssueIds = new Set(this.state.running.keys());
+    const reconcileResult = await this.claimManager.reconcileOnStartup(runningIssueIds);
+    if (!reconcileResult.ok) {
+      this.logger.warn('Startup reconciliation failed, proceeding with first tick', {
+        error: String(reconcileResult.error),
+      });
+    } else if (reconcileResult.value.length > 0) {
+      this.logger.info(
+        `Startup reconciliation released ${reconcileResult.value.length} orphaned claim(s)`,
+        { releasedIds: reconcileResult.value }
+      );
+    }
+
     const intervalMs = this.config.polling.intervalMs || 30000;
     const jitterMs = this.config.polling.jitterMs ?? 0;
 
