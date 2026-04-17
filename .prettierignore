@@ -17,6 +17,7 @@ agents/commands/**
 .harness/stack-profile.json
 .harness/metrics/
 .harness/security/
+**/.harness/arch/baselines.json
 **/fixtures/**/.harness/
 
 # Intentional syntax-error test fixtures
