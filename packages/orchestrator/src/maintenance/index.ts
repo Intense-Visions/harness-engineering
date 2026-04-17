@@ -4,8 +4,8 @@
  * Phase 1 exports types and the task registry.
  * Phase 2 adds MaintenanceScheduler and cron matching.
  * Phase 3 adds TaskRunner with four execution paths.
+ * Phase 4 adds PRManager for branch and PR lifecycle.
  * Subsequent phases add:
- * - PRManager (Phase 4)
  * - Reporter (Phase 5)
  */
 
@@ -37,3 +37,13 @@ export type {
   CommandExecutor,
   TaskRunnerOptions,
 } from './task-runner';
+
+export { PRManager } from './pr-manager';
+export type {
+  GitExecutor,
+  GhExecutor,
+  EnsureBranchResult,
+  EnsurePRResult,
+  PRManagerOptions,
+  PRManagerLogger,
+} from './pr-manager';
