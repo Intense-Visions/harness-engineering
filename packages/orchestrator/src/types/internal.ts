@@ -104,4 +104,6 @@ export interface OrchestratorState {
   completed: Set<string>;
   tokenTotals: TokenTotals;
   rateLimits: RateLimitSnapshot;
+  /** Running count of claim rejections (another orchestrator won the race). */
+  claimRejections: number;
 }
