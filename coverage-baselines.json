@@ -1,15 +1,15 @@
 {
   "packages/core": {
-    "lines": 90.03,
-    "branches": 73.98,
-    "functions": 91.25,
-    "statements": 87.7
+    "lines": 89.86,
+    "branches": 73.94,
+    "functions": 91.15,
+    "statements": 87.52
   },
   "packages/graph": {
-    "lines": 95.8,
-    "branches": 80.85,
-    "functions": 97.17,
-    "statements": 94.2
+    "lines": 97.21,
+    "branches": 83.16,
+    "functions": 97.24,
+    "statements": 95.7
   },
   "packages/cli": {
     "lines": 81.19,
