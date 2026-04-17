@@ -860,6 +860,59 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Parse a `github:owner/repo#N` externalId into its parts.
+   * Returns null for invalid or non-GitHub formats.
+   */
+  private parseExternalId(
+    externalId: string
+  ): { owner: string; repo: string; number: number } | null {
+    const match = externalId.match(/^github:([^/]+)\/([^#]+)#(\d+)$/);
+    if (!match) return null;
+    return { owner: match[1]!, repo: match[2]!, number: parseInt(match[3]!, 10) };
+  }
+
+  /**
+   * Checks whether a GitHub issue (identified by externalId) has an open PR
+   * linked to it via `closes #N` or similar keywords. Fail-open on API errors
+   * or non-GitHub externalId formats.
+   */
+  private async hasOpenPRForExternalId(externalId: string): Promise<boolean> {
+    const parsed = this.parseExternalId(externalId);
+    if (!parsed) return false;
+
+    try {
+      const exec = promisify(execFile);
+      const { stdout } = await exec(
+        'gh',
+        [
+          'pr',
+          'list',
+          '--repo',
+          `${parsed.owner}/${parsed.repo}`,
+          '--search',
+          `closes #${parsed.number}`,
+          '--state',
+          'open',
+          '--json',
+          'number',
+          '--jq',
+          'length',
+        ],
+        {
+          cwd: this.projectRoot,
+          timeout: 10_000,
+        }
+      );
+      return parseInt(stdout.trim(), 10) > 0;
+    } catch (err) {
+      this.logger.warn(`Failed to check open PRs for externalId ${externalId}`, {
+        error: String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
    * Checks whether an issue identifier has an open GitHub PR by searching
    * for a branch matching the `feat/<identifier>` naming convention used
    * by dispatched agents. Fail-open on API errors.
@@ -897,13 +950,16 @@ export class Orchestrator extends EventEmitter {
 
   /**
    * Filters out candidates that already have an open GitHub PR, running
-   * checks in parallel via Promise.allSettled. Looks up PRs by the
-   * `feat/<identifier>` branch naming convention. Fail-open on API errors.
+   * checks in parallel via Promise.allSettled. For candidates with an
+   * externalId, searches for PRs linked to the GitHub issue. Falls back
+   * to `feat/<identifier>` branch lookup otherwise. Fail-open on API errors.
    */
   private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
     const results = await Promise.allSettled(
       candidates.map(async (candidate) => {
-        const hasOpenPR = await this.hasOpenPRForIdentifier(candidate.identifier);
+        const hasOpenPR = candidate.externalId
+          ? await this.hasOpenPRForExternalId(candidate.externalId)
+          : await this.hasOpenPRForIdentifier(candidate.identifier);
         return { candidate, hasOpenPR };
       })
     );
@@ -917,9 +973,10 @@ export class Orchestrator extends EventEmitter {
       }
       const { candidate, hasOpenPR } = result.value;
       if (hasOpenPR) {
-        this.logger.info(
-          `Skipping ${candidate.title}: open PR exists for feat/${candidate.identifier}`
-        );
+        const via = candidate.externalId
+          ? `externalId ${candidate.externalId}`
+          : `feat/${candidate.identifier}`;
+        this.logger.info(`Skipping ${candidate.title}: open PR exists (${via})`);
       } else {
         filtered.push(candidate);
       }
@@ -1461,12 +1518,18 @@ export class Orchestrator extends EventEmitter {
    * Returns a point-in-time snapshot of the orchestrator's internal state.
    */
   public getSnapshot(): Record<string, unknown> {
+    const now = Date.now();
+    let secondsRunning = 0;
+    for (const [, entry] of this.state.running) {
+      secondsRunning += (now - new Date(entry.startedAt).getTime()) / 1000;
+    }
+
     return {
       running: Array.from(this.state.running.entries()),
       retryAttempts: Array.from(this.state.retryAttempts.entries()),
       claimed: Array.from(this.state.claimed),
       completed: Array.from(this.state.completed),
-      tokenTotals: this.state.tokenTotals,
+      tokenTotals: { ...this.state.tokenTotals, secondsRunning },
       maxConcurrentAgents: this.state.maxConcurrentAgents,
       globalCooldownUntilMs: this.state.globalCooldownUntilMs,
       recentRequestTimestamps: this.state.recentRequestTimestamps,
@@ -1476,6 +1539,7 @@ export class Orchestrator extends EventEmitter {
       maxRequestsPerSecond: this.state.maxRequestsPerSecond,
       maxInputTokensPerMinute: this.state.maxInputTokensPerMinute,
       maxOutputTokensPerMinute: this.state.maxOutputTokensPerMinute,
+      claimRejections: this.state.claimRejections,
       tickActivity: this.tickActivity,
     };
   }
