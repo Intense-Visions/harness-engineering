@@ -62,6 +62,14 @@ describe('cronMatchesNow', () => {
     expect(() => cronMatchesNow('0 2 * *', friday2am)).toThrow();
   });
 
+  it('throws on out-of-range values', () => {
+    expect(() => cronMatchesNow('70 * * * *', friday2am)).toThrow(/must be 0-59/);
+    expect(() => cronMatchesNow('0 25 * * *', friday2am)).toThrow(/must be 0-23/);
+    expect(() => cronMatchesNow('0 0 32 * *', friday2am)).toThrow(/must be 1-31/);
+    expect(() => cronMatchesNow('0 0 * 13 *', friday2am)).toThrow(/must be 1-12/);
+    expect(() => cronMatchesNow('0 0 * * 8', friday2am)).toThrow(/must be 0-6/);
+  });
+
   it('matches all 18 built-in schedules against expected times', () => {
     // Spot-check: daily 2am matches at 2:00, not at 3:00
     expect(cronMatchesNow('0 2 * * *', new Date('2026-04-17T02:00:00'))).toBe(true);

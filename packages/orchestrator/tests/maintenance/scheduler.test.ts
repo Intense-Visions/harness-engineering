@@ -388,6 +388,13 @@ describe('MaintenanceScheduler', () => {
       expect(callOrder).toContain('arch-violations');
       expect(callOrder).toContain('dep-violations');
       expect(logger.error).toHaveBeenCalled();
+
+      // Failed task should be recorded in history
+      const status = scheduler.getStatus();
+      const failedRun = status.history.find((r) => r.taskId === 'arch-violations');
+      expect(failedRun).toBeDefined();
+      expect(failedRun!.status).toBe('failure');
+      expect(failedRun!.error).toContain('simulated failure');
     });
 
     it('handles claimAndVerify throwing an exception', async () => {

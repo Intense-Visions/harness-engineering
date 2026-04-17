@@ -194,10 +194,22 @@ export class MaintenanceScheduler {
       this.lastRunMinute.set(task.id, epochMinute);
       this.activeRun = { taskId: task.id, startedAt: new Date().toISOString() };
 
+      const startedAt = this.activeRun.startedAt;
       try {
         await this.onTaskDue(task);
       } catch (err) {
         this.logger.error(`Maintenance task ${task.id} failed`, { error: String(err) });
+        this.recordRun({
+          taskId: task.id,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          status: 'failure',
+          findings: 0,
+          fixed: 0,
+          prUrl: null,
+          prUpdated: false,
+          error: String(err),
+        });
       }
 
       this.activeRun = null;

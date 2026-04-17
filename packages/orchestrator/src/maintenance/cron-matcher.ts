@@ -8,6 +8,13 @@
 /**
  * Parse a single cron field into the set of matching integer values.
  */
+function validateRange(value: number, min: number, max: number, field: string): number {
+  if (isNaN(value) || value < min || value > max) {
+    throw new Error(`Invalid cron value ${value} in field "${field}": must be ${min}-${max}`);
+  }
+  return value;
+}
+
 function parseField(field: string, min: number, max: number): Set<number> {
   const values = new Set<number>();
 
@@ -15,16 +22,16 @@ function parseField(field: string, min: number, max: number): Set<number> {
     if (part.includes('/')) {
       // Step: */N or M-N/S
       const [rangeStr, stepStr] = part.split('/');
-      const step = parseInt(stepStr!, 10);
+      const step = validateRange(parseInt(stepStr!, 10), 1, max, field);
       let start = min;
       let end = max;
       if (rangeStr !== '*') {
         if (rangeStr!.includes('-')) {
           const [a, b] = rangeStr!.split('-');
-          start = parseInt(a!, 10);
-          end = parseInt(b!, 10);
+          start = validateRange(parseInt(a!, 10), min, max, field);
+          end = validateRange(parseInt(b!, 10), min, max, field);
         } else {
-          start = parseInt(rangeStr!, 10);
+          start = validateRange(parseInt(rangeStr!, 10), min, max, field);
         }
       }
       for (let i = start; i <= end; i += step) {
@@ -36,12 +43,13 @@ function parseField(field: string, min: number, max: number): Set<number> {
       }
     } else if (part.includes('-')) {
       const [a, b] = part.split('-');
-      const start = parseInt(a!, 10);
-      const end = parseInt(b!, 10);
+      const start = validateRange(parseInt(a!, 10), min, max, field);
+      const end = validateRange(parseInt(b!, 10), min, max, field);
       for (let i = start; i <= end; i++) {
         values.add(i);
       }
     } else {
+      validateRange(parseInt(part, 10), min, max, field);
       values.add(parseInt(part, 10));
     }
   }
@@ -77,11 +85,18 @@ export function cronMatchesNow(expression: string, now: Date): boolean {
     string,
   ];
 
+  // Parse all fields eagerly so invalid values always throw, regardless of short-circuit
+  const minutes = parseField(minField, 0, 59);
+  const hours = parseField(hourField, 0, 23);
+  const daysOfMonth = parseField(domField, 1, 31);
+  const months = parseField(monthField, 1, 12);
+  const daysOfWeek = parseField(dowField, 0, 6);
+
   return (
-    parseField(minField, 0, 59).has(minute) &&
-    parseField(hourField, 0, 23).has(hour) &&
-    parseField(domField, 1, 31).has(dayOfMonth) &&
-    parseField(monthField, 1, 12).has(month) &&
-    parseField(dowField, 0, 6).has(dayOfWeek)
+    minutes.has(minute) &&
+    hours.has(hour) &&
+    daysOfMonth.has(dayOfMonth) &&
+    months.has(month) &&
+    daysOfWeek.has(dayOfWeek)
   );
 }
