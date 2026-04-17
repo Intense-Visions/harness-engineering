@@ -206,4 +206,144 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       }
     });
   });
+
+  describe('claimIssue', () => {
+    const writableRoadmap = `---
+project: Test Project
+version: 1
+last_synced: '2026-03-24T00:00:00.000Z'
+last_manual_edit: '2026-03-24T00:00:00.000Z'
+---
+
+# Roadmap
+
+## MVP
+
+### Task 1
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** First task
+- **Blockers:** —
+- **Plan:** —
+`;
+
+    it('transitions feature to in-progress and writes orchestratorId as assignee', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(writableRoadmap);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* in-progress/);
+      expect(written).toContain('**Assignee:** orch-abc123');
+    });
+
+    it('is idempotent when already claimed by the same orchestrator', async () => {
+      const alreadyClaimed = writableRoadmap
+        .replace('**Status:** planned', '**Status:** in-progress')
+        .replace('- **Plan:** —', '- **Plan:** —\n- **Assignee:** orch-abc123');
+      vi.mocked(fs.readFile).mockResolvedValue(alreadyClaimed);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('overwrites claim when a different orchestrator claims', async () => {
+      const claimedByOther = writableRoadmap
+        .replace('**Status:** planned', '**Status:** in-progress')
+        .replace('- **Plan:** —', '- **Plan:** —\n- **Assignee:** orch-other');
+      vi.mocked(fs.readFile).mockResolvedValue(claimedByOther);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.claimIssue(idFor('Task 1'), 'orch-abc123');
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      expect(written).toContain('**Assignee:** orch-abc123');
+    });
+
+    it('is a no-op when the feature is not found', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(writableRoadmap);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.claimIssue(idFor('Nonexistent'), 'orch-abc123');
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('releaseIssue', () => {
+    const claimedRoadmap = `---
+project: Test Project
+version: 1
+last_synced: '2026-03-24T00:00:00.000Z'
+last_manual_edit: '2026-03-24T00:00:00.000Z'
+---
+
+# Roadmap
+
+## MVP
+
+### Task 1
+
+- **Status:** in-progress
+- **Spec:** —
+- **Summary:** First task
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** orch-abc123
+- **Priority:** —
+- **External-ID:** —
+`;
+
+    it('transitions feature back to first active state and clears assignee', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(claimedRoadmap);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.releaseIssue(idFor('Task 1'));
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      const written = vi.mocked(fs.writeFile).mock.calls[0]![1] as string;
+      expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* planned/);
+      // Assignee cleared to null; with Priority and External-ID also null,
+      // the serializer omits the entire extended-fields group.
+      expect(written).not.toContain('**Assignee:**');
+    });
+
+    it('is a no-op when the feature is not found', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(claimedRoadmap);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const adapter = new RoadmapTrackerAdapter(mockConfig);
+      const result = await adapter.releaseIssue(idFor('Nonexistent'));
+
+      expect(result.ok).toBe(true);
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('returns Err when activeStates is empty', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(claimedRoadmap);
+      const adapter = new RoadmapTrackerAdapter({ ...mockConfig, activeStates: [] });
+      const result = await adapter.releaseIssue(idFor('Task 1'));
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toMatch(/activeStates/);
+      }
+    });
+  });
 });
