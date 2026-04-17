@@ -173,10 +173,10 @@ function handleTick(
       session: null,
     });
     effects.push({
-      type: 'dispatch',
+      type: 'claim',
       issue,
-      attempt: null,
       backend,
+      attempt: null,
     });
   }
 
@@ -324,6 +324,10 @@ function accrueUsage(
   session.inputTokens += usage.inputTokens;
   session.outputTokens += usage.outputTokens;
   session.totalTokens += usage.totalTokens;
+
+  next.tokenTotals.inputTokens += usage.inputTokens;
+  next.tokenTotals.outputTokens += usage.outputTokens;
+  next.tokenTotals.totalTokens += usage.totalTokens;
 
   const now = Date.now();
   next.recentInputTokens.push({ timestamp: now, tokens: usage.inputTokens });
@@ -473,10 +477,10 @@ function handleRetryFired(
           ? 'local'
           : 'primary';
     effects.push({
-      type: 'dispatch',
+      type: 'claim',
       issue,
-      attempt: retryEntry.attempt,
       backend,
+      attempt: retryEntry.attempt,
     });
   }
 
@@ -539,6 +543,13 @@ function handleStallDetected(
   return { nextState: next, effects };
 }
 
+function handleClaimRejected(state: OrchestratorState, issueId: string): ApplyEventResult {
+  const next = cloneState(state);
+  next.claimed.delete(issueId);
+  next.running.delete(issueId);
+  return { nextState: next, effects: [] };
+}
+
 /**
  * Pure state machine transition function.
  *
@@ -569,5 +580,7 @@ export function applyEvent(
       return handleRetryFired(state, event.issueId, event.candidates, config, event.nowMs);
     case 'stall_detected':
       return handleStallDetected(state, event.issueId, config);
+    case 'claim_rejected':
+      return handleClaimRejected(state, event.issueId);
   }
 }

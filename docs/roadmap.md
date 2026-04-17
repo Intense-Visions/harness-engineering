@@ -3,8 +3,8 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-16
-last_synced: 2026-04-16T17:00:00.000Z
-last_manual_edit: 2026-04-16T16:30:00.000Z
+last_synced: 2026-04-17T00:00:00.000Z
+last_manual_edit: 2026-04-17T02:12:22.357Z
 ---
 
 # Roadmap
@@ -749,7 +749,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Security Rule Test Coverage
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Unit tests for 8+ untested security rule implementations (crypto, XSS, path traversal, deserialization, network, stack-specific). Enforce coverage thresholds in CI as blockers, not warnings. [E9/E10]
 - **Blockers:** —
@@ -881,12 +881,12 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Prompt Caching with Content Stability Classification
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/prompt-caching-provider-adapters/proposal.md
 - **Summary:** Content stability classification (static/session/ephemeral) with provider-specific cache adapters for Anthropic, OpenAI, and Gemini. Phase 5 of MCP Response Compaction.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#137
 
@@ -942,16 +942,24 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#150
 
+### Multi-Orchestrator Claim Coordination
+
+- **Status:** done
+- **Spec:** docs/changes/multi-orchestrator-claim-coordination/proposal.md
+- **Summary:** Claim-based coordination layer that uses the external tracker to prevent duplicate dispatch when multiple orchestrators run against the same issue source
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** chads-macbook-pro-8565381d
+- **Priority:** —
+- **External-ID:** —
+
 ### Orchestrator PR-Aware Dispatch Guard
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/orchestrator-pr-aware-dispatch/proposal.md
 - **Summary:** Pre-filter in orchestrator tick that checks candidate externalId against GitHub PR state, skipping dispatch for features with open PRs and failing open on API errors
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ## v3.0 Graph Intelligence
 
@@ -1170,7 +1178,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Self-Improving Agent Skills
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Outcome attribution mapping review findings to actual bugs via issue tracker. Skill effectiveness baselines (like perf baselines). Dynamic prompt injection into skill preamble based on historical outcomes. Skills measurably improve over time. [D4/D5]
 - **Blockers:** —
@@ -1184,7 +1192,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Status:** blocked
 - **Spec:** docs/changes/cross-project-knowledge-federation/proposal.md
 - **Summary:** Decentralized knowledge sharing via package-native federation. PackageResolver interface for language-agnostic discovery. Four knowledge types (learnings, constraints, patterns, structural summaries) with visibility tags. Background sync via hooks + optional cron. [D2]
-- **Blockers:** Constraint sharing must ship first (proves cross-project sharing patterns); needs 5+ active harness-managed projects for adoption density
+- **Blockers:** Needs 5+ active harness-managed projects for adoption density
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -1192,10 +1200,10 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Spec-to-Code Semantic Verification
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** EARS grammar parser for machine-verifiable requirements. Test assertion semantic analysis via Claude API. Detects gaps between what the spec says and what the tests actually assert. Extends spec-to-implementation traceability with behavioral matching. [E1]
-- **Blockers:** Spec-to-Implementation Traceability
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -1214,7 +1222,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Skill Effectiveness Tracking
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Links review findings to actual bugs via git history and issue tracker. Builds effectiveness baselines per skill per task type. Feeds back into prompt selection. Quantifies which skills produce good outcomes and which need calibration. [D3/D9]
 - **Blockers:** —
@@ -1247,7 +1255,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Developer Velocity Analysis
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Git history temporal analysis, PR/review time integration, and friction zone identification. Identifies which codebase areas slow development most and quantifies the productivity gains from targeted refactoring. [K1]
 - **Blockers:** —
@@ -1258,7 +1266,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Multi-Language Support
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Tree-sitter integration for Python, Go, Rust, and Java parsing. Language-agnostic constraint enforcement. Cross-language dependency tracking in knowledge graph. Same architectural rules apply regardless of implementation language. [B1/B6]
 - **Blockers:** —
@@ -1280,7 +1288,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Security Posture Timeline
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Security metric snapshots over time with supply chain monitoring and vulnerability time-to-fix analysis. Tracks whether the codebase is getting more or less secure over months with trend attribution. [L6]
 - **Blockers:** —
@@ -1326,12 +1334,12 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Platform Expansion
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** VS Code extension with sidebar and skill launcher, multi-CI recipes (GitLab, Jenkins, CircleCI, Azure DevOps), per-package config overrides for monorepos, and config inheritance chain (global to org to project to package). [B3/B7-B9]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#101
 
@@ -1438,7 +1446,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Hook Authoring & TDD Guard
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** harness generate hooks command with opinionated presets: --preset tdd (AST test counting via @ast-grep/napi, hook-based Red-Green-Refactor enforcement), --preset security (parry integration, file guard), --preset checkpoint (git stash auto-save on Stop), --preset audit (session logging). Node.js target for broad compatibility. Inspired by claude-hooks and TDD Guard. [ACE-B3/B4]
 - **Blockers:** —
@@ -1452,7 +1460,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Status:** planned
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Start with Docker --read-only + --user flags for simple orchestrator sandboxing. Evaluate Container Use (Dagger) MCP client as upgrade path — 13 MCP tools, immutable container state, git-branch isolation. Implement ContainerBackend interface alongside existing ClaudeBackend. Secret backends via 1Password, Vault, env vars. [ACE-A2]
-- **Blockers:** Orchestrator Package Implementation
+- **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
@@ -1460,7 +1468,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Session Search & DX Tooling
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** harness sessions search with SQLite FTS5 indexing — searchable by phase, persona, skill, plan_id, content. Phrase boosting with recency-weighted ranking. Desktop notification hooks via node-notifier for autopilot/orchestrator completion. Git stash auto-checkpoint hook preset (non-destructive, max 10 with cleanup). Inspired by recall and CC Notify. [ACE-B5/B6/B7]
 - **Blockers:** —
@@ -1493,18 +1501,18 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Protected Code Regions
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** harness-ignore annotation system for code-modifying skills — block-level protection preventing agent modification of performance-critical, compliance-required, or legally-sensitive code during refactoring and cleanup operations
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#118
 
 ### Context Budget System
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** Explicit token budgets in skill.yaml (context_budget field) with 5-level progressive loading hierarchy (rules → spec → source → errors → history). Triggered when skill count approaches 100.
 - **Blockers:** —

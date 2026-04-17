@@ -51,7 +51,7 @@ export interface FixResult {
 
 // ============ Cleanup Finding Types ============
 
-export type SafetyLevel = 'safe' | 'probably-safe' | 'unsafe';
+export type SafetyLevel = 'safe' | 'probably-safe' | 'unsafe' | 'protected';
 
 export interface CleanupFinding {
   id: string;

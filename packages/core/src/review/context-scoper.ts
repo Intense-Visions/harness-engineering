@@ -9,7 +9,7 @@ import type {
   GraphAdapter,
 } from './types';
 
-const ALL_DOMAINS: ReviewDomain[] = ['compliance', 'bug', 'security', 'architecture'];
+const ALL_DOMAINS: ReviewDomain[] = ['compliance', 'bug', 'security', 'architecture', 'learnings'];
 
 const SECURITY_PATTERNS =
   /auth|crypto|password|secret|token|session|cookie|hash|encrypt|decrypt|sql|shell|exec|eval/i;
@@ -415,6 +415,7 @@ export async function scopeContext(options: ContextScopeOptions): Promise<Contex
     bug: () => scopeBugContext(projectRoot, changedFiles, budget, options),
     security: () => scopeSecurityContext(projectRoot, changedFiles, budget, options),
     architecture: () => scopeArchitectureContext(projectRoot, changedFiles, budget, options),
+    learnings: () => Promise.resolve([]), // Learnings context populated by orchestration layer
   };
 
   const bundles: ContextBundle[] = [];

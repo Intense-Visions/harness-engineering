@@ -115,7 +115,11 @@ export class EntropyAnalyzer {
 
     // Dead code detection
     if (this.config.analyze.deadCode) {
-      const result = await detectDeadCode(this.snapshot, graphOptions?.graphDeadCodeData);
+      const result = await detectDeadCode(
+        this.snapshot,
+        graphOptions?.graphDeadCodeData,
+        this.config.protectedRegions
+      );
       if (result.ok) {
         deadCodeReport = result.value;
       } else {
@@ -341,7 +345,7 @@ export class EntropyAnalyzer {
     if (!snapshotResult.ok) {
       return Err(snapshotResult.error);
     }
-    return detectDeadCode(snapshotResult.value, graphDeadCodeData);
+    return detectDeadCode(snapshotResult.value, graphDeadCodeData, this.config.protectedRegions);
   }
 
   /**

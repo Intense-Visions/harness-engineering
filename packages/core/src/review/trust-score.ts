@@ -14,6 +14,7 @@ const DOMAIN_BASELINES: Record<ReviewDomain, number> = {
   bug: 0.6,
   architecture: 0.65,
   compliance: 0.75,
+  learnings: 0.5,
 };
 
 /** Weight of each factor in the final score. Sums to 1.0. */

@@ -86,6 +86,9 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok(issues)),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map(issues.map((i) => [i.id, i])))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
 
     const config = createConfig(path.join(tmpDir, '.harness', 'workspaces'), 2);
@@ -124,6 +127,9 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok(issues)),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map(issues.map((i) => [i.id, i])))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
 
     const config = createConfig(path.join(tmpDir, '.harness', 'workspaces'), 2);
@@ -158,6 +164,9 @@ describe('Intelligence Pipeline Circuit Breaker', () => {
       fetchCandidateIssues: vi.fn().mockResolvedValue(Ok(issues)),
       fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
       fetchIssueStatesByIds: vi.fn().mockResolvedValue(Ok(new Map(issues.map((i) => [i.id, i])))),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
     };
 
     const config = createConfig(path.join(tmpDir, '.harness', 'workspaces'), 2);

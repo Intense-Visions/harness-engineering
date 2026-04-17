@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyFinding,
   applyHotspotDowngrade,
+  markProtectedFindings,
   deduplicateCleanupFindings,
 } from '../../../src/entropy/fixers/cleanup-finding';
+import { createRegionMap } from '../../../src/annotations';
 import type { CleanupFinding, HotspotContext } from '../../../src/entropy/types';
 
 describe('classifyFinding', () => {
@@ -140,5 +142,124 @@ describe('deduplicateCleanupFindings', () => {
     expect(deduped.length).toBe(1);
     expect(deduped[0].concern).toBe('dead-code');
     expect(deduped[0].description).toContain('also violates architecture');
+  });
+});
+
+describe('markProtectedFindings', () => {
+  it('should mark finding in protected region as protected', () => {
+    const findings: CleanupFinding[] = [
+      {
+        id: 'dc-1',
+        concern: 'dead-code',
+        file: 'src/compliance.ts',
+        line: 5,
+        type: 'dead-export',
+        description: 'unusedFn has zero importers',
+        safety: 'safe',
+        safetyReason: 'zero importers, non-public',
+        hotspotDowngraded: false,
+        suggestion: 'Remove export',
+      },
+    ];
+
+    const regions = createRegionMap([
+      {
+        file: 'src/compliance.ts',
+        startLine: 3,
+        endLine: 10,
+        scopes: ['entropy'],
+        reason: 'SOX audit requirement',
+        type: 'block',
+      },
+    ]);
+
+    const result = markProtectedFindings(findings, regions);
+    expect(result).toHaveLength(1);
+    expect(result[0].safety).toBe('protected');
+    expect(result[0].safetyReason).toContain('SOX audit requirement');
+  });
+
+  it('should not mark finding outside protected region', () => {
+    const findings: CleanupFinding[] = [
+      {
+        id: 'dc-2',
+        concern: 'dead-code',
+        file: 'src/utils.ts',
+        line: 5,
+        type: 'dead-export',
+        description: 'unused',
+        safety: 'safe',
+        safetyReason: 'zero importers',
+        hotspotDowngraded: false,
+        suggestion: 'Remove export',
+      },
+    ];
+
+    const regions = createRegionMap([
+      {
+        file: 'src/other.ts',
+        startLine: 1,
+        endLine: 10,
+        scopes: ['entropy'],
+        reason: 'protected',
+        type: 'block',
+      },
+    ]);
+
+    const result = markProtectedFindings(findings, regions);
+    expect(result[0].safety).toBe('safe');
+  });
+
+  it('should not modify findings when no regions match', () => {
+    const findings: CleanupFinding[] = [
+      {
+        id: 'dc-3',
+        concern: 'dead-code',
+        file: 'src/utils.ts',
+        line: 5,
+        type: 'dead-export',
+        description: 'unused',
+        safety: 'safe',
+        safetyReason: 'zero importers',
+        hotspotDowngraded: false,
+        suggestion: 'Remove export',
+      },
+    ];
+
+    const regions = createRegionMap([]);
+
+    const result = markProtectedFindings(findings, regions);
+    expect(result[0].safety).toBe('safe');
+  });
+
+  it('should use architecture scope for architecture findings', () => {
+    const findings: CleanupFinding[] = [
+      {
+        id: 'arch-1',
+        concern: 'architecture',
+        file: 'src/vendor.ts',
+        line: 3,
+        type: 'forbidden-import',
+        description: 'forbidden import',
+        safety: 'unsafe',
+        safetyReason: 'no alternative',
+        hotspotDowngraded: false,
+        suggestion: 'Fix import',
+      },
+    ];
+
+    const regions = createRegionMap([
+      {
+        file: 'src/vendor.ts',
+        startLine: 1,
+        endLine: 10,
+        scopes: ['architecture'],
+        reason: 'vendor-locked',
+        type: 'block',
+      },
+    ]);
+
+    const result = markProtectedFindings(findings, regions);
+    expect(result[0].safety).toBe('protected');
   });
 });

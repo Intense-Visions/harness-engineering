@@ -89,40 +89,16 @@ export class AgentRunner {
         };
 
         const turnGen = this.backend.runTurn(session, turnParams);
+        const turnOutcome = yield* this.consumeTurn(turnGen, session);
 
-        // Manual iteration to capture the return value (TurnResult)
-        let next = await turnGen.next();
-        let hitRateLimit = false;
-        let rateLimitResetsAtMs: number | null = null;
-
-        while (!next.done) {
-          const event = next.value;
-          yield event;
-
-          if (event.type === 'rate_limit') {
-            hitRateLimit = true;
-            // Check for subscription-level rate limit with reset time
-            rateLimitResetsAtMs = extractRateLimitReset(event);
-          }
-
-          // If the agent reports its own sessionId, update our local session state
-          // so the next turn's --resume flag uses the correct ID.
-          if (event.sessionId && event.sessionId !== session.sessionId) {
-            session.sessionId = event.sessionId;
-          }
-
-          next = await turnGen.next();
-        }
-
-        if (hitRateLimit) {
-          // Do not consume a turn if the API was rate limited
+        if (turnOutcome.hitRateLimit) {
           currentTurn--;
-          if (rateLimitResetsAtMs) {
-            yield* this.sleepUntilReset(rateLimitResetsAtMs, session.sessionId);
+          if (turnOutcome.rateLimitResetsAtMs) {
+            yield* this.sleepUntilReset(turnOutcome.rateLimitResetsAtMs, session.sessionId);
           }
         }
 
-        lastResult = next.value;
+        lastResult = turnOutcome.result;
 
         // Early termination if agent reports success
         if (lastResult.success) {
@@ -134,6 +110,42 @@ export class AgentRunner {
     }
 
     return lastResult;
+  }
+
+  /**
+   * Consume all events from a single turn, forwarding them to the caller.
+   * Tracks rate-limit signals and session ID updates, returning the turn
+   * result along with rate-limit metadata.
+   */
+  private async *consumeTurn(
+    turnGen: AsyncGenerator<AgentEvent, TurnResult, void>,
+    session: { sessionId: string }
+  ): AsyncGenerator<
+    AgentEvent,
+    { result: TurnResult; hitRateLimit: boolean; rateLimitResetsAtMs: number | null },
+    void
+  > {
+    let next = await turnGen.next();
+    let hitRateLimit = false;
+    let rateLimitResetsAtMs: number | null = null;
+
+    while (!next.done) {
+      const event = next.value;
+      yield event;
+
+      if (event.type === 'rate_limit') {
+        hitRateLimit = true;
+        rateLimitResetsAtMs = extractRateLimitReset(event);
+      }
+
+      if (event.sessionId && event.sessionId !== session.sessionId) {
+        session.sessionId = event.sessionId;
+      }
+
+      next = await turnGen.next();
+    }
+
+    return { result: next.value, hitRateLimit, rateLimitResetsAtMs };
   }
 
   /**
