@@ -33,9 +33,7 @@ export class ClaimManager {
    * Returns 'claimed' if the assignee matches this orchestrator after
    * the verify delay, 'rejected' if another orchestrator won the race.
    */
-  async claimAndVerify(
-    issueId: string
-  ): Promise<Result<'claimed' | 'rejected', Error>> {
+  async claimAndVerify(issueId: string): Promise<Result<'claimed' | 'rejected', Error>> {
     // Step 1: Write claim
     const claimResult = await this.tracker.claimIssue(issueId, this.orchestratorId);
     if (!claimResult.ok) return claimResult as Result<never, Error>;
@@ -90,5 +88,38 @@ export class ClaimManager {
     if (!issue.updatedAt) return true;
     const age = Date.now() - new Date(issue.updatedAt).getTime();
     return age > ttlMs;
+  }
+
+  /**
+   * Scans the tracker for "in-progress" issues assigned to this orchestrator
+   * and releases any that are not currently running in memory.
+   *
+   * Called once during orchestrator startup to clean up orphaned claims
+   * from a previous crash or unclean shutdown.
+   *
+   * @param runningIssueIds - Set of issue IDs currently in the running map
+   * @returns List of issue IDs that were released
+   */
+  async reconcileOnStartup(runningIssueIds: ReadonlySet<string>): Promise<Result<string[], Error>> {
+    const fetchResult = await this.tracker.fetchIssuesByStates(['in-progress']);
+    if (!fetchResult.ok) return fetchResult as Result<never, Error>;
+
+    const released: string[] = [];
+    for (const issue of fetchResult.value) {
+      // Only consider issues claimed by this orchestrator
+      if (issue.assignee !== this.orchestratorId) continue;
+
+      // If the issue is still in the running map, it is legitimate -- skip
+      if (runningIssueIds.has(issue.id)) continue;
+
+      // Orphaned claim: release it
+      const releaseResult = await this.release(issue.id);
+      if (releaseResult.ok) {
+        released.push(issue.id);
+      }
+      // Individual release failures are non-fatal; skip and continue
+    }
+
+    return Ok(released);
   }
 }
