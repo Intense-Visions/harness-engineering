@@ -206,6 +206,17 @@ export interface IssueTrackerClient {
    * in-process via `OrchestratorState.completed`.
    */
   markIssueComplete(issueId: string): Promise<Result<void, Error>>;
+  /**
+   * Claims an issue for the given orchestrator by transitioning it to
+   * "in-progress" and recording the orchestrator identity. Idempotent
+   * if already claimed by the same orchestratorId.
+   */
+  claimIssue(issueId: string, orchestratorId: string): Promise<Result<void, Error>>;
+  /**
+   * Releases a previously claimed issue by transitioning it back to an
+   * active state and clearing the orchestrator identity.
+   */
+  releaseIssue(issueId: string): Promise<Result<void, Error>>;
 }
 
 // --- Workflow Config ---
@@ -352,6 +363,8 @@ export interface WorkflowConfig {
   server: ServerConfig;
   /** Intelligence pipeline settings */
   intelligence?: IntelligenceConfig;
+  /** Optional stable identity for this orchestrator instance. Auto-generated if omitted. */
+  orchestratorId?: string;
 }
 
 /**
