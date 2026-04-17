@@ -66,6 +66,8 @@ export interface Issue {
   updatedAt: string | null;
   /** External tracker ID (e.g., "github:owner/repo#42"), null if not synced */
   externalId: string | null;
+  /** Assignee identity (orchestrator ID, username, etc.), null if unassigned */
+  assignee?: string | null;
 }
 
 // --- Agent Backend Protocol ---
