@@ -246,3 +246,102 @@ describe('filterCandidatesWithOpenPRs', () => {
     expect(result[0].id).toBe('1');
   });
 });
+
+describe('asyncTick PR filtering', () => {
+  let orchestrator: Orchestrator;
+  let mockExecFile: ReturnType<typeof vi.fn>;
+  let mockTracker: ReturnType<typeof makeMockTracker>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTracker = makeMockTracker();
+    orchestrator = new Orchestrator(makeConfig(), 'test prompt', {
+      tracker: mockTracker as any,
+    });
+    mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+  });
+
+  it('excludes open-PR candidates from tick event while passing others through', async () => {
+    const openPRCandidate = makeIssue({
+      id: 'open-pr',
+      identifier: 'OPEN-1',
+      title: 'Has open PR',
+      state: 'Todo',
+      externalId: 'github:owner/repo#10',
+    });
+    const closedPRCandidate = makeIssue({
+      id: 'closed-pr',
+      identifier: 'CLOSED-1',
+      title: 'Has closed PR',
+      state: 'Todo',
+      externalId: 'github:owner/repo#20',
+    });
+    const noExternalCandidate = makeIssue({
+      id: 'no-external',
+      identifier: 'NONE-1',
+      title: 'No external ID',
+      state: 'Todo',
+      externalId: null,
+    });
+
+    mockTracker.fetchCandidateIssues.mockResolvedValue({
+      ok: true,
+      value: [openPRCandidate, closedPRCandidate, noExternalCandidate],
+    } as Ok<Issue[]>);
+
+    // PR #10 is OPEN, PR #20 is CLOSED
+    mockExecFile.mockImplementation(
+      (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+        if (args.includes('10')) {
+          cb(null, { stdout: 'OPEN\n', stderr: '' });
+        } else {
+          cb(null, { stdout: 'CLOSED\n', stderr: '' });
+        }
+      }
+    );
+
+    await orchestrator.asyncTick();
+
+    const snapshot = orchestrator.getSnapshot();
+    const claimedIds = snapshot.claimed as string[];
+    const runningEntries = snapshot.running as Array<[string, unknown]>;
+    const runningIds = runningEntries.map(([id]) => id);
+
+    // open-PR candidate should NOT be dispatched
+    expect(claimedIds).not.toContain('open-pr');
+    expect(runningIds).not.toContain('open-pr');
+
+    // closed-PR and no-external candidates SHOULD be dispatched
+    expect(claimedIds).toContain('closed-pr');
+    expect(claimedIds).toContain('no-external');
+  });
+
+  it('passes all candidates through when gh fails (fail-open)', async () => {
+    const candidate = makeIssue({
+      id: 'failing-check',
+      identifier: 'FAIL-1',
+      title: 'API failure candidate',
+      state: 'Todo',
+      externalId: 'github:owner/repo#99',
+    });
+
+    mockTracker.fetchCandidateIssues.mockResolvedValue({
+      ok: true,
+      value: [candidate],
+    } as Ok<Issue[]>);
+
+    mockExecFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+        cb(new Error('network timeout'), { stdout: '', stderr: '' });
+      }
+    );
+
+    await orchestrator.asyncTick();
+
+    const snapshot = orchestrator.getSnapshot();
+    const claimedIds = snapshot.claimed as string[];
+
+    // Should still be dispatched (fail-open)
+    expect(claimedIds).toContain('failing-check');
+  });
+});
