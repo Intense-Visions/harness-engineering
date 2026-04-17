@@ -6,98 +6,77 @@
 
 ## Problem
 
-Harness Engineering currently supports TypeScript, JavaScript, and Python for code navigation (tree-sitter), but only TypeScript/JavaScript for graph ingestion (regex-based CodeIngestor). Architecture constraint enforcement via the ESLint plugin is inherently JS/TS-only. Projects using Go, Rust, or Java cannot benefit from harness's structural analysis, constraint enforcement, or knowledge graph.
+Harness Engineering has tree-sitter parsers and extraction strategies for Python, Go, Rust, and Java, but these are not fully wired into the constraint enforcement and graph ingestion systems. Specifically:
 
-## Goals
+- **CodeIngestor** symbol extraction uses TS/JS-only regex patterns — Python `def`, Go `func`, Rust `fn`, Java class methods are not extracted
+- **Constraint enforcement** (`resolveImportPath`) hardcodes `.ts`/`.tsx` extension resolution
+- **Architecture collectors** use stub parsers or only request the TS parser from the registry
+- **TreeSitterParser** `outline()` and `unfold()` return stubs despite full implementation existing in `code-nav/outline.ts`
+- **`buildDependencyGraph()`** accepts a single parser — not multi-language aware
 
-1. **Tree-sitter parsing** for Go, Rust, and Java (WASM grammars already available in `tree-sitter-wasms`)
-2. **Language-agnostic constraint enforcement** — architectural rules (layer boundaries, forbidden imports) work regardless of implementation language
-3. **Cross-language dependency tracking** in the knowledge graph — CodeIngestor supports all six languages
-4. **Same architectural rules apply** regardless of implementation language
+## What Already Works
+
+- `SupportedLanguage` type includes all 6 languages
+- `EXTENSION_MAP` maps all file extensions
+- `GRAMMAR_MAP` maps all languages to WASM grammars
+- Tree-sitter extraction strategies (import/export) exist for Python, Go, Rust, Java
+- `ParserRegistry` registers all tree-sitter parsers
+- `code-nav/outline.ts` has `TOP_LEVEL_TYPES` and `METHOD_TYPES` for all languages
+- CodeIngestor `extractImportPaths()` has regex patterns for all languages
+- CodeIngestor `SUPPORTED_EXTENSIONS` includes `.py`, `.go`, `.rs`, `.java`
+
+## Remaining Gaps
+
+### 1. CodeIngestor Symbol Extraction (graph package)
+`extractSymbols()` regex patterns only match TS/JS constructs. Need language-specific patterns for:
+- **Python**: `def funcname(`, `class ClassName:`
+- **Go**: `func FuncName(`, `type StructName struct`, `func (r *Receiver) MethodName(`
+- **Rust**: `fn func_name(`, `struct StructName`, `impl StructName`, `pub fn`
+- **Java**: `public class ClassName`, `public void methodName(`, `private int fieldName`
+
+### 2. Constraint `resolveImportPath()` (core package)
+Lines 38-39 hardcode `.ts`/`.tsx`:
+```typescript
+if (!resolved.endsWith('.ts') && !resolved.endsWith('.tsx')) {
+  resolved = resolved + '.ts';
+}
+```
+Must resolve based on the importing file's language.
+
+### 3. `buildDependencyGraph()` Single Parser
+Takes one `LanguageParser` — needs to accept a registry or dispatch per-file.
+
+### 4. Architecture Collectors
+- `CircularDepsCollector`: Uses stub parser + `**/*.ts` glob
+- `ForbiddenImportCollector`: Gets only TS parser from registry
+- `LayerViolationCollector`: Gets only TS parser from registry
+
+### 5. TreeSitterParser outline/unfold Stubs
+`outline()` returns `{ symbols: [], error: '[parse-failed]' }` — should delegate to `code-nav/outline.ts` logic.
 
 ## Design
 
-### 1. Extend Language Registry (`packages/core/src/code-nav/types.ts`)
+### A. Multi-language symbol extraction in CodeIngestor
+Add language-dispatched regex patterns in `extractSymbols()` for Python, Go, Rust, Java — keeping existing TS/JS patterns as-is for backward compatibility.
 
-Add `'go' | 'rust' | 'java'` to `SupportedLanguage` union type. Add extension mappings:
+### B. Language-aware import resolution
+Modify `resolveImportPath()` in `dependencies.ts` to accept language context and resolve with the correct extension (`.py`, `.go`, `.rs`, `.java`).
 
-- `.go` → `go`
-- `.rs` → `rust`
-- `.java` → `java`
+### C. Multi-parser `buildDependencyGraph()`
+Change to accept `ParserRegistry` instead of single `LanguageParser`, dispatching per-file based on extension.
 
-### 2. Add Grammar Mappings (`packages/core/src/code-nav/parser.ts`)
+### D. Architecture collector multi-language wiring
+- Replace stub parser in `CircularDepsCollector` with real registry
+- Change `**/*.ts` glob to `**/*.{ts,tsx,js,jsx,py,go,rs,java}`
+- Update `ForbiddenImportCollector` and `LayerViolationCollector` to pass registry-aware config
 
-Map new languages to their WASM grammar files:
-
-- `go` → `tree-sitter-go`
-- `rust` → `tree-sitter-rust`
-- `java` → `tree-sitter-java`
-
-### 3. Add Outline Node Type Mappings (`packages/core/src/code-nav/outline.ts`)
-
-Each language needs `TOP_LEVEL_TYPES` and `METHOD_TYPES` mappings that map tree-sitter AST node types to harness `SymbolKind`:
-
-- **Go**: `function_declaration`, `type_declaration` (struct/interface), `method_declaration`, `var_declaration`, `const_declaration`, `import_declaration`
-- **Rust**: `function_item`, `struct_item`, `impl_item`, `trait_item`, `enum_item`, `mod_item`, `use_declaration`, `const_item`, `static_item`
-- **Java**: `class_declaration`, `interface_declaration`, `method_declaration`, `field_declaration`, `import_declaration`, `enum_declaration`
-
-### 4. Tree-Sitter LanguageParser Implementations (`packages/core/src/shared/parsers/`)
-
-Create `TreeSitterParser` — a generic tree-sitter-based `LanguageParser` implementation that:
-
-- Uses the existing `getParser()` from code-nav/parser.ts for tree-sitter parsing
-- Implements `extractImports()` and `extractExports()` via tree-sitter AST queries per language
-- Provides `health()` checks based on WASM grammar availability
-
-Language-specific import/export extraction patterns:
-
-- **Go**: `import_declaration` → import paths; exported = capitalized identifiers
-- **Rust**: `use_declaration` → import paths; `pub` keyword for exports
-- **Java**: `import_declaration` → import paths; `public` modifier for exports
-- **Python**: `import_statement`, `import_from_statement`; no explicit export (all top-level)
-
-### 5. Parser Registry (`packages/core/src/shared/parsers/registry.ts`)
-
-Create a `ParserRegistry` that maps file extensions to `LanguageParser` implementations:
-
-- `getParserForFile(filePath)` → returns the right parser
-- `getSupportedExtensions()` → returns all registered extensions
-- Pre-registers TypeScript (existing ESTree parser) and tree-sitter parsers for all new languages
-- Used by architecture collectors instead of stub parsers
-
-### 6. CodeIngestor Multi-Language Upgrade (`packages/graph/src/ingest/CodeIngestor.ts`)
-
-- Replace hardcoded `/\.(ts|tsx|js|jsx)$/` filter with registry-aware extension check
-- Replace regex-based `extractSymbols()` with tree-sitter-based extraction for new languages (keep regex for TS/JS backward compat)
-- Add language-specific import extraction patterns for Go, Rust, Java
-- Update `detectLanguage()` to handle all supported languages
-- Update `resolveImportPath()` with language-appropriate extension resolution
-
-### 7. Architecture Collector Wiring (`packages/core/src/architecture/collectors/`)
-
-Replace stub parsers in `forbidden-imports.ts` and `layer-violations.ts` with real parser from the registry. This enables constraint enforcement across all supported languages.
-
-## Scope Boundaries
-
-**In scope:**
-
-- Tree-sitter parsing + code navigation for Go, Rust, Java
-- Import/export extraction for graph ingestion
-- Language detection and extension mapping
-- Architectural constraint enforcement via parser registry
-
-**Out of scope (future work):**
-
-- ESLint rules for non-JS languages (these are inherently JS/TS)
-- Language-specific linting rules
-- Type system analysis for Go/Rust/Java
-- Cross-language call graph analysis (e.g., Go calling Rust via FFI)
+### E. Wire TreeSitterParser outline/unfold
+Delegate to `code-nav/outline.ts` `getOutline()` and `code-nav/unfold.ts` logic.
 
 ## Test Plan
 
-- Add fixture files: `sample.go`, `sample.rs`, `sample.java`
-- Parser tests: parse each fixture, verify language detection
-- Outline tests: verify symbol extraction for each language
-- Import extraction tests: verify cross-file dependency detection
-- CodeIngestor tests: verify multi-language file discovery and graph ingestion
-- Architecture collector tests: verify constraint enforcement works across languages
+- Add fixture files: `sample.py`, `sample.go`, `sample.rs`, `sample.java`
+- CodeIngestor tests: verify symbol + import extraction for all languages
+- Constraint tests: verify language-aware import resolution
+- Architecture collector tests: verify multi-language constraint enforcement
+- Integration test: mixed-language project with cross-language layer enforcement

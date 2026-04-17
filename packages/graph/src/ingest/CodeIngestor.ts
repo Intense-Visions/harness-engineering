@@ -166,21 +166,47 @@ export class CodeIngestor {
   ): Array<{ node: GraphNode; edge: GraphEdge }> {
     const results: Array<{ node: GraphNode; edge: GraphEdge }> = [];
     const lines = content.split('\n');
+    const lang = this.detectLanguage(relativePath);
     const ctx: ClassContext = { className: null, classId: null, insideClass: false, braceDepth: 0 };
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
 
-      if (this.tryExtractFunction(line, lines, i, fileId, relativePath, ctx, results)) continue;
-      if (this.tryExtractClass(line, lines, i, fileId, relativePath, ctx, results)) continue;
-      if (this.tryExtractInterface(line, lines, i, fileId, relativePath, ctx, results)) continue;
-      if (this.updateClassContext(line, ctx)) continue;
-      if (this.tryExtractMethod(line, lines, i, fileId, relativePath, ctx, results)) continue;
+      // For Python, update class context first (indentation-based scope tracking)
+      if (lang === 'python') {
+        this.updatePythonClassContext(lines, i, ctx);
+      }
+
+      if (this.tryExtractFunction(line, lines, i, fileId, relativePath, ctx, results, lang))
+        continue;
+      if (this.tryExtractClass(line, lines, i, fileId, relativePath, ctx, results, lang)) continue;
+      if (this.tryExtractInterface(line, lines, i, fileId, relativePath, ctx, results, lang))
+        continue;
+      if (this.tryEnterImplBlock(line, lang, relativePath, ctx)) continue;
+      if (lang !== 'python' && this.updateClassContext(line, ctx)) continue;
+      if (this.tryExtractMethod(line, lines, i, fileId, relativePath, ctx, results, lang))
+        continue;
       if (ctx.insideClass) continue;
-      this.tryExtractVariable(line, i, fileId, relativePath, results);
+      this.tryExtractVariable(line, i, fileId, relativePath, results, lang);
     }
 
     return results;
+  }
+
+  private matchFunction(line: string, lang: string): RegExpMatchArray | null {
+    switch (lang) {
+      case 'python':
+        return line.match(/^def\s+(\w+)\s*\(/);
+      case 'go':
+        // Match standalone functions (no receiver), exclude methods like func (r *T) Name(
+        return line.match(/^func\s+(\w+)\s*[\[(]/);
+      case 'rust':
+        return line.match(/^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/);
+      case 'java':
+        return null; // Java functions are always methods inside classes
+      default:
+        return line.match(/(?:export\s+)?(?:async\s+)?function\s+(\w+)/);
+    }
   }
 
   private tryExtractFunction(
@@ -190,13 +216,24 @@ export class CodeIngestor {
     fileId: string,
     relativePath: string,
     ctx: ClassContext,
-    results: Array<{ node: GraphNode; edge: GraphEdge }>
+    results: Array<{ node: GraphNode; edge: GraphEdge }>,
+    lang: string
   ): boolean {
-    const fnMatch = line.match(/(?:export\s+)?(?:async\s+)?function\s+(\w+)/);
+    if (ctx.insideClass) return false;
+    const fnMatch = this.matchFunction(line, lang);
     if (!fnMatch) return false;
     const name = fnMatch[1]!;
     const id = `function:${relativePath}:${name}`;
-    const endLine = this.findClosingBrace(lines, i);
+    const endLine =
+      lang === 'python'
+        ? this.findEndOfIndentBlock(lines, i)
+        : this.findClosingBrace(lines, i);
+    const exported =
+      lang === 'go'
+        ? /^[A-Z]/.test(name)
+        : lang === 'rust'
+          ? /^\s*pub\b/.test(line)
+          : line.includes('export');
     results.push({
       node: {
         id,
@@ -205,7 +242,7 @@ export class CodeIngestor {
         path: relativePath,
         location: { fileId, startLine: i + 1, endLine },
         metadata: {
-          exported: line.includes('export'),
+          exported,
           cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
           nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
           lineCount: endLine - i,
@@ -221,6 +258,21 @@ export class CodeIngestor {
     return true;
   }
 
+  private matchClass(line: string, lang: string): RegExpMatchArray | null {
+    switch (lang) {
+      case 'python':
+        return line.match(/^class\s+(\w+)/);
+      case 'go':
+        return line.match(/^type\s+(\w+)\s+struct\b/);
+      case 'rust':
+        return line.match(/^(?:pub\s+)?struct\s+(\w+)/);
+      case 'java':
+        return line.match(/(?:public|private|protected)?\s*(?:abstract\s+|final\s+)?class\s+(\w+)/);
+      default:
+        return line.match(/(?:export\s+)?class\s+(\w+)/);
+    }
+  }
+
   private tryExtractClass(
     line: string,
     lines: string[],
@@ -228,13 +280,25 @@ export class CodeIngestor {
     fileId: string,
     relativePath: string,
     ctx: ClassContext,
-    results: Array<{ node: GraphNode; edge: GraphEdge }>
+    results: Array<{ node: GraphNode; edge: GraphEdge }>,
+    lang: string
   ): boolean {
-    const classMatch = line.match(/(?:export\s+)?class\s+(\w+)/);
+    const classMatch = this.matchClass(line, lang);
     if (!classMatch) return false;
     const name = classMatch[1]!;
     const id = `class:${relativePath}:${name}`;
-    const endLine = this.findClosingBrace(lines, i);
+    const endLine =
+      lang === 'python'
+        ? this.findEndOfIndentBlock(lines, i)
+        : this.findClosingBrace(lines, i);
+    const exported =
+      lang === 'go'
+        ? /^[A-Z]/.test(name)
+        : lang === 'rust'
+          ? /^\s*pub\b/.test(line)
+          : lang === 'java'
+            ? /\bpublic\b/.test(line)
+            : line.includes('export');
     results.push({
       node: {
         id,
@@ -242,15 +306,30 @@ export class CodeIngestor {
         name,
         path: relativePath,
         location: { fileId, startLine: i + 1, endLine },
-        metadata: { exported: line.includes('export') },
+        metadata: { exported },
       },
       edge: { from: fileId, to: id, type: 'contains' },
     });
     ctx.className = name;
     ctx.classId = id;
     ctx.insideClass = true;
-    ctx.braceDepth = countBraces(line);
+    ctx.braceDepth = lang === 'python' ? 1 : countBraces(line);
     return true;
+  }
+
+  private matchInterface(line: string, lang: string): RegExpMatchArray | null {
+    switch (lang) {
+      case 'python':
+        return null; // Python doesn't have interfaces
+      case 'go':
+        return line.match(/^type\s+(\w+)\s+interface\b/);
+      case 'rust':
+        return line.match(/^(?:pub\s+)?trait\s+(\w+)/);
+      case 'java':
+        return line.match(/(?:public\s+)?interface\s+(\w+)/);
+      default:
+        return line.match(/(?:export\s+)?interface\s+(\w+)/);
+    }
   }
 
   private tryExtractInterface(
@@ -260,13 +339,22 @@ export class CodeIngestor {
     fileId: string,
     relativePath: string,
     ctx: ClassContext,
-    results: Array<{ node: GraphNode; edge: GraphEdge }>
+    results: Array<{ node: GraphNode; edge: GraphEdge }>,
+    lang: string
   ): boolean {
-    const ifaceMatch = line.match(/(?:export\s+)?interface\s+(\w+)/);
+    const ifaceMatch = this.matchInterface(line, lang);
     if (!ifaceMatch) return false;
     const name = ifaceMatch[1]!;
     const id = `interface:${relativePath}:${name}`;
     const endLine = this.findClosingBrace(lines, i);
+    const exported =
+      lang === 'go'
+        ? /^[A-Z]/.test(name)
+        : lang === 'rust'
+          ? /^\s*pub\b/.test(line)
+          : lang === 'java'
+            ? /\bpublic\b/.test(line)
+            : line.includes('export');
     results.push({
       node: {
         id,
@@ -274,7 +362,7 @@ export class CodeIngestor {
         name,
         path: relativePath,
         location: { fileId, startLine: i + 1, endLine },
-        metadata: { exported: line.includes('export') },
+        metadata: { exported },
       },
       edge: { from: fileId, to: id, type: 'contains' },
     });
@@ -282,6 +370,29 @@ export class CodeIngestor {
     ctx.classId = null;
     ctx.insideClass = false;
     return true;
+  }
+
+  /**
+   * Enter an impl block (Rust) or Java class body — sets class context without creating a node.
+   */
+  private tryEnterImplBlock(
+    line: string,
+    lang: string,
+    relativePath: string,
+    ctx: ClassContext
+  ): boolean {
+    if (lang === 'rust') {
+      const implMatch = line.match(/^impl(?:<[^>]*>)?\s+(\w+)/);
+      if (implMatch) {
+        const name = implMatch[1]!;
+        ctx.className = name;
+        ctx.classId = `class:${relativePath}:${name}`;
+        ctx.insideClass = true;
+        ctx.braceDepth = countBraces(line);
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Update brace tracking; returns true when line is consumed (class ended or tracked). */
@@ -297,6 +408,32 @@ export class CodeIngestor {
     return false;
   }
 
+  private matchMethod(line: string, lang: string, insideClass: boolean): RegExpMatchArray | null {
+    switch (lang) {
+      case 'python':
+        // Indented def inside a class
+        return insideClass ? line.match(/^\s+def\s+(\w+)\s*\(/) : null;
+      case 'go':
+        // Receiver method: func (r *Type) Name(
+        return line.match(/^func\s+\(\w+\s+\*?(\w+)\)\s+(\w+)\s*\(/);
+      case 'rust':
+        // fn inside impl block
+        return insideClass ? line.match(/^\s+(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/) : null;
+      case 'java':
+        return insideClass
+          ? line.match(
+              /^\s+(?:(?:public|private|protected|static|final|abstract|synchronized)\s+)*(?:\w+(?:<[^>]*>)?)\s+(\w+)\s*\(/
+            )
+          : null;
+      default:
+        return insideClass
+          ? line.match(
+              /^\s+(?:(?:public|private|protected|readonly|static|abstract)\s+)*(?:async\s+)?(\w+)\s*\(/
+            )
+          : null;
+    }
+  }
+
   private tryExtractMethod(
     line: string,
     lines: string[],
@@ -304,17 +441,35 @@ export class CodeIngestor {
     fileId: string,
     relativePath: string,
     ctx: ClassContext,
-    results: Array<{ node: GraphNode; edge: GraphEdge }>
+    results: Array<{ node: GraphNode; edge: GraphEdge }>,
+    lang: string
   ): boolean {
-    if (!ctx.insideClass || !ctx.className || !ctx.classId) return false;
-    const methodMatch = line.match(
-      /^\s+(?:(?:public|private|protected|readonly|static|abstract)\s+)*(?:async\s+)?(\w+)\s*\(/
-    );
+    const methodMatch = this.matchMethod(line, lang, ctx.insideClass);
     if (!methodMatch) return false;
-    const methodName = methodMatch[1]!;
+
+    // Go methods have receiver type and method name in different capture groups
+    let methodName: string;
+    let className: string | null;
+    let classId: string | null;
+
+    if (lang === 'go') {
+      const receiverType = methodMatch[1]!;
+      methodName = methodMatch[2]!;
+      className = receiverType;
+      classId = `class:${relativePath}:${receiverType}`;
+    } else {
+      if (!ctx.insideClass || !ctx.className || !ctx.classId) return false;
+      methodName = methodMatch[1]!;
+      className = ctx.className;
+      classId = ctx.classId;
+    }
+
     if (SKIP_METHOD_NAMES.has(methodName)) return false;
-    const id = `method:${relativePath}:${ctx.className}.${methodName}`;
-    const endLine = this.findClosingBrace(lines, i);
+    const id = `method:${relativePath}:${className}.${methodName}`;
+    const endLine =
+      lang === 'python'
+        ? this.findEndOfIndentBlock(lines, i)
+        : this.findClosingBrace(lines, i);
     results.push({
       node: {
         id,
@@ -323,17 +478,40 @@ export class CodeIngestor {
         path: relativePath,
         location: { fileId, startLine: i + 1, endLine },
         metadata: {
-          className: ctx.className,
-          exported: false,
+          className,
+          exported:
+            lang === 'go'
+              ? /^[A-Z]/.test(methodName)
+              : lang === 'rust'
+                ? /^\s*pub\b/.test(line.trimStart())
+                : lang === 'java'
+                  ? /\bpublic\b/.test(line)
+                  : false,
           cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
           nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
           lineCount: endLine - i,
           parameterCount: this.countParameters(line),
         },
       },
-      edge: { from: ctx.classId, to: id, type: 'contains' },
+      edge: { from: classId, to: id, type: 'contains' },
     });
     return true;
+  }
+
+  private matchVariable(line: string, lang: string): RegExpMatchArray | null {
+    switch (lang) {
+      case 'python':
+        // Top-level assignment: NAME = value (not starting with _)
+        return line.match(/^([A-Z]\w*)\s*=/);
+      case 'go':
+        return line.match(/^(?:var|const)\s+(\w+)/);
+      case 'rust':
+        return line.match(/^(?:pub\s+)?(?:const|static)\s+(\w+)/);
+      case 'java':
+        return null; // Java fields handled in method extraction context
+      default:
+        return line.match(/(?:export\s+)?(?:const|let|var)\s+(\w+)/);
+    }
   }
 
   private tryExtractVariable(
@@ -341,12 +519,19 @@ export class CodeIngestor {
     i: number,
     fileId: string,
     relativePath: string,
-    results: Array<{ node: GraphNode; edge: GraphEdge }>
+    results: Array<{ node: GraphNode; edge: GraphEdge }>,
+    lang: string
   ): void {
-    const varMatch = line.match(/(?:export\s+)?(?:const|let|var)\s+(\w+)/);
+    const varMatch = this.matchVariable(line, lang);
     if (!varMatch) return;
     const name = varMatch[1]!;
     const id = `variable:${relativePath}:${name}`;
+    const exported =
+      lang === 'go'
+        ? /^[A-Z]/.test(name)
+        : lang === 'rust'
+          ? /^\s*pub\b/.test(line)
+          : line.includes('export');
     results.push({
       node: {
         id,
@@ -354,7 +539,7 @@ export class CodeIngestor {
         name,
         path: relativePath,
         location: { fileId, startLine: i + 1, endLine: i + 1 },
-        metadata: { exported: line.includes('export') },
+        metadata: { exported },
       },
       edge: { from: fileId, to: id, type: 'contains' },
     });
@@ -386,6 +571,45 @@ export class CodeIngestor {
     // Fallback: if no closing brace found, return startLine
     // NOTE: endLine == startLine is a known limitation for constructs without braces
     return startIndex + 1;
+  }
+
+  /**
+   * Find the end of an indentation-based block (Python).
+   * The block ends when a subsequent non-empty line has indentation <= the starting line.
+   */
+  private findEndOfIndentBlock(lines: string[], startIndex: number): number {
+    const startLine = lines[startIndex] ?? '';
+    const baseIndent = startLine.search(/\S/);
+    let lastNonEmpty = startIndex;
+
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (line.trim() === '') continue; // skip blank lines
+      const indent = line.search(/\S/);
+      if (indent <= baseIndent) {
+        return lastNonEmpty + 1; // 1-indexed
+      }
+      lastNonEmpty = i;
+    }
+    return lastNonEmpty + 1;
+  }
+
+  /**
+   * Update class context for Python using indentation tracking.
+   */
+  private updatePythonClassContext(lines: string[], i: number, ctx: ClassContext): boolean {
+    if (!ctx.insideClass) return false;
+    const line = lines[i]!;
+    if (line.trim() === '') return false; // blank lines don't end blocks
+    // Check if this non-empty line is back at the class-level indentation (i.e., not indented)
+    const indent = line.search(/\S/);
+    if (indent <= 0) {
+      ctx.className = null;
+      ctx.classId = null;
+      ctx.insideClass = false;
+      return false; // don't consume the line — it may be a new declaration
+    }
+    return false; // inside class, don't consume — let method/function extractors try
   }
 
   /**

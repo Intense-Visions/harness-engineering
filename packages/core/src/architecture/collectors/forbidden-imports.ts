@@ -41,6 +41,8 @@ export class ForbiddenImportCollector implements Collector {
 
   async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
     const registry = getDefaultRegistry();
+    // Use TypeScript parser as the default single parser for health check,
+    // but the registry enables multi-language file resolution
     const parser = registry.getByLanguage('typescript') ?? registry.getByLanguage('javascript');
     const result = await validateDependencies({
       layers: [],
