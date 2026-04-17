@@ -43,6 +43,7 @@ describe('TrackerSyncAdapter interface contract', () => {
       assignee: null,
       priority: null,
       externalId: null,
+      updatedAt: null,
     };
     const result = await adapter.createTicket(feature, 'MVP');
     expect(result.ok).toBe(true);

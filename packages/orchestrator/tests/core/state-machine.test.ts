@@ -1146,7 +1146,7 @@ describe('applyEvent - worker_exit with diagnostic escalation', () => {
 });
 
 describe('applyEvent - claim_rejected', () => {
-  it('removes issue from claimed and running sets', () => {
+  it('removes issue from claimed and running sets and increments claimRejections', () => {
     const config = makeConfig();
     const state = createEmptyState(config);
     state.claimed.add('id-1');
@@ -1166,6 +1166,43 @@ describe('applyEvent - claim_rejected', () => {
 
     expect(nextState.claimed.has('id-1')).toBe(false);
     expect(nextState.running.has('id-1')).toBe(false);
+    expect(nextState.claimRejections).toBe(1);
     expect(effects).toHaveLength(0);
+  });
+
+  it('accumulates claimRejections across multiple rejections', () => {
+    const config = makeConfig();
+    let state = createEmptyState(config);
+
+    // First rejection
+    state.claimed.add('id-1');
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue(),
+      attempt: null,
+      workspacePath: '',
+      startedAt: new Date().toISOString(),
+      phase: 'PreparingWorkspace',
+      session: null,
+    });
+    const result1 = applyEvent(state, { type: 'claim_rejected', issueId: 'id-1' }, config);
+    state = result1.nextState;
+
+    // Second rejection
+    state.claimed.add('id-2');
+    state.running.set('id-2', {
+      issueId: 'id-2',
+      identifier: 'TEST-2',
+      issue: makeIssue({ id: 'id-2', identifier: 'TEST-2' }),
+      attempt: null,
+      workspacePath: '',
+      startedAt: new Date().toISOString(),
+      phase: 'PreparingWorkspace',
+      session: null,
+    });
+    const result2 = applyEvent(state, { type: 'claim_rejected', issueId: 'id-2' }, config);
+
+    expect(result2.nextState.claimRejections).toBe(2);
   });
 });
