@@ -911,12 +911,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Intelligence Pipeline
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/intelligence-pipeline/proposal.md
 - **Summary:** Spec enrichment (SEL), complexity modeling (CML), and pre-execution simulation (PESL) layers in packages/intelligence/. Augments hybrid orchestrator routing with graph-backed complexity scoring and tiered simulation.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#152
 
@@ -1132,12 +1132,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Constraint Emergence from Patterns
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Clusters recurring violations by pattern. When N similar violations appear in M weeks, suggests a new constraint rule. Learns architectural norms from team behavior rather than requiring hand-coded rules. [L1]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#84
 
@@ -1277,12 +1277,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Persistent Agent Specialization
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Agent memory system tracking task-type performance over time. Specialization scoring and dynamic persona weighting. Agents develop expertise in specific codebase areas through accumulated experience. [F10]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#96
 
@@ -1457,12 +1457,12 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 
 ### Container Sandboxing
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** Start with Docker --read-only + --user flags for simple orchestrator sandboxing. Evaluate Container Use (Dagger) MCP client as upgrade path — 13 MCP tools, immutable container state, git-branch isolation. Implement ContainerBackend interface alongside existing ClaudeBackend. Secret backends via 1Password, Vault, env vars. [ACE-A2]
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** chads-macbook-pro-8565381d
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#110
 
