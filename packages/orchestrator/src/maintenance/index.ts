@@ -1,8 +1,9 @@
 /**
- * Scheduled maintenance module — public exports.
+ * Scheduled maintenance module -- public exports.
  *
- * Phase 1 exports types and the task registry. Subsequent phases add:
- * - MaintenanceScheduler (Phase 2)
+ * Phase 1 exports types and the task registry.
+ * Phase 2 adds MaintenanceScheduler and cron matching.
+ * Subsequent phases add:
  * - TaskRunner (Phase 3)
  * - PRManager (Phase 4)
  * - Reporter (Phase 5)
@@ -17,3 +18,12 @@ export type {
 } from './types';
 
 export { BUILT_IN_TASKS } from './task-registry';
+
+export { MaintenanceScheduler } from './scheduler';
+export type {
+  MaintenanceSchedulerOptions,
+  SchedulerLogger,
+  SchedulerClaimManager,
+} from './scheduler';
+
+export { cronMatchesNow } from './cron-matcher';
