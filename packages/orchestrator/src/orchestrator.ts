@@ -1461,12 +1461,18 @@ export class Orchestrator extends EventEmitter {
    * Returns a point-in-time snapshot of the orchestrator's internal state.
    */
   public getSnapshot(): Record<string, unknown> {
+    const now = Date.now();
+    let secondsRunning = 0;
+    for (const [, entry] of this.state.running) {
+      secondsRunning += (now - new Date(entry.startedAt).getTime()) / 1000;
+    }
+
     return {
       running: Array.from(this.state.running.entries()),
       retryAttempts: Array.from(this.state.retryAttempts.entries()),
       claimed: Array.from(this.state.claimed),
       completed: Array.from(this.state.completed),
-      tokenTotals: this.state.tokenTotals,
+      tokenTotals: { ...this.state.tokenTotals, secondsRunning },
       maxConcurrentAgents: this.state.maxConcurrentAgents,
       globalCooldownUntilMs: this.state.globalCooldownUntilMs,
       recentRequestTimestamps: this.state.recentRequestTimestamps,

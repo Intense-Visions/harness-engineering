@@ -620,6 +620,69 @@ describe('applyEvent - agent_update', () => {
 
     const tokenEffect = effects.find((e) => e.type === 'updateTokens');
     expect(tokenEffect).toBeDefined();
+
+    // Global tokenTotals must also be accumulated
+    expect(nextState.tokenTotals.inputTokens).toBe(200);
+    expect(nextState.tokenTotals.outputTokens).toBe(100);
+    expect(nextState.tokenTotals.totalTokens).toBe(300);
+  });
+
+  it('should accumulate tokenTotals across multiple usage events', () => {
+    const config = makeConfig();
+    const state = createEmptyState(config);
+    state.running.set('id-1', {
+      issueId: 'id-1',
+      identifier: 'TEST-1',
+      issue: makeIssue({ id: 'id-1' }),
+      attempt: null,
+      workspacePath: '/tmp/ws/test-1',
+      startedAt: '2026-01-01T00:00:00Z',
+      phase: 'StreamingTurn',
+      session: {
+        sessionId: 'sess-1',
+        backendName: 'mock',
+        agentPid: null,
+        startedAt: '2026-01-01T00:00:00Z',
+        lastEvent: null,
+        lastTimestamp: null,
+        lastMessage: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        lastReportedInputTokens: 0,
+        lastReportedOutputTokens: 0,
+        lastReportedTotalTokens: 0,
+        turnCount: 1,
+      },
+    });
+
+    // First usage event
+    const event1: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: {
+        type: 'assistant',
+        timestamp: '2026-01-01T00:01:00Z',
+        usage: { inputTokens: 500, outputTokens: 200, totalTokens: 700 },
+      },
+    };
+    const { nextState: state2 } = applyEvent(state, event1, config);
+
+    // Second usage event
+    const event2: OrchestratorEvent = {
+      type: 'agent_update',
+      issueId: 'id-1',
+      event: {
+        type: 'assistant',
+        timestamp: '2026-01-01T00:02:00Z',
+        usage: { inputTokens: 300, outputTokens: 100, totalTokens: 400 },
+      },
+    };
+    const { nextState: state3 } = applyEvent(state2, event2, config);
+
+    expect(state3.tokenTotals.inputTokens).toBe(800);
+    expect(state3.tokenTotals.outputTokens).toBe(300);
+    expect(state3.tokenTotals.totalTokens).toBe(1100);
   });
 
   it('should be a no-op when issue is not in running map', () => {
