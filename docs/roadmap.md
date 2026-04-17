@@ -944,14 +944,11 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Orchestrator PR-Aware Dispatch Guard
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/orchestrator-pr-aware-dispatch/proposal.md
 - **Summary:** Pre-filter in orchestrator tick that checks candidate externalId against GitHub PR state, skipping dispatch for features with open PRs and failing open on API errors
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** —
 
 ## v3.0 Graph Intelligence
 
@@ -1247,7 +1244,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Developer Velocity Analysis
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Git history temporal analysis, PR/review time integration, and friction zone identification. Identifies which codebase areas slow development most and quantifies the productivity gains from targeted refactoring. [K1]
 - **Blockers:** —
@@ -1258,7 +1255,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Multi-Language Support
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/framework-gaps-assessment/ADR-001.md
 - **Summary:** Tree-sitter integration for Python, Go, Rust, and Java parsing. Language-agnostic constraint enforcement. Cross-language dependency tracking in knowledge graph. Same architectural rules apply regardless of implementation language. [B1/B6]
 - **Blockers:** —
@@ -1438,7 +1435,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Hook Authoring & TDD Guard
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
 - **Summary:** harness generate hooks command with opinionated presets: --preset tdd (AST test counting via @ast-grep/napi, hook-based Red-Green-Refactor enforcement), --preset security (parry integration, file guard), --preset checkpoint (git stash auto-save on Stop), --preset audit (session logging). Node.js target for broad compatibility. Inspired by claude-hooks and TDD Guard. [ACE-B3/B4]
 - **Blockers:** —
@@ -1504,7 +1501,7 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Context Budget System
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** .harness/architecture/agent-skills-comparative/ADR-001.md
 - **Summary:** Explicit token budgets in skill.yaml (context_budget field) with 5-level progressive loading hierarchy (rules → spec → source → errors → history). Triggered when skill count approaches 100.
 - **Blockers:** —
