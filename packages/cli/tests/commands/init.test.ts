@@ -16,6 +16,17 @@ describe('runInit', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
+  it('ships a default .agnix.toml for harness validate --agent-configs', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const result = await runInit({ cwd: tmpDir, name: 'test-project' });
+    expect(result.ok).toBe(true);
+    const agnixPath = path.join(tmpDir, '.agnix.toml');
+    expect(fs.existsSync(agnixPath)).toBe(true);
+    const contents = fs.readFileSync(agnixPath, 'utf-8');
+    expect(contents).toContain('target = "claude-code"');
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
   it('scaffolds an intermediate project', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     const result = await runInit({ cwd: tmpDir, name: 'test-project', level: 'intermediate' });

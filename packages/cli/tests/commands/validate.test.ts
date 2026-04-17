@@ -11,6 +11,12 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
       ok: true,
       value: { brokenLinks: [] },
     }),
+    validateAgentConfigs: vi.fn().mockResolvedValue({
+      engine: 'fallback',
+      valid: true,
+      fellBackBecause: 'binary-not-found',
+      issues: [],
+    }),
   };
 });
 
@@ -27,7 +33,11 @@ vi.mock('../../src/config/loader', () => ({
 }));
 
 import { createValidateCommand, runValidate } from '../../src/commands/validate';
-import { validateAgentsMap, validateKnowledgeMap } from '@harness-engineering/core';
+import {
+  validateAgentsMap,
+  validateKnowledgeMap,
+  validateAgentConfigs,
+} from '@harness-engineering/core';
 import { resolveConfig } from '../../src/config/loader';
 
 describe('validate command', () => {
@@ -162,6 +172,88 @@ describe('validate command', () => {
       const cmd = createValidateCommand();
       const opt = cmd.options.find((o) => o.long === '--cross-check');
       expect(opt).toBeDefined();
+    });
+
+    it('has --agent-configs, --strict, and --agnix-bin options', () => {
+      const cmd = createValidateCommand();
+      expect(cmd.options.find((o) => o.long === '--agent-configs')).toBeDefined();
+      expect(cmd.options.find((o) => o.long === '--strict')).toBeDefined();
+      expect(cmd.options.find((o) => o.long === '--agnix-bin')).toBeDefined();
+    });
+  });
+
+  describe('--agent-configs', () => {
+    it('does not invoke validateAgentConfigs unless the flag is set', async () => {
+      await runValidate({ cwd: '/tmp/test' });
+      expect(validateAgentConfigs).not.toHaveBeenCalled();
+    });
+
+    it('invokes validateAgentConfigs when agentConfigs is true and merges findings into issues', async () => {
+      vi.mocked(validateAgentConfigs).mockResolvedValueOnce({
+        engine: 'fallback',
+        valid: false,
+        fellBackBecause: 'binary-not-found',
+        issues: [
+          {
+            file: 'CLAUDE.md',
+            ruleId: 'HARNESS-AC-002',
+            severity: 'error',
+            message: 'CLAUDE.md is empty',
+          },
+        ],
+      } as never);
+
+      const result = await runValidate({ cwd: '/tmp/test', agentConfigs: true });
+      expect(validateAgentConfigs).toHaveBeenCalledWith('/tmp/test', { strict: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(false);
+      expect(result.value.checks.agentConfigs).toBe(false);
+      expect(result.value.agentConfigs?.engine).toBe('fallback');
+      const issue = result.value.issues.find((i) => i.check === 'agentConfigs');
+      expect(issue).toBeDefined();
+      expect(issue?.ruleId).toBe('HARNESS-AC-002');
+      expect(issue?.severity).toBe('error');
+    });
+
+    it('forwards --strict to validateAgentConfigs', async () => {
+      await runValidate({ cwd: '/tmp/test', agentConfigs: true, strict: true });
+      expect(validateAgentConfigs).toHaveBeenCalledWith('/tmp/test', { strict: true });
+    });
+
+    it('forwards --agnix-bin override to validateAgentConfigs', async () => {
+      await runValidate({
+        cwd: '/tmp/test',
+        agentConfigs: true,
+        agnixBin: '/opt/agnix',
+      });
+      expect(validateAgentConfigs).toHaveBeenCalledWith('/tmp/test', {
+        strict: false,
+        agnixBin: '/opt/agnix',
+      });
+    });
+
+    it('keeps valid=true when fallback only emits warnings', async () => {
+      vi.mocked(validateAgentConfigs).mockResolvedValueOnce({
+        engine: 'fallback',
+        valid: true,
+        fellBackBecause: 'binary-not-found',
+        issues: [
+          {
+            file: 'CLAUDE.md',
+            ruleId: 'HARNESS-AC-003',
+            severity: 'warning',
+            message: 'missing h1',
+          },
+        ],
+      } as never);
+
+      const result = await runValidate({ cwd: '/tmp/test', agentConfigs: true });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.valid).toBe(true);
+        expect(result.value.checks.agentConfigs).toBe(true);
+      }
     });
   });
 

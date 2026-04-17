@@ -1416,8 +1416,8 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 
 ### Agent Config Validation
 
-- **Status:** planned
-- **Spec:** .harness/architecture/awesome-claude-code-integration/ADR-001.md
+- **Status:** done
+- **Spec:** docs/changes/agent-config-validation/proposal.md
 - **Summary:** harness validate --agent-configs with agnix hybrid approach — shell out to agnix binary when available (385 rules), fall back to ~20 highest-value TypeScript rules (broken agents, invalid hooks, unreachable skills, oversized CLAUDE.md). Ship .agnix.toml template in harness init. [ACE-B2]
 - **Blockers:** —
 - **Plan:** —

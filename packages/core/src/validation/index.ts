@@ -27,3 +27,18 @@ export type {
   CommitFormat,
   CommitValidation,
 } from './types';
+
+/**
+ * Agent configuration validation (hybrid agnix binary + TypeScript fallback rules).
+ */
+export {
+  validateAgentConfigs,
+  runFallbackRules as runAgentConfigFallbackRules,
+} from './agent-configs';
+export type {
+  AgentConfigFinding,
+  AgentConfigValidation,
+  AgentConfigOptions,
+  AgentConfigSeverity,
+  AgentConfigFallbackReason,
+} from './agent-configs';
