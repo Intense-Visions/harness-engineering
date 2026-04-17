@@ -22,4 +22,5 @@ export type {
 export { renderAnalysisComment } from './analysis-comment';
 export { loadPublishedIndex, savePublishedIndex } from './published-index';
 export type { PublishedIndex } from './published-index';
+export { resolveOrchestratorId, ORCHESTRATOR_IDENTITY_FILE } from './orchestrator-identity';
 // loadTrackerSyncConfig consolidated to @harness-engineering/core
