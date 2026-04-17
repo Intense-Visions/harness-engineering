@@ -682,6 +682,9 @@ export class Orchestrator extends EventEmitter {
     // 1b. Filter out candidates with open PRs
     const candidates = await this.filterCandidatesWithOpenPRs(candidatesResult.value);
 
+    // 1c. Check for stale claims from dead orchestrators and release them
+    await this.releaseStaleClaims(candidates);
+
     // 2. Fetch current status for running issues
     const runningIds = Array.from(this.state.running.keys());
     const runningStatesResult = await this.tracker.fetchIssueStatesByIds(runningIds);
@@ -909,6 +912,43 @@ export class Orchestrator extends EventEmitter {
       }
     }
     return filtered;
+  }
+
+  /**
+   * Scans candidate issues for stale claims from other orchestrators.
+   * An issue is considered stale if:
+   * - It is in an "in-progress" state
+   * - It has an assignee that is NOT this orchestrator
+   * - Its updatedAt timestamp exceeds the heartbeat TTL
+   *
+   * Stale claims are released so the issue becomes available on subsequent ticks.
+   */
+  private async releaseStaleClaims(candidates: Issue[]): Promise<void> {
+    if (!this.claimManager) return;
+
+    const orchestratorId = await this.orchestratorIdPromise;
+    const ttlMs = (this.config.polling.intervalMs || 30000) * 20; // Default: ~10 minutes (20x interval)
+
+    for (const issue of candidates) {
+      // Only consider in-progress issues assigned to a different orchestrator
+      const normalizedState = issue.state.toLowerCase();
+      if (normalizedState !== 'in-progress') continue;
+      if (!issue.assignee) continue;
+      if (issue.assignee === orchestratorId) continue;
+
+      if (this.claimManager.isStale(issue, ttlMs)) {
+        this.logger.warn(
+          `Releasing stale claim on ${issue.identifier} (assigned to ${issue.assignee}, last updated ${issue.updatedAt})`,
+          { issueId: issue.id }
+        );
+        await this.claimManager.release(issue.id).catch((err) => {
+          this.logger.warn(`Failed to release stale claim for ${issue.identifier}`, {
+            issueId: issue.id,
+            error: String(err),
+          });
+        });
+      }
+    }
   }
 
   /**
