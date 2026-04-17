@@ -27,6 +27,9 @@ const GRAMMAR_MAP: Record<SupportedLanguage, string> = {
   typescript: 'tree-sitter-typescript',
   javascript: 'tree-sitter-javascript',
   python: 'tree-sitter-python',
+  go: 'tree-sitter-go',
+  rust: 'tree-sitter-rust',
+  java: 'tree-sitter-java',
 };
 
 async function ensureInit(): Promise<void> {

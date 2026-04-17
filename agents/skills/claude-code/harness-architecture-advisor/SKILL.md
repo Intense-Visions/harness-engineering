@@ -47,7 +47,9 @@ Store answers in: .harness/architecture/<topic>/discovery.md
 
 ---
 
-### Phase 2: ANALYZE — Research the Codebase
+### Phase 2: ANALYZE — Research the Codebase (Read-Only)
+
+**Read-only research constraint:** This phase is discovery, not solution design. You may read files, search patterns, trace dependencies, and record observations. You may NOT propose solutions, recommend approaches, or evaluate trade-offs. If you catch yourself writing "we could..." or "one option is...", STOP — you have left research mode. Save solutions for Phase 3.
 
 Read the codebase to understand the current state. Do not propose solutions yet — gather facts.
 
@@ -272,6 +274,7 @@ Also link from the project's ADR index if one exists.
 - **Always 2-3 options.** Never present 1 option (that is a directive, not advice). Never present more than 3 (that causes paralysis).
 - **No implementation in this skill.** If you write production code, you have broken the advisory boundary. Stop and return to presenting options.
 - **Trade-offs must be honest.** Every option has downsides. If you cannot articulate the cons of an option, you do not understand it well enough to recommend it.
+- **No solutions in Phase 2.** Phase 2 is read-only research. Observations and facts only. Solutions belong in Phase 3. Mixing discovery with solution design anchors on the first idea found.
 
 ## Evidence Requirements
 
@@ -309,11 +312,12 @@ These apply to ALL skills. If you catch yourself doing any of these, STOP.
 
 ## Rationalizations to Reject
 
-| Rationalization                   | Reality                                                                                             |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| "This will be easier to maintain" | Easier for whom, and compared to what? Cite the maintenance burden with evidence from the codebase. |
-| "It's the modern approach"        | Modernity is not a design criterion. Fitness for purpose is. State the specific benefit.            |
-| "Other teams do it this way"      | Other teams have different constraints. Evaluate the option on this codebase's specific merits.     |
+| Rationalization                                              | Reality                                                                                                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This will be easier to maintain"                            | Easier for whom, and compared to what? Cite the maintenance burden with evidence from the codebase.                                                                       |
+| "It's the modern approach"                                   | Modernity is not a design criterion. Fitness for purpose is. State the specific benefit.                                                                                  |
+| "Other teams do it this way"                                 | Other teams have different constraints. Evaluate the option on this codebase's specific merits.                                                                           |
+| "I can see the solution already, no need to finish research" | Premature convergence anchors on the first viable option. Complete Phase 2 research before proposing anything in Phase 3. The best option may not be the first one found. |
 
 ## Escalation
 

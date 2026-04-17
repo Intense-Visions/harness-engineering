@@ -860,30 +860,35 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Checks whether an external tracker ID points to an open GitHub PR.
-   * Parses `github:<owner>/<repo>#<number>` format. Non-github schemes
-   * return false (fail-open, not a GitHub item). API failures return
-   * false (fail-open) and log a warning.
+   * Checks whether an issue identifier has an open GitHub PR by searching
+   * for a branch matching the `feat/<identifier>` naming convention used
+   * by dispatched agents. Fail-open on API errors.
    */
-  private async isExternalPROpen(externalId: string): Promise<boolean> {
-    const match = externalId.match(/^github:([^/]+\/[^#]+)#(\d+)$/);
-    if (!match) return false;
-
-    const [, repo, prNumber] = match;
-    if (!repo || !prNumber) return false;
+  private async hasOpenPRForIdentifier(identifier: string): Promise<boolean> {
     try {
       const exec = promisify(execFile);
       const { stdout } = await exec(
         'gh',
-        ['pr', 'view', prNumber, '--repo', repo, '--json', 'state', '--jq', '.state'],
+        [
+          'pr',
+          'list',
+          '--head',
+          `feat/${identifier}`,
+          '--state',
+          'open',
+          '--json',
+          'number',
+          '--jq',
+          'length',
+        ],
         {
           cwd: this.projectRoot,
           timeout: 10_000,
         }
       );
-      return stdout.trim() === 'OPEN';
+      return parseInt(stdout.trim(), 10) > 0;
     } catch (err) {
-      this.logger.warn(`Failed to check PR state for ${externalId}`, {
+      this.logger.warn(`Failed to check open PRs for ${identifier}`, {
         error: String(err),
       });
       return false;
@@ -891,16 +896,15 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Filters out candidates that have an open GitHub PR, running checks
-   * in parallel via Promise.allSettled. Candidates with null externalId
-   * or non-github schemes pass through. Fail-open on API errors.
+   * Filters out candidates that already have an open GitHub PR, running
+   * checks in parallel via Promise.allSettled. Looks up PRs by the
+   * `feat/<identifier>` branch naming convention. Fail-open on API errors.
    */
   private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
     const results = await Promise.allSettled(
       candidates.map(async (candidate) => {
-        if (!candidate.externalId) return { candidate, isOpen: false };
-        const isOpen = await this.isExternalPROpen(candidate.externalId);
-        return { candidate, isOpen };
+        const hasOpenPR = await this.hasOpenPRForIdentifier(candidate.identifier);
+        return { candidate, hasOpenPR };
       })
     );
 
@@ -908,13 +912,14 @@ export class Orchestrator extends EventEmitter {
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       if (!result || result.status === 'rejected') {
-        // Unreachable: isExternalPROpen catches internally. Fail-open defensively.
         filtered.push(candidates[i]!);
         continue;
       }
-      const { candidate, isOpen } = result.value;
-      if (isOpen) {
-        this.logger.info(`Skipping ${candidate.title}: open PR at ${candidate.externalId}`);
+      const { candidate, hasOpenPR } = result.value;
+      if (hasOpenPR) {
+        this.logger.info(
+          `Skipping ${candidate.title}: open PR exists for feat/${candidate.identifier}`
+        );
       } else {
         filtered.push(candidate);
       }

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createFixes, previewFix, applyFixes } from '../../../src/entropy/fixers/safe-fixes';
 import type { DeadCodeReport, Fix } from '../../../src/entropy/types';
+import { createRegionMap } from '../../../src/annotations';
 import * as fs from 'fs';
 import { promisify } from 'util';
 import * as path from 'path';
@@ -351,6 +352,189 @@ describe('applyFixes', () => {
       const backupFiles = fs.readdirSync(backupDir);
       expect(backupFiles.length).toBe(1);
       expect(backupFiles[0]).toContain('backup-me.ts');
+    }
+  });
+});
+
+describe('applyFixes with protectedRegions', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = path.join(os.tmpdir(), `safe-fixes-protected-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('skips fixes in protected lines', async () => {
+    const testFile = path.join(tmpDir, 'protected.ts');
+    await writeFile(testFile, 'import { unused } from "mod";\nconst a = 1;\n');
+
+    const protectedRegions = createRegionMap([
+      {
+        file: testFile,
+        startLine: 1,
+        endLine: 1,
+        scopes: ['entropy'],
+        reason: 'protected import',
+        type: 'line',
+      },
+    ]);
+
+    const fixes: Fix[] = [
+      {
+        type: 'unused-imports',
+        file: testFile,
+        description: 'Remove unused import',
+        action: 'delete-lines',
+        line: 1,
+        safe: true,
+        reversible: true,
+      },
+    ];
+
+    const result = await applyFixes(fixes, {
+      fixTypes: ['unused-imports'],
+      dryRun: false,
+      createBackup: false,
+      protectedRegions,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied).toHaveLength(0);
+      expect(result.value.skipped).toHaveLength(1);
+      // File should be unchanged
+      const content = await readFile(testFile, 'utf-8');
+      expect(content).toBe('import { unused } from "mod";\nconst a = 1;\n');
+    }
+  });
+
+  it('applies fixes when no protectedRegions provided (backward compatible)', async () => {
+    const testFile = path.join(tmpDir, 'unprotected.ts');
+    await writeFile(testFile, 'import { unused } from "mod";\nconst a = 1;\n');
+
+    const fixes: Fix[] = [
+      {
+        type: 'unused-imports',
+        file: testFile,
+        description: 'Remove unused import',
+        action: 'delete-lines',
+        line: 1,
+        safe: true,
+        reversible: true,
+      },
+    ];
+
+    const result = await applyFixes(fixes, {
+      fixTypes: ['unused-imports'],
+      dryRun: false,
+      createBackup: false,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied).toHaveLength(1);
+      expect(result.value.skipped).toHaveLength(0);
+    }
+  });
+
+  it('skips delete-file when file has any protected region', async () => {
+    const testFile = path.join(tmpDir, 'protected-file.ts');
+    await writeFile(testFile, 'const a = 1;\n');
+
+    const protectedRegions = createRegionMap([
+      {
+        file: testFile,
+        startLine: 1,
+        endLine: 1,
+        scopes: ['all'],
+        reason: 'do not delete',
+        type: 'line',
+      },
+    ]);
+
+    const fixes: Fix[] = [
+      {
+        type: 'dead-files',
+        file: testFile,
+        description: 'Delete dead file',
+        action: 'delete-file',
+        safe: true,
+        reversible: true,
+      },
+    ];
+
+    const result = await applyFixes(fixes, {
+      fixTypes: ['dead-files'],
+      dryRun: false,
+      createBackup: false,
+      protectedRegions,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied).toHaveLength(0);
+      expect(result.value.skipped).toHaveLength(1);
+      // File should still exist
+      expect(await exists(testFile)).toBe(true);
+    }
+  });
+
+  it('applies non-protected fixes normally when protectedRegions is set', async () => {
+    const testFile = path.join(tmpDir, 'mixed.ts');
+    await writeFile(
+      testFile,
+      'import { used } from "mod";\nimport { unused } from "other";\nconst a = 1;\n'
+    );
+
+    const protectedRegions = createRegionMap([
+      {
+        file: testFile,
+        startLine: 1,
+        endLine: 1,
+        scopes: ['entropy'],
+        reason: 'keep this import',
+        type: 'line',
+      },
+    ]);
+
+    const fixes: Fix[] = [
+      {
+        type: 'unused-imports',
+        file: testFile,
+        description: 'Remove protected import',
+        action: 'delete-lines',
+        line: 1,
+        safe: true,
+        reversible: true,
+      },
+      {
+        type: 'unused-imports',
+        file: testFile,
+        description: 'Remove unprotected import',
+        action: 'delete-lines',
+        line: 2,
+        safe: true,
+        reversible: true,
+      },
+    ];
+
+    const result = await applyFixes(fixes, {
+      fixTypes: ['unused-imports'],
+      dryRun: false,
+      createBackup: false,
+      protectedRegions,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.applied).toHaveLength(1);
+      expect(result.value.skipped).toHaveLength(1);
+      expect(result.value.applied[0]!.description).toBe('Remove unprotected import');
+      expect(result.value.skipped[0]!.description).toBe('Remove protected import');
     }
   });
 });
