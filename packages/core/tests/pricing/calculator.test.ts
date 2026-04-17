@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCost } from '../../src/pricing/calculator';
+import { calculateCost, calculateCacheSavings } from '../../src/pricing/calculator';
 import type { UsageRecord, ModelPricing } from '@harness-engineering/types';
 import type { PricingDataset } from '../../src/pricing/types';
 
@@ -91,5 +91,53 @@ describe('calculateCost', () => {
     // Only input cost: 1M * $1/1M = $1 = 1,000,000 microdollars
     // cacheRead ignored because model has no cacheReadPer1M
     expect(cost).toBe(1_000_000);
+  });
+});
+
+describe('calculateCacheSavings', () => {
+  const dataset: PricingDataset = new Map([['claude-sonnet-4-20250514', sonnetPricing]]);
+
+  it('should calculate savings from cache reads vs full-price input', () => {
+    const record = makeRecord({
+      model: 'claude-sonnet-4-20250514',
+      cacheReadTokens: 1_000_000,
+    });
+    const savings = calculateCacheSavings(record, dataset);
+    // savings = cacheReadTokens * (inputPer1M - cacheReadPer1M) / 1M
+    // = 1M * ($3.0 - $0.3) / 1M = $2.7 = 2,700,000 microdollars
+    expect(savings).toBe(2_700_000);
+  });
+
+  it('should return null when model is not specified', () => {
+    const record = makeRecord({ cacheReadTokens: 1_000_000 });
+    expect(calculateCacheSavings(record, dataset)).toBeNull();
+  });
+
+  it('should return null when model is unknown', () => {
+    const record = makeRecord({ model: 'unknown', cacheReadTokens: 1_000_000 });
+    expect(calculateCacheSavings(record, dataset)).toBeNull();
+  });
+
+  it('should return null when no cache read tokens', () => {
+    const record = makeRecord({ model: 'claude-sonnet-4-20250514' });
+    expect(calculateCacheSavings(record, dataset)).toBeNull();
+  });
+
+  it('should return null when model has no cache pricing', () => {
+    const noCacheDataset: PricingDataset = new Map([
+      ['basic-model', { inputPer1M: 1.0, outputPer1M: 2.0 }],
+    ]);
+    const record = makeRecord({ model: 'basic-model', cacheReadTokens: 500_000 });
+    expect(calculateCacheSavings(record, noCacheDataset)).toBeNull();
+  });
+
+  it('should return integer microdollars', () => {
+    const record = makeRecord({
+      model: 'claude-sonnet-4-20250514',
+      cacheReadTokens: 333,
+    });
+    const savings = calculateCacheSavings(record, dataset);
+    expect(savings).not.toBeNull();
+    expect(Number.isInteger(savings)).toBe(true);
   });
 });

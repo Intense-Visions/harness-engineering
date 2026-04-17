@@ -84,6 +84,19 @@ export const Stats: React.FC<StatsProps> = ({
         <Text>
           Total: <Text color="yellow">{tokenTotals.totalTokens.toLocaleString()}</Text>
         </Text>
+        {tokenTotals.cacheReadTokens > 0 ? (
+          <>
+            <Text>
+              Cache Read: <Text color="green">{tokenTotals.cacheReadTokens.toLocaleString()}</Text>
+            </Text>
+            <Text>
+              Cache Hit:{' '}
+              <Text color="green">
+                {((tokenTotals.cacheReadTokens / tokenTotals.inputTokens) * 100).toFixed(1)}%
+              </Text>
+            </Text>
+          </>
+        ) : null}
       </Box>
 
       <Box flexDirection="column">

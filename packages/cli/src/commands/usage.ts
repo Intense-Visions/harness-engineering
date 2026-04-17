@@ -2,10 +2,19 @@ import { Command } from 'commander';
 import type { UsageRecord } from '@harness-engineering/types';
 import { logger } from '../output/logger';
 
+type PricingDataset = Awaited<
+  ReturnType<typeof import('@harness-engineering/core').loadPricingData>
+>;
+
+interface LoadResult {
+  records: UsageRecord[];
+  pricingData: PricingDataset | null;
+}
+
 async function loadAndPriceRecords(
   cwd: string,
   includeClaudeSessions = false
-): Promise<UsageRecord[]> {
+): Promise<LoadResult> {
   const { readCostRecords, loadPricingData, calculateCost, parseCCRecords } =
     await import('@harness-engineering/core');
 
@@ -16,7 +25,7 @@ async function loadAndPriceRecords(
     records.push(...ccRecords);
   }
 
-  if (records.length === 0) return records;
+  if (records.length === 0) return { records, pricingData: null };
 
   const pricingData = await loadPricingData(cwd);
   for (const record of records) {
@@ -25,7 +34,23 @@ async function loadAndPriceRecords(
       if (cost != null) record.costMicroUSD = cost;
     }
   }
-  return records;
+  return { records, pricingData };
+}
+
+/**
+ * Compute estimated savings from cache reads in microdollars.
+ * savings = cacheReadTokens * (inputPer1M - cacheReadPer1M) / 1M
+ */
+function computeCacheSavings(
+  cacheReadTokens: number | undefined,
+  model: string | undefined,
+  pricingData: PricingDataset | null
+): number | null {
+  if (!cacheReadTokens || !model || !pricingData) return null;
+  const pricing = pricingData.get(model);
+  if (!pricing || pricing.cacheReadPer1M == null) return null;
+  const savingsUSD = (cacheReadTokens / 1_000_000) * (pricing.inputPer1M - pricing.cacheReadPer1M);
+  return Math.round(savingsUSD * 1_000_000);
 }
 
 function formatMicroUSD(microUSD: number | null): string {
@@ -67,7 +92,10 @@ function registerDailyCommand(usage: Command): void {
       const days = Math.min(Math.max(parseInt(opts.days, 10) || 7, 1), 90);
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
+      const { records, pricingData } = await loadAndPriceRecords(
+        cwd,
+        globalOpts.includeClaudeSessions
+      );
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify([]));
@@ -84,9 +112,11 @@ function registerDailyCommand(usage: Command): void {
       if (globalOpts.json) {
         const enriched = limited.map((day) => {
           const hitRate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
+          const savings = computeCacheSavings(day.cacheReadTokens, day.models[0], pricingData);
           return {
             ...day,
             ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
+            ...(savings != null ? { cacheSavingsMicroUSD: savings } : {}),
           };
         });
         console.log(JSON.stringify(enriched, null, 2));
@@ -96,8 +126,8 @@ function registerDailyCommand(usage: Command): void {
       const hasCacheData = limited.some((d) => d.cacheReadTokens != null && d.cacheReadTokens > 0);
 
       // Table header
-      const cacheHeader = hasCacheData ? ' | Cache ' : '';
-      const cacheDivider = hasCacheData ? ' | ------' : '';
+      const cacheHeader = hasCacheData ? ' | Cache  | Saved  ' : '';
+      const cacheDivider = hasCacheData ? ' | ------ | -------' : '';
       const header =
         'Date         | Sessions | Input     | Output    | Model(s)                     | Cost  ' +
         cacheHeader;
@@ -117,7 +147,10 @@ function registerDailyCommand(usage: Command): void {
         const cacheCol = hasCacheData
           ? (() => {
               const rate = computeCacheHitRate(day.cacheReadTokens, day.tokens.inputTokens);
-              return ' | ' + (rate != null ? formatPercent(rate).padStart(5) : '    -');
+              const savings = computeCacheSavings(day.cacheReadTokens, day.models[0], pricingData);
+              const rateStr = rate != null ? formatPercent(rate).padStart(5) : '    -';
+              const savingsStr = savings != null ? formatMicroUSD(savings).padStart(7) : '    N/A';
+              return ' | ' + rateStr + ' | ' + savingsStr;
             })()
           : '';
         logger.info(
@@ -137,7 +170,7 @@ function registerSessionsCommand(usage: Command): void {
       const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 10, 1), 100);
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
+      const { records } = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify([]));
@@ -204,7 +237,7 @@ function reportSessionNotFound(id: string, sessionData: SessionRecord[], useJson
   }
 }
 
-function printSessionDetail(match: SessionRecord): void {
+function printSessionDetail(match: SessionRecord, pricingData: PricingDataset | null): void {
   logger.info(`Session: ${match.sessionId}`);
   logger.info(`Started: ${match.firstTimestamp}`);
   logger.info(`Ended:   ${match.lastTimestamp}`);
@@ -223,9 +256,13 @@ function printSessionDetail(match: SessionRecord): void {
   }
   const hitRate = computeCacheHitRate(match.cacheReadTokens, match.tokens.inputTokens);
   if (hitRate != null) {
+    const savings = computeCacheSavings(match.cacheReadTokens, match.model, pricingData);
     logger.info('');
     logger.info('Cache Performance:');
     logger.info(`  Cache hit rate:        ${formatPercent(hitRate)}`);
+    if (savings != null) {
+      logger.info(`  Estimated savings:     ${formatMicroUSD(savings)}`);
+    }
   }
   logger.info('');
   logger.info(`Cost: ${formatMicroUSD(match.costMicroUSD)}`);
@@ -239,7 +276,10 @@ function registerSessionCommand(usage: Command): void {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
+      const { records, pricingData } = await loadAndPriceRecords(
+        cwd,
+        globalOpts.includeClaudeSessions
+      );
 
       const { aggregateBySession } = await import('@harness-engineering/core');
       const sessionData = aggregateBySession(records);
@@ -253,15 +293,17 @@ function registerSessionCommand(usage: Command): void {
 
       if (globalOpts.json) {
         const hitRate = computeCacheHitRate(match.cacheReadTokens, match.tokens.inputTokens);
+        const savings = computeCacheSavings(match.cacheReadTokens, match.model, pricingData);
         const enriched = {
           ...match,
           ...(hitRate != null ? { cacheHitRate: Math.round(hitRate * 1000) / 1000 } : {}),
+          ...(savings != null ? { cacheSavingsMicroUSD: savings } : {}),
         };
         console.log(JSON.stringify(enriched, null, 2));
         return;
       }
 
-      printSessionDetail(match);
+      printSessionDetail(match, pricingData);
     });
 }
 
@@ -273,7 +315,7 @@ function registerLatestCommand(usage: Command): void {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
 
-      const records = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
+      const { records } = await loadAndPriceRecords(cwd, globalOpts.includeClaudeSessions);
       if (records.length === 0) {
         if (globalOpts.json) {
           console.log(JSON.stringify({ error: 'No usage data found' }));

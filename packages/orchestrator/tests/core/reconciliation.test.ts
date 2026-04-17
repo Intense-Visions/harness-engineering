@@ -47,7 +47,14 @@ function makeState(overrides: Partial<OrchestratorState> = {}): OrchestratorStat
     claimed: new Set(),
     retryAttempts: new Map(),
     completed: new Set(),
-    tokenTotals: { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 },
+    tokenTotals: {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+      secondsRunning: 0,
+    },
     rateLimits: {
       requestsRemaining: null,
       requestsLimit: null,

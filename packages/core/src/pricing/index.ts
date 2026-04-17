@@ -5,7 +5,7 @@ export {
   CACHE_TTL_MS,
   STALENESS_WARNING_DAYS,
 } from './cache';
-export { calculateCost } from './calculator';
+export { calculateCost, calculateCacheSavings } from './calculator';
 export type {
   PricingDataset,
   PricingCacheFile,

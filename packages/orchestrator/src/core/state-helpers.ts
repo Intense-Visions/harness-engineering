@@ -25,6 +25,8 @@ export function createEmptyState(config: WorkflowConfig): OrchestratorState {
       inputTokens: 0,
       outputTokens: 0,
       totalTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
       secondsRunning: 0,
     },
     rateLimits: {

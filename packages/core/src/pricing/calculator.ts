@@ -36,3 +36,20 @@ export function calculateCost(record: UsageRecord, dataset: PricingDataset): num
   // Convert to integer microdollars
   return Math.round(costUSD * MICRODOLLARS_PER_DOLLAR);
 }
+
+/**
+ * Calculates estimated savings from prompt cache reads in integer microdollars.
+ * Savings = cacheReadTokens * (inputPer1M - cacheReadPer1M) / 1M
+ * Returns null if model unknown, no cache tokens, or no cache pricing.
+ */
+export function calculateCacheSavings(record: UsageRecord, dataset: PricingDataset): number | null {
+  if (!record.model || record.cacheReadTokens == null || record.cacheReadTokens === 0) return null;
+
+  const pricing = getModelPrice(record.model, dataset);
+  if (!pricing || pricing.cacheReadPer1M == null) return null;
+
+  const savingsUSD =
+    (record.cacheReadTokens / TOKENS_PER_MILLION) * (pricing.inputPer1M - pricing.cacheReadPer1M);
+
+  return Math.round(savingsUSD * MICRODOLLARS_PER_DOLLAR);
+}

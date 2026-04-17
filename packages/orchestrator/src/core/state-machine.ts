@@ -328,6 +328,8 @@ function accrueUsage(
   next.tokenTotals.inputTokens += usage.inputTokens;
   next.tokenTotals.outputTokens += usage.outputTokens;
   next.tokenTotals.totalTokens += usage.totalTokens;
+  next.tokenTotals.cacheReadTokens += usage.cacheReadTokens ?? 0;
+  next.tokenTotals.cacheCreationTokens += usage.cacheCreationTokens ?? 0;
 
   const now = Date.now();
   next.recentInputTokens.push({ timestamp: now, tokens: usage.inputTokens });

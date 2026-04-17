@@ -492,6 +492,15 @@ describe('harness usage', () => {
       const output = JSON.parse(logOutput.join(''));
       expect(output.cacheHitRate).toBeUndefined();
     });
+
+    it('omits cacheSavingsMicroUSD when model is unknown', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-ccc-333', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      // sess-ccc-333 has cache data but no model, so savings can't be computed
+      expect(output.cacheSavingsMicroUSD).toBeUndefined();
+    });
   });
 
   describe('latest (text output)', () => {
@@ -523,6 +532,77 @@ describe('harness usage', () => {
 
       const allOutput = loggerOutput.join('\n');
       expect(allOutput).toContain('No usage data found');
+    });
+  });
+
+  describe('cache savings', () => {
+    const cacheSavingsData = makeSampleJSONL([
+      {
+        timestamp: '2026-04-01T10:00:00.000Z',
+        session_id: 'sess-cached-001',
+        input_tokens: 100_000,
+        output_tokens: 5_000,
+        model: 'claude-sonnet-4-20250514',
+        cacheReadTokens: 80_000,
+        cacheCreationTokens: 10_000,
+      },
+    ]);
+
+    it('includes cacheSavingsMicroUSD in session JSON when model and cache data exist', async () => {
+      fs.writeFileSync(costsFile, cacheSavingsData);
+      const program = createProgram();
+      await program.parseAsync([
+        'node',
+        'harness',
+        'usage',
+        'session',
+        'sess-cached-001',
+        '--json',
+      ]);
+
+      const output = JSON.parse(logOutput.join(''));
+      expect(output.cacheSavingsMicroUSD).toBeDefined();
+      expect(output.cacheSavingsMicroUSD).toBeGreaterThan(0);
+      // savings = 80000 * (3.0 - 0.3) / 1M * 1M = 80000 * 2.7 / 1M * 1M = 216000
+      expect(output.cacheSavingsMicroUSD).toBe(216000);
+    });
+
+    it('includes cacheSavingsMicroUSD in daily JSON when model and cache data exist', async () => {
+      fs.writeFileSync(costsFile, cacheSavingsData);
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--json']);
+
+      const output = JSON.parse(logOutput.join(''));
+      const april1 = output.find((d: any) => d.date === '2026-04-01');
+      expect(april1).toBeDefined();
+      expect(april1.cacheSavingsMicroUSD).toBeDefined();
+      expect(april1.cacheSavingsMicroUSD).toBe(216000);
+    });
+
+    it('shows Saved column in daily text output with cache data', async () => {
+      fs.writeFileSync(costsFile, cacheSavingsData);
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Saved');
+    });
+
+    it('shows Estimated savings in session text output with cache data', async () => {
+      fs.writeFileSync(costsFile, cacheSavingsData);
+      const loggerOutput: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((...args) => {
+        loggerOutput.push(args.join(' '));
+      });
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'session', 'sess-cached-001']);
+
+      const allOutput = loggerOutput.join('\n');
+      expect(allOutput).toContain('Estimated savings');
     });
   });
 
