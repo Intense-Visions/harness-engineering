@@ -46,6 +46,8 @@ function makeMockTracker() {
     fetchIssuesByStates: vi.fn().mockResolvedValue({ ok: true, value: [] }),
     fetchIssueStatesByIds: vi.fn().mockResolvedValue({ ok: true, value: new Map() }),
     markIssueComplete: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+    claimIssue: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+    releaseIssue: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
   };
 }
 

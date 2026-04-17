@@ -62,7 +62,7 @@ import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
 import { computeRateLimitDelay } from './core/rate-limiter';
-import type { EscalateEffect } from './types/events';
+import type { EscalateEffect, ClaimEffect } from './types/events';
 import { ClaimManager } from './core/claim-manager';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 
@@ -782,6 +782,9 @@ export class Orchestrator extends EventEmitter {
       case 'escalate':
         await this.handleEscalation(effect as EscalateEffect);
         break;
+      case 'claim':
+        await this.handleClaimEffect(effect as ClaimEffect);
+        break;
     }
   }
 
@@ -952,6 +955,58 @@ export class Orchestrator extends EventEmitter {
       createdAt: new Date().toISOString(),
       status: 'pending',
     });
+  }
+
+  /**
+   * Handles a claim effect by calling claimAndVerify on the ClaimManager.
+   * If claimed, proceeds to dispatch. If rejected, emits a claim_rejected
+   * event to clean up the state machine.
+   */
+  private async handleClaimEffect(effect: ClaimEffect): Promise<void> {
+    if (!this.claimManager) {
+      this.logger.error('ClaimManager not initialized when handling claim effect');
+      return;
+    }
+
+    const result = await this.claimManager.claimAndVerify(effect.issue.id);
+
+    if (!result.ok) {
+      this.logger.warn(
+        `Claim failed for ${effect.issue.identifier}: ${result.error.message}`,
+        { issueId: effect.issue.id }
+      );
+      // Treat claim errors as rejections to avoid blocking
+      const rejectEvent: OrchestratorEvent = {
+        type: 'claim_rejected',
+        issueId: effect.issue.id,
+      };
+      const { nextState, effects } = applyEvent(this.state, rejectEvent, this.config);
+      this.state = nextState;
+      for (const e of effects) {
+        await this.handleEffect(e);
+      }
+      return;
+    }
+
+    if (result.value === 'rejected') {
+      this.logger.warn(
+        `Claim rejected for ${effect.issue.identifier} — another orchestrator won the race`,
+        { issueId: effect.issue.id }
+      );
+      const rejectEvent: OrchestratorEvent = {
+        type: 'claim_rejected',
+        issueId: effect.issue.id,
+      };
+      const { nextState, effects } = applyEvent(this.state, rejectEvent, this.config);
+      this.state = nextState;
+      for (const e of effects) {
+        await this.handleEffect(e);
+      }
+      return;
+    }
+
+    // Claim succeeded — proceed to dispatch
+    await this.dispatchIssue(effect.issue, effect.attempt, effect.backend);
   }
 
   /**
