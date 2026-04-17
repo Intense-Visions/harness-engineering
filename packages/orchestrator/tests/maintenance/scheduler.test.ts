@@ -336,4 +336,80 @@ describe('MaintenanceScheduler', () => {
       expect(archEntry.lastRun!.status).toBe('success');
     });
   });
+
+  describe('error handling', () => {
+    it('continues processing queue when a task callback throws', async () => {
+      const config: MaintenanceConfig = {
+        enabled: true,
+        tasks: {
+          // Enable only two tasks for easier testing
+          ...Object.fromEntries(
+            [
+              'doc-drift',
+              'security-findings',
+              'entropy',
+              'traceability',
+              'cross-check',
+              'dead-code',
+              'dependency-health',
+              'hotspot-remediation',
+              'security-review',
+              'perf-check',
+              'decay-trends',
+              'project-health',
+              'stale-constraints',
+              'graph-refresh',
+              'session-cleanup',
+              'perf-baselines',
+            ].map((id) => [id, { enabled: false }])
+          ),
+        },
+      };
+      const callOrder: string[] = [];
+      const onTaskDue = vi.fn().mockImplementation(async (task: TaskDefinition) => {
+        callOrder.push(task.id);
+        if (task.id === 'arch-violations') {
+          throw new Error('simulated failure');
+        }
+      });
+      const logger = createMockLogger();
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: createMockClaimManager() as any,
+        logger: logger as any,
+        onTaskDue,
+      });
+
+      // Both arch-violations and dep-violations are due at 2am
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+
+      // Both tasks should have been attempted despite first one throwing
+      expect(callOrder).toContain('arch-violations');
+      expect(callOrder).toContain('dep-violations');
+      expect(logger.error).toHaveBeenCalled();
+    });
+
+    it('handles claimAndVerify throwing an exception', async () => {
+      const config: MaintenanceConfig = { enabled: true };
+      const claimManager = {
+        claimAndVerify: vi.fn().mockRejectedValue(new Error('connection lost')),
+      };
+      const logger = createMockLogger();
+      const onTaskDue = vi.fn();
+
+      const scheduler = new MaintenanceScheduler({
+        config,
+        claimManager: claimManager as any,
+        logger: logger as any,
+        onTaskDue,
+      });
+
+      // Should not throw
+      await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
+
+      expect(onTaskDue).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalled();
+    });
+  });
 });
