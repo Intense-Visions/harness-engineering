@@ -665,6 +665,9 @@ export class Orchestrator extends EventEmitter {
       return;
     }
 
+    // 1b. Filter out candidates with open PRs
+    const candidates = await this.filterCandidatesWithOpenPRs(candidatesResult.value);
+
     // 2. Fetch current status for running issues
     const runningIds = Array.from(this.state.running.keys());
     const runningStatesResult = await this.tracker.fetchIssueStatesByIds(runningIds);
@@ -677,7 +680,7 @@ export class Orchestrator extends EventEmitter {
 
     // 3. Pre-process candidates through intelligence pipeline (if enabled)
     const pipelineResult = this.pipeline
-      ? await this.runIntelligencePipeline(candidatesResult.value)
+      ? await this.runIntelligencePipeline(candidates)
       : undefined;
     this.setTickActivity('dispatching', 'Applying state machine');
     const { concernSignals, enrichedSpecs, complexityScores, simulationResults } =
@@ -686,7 +689,7 @@ export class Orchestrator extends EventEmitter {
     // 4. Dispatch tick event to state machine
     const tickEvent: OrchestratorEvent = {
       type: 'tick' as const,
-      candidates: candidatesResult.value,
+      candidates,
       runningStates: runningStatesResult.value,
       nowMs,
       ...(concernSignals !== undefined && { concernSignals }),
@@ -706,7 +709,7 @@ export class Orchestrator extends EventEmitter {
       const retryEvent: OrchestratorEvent = {
         type: 'retry_fired',
         issueId,
-        candidates: candidatesResult.value,
+        candidates,
         nowMs,
       };
       const result = applyEvent(this.state, retryEvent, this.config);
@@ -826,6 +829,69 @@ export class Orchestrator extends EventEmitter {
       // so the worktree is preserved rather than lost.
       return false;
     }
+  }
+
+  /**
+   * Checks whether an external tracker ID points to an open GitHub PR.
+   * Parses `github:<owner>/<repo>#<number>` format. Non-github schemes
+   * return false (fail-open, not a GitHub item). API failures return
+   * false (fail-open) and log a warning.
+   */
+  private async isExternalPROpen(externalId: string): Promise<boolean> {
+    const match = externalId.match(/^github:([^/]+\/[^#]+)#(\d+)$/);
+    if (!match) return false;
+
+    const [, repo, prNumber] = match;
+    if (!repo || !prNumber) return false;
+    try {
+      const exec = promisify(execFile);
+      const { stdout } = await exec(
+        'gh',
+        ['pr', 'view', prNumber, '--repo', repo, '--json', 'state', '--jq', '.state'],
+        {
+          cwd: this.projectRoot,
+          timeout: 10_000,
+        }
+      );
+      return stdout.trim() === 'OPEN';
+    } catch (err) {
+      this.logger.warn(`Failed to check PR state for ${externalId}`, {
+        error: String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Filters out candidates that have an open GitHub PR, running checks
+   * in parallel via Promise.allSettled. Candidates with null externalId
+   * or non-github schemes pass through. Fail-open on API errors.
+   */
+  private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
+    const results = await Promise.allSettled(
+      candidates.map(async (candidate) => {
+        if (!candidate.externalId) return { candidate, isOpen: false };
+        const isOpen = await this.isExternalPROpen(candidate.externalId);
+        return { candidate, isOpen };
+      })
+    );
+
+    const filtered: Issue[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (!result || result.status === 'rejected') {
+        // Unreachable: isExternalPROpen catches internally. Fail-open defensively.
+        filtered.push(candidates[i]!);
+        continue;
+      }
+      const { candidate, isOpen } = result.value;
+      if (isOpen) {
+        this.logger.info(`Skipping ${candidate.title}: open PR at ${candidate.externalId}`);
+      } else {
+        filtered.push(candidate);
+      }
+    }
+    return filtered;
   }
 
   /**

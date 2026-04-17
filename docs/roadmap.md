@@ -890,20 +890,9 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#137
 
-### Paged MCP tool responses
-
-- **Status:** backlog
-- **Spec:** —
-- **Summary:** Replace lossy truncation with cursor-based paging for tools where agents may need content past the budget (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Return hasMore + cursor/offset instead of truncation marker so agents can request more.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#145
-
 ### Paged MCP Tool Responses
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/paged-mcp-tool-responses/proposal.md
 - **Summary:** Replace lossy truncation with offset/limit pagination for 8 MCP tools (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Shared PaginationMeta contract, relevance-sorted pages, per-tool defaults.
 - **Blockers:** —
@@ -960,6 +949,20 @@ last_manual_edit: 2026-04-17T02:12:22.357Z
 - **Summary:** Claim-based coordination layer that uses the external tracker to prevent duplicate dispatch when multiple orchestrators run against the same issue source
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
+
+### Orchestrator PR-Aware Dispatch Guard
+
+- **Status:** planned
+- **Spec:** docs/changes/orchestrator-pr-aware-dispatch/proposal.md
+- **Summary:** Pre-filter in orchestrator tick that checks candidate externalId against GitHub PR state, skipping dispatch for features with open PRs and failing open on API errors
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** —
 
 ## v3.0 Graph Intelligence
 
