@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-04-16
-last_synced: 2026-04-16T00:00:00.000Z
+last_synced: 2026-04-16T17:00:00.000Z
 last_manual_edit: 2026-04-16T16:30:00.000Z
 ---
 
@@ -890,20 +890,9 @@ last_manual_edit: 2026-04-16T16:30:00.000Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#137
 
-### Paged MCP tool responses
-
-- **Status:** backlog
-- **Spec:** —
-- **Summary:** Replace lossy truncation with cursor-based paging for tools where agents may need content past the budget (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Return hasMore + cursor/offset instead of truncation marker so agents can request more.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#145
-
 ### Paged MCP Tool Responses
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/paged-mcp-tool-responses/proposal.md
 - **Summary:** Replace lossy truncation with offset/limit pagination for 8 MCP tools (gather_context, query_graph, get_relationships, code_outline, review_changes, run_code_review, detect_anomalies, get_decay_trends). Shared PaginationMeta contract, relevance-sorted pages, per-tool defaults.
 - **Blockers:** —
